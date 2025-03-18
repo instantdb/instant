@@ -1,6 +1,7 @@
 (ns instant.oauth-apps.routes
   (:require [clojure.string :as string]
             [compojure.core :as compojure :refer [defroutes GET POST]]
+            [instant.auth.oauth :refer [verify-pkce!]]
             [instant.config :as config]
             [instant.dash.routes :refer [get-member-role req->auth-user!]]
             [instant.model.oauth-app :as oauth-app-model]
@@ -128,6 +129,7 @@
 
         dash-url (url/add-query-params (str (config/dashboard-origin) "/platform/oauth/start")
                                        {:redirect-id redirect-id})]
+
     (oauth-app-model/create-redirect {:redirect-id redirect-id
                                       :client-id (:client_id oauth-client)
                                       :state state
@@ -220,7 +222,9 @@
                                                   :client-id (:client_id redirect)
                                                   :redirect-uri (:redirect_uri redirect)
                                                   :user-id (:user_id redirect)
-                                                  :scopes (:scopes redirect)})]
+                                                  :scopes (:scopes redirect)
+                                                  :code-challenge (:code_challenge redirect)
+                                                  :code-challenge-method (:code_challenge_method redirect)})]
     (response/found (url/add-query-params (:redirect_uri code-record)
                                           {:code code
                                            :state (:state redirect)
@@ -248,6 +252,55 @@
                         ::ex/message "Invalid cookie."}))]
     (response/found (url/add-query-params (:redirect_uri redirect)
                                           {:error "access_denied"}))))
+
+(defn complete-pkce-access-token-request
+  "Exchanges a code for a new access token with PKCE, does not return
+   a refresh token."
+  [client-id req-params]
+  (let [redirect-uri (ex/get-param! req-params
+                                    [:redirect_uri]
+                                    url/coerce-web-url)
+        code-param (ex/get-param! req-params
+                                  [:code]
+                                  uuid-util/coerce)
+
+        code* (oauth-app-model/claim-code! {:code code-param})
+
+        _ (when (not= client-id (:client_id code*))
+            (ex/throw+ {::ex/type ::ex/param-malformed
+                        ::ex/message "Invalid client_id parameter"
+                        ::ex/hint {:input client-id}}))
+
+        _ (when-not (crypt-util/constant-bytes= (.getBytes redirect-uri)
+                                                (.getBytes (:redirect_uri code*)))
+            (ex/throw+ {::ex/type ::ex/param-malformed
+                        ::ex/message "Invalid redirect_uri parameter"
+                        ::ex/hint {:input redirect-uri}}))
+
+        _ (when-not (and (:code_challenge code*)
+                         (:code_challenge_method code*))
+            (ex/throw+ {::ex/type ::ex/param-missing
+                        ::ex/message "You must provide the client_secret from a secure server or use the client-side PKCE flow to exchange the OAuth code for a token."}))
+
+        verifier (ex/get-param! req-params
+                                [:code_verifier]
+                                string-util/coerce-non-blank-str)
+
+        code (verify-pkce! :oauth-code code* verifier)
+
+        access-token
+        (oauth-app-model/create-access-token {:client-id (:client_id code)
+                                              :user-id (:user_id code)
+                                              :scopes (:scopes code)})]
+    (response/ok {:access_token (:token-value access-token)
+                  :expires_in (-> access-token
+                                  :record
+                                  oauth-app-model/access-token-expires-in)
+                  :token_type "Bearer"
+                  :scopes (->> access-token
+                               :record
+                               :scopes
+                               (string/join " "))})))
 
 (defn complete-access-token-request
   "Exchanges a code for a new access token and refresh token."
@@ -328,29 +381,36 @@
         _ (tracer/add-data! {:attributes (select-keys params [:grant_type
                                                               :client_id])})
 
+        grant-type (ex/get-param! params
+                                  [:grant_type]
+                                  string-util/coerce-non-blank-str)
+
         client-id (ex/get-param! params
                                  [:client_id]
                                  uuid-util/coerce)
-        client-secret (ex/get-param! params
-                                     [:client_secret]
-                                     string-util/coerce-non-blank-str)
-        oauth-client (oauth-app-model/get-client-by-client-id-and-secret!
-                      {:client-id client-id
-                       :client-secret client-secret})
+        client-secret (ex/get-optional-param! params
+                                              [:client_secret]
+                                              string-util/coerce-non-blank-str)]
+    (if-not client-secret
+      (case grant-type
+        "authorization_code"
+        (complete-pkce-access-token-request client-id params)
+        (ex/throw+ {::ex/type ::ex/param-malformed
+                    ::ex/message "Unrecognized `grant_type` parameter only `authorization_code` is allowed for the PKCE flow."
+                    ::ex/hint {:input grant-type}}))
+      (let [oauth-client (oauth-app-model/get-client-by-client-id-and-secret!
+                          {:client-id client-id
+                           :client-secret client-secret})]
+        (case grant-type
+          "authorization_code"
+          (complete-access-token-request oauth-client params)
 
-        grant-type (ex/get-param! params
-                                  [:grant_type]
-                                  string-util/coerce-non-blank-str)]
-    (case grant-type
-      "authorization_code"
-      (complete-access-token-request oauth-client params)
+          "refresh_token"
+          (complete-refresh-token-request oauth-client params)
 
-      "refresh_token"
-      (complete-refresh-token-request oauth-client params)
-
-      (ex/throw+ {::ex/type ::ex/param-malformed
-                  ::ex/message "Unrecognized `grant_type` parameter, expected either `authorization_code` or `refresh_token`"
-                  ::ex/hint {:input grant-type}}))))
+          (ex/throw+ {::ex/type ::ex/param-malformed
+                      ::ex/message "Unrecognized `grant_type` parameter, expected either `authorization_code` or `refresh_token`"
+                      ::ex/hint {:input grant-type}}))))))
 
 (defn revoke-oauth-token [req]
   (let [token (ex/get-param! req

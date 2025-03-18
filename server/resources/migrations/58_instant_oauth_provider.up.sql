@@ -51,19 +51,6 @@ create table instant_oauth_app_client_secrets (
 
 create index on instant_oauth_app_client_secrets (client_id);
 
-create table instant_oauth_app_codes (
-  hashed_code bytea primary key,
-  client_id uuid not null references instant_oauth_app_clients (client_id) on delete cascade,
-  redirect_uri text not null,
-  user_id uuid not null references instant_users (id) on delete cascade,
-  scopes text[] not null,
-  expires_at timestamp with time zone not null,
-  created_at timestamp with time zone not null default now()
-);
-
-create index on instant_oauth_app_codes (client_id);
-create index on instant_oauth_app_codes (user_id);
-
 create type instant_oauth_app_redirect_status as enum (
   'init',
   'claimed',
@@ -89,6 +76,21 @@ create table instant_oauth_app_redirects (
 create index on instant_oauth_app_redirects (client_id);
 create index on instant_oauth_app_redirects (user_id);
 
+create table instant_oauth_app_codes (
+  hashed_code bytea primary key,
+  client_id uuid not null references instant_oauth_app_clients (client_id) on delete cascade,
+  redirect_uri text not null,
+  user_id uuid not null references instant_users (id) on delete cascade,
+  scopes text[] not null,
+  code_challenge_method text,
+  code_challenge text,
+  expires_at timestamp with time zone not null,
+  created_at timestamp with time zone not null default now()
+);
+
+create index on instant_oauth_app_codes (client_id);
+create index on instant_oauth_app_codes (user_id);
+
 create table instant_user_oauth_refresh_tokens (
   lookup_key bytea primary key,
   client_id uuid not null references instant_oauth_app_clients (client_id) on delete cascade,
@@ -102,7 +104,7 @@ create index on instant_user_oauth_refresh_tokens (user_id);
 
 create table instant_user_oauth_access_tokens (
   lookup_key bytea primary key,
-  refresh_token_lookup_key bytea not null references instant_user_oauth_refresh_tokens (lookup_key) on delete cascade,
+  refresh_token_lookup_key bytea references instant_user_oauth_refresh_tokens (lookup_key) on delete cascade,
   client_id uuid not null references instant_oauth_app_clients (client_id) on delete cascade,
   user_id uuid not null references instant_users (id) on delete cascade,
   scopes text[] not null,

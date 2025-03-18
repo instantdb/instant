@@ -5,7 +5,7 @@
    [clojure.core.cache.wrapped :as cache]
    [clojure.string :as string]
    [instant.auth.jwt :as jwt]
-   [instant.util.crypt]
+   [instant.util.crypt :as crypt-util]
    [instant.util.exception :as ex]
    [instant.util.json :as json]
    [instant.util.tracer :as tracer]
@@ -13,7 +13,8 @@
   (:import
    (clojure.lang PersistentHashSet)
    (instant.util.crypt Secret)
-   (java.time Duration Instant)))
+   (java.time Duration Instant)
+   (java.util Base64)))
 
 (def allowed-extra-params [:hd])
 
@@ -189,6 +190,58 @@
                                                                        #{"RS256" "HS256"}
                                                                        (set id_token_signing_alg_values_supported))
                               :meta meta})))
+
+(defn verify-pkce!
+  "Verifies that the code verifier matches the code challenge, if it was
+   provided at the start of the OAuth flow.
+
+   Returns the record if verification succeeded, throws a validation
+   error if it fails
+
+   See https://www.oauth.com/oauth2-servers/pkce/authorization-request/"
+  [record-type
+   {:keys [code_challenge code_challenge_method] :as record}
+   verifier]
+  (cond
+    (and (not code_challenge) (not verifier))
+    record
+
+    (and verifier (not code_challenge))
+    (ex/throw-validation-err! record-type
+                              {:code_verifier verifier}
+                              [{:message "The code_verifier was provided, but no code_challenge was provided."}])
+
+    (and (not verifier) code_challenge)
+    (ex/throw-validation-err! record-type
+                              {:code_verifier verifier}
+                              [{:message "The code_challenge was provided, but no code_verifier was provided."}])
+
+    :else
+    (case code_challenge_method
+      "plain" (if (crypt-util/constant-string= verifier code_challenge)
+                record
+                (ex/throw-validation-err! record-type
+                                          {:code_verifier verifier}
+                                          [{:message "The code_challenge and code_verifier do not match."}]))
+
+      "S256" (try
+               (let [verifier-bytes (crypt-util/str->sha256 verifier)
+                     challenge-bytes (.decode (Base64/getUrlDecoder)
+                                              code_challenge)]
+                 (if (crypt-util/constant-bytes= verifier-bytes
+                                                 challenge-bytes)
+                   record
+                   (ex/throw-validation-err! record-type
+                                             {:code_verifier verifier}
+                                             [{:message "The code_challenge and code_verifier do not match."}])))
+               (catch IllegalArgumentException _e
+                 (ex/throw-validation-err! record-type
+                                           {:code_verifier verifier}
+                                           [{:message "Invalid code_verifier. Expected a url-safe Base64 string."}])))
+
+      (ex/throw-validation-err! record-type
+                                {:code_verifier verifier}
+                                [{:message "Unknown code challenge method."}]))))
 
 (comment
   (generic-oauth-client-from-discovery-url {:discovery-endpoint "https://account.apple.com/.well-known/openid-configuration"}))

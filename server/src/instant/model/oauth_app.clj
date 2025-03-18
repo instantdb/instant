@@ -391,7 +391,9 @@
                  client-id
                  redirect-uri
                  user-id
-                 scopes]}]
+                 scopes
+                 code-challenge
+                 code-challenge-method]}]
    (let [hashed-code (crypt-util/uuid->sha256 code)
          q {:insert-into :instant_oauth_app_codes
             :values [{:hashed-code hashed-code
@@ -399,6 +401,8 @@
                       :redirect-uri redirect-uri
                       :user-id user-id
                       :scopes [:array scopes :text]
+                      :code-challenge code-challenge
+                      :code-challenge-method code-challenge-method
                       :expires-at default-expires-at}]
             :returning :*}]
      (sql/execute-one! ::create-code conn (hsql/format q)))))
