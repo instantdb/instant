@@ -1247,6 +1247,15 @@
         authorized-redirect-urls (ex/get-optional-param! req
                                                          [:body :authorized_redirect_urls]
                                                          #(when (coll? %) %))
+
+        _ (run! (fn [redirect-url]
+                  (ex/throw-validation-err!
+                   :authorized_redirect_urls
+                   redirect-url
+                   (url-util/redirect-url-validation-errors
+                    redirect-url
+                    :allow-localhost? (not (:is_public oauth-app)))))
+                authorized-redirect-urls)
         {:keys [client client-secret secret-value]}
         (oauth-app-model/create-client {:app-id app-id
                                         :oauth-app-id (:id oauth-app)

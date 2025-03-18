@@ -105,6 +105,12 @@
                               ;; DDD: Note about how to fix
                               ["Invalid redirect_uri."]))
 
+        _ (ex/assert-valid! :redirect_uri
+                            redirect-uri
+                            (url/redirect-url-validation-errors
+                             redirect-uri
+                             :allow-localhost? (not (:is_public oauth-app))))
+
         cookie (random-uuid)
         cookie-expires (java.util.Date. (+ (.getTime (java.util.Date.))
                                            ;; 1 hour
