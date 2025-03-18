@@ -23,7 +23,7 @@
    [instant.util.json :refer [->json]]
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
-   [instant.system-catalog :refer [all-attrs] :rename {all-attrs $system-attrs}]
+   [instant.system-catalog :as system-catalog]
    [medley.core :refer [update-existing-in]]
    [instant.storage.s3 :as instant-s3])
   (:import
@@ -936,38 +936,33 @@
                     (assoc :join-attr-pat join-attr-pat))]
       form')))
 
-(defn find-row-by-ident-name [rows attrs etype label]
-  (let [aid (attr-model/resolve-attr-id attrs etype label)]
-    (->> rows
-         (filter #(= aid (second (first %))))
-         first)))
+(defn find-row-by-aid [rows aid]
+  (->> rows
+       (filter #(= aid (second (first %))))
+       first))
+
+(def $file-location-id-attr-id (system-catalog/get-attr-id "$files" "location-id"))
+(def $file-url-attr-id (system-catalog/get-attr-id "$files" "url"))
 
 (defn- add-url-to-join-rows [join-rows {:keys [app-id]}]
   (let [[eid _ _ t] (ffirst join-rows)
-        location-id (some-> (find-row-by-ident-name
-                             join-rows
-                             $system-attrs
-                             "$files"
-                             "location-id")
+        location-id (some-> (find-row-by-aid join-rows $file-location-id-attr-id)
                             first
                             (nth 2))]
     (if-not (and eid location-id)
       join-rows
       (conj join-rows
             [[eid
-              (attr-model/resolve-attr-id $system-attrs "$files" "url")
+              (attr-model/resolve-attr-id system-catalog/all-attrs "$files" "url")
               (instant-s3/create-signed-download-url! app-id location-id)
               t]]))))
 
 (defn remove-location-id-from-join-rows  [join-rows]
-  (let [loc-aid (attr-model/resolve-attr-id $system-attrs "$files" "location-id")]
-    (if-not loc-aid
-      join-rows
-      (->> join-rows
-           (remove (fn [row]
-                     (let [first-triple (first row)
-                           [_ aid] first-triple]
-                       (= aid loc-aid))))))))
+  (->> join-rows
+       (remove (fn [row]
+                 (let [first-triple (first row)
+                       [_ aid] first-triple]
+                   (= aid $file-location-id-attr-id))))))
 
 (defn transform-$files-result [ctx form result]
   (let [fields (some-> form :option-map :fields set)
@@ -1042,23 +1037,22 @@
 
 (defn etype-attr-ids [{:keys [attrs]} etype fields]
   (if fields
-    (let [fields' (cond-> fields
-                    ;; Make sure we give them the id or else the client
-                    ;; won't be able to find the entity
-                    true (conj "id")
-                    ;; we need the `location-id` in order to compute the url
-                    (asked-for-$files-url? etype fields)
-                    (conj "location-id"))]
-
-      (reduce (fn [acc field]
-                (let [attr (attr-model/seek-by-fwd-ident-name
-                            [etype field]
-                            attrs)]
-                  (if (= :one (:cardinality attr))
-                    (conj acc (:id attr))
-                    acc)))
-              #{}
-              fields'))
+    (let [attr-ids (reduce (fn [acc field]
+                             (let [attr (attr-model/seek-by-fwd-ident-name
+                                         [etype field]
+                                         attrs)]
+                               (if (= :one (:cardinality attr))
+                                 (conj acc (:id attr))
+                                 acc)))
+                           #{}
+                           ;; Make sure we give them the id or else the client
+                           ;; won't be able to find the entity
+                           (conj fields "id"))]
+      (if (contains? attr-ids $file-url-attr-id)
+        ;; If the user asked for the url, we need to make sure to 
+        ;; include `location-id` too; we use location-id to generate the url.
+        (conj attr-ids $file-location-id-attr-id)
+        attr-ids))
     (attr-model/ea-ids-for-etype etype attrs)))
 
 (defn- query-one
