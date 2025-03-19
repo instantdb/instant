@@ -112,10 +112,18 @@ function OAuthForm({ redirectId }: { redirectId: string }) {
         </span>
         <div className="flex flex-row gap-4 items-center">
           <div className="flex h-full">
-            {/* n.b if you change the dimensions here, make sure to also change
+            {/* n.b. if you change the dimensions here, make sure to also change
             them in components/dash/OAuthApps.tsx (and make sure they work with
             all existing images) */}
-            <img className="w-12 h-12" src={data.appLogo} />
+            {data.appLogo ? (
+              <img className="w-12 h-12" src={data.appLogo} />
+            ) : (
+              <div className="flex items-center justify-center w-12 h-12 bg-gray-200">
+                <span className="text-2xl font-semibold text-gray-700">
+                  {data.appName.substring(0, 1).toUpperCase()}
+                </span>
+              </div>
+            )}
           </div>
           <Content>
             <p>

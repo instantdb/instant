@@ -249,7 +249,9 @@
     (response/ok {:appName (:app_name oauth-app)
                   :supportEmail (:support_email oauth-app)
                   :appPrivacyPolicyLink (:app_privacy_policy_link oauth-app)
-                  :appLogo (oauth-app-model/bytes->base64-image-url (:app_logo oauth-app))
+                  :appLogo (some-> oauth-app
+                                   :app_logo
+                                   oauth-app-model/bytes->base64-image-url)
                   :appTosLink (:app_tos_link oauth-app)
                   :appHomePage (:app_home_page oauth-app)
                   :redirectOrigin (:host (:redirect_url redirect))

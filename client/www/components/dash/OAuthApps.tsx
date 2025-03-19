@@ -220,7 +220,15 @@ function App({
 }) {
   return (
     <div>
-      <img className="w-12 h-12" src={app.appLogo} />
+      {app.appLogo ? (
+        <img className="w-12 h-12" src={app.appLogo} />
+      ) : (
+        <div className="flex items-center justify-center w-12 h-12 bg-gray-200">
+          <span className="text-2xl font-semibold text-gray-700">
+            {app.appName.substring(0, 1).toUpperCase()}
+          </span>
+        </div>
+      )}
       <SubsectionHeading>{app.appName}</SubsectionHeading>
       {app.clients ? <Clients clients={app.clients} /> : null}
       <CreateClient
