@@ -1201,6 +1201,18 @@
         app-name (ex/get-param! req
                                 [:body :app_name]
                                 string-util/coerce-non-blank-str)
+        app-logo-base64-url (ex/get-param! req
+                                           [:body :app_logo]
+                                           string-util/coerce-non-blank-str)
+        app-logo-bytes (try (oauth-app-model/base64-image-url->bytes app-logo-base64-url)
+                            (catch Exception e
+                              (ex/throw+ {::ex/type ::ex/param-malformed
+                                          ::ex/message (case (.getMessage e)
+                                                         "Invalid image url" "Invalid image url"
+                                                         "Invalid mime type" "Invalid image type"
+                                                         "Image is too large" "Image is too large"
+                                                         "Invalid image type" "Invalid image type"
+                                                         "Invalid image")})))
         support-email (ex/get-optional-param! req
                                               [:body :support_email]
                                               string-util/coerce-non-blank-str)
@@ -1229,8 +1241,10 @@
                                                 :support-email support-email
                                                 :app-home-page app-home-page
                                                 :app-privacy-policy-link app-privacy-policy-link
-                                                :app-tos-link app-tos-link})]
+                                                :app-tos-link app-tos-link
+                                                :app-logo app-logo-bytes})]
 
+    (tool/def-locals)
     (response/ok {:app (oauth-app-model/format-oauth-app-for-api create-res)})))
 
 (defn oauth-app-clients-post [req]

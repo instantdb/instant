@@ -6,6 +6,8 @@ import {
   Divider,
   Dialog,
   Copyable,
+  Label,
+  Content,
 } from '@/components/ui';
 import { friendlyErrorMessage, useAuthedFetch } from '@/lib/auth';
 import { messageFromInstantError } from '@/lib/errors';
@@ -20,11 +22,17 @@ import {
   OAuthAppsResponse,
 } from '@/lib/types';
 
-import { FormEventHandler, useContext, useState } from 'react';
+import { FormEventHandler, useContext, useEffect, useState } from 'react';
 import { Loading, ErrorMessage } from '@/components/dash/shared';
 import { errorToast } from '@/lib/toast';
 
-import { PlusIcon } from '@heroicons/react/24/solid';
+import {
+  ArrowPathIcon,
+  ArrowUpTrayIcon,
+  PlusIcon,
+  TrashIcon,
+  XMarkIcon,
+} from '@heroicons/react/24/solid';
 
 function Client({ client }: { client: OAuthAppClient }) {
   return (
@@ -212,6 +220,7 @@ function App({
 }) {
   return (
     <div>
+      <img className="w-12 h-12" src={app.appLogo} />
       <SubsectionHeading>{app.appName}</SubsectionHeading>
       {app.clients ? <Clients clients={app.clients} /> : null}
       <CreateClient
@@ -272,10 +281,28 @@ function CreateAppForm({
   onCreateApp: (oauthApp: OAuthApp) => void;
 }) {
   const token = useContext(TokenContext);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
   const [appName, setAppName] = useState('');
   const [homepageUrl, setHomepageUrl] = useState('');
   const [authorizedDomains, setAuthorizedDomains] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (logoFile) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setLogoDataUrl(e.target?.result as string);
+      };
+      reader.onerror = (e) => {
+        console.error(e);
+        errorToast('There was an error loading the image.');
+        setLogoFile(null);
+      };
+      reader.readAsDataURL(logoFile);
+      return () => reader.abort();
+    }
+  }, [logoFile]);
 
   const onAddDomain = (s: string) => {
     setAuthorizedDomains([...authorizedDomains, s]);
@@ -314,6 +341,7 @@ function CreateAppForm({
             app_name: appName,
             authorized_domains: authorizedDomains,
             app_homepage: homepageUrl,
+            app_logo: logoDataUrl,
             // XXX: rest of fields
           }),
         },
@@ -342,6 +370,87 @@ function CreateAppForm({
       data-lpignore="true"
     >
       <SubsectionHeading>Create a new OAuth App</SubsectionHeading>
+      <Label>App Logo</Label>
+      <Content className="text-sm">
+        Choose a square, static image less than 1mb.
+      </Content>
+
+      {logoDataUrl ? (
+        /* n.b. if you change the dimensions here, make sure to also
+           change them in pages/platform/oauth/start.tsx (and make sure
+           they work with all existing images) */
+        <div className="w-12 h-12 relative">
+          <div className="absolute w-full h-full group">
+            <div className="hidden group-hover:block transition duration-300 w-full h-full place-content-center text-center bg-black/50">
+              <Button
+                variant="destructive"
+                size="mini"
+                className="p-0 m-0 bg-transparent border-none"
+                onClick={() => {
+                  setLogoFile(null);
+                  setLogoDataUrl(null);
+                }}
+              >
+                <TrashIcon height="1.5em" />
+              </Button>
+            </div>
+          </div>
+          <img className="w-12 h-12" src={logoDataUrl} />
+        </div>
+      ) : (
+        <div className="flex place-content-center w-12 h-12 bg-gray-100 border-dashed border-2 border-gray-400 rounded-lg items-center text-center cursor-pointer">
+          <input
+            id="upload"
+            type="file"
+            className="hidden"
+            accept="image/*"
+            multiple={false}
+            onChange={(e: React.ChangeEvent<any>) => {
+              setLogoDataUrl(null);
+              const file = e.target.files[0];
+              if (!file) {
+                setLogoFile(null);
+                return;
+              }
+
+              if (file.size > 1024 * 1024) {
+                errorToast('Image should be less than 1mb.');
+                return;
+              }
+
+              if (
+                ![
+                  'image/jpeg',
+                  'image/jpg',
+                  'image/png',
+                  'image/svg',
+                  'image/webp',
+                ].includes(file.type)
+              ) {
+                errorToast(
+                  'Image type should be either png, svg, webp, or jpeg',
+                );
+                return;
+              }
+
+              setLogoFile(file);
+            }}
+          />
+          <label htmlFor="upload" className="cursor-pointer">
+            {logoFile ? (
+              <ArrowPathIcon height={'1em'} className="m-auto animate-spin" />
+            ) : (
+              <ArrowUpTrayIcon height={'1em'} className="m-auto" />
+            )}
+
+            <span
+              id="filename"
+              className="text-gray-500 bg-gray-200 z-50"
+            ></span>
+          </label>
+        </div>
+      )}
+
       <TextInput
         value={appName}
         onChange={setAppName}

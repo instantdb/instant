@@ -9,7 +9,11 @@
             [instant.util.token :refer [platform-refresh-token-prefix
                                         platform-access-token-prefix]]
             [next.jdbc :as next-jdbc])
-  (:import [java.sql Timestamp]))
+  (:import (java.nio ByteBuffer)
+           (java.nio.charset StandardCharsets)
+           ;; DDD: use Date?
+           (java.sql Timestamp)
+           (java.util Base64)))
 
 (set! *warn-on-reflection* true)
 
@@ -33,6 +37,42 @@
 (defn gen-client-secret ^String []
   ;; Extra two so that we can display the first 4 chars
   (crypt-util/random-hex 34))
+
+(defn base64-image-url->bytes
+  "Converts a base64 image url into a custom encoding where the first
+   4 bytes are the mime type and the rest of the bytes are the data."
+  ^bytes [^String s]
+  (let [[prefix mime-type] (re-find #"^data:image/(\w+);base64," s)]
+    (when-not (and prefix mime-type)
+      (throw (Exception. "Invalid image url")))
+    (when (< 4 (count mime-type))
+      (throw (Exception. "Invalid mime type")))
+    (when-not (contains? #{"jpg" "jpeg" "png" "svg" "webp"} mime-type)
+      (throw (Exception. "Invalid image type")))
+    (let [mimetype-bytes (.getBytes (format "%-4s" mime-type))
+          _ (assert (= 4 (alength mimetype-bytes)))
+          base64-string (subs s (count prefix))
+          image-bytes (.decode (Base64/getDecoder) base64-string)
+          bytes (ByteBuffer/allocate (+ 4
+                                        (alength image-bytes)))]
+      (when (< (* 1024 1024) (count image-bytes))
+        (throw (Exception. "Image is too large")))
+      (.put bytes mimetype-bytes)
+      (.put bytes image-bytes)
+      (.array bytes))))
+
+(defn bytes->base64-image-url
+  "Converts our custom encoding (from `base64-image-url->bytes`) into a
+   base64 image url"
+  ^String [^bytes b]
+  (let [mimetype (string/trim (-> StandardCharsets/UTF_8
+                                  (.decode (ByteBuffer/wrap b 0 4))
+                                  (.toString)))
+        base64-string (-> (Base64/getEncoder)
+                          (.encode (ByteBuffer/wrap b 4 (- (count b) 4)))
+                          (.array)
+                          (String. "UTF-8"))]
+    (str "data:image/" mimetype ";base64," base64-string)))
 
 ;; DDD: TODOS:
 ;;  1. Way to regenerate the client-secret
@@ -69,13 +109,14 @@
                                         app_home_page
                                         app_privacy_policy_link
                                         app_tos_link
-                                        ;; DDD: logo
-                                        ;; app_logo
+                                        app_logo
                                         created_at
                                         updated_at]}]
   {:id id
    :appId app_id
    :appName app_name
+   :appLogo (some-> app_logo
+                    bytes->base64-image-url)
    :grantedScopes granted_scopes
    :authorizedDomains authorized_domains
    :isPublic is_public
@@ -85,6 +126,18 @@
    :appTosLink app_tos_link
    :createdAt created_at
    :updatedAt updated_at})
+
+(defn pg-bytes->base64-image-url
+  "pg helper to convert bytes to the base64 image string.
+   Implements base64-image-url->bytes in sql."
+  [col]
+  [:||
+   "data:image/"
+   [:btrim [:convert_from
+            [:substring col :!from :1 :!for :4]
+            "UTF8"]]
+   ";base64,"
+   [:encode [:substring col :!from :5] "base64"]])
 
 (defn get-for-dash
   ([params]
@@ -98,6 +151,7 @@
                                      "id" :oauth-app.id
                                      "appId" :oauth-app.app-id
                                      "appName" :oauth-app.app-name
+                                     "appLogo" (pg-bytes->base64-image-url :oauth-app.app-logo)
                                      "grantedScopes" [:coalesce
                                                       [:array_to_json :oauth-app.granted-scopes]
                                                       [:inline "[]"]]

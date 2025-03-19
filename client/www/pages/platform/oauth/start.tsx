@@ -40,6 +40,24 @@ function InvalidRedirect({ explanation }: { explanation: string }) {
   );
 }
 
+const scopeDescriptions = [
+  {
+    description:
+      'Read access to all of your Instant apps, including schema and permission rules.',
+    applies: (scopes: string[]) =>
+      scopes.includes('apps-read') && !scopes.includes('apps-write'),
+  },
+  {
+    description:
+      'Read and write access to all of your Instant apps, including schema and permission rules.',
+    applies: (scopes: string[]) => scopes.includes('apps-write'),
+  },
+  {
+    description: 'Create new apps in your Instant account.',
+    applies: (scopes: string[]) => scopes.includes('apps-write'),
+  },
+];
+
 function OAuthForm({ redirectId }: { redirectId: string }) {
   const token = useAuthToken();
 
@@ -68,7 +86,12 @@ function OAuthForm({ redirectId }: { redirectId: string }) {
       .then((data) => setData(data));
   }, [redirectId]);
 
-  if (!data && !error) {
+  if (error) {
+    // XXX: Extract the actual error
+    return <InvalidRedirect explanation="there was an error" />;
+  }
+
+  if (!data) {
     return (
       <div className="flex h-full w-full flex-col overflow-hidden md:flex-row">
         <div className="flex flex-1 flex-col overflow-hidden">
@@ -76,11 +99,6 @@ function OAuthForm({ redirectId }: { redirectId: string }) {
         </div>
       </div>
     );
-  }
-
-  if (error) {
-    // XXX: Extract the actual error
-    return <InvalidRedirect explanation="there was an error" />;
   }
 
   return (
@@ -92,15 +110,32 @@ function OAuthForm({ redirectId }: { redirectId: string }) {
             Instant
           </span>
         </span>
-
+        <div className="flex flex-row gap-4 items-center">
+          <div className="flex h-full">
+            {/* n.b if you change the dimensions here, make sure to also change
+            them in components/dash/OAuthApps.tsx (and make sure they work with
+            all existing images) */}
+            <img className="w-12 h-12" src={data.appLogo} />
+          </div>
+          <Content>
+            <p>
+              <span className="font-bold">{data.appName}</span> wants access to
+              your Instant account.
+            </p>
+          </Content>
+        </div>
         <Content>
-          <p>{data.appName} wants access to your Instant account.</p>
-          <p>They will be able to:</p>
+          <p>
+            Clicking "Grant access" will grant{' '}
+            <span className="font-bold">{data.appName}</span> the following
+            permissions:
+          </p>
           <ul>
-            <li>Create new apps in your account.</li>
-            <li>Update the schema for the apps in your account.</li>
-            {/* XXX: List all of the things */}
-            <li>Other things.</li>
+            {scopeDescriptions.map(({ description, applies }, i) => {
+              if (applies(data.scopes)) {
+                return <li key={i}>{description}</li>;
+              }
+            })}
           </ul>
         </Content>
 
