@@ -1320,9 +1320,9 @@ export function Explorer({
                             (sortAttr === 'serverCreatedAt' &&
                               attr.name === 'id') ? (
                               sortAsc ? (
-                                '↓'
-                              ) : (
                                 '↑'
+                              ) : (
+                                '↓'
                               )
                             ) : (
                               <span className="text-gray-400">↓</span>
