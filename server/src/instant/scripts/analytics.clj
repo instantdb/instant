@@ -8,7 +8,7 @@
    [instant.jdbc.sql :as sql]
    [instant.postmark :as postmark]
    [instant.util.date :as date]
-   [instant.util.java :as java])
+   [instant.util.lang :as lang])
   (:import
    (java.time LocalDate Period Instant ZonedDateTime)))
 
@@ -183,7 +183,7 @@
     (chime-core/chime-at (period) handle-email)))
 
 (defn stop []
-  (java/close schedule))
+  (lang/close schedule))
 
 (defn restart []
   (stop)

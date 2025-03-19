@@ -4,7 +4,7 @@
    [clj-http.client :as clj-http]
    [clojure.core.cache.wrapped :as cache]
    [instant.util.exception :as ex]
-   [instant.util.java :as java]
+   [instant.util.lang :as lang]
    [instant.util.tracer :as tracer])
   (:import
    (com.auth0.jwk Jwk SigningKeyNotFoundException)
@@ -163,7 +163,7 @@
                (tracer/record-exception-span! e {:name "jwk/update-certs-error"})))))))))
 
 (defn stop []
-  (java/close schedule))
+  (lang/close schedule))
 
 (defn restart []
   (stop)

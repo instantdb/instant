@@ -7,7 +7,7 @@
    [instant.model.rule :as rule-model]
    [instant.util.date :as date]
    [instant.util.exception :as ex]
-   [instant.util.java :as java]
+   [instant.util.lang :as lang]
    [instant.util.string :as string-util]
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
@@ -117,7 +117,7 @@
     (chime-core/chime-at (period) handle-sweep)))
 
 (defn stop []
-  (java/close schedule))
+  (lang/close schedule))
 
 (defn restart []
   (stop)

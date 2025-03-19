@@ -39,6 +39,7 @@
    [instant.util.async :as ua]
    [instant.util.crypt :as crypt-util]
    [instant.util.http :as http-util]
+   [instant.util.lang :as lang]
    [instant.util.tracer :as tracer]
    [instant.app-deletion-sweeper :as app-deletion-sweeper]
    [ring.middleware.cookies :refer [CookieDateTime]]
@@ -49,6 +50,7 @@
    [ring.middleware.params :refer [wrap-params]]
    [instant.storage.s3 :as storage-s3])
   (:import
+   (clojure.lang IFn)
    (io.undertow Undertow UndertowOptions Undertow$Builder Undertow$ListenerInfo)
    (java.text SimpleDateFormat)
    (java.util Locale TimeZone)))
@@ -123,9 +125,15 @@
                          :access-control-allow-methods [:get :put :post :delete])
               (http-util/tracer-wrap-span))))
 
+(defonce ^Undertow server
+  nil)
+
+(defonce stop-gauge
+  nil)
+
 (defn start []
   (tracer/record-info! {:name "server/start" :attributes {:port (config/get-server-port)}})
-  (def ^Undertow server
+  (lang/set-var! server
     (undertow-adapter/run-undertow
      (handler)
      (merge
@@ -137,7 +145,7 @@
         {:ssl-port 8889
          :keystore "dev-resources/certs/dev.jks"
          :key-password "changeit"}))))
-  (def stop-gauge
+  (lang/set-var! stop-gauge
     (gauges/add-gauge-metrics-fn
      (fn [_]
        (let [^Undertow server server
@@ -158,35 +166,34 @@
              :value (.getMaxProcessingTime stats)}]))))))
 
 (defn stop []
-  (when (bound? #'server)
-    (.stop ^Undertow server))
-  (when (bound? #'stop-gauge)
-    (stop-gauge)))
+  (lang/clear-var! server Undertow/.stop)
+  (lang/clear-var! stop-gauge IFn/.invoke))
 
 (defn restart []
   (stop)
   (start))
 
 (defn shutdown-hook []
-  (println "shutdown-hook")
   (tracer/record-info! {:name "shut-down"})
   (tracer/with-span! {:name "stop-server"}
     (stop))
-  (doseq [fut [(future (tracer/with-span! {:name "stop-invalidator"}
-                         (inv/stop-global)))
-               (future (tracer/with-span! {:name "stop-ephemeral"}
-                         (eph/stop)))
-               (future (tracer/with-span! {:name "stop-indexing-jobs"}
-                         (indexing-jobs/stop)))]]
-    (deref fut)))
+  @(ua/all-of
+    (future
+      (tracer/with-span! {:name "stop-invalidator"}
+        (inv/stop-global)))
+    (future
+      (tracer/with-span! {:name "stop-ephemeral"}
+        (eph/stop)))
+    (future
+      (tracer/with-span! {:name "stop-indexing-jobs"}
+        (indexing-jobs/stop)))))
 
 (defn add-shutdown-hook []
   (.addShutdownHook
    (Runtime/getRuntime)
    (Thread.
     (fn []
-      (when-some [f (resolve 'instant.core/shutdown-hook)]
-        (@f))))))
+      (@(resolve 'instant.core/shutdown-hook))))))
 
 (defmacro with-log-init [operation & body]
   `(do

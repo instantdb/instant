@@ -6,7 +6,7 @@
    [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
    [instant.util.date :as date-util]
-   [instant.util.java :as java]
+   [instant.util.lang :as lang]
    [instant.util.tracer :as tracer])
   (:import
    (java.time Duration Period ZonedDateTime)))
@@ -67,7 +67,7 @@
 
 (defn stop []
   (tracer/record-info! {:name "app-deletion-sweeper/stop"})
-  (java/close schedule))
+  (lang/close schedule))
 
 (defn before-ns-unload []
   (stop))

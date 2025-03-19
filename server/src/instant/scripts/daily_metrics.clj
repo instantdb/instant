@@ -12,7 +12,7 @@
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.util.date :as date]
-   [instant.util.java :as java])
+   [instant.util.lang :as lang])
   (:import
    (java.time Instant Period LocalDate DayOfWeek ZonedDateTime)))
 
@@ -147,7 +147,7 @@
     (chime-core/chime-at (period) daily-job!)))
 
 (defn stop []
-  (java/close schedule))
+  (lang/close schedule))
 
 (defn restart []
   (stop)

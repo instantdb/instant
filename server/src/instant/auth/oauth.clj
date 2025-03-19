@@ -7,7 +7,7 @@
    [instant.auth.jwt :as jwt]
    [instant.util.crypt]
    [instant.util.exception :as ex]
-   [instant.util.java :as java]
+   [instant.util.lang :as lang]
    [instant.util.json :as json]
    [instant.util.tracer :as tracer]
    [instant.util.url :as url])
@@ -220,7 +220,7 @@
                (tracer/record-exception-span! e {:name "oauth/refresh-error"})))))))))
 
 (defn stop []
-  (java/close schedule))
+  (lang/close schedule))
 
 (defn restart []
   (stop)

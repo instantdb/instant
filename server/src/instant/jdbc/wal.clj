@@ -31,7 +31,7 @@
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.util.async :as ua]
-   [instant.util.java :as java]
+   [instant.util.lang :as lang]
    [instant.util.json :refer [<-json]]
    [instant.util.tracer :as tracer]
    [lambdaisland.uri :as uri]
@@ -333,7 +333,7 @@
 
 (defn close-nicely [closeable]
   (when-not (closed? closeable)
-    (let [close-error (try (java/close closeable) (catch Exception e e))]
+    (let [close-error (try (lang/close closeable) (catch Exception e e))]
       (when-not (closed? closeable)
         (throw (ex-info "Unable to close" {} close-error))))))
 
@@ -443,6 +443,15 @@
                                      {:name "wal-worker/shutdown-called-before-startup"
                                       :escaping? false}))))
 
+(defn cleanup-slots-impl [inactive-slots]
+  (tracer/with-span! {:name "wal/cleanup-inactive-slots"}
+    (let [slot-names (map :slot_name inactive-slots)
+          removed    (cleanup-inactive-replication-slots (aurora/conn-pool :write) slot-names)
+          cleaned    (set (map :slot_name removed))
+          uncleaned  (remove #(contains? cleaned %) slot-names)]
+      (tracer/add-data! {:attributes {:cleaned-slot-names cleaned
+                                      :active-uncleaned-slots uncleaned}}))))
+
 (defn start []
   (def cleanup-slots-schedule
     (chime-core/chime-at
@@ -455,17 +464,11 @@
          (let [conn-pool      (aurora/conn-pool :read)
                inactive-slots (get-inactive-replication-slots conn-pool)]
            (when (seq inactive-slots)
-             (def cleanup-slots-impl
+             (def cleanup-slots-impl-schedule
                (chime-core/chime-at
                 [(.plusSeconds (Instant/now) 300)]
                 (fn [_time]
-                  (tracer/with-span! {:name "wal/cleanup-inactive-slots"}
-                    (let [slot-names (map :slot_name inactive-slots)
-                          removed    (cleanup-inactive-replication-slots (aurora/conn-pool :write) slot-names)
-                          cleaned    (set (map :slot_name removed))
-                          uncleaned  (remove #(contains? cleaned %) slot-names)]
-                      (tracer/add-data! {:attributes {:cleaned-slot-names cleaned
-                                                      :active-uncleaned-slots uncleaned}}))))))))
+                  (cleanup-slots-impl inactive-slots))))))
          (catch Exception e
            (tracer/record-exception-span! e {:name "wal/cleanup-error"
                                              :escaping? false}))))))
@@ -489,9 +492,9 @@
            :value @replication-latency-bytes}])))))
 
 (defn stop []
-  (java/close cleanup-slots-schedule)
-  (java/close cleanup-slots-impl)
-  (java/close latency-schedule)
+  (lang/close cleanup-slots-schedule)
+  (lang/close cleanup-slots-impl-schedule)
+  (lang/close latency-schedule)
   (cleanup-gauge))
 
 (defn before-ns-unload []
