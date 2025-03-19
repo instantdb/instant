@@ -1,24 +1,20 @@
 'use client';
 
-import { init } from '@instantdb/react';
+import { init, i, InstaQLEntity } from '@instantdb/react';
 import React from 'react';
 import Login from '../../components/Login';
 import config from '../../config';
 
-// Types
-// ----------
-export type Image = {
-  id: string;
-  path: string;
-  url: string;
-};
+const schema = i.schema({
+  entities: {
+    $files: i.entity({
+      path: i.string().unique(),
+      url: i.string(),
+    }),
+  },
+});
 
-// Optional: Declare your schema for intellisense!
-type Schema = {
-  images: Image;
-};
-
-export const db = init(config);
+export const db = init({ ...config, schema });
 
 function Wrapper() {
   const { isLoading, user, error } = db.useAuth();
@@ -39,6 +35,7 @@ function App() {
     $files: {
       $: {
         order: { serverCreatedAt: 'asc' },
+        fields: ['url', 'path'],
       },
     },
   });
@@ -48,7 +45,7 @@ function App() {
   if (error) {
     return <div>Error fetching data: {error.message}</div>;
   }
-  const { $files: images } = data as { $files: Image[] };
+  const { $files: images } = data;
   return (
     <div className="box-border bg-gray-50 font-mono min-h-screen p-5 flex items-center flex-col">
       <div className="tracking-wider text-5xl text-gray-300 mb-8">
@@ -131,6 +128,8 @@ function ImageUpload() {
     </div>
   );
 }
+
+type Image = InstaQLEntity<typeof schema, '$files'>;
 
 function ImageGrid({ images }: { images: Image[] }) {
   return (

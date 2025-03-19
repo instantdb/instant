@@ -10,9 +10,10 @@ import { SelectedAppContext } from '@/lib/SelectedAppContext';
 import { useAuthToken, useTokenFetch } from '@/lib/auth';
 import config, { getLocal, setLocal } from '@/lib/config';
 import { Select } from '@/components/ui';
-import { MainNav, BareNav } from '@/components/marketingUi';
+import { BareNav } from '@/components/marketingUi';
 import navigation from '@/data/docsNavigation';
 import { createdAtComparator } from '@/lib/app';
+import RatingBox from '@/lib/feedback/RatingBox';
 
 function useSelectedApp(apps = []) {
   const cacheKey = 'docs-appId';
@@ -25,13 +26,17 @@ function useSelectedApp(apps = []) {
 
     const cachedAppData = getLocal(cacheKey);
     const { app: queryAppId, ...remainingQueryParams } = router.query;
-    const match = apps.find((a) => a.id === queryAppId);
-    const first = apps[0];
 
-    // If query param matches valid app, use that one and cache it in localStorage.
-    // Next, if an app is already cached, use that. Otherwise, default to the first app.
-    if (match) {
-      const data = { id: match.id, title: match.title };
+    const fromParams = queryAppId && apps.find((a) => a.id === queryAppId);
+    const fromCache =
+      cachedAppData && apps.find((a) => a.id === cachedAppData.id);
+    const first = apps[0];
+    if (fromParams) {
+      // We got a match for from a query param. Let's cache it and use it
+      const data = {
+        id: fromParams.id,
+        title: fromParams.title,
+      };
       setSelectedAppData(data);
       setLocal(cacheKey, data);
       // Removes query param after caching
@@ -45,12 +50,13 @@ function useSelectedApp(apps = []) {
           shallow: true,
         },
       );
-    } else if (cachedAppData) {
-      setSelectedAppData(cachedAppData);
+    } else if (fromCache) {
+      // We got a match from the cache. Let's use it
+      const data = { id: fromCache.id, title: fromCache.title };
+      setSelectedAppData(data);
     } else if (first) {
       setSelectedAppData({ id: first.id, title: first.title });
     }
-
     setIsLoading(false);
   }, [router.isReady, apps.length]);
 
@@ -280,7 +286,6 @@ export function Layout({ children, title, tableOfContents }) {
   const apps = (dashResponse.data?.apps ?? []).toSorted(createdAtComparator);
   const { data: selectedAppData, update: updateSelectedAppId } =
     useSelectedApp(apps);
-
   return (
     <SelectedAppContext.Provider value={selectedAppData}>
       <style jsx global>
@@ -346,7 +351,9 @@ export function Layout({ children, title, tableOfContents }) {
               >
                 {children}
               </PageContent>
-
+              <div className="mt-4">
+                <RatingBox pageId={router.pathname} />
+              </div>
               <PageNav previousPage={previousPage} nextPage={nextPage} />
             </main>
 

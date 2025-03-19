@@ -22,15 +22,19 @@ marked.use({
 const AUTHORS = {
   stopachka: {
     name: 'Stepan Parunashvili',
-    xHandle: 'stopachka',
+    url: 'https://x.com/stopachka',
   },
   nezaj: {
     name: 'Joe Averbukh',
-    xHandle: 'JoeAverbukh',
+    url: 'https://x.com/JoeAverbukh',
   },
   dww: {
     name: 'Daniel Woelfel',
-    xHandle: 'DanielWoelfel',
+    url: 'https://x.com/DanielWoelfel',
+  },
+  nikitonsky: {
+    name: 'Nikita Prokopov',
+    url: 'https://mastodon.online/@nikitonsky',
   },
 };
 

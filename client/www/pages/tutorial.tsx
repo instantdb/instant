@@ -45,7 +45,6 @@ export default function Page({ files }: { files: FilesRecord }) {
     <div className="bg-[#F8F9FA] min-h-full">
       <Head>
         <title>Instant Tutorial</title>
-        <meta name="description" content="A Graph Database on the Client" />
       </Head>
       <ToastContainer />
       <div className="flex min-h-screen flex-col justify-between">

@@ -248,10 +248,10 @@
    }"
   [ctx tx-steps]
   (reduce (fn [acc tx-step]
-            (let [[op eid aid value] tx-step
-                  aid-etype (if (= :delete-entity op)
-                              aid
-                              (extract-etype ctx aid))
+            (let [[op eid aid-or-etype value] tx-step
+                  aid-etype (case op
+                              (:delete-entity :rule-params) aid-or-etype
+                              #_else                        (extract-etype ctx aid-or-etype))
                   etype (if (sequential? eid)
                           (extract-lookup-etype! ctx eid aid-etype tx-step)
                           aid-etype)
@@ -259,14 +259,14 @@
                   ;; but the client hasn't been updated to provide it, then
                   ;; we can patch the `delete-entity` step to include it
                   patched-step (if (and (= op :delete-entity)
-                                        (not aid)
+                                        (not aid-or-etype)
                                         etype)
                                  [op eid etype]
                                  tx-step)
 
                   [rev-etype rev-eid] (if (= "delete-entity" op)
                                         nil
-                                        (when-let [rev-etype (extract-rev-etype ctx aid)]
+                                        (when-let [rev-etype (extract-rev-etype ctx aid-or-etype)]
                                           (when (sequential? value)
                                             ;; prevent mismatched etype in the lookup
                                             (extract-lookup-etype! ctx value rev-etype tx-step))
@@ -606,7 +606,7 @@
 
                 rule-params (reduce
                              (fn [acc [_ eid etype params]]
-                               (let [eid (resolve-lookup lookups->eid eid)
+                               (let [eid (get lookups->eid eid eid)
                                      key {:eid eid, :etype etype}]
                                  (update acc key merge params)))
                              {}
@@ -638,7 +638,21 @@
                 tx-data
                 (tx/transact-without-tx-conn-impl! tx-conn (:attrs ctx) app-id grouped-tx-steps {})
 
-                create-checks-resolved (resolve-lookups-for-create-checks tx-conn app-id create-checks)
+                ;; update lookups with newly created triples
+                create-lookups->eid (some->> (concat create-checks (keys rule-params))
+                                             (map :eid)
+                                             (filter sequential?)
+                                             not-empty
+                                             set
+                                             (triple-model/fetch-lookups->eid tx-conn app-id))
+                rule-params (ucoll/map-keys
+                             (fn [{:keys [eid etype]}]
+                               {:eid   (get create-lookups->eid eid eid)
+                                :etype etype})
+                             rule-params)
+                ctx (assoc ctx :rule-params rule-params)
+
+                create-checks-resolved (mapv #(resolve-check-lookup create-lookups->eid %) create-checks)
                 preloaded-create-refs (preload-refs ctx create-checks-resolved)
                 create-checks-results (io/warn-io :run-create-check-commands!
                                                   (run-check-commands!

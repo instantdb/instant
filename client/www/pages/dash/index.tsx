@@ -407,7 +407,6 @@ function Dashboard() {
       <div className="flex h-full w-full flex-col overflow-hidden md:flex-row">
         <Head>
           <title>Instant - {tabIndex.get(tab)?.title}</title>
-          <meta name="description" content="Welcome to Instant." />
         </Head>
         <StyledToastContainer />
         <PersonalAccessTokensScreen />
@@ -418,7 +417,6 @@ function Dashboard() {
     <div className="flex h-full w-full flex-col overflow-hidden md:flex-row">
       <Head>
         <title>Instant - {tabIndex.get(tab)?.title}</title>
-        <meta name="description" content="Welcome to Instant." />
       </Head>
       <StyledToastContainer />
       {showNav ? (

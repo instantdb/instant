@@ -182,6 +182,15 @@
           {}
           m))
 
+(defn map-keys
+  "Apply `f` to keys of `m`"
+  [f m]
+  (persistent!
+   (reduce-kv
+    (fn [m k v]
+      (assoc! m (f k) v))
+    (transient (empty m)) m)))
+
 (defn every?-var-args [pred & colls]
   (if (= 1 (count colls))
     (every? pred (first colls))

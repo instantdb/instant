@@ -154,7 +154,6 @@ function Main({ files }: { files: File[] }) {
     <LandingContainer>
       <Head>
         <title>Instant Examples</title>
-        <meta name="description" content="A Graph Database on the Client" />
       </Head>
       <ToastContainer />
 

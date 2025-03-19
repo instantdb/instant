@@ -836,7 +836,16 @@ export default function Landing2024() {
     <LandingContainer>
       <Head>
         <title>Instant</title>
-        <meta name="description" content="A Graph Database on the Client" />
+        <meta
+          key="og:title"
+          property="og:title"
+          content="InstantDB: A Modern Firebase"
+        />
+        <meta
+          key="og:description"
+          property="og:description"
+          content="We make you productive by giving your frontend a real-time database."
+        />
       </Head>
       <GlowBackground>
         {/* 

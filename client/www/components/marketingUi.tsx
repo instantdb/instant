@@ -228,7 +228,7 @@ export function LandingFooter() {
 
 export interface Author {
   name: string;
-  xHandle: string;
+  url: string;
 }
 
 export interface Post {

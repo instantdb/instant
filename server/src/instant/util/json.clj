@@ -1,13 +1,16 @@
 (ns instant.util.json
   (:require [cheshire.core :as cheshire]
-            [cheshire.generate :refer [add-encoder encode-nil]])
+            [cheshire.generate :refer [add-encoder encode-nil encode-str]])
   (:import (com.google.protobuf NullValue)
            (dev.cel.expr Value)
            (com.fasterxml.jackson.core JsonGenerator)
-           (com.google.protobuf.util JsonFormat)))
+           (com.google.protobuf.util JsonFormat)
+           (java.time Instant)))
 
 ;; Encode NullValue as nil
 (add-encoder NullValue encode-nil)
+
+(add-encoder Instant encode-str)
 
 (defn encode-cel-expr-value
   "Encode cel expression values using the protobuf json encoder"

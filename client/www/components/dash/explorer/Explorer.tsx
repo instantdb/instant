@@ -1217,31 +1217,34 @@ export function Explorer({
           <div className="relative flex flex-1 overflow-x-auto overflow-y-scroll">
             <table className="z-0 w-full flex-1 text-left font-mono text-xs text-gray-500">
               <thead className="sticky top-0 z-20 bg-white text-gray-700 shadow">
-                <div
-                  className={clsx(
-                    'absolute top-0 right-0 left-[48px] z-30 flex items-center gap-1.5 overflow-hidden bg-white px-4 py-2',
-                    {
-                      hidden: !Object.keys(checkedIds).length,
-                    },
-                  )}
-                >
-                  <Button
-                    disabled={readOnlyNs}
-                    title={
-                      readOnlyNs
-                        ? `The ${selectedNamespace?.name} namespace is read-only.`
-                        : undefined
-                    }
-                    variant="destructive"
-                    size="mini"
-                    className="flex px-2 py-0 text-xs"
-                    onClick={() => {
-                      setDeleteDataConfirmationOpen(true);
-                    }}
+                <tr>
+                  <th
+                    colSpan={selectedNamespace.attrs.length + 1}
+                    className={clsx(
+                      'absolute top-0 right-0 left-[48px] z-30 flex items-center gap-1.5 overflow-hidden bg-white px-4 py-2',
+                      {
+                        hidden: !Object.keys(checkedIds).length,
+                      },
+                    )}
                   >
-                    Delete {rowText}
-                  </Button>
-                </div>
+                    <Button
+                      disabled={readOnlyNs}
+                      title={
+                        readOnlyNs
+                          ? `The ${selectedNamespace?.name} namespace is read-only.`
+                          : undefined
+                      }
+                      variant="destructive"
+                      size="mini"
+                      className="flex px-2 py-0 text-xs"
+                      onClick={() => {
+                        setDeleteDataConfirmationOpen(true);
+                      }}
+                    >
+                      Delete {rowText}
+                    </Button>
+                  </th>
+                </tr>
                 <tr>
                   <th className="px-2 py-2" style={{ width: '48px' }}>
                     <Checkbox
@@ -1317,9 +1320,9 @@ export function Explorer({
                             (sortAttr === 'serverCreatedAt' &&
                               attr.name === 'id') ? (
                               sortAsc ? (
-                                '↓'
-                              ) : (
                                 '↑'
+                              ) : (
+                                '↓'
                               )
                             ) : (
                               <span className="text-gray-400">↓</span>
