@@ -1,8 +1,6 @@
 (ns instant.util.http
   (:require
    [clojure.string :as string]
-   [instant.model.oauth-app :as oauth-app-model]
-   [instant.util.uuid :as uuid-util]
    [instant.util.exception :as ex]
    [instant.util.token :as token-util]
    [instant.util.tracer :as tracer]

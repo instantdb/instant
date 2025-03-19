@@ -250,7 +250,7 @@
   ([params]
    (get-client-by-client-id-and-secret! (aurora/conn-pool :read) params))
   ([conn {:keys [client-id
-                 client-secret] :as params}]
+                 client-secret]}]
    (let [hashed-secret (hash-client-secret client-secret)
          q {:select :client.*
             :from [[:instant-oauth-app-clients :client]]
@@ -269,7 +269,7 @@
    We use a separate table so that you can have multiple active at the same
    time, which makes it easier to gracefully rotate the secrets."
   ([params]
-   (create-client-secret (aurora/conn-pool :write)))
+   (create-client-secret (aurora/conn-pool :write) params))
   ([conn {:keys [client-id client-secret]}]
    (sql/execute-one! ::create-client-secret
                      conn
@@ -327,6 +327,7 @@
                       :authorized-domains [:array (or authorized-domains []) :text]
                       :is-public false
                       :support-email support-email
+                      :app-home-page app-home-page
                       :app-privacy-policy-link app-privacy-policy-link
                       :app-tos-link app-tos-link
                       :app-logo app-logo}]
@@ -593,9 +594,7 @@
             :where [:= :lookup-key hashed-token]}
          record (sql/select-one ::access-token-by-token-value
                                 conn
-                                (hsql/format q))
-         ^Timestamp expires (:expires_at record)
-         now (Timestamp. (System/currentTimeMillis))]
+                                (hsql/format q))]
      (-> record
          (ex/assert-record! :oauth-access-token nil)
          (assert-not-expired! :oauth-access-token)))))

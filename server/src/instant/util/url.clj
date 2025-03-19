@@ -13,7 +13,7 @@
       url-string)))
 
 (defn redirect-url-validation-errors [url-string & {:keys [allow-localhost?]}]
-  (let [{:keys [user password path host scheme fragment] :as url} (uri/uri url-string)
+  (let [{:keys [user password path host scheme fragment]} (uri/uri url-string)
         localhost? (or (= host "localhost")
                        (= host "127.0.0.1"))]
     (seq (concat (when (or user password)

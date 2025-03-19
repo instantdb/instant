@@ -1,6 +1,7 @@
 (ns instant.oauth-apps.routes
   (:require [clojure.string :as string]
             [compojure.core :as compojure :refer [defroutes GET POST]]
+            [hiccup2.core :as h]
             [instant.auth.oauth :refer [verify-pkce!]]
             [instant.config :as config]
             [instant.dash.routes :refer [get-member-role req->auth-user!]]
@@ -11,6 +12,7 @@
             [instant.util.exception :as ex]
             [instant.util.string :as string-util]
             [instant.util.token :as token-util]
+            [instant.util.tracer :as tracer]
             [instant.util.url :as url]
             [instant.util.uuid :as uuid-util]
             [lambdaisland.uri :as uri]
@@ -103,6 +105,10 @@
           response-type (ex/get-param! req
                                        [:params :response_type]
                                        string-util/coerce-non-blank-str)
+
+          _ (when-not (= response-type "code")
+              (ex/throw+ {::ex/type ::ex/param-malformed
+                          ::ex/message "`response_type` parameter must have value `code`"}))
 
           scope-input (ex/get-param! req
                                      [:params :scope]
@@ -221,8 +227,7 @@
         redirect (oauth-app-model/claim-redirect! {:redirect-id redirect-id
                                                    :user-id (:id user)})
 
-        {oauth-app :instant_oauth_apps
-         oauth-client :instant_oauth_app_clients}
+        {oauth-app :instant_oauth_apps}
         (oauth-app-model/get-client-and-app-by-client-id! {:client-id (:client_id redirect)})
 
         _ (tracer/add-data! {:attributes {:oauth-app-id (:id oauth-app)

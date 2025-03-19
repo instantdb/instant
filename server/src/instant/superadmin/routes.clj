@@ -37,7 +37,7 @@
        {:personal-access-token token}))))
 
 (defn req->superadmin-user-and-app! [scope req]
-  (let [{user-id :id :as user} (req->superadmin-user! req)
+  (let [{user-id :id :as user} (req->superadmin-user! scope req)
         id (ex/get-param! req [:params :app_id] uuid-util/coerce)
         app (app-model/get-by-id-and-creator! {:user-id user-id
                                                :app-id id})]
