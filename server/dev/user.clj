@@ -6,6 +6,8 @@
    [eftest.runner :as eftest]
    [tool]))
 
+(.doReset #'*warn-on-reflection* true)
+
 (clojure+.print/install!)
 (clojure+.error/install!)
 
