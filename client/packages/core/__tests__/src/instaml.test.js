@@ -585,6 +585,58 @@ test('lookup creates unique ref attrs for ref lookup in link value', () => {
   }
 });
 
+test('lookups create entities from links', () => {
+  const bookshelfId = uuid();
+
+  const ops = instatx.tx.users[instatx.lookup('handle', 'bobby_newuser')].link({
+    bookshelves: bookshelfId,
+  });
+
+  const result = instaml.transform({ attrs: zenecaAttrs }, ops);
+  const expectedLookup = [zenecaAttrToId['users/handle'], 'bobby_newuser'];
+  const expected = [
+    ['add-triple', expectedLookup, zenecaAttrToId['users/id'], expectedLookup],
+    [
+      'add-triple',
+      expectedLookup,
+      zenecaAttrToId['users/bookshelves'],
+      bookshelfId,
+    ],
+  ];
+
+  expect(result).toHaveLength(expected.length);
+  for (const item of expected) {
+    expect(result).toContainEqual(item);
+  }
+});
+
+test('lookups create entities from unlinks', () => {
+  const bookshelfId = uuid();
+
+  const ops = instatx.tx.users[
+    instatx.lookup('handle', 'bobby_newuser')
+  ].unlink({
+    bookshelves: bookshelfId,
+  });
+
+  const result = instaml.transform({ attrs: zenecaAttrs }, ops);
+  const expectedLookup = [zenecaAttrToId['users/handle'], 'bobby_newuser'];
+  const expected = [
+    ['add-triple', expectedLookup, zenecaAttrToId['users/id'], expectedLookup],
+    [
+      'retract-triple',
+      expectedLookup,
+      zenecaAttrToId['users/bookshelves'],
+      bookshelfId,
+    ],
+  ];
+
+  expect(result).toHaveLength(expected.length);
+  for (const item of expected) {
+    expect(result).toContainEqual(item);
+  }
+});
+
 test('it throws if you use an invalid link attr', () => {
   expect(() =>
     instaml.transform(

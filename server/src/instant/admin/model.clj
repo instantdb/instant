@@ -92,60 +92,73 @@
       [(:id attr) value])
     eid))
 
-(defn expand-link [attrs [etype eid-a obj]]
-  (mapcat (fn [[label eid-or-eids]]
-            (let [fwd-attr (attr-model/seek-by-fwd-ident-name [etype label] attrs)
-                  rev-attr (attr-model/seek-by-rev-ident-name [etype label] attrs)
-                  eid-bs (if (coll? eid-or-eids) eid-or-eids [eid-or-eids])
-                  tx-steps (map (fn [eid-b]
-                                  (if fwd-attr
-                                    [:add-triple
-                                     (extract-lookup attrs etype eid-a)
-                                     (:id fwd-attr)
-                                     (extract-lookup attrs
-                                                     (-> fwd-attr
-                                                         :reverse-identity
-                                                         second)
-                                                     eid-b)]
-                                    [:add-triple
-                                     (extract-lookup attrs
-                                                     (-> rev-attr
-                                                         :forward-identity
-                                                         second)
-                                                     eid-b)
-                                     (:id rev-attr)
-                                     (extract-lookup attrs etype eid-a)]))
-                                eid-bs)]
+(defn- with-id-attr-for-lookup [attrs etype eid steps]
+  (let [lookup (extract-lookup attrs etype  eid)]
+    (if-not (sequential? lookup)
+      steps
+      (into [[:add-triple
+              lookup
+              (:id (attr-model/seek-by-fwd-ident-name [etype "id"] attrs))
+              lookup]]
+            steps))))
 
-              tx-steps))
-          obj))
+(defn expand-link [attrs [etype eid-a obj]]
+  (with-id-attr-for-lookup
+    attrs etype eid-a
+    (mapcat (fn [[label eid-or-eids]]
+              (let [fwd-attr (attr-model/seek-by-fwd-ident-name [etype label] attrs)
+                    rev-attr (attr-model/seek-by-rev-ident-name [etype label] attrs)
+                    eid-bs (if (coll? eid-or-eids) eid-or-eids [eid-or-eids])
+                    tx-steps (map (fn [eid-b]
+                                    (if fwd-attr
+                                      [:add-triple
+                                       (extract-lookup attrs etype eid-a)
+                                       (:id fwd-attr)
+                                       (extract-lookup attrs
+                                                       (-> fwd-attr
+                                                           :reverse-identity
+                                                           second)
+                                                       eid-b)]
+                                      [:add-triple
+                                       (extract-lookup attrs
+                                                       (-> rev-attr
+                                                           :forward-identity
+                                                           second)
+                                                       eid-b)
+                                       (:id rev-attr)
+                                       (extract-lookup attrs etype eid-a)]))
+                                  eid-bs)]
+
+                tx-steps))
+            obj)))
 
 (defn expand-unlink [attrs [etype eid-a obj]]
-  (mapcat (fn [[label eid-or-eids]]
-            (let [fwd-attr (attr-model/seek-by-fwd-ident-name [etype label] attrs)
-                  rev-attr (attr-model/seek-by-rev-ident-name [etype label] attrs)
-                  eid-bs (if (coll? eid-or-eids) eid-or-eids [eid-or-eids])
-                  tx-steps (map (fn [eid-b]
-                                  (if fwd-attr
-                                    [:retract-triple
-                                     (extract-lookup attrs etype eid-a)
-                                     (:id fwd-attr)
-                                     (extract-lookup attrs
-                                                     (-> fwd-attr
-                                                         :reverse-identity
-                                                         second)
-                                                     eid-b)]
-                                    [:retract-triple
-                                     (extract-lookup attrs
-                                                     (-> rev-attr
-                                                         :forward-identity
-                                                         second)
-                                                     eid-b)
-                                     (:id rev-attr)
-                                     (extract-lookup attrs etype eid-a)]))
-                                eid-bs)]
-              tx-steps))
-          obj))
+  (with-id-attr-for-lookup attrs etype eid-a
+    (mapcat (fn [[label eid-or-eids]]
+              (let [fwd-attr (attr-model/seek-by-fwd-ident-name [etype label] attrs)
+                    rev-attr (attr-model/seek-by-rev-ident-name [etype label] attrs)
+                    eid-bs (if (coll? eid-or-eids) eid-or-eids [eid-or-eids])
+                    tx-steps (map (fn [eid-b]
+                                    (if fwd-attr
+                                      [:retract-triple
+                                       (extract-lookup attrs etype eid-a)
+                                       (:id fwd-attr)
+                                       (extract-lookup attrs
+                                                       (-> fwd-attr
+                                                           :reverse-identity
+                                                           second)
+                                                       eid-b)]
+                                      [:retract-triple
+                                       (extract-lookup attrs
+                                                       (-> rev-attr
+                                                           :forward-identity
+                                                           second)
+                                                       eid-b)
+                                       (:id rev-attr)
+                                       (extract-lookup attrs etype eid-a)]))
+                                  eid-bs)]
+                tx-steps))
+            obj)))
 
 (defn expand-update [attrs [etype eid obj]]
   (let [lookup (extract-lookup attrs etype eid)]

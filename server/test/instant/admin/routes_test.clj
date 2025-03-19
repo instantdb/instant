@@ -647,6 +647,53 @@
           (is (= (count bookshelves-before)
                  (count bookshelves-after-relink))))))))
 
+(deftest lookups-in-links-create-entities
+  (with-zeneca-app
+    (fn [{app-id :id admin-token :admin-token} _r]
+      (let [bookshelf-id (random-uuid)]
+        (transact-post
+         {:body {:steps [["update" "bookshelves" bookshelf-id {"name" "bobby's bookshelf"
+                                                               "slug" "bobbys_bookshelf"}]]}
+          :headers {"app-id" (str app-id)
+                    "authorization" (str "Bearer " admin-token)}})
+
+        (testing "link"
+          (let [new-handle "bobby_newuser"]
+            (transact-post
+             {:body {:steps [["link" "users" ["handle" new-handle]
+                              {"bookshelves" bookshelf-id}]]}
+              :headers {"app-id" (str app-id)
+                        "authorization" (str "Bearer " admin-token)}})
+            (let [users (-> (query-post
+                             {:body {:query {:users {}}}
+                              :headers {"app-id" (str app-id)
+                                        "authorization" (str "Bearer " admin-token)}})
+                            :body
+                            (get "users"))
+                  handles (->> users
+                               (map (fn [x] (get x "handle")))
+                               set)]
+
+              (is (contains? handles new-handle)))))
+        (testing "unlink"
+          (let [new-handle "tommy_newuser"]
+            (transact-post
+             {:body {:steps [["unlink" "users" ["handle" new-handle]
+                              {"bookshelves" bookshelf-id}]]}
+              :headers {"app-id" (str app-id)
+                        "authorization" (str "Bearer " admin-token)}})
+            (let [users (-> (query-post
+                             {:body {:query {:users {}}}
+                              :headers {"app-id" (str app-id)
+                                        "authorization" (str "Bearer " admin-token)}})
+                            :body
+                            (get "users"))
+                  handles (->> users
+                               (map (fn [x] (get x "handle")))
+                               set)]
+
+              (is (contains? handles new-handle)))))))))
+
 (deftest lookup-creates-attrs
   (with-empty-app
     (fn [{app-id :id admin-token :admin-token}]

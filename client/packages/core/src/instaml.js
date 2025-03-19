@@ -122,6 +122,20 @@ function extractLookup(attrs, etype, eid) {
   return [attr.id, value];
 }
 
+function withIdAttrForLookup(attrs, etype, eidA, txSteps) {
+  const lookup = extractLookup(attrs, etype, eidA);
+  if (!Array.isArray(lookup)) {
+    return txSteps;
+  }
+  const idTuple = [
+    'add-triple',
+    lookup,
+    getAttrByFwdIdentName(attrs, etype, 'id').id,
+    lookup,
+  ];
+  return [idTuple].concat(txSteps);
+}
+
 function expandLink(attrs, [etype, eidA, obj]) {
   const addTriples = Object.entries(obj).flatMap(([label, eidOrEids]) => {
     const eids = Array.isArray(eidOrEids) ? eidOrEids : [eidOrEids];
@@ -144,7 +158,7 @@ function expandLink(attrs, [etype, eidA, obj]) {
       return txStep;
     });
   });
-  return addTriples;
+  return withIdAttrForLookup(attrs, etype, eidA, addTriples);
 }
 
 function expandUnlink(attrs, [etype, eidA, obj]) {
@@ -169,7 +183,7 @@ function expandUnlink(attrs, [etype, eidA, obj]) {
       return txStep;
     });
   });
-  return retractTriples;
+  return withIdAttrForLookup(attrs, etype, eidA, retractTriples);
 }
 
 function expandUpdate(attrs, [etype, eid, obj]) {
