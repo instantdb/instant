@@ -1488,6 +1488,39 @@
             (is (not (perm-err? (permissioned-tx/transact! (make-ctx) [[:rule-params lookup "users" {"handle" "stopa"}]
                                                                        [:delete-entity lookup "users"]]))))))))))
 
+(deftest rule-params-view-check-on-link
+  (with-zeneca-app
+    (fn [{app-id :id} r]
+      (let [bookshelf-id (resolvers/->uuid r "eid-nonfiction")
+            book-id (resolvers/->uuid r "eid-how-to-win-friends-and-influence-people")
+
+            make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :write)}
+                             :app-id app-id
+                             :attrs (attr-model/get-by-app-id app-id)
+                             :datalog-query-fn d/query
+                             :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                             :current-user nil})]
+
+        (rule-model/put!
+         (aurora/conn-pool :write)
+         {:app-id app-id
+          :code {:books {:allow {:view "data.id == ruleParams.knownBookId"}}}})
+        (testing "Link with correct ruleParams works"
+          (is (not (perm-err?
+                    (permissioned-tx/transact!
+                     (make-ctx)
+                     [[:rule-params bookshelf-id "bookshelves" {"knownBookId" book-id}]
+                      [:add-triple bookshelf-id (resolvers/->uuid r :bookshelves/books) book-id]]))))
+
+          (is (contains?
+               (->> (triple-model/fetch
+                     (aurora/conn-pool :read)
+                     app-id
+                     [[:= :entity-id bookshelf-id]
+                      [:= :attr-id (resolvers/->uuid r :bookshelves/books)]])
+                    (map (comp last :triple))
+                    set)
+               book-id)))))))
 (deftest lookup-perms
   (with-empty-app
     (fn [{app-id :id}]

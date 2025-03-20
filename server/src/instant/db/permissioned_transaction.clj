@@ -236,16 +236,18 @@
 
    And we group them by `eid`, `etype`, and `action`.
 
-   {
-     {:eid joe-eid
+   :groups 
+    {{:eid joe-eid
       :etype \"users\"
       :action :update} [[:add-triple joe-eid :users/name \"Joe\"]
                         [:add-triple joe-eid :users/age 32]]
      {:eid stopa-eid
       :etype \"users\"
       :action :update} [[:add-triple stopa-eid :users/name \"Stopa\"]
-                        [:add-triple stopa-eid :users/age 30]]
-   }"
+                        [:add-triple stopa-eid :users/age 30]] }
+   :rule-params-to-copy 
+   {{:eid joe-id 
+     :etype \"users\"} [{:eid post-id :etype \"posts\"}]}"
   [ctx tx-steps]
   (reduce (fn [acc tx-step]
             (let [[op eid aid-or-etype value] tx-step
@@ -280,20 +282,24 @@
                                                           [{:message "Expected link value to be a uuid."
                                                             :hint {:tx-step tx-step}}])))]))]
               (cond-> acc
-                true (update {:eid eid
-                              :etype etype
-                              :action (case (first tx-step)
-                                        (:add-triple :deep-merge-triple :retract-triple) :update
-                                        :delete-entity :delete
-                                        :rule-params   :rule-params)}
-                             (fnil conj [])
-                             patched-step)
-                rev-etype (update {:eid rev-eid
-                                   :etype rev-etype
-                                   :action :view}
-                                  (fnil conj [])
-                                  patched-step))))
-          {}
+                true (update-in [:groups {:eid eid
+                                          :etype etype
+                                          :action (case (first tx-step)
+                                                    (:add-triple :deep-merge-triple :retract-triple) :update
+                                                    :delete-entity :delete
+                                                    :rule-params   :rule-params)}]
+                                (fnil conj [])
+                                patched-step)
+                rev-etype (->  (update-in [:groups {:eid rev-eid
+                                                    :etype rev-etype
+                                                    :action :view}]
+                                          (fnil conj [])
+                                          patched-step)
+                               (update-in [:rule-params-to-copy {:etype etype :eid eid}]
+                                          (fnil conj [])
+                                          {:etype rev-etype :eid rev-eid})))))
+
+          {:groups {} :rule-params-to-copy {}}
           tx-steps))
 
 (defn attr-create-check-fn [{:keys [program data]} {:keys [current-user] :as ctx}]
@@ -379,7 +385,7 @@
 ;; Data preload
 
 (defn preload-triples
-  "Takes the object changes and returns a map with keys:
+  "Takes the grouped changes and returns a map with keys:
      {:eid eid, :etype etype :action action}
    and values
      {:triples [[eavt] [eavt]]
@@ -387,9 +393,8 @@
 
    If the etype isn't provided for deletes, we will resolve it after we
    fetch the triples."
-  [ctx object-changes]
-  (let [groups (group-object-tx-steps ctx object-changes)
-        triples-by-eid+etype (if (seq groups)
+  [ctx groups]
+  (let [triples-by-eid+etype (if (seq groups)
                                (entity-model/get-triples-batch ctx (keys groups))
                                {})]
     (reduce (fn [acc [{:keys [eid etype action] :as k} triples]]
@@ -583,9 +588,14 @@
                            :db {:conn-pool tx-conn}
                            :attrs optimistic-attrs)
 
+                {grouped-changes :groups
+                 rule-params-to-copy :rule-params-to-copy}
+                (group-object-tx-steps ctx
+                                       (concat object-changes (:rule-params grouped-tx-steps)))
+
                 ;; If we were really smart, we would fetch the triples and the
                 ;; update-delete data-ref dependencies in one go.
-                preloaded-triples (preload-triples ctx (concat object-changes (:rule-params grouped-tx-steps)))
+                preloaded-triples (preload-triples ctx grouped-changes)
 
                 check-commands
                 (io/warn-io :check-commands
@@ -604,13 +614,26 @@
 
                 lookups->eid (lookup->eid-from-preloaded-triples preloaded-triples)
 
-                rule-params (reduce
-                             (fn [acc [_ eid etype params]]
-                               (let [eid (get lookups->eid eid eid)
-                                     key {:eid eid, :etype etype}]
-                                 (update acc key merge params)))
-                             {}
-                             (:rule-params grouped-tx-steps))
+                user-rule-params (reduce
+                                  (fn [acc [_ eid etype params]]
+                                    (let [eid (get lookups->eid eid eid)
+                                          key {:eid eid, :etype etype}]
+                                      (update acc key merge params)))
+                                  {}
+                                  (:rule-params grouped-tx-steps))
+
+                rule-params (->> rule-params-to-copy
+                                 (mapcat (fn [[source dests]]
+                                           (for [dest dests] [source dest])))
+                                 (reduce (fn [acc [source dest]]
+                                           (let [source (update source :eid
+                                                                (fn [eid] (get lookups->eid eid eid)))
+
+                                                 dest (update dest :eid
+                                                              (fn [eid] (get lookups->eid eid eid)))]
+
+                                             (update acc dest merge (get acc source {}))))
+                                         user-rule-params))
 
                 ctx (assoc ctx :rule-params rule-params)
 
