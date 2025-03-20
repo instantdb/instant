@@ -40,7 +40,7 @@
 
          enc-client-secret
          (when client-secret
-           (crypt-util/aead-encrypt {:plaintext (.getBytes client-secret)
+           (crypt-util/aead-encrypt {:plaintext (String/.getBytes client-secret)
                                      :associated-data (uuid-util/->bytes id)}))]
      (update-op
       conn

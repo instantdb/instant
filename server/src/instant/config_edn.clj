@@ -6,7 +6,7 @@
             [clojure.tools.logging :as log])
   (:import (org.apache.commons.codec.binary Hex)))
 
-(defn hex-encoded? [s]
+(defn hex-encoded? [^String s]
   (try
     (Hex/decodeHex s)
     true
@@ -129,7 +129,7 @@
                     (throw (ex-info "Config property is encrypted, but there is no :hybrid-keyset in the config."
                                     {:config config-edn})))
                   (hybrid-decrypt hybrid
-                                  {:ciphertext (Hex/decodeHex hex-string)
+                                  {:ciphertext (Hex/decodeHex ^String hex-string)
                                    :associated-data associated-data}))]
     (w/postwalk
      (fn [x]
@@ -140,7 +140,7 @@
          x
          (case (first x)
            ::plain (obfuscate (second x))
-           ::encoded (-> (decrypt (-> x second :enc))
+           ::encoded (-> ^bytes (decrypt (-> x second :enc))
                          (String.)
                          obfuscate))))
      (s/conform ::config config-edn))))

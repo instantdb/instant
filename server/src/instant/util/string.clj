@@ -46,7 +46,7 @@
   (loop [next-idx 0
          idxes []]
     (if-let [found-idx (string/index-of s value next-idx)]
-      (recur (inc found-idx)
+      (recur (long (inc found-idx))
              (conj idxes found-idx))
       idxes)))
 

@@ -8,7 +8,7 @@
   (:import
    (java.time Instant)
    (java.time.temporal ChronoUnit)
-   (java.util UUID)))
+   (java.util Date UUID)))
 
 (defn rand-code []
   (rand-num-str 6))
@@ -23,7 +23,7 @@
 (defn expired?
   ([magic-code] (expired? (Instant/now) magic-code))
   ([now {created-at :created_at}]
-   (> (.between ChronoUnit/HOURS (.toInstant created-at) now) 24)))
+   (> (.between ChronoUnit/HOURS (Date/.toInstant created-at) now) 24)))
 
 (defn consume!
   ([params] (consume! (aurora/conn-pool :write) params))

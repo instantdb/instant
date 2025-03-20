@@ -2,6 +2,7 @@
   (:require
    [instant.aurora-config :refer [secret-arn->db-creds]]
    [instant.config :as config]
+   [instant.util.lang :as lang]
    [instant.util.tracer :as tracer]
    [next.jdbc :as next-jdbc]
    [next.jdbc.connection :as connection])
@@ -13,7 +14,8 @@
 
 ;; Stores a single memoized value for the read-only
 ;; connection.
-(def read-only-memoize (atom nil))
+(defonce read-only-memoize
+  (atom nil))
 
 (defn read-only-wrapper [^HikariDataSource pool]
   (proxy [HikariDataSource] []
@@ -130,7 +132,9 @@
       (setLoginTimeout [_ seconds] (reset! login-timeout seconds))
       (toString [_] (connection/jdbc-url aurora-config)))))
 
-(declare -conn-pool)
+(defonce -conn-pool
+  nil)
+
 (defn conn-pool
   "Takes a single argument that should be either :read for a read-only connection
    or :write for a read-write connection."
@@ -177,10 +181,11 @@
   (let [conn-pool-size (config/get-connection-pool-size)]
     (tracer/record-info!
      {:name "aurora/start-conn-pool" :attributes {:size conn-pool-size}})
-    (def -conn-pool (start-pool conn-pool-size (config/get-aurora-config)))))
+    (lang/set-var! -conn-pool
+      (start-pool conn-pool-size (config/get-aurora-config)))))
 
 (defn stop []
-  (.close ^HikariDataSource -conn-pool))
+  (lang/clear-var! -conn-pool HikariDataSource/.close))
 
 (defn restart []
   (stop)

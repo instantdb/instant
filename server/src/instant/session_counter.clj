@@ -8,7 +8,8 @@
    [instant.util.async :as ua]
    [instant.lib.ring.websocket :as ws])
   (:import
-   (java.util UUID)))
+   (java.util UUID)
+   (java.util.concurrent ScheduledFuture)))
 
 ;; ------ 
 ;; Websocket 
@@ -60,12 +61,13 @@
 
 (defn start []
   (tracer/record-info! {:name "session-counter/start"})
-  (def report-job (delay/repeat-fn delay-pool
-                                   5000
-                                   #'straight-jacket-run-report)))
+  (def ^ScheduledFuture report-job
+    (delay/repeat-fn delay-pool
+                     5000
+                     #'straight-jacket-run-report)))
 
 (defn stop []
-  (.cancel report-job true))
+  (ScheduledFuture/.cancel report-job true))
 
 (defn restart []
   (stop)

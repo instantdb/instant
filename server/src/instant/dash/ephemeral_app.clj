@@ -7,14 +7,15 @@
    [instant.model.rule :as rule-model]
    [instant.util.date :as date]
    [instant.util.exception :as ex]
+   [instant.util.lang :as lang]
    [instant.util.string :as string-util]
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
    [ring.util.http-response :as response])
   (:import
-   (java.time Period)
+   (java.time Period ZonedDateTime)
    (java.time.temporal ChronoUnit)
-   (java.util UUID)))
+   (java.util Date UUID)))
 
 (def ephemeral-creator-email (if (= (config/get-env) :dev)
                                "hello+ephemeralappsdev@instantdb.com"
@@ -36,9 +37,9 @@
 
 (defn app-expires-ms [app]
   (-> app
-      :created_at
+      ^Date (:created_at)
       (.toInstant)
-      (.plus expiration-days ChronoUnit/DAYS)
+      (.plus (long expiration-days) ChronoUnit/DAYS)
       (.toEpochMilli)))
 
 ;; -----------
@@ -87,7 +88,7 @@
                       (Period/ofDays 1))]
 
     (->> periodic-seq
-         (filter (fn [x] (.isAfter x now))))))
+         (filter (fn [x] (ZonedDateTime/.isAfter x now))))))
 
 (comment
   (first (period)))
@@ -112,10 +113,11 @@
 
 (defn start []
   (tracer/record-info! {:name "ephemeral-app-sweeper/schedule"})
-  (def schedule (chime-core/chime-at (period) handle-sweep)))
+  (def schedule
+    (chime-core/chime-at (period) handle-sweep)))
 
 (defn stop []
-  (.close schedule))
+  (lang/close schedule))
 
 (defn restart []
   (stop)

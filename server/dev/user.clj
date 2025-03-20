@@ -1,11 +1,20 @@
 (ns user
   (:require
    [clj-reload.core :as reload]
+   [clojure+.error]
+   [clojure+.print]
    [eftest.runner :as eftest]
    [tool]))
 
+(.doReset #'*warn-on-reflection* true)
+
+(clojure+.print/install!)
+(clojure+.error/install!)
+
 (reload/init
- {:dirs ["src" "dev" "test"]})
+ {:dirs ["src" "dev" "test"]
+  :no-reload '[user]
+  :output :quieter})
 
 (def reload
   reload/reload)

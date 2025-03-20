@@ -42,7 +42,7 @@
 
 (defn str->utf-8-bytes
   "Converts a string to a byte array using UTF-8 encoding"
-  [s]
+  [^String s]
   (.getBytes s "UTF-8"))
 
 ;; The md5 of json null in postgres

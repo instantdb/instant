@@ -59,7 +59,7 @@
                           k)]
                   (cond-> acc
                     true (assoc k v)
-                    (= k :id) (assoc :created_at (Date. t)))))))
+                    (= k :id) (assoc :created_at (Date. (long t))))))))
           {:app_id app-id}
           triples))
 
