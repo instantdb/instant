@@ -46,7 +46,8 @@
                     CelRuntimeLegacyImpl$Builder
                     CelRuntimeFactory
                     CelStandardFunctions
-                    CelStandardFunctions$StandardFunction)
+                    CelStandardFunctions$StandardFunction
+                    CelUnknownSet)
    (dev.cel.validator CelAstValidator
                       CelValidatorFactory)
    (instant.db.model.attr Attrs)
@@ -311,7 +312,7 @@
       (.addVar "newData" type-obj)
       (.addFunctionDeclarations (ucoll/array-of CelFunctionDecl custom-fn-decls))
       (.setOptions cel-options)
-      (.setStandardMacros (CelStandardMacro/STANDARD_MACROS))
+      (.setStandardMacros CelStandardMacro/STANDARD_MACROS)
       (.addLibraries (ucoll/array-of CelCompilerLibrary [(CelExtensions/bindings) (CelExtensions/strings)]))
       (.build)))
 
@@ -333,12 +334,20 @@
   [{:keys [cel-program etype action]} bindings]
   (try
     (let [result (.eval ^CelRuntime$Program cel-program ^java.util.Map bindings)]
-      (if (= result NullValue/NULL_VALUE)
+      (cond
+        (= result NullValue/NULL_VALUE)
         nil
+
+        (instance? CelUnknownSet result)
+        (throw (CelEvaluationException.
+                "Tried to evaluate a cel program that used unknown variables"))
+
+        :else
         result))
+
     (catch CelEvaluationException e
-        (ex/throw-permission-evaluation-failed!
-         etype action e))))
+      (ex/throw-permission-evaluation-failed!
+       etype action e))))
 
 ;; cel -> instaql where clauses
 ;; ----------------------------
@@ -601,7 +610,7 @@
          arg-2 [:datakey :whereclause :bool]
          :let [args [arg-1 arg-2]]]
      {:overload-id (str "_and_" (clojure-string/join "_"
-                                              (map type->name args)))
+                                                     (map type->name args)))
       :cel-args (map type->cel args)
       :cel-return-type (case args
                          ([:whereclause :whereclause]
@@ -616,7 +625,6 @@
                          SimpleType/DYN)
       :java-args (map type->java args)
       :impl (get-and-overload-fn args)})))
-
 
 ;; Overloads for `==`, `!=`, and `in`
 ;; We replace the existing functions because adding overloads
@@ -951,7 +959,6 @@
      :evaluation-result evaluation-result
      :where-clauses (when (instance? WhereClause evaluation-result)
                       (.where_clause ^WhereClause evaluation-result))}))
-
 
 ;; Static analysis
 ;; ---------------
