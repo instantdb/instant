@@ -382,7 +382,7 @@
     (response/ok {:ok true})))
 
 (defn admin-tokens-regenerate [req]
-  (let [{{app-id :id} :app} (req->app-and-user! req)
+  (let [{{app-id :id} :app} (req->app-and-user! :admin req)
         admin-token (ex/get-param! req [:body :admin-token] uuid-util/coerce)]
     (response/ok (app-admin-token-model/recreate! {:app-id app-id
                                                    :token admin-token}))))
