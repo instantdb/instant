@@ -11,9 +11,7 @@
             [next.jdbc :as next-jdbc])
   (:import (java.nio ByteBuffer)
            (java.nio.charset StandardCharsets)
-           ;; DDD: use Date?
-           (java.sql Timestamp)
-           (java.util Base64)))
+           (java.util Base64 Date)))
 
 (set! *warn-on-reflection* true)
 
@@ -73,9 +71,6 @@
                           (.array)
                           (String. "UTF-8"))]
     (str "data:image/" mimetype ";base64," base64-string)))
-
-;; DDD: TODOS:
-;;  1. Way to regenerate the client-secret
 
 (defn format-client-secret-for-api [{:keys [id
                                             client_id
@@ -547,8 +542,8 @@
                       (hsql/format q)))))
 
 (defn assert-not-expired! [record record-type]
-  (let [^Timestamp expires (:expires_at record)
-        now (Timestamp. (System/currentTimeMillis))]
+  (let [^Date expires (:expires_at record)
+        now (Date.)]
     (if (.after expires now)
       record
       (ex/throw-expiration-err! record-type {:expired_at expires}))))
@@ -703,7 +698,7 @@
 (defn access-token-expires-in
   "Returns the number of seconds between now and when
    the token expires."
-  [{:keys [^java.sql.Timestamp expires_at]}]
+  [{:keys [^Date expires_at]}]
   (int (/ (- (.getTime expires_at)
              (System/currentTimeMillis))
           1000)))
@@ -798,7 +793,3 @@
                     conn
                     (hsql/format {:delete-from :instant_user_oauth_access_tokens
                                   :where [:= :lookup-key (crypt-util/str->sha256 token)]}))))
-
-
-;; DDD: Clean out old data (e.g. expired tokens)
-;; DDD: Do I need indexes on created-at?

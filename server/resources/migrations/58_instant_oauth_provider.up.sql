@@ -75,6 +75,7 @@ create table instant_oauth_app_redirects (
 
 create index on instant_oauth_app_redirects (client_id);
 create index on instant_oauth_app_redirects (user_id);
+create index on instant_oauth_app_redirects (expires_at);
 
 create table instant_oauth_app_codes (
   hashed_code bytea primary key,
@@ -90,6 +91,7 @@ create table instant_oauth_app_codes (
 
 create index on instant_oauth_app_codes (client_id);
 create index on instant_oauth_app_codes (user_id);
+create index on instant_oauth_app_codes (expires_at);
 
 create table instant_user_oauth_refresh_tokens (
   lookup_key bytea primary key,
@@ -115,3 +117,4 @@ create table instant_user_oauth_access_tokens (
 create index on instant_user_oauth_access_tokens (refresh_token_lookup_key);
 create index on instant_user_oauth_access_tokens (client_id);
 create index on instant_user_oauth_access_tokens (user_id);
+create index on instant_user_oauth_access_tokens (expires_at);

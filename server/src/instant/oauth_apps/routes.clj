@@ -19,8 +19,6 @@
             [ring.middleware.cookies :refer [wrap-cookies]]
             [ring.util.http-response :as response]))
 
-;; DDD: Security headers
-
 (def cookie-name "__session")
 
 (defn oauth-error-page

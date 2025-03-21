@@ -1196,7 +1196,9 @@
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)]
     (response/ok (oauth-app-model/get-for-dash {:app-id app-id}))))
 
-(defn oauth-apps-post [req]
+(defn oauth-apps-post
+  "Creates a new OAuth platform app."
+  [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         app-name (ex/get-param! req
                                 [:body :app_name]
@@ -1249,7 +1251,11 @@
 
     (response/ok {:app (oauth-app-model/format-oauth-app-for-api create-res)})))
 
-(defn oauth-app-post [req]
+(defn oauth-app-post
+  "Updates an existing OAuth platform app.
+   Uses access to the Instant app as a permission guard for the oauth
+   app."
+  [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         oauth-app-id-unverified (ex/get-param! req
                                                [:params :oauth_app_id]
@@ -1306,7 +1312,11 @@
 
     (response/ok {:app (oauth-app-model/format-oauth-app-for-api oauth-app)})))
 
-(defn oauth-app-delete [req]
+(defn oauth-app-delete
+  "Deletes an existing OAuth app.
+   Uses access to the Instant app as a permission guard for the oauth
+   app."
+  [req]
   (let [{{app-id :id} :app} (req->app-and-user! :admin req)
         oauth-app-id-unverified (ex/get-param! req
                                                [:params :oauth_app_id]
@@ -1316,7 +1326,11 @@
 
     (response/ok {:app (oauth-app-model/format-oauth-app-for-api oauth-app)})))
 
-(defn oauth-app-client-delete [req]
+(defn oauth-app-client-delete
+  "Deletes an existing OAuth app client.
+   Uses access to the Instant app as a permission guard for the oauth
+   app client."
+  [req]
   (let [{{app-id :id} :app} (req->app-and-user! :admin req)
         client-id-unverified (ex/get-param! req
                                             [:params :client_id]
@@ -1328,7 +1342,9 @@
     (response/ok {:client (oauth-app-model/format-client-for-api client)})))
 
 (defn oauth-app-clients-post
-  "Create a new OAuth client for an OAuth app."
+  "Create a new OAuth client for an OAuth app.
+   Uses access to the Instant app as a permission guard for the oauth
+   app client."
   [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         oauth-app-id-unverified (ex/get-param! req
@@ -1363,7 +1379,9 @@
                   :secretValue secret-value})))
 
 (defn oauth-app-client-post
-  "Update an existing OAuth client."
+  "Update an existing OAuth app client.
+   Uses access to the Instant app as a permission guard for the oauth
+   app client."
   [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         client-id-unverified (ex/get-param! req
@@ -1396,7 +1414,11 @@
                                                 :remove-redirect-url remove-redirect-url})]
     (response/ok {:client (oauth-app-model/format-client-for-api client)})))
 
-(defn oauth-app-client-secrets [req]
+(defn oauth-app-client-secrets
+  "Create a new OAuth app client secret.
+   Uses access to the Instant app as a permission guard for the oauth
+   app client."
+  [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         client-id-unauthed (ex/get-param! req
                                           [:params :client_id]
@@ -1409,7 +1431,11 @@
                                  record)
                   :secretValue secret-value})))
 
-(defn oauth-app-client-secret-delete [req]
+(defn oauth-app-client-secret-delete
+  "Delete an existing OAuth app client secret.
+   Uses access to the Instant app as a permission guard for the oauth
+   app client secret."
+  [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         client-secret-id-unauthed (ex/get-param! req
                                                  [:params :client_secret_id]
