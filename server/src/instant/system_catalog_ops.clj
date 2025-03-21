@@ -128,6 +128,23 @@
     (when (seq triples)
       (triples->db-format app-id attrs etype triples))))
 
+(defn get-entities [conn app-id attrs etype eids]
+  (let [triples (entity-model/get-triples {:app-id app-id
+                                           :attrs attrs
+                                           :datalog-query-fn d/query
+                                           :db {:conn-pool conn}}
+                                          etype
+                                          eids)
+
+        groups (group-by first triples)]
+    (->> eids
+         (map (fn [eid]
+                (let [triples (get groups eid)]
+                  [eid (when (seq triples)
+                         (triples->db-format app-id attrs etype triples))])))
+
+         (into {}))))
+
 (defn get-entity-where [conn app-id attrs etype where]
   (let [iql-res (i/query {:app-id app-id
                           :attrs attrs
@@ -203,6 +220,9 @@
         :get-entity
         (fn [eid] (get-entity tx-conn app-id attrs etype eid))
 
+        :get-entities
+        (fn [eids] (get-entities tx-conn app-id attrs etype eids))
+
         :get-entity-where
         (fn [where] (get-entity-where tx-conn app-id attrs etype where))
 
@@ -220,6 +240,9 @@
 
          :get-entity
          (fn [eid] (get-entity conn-pool app-id attrs etype eid))
+
+         :get-entities
+         (fn [eids] (get-entities conn-pool app-id attrs etype eids))
 
          :get-entity-where
          (fn [where] (get-entity-where conn-pool app-id attrs etype where))

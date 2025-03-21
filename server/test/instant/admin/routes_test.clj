@@ -10,7 +10,9 @@
             [instant.util.exception :as ex]
             [instant.admin.model :as admin-model]
             [instant.util.http :as http-util]
-            [instant.model.app-user-refresh-token :as app-user-refresh-token-model])
+            [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
+            [instant.model.app-user :as app-user-model]
+            [instant.reactive.ephemeral :as eph])
   (:import [java.util UUID]))
 
 (defn query-post [& args]
@@ -33,6 +35,9 @@
 
 (defn transact-ok? [transact-res]
   (= 200 (:status transact-res)))
+
+(defn presence-get [& args]
+  (apply (http-util/wrap-errors admin-routes/presence-get) args))
 
 (deftest query-test
   (with-movies-app
@@ -846,6 +851,46 @@
                              :forward-identity [(random-uuid) "books" "test.isbn"]
                              :unique? false})
                 [["update" "books" ["test.isbn" "asdf"] {"title" "test"}]])))))))
+
+(deftest presence-get-test
+  (with-empty-app
+    (fn [{app-id :id admin-token :admin-token}]
+      (let [room-id "room-1"
+            louis-sess-id (random-uuid)
+            anon-sess-id (random-uuid)
+            {louis-id :id
+             louis-email :email
+             louis-created-at :created_at}
+            (app-user-model/create! {:id (random-uuid) :app-id app-id :email "lous_reasoner@instantdb.com"})]
+        (with-redefs
+         [eph/get-room-data
+          (fn [app-id room-id]
+            (when (and (= app-id app-id) (= room-id "room-1"))
+              {anon-sess-id {:data {:color "red"}
+                             :peer-id anon-sess-id
+                             :user nil}
+               louis-sess-id {:data {:color "blue"}
+                              :peer-id louis-sess-id :user {:id louis-id}}}))]
+          (let [{:keys [status body]} (presence-get
+                                       {:params {:room-type "_defaultRoomType" :room-id room-id}
+                                        :headers {"app-id" app-id
+                                                  "authorization" (str "Bearer " admin-token)}})]
+
+            (is (= 200 status))
+            (is (= {:sessions
+                    {anon-sess-id
+                     {:data {:color "red"},
+                      :peer-id anon-sess-id
+                      :user nil},
+                     louis-sess-id
+                     {:data {:color "blue"},
+                      :peer-id louis-sess-id
+                      :user
+                      {:app_id app-id
+                       :id louis-id
+                       :created_at louis-created-at
+                       :email louis-email}}}}
+                   body))))))))
 
 (comment
   (test/run-tests *ns*))
