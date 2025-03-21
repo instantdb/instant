@@ -70,3 +70,8 @@ export function setLocal(k: string, v: any) {
 export const localStorageFlagPrefix = `__instant__flag__`;
 
 export const cliOauthParamName = '_cli_oauth_ticket';
+
+export const discordInviteUrl = 'https://discord.com/invite/VU53p7uQcE';
+
+export const discordOAuthAppsFeedbackInviteUrl =
+  'https://discord.gg/2rnGtfFQup';

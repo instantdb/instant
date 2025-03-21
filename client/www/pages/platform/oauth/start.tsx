@@ -3,11 +3,22 @@ import Auth from '@/components/dash/Auth';
 import { Loading } from '@/components/dash/shared';
 import { Button, Content, FullscreenLoading, LogoIcon } from '@/components/ui';
 import { useAuthToken } from '@/lib/auth';
-import config from '@/lib/config';
+import config, { discordInviteUrl } from '@/lib/config';
+import { messageFromInstantError } from '@/lib/errors';
 import { jsonFetch } from '@/lib/fetch';
+import { InstantError } from '@/lib/types';
 import { useEffect, useRef, useState } from 'react';
 
-function InvalidRedirect({ explanation }: { explanation: string }) {
+function InvalidRedirect({
+  error,
+  explanation,
+}: {
+  explanation: string;
+  error?: unknown;
+}) {
+  const instantError = error
+    ? messageFromInstantError(error as InstantError)
+    : null;
   return (
     <div className="flex h-full items-center justify-center p-4">
       <div className="max-w-sm flex flex-col gap-4">
@@ -23,11 +34,14 @@ function InvalidRedirect({ explanation }: { explanation: string }) {
             It looks like you're trying to give an external service access to
             your Instant account, but {explanation}.
           </p>
+          {instantError ? (
+            <p className="pl-2 border-l-4">{instantError}</p>
+          ) : null}
           <p>
             Please go back and try again, or ping us on{' '}
             <a
               className="font-bold text-blue-500"
-              href="https://discord.com/invite/VU53p7uQcE"
+              href={discordInviteUrl}
               target="_blank"
             >
               discord
@@ -99,8 +113,7 @@ function OAuthForm({ redirectId }: { redirectId: string }) {
   }, [redirectId]);
 
   if (error) {
-    // XXX: Extract the actual error
-    return <InvalidRedirect explanation="there was an error" />;
+    return <InvalidRedirect error={error} explanation="there was an error" />;
   }
 
   if (!data) {

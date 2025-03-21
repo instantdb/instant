@@ -12,7 +12,10 @@ import {
 } from '@/components/ui';
 import { friendlyErrorMessage, useAuthedFetch, useAuthToken } from '@/lib/auth';
 import { messageFromInstantError } from '@/lib/errors';
-import config from '@/lib/config';
+import config, {
+  discordInviteUrl,
+  discordOAuthAppsFeedbackInviteUrl,
+} from '@/lib/config';
 import { jsonFetch } from '@/lib/fetch';
 import {
   InstantError,
@@ -1001,86 +1004,105 @@ function App({ app }: { app: OAuthApp }) {
   };
 
   return (
-    <div className="flex flex-col gap-4 max-w-md relative">
-      <div className="flex flex-col gap-4 group/delete-parent">
-        <Button
-          className="absolute top-0 right-0 hidden group-hover/delete-parent:block"
-          variant="destructive"
-          size="mini"
-          onClick={() => setShowDeleteAppDialog(true)}
-        >
-          <TrashIcon height={'1.2em'} />
-        </Button>
-        <Dialog
-          open={showDeleteAppDialog}
-          onClose={() => setShowDeleteAppDialog(false)}
-        >
-          <SubsectionHeading>Delete {app.appName}</SubsectionHeading>
-          <div className="flex flex-col gap-4 p-4">
-            <Content>
-              Deleting this OAuth app will delete all clients and all tokens
-              associated with the app. It can't be undone.
-            </Content>
-            <div className="flex flex-row gap-2">
-              <Button
-                variant="destructive"
-                loading={deleting}
-                onClick={handleDelete}
-              >
-                Delete <code>`{app.appName}`</code>
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => setShowDeleteAppDialog(false)}
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </Dialog>
-        <label className="flex flex-col gap-2">
-          {' '}
-          <Label>Logo</Label>
-          {app.appLogo ? (
-            <div className="relative group w-12 h-12">
-              <AppLogo app={app} />
-              <div className="absolute top-0 group-hover:block hidden bg-white/75">
-                <UploadLogoInput onDataUrl={onDataUrl} simple={true} />
+    <>
+      {app.isPublic ? null : (
+        <div className="max-w-md flex bg-sky-50 dark:bg-slate-800/60 dark:ring-1 dark:ring-slate-300/10">
+          <Content className="m-4 text-sm text-sky-800 [--tw-prose-background:theme(colors.sky.50)] prose-a:text-sky-900 prose-code:text-sky-900 dark:text-slate-300 dark:prose-code:text-slate-300">
+            This app is in test mode. Only members of this Instant app will be
+            allowed to auth with it. Once you've built your integration, ping us
+            in{' '}
+            <a
+              target="_blank"
+              rel="noopener noreferrer"
+              href={discordOAuthAppsFeedbackInviteUrl}
+            >
+              #oauth-apps-feedback on Discord
+            </a>{' '}
+            to release your app to the public.
+          </Content>
+        </div>
+      )}
+      <div className="flex flex-col gap-4 max-w-md relative">
+        <div className="flex flex-col gap-4 group/delete-parent">
+          <Button
+            className="absolute top-0 right-0 hidden group-hover/delete-parent:block"
+            variant="destructive"
+            size="mini"
+            onClick={() => setShowDeleteAppDialog(true)}
+          >
+            <TrashIcon height={'1.2em'} />
+          </Button>
+          <Dialog
+            open={showDeleteAppDialog}
+            onClose={() => setShowDeleteAppDialog(false)}
+          >
+            <SubsectionHeading>Delete {app.appName}</SubsectionHeading>
+            <div className="flex flex-col gap-4 p-4">
+              <Content>
+                Deleting this OAuth app will delete all clients and all tokens
+                associated with the app. It can't be undone.
+              </Content>
+              <div className="flex flex-row gap-2">
+                <Button
+                  variant="destructive"
+                  loading={deleting}
+                  onClick={handleDelete}
+                >
+                  Delete <code>`{app.appName}`</code>
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => setShowDeleteAppDialog(false)}
+                >
+                  Cancel
+                </Button>
               </div>
             </div>
-          ) : (
-            <UploadLogoInput onDataUrl={onDataUrl} />
-          )}
-        </label>
-        {[
-          'appName',
-          'appHomePage',
-          'appPrivacyPolicyLink',
-          'appTosLink',
-          'supportEmail',
-        ].map((field) => (
-          <EditableAppInput
-            key={field}
-            app={app}
-            field={field as EditableAppField}
-            onSave={updateField}
-          />
-        ))}
+          </Dialog>
+          <label className="flex flex-col gap-2">
+            {' '}
+            <Label>Logo</Label>
+            {app.appLogo ? (
+              <div className="relative group w-12 h-12">
+                <AppLogo app={app} />
+                <div className="absolute top-0 group-hover:block hidden bg-white/75">
+                  <UploadLogoInput onDataUrl={onDataUrl} simple={true} />
+                </div>
+              </div>
+            ) : (
+              <UploadLogoInput onDataUrl={onDataUrl} />
+            )}
+          </label>
+          {[
+            'appName',
+            'appHomePage',
+            'appPrivacyPolicyLink',
+            'appTosLink',
+            'supportEmail',
+          ].map((field) => (
+            <EditableAppInput
+              key={field}
+              app={app}
+              field={field as EditableAppField}
+              onSave={updateField}
+            />
+          ))}
+        </div>
+
+        <Divider>
+          <Label className="p-2">Clients</Label>
+        </Divider>
+
+        {app.clients ? <Clients clients={app.clients} /> : null}
+
+        {app.clients?.length ? <Divider /> : null}
+
+        <CreateClient
+          oauthAppId={app.id}
+          defaultOpen={(app.clients?.length || 0) === 0}
+        />
       </div>
-
-      <Divider>
-        <Label className="p-2">Clients</Label>
-      </Divider>
-
-      {app.clients ? <Clients clients={app.clients} /> : null}
-
-      {app.clients?.length ? <Divider /> : null}
-
-      <CreateClient
-        oauthAppId={app.id}
-        defaultOpen={(app.clients?.length || 0) === 0}
-      />
-    </div>
+    </>
   );
 }
 
@@ -1585,12 +1607,17 @@ export default function OAuthApps({ appId }: { appId: string }) {
           {focusedApp ? (
             <App app={focusedApp} />
           ) : (
-            <>
+            <div className="flex flex-col gap-4 ">
+              <Content className="max-w-md">
+                OAuth apps allow you to perform actions on behalf of an Instant
+                user, like creating apps in their account or managing their
+                schema.
+              </Content>
               <Apps apps={data.apps} />
               <div className="max-w-md">
                 <CreateApp />
               </div>
-            </>
+            </div>
           )}
         </div>
       </Layout>
