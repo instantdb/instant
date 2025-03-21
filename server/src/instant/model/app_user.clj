@@ -32,6 +32,15 @@
              (fn [{:keys [get-entity]}]
                (get-entity id)))))
 
+(defn get-by-ids
+  ([params] (get-by-ids (aurora/conn-pool :read) params))
+  ([conn {:keys [app-id ids]}]
+   (query-op conn
+             {:app-id app-id
+              :etype etype}
+             (fn [{:keys [get-entities]}]
+               (get-entities ids)))))
+
 (defn get-by-refresh-token
   ([params] (get-by-refresh-token (aurora/conn-pool :read) params))
   ([conn {:keys [app-id refresh-token]}]

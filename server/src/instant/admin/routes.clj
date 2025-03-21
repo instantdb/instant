@@ -25,7 +25,10 @@
    [clojure.string :as string]
    [instant.storage.coordinator :as storage-coordinator]
    [instant.storage.s3 :as instant-s3]
-   [clojure.walk :as w])
+   [clojure.walk :as w]
+   [instant.reactive.ephemeral :as eph]
+   [medley.core :as medley]
+   [instant.util.coll :as ucoll])
   (:import
    (java.util UUID)))
 
@@ -477,6 +480,28 @@
                   files)]
     (response/ok {:data data})))
 
+(defn presence-get [req]
+  (let [{app-id :app_id} (req->admin-token! req)
+        _room-type (ex/get-param! req [:params "room-type"] string-util/coerce-non-blank-str)
+        room-id (ex/get-param! req [:params "room-id"] string-util/coerce-non-blank-str)
+        room-data (eph/get-room-data app-id room-id)
+
+        user-ids (some->> room-data
+                          vals
+                          (keep (comp :id :user))
+                          set)
+
+        id->user (when (seq user-ids)
+                   (app-user-model/get-by-ids {:app-id app-id :ids user-ids}))
+
+        enhanced-room-data (medley/map-vals
+                            (fn [sess]
+                              (ucoll/update-when sess :user
+                                                 (fn [{:keys [id]}]
+                                                   (get id->user id))))
+                            room-data)]
+    (response/ok {:sessions enhanced-room-data})))
+
 (defroutes routes
   (POST "/admin/query" []
     (with-rate-limiting query-post))
@@ -508,4 +533,6 @@
   (POST "/admin/storage/files/delete" []
     (with-rate-limiting files-delete)) ;; bulk delete
 
-  (GET "/admin/schema" [] schema-get))
+  (GET "/admin/schema" [] schema-get)
+
+  (GET "/admin/rooms/presence" [] presence-get))

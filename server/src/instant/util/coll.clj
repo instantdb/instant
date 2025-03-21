@@ -77,7 +77,7 @@
       (assoc-in m ks (apply f old-v args)))))
 
 (defn update-when
-  "Like update-in, but only updates when `ks` is present"
+  "Like update, but only updates when `k` is present"
   [m k f & args]
   (let [old-v (get m k not-found)]
     (if (identical? old-v not-found)
@@ -151,7 +151,6 @@
     (with-meta
       (list 'into-array resolved vals)
       {:tag (str "[L" (.getName resolved) ";")})))
-
 
 (defn third
   "Returns the third element in a collection."
