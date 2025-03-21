@@ -99,7 +99,8 @@
     (if (and (= "$users" etype)
              (= "view" action))
       (let [code "auth.id == data.id"
-            ast (cel/->ast code)]
+            compiler (cel/action->compiler action)
+            ast (cel/->ast2 compiler code)]
         {:etype etype
          :action action
          :code code
