@@ -12,7 +12,6 @@ import { errorToast } from '@/lib/toast';
 import clsx from 'clsx';
 import confetti from 'canvas-confetti';
 
-const stripePromise = loadStripe(stripeKey);
 const GB_1 = 1024 * 1024 * 1024;
 const GB_10 = 10 * GB_1;
 
@@ -39,7 +38,7 @@ async function createCheckoutSession(appId: string, token: string) {
       },
     },
   );
-  Promise.all([stripePromise, sessionPromise])
+  Promise.all([loadStripe(stripeKey), sessionPromise])
     .then(([stripe, session]) => {
       if (!stripe || !session) {
         throw new Error('Failed to create checkout session');
@@ -67,7 +66,7 @@ async function createPortalSession(appId: string, token: string) {
       },
     },
   );
-  Promise.all([stripePromise, sessionPromise])
+  Promise.all([loadStripe(stripeKey), sessionPromise])
     .then(([stripe, session]) => {
       if (!stripe || !session) {
         throw new Error('Failed to create portal session');

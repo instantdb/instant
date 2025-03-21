@@ -1250,14 +1250,95 @@
     (tool/def-locals)
     (response/ok {:app (oauth-app-model/format-oauth-app-for-api create-res)})))
 
-(defn oauth-app-clients-post [req]
+(defn oauth-app-post [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
-        oauth_app_id_unsafe (ex/get-param! req
-                                           [:params :oauth_app_id]
-                                           uuid-util/coerce)
+        oauth-app-id (ex/get-param! req
+                                    [:params :oauth_app_id]
+                                    uuid-util/coerce)
+        app-name (ex/get-optional-param! req
+                                         [:body :app_name]
+                                         string-util/coerce-non-blank-str)
+        app-logo-base64-url (ex/get-optional-param! req
+                                                    [:body :app_logo]
+                                                    string-util/coerce-non-blank-str)
+        app-logo-bytes (when app-logo-base64-url
+                         (try
+                           (oauth-app-model/base64-image-url->bytes app-logo-base64-url)
+                           (catch Exception e
+                             (ex/throw+ {::ex/type ::ex/param-malformed
+                                         ::ex/message
+                                         (case (.getMessage e)
+                                           "Invalid image url" "Invalid image url"
+                                           "Invalid mime type" "Invalid image type"
+                                           "Image is too large" "Image is too large"
+                                           "Invalid image type" "Invalid image type"
+                                           "Invalid image")}))))
+        support-email (ex/get-optional-param! req
+                                              [:body :support_email]
+                                              string-util/coerce-non-blank-str)
+        app-home-page (ex/get-optional-param! req
+                                              [:body :app_home_page]
+                                              url-util/coerce-web-url)
+        app-privacy-policy-link (ex/get-optional-param! req
+                                                        [:body :app_privacy_policy_link]
+                                                        url-util/coerce-web-url)
+        app-tos-link (ex/get-optional-param! req
+                                             [:body :app_tos_link]
+                                             url-util/coerce-web-url)
+
+        authorized-domains (ex/get-optional-param!
+                            req
+                            [:body :authorized_domains]
+                            (fn [domains]
+                              (when (every? (fn [url]
+                                              (and (string? url)
+                                                   (url-util/coerce-web-url url)))
+                                            domains)
+                                domains)))
+        ;; DDDD: pass the `unverified` flag everywhere we use it
+        oauth-app (oauth-app-model/update-app! {:oauth-app-id oauth-app-id
+                                                :app-id app-id
+                                                :app-name app-name
+                                                :authorized-domains authorized-domains
+                                                :support-email support-email
+                                                :app-home-page app-home-page
+                                                :app-privacy-policy-link app-privacy-policy-link
+                                                :app-tos-link app-tos-link
+                                                :app-logo app-logo-bytes})]
+
+    (response/ok {:app (oauth-app-model/format-oauth-app-for-api oauth-app)})))
+
+(defn oauth-app-delete [req]
+  (let [{{app-id :id} :app} (req->app-and-user! :admin req)
+        oauth-app-id-unverified (ex/get-param! req
+                                               [:params :oauth_app_id]
+                                               uuid-util/coerce)
+        oauth-app (oauth-app-model/delete-app! {:oauth-app-id-unverified oauth-app-id-unverified
+                                                :app-id app-id})]
+
+    (response/ok {:app (oauth-app-model/format-oauth-app-for-api oauth-app)})))
+
+(defn oauth-app-client-delete [req]
+  (let [{{app-id :id} :app} (req->app-and-user! :admin req)
+        client-id-unverified (ex/get-param! req
+                                            [:params :client_id]
+                                            uuid-util/coerce)
+        client (oauth-app-model/delete-client! {:client-id-unverified client-id-unverified
+                                                :app-id app-id})]
+
+
+    (response/ok {:client (oauth-app-model/format-client-for-api client)})))
+
+(defn oauth-app-clients-post
+  "Create a new OAuth client for an OAuth app."
+  [req]
+  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+        oauth_app_id_unverified (ex/get-param! req
+                                               [:params :oauth_app_id]
+                                               uuid-util/coerce)
         oauth-app (oauth-app-model/get-oauth-app-by-id-and-app-id!
                    {:app-id app-id
-                    :oauth-app-id oauth_app_id_unsafe})
+                    :oauth-app-id oauth_app_id_unverified})
         client-name (ex/get-param! req
                                    [:body :client_name]
                                    string-util/coerce-non-blank-str)
@@ -1266,7 +1347,7 @@
                                                          #(when (coll? %) %))
 
         _ (run! (fn [redirect-url]
-                  (ex/throw-validation-err!
+                  (ex/assert-valid!
                    :authorized_redirect_urls
                    redirect-url
                    (url-util/redirect-url-validation-errors
@@ -1282,6 +1363,65 @@
     (response/ok {:client (oauth-app-model/format-client-for-api client)
                   :clientSecret (oauth-app-model/format-client-secret-for-api client-secret)
                   :secretValue secret-value})))
+
+(defn oauth-app-client-post
+  "Update an existing OAuth client."
+  [req]
+  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+        client-id-unverified (ex/get-param! req
+                                            [:params :client_id]
+                                            uuid-util/coerce)
+        oauth-app (oauth-app-model/get-oauth-app-by-client-id-and-app-id!
+                   {:app-id app-id
+                    :client-id-unverified client-id-unverified})
+        client-name (ex/get-optional-param! req
+                                            [:body :client_name]
+                                            string-util/coerce-non-blank-str)
+        add-redirect-url (ex/get-optional-param! req
+                                                 [:body :add_redirect_url]
+                                                 string-util/coerce-non-blank-str)
+
+        _ (when add-redirect-url
+            (ex/assert-valid!
+             :authorized_redirect_urls
+             add-redirect-url
+             (url-util/redirect-url-validation-errors
+              add-redirect-url
+              :allow-localhost? (not (:is_public oauth-app)))))
+        remove-redirect-url (ex/get-optional-param! req
+                                                    [:body :remove_redirect_url]
+                                                    string-util/coerce-non-blank-str)
+        client (oauth-app-model/update-client! {:app-id app-id
+                                                :client-id-unverified client-id-unverified
+                                                :client-name client-name
+                                                :add-redirect-url add-redirect-url
+                                                :remove-redirect-url remove-redirect-url})]
+    (response/ok {:client (oauth-app-model/format-client-for-api client)})))
+
+(defn oauth-app-client-secrets [req]
+  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+        client-id-unauthed (ex/get-param! req
+                                          [:params :client_id]
+                                          uuid-util/coerce)
+        {:keys [record secret-value]} (oauth-app-model/create-client-secret-by-client-id-and-app-id!
+                                       {:app-id app-id
+                                        :client-id client-id-unauthed})]
+
+    (response/ok {:clientSecret (oauth-app-model/format-client-secret-for-api
+                                 record)
+                  :secretValue secret-value})))
+
+(defn oauth-app-client-secret-delete [req]
+  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+        client-secret-id-unauthed (ex/get-param! req
+                                                 [:params :client_secret_id]
+                                                 uuid-util/coerce)
+        client-secret (oauth-app-model/delete-client-secret-by-id-and-app-id!
+                       {:app-id app-id
+                        :client-secret-id client-secret-id-unauthed})]
+
+    (response/ok {:clientSecret (oauth-app-model/format-client-secret-for-api
+                                 client-secret)})))
 
 (defroutes routes
   (POST "/dash/auth/send_magic_code" [] send-magic-code-post)
@@ -1373,5 +1513,12 @@
 
   (GET "/dash/apps/:app_id/oauth-apps" [] oauth-apps-get)
   (POST "/dash/apps/:app_id/oauth-apps" [] oauth-apps-post)
+  (POST "/dash/apps/:app_id/oauth-apps/:oauth_app_id" [] oauth-app-post)
+  (DELETE "/dash/apps/:app_id/oauth-apps/:oauth_app_id" [] oauth-app-delete)
 
-  (POST "/dash/apps/:app_id/oauth-apps/:oauth_app_id/clients" [] oauth-app-clients-post))
+  (POST "/dash/apps/:app_id/oauth-apps/:oauth_app_id/clients" [] oauth-app-clients-post)
+  (POST "/dash/apps/:app_id/oauth-app-clients/:client_id" [] oauth-app-client-post)
+  (DELETE "/dash/apps/:app_id/oauth-app-clients/:client_id" [] oauth-app-client-delete)
+  (POST "/dash/apps/:app_id/oauth-app-clients/:client_id/client-secrets" [] oauth-app-client-secrets)
+
+  (DELETE "/dash/apps/:app_id/oauth-app-client-secrets/:client_secret_id" [] oauth-app-client-secret-delete))

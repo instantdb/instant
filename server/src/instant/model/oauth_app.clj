@@ -222,6 +222,25 @@
                       :oauth-app
                       {:args [params]})))
 
+(defn get-oauth-app-by-client-id-and-app-id!
+  ([params]
+   (get-oauth-app-by-client-id-and-app-id! (aurora/conn-pool :read) params))
+  ([conn {:keys [app-id
+                 client-id-unverified]}]
+   (let [q {:select :oauth-app.*
+            :from [[:instant-oauth-apps :oauth-app]]
+            :join [[:instant-oauth-app-clients :client]
+                   [:= :client.oauth-app-id :oauth-app.id]]
+            :where [:and
+                    [:= :app-id app-id]
+                    [:= :client.client-id client-id-unverified]]}]
+     (-> (sql/select-one ::get-oauth-app-by-client-id-and-app-id!
+                         conn
+                         (hsql/format q))
+         (ex/assert-record! :oauth-app
+                            {:args [{:app-id app-id
+                                     :client-id client-id-unverified}]})))))
+
 (defn get-client-and-app-by-client-id
   ([params]
    (get-client-and-app-by-client-id (aurora/conn-pool :read) params))
@@ -280,6 +299,58 @@
                                              :first-four (subs client-secret 0 4)}]
                                    :returning :*}))))
 
+(defn create-client-secret-by-client-id-and-app-id!
+  "Creates a new client secret for an oauth client id and the Instant app id.
+   Uses the instant app id as a check that the user has permission to
+   delete the secret."
+  ([params]
+   (create-client-secret-by-client-id-and-app-id! (aurora/conn-pool :write) params))
+  ([conn {:keys [app-id
+                 client-id]}]
+   (let [client-secret (gen-client-secret)
+         q {:insert-into :instant-oauth-app-client-secrets
+            :values [{:id (random-uuid)
+                      :hashed-secret (hash-client-secret client-secret)
+                      :first-four (subs client-secret 0 4)
+                      :client-id {:select :client.client-id
+                                  :from [[:instant-oauth-app-clients :client]]
+                                  :join [[:instant-oauth-apps :oauth-app]
+                                         [:= :oauth-app.id :client.oauth-app-id]]
+                                  :where [:and
+                                          [:= :client.client-id client-id]
+                                          [:= :oauth-app.app-id app-id]]}}]
+            :returning :*}
+         record (-> (sql/execute-one! conn (hsql/format q))
+                    (ex/assert-record! :oauth-app-client-secrets
+                                       {:app-id app-id
+                                        :client-id client-id}))]
+     {:record record
+      :secret-value client-secret})))
+
+(defn delete-client-secret-by-id-and-app-id!
+  "Deletes a client secret by its id and the Instant app id. Uses the instant app id
+   as a check that the user has permission to delete the secret."
+  ([params]
+   (delete-client-secret-by-id-and-app-id! (aurora/conn-pool :write) params))
+  ([conn {:keys [app-id
+                 client-secret-id]}]
+   (let [q {:delete-from :instant-oauth-app-client-secrets
+            :where [:= :id {:select :secret.id
+                            :from [[:instant-oauth-app-client-secrets :secret]]
+                            :join [[:instant-oauth-app-clients :client]
+                                   [:= :client.client-id :secret.client-id]
+
+                                   [:instant-oauth-apps :oauth-app]
+                                   [:= :oauth-app.id :client.oauth-app-id]]
+                            :where [:and
+                                    [:= :secret.id client-secret-id]
+                                    [:= :oauth-app.app-id app-id]]}]
+            :returning :*}]
+     (-> (sql/execute-one! conn (hsql/format q))
+         (ex/assert-record! :oauth-app-client-secrets
+                            {:app-id app-id
+                             :client-secret-id client-secret-id})))))
+
 (defn create-client
   "Creates a client and a secret, returns them both, plus the secret value that
    we generated. We only store a hash of the secret so the user will have to
@@ -333,6 +404,115 @@
                       :app-logo app-logo}]
             :returning :*}]
      (sql/execute-one! ::create-app conn (hsql/format q)))))
+
+(defn update-app!
+  "Updates app, uses the app-id (an Instant app id) as the check that the user
+   has access to the OAuth app."
+  ([params]
+   (update-app! (aurora/conn-pool :write) params))
+  ([conn {:keys [app-id
+                 oauth-app-id
+                 app-name
+                 authorized-domains
+                 support-email
+                 app-home-page
+                 app-privacy-policy-link
+                 app-tos-link
+                 app-logo]}]
+   (let [q {:update :instant-oauth-apps
+            :set (cond-> {}
+                   app-name (assoc :app-name app-name)
+                   authorized-domains (assoc :authorized-domains [:array authorized-domains :text])
+                   support-email (assoc :support-email support-email)
+                   app-home-page (assoc :app-home-page app-home-page)
+                   app-privacy-policy-link (assoc :app-privacy-policy-link app-privacy-policy-link)
+                   app-tos-link (assoc :app-tos-link app-tos-link)
+                   app-logo (assoc :app-logo app-logo))
+            :where [:and
+                    [:= :app-id app-id]
+                    [:= :id oauth-app-id]]
+            :returning :*}]
+     (-> (sql/execute-one! ::update-app conn (hsql/format q))
+         ;; DDDD: all of the assert-record! should have :args
+         (ex/assert-record! :oauth-app {:app-id app-id
+                                        :oauth-app-id oauth-app-id})))))
+
+(defn delete-app!
+  ([params]
+   (delete-app! (aurora/conn-pool :write) params))
+  ([conn {:keys [app-id
+                 oauth-app-id-unverified]}]
+   (let [q {:delete-from :instant-oauth-apps
+            :where [:and
+                    [:= :app-id app-id]
+                    ;; We check the app id as a permission guard
+                    [:= :id oauth-app-id-unverified]]
+            :returning :*}]
+     (-> (sql/execute-one! ::delete-app! conn (hsql/format q))
+         (ex/assert-record! :oauth-app {:args {:app-id app-id
+                                               :oauth-app-id oauth-app-id-unverified}})))))
+
+(defn update-client!
+  "Updates app, uses the app-id (an Instant app id) as the check that the user
+   has access to the OAuth client."
+  ([params]
+   (update-client! (aurora/conn-pool :write) params))
+  ([conn {:keys [app-id
+                 client-id-unverified
+                 client-name
+                 add-redirect-url
+                 remove-redirect-url]}]
+   (let [q {:update :instant-oauth-app-clients
+            :set (cond-> {}
+                   client-name (assoc :client-name client-name)
+                   (or add-redirect-url
+                       remove-redirect-url)
+                   (assoc :authorized-redirect-urls
+                          (cond-> :authorized-redirect-urls
+                            add-redirect-url ((fn [existing]
+                                                [:array_append existing add-redirect-url]))
+                            remove-redirect-url ((fn [existing]
+                                                   [:array_remove existing remove-redirect-url]))
+                            ;; call distinct, but don't change the order
+                            true ((fn [a]
+                                    {:select [[[:array {:select :url
+                                                        :from [[{:select-distinct-on [[:url] :url :ord]
+                                                                 :from [[[:with-ordinality [:unnest a] [:t :url :ord]]]]}
+                                                                :x]]
+                                                        :order-by :x.ord}]]]})))))
+            :where [:= :client-id {:select :client.client-id
+                                   :from [[:instant-oauth-app-clients :client]]
+                                   :join [[:instant-oauth-apps :oauth-app]
+                                          [:= :oauth-app.id :client.oauth-app-id]]
+                                   :where [:and
+                                           [:= :oauth-app.app-id app-id]
+                                           [:= :client.client-id client-id-unverified]]}]
+            :returning :*}]
+     (-> (sql/execute-one! ::update-client! conn (hsql/format q))
+         (ex/assert-record! :oauth-client {:args {:app-id app-id
+                                                  :client-i client-id-unverified}})))))
+
+(defn delete-client!
+  ([params]
+   (delete-client! (aurora/conn-pool :write) params))
+  ([conn {:keys [app-id
+                 client-id-unverified]}]
+   (let [q {:delete-from :instant-oauth-app-clients
+            :where [:= :client-id {:select :client.client-id
+                                   :from [[:instant-oauth-app-clients :client]]
+                                   :join [[:instant-oauth-apps :oauth-app]
+                                          [:= :oauth-app.id :client.oauth-app-id]]
+                                   :where [:and
+                                           [:= :oauth-app.app-id app-id]
+                                           ;; We check app id as a permissions guard
+                                           [:= :client.client-id client-id-unverified]]}]
+            :returning :*}]
+     (-> (sql/execute-one! ::delete-client! conn (hsql/format q))
+         (ex/assert-record! :oauth-client {:args {:app-id app-id
+                                                  :client-id client-id-unverified}})))))
+
+;; OAuth flow
+;; ----------
 
 (defn create-redirect
   ([params]

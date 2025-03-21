@@ -254,7 +254,10 @@
                                    oauth-app-model/bytes->base64-image-url)
                   :appTosLink (:app_tos_link oauth-app)
                   :appHomePage (:app_home_page oauth-app)
-                  :redirectOrigin (:host (:redirect_url redirect))
+                  :redirectOrigin (-> redirect
+                                      :redirect_uri
+                                      uri/uri
+                                      :host)
                   :scopes (:scopes redirect)
                   :grantToken (:grant_token redirect)})))
 

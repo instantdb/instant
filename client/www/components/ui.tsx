@@ -181,6 +181,7 @@ export function TextInput({
   disabled,
   title,
   required,
+  onBlur,
 }: {
   value: string;
   type?: 'text' | 'email' | 'sensitive' | 'password';
@@ -196,6 +197,7 @@ export function TextInput({
   disabled?: boolean | undefined;
   title?: string | undefined;
   required?: boolean | undefined;
+  onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -231,6 +233,7 @@ export function TextInput({
           onChange(e.target.value);
         }}
         onKeyDown={onKeyDown}
+        onBlur={onBlur}
         tabIndex={tabIndex}
         required={required}
       />
@@ -707,7 +710,7 @@ export function ActionButton({
 }
 // other
 
-function redactedValue(v: string): string {
+export function redactedValue(v: string): string {
   if (v.length === 36 && v.indexOf('-') === 8) {
     // Probably a uuid, so preserve the dashes
     return v.replaceAll(/[^-]/g, '*');
@@ -724,7 +727,7 @@ export function Copyable({
   onChangeHideValue,
 }: {
   value: string;
-  label: string;
+  label?: string;
   size?: 'normal' | 'large';
   defaultHidden?: boolean;
   hideValue?: boolean;
@@ -742,15 +745,17 @@ export function Copyable({
         'text-base': size === 'large',
       })}
     >
-      <div
-        className="border-r bg-gray-50 px-3 py-1.5"
-        style={{
-          borderTopLeftRadius: 'calc(0.25rem - 1px)',
-          borderBottomLeftRadius: 'calc(0.25rem - 1px)',
-        }}
-      >
-        {label}
-      </div>
+      {label ? (
+        <div
+          className="border-r bg-gray-50 px-3 py-1.5"
+          style={{
+            borderTopLeftRadius: 'calc(0.25rem - 1px)',
+            borderBottomLeftRadius: 'calc(0.25rem - 1px)',
+          }}
+        >
+          {label}
+        </div>
+      ) : null}
       <pre
         className="flex-1 truncate px-4 py-1.5"
         title={value}

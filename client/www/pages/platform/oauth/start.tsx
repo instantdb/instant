@@ -58,11 +58,23 @@ const scopeDescriptions = [
   },
 ];
 
+type ClaimResult = {
+  appName: string;
+  supportEmail: string | null;
+  appPrivacyPolicyLink: string | null;
+  appLogo: string | null;
+  appTosLink: string | null;
+  appHomePage: string | null;
+  redirectOrigin: string;
+  scopes: string[];
+  grantToken: string;
+};
+
 function OAuthForm({ redirectId }: { redirectId: string }) {
   const token = useAuthToken();
 
-  const [data, setData] = useState(null);
-  const [error, setError] = useState(null);
+  const [data, setData] = useState<ClaimResult | null>(null);
+  const [error, setError] = useState<Error | null>(null);
 
   const hasFetched = useRef(false);
 
@@ -145,6 +157,10 @@ function OAuthForm({ redirectId }: { redirectId: string }) {
               }
             })}
           </ul>
+          <p className="text-sm">
+            Clicking "Grant access" will take you back to{' '}
+            <span className="font-bold">{data.redirectOrigin}</span>.
+          </p>
         </Content>
 
         <form
