@@ -488,8 +488,8 @@
         ;; rooms. 
         ;; Adding this as a required field so once we do use it we won't have a breaking 
         ;; issue here.
-        _room-type (ex/get-param! req [:params "room-type"] string-util/coerce-non-blank-str)
-        room-id (ex/get-param! req [:params "room-id"] string-util/coerce-non-blank-str)
+        _room-type (ex/get-param! req [:params :room-type] string-util/coerce-non-blank-str)
+        room-id (ex/get-param! req [:params :room-id] string-util/coerce-non-blank-str)
         room-data (eph/get-room-data app-id room-id)
 
         user-ids (some->> room-data

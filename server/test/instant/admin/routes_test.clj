@@ -872,7 +872,7 @@
                louis-sess-id {:data {:color "blue"}
                               :peer-id louis-sess-id :user {:id louis-id}}}))]
           (let [{:keys [status body]} (presence-get
-                                       {:params {"room-type" "_defaultRoomType" "room-id" room-id}
+                                       {:params {:room-type "_defaultRoomType" :room-id room-id}
                                         :headers {"app-id" app-id
                                                   "authorization" (str "Bearer " admin-token)}})]
 
