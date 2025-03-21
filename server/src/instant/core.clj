@@ -98,8 +98,7 @@
 (defn allow-cors-origin? [req]
   (case (:uri req)
     ("/platform/oauth/start"
-     "/platform/oauth/grant"
-     "/platform/oauth/token") false
+     "/platform/oauth/grant") false
     "/platform/oauth/claim" (= (req-origin req)
                                (config/dashboard-origin))
 

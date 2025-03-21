@@ -227,8 +227,10 @@
 
         _ (when (and (or (not (:is_public oauth-app))
                          (= "localhost" (:host (uri/parse (:redirect_url redirect)))))
-                     (not (get-member-role (:app_id oauth-app)
-                                           (:id user))))
+                     (and (not (app-model/get-by-id-and-creator {:app-id (:app_id oauth-app)
+                                                                 :user-id (:id user)}))
+                          (not (get-member-role (:app_id oauth-app)
+                                                (:id user)))))
             (oauth-app-model/deny-redirect {:redirect-id redirect-id})
             (ex/throw+ {::ex/type ::ex/permission-denied
                         ::ex/message

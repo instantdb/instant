@@ -47,7 +47,7 @@ import format from 'date-fns/format';
 // API Functions
 // -------------
 
-async function createApp({
+export async function createOAuthApp({
   token,
   appId,
   appName,
@@ -60,11 +60,11 @@ async function createApp({
   token: string;
   appId: string;
   appName: string;
-  homepageUrl: string | null | undefined;
-  logoDataUrl: string | null | undefined;
-  appPrivacyPolicyLink: string | null | undefined;
-  appTosLink: string | null | undefined;
-  supportEmail: string | null | undefined;
+  homepageUrl?: string | null | undefined;
+  logoDataUrl?: string | null | undefined;
+  appPrivacyPolicyLink?: string | null | undefined;
+  appTosLink?: string | null | undefined;
+  supportEmail?: string | null | undefined;
 }) {
   const resp = await jsonFetch(
     `${config.apiURI}/dash/apps/${appId}/oauth-apps`,
@@ -134,7 +134,7 @@ async function updateApp({
   return resp;
 }
 
-async function deleteApp({
+export async function deleteOAuthApp({
   appId,
   oauthAppId,
   token,
@@ -157,7 +157,7 @@ async function deleteApp({
   return resp;
 }
 
-async function createClient({
+export async function createClient({
   token,
   appId,
   oauthAppId,
@@ -979,7 +979,7 @@ function App({ app }: { app: OAuthApp }) {
   const handleDelete = async () => {
     try {
       setDeleting(true);
-      const resp = await deleteApp({ token: token, appId, oauthAppId: app.id });
+      const resp = await deleteOAuthApp({ token: token, appId, oauthAppId: app.id });
       if (!resp.app) {
         errorToast('Error deleting OAuth app');
         return;
@@ -1224,7 +1224,7 @@ function CreateAppForm({ onClose }: { onClose: () => void }) {
 
     try {
       setIsLoading(true);
-      const resp = await createApp({
+      const resp = await createOAuthApp({
         appId,
         token,
         appName,

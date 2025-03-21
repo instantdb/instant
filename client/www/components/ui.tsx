@@ -725,6 +725,7 @@ export function Copyable({
   defaultHidden,
   hideValue,
   onChangeHideValue,
+  multiline,
 }: {
   value: string;
   label?: string;
@@ -732,6 +733,7 @@ export function Copyable({
   defaultHidden?: boolean;
   hideValue?: boolean;
   onChangeHideValue?: () => void;
+  multiline?: boolean;
 }) {
   const [hidden, setHidden] = useState(defaultHidden);
   const [copyLabel, setCopyLabel] = useState('Copy');
@@ -757,7 +759,10 @@ export function Copyable({
         </div>
       ) : null}
       <pre
-        className="flex-1 truncate px-4 py-1.5"
+        className={clsx('flex-1 px-4 py-1.5', {
+          truncate: !multiline,
+          'whitespace-pre-wrap break-all': multiline,
+        })}
         title={value}
         onClick={(e) => {
           const el = e.target as HTMLPreElement;
