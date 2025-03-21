@@ -6,7 +6,8 @@
             [instant.util.exception :as ex])
   (:import
    (java.time Instant)
-   (java.time.temporal ChronoUnit)))
+   (java.time.temporal ChronoUnit)
+   (java.util Date)))
 
 (def etype "$oauthCodes")
 
