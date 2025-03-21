@@ -131,7 +131,7 @@
               http-util/wrap-errors
 
               wrap-json-response
-              (wrap-cors :access-control-allow-origin #'allow-cors-origin?
+              (wrap-cors :access-control-allow-origin allow-cors-origin?
                          :access-control-allow-methods [:get :put :post :delete])
               (http-util/tracer-wrap-span))))
 

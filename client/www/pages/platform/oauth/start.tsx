@@ -1,6 +1,5 @@
 import { asClientOnlyPage, useReadyRouter } from '@/components/clientOnlyPage';
 import Auth from '@/components/dash/Auth';
-import { Loading } from '@/components/dash/shared';
 import { Button, Content, FullscreenLoading, LogoIcon } from '@/components/ui';
 import { useAuthToken } from '@/lib/auth';
 import config, { discordInviteUrl } from '@/lib/config';
@@ -8,6 +7,11 @@ import { messageFromInstantError } from '@/lib/errors';
 import { jsonFetch } from '@/lib/fetch';
 import { InstantError } from '@/lib/types';
 import { useEffect, useRef, useState } from 'react';
+
+/*
+  This is the page an Instant user will see when a platform
+  OAuth app wants them to grant access to their account.
+*/
 
 function InvalidRedirect({
   error,

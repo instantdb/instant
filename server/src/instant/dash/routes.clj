@@ -1247,7 +1247,6 @@
                                                 :app-tos-link app-tos-link
                                                 :app-logo app-logo-bytes})]
 
-    (tool/def-locals)
     (response/ok {:app (oauth-app-model/format-oauth-app-for-api create-res)})))
 
 (defn oauth-app-post [req]

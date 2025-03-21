@@ -28,7 +28,6 @@
             scope-str (case scope
                         :apps/read "apps-read"
                         :apps/write "apps-write")]
-        (tool/def-locals)
         (if-not (oauth-app-model/satisfies-scope? (:scopes access-token-record)
                                                   scope-str)
           (ex/throw-missing-scope! scope-str)
