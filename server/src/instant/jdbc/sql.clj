@@ -274,6 +274,13 @@
                              :from :t})))
             (catch Exception _ nil)))))
 
+(defn annotate-update-count [^PreparedStatement ps]
+  (try
+    (let [update-count (.getUpdateCount ps)]
+      (when (not= -1 update-count)
+        (tracer/add-data! {:attributes
+                           {:update-count update-count}})))))
+
 (defmacro defsql [name query-fn rw opts]
   (let [span-name (format "sql/%s" name)]
     `(defn ~name
@@ -301,11 +308,7 @@
                   (with-open [ps# (next-jdbc/prepare c# query# opts#)
                               _cleanup# (register-in-progress create-connection?# ~rw c# ps#)]
                     (let [res# (~query-fn ps# nil opts#)]
-                      (when (false? (:return-keys opts#))
-                        (tracer/add-data! {:attributes
-                                           {:update-count (-> res#
-                                                              first
-                                                              :next.jdbc/update-count)}}))
+                      (annotate-update-count ps#)
                       res#))
                   (finally
                     ;; Don't close the connection if a java.sql.Connection was
