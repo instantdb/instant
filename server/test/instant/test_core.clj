@@ -1,11 +1,15 @@
 (ns instant.test-core
-  (:require [circleci.test]
-            [eftest.runner :as eftest]
-            [instant.config :as config]
-            [instant.jdbc.aurora :as aurora]
-            [instant.system-catalog-migration :as system-catalog-migration]
-            [instant.util.crypt :as crypt-util]
-            [instant.util.tracer :as tracer]))
+  (:require
+   [circleci.test]
+   [clj-reload.core :as reload]
+   [clojure+.error]
+   [clojure+.print]
+   [clojure+.test]
+   [instant.config :as config]
+   [instant.jdbc.aurora :as aurora]
+   [instant.system-catalog-migration :as system-catalog-migration]
+   [instant.util.crypt :as crypt-util]
+   [instant.util.tracer :as tracer]))
 
 (defn setup-teardown
   "One-time setup before running our test suite and one-time teardown
@@ -23,8 +27,12 @@
 (defn -main [& _args]
   (circleci.test/dir (str ["test"])))
 
-(defn eftest-main [_]
+(defn -main+ [_]
   (setup-teardown
    (fn []
-     (-> (eftest/find-tests "test")
-         (eftest/run-tests {:multithread? false})))))
+     (clojure+.error/install!)
+     (clojure+.print/install!)
+     (clojure+.test/install!)
+     (reload/init {:dirs ["src" "test"], :output :quieter})
+     (reload/reload {:only #"instant\..*-test"})
+     (clojure+.test/run))))
