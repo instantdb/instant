@@ -101,7 +101,6 @@ async function updateApp({
   oauthAppId,
   token,
   appName,
-  authorizedDomains,
   appHomePage,
   appLogo,
   appPrivacyPolicyLink,
@@ -112,7 +111,6 @@ async function updateApp({
   oauthAppId: string;
   token: string;
   appName?: string | null;
-  authorizedDomains?: string[] | null;
   appHomePage?: string | null;
   appLogo?: string | null;
   appPrivacyPolicyLink?: string | null;
@@ -130,7 +128,6 @@ async function updateApp({
       body: JSON.stringify({
         app_id: appId,
         app_name: appName,
-        authorized_domains: authorizedDomains,
         app_home_page: appHomePage,
         app_logo: appLogo,
         app_privacy_policy_link: appPrivacyPolicyLink,

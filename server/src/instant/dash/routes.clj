@@ -1231,18 +1231,8 @@
                                              [:body :app_tos_link]
                                              url-util/coerce-web-url)
 
-        authorized-domains (ex/get-optional-param!
-                            req
-                            [:body :authorized_domains]
-                            (fn [domains]
-                              (when (every? (fn [url]
-                                              (and (string? url)
-                                                   (url-util/coerce-web-url url)))
-                                            domains)
-                                domains)))
         create-res (oauth-app-model/create-app {:app-id app-id
                                                 :app-name app-name
-                                                :authorized-domains authorized-domains
                                                 :support-email support-email
                                                 :app-home-page app-home-page
                                                 :app-privacy-policy-link app-privacy-policy-link
@@ -1291,19 +1281,9 @@
                                              [:body :app_tos_link]
                                              url-util/coerce-web-url)
 
-        authorized-domains (ex/get-optional-param!
-                            req
-                            [:body :authorized_domains]
-                            (fn [domains]
-                              (when (every? (fn [url]
-                                              (and (string? url)
-                                                   (url-util/coerce-web-url url)))
-                                            domains)
-                                domains)))
         oauth-app (oauth-app-model/update-app! {:oauth-app-id-unverified oauth-app-id-unverified
                                                 :app-id app-id
                                                 :app-name app-name
-                                                :authorized-domains authorized-domains
                                                 :support-email support-email
                                                 :app-home-page app-home-page
                                                 :app-privacy-policy-link app-privacy-policy-link

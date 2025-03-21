@@ -9,7 +9,6 @@ create table instant_oauth_apps (
   app_privacy_policy_link text,
   app_tos_link text,
   app_logo bytea,
-  authorized_domains text[],
   created_at timestamp with time zone not null default now(),
   updated_at timestamp with time zone not null default now(),
   unique (app_id, app_name)

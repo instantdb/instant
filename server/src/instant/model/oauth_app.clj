@@ -98,7 +98,6 @@
                                         app_id
                                         app_name
                                         granted_scopes
-                                        authorized_domains
                                         is_public
                                         support_email
                                         app_home_page
@@ -113,7 +112,6 @@
    :appLogo (some-> app_logo
                     bytes->base64-image-url)
    :grantedScopes granted_scopes
-   :authorizedDomains authorized_domains
    :isPublic is_public
    :supportEmail support_email
    :appHomePage app_home_page
@@ -155,9 +153,6 @@
                                      "appHomePage" :oauth-app.app_home_page
                                      "appPrivacyPolicyLink" :oauth-app.app_privacy_policy_link
                                      "appTosLink" :oauth-app.app_tos_link
-                                     "authorizedDomains" [:coalesce
-                                                          [:array_to_json :oauth-app.authorized-domains]
-                                                          [:inline "[]"]]
                                      "createdAt" :oauth-app.created_at
                                      "updatedAt" :oauth-app.updated_at
 
@@ -383,7 +378,6 @@
    (create-app (aurora/conn-pool :write) params))
   ([conn {:keys [app-id
                  app-name
-                 authorized-domains
                  support-email
                  app-home-page
                  app-privacy-policy-link
@@ -394,7 +388,6 @@
                       :app-id app-id
                       :app-name app-name
                       :granted-scopes [:array [] :text]
-                      :authorized-domains [:array (or authorized-domains []) :text]
                       :is-public false
                       :support-email support-email
                       :app-home-page app-home-page
@@ -412,7 +405,6 @@
   ([conn {:keys [app-id
                  oauth-app-id-unverified
                  app-name
-                 authorized-domains
                  support-email
                  app-home-page
                  app-privacy-policy-link
@@ -421,7 +413,6 @@
    (let [q {:update :instant-oauth-apps
             :set (cond-> {}
                    app-name (assoc :app-name app-name)
-                   authorized-domains (assoc :authorized-domains [:array authorized-domains :text])
                    support-email (assoc :support-email support-email)
                    app-home-page (assoc :app-home-page app-home-page)
                    app-privacy-policy-link (assoc :app-privacy-policy-link app-privacy-policy-link)

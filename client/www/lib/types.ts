@@ -227,7 +227,6 @@ export type OAuthApp = {
   appId: string;
   appName: string;
   grantedScopes: string[];
-  authorizedDomains: string[] | null;
   isPublic: boolean;
   supportEmail: string | null;
   appHomePage: string | null;
