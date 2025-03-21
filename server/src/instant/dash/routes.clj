@@ -1252,9 +1252,9 @@
 
 (defn oauth-app-post [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
-        oauth-app-id (ex/get-param! req
-                                    [:params :oauth_app_id]
-                                    uuid-util/coerce)
+        oauth-app-id-unverified (ex/get-param! req
+                                               [:params :oauth_app_id]
+                                               uuid-util/coerce)
         app-name (ex/get-optional-param! req
                                          [:body :app_name]
                                          string-util/coerce-non-blank-str)
@@ -1295,8 +1295,7 @@
                                                    (url-util/coerce-web-url url)))
                                             domains)
                                 domains)))
-        ;; DDDD: pass the `unverified` flag everywhere we use it
-        oauth-app (oauth-app-model/update-app! {:oauth-app-id oauth-app-id
+        oauth-app (oauth-app-model/update-app! {:oauth-app-id-unverified oauth-app-id-unverified
                                                 :app-id app-id
                                                 :app-name app-name
                                                 :authorized-domains authorized-domains
@@ -1333,12 +1332,12 @@
   "Create a new OAuth client for an OAuth app."
   [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
-        oauth_app_id_unverified (ex/get-param! req
+        oauth-app-id-unverified (ex/get-param! req
                                                [:params :oauth_app_id]
                                                uuid-util/coerce)
         oauth-app (oauth-app-model/get-oauth-app-by-id-and-app-id!
                    {:app-id app-id
-                    :oauth-app-id oauth_app_id_unverified})
+                    :oauth-app-id-unverified oauth-app-id-unverified})
         client-name (ex/get-param! req
                                    [:body :client_name]
                                    string-util/coerce-non-blank-str)

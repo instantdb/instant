@@ -19,15 +19,9 @@
             [ring.middleware.cookies :refer [wrap-cookies]]
             [ring.util.http-response :as response]))
 
-;; DDD: CSRF token
 ;; DDD: Security headers
 
-;; DDD: Coerce errors into OAuth errors
-
 (def cookie-name "__session")
-
-;; DDD: Apply some of these rules to the redirect uri
-;; https://developers.google.com/identity/protocols/oauth2/web-server#uri-validation
 
 (defn oauth-error-page
   "Used when we need to show the user an error page, e.g. the user is sent to an authorization
@@ -234,7 +228,6 @@
                                           :oauth-app-app-id (:app_id oauth-app)}})
 
         _ (when (and (or (not (:is_public oauth-app))
-                         ;; DDD: Maybe we should store this in the redirect instead??
                          (= "localhost" (:host (uri/parse (:redirect_url redirect)))))
                      (not (get-member-role (:app_id oauth-app)
                                            (:id user))))

@@ -405,8 +405,6 @@ function DeleteClientSecret({
   );
 }
 
-// DDDD: Make sure we extract instant exceptions and show those
-
 function ClientRedirectUrl({
   clientId,
   redirectUrl,
@@ -588,7 +586,6 @@ function Client({ client }: { client: OAuthAppClient }) {
         <Copyable value={client.clientId} />
       </label>
       <label className="flex flex-col gap-2">
-        {/* DDDD: Handle the empty state */}
         <Label>Client Secrets</Label>
         <div>
           {client.clientSecrets?.length ? (
@@ -1306,10 +1303,6 @@ function CreateAppForm({ onClose }: { onClose: () => void }) {
         label="Support email (optional)"
         placeholder="Your support email"
       />
-
-      {/* DDD: Add privacy policy link */}
-      {/* DDD: Add TOS link */}
-      {/* DDD: Add logo */}
       <Button loading={isLoading} type="submit">
         Add OAuth App
       </Button>

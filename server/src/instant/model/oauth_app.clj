@@ -211,16 +211,20 @@
 (defn get-oauth-app-by-id-and-app-id!
   ([params]
    (get-oauth-app-by-id-and-app-id! (aurora/conn-pool :read) params))
-  ([conn {:keys [app-id oauth-app-id] :as params}]
-   (ex/assert-record! (sql/select-one ::get-oauth-app-by-id-and-app-id!
-                                      conn
-                                      (hsql/format {:select :*
-                                                    :from :instant-oauth-apps
-                                                    :where [:and
-                                                            [:= :app-id app-id]
-                                                            [:= :id oauth-app-id]]}))
-                      :oauth-app
-                      {:args [params]})))
+  ([conn {:keys [app-id
+                 oauth-app-id-unverified]}]
+   (let [q {:select :*
+            :from :instant-oauth-apps
+            :where [:and
+                    [:= :app-id app-id]
+                    [:= :id oauth-app-id-unverified]]}]
+     (-> (sql/select-one ::get-oauth-app-by-id-and-app-id!
+                         conn
+                         (hsql/format q))
+         (ex/assert-record!
+          :oauth-app
+          {:args [{:app-id app-id
+                   :oauth-app-id oauth-app-id-unverified}]})))))
 
 (defn get-oauth-app-by-client-id-and-app-id!
   ([params]
@@ -263,7 +267,7 @@
   ([conn {:keys [client-id] :as params}]
    (ex/assert-record! (get-client-and-app-by-client-id conn {:client-id client-id})
                       :oauth-app-client
-                      {:args [params]})))
+                      {:args [{:client-id client-id}]})))
 
 (defn get-client-by-client-id-and-secret!
   ([params]
@@ -322,8 +326,8 @@
             :returning :*}
          record (-> (sql/execute-one! conn (hsql/format q))
                     (ex/assert-record! :oauth-app-client-secrets
-                                       {:app-id app-id
-                                        :client-id client-id}))]
+                                       {:args [{:app-id app-id
+                                                :client-id client-id}]}))]
      {:record record
       :secret-value client-secret})))
 
@@ -348,8 +352,8 @@
             :returning :*}]
      (-> (sql/execute-one! conn (hsql/format q))
          (ex/assert-record! :oauth-app-client-secrets
-                            {:app-id app-id
-                             :client-secret-id client-secret-id})))))
+                            {:args [{:app-id app-id
+                                     :client-secret-id client-secret-id}]})))))
 
 (defn create-client
   "Creates a client and a secret, returns them both, plus the secret value that
@@ -411,7 +415,7 @@
   ([params]
    (update-app! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id
-                 oauth-app-id
+                 oauth-app-id-unverified
                  app-name
                  authorized-domains
                  support-email
@@ -430,12 +434,11 @@
                    app-logo (assoc :app-logo app-logo))
             :where [:and
                     [:= :app-id app-id]
-                    [:= :id oauth-app-id]]
+                    [:= :id oauth-app-id-unverified]]
             :returning :*}]
      (-> (sql/execute-one! ::update-app conn (hsql/format q))
-         ;; DDDD: all of the assert-record! should have :args
-         (ex/assert-record! :oauth-app {:app-id app-id
-                                        :oauth-app-id oauth-app-id})))))
+         (ex/assert-record! :oauth-app {:args [{:app-id app-id
+                                                :oauth-app-id oauth-app-id-unverified}]})))))
 
 (defn delete-app!
   ([params]
@@ -449,8 +452,8 @@
                     [:= :id oauth-app-id-unverified]]
             :returning :*}]
      (-> (sql/execute-one! ::delete-app! conn (hsql/format q))
-         (ex/assert-record! :oauth-app {:args {:app-id app-id
-                                               :oauth-app-id oauth-app-id-unverified}})))))
+         (ex/assert-record! :oauth-app {:args [{:app-id app-id
+                                                :oauth-app-id oauth-app-id-unverified}]})))))
 
 (defn update-client!
   "Updates app, uses the app-id (an Instant app id) as the check that the user
@@ -489,8 +492,8 @@
                                            [:= :client.client-id client-id-unverified]]}]
             :returning :*}]
      (-> (sql/execute-one! ::update-client! conn (hsql/format q))
-         (ex/assert-record! :oauth-client {:args {:app-id app-id
-                                                  :client-i client-id-unverified}})))))
+         (ex/assert-record! :oauth-client {:args [{:app-id app-id
+                                                   :client-id client-id-unverified}]})))))
 
 (defn delete-client!
   ([params]
@@ -508,8 +511,8 @@
                                            [:= :client.client-id client-id-unverified]]}]
             :returning :*}]
      (-> (sql/execute-one! ::delete-client! conn (hsql/format q))
-         (ex/assert-record! :oauth-client {:args {:app-id app-id
-                                                  :client-id client-id-unverified}})))))
+         (ex/assert-record! :oauth-client {:args [{:app-id app-id
+                                                   :client-id client-id-unverified}]})))))
 
 ;; OAuth flow
 ;; ----------
@@ -652,12 +655,11 @@
             :returning :*}
          record (sql/execute-one! ::claim-code! conn (hsql/format q))]
      (-> record
-         (ex/assert-record! :oauth-code {:code code})
+         (ex/assert-record! :oauth-code {:args [{:code code}]})
          (assert-not-expired! :oauth-code)))))
 
 (def refresh-token-limit 5)
 
-;; DDD: tracer
 (defn remove-old-refresh-tokens
   ([params]
    (remove-old-refresh-tokens (aurora/conn-pool :write) params))
