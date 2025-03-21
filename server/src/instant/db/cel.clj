@@ -340,16 +340,14 @@
     (:view :delete) cel-view-delete-compiler
     cel-create-update-compiler))
 
-(defn ->ast2 [^CelCompiler compiler expr-str] (.getAst (.compile compiler expr-str)))
-(defn ->program2 [^CelRuntime runtime ^CelAbstractSyntaxTree ast] (.createProgram runtime ast))
+(defn ->ast [^CelCompiler compiler expr-str] (.getAst (.compile compiler expr-str)))
 
-(defn ->ast [expr-str] (.getAst (.compile cel-create-update-compiler expr-str)))
 (defn ->program [ast] (.createProgram cel-runtime ast))
 
 (defn rule->program [action expr-str]
   (let [compiler (action->compiler action)
-        ast (->ast2 compiler expr-str)]
-    (->program2 cel-runtime ast)))
+        ast (->ast compiler expr-str)]
+    (->program ast)))
 
 (defn eval-program!
   [{:keys [cel-program etype action]} bindings]
