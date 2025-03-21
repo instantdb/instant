@@ -3,13 +3,14 @@
    [clj-reload.core :as reload]
    [clojure+.error]
    [clojure+.print]
-   [eftest.runner :as eftest]
+   [clojure+.test]
    [tool]))
 
 (.doReset #'*warn-on-reflection* true)
 
-(clojure+.print/install!)
 (clojure+.error/install!)
+(clojure+.print/install!)
+(clojure+.test/install!)
 
 (reload/init
  {:dirs ["src" "dev" "test"]
@@ -21,6 +22,4 @@
 
 (defn test-all []
   (reload/reload {:only #"instant\..*-test"})
-  (-> (reload/find-namespaces #"instant\..*-test")
-      (eftest/find-tests)
-      (eftest/run-tests {:multithread? false})))
+  (clojure+.test/run))
