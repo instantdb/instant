@@ -27,8 +27,7 @@
    [instant.storage.s3 :as instant-s3]
    [clojure.walk :as w]
    [instant.reactive.ephemeral :as eph]
-   [medley.core :as medley]
-   [instant.util.coll :as ucoll])
+   [medley.core :as medley])
   (:import
    (java.util UUID)))
 
