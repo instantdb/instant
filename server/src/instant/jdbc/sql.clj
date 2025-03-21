@@ -51,7 +51,7 @@
   "Transforms Clojure data to a PGobject that contains the data as
   JSON. PGObject type defaults to `jsonb` but can be changed via
   metadata key `:pgtype`"
-  [x]
+  ^PGobject [x]
   (let [pgtype (or (:pgtype (meta x)) "jsonb")
         value (case pgtype
                 "text[]" (->pg-text-array x)
@@ -333,7 +333,7 @@
            (mapcat vals)
            (string/join "\n"))))
 
-(defn start-pool [config]
+(defn start-pool ^HikariDataSource [config]
   (let [url (connection/jdbc-url config)
         pool (connection/->pool HikariDataSource (assoc config :jdbcUrl url))]
     (.close (next-jdbc/get-connection pool))

@@ -2,18 +2,19 @@
   "Job to ping discord with daily active metrics. We also use this job to
   populate the daily_app_transactions table with new transactions."
   (:require
-   [instant.jdbc.aurora :as aurora]
-   [instant.util.date :as date]
-   [clojure.tools.logging :as log]
-   [instant.discord :as discord]
    [chime.core :as chime-core]
-   [instant.flags :refer [get-emails]]
+   [clojure.tools.logging :as log]
    [instant.config :as config]
-   [instant.jdbc.sql :as sql]
+   [instant.discord :as discord]
+   [instant.flags :refer [get-emails]]
    [instant.grab :as grab]
-   [instant.intern.metrics :as metrics])
+   [instant.intern.metrics :as metrics]
+   [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
+   [instant.util.date :as date]
+   [instant.util.lang :as lang])
   (:import
-   (java.time Instant Period LocalDate DayOfWeek)))
+   (java.time Instant Period LocalDate DayOfWeek ZonedDateTime)))
 
 (defn excluded-emails []
   (let [{:keys [test team friend]} (get-emails)]
@@ -95,7 +96,7 @@
 (defn daily-job!
   [^Instant date]
   (let [date-minus-one (-> date (.minus (Period/ofDays 1)))
-        date-fn (fn [x] (date/numeric-date-str (.atZone x date/pst-zone)))
+        date-fn (fn [^Instant x] (date/numeric-date-str (.atZone x date/pst-zone)))
         ;; We run this job for a particular day
         date-str (date-fn date)
         ;; But report the metrics for the previous day since we don't
@@ -132,21 +133,21 @@
                       nine-am-pst
                       (Period/ofDays 1))]
     (->> periodic-seq
-         (filter (fn [x] (.isAfter x now)))
+         (filter (fn [x] (ZonedDateTime/.isAfter x now)))
          ;; Only run on weekdays
          (filter (fn [x]
-                   (let [day-of-week (.getDayOfWeek x)]
+                   (let [day-of-week (ZonedDateTime/.getDayOfWeek x)]
                      (and
                       (not= day-of-week DayOfWeek/SATURDAY)
                       (not= day-of-week DayOfWeek/SUNDAY))))))))
 
 (defn start []
   (log/info "Starting daily metrics daemon")
-  (def schedule (chime-core/chime-at (period) daily-job!)))
+  (def schedule
+    (chime-core/chime-at (period) daily-job!)))
 
 (defn stop []
-  (when (bound? #'schedule)
-    (.close schedule)))
+  (lang/close schedule))
 
 (defn restart []
   (stop)

@@ -40,6 +40,7 @@
    [instant.util.async :as ua]
    [instant.util.crypt :as crypt-util]
    [instant.util.http :as http-util]
+   [instant.util.lang :as lang]
    [instant.util.tracer :as tracer]
    [instant.app-deletion-sweeper :as app-deletion-sweeper]
    [ring.middleware.cookies :refer [CookieDateTime]]
@@ -50,6 +51,7 @@
    [ring.middleware.params :refer [wrap-params]]
    [instant.storage.s3 :as storage-s3])
   (:import
+   (clojure.lang IFn)
    (io.undertow Undertow UndertowOptions Undertow$Builder Undertow$ListenerInfo)
    (java.text SimpleDateFormat)
    (java.util Locale TimeZone)))
@@ -135,61 +137,75 @@
                          :access-control-allow-methods [:get :put :post :delete])
               (http-util/tracer-wrap-span))))
 
+(defonce ^Undertow server
+  nil)
+
+(defonce stop-gauge
+  nil)
+
 (defn start []
   (tracer/record-info! {:name "server/start" :attributes {:port (config/get-server-port)}})
-  (def server ^Undertow (undertow-adapter/run-undertow
-                         (handler)
-                         (merge
-                          {:host "0.0.0.0"
-                           :port (config/get-server-port)
-                           :configurator (fn [^Undertow$Builder builder]
-                                           (.setServerOption builder UndertowOptions/ENABLE_STATISTICS true))}
-                          (when (.exists (io/file "dev-resources/certs/dev.jks"))
-                            {:ssl-port 8889
-                             :keystore "dev-resources/certs/dev.jks"
-                             :key-password "changeit"}))))
-  (def stop-gauge (gauges/add-gauge-metrics-fn
-                   (fn [_]
-                     (let [^Undertow server server
-                           ^Undertow$ListenerInfo listener (some-> server
-                                                                   (.getListenerInfo)
-                                                                   first)]
-                       (when-let [stats (some-> listener
-                                                (.getConnectorStatistics))]
-                         [{:path "instant.server.active-connections"
-                           :value (.getActiveConnections stats)}
-                          {:path "instant.server.active-requests"
-                           :value (.getActiveRequests stats)}
-                          {:path "instant.server.max-active-connections"
-                           :value (.getMaxActiveConnections stats)}
-                          {:path "instant.server.max-active-requests"
-                           :value (.getMaxActiveRequests stats)}
-                          {:path "instant.server.max-processing-time"
-                           :value (.getMaxProcessingTime stats)}]))))))
+  (lang/set-var! server
+    (undertow-adapter/run-undertow
+     (handler)
+     (merge
+      {:host "0.0.0.0"
+       :port (config/get-server-port)
+       :configurator (fn [^Undertow$Builder builder]
+                       (.setServerOption builder UndertowOptions/ENABLE_STATISTICS true))}
+      (when (.exists (io/file "dev-resources/certs/dev.jks"))
+        {:ssl-port 8889
+         :keystore "dev-resources/certs/dev.jks"
+         :key-password "changeit"}))))
+  (lang/set-var! stop-gauge
+    (gauges/add-gauge-metrics-fn
+     (fn [_]
+       (let [^Undertow server server
+             ^Undertow$ListenerInfo listener (some-> server
+                                                     (.getListenerInfo)
+                                                     first)]
+         (when-let [stats (some-> listener
+                                  (.getConnectorStatistics))]
+           [{:path "instant.server.active-connections"
+             :value (.getActiveConnections stats)}
+            {:path "instant.server.active-requests"
+             :value (.getActiveRequests stats)}
+            {:path "instant.server.max-active-connections"
+             :value (.getMaxActiveConnections stats)}
+            {:path "instant.server.max-active-requests"
+             :value (.getMaxActiveRequests stats)}
+            {:path "instant.server.max-processing-time"
+             :value (.getMaxProcessingTime stats)}]))))))
 
 (defn stop []
-  (when (bound? #'server)
-    (.stop ^Undertow server))
-  (when (bound? #'stop-gauge)
-    (stop-gauge)))
+  (lang/clear-var! server Undertow/.stop)
+  (lang/clear-var! stop-gauge IFn/.invoke))
 
 (defn restart []
   (stop)
   (start))
 
+(defn shutdown-hook []
+  (tracer/record-info! {:name "shut-down"})
+  (tracer/with-span! {:name "stop-server"}
+    (stop))
+  @(ua/all-of
+    (future
+      (tracer/with-span! {:name "stop-invalidator"}
+        (inv/stop-global)))
+    (future
+      (tracer/with-span! {:name "stop-ephemeral"}
+        (eph/stop)))
+    (future
+      (tracer/with-span! {:name "stop-indexing-jobs"}
+        (indexing-jobs/stop)))))
+
 (defn add-shutdown-hook []
-  (.addShutdownHook (Runtime/getRuntime)
-                    (Thread. (fn []
-                               (tracer/record-info! {:name "shut-down"})
-                               (tracer/with-span! {:name "stop-server"}
-                                 (stop))
-                               (doseq [fut [(future (tracer/with-span! {:name "stop-invalidator"}
-                                                      (inv/stop-global)))
-                                            (future (tracer/with-span! {:name "stop-ephemeral"}
-                                                      (eph/stop)))
-                                            (future (tracer/with-span! {:name "stop-indexing-jobs"}
-                                                      (indexing-jobs/stop)))]]
-                                 (deref fut))))))
+  (.addShutdownHook
+   (Runtime/getRuntime)
+   (Thread.
+    (fn []
+      (@(resolve 'instant.core/shutdown-hook))))))
 
 (defmacro with-log-init [operation & body]
   `(do
@@ -201,11 +217,10 @@
 
 (defn -main [& _args]
   (binding [*print-namespace-maps* false]
-    (log/info "Starting")
+    (log/info "Initializing...")
     (let [{:keys [aead-keyset]} (config/init)]
       (crypt-util/init aead-keyset))
 
-    (log/info "Init tracer")
     (tracer/init)
 
     (with-log-init :uncaught-exception-handler
@@ -237,7 +252,7 @@
     (with-log-init :invalidator
       (inv/start-global))
     (with-log-init :wal
-      (wal/init))
+      (wal/start))
 
     (when-let [config-app-id (config/instant-config-app-id)]
       (with-log-init :flags
@@ -268,7 +283,7 @@
       (start))
     (with-log-init :shutdown-hook
       (add-shutdown-hook))
-    (log/info "Finished init")))
+    (log/info "Finished initializing")))
 
 (defn before-ns-unload []
   (stop))

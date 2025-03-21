@@ -17,6 +17,7 @@
   (:import
    (clojure.lang Compiler TaggedLiteral)
    (com.github.vertical_blank.sqlformatter SqlFormatter)
+   (com.zaxxer.hikari HikariDataSource)
    (java.util UUID)))
 
 (defmacro def-locals*
@@ -133,7 +134,7 @@
                                           (swap! idx inc)
                                           (str (cond
                                                  (int? v) (format "%s" v)
-                                                 (string? v) (format "'%s'" (-> v
+                                                 (string? v) (format "'%s'" (-> ^String v
                                                                                 (.replace "'" "''")))
                                                  (= "uuid[]"
                                                     (-> v
@@ -152,7 +153,7 @@
                                                (if (uuid? v)
                                                  "::uuid"
                                                  "")))))
-        sql-pretty
+        ^String sql-pretty
         ;; Fix a bug with the pretty printer where the || operator gets a space
         (.replace "| |" "||"))))
 
@@ -309,5 +310,5 @@
                          :database-cluster-id)
          rds-cluster-id->db-config# (requiring-resolve 'instant.aurora-config/rds-cluster-id->db-config)
          start-pool# (requiring-resolve 'instant.jdbc.aurora/start-pool)]
-     (with-open [~conn-name (start-pool# 1 (rds-cluster-id->db-config# cluster-id#))]
+     (with-open [~conn-name ^HikariDataSource (start-pool# 1 (rds-cluster-id->db-config# cluster-id#))]
        ~@body)))

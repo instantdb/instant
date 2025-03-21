@@ -23,7 +23,9 @@
 ;; Used to mute `add-exception!` from the outside when the caller expects errors
 (def ^:dynamic *silence-exceptions?* nil)
 
-(defonce tracer (atom nil))
+(defonce tracer
+  (atom nil))
+
 (defn get-tracer ^SdkTracer []
   (if-let [t @tracer]
     t

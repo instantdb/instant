@@ -10,7 +10,7 @@
   (:import (java.io BufferedReader InputStreamReader)
            (sun.misc Signal SignalHandler)))
 
-(defn read-input []
+(defn read-input ^String []
   (let [reader (BufferedReader. (InputStreamReader. System/in))]
     (.readLine reader)))
 

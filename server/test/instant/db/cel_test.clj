@@ -11,7 +11,7 @@
 
 (deftest test-standard-macros
   (testing "STANDARD_MACROS set contains expected macros"
-    (let [standard-macros (set (map #(.getFunction %) (CelStandardMacro/STANDARD_MACROS)))
+    (let [standard-macros (set (map #(CelStandardMacro/.getFunction %) CelStandardMacro/STANDARD_MACROS))
           expected-macros #{"has" "all" "exists" "exists_one" "map" "filter"}]
       (is (every? standard-macros expected-macros)))))
 
@@ -43,6 +43,15 @@
         bindings {"data" (cel/->cel-map {} {"isFavorite" false})}]
     (is (true? (cel/eval-program! {:cel-program program} bindings)))))
 
+(deftest unknown-values-are-not-allowed
+  (let [program (cel/->program (cel/->ast "newData.isFavorite"))
+        bindings {} ;; note! newData is not provided
+        ]
+    (is (thrown-with-msg?
+         Throwable
+         #"Could not evaluate permission rule"
+         (cel/eval-program! {:cel-program program} bindings)))))
+
 (defn dummy-attrs [specs]
   (attr-model/wrap-attrs (mapv (fn [{:keys [etype field index? checked-data-type]}]
                                  {:id (random-uuid)
@@ -65,7 +74,6 @@
                               (testing (str "ensure no short-circuit? on " code)
                                 (is (false? (:short-circuit? res))))
                               (:where-clauses res)))]
-
 
     (is (= {"members.id" "__auth.id__"}
            (get-where-clauses [] "cel.bind(member, auth.id in data.ref(\"members.id\"), member)")))
@@ -139,7 +147,7 @@
                 fields
                 "cel.bind(isDeleted, data.deleted_at == null || (data.deleted_at != null && !data.undeleted), isDeleted)")))))
 
-    (doseq [[bad-code msg] [ ;; Can't handle size, but maybe we could do something to check empty
+    (doseq [[bad-code msg] [;; Can't handle size, but maybe we could do something to check empty
                             ["size(data) == 0",
                              #"size"]
 
@@ -212,7 +220,6 @@
                                                        :field "adminUserIds"}])
                                            "etype"
                                            code))))))))
-
 
 (deftest where-clauses-with-auth-ref
   (with-zeneca-app

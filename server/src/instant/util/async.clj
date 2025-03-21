@@ -252,3 +252,8 @@
                           (name chan-name))
             :value (a-impl/full? buf)}])))
      chan)))
+
+(defn all-of [& futures]
+  (future
+    (doseq [f futures]
+      (deref f))))

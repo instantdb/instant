@@ -2,7 +2,9 @@
   (:require
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql])
-  (:import (com.stripe.model Customer)))
+  (:import
+   (com.stripe.model Customer)
+   (java.util Map)))
 
 (defn- create!
   ([params] (create! (aurora/conn-pool :write) params))
@@ -12,7 +14,7 @@
          with-email (if email
                       (assoc opts "email" email)
                       opts)
-         customer (Customer/create with-email)
+         customer (Customer/create ^Map with-email)
          customer-id (.getId customer)]
      (sql/execute-one! conn
                        ["INSERT INTO instant_stripe_customers (id, user_id) VALUES (?, ?::uuid)

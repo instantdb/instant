@@ -6,7 +6,10 @@
             [instant.util.exception :as ex]
             [instant.db.cel :as cel]
             [instant.model.app-upload-url :as app-upload-url-model]
-            [instant.config :as config]))
+            [instant.config :as config])
+  (:import
+   (java.time Instant)
+   (java.util Date)))
 
 (defn assert-storage-permission! [action {:keys [app-id
                                                  path
@@ -91,7 +94,7 @@
   (let [{app-id :app_id path :path expired-at :expired_at}
         (app-upload-url-model/consume! {:upload-id upload-id})]
     (when (or (not expired-at)
-              (.isBefore (.toInstant expired-at) (java.time.Instant/now)))
+              (.isBefore (Date/.toInstant expired-at) (Instant/now)))
       (throw (ex/throw-validation-err!
               :app-upload-url
               upload-id

@@ -1,15 +1,16 @@
 (ns instant.scripts.analytics
   (:require
-   [instant.jdbc.sql :as sql]
-   [instant.util.date :as date]
-   [instant.jdbc.aurora :as aurora]
-   [instant.postmark :as postmark]
-   [instant.flags :refer [get-emails]]
    [chime.core :as chime-core]
    [clojure.tools.logging :as log]
-   [instant.grab :as grab])
+   [instant.flags :refer [get-emails]]
+   [instant.grab :as grab]
+   [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
+   [instant.postmark :as postmark]
+   [instant.util.date :as date]
+   [instant.util.lang :as lang])
   (:import
-   (java.time LocalDate Period Instant)))
+   (java.time LocalDate Period Instant ZonedDateTime)))
 
 (defn get-num-users
   "Total number of users, -2 for stopa, joe, and testuser"
@@ -163,7 +164,7 @@
                       (Period/ofDays 1))]
 
     (->> periodic-seq
-         (filter (fn [x] (.isAfter x now))))))
+         (filter (fn [x] (ZonedDateTime/.isAfter x now))))))
 
 (defn handle-email [_]
   (let [date-str (date/numeric-date-str (LocalDate/now))]
@@ -178,11 +179,11 @@
 
 (defn start []
   (log/info "Starting analytics daemon")
-  (def schedule (chime-core/chime-at (period) handle-email)))
+  (def schedule
+    (chime-core/chime-at (period) handle-email)))
 
 (defn stop []
-  (when schedule
-    (.close schedule)))
+  (lang/close schedule))
 
 (defn restart []
   (stop)
