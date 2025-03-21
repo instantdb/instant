@@ -259,7 +259,7 @@
 (defn get-client-and-app-by-client-id!
   ([params]
    (get-client-and-app-by-client-id! (aurora/conn-pool :read) params))
-  ([conn {:keys [client-id] :as params}]
+  ([conn {:keys [client-id]}]
    (ex/assert-record! (get-client-and-app-by-client-id conn {:client-id client-id})
                       :oauth-app-client
                       {:args [{:client-id client-id}]})))

@@ -278,9 +278,9 @@
   (let [span-name (format "sql/%s" name)]
     `(defn ~name
        ([~'conn ~'query]
-        (~name nil ~'conn ~'query))
-       ([~'tag ~'conn ~'query]
         (~name nil ~'conn ~'query nil))
+       ([~'tag ~'conn ~'query]
+        (~name ~'tag ~'conn ~'query nil))
        ([~'tag ~'conn ~'query ~'additional-opts]
         (tracer/with-span! {:name ~span-name
                             :attributes (span-attrs ~'conn ~'query ~'tag ~'additional-opts)}
