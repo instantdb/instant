@@ -10,12 +10,9 @@ import {
   Content,
   redactedValue,
 } from '@/components/ui';
-import { friendlyErrorMessage, useAuthedFetch, useAuthToken } from '@/lib/auth';
+import { useAuthedFetch, useAuthToken } from '@/lib/auth';
 import { messageFromInstantError } from '@/lib/errors';
-import config, {
-  discordInviteUrl,
-  discordOAuthAppsFeedbackInviteUrl,
-} from '@/lib/config';
+import config, { discordOAuthAppsFeedbackInviteUrl } from '@/lib/config';
 import { jsonFetch } from '@/lib/fetch';
 import {
   InstantError,
@@ -46,8 +43,6 @@ import { encode } from 'querystring';
 import Link from 'next/link';
 import clsx from 'clsx';
 import format from 'date-fns/format';
-
-import { Collapsible } from '@radix-ui/react-collapsible';
 
 // API Functions
 // -------------
