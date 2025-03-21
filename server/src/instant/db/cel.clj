@@ -304,16 +304,24 @@
 
 ;; n.b. if you edit something here, make sure you make the
 ;;      equivalent change to iql-cel-compiler below
-(def ^:private ^CelCompiler cel-compiler
+
+(def ^:private runtime-compiler-builder
   (-> (CelCompilerFactory/standardCelCompilerBuilder)
       (.addVar "data" type-obj)
       (.addVar "auth" type-obj)
       (.addVar "ruleParams" type-obj)
-      (.addVar "newData" type-obj)
       (.addFunctionDeclarations (ucoll/array-of CelFunctionDecl custom-fn-decls))
       (.setOptions cel-options)
       (.setStandardMacros CelStandardMacro/STANDARD_MACROS)
-      (.addLibraries (ucoll/array-of CelCompilerLibrary [(CelExtensions/bindings) (CelExtensions/strings)]))
+      (.addLibraries (ucoll/array-of CelCompilerLibrary [(CelExtensions/bindings) (CelExtensions/strings)]))))
+
+(def ^:private cel-view-delete-compiler
+  (-> runtime-compiler-builder
+      (.build)))
+
+(def ^:private ^CelCompiler cel-create-update-compiler
+  (-> runtime-compiler-builder
+      (.addVar "newData" type-obj)
       (.build)))
 
 ;; n.b. if you edit something here, make sure you make the
@@ -327,8 +335,21 @@
         (.setOptions cel-options)
         (.build))))
 
-(defn ->ast [expr-str] (.getAst (.compile cel-compiler expr-str)))
+(defn action->compiler [action]
+  (case action
+    (:view :delete) cel-view-delete-compiler
+    cel-create-update-compiler))
+
+(defn ->ast2 [^CelCompiler compiler expr-str] (.getAst (.compile compiler expr-str)))
+(defn ->program2 [^CelRuntime runtime ^CelAbstractSyntaxTree ast] (.createProgram runtime ast))
+
+(defn ->ast [expr-str] (.getAst (.compile cel-create-update-compiler expr-str)))
 (defn ->program [ast] (.createProgram cel-runtime ast))
+
+(defn rule->program [action expr-str]
+  (let [compiler (action->compiler action)
+        ast (->ast2 compiler expr-str)]
+    (->program2 cel-runtime ast)))
 
 (defn eval-program!
   [{:keys [cel-program etype action]} bindings]
@@ -916,7 +937,7 @@
       (.addVar "auth" type-obj)
       (.addFunctionDeclarations (ucoll/array-of CelFunctionDecl where-custom-fn-decls))
       (.setOptions where-cel-options)
-      (.setStandardMacros (CelStandardMacro/STANDARD_MACROS))
+      (.setStandardMacros CelStandardMacro/STANDARD_MACROS)
       (.addLibraries (ucoll/array-of CelCompilerLibrary [(CelExtensions/bindings) (CelExtensions/strings)]))
       (.build)))
 
@@ -1152,7 +1173,7 @@
                              "auth.ref arg must start with `$user.`"))))))))))
 
 (defn validation-errors [^CelAbstractSyntaxTree ast]
-  (-> (CelValidatorFactory/standardCelValidatorBuilder cel-compiler
+  (-> (CelValidatorFactory/standardCelValidatorBuilder cel-create-update-compiler
                                                        cel-runtime)
       (.addAstValidators (ucoll/array-of CelAstValidator [auth-ref-validator]))
       (.build)
@@ -1171,8 +1192,7 @@
             :app-id zeneca-app-id
             :datalog-query-fn d/query
             :attrs attrs})
-  (let [ast (->ast "data.ref('users.handle').exists_one(x, x == 'alex')")
-        program (->program ast)
+  (let [program (rule->program :view "data.ref('users.handle').exists_one(x, x == 'alex')")
         result
         (eval-program! {:cel-program program} {"auth" (->cel-map {} {"email" "stopa@instantdb.com"})
                                                "data" (->cel-map {:ctx ctx
