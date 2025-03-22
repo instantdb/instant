@@ -979,7 +979,11 @@ function App({ app }: { app: OAuthApp }) {
   const handleDelete = async () => {
     try {
       setDeleting(true);
-      const resp = await deleteOAuthApp({ token: token, appId, oauthAppId: app.id });
+      const resp = await deleteOAuthApp({
+        token: token,
+        appId,
+        oauthAppId: app.id,
+      });
       if (!resp.app) {
         errorToast('Error deleting OAuth app');
         return;
