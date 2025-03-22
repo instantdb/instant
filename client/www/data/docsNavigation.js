@@ -57,6 +57,8 @@ module.exports = [
       { title: 'Custom emails', href: '/docs/emails' },
       { title: 'App teams', href: '/docs/teams' },
       { title: 'Storage', href: '/docs/storage' },
+      { title: 'Using LLMs', href: '/docs/llms' },
+
     ],
   },
 ];

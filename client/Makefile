@@ -13,6 +13,10 @@ index-docs-manual:
 	@echo "Manual indexing..."
 	pnpm exec tsx ./www/scripts/index-docs.ts
 
+llmstxt:
+	@echo "Combining public/guides into llms.txt..."
+	cat www/public/guides/*.md > www/public/llms.txt
+
 publish:
 	@echo "Building + Publishing Packages..."
 	./scripts/publish_packages.clj
