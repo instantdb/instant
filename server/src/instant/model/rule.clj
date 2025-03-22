@@ -197,7 +197,7 @@
                                ast (cel/->ast compiler expr)
                                ;; create the program to see if it throws
                                _program (cel/->program ast)
-                               errors (cel/validation-errors ast)]
+                               errors (cel/validation-errors compiler ast)]
                            (when (seq errors)
                              (format-errors etype action errors))))
                        (catch CelValidationException e

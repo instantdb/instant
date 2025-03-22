@@ -1172,8 +1172,8 @@
                                (.id expr))
                              "auth.ref arg must start with `$user.`"))))))))))
 
-(defn validation-errors [^CelAbstractSyntaxTree ast]
-  (-> (CelValidatorFactory/standardCelValidatorBuilder cel-create-update-compiler
+(defn validation-errors [^CelCompiler compiler ^CelAbstractSyntaxTree ast]
+  (-> (CelValidatorFactory/standardCelValidatorBuilder compiler
                                                        cel-runtime)
       (.addAstValidators (ucoll/array-of CelAstValidator [auth-ref-validator]))
       (.build)
