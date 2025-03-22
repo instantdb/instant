@@ -202,7 +202,7 @@
   ([] (dashboard-origin {:env (get-env)}))
   ([{:keys [env]}]
    (case env
-     :prod "https://instantdb.com"
+     :prod "https://www.instantdb.com"
      "http://localhost:3000")))
 
 (defn get-connection-pool-size []
