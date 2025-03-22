@@ -279,7 +279,8 @@
     (let [update-count (.getUpdateCount ps)]
       (when (not= -1 update-count)
         (tracer/add-data! {:attributes
-                           {:update-count update-count}})))))
+                           {:update-count update-count}})))
+    (catch Throwable _e nil)))
 
 (defmacro defsql [name query-fn rw opts]
   (let [span-name (format "sql/%s" name)]
