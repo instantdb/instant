@@ -96,26 +96,25 @@
 
 (defn default-program [etype action]
   (when (contains? system-catalog/all-etypes etype)
-    (let [compiler (cel/action->compiler action)]
-      (if (and (= "$users" etype)
-               (= "view" action))
-        (let [code "auth.id == data.id"
-              ast (cel/->ast compiler code)]
-          {:etype etype
-           :action action
-           :code code
-           :display-code code
-           :cel-ast ast
-           :cel-program (cel/->program ast)})
-        (let [display-code (format "disallow_%s_on_system_tables" action)
-              code "false"
-              ast (cel/->ast compiler code)]
-          {:etype etype
-           :action action
-           :display-code display-code
-           :code code
-           :cel-ast ast
-           :cel-program (cel/->program ast)})))))
+    (if (and (= "$users" etype)
+             (= "view" action))
+      (let [code "auth.id == data.id"
+            ast (cel/->ast code)]
+        {:etype etype
+         :action action
+         :code code
+         :display-code code
+         :cel-ast ast
+         :cel-program (cel/->program ast)})
+      (let [display-code (format "disallow_%s_on_system_tables" action)
+            code "false"
+            ast (cel/->ast code)]
+        {:etype etype
+         :action action
+         :display-code display-code
+         :code code
+         :cel-ast ast
+         :cel-program (cel/->program ast)}))))
 
 (defn get-program! [rules etype action]
   (or
@@ -124,8 +123,7 @@
        (let [code (with-binds (:code rules) etype expr)
              ;; Don't bork if the perm check is a simple boolean
              code-str (if (boolean? code) (str code) code)
-             compiler (cel/action->compiler action)
-             ast (cel/->ast compiler code-str)]
+             ast (cel/->ast code-str)]
          {:etype etype
           :action action
           :code code-str
@@ -193,11 +191,10 @@
                      (system-attribute-validation-errors etype action)
                      (try
                        (when-let [expr (extract rules etype action)]
-                         (let [compiler (cel/action->compiler action)
-                               ast (cel/->ast compiler expr)
+                         (let [ast (cel/->ast expr)
                                ;; create the program to see if it throws
                                _program (cel/->program ast)
-                               errors (cel/validation-errors compiler ast)]
+                               errors (cel/validation-errors ast)]
                            (when (seq errors)
                              (format-errors etype action errors))))
                        (catch CelValidationException e

@@ -7,8 +7,7 @@
             [instant.db.cel :as cel]
             [instant.db.datalog :as d]
             [instant.db.transaction :as tx])
-  (:import (dev.cel.parser CelStandardMacro)
-           (dev.cel.common CelValidationException)))
+  (:import (dev.cel.parser CelStandardMacro)))
 
 (deftest test-standard-macros
   (testing "STANDARD_MACROS set contains expected macros"
@@ -18,48 +17,35 @@
 
 (deftest test-cel-evaluation
   (testing "Evaluation of CEL expressions with standard macros"
-    (let [program (cel/rule->program :view "has({'name': 'Alice'}.name)")]
+    (let [program (cel/->program (cel/->ast "has({'name': 'Alice'}.name)"))]
       (is (true? (cel/eval-program! {:cel-program program} {}))))
 
-    (let [program (cel/rule->program :delete "[1, 2, 3].all(x, x > 0)")]
+    (let [program (cel/->program (cel/->ast "[1, 2, 3].all(x, x > 0)"))]
       (is (true? (cel/eval-program! {:cel-program program} {}))))
 
-    (let [program (cel/rule->program :update "[1, 2, 3].exists(x, x > 2)")]
+    (let [program (cel/->program (cel/->ast "[1, 2, 3].exists(x, x > 2)"))]
       (is (true? (cel/eval-program! {:cel-program program} {}))))
 
-    (let [program (cel/rule->program :create "[1, 2, 3].exists_one(x, x > 2)")]
+    (let [program (cel/->program (cel/->ast "[1, 2, 3].exists_one(x, x > 2)"))]
       (is (true? (cel/eval-program! {:cel-program program} {}))))
 
-    (let [program (cel/rule->program :view "[1, 2, 3].map(x, x * 2)")]
+    (let [program (cel/->program (cel/->ast "[1, 2, 3].map(x, x * 2)"))]
       (is (= [2 4 6] (cel/eval-program! {:cel-program program} {}))))
 
-    (let [program (cel/rule->program :view "[1, 2, 3, 4].filter(x, x % 2 == 0)")]
+    (let [program (cel/->program (cel/->ast "[1, 2, 3, 4].filter(x, x % 2 == 0)"))]
       (is (= [2 4] (cel/eval-program! {:cel-program program} {}))))))
 
 (deftest parse-false-correctly
-  (let [program (cel/rule->program :view "data.isFavorite")
+  (let [program (cel/->program (cel/->ast "data.isFavorite"))
         bindings {"data" (cel/->cel-map {} {"isFavorite" false})}]
     (is (false? (cel/eval-program! {:cel-program program} bindings))))
-  (let [program (cel/rule->program :view "!data.isFavorite")
+  (let [program (cel/->program (cel/->ast "!data.isFavorite"))
         bindings {"data" (cel/->cel-map {} {"isFavorite" false})}]
     (is (true? (cel/eval-program! {:cel-program program} bindings)))))
 
-(deftest view-delete-does-not-allow-newData
-  (is
-   (thrown-with-msg?
-    CelValidationException
-    #"(?i)undeclared reference to 'newData'"
-    (cel/rule->program :view "newData.isFavorite")))
-  (is
-   (thrown-with-msg?
-    CelValidationException
-    #"(?i)undeclared reference to 'newData'"
-    (cel/rule->program :delete "newData.isFavorite"))))
-
-(deftest unknown-results-throw
-  (let [program (cel/rule->program :view "data.isFavorite")
-        bindings {} ;; note! data is not provided. This will cause CEL to return
-                    ;; a CelUnknownSet
+(deftest unknown-values-are-not-allowed
+  (let [program (cel/->program (cel/->ast "newData.isFavorite"))
+        bindings {} ;; note! newData is not provided
         ]
     (is (thrown-with-msg?
          Throwable
