@@ -32,7 +32,8 @@
                          TypeParamType)
    (dev.cel.compiler CelCompiler
                      CelCompilerFactory
-                     CelCompilerLibrary)
+                     CelCompilerLibrary
+                     CelCompilerBuilder)
    (dev.cel.extensions CelExtensions)
    (dev.cel.parser CelStandardMacro
                    CelUnparserFactory
@@ -305,7 +306,7 @@
 ;; n.b. if you edit something here, make sure you make the
 ;;      equivalent change to iql-cel-compiler below
 
-(def ^:private runtime-compiler-builder
+(defn- runtime-compiler-builder ^CelCompilerBuilder []
   (-> (CelCompilerFactory/standardCelCompilerBuilder)
       (.addVar "data" type-obj)
       (.addVar "auth" type-obj)
@@ -316,11 +317,11 @@
       (.addLibraries (ucoll/array-of CelCompilerLibrary [(CelExtensions/bindings) (CelExtensions/strings)]))))
 
 (def ^:private cel-view-delete-compiler
-  (-> runtime-compiler-builder
+  (-> (runtime-compiler-builder)
       (.build)))
 
 (def ^:private ^CelCompiler cel-create-update-compiler
-  (-> runtime-compiler-builder
+  (-> (runtime-compiler-builder)
       (.addVar "newData" type-obj)
       (.build)))
 
@@ -336,8 +337,9 @@
         (.build))))
 
 (defn action->compiler [action]
-  (case action
-    (:view :delete) cel-view-delete-compiler
+  (case (name action)
+    ("view" "delete")
+    cel-view-delete-compiler
     cel-create-update-compiler))
 
 (defn ->ast [^CelCompiler compiler expr-str] (.getAst (.compile compiler expr-str)))
