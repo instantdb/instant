@@ -140,13 +140,15 @@
                                                     (-> v
                                                         meta
                                                         :pgtype)) (format "'%s'"
-                                                                          (->pg-uuid-array v))
+                                                    (->pg-uuid-array v))
 
                                                  (= "text[]"
                                                     (-> v
                                                         meta
                                                         :pgtype)) (format "'%s'"
-                                                                          (->pg-text-array v))
+                                                    (->pg-text-array v))
+                                                 (and (set? v)
+                                                      (every? uuid? v)) (format "'%s'" (->pg-uuid-array v))
                                                  :else (format "'%s'" v))
                                                (if (uuid? v)
                                                  "::uuid"
@@ -277,6 +279,15 @@
    it is evaluated. Dev only"
   [form]
   `(p-impl (p-pos) '~form ~form))
+
+(defmacro inspect
+  "prints the expression '<name> is <value>', and returns the value"
+  [value]
+  `(do
+     (let [name# (quote ~value)
+           result# ~value]
+       (println (pr-str name#) "is" (pr-str result#))
+       result#)))
 
 (defmacro profile [options? & body]
   `(prof/profile ~options? ~body))

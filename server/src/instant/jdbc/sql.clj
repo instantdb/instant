@@ -274,13 +274,21 @@
                              :from :t})))
             (catch Exception _ nil)))))
 
+(defn annotate-update-count [^PreparedStatement ps]
+  (try
+    (let [update-count (.getUpdateCount ps)]
+      (when (not= -1 update-count)
+        (tracer/add-data! {:attributes
+                           {:update-count update-count}})))
+    (catch Throwable _e nil)))
+
 (defmacro defsql [name query-fn rw opts]
   (let [span-name (format "sql/%s" name)]
     `(defn ~name
        ([~'conn ~'query]
-        (~name nil ~'conn ~'query))
-       ([~'tag ~'conn ~'query]
         (~name nil ~'conn ~'query nil))
+       ([~'tag ~'conn ~'query]
+        (~name ~'tag ~'conn ~'query nil))
        ([~'tag ~'conn ~'query ~'additional-opts]
         (tracer/with-span! {:name ~span-name
                             :attributes (span-attrs ~'conn ~'query ~'tag ~'additional-opts)}
@@ -300,7 +308,9 @@
                   (apply-postgres-config postgres-config# create-connection?# c#)
                   (with-open [ps# (next-jdbc/prepare c# query# opts#)
                               _cleanup# (register-in-progress create-connection?# ~rw c# ps#)]
-                    (~query-fn ps# nil opts#))
+                    (let [res# (~query-fn ps# nil opts#)]
+                      (annotate-update-count ps#)
+                      res#))
                   (finally
                     ;; Don't close the connection if a java.sql.Connection was
                     ;; passed in, or we'll end transactions before they're done.

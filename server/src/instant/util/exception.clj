@@ -63,9 +63,9 @@
 ;; Records
 
 (defn throw-expiration-err! [record-type hint]
-  {::type ::record-expired
-   ::message (format "Record expired: %s" (name record-type))
-   ::hint hint})
+  (throw+ {::type ::record-expired
+           ::message (format "Record expired: %s" (name record-type))
+           ::hint hint}))
 
 (defn assert-record! [record record-type hint]
   (when-not record
@@ -374,6 +374,11 @@
    (throw+ {::type ::oauth-error
             ::message message}
            cause)))
+
+(defn throw-missing-scope! [required-scope]
+  (throw+ {::type ::permission-denied
+           ::message (format "You are missing the %s scope" required-scope)
+           ::hint {:required-scope required-scope}}))
 
 ;; --------
 ;; Wrappers

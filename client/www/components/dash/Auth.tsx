@@ -13,6 +13,7 @@ import googleIconSvg from '../../public/img/google_g.svg';
 import Image from 'next/image';
 import { InstantError } from '@/lib/types';
 import { url } from '@/lib/url';
+import { useRouter } from 'next/router';
 
 type State = {
   sentEmail: string | undefined;
@@ -78,6 +79,8 @@ function EmailStep(props: {
   error?: string;
   ticket?: string;
 }) {
+  const router = useRouter();
+
   return (
     <div className="flex flex-col gap-4">
       <form
@@ -119,6 +122,7 @@ function EmailStep(props: {
             href={url(config.apiURI, `/dash/oauth/start`, {
               ticket: props.ticket,
               redirect_to_dev: isDev ? 'true' : undefined,
+              redirect_path: router.asPath,
             })}
           >
             <span className="flex items-center space-x-2">

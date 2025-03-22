@@ -205,6 +205,43 @@ export interface SchemaAttr {
   onDeleteReverse?: 'cascade';
 }
 
+export type OAuthAppClientSecret = {
+  id: string;
+  clientId: string;
+  firstFour: string;
+  createdAt: string;
+};
+
+export type OAuthAppClient = {
+  clientId: string;
+  oauthAppId: string;
+  clientName: string;
+  authorizedRedirectUrls: string[] | null;
+  clientSecrets: OAuthAppClientSecret[] | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type OAuthApp = {
+  id: string;
+  appId: string;
+  appName: string;
+  grantedScopes: string[];
+  isPublic: boolean;
+  supportEmail: string | null;
+  appHomePage: string | null;
+  appPrivacyPolicyLink: string | null;
+  appTosLink: string | null;
+  appLogo: string | null;
+  clients: OAuthAppClient[] | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type OAuthAppsResponse = {
+  apps: OAuthApp[];
+};
+
 export type InstantError = {
   body:
     | { type: 'param-missing'; message: string; hint: { in: string[] } }

@@ -23,6 +23,7 @@
    [instant.lib.ring.undertow :as undertow-adapter]
    [instant.machine-summaries]
    [instant.nrepl :as nrepl]
+   [instant.oauth-apps.routes :as oauth-app-routes]
    [instant.reactive.ephemeral :as eph]
    [instant.reactive.invalidator :as inv]
    [instant.reactive.session :as session]
@@ -91,14 +92,23 @@
 (defroutes generic-webhook-routes
   (POST "/hooks/honeycomb/exceptions" [] honeycomb-api/webhook))
 
+(defn req-origin [req]
+  (get-in req [:headers "origin"]))
+
+(defn allow-cors-origin? [req]
+  (case (:uri req)
+    ("/platform/oauth/start"
+     "/platform/oauth/grant") false
+    "/platform/oauth/claim" (= (req-origin req)
+                               (config/dashboard-origin))
+
+    true))
+
 (defn handler []
   (routes (-> stripe-webhook-routes
               (wrap-routes http-util/tracer-record-route)
               (wrap-routes http-util/wrap-errors)
               (wrap-routes wrap-json-response)
-              (wrap-routes wrap-cors
-                           :access-control-allow-origin [#".*"]
-                           :access-control-allow-methods [:get :put :post :delete])
               (wrap-routes http-util/tracer-wrap-span))
           (-> (routes home-routes
                       dash-routes/routes
@@ -108,7 +118,8 @@
                       storage-routes/routes
                       generic-webhook-routes
                       stripe-webhook-routes
-                      health/routes)
+                      health/routes
+                      oauth-app-routes/routes)
               (wrap-routes http-util/tracer-record-route)
               http-util/tracer-record-attrs
               wrap-keyword-params
@@ -121,7 +132,7 @@
               http-util/wrap-errors
 
               wrap-json-response
-              (wrap-cors :access-control-allow-origin [#".*"]
+              (wrap-cors :access-control-allow-origin allow-cors-origin?
                          :access-control-allow-methods [:get :put :post :delete])
               (http-util/tracer-wrap-span))))
 

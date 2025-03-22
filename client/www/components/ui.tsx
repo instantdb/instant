@@ -180,6 +180,8 @@ export function TextInput({
   tabIndex,
   disabled,
   title,
+  required,
+  onBlur,
 }: {
   value: string;
   type?: 'text' | 'email' | 'sensitive' | 'password';
@@ -194,6 +196,8 @@ export function TextInput({
   tabIndex?: number;
   disabled?: boolean | undefined;
   title?: string | undefined;
+  required?: boolean | undefined;
+  onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -229,7 +233,9 @@ export function TextInput({
           onChange(e.target.value);
         }}
         onKeyDown={onKeyDown}
+        onBlur={onBlur}
         tabIndex={tabIndex}
+        required={required}
       />
       {error ? <div className="text-sm text-red-600">{error}</div> : null}
     </label>
@@ -704,7 +710,7 @@ export function ActionButton({
 }
 // other
 
-function redactedValue(v: string): string {
+export function redactedValue(v: string): string {
   if (v.length === 36 && v.indexOf('-') === 8) {
     // Probably a uuid, so preserve the dashes
     return v.replaceAll(/[^-]/g, '*');
@@ -716,19 +722,24 @@ export function Copyable({
   value,
   label,
   size = 'normal',
+  defaultHidden,
   hideValue,
   onChangeHideValue,
+  multiline,
 }: {
   value: string;
-  label: string;
+  label?: string;
   size?: 'normal' | 'large';
+  defaultHidden?: boolean;
   hideValue?: boolean;
   onChangeHideValue?: () => void;
+  multiline?: boolean;
 }) {
+  const [hidden, setHidden] = useState(defaultHidden);
   const [copyLabel, setCopyLabel] = useState('Copy');
-  const sizeToStyle = {
-    normal: { main: 'text-sm', copy: 'text-xs' },
-  };
+  const handleChangeHideValue =
+    onChangeHideValue || (defaultHidden ? () => setHidden(!hidden) : null);
+
   return (
     <div
       className={cn('flex items-center rounded border bg-white font-mono', {
@@ -736,17 +747,22 @@ export function Copyable({
         'text-base': size === 'large',
       })}
     >
-      <div
-        className="border-r bg-gray-50 px-3 py-1.5"
-        style={{
-          borderTopLeftRadius: 'calc(0.25rem - 1px)',
-          borderBottomLeftRadius: 'calc(0.25rem - 1px)',
-        }}
-      >
-        {label}
-      </div>
+      {label ? (
+        <div
+          className="border-r bg-gray-50 px-3 py-1.5"
+          style={{
+            borderTopLeftRadius: 'calc(0.25rem - 1px)',
+            borderBottomLeftRadius: 'calc(0.25rem - 1px)',
+          }}
+        >
+          {label}
+        </div>
+      ) : null}
       <pre
-        className="flex-1 truncate px-4 py-1.5"
+        className={clsx('flex-1 px-4 py-1.5', {
+          truncate: !multiline,
+          'whitespace-pre-wrap break-all': multiline,
+        })}
         title={value}
         onClick={(e) => {
           const el = e.target as HTMLPreElement;
@@ -757,18 +773,18 @@ export function Copyable({
           selection.selectAllChildren(el);
         }}
       >
-        {hideValue ? redactedValue(value) : value}
+        {hideValue || hidden ? redactedValue(value) : value}
       </pre>
       <div className="flex gap-1 px-1">
-        {!!onChangeHideValue && (
+        {!!handleChangeHideValue && (
           <button
-            onClick={onChangeHideValue}
+            onClick={handleChangeHideValue}
             className={cn(
               'flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-inset ring-gray-300 hover:bg-gray-50',
               { 'text-xs': size === 'normal', 'text-sm': size === 'large' },
             )}
           >
-            {hideValue ? (
+            {hideValue || hidden ? (
               <EyeSlashIcon className="h-4 w-4" aria-hidden="true" />
             ) : (
               <EyeIcon className="h-4 w-4" aria-hidden="true" />
