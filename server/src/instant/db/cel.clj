@@ -318,6 +318,7 @@
 
 (def ^:private cel-view-delete-compiler
   (-> (runtime-compiler-builder)
+      (.addVar "newData" type-obj)
       (.build)))
 
 (def ^:private ^CelCompiler cel-create-update-compiler
