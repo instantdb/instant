@@ -52,25 +52,35 @@ function collectHeadings(nodes, slugify = slugifyWithCounter()) {
 }
 
 export function DocsPage({ Component, pageProps }) {
-  let title = pageProps.markdoc?.frontmatter.title;
+  const title = pageProps.markdoc?.frontmatter.title;
 
-  let pageTitle =
+  const pageTitle =
     pageProps.markdoc?.frontmatter.pageTitle ||
     `${pageProps.markdoc?.frontmatter.title} - Instant Docs`;
 
-  let description = pageProps.markdoc?.frontmatter.description;
+  const description = pageProps.markdoc?.frontmatter.description
 
-  let tableOfContents = useMemo(() => {
+  const tableOfContents = useMemo(() => {
     return pageProps.markdoc?.content
       ? collectHeadings(pageProps.markdoc.content)
       : [];
   }, [pageProps.markdoc]);
 
+  const imgSrc = `/api/og/essay?title=${encodeURIComponent(pageTitle)}`
+
   return (
     <>
       <Head>
         <title>{pageTitle}</title>
-        {description && <meta name="description" content={description} />}
+        <meta key="og:title" property="og:title" content={pageTitle} />
+        {description && (
+          <>
+            <meta name="description" content={description} />
+            <meta property="og:description" content={description} />
+          </>
+        )}
+        <meta key="og:image" property="og:image" content={imgSrc} />
+        <meta name="twitter:card" content="summary_large_image" />
       </Head>
       <Layout title={title} tableOfContents={tableOfContents}>
         <Component {...pageProps} />

@@ -1,5 +1,6 @@
 ---
 title: Managing users
+description: How to manage users in your Instant app.
 ---
 
 ## See users in your app

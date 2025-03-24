@@ -1,5 +1,6 @@
 ---
 title: Magic Code Auth
+description: How to add magic code auth to your Instant app.
 ---
 
 Instant supports a "magic-code" flow for auth. Users provide their email, we send

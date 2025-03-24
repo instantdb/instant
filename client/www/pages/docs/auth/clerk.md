@@ -1,8 +1,10 @@
 ---
 title: Clerk
+description: How to integrate Clerk's auth flow with Instant.
+
 ---
 
-Instant supports delegating auth to Clerk.
+Instant supports  auth with Clerk.
 
 ## Setup
 
