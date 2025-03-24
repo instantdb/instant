@@ -12,6 +12,9 @@ node_modules
 www/.next/
 www/out/
 
+# sitemap
+public/sitemap.xml
+
 # production
 www/build
 
