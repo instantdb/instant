@@ -3,12 +3,15 @@
    [clj-http.client :as clj-http]
    [clojure.data.json :as json]
    [instant.config :as config]
-   [instant.util.tracer :as tracer]))
+   [instant.util.tracer :as tracer]
+   [instant.postmark :as postmark]))
 
-(defn send! [{:keys [from to cc bcc subject html]}]
-  (let [body {:personalizations [{:to to :cc cc :bcc bcc}]
+(defn send! [{:keys [from to cc bcc subject html reply-to]}]
+  (let [body {:personalizations [{:to
+
+                                  to :cc cc :bcc bcc}]
               :from from
-              :reply_to {:email "hello@js.ventures"}
+              :reply_to {:email (or reply-to "hello@instantdb.com")}
               :subject subject
               :content
               [{:type "text/html" :value html}]}]
@@ -30,4 +33,8 @@
                     "Content-Type" "application/json"}
           :body (json/write-str body)})))))
 
-(comment)
+(comment
+  (send! {:from {:email "verify@auth-sg.instantdb.com"}
+          :to [{:email "stopa@instantdb.com"}]
+          :subject "Sending a message from the REPL"
+          :html (postmark/standard-body "<h1>Hello. This message is from the REPL")}))
