@@ -232,7 +232,7 @@
                     {:id (UUID/randomUUID)
                      :code (instant-user-magic-code-model/rand-code)
                      :user-id user-id})]
-    (emailer/send!
+    (sendgrid/send!
      (magic-code-email {:user u :magic-code magic-code}))
     (response/ok {:sent true})))
 
