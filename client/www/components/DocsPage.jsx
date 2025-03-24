@@ -58,7 +58,7 @@ export function DocsPage({ Component, pageProps }) {
     pageProps.markdoc?.frontmatter.pageTitle ||
     `${pageProps.markdoc?.frontmatter.title} - Instant Docs`;
 
-  const description = pageProps.markdoc?.frontmatter.description
+  const description = pageProps.markdoc?.frontmatter.description;
 
   const tableOfContents = useMemo(() => {
     return pageProps.markdoc?.content
@@ -66,7 +66,7 @@ export function DocsPage({ Component, pageProps }) {
       : [];
   }, [pageProps.markdoc]);
 
-  const imgSrc = `/api/og/essay?title=${encodeURIComponent(pageTitle)}`
+  const imgSrc = `/api/og/essay?title=${encodeURIComponent(pageTitle)}`;
 
   return (
     <>
