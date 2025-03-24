@@ -68,7 +68,7 @@
         {:keys [sender-name sender-email subject body]} params]
     {:from {:name sender-name
             :email sender-email}
-     :to {:email email}
+     :to [{:email email}]
      :subject subject
      :reply-to sender-email
      :html
@@ -79,8 +79,6 @@
 
 (def postmark-unconfirmed-sender-body-error-code 400)
 (def postmark-not-found-sender-body-error-code 401)
-
-(def default-sender "auth@pm.instantdb.com")
 
 (defn invalid-sender? [e]
   (let [code (-> e ex-data :body :ErrorCode)]
@@ -119,6 +117,9 @@
         template-params {:user_email (:email u)
                          :code (:code magic-code)
                          :app_title (:title app)}
+
+        default-sender "verify@auth-sg.instantdb.com"
+
         sender-email (or (:email template) default-sender)
         email-params (if template
                        {:sender-email sender-email
