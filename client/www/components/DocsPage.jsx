@@ -76,11 +76,19 @@ export function DocsPage({ Component, pageProps }) {
         {description && (
           <>
             <meta name="description" content={description} />
-            <meta key="og:description" property="og:description" content={description} />
+            <meta
+              key="og:description"
+              property="og:description"
+              content={description}
+            />
           </>
         )}
         <meta key="og:image" property="og:image" content={imgSrc} />
-        <meta key="twitter:card" name="twitter:card" content="summary_large_image" />
+        <meta
+          key="twitter:card"
+          name="twitter:card"
+          content="summary_large_image"
+        />
       </Head>
       <Layout title={title} tableOfContents={tableOfContents}>
         <Component {...pageProps} />
