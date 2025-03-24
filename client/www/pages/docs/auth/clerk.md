@@ -1,10 +1,9 @@
 ---
 title: Clerk
 description: How to integrate Clerk's auth flow with Instant.
-
 ---
 
-Instant supports  auth with Clerk.
+Instant supports auth with Clerk.
 
 ## Setup
 
