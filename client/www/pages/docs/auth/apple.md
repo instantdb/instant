@@ -1,5 +1,6 @@
 ---
 title: Sign In with Apple
+description: How to add Sign In with Apple to your Instant app.
 ---
 
 {% nav-default value="web-popup" %}

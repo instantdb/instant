@@ -1,5 +1,6 @@
 ---
 title: Instant CLI
+description: How to use the Instant CLI to manage schema and permissions.
 ---
 
 The Instant CLI was designed to drive your Instant application entirely from a project's codebase. You can create apps, define your data model, and update your permissions, **all through your terminal**.

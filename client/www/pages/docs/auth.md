@@ -1,5 +1,6 @@
 ---
 title: Auth
+description: Instant supports magic code, OAuth, Clerk, and custom auth.
 ---
 
 Instant comes with support for auth. We currently offer [magic codes](/docs/auth/magic-codes), [Google OAuth](/docs/auth/google-oauth), [Sign In with Apple](/docs/auth/apple), and [Clerk](/docs/auth/clerk). If you want to build your own flow, you can use the [Admin SDK](/docs/backend#custom-auth).

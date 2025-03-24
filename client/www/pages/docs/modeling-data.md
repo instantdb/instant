@@ -1,5 +1,6 @@
 ---
 title: Modeling data
+description: How to model data with Instant's schema.
 ---
 
 In this section we’ll learn how to model data using Instant's schema. By the end of this document you’ll know how to:

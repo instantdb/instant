@@ -1,5 +1,6 @@
 ---
 title: Showcase
+description: Real world apps built with Instant.
 ---
 
 ## Sample Apps

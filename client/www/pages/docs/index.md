@@ -1,7 +1,7 @@
 ---
 title: Getting started
 pageTitle: Instant - The Modern Firebase.
-description: Instant is the Modern Firebase. With Instant you can easily build realtime and collaborative apps like Notion or Figma.
+description: Build a realtime app in less than 5 minutes with Instant.
 ---
 
 Instant is the Modern Firebase. With Instant you can easily build realtime and collaborative apps like Notion or Figma.
