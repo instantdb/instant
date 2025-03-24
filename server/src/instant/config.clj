@@ -67,8 +67,13 @@
 (defn postmark-token []
   (some-> @config-map :postmark-token crypt-util/secret-value))
 
+(defn sendgrid-token []
+  (some-> @config-map :sendgrid-token crypt-util/secret-value))
 (defn postmark-account-token []
   (some-> @config-map :postmark-account-token crypt-util/secret-value))
+
+(defn sendgrid-send-disabled? []
+  (not (string/blank? (sendgrid-token))))
 
 (defn postmark-send-enabled? []
   (not (string/blank? (postmark-token))))

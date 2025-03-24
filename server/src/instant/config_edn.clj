@@ -30,6 +30,7 @@
 (s/def ::s3-storage-access-key ::config-value)
 (s/def ::s3-storage-secret-key ::config-value)
 (s/def ::postmark-token ::config-value)
+(s/def ::sendgrid-token ::config-value)
 (s/def ::postmark-account-token ::config-value)
 (s/def ::secret-discord-token ::config-value)
 (s/def ::database-url ::config-value)
@@ -60,6 +61,7 @@
                                  ::database-url
                                  ::next-database-cluster-id
                                  ::postmark-token
+                                 ::sendgrid-token
                                  ::postmark-account-token
                                  ::secret-discord-token
                                  ::stripe-secret
@@ -77,6 +79,7 @@
                                       ::database-cluster-id
                                       ::postmark-token
                                       ::postmark-account-token
+                                      ::sendgrid-token
                                       ::secret-discord-token
                                       ::stripe-secret
                                       ::stripe-webhook-secret
@@ -93,8 +96,8 @@
 
 (defn valid-config? [prod? config-edn]
   (or
-    (s/valid? (config-spec prod?) config-edn)
-    (s/explain (config-spec prod?) config-edn)))
+   (s/valid? (config-spec prod?) config-edn)
+   (s/explain (config-spec prod?) config-edn)))
 
 (defn read-config [env]
   (let [override (when (= :dev env)

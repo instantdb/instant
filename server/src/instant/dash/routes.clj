@@ -218,7 +218,7 @@
 
 (comment
   (def user (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
-  (def m {:code "123123"})
+  (def m {:code (string-util/rand-num-str 6)})
   (postmark/send! (magic-code-email {:user user :magic-code m})))
 
 (defn send-magic-code-post [req]
@@ -1317,7 +1317,6 @@
                                             uuid-util/coerce)
         client (oauth-app-model/delete-client! {:client-id-unverified client-id-unverified
                                                 :app-id app-id})]
-
 
     (response/ok {:client (oauth-app-model/format-client-for-api client)})))
 
