@@ -33,7 +33,8 @@
             [lambdaisland.uri :as uri]
             [next.jdbc :as next-jdbc]
             [ring.middleware.cookies :refer [wrap-cookies]]
-            [ring.util.http-response :as response])
+            [ring.util.http-response :as response]
+            [instant.sendgrid :as sendgrid])
   (:import (java.util UUID)))
 
 ;; ----
@@ -64,33 +65,20 @@
 
 (defn magic-code-email [{:keys [user params]}]
   (let [{:keys [email]} user
-
         {:keys [sender-name sender-email subject body]} params]
-    {:from (str sender-name " " "<" sender-email ">")
-     :to email
+    {:from {:name sender-name
+            :email sender-email}
+     :to [{:email email}]
      :subject subject
      :reply-to sender-email
      :html
      body}))
-
-(comment
-  (def instant-user (instant-user-model/get-by-email
-                     {:email "stopa@instantdb.com"}))
-  (def app (first (app-model/get-all-for-user {:user-id (:id instant-user)})))
-  (def runtime-user (app-user-model/get-by-email {:app-id (:id app)
-                                                  :email "stopa@instantdb.com"}))
-  (def m {:code "123123"})
-  (postmark/send! (magic-code-email {:app app :user runtime-user :magic-code m}))
-
-  (println  (postmark/standard-body (default-body "{app_title}" "{code}"))))
 
 ;; ------
 ;; Routes
 
 (def postmark-unconfirmed-sender-body-error-code 400)
 (def postmark-not-found-sender-body-error-code 401)
-
-(def default-sender "auth@pm.instantdb.com")
 
 (defn invalid-sender? [e]
   (let [code (-> e ex-data :body :ErrorCode)]
@@ -129,6 +117,9 @@
         template-params {:user_email (:email u)
                          :code (:code magic-code)
                          :app_title (:title app)}
+
+        default-sender "verify@auth-sg.instantdb.com"
+
         sender-email (or (:email template) default-sender)
         email-params (if template
                        {:sender-email sender-email
@@ -138,10 +129,14 @@
                        {:sender-name (:title app)
                         :sender-email default-sender
                         :subject (str (:code magic-code) " is your verification code for " (:title app))
-                        :body (default-body (:title app) (:code magic-code))})]
+                        :body (default-body (:title app) (:code magic-code))})
+
+        email-req (magic-code-email {:user u
+                                     :params email-params})]
     (try
-      (postmark/send! (magic-code-email {:user u
-                                         :params email-params}))
+      (if (= sender-email default-sender)
+        (sendgrid/send! email-req)
+        (postmark/send-structured! email-req))
       (catch clojure.lang.ExceptionInfo e
         (if (invalid-sender? e)
           (do
@@ -278,10 +273,10 @@
         state-with-app-id (format "%s%s" app-id state)
 
         redirect-url (oauth/create-authorization-url
-                       oauth-client
-                       state-with-app-id
-                       oauth-redirect-url
-                       extra-params)]
+                      oauth-client
+                      state-with-app-id
+                      oauth-redirect-url
+                      extra-params)]
     (app-oauth-redirect-model/create! {:app-id app-id
                                        :state state
                                        :cookie cookie-uuid
