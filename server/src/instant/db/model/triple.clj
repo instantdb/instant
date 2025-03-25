@@ -1,6 +1,7 @@
 (ns instant.db.model.triple
   (:require
    [clojure.spec.alpha :as s]
+   [clojure.string :as str]
    [honey.sql :as hsql]
    [instant.data.constants :refer [empty-app-id]]
    [instant.db.model.attr :as attr-model]
@@ -123,23 +124,77 @@
                     (map (fn [[id typ]]
                            [id [:cast typ [:bit :32]]])))]
     (when (seq values)
-      [:attr-inferred-types {:update :attrs
-                             :set {:inferred-types [:|
-                                                    [:coalesce
-                                                     :attrs.inferred_types
-                                                     [:cast :0 [:bit :32]]]
-                                                    :updates.typ]}
-                             :from [[{:values values}
-                                     [:updates {:columns [:id :typ]}]]]
-                             :where [:and
-                                     [:= :attrs.id :updates.id]
+      {:update :attrs
+       :set {:inferred-types [:|
+                              [:coalesce
+                               :attrs.inferred_types
+                               [:cast :0 [:bit :32]]]
+                              :updates.typ]}
+       :from [[{:values values}
+               [:updates {:columns [:id :typ]}]]]
+       :where [:and
+               [:= :attrs.id :updates.id]
                                      ;; We don't modify the inferred type
                                      ;; for the system-catalog-app-id because
                                      ;; we don't want people putting garbage in there
-                                     [:= :attrs.app_id app-id]
-                                     [[:raw "inferred_types is distinct from (
+               [:= :attrs.app_id app-id]
+               [[:raw "inferred_types is distinct from (
                                               coalesce(inferred_types, cast(0 AS bit(32))) | updates.typ
-                                            )"]]]}])))
+                                            )"]]]})))
+
+(defn validate-required!
+  "Given [{:entity_id ..., :attr_id ...} ...] of entity attributes that were
+   added or removed during this tx, checks that all affected entities still have
+   all required attributes set"
+  [conn all-inserts]
+  (let [eid+required-attrs
+        {:from 'all-inserts
+         :join ['attrs
+                [:= 'attr-id 'attrs/id]
+
+                'idents
+                [:= 'attrs/forward-ident 'idents/id]
+
+                ['idents 'all-idents]
+                [:and
+                 [:= 'idents/app-id 'all-idents/app-id]
+                 [:= 'idents/etype 'all-idents/etype]]
+
+                ['attrs 'all-attrs]
+                [:= 'all-idents/id 'all-attrs/forward-ident]]
+
+         :where [:or
+                 [:= 'all-attrs/is_required true]
+                 [:= 'all-attrs/setting_required true]]
+
+         :select-distinct ['entity-id ['all-attrs/id 'attr-id] 'all-idents/etype 'all-idents/label]}
+
+        missing-required
+        {:from      'eid+required-attrs
+         :left-join ['triples
+                     [:and
+                      [:= 'eid+required-attrs/entity-id 'triples/entity-id]
+                      [:= 'eid+required-attrs/attr-id 'triples/attr-id]]]
+         :where     [:= 'triples/value nil]
+         :select    ['eid+required-attrs/* 'triples/value]}
+
+        query
+        {:with   [[['all-inserts {:columns ['entity-id 'attr-id]}]
+                   {:values (map (juxt :entity_id :attr_id) all-inserts)}]
+                  ['eid+required-attrs eid+required-attrs]
+                  ['missing-required missing-required]]
+         :select ['entity-id 'etype 'label]
+         :from   'missing-required}
+
+        res (sql/do-execute! conn (hsql/format query))]
+    (when (seq res)
+      (ex/throw-validation-err!
+       :required-attrs
+       res
+       (for [{entity-id :entity_id
+              etype     :idents/etype
+              label     :idents/label} res]
+         {:message (str (str/capitalize etype) " " entity-id " is missing required attribute '" label "'")})))))
 
 (defn deep-merge-multi!
   [conn _attrs app-id triples]
@@ -266,7 +321,7 @@
                                      :value-md5 :excluded.value-md5}
                      :returning :entity-id}]]
                   (when-let [attr-inferred-types (insert-attr-inferred-types-cte app-id triples)]
-                    [attr-inferred-types]))
+                    [[:attr-inferred-types attr-inferred-types]]))
            :select :entity-id :from :ea-index-inserts}]
     (sql/do-execute! conn (hsql/format q))))
 
@@ -291,257 +346,282 @@
    write. So if [1 user/pet 2] already exists, inserting [1 user/pet 3] will
    not trigger a conflict, but trying to insert [1 user/pet 2] will no-op"
   [conn _attrs app-id triples]
-  (let [lookup-refs (distinct (keep (fn [[e]]
-                                      (when (eid-lookup-ref? e)
-                                        e))
-                                    triples))
+  (let [lookup-refs
+        (distinct
+         (keep (fn [[e]]
+                 (when (eid-lookup-ref? e)
+                   e))
+               triples))
+
+        input-lookup-refs
+        (map (fn [[a v]]
+               [app-id a (->json v)])
+             lookup-refs)
+
+        ;; create data for lookup refs
+        enhanced-lookup-refs
+        {:select
+         [[[:cast :ilr.app_id :uuid] :app-id]
+          [[:gen_random_uuid] :entity-id]
+          [[:cast :ilr.attr-id :uuid] :attr-id]
+          [[:cast :ilr.value :jsonb] :value]
+          [[:md5 :ilr.value] :value-md5]
+          [[:case [:= :a.cardinality [:inline "one"]] true :else false] :ea]
+          [[:case [:= :a.value-type [:inline "ref"]] true :else false] :eav]
+          [[:case :a.is-unique true :else [[:raise_exception_message [:inline "attribute is not unique"]]]] :av]
+          [[:case :a.is-indexed true :else false] :ave]
+          [[:case [:= :a.value-type [:inline "ref"]] true :else false] :vae]
+          [:a.checked_data_type :checked-data-type]]
+         :from [[:input-lookup-refs :ilr]]
+         :left-join [[:attrs :a] [:and
+                                  :a.is-unique
+                                  [:or
+                                   [:= :a.app-id [:cast :ilr.app-id :uuid]]
+                                   [:= :a.app-id system-catalog-app-id]]
+                                  [:= :a.id [:cast :ilr.attr-id :uuid]]]]}
+
+        ;; insert lookup refs
+        lookup-ref-inserts
+        {:insert-into [[:triples triple-cols]
+                       {:select triple-cols
+                        :from :enhanced-lookup-refs}]
+         :on-conflict [:app-id :attr-id [:json_null_to_null :value] {:where :av}]
+         :do-nothing true
+         :returning :*}
+
+        ;; collect lookup ref entities
+        ;; if we do this inline instead of creating a CTE, the lookup
+        ;; ref entity might get created anew when it's updated (e.g.
+        ;; users[lookup({handle: 'me'})].update({handle: 'mee'}) will
+        ;; generate a new triple with value = 'me'
+        lookup-ref-lookups
+        {:union-all [{:select :*
+                      :from :lookup-ref-inserts}
+                     {:select :*
+                      :from :triples
+                      :where [:and
+                              [:= :app-id app-id]
+                              (list* :or (for [[a v] lookup-refs]
+                                           [:and
+                                            :av
+                                            [:= :attr-id a]
+                                            [:=
+                                              ;; Make sure it can lookup just from the av_index
+                                             [:json_null_to_null :value]
+                                             [:cast (->json v) :jsonb]]]))]}]}
+
+        input-triples
+        (for [[idx [e a v]] (map vector (range) triples)
+              :let [eid (if-not (eid-lookup-ref? e)
+                          e
+                          {:select :entity-id
+                           :from :lookup-ref-lookups
+                           :where [:and
+                                   [:= :app-id app-id]
+                                   [:= :attr-id (first e)]
+                                   [:= :value [:cast (->json (second e)) :jsonb]]]
+                           :limit 1})
+                    value (if-not (value-lookup-ref? v)
+                            (->json v)
+                            [[[:case (value-lookupable-sql app-id a)
+                               {:select [[[:cast [:to_jsonb :entity-id] :text]]]
+                                :from (if (seq lookup-refs)
+                                        [[{:union-all [{:select :entity-id
+                                                        :from :lookup-ref-lookups
+                                                        :where [:and
+                                                                [:= :app-id app-id]
+                                                                [:= :attr-id (first v)]
+                                                                [:= :value [:cast (->json (second v)) :jsonb]]]}
+                                                       {:select :entity-id
+                                                        :from :triples
+                                                        :where [:and
+                                                                :av
+                                                                [:= :app-id app-id]
+                                                                [:= :attr-id (first v)]
+                                                                [:=
+                                                                 ;; Make sure it can lookup just from the av_index
+                                                                 [:json_null_to_null :value]
+                                                                 [:cast (->json (second v)) :jsonb]]]}]}
+                                          :lookups]]
+                                        [[{:select :entity-id
+                                           :from :triples
+                                           :where [:and
+                                                   :av
+                                                   [:= :app-id app-id]
+                                                   [:= :attr-id (first v)]
+                                                   [:=
+                                                    ;; Make sure it can lookup just from the av_index
+                                                    [:json_null_to_null :value]
+                                                    [:cast (->json (second v)) :jsonb]]]}
+                                          :lookups]])
+                                :limit 1}
+                               :else (->json v)]]])]]
+          [idx app-id eid a value])
+
+        enhanced-triples
+        {:select
+         [[:it.idx :idx]
+          [[:cast :it.app_id :uuid] :app-id]
+          [[:cast :it.entity-id :uuid] :entity-id]
+          [[:cast :it.attr-id :uuid] :attr-id]
+          [[:cast :it.value :jsonb] :value]
+          [[:md5 :it.value] :value-md5]
+          [[:case [:= :a.cardinality [:inline "one"]] true :else false] :ea]
+          [[:case [:= :a.value-type [:inline "ref"]] true :else false] :eav]
+          [[:case :a.is-unique true :else false] :av]
+          [[:case :a.is-indexed true :else false] :ave]
+          [[:case [:= :a.value-type [:inline "ref"]] true :else false] :vae]
+          [:a.checked_data_type :checked-data-type]]
+         :from [[:input-triples :it]]
+         :left-join [[:attrs :a] [:and
+                                  [:or
+                                   [:= :a.app-id [:cast :it.app-id :uuid]]
+                                   [:= :a.app-id system-catalog-app-id]]
+                                  [:= :a.id [:cast :it.attr-id :uuid]]]]}
+
+        ea-triples-distinct
+        {:select-distinct-on [[:entity-id :attr-id] :*]
+         :from :enhanced-triples
+         :where [:= :ea true]
+         :order-by [[:entity-id :desc] [:attr-id :desc] [:idx :desc]]}
+
+        remaining-triples
+        {:select :* :from :enhanced-triples :where [:not :ea]}
+
+        ea-index-inserts
+        {:insert-into [[:triples triple-cols]
+                       {:select triple-cols
+                        :from :ea-triples-distinct}]
+         :on-conflict [:app-id :entity-id :attr-id {:where [:= :ea true]}]
+         :do-update-set {:value :excluded.value
+                         :value-md5 :excluded.value-md5}
+         :returning :*}
+
+        remaining-inserts
+        {:insert-into [[:triples triple-cols]
+                       {:select triple-cols
+                        :from :remaining-triples}]
+         :on-conflict [:app-id :entity-id :attr-id :value-md5]
+         :do-nothing true
+         :returning :*}
+
+        indexed-null-triples
+        {:select [[:needs-null-attr.app-id :app-id]
+                  [:new-entities.entity-id :entity-id]
+                  [:needs-null-attr.id :attr-id]
+                  [[:cast "null" :jsonb] :value]
+                  [[:inline json-null-md5] :value-md5]
+                  [[:= :needs-null-attr.cardinality [:inline "one"]] :ea]
+                  [[:= :needs-null-attr.value_type [:inline "ref"]] :eav]
+                  [:needs-null-attr.is_unique :av]
+                  [:needs-null-attr.is_indexed :ave]
+                  [[:= :needs-null-attr.value_type [:inline "ref"]] :vae]
+                  [:needs-null-attr.checked-data-type :checked-data-type]]
+         :from [[{:union (into [{:select [:entity-id :attr_id]
+                                 :from :ea-index-inserts}
+                                {:select [:entity-id :attr_id]
+                                 :from :remaining-inserts}]
+                               (when (seq lookup-refs)
+                                 [{:select [:entity-id :attr_id]
+                                   :from :lookup-ref-inserts}]))}
+                 :new-entities]]
+         :join [[:attrs :updated-attr]
+                [:= :updated-attr.id :new-entities.attr-id]
+
+                ;; We want to run this when we create new entities.
+                ;; If a new entity is created, then an id is
+                ;; created, so we can filter to just the id attrs
+                [:idents :id-ident]
+                [:and
+                 [:= :id-ident.id :updated-attr.forward-ident]
+                 [:= :id-ident.label "id"]]
+
+                [:attrs :needs-null-attr]
+                [:and
+                 :needs-null-attr.is_indexed
+                 [:= :needs-null-attr.value_type [:inline "blob"]]
+                 [:= :needs-null-attr.app_id app-id]
+                 [:= :id-ident.etype {:select :etype
+                                      :from :idents
+                                      :where [:= :idents.id :needs-null-attr.forward-ident]}]
+                 ;; No existing triple for this attr
+                 [:not [:exists {:select :1
+                                 :from :triples
+                                 :where [:and
+                                         :triples.ave
+                                         [:= :triples.app-id app-id]
+                                         [:= :triples.attr-id :needs-null-attr.id]
+                                         [:= :triples.entity-id :new-entities.entity-id]]}]]]]
+         ;; Make sure we didn't insert a null value
+         ;; for the attr if this transaction is
+         ;; inserting a value for the attr
+         :where (list*
+                 :and
+                 [:not
+                  [:exists
+                   {:select :*
+                    :from :ea-index-inserts
+                    :where [:and
+                            [:= :ea-index-inserts.entity-id :new-entities.entity-id]
+                            [:= :ea-index-inserts.attr-id :needs-null-attr.id]]}]]
+                 [:not
+                  [:exists
+                   {:select :*
+                    :from :remaining-inserts
+                    :where [:and
+                            [:= :remaining-inserts.entity-id :new-entities.entity-id]
+                            [:= :remaining-inserts.attr-id :needs-null-attr.id]]}]]
+                 (when (seq lookup-refs)
+                   [[:not
+                     [:exists
+                      {:select :*
+                       :from :lookup-ref-inserts
+                       :where [:and
+                               [:= :lookup-ref-inserts.entity-id :new-entities.entity-id]
+                               [:= :lookup-ref-inserts.attr-id :needs-null-attr.id]]}]]]))}
+
+        indexed-null-inserts
+        {:insert-into [[:triples triple-cols]
+                       {:select triple-cols
+                        :from :indexed-null-triples}]
+         :on-conflict [:app-id :entity-id :attr-id :value-md5]
+         :do-nothing true
+         :returning [:entity-id :attr-id]}
+
+        all-inserts
+        {:union-all
+         [{:select [:entity-id :attr-id] :from :ea-index-inserts}
+          {:select [:entity-id :attr-id] :from :remaining-inserts}
+          {:select [:entity-id :attr-id] :from :indexed-null-inserts}]}
+
         query {:with (concat
                       (when (seq lookup-refs)
-                        [[[:input-lookup-refs
-                           {:columns [:app-id :attr-id :value]}]
-                          {:values (map (fn [[a v]]
-                                          [app-id a (->json v)])
-                                        lookup-refs)}]
+                        [[['input-lookup-refs {:columns ['app-id 'attr-id 'value]}] {:values input-lookup-refs}]
+                         ['enhanced-lookup-refs enhanced-lookup-refs]
+                         ['lookup-ref-inserts   lookup-ref-inserts]
+                         ['lookup-ref-lookups   lookup-ref-lookups]])
+                      [[['input-triples {:columns ['idx 'app-id 'entity-id 'attr-id 'value]}] {:values input-triples}]
+                       ['enhanced-triples     enhanced-triples]
+                       ['ea-triples-distinct  ea-triples-distinct]
+                       ['remaining-triples    remaining-triples]
+                       ['ea-index-inserts     ea-index-inserts]
+                       ['remaining-inserts    remaining-inserts]
+                       ['indexed-null-triples indexed-null-triples]
+                       ['indexed-null-inserts indexed-null-inserts]]
+                      (when-some [attr-inferred-types (insert-attr-inferred-types-cte app-id triples)]
+                        [['attr-inferred-types attr-inferred-types]])
+                      [['all-inserts all-inserts]])
 
-                         ;; create data for lookup refs
-                         [:enhanced-lookup-refs
-                          {:select
-                           [[[:cast :ilr.app_id :uuid] :app-id]
-                            [[:gen_random_uuid] :entity-id]
-                            [[:cast :ilr.attr-id :uuid] :attr-id]
-                            [[:cast :ilr.value :jsonb] :value]
-                            [[:md5 :ilr.value] :value-md5]
-                            [[:case [:= :a.cardinality [:inline "one"]] true :else false]
-                             :ea]
-                            [[:case [:= :a.value-type [:inline "ref"]] true :else false]
-                             :eav]
-                            [[:case :a.is-unique true :else [[:raise_exception_message [:inline "attribute is not unique"]]]] :av]
-                            [[:case :a.is-indexed true :else false] :ave]
-                            [[:case [:= :a.value-type [:inline "ref"]] true :else false]
-                             :vae]
-                            [:a.checked_data_type :checked-data-type]]
-                           :from [[:input-lookup-refs :ilr]]
-                           :left-join [[:attrs :a] [:and
-                                                    :a.is-unique
-                                                    [:or
-                                                     [:= :a.app-id [:cast :ilr.app-id :uuid]]
-                                                     [:= :a.app-id system-catalog-app-id]]
-                                                    [:= :a.id [:cast :ilr.attr-id :uuid]]]]}]
-                         ;; insert lookup refs
-                         [:lookup-ref-inserts
-                          {:insert-into [[:triples triple-cols]
-                                         {:select triple-cols
-                                          :from :enhanced-lookup-refs}]
-                           :on-conflict [:app-id :attr-id [:json_null_to_null :value] {:where :av}]
-                           :do-nothing true
-                           :returning :*}]
+               :from 'all-inserts
+               :select ['entity-id 'attr-id]}]
 
-                         ;; collect lookup ref entities
-                         ;; if we do this inline instead of creating a CTE, the lookup
-                         ;; ref entity might get created anew when it's updated (e.g.
-                         ;; users[lookup({handle: 'me'})].update({handle: 'mee'}) will
-                         ;; generate a new triple with value = 'me'
-                         [:lookup-ref-lookups
-                          {:union-all [{:select :*
-                                        :from :lookup-ref-inserts}
-                                       {:select :*
-                                        :from :triples
-                                        :where [:and
-                                                [:= :app-id app-id]
-                                                (list* :or (for [[a v] lookup-refs]
-                                                             [:and
-                                                              :av
-                                                              [:= :attr-id a]
-                                                              [:=
-                                                               ;; Make sure it can lookup just from the av_index
-                                                               [:json_null_to_null :value]
-                                                               [:cast (->json v) :jsonb]]]))]}]}]])
-                      [[[:input-triples
-                         {:columns [:idx :app-id :entity-id :attr-id :value]}]
-                        {:values (map-indexed
-                                  (fn [idx [e a v]]
-                                    [idx
-                                     app-id
-                                     (if-not (eid-lookup-ref? e)
-                                       e
-                                       {:select :entity-id
-                                        :from :lookup-ref-lookups
-                                        :where [:and
-                                                [:= :app-id app-id]
-                                                [:= :attr-id (first e)]
-                                                [:= :value [:cast (->json (second e)) :jsonb]]]
-                                        :limit 1})
-
-                                     a
-                                     (if-not (value-lookup-ref? v)
-                                       (->json v)
-                                       [[[:case (value-lookupable-sql app-id a)
-                                          {:select [[[:cast [:to_jsonb :entity-id] :text]]]
-                                           :from (if (seq lookup-refs)
-                                                   [[{:union-all [{:select :entity-id
-                                                                   :from :lookup-ref-lookups
-                                                                   :where [:and
-                                                                           [:= :app-id app-id]
-                                                                           [:= :attr-id (first v)]
-                                                                           [:= :value [:cast (->json (second v)) :jsonb]]]}
-                                                                  {:select :entity-id
-                                                                   :from :triples
-                                                                   :where [:and
-                                                                           :av
-                                                                           [:= :app-id app-id]
-                                                                           [:= :attr-id (first v)]
-                                                                           [:=
-                                                                            ;; Make sure it can lookup just from the av_index
-                                                                            [:json_null_to_null :value]
-                                                                            [:cast (->json (second v)) :jsonb]]]}]}
-                                                     :lookups]]
-                                                   [[{:select :entity-id
-                                                      :from :triples
-                                                      :where [:and
-                                                              :av
-                                                              [:= :app-id app-id]
-                                                              [:= :attr-id (first v)]
-                                                              [:=
-                                                               ;; Make sure it can lookup just from the av_index
-                                                               [:json_null_to_null :value]
-                                                               [:cast (->json (second v)) :jsonb]]]}
-                                                     :lookups]])
-                                           :limit 1}
-                                          :else (->json v)]]])])
-                                  triples)}]
-                       [:enhanced-triples
-                        {:select
-                         [[:it.idx :idx]
-                          [[:cast :it.app_id :uuid] :app-id]
-                          [[:cast :it.entity-id :uuid] :entity-id]
-                          [[:cast :it.attr-id :uuid] :attr-id]
-                          [[:cast :it.value :jsonb] :value]
-                          [[:md5 :it.value] :value-md5]
-                          [[:case [:= :a.cardinality [:inline "one"]] true :else false]
-                           :ea]
-                          [[:case [:= :a.value-type [:inline "ref"]] true :else false]
-                           :eav]
-                          [[:case :a.is-unique true :else false] :av]
-                          [[:case :a.is-indexed true :else false] :ave]
-                          [[:case [:= :a.value-type [:inline "ref"]] true :else false]
-                           :vae]
-                          [:a.checked_data_type :checked-data-type]]
-                         :from [[:input-triples :it]]
-                         :left-join [[:attrs :a] [:and
-                                                  [:or
-                                                   [:= :a.app-id [:cast :it.app-id :uuid]]
-                                                   [:= :a.app-id system-catalog-app-id]]
-                                                  [:= :a.id [:cast :it.attr-id :uuid]]]]}]
-                       [:ea-triples-distinct
-                        {:select-distinct-on [[:entity-id :attr-id] :*]
-                         :from :enhanced-triples
-                         :where [:= :ea true]
-                         :order-by [[:entity-id :desc] [:attr-id :desc] [:idx :desc]]}]
-                       [:remaining-triples
-                        {:select :* :from :enhanced-triples :where [:not :ea]}]
-                       [:ea-index-inserts
-                        {:insert-into [[:triples triple-cols]
-                                       {:select triple-cols
-                                        :from :ea-triples-distinct}]
-                         :on-conflict [:app-id :entity-id :attr-id {:where [:= :ea true]}]
-                         :do-update-set {:value :excluded.value
-                                         :value-md5 :excluded.value-md5}
-                         :returning :*}]
-                       [:remaining-inserts
-                        {:insert-into [[:triples triple-cols]
-                                       {:select triple-cols
-                                        :from :remaining-triples}]
-                         :on-conflict [:app-id :entity-id :attr-id :value-md5]
-                         :do-nothing true
-                         :returning :*}]
-                       [:indexed-null-triples
-                        {:select [[:needs-null-attr.app-id :app-id]
-                                  [:new-entities.entity-id :entity-id]
-                                  [:needs-null-attr.id :attr-id]
-                                  [[:cast "null" :jsonb] :value]
-                                  [[:inline json-null-md5] :value-md5]
-                                  [[:= :needs-null-attr.cardinality [:inline "one"]] :ea]
-                                  [[:= :needs-null-attr.value_type [:inline "ref"]] :eav]
-                                  [:needs-null-attr.is_unique :av]
-                                  [:needs-null-attr.is_indexed :ave]
-                                  [[:= :needs-null-attr.value_type [:inline "ref"]] :vae]
-                                  [:needs-null-attr.checked-data-type :checked-data-type]]
-                         :from [[{:union (into [{:select [:entity-id :attr_id]
-                                                 :from :ea-index-inserts}
-                                                {:select [:entity-id :attr_id]
-                                                 :from :remaining-inserts}]
-                                               (when (seq lookup-refs)
-                                                 [{:select [:entity-id :attr_id]
-                                                   :from :lookup-ref-inserts}]))}
-                                 :new-entities]]
-                         :join [[:attrs :updated-attr]
-                                [:= :updated-attr.id :new-entities.attr-id]
-
-                                ;; We want to run this when we create new entities.
-                                ;; If a new entity is created, then an id is
-                                ;; created, so we can filter to just the id attrs
-                                [:idents :id-ident]
-                                [:and
-                                 [:= :id-ident.id :updated-attr.forward-ident]
-                                 [:= :id-ident.label "id"]]
-
-                                [:attrs :needs-null-attr]
-                                [:and
-                                 :needs-null-attr.is_indexed
-                                 [:= :needs-null-attr.value_type [:inline "blob"]]
-                                 [:= :needs-null-attr.app_id app-id]
-                                 [:= :id-ident.etype {:select :etype
-                                                      :from :idents
-                                                      :where [:= :idents.id :needs-null-attr.forward-ident]}]
-                                 ;; No existing triple for this attr
-                                 [:not [:exists {:select :1
-                                                 :from :triples
-                                                 :where [:and
-                                                         :triples.ave
-                                                         [:= :triples.app-id app-id]
-                                                         [:= :triples.attr-id :needs-null-attr.id]
-                                                         [:= :triples.entity-id :new-entities.entity-id]]}]]]]
-                         ;; Make sure we didn't insert a null value
-                         ;; for the attr if this transaction is
-                         ;; inserting a value for the attr
-                         :where (list*
-                                 :and
-                                 [:not
-                                  [:exists
-                                   {:select :*
-                                    :from :ea-index-inserts
-                                    :where [:and
-                                            [:= :ea-index-inserts.entity-id :new-entities.entity-id]
-                                            [:= :ea-index-inserts.attr-id :needs-null-attr.id]]}]]
-                                 [:not
-                                  [:exists
-                                   {:select :*
-                                    :from :remaining-inserts
-                                    :where [:and
-                                            [:= :remaining-inserts.entity-id :new-entities.entity-id]
-                                            [:= :remaining-inserts.attr-id :needs-null-attr.id]]}]]
-                                 (when (seq lookup-refs)
-                                   [[:not
-                                     [:exists
-                                      {:select :*
-                                       :from :lookup-ref-inserts
-                                       :where [:and
-                                               [:= :lookup-ref-inserts.entity-id :new-entities.entity-id]
-                                               [:= :lookup-ref-inserts.attr-id :needs-null-attr.id]]}]]]))}]
-                       [:indexed-null-inserts
-                        {:insert-into [[:triples triple-cols]
-                                       {:select triple-cols
-                                        :from :indexed-null-triples}]
-                         :on-conflict [:app-id :entity-id :attr-id :value-md5]
-                         :do-nothing true
-                         :returning :entity-id}]]
-                      (when-let [attr-inferred-types (insert-attr-inferred-types-cte app-id triples)]
-                        [attr-inferred-types]))
-               :union-all [{:select :entity-id :from :ea-index-inserts}
-                           {:select :entity-id :from :remaining-inserts}
-                           {:select :entity-id :from :indexed-null-inserts}]}]
     (try
-      (sql/do-execute! conn (hsql/format query))
+      (let [all-inserts (sql/do-execute! conn (hsql/format query))]
+        (validate-required! conn all-inserts)
+        (->> all-inserts
+             (map #(select-keys % [:entity_id]))
+             (distinct)))
+
       (catch Exception e
         (let [pg-server-message (-> e
                                     ex-data
