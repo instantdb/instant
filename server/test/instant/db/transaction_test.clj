@@ -21,7 +21,7 @@
    [instant.model.rule :as rule-model]
    [instant.util.instaql :refer [instaql-nodes->object-tree]]
    [instant.util.exception :as ex]
-   [instant.util.test :as test-util :refer [suid]])
+   [instant.util.test :as test-util :refer [suid validation-err? perm-err?]])
   (:import
    (java.util UUID)))
 
@@ -106,6 +106,47 @@
                             (map :triple)
                             (map last)
                             set)))))))))))
+
+(deftest required-attrs
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [{title-attr-id :book/title
+             desc-attr-id  :book/desc} (test-util/make-attrs
+                                        app-id
+                                        [[:book/title :required?]
+                                         [:book/desc]])
+            ctx {:db               {:conn-pool (aurora/conn-pool :write)}
+                 :app-id           app-id
+                 :attrs            (attr-model/get-by-app-id app-id)
+                 :datalog-query-fn d/query
+                 :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                 :current-user     nil}]
+        (is (validation-err?
+             (permissioned-tx/transact!
+              ctx
+              [[:add-triple (suid "a") desc-attr-id "no title"]])))
+
+
+        (is (not (validation-err?
+                  (permissioned-tx/transact!
+                   ctx
+                   [[:add-triple (suid "a") title-attr-id "title"]
+                    [:add-triple (suid "a") desc-attr-id "desc"]]))))
+
+        #_(is (validation-err?
+               (permissioned-tx/transact!
+                ctx
+                [[:retract-triple (suid "a") title-attr-id "title"]])))
+
+        (is (not (validation-err?
+                  (permissioned-tx/transact!
+                   ctx
+                   [[:retract-triple (suid "a") desc-attr-id "desc"]]))))
+
+        (is (not (validation-err?
+                  (permissioned-tx/transact!
+                   ctx
+                   [[:add-triple (suid "a") title-attr-id "title upd"]]))))))))
 
 (deftest attrs-update
   (with-empty-app
@@ -977,26 +1018,6 @@
   (bootstrap/add-zeneca-to-app! app-id)
   (def r (resolvers/make-zeneca-resolver app-id))
   (app-model/delete-immediately-by-id! {:id app-id}))
-
-(defmacro perm-err? [& body]
-  `(try
-     ~@body
-     false
-     (catch Exception e#
-       (let [instant-ex# (ex/find-instant-exception e#)]
-         (if (= ::ex/permission-denied (::ex/type (ex-data instant-ex#)))
-           true
-           (throw e#))))))
-
-(defmacro validation-err? [& body]
-  `(try
-     ~@body
-     false
-     (catch Exception e#
-       (let [instant-ex# (ex/find-instant-exception e#)]
-         (if (= ::ex/validation-failed (::ex/type (ex-data instant-ex#)))
-           true
-           (throw e#))))))
 
 (deftest write-perms-merged
   (with-zeneca-app

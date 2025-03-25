@@ -352,8 +352,8 @@
                         ::ex/message "Invalid client_id parameter"
                         ::ex/hint {:input client-id}}))
 
-        _ (when-not (crypt-util/constant-bytes= (.getBytes redirect-uri)
-                                                (.getBytes (:redirect_uri code*)))
+        _ (when-not (crypt-util/constant-bytes= (String/.getBytes redirect-uri)
+                                                (String/.getBytes (:redirect_uri code*)))
             (ex/throw+ {::ex/type ::ex/param-malformed
                         ::ex/message "Invalid redirect_uri parameter"
                         ::ex/hint {:input redirect-uri}}))
@@ -400,8 +400,8 @@
                         ::ex/message "Invalid client_id parameter"
                         ::ex/hint {:input (:client_id oauth-client)}}))
 
-        _ (when-not (crypt-util/constant-bytes= (.getBytes redirect-uri)
-                                                (.getBytes (:redirect_uri code-record)))
+        _ (when-not (crypt-util/constant-bytes= (String/.getBytes redirect-uri)
+                                                (String/.getBytes (:redirect_uri code-record)))
             (ex/throw+ {::ex/type ::ex/param-malformed
                         ::ex/message "Invalid redirect_uri parameter"
                         ::ex/hint {:input redirect-uri}}))
