@@ -124,8 +124,39 @@
         cols   (get-unqualified-string-column-names rsmeta opts)]
     (rs/->MapResultSetBuilder rs rsmeta cols)))
 
+(defn tupleset
+  "A way to pass seq-of-tuples as an input to honeysql.
+
+   Given:
+
+   (def ts
+     [[1 \"Ivan\" 85]
+      [2 \"Oleg\" 92]
+      [3 \"Petr\" 68]])
+
+   One can use:
+
+     (hsql/format
+      (tupleset ts
+                [{:as 'id, :type :int}
+                 {:as 'full-name}
+                 {:as 'score, :type :int}]))
+
+   To get to:
+
+     SELECT CAST(elem ->> 0 AS INT) AS id,
+            CAST(elem ->> 1 AS TEXT) AS full_name,
+            CAST(elem ->> 2 AS INT) AS score
+       FROM JSON_ARRAY_ELEMENTS(CAST(? AS JSON)) AS elem"
+  [ts cols]
+  {:select
+   (for [[idx {:keys [type as]}] (map vector (range) cols)]
+     [[:cast [:->> 'elem [:inline idx]] (or type :text)] as])
+   :from
+   [[[:json_array_elements [:cast (->json ts) :json]] 'elem]]})
+
 (defn recordset
-  "A way to pass seq-of-maps as an input into honeysql.
+  "A way to pass seq-of-maps as an input to honeysql.
 
    Given:
 
@@ -146,8 +177,7 @@
 
      SELECT id, name AS full_name, score
        FROM JSON_TO_RECORDSET(CAST(? AS JSON))
-         AS (id int, name text, score int)
-   "
+         AS (id int, name text, score int)"
   [rs cols]
   {:select (for [[col-name {:keys [as]}] cols]
              (if as
