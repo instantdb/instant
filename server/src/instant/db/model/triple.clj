@@ -179,8 +179,10 @@
          :select    ['eid+required-attrs/* 'triples/value]}
 
         query
-        {:with   [[['all-inserts {:columns ['entity-id 'attr-id]}]
-                   {:values (map (juxt :entity_id :attr_id) all-inserts)}]
+        {:with   [['all-inserts
+                   (sql/recordset all-inserts
+                                  {'entity_id {:type :uuid, :as 'entity-id}
+                                   'attr_id   {:type :uuid, :as 'attr-id}})]
                   ['eid+required-attrs eid+required-attrs]
                   ['missing-required missing-required]]
          :select ['entity-id 'etype 'label]

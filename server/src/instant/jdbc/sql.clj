@@ -124,6 +124,42 @@
         cols   (get-unqualified-string-column-names rsmeta opts)]
     (rs/->MapResultSetBuilder rs rsmeta cols)))
 
+(defn recordset
+  "A way to pass seq-of-maps as an input into honeysql.
+
+   Given:
+
+   (def rs
+     [{:id 1, :name \"Ivan\", :score 85}
+      {:id 2, :name \"Oleg\", :score 92}
+      {:id 3, :name \"Petr\", :score 68}])
+
+   One can use:
+
+     (hsql/format
+      (recordset rs
+                 {'id    {:type :int}
+                  'name  {:as 'full-name}
+                  'score {:type :int}}))
+
+   To get to:
+
+     SELECT id, name AS full_name, score
+       FROM JSON_TO_RECORDSET(CAST(? AS JSON))
+         AS (id int, name text, score int)
+   "
+  [rs cols]
+  {:select (for [[col-name {:keys [as]}] cols]
+             (if as
+               [col-name as]
+               col-name))
+   :from   [[[:json_to_recordset [:cast (->json rs) :json]]
+             [[:raw (str "("
+                         (string/join ", "
+                                      (for [[col-name {:keys [type]}] cols]
+                                        (str (name col-name) " " (name (or type "text")))))
+                         ")")]]]]})
+
 (defn span-attrs-from-conn-pool [conn]
   (when (instance? HikariDataSource conn)
     (let [mx-bean (.getHikariPoolMXBean ^HikariDataSource conn)
