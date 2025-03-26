@@ -1,8 +1,10 @@
 (ns instant.jdbc.sql-test
-  (:require [instant.jdbc.aurora :as aurora]
-            [instant.jdbc.sql :as sql]
-            [instant.util.test :refer [wait-for]]
-            [clojure.test :refer [deftest testing is are]]))
+  (:require
+   [honey.sql :as hsql]
+   [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
+   [instant.util.test :refer [wait-for]]
+   [clojure.test :refer [deftest testing is are]]))
 
 (deftest ->pgobject
   (testing "formats text[]"
@@ -39,3 +41,43 @@
                         #"read-only-sql-transaction"
                         (sql/execute! (aurora/conn-pool :read)
                                       ["insert into config (k, v) values ('a', '\"b\"'::jsonb)"]))))
+
+(deftest tupleset-test
+  (let [ts [[1 "Ivan" 85]
+            [2 "Oleg" 92]
+            [3 "Petr" 68]]
+        columns [{:as 'id, :type :int}
+                 {:as 'full-name}
+                 {:as 'score, :type :int}]]
+    (is (= [{:id 1, :full_name "Ivan", :score 85}
+            {:id 2, :full_name "Oleg", :score 92}
+            {:id 3, :full_name "Petr", :score 68}]
+           (sql/do-execute!
+            (aurora/conn-pool :read)
+            (hsql/format
+             (sql/tupleset ts columns)))))
+    (is (= []
+           (sql/do-execute!
+            (aurora/conn-pool :read)
+            (hsql/format
+             (sql/tupleset [] columns)))))))
+
+(deftest recordset-test
+  (let [rs [{:id 1, :name "Ivan", :score 85}
+            {:id 2, :name "Oleg", :score 92}
+            {:id 3, :name "Petr", :score 68}]
+        columns {'id    {:type :int}
+                 'name  {:as 'full-name}
+                 'score {:type :int}}]
+    (is (= [{:id 1, :full_name "Ivan", :score 85}
+            {:id 2, :full_name "Oleg", :score 92}
+            {:id 3, :full_name "Petr", :score 68}]
+           (sql/do-execute!
+            (aurora/conn-pool :read)
+            (hsql/format
+             (sql/recordset rs columns)))))
+    (is (= []
+           (sql/do-execute!
+            (aurora/conn-pool :read)
+            (hsql/format
+             (sql/recordset [] columns)))))))
