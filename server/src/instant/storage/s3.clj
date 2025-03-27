@@ -14,37 +14,25 @@
 ;; Configuration
 ;; ----------------------
 
-(declare s3-client* s3-client s3-async-client* presign-creds*)
+(def ^:private s3-client* (delay (.build (S3Client/builder))))
 
 (defn s3-client
   "Standard blocking S3 client. We use this for most operations."
   ^S3Client []
-  s3-client*)
+  @s3-client*)
+
+(def ^:private s3-async-client* (delay
+                                  (-> (S3AsyncClient/crtBuilder)
+                                      (.targetThroughputInGbps 20.0)
+                                      (.build))))
 
 (defn s3-async-client
   "Async S3 Client. Useful when you want to asynchronously upload streams to S3"
   ^S3AsyncClient []
-  s3-async-client*)
+  @s3-async-client*)
 
-(defn presign-creds
-  "Credentials to presign S3 URLs. We use special credentials, because 
-   the default credentials provider creates URLs that expire in 2 days. 
-   
-   These are special credentials that can create URLs that expire in 7 days.
-   
-   Note: you need to make sure that both these credentials, and the default credentials, 
-   have the necessary permissions to access the same S3 bucket."
-  [] presign-creds*)
-
-(def bucket-name config/s3-bucket-name)
-
-(defn start []
-  (def ^:private s3-client* (.build (S3Client/builder)))
-
-  (def ^:private s3-async-client* (-> (S3AsyncClient/crtBuilder)
-                                      (.targetThroughputInGbps 20.0)
-                                      (.build)))
-  (def ^:private presign-creds*
+(def ^:private presign-creds*
+  (delay
     (let [access-key (config/s3-storage-access-key)
           secret-key (config/s3-storage-secret-key)
           region (.toString (.region (.serviceClientConfiguration (s3-client))))]
@@ -56,6 +44,19 @@
           {:access-key (.accessKeyId creds)
            :secret-key (.secretAccessKey creds)
            :region region})))))
+
+(defn presign-creds
+  "Credentials to presign S3 URLs. We use special credentials, because 
+   the default credentials provider creates URLs that expire in 2 days. 
+   
+   These are special credentials that can create URLs that expire in 7 days.
+   
+   Note: you need to make sure that both these credentials, and the default credentials, 
+   have the necessary permissions to access the same S3 bucket."
+  []
+  @presign-creds*)
+
+(def bucket-name config/s3-bucket-name)
 
 ;; S3 path manipulation
 ;; ----------------------
