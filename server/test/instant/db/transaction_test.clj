@@ -122,54 +122,56 @@
                  :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
                  :current-user     nil}]
 
-        (testing "add without required"
-          (is (validation-err?
-               (permissioned-tx/transact!
-                ctx
-                [[:add-triple (suid "a") desc-attr-id "no title"]]))))
+        (doseq [add-op [:add-triple :deep-merge-triple]]
+          (testing add-op
+            (testing "add without required"
+              (is (validation-err?
+                   (permissioned-tx/transact!
+                    ctx
+                    [[add-op (suid "a") desc-attr-id "no title"]]))))
 
-        (testing "add with required"
-          (is (not (validation-err?
-                    (permissioned-tx/transact!
-                     ctx
-                     [[:add-triple (suid "a") title-attr-id "title"]
-                      [:add-triple (suid "a") desc-attr-id "desc"]])))))
+            (testing "add with required"
+              (is (not (validation-err?
+                        (permissioned-tx/transact!
+                         ctx
+                         [[add-op (suid "a") title-attr-id "title"]
+                          [add-op (suid "a") desc-attr-id "desc"]])))))
 
-        (testing "update required"
-          (is (not (validation-err?
-                    (permissioned-tx/transact!
-                     ctx
-                     [[:add-triple (suid "a") title-attr-id "title upd"]])))))
+            (testing "update required"
+              (is (not (validation-err?
+                        (permissioned-tx/transact!
+                         ctx
+                         [[add-op (suid "a") title-attr-id "title upd"]])))))
 
-        (testing "update non-required"
-          (is (not (validation-err?
-                    (permissioned-tx/transact!
-                     ctx
-                     [[:add-triple (suid "a") desc-attr-id "desc upd"]])))))
+            (testing "update non-required"
+              (is (not (validation-err?
+                        (permissioned-tx/transact!
+                         ctx
+                         [[add-op (suid "a") desc-attr-id "desc upd"]])))))
 
-        (testing "remove required"
-          (is (validation-err?
-               (permissioned-tx/transact!
-                ctx
-                [[:retract-triple (suid "a") title-attr-id "title upd"]]))))
+            (testing "remove required"
+              (is (validation-err?
+                   (permissioned-tx/transact!
+                    ctx
+                    [[:retract-triple (suid "a") title-attr-id "title upd"]]))))
 
-        (testing "remove non-required"
-          (is (not (validation-err?
-                    (permissioned-tx/transact!
-                     ctx
-                     [[:retract-triple (suid "a") desc-attr-id "desc upd"]])))))
+            (testing "remove non-required"
+              (is (not (validation-err?
+                        (permissioned-tx/transact!
+                         ctx
+                         [[:retract-triple (suid "a") desc-attr-id "desc upd"]])))))
 
-        (testing "remove last required"
-          (is (not (validation-err?
-                    (permissioned-tx/transact!
-                     ctx
-                     [[:retract-triple (suid "a") title-attr-id "title upd"]])))))
+            (testing "update last required"
+              (is (not (validation-err?
+                        (permissioned-tx/transact!
+                         ctx
+                         [[add-op (suid "a") title-attr-id "title upd 2"]])))))
 
-        (testing "update required"
-          (is (not (validation-err?
-                    (permissioned-tx/transact!
-                     ctx
-                     [[:add-triple (suid "a") title-attr-id "title upd 2"]])))))))))
+            (testing "remove last required"
+              (is (not (validation-err?
+                        (permissioned-tx/transact!
+                         ctx
+                         [[:retract-triple (suid "a") title-attr-id "title upd 2"]])))))))))))
 
 (deftest attrs-update
   (with-empty-app
