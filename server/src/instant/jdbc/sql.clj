@@ -124,6 +124,33 @@
         cols   (get-unqualified-string-column-names rsmeta opts)]
     (rs/->MapResultSetBuilder rs rsmeta cols)))
 
+(defn elementset
+  "A way to pass sequence as an input to honeysql.
+
+   Given:
+
+   (def xs
+     [1 2 3])
+
+   One can use:
+
+     (hsql/format
+      (tupleset xs {:as 'id, :type :int}))
+
+   To get to:
+
+     SELECT CAST(elem AS INT) AS id
+       FROM JSON_ARRAY_ELEMENTS_TEXT(CAST(? AS JSON)) AS elem
+
+   This is better than passing arrays as argument with ARRAY and UNNEST
+   because it always generates one input paramter (does not depend on a length
+   of the input array, `?` vs `?, ?, ?, ...`) and handles empty arrays the same
+   way in handles non-empty ones."
+  [xs {:keys [as type]}]
+  {:select
+   [[[:cast 'elem (or type :text)] as]]
+   :from [[[:JSON_ARRAY_ELEMENTS_TEXT [:cast (->json xs) :json]] 'elem]]})
+
 (defn tupleset
   "A way to pass seq-of-tuples as an input to honeysql.
 

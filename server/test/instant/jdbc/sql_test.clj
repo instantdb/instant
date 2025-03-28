@@ -42,6 +42,20 @@
                         (sql/execute! (aurora/conn-pool :read)
                                       ["insert into config (k, v) values ('a', '\"b\"'::jsonb)"]))))
 
+(deftest elementset-test
+  (let [xs [1 2 3]
+        column {:as 'id, :type :int}]
+    (is (= [{:id 1} {:id 2} {:id 3}]
+           (sql/do-execute!
+            (aurora/conn-pool :read)
+            (hsql/format
+             (sql/elementset xs column)))))
+    (is (= []
+           (sql/do-execute!
+            (aurora/conn-pool :read)
+            (hsql/format
+             (sql/elementset [] column)))))))
+
 (deftest tupleset-test
   (let [ts [[1 "Ivan" 85]
             [2 "Oleg" 92]
