@@ -121,32 +121,55 @@
                  :datalog-query-fn d/query
                  :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
                  :current-user     nil}]
-        (is (validation-err?
-             (permissioned-tx/transact!
-              ctx
-              [[:add-triple (suid "a") desc-attr-id "no title"]])))
 
-
-        (is (not (validation-err?
-                  (permissioned-tx/transact!
-                   ctx
-                   [[:add-triple (suid "a") title-attr-id "title"]
-                    [:add-triple (suid "a") desc-attr-id "desc"]]))))
-
-        #_(is (validation-err?
+        (testing "add without required"
+          (is (validation-err?
                (permissioned-tx/transact!
                 ctx
-                [[:retract-triple (suid "a") title-attr-id "title"]])))
+                [[:add-triple (suid "a") desc-attr-id "no title"]]))))
 
-        (is (not (validation-err?
-                  (permissioned-tx/transact!
-                   ctx
-                   [[:retract-triple (suid "a") desc-attr-id "desc"]]))))
+        (testing "add with required"
+          (is (not (validation-err?
+                    (permissioned-tx/transact!
+                     ctx
+                     [[:add-triple (suid "a") title-attr-id "title"]
+                      [:add-triple (suid "a") desc-attr-id "desc"]])))))
 
-        (is (not (validation-err?
-                  (permissioned-tx/transact!
-                   ctx
-                   [[:add-triple (suid "a") title-attr-id "title upd"]]))))))))
+        (testing "update required"
+          (is (not (validation-err?
+                    (permissioned-tx/transact!
+                     ctx
+                     [[:add-triple (suid "a") title-attr-id "title upd"]])))))
+
+        (testing "update non-required"
+          (is (not (validation-err?
+                    (permissioned-tx/transact!
+                     ctx
+                     [[:add-triple (suid "a") desc-attr-id "desc upd"]])))))
+
+        (testing "remove required"
+          (is (validation-err?
+               (permissioned-tx/transact!
+                ctx
+                [[:retract-triple (suid "a") title-attr-id "title upd"]]))))
+
+        (testing "remove non-required"
+          (is (not (validation-err?
+                    (permissioned-tx/transact!
+                     ctx
+                     [[:retract-triple (suid "a") desc-attr-id "desc upd"]])))))
+
+        (testing "remove last required"
+          (is (not (validation-err?
+                    (permissioned-tx/transact!
+                     ctx
+                     [[:retract-triple (suid "a") title-attr-id "title upd"]])))))
+
+        (testing "update required"
+          (is (not (validation-err?
+                    (permissioned-tx/transact!
+                     ctx
+                     [[:add-triple (suid "a") title-attr-id "title upd 2"]])))))))))
 
 (deftest attrs-update
   (with-empty-app
