@@ -134,9 +134,9 @@
                [:updates {:columns [:id :typ]}]]]
        :where [:and
                [:= :attrs.id :updates.id]
-                                     ;; We don't modify the inferred type
-                                     ;; for the system-catalog-app-id because
-                                     ;; we don't want people putting garbage in there
+               ;; We don't modify the inferred type
+               ;; for the system-catalog-app-id because
+               ;; we don't want people putting garbage in there
                [:= :attrs.app_id app-id]
                [[:raw "inferred_types is distinct from (
                                               coalesce(inferred_types, cast(0 AS bit(32))) | updates.typ
@@ -144,30 +144,30 @@
 
 (defn validate-required!
   "Given [{:entity_id ..., :attr_id ...} ...] of entity attributes that were
-   added or removed during this tx, checks that all affected entities still have
-   all required attributes set"
-  [conn all-inserts]
-  (let [eid+required-attrs
+   added or removed during this tx, checks that all affected entities that are still
+   alive have all required attributes set"
+  [conn app-id all-inserts]
+  (let [all-inserts
+        (sql/recordset all-inserts
+                       {'entity_id {:type :uuid, :as 'entity-id}
+                        'attr_id   {:type :uuid, :as 'attr-id}})
+
+        eid+etypes
         {:from 'all-inserts
-         :join ['attrs
-                [:= 'attr-id 'attrs/id]
+         :join ['attrs  [:= 'attr-id 'attrs/id]
+                'idents [:= 'attrs/forward-ident 'idents/id]]
+         :select-distinct ['entity-id 'etype]}
 
-                'idents
-                [:= 'attrs/forward-ident 'idents/id]
-
-                ['idents 'all-idents]
-                [:and
-                 [:= 'idents/app-id 'all-idents/app-id]
-                 [:= 'idents/etype 'all-idents/etype]]
-
-                ['attrs 'all-attrs]
-                [:= 'all-idents/id 'all-attrs/forward-ident]]
-
+        eid+required-attrs
+        {:from 'eid+etypes
+         :join ['idents [:and
+                         [:= 'idents/app-id app-id]
+                         [:= 'idents/etype 'idents/etype]]
+                'attrs [:= 'idents/id 'attrs/forward-ident]]
          :where [:or
-                 [:= 'all-attrs/is_required true]
-                 [:= 'all-attrs/setting_required true]]
-
-         :select-distinct ['entity-id ['all-attrs/id 'attr-id] 'all-idents/etype 'all-idents/label]}
+                 [:= 'attrs/is_required true]
+                 [:= 'attrs/setting_required true]]
+         :select-distinct ['entity-id ['attrs/id 'attr-id] 'idents/etype 'idents/label]}
 
         missing-required
         {:from      'eid+required-attrs
@@ -178,15 +178,26 @@
          :where     [:= 'triples/value nil]
          :select    ['eid+required-attrs/* 'triples/value]}
 
+        missing-required-alive
+        {:from ['missing-required
+                [[:lateral {:from 'idents
+                            :where [:and
+                                    [:= 'idents/app-id app-id]
+                                    [:= 'idents/etype 'missing-required/etype]]
+                            :join ['attrs   [:= 'idents/id 'attrs/forward-ident]
+                                   'triples [:= 'triples/attr-id 'attrs/id]]
+                            :select [[[:count 'triples/entity-id] 'cnt]]}] 'cnt]]
+         :where [:> 'cnt/cnt [:inline 0]]
+         :select 'missing-required/*}
+
         query
-        {:with   [['all-inserts
-                   (sql/recordset all-inserts
-                                  {'entity_id {:type :uuid, :as 'entity-id}
-                                   'attr_id   {:type :uuid, :as 'attr-id}})]
-                  ['eid+required-attrs eid+required-attrs]
-                  ['missing-required missing-required]]
-         :select ['entity-id 'etype 'label]
-         :from   'missing-required}
+        {:with   [['all-inserts            all-inserts]
+                  ['eid+etypes             eid+etypes]
+                  ['eid+required-attrs     eid+required-attrs]
+                  ['missing-required       missing-required]
+                  ['missing-required-alive missing-required-alive]]
+         :select ['entity-id 'attr-id 'etype 'label]
+         :from   'missing-required-alive}
 
         res (sql/do-execute! conn (hsql/format query))]
     (when (seq res)
@@ -619,7 +630,7 @@
 
     (try
       (let [all-inserts (sql/do-execute! conn (hsql/format query))]
-        (validate-required! conn all-inserts)
+        (validate-required! conn app-id all-inserts)
         (->> all-inserts
              (map #(select-keys % [:entity_id]))
              (distinct)))
@@ -700,46 +711,54 @@
    We enhance given triples with their hashed values to assist postgres in
    quickly finding which triples to delete"
   [conn app-id triples]
-  (sql/do-execute!
-   conn
-   (hsql/format
-    {:with [[[:input-triples
-              {:columns [:app-id :entity-id :attr-id :value]}]
-             {:values (mapv
-                       (fn [[e a v]]
-                         (let [e' (if (eid-lookup-ref? e)
-                                    {:select :entity-id
-                                     :from :triples
-                                     :where [:and
-                                             [:= :app-id app-id]
-                                             [:= :attr-id (first e)]
-                                             [:= :value [:cast (->json (second e)) :jsonb]]]}
-                                    e)
-                               v' (if-not (value-lookup-ref? v)
-                                    (->json v)
-                                    [[[:case (value-lookupable-sql app-id a)
-                                       {:select [[[:cast [:to_jsonb :entity-id] :text]]]
-                                        :from [[{:select :entity-id
-                                                 :from :triples
-                                                 :where [:and
-                                                         [:= :app-id app-id]
-                                                         [:= :attr-id (first v)]
-                                                         [:= :value [:cast (->json (second v)) :jsonb]]]}
-                                                :lookups]]
-                                        :limit 1}
-                                       :else (->json v)]]])]
-                           [app-id e' a v']))
-                       triples)}]
-            [:enhanced-triples
-             {:select [:app-id
-                       :entity-id
-                       :attr-id
-                       [[:md5 :value] :value-md5]]
-              :from :input-triples}]]
-     :delete-from :triples
-     :where [:in
-             [:composite :app-id :entity-id :attr-id :value-md5]
-             {:select :* :from :enhanced-triples}]})))
+  (let [input-triples
+        (mapv
+         (fn [[e a v]]
+           (let [e' (if (eid-lookup-ref? e)
+                      {:select :entity-id
+                       :from :triples
+                       :where [:and
+                               [:= :app-id app-id]
+                               [:= :attr-id (first e)]
+                               [:= :value [:cast (->json (second e)) :jsonb]]]}
+                      e)
+                 v' (if-not (value-lookup-ref? v)
+                      (->json v)
+                      [[[:case (value-lookupable-sql app-id a)
+                         {:select [[[:cast [:to_jsonb :entity-id] :text]]]
+                          :from [[{:select :entity-id
+                                   :from :triples
+                                   :where [:and
+                                           [:= :app-id app-id]
+                                           [:= :attr-id (first v)]
+                                           [:= :value [:cast (->json (second v)) :jsonb]]]}
+                                  :lookups]]
+                          :limit 1}
+                         :else (->json v)]]])]
+             [app-id e' a v']))
+         triples)
+
+        enhanced-triples
+        {:select [:app-id
+                  :entity-id
+                  :attr-id
+                  [[:md5 :value] :value-md5]]
+         :from :input-triples}
+
+        query
+        {:with [[[:input-triples {:columns [:app-id :entity-id :attr-id :value]}]
+                 {:values input-triples}]
+                [:enhanced-triples enhanced-triples]]
+         :delete-from :triples
+         :where [:in
+                 [:composite :app-id :entity-id :attr-id :value-md5]
+                 {:select :* :from :enhanced-triples}]
+         :returning [:entity-id :attr-id]}
+        res (sql/execute!
+             conn
+             (hsql/format query))]
+    (validate-required! conn app-id res)
+    res))
 
 ;; ---
 ;; fetch
