@@ -74,11 +74,14 @@
 
 (s/def ::index? boolean?)
 
+(s/def ::required? boolean?)
+
 (s/def ::checked-data-type checked-data-types)
 
 (s/def ::indexing? boolean?)
 (s/def ::checking-data-type? boolean?)
 (s/def ::setting-unique? boolean?)
+(s/def ::setting-required? boolean?)
 
 (s/def ::attr-common (s/keys :req-un
                              [::id
@@ -88,10 +91,12 @@
                               ::unique?
                               ::index?]
                              :opt-un
-                             [::checked-data-type
+                             [::required?
+                              ::checked-data-type
                               ::indexing?
                               ::checking-data-type?
-                              ::setting-unique?]))
+                              ::setting-unique?
+                              ::setting-required?]))
 
 (s/def ::blob-attr ::attr-common)
 
@@ -184,14 +189,14 @@
 (def attr-table-cols
   "Manual reflection of postgres attr table columns"
   [:id :app-id :value-type
-   :cardinality :is-unique :is-indexed
+   :cardinality :is-unique :is-indexed :is-required
    :forward-ident :reverse-ident :on-delete :on-delete-reverse
    :checked-data-type])
 
 (defn attr-table-values
   "Marshals a collection of attrs into insertable sql attr values"
   [app-id attrs]
-  (map (fn [{:keys [id value-type cardinality unique? index?
+  (map (fn [{:keys [id value-type cardinality unique? index? required?
                     forward-identity reverse-identity on-delete on-delete-reverse
                     checked-data-type]}]
          [id
@@ -200,6 +205,7 @@
           [:cast (when cardinality (name cardinality)) :text]
           [:cast unique? :boolean]
           [:cast index? :boolean]
+          [:cast (or required? false) :boolean]
           [:cast (first forward-identity) :uuid]
           [:cast (first reverse-identity) :uuid]
           [:cast (some-> on-delete name) :attr_on_delete]
