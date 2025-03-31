@@ -1,5 +1,5 @@
 (ns instant.model.rule-test
-  (:require [clojure.test :as test :refer [deftest is testing]]
+  (:require [clojure.test :as test :refer [deftest is]]
             [instant.model.rule :as rule]))
 
 
