@@ -181,9 +181,9 @@
     (when (and (not (nil? (get-in rules ["$users" "allow" action])))
                (not= (get-in rules ["$users" "allow" action])
                      "false"))
-      {:message (format "The %s namespace is read-only. Set `%s.allow.%s` to `\"false\"`."
-                        "$users" "$users" action)
-       :in ["$users" :allow action]})
+      [{:message (format "The %s namespace is read-only. Set `%s.allow.%s` to `\"false\"`."
+                         "$users" "$users" action)
+        :in ["$users" :allow action]}])
 
     "view" nil))
 
@@ -195,9 +195,9 @@
     (when (and (not (nil? (get-in rules ["$files" "allow" action])))
                (not= (get-in rules ["$files" "allow" action])
                      "false"))
-      {:message (format "The %s namespace does not allow `update` permissions. Set `%s.allow.%s` to `\"false\"`."
-                  "$files" "$files" action)
-       :in ["$files" :allow action]})
+      [{:message (format "The %s namespace does not allow `update` permissions. Set `%s.allow.%s` to `\"false\"`."
+                         "$files" "$files" action)
+        :in ["$files" :allow action]}])
 
     ("view" "create" "delete") nil))
 
@@ -206,10 +206,31 @@
   [etype action]
   (when (and (not (#{"$users" "$files" "$default"} etype))
              (string/starts-with? etype "$"))
-    {:message (format "The %s namespace is a reserved internal namespace that does not yet support rules."
-                      etype)
-     :in [etype :allow action]}))
-(defn validation-errors [rules]
+    [{:message (format "The %s namespace is a reserved internal namespace that does not yet support rules."
+                       etype)
+      :in [etype :allow action]}]))
+
+(defn bind-validation-errors [rules]
+  (reduce-kv (fn [errors etype {:strs [bind]}]
+               (let [repeated (loop [seen #{}
+                                     [var-name _body & rest] bind]
+                                (if (contains? seen var-name)
+                                  var-name
+                                  (recur (conj seen var-name)
+                                         rest)))]
+                 (cond (not (even? (count bind)))
+                       (conj errors
+                             {:message "bind should have an even number of elements"
+                              :in [etype :bind]})
+
+                       repeated
+                       (conj errors
+                             {:message "bind should only contain a given variable name once"
+                              :in [etype :bind repeated]}))))
+             []
+             rules))
+
+(defn rule-validation-errors [rules]
   (->> (keys rules)
        (mapcat (fn [etype] (map (fn [action] [etype action]) ["view" "create" "update" "delete"])))
        (mapcat (fn [[etype action]]
@@ -228,8 +249,15 @@
                            (when (seq errors)
                              (format-errors etype action errors))))
                        (catch CelValidationException e
-                         (get-issues etype action e))))))
+                         (get-issues etype action e))
+                       (catch Exception e
+                         [{:message "There was an unexpected error evaluating the rules"
+                           :in [etype :allow action]}])))))
        (keep identity)))
+
+(defn validation-errors [rules]
+  (concat (bind-validation-errors rules)
+          (rule-validation-errors rules)))
 
 (comment
   (def code {"docs" {"allow" {"view" "lol"

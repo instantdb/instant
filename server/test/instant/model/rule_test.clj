@@ -49,5 +49,63 @@
                              "myetype"
                              "view")))))
 
+(deftest validation-errors-passes
+  (is (= () (rule/validation-errors {"myetype"
+                                     {"bind" ["parent" "true"
+                                              "child" "parent || true"]
+                                      "allow" {"view" "parent"}}}))))
+
+(deftest can-only-create-view-rules-for-users
+  (is (= [{:message
+           "The $users namespace is read-only. Set `$users.allow.create` to `\"false\"`.",
+           :in ["$users" :allow "create"]}]
+         (rule/validation-errors {"$users" {"allow" {"create" "true"}}}))))
+
+(deftest cant-create-update-rules-for-files
+  (is (= [{:message
+           "The $files namespace does not allow `update` permissions. Set `$files.allow.update` to `\"false\"`.",
+           :in ["$files" :allow "update"]}]
+         (rule/validation-errors {"$files" {"allow" {"update" "true"}}}))))
+
+(deftest cant-write-rules-for-system-attrs
+  (is (= [{:message
+           "The $codes namespace is a reserved internal namespace that does not yet support rules.",
+           :in ["$codes" :allow "view"]}
+          {:message
+           "The $codes namespace is a reserved internal namespace that does not yet support rules.",
+           :in ["$codes" :allow "create"]}
+          {:message
+           "The $codes namespace is a reserved internal namespace that does not yet support rules.",
+           :in ["$codes" :allow "update"]}
+          {:message
+           "The $codes namespace is a reserved internal namespace that does not yet support rules.",
+           :in ["$codes" :allow "delete"]}]
+         (rule/validation-errors {"$codes" {"allow" {"update" "true"}}}))))
+
+(deftest invalid-syntax-fails
+  (is (= [{:message
+           "found no matching overload for '!_' applied to '(int)' (candidates: (bool))",
+           :in ["myetype" :allow "view"]}]
+         (rule/validation-errors {"myetype" {"allow" {"view" "!10"}}}))))
+
+(deftest invalid-auth-ref-fails
+  (is (= [{:message "auth.ref arg must start with `$user.`",
+           :in ["myetype" :allow "view"]}]
+         (rule/validation-errors {"myetype" {"allow" {"view" "1 in auth.ref('$users.id')"}}}))))
+
+(deftest duplicate-bind-fails
+  (is (= [{:message "bind should only contain a given variable name once",
+           :in ["myetype" :bind "duplicate"]}]
+         (rule/validation-errors {"myetype" {"bind" ["duplicate" "true" "duplicate" "false"]
+                                             "allow" {"view" "duplicate"}}}))))
+
+(deftest uneven-binds-fail
+  (is (= [{:message "bind should have an even number of elements",
+           :in ["myetype" :bind]}
+          {:message "There was an unexpected error evaluating the rules",
+           :in ["myetype" :allow "view"]}]
+         (rule/validation-errors {"myetype" {"bind" ["duplicate"]
+                                             "allow" {"view" "duplicate"}}}))))
+
 (comment
   (test/run-tests *ns*))
