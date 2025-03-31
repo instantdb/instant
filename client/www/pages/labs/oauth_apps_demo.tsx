@@ -5,12 +5,9 @@ import {
   Fence,
   Label,
   SectionHeading,
-  Select,
   SubsectionHeading,
   TextInput,
 } from '@/components/ui';
-import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
-import useLocalStorage from '@/lib/hooks/useLocalStorage';
 import { useEffect, useState } from 'react';
 import config from '@/lib/config';
 import { jsonFetch } from '@/lib/fetch';
@@ -18,8 +15,7 @@ import { i } from '@instantdb/core';
 import { asClientOnlyPage, useReadyRouter } from '@/components/clientOnlyPage';
 import { useAuthToken, useTokenFetch } from '@/lib/auth';
 import Auth from '@/components/dash/Auth';
-import { createdAtComparator } from '@/lib/app';
-import { DashResponse, InstantApp, OAuthAppClient } from '@/lib/types';
+import { InstantApp, OAuthAppClient } from '@/lib/types';
 import { createApp } from '@/components/dash/Onboarding';
 import { v4 } from 'uuid';
 import {
@@ -300,62 +296,6 @@ function AppStage({
   );
 }
 
-function PlatformTokenStage({ token }: { token: string }) {
-  const [app, setApp] = useLocalStorage<any>('__platform_demo_app', null);
-  return (
-    <div>
-      <h2>1. Create Apps</h2>
-      <p>Now you can create an app!</p>
-      <div className="not-prose">
-        <div className="space-y-2">
-          <div className="border">
-            <Fence
-              code={createAppCurl(token)}
-              language="bash"
-              className="overflow-auto h-full w-full p-8 m-0 text-sm"
-              style={{ margin: 0 }}
-            />
-          </div>
-          <Button
-            onClick={async () => {
-              const res = await jsonFetchCatchingErr(
-                `${config.apiURI}/superadmin/apps`,
-                {
-                  method: 'POST',
-                  headers: {
-                    Authorization: `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({ title: 'my cool app' }),
-                },
-              );
-              setApp(res.app);
-            }}
-          >
-            Try it!
-          </Button>
-          {app && (
-            <div className="space-y-2">
-              <p>Wohoo! Here's your app:</p>
-              <div className="border">
-                <Fence
-                  code={JSON.stringify(app, null, 2)}
-                  language="json"
-                  className="overflow-auto h-full w-full p-8 m-0 text-sm"
-                  style={{ margin: 0 }}
-                />
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-      {app ? <AppStage app={app} token={token} setApp={setApp} /> : null}
-    </div>
-  );
-}
-
-type Stage = 'create-app' | 'create-oauth-app' | 'create-oauth-client';
-
 function CreateAppStep({
   app,
   reset,
@@ -570,7 +510,6 @@ function CreateAuthorizationUrlStep({
   useEffect(() => {
     if (redirectUri) {
       const handleVisibilityChange = () => {
-        console.log('visibility change!');
         if (document.hidden) {
           setLeftPage(true);
         }
@@ -887,8 +826,6 @@ function Authed() {
     client: OAuthAppClient;
     secretValue: string;
   }>(null);
-
-  console.log('client', client);
 
   const reset = async () => {
     if (app) {

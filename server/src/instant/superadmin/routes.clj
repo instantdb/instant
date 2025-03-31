@@ -1,6 +1,7 @@
 (ns instant.superadmin.routes
   (:require [clojure.walk :as w]
             [compojure.core :as compojure :refer [defroutes DELETE GET POST]]
+            [instant.db.model.attr :as attr-model]
             [instant.model.app :as app-model]
             [instant.model.app-member-invites :as instant-app-member-invites-model]
             [instant.model.instant-personal-access-token :as instant-personal-access-token-model]
@@ -146,6 +147,12 @@
 ;; ------
 ;; Schema
 
+(defn app-schema-get [req]
+  (let [{{app-id :id} :app} (req->superadmin-user-and-app! :apps/read req)
+        attrs (attr-model/get-by-app-id app-id)
+        schema (schema-model/attrs->schema attrs)]
+    (response/ok {:schema schema})))
+
 (defn app-schema-plan-post [req]
   (let [{{app-id :id} :app} (req->superadmin-user-and-app! :apps/read req)
         client-defs (-> req :body :schema)
@@ -197,6 +204,7 @@
   (POST "/superadmin/apps/:app_id/transfers/send" [] app-transfer-send-invite-post)
   (POST "/superadmin/apps/:app_id/transfers/revoke" [] app-transfer-revoke-post)
 
+  (GET "/superadmin/apps/:app_id/schema" [] app-schema-get)
   (POST "/superadmin/apps/:app_id/schema/push/plan" [] app-schema-plan-post)
   (POST "/superadmin/apps/:app_id/schema/push/apply" [] app-schema-apply-post)
 

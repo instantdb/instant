@@ -42,6 +42,7 @@ module.exports = [
       { title: 'Sign In with Apple', href: '/docs/auth/apple' },
       { title: 'Clerk', href: '/docs/auth/clerk' },
       { title: 'Permissions', href: '/docs/permissions' },
+      { title: 'OAuth apps', href: '/docs/auth/platform-oauth' },
     ],
   },
   {
