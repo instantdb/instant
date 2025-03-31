@@ -76,6 +76,7 @@ import type {
   BackwardsCompatibleSchema,
   UpdateParams,
   LinkParams,
+  RuleParams,
 } from './schemaTypes';
 import type { UploadFileResponse, DeleteFileResponse } from './StorageAPI';
 
@@ -834,6 +835,7 @@ export {
   type InstantRules,
   type UpdateParams,
   type LinkParams,
+  type RuleParams,
 
   // auth types
   type ExchangeCodeForTokenParams,
