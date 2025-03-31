@@ -570,6 +570,7 @@ class Storage {
 
 type AdminQueryOpts = {
   ruleParams?: RuleParams;
+  fetchOpts?: RequestInit;
 };
 
 /**
@@ -634,10 +635,15 @@ class InstantAdminDatabase<Schema extends InstantSchemaDef<any, any, any>> {
     if (query && opts && 'ruleParams' in opts) {
       query = { $$ruleParams: opts['ruleParams'], ...query };
     }
-
+    const fetchOpts = opts.fetchOpts || {};
+    const fetchOptsHeaders = fetchOpts['headers'] || {};
     return jsonFetch(`${this.config.apiURI}/admin/query`, {
+      ...fetchOpts,
       method: 'POST',
-      headers: authorizedHeaders(this.config, this.impersonationOpts),
+      headers: {
+        ...fetchOptsHeaders,
+        ...authorizedHeaders(this.config, this.impersonationOpts),
+      },
       body: JSON.stringify({
         query: query,
         'inference?': !!this.config.schema,
