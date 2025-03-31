@@ -138,7 +138,9 @@
            :cel-ast ast
            :cel-program (cel/->program ast)})))))
 
-(defn get-program! [rules etype action]
+(def program-cache (cache/lru-cache-factory {} :threshold 2048))
+
+(defn get-program!* [rules etype action]
   (or
    (when-let [expr (get-expr (:code rules) etype action)]
      (try
@@ -161,6 +163,10 @@
                (map (fn [^CelIssue cel-issue]
                       {:message (.getMessage cel-issue)})))))))
    (default-program etype action)))
+
+(defn get-program! [rules etype action]
+  (cache/lookup-or-miss program-cache [rules etype action] (fn [[rules etype action]]
+                                                             (get-program!* rules etype action))))
 
 (defn $users-validation-errors
   "Only allow users to changes the `view` rules for $users, since we don't have
