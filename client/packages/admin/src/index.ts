@@ -166,7 +166,6 @@ async function jsonFetch(
   init: RequestInit | undefined,
 ): Promise<any> {
   const defaultFetchOpts = getDefaultFetchOpts();
-  console.log('defaultFetchOpts', defaultFetchOpts);
   const headers = {
     ...(init.headers || {}),
     'Instant-Admin-Version': version,
