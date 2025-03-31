@@ -110,7 +110,10 @@
     (with-binds rule etype action expr)))
 
 (defn format-errors [etype action errors]
-  (map (fn [^CelIssue cel-issue] [etype action (.getMessage cel-issue)]) errors))
+  (map (fn [^CelIssue cel-issue]
+         {:message (.getMessage cel-issue)
+          :in [etype :allow action]})
+       errors))
 
 (defn get-issues [etype action ^CelValidationException e]
   (format-errors etype action (.getErrors e)))
@@ -178,10 +181,9 @@
     (when (and (not (nil? (get-in rules ["$users" "allow" action])))
                (not= (get-in rules ["$users" "allow" action])
                      "false"))
-      [["$users"
-        action
-        (format "The %s namespace is read-only. Set `%s.allow.%s` to `\"false\"`."
-                "$users" "$users" action)]])
+      {:message (format "The %s namespace is read-only. Set `%s.allow.%s` to `\"false\"`."
+                        "$users" "$users" action)
+       :in ["$users" :allow action]})
 
     "view" nil))
 
@@ -193,10 +195,9 @@
     (when (and (not (nil? (get-in rules ["$files" "allow" action])))
                (not= (get-in rules ["$files" "allow" action])
                      "false"))
-      [["$files"
-        action
-        (format "The %s namespace does not allow `update` permissions. Set `%s.allow.%s` to `\"false\"`."
-                "$files" "$files" action)]])
+      {:message (format "The %s namespace does not allow `update` permissions. Set `%s.allow.%s` to `\"false\"`."
+                  "$files" "$files" action)
+       :in ["$files" :allow action]})
 
     ("view" "create" "delete") nil))
 
@@ -205,11 +206,9 @@
   [etype action]
   (when (and (not (#{"$users" "$files" "$default"} etype))
              (string/starts-with? etype "$"))
-    [[etype
-      action
-      (format "The %s namespace is a reserved internal namespace that does not yet support rules."
-              etype)]]))
-
+    {:message (format "The %s namespace is a reserved internal namespace that does not yet support rules."
+                      etype)
+     :in [etype :allow action]}))
 (defn validation-errors [rules]
   (->> (keys rules)
        (mapcat (fn [etype] (map (fn [action] [etype action]) ["view" "create" "update" "delete"])))
@@ -230,10 +229,7 @@
                              (format-errors etype action errors))))
                        (catch CelValidationException e
                          (get-issues etype action e))))))
-       (keep identity)
-       (map (fn [[etype action message]]
-              {:message message
-               :in [etype :allow action]}))))
+       (keep identity)))
 
 (comment
   (def code {"docs" {"allow" {"view" "lol"
