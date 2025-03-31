@@ -809,8 +809,11 @@ function CreateAuthorizationUrlStep({
             />
           </div>
           <Content>
-            Now you've built an OAuth app on the Instant platform. There is more
-            information in the docs (Coming soon!).
+            Now you've built an OAuth app on the Instant platform. There is{' '}
+            <a href="/docs/auth/platform-oauth" target="_blank">
+              more information in the docs
+            </a>
+            .
           </Content>
           <Button onClick={reset}>Delete the app to reset</Button>
         </>
