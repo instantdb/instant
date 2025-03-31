@@ -7,6 +7,8 @@ const db = init({
   adminToken: process.env.INSTANT_ADMIN_TOKEN!,
 });
 
+export const dynamic = 'force-dynamic';
+
 export default async function Page() {
   const query = await db.query({
     goals: {},
