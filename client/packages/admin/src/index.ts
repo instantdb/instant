@@ -48,6 +48,7 @@ import {
   type InstantRules,
   type UpdateParams,
   type LinkParams,
+  type RuleParams,
 
   // storage types
   type FileOpts,
@@ -567,6 +568,10 @@ class Storage {
   };
 }
 
+type AdminQueryOpts = {
+  ruleParams?: RuleParams;
+};
+
 /**
  *
  * The first step: init your application!
@@ -624,7 +629,12 @@ class InstantAdminDatabase<Schema extends InstantSchemaDef<any, any, any>> {
    */
   query = <Q extends InstaQLParams<Schema>>(
     query: Q,
+    opts: AdminQueryOpts = {},
   ): Promise<InstaQLResponse<Schema, Q>> => {
+    if (query && opts && 'ruleParams' in opts) {
+      query = { $$ruleParams: opts['ruleParams'], ...query };
+    }
+
     return jsonFetch(`${this.config.apiURI}/admin/query`, {
       method: 'POST',
       headers: authorizedHeaders(this.config, this.impersonationOpts),
