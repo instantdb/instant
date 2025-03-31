@@ -250,7 +250,7 @@
                              (format-errors etype action errors))))
                        (catch CelValidationException e
                          (get-issues etype action e))
-                       (catch Exception e
+                       (catch Exception _e
                          [{:message "There was an unexpected error evaluating the rules"
                            :in [etype :allow action]}])))))
        (keep identity)))
