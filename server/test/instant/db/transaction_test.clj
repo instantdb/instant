@@ -110,68 +110,87 @@
 (deftest required-attrs
   (with-empty-app
     (fn [{app-id :id}]
-      (let [{title-attr-id :book/title
-             desc-attr-id  :book/desc} (test-util/make-attrs
-                                        app-id
-                                        [[:book/title :required?]
-                                         [:book/desc]])
+      (let [{title-attr-id  :book/title
+             desc-attr-id   :book/desc
+             author-attr-id :book/author
+             name-attr-id   :user/name} (test-util/make-attrs
+                                         app-id
+                                         [[:book/title :required?]
+                                          [:book/desc]
+                                          [[:book/author :user/books] :required?]
+                                          [:user/name]])
             ctx {:db               {:conn-pool (aurora/conn-pool :write)}
                  :app-id           app-id
                  :attrs            (attr-model/get-by-app-id app-id)
                  :datalog-query-fn d/query
                  :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
-                 :current-user     nil}]
+                 :current-user     nil}
+            user-id (suid "ffff")
+            book-id (suid "b00c")]
 
         (doseq [add-op [:add-triple :deep-merge-triple]]
           (testing add-op
+            (permissioned-tx/transact!
+             ctx
+             [[add-op user-id name-attr-id "user"]])
+
             (testing "add without required"
               (is (validation-err?
                    (permissioned-tx/transact!
                     ctx
-                    [[add-op (suid "a") desc-attr-id "no title"]]))))
+                    [[add-op book-id desc-attr-id "no title"]]))))
 
             (testing "add with required"
               (is (not (validation-err?
                         (permissioned-tx/transact!
                          ctx
-                         [[add-op (suid "a") title-attr-id "title"]
-                          [add-op (suid "a") desc-attr-id "desc"]])))))
+                         [[add-op book-id title-attr-id "title"]
+                          [add-op book-id desc-attr-id "desc"]
+                          [:add-triple book-id author-attr-id user-id]])))))
 
             (testing "update required"
               (is (not (validation-err?
                         (permissioned-tx/transact!
                          ctx
-                         [[add-op (suid "a") title-attr-id "title upd"]])))))
+                         [[add-op book-id title-attr-id "title upd"]])))))
+
+            (testing "retract + insert required"
+              (is (not (validation-err?
+                        (permissioned-tx/transact!
+                         ctx
+                         [[:retract-triple book-id title-attr-id "title upd"]
+                          [add-op book-id title-attr-id "title upd 2"]])))))
 
             (testing "update non-required"
               (is (not (validation-err?
                         (permissioned-tx/transact!
                          ctx
-                         [[add-op (suid "a") desc-attr-id "desc upd"]])))))
+                         [[add-op book-id desc-attr-id "desc upd"]])))))
 
             (testing "remove required"
               (is (validation-err?
                    (permissioned-tx/transact!
                     ctx
-                    [[:retract-triple (suid "a") title-attr-id "title upd"]]))))
+                    [[:retract-triple book-id title-attr-id "title upd 2"]]))))
 
             (testing "remove non-required"
               (is (not (validation-err?
                         (permissioned-tx/transact!
                          ctx
-                         [[:retract-triple (suid "a") desc-attr-id "desc upd"]])))))
+                         [[:retract-triple book-id desc-attr-id "desc upd"]])))))
 
             (testing "update last required"
               (is (not (validation-err?
                         (permissioned-tx/transact!
                          ctx
-                         [[add-op (suid "a") title-attr-id "title upd 2"]])))))
+                         [[add-op book-id title-attr-id "title upd 3"]])))))
 
             (testing "remove last required"
               (is (not (validation-err?
                         (permissioned-tx/transact!
                          ctx
-                         [[:retract-triple (suid "a") title-attr-id "title upd 2"]])))))))))))
+                         [[:retract-triple book-id title-attr-id "title upd 3"]
+                          [:retract-triple book-id author-attr-id user-id]])))))))))))
 
 (deftest attrs-update
   (with-empty-app

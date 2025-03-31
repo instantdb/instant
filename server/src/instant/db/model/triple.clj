@@ -146,14 +146,14 @@
   "Given [{:entity_id ..., :attr_id ...} ...] of entity attributes that were
    added or removed during this tx, checks that all affected entities that are still
    alive have all required attributes set"
-  [conn app-id all-inserts]
-  (let [all-inserts
-        (sql/recordset all-inserts
+  [conn app-id eid+attr-ids]
+  (let [eid+attr-ids
+        (sql/recordset eid+attr-ids
                        {'entity_id {:type :uuid, :as 'entity-id}
                         'attr_id   {:type :uuid, :as 'attr-id}})
 
         eid+etypes
-        {:from 'all-inserts
+        {:from 'eid+attr-ids
          :join ['attrs  [:= 'attr-id 'attrs/id]
                 'idents [:= 'attrs/forward-ident 'idents/id]]
          :select-distinct ['entity-id 'etype]}
@@ -191,7 +191,7 @@
          :select 'missing-required/*}
 
         query
-        {:with   [['all-inserts            all-inserts]
+        {:with   [['eid+attr-ids           eid+attr-ids]
                   ['eid+etypes             eid+etypes]
                   ['eid+required-attrs     eid+required-attrs]
                   ['missing-required       missing-required]
@@ -350,10 +350,8 @@
                   (when-let [attr-inferred-types (insert-attr-inferred-types-cte app-id triples)]
                     [[:attr-inferred-types attr-inferred-types]]))
            :select ['entity-id 'attr-id]
-           :from :ea-index-inserts}
-        eid+attr-ids (sql/execute! conn (hsql/format q))]
-    (validate-required! conn app-id eid+attr-ids)
-    eid+attr-ids))
+           :from :ea-index-inserts}]
+    (sql/execute! conn (hsql/format q))))
 
 (defn insert-multi!
   "Given a set of raw triples, we enhance each triple with metadata based on
@@ -646,12 +644,7 @@
                :select ['entity-id 'attr-id]}]
 
     (try
-      (let [all-inserts (sql/do-execute! conn (hsql/format query))]
-        (validate-required! conn app-id all-inserts)
-        (->> all-inserts
-             (map #(select-keys % [:entity_id]))
-             (distinct)))
-
+      (sql/do-execute! conn (hsql/format query))
       (catch Exception e
         (let [pg-server-message (-> e
                                     ex-data
@@ -770,12 +763,8 @@
          :where [:in
                  [:composite :app-id :entity-id :attr-id :value-md5]
                  {:select :* :from :enhanced-triples}]
-         :returning [:entity-id :attr-id]}
-        res (sql/execute!
-             conn
-             (hsql/format query))]
-    (validate-required! conn app-id res)
-    res))
+         :returning [:entity-id :attr-id]}]
+    (sql/execute! conn (hsql/format query))))
 
 ;; ---
 ;; fetch

@@ -349,7 +349,12 @@
                           (triple-model/delete-multi! conn app-id (map next tx-steps))))))
              {}
              grouped-tx-steps)
-
+            eid+attr-ids (distinct
+                          (concat
+                           (:add-triple results)
+                           (:deep-merge-triple results)
+                           (:retract-triple results)))
+            _  (triple-model/validate-required! conn app-id eid+attr-ids)
             tx (transaction-model/create! conn {:app-id app-id})]
         (let [tx-created-at (Date/.toInstant (:created_at tx))]
           (e2e-tracer/start-invalidator-tracking! {:tx-id (:id tx)
