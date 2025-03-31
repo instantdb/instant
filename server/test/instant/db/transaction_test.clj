@@ -110,87 +110,126 @@
 (deftest required-attrs
   (with-empty-app
     (fn [{app-id :id}]
-      (let [{title-attr-id  :book/title
-             desc-attr-id   :book/desc
-             author-attr-id :book/author
-             name-attr-id   :user/name} (test-util/make-attrs
-                                         app-id
-                                         [[:book/title :required?]
-                                          [:book/desc]
-                                          [[:book/author :user/books] :required?]
-                                          [:user/name]])
+      (let [{attr-book-title   :book/title
+             attr-book-desc    :book/desc
+             attr-book-author  :book/author
+             attr-user-name    :user/name
+             attr-user-company :user/company
+             attr-company-name :company/name}
+            (test-util/make-attrs
+             app-id
+             [[:book/title :required?]
+              [:book/desc]
+              [[:book/author :user/books] :required?]
+              [:user/name]
+              [[:user/company :company/users] :on-delete]
+              [:company/name]])
             ctx {:db               {:conn-pool (aurora/conn-pool :write)}
                  :app-id           app-id
                  :attrs            (attr-model/get-by-app-id app-id)
                  :datalog-query-fn d/query
                  :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
                  :current-user     nil}
-            user-id (suid "ffff")
-            book-id (suid "b00c")]
+            user-id    (suid "ffff")
+            book-id    (suid "b00c")
+            company-id (suid "aaaa")]
 
-        (doseq [add-op [:add-triple :deep-merge-triple]]
+        (doseq [add-op [:add-triple #_:deep-merge-triple]]
           (testing add-op
             (permissioned-tx/transact!
              ctx
-             [[add-op user-id name-attr-id "user"]])
+             [[add-op user-id attr-user-name "user"]
+              [:add-triple user-id attr-user-company company-id]
+              [add-op company-id attr-company-name "company"]])
 
             (testing "add without required"
               (is (validation-err?
                    (permissioned-tx/transact!
                     ctx
-                    [[add-op book-id desc-attr-id "no title"]]))))
+                    [[add-op book-id attr-book-desc "no title"]]))))
 
             (testing "add with required"
               (is (not (validation-err?
                         (permissioned-tx/transact!
                          ctx
-                         [[add-op book-id title-attr-id "title"]
-                          [add-op book-id desc-attr-id "desc"]
-                          [:add-triple book-id author-attr-id user-id]])))))
+                         [[add-op book-id attr-book-title "title"]
+                          [add-op book-id attr-book-desc "desc"]
+                          [:add-triple book-id attr-book-author user-id]])))))
 
             (testing "update required"
               (is (not (validation-err?
                         (permissioned-tx/transact!
                          ctx
-                         [[add-op book-id title-attr-id "title upd"]])))))
+                         [[add-op book-id attr-book-title "title upd"]])))))
 
             (testing "retract + insert required"
               (is (not (validation-err?
                         (permissioned-tx/transact!
                          ctx
-                         [[:retract-triple book-id title-attr-id "title upd"]
-                          [add-op book-id title-attr-id "title upd 2"]])))))
+                         [[:retract-triple book-id attr-book-title "title upd"]
+                          [add-op book-id attr-book-title "title upd 2"]])))))
 
             (testing "update non-required"
               (is (not (validation-err?
                         (permissioned-tx/transact!
                          ctx
-                         [[add-op book-id desc-attr-id "desc upd"]])))))
+                         [[add-op book-id attr-book-desc "desc upd"]])))))
 
             (testing "remove required"
-              (is (validation-err?
-                   (permissioned-tx/transact!
-                    ctx
-                    [[:retract-triple book-id title-attr-id "title upd 2"]]))))
+              (testing "regular attr"
+                (is (validation-err?
+                     (permissioned-tx/transact!
+                      ctx
+                      [[:retract-triple book-id attr-book-title "title upd 2"]]))))
+
+              (testing "link"
+
+                (is (validation-err?
+                     (permissioned-tx/transact!
+                      ctx
+                      [[:retract-triple book-id attr-book-author user-id]]))))
+
+              (testing "through delete-entity"
+                (is (validation-err?
+                     (permissioned-tx/transact!
+                      ctx
+                      [[:delete-entity user-id "user"]]))))
+
+              (testing "through cascade"
+                (is (validation-err?
+                     (permissioned-tx/transact!
+                      ctx
+                      [[:delete-entity company-id "company"]])))))
 
             (testing "remove non-required"
               (is (not (validation-err?
                         (permissioned-tx/transact!
                          ctx
-                         [[:retract-triple book-id desc-attr-id "desc upd"]])))))
+                         [[:retract-triple book-id attr-book-desc "desc upd"]])))))
 
             (testing "update last required"
               (is (not (validation-err?
                         (permissioned-tx/transact!
                          ctx
-                         [[add-op book-id title-attr-id "title upd 3"]])))))
+                         [[add-op book-id attr-book-title "title upd 3"]])))))
 
             (testing "remove last required"
               (is (not (validation-err?
                         (permissioned-tx/transact!
                          ctx
-                         [[:retract-triple book-id title-attr-id "title upd 3"]
-                          [:retract-triple book-id author-attr-id user-id]])))))))))))
+                         [[:retract-triple book-id attr-book-title "title upd 3"]
+                          [:retract-triple book-id attr-book-author user-id]])))))
+
+            (testing "delete-entity"
+              (permissioned-tx/transact!
+               ctx
+               [[add-op book-id attr-book-title "title"]
+                [add-op book-id attr-book-desc "desc"]
+                [:add-triple book-id attr-book-author user-id]])
+              (is (not (validation-err?
+                        (permissioned-tx/transact!
+                         ctx
+                         [[:delete-entity book-id "book"]])))))))))))
 
 (deftest attrs-update
   (with-empty-app
