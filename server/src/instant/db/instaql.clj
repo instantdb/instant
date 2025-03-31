@@ -1045,7 +1045,7 @@
                            ;; won't be able to find the entity
                            (conj fields "id"))]
       (if (contains? attr-ids $file-url-attr-id)
-        ;; If the user asked for the url, we need to make sure to 
+        ;; If the user asked for the url, we need to make sure to
         ;; include `location-id` too; we use location-id to generate the url.
         (conj attr-ids $file-location-id-attr-id)
         attr-ids))

@@ -1,6 +1,7 @@
 (ns instant.model.rule
   (:require
    [clojure.core.cache.wrapped :as cache]
+   [clojure.set]
    [clojure.string :as string]
    [honey.sql :as hsql]
    [instant.db.cel :as cel]
@@ -68,14 +69,34 @@
       conn
       ["DELETE FROM rules WHERE app_id = ?::uuid" app-id]))))
 
-(defn with-binds [rule etype expr]
-  (->> (get-in rule [etype "bind"])
-       (partition-all 2)
-       reverse
-       (reduce
-        (fn [body [var-name var-body]]
-          (str "cel.bind(" var-name ", " var-body ", " body ")"))
-        expr)))
+(defn bind-usages [compiler bind-keys expr]
+  (clojure.set/intersection bind-keys
+                            (cel/ident-usages compiler expr)))
+
+
+(defn with-binds [rule etype action expr]
+  (let [binds (get-in rule [etype "bind"])]
+    (if (empty? binds)
+      expr
+      (let [compiler (cel/action->compiler action)
+            bind-map (apply hash-map binds)
+            bind-keys (set (keys bind-map))
+            all-bind-usages (loop [seen #{}
+                                   bind-idents []
+                                   [next-expr & rest-expr] [expr]]
+                              (if-not next-expr
+                                bind-idents
+                                (let [binds (bind-usages compiler bind-keys next-expr)
+                                      new-bind-idents (clojure.set/difference binds seen)]
+                                  (recur (into seen binds)
+                                         (into bind-idents new-bind-idents)
+                                         (concat rest-expr (map (fn [i]
+                                                                  (get bind-map i))
+                                                                new-bind-idents))))))]
+        (reduce (fn [body var-name]
+                  (str "cel.bind(" var-name ", " (get bind-map var-name) ", " body ")"))
+                expr
+                all-bind-usages)))))
 
 (defn get-expr [rule etype action]
   (or
@@ -86,7 +107,7 @@
 
 (defn extract [rule etype action]
   (when-let [expr (get-in rule [etype "allow" action])]
-    (with-binds rule etype expr)))
+    (with-binds rule etype action expr)))
 
 (defn format-errors [etype action errors]
   (map (fn [^CelIssue cel-issue] [etype action (.getMessage cel-issue)]) errors))
@@ -121,7 +142,7 @@
   (or
    (when-let [expr (get-expr (:code rules) etype action)]
      (try
-       (let [code (with-binds (:code rules) etype expr)
+       (let [code (with-binds (:code rules) etype action expr)
              ;; Don't bork if the perm check is a simple boolean
              code-str (if (boolean? code) (str code) code)
              compiler (cel/action->compiler action)
