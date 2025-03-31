@@ -139,38 +139,40 @@ function authorizedHeaders(
     : headers;
 }
 
-function isCloudflareWorkerRuntime() {
+// NextJS 13 and 14 cache fetch requests by default.
+//
+// Since adminDB.query uses fetch, this means that it would also cache by default.
+//
+// We don't want this behavior. `adminDB.query` should return the latest result by default.
+//
+// To get around this, we set an explicit `cache` header for NextJS 13 and 14.
+// This is no longer needed in NextJS 15 onwards, as the default is `no-store` again.
+// Once NextJS 13 and 14 are no longer common, we can remove this code.
+function isNextJSVersionThatCachesFetchByDefault() {
   return (
-    // @ts-ignore
-    typeof WebSocketPair !== 'undefined' ||
-    // @ts-ignore
-    (typeof navigator !== 'undefined' &&
-      navigator.userAgent === 'Cloudflare-Workers') ||
-    // @ts-ignore
-    (typeof EdgeRuntime !== 'undefined' && EdgeRuntime === 'vercel')
+    // NextJS 13 onwards added a `__nextPatched` property to the fetch functuon
+    fetch['__nextPatched'] &&
+    // NextJS 15 onwards _also_ added a global `next-patch` symbol.
+    !globalThis[Symbol.for('next-patch')]
   );
 }
 
-// (XXX): Cloudflare Workers don't support cache: "no-store"
-// We need to set `cache: "no-store"` so Next.js doesn't cache the fetch
-// To keep Cloudflare Workers working, we need to conditionally set the fetch options
-// Once Cloudflare Workers support `cache: "no-store"`, we can remove this conditional
-// https://github.com/cloudflare/workerd/issues/698
-
-const FETCH_OPTS: RequestInit = isCloudflareWorkerRuntime()
-  ? {}
-  : { cache: 'no-store' };
+function getDefaultFetchOpts(): RequestInit {
+  return isNextJSVersionThatCachesFetchByDefault() ? { cache: 'no-store' } : {};
+}
 
 async function jsonFetch(
   input: RequestInfo,
   init: RequestInit | undefined,
 ): Promise<any> {
+  const defaultFetchOpts = getDefaultFetchOpts();
+  console.log('defaultFetchOpts', defaultFetchOpts);
   const headers = {
     ...(init.headers || {}),
     'Instant-Admin-Version': version,
     'Instant-Core-Version': coreVersion,
   };
-  const res = await fetch(input, { ...FETCH_OPTS, ...init, headers });
+  const res = await fetch(input, { ...defaultFetchOpts, ...init, headers });
   const json = await res.json();
   return res.status === 200
     ? Promise.resolve(json)
