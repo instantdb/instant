@@ -150,7 +150,7 @@ function authorizedHeaders(
 // Once NextJS 13 and 14 are no longer common, we can remove this code.
 function isNextJSVersionThatCachesFetchByDefault() {
   return (
-    // NextJS 13 onwards added a `__nextPatched` property to the fetch functuon
+    // NextJS 13 onwards added a `__nextPatched` property to the fetch function
     fetch['__nextPatched'] &&
     // NextJS 15 onwards _also_ added a global `next-patch` symbol.
     !globalThis[Symbol.for('next-patch')]
