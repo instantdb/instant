@@ -408,6 +408,8 @@ const {
 );
 ```
 
+**NOTE:** Passing `null` to `db.useQuery` will result in `isLoading` being true. In the example above, this means that `isLoadingTodos` will _always be true_ if the user is not logged in.
+
 ## Pagination
 
 You can limit the number of items from a top level namespace by adding a `limit` to the option map:
