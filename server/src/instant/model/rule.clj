@@ -154,7 +154,8 @@
           :code code-str
           :display-code expr
           :cel-ast ast
-          :cel-program (cel/->program ast)})
+          :cel-program (cel/->program ast)
+          :ref-uses (cel/collect-ref-uses ast)})
        (catch CelValidationException e
          (ex/throw-validation-err!
           :permission

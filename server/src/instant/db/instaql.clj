@@ -1836,10 +1836,7 @@
    Returns: [{:etype string, :path-str string, :eids #{uuid}}]"
   [user-id etype->eids+program]
   (reduce-kv (fn [acc etype {:keys [eids program]}]
-               (if-let [refs (some-> program
-                                     :cel-ast
-                                     cel/collect-ref-uses
-                                     seq)]
+               (if-let [refs (seq (:ref-uses program))]
                  (reduce (fn [acc {:keys [obj path]}]
                            (case obj
                              "data" (conj acc {:etype etype

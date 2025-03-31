@@ -236,7 +236,7 @@
 
    And we group them by `eid`, `etype`, and `action`.
 
-   :groups 
+   :groups
     {{:eid joe-eid
       :etype \"users\"
       :action :update} [[:add-triple joe-eid :users/name \"Joe\"]
@@ -245,8 +245,8 @@
       :etype \"users\"
       :action :update} [[:add-triple stopa-eid :users/name \"Stopa\"]
                         [:add-triple stopa-eid :users/age 30]] }
-   :rule-params-to-copy 
-   {{:eid joe-id 
+   :rule-params-to-copy
+   {{:eid joe-id
      :etype \"users\"} [{:eid post-id :etype \"posts\"}]}"
   [ctx tx-steps]
   (reduce (fn [acc tx-step]
@@ -436,7 +436,7 @@
    (reduce (fn [acc check]
              (if (and (= :object (:scope check))
                       (:program check))
-               (let [refs (cel/collect-ref-uses (:cel-ast (:program check)))]
+               (let [refs (:ref-uses (:program check))]
                  (reduce (fn [acc {:keys [obj path]}]
                            ;; group by etype + ref-path so we can collect all eids
                            ;; for each group
