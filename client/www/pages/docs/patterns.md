@@ -166,7 +166,7 @@ function App() {
 If you have a plain html page or avoid using a build step, you can use InstantDB
 via a CDN through [unpkg](https://www.unpkg.com/@instantdb/core/).
 
-```html
+```jsx
 <!-- Load Instant via unpkg. Consider replacing `@latest` with current version  -->
 <script src="https://www.unpkg.com/@instantdb/core@latest/dist/standalone/index.umd.js"></script>
 
@@ -176,9 +176,11 @@ via a CDN through [unpkg](https://www.unpkg.com/@instantdb/core/).
   const db = init({ appId: 'your-app-id' });
 
   async function createMessage() {
-    await db.transact(db.tx.messages[id()].update({
-      text: 'Hello world!'
-    }));
+    await db.transact(
+      db.tx.messages[id()].update({
+        text: 'Hello world!'
+      })
+    );
   }
 </script>
 ```
