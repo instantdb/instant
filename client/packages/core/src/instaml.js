@@ -186,8 +186,8 @@ function expandUnlink(attrs, [etype, eidA, obj]) {
   return withIdAttrForLookup(attrs, etype, eidA, retractTriples);
 }
 
-function expandUpdate(attrs, [etype, eid, _obj]) {
-  const obj = immutableRemoveUndefined(_obj);
+function expandUpdate(attrs, [etype, eid, obj_]) {
+  const obj = immutableRemoveUndefined(obj_);
   const lookup = extractLookup(attrs, etype, eid);
   // id first so that we don't clobber updates on the lookup field
   const attrTuples = [['id', lookup]]
