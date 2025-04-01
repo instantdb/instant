@@ -454,8 +454,12 @@
       true
       false))
 
+  ;; for printing
+  (entrySet [_]
+    (set #{[:etype etype]}))
+
   (toString [_this]
-    {:etype etype}))
+    (str {:etype etype})))
 
 ;; The ors and ands that make up the where clause. This is what the
 ;; rule will return.
@@ -923,6 +927,21 @@
 
 ;; Overload for data.ref
 
+(defn validate-refpath [attrs initial-etype path]
+  (loop [etype initial-etype
+         [label & rest] (clojure-string/split path #"\.")]
+    (let [[attr next-etype] (or (when-let [attr (attr-model/seek-by-fwd-ident-name [etype label] attrs)]
+                                  [attr (attr-model/rev-etype attr)])
+                                (when-let [attr (attr-model/seek-by-rev-ident-name [etype label] attrs)]
+                                  [attr (attr-model/fwd-etype attr)]))]
+      (if-not attr
+        (throw (ex-info "Invalid data.ref" {:etype initial-etype
+                                            :path path
+                                            :failing-segment label}))
+        (when (seq rest)
+          (recur next-etype
+                 rest))))))
+
 (def where-ref-fn (member-overload "ref"
                                    ;; Include the default (for auth.ref)
                                    [data-ref-decl
@@ -930,7 +949,8 @@
                                      :cel-args [checked-data-map-cel-type SimpleType/STRING]
                                      :cel-return-type refpath-cel-type
                                      :java-args [CheckedDataMap String]
-                                     :impl (fn [[^CheckedDataMap _m ^String ref-path]]
+                                     :impl (fn [[^CheckedDataMap m ^String ref-path]]
+                                             (validate-refpath (.attrs m) (.etype m) ref-path)
                                              (RefPath. ref-path))}]))
 
 (def where-custom-fns [where-ref-fn
