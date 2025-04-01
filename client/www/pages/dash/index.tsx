@@ -1,5 +1,5 @@
 import { init, InstantReactWebDatabase } from '@instantdb/react';
-import { useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import { v4 } from 'uuid';
 import produce from 'immer';
 import Head from 'next/head';
@@ -30,7 +30,7 @@ import {
   voidTicket,
 } from '@/lib/auth';
 import { TokenContext } from '@/lib/contexts';
-import { DashResponse, DBAttr, InstantApp, InstantMember } from '@/lib/types';
+import { DashResponse, InstantApp, InstantMember } from '@/lib/types';
 
 import { Perms } from '@/components/dash/Perms';
 import Auth from '@/components/dash/Auth';
@@ -361,12 +361,18 @@ function Dashboard() {
     };
   }, [app?.id, app?.admin_token]);
 
-  function nav(q: { s: string; app?: string; t?: string }) {
+  function nav(q: { s: string; app?: string; t?: string }, cb?: () => void) {
     if (q.app) setLocal('dash_app_id', q.app);
 
-    router.push({
-      query: q,
-    });
+    router
+      .push({
+        query: q,
+      })
+      .then(() => {
+        if (cb) {
+          cb();
+        }
+      });
   }
 
   function onCreateApp(r: { name: string }) {
@@ -864,7 +870,7 @@ function Nav({
 }: {
   apps: InstantApp[];
   hasInvites: boolean;
-  nav: (p: { s: string; t?: string; app?: string }) => void;
+  nav: (p: { s: string; t?: string; app?: string }, cb?: () => void) => void;
   appId: string;
   tab: TabId;
   availableTabs: TabBarTab[];
@@ -873,6 +879,7 @@ function Nav({
   const currentApp = apps.find((a) => a.id === appId);
   const [appQuery, setAppQuery] = useState('');
   const comboboxInputRef = useRef<HTMLInputElement | null>(null);
+
   const filteredApps = appQuery
     ? apps.filter((a) => a.title.toLowerCase().includes(appQuery))
     : apps;
@@ -886,11 +893,11 @@ function Nav({
             if (!app) {
               return;
             }
-            nav({ s: 'main', app: app.id, t: tab });
             setAppQuery('');
-            setTimeout(() => {
-              comboboxInputRef.current && comboboxInputRef.current.blur();
-            });
+            nav(
+              { s: 'main', app: app.id, t: tab },
+              () => comboboxInputRef.current && comboboxInputRef.current.blur(),
+            );
           }}
           onClose={() => setAppQuery('')}
         >
