@@ -152,13 +152,12 @@
   (or
    (when-let [expr (get-expr (:code rules) etype action)]
      (try
-       (let [code (with-binds (:code rules) etype action expr)
-             code-str (patch-code code)
+       (let [code (with-binds (:code rules) etype action (patch-code expr))
              compiler (cel/action->compiler action)
-             ast (cel/->ast compiler code-str)]
+             ast (cel/->ast compiler code)]
          {:etype etype
           :action action
-          :code code-str
+          :code code
           :display-code expr
           :cel-ast ast
           :cel-program (cel/->program ast)
