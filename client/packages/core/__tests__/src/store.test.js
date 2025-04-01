@@ -482,6 +482,7 @@ test('deepMerge', () => {
           score: 100,
           playerStats: { health: 50, mana: 30, ambitions: { win: true } },
           inventory: ['sword', 'potion'],
+          locations: ['forest', 'castle'],
           level: 2,
         },
       }),
@@ -505,6 +506,8 @@ test('deepMerge', () => {
           score: null,
           // undefined is ignored
           level: undefined,
+          // undefined is kept in arrays
+          locations: ['forest', undefined, 'castle'],
         },
       }),
     ),
@@ -522,6 +525,7 @@ test('deepMerge', () => {
     },
     level: 2,
     inventory: ['shield'],
+    locations: ['forest', undefined, 'castle'],
   });
   checkIndexIntegrity(updatedGame);
 });
