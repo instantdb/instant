@@ -1,12 +1,23 @@
 import { init, InstantReactWebDatabase } from '@instantdb/react';
-import { useContext, useEffect, useMemo, useState } from 'react';
+import { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { v4 } from 'uuid';
 import produce from 'immer';
 import Head from 'next/head';
 import NextLink from 'next/link';
 import { useRouter } from 'next/router';
 import { capitalize } from 'lodash';
-import { PlusIcon, TrashIcon } from '@heroicons/react/24/solid';
+import {
+  ChevronDownIcon,
+  PlusIcon,
+  TrashIcon,
+} from '@heroicons/react/24/solid';
+import {
+  Combobox,
+  ComboboxButton,
+  ComboboxInput,
+  ComboboxOption,
+  ComboboxOptions,
+} from '@headlessui/react';
 
 import { StyledToastContainer, errorToast, successToast } from '@/lib/toast';
 import config, { cliOauthParamName, getLocal, setLocal } from '@/lib/config';
@@ -59,6 +70,7 @@ import { useDashFetch } from '@/lib/hooks/useDashFetch';
 import { asClientOnlyPage, useReadyRouter } from '@/components/clientOnlyPage';
 import { createdAtComparator } from '@/lib/app';
 import OAuthApps from '@/components/dash/OAuthApps';
+import clsx from 'clsx';
 
 // (XXX): we may want to expose this underlying type
 type InstantReactClient = ReturnType<typeof init>;
@@ -859,22 +871,67 @@ function Nav({
 }) {
   const router = useRouter();
   const currentApp = apps.find((a) => a.id === appId);
+  const [appQuery, setAppQuery] = useState('');
+  const comboboxInputRef = useRef<HTMLInputElement | null>(null);
+  const filteredApps = appQuery
+    ? apps.filter((a) => a.title.toLowerCase().includes(appQuery))
+    : apps;
   return (
     <div className="flex flex-col gap-2 border-b border-gray-300 md:w-40 md:gap-0 md:border-b-0 md:border-r bg-gray-50">
       <div className="flex flex-row justify-between gap-2 p-2 md:flex-col md:justify-start bg-gray-50">
-        <Select
-          className="w-0 basis-[35%] md:w-full md:basis-full truncate text-sm"
-          options={apps.map((a) => ({ label: a.title, value: a.id }))}
-          disabled={apps.length === 0}
-          value={appId}
-          onChange={(app) => {
+        <Combobox
+          immediate={true}
+          value={currentApp}
+          onChange={(app: InstantApp | null) => {
             if (!app) {
               return;
             }
-
-            nav({ s: 'main', app: app.value, t: tab });
+            nav({ s: 'main', app: app.id, t: tab });
+            setAppQuery('');
+            setTimeout(() => {
+              comboboxInputRef.current && comboboxInputRef.current.blur();
+            });
           }}
-        />
+          onClose={() => setAppQuery('')}
+        >
+          <div className="relative">
+            <ComboboxInput
+              ref={comboboxInputRef}
+              className={clsx(
+                'w-0 basis-[35%] md:w-full md:basis-full truncate text-sm rounded-sm border-gray-300 py-1',
+                'pr-8 pl-3 text-sm/6',
+                'focus:outline-none data-[focus]:outline-2 data-[focus]:-outline-offset-2 data-[focus]:outline-white/25',
+              )}
+              displayValue={(app: InstantApp) => app.title}
+              onChange={(e) => setAppQuery(e.target.value)}
+            />
+            <ComboboxButton className="group absolute inset-y-0 right-0 px-2.5">
+              <ChevronDownIcon
+                height={'1em'}
+                className="fill-gray/300 group-data-[hover]:fill-gray"
+              />
+            </ComboboxButton>
+          </div>
+          <ComboboxOptions
+            anchor="bottom"
+            transition
+            className={clsx(
+              'min-w-[var(--input-width)] bg-white shadow-lg border border-gray-300 divide-y empty:invisible z-50',
+              'border p-1 mx-2 my-1 [--anchor-gap:var(--spacing-1)] ',
+              'transition duration-100 ease-in data-[leave]:data-[closed]:opacity-0',
+            )}
+          >
+            {filteredApps.map((app) => (
+              <ComboboxOption
+                key={app.id}
+                value={app}
+                className="group cursor-pointer px-3 py-1 data-[focus]:bg-blue-100"
+              >
+                <div className="">{app.title}</div>
+              </ComboboxOption>
+            ))}
+          </ComboboxOptions>
+        </Combobox>
         <div className="flex md:flex-col gap-2">
           <Button
             size="mini"
