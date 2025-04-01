@@ -204,8 +204,8 @@ function expandDelete(attrs, [etype, eid]) {
   return [['delete-entity', lookup, etype]];
 }
 
-function expandDeepMerge(attrs, [etype, eid, _obj]) {
-  const obj = immutableRemoveUndefined(_obj);
+function expandDeepMerge(attrs, [etype, eid, obj_]) {
+  const obj = immutableRemoveUndefined(obj_);
   const lookup = extractLookup(attrs, etype, eid);
   const attrTuples = Object.entries(obj).map(([identName, value]) => {
     const attr = getAttrByFwdIdentName(attrs, etype, identName);
