@@ -1045,7 +1045,7 @@
                            ;; won't be able to find the entity
                            (conj fields "id"))]
       (if (contains? attr-ids $file-url-attr-id)
-        ;; If the user asked for the url, we need to make sure to 
+        ;; If the user asked for the url, we need to make sure to
         ;; include `location-id` too; we use location-id to generate the url.
         (conj attr-ids $file-location-id-attr-id)
         attr-ids))
@@ -1836,10 +1836,7 @@
    Returns: [{:etype string, :path-str string, :eids #{uuid}}]"
   [user-id etype->eids+program]
   (reduce-kv (fn [acc etype {:keys [eids program]}]
-               (if-let [refs (some-> program
-                                     :cel-ast
-                                     cel/collect-ref-uses
-                                     seq)]
+               (if-let [refs (seq (:ref-uses program))]
                  (reduce (fn [acc {:keys [obj path]}]
                            (case obj
                              "data" (conj acc {:etype etype

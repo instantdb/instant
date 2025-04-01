@@ -23,7 +23,8 @@
                        CelExpr$CelComprehension
                        CelExpr$ExprKind$Kind
                        Expression$Map$Entry)
-   (dev.cel.common.navigation CelNavigableExpr)
+   (dev.cel.common.navigation CelNavigableAst
+                              CelNavigableExpr)
    (dev.cel.common.types CelType
                          ListType
                          MapType
@@ -342,6 +343,34 @@
     ("view" "delete")
     cel-view-delete-compiler
     cel-create-update-compiler))
+
+(defn get-expr ^CelExpr [^CelNavigableExpr node]
+  ;; Not sure why this is necessary, but can't call
+  ;; .expr on the node without manually making it
+  ;; accessible. It's what they do in the example,
+  ;; so not sure why it's a problem here
+  ;; https://tinyurl.com/46zbw98p
+  (let [clazz (.getClass node)
+        method (.getDeclaredMethod clazz "expr" (into-array Class []))
+        _ (.setAccessible method true)
+        ^CelExpr expr (.invoke method node (object-array 0))]
+    expr))
+
+(defn ident-usages
+  "Returns a set of ident names used in the cel expression.
+   Useful for determining which bindings we need to add to the expression."
+  [^CelCompiler compiler ^String expr-str]
+  (set (keep (fn [^CelNavigableExpr n]
+               (when (= CelExpr$ExprKind$Kind/IDENT (.getKind n))
+                 (.name
+                  (.ident
+                   (get-expr n)))))
+             (-> (.parse compiler expr-str)
+                 (.getAst)
+                 (CelNavigableAst/fromAst)
+                 (.getRoot)
+                 (.allNodes)
+                 (stream-seq!)))))
 
 (defn ->ast [^CelCompiler compiler expr-str] (.getAst (.compile compiler expr-str)))
 
@@ -1150,15 +1179,7 @@
                                          (.iterator)
                                          iterator-seq)]
         (when (= CelExpr$ExprKind$Kind/CALL (.getKind node))
-          ;; Not sure why this is necessary, but can't call
-          ;; .expr on the node without manually making it
-          ;; accessible. It's what they do in the example,
-          ;; so not sure why it's a problem here
-          ;; https://tinyurl.com/46zbw98p
-          (let [clazz (.getClass node)
-                method (.getDeclaredMethod clazz "expr" (into-array Class []))
-                _ (.setAccessible method true)
-                ^CelExpr expr (.invoke method node (object-array 0))
+          (let [expr (get-expr node)
                 call (.call expr)
                 [obj f] (function-name call)]
             (when (and (= f "ref")
