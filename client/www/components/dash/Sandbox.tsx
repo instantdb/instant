@@ -20,7 +20,7 @@ try {
 export function Sandbox({ app }: { app: InstantApp }) {
   const consoleRef = useRef<HTMLDivElement>(null);
   const [sandboxCodeValue, setSandboxValue] = useLocalStorage(
-    `__instant_sandbox_value_${app.id}`,
+    `__instant_sandbox_value:${app.id}`,
     cachedSandboxValue,
   );
   const [runAsUserEmail, setRunAsUserEmail] = useState('');
