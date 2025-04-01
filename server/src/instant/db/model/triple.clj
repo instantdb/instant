@@ -147,13 +147,13 @@
    added or removed during this tx, checks that all affected entities that are still
    alive have all required attributes set"
   [conn app-id eid+attr-ids]
-  (let [eid+attr-ids
+  (let [eid+attr-ids-cte
         (sql/recordset eid+attr-ids
                        {'entity_id {:type :uuid, :as 'entity-id}
                         'attr_id   {:type :uuid, :as 'attr-id}})
 
         eid+etypes
-        {:from 'eid+attr-ids
+        {:from 'eid+attr-ids-cte
          :join ['attrs  [:= 'attr-id 'attrs/id]
                 'idents [:= 'attrs/forward-ident 'idents/id]]
          :select-distinct ['entity-id 'etype]}
@@ -191,7 +191,7 @@
          :select 'missing-required/*}
 
         query
-        {:with   [['eid+attr-ids           eid+attr-ids]
+        {:with   [['eid+attr-ids-cte       eid+attr-ids-cte]
                   ['eid+etypes             eid+etypes]
                   ['eid+required-attrs     eid+required-attrs]
                   ['missing-required       missing-required]
@@ -673,44 +673,48 @@
    2. Deletes all reference triples where this entity is the value:
       [_ _ id]"
   [conn app-id id+etypes]
-  (let [query  {:with [[[:id_etypes {:columns [:entity_id :etype]}]
-                        {:values id+etypes}]
+  (let [id-etypes
+        (sql/tupleset id+etypes
+                      [{:as 'entity_id :type :uuid}
+                       {:as 'etype :type :text}])
 
-                       [:forward_attrs
-                        {:select :triples.ctid
-                         :from   :triples
-                         :join   [:id_etypes [:= :triples.entity_id :id_etypes.entity_id]
-                                  :attrs     [:= :triples.attr_id :attrs.id]
-                                  :idents    [:= :idents.id :attrs.forward-ident]]
-                         :where  [:and
-                                  [:= :triples.app-id [:param :app-id]]
-                                  [:= :idents.etype :id_etypes.etype]
-                                  [:or
-                                   [:= :idents.app-id [:param :app-id]]
-                                   [:= :idents.app-id [:param :system-catalog-app-id]]]]}]
+        forward-attrs
+        {:select 'triples/ctid
+         :from   'triples
+         :join   ['id-etypes [:= 'triples/entity_id 'id-etypes/entity_id]
+                  'attrs     [:= 'triples/attr_id 'attrs/id]
+                  'idents    [:= 'idents/id 'attrs/forward-ident]]
+         :where  [:and
+                  [:= 'triples/app-id app-id]
+                  [:= 'idents/etype 'id-etypes/etype]
+                  [:or
+                   [:= 'idents/app-id app-id]
+                   [:= 'idents/app-id system-catalog-app-id]]]}
 
-                       [:reverse_attrs
-                        {:select :triples.ctid
-                         :from   :triples
-                         :join   [:id_etypes [:= :triples.value [:to_jsonb :id_etypes.entity_id]]
-                                  :attrs     [:= :triples.attr_id :attrs.id]
-                                  :idents    [:= :idents.id :attrs.reverse-ident]]
-                         :where  [:and
-                                  :vae
-                                  [:= :triples.app-id [:param :app-id]]
-                                  [:= :idents.etype :id_etypes.etype]
-                                  [:or
-                                   [:= :idents.app-id [:param :app-id]]
-                                   [:= :idents.app-id [:param :system-catalog-app-id]]]]}]]
-                :delete-from :triples
-                :where       [:in :ctid
+        reverse-attrs
+        {:select 'triples/ctid
+         :from   'triples
+         :join   ['id-etypes [:= 'triples/value [:to_jsonb 'id-etypes/entity_id]]
+                  'attrs     [:= 'triples/attr_id 'attrs/id]
+                  'idents    [:= 'idents/id 'attrs/reverse-ident]]
+         :where  [:and
+                  'vae
+                  [:= 'triples/app-id app-id]
+                  [:= 'idents/etype 'id-etypes/etype]
+                  [:or
+                   [:= 'idents/app-id app-id]
+                   [:= 'idents/app-id system-catalog-app-id]]]}
+
+        query  {:with [['id-etypes id-etypes]
+                       ['forward-attrs forward-attrs]
+                       ['reverse-attrs reverse-attrs]]
+                :delete-from 'triples
+                :where       [:in 'ctid
                               {:union
-                               [{:nest {:select :* :from :forward_attrs}}
-                                {:nest {:select :* :from :reverse_attrs}}]}]
-                :returning   :*}
-        params {:app-id app-id
-                :system-catalog-app-id system-catalog-app-id}]
-    (sql/do-execute! conn (hsql/format query {:params params}))))
+                               [{:nest {:select :* :from 'forward-attrs}}
+                                {:nest {:select :* :from 'reverse-attrs}}]}]
+                :returning   ['entity_id 'attr_id 'value 'created-at]}]
+    (sql/execute! conn (hsql/format query))))
 
 ;; n.b. if we ever use `:retract-triple` for blob attrs (it's currently
 ;;      just links), we'll need to add code in `delete-multi!` to

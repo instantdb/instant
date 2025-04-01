@@ -44,8 +44,9 @@
 
 (deftest elementset-test
   (let [xs [1 2 3]
-        column {:as 'id, :type :int}]
-    (is (= [{:id 1} {:id 2} {:id 3}]
+        column {:as 'id, :type :int}
+        expected [{:id 1} {:id 2} {:id 3}]]
+    (is (= expected
            (sql/do-execute!
             (aurora/conn-pool :read)
             (hsql/format
@@ -62,10 +63,11 @@
             [3 "Petr" 68]]
         columns [{:as 'id, :type :int}
                  {:as 'full-name}
-                 {:as 'score, :type :int}]]
-    (is (= [{:id 1, :full_name "Ivan", :score 85}
-            {:id 2, :full_name "Oleg", :score 92}
-            {:id 3, :full_name "Petr", :score 68}]
+                 {:as 'score, :type :int}]
+        expected [{:id 1, :full_name "Ivan", :score 85}
+                  {:id 2, :full_name "Oleg", :score 92}
+                  {:id 3, :full_name "Petr", :score 68}]]
+    (is (= expected
            (sql/do-execute!
             (aurora/conn-pool :read)
             (hsql/format
@@ -82,10 +84,11 @@
             {:id 3, :name "Petr", :score 68}]
         columns {'id    {:type :int}
                  'name  {:as 'full-name}
-                 'score {:type :int}}]
-    (is (= [{:id 1, :full_name "Ivan", :score 85}
-            {:id 2, :full_name "Oleg", :score 92}
-            {:id 3, :full_name "Petr", :score 68}]
+                 'score {:type :int}}
+        expected [{:id 1, :full_name "Ivan", :score 85}
+                  {:id 2, :full_name "Oleg", :score 92}
+                  {:id 3, :full_name "Petr", :score 68}]]
+    (is (= expected
            (sql/do-execute!
             (aurora/conn-pool :read)
             (hsql/format

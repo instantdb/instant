@@ -129,8 +129,8 @@
 
    Given:
 
-   (def xs
-     [1 2 3])
+     (def xs
+       [1 2 3])
 
    One can use:
 
@@ -156,10 +156,10 @@
 
    Given:
 
-   (def ts
-     [[1 \"Ivan\" 85]
-      [2 \"Oleg\" 92]
-      [3 \"Petr\" 68]])
+     (def ts
+       [[1 \"Ivan\" 85]
+        [2 \"Oleg\" 92]
+        [3 \"Petr\" 68]])
 
    One can use:
 
@@ -187,10 +187,10 @@
 
    Given:
 
-   (def rs
-     [{:id 1, :name \"Ivan\", :score 85}
-      {:id 2, :name \"Oleg\", :score 92}
-      {:id 3, :name \"Petr\", :score 68}])
+     (def rs
+       [{:id 1, :name \"Ivan\", :score 85}
+        {:id 2, :name \"Oleg\", :score 92}
+        {:id 3, :name \"Petr\", :score 68}])
 
    One can use:
 

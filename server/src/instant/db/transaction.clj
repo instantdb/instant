@@ -351,6 +351,7 @@
              grouped-tx-steps)
             eid+attr-ids (distinct
                           (concat
+                           (:delete-entity results)
                            (:add-triple results)
                            (:deep-merge-triple results)
                            (:retract-triple results)))
