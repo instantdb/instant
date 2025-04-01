@@ -6,13 +6,11 @@ const db = init(config);
 
 const itemId = id();
 
-export default function Patch() {
-  const ref = useRef<HTMLTextAreaElement>(null);
+export default function Page() {
   const { isLoading, error, data } = db.useQuery({
     items: {},
   });
   if (isLoading || error) return;
-
   return (
     <div className="p-4 text-sm font-mono flex flex-col mx-auto max-w-md gap-4">
       <button className="border border-black" onClick={() => reset(data.items)}>
