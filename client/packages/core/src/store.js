@@ -298,6 +298,7 @@ function mergeTriple(store, rawTriple) {
   if (!currentTriple) return;
 
   const currentValue = currentTriple[2];
+
   const updatedValue = immutableDeepMerge(currentValue, update);
   const enhancedTriple = [
     eid,

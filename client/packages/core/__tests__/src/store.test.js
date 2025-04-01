@@ -470,3 +470,62 @@ test('ruleParams no-ops', () => {
 
   checkIndexIntegrity(newStore);
 });
+
+test('deepMerge', () => {
+  const gameId = uuid();
+  const gameStore = transact(
+    store,
+    instaml.transform(
+      { attrs: store.attrs },
+      tx.games[gameId].update({
+        state: {
+          score: 100,
+          playerStats: { health: 50, mana: 30, ambitions: { win: true } },
+          inventory: ['sword', 'potion'],
+          locations: ['forest', 'castle'],
+          level: 2,
+        },
+      }),
+    ),
+  );
+  const updatedStore = transact(
+    gameStore,
+    instaml.transform(
+      { attrs: gameStore.attrs },
+      tx.games[gameId].merge({
+        state: {
+          // Objects update deeply
+          playerStats: {
+            mana: 40,
+            stamina: 20,
+            ambitions: { acquireWisdom: true, find: ['love'] },
+          },
+          // arrays overwrite
+          inventory: ['shield'],
+          // null removes the key
+          score: null,
+          // undefined is ignored
+          level: undefined,
+          // undefined is kept in arrays
+          locations: ['forest', undefined, 'castle'],
+        },
+      }),
+    ),
+  );
+  const updatedGame = query(
+    { store: updatedStore },
+    { games: { $: { where: { id: gameId } } } },
+  ).data.games[0];
+  expect(updatedGame.state).toEqual({
+    playerStats: {
+      health: 50,
+      mana: 40,
+      stamina: 20,
+      ambitions: { win: true, acquireWisdom: true, find: ['love'] },
+    },
+    level: 2,
+    inventory: ['shield'],
+    locations: ['forest', undefined, 'castle'],
+  });
+  checkIndexIntegrity(updatedGame);
+});

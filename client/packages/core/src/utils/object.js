@@ -34,24 +34,33 @@ export function areObjectsDeepEqual(obj1, obj2) {
   );
 }
 
+export function immutableRemoveUndefined(obj) {
+  if (!isObject(obj)) {
+    return obj;
+  }
+  const result = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value === undefined) continue;
+
+    result[key] = value;
+  }
+  return result;
+}
+
 export function immutableDeepMerge(target, source) {
   if (!isObject(target) || !isObject(source)) {
     return source;
   }
 
-  const result = {};
-
-  for (const key of Object.keys(target)) {
-    if (source[key] === null) continue;
-
-    result[key] = target[key];
-  }
+  const result = { ...target };
 
   for (const key of Object.keys(source)) {
-    if (source[key] === null) continue;
-
+    if (source[key] === undefined) continue;
+    if (source[key] === null) {
+      delete result[key];
+      continue;
+    }
     const areBothObjects = isObject(target[key]) && isObject(source[key]);
-
     result[key] = areBothObjects
       ? immutableDeepMerge(target[key], source[key])
       : source[key];
@@ -82,6 +91,7 @@ export function isObject(val) {
   return typeof val === 'object' && val !== null && !Array.isArray(val);
 }
 
+export function immutableOmitValue(obj, v) {}
 /**
  * Like `assocInMutative`, but
  *

@@ -1,5 +1,5 @@
 import { getOps, isLookup, parseLookup } from './instatx';
-import { immutableDeepReplace } from './utils/object';
+import { immutableRemoveUndefined } from './utils/object';
 import uuid from './utils/uuid';
 
 // Rewrites optimistic attrs with the attrs we get back from the server.
@@ -186,7 +186,8 @@ function expandUnlink(attrs, [etype, eidA, obj]) {
   return withIdAttrForLookup(attrs, etype, eidA, retractTriples);
 }
 
-function expandUpdate(attrs, [etype, eid, obj]) {
+function expandUpdate(attrs, [etype, eid, obj_]) {
+  const obj = immutableRemoveUndefined(obj_);
   const lookup = extractLookup(attrs, etype, eid);
   // id first so that we don't clobber updates on the lookup field
   const attrTuples = [['id', lookup]]
@@ -203,12 +204,12 @@ function expandDelete(attrs, [etype, eid]) {
   return [['delete-entity', lookup, etype]];
 }
 
-function expandDeepMerge(attrs, [etype, eid, obj]) {
+function expandDeepMerge(attrs, [etype, eid, obj_]) {
+  const obj = immutableRemoveUndefined(obj_);
   const lookup = extractLookup(attrs, etype, eid);
   const attrTuples = Object.entries(obj).map(([identName, value]) => {
     const attr = getAttrByFwdIdentName(attrs, etype, identName);
-    const coercedValue = immutableDeepReplace(value, undefined, null);
-    return ['deep-merge-triple', lookup, attr.id, coercedValue];
+    return ['deep-merge-triple', lookup, attr.id, value];
   });
 
   const idTuple = [
