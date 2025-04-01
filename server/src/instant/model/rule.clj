@@ -105,8 +105,13 @@
    (get-in rule ["$default" "allow" action])
    (get-in rule ["$default" "allow" "$default"])))
 
+(defn patch-code
+  "Don't break if the perm check is a simple boolean"
+  [code]
+  (if (boolean? code) (str code) code))
+
 (defn extract [rule etype action]
-  (when-let [expr (get-in rule [etype "allow" action])]
+  (when-let [expr (patch-code (get-in rule [etype "allow" action]))]
     (with-binds rule etype action expr)))
 
 (defn format-errors [etype action errors]
@@ -148,8 +153,7 @@
    (when-let [expr (get-expr (:code rules) etype action)]
      (try
        (let [code (with-binds (:code rules) etype action expr)
-             ;; Don't bork if the perm check is a simple boolean
-             code-str (if (boolean? code) (str code) code)
+             code-str (patch-code code)
              compiler (cel/action->compiler action)
              ast (cel/->ast compiler code-str)]
          {:etype etype
