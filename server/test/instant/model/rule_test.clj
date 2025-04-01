@@ -2,6 +2,16 @@
   (:require [clojure.test :as test :refer [deftest is]]
             [instant.model.rule :as rule]))
 
+(deftest allow-booleans
+  (let [code {"myetype"
+              {"allow" {"view" true}}}]
+    (is (= "true"
+           (:code
+            (rule/get-program! {:code code}
+                               "myetype"
+                               "view"))))
+
+    (is (= () (rule/validation-errors code)))))
 
 (deftest binds-works
   (is (= "cel.bind(test, true, test)"
