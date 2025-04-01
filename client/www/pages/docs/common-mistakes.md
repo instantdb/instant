@@ -132,11 +132,11 @@ Even if you are referencing a one-to-one relationship, `data.ref` will still ret
 "view": "auth.id == data.ref('owner.id')"
 ```
 
-✅ **Correction**: Extract the first element from the list when using `==`
+✅ **Correction**: Use `in` to check a value even for one-to-one relationships
 
 ```
 // ✅ Good: Extracting the first element from a one-to-one relationship
-"view": "auth.id == data.ref('owner.id')[0]"
+"view": "auth.id in data.ref('owner.id')"
 ```
 
 Be careful when checking whether there are no linked entities. Here are a few correct ways to do this:
@@ -154,17 +154,11 @@ Be careful when checking whether there are no linked entities. Here are a few co
 "view": "data.ref('owner') != []"
 ```
 
-✅ **Correction**: Correct ways to check for an empty list
+✅ **Correction**: Best way to check for an empty list
 
 ```
-// ✅ Good: Extracting the first element from a CEL list to check if it's empty
-"view": "data.ref('owner.id')[0] != null"
-
 // ✅ Good: Checking if the list is empty
 "view": "data.ref('owner.id') != []"
-
-// ✅ Good: Check the size of the list
-"view": "size(data.ref('owner.id')) > 0"
 ```
 
 Use `auth.ref` to reference the authenticated user's linked data. This behaves similar to `data.ref` but you _MUST_ use the `$user` prefix when referencing auth data:
