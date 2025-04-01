@@ -700,12 +700,13 @@ async function writeTypescript(path, content, encoding) {
 
 async function getInstantModuleName(pkgJson) {
   const deps = pkgJson.dependencies || {};
+  const devDeps = pkgJson.devDependencies || {};
   const instantModuleName = [
     '@instantdb/react',
     '@instantdb/react-native',
     '@instantdb/core',
     '@instantdb/admin',
-  ].find((name) => deps[name]);
+  ].find((name) => deps[name] || devDeps[name]);
   return instantModuleName;
 }
 
