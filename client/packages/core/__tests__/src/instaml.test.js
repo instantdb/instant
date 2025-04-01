@@ -27,6 +27,26 @@ test('simple update transform', () => {
   }
 });
 
+test('undefined is ignored in update', () => {
+  const testId = uuid();
+
+  const ops = instatx.tx.users[testId].update({
+    handle: 'bobby',
+    fullName: undefined,
+  });
+  const result = instaml.transform({ attrs: zenecaAttrs }, ops);
+
+  const expected = [
+    ['add-triple', testId, zenecaAttrToId['users/id'], testId],
+    ['add-triple', testId, zenecaAttrToId['users/handle'], 'bobby'],
+  ];
+
+  expect(result).toHaveLength(expected.length);
+  for (const item of expected) {
+    expect(result).toContainEqual(item);
+  }
+});
+
 test('ignores id attrs', () => {
   const testId = uuid();
 
