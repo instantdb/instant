@@ -235,8 +235,8 @@
                             ["size(data) == 0",
                              #"size"]
 
-                            ["size(data.ref('owner.id')) == 0"
-                             #"size"]
+                            ["size(data.ref('owner.id')) == 1"
+                             #"Function '_eq_dynamic' failed with arg"]
 
                             ;; Can't handle json arrays in data
                             ["auth.id in data.adminUserIds"
