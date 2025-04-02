@@ -695,8 +695,8 @@ function EditIndexed({
               ? 'Indexed'
               : 'Not indexed'
             : indexChecked
-            ? 'Index attribute'
-            : 'Remove index'
+              ? 'Index attribute'
+              : 'Remove index'
         }
         submitLabel={jobWorkingStatus(indexingJob) || 'Updating attribute...'}
         errorMessage="Failed to update attribute"
@@ -886,8 +886,8 @@ function EditUnique({
               ? 'Unique'
               : 'Not unique'
             : uniqueChecked
-            ? 'Add uniqueness constraint'
-            : 'Remove uniqueness constraint'
+              ? 'Add uniqueness constraint'
+              : 'Remove uniqueness constraint'
         }
         submitLabel={jobWorkingStatus(indexingJob) || 'Updating attribute...'}
         errorMessage="Failed to update attribute"
@@ -994,8 +994,8 @@ function EditCheckedDataType({
   const buttonLabel = typeNotChanged
     ? `Type is ${checkedDataType}`
     : checkedDataType === 'any'
-    ? 'Remove type'
-    : `Set type to ${checkedDataType}`;
+      ? 'Remove type'
+      : `Set type to ${checkedDataType}`;
 
   const closeDialog = useClose();
 

@@ -137,8 +137,8 @@ export function useForm<Schema extends Record<string, any>>({
         type: 'submit' as const,
         disabled: !isValid,
         children: isSubmitting
-          ? submittingLabel ?? 'Submitting...'
-          : submitLabel ?? 'Submit',
+          ? (submittingLabel ?? 'Submitting...')
+          : (submitLabel ?? 'Submit'),
       };
     },
   };

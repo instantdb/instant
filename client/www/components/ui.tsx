@@ -213,7 +213,7 @@ export function TextInput({
       <input
         disabled={disabled}
         title={title}
-        type={type === 'sensitive' ? 'password' : type ?? 'text'}
+        type={type === 'sensitive' ? 'password' : (type ?? 'text')}
         // Try to prevent password managers from trying to save
         // sensitive input
         autoComplete={type === 'sensitive' ? 'off' : undefined}
@@ -682,9 +682,9 @@ export function ActionButton({
       }
     } catch (error) {
       if ((error as any)?.hint) {
-        const msg = `${errorMessage}\n${(error as any).message}\n${(
-          error as any
-        ).hint?.errors?.[0]?.message}`;
+        const msg = `${errorMessage}\n${(error as any).message}\n${
+          (error as any).hint?.errors?.[0]?.message
+        }`;
         errorToast(msg);
       } else {
         errorToast(errorMessage);

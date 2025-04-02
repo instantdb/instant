@@ -743,8 +743,8 @@ export function Explorer({
         ? 'file'
         : 'files'
       : Object.keys(checkedIds).length === 1
-      ? 'row'
-      : 'rows';
+        ? 'row'
+        : 'rows';
 
   // Storage
 
@@ -1297,16 +1297,16 @@ export function Explorer({
                               });
                             }
                           : attr.name === 'id'
-                          ? () => {
-                              replaceNavStackTop({
-                                sortAttr: 'serverCreatedAt',
-                                sortAsc:
-                                  sortAttr !== 'serverCreatedAt'
-                                    ? true
-                                    : !sortAsc,
-                              });
-                            }
-                          : undefined
+                            ? () => {
+                                replaceNavStackTop({
+                                  sortAttr: 'serverCreatedAt',
+                                  sortAsc:
+                                    sortAttr !== 'serverCreatedAt'
+                                      ? true
+                                      : !sortAsc,
+                                });
+                              }
+                            : undefined
                       }
                     >
                       <div className="flex items-center gap-2">
