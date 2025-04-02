@@ -210,6 +210,10 @@ function reactorKey(config: InstantConfig<any>): string {
 
 const globalInstantCoreStore = initGlobalInstantCoreStore();
 
+type SignoutOpts = {
+  invalidateToken?: boolean;
+};
+
 /**
  * Functions to log users in and out.
  *
@@ -349,8 +353,8 @@ class Auth {
   /**
    * Sign out the current user
    */
-  signOut = (): Promise<void> => {
-    return this.db.signOut();
+  signOut = (opts: SignoutOpts = { invalidateToken: true }): Promise<void> => {
+    return this.db.signOut(opts);
   };
 }
 

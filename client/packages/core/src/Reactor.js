@@ -1509,18 +1509,31 @@ export default class Reactor {
     return res;
   }
 
-  async signOut() {
-    const currentUser = await this.getCurrentUser();
+  potentiallyInvalidateToken(currentUser, opts) {
     const refreshToken = currentUser?.user?.refresh_token;
-    if (refreshToken) {
-      try {
-        await authAPI.signOut({
-          apiURI: this.config.apiURI,
-          appId: this.config.appId,
-          refreshToken,
-        });
-      } catch (e) {}
+    if (!refreshToken) {
+      return;
     }
+    const wantsToSkip = opts.invalidateToken === false;
+    if (wantsToSkip) {
+      log.info('[auth-invalidate] skipped invalidateToken');
+      return;
+    }
+    authAPI
+      .signOut({
+        apiURI: this.config.apiURI,
+        appId: this.config.appId,
+        refreshToken,
+      })
+      .then(() => {
+        log.info('[auth-invalidate] completed invalidateToken');
+      })
+      .catch((e) => {});
+  }
+
+  async signOut(opts) {
+    const currentUser = await this.getCurrentUser();
+    this.potentiallyInvalidateToken(currentUser, opts);
     await this.changeCurrentUser(null);
   }
 

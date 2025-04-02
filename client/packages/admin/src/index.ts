@@ -416,7 +416,7 @@ class Auth {
    *
    * @example
    *   try {
-   *     await auth.signOut("alyssa_p_hacker@instantdb.com");
+   *     await auth.signOut({ email: "alyssa_p_hacker@instantdb.com" });
    *     console.log("Successfully signed out");
    *   } catch (err) {
    *     console.error("Sign out failed:", err.message);
@@ -424,12 +424,39 @@ class Auth {
    *
    * @see https://instantdb.com/docs/backend#sign-out
    */
-  async signOut(email: string): Promise<void> {
+  async signOut(
+    params: { email: string } | { id: string } | { refresh_token: string },
+  ): Promise<void>;
+
+  /**
+   * @deprecated Passing an email string directly is deprecated.
+   * Use an object with the `email` key instead.
+   *
+   * @example
+   * // Before
+   * auth.signOut(email)
+   *
+   * // After
+   * auth.signOut({ email })
+   */
+  async signOut(email: string): Promise<void>;
+
+  async signOut(
+    input:
+      | string
+      | { email: string }
+      | { id: string }
+      | { refresh_token: string },
+  ): Promise<void> {
+    // If input is a string, we assume it's an email.
+    // This is because of backwards compatibility: we used to only
+    // accept email strings. Eventually we can remove this
+    const params = typeof input === 'string' ? { email: input } : input;
     const config = this.config;
     await jsonFetch(`${config.apiURI}/admin/sign_out`, {
       method: 'POST',
       headers: authorizedHeaders(config),
-      body: JSON.stringify({ email }),
+      body: JSON.stringify(params),
     });
   }
 }

@@ -245,13 +245,32 @@
           :user-id user-id})]
     (response/ok {:user (assoc user :refresh_token refresh-token-id)})))
 
-(defn sign-out-post [req]
+(defn sign-out-post [{:keys [body] :as req}]
   (let [{app-id :app_id} (req->admin-token! req)
-        email (ex/get-param! req [:body :email] email/coerce)
-        {user-id :id} (app-user-model/get-by-email! {:app-id app-id
-                                                     :email email})]
-    (app-user-refresh-token-model/delete-by-user-id! {:app-id app-id
-                                                      :user-id user-id})
+        {:keys [email refresh_token id]} body]
+    (cond
+      id
+      (app-user-refresh-token-model/delete-by-user-id!
+       {:app-id app-id
+        :user-id (ex/get-param! req [:body :id] uuid-util/coerce)})
+
+      email
+      (let [{:keys [id]} (app-user-model/get-by-email!
+                          {:app-id app-id
+                           :email (ex/get-param! req [:body :email] email/coerce)})]
+
+        (app-user-refresh-token-model/delete-by-user-id! {:app-id app-id
+                                                          :user-id id}))
+      refresh_token
+      (app-user-refresh-token-model/delete-by-id!
+       {:app-id app-id
+        :id (ex/get-param! req [:body :refresh_token] uuid-util/coerce)})
+
+      :else
+      (ex/throw-validation-err!
+       :body
+       body
+       [{:message "Please provide an `id`, `email`, or `refresh_token`"}]))
     (response/ok {:ok true})))
 
 (defn req->app-user! [{:keys [params] :as req}]

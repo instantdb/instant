@@ -90,11 +90,13 @@ async function testScoped() {
 async function testSignOut() {
   const email = 'stopa@instantdb.com';
   const token = await auth.createToken(email);
+  const user = await auth.verifyToken(token);
 
   // Token should exist
-  assert(await auth.verifyToken(token));
+  assert(user);
 
-  await auth.signOut(email);
+  await auth.signOut({ email: user.email });
+  console.log('signed out!');
 
   // Token should no longer exist
   const errorMessage =
