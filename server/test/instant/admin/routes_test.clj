@@ -411,7 +411,7 @@
             (is (= 200 (:status refresh-ret)))
             (is (some? token))
 
-;; retrieve user by refresh token
+            ;; retrieve user by refresh token
             (let [get-user-ret (app-users-get
                                 {:params {:refresh_token token}
                                  :headers {"app-id" app-id
