@@ -19,8 +19,8 @@ declare global {
 // hack to pass app ID to examples pages
 globalThis.__getAppId = () =>
   typeof window !== 'undefined'
-    ? (new URL(location.href).searchParams.get('__appId') ??
-      localStorage.getItem('examples-appId'))
+    ? new URL(location.href).searchParams.get('__appId') ??
+      localStorage.getItem('examples-appId')
     : undefined;
 
 function App({ Component, pageProps }: AppProps) {

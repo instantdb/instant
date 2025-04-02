@@ -92,7 +92,7 @@ export default function App() {
                   style={{
                     backgroundColor:
                       hoveredSquare === `${r}-${c}`
-                        ? (myColor ?? undefined)
+                        ? myColor ?? undefined
                         : boardState[`${r}-${c}`],
                   }}
                   onMouseEnter={() => setHoveredSquare(`${r}-${c}`)}

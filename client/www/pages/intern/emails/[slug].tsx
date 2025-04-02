@@ -185,8 +185,8 @@ const Email = ({
                   {useLocalImages
                     ? 'prod'
                     : isPreview()
-                      ? 'preview'
-                      : 'localhost'}{' '}
+                    ? 'preview'
+                    : 'localhost'}{' '}
                   images
                 </button>
               )}

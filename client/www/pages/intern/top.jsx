@@ -128,7 +128,9 @@ function TopUsersTable({ data }) {
                 <div
                   className="h-4 bg-green-500"
                   style={{
-                    width: `${(app.total_transactions / totalTransactions) * 100}%`,
+                    width: `${
+                      (app.total_transactions / totalTransactions) * 100
+                    }%`,
                   }}
                 />
                 <span className="ml-2">
