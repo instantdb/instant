@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Button, Checkbox, Label, TextInput } from '@/components/ui';
 import { dbAttrsToExplorerSchema } from '@/lib/schema';
 import clsx from 'clsx';
+import useLocalStorage from '@/lib/hooks/useLocalStorage';
 
 let cachedSandboxValue = '';
 
@@ -18,7 +19,10 @@ try {
 
 export function Sandbox({ app }: { app: InstantApp }) {
   const consoleRef = useRef<HTMLDivElement>(null);
-  const [sandboxCodeValue, setSandboxValue] = useState(cachedSandboxValue);
+  const [sandboxCodeValue, setSandboxValue] = useLocalStorage(
+    `__instant_sandbox_value:${app.id}`,
+    cachedSandboxValue,
+  );
   const [runAsUserEmail, setRunAsUserEmail] = useState('');
   const [dangerouslyCommitTx, setDangerouslyCommitTx] = useState(false);
   const [appendResults, setAppendResults] = useState(false);
@@ -197,8 +201,6 @@ export function Sandbox({ app }: { app: InstantApp }) {
               value={sandboxCodeValue}
               onChange={(v) => {
                 setSandboxValue(v ?? '');
-                cachedSandboxValue = v ?? '';
-                setLocal('__instant_sandbox_value', v ?? '');
               }}
               options={{
                 scrollBeyondLastLine: false,
