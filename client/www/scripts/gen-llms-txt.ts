@@ -179,9 +179,8 @@ async function generateLLMsFiles(): Promise<void> {
   // (TODO): Maybe we'll want to add this to the navigation data?
   const mistakes = documentMap['/docs/common-mistakes'];
   if (mistakes) {
-    llmsContent += `- [${mistakes.title}](${mistakes.url})${
-      mistakes.description ? `: ${mistakes.description}` : ''
-    }\n`;
+    llmsContent += `- [${mistakes.title}](${mistakes.url})${mistakes.description ? `: ${mistakes.description}` : ''
+      }\n`;
   } else {
     console.warn('No document found for href: /docs/common-mistakes');
   }
@@ -189,9 +188,8 @@ async function generateLLMsFiles(): Promise<void> {
   for (const link of reqLinks) {
     const doc = documentMap[link.href];
     if (doc) {
-      llmsContent += `- [${doc.title}](${doc.url})${
-        doc.description ? `: ${doc.description}` : ''
-      }\n`;
+      llmsContent += `- [${doc.title}](${doc.url})${doc.description ? `: ${doc.description}` : ''
+        }\n`;
     } else {
       console.warn(`No document found for href: ${link.href}`);
     }
@@ -201,9 +199,8 @@ async function generateLLMsFiles(): Promise<void> {
   for (const link of optLinks) {
     const doc = documentMap[link.href];
     if (doc) {
-      llmsContent += `- [${doc.title}](${doc.url})${
-        doc.description ? `: ${doc.description}` : ''
-      }\n`;
+      llmsContent += `- [${doc.title}](${doc.url})${doc.description ? `: ${doc.description}` : ''
+        }\n`;
     } else {
       console.warn(`No document found for href: ${link.href}`);
     }
@@ -213,7 +210,7 @@ async function generateLLMsFiles(): Promise<void> {
   let llmsFullContent = '';
 
   // Manually add common mistakes as the first section to llms-full.txt
-  llmsFullContent += `# ${mistakes.content}\n\n`;
+  llmsFullContent += `${mistakes.content}\n\n`;
 
   for (const link of allLinks) {
     const doc = documentMap[link.href];
