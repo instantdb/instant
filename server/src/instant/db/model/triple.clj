@@ -168,9 +168,7 @@
                              [:= 'idents/app-id app-id]
                              [:= 'idents/etype 'idents/etype]]
                     'attrs [:= 'idents/id 'attrs/forward-ident]]
-             :where [:or
-                     [:= 'attrs/is_required true]
-                     [:= 'attrs/setting_required true]]
+             :where [:= 'attrs/is_required true]
              :select-distinct ['entity-id ['attrs/id 'attr-id] 'idents/etype 'idents/label]}
 
             missing-required
