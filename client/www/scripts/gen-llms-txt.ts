@@ -63,6 +63,11 @@ function parseFrontmatter(content: string): {
   return { frontmatter, content: remainingContent };
 }
 
+// Remove `{% ... %}` tags from markdown content
+function sanitizeMarkdown(content: string): string {
+  return content.replace(/{%[\s\S]*?%}/g, '');
+}
+
 function transformContent(content: string): string {
   const { frontmatter, content: markdownContent } = parseFrontmatter(content);
   let result = '';
@@ -75,7 +80,8 @@ function transformContent(content: string): string {
     result += `${frontmatter.description}\n\n`;
   }
 
-  return result + markdownContent;
+  const sanitizedContent = sanitizeMarkdown(markdownContent);
+  return result + sanitizedContent;
 }
 
 async function findMarkdownFiles(dir: string): Promise<string[]> {
