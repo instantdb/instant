@@ -124,6 +124,99 @@
         cols   (get-unqualified-string-column-names rsmeta opts)]
     (rs/->MapResultSetBuilder rs rsmeta cols)))
 
+(defn elementset
+  "A way to pass sequence as an input to honeysql.
+
+   Given:
+
+     (def xs
+       [1 2 3])
+
+   One can use:
+
+     (hsql/format
+      (tupleset xs {:as 'id, :type :int}))
+
+   To get to:
+
+     SELECT CAST(elem AS INT) AS id
+       FROM JSON_ARRAY_ELEMENTS_TEXT(CAST(? AS JSON)) AS elem
+
+   This is better than passing arrays as argument with ARRAY and UNNEST
+   because it always generates one input paramter (does not depend on a length
+   of the input array, `?` vs `?, ?, ?, ...`) and handles empty arrays the same
+   way in handles non-empty ones."
+  [xs {:keys [as type]}]
+  {:select
+   [[[:cast 'elem (or type :text)] as]]
+   :from [[[:JSON_ARRAY_ELEMENTS_TEXT [:cast (->json xs) :json]] 'elem]]})
+
+(defn tupleset
+  "A way to pass seq-of-tuples as an input to honeysql.
+
+   Given:
+
+     (def ts
+       [[1 \"Ivan\" 85]
+        [2 \"Oleg\" 92]
+        [3 \"Petr\" 68]])
+
+   One can use:
+
+     (hsql/format
+      (tupleset ts
+                [{:as 'id, :type :int}
+                 {:as 'full-name}
+                 {:as 'score, :type :int}]))
+
+   To get to:
+
+     SELECT CAST(elem ->> 0 AS INT) AS id,
+            CAST(elem ->> 1 AS TEXT) AS full_name,
+            CAST(elem ->> 2 AS INT) AS score
+       FROM JSON_ARRAY_ELEMENTS(CAST(? AS JSON)) AS elem"
+  [ts cols]
+  {:select
+   (for [[idx {:keys [type as]}] (map vector (range) cols)]
+     [[:cast [:->> 'elem [:inline idx]] (or type :text)] as])
+   :from
+   [[[:json_array_elements [:cast (->json ts) :json]] 'elem]]})
+
+(defn recordset
+  "A way to pass seq-of-maps as an input to honeysql.
+
+   Given:
+
+     (def rs
+       [{:id 1, :name \"Ivan\", :score 85}
+        {:id 2, :name \"Oleg\", :score 92}
+        {:id 3, :name \"Petr\", :score 68}])
+
+   One can use:
+
+     (hsql/format
+      (recordset rs
+                 {'id    {:type :int}
+                  'name  {:as 'full-name}
+                  'score {:type :int}}))
+
+   To get to:
+
+     SELECT id, name AS full_name, score
+       FROM JSON_TO_RECORDSET(CAST(? AS JSON))
+         AS (id int, name text, score int)"
+  [rs cols]
+  {:select (for [[col-name {:keys [as]}] cols]
+             (if as
+               [col-name as]
+               col-name))
+   :from   [[[:json_to_recordset [:cast (->json rs) :json]]
+             [[:raw (str "("
+                         (string/join ", "
+                                      (for [[col-name {:keys [type]}] cols]
+                                        (str (name col-name) " " (name (or type "text")))))
+                         ")")]]]]})
+
 (defn span-attrs-from-conn-pool [conn]
   (when (instance? HikariDataSource conn)
     (let [mx-bean (.getHikariPoolMXBean ^HikariDataSource conn)

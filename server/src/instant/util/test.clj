@@ -94,6 +94,7 @@
                      :many              (assoc m :cardinality :many)
                      :unique?           (assoc m :unique? true)
                      :index?            (assoc m :index? true)
+                     :required?         (assoc m :required? true)
                      :on-delete         (assoc m :on-delete :cascade)
                      :on-delete-reverse (assoc m :on-delete-reverse :cascade)))
                  {:id               (random-uuid)
@@ -103,7 +104,8 @@
                   :value-type       (if rvr :ref :blob)
                   :cardinality      :one
                   :unique?          false
-                  :index?           false}
+                  :index?           false
+                  :required?        false}
                  rest))]
     (attr-model/insert-multi! (aurora/conn-pool :write) app-id attrs {})
     (into {}
@@ -164,3 +166,23 @@
   [s]
   (parse-uuid
     (str s (subs "00000000-0000-0000-0000-000000000000" (count s)))))
+
+(defmacro perm-err? [& body]
+  `(try
+     ~@body
+     false
+     (catch Exception e#
+       (let [instant-ex# (ex/find-instant-exception e#)]
+         (if (= ::ex/permission-denied (::ex/type (ex-data instant-ex#)))
+           true
+           (throw e#))))))
+
+(defmacro validation-err? [& body]
+  `(try
+     ~@body
+     false
+     (catch Exception e#
+       (let [instant-ex# (ex/find-instant-exception e#)]
+         (if (= ::ex/validation-failed (::ex/type (ex-data instant-ex#)))
+           true
+           (throw e#))))))

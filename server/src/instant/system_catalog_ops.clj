@@ -74,10 +74,10 @@
            :results
            :delete-entity
            seq
-           (map (juxt :triples/entity_id
-                      :triples/attr_id
-                      :triples/value
-                      :triples/created_at))
+           (map (juxt :entity_id
+                      :attr_id
+                      :value
+                      :created_at))
            (triples->db-format app-id attrs etype)))
 
 (defn delete-entities!
@@ -93,10 +93,10 @@
            :results
            :delete-entity
            seq
-           (map (juxt :triples/entity_id
-                      :triples/attr_id
-                      :triples/value
-                      :triples/created_at))
+           (map (juxt :entity_id
+                      :attr_id
+                      :value
+                      :created_at))
            (group-by first)
            vals
            (map #(triples->db-format app-id attrs etype %))))

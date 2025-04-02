@@ -21,7 +21,7 @@
    [instant.model.rule :as rule-model]
    [instant.util.instaql :refer [instaql-nodes->object-tree]]
    [instant.util.exception :as ex]
-   [instant.util.test :as test-util :refer [suid]])
+   [instant.util.test :as test-util :refer [suid validation-err? perm-err?]])
   (:import
    (java.util UUID)))
 
@@ -106,6 +106,130 @@
                             (map :triple)
                             (map last)
                             set)))))))))))
+
+(deftest required-attrs
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [{attr-book-title   :book/title
+             attr-book-desc    :book/desc
+             attr-book-author  :book/author
+             attr-user-name    :user/name
+             attr-user-company :user/company
+             attr-company-name :company/name}
+            (test-util/make-attrs
+             app-id
+             [[:book/title :required?]
+              [:book/desc]
+              [[:book/author :user/books] :required?]
+              [:user/name]
+              [[:user/company :company/users] :on-delete]
+              [:company/name]])
+            ctx {:db               {:conn-pool (aurora/conn-pool :write)}
+                 :app-id           app-id
+                 :attrs            (attr-model/get-by-app-id app-id)
+                 :datalog-query-fn d/query
+                 :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                 :current-user     nil}
+            user-id    (suid "ffff")
+            book-id    (suid "b00c")
+            company-id (suid "aaaa")]
+
+        (doseq [add-op [:add-triple #_:deep-merge-triple]]
+          (testing add-op
+            (permissioned-tx/transact!
+             ctx
+             [[add-op user-id attr-user-name "user"]
+              [:add-triple user-id attr-user-company company-id]
+              [add-op company-id attr-company-name "company"]])
+
+            (testing "add without required"
+              (is (validation-err?
+                   (permissioned-tx/transact!
+                    ctx
+                    [[add-op book-id attr-book-desc "no title"]]))))
+
+            (testing "add with required"
+              (is (not (validation-err?
+                        (permissioned-tx/transact!
+                         ctx
+                         [[add-op book-id attr-book-title "title"]
+                          [add-op book-id attr-book-desc "desc"]
+                          [:add-triple book-id attr-book-author user-id]])))))
+
+            (testing "update required"
+              (is (not (validation-err?
+                        (permissioned-tx/transact!
+                         ctx
+                         [[add-op book-id attr-book-title "title upd"]])))))
+
+            (testing "retract + insert required"
+              (is (not (validation-err?
+                        (permissioned-tx/transact!
+                         ctx
+                         [[:retract-triple book-id attr-book-title "title upd"]
+                          [add-op book-id attr-book-title "title upd 2"]])))))
+
+            (testing "update non-required"
+              (is (not (validation-err?
+                        (permissioned-tx/transact!
+                         ctx
+                         [[add-op book-id attr-book-desc "desc upd"]])))))
+
+            (testing "remove required"
+              (testing "regular attr"
+                (is (validation-err?
+                     (permissioned-tx/transact!
+                      ctx
+                      [[:retract-triple book-id attr-book-title "title upd 2"]]))))
+
+              (testing "link"
+
+                (is (validation-err?
+                     (permissioned-tx/transact!
+                      ctx
+                      [[:retract-triple book-id attr-book-author user-id]]))))
+
+              (testing "through delete-entity"
+                (is (validation-err?
+                     (permissioned-tx/transact!
+                      ctx
+                      [[:delete-entity user-id "user"]]))))
+
+              (testing "through cascade"
+                (is (validation-err?
+                     (permissioned-tx/transact!
+                      ctx
+                      [[:delete-entity company-id "company"]])))))
+
+            (testing "remove non-required"
+              (is (not (validation-err?
+                        (permissioned-tx/transact!
+                         ctx
+                         [[:retract-triple book-id attr-book-desc "desc upd"]])))))
+
+            (testing "update last required"
+              (is (not (validation-err?
+                        (permissioned-tx/transact!
+                         ctx
+                         [[add-op book-id attr-book-title "title upd 3"]])))))
+
+            (testing "remove last required"
+              (is (not (validation-err?
+                        (permissioned-tx/transact!
+                         ctx
+                         [[:retract-triple book-id attr-book-title "title upd 3"]
+                          [:retract-triple book-id attr-book-author user-id]])))))
+
+            (testing "delete-entity"
+              (permissioned-tx/transact!
+               ctx
+               [[add-op book-id attr-book-title "title"]
+                [add-op book-id attr-book-desc "desc"]
+                [:add-triple book-id attr-book-author user-id]])
+              (is (not (validation-err?
+                        (permissioned-tx/transact!
+                         ctx
+                         [[:delete-entity book-id "book"]])))))))))))
 
 (deftest attrs-update
   (with-empty-app
@@ -197,6 +321,7 @@
                   :cardinality :one
                   :unique? false
                   :index? false
+                  :required? false
                   :inferred-types #{:string}
                   :catalog :user}
                  (attr-model/seek-by-id
@@ -225,6 +350,7 @@
                   :cardinality :one
                   :unique? true
                   :index? false
+                  :required? false
                   :inferred-types #{:string}
                   :catalog :user}
                  (attr-model/seek-by-id
@@ -265,6 +391,7 @@
                   [name-fwd-ident "users" "name"],
                   :unique? false,
                   :index? false,
+                  :required? false,
                   :inferred-types #{:string}
                   :catalog :user}
                  (attr-model/seek-by-id
@@ -326,6 +453,7 @@
                   [zip-fwd-ident "users" "zip"],
                   :unique? false,
                   :index? true,
+                  :required? false,
                   :inferred-types #{:string}
                   :catalog :user}
                  (attr-model/seek-by-id
@@ -385,7 +513,8 @@
                   :forward-identity
                   [email-fwd-ident "users" "email"],
                   :unique? true,
-                  :index? true
+                  :index? true,
+                  :required? false,
                   :inferred-types #{:string}
                   :catalog :user}
                  (attr-model/seek-by-id
@@ -459,6 +588,7 @@
                   [tag-rev-ident "tags" "taggers"],
                   :unique? false,
                   :index? false,
+                  :required? false,
                   :inferred-types #{:string}
                   :catalog :user}
                  (attr-model/seek-by-id
@@ -548,6 +678,7 @@
                   [owner-rev-ident "users" "posts"],
                   :unique? false,
                   :index? false,
+                  :required? false,
                   :inferred-types #{:string}
                   :catalog :user}
                  (attr-model/seek-by-id
@@ -607,7 +738,8 @@
                   :reverse-identity
                   [config-rev-ident "configObjects" "user"],
                   :unique? true,
-                  :index? false
+                  :index? false,
+                  :required? false,
                   :inferred-types #{:string}
                   :catalog :user}
                  (attr-model/seek-by-id
@@ -977,26 +1109,6 @@
   (bootstrap/add-zeneca-to-app! app-id)
   (def r (resolvers/make-zeneca-resolver app-id))
   (app-model/delete-immediately-by-id! {:id app-id}))
-
-(defmacro perm-err? [& body]
-  `(try
-     ~@body
-     false
-     (catch Exception e#
-       (let [instant-ex# (ex/find-instant-exception e#)]
-         (if (= ::ex/permission-denied (::ex/type (ex-data instant-ex#)))
-           true
-           (throw e#))))))
-
-(defmacro validation-err? [& body]
-  `(try
-     ~@body
-     false
-     (catch Exception e#
-       (let [instant-ex# (ex/find-instant-exception e#)]
-         (if (= ::ex/validation-failed (::ex/type (ex-data instant-ex#)))
-           true
-           (throw e#))))))
 
 (deftest write-perms-merged
   (with-zeneca-app

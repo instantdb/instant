@@ -132,12 +132,13 @@
   [(encode-system-uuid :ident etype label) etype label])
 
 (defn make-attr [etype label & props]
-  (merge {:id (get-attr-id etype label)
+  (merge {:id               (get-attr-id etype label)
           :forward-identity (get-ident-spec etype label)
-          :unique? false
-          :index? false
-          :value-type :blob
-          :cardinality :one}
+          :unique?          false
+          :index?           false
+          :required?        false
+          :value-type       :blob
+          :cardinality      :one}
          (apply hash-map props)))
 
 (def $users-attrs
