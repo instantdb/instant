@@ -13,7 +13,11 @@ www/.next/
 www/out/
 
 # sitemap
-public/sitemap.xml
+client/www/public/sitemap.xml
+
+# llms
+client/www/public/llms.txt
+client/www/public/llms-full.txt
 
 # production
 www/build

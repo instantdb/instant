@@ -4,6 +4,23 @@ module.exports = {
   generateRobotsTxt: false,
   generateIndexSitemap: false,
 
+  additionalPaths: async (config) => {
+    const result = [];
+
+    // Add static files from public folder
+    const staticFiles = ['/llms.txt', '/llms-full.txt'];
+    for (const path of staticFiles) {
+      result.push({
+        loc: path,
+        changefreq: config.changefreq,
+        priority: config.priority,
+        lastmod: new Date().toISOString(),
+      });
+    }
+
+    return result;
+  },
+
   transform: async (config, path) => {
     const exactPaths = ['/', '/privacy', '/terms', '/tutorial'];
 
