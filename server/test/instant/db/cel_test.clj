@@ -229,17 +229,7 @@
 (deftest bad-code-fails
   (let [make-ctx (fn [attr-specs]
                    {:attrs (dummy-attrs attr-specs)
-                    :current-user {:id "__auth.id__" :email "__auth.email__"}})
-        get-where-clauses (fn [fields code]
-                            (let [res (cel/get-where-clauses (make-ctx (map (fn [field]
-                                                                              {:etype "etype"
-                                                                               :field field})
-                                                                            fields))
-                                                             "etype"
-                                                             code)]
-                              (testing (str "ensure no short-circuit? on " code)
-                                (is (false? (:short-circuit? res))))
-                              (:where-clauses res)))]
+                    :current-user {:id "__auth.id__" :email "__auth.email__"}})]
 
     (doseq [[bad-code msg] [ ;; Can't handle size, but maybe we could do something to check empty
                             ["size(data) == 0",
