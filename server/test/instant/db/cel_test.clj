@@ -67,11 +67,19 @@
          (cel/eval-program! {:cel-program program} bindings)))))
 
 (defn dummy-attrs [specs]
-  (attr-model/wrap-attrs (mapv (fn [{:keys [etype field index? checked-data-type]}]
-                                 {:id (random-uuid)
-                                  :forward-identity [(random-uuid) etype field]
-                                  :index? index?
-                                  :checked-data-type checked-data-type})
+  (attr-model/wrap-attrs (mapv (fn [{:keys [etype
+                                            field
+                                            index?
+                                            checked-data-type
+                                            rev-etype
+                                            rev-field]}]
+                                 (merge {:id (random-uuid)
+                                         :forward-identity [(random-uuid) etype field]
+                                         :index? index?
+                                         :checked-data-type checked-data-type}
+                                        (when (and rev-etype
+                                                   rev-field)
+                                          {:reverse-identity [(random-uuid) rev-etype rev-field]})))
                                specs)))
 
 (deftest where-clauses
@@ -89,8 +97,16 @@
                                 (is (false? (:short-circuit? res))))
                               (:where-clauses res)))]
 
-    (is (= {"members.id" "__auth.id__"}
-           (get-where-clauses [] "cel.bind(member, auth.id in data.ref(\"members.id\"), member)")))
+    (is (= {"owner.id" "__auth.id__"}
+           (:where-clauses
+            (cel/get-where-clauses (make-ctx [{:etype "etype"
+                                               :field "owner"
+                                               :rev-etype "owners"
+                                               :rev-field "etype"}
+                                              {:etype "owners"
+                                               :field "id"}])
+                                   "etype"
+                                   "cel.bind(owner, auth.id in data.ref(\"owner.id\"), owner)"))))
 
     (is (= {:or [{"is_public" true}
                  {"owner" "__auth.id__"}]}
@@ -112,7 +128,12 @@
 
     (is (= {:short-circuit? true
             :where-clauses nil}
-           (select-keys (cel/get-where-clauses (make-ctx [])
+           (select-keys (cel/get-where-clauses (make-ctx [{:etype "etype"
+                                                           :field "owner"
+                                                           :rev-etype "owners"
+                                                           :rev-field "etype"}
+                                                          {:etype "owners"
+                                                           :field "id"}])
                                                "etype"
                                                "null in data.ref('owner.id')")
                         [:short-circuit?
@@ -161,12 +182,61 @@
                 fields
                 "cel.bind(isDeleted, data.deleted_at == null || (data.deleted_at != null && !data.undeleted), isDeleted)")))))
 
-    (doseq [[bad-code msg] [;; Can't handle size, but maybe we could do something to check empty
+    (is (= {:or [{"owner" {:$isNull true}} {"owner" {:$isNull true}}]}
+           (:where-clauses
+            (cel/get-where-clauses (make-ctx [{:etype "etype"
+                                               :field "owner"
+                                               :rev-etype "owners"
+                                               :rev-field "etype"}
+                                              {:etype "owners"
+                                               :field "id"}])
+                                   "etype"
+                                   "[] == data.ref('owner.id') || data.ref('owner.id') == []"))))
+
+    (is (= {:or [{"owner" {:$isNull false}} {"owner" {:$isNull false}}]}
+           (:where-clauses
+            (cel/get-where-clauses (make-ctx [{:etype "etype"
+                                               :field "owner"
+                                               :rev-etype "owners"
+                                               :rev-field "etype"}
+                                              {:etype "owners"
+                                               :field "id"}])
+                                   "etype"
+                                   "[] != data.ref('owner.id') || data.ref('owner.id') != []"))))
+
+    (is (= {:or [{"owner" {:$isNull true}} {"owner" {:$isNull true}}]}
+           (:where-clauses
+            (cel/get-where-clauses (make-ctx [{:etype "etype"
+                                               :field "owner"
+                                               :rev-etype "owners"
+                                               :rev-field "etype"}
+                                              {:etype "owners"
+                                               :field "id"}])
+                                   "etype"
+                                   "size(data.ref('owner.id')) == 0 || 0 == size(data.ref('owner.id'))"))))
+
+    (is (= {:or [{"owner" {:$isNull false}} {"owner" {:$isNull false}}]}
+           (:where-clauses
+            (cel/get-where-clauses (make-ctx [{:etype "etype"
+                                               :field "owner"
+                                               :rev-etype "owners"
+                                               :rev-field "etype"}
+                                              {:etype "owners"
+                                               :field "id"}])
+                                   "etype"
+                                   "size(data.ref('owner.id')) != 0 || 0 != size(data.ref('owner.id'))"))))))
+
+(deftest bad-code-fails
+  (let [make-ctx (fn [attr-specs]
+                   {:attrs (dummy-attrs attr-specs)
+                    :current-user {:id "__auth.id__" :email "__auth.email__"}})]
+
+    (doseq [[bad-code msg] [ ;; Can't handle size, but maybe we could do something to check empty
                             ["size(data) == 0",
                              #"size"]
 
-                            ["size(data.ref('owner.id')) == 0"
-                             #"size"]
+                            ["size(data.ref('owner.id')) == 1"
+                             #"Function '_eq_dynamic' failed with arg"]
 
                             ;; Can't handle json arrays in data
                             ["auth.id in data.adminUserIds"
@@ -183,7 +253,7 @@
                             ["!data.badfield"
                              #"key 'badfield' is not present in map."]
 
-                            ["[1,2,3] == data.ref('workspace.id')"
+                            ["[1,2,3] == data.ref('owner.id')"
                              #"Function '_eq_dynamic' failed"]
 
                             ["(data.ownerId) in data.ref('owner.id')"
@@ -216,7 +286,13 @@
                                                                 {:etype "etype"
                                                                  :field "path"
                                                                  :index? true
-                                                                 :checked-data-type :string}])
+                                                                 :checked-data-type :string}
+                                                                {:etype "etype"
+                                                                 :field "owner"
+                                                                 :rev-etype "owners"
+                                                                 :rev-field "etype"}
+                                                                {:etype "owners"
+                                                                 :field "id"}])
                                                      "etype"
                                                      bad-code)))))
 

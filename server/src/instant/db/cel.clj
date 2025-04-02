@@ -433,6 +433,9 @@
   (toString [_this]
     (str path-str)))
 
+;; Used to support size(data.ref('a.b')) == 0
+(deftype RefPathSize [ref-path empty-list-comparable])
+
 ;; data.field returns `(DataKey. field {attr})`
 ;; if the field is defined in the attrs for the etype
 (deftype DataKey [data-key instant-attr]
@@ -453,8 +456,12 @@
       true
       false))
 
+  ;; for printing
+  (entrySet [_]
+    (set #{[:etype etype]}))
+
   (toString [_this]
-    {:etype etype}))
+    (str {:etype etype})))
 
 ;; The ors and ands that make up the where clause. This is what the
 ;; rule will return.
@@ -471,6 +478,8 @@
 (def datakey-cel-type (create-cel-type "DataKey"))
 (def whereclause-cel-type (create-cel-type "WhereClause"))
 (def refpath-cel-type (create-cel-type "RefPath"))
+(def refpath-size-cel-type (create-cel-type "RefPathSize"))
+
 (def ^MapType checked-data-map-cel-type (MapType/create SimpleType/STRING datakey-cel-type))
 
 (def type-info {:bool {:cel-type SimpleType/BOOL
@@ -505,6 +514,7 @@
 (defn custom-type? [x]
   (or (instance? DataKey x)
       (instance? RefPath x)
+      (instance? RefPathSize x)
       (instance? WhereClause x)))
 
 (defn clauses-to-add [op ^WhereClause x]
@@ -697,6 +707,18 @@
       {:$not x}
       (throw (ex-info "Can't handle where value" {:value x})))))
 
+(defn empty-list-comparable
+  "Returns the path for use in the where clause that could be used to support
+   `data.ref('a.b') == []` or `size(data.ref('a.b')) == 0`
+
+   They have to check a non-nullable attribute (only `id` meets this requirement
+   for now)."
+  [^RefPath ref-path]
+  (let [segments (clojure-string/split (.path_str ref-path) #"\.")]
+    (when (and (= 2 (count segments))
+               (= "id" (last segments)))
+      (first segments))))
+
 (def eq-overloads
   (global-overload
    (.getFunction Operator/EQUALS)
@@ -717,6 +739,24 @@
                    (and (instance? DataKey y)
                         (instance? DataKey x))
                    (throw (ex-info "Can't represent data.key1 == data.key2" {:x x :y y}))
+
+                   (and (instance? RefPath x)
+                        (= [] y)
+                        (empty-list-comparable x))
+                   (WhereClause. {(empty-list-comparable x) {:$isNull true}})
+
+                   (and (instance? RefPath y)
+                        (= [] x)
+                        (empty-list-comparable y))
+                   (WhereClause. {(empty-list-comparable y) {:$isNull true}})
+
+                   (and (instance? RefPathSize x)
+                        (= 0 y))
+                   (WhereClause. {(.empty_list_comparable ^RefPathSize x) {:$isNull true}})
+
+                   (and (instance? RefPathSize y)
+                        (= 0 x))
+                   (WhereClause. {(.empty_list_comparable ^RefPathSize y) {:$isNull true}})
 
                    (custom-type? x)
                    (throw (ex-info "Can't compare on our custom types" {:x x :y y}))
@@ -747,6 +787,24 @@
                    (and (instance? DataKey y)
                         (instance? DataKey x))
                    (throw (ex-info "Can't represent data.key1 != data.key2" {:x x :y y}))
+
+                   (and (instance? RefPath x)
+                        (= [] y)
+                        (empty-list-comparable x))
+                   (WhereClause. {(empty-list-comparable x) {:$isNull false}})
+
+                   (and (instance? RefPath y)
+                        (= [] x)
+                        (empty-list-comparable y))
+                   (WhereClause. {(empty-list-comparable y) {:$isNull false}})
+
+                   (and (instance? RefPathSize x)
+                        (= 0 y))
+                   (WhereClause. {(.empty_list_comparable ^RefPathSize x) {:$isNull false}})
+
+                   (and (instance? RefPathSize y)
+                        (= 0 x))
+                   (WhereClause. {(.empty_list_comparable ^RefPathSize y) {:$isNull false}})
 
                    (custom-type? x)
                    (throw (ex-info "Can't compare on our custom types" {:x x :y y}))
@@ -920,7 +978,35 @@
      :impl (fn [[^WhereClause x]]
              (throw (ex-info "Can't call type on a WhereClause" {:x x})))}]))
 
+(def size-overload
+  (global-overload
+   "size"
+   [{:overload-id "_size_refpath_size"
+     :cel-args [refpath-cel-type]
+     :cel-return-type refpath-size-cel-type
+     :java-args [RefPath]
+     :impl (fn [[^RefPath x]]
+             (if-let [comparable (empty-list-comparable x)]
+               (RefPathSize. x comparable)
+               (throw (ex-info "Can't use size with a refpath that isn't empty list comparable"
+                               {:refpath x}))))}]))
+
 ;; Overload for data.ref
+
+(defn validate-refpath [attrs initial-etype path]
+  (loop [etype initial-etype
+         [label & rest] (clojure-string/split path #"\.")]
+    (let [[attr next-etype] (or (when-let [attr (attr-model/seek-by-fwd-ident-name [etype label] attrs)]
+                                  [attr (attr-model/rev-etype attr)])
+                                (when-let [attr (attr-model/seek-by-rev-ident-name [etype label] attrs)]
+                                  [attr (attr-model/fwd-etype attr)]))]
+      (if-not attr
+        (throw (ex-info "Invalid data.ref" {:etype initial-etype
+                                            :path path
+                                            :failing-segment label}))
+        (when (seq rest)
+          (recur next-etype
+                 rest))))))
 
 (def where-ref-fn (member-overload "ref"
                                    ;; Include the default (for auth.ref)
@@ -929,9 +1015,9 @@
                                      :cel-args [checked-data-map-cel-type SimpleType/STRING]
                                      :cel-return-type refpath-cel-type
                                      :java-args [CheckedDataMap String]
-                                     :impl (fn [[^CheckedDataMap _m ^String ref-path]]
+                                     :impl (fn [[^CheckedDataMap m ^String ref-path]]
+                                             (validate-refpath (.attrs m) (.etype m) ref-path)
                                              (RefPath. ref-path))}]))
-
 (def where-custom-fns [where-ref-fn
                        or-overloads
                        and-overloads
@@ -942,7 +1028,8 @@
                        starts-with-overload
                        ends-with-overload
                        contains-overload
-                       type-overload])
+                       type-overload
+                       size-overload])
 (def where-custom-fn-decls (mapv :decl where-custom-fns))
 (def where-custom-fn-bindings (mapcat :runtimes where-custom-fns))
 

@@ -1989,8 +1989,9 @@
                                             :wheres where-clauses
                                             :where-conds where-conds}))
                         (catch Exception e
-                          (tracer/add-data! {:attributes {:exception (.getMessage e)}})
-                          acc)))
+                          (tracer/add-data! {:attributes {:exception (.getMessage e)
+                                                          :ex-data (ex-data e)}})
+                          (assoc acc etype {:recheck? true}))))
                     acc))
                 {}
                 referenced-etypes)))))
