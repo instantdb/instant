@@ -54,6 +54,8 @@ import {
   type FileOpts,
   type UploadFileResponse,
   type DeleteFileResponse,
+  RoomsOf,
+  PresenceOf,
 } from '@instantdb/core';
 
 import version from './version';
@@ -229,6 +231,33 @@ const init_experimental = init;
 function steps(inputChunks) {
   const chunks = Array.isArray(inputChunks) ? inputChunks : [inputChunks];
   return chunks.flatMap(getOps);
+}
+
+type PresenceResult<Data> = {
+  [peerId: string]: { data: Data; 'peer-id': string; user: User | null };
+};
+
+class Rooms<Schema extends InstantSchemaDef<any, any, any>> {
+  config: FilledConfig;
+
+  constructor(config: FilledConfig) {
+    this.config = config;
+  }
+
+  async getPresence<RoomType extends keyof RoomsOf<Schema>>(
+    roomType: RoomType,
+    roomId: string,
+  ): Promise<PresenceResult<PresenceOf<Schema, RoomType>>> {
+    const res = await jsonFetch(
+      `${this.config.apiURI}/admin/rooms/presence?room-type=${String(roomType)}&room-id=${roomId}`,
+      {
+        method: 'GET',
+        headers: authorizedHeaders(this.config),
+      },
+    );
+
+    return res.sessions || {};
+  }
 }
 
 class Auth {
@@ -587,6 +616,7 @@ class InstantAdminDatabase<Schema extends InstantSchemaDef<any, any, any>> {
   config: InstantConfigFilled<Schema>;
   auth: Auth;
   storage: Storage;
+  rooms: Rooms<Schema>;
   impersonationOpts?: ImpersonationOpts;
 
   public tx = txInit<Schema>();
@@ -595,6 +625,7 @@ class InstantAdminDatabase<Schema extends InstantSchemaDef<any, any, any>> {
     this.config = instantConfigWithDefaults(_config);
     this.auth = new Auth(this.config);
     this.storage = new Storage(this.config);
+    this.rooms = new Rooms<Schema>(this.config);
   }
 
   /**

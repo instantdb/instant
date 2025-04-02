@@ -172,6 +172,10 @@ await adminDB.transact(
     .link({ creator: 'foo' }),
 );
 
+// rooms
+const presences = await adminDB.rooms.getPresence('chat', 'foo');
+Object.values(presences)[0].data.name;
+
 // to silence ts warnings
 export { ReactNormalApp, ReactNativeNormalApp };
 
