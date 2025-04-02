@@ -1,7 +1,6 @@
 (ns instant.db.model.triple
   (:require
    [clojure.spec.alpha :as s]
-   [clojure.string :as str]
    [honey.sql :as hsql]
    [instant.data.constants :refer [empty-app-id]]
    [instant.db.model.attr :as attr-model]
@@ -146,71 +145,79 @@
   "Given [{:entity_id ..., :attr_id ...} ...] of entity attributes that were
    added or removed during this tx, checks that all affected entities that are still
    alive have all required attributes set"
-  [conn app-id eid+attr-ids]
-  (let [eid+attr-ids-cte
-        (sql/recordset eid+attr-ids
-                       {'entity_id {:type :uuid, :as 'entity-id}
-                        'attr_id   {:type :uuid, :as 'attr-id}})
+  [conn attrs app-id eid+attr-ids]
+  (let [attrs                (into {} (map #(vector (:id %) %)) attrs)
+        etypes-with-required (set
+                              (for [[_ attr] attrs
+                                    :when (:required? attr)]
+                                (-> attr :forward-identity second)))
+        eid+etypes           (distinct
+                              (for [{:keys [entity_id attr_id]} eid+attr-ids
+                                    :let [etype (-> attrs (get attr_id) :forward-identity second)]
+                                    :when (etypes-with-required etype)]
+                                [entity_id etype]))]
+    (when (seq eid+etypes)
+      (let [eid+etypes-cte
+            (sql/tupleset eid+etypes
+                          [{:type :uuid, :as 'entity-id}
+                           {:type :text, :as 'etype}])
 
-        eid+etypes
-        {:from 'eid+attr-ids-cte
-         :join ['attrs  [:= 'attr-id 'attrs/id]
-                'idents [:= 'attrs/forward-ident 'idents/id]]
-         :select-distinct ['entity-id 'etype]}
+            eid+required-attrs
+            {:from 'eid+etypes-cte
+             :join ['idents [:and
+                             [:= 'idents/app-id app-id]
+                             [:= 'idents/etype 'idents/etype]]
+                    'attrs [:= 'idents/id 'attrs/forward-ident]]
+             :where [:or
+                     [:= 'attrs/is_required true]
+                     [:= 'attrs/setting_required true]]
+             :select-distinct ['entity-id ['attrs/id 'attr-id] 'idents/etype 'idents/label]}
 
-        eid+required-attrs
-        {:from 'eid+etypes
-         :join ['idents [:and
-                         [:= 'idents/app-id app-id]
-                         [:= 'idents/etype 'idents/etype]]
-                'attrs [:= 'idents/id 'attrs/forward-ident]]
-         :where [:or
-                 [:= 'attrs/is_required true]
-                 [:= 'attrs/setting_required true]]
-         :select-distinct ['entity-id ['attrs/id 'attr-id] 'idents/etype 'idents/label]}
+            missing-required
+            {:from      'eid+required-attrs
+             :left-join ['triples
+                         [:and
+                          [:= 'eid+required-attrs/entity-id 'triples/entity-id]
+                          [:= 'eid+required-attrs/attr-id 'triples/attr-id]]]
+             :where     [:= 'triples/value nil]
+             :select    ['eid+required-attrs/* 'triples/value]}
 
-        missing-required
-        {:from      'eid+required-attrs
-         :left-join ['triples
-                     [:and
-                      [:= 'eid+required-attrs/entity-id 'triples/entity-id]
-                      [:= 'eid+required-attrs/attr-id 'triples/attr-id]]]
-         :where     [:= 'triples/value nil]
-         :select    ['eid+required-attrs/* 'triples/value]}
+            missing-required-alive
+            {:from ['missing-required
+                    [[:lateral {:from 'idents
+                                :where [:and
+                                        [:= 'idents/app-id app-id]
+                                        [:= 'idents/etype 'missing-required/etype]]
+                                :join ['attrs   [:= 'idents/id 'attrs/forward-ident]
+                                       'triples [:= 'triples/attr-id 'attrs/id]]
+                                :select [[[:count 'triples/entity-id] 'cnt]]}] 'cnt]]
+             :where [:> 'cnt/cnt [:inline 0]]
+             :select 'missing-required/*}
 
-        missing-required-alive
-        {:from ['missing-required
-                [[:lateral {:from 'idents
-                            :where [:and
-                                    [:= 'idents/app-id app-id]
-                                    [:= 'idents/etype 'missing-required/etype]]
-                            :join ['attrs   [:= 'idents/id 'attrs/forward-ident]
-                                   'triples [:= 'triples/attr-id 'attrs/id]]
-                            :select [[[:count 'triples/entity-id] 'cnt]]}] 'cnt]]
-         :where [:> 'cnt/cnt [:inline 0]]
-         :select 'missing-required/*}
+            query
+            {:with   [['eid+etypes-cte         eid+etypes-cte]
+                      ['eid+required-attrs     eid+required-attrs]
+                      ['missing-required       missing-required]
+                      ['missing-required-alive missing-required-alive]]
+             :select ['entity-id 'attr-id 'etype 'label]
+             :from   'missing-required-alive}
 
-        query
-        {:with   [['eid+attr-ids-cte       eid+attr-ids-cte]
-                  ['eid+etypes             eid+etypes]
-                  ['eid+required-attrs     eid+required-attrs]
-                  ['missing-required       missing-required]
-                  ['missing-required-alive missing-required-alive]]
-         :select ['entity-id 'attr-id 'etype 'label]
-         :from   'missing-required-alive}
+            res (sql/execute! conn (hsql/format query))]
+        (when (seq res)
+          (ex/throw-validation-err!
+           :required-attrs
+           res
+           (for [{entity-id :entity_id
+                  attr-id   :attr_id
+                  etype     :etype
+                  label     :label} res]
+             {:message   (str "Entity " etype " " entity-id " is missing required attribute '" label "'")
+              :etype     etype
+              :entity-id entity-id
+              :attr-id   attr-id
+              :label     label})))))))
 
-        res (sql/do-execute! conn (hsql/format query))]
-    (when (seq res)
-      (ex/throw-validation-err!
-       :required-attrs
-       res
-       (for [{entity-id :entity_id
-              etype     :idents/etype
-              label     :idents/label} res]
-         {:message (str (str/capitalize etype) " " entity-id " is missing required attribute '" label "'")})))))
-
-(defn deep-merge-multi!
-  [conn _attrs app-id triples]
+(defn deep-merge-multi!  [conn _attrs app-id triples]
   (let [input-triples-values
         (->> triples
              (group-by (juxt first second))

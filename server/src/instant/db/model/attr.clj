@@ -540,6 +540,7 @@
            cardinality
            is_unique
            is_indexed
+           is_required
            forward_ident
            fwd_label
            fwd_etype
@@ -552,13 +553,15 @@
            checked_data_type
            checking_data_type
            indexing
-           setting_unique]}]
+           setting_unique
+           setting_required]}]
   (cond-> {:id id
            :value-type (keyword value_type)
            :cardinality (keyword cardinality)
            :forward-identity [forward_ident fwd_etype fwd_label]
            :unique? is_unique
            :index? is_indexed
+           :required? is_required
            :inferred-types (when inferred_types
                              (friendly-inferred-types inferred_types))
            :catalog (if (= app_id system-catalog-app-id)
@@ -570,7 +573,8 @@
     checked_data_type (assoc :checked-data-type (keyword checked_data_type))
     checking_data_type (assoc :checking-data-type? true)
     indexing (assoc :indexing? true)
-    setting_unique (assoc :setting-unique? true)))
+    setting_unique (assoc :setting-unique? true)
+    setting_required (assoc :setting-required? true)))
 
 (defn index-attrs
   "Groups attrs by common lookup patterns so that we can efficiently look them up."

@@ -321,6 +321,7 @@
                   :cardinality :one
                   :unique? false
                   :index? false
+                  :required? false
                   :inferred-types #{:string}
                   :catalog :user}
                  (attr-model/seek-by-id
@@ -349,6 +350,7 @@
                   :cardinality :one
                   :unique? true
                   :index? false
+                  :required? false
                   :inferred-types #{:string}
                   :catalog :user}
                  (attr-model/seek-by-id
@@ -389,6 +391,7 @@
                   [name-fwd-ident "users" "name"],
                   :unique? false,
                   :index? false,
+                  :required? false,
                   :inferred-types #{:string}
                   :catalog :user}
                  (attr-model/seek-by-id
@@ -450,6 +453,7 @@
                   [zip-fwd-ident "users" "zip"],
                   :unique? false,
                   :index? true,
+                  :required? false,
                   :inferred-types #{:string}
                   :catalog :user}
                  (attr-model/seek-by-id
@@ -509,7 +513,8 @@
                   :forward-identity
                   [email-fwd-ident "users" "email"],
                   :unique? true,
-                  :index? true
+                  :index? true,
+                  :required? false,
                   :inferred-types #{:string}
                   :catalog :user}
                  (attr-model/seek-by-id
@@ -583,6 +588,7 @@
                   [tag-rev-ident "tags" "taggers"],
                   :unique? false,
                   :index? false,
+                  :required? false,
                   :inferred-types #{:string}
                   :catalog :user}
                  (attr-model/seek-by-id
@@ -672,6 +678,7 @@
                   [owner-rev-ident "users" "posts"],
                   :unique? false,
                   :index? false,
+                  :required? false,
                   :inferred-types #{:string}
                   :catalog :user}
                  (attr-model/seek-by-id
@@ -731,7 +738,8 @@
                   :reverse-identity
                   [config-rev-ident "configObjects" "user"],
                   :unique? true,
-                  :index? false
+                  :index? false,
+                  :required? false,
                   :inferred-types #{:string}
                   :catalog :user}
                  (attr-model/seek-by-id
