@@ -180,7 +180,51 @@
         (is (= result
                (get-where-clauses
                 fields
-                "cel.bind(isDeleted, data.deleted_at == null || (data.deleted_at != null && !data.undeleted), isDeleted)")))))))
+                "cel.bind(isDeleted, data.deleted_at == null || (data.deleted_at != null && !data.undeleted), isDeleted)")))))
+
+    (is (= {:or [{"owner" {:$isNull true}} {"owner" {:$isNull true}}]}
+           (:where-clauses
+            (cel/get-where-clauses (make-ctx [{:etype "etype"
+                                               :field "owner"
+                                               :rev-etype "owners"
+                                               :rev-field "etype"}
+                                              {:etype "owners"
+                                               :field "id"}])
+                                   "etype"
+                                   "[] == data.ref('owner.id') || data.ref('owner.id') == []"))))
+
+    (is (= {:or [{"owner" {:$isNull false}} {"owner" {:$isNull false}}]}
+           (:where-clauses
+            (cel/get-where-clauses (make-ctx [{:etype "etype"
+                                               :field "owner"
+                                               :rev-etype "owners"
+                                               :rev-field "etype"}
+                                              {:etype "owners"
+                                               :field "id"}])
+                                   "etype"
+                                   "[] != data.ref('owner.id') || data.ref('owner.id') != []"))))
+
+    (is (= {:or [{"owner" {:$isNull true}} {"owner" {:$isNull true}}]}
+           (:where-clauses
+            (cel/get-where-clauses (make-ctx [{:etype "etype"
+                                               :field "owner"
+                                               :rev-etype "owners"
+                                               :rev-field "etype"}
+                                              {:etype "owners"
+                                               :field "id"}])
+                                   "etype"
+                                   "size(data.ref('owner.id')) == 0 || 0 == size(data.ref('owner.id'))"))))
+
+    (is (= {:or [{"owner" {:$isNull false}} {"owner" {:$isNull false}}]}
+           (:where-clauses
+            (cel/get-where-clauses (make-ctx [{:etype "etype"
+                                               :field "owner"
+                                               :rev-etype "owners"
+                                               :rev-field "etype"}
+                                              {:etype "owners"
+                                               :field "id"}])
+                                   "etype"
+                                   "size(data.ref('owner.id')) != 0 || 0 != size(data.ref('owner.id'))"))))))
 
 (deftest bad-code-fails
   (let [make-ctx (fn [attr-specs]
