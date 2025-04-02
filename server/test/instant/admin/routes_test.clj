@@ -291,31 +291,55 @@
 
 (deftest sign-out-test
   (with-empty-app
-    (let [email "stopa@instantdb.com"]
-      (fn [{app-id :id admin-token :admin-token :as _app}]
-        (testing "no refresh tokens after signing out"
-          (let [refresh-ret (refresh-tokens-post
+    (fn [{app-id :id admin-token :admin-token :as _app}]
+      (let [user-id (random-uuid)
+            email "stopa@instantdb.com"
+            _ (app-user-model/create! {:id user-id
+                                       :app-id app-id
+                                       :email email})
+
+            make-token #(-> (refresh-tokens-post
                              {:body {:email email}
                               :headers {"app-id" app-id
                                         "authorization" (str "Bearer " admin-token)}})
-                token (-> refresh-ret :body :user :refresh_token)]
+                            :body
+                            :user
+                            :refresh_token)
 
-            ;; token is created
-            (is (= 200 (:status refresh-ret)))
-            (is (some? token))
-            (is (some? (app-user-refresh-token-model/get-by-id {:id token
-                                                                :app-id app-id})))
-
-            ;; sign-out
-            (let [sign-out-ret (sign-out-post
-                                {:body {:email email}
-                                 :headers {"app-id" app-id
-                                           "authorization" (str "Bearer " admin-token)}})]
-
-              ;; token is deleted
-              (is (= 200 (:status sign-out-ret)))
-              (is (nil? (app-user-refresh-token-model/get-by-id {:id token
-                                                                 :app-id app-id}))))))))))
+            get-token #(app-user-refresh-token-model/get-by-id {:id %
+                                                                :app-id app-id})
+            sign-out #(sign-out-post
+                       {:body %
+                        :headers {"app-id" app-id
+                                  "authorization" (str "Bearer " admin-token)}})]
+        (testing "sign out by email deletes all tokens"
+          (let [tok1 (make-token)
+                tok2 (make-token)
+                _ (is (get-token tok1))
+                _ (is (get-token tok2))
+                ret (sign-out {:email email})]
+            (is (= 200 (:status ret)))
+            (is (nil? (get-token tok1)))
+            (is (nil? (get-token tok2)))))
+        (testing "sign out by user-id deletes all tokens"
+          (let [tok1 (make-token)
+                tok2 (make-token)
+                _ (is (get-token tok1))
+                _ (is (get-token tok2))
+                ret (sign-out {:id user-id})]
+            (is (= 200 (:status ret)))
+            (is (nil? (get-token tok1)))
+            (is (nil? (get-token tok2)))))
+        (testing "sign out by refresh-tokens deletes one token"
+          (let [tok1 (make-token)
+                tok2 (make-token)
+                _ (is (get-token tok1))
+                _ (is (get-token tok2))
+                ret (sign-out {:refresh_token tok2})]
+            (def ret ret)
+            (is (= 200 (:status ret)))
+            (is (get-token tok1))
+            (is (nil? (get-token tok2)))))))))
 
 (deftest app-users-get-test
   (with-empty-app
