@@ -419,6 +419,9 @@ class Auth {
       | { id: string }
       | { refresh_token: string },
   ): Promise<void> {
+    // If input is a string, we assume it's an email.
+    // This is because of backwards compatibility: we used to only
+    // accept email strings. Eventually we can remove this
     const params = typeof input === 'string' ? { email: input } : input;
     const config = this.config;
     await jsonFetch(`${config.apiURI}/admin/sign_out`, {
