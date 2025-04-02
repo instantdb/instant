@@ -94,7 +94,7 @@ async function testSignOut() {
   // Token should exist
   assert(await auth.verifyToken(token));
 
-  await auth.signOut(email);
+  await auth.signOut({ email });
 
   // Token should no longer exist
   const errorMessage =

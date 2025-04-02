@@ -149,16 +149,19 @@ await db.auth.deleteUser({ id: userId });
 
 ## Sign Out
 
-The `db.auth.signOut` method allows you to log out a user by invalidating any tokens
-associated with their email. This can be useful when you want to forcibly log out a user from your application:
+The `db.auth.signOut` method allows you to log out a users. You can log a user out from every session by passing in their `email`, or `id`. Or you can log them out from a particular machine by passing in their `refresh_token`:
 
 ```javascript
-try {
-  await db.auth.signOut('alyssa_p_hacker@instantdb.com');
-  console.log('Successfully signed out');
-} catch (err) {
-  console.error('Sign out failed:', err.message);
-}
+// All sessions for this email sign out
+await db.auth.signOut({ email: 'alyssa_p_hacker@instantdb.com' });
+// All sessions for this user id sign out
+const user = await db.auth.signOut({
+  id: userId,
+});
+// Just sign out this refresh token
+await db.auth.signOut({
+  refresh_token: userRefreshToken,
+});
 ```
 
 ## Custom Auth

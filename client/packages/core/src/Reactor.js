@@ -1533,10 +1533,6 @@ export default class Reactor {
 
   async signOut(opts) {
     const currentUser = await this.getCurrentUser();
-
-    if (refreshToken) {
-      this.potentiallyInvalidateToken(currentUser, opts);
-    }
     this.potentiallyInvalidateToken(currentUser, opts);
     await this.changeCurrentUser(null);
   }
