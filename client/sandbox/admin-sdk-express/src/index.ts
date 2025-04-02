@@ -359,3 +359,10 @@ async function generateMagicCode() {
 // testSuperadminCreateApp("Test App");
 // testSuperadminDeleteApp("a3203638-7869-40cb-b21f-bb093342a461");
 // testSuperadminAppsFlow();
+
+async function testGetPresence() {
+  const res = await db.rooms.getPresence('chat', 'foo');
+  console.log(JSON.stringify(res, null, 2));
+}
+
+// testGetPresence();

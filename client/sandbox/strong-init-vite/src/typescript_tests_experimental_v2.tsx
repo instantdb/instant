@@ -193,6 +193,10 @@ await adminDB.transact(
 ReactNormalApp;
 ReactNativeNormalApp;
 
+// rooms
+const presences = await adminDB.rooms.getPresence('chat', 'foo');
+Object.values(presences)[0].data.name;
+
 // ------------
 // type helpers
 
