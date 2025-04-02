@@ -81,7 +81,6 @@
 (s/def ::indexing? boolean?)
 (s/def ::checking-data-type? boolean?)
 (s/def ::setting-unique? boolean?)
-(s/def ::setting-required? boolean?)
 
 (s/def ::attr-common (s/keys :req-un
                              [::id
@@ -95,8 +94,7 @@
                               ::checked-data-type
                               ::indexing?
                               ::checking-data-type?
-                              ::setting-unique?
-                              ::setting-required?]))
+                              ::setting-unique?]))
 
 (s/def ::blob-attr ::attr-common)
 
@@ -553,8 +551,7 @@
            checked_data_type
            checking_data_type
            indexing
-           setting_unique
-           setting_required]}]
+           setting_unique]}]
   (cond-> {:id id
            :value-type (keyword value_type)
            :cardinality (keyword cardinality)
@@ -573,8 +570,7 @@
     checked_data_type (assoc :checked-data-type (keyword checked_data_type))
     checking_data_type (assoc :checking-data-type? true)
     indexing (assoc :indexing? true)
-    setting_unique (assoc :setting-unique? true)
-    setting_required (assoc :setting-required? true)))
+    setting_unique (assoc :setting-unique? true)))
 
 (defn index-attrs
   "Groups attrs by common lookup patterns so that we can efficiently look them up."
