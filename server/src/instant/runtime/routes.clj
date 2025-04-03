@@ -117,7 +117,7 @@
                          :code (:code magic-code)
                          :app_title (:title app)}
 
-        default-sender "verify@auth-sg.instantdb.com"
+        default-sender "verify@auth-pm.instantdb.com"
 
         sender-email (or (:email template) default-sender)
         email-params (if template
