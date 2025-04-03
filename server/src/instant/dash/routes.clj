@@ -220,7 +220,7 @@
 (comment
   (def user (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
   (def m {:code (string-util/rand-num-str 6)})
-  (postmark/send! (magic-code-email {:user user :magic-code m})))
+  (postmark/send-structured! (magic-code-email {:user user :magic-code m})))
 
 (defn send-magic-code-post [req]
   (let [email (ex/get-param! req [:body :email] email/coerce)
@@ -231,7 +231,7 @@
                     {:id (UUID/randomUUID)
                      :code (instant-user-magic-code-model/rand-code)
                      :user-id user-id})]
-    (postmark/send!
+    (postmark/send-structured!
      (magic-code-email {:user u :magic-code magic-code}))
     (response/ok {:sent true})))
 

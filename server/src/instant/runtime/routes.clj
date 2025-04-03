@@ -138,8 +138,8 @@
         (if (invalid-sender? e)
           (do
             (tracer/record-info! {:name "magic-code/unconfirmed-or-unknown-sender" :attributes {:email sender-email :app-id app-id}})
-            (postmark/send! (magic-code-email {:user u
-                                               :params (assoc email-params :sender-email default-sender)})))
+            (postmark/send-structured! (magic-code-email {:user u
+                                                          :params (assoc email-params :sender-email default-sender)})))
           (throw e))))
     (response/ok {:sent true})))
 
