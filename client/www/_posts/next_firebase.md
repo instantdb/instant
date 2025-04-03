@@ -562,6 +562,8 @@ It's been thrilling to see users try Instant. When they write their first relati
 
 If you’re excited about this stuff, [sign up and give us a try](https://instantdb.com). We will reach out to your personally for feedback.
 
+[Dicussion on HN](https://news.ycombinator.com/item?id=32595895)
+
 _Thanks Joe Averbukh, Alex Reichert, Mark Shlick, Slava Akhmechet, Nicole Garcia Fischer, Daniel Woelfel, Jake Teton-Landis, Rudi Chen, Dan Vingo, Dennis Heihoff for reviewing drafts of this essay._
 
 [^1]: ​​Think optimistic updates, reactivity, and offline mode. I’ll cover them in this essay, so no need to jump into the previous one.

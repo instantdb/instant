@@ -712,6 +712,8 @@ First go through the [Learn Datalog](http://www.learndatalogtoday.org/) website;
 
 Huge credit goes to SICP. When I completed their logic chapter, I realized that query languages didn't have to be so daunting. This essay is just a simplification of their chapter, translated into Javascript. The second credit needs to go to Nikita Tonsky’s essays. His [Datomic](https://tonsky.me/blog/unofficial-guide-to-datomic-internals/) and [Datascript](https://tonsky.me/blog/datascript-internals/) internals essays are a goldmine. Finally, I really enjoyed [Learn Datalog](http://www.learndatalogtoday.org/), and used their dataset for this essay.
 
+[Discussion on HN](https://news.ycombinator.com/item?id=31154039)
+
 _Thanks to Joe Averbukh, Irakli Safareli, Daniel Woelfel, Mark Shlick, Alex Reichert, Ian Sinnott, for reviewing drafts of this essay._
 
 [^1]: ​​[Learn Datalog Today](http://www.learndatalogtoday.org/) — very fun!
