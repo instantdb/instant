@@ -29,7 +29,6 @@
             [instant.model.app-email-sender :as app-email-sender-model]
             [instant.model.instant-cli-login :as instant-cli-login-model]
             [instant.postmark :as postmark]
-            [instant.sendgrid :as sendgrid]
             [instant.util.async :refer [fut-bg]]
             [instant.util.crypt :as crypt-util]
             [instant.util.email :as email]
@@ -199,7 +198,7 @@
         {:keys [email]} user
         {:keys [code]} magic-code]
     {:from {:name title
-            :email "verify@auth-sg.instantdb.com"}
+            :email "verify@auth-pm.instantdb.com"}
      :to [{:email email}]
      :subject (str code " is your verification code for " title)
      :html
@@ -221,7 +220,7 @@
 (comment
   (def user (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
   (def m {:code (string-util/rand-num-str 6)})
-  (sendgrid/send! (magic-code-email {:user user :magic-code m})))
+  (postmark/send-structured! (magic-code-email {:user user :magic-code m})))
 
 (defn send-magic-code-post [req]
   (let [email (ex/get-param! req [:body :email] email/coerce)
@@ -232,7 +231,7 @@
                     {:id (UUID/randomUUID)
                      :code (instant-user-magic-code-model/rand-code)
                      :user-id user-id})]
-    (sendgrid/send!
+    (postmark/send-structured!
      (magic-code-email {:user u :magic-code magic-code}))
     (response/ok {:sent true})))
 

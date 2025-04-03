@@ -33,8 +33,7 @@
             [lambdaisland.uri :as uri]
             [next.jdbc :as next-jdbc]
             [ring.middleware.cookies :refer [wrap-cookies]]
-            [ring.util.http-response :as response]
-            [instant.sendgrid :as sendgrid])
+            [ring.util.http-response :as response])
   (:import (java.util UUID)))
 
 ;; ----
@@ -118,7 +117,7 @@
                          :code (:code magic-code)
                          :app_title (:title app)}
 
-        default-sender "verify@auth-sg.instantdb.com"
+        default-sender "verify@auth-pm.instantdb.com"
 
         sender-email (or (:email template) default-sender)
         email-params (if template
@@ -134,15 +133,13 @@
         email-req (magic-code-email {:user u
                                      :params email-params})]
     (try
-      (if (= sender-email default-sender)
-        (sendgrid/send! email-req)
-        (postmark/send-structured! email-req))
+      (postmark/send-structured! email-req)
       (catch clojure.lang.ExceptionInfo e
         (if (invalid-sender? e)
           (do
             (tracer/record-info! {:name "magic-code/unconfirmed-or-unknown-sender" :attributes {:email sender-email :app-id app-id}})
-            (postmark/send! (magic-code-email {:user u
-                                               :params (assoc email-params :sender-email default-sender)})))
+            (postmark/send-structured! (magic-code-email {:user u
+                                                          :params (assoc email-params :sender-email default-sender)})))
           (throw e))))
     (response/ok {:sent true})))
 
