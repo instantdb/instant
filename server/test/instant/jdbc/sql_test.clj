@@ -98,3 +98,9 @@
             (aurora/conn-pool :read)
             (hsql/format
              (sql/recordset [] columns)))))))
+
+(deftest format-test
+  (is (= ["WHERE ? = ? OR ? = ?" 1 2 1 3]
+         (sql/format
+          "WHERE ?a = ?b OR ?a = ?c"
+          {"?a" 1, "?b" 2, "?c" 3}))))

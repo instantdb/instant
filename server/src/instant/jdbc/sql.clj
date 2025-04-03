@@ -1,4 +1,5 @@
 (ns instant.jdbc.sql
+  (:refer-clojure :exclude [format])
   (:require
    [clojure.string :as string]
    ;; load all pg-ops for hsql
@@ -27,13 +28,13 @@
 (defn ->pg-text-array
   "Formats as text[] in pg, i.e. {item-1, item-2, item3}"
   [col]
-  (format
+  (clojure.core/format
    "{%s}"
    (string/join
     ","
-    (map (fn [s] (format "\"%s\""
-                         ;; Escape quotes (but don't double esc)
-                         (string/replace s #"(?<!\\)\"" "\\\"")))
+    (map (fn [s] (clojure.core/format "\"%s\""
+                                      ;; Escape quotes (but don't double esc)
+                                      (string/replace s #"(?<!\\)\"" "\\\"")))
          col))))
 
 (defn ->pg-uuid-array
@@ -217,6 +218,24 @@
                                         (str (name col-name) " " (name (or type "text")))))
                          ")")]]]]})
 
+(defn format
+  "Given SQL string with named placeholders (\"?symbol\") and map of values,
+   returns [query params...] with positional placeholders.
+
+     (sql/format
+       \"SELECT * FROM triples
+          WHERE attr_id = ?attr-id
+            AND app_id  = ?app-id\"
+       {\"?attr-id\" #uuid ...
+        \"?app-id\"  #uuid ...})
+
+    => [\"SELECT * FROM triples WHERE attr_id = ? and app_id = ?\" #uuid ... #uuid ...]"
+  [sql params]
+  (let [re   #"\?[\p{Alpha}*!_?$%&=<>.|''\-+#:0-9]+"
+        args (re-seq re sql)
+        vals (map params args)]
+    (into [(string/replace sql re "?")] vals)))
+
 (defn span-attrs-from-conn-pool [conn]
   (when (instance? HikariDataSource conn)
     (let [mx-bean (.getHikariPoolMXBean ^HikariDataSource conn)
@@ -385,7 +404,7 @@
     (catch Throwable _e nil)))
 
 (defmacro defsql [name query-fn rw opts]
-  (let [span-name (format "sql/%s" name)]
+  (let [span-name (clojure.core/format "sql/%s" name)]
     `(defn ~name
        ([~'conn ~'query]
         (~name nil ~'conn ~'query nil))

@@ -743,3 +743,47 @@
             (attr-details))))
 
 (ex/define-get-attr-details get-attr-details)
+
+;; ------
+;; required?
+
+(defn check-required
+  "Checks if attribute is effectiveliy required (all entities with the same etype have it set).
+   Returns map with :count and first 10 :entity-ids that miss that attribute"
+  [conn attr-id]
+  (let [query "WITH inputs_cte AS (
+                 SELECT idents.app_id, idents.etype
+                   FROM attrs
+                   JOIN idents on attrs.forward_ident = idents.id
+                  WHERE attrs.id = ?attr-id
+                  LIMIT 1
+               ),
+               attr_ids_cte AS (
+                 SELECT attr_id
+                   FROM inputs_cte, idents
+                   JOIN attrs ON idents.id = attrs.forward_ident
+                  WHERE idents.etype = inputs_cte.etype
+               ),
+               triples_cte AS (
+                 SELECT DISTINCT entity_id
+                   FROM inputs_cte, triples
+                  WHERE triples.attr_id IN (SELECT attr_id FROM attr_ids_cte)
+                    AND triples.app_id = inputs_cte.app_id
+               )
+               SELECT triples_cte.entity_id, count(triples_cte.entity_id) OVER ()
+                 FROM triples_cte
+                 LEFT JOIN triples ON triples_cte.entity_id = triples.entity_id
+                                  AND triples.attr_id = ?attr-id
+                WHERE triples.ctid IS NULL
+                LIMIT 10"
+        params {"?attr-id" attr-id}
+        res    (sql/execute! conn (sql/format query params))
+        count  (:count (first res))
+        eids   (map :entity_id res)]
+    (when count
+      {:count      count
+       :entity-ids eids})))
+
+(comment
+  (check-required (aurora/conn-pool :read) #uuid "6eebf15a-ed3c-4442-8869-a44a7c85a1be")
+  (check-required (aurora/conn-pool :read) #uuid "275e5c3c-d565-4f5a-b832-4290cc6de915"))
