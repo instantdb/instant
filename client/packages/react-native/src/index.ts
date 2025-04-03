@@ -125,6 +125,8 @@ export {
   lookup,
   i,
 
+  InstantReactNativeDatabase,
+
   // types
   type Config,
   type Query,
