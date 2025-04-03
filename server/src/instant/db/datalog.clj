@@ -649,7 +649,7 @@
                                                 :checked_data_type
                                                 [:cast [:inline (name data-type)] :checked_data_type]]
                                                [:not= [(extract-value-fn data-type) :t.value] nil]]
-                                              [:not= :t.value [:cast (->json nil) :jsonb]]))}]]
+                                              [[:not= :t.value [:cast (->json nil) :jsonb]]]))}]]
                   :$comparator (let [{:keys [op value data-type]} val]
                                  [[(case op
                                      :$gt :>
