@@ -29,7 +29,6 @@
             [instant.model.app-email-sender :as app-email-sender-model]
             [instant.model.instant-cli-login :as instant-cli-login-model]
             [instant.postmark :as postmark]
-            [instant.sendgrid :as sendgrid]
             [instant.util.async :refer [fut-bg]]
             [instant.util.crypt :as crypt-util]
             [instant.util.email :as email]
