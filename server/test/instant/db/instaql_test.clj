@@ -1582,12 +1582,8 @@
           {:users {:$ {:where {:and [{:handle {:$not "alex"}}
                                      {:handle {:$not "nicolegf"}}]}}}})
          '({:topics ([:av _ #{:users/handle} {:$not "alex"}]
-                     [:ea _ #{:users/id} _]
-                     [:ea _ #{:users/handle} _]
                      [:av #{"eid-joe-averbukh" "eid-stepan-parunashvili"} #{:users/handle}
                       {:$not "nicolegf"}]
-                     [:ea #{"eid-joe-averbukh" "eid-stepan-parunashvili"} #{:users/id} _]
-                     [:ea _ #{:users/handle} _]
                      --
                      [:ea #{"eid-joe-averbukh"}
                       #{:users/createdAt :users/email :users/id :users/fullName
