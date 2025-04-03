@@ -216,7 +216,9 @@
     (if (seq rest-path) ;; we're in a link
       (recur (link-etype attrs etype segment)
              rest-path)
-      (:index? (attr-model/seek-by-fwd-ident-name [etype segment] attrs)))))
+      (let [attr (attr-model/seek-by-fwd-ident-name [etype segment] attrs)]
+        (and (:index? attr)
+             (not (:indexing? attr)))))))
 
 (defn- coerce-where-cond
   "Splits keys into segments."
@@ -632,7 +634,8 @@
                 [[(level-sym last-etype last-level)
                   (:id id-attr)
                   {:$isNull {:attr-id (:id value-attr)
-                             :indexed-checked-type (when (:index? value-attr)
+                             :indexed-checked-type (when (and (:index? value-attr)
+                                                              (not (:indexing? value-attr)))
                                                      (:checked-data-type value-attr))
                              :nil? (:$isNull v)
                              :ref? (= :ref (:value-type value-attr))
