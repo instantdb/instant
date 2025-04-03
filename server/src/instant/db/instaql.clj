@@ -135,34 +135,33 @@
   "Converts {:or [{:or [{:k v}]}]} to its simplest form of {:k v}.
    Will collapse both nested `and`s and `or`s."
   [conds]
-  (distinct
-   (reduce (fn [acc c]
-             (cond (:or c)
-                   (let [cs (reduce (fn [acc cs]
-                                      (if-let [ors (:or cs)]
-                                        (apply conj acc ors)
-                                        (conj acc cs)))
-                                    []
-                                    (collapse-coerced-conds (:or c)))]
-                     (if (= 1 (count cs))
-                       (conj acc (first cs))
-                       (conj acc {:or cs})))
+  (reduce (fn [acc c]
+            (cond (:or c)
+                  (let [cs (reduce (fn [acc cs]
+                                     (if-let [ors (:or cs)]
+                                       (apply conj acc ors)
+                                       (conj acc cs)))
+                                   []
+                                   (collapse-coerced-conds (:or c)))]
+                    (if (= 1 (count cs))
+                      (conj acc (first cs))
+                      (conj acc {:or cs})))
 
-                   (:and c)
-                   (let [cs (reduce (fn [acc cs]
-                                      (if-let [ands (:and cs)]
-                                        (apply conj acc ands)
-                                        (conj acc cs)))
-                                    []
-                                    (collapse-coerced-conds (:and c)))]
-                     (if (= 1 (count cs))
-                       (conj acc (first cs))
-                       (conj acc {:and cs})))
+                  (:and c)
+                  (let [cs (reduce (fn [acc cs]
+                                     (if-let [ands (:and cs)]
+                                       (apply conj acc ands)
+                                       (conj acc cs)))
+                                   []
+                                   (collapse-coerced-conds (:and c)))]
+                    (if (= 1 (count cs))
+                      (conj acc (first cs))
+                      (conj acc {:and cs})))
 
-                   :else
-                   (conj acc c)))
-           []
-           conds)))
+                  :else
+                  (conj acc c)))
+          []
+          conds))
 
 (def sentinel (Object.))
 
