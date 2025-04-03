@@ -134,9 +134,7 @@
         email-req (magic-code-email {:user u
                                      :params email-params})]
     (try
-      (if (= sender-email default-sender)
-        (sendgrid/send! email-req)
-        (postmark/send-structured! email-req))
+      (postmark/send-structured! email-req)
       (catch clojure.lang.ExceptionInfo e
         (if (invalid-sender? e)
           (do
