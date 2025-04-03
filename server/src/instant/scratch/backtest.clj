@@ -24,7 +24,7 @@
 (defn honeycomb-row->input! [[idx row]]
   (let [app-id (ex/get-param! row ["app_id"] uuid-util/coerce)
         query (ex/get-param! row ["forms"] edn/read-string)
-        _ (iq/->forms! query)]
+        _ (iq/->forms! (attr-model/wrap-attrs []) query)]
     {:idx idx
      :app-id app-id
      :query query}))

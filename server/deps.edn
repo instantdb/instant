@@ -44,7 +44,7 @@
 
         nrepl/nrepl {:mvn/version "0.9.0"}
         jarohen/chime {:mvn/version "0.3.3"}
-        com.github.seancorfield/honeysql {:mvn/version "2.6.1270"}
+        com.github.seancorfield/honeysql {:mvn/version "2.7.1295"}
         org.clojure/spec.alpha {:mvn/version "0.3.218"}
         circleci/circleci.test {:mvn/version "0.5.0"}
         org.clojure/test.check {:mvn/version "1.1.1"}
