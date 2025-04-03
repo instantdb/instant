@@ -135,33 +135,34 @@
   "Converts {:or [{:or [{:k v}]}]} to its simplest form of {:k v}.
    Will collapse both nested `and`s and `or`s."
   [conds]
-  (reduce (fn [acc c]
-            (cond (:or c)
-                  (let [cs (reduce (fn [acc cs]
-                                     (if-let [ors (:or cs)]
-                                       (apply conj acc ors)
-                                       (conj acc cs)))
-                                   []
-                                   (collapse-coerced-conds (:or c)))]
-                    (if (= 1 (count cs))
-                      (conj acc (first cs))
-                      (conj acc {:or cs})))
+  (distinct
+   (reduce (fn [acc c]
+             (cond (:or c)
+                   (let [cs (reduce (fn [acc cs]
+                                      (if-let [ors (:or cs)]
+                                        (apply conj acc ors)
+                                        (conj acc cs)))
+                                    []
+                                    (collapse-coerced-conds (:or c)))]
+                     (if (= 1 (count cs))
+                       (conj acc (first cs))
+                       (conj acc {:or cs})))
 
-                  (:and c)
-                  (let [cs (reduce (fn [acc cs]
-                                     (if-let [ands (:and cs)]
-                                       (apply conj acc ands)
-                                       (conj acc cs)))
-                                   []
-                                   (collapse-coerced-conds (:and c)))]
-                    (if (= 1 (count cs))
-                      (conj acc (first cs))
-                      (conj acc {:and cs})))
+                   (:and c)
+                   (let [cs (reduce (fn [acc cs]
+                                      (if-let [ands (:and cs)]
+                                        (apply conj acc ands)
+                                        (conj acc cs)))
+                                    []
+                                    (collapse-coerced-conds (:and c)))]
+                     (if (= 1 (count cs))
+                       (conj acc (first cs))
+                       (conj acc {:and cs})))
 
-                  :else
-                  (conj acc c)))
-          []
-          conds))
+                   :else
+                   (conj acc c)))
+           []
+           conds)))
 
 (def sentinel (Object.))
 
@@ -196,16 +197,37 @@
           (take (inc i) path))
         (range (count path))))
 
+(defn link-etype [attrs etype link-attr-name]
+  (or (when-let [attr (attr-model/seek-by-fwd-ident-name
+                       [etype link-attr-name]
+                       attrs)]
+        (attr-model/rev-etype attr))
+      (when-let [attr (attr-model/seek-by-rev-ident-name
+                       [etype link-attr-name]
+                       attrs)]
+        (attr-model/fwd-etype attr))))
+
+(defn indexed-attr?
+  "Checks if the cond path is a top-level indexed attr so that we can
+   avoid checking for `isNull` on a `not` query."
+  [attrs initial-etype path]
+  (loop [etype initial-etype
+         [segment & rest-path] path]
+    (if (seq rest-path) ;; we're in a link
+      (recur (link-etype attrs etype segment)
+             rest-path)
+      (:index? (attr-model/seek-by-fwd-ident-name [etype segment] attrs)))))
+
 (defn- coerce-where-cond
   "Splits keys into segments."
-  [state [k v :as c]]
+  [state attrs [k v :as c]]
   (collapse-coerced-conds
    (cond (or-where-cond? c)
          (let [conds (->> v
                           combine-or-where-conds
                           (map (fn [conds]
                                  {:and
-                                  (mapcat (partial coerce-where-cond state)
+                                  (mapcat (partial coerce-where-cond state attrs)
                                           conds)})))]
            (if-not (zero? (count conds))
              [{:or conds}]
@@ -219,7 +241,7 @@
 
          (and-where-cond? c)
          (let [conds (mapcat (fn [conds]
-                               (mapcat (partial coerce-where-cond state)
+                               (mapcat (partial coerce-where-cond state attrs)
                                        conds))
                              v)]
            (if-not (zero? (count conds))
@@ -237,11 +259,13 @@
          ;; entities where the entity has a triple with the attr. If the
          ;; attr is missing, then we won't find it. We add an extra
          ;; `isNull` check to ensure that we find the entity.
-         (let [path (string/split (name k) #"\.")]
+         (let [path (string/split (name k) #"\.")
+               is-null-paths (cond-> (mapv (fn [p]
+                                             [p {:$isNull true}])
+                                           (grow-paths path))
+                               (indexed-attr? attrs (:etype state) path) drop-last)]
            [{:or (concat [[path v]]
-                         (mapv (fn [p]
-                                 [p {:$isNull true}])
-                               (grow-paths path)))}])
+                         is-null-paths)}])
 
          (and (map? v) (contains? v :$isNull) (= true (:$isNull v)))
          ;; If the where cond has `$isNull=true`, then we need it to
@@ -374,10 +398,10 @@
 
 (defn- coerce-option-map!
   "Coerce the where conditions into paths and values."
-  [state x]
+  [state attrs x]
   (let [where-conds (some->> (get x :where)
                              (assert-map! (update state :in conj :where))
-                             (mapcat (partial coerce-where-cond state)))
+                             (mapcat (partial coerce-where-cond state attrs)))
         order (let [order-state (update state :in conj :order)]
                 (some->> (:order x)
                          (assert-map! order-state)
@@ -450,22 +474,29 @@
 
 (defn- coerce-forms!
   "Converts our InstaQL object into a list of forms."
-  [state o]
+  [state attrs o]
   (assert-map! state o)
   (->> o
        (map (fn [[k v]]
-              (let [state' (update state :in conj k)
+              (let [state' (-> state
+                               (update :in conj k)
+                               (update :etype (fn [etype]
+                                                (if etype
+                                                  (link-etype attrs etype (name k))
+                                                  (name k)))))
                     _ (assert-map! state' v)
                     option (coerce-option-map! (update state' :in conj :$)
+                                               attrs
                                                (get v :$ {}))
                     child-forms (dissoc v :$)]
                 {:k (name k)
                  :option-map option
                  :child-forms (coerce-forms! (update state' :level inc)
+                                             attrs
                                              child-forms)})))))
 
-(defn ->forms! [o]
-  (let [coerced (coerce-forms! {:root o :in [] :level 0} o)
+(defn ->forms! [attrs o]
+  (let [coerced (coerce-forms! {:root o :in [] :level 0} attrs o)
         conformed (s/conform ::forms coerced)]
     (when (s/invalid? conformed)
       (ex/throw-validation-err!
@@ -477,7 +508,9 @@
 
 (comment
   (coerce-option-map!
-   {:in []}
+   {:in []
+    :level 0}
+   (attr-model/wrap-attrs [])
    {:where {:bookshelves.books.title "The Count of Monte Cristo"
             :email {:in ["test@example.com"]}
             :or [{:email "test"}
@@ -486,6 +519,7 @@
                   {:handle "test"}]}})
   (coerce-forms!
    {:in []}
+   (attr-model/wrap-attrs [])
    {:users {:$ {:where {:bookshelves.books.title "The Count of Monte Cristo"
                                         ;:email "test@example.com"
                         }}
@@ -493,17 +527,20 @@
 
   (coerce-forms!
    {:in []}
+   (attr-model/wrap-attrs [])
    {:users {:$ {:where {:bookshelves.books.title "The Count of Monte Cristo"}
                 :order {:serverCreatedAt "desc"}}
             :books {}}})
 
   (->forms!
+   (attr-model/wrap-attrs [])
    {:users {:$ {:where {:bookshelves.books.title "The Count of Monte Cristo"
                         :email "test@example.com"}}
             :books {}}
     :bookshelves {}})
 
   (->forms!
+   (attr-model/wrap-attrs [])
    {:users {:$ {:where {:handle {:in ["stopa", "joe"]}
                         :or [{:email "test"}
                              {:or [{:a "b"}]}]
@@ -512,6 +549,7 @@
             :books {}}})
 
   (->forms!
+   (attr-model/wrap-attrs [])
    {:users {:$ {:where {:and [{:or [{:handle "somebody"}
                                     {:handle "joe"}
                                     {:handle "nobody"}]}]}}}}))
@@ -594,6 +632,8 @@
                 [[(level-sym last-etype last-level)
                   (:id id-attr)
                   {:$isNull {:attr-id (:id value-attr)
+                             :indexed-checked-type (when (:index? value-attr)
+                                                     (:checked-data-type value-attr))
                              :nil? (:$isNull v)
                              :ref? (= :ref (:value-type value-attr))
                              :reverse? (= value-attr rev-attr)}}]])
@@ -1114,7 +1154,7 @@
          :children nil}))}))
 
 (defn instaql-query->patterns [ctx o]
-  (let [forms* (->> (->forms! o)
+  (let [forms* (->> (->forms! (:attrs ctx) o)
                     ;; at the top-level, `k` _must_ be the etype
                     (mapv (fn [{:keys [k] :as form}]
                             (let [extra-conds (-> ctx
@@ -1961,10 +2001,10 @@
     (flags/use-rule-wheres? {:app-id app-id
                              :query-hash query-hash})))
 
-(defn rule-wheres->where-conds [etype wheres]
+(defn rule-wheres->where-conds [attrs etype wheres]
   (let [forms {etype {:$ {:where wheres}}}]
-    (-> forms
-        ->forms!
+    (->> forms
+        (->forms! attrs)
         first
         :option-map
         :where-conds)))
@@ -1982,7 +2022,7 @@
                         (let [{:keys [short-circuit? where-clauses]}
                               (cel/get-where-clauses ctx etype (:code program))
                               ;; convert to where conds here in case this throws
-                              where-conds (rule-wheres->where-conds etype where-clauses)]
+                              where-conds (rule-wheres->where-conds (:attrs ctx) etype where-clauses)]
                           (tracer/add-data! {:attributes {:wheres where-clauses
                                                           :short-circuit? short-circuit?}})
                           (assoc acc etype {:short-circuit? short-circuit?

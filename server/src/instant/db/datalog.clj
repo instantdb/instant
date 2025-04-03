@@ -561,7 +561,7 @@
        (value->jsonb val)]
       [:and
        [:= :checked_data_type [:cast [:inline (name data-type)] :checked_data_type]]
-       [:not= [(extract-value-fn data-type) :value] val]])))
+       [:is-distinct-from [(extract-value-fn data-type) :value] val]])))
 
 (defn- in-or-eq-value [idx v-set]
   (let [[tag idx-val] idx
@@ -639,11 +639,17 @@
                                         [[[:cast [:->> :t.value :0] :uuid]]]
                                         :t.entity-id)
                               :from [[:triples :t]]
-                              :where [:and
-                                      [:= :t.app-id app-id]
-                                      [:= :t.entity-id :entity-id]
-                                      [:= :t.attr-id (:attr-id val)]
-                                      [:not= :t.value [:cast (->json nil) :jsonb]]]}]]
+                              :where (list* :and
+                                            [:= :t.app-id app-id]
+                                            [:= :t.entity-id :entity-id]
+                                            [:= :t.attr-id (:attr-id val)]
+                                            (if-let [data-type (:indexed-checked-type val)]
+                                              [:ave
+                                               [:=
+                                                :checked_data_type
+                                                [:cast [:inline (name data-type)] :checked_data_type]]
+                                               [:not= [(extract-value-fn data-type) :t.value] nil]]
+                                              [:not= :t.value [:cast (->json nil) :jsonb]]))}]]
                   :$comparator (let [{:keys [op value data-type]} val]
                                  [[(case op
                                      :$gt :>
