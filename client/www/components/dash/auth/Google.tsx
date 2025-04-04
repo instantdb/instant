@@ -32,6 +32,16 @@ import {
   ChevronUpIcon,
 } from '@heroicons/react/24/solid';
 
+function NonceCheckNotice() {
+  return (
+    <p className="text-sm text-gray-500">
+      This option skips nonce checks for ID tokens. This is useful in iOS
+      environments, because libraries like `react-native-google-signin` do not
+      let you pass a nonce over to google.
+    </p>
+  );
+}
+
 export function AddClientForm({
   app,
   provider,
@@ -199,15 +209,6 @@ export function AddClientForm({
         Cancel
       </Button>
     </form>
-  );
-}
-function NonceCheckNotice() {
-  return (
-    <p className="text-sm text-gray-500">
-      This option skips nonce checks for ID tokens. This is useful in iOS
-      environments, because libraries like `react-native-google-signin` do not
-      let you pass a nonce over to google.
-    </p>
   );
 }
 
