@@ -298,10 +298,17 @@ function Dashboard() {
         return {
           id: t.id,
           label: t.title,
-          link: app ? `/docs?app=${app.id}` : '/docs',
+          link: {
+            href: app ? `/docs?app=${app.id}` : '/docs',
+            target: '_blank',
+          },
         };
       }
-      return { id: t.id, label: t.title };
+      return {
+        id: t.id,
+        label: t.title,
+        link: { href: `/dash?s=main&app=${appId}&t=${t.id}` },
+      };
     });
   const showAppOnboarding = !apps.length && !dashResponse.data?.invites?.length;
   const showNav = !showAppOnboarding;
