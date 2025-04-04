@@ -93,8 +93,8 @@
                                     :attributes {:id_token id-token}}
                   {:type :error :message "Missing user info."}))))))))
 
-  (get-user-info-from-id-token [_ nonce jwt {:keys [allow-unverified-email?
-                                                    ignore-audience?]}]
+  (get-user-info-from-id-token [client nonce jwt {:keys [allow-unverified-email?
+                                                         ignore-audience?]}]
     (if (or (string/blank? jwks-uri)
             (string/blank? issuer)
             (empty? id-token-signing-alg-values-supported))
@@ -118,18 +118,25 @@
             email (.asString (.getClaim verified-jwt "email"))
 
             jwt-nonce (.asString (.getClaim verified-jwt "nonce"))
-            nonce-error (cond (= jwt-nonce nonce)
-                              nil
+            skip-nonce-checks? (-> client
+                                   :meta
+                                   (get "skipNonceChecks"))
+            nonce-error (cond
+                          skip-nonce-checks?
+                          nil
 
-                              (and (string/blank? jwt-nonce)
-                                   (not (string/blank? nonce)))
-                              "The id_token is missing a nonce."
+                          (= jwt-nonce nonce)
+                          nil
 
-                              (and (string/blank? nonce)
-                                   (not (string/blank? jwt-nonce)))
-                              "The nonce parameter was not provided in the request."
+                          (and (string/blank? jwt-nonce)
+                               (not (string/blank? nonce)))
+                          "The id_token is missing a nonce."
 
-                              :else "The nonces do not match.")
+                          (and (string/blank? nonce)
+                               (not (string/blank? jwt-nonce)))
+                          "The nonce parameter was not provided in the request."
+
+                          :else "The nonces do not match.")
 
             error (cond
                     nonce-error nonce-error

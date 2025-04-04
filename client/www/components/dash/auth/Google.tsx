@@ -52,6 +52,7 @@ export function AddClientForm({
   const [clientId, setClientId] = useState<string>('');
   const [clientSecret, setClientSecret] = useState<string>('');
   const [updatedRedirectURL, setUpdatedRedirectURL] = useState(false);
+  const [skipNonceChecks, setSkipNonceChecks] = useState(false);
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
@@ -90,6 +91,9 @@ export function AddClientForm({
         tokenEndpoint: 'https://oauth2.googleapis.com/token',
         discoveryEndpoint:
           'https://accounts.google.com/.well-known/openid-configuration',
+        meta: {
+          skipNonceChecks: skipNonceChecks,
+        },
       });
       onAddClient(resp.client);
     } catch (e) {
@@ -180,6 +184,18 @@ export function AddClientForm({
           label="I added the redirect to Google"
         />
       </div>
+      <div className="rounded border p-4 flex flex-col gap-2 bg-gray-50">
+        <Checkbox
+          checked={skipNonceChecks}
+          onChange={setSkipNonceChecks}
+          label="Skip nonce checks"
+        />
+        <p className="text-sm text-gray-500">
+          This option skips nonce checks for ID tokens. This is useful in iOS
+          environments, because libraries like `react-native-google-login` do
+          not let you pass a nonce over to google.
+        </p>
+      </div>
       <Button loading={isLoading} type="submit">
         Add client
       </Button>
@@ -251,6 +267,8 @@ export function Client({
   const [isLoading, setIsLoading] = useState(false);
   const deleteDialog = useDialog();
 
+  const didSkipNonceChecks = client.meta?.skipNonceChecks;
+
   const handleDelete = async () => {
     try {
       setIsLoading(true);
@@ -308,6 +326,21 @@ const url = db.auth.createAuthorizationURL({
           <div className="p-4 flex flex-col gap-4 border-t">
             <Copyable label="Client name" value={client.client_name} />
             <Copyable label="Google client ID" value={client.client_id || ''} />
+            {didSkipNonceChecks ? (
+              <div className="rounded border p-4 flex flex-col gap-2 bg-gray-50">
+                <Checkbox
+                  checked={client.meta?.skipNonceChecks || false}
+                  onChange={() => {}}
+                  label="Skip nonce checks"
+                />
+                <p className="text-sm text-gray-500">
+                  This option skips nonce checks for ID tokens. This is useful
+                  in iOS environments, because libraries like
+                  `react-native-google-signin` do not let you pass a nonce over
+                  to google.
+                </p>
+              </div>
+            ) : null}
             <SubsectionHeading>
               <a className="underline" href="/docs/auth/google-auth">
                 Setup and usage
