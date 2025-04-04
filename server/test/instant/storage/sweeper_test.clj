@@ -9,7 +9,8 @@
             [instant.util.s3 :as s3-util]))
 
 (defn with-s3-mock [f]
-  (with-redefs [s3-util/delete-objects (constantly nil)]
+  (with-redefs [s3-util/delete-objects (constantly nil)
+                s3-util/s3-client (constantly nil)]
     (f)))
 
 (use-fixtures :each with-s3-mock)
