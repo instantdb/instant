@@ -149,7 +149,7 @@ await db.auth.deleteUser({ id: userId });
 
 ## Presence in the Backend
 
-If you use [rooms & presence](./presence-and-topics.md), you may want to query for the data currently in a room with the admin API. This can be especially useful if you are sending a notification for example, and want to skip it if the user is already online.
+If you use [rooms & presence](/docs/presence-and-topics), you may want to query for the data currently in a room with the admin API. This can be especially useful if you are sending a notification for example, and want to skip it if the user is already online.
 
 To do get room data from the admin API, use `db.rooms.getPresence`:
 

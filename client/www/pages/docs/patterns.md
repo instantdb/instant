@@ -227,11 +227,11 @@ console.log(
 );
 ```
 
-Once you have an ID, you can pass it around in your transactions and queries, and use them in [ruleParams](./permissions.md#ruleparams).
+Once you have an ID, you can pass it around in your transactions and queries, and use them in [ruleParams](/docs/permissions#rule-params).
 
 ## Making admin queries work with NextJS Caching
 
-NextJS caches fetch requests and lets you revalidate them. [`adminDB.query`](./backend.md#query) uses fetch under the hood, so NextJS caching will work by default.
+NextJS caches fetch requests and lets you revalidate them. [`adminDB.query`](/docs/backend#query) uses fetch under the hood, so NextJS caching will work by default.
 
 If you want to finely control how the query caches, you can pass in the same kind of [fetch options](https://nextjs.org/docs/app/building-your-application/caching#fetch) for NextJS. For example, to revalidate a query every hour:
 
