@@ -26,7 +26,8 @@
    [rewrite-clj.zip :as z]
    [zprint.core :as zprint]
    [instant.util.aws-signature :as aws-sig]
-   [instant.model.app-file :as app-file])
+   [instant.model.app-file :as app-file]
+   [instant.storage.s3 :as s3-storage])
   (:import
    (java.time Instant)
    (java.util UUID)))
@@ -4233,7 +4234,8 @@
                            "size" 1024}]
 
         (with-redefs
-         [aws-sig/presign-s3-url (fn [{:keys [path]}]
+         [s3-storage/presign-creds (constantly nil)
+          aws-sig/presign-s3-url (fn [{:keys [path]}]
                                    (str "https://s3-redefed-url-for.aws.com/"
                                         (last (String/.split path "/"))))]
 

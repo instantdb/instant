@@ -6,10 +6,12 @@
             [instant.jdbc.sql :as sql]
             [instant.fixtures :refer [with-empty-app]]
             [honey.sql :as hsql]
-            [instant.util.s3 :as s3-util]))
+            [instant.util.s3 :as s3-util]
+            [instant.storage.s3 :as s3-storage]))
 
 (defn with-s3-mock [f]
-  (with-redefs [s3-util/delete-objects (constantly nil)]
+  (with-redefs [s3-util/delete-objects (constantly nil)
+                s3-storage/s3-client (constantly nil)]
     (f)))
 
 (use-fixtures :each with-s3-mock)
