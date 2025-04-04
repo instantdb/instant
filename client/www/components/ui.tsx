@@ -66,6 +66,14 @@ export const LogoIcon = ({ size = 'mini' }: { size?: 'mini' | 'normal' }) => {
 
 // controls
 
+export type TabItem = {
+  id: string;
+  label: ReactNode;
+  link?: { href: string; target?: '_blank' };
+};
+
+export type TabButton = Omit<TabItem, 'link'>;
+
 export function ToggleCollection({
   className,
   buttonClassName,
@@ -411,14 +419,6 @@ export function Select({
     </select>
   );
 }
-
-export type TabItem = {
-  id: string;
-  label: ReactNode;
-  link?: { href: string; target?: '_blank' };
-};
-
-export type TabButton = Omit<TabItem, 'link'>;
 
 export function TabBar({
   className,
