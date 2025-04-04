@@ -198,7 +198,7 @@
         {:keys [email]} user
         {:keys [code]} magic-code]
     {:from {:name title
-            :email "verify@auth-pm.instantdb.com"}
+            :email "verify@dash-pm.instantdb.com"}
      :to [{:email email}]
      :subject (str code " is your verification code for " title)
      :html

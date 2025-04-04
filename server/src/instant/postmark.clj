@@ -71,12 +71,12 @@
               (throw e))))))))
 
 (comment
-  (send! {:from "auth@pm.instantdb.com"
+  (send! {:from "verify@dash-pm.instantdb.com"
           :to "stopa@instantdb.com"
           :subject "Sending a message from the REPL"
           :html (standard-body "<h1>Hello. This message is from the REPL")})
   ;; inactive recipient
-  (send! {:from "auth@pm.instantdb.com"
+  (send! {:from "verify@dash-pm.instantdb.com"
           :to "hello@hello.com"
           :subject "Sending a message from the REPL"
           :html (standard-body "<h1>Hello. This message is from the REPL")}))
