@@ -66,12 +66,6 @@ export const LogoIcon = ({ size = 'mini' }: { size?: 'mini' | 'normal' }) => {
 
 // controls
 
-export type ToggleItem = {
-  id: string;
-  label: ReactNode;
-  link?: { href: string; target?: '_blank' };
-};
-
 export function ToggleCollection({
   className,
   buttonClassName,
@@ -82,10 +76,10 @@ export function ToggleCollection({
 }: {
   className?: string;
   buttonClassName?: string;
-  items: ToggleItem[];
+  items: TabItem[];
   selectedId?: string;
   disabled?: boolean;
-  onChange: (tab: ToggleItem, e: React.MouseEvent<HTMLButtonElement>) => void;
+  onChange: (tab: TabButton) => void;
 }) {
   return (
     <div className={cn('flex w-full flex-col gap-0.5', className)}>
@@ -109,8 +103,8 @@ export function ToggleCollection({
           <button
             key={a.id}
             disabled={disabled}
-            onClick={(e) => {
-              onChange(a, e);
+            onClick={() => {
+              onChange(a);
             }}
             className={clsx(
               'block cursor-pointer truncate whitespace-nowrap rounded bg-none px-3 py-1 text-left hover:bg-gray-100 disabled:text-gray-400',
@@ -418,11 +412,13 @@ export function Select({
   );
 }
 
-export type TabBarTab = {
+export type TabItem = {
   id: string;
-  label: string;
+  label: ReactNode;
   link?: { href: string; target?: '_blank' };
 };
+
+export type TabButton = Omit<TabItem, 'link'>;
 
 export function TabBar({
   className,
@@ -432,10 +428,10 @@ export function TabBar({
   onSelect,
 }: {
   className?: string;
-  tabs: TabBarTab[];
+  tabs: TabItem[];
   selectedId: string;
   disabled?: boolean;
-  onSelect: (tab: { id: string; label: string }) => void;
+  onSelect: (tab: TabButton) => void;
 }) {
   return (
     <div
