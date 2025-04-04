@@ -435,6 +435,8 @@ Aand that’s our story of how did our major version upgrade. We wanted to finis
 
 Hopefully, this was a fun read for you :)
 
+[Dicussion on HN](https://news.ycombinator.com/item?id=42867657)
+
 _Thanks to Nikita Prokopov, Joe Averbukh, Martin Raison, Irakli Safareli, Ian Sinnott for reviewing drafts of this essay_
 
 [^1]: Our sync strategy was inspired by Figma’s LiveGraph and Asana’s Luna. The LiveGraph team wrote a [great essay](https://www.figma.com/blog/livegraph-real-time-data-fetching-at-figma/) that explains the sync strategy. You can read our original [design essay](https://www.instantdb.com/essays/next_firebase) to learn more about Instant

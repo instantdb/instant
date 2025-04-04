@@ -100,6 +100,8 @@ I never thought this was possible in practice, but then Roam Research proved me 
 
 That more or less covers it. We are building a sync engine because syncing data ad hoc, situationally is both hard and error-prone. We are also building it because we believe it simplifies the stack in a meaningful way. After all, we want our AI overlords to have a good time programming, too.
 
+[Discussion on HN](https://news.ycombinator.com/item?id=43397640)
+
 _Thanks Stepan Parunashvili, Joe Averbukh, and Kevin Lynagh for reviewing drafts of this essay._
 
 [^1]: Unless you have unlimited time and resources. Yes, Figma and Linear both built their sync engines while also building their product. Exceptions happen.
