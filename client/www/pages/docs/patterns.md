@@ -184,3 +184,77 @@ via a CDN through [unpkg](https://www.unpkg.com/@instantdb/core/).
   }
 </script>
 ```
+
+## Making Local ids
+
+Sometimes you need an identifier that stays the same between refreshes. A "local id" of sorts.
+
+Local ids are especially useful for features like "guest" mode. You need an identifier for the user who is accessing the service, but they haven't signed up yet. Well, you can use a `localId` for that. To generate one, use `db.getLocalId`:
+
+```js
+import { init } from '@instantdb/react';
+
+const db = init({ appId: 'your-app-id' });
+
+const id = await db.getLocalId('guest');
+
+console.log(id, 'stays the same even if you refresh');
+```
+
+Or a handy hook if you're inside React:
+
+```js
+import { init } from '@instantdb/react';
+
+const db = init({ appId: 'your-app-id' });
+
+function App() {
+  const id = db.useLocalId('guest');
+  if (!id) return;
+  console.log(id, 'stays the same even if you refresh');
+}
+```
+
+Note: passing in different arguments will produce different ids:
+
+```js
+const id1 = db.useLocalId('device');
+const id2 = db.useLocalId('session');
+console.log(
+  id1,
+  id2,
+  'are different. But each will stay the same even if you refresh',
+);
+```
+
+Once you have an ID, you can pass it around in your transactions and queries, and use them in [ruleParams](/docs/permissions#rule-params).
+
+## Making admin queries work with NextJS Caching
+
+NextJS caches fetch requests and lets you revalidate them. [`adminDB.query`](/docs/backend#query) uses fetch under the hood, so NextJS caching will work by default.
+
+If you want to finely control how the query caches, you can pass in the same kind of [fetch options](https://nextjs.org/docs/app/building-your-application/caching#fetch) for NextJS. For example, to revalidate a query every hour:
+
+```js
+await adminDB.query(
+  { goals: {} },
+  {
+    fetchOpts: {
+      next: { revalidate: 3600 },
+    },
+  },
+);
+```
+
+Or to set a specific tag:
+
+```js
+await adminDB.query(
+  { goals: {} },
+  {
+    fetchOpts: {
+      next: { tags: ['goals:all'] },
+    },
+  },
+);
+```

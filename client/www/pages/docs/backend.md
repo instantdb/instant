@@ -147,6 +147,23 @@ await db.transact([
 await db.auth.deleteUser({ id: userId });
 ```
 
+## Presence in the Backend
+
+If you use [rooms & presence](/docs/presence-and-topics), you may want to query for the data currently in a room with the admin API. This can be especially useful if you are sending a notification for example, and want to skip it if the user is already online.
+
+To do get room data from the admin API, use `db.rooms.getPresence`:
+
+```js
+const data = await db.rooms.getPresence('chat', 'room-123');
+console.log(Object.values(data));
+// [{
+//     'peer-id': '...',
+//     user: { id: '...', email: 'foo@bar.com', ... },
+//     data: { typing: true, ... },
+//   },
+// }];
+```
+
 ## Sign Out
 
 The `db.auth.signOut` method allows you to log out a users. You can log a user out from every session by passing in their `email`, or `id`. Or you can log a user out from a particular session by passing in a `refresh_token`:
