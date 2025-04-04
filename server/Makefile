@@ -101,6 +101,12 @@ psql-dump:
 	echo "Exporting prod db..." && \
 	pg_dump "$${DATABASE_URL}" -f dump.sql
 
+psql-dump-dir:
+	@DATABASE_URL=$$(./scripts/prod_connection_string.sh); \
+	echo "Exporting prod db..." && \
+	pg_dump "$${DATABASE_URL}" -F d -j 8 --compress=zstd:3 -f dump-dir && \
+	echo "Import with \`pg_restore -d LOCAL_DB -j 8 dump-dir\`"
+
 psql-dump-schema:
 	@DATABASE_URL=$$(./scripts/prod_connection_string.sh); \
 	echo "Exporting prod db..." && \
