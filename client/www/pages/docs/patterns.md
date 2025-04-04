@@ -189,7 +189,7 @@ via a CDN through [unpkg](https://www.unpkg.com/@instantdb/core/).
 
 Sometimes you need an identifier that stays the same between refreshes. A "local id" of sorts.
 
-Local ids are especially useful for features like "guest" mode. You need an identifier to for the user who is accessing the service, but they haven't signed up yet. Well, you can use a `localId` for that.
+Local ids are especially useful for features like "guest" mode. You need an identifier for the user who is accessing the service, but they haven't signed up yet. Well, you can use a `localId` for that.
 
 To generate one, use `db.getLocalId`:
 
