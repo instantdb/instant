@@ -40,6 +40,7 @@ import { InformationCircleIcon } from '@heroicons/react/24/outline';
 import { errorToast, successToast } from '@/lib/toast';
 import CopyToClipboard from 'react-copy-to-clipboard';
 import copy from 'copy-to-clipboard';
+import Link from 'next/link';
 
 // content
 
@@ -65,6 +66,14 @@ export const LogoIcon = ({ size = 'mini' }: { size?: 'mini' | 'normal' }) => {
 
 // controls
 
+export type TabItem = {
+  id: string;
+  label: ReactNode;
+  link?: { href: string; target?: '_blank' };
+};
+
+export type TabButton = Omit<TabItem, 'link'>;
+
 export function ToggleCollection({
   className,
   buttonClassName,
@@ -75,19 +84,18 @@ export function ToggleCollection({
 }: {
   className?: string;
   buttonClassName?: string;
-  items: { id: string; label: ReactNode; link?: string }[];
+  items: TabItem[];
   selectedId?: string;
   disabled?: boolean;
-  onChange: (tab: { id: string; label: ReactNode; link?: string }) => void;
+  onChange: (tab: TabButton) => void;
 }) {
   return (
     <div className={cn('flex w-full flex-col gap-0.5', className)}>
       {items.map((a) =>
         a.link ? (
-          <a
+          <Link
             key={a.id}
-            href={a.link}
-            target="_blank"
+            {...a.link}
             rel="noopener noreferer"
             className={clsx(
               'block cursor-pointer truncate whitespace-nowrap rounded bg-none px-3 py-1 text-left hover:bg-gray-100 disabled:text-gray-400',
@@ -98,7 +106,7 @@ export function ToggleCollection({
             )}
           >
             {a.label}
-          </a>
+          </Link>
         ) : (
           <button
             key={a.id}
@@ -412,8 +420,6 @@ export function Select({
   );
 }
 
-export type TabBarTab = { id: string; label: string; link?: string };
-
 export function TabBar({
   className,
   selectedId,
@@ -422,10 +428,10 @@ export function TabBar({
   onSelect,
 }: {
   className?: string;
-  tabs: TabBarTab[];
+  tabs: TabItem[];
   selectedId: string;
   disabled?: boolean;
-  onSelect: (tab: { id: string; label: string }) => void;
+  onSelect: (tab: TabButton) => void;
 }) {
   return (
     <div
@@ -436,10 +442,9 @@ export function TabBar({
     >
       {tabs.map((t) =>
         t.link ? (
-          <a
+          <Link
             key={t.id}
-            href={t.link}
-            target="_blank"
+            {...t.link}
             rel="noopener noreferer"
             className={clsx(
               'flex cursor-pointer whitespace-nowrap bg-none px-4 py-0.5 disabled:text-gray-400 rounded hover:bg-gray-100',
@@ -449,7 +454,7 @@ export function TabBar({
             )}
           >
             {t.label}
-          </a>
+          </Link>
         ) : (
           <button
             key={t.id}

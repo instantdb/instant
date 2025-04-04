@@ -52,7 +52,7 @@ import {
   Select,
   SubsectionHeading,
   TabBar,
-  TabBarTab,
+  TabItem,
   TextInput,
   ToggleCollection,
   twel,
@@ -60,7 +60,6 @@ import {
 } from '@/components/ui';
 import { AppAuth } from '@/components/dash/AppAuth';
 import Billing from '@/components/dash/Billing';
-import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { QueryInspector } from '@/components/dash/explorer/QueryInspector';
 import { Sandbox } from '@/components/dash/Sandbox';
 import PersonalAccessTokensScreen from '@/components/dash/PersonalAccessTokensScreen';
@@ -291,17 +290,24 @@ function Dashboard() {
   const app = apps?.find((a) => a.id === appId);
 
   // ui
-  const availableTabs: TabBarTab[] = tabs
+  const availableTabs: TabItem[] = tabs
     .filter((t) => isTabAvailable(t, app?.user_app_role))
     .map((t) => {
       if (t.id === 'docs') {
         return {
           id: t.id,
           label: t.title,
-          link: app ? `/docs?app=${app.id}` : '/docs',
+          link: {
+            href: app ? `/docs?app=${app.id}` : '/docs',
+            target: '_blank',
+          },
         };
       }
-      return { id: t.id, label: t.title };
+      return {
+        id: t.id,
+        label: t.title,
+        link: { href: `/dash?s=main&app=${appId}&t=${t.id}` },
+      };
     });
   const showAppOnboarding = !apps.length && !dashResponse.data?.invites?.length;
   const showNav = !showAppOnboarding;
@@ -873,7 +879,7 @@ function Nav({
   nav: (p: { s: string; t?: string; app?: string }, cb?: () => void) => void;
   appId: string;
   tab: TabId;
-  availableTabs: TabBarTab[];
+  availableTabs: TabItem[];
 }) {
   const router = useRouter();
   const currentApp = apps.find((a) => a.id === appId);
