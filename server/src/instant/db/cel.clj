@@ -264,9 +264,6 @@
   (withCtx [_ new-ctx]
     (AuthCelMap. new-ctx m)))
 
-(defn create-cel-type [^String name]
-  (OpaqueType/create name (ImmutableList/of (TypeParamType/create name))))
-
 (def ^MapType type-obj (MapType/create SimpleType/STRING SimpleType/DYN))
 
 (def ^ListType type-ref-return (ListType/create SimpleType/DYN))
@@ -512,6 +509,9 @@
     (str where-clause)))
 
 ;; custom cel types
+
+(defn create-cel-type [^String name]
+  (OpaqueType/create name (ImmutableList/of (TypeParamType/create name))))
 
 (def datakey-cel-type (create-cel-type "DataKey"))
 (def whereclause-cel-type (create-cel-type "WhereClause"))
@@ -1331,7 +1331,7 @@
              :datalog-query-fn d/query
              :attrs -attrs
              :current-user {"email" "stopa@instantdb.com"}})
-  (let [program (rule->program :view "data.ref('users.handle').exists_one(x, x == 'alex')")
+  (let [program (rule->program :view "data.ref('users.handle').exists_one(x, x == 'alex') && data.name == 'Nonfiction'")
         result
         (eval-program! -ctx {:cel-program program
                              :etype "bookshelves"}
@@ -1340,6 +1340,8 @@
                                :name "Nonfiction"}})]
     result))
 
+;; Helper for dev so that `rules.clj` can clear its cache when this
+;; namespace is reloaded and the deftypes change
 (defonce after-load (atom nil))
 
 (defn set-afterload [f]
