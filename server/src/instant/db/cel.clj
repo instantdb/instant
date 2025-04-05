@@ -155,31 +155,7 @@
 ;; ----
 ;; Cel
 
-(declare ->cel-list ->cel-map)
-
-(defn stringify [x]
-  (cond
-    (nil? x)           NullValue/NULL_VALUE
-    ;; For some reason, cel-java only supports longs when determining
-    ;; type. We convert ints to longs to prevent type(data.param) from
-    ;; throwing a NPE
-    ;; https://github.com/google/cel-java/blob/dae82c6d10114bb1da643203569f90a757c6c5e6/runtime/src/main/java/dev/cel/runtime/StandardTypeResolver.java#L73
-    (int? x)           (long x)
-    (keyword? x)       (subs (str x) 1)
-    (symbol? x)        (str x)
-    (uuid? x)          (str x)
-    (sequential? x)    (->cel-list x)
-    (associative? x)   (->cel-map nil x)
-    (instance? Date x) (doto (SimpleDateFormat. "yyyy-MM-dd'T'HH:mm:ss'Z'")
-                         (.setTimeZone (SimpleTimeZone. 0 "UTC"))
-                         (.format ^Date x))
-    :else              x))
-
-(defn get-cel-value [m k]
-  (stringify
-   (if (contains? m k)
-     (get m k)
-     (get m (keyword k)))))
+(declare stringify get-cel-value)
 
 (deftype CelList [xs]
   java.util.List
@@ -189,9 +165,6 @@
   ;; for printing
   (iterator [_]
     (java.util.List/.iterator xs)))
-
-(defn ->cel-list [xs]
-  (CelList. xs))
 
 (deftype CelMap [m]
   java.util.Map
@@ -210,6 +183,30 @@
     (->> (keys (or m {}))
          (map (fn [k] [k (get-cel-value m k)]))
          set)))
+
+(defn stringify [x]
+  (cond
+    (nil? x)           NullValue/NULL_VALUE
+    ;; For some reason, cel-java only supports longs when determining
+    ;; type. We convert ints to longs to prevent type(data.param) from
+    ;; throwing a NPE
+    ;; https://github.com/google/cel-java/blob/dae82c6d10114bb1da643203569f90a757c6c5e6/runtime/src/main/java/dev/cel/runtime/StandardTypeResolver.java#L73
+    (int? x)           (long x)
+    (keyword? x)       (subs (str x) 1)
+    (symbol? x)        (str x)
+    (uuid? x)          (str x)
+    (sequential? x)    (CelList. x)
+    (associative? x)   (CelMap. x)
+    (instance? Date x) (doto (SimpleDateFormat. "yyyy-MM-dd'T'HH:mm:ss'Z'")
+                         (.setTimeZone (SimpleTimeZone. 0 "UTC"))
+                         (.format ^Date x))
+    :else              x))
+
+(defn get-cel-value [m k]
+  (stringify
+   (if (contains? m k)
+     (get m k)
+     (get m (keyword k)))))
 
 (defprotocol IWithCtx
   (withCtx [this ctx]))
@@ -1326,12 +1323,6 @@
       (.build)
       (.validate ast)
       (.getErrors)))
-
-(comment
-  (def m (->cel-map {:etype "bookshelves"}
-                    {"id" #uuid "8164fb78-6fa3-4aab-8b92-80e706bae93a"
-                     "name" "Nonfiction"
-                     "creatorEmail" "stopa@instantdb.com"})))
 
 (comment
   (def -attrs (attr-model/get-by-app-id zeneca-app-id))
