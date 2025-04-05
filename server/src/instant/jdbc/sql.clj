@@ -385,6 +385,9 @@
        ([~'tag ~'conn ~'query ~'additional-opts]
         (tracer/with-span! {:name ~span-name
                             :attributes (span-attrs ~'conn ~'query ~'tag ~'additional-opts)}
+          ;; Uncomment to send sql queries sent to portal
+          ;; (tap> (with-meta ~'query
+          ;;         {:portal.viewer/default :tool/sql-query}))
           (try
             (io/tag-io
               (let [postgres-config# (:postgres-config ~'additional-opts)
