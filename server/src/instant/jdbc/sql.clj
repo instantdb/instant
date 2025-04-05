@@ -385,7 +385,7 @@
        ([~'tag ~'conn ~'query ~'additional-opts]
         (tracer/with-span! {:name ~span-name
                             :attributes (span-attrs ~'conn ~'query ~'tag ~'additional-opts)}
-          ;; Uncomment to send sql queries sent to portal
+          ;; Uncomment to send sql queries to portal
           ;; (tap> (with-meta ~'query
           ;;         {:portal.viewer/default :tool/sql-query}))
           (try
