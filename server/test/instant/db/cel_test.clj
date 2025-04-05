@@ -38,10 +38,10 @@
 
 (deftest parse-false-correctly
   (let [program (cel/rule->program :view "data.isFavorite")
-        bindings {"data" (cel/->cel-map {} {"isFavorite" false})}]
+        bindings {:data {"isFavorite" false}}]
     (is (false? (cel/eval-program! {} {:cel-program program} bindings))))
   (let [program (cel/rule->program :view "!data.isFavorite")
-        bindings {"data" (cel/->cel-map {} {"isFavorite" false})}]
+        bindings {:data {"isFavorite" false}}]
     (is (true? (cel/eval-program! {} {:cel-program program} bindings)))))
 
 (deftest view-delete-does-not-allow-newData
