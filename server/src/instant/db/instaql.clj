@@ -1976,16 +1976,10 @@
                         ctx (assoc ctx :preloaded-refs preloaded-refs)
                         res  (io/warn-io :instaql/eval-program
                                          (cel/eval-program!
+                                          ctx
                                           program
-                                          {"ruleParams" (cel/->cel-map {} rule-params)
-                                           "auth" (cel/->cel-map {:ctx ctx
-                                                                  :type :auth
-                                                                  :etype "$users"}
-                                                                 current-user)
-                                           "data" (cel/->cel-map {:ctx ctx
-                                                                  :type :data
-                                                                  :etype etype}
-                                                                 em)}))]
+                                          {:rule-params rule-params
+                                           :data em}))]
                     (when-let [rule-where (get rule-wheres etype)]
                       (when (and (not res)
                                  ;; TODO(dww): remove check once we've figured

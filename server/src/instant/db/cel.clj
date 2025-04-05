@@ -54,7 +54,7 @@
                       CelValidatorFactory)
    (instant.db.model.attr Attrs)
    (java.text SimpleDateFormat)
-   (java.util ArrayList Date Map Optional SimpleTimeZone)))
+   (java.util ArrayList Date HashMap Map Optional SimpleTimeZone)))
 
 (set! *warn-on-reflection* true)
 
@@ -193,7 +193,7 @@
 (defn ->cel-list [xs]
   (CelList. xs))
 
-(deftype CelMap [metadata m]
+(deftype CelMap [m]
   java.util.Map
   (get [_ k]
     (get-cel-value m k))
@@ -209,16 +209,40 @@
   (entrySet [_]
     (->> (keys (or m {}))
          (map (fn [k] [k (get-cel-value m k)]))
-         set))
+         set)))
 
-  clojure.lang.IMeta
-  (meta [_]
-    metadata))
+(defprotocol IWithCtx
+  (withCtx [this ctx]))
 
-(defn ->cel-map [metadata m]
-  (CelMap. metadata m))
+(deftype DataCelMap [ctx etype ^CelMap m]
+  java.util.Map
+  (get [_ k]
+    (.get m k))
+  (containsKey [_ k]
+    (.containsKey m k))
+  (entrySet [_]
+    (.entrySet m))
+
+  IWithCtx
+  (withCtx [_ new-ctx]
+    (DataCelMap. new-ctx etype m)))
+
+(deftype AuthCelMap [ctx ^CelMap m]
+  java.util.Map
+  (get [_ k]
+    (.get m k))
+  (containsKey [_ k]
+    (.containsKey m k))
+  (entrySet [_]
+    (.entrySet m))
+
+  IWithCtx
+  (withCtx [_ new-ctx]
+    (AuthCelMap. new-ctx m)))
 
 (def ^MapType type-obj (MapType/create SimpleType/STRING SimpleType/DYN))
+(def ^CelType datamap-cel-type (create-cel-type "DataMap"))
+(def ^CelType authmap-cel-type (create-cel-type "AuthMap"))
 
 (def ^ListType type-ref-return (ListType/create SimpleType/DYN))
 
@@ -268,16 +292,10 @@
 ;; Normal evaluation pipeline
 ;; --------------------------
 
-(defn data-ref-impl [{:strs [id] :as ^CelMap m} ^String path-str]
+(defn ref-impl [ctx {:strs [id] :as ^CelMap m} ^String etype ^String path-str]
   (if (= id NullValue/NULL_VALUE)
     []
-    (let [{:keys [ctx etype type]} (meta m)
-          path-str (if (= type :auth)
-                     (clojure-string/replace path-str
-                                             #"^\$user\."
-                                             "")
-                     path-str)
-          ref-data {:eid (parse-uuid id)
+    (let [ref-data {:eid (parse-uuid id)
                     :etype etype
                     :path-str path-str}]
       (if-let [preloaded-ref (-> ctx
@@ -287,14 +305,30 @@
         (vec (get-ref ctx ref-data))))))
 
 (def data-ref-decl {:overload-id "data_ref"
-                    :cel-args [type-obj SimpleType/STRING]
+                    :cel-args [datamap-cel-type SimpleType/STRING]
                     :cel-return-type type-ref-return
-                    :java-args [CelMap String]
-                    :impl (fn [[^CelMap m ^String path-str]]
-                            (data-ref-impl m path-str))})
+                    :java-args [DataCelMap String]
+                    :impl (fn [[^DataCelMap m ^String path-str]]
+                            (ref-impl (.ctx m)
+                                      (.m m)
+                                      (.etype m)
+                                      path-str))})
+
+(def auth-ref-decl {:overload-id "auth_ref"
+                    :cel-args [authmap-cel-type SimpleType/STRING]
+                    :cel-return-type type-ref-return
+                    :java-args [AuthCelMap String]
+                    :impl (fn [[^AuthCelMap m ^String path-str]]
+                            (ref-impl (.ctx m)
+                                      (.m m)
+                                      "$users"
+                                      (clojure-string/replace path-str
+                                                              #"^\$user\."
+                                                              "")))})
 
 (def ref-fn (member-overload "ref"
-                             [data-ref-decl]))
+                             [data-ref-decl
+                              auth-ref-decl]))
 
 (def custom-fns [ref-fn])
 (def custom-fn-decls (mapv :decl custom-fns))
@@ -309,8 +343,8 @@
 
 (defn- runtime-compiler-builder ^CelCompilerBuilder []
   (-> (CelCompilerFactory/standardCelCompilerBuilder)
-      (.addVar "data" type-obj)
-      (.addVar "auth" type-obj)
+      (.addVar "data" datamap-cel-type)
+      (.addVar "auth" authmap-cel-type)
       (.addVar "ruleParams" type-obj)
       (.addFunctionDeclarations (ucoll/array-of CelFunctionDecl custom-fn-decls))
       (.setOptions cel-options)
@@ -381,9 +415,19 @@
     (->program ast)))
 
 (defn eval-program!
-  [{:keys [cel-program etype action]} bindings]
+  [ctx
+   {:keys [cel-program etype action]}
+   {:keys [data rule-params new-data]}]
   (try
-    (let [result (.eval ^CelRuntime$Program cel-program ^java.util.Map bindings)]
+    (let [bindings (HashMap.)
+
+          _ (.put bindings "auth" (AuthCelMap. ctx (CelMap. (:current-user ctx))))
+          _ (.put bindings "data" (DataCelMap. ctx etype (CelMap. data)))
+          _ (.put bindings "ruleParams" (CelMap. rule-params))
+          _ (when new-data
+              (.put bindings "newData" (CelMap. new-data)))
+          result (.eval ^CelRuntime$Program cel-program
+                        bindings)]
       (cond
         (= result NullValue/NULL_VALUE)
         nil
@@ -412,7 +456,7 @@
 ;; 3. Index into the array returned by data.ref, e.g. `data.ref('owner.id')[0] == auth.id`
 ;; 4. Comparing two fields, e.g. `data.firstName == data.lastName`
 ;; 5. ['a', 'b'].exists(x => data.path.startsWith(x))
-;       cel generates a loop for this macro and it can't find the overload
+;;       cel generates a loop for this macro and it can't find the overload
 ;;      for `||` with bool + where_clause on the second trip through the loop
 ;; 6. Ternary
 ;;    data.privacy == "private" ? auth.id == data.ownerId : true ->
@@ -1010,7 +1054,7 @@
 
 (def where-ref-fn (member-overload "ref"
                                    ;; Include the default (for auth.ref)
-                                   [data-ref-decl
+                                   [auth-ref-decl
                                     {:overload-id "_checked_data_ref"
                                      :cel-args [checked-data-map-cel-type SimpleType/STRING]
                                      :cel-return-type refpath-cel-type
@@ -1050,7 +1094,7 @@
   (-> (CelCompilerFactory/standardCelCompilerBuilder)
       (.addVar "data" checked-data-map-cel-type)
       (.addVar "ruleParams" type-obj)
-      (.addVar "auth" type-obj)
+      (.addVar "auth" authmap-cel-type)
       (.addFunctionDeclarations (ucoll/array-of CelFunctionDecl where-custom-fn-decls))
       (.setOptions where-cel-options)
       (.setStandardMacros CelStandardMacro/STANDARD_MACROS)
@@ -1080,11 +1124,9 @@
   [{:keys [attrs current-user] :as ctx} etype code]
   (let [^CelAbstractSyntaxTree ast (.getAst (.compile where-cel-compiler code))
         ^CelRuntime$Program program (.createProgram where-cel-runtime ast)
-        ^java.util.Map map-value {"auth" (->cel-map {:ctx ctx
-                                                     :type :auth
-                                                     :etype "$users"}
-                                                    current-user)
-                                  "data" (CheckedDataMap. attrs etype)}
+        map-value (HashMap.)
+        _ (.put map-value "auth" (AuthCelMap. ctx (CelMap. current-user)))
+        _ (.put map-value "data" (CheckedDataMap. attrs etype))
         evaluation-result (.eval program
                                  map-value)]
     (when (and (not (instance? WhereClause evaluation-result))
@@ -1295,17 +1337,27 @@
                      "creatorEmail" "stopa@instantdb.com"})))
 
 (comment
-  (def attrs (attr-model/get-by-app-id zeneca-app-id))
-  (def ctx {:db {:conn-pool (aurora/conn-pool :read)}
-            :app-id zeneca-app-id
-            :datalog-query-fn d/query
-            :attrs attrs})
+  (def -attrs (attr-model/get-by-app-id zeneca-app-id))
+  (def -ctx {:db {:conn-pool (aurora/conn-pool :read)}
+             :app-id zeneca-app-id
+             :datalog-query-fn d/query
+             :attrs -attrs
+             :current-user {"email" "stopa@instantdb.com"}})
   (let [program (rule->program :view "data.ref('users.handle').exists_one(x, x == 'alex')")
         result
-        (eval-program! {:cel-program program} {"auth" (->cel-map {} {"email" "stopa@instantdb.com"})
-                                               "data" (->cel-map {:ctx ctx
-                                                                  :etype "bookshelves"}
-                                                                 {"id" "8164fb78-6fa3-4aab-8b92-80e706bae93a"
-                                                                  "creatorEmail" "stopa@instantdb.com"
-                                                                  "name" "Nonfiction"})})]
+        (eval-program! -ctx {:cel-program program
+                             :etype "bookshelves"}
+                       {:data {:id #uuid "8164fb78-6fa3-4aab-8b92-80e706bae93a"
+                               :creatorEmail "stopa@instantdb.com"
+                               :name "Nonfiction"}})]
     result))
+
+(defonce after-load (atom nil))
+
+(defn set-afterload [f]
+  (reset! after-load f))
+
+(when-let [after-load @after-load]
+  (after-load))
+
+nil

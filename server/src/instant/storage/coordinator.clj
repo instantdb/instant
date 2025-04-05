@@ -27,15 +27,9 @@
        ;; deny access by default if no permissions are currently set
        false
        ;; otherwise, evaluate the permissions code
-       (cel/eval-program! program
-                          {"auth" (cel/->cel-map {:type :auth
-                                                  :ctx ctx
-                                                  :etype "$users"}
-                                                 current-user)
-                           "data" (cel/->cel-map {:type :data
-                                                  :ctx ctx
-                                                  :etype "$files"}
-                                                 {"path" path})})))))
+       (cel/eval-program! ctx
+                          program
+                          {:data {"path" path}})))))
 
 (defn upload-file!
   "Uploads a file to S3 and tracks it in Instant. Returns a file id"

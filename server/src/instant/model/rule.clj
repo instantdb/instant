@@ -148,6 +148,12 @@
 
 (def program-cache (cache/lru-cache-factory {} :threshold 2048))
 
+;; If you load the cel ns, the deftypes will get wiped out and the
+;; rules in the cache will stop working. This clears the cache when its loaded
+(cel/set-afterload (fn []
+                     (reset! program-cache
+                             @(cache/lru-cache-factory {} :threshold 2048))))
+
 (defn get-program!* [rules etype action]
   (or
    (when-let [expr (get-expr (:code rules) etype action)]

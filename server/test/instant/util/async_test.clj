@@ -1,5 +1,5 @@
 (ns instant.util.async-test
-  (:require [instant.util.async :refer [vfuture vfut-bg tracked-future]]
+  (:require [instant.util.async :refer [vfuture vfut-bg tracked-future severed-vfuture]]
             [clojure.test :refer [is deftest testing]]))
 
 (deftest vfuture-works
@@ -107,3 +107,31 @@
        (Thread/sleep 50)
        (is (thrown? java.util.concurrent.CancellationException @v))
        (is (= @signal nil)))))
+
+(deftest severed-vfuture-isnt-canceled
+  (testing "demonstate the problem"
+    (let [signal (atom nil)
+          go-ahead (promise)
+          v (vfuture
+              @(vfuture
+                 @go-ahead
+                 (reset! signal :works!)))]
+      (Thread/sleep 50)
+      (future-cancel v)
+      (deliver go-ahead true)
+      (Thread/sleep 50)
+      (is (= @signal nil))
+      (is (thrown? java.util.concurrent.CancellationException @v))))
+
+  (let [signal (atom nil)
+        go-ahead (promise)
+        v (vfuture
+            @(severed-vfuture
+               @go-ahead
+               (reset! signal :works!)))]
+    (Thread/sleep 50)
+    (future-cancel v)
+    (deliver go-ahead true)
+    (Thread/sleep 50)
+    (is (= @signal :works!))
+    (is (thrown? java.util.concurrent.CancellationException @v))))

@@ -91,20 +91,18 @@
       true
 
       (= :create action)
-      (cel/eval-program!
-       program
-       {"auth"       (cel/->cel-map {:ctx ctx, :type :auth, :etype "$users"} current-user)
-        "data"       (cel/->cel-map {:ctx ctx, :type :data, :etype etype} updated)
-        "newData"    (cel/->cel-map {} updated)
-        "ruleParams" (cel/->cel-map {} rule-params)})
+      (cel/eval-program! ctx
+                         program
+                         {:data updated
+                          :new-data updated
+                          :rule-params rule-params})
 
       (= :update action)
-      (cel/eval-program!
-       program
-       {"auth"       (cel/->cel-map {:ctx ctx, :type :auth, :etype "$users"} current-user)
-        "data"       (cel/->cel-map {:ctx ctx, :type :data, :etype etype} original)
-        "newData"    (cel/->cel-map {} updated)
-        "ruleParams" (cel/->cel-map {} rule-params)}))))
+      (cel/eval-program! ctx
+                         program
+                         {:data original
+                          :new-data updated
+                          :rule-params rule-params}))))
 
 (defn object-delete-check-fn
   [{:keys [program etype eid data] :as _check}
@@ -113,11 +111,10 @@
         rule-params (get rule-params {:eid eid :etype etype})]
     (if-not program
       true
-      (cel/eval-program!
-       program
-       {"auth"       (cel/->cel-map {:ctx ctx, :type :auth, :etype "$users"} current-user)
-        "data"       (cel/->cel-map {:ctx ctx, :type :data, :etype etype} original)
-        "ruleParams" (cel/->cel-map {} rule-params)}))))
+      (cel/eval-program! ctx
+                         program
+                         {:data original
+                          :rule-params rule-params}))))
 
 (defn object-view-check-fn [{:keys [program etype eid data] :as _check}
                             {:keys [current-user rule-params] :as ctx}]
@@ -125,11 +122,10 @@
         rule-params (get rule-params {:eid eid :etype etype})]
     (if-not program
       true
-      (cel/eval-program!
-       program
-       {"auth"       (cel/->cel-map {:ctx ctx, :type :auth, :etype "$users"} current-user)
-        "data"       (cel/->cel-map {:ctx ctx, :type :data, :etype etype} original)
-        "ruleParams" (cel/->cel-map {} rule-params)}))))
+      (cel/eval-program! ctx
+                         program
+                         {:data original
+                          :rule-params rule-params}))))
 
 (defn object-checks
   "Creates check commands for each object in the transaction.
@@ -305,15 +301,9 @@
 (defn attr-create-check-fn [{:keys [program data]} {:keys [current-user] :as ctx}]
   (let [{:keys [updated]} data]
     (if program
-      (cel/eval-program!
-       program
-       {"auth" (cel/->cel-map {:type :auth
-                               :ctx ctx
-                               :etype "$users"}
-                              current-user)
-        "data" (cel/->cel-map {:type :data
-                               :ctx ctx}
-                              updated)})
+      (cel/eval-program! ctx
+                         program
+                         {:data updated})
       true)))
 
 (defn check-fn [{:keys [scope action] :as check} ctx]

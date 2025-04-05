@@ -19,30 +19,30 @@
 (deftest test-cel-evaluation
   (testing "Evaluation of CEL expressions with standard macros"
     (let [program (cel/rule->program :view "has({'name': 'Alice'}.name)")]
-      (is (true? (cel/eval-program! {:cel-program program} {}))))
+      (is (true? (cel/eval-program! {} {:cel-program program} {}))))
 
     (let [program (cel/rule->program :delete "[1, 2, 3].all(x, x > 0)")]
-      (is (true? (cel/eval-program! {:cel-program program} {}))))
+      (is (true? (cel/eval-program! {} {:cel-program program} {}))))
 
     (let [program (cel/rule->program :update "[1, 2, 3].exists(x, x > 2)")]
-      (is (true? (cel/eval-program! {:cel-program program} {}))))
+      (is (true? (cel/eval-program! {} {:cel-program program} {}))))
 
     (let [program (cel/rule->program :create "[1, 2, 3].exists_one(x, x > 2)")]
-      (is (true? (cel/eval-program! {:cel-program program} {}))))
+      (is (true? (cel/eval-program! {} {:cel-program program} {}))))
 
     (let [program (cel/rule->program :view "[1, 2, 3].map(x, x * 2)")]
-      (is (= [2 4 6] (cel/eval-program! {:cel-program program} {}))))
+      (is (= [2 4 6] (cel/eval-program! {} {:cel-program program} {}))))
 
     (let [program (cel/rule->program :view "[1, 2, 3, 4].filter(x, x % 2 == 0)")]
-      (is (= [2 4] (cel/eval-program! {:cel-program program} {}))))))
+      (is (= [2 4] (cel/eval-program! {} {:cel-program program} {}))))))
 
 (deftest parse-false-correctly
   (let [program (cel/rule->program :view "data.isFavorite")
         bindings {"data" (cel/->cel-map {} {"isFavorite" false})}]
-    (is (false? (cel/eval-program! {:cel-program program} bindings))))
+    (is (false? (cel/eval-program! {} {:cel-program program} bindings))))
   (let [program (cel/rule->program :view "!data.isFavorite")
         bindings {"data" (cel/->cel-map {} {"isFavorite" false})}]
-    (is (true? (cel/eval-program! {:cel-program program} bindings)))))
+    (is (true? (cel/eval-program! {} {:cel-program program} bindings)))))
 
 (deftest view-delete-does-not-allow-newData
   (is
@@ -64,7 +64,7 @@
     (is (thrown-with-msg?
          Throwable
          #"Could not evaluate permission rule"
-         (cel/eval-program! {:cel-program program} bindings)))))
+         (cel/eval-program! {} {:cel-program program} bindings)))))
 
 (defn dummy-attrs [specs]
   (attr-model/wrap-attrs (mapv (fn [{:keys [etype
