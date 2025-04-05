@@ -83,7 +83,7 @@
    tx-steps))
 
 (defn object-upsert-check-fn [{:keys [action program etype eid data] :as _check}
-                              {:keys [current-user rule-params] :as ctx}]
+                              {:keys [rule-params] :as ctx}]
   (let [{:keys [original updated]} data
         rule-params (get rule-params {:eid eid :etype etype})]
     (cond
@@ -106,7 +106,7 @@
 
 (defn object-delete-check-fn
   [{:keys [program etype eid data] :as _check}
-   {:keys [current-user rule-params] :as ctx}]
+   {:keys [rule-params] :as ctx}]
   (let [{:keys [original]} data
         rule-params (get rule-params {:eid eid :etype etype})]
     (if-not program
@@ -117,7 +117,7 @@
                           :rule-params rule-params}))))
 
 (defn object-view-check-fn [{:keys [program etype eid data] :as _check}
-                            {:keys [current-user rule-params] :as ctx}]
+                            {:keys [rule-params] :as ctx}]
   (let [{:keys [original]} data
         rule-params (get rule-params {:eid eid :etype etype})]
     (if-not program
@@ -298,7 +298,7 @@
           {:groups {} :rule-params-to-copy {}}
           tx-steps))
 
-(defn attr-create-check-fn [{:keys [program data]} {:keys [current-user] :as ctx}]
+(defn attr-create-check-fn [{:keys [program data]} ctx]
   (let [{:keys [updated]} data]
     (if program
       (cel/eval-program! ctx

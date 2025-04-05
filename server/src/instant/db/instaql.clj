@@ -1948,7 +1948,7 @@
                 {}
                 (:data result))))))
 
-(defn get-etype+eid-check-result! [{:keys [current-user rule-wheres] :as ctx}
+(defn get-etype+eid-check-result! [{:keys [rule-wheres] :as ctx}
                                    {:keys [etype->eids+program query-cache]}
                                    rule-params]
   (tracer/with-span! {:name "instaql/get-eid-check-result!"}

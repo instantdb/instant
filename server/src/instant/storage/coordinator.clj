@@ -13,7 +13,6 @@
 
 (defn assert-storage-permission! [action {:keys [app-id
                                                  path
-                                                 current-user
                                                  rules-override]
                                           :as ctx}]
   (let [rules (if rules-override

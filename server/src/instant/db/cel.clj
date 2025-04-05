@@ -240,6 +240,9 @@
   (withCtx [_ new-ctx]
     (AuthCelMap. new-ctx m)))
 
+(defn create-cel-type [^String name]
+  (OpaqueType/create name (ImmutableList/of (TypeParamType/create name))))
+
 (def ^MapType type-obj (MapType/create SimpleType/STRING SimpleType/DYN))
 (def ^CelType datamap-cel-type (create-cel-type "DataMap"))
 (def ^CelType authmap-cel-type (create-cel-type "AuthMap"))
@@ -292,7 +295,7 @@
 ;; Normal evaluation pipeline
 ;; --------------------------
 
-(defn ref-impl [ctx {:strs [id] :as ^CelMap m} ^String etype ^String path-str]
+(defn ref-impl [ctx {:strs [id] :as ^CelMap _m} ^String etype ^String path-str]
   (if (= id NullValue/NULL_VALUE)
     []
     (let [ref-data {:eid (parse-uuid id)
@@ -515,9 +518,6 @@
     (str where-clause)))
 
 ;; custom cel types
-
-(defn create-cel-type [^String name]
-  (OpaqueType/create name (ImmutableList/of (TypeParamType/create name))))
 
 (def datakey-cel-type (create-cel-type "DataKey"))
 (def whereclause-cel-type (create-cel-type "WhereClause"))
