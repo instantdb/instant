@@ -214,6 +214,22 @@
 (defprotocol IWithCtx
   (withCtx [this ctx]))
 
+(definterface IRef
+  (ref [path-str]))
+
+
+(defn ref-impl [ctx {:strs [id] :as ^CelMap _m} ^String etype ^String path-str]
+  (if (= id NullValue/NULL_VALUE)
+    []
+    (let [ref-data {:eid (parse-uuid id)
+                    :etype etype
+                    :path-str path-str}]
+      (if-let [preloaded-ref (-> ctx
+                                 :preloaded-refs
+                                 (get ref-data))]
+        (vec preloaded-ref)
+        (vec (get-ref ctx ref-data))))))
+
 (deftype DataCelMap [ctx etype ^CelMap m]
   java.util.Map
   (get [_ k]
@@ -222,6 +238,10 @@
     (.containsKey m k))
   (entrySet [_]
     (.entrySet m))
+
+  IRef
+  (ref [_ path-str]
+    (ref-impl ctx m etype path-str))
 
   IWithCtx
   (withCtx [_ new-ctx]
@@ -236,6 +256,13 @@
   (entrySet [_]
     (.entrySet m))
 
+  IRef
+  (ref [_ path-str]
+    (let [path (clojure-string/replace path-str
+                                       #"^\$user\."
+                                       "")]
+      (ref-impl ctx m "$users" path)))
+
   IWithCtx
   (withCtx [_ new-ctx]
     (AuthCelMap. new-ctx m)))
@@ -244,8 +271,6 @@
   (OpaqueType/create name (ImmutableList/of (TypeParamType/create name))))
 
 (def ^MapType type-obj (MapType/create SimpleType/STRING SimpleType/DYN))
-(def ^CelType datamap-cel-type (create-cel-type "DataMap"))
-(def ^CelType authmap-cel-type (create-cel-type "AuthMap"))
 
 (def ^ListType type-ref-return (ListType/create SimpleType/DYN))
 
@@ -295,43 +320,15 @@
 ;; Normal evaluation pipeline
 ;; --------------------------
 
-(defn ref-impl [ctx {:strs [id] :as ^CelMap _m} ^String etype ^String path-str]
-  (if (= id NullValue/NULL_VALUE)
-    []
-    (let [ref-data {:eid (parse-uuid id)
-                    :etype etype
-                    :path-str path-str}]
-      (if-let [preloaded-ref (-> ctx
-                                 :preloaded-refs
-                                 (get ref-data))]
-        (vec preloaded-ref)
-        (vec (get-ref ctx ref-data))))))
-
-(def data-ref-decl {:overload-id "data_ref"
-                    :cel-args [datamap-cel-type SimpleType/STRING]
-                    :cel-return-type type-ref-return
-                    :java-args [DataCelMap String]
-                    :impl (fn [[^DataCelMap m ^String path-str]]
-                            (ref-impl (.ctx m)
-                                      (.m m)
-                                      (.etype m)
-                                      path-str))})
-
-(def auth-ref-decl {:overload-id "auth_ref"
-                    :cel-args [authmap-cel-type SimpleType/STRING]
-                    :cel-return-type type-ref-return
-                    :java-args [AuthCelMap String]
-                    :impl (fn [[^AuthCelMap m ^String path-str]]
-                            (ref-impl (.ctx m)
-                                      (.m m)
-                                      "$users"
-                                      (clojure-string/replace path-str
-                                                              #"^\$user\."
-                                                              "")))})
+(def ref-decl {:overload-id "_ref"
+               :cel-args [type-obj SimpleType/STRING]
+               :cel-return-type type-ref-return
+               :java-args [IRef String]
+               :impl (fn [[^IRef m ^String path-str]]
+                       (.ref m path-str))})
 
 (def ref-fn (member-overload "ref"
-                             [data-ref-decl
-                              auth-ref-decl]))
+                             [ref-decl]))
 
 (def custom-fns [ref-fn])
 (def custom-fn-decls (mapv :decl custom-fns))
@@ -346,8 +343,8 @@
 
 (defn- runtime-compiler-builder ^CelCompilerBuilder []
   (-> (CelCompilerFactory/standardCelCompilerBuilder)
-      (.addVar "data" datamap-cel-type)
-      (.addVar "auth" authmap-cel-type)
+      (.addVar "data" type-obj)
+      (.addVar "auth" type-obj)
       (.addVar "ruleParams" type-obj)
       (.addFunctionDeclarations (ucoll/array-of CelFunctionDecl custom-fn-decls))
       (.setOptions cel-options)
@@ -1054,7 +1051,7 @@
 
 (def where-ref-fn (member-overload "ref"
                                    ;; Include the default (for auth.ref)
-                                   [auth-ref-decl
+                                   [ref-decl
                                     {:overload-id "_checked_data_ref"
                                      :cel-args [checked-data-map-cel-type SimpleType/STRING]
                                      :cel-return-type refpath-cel-type
@@ -1094,7 +1091,7 @@
   (-> (CelCompilerFactory/standardCelCompilerBuilder)
       (.addVar "data" checked-data-map-cel-type)
       (.addVar "ruleParams" type-obj)
-      (.addVar "auth" authmap-cel-type)
+      (.addVar "auth" type-obj)
       (.addFunctionDeclarations (ucoll/array-of CelFunctionDecl where-custom-fn-decls))
       (.setOptions where-cel-options)
       (.setStandardMacros CelStandardMacro/STANDARD_MACROS)
