@@ -32,6 +32,16 @@ import {
   ChevronUpIcon,
 } from '@heroicons/react/24/solid';
 
+function NonceCheckNotice() {
+  return (
+    <p className="text-sm text-gray-500">
+      This option skips nonce checks for ID tokens. This is useful in iOS
+      environments, because libraries like `react-native-google-signin` do not
+      let you pass a nonce over to google.
+    </p>
+  );
+}
+
 export function AddClientForm({
   app,
   provider,
@@ -190,11 +200,7 @@ export function AddClientForm({
           onChange={setSkipNonceChecks}
           label="Skip nonce checks"
         />
-        <p className="text-sm text-gray-500">
-          This option skips nonce checks for ID tokens. This is useful in iOS
-          environments, because libraries like `react-native-google-login` do
-          not let you pass a nonce over to google.
-        </p>
+        <NonceCheckNotice />
       </div>
       <Button loading={isLoading} type="submit">
         Add client
@@ -333,12 +339,7 @@ const url = db.auth.createAuthorizationURL({
                   onChange={() => {}}
                   label="Skip nonce checks"
                 />
-                <p className="text-sm text-gray-500">
-                  This option skips nonce checks for ID tokens. This is useful
-                  in iOS environments, because libraries like
-                  `react-native-google-signin` do not let you pass a nonce over
-                  to google.
-                </p>
+                <NonceCheckNotice />
               </div>
             ) : null}
             <SubsectionHeading>
