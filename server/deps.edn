@@ -80,7 +80,7 @@
                                }
         hiccup/hiccup {:mvn/version "2.0.0-RC3"}
 
-        djblue/portal {:mvn/version "0.55.1"}
+        djblue/portal {:mvn/version "0.58.5"}
         dev.weavejester/medley {:mvn/version "1.8.1"}
         com.hazelcast/hazelcast {:mvn/version "5.5.0"}}
  :aliases {:dev {:extra-paths ["dev" "test" "dev-resources"]
