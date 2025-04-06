@@ -956,10 +956,16 @@
       (LocalDateTime/parse zeneca-date-formatter)
       (.toInstant ZoneOffset/UTC)))
 
+(defn rfc-1123->instant [s]
+  (-> s
+      (ZonedDateTime/parse DateTimeFormatter/RFC_1123_DATE_TIME)
+      (.toInstant)))
+
 
 (def date-parsers [zoned-date-time-str->instant
                    local-date-time-str->instant
                    local-date-str->instant
+                   rfc-1123->instant
                    offio-date-str->instant
                    zeneca-date-str->instant])
 
@@ -993,6 +999,7 @@
         (Instant/ofEpochMilli x)))
 
 (comment
+  (parse-date-value "Sat, 05 Apr 2025 18:00:31 GMT")
   (parse-date-value "2025-01-01T00:00:00Z")
   (parse-date-value "2025-01-01")
   (parse-date-value "2025-01-02T00:00:00-08")

@@ -225,6 +225,28 @@
        res#)
     (cons 'do body)))
 
+(defn copy-unsafe-sql-format-query
+  "Formats the [sql, ...params] query as sql and copies it to the clipboard,
+   returning the query as something that portal will display nicely."
+  [query]
+  (with-meta [(copy (unsafe-sql-format-query query))]
+    {:portal.viewer/default :tool/sql-query}))
+
+;; Adds a :tool/sql-query viewer
+(def portal-sql-query-viewer "
+  (require '[portal.ui.api :as p])
+  (require '[portal.ui.inspector :as ins])
+  (require '[portal.ui.viewer.text :as text])
+  (require '[portal.ui.commands :as cmd])
+
+
+  (p/register-viewer!
+   {:name :tool/sql-query
+    :predicate (fn [x] (and (vector? x) (string? (first x))))
+    :component (fn [query]
+                 [:<>
+                  [text/inspect-text (first query)]])})")
+
 (defn start-portal!
   "Lets you inspect data using Portal.
 
@@ -236,7 +258,9 @@
    https://www.youtube.com/watch?v=Tj-iyDo3bq0"
   []
   (def portal (p/open))
-  (add-tap #'p/submit))
+  (add-tap #'p/submit)
+  (p/register! #'copy-unsafe-sql-format-query)
+  (p/eval-str portal-sql-query-viewer))
 
 (comment
   (start-portal!)
