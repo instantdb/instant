@@ -2503,7 +2503,7 @@
         ;; will just default to a seq scan. 
         ;; Forcing us away from that, so that Postgres can 
         ;; consider actual indexes
-        (sql/execute! conn ["SET enable_seqscan = off"])
+        #_(sql/execute! conn ["SET enable_seqscan = off"])
         (let [attr-ids {:string (random-uuid)
                         :number (random-uuid)
                         :boolean (random-uuid)
