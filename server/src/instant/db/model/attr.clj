@@ -3,10 +3,8 @@
    [clojure.core.cache.wrapped :as cache]
    [clojure.set :refer [map-invert]]
    [clojure.spec.alpha :as s]
-   [clojure.spec.gen.alpha :as gen]
    [clojure.string :as string]
    [honey.sql :as hsql]
-   [instant.data.constants :refer [empty-app-id]]
    [instant.db.model.triple-cols :refer [triple-cols]]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
@@ -589,7 +587,6 @@
               true
               (update :ids-by-etype update (fwd-etype attr) (fnil conj #{}) (:id attr))
 
-
               (= :one (:cardinality attr))
               (update :ea-ids-by-etype update (fwd-etype attr) (fnil conj #{}) (:id attr))))
           {:by-id {}
@@ -734,26 +731,3 @@
     (:id (or (seek-by-fwd-ident-name n wrapped-attrs)
              (seek-by-rev-ident-name n wrapped-attrs)))))
 
-;; ------
-;; play
-
-(comment
-  (delete-by-app-id! (aurora/conn-pool :write) empty-app-id)
-  (insert-multi!
-   (aurora/conn-pool :write)
-   empty-app-id
-   [(gen/generate (s/gen ::attr))])
-  (map (partial s/valid? ::attr)
-       (get-by-app-id (aurora/conn-pool :read) empty-app-id))
-  (def a (first (get-by-app-id (aurora/conn-pool :read) empty-app-id)))
-  (update-multi!
-   (aurora/conn-pool :write)
-   empty-app-id
-   [{:id (:id a)
-     :forward-identity
-     [(-> a :forward-identity first) "new_etype" "new_label"]
-     :index? true}])
-  (delete-multi!
-   (aurora/conn-pool :write)
-   empty-app-id
-   [(:id a)]))

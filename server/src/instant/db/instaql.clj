@@ -5,7 +5,6 @@
    [clojure.string :as string]
    [clojure.walk :as walk]
    [honey.sql :as hsql]
-   [instant.data.constants :refer [zeneca-app-id]]
    [instant.data.resolvers :as resolvers]
    [instant.db.cel :as cel]
    [instant.db.datalog :as d]
@@ -25,7 +24,8 @@
    [instant.util.uuid :as uuid-util]
    [instant.system-catalog :as system-catalog]
    [medley.core :refer [update-existing-in]]
-   [instant.storage.s3 :as instant-s3])
+   [instant.storage.s3 :as instant-s3]
+   [instant.comment :as c])
   (:import
    (java.util UUID)))
 
@@ -2000,10 +2000,10 @@
 (defn rule-wheres->where-conds [attrs etype wheres]
   (let [forms {etype {:$ {:where wheres}}}]
     (->> forms
-        (->forms! attrs)
-        first
-        :option-map
-        :where-conds)))
+         (->forms! attrs)
+         first
+         :option-map
+         :where-conds)))
 
 (defn get-rule-wheres [ctx rules o]
   (when (use-rule-wheres? ctx o)
@@ -2092,10 +2092,12 @@
 ;; play
 
 (comment
-  (def r (resolvers/make-zeneca-resolver))
-  (def attrs (attr-model/get-by-app-id zeneca-app-id))
+  (def z (c/zeneca-app!))
+  (def z-id (:id z))
+  (def r (resolvers/make-zeneca-resolver z-id))
+  (def attrs (attr-model/get-by-app-id z-id))
   (def ctx {:db {:conn-pool (aurora/conn-pool :read)}
-            :app-id zeneca-app-id
+            :app-id z-id
             :datalog-query-fn #'d/query
             :attrs attrs})
   (resolvers/walk-friendly
@@ -2105,39 +2107,3 @@
    r
    (permissioned-query ctx {:users {}})))
 
-;; Kein query
-
-(comment
-  (def rec-app-id #uuid "f8cac3ee-b867-4651-b02e-e16d0397eb50")
-
-  (def attrs (attr-model/get-by-app-id rec-app-id))
-
-  (def ctx {:db {:conn-pool (aurora/conn-pool :read)}
-            :app-id rec-app-id
-            :attrs attrs})
-
-  (require 'instant.util.instaql)
-  (instant.util.instaql/instaql-nodes->object-tree
-   ctx
-   (query ctx {:eb {:child {}}})))
-
-;; Inspect query
-(comment
-  (def r (resolvers/make-zeneca-resolver))
-  (def attrs (attr-model/get-by-app-id zeneca-app-id))
-  (def ctx {:db {:conn-pool (aurora/conn-pool :read)}
-            :app-id zeneca-app-id
-            :attrs attrs})
-  (resolvers/walk-friendly
-   r
-   (query ctx {:users {:$ {:where {:handle "alex"}}
-                       :bookshelves {}}})))
-
-;; Time query
-(comment
-  (def app-id #uuid "6a0e56c8-f847-4890-8ae9-06bba6249d34")
-  (query
-   {:db {:conn-pool (aurora/conn-pool :read)}
-    :app-id app-id
-    :attrs (attr-model/get-by-app-id app-id)}
-   {:tables {:rows {}, :$ {:where {:id "b2f7658d-c5b5-4486-b298-e811098009b9"}}}}))
