@@ -150,6 +150,12 @@
   [& body]
   `(future-call default-virtual-thread-executor nil (^{:once true} fn* [] ~@body)))
 
+(defmacro severed-vfuture
+  "Like vfuture, but won't get canceled if the parent is canceled."
+  [& body]
+  `(binding [*child-vfutures* nil]
+     (future-call default-virtual-thread-executor nil (^{:once true} fn* [] ~@body))))
+
 (defn pmap
   "Like pmap, but uses vfutures to parallelize the work.
 
