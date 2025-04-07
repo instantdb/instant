@@ -2499,6 +2499,10 @@
   (with-empty-app
     (fn [app]
       (next-jdbc/with-transaction [conn (aurora/conn-pool :write)]
+        ;; Since there's little test data, sometimes Postgres 
+        ;; will just default to a seq scan. 
+        ;; Forcing us away from that, so that Postgres can 
+        ;; consider actual indexes
         (sql/execute! conn ["SET enable_seqscan = off"])
         (let [attr-ids {:string (random-uuid)
                         :number (random-uuid)
