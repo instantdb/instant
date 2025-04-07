@@ -294,17 +294,17 @@ function createLocation({ latitude, longitude }) {
 }
 ```
 
-Now, any locations with the same latitude and longitude will throw a uniqueness error. 
+Now, any locations with the same latitude and longitude will throw a uniqueness error.
 
 To make sure that `latLong` _always_ matches `latitude` and `longitude`, you can add a rule in your permissions:
 
 ```js
-const rules = { 
-  locations: { 
+const rules = {
+  locations: {
     allow: {
       create: "(data.latitude + '_' + data.longitude) == data.latLong",
-      update: "(newData.latitude + '_' + newData.longitude) == newData.latLong"
-    }
-  }
-}
+      update: "(newData.latitude + '_' + newData.longitude) == newData.latLong",
+    },
+  },
+};
 ```
