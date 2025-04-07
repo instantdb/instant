@@ -416,7 +416,6 @@
 
         (is (= true (-> results :first :result)))
         (is (= true (-> results :second :result)))
-        (tool/def-locals)
         (is (= 1 (count @queries)))
         (is (= {{:eid (:id user), :etype "$users", :path-str "id"} [(str (:id user))]}
                preloaded-refs))
