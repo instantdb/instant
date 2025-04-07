@@ -74,7 +74,6 @@ jobs:
            -source file://server/resources/migrations \
            -database $DATABASE_URL \
            up
-        ./server/dev-resources/import_test_data.sh
 
         psql -d $DATABASE_URL -c "select version()"
 
