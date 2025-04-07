@@ -27,8 +27,7 @@
    [zprint.core :as zprint]
    [instant.util.aws-signature :as aws-sig]
    [instant.model.app-file :as app-file]
-   [instant.storage.s3 :as s3-storage]
-   [next.jdbc :as next-jdbc])
+   [instant.storage.s3 :as s3-storage])
   (:import
    (java.time Instant)
    (java.util UUID)))
