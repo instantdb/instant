@@ -491,7 +491,6 @@
 
                   missing-refs
                   (reduce (fn [acc ref-attr]
-                            (tool/def-locals)
                             (if-let [ref-data (.get missing-data-refs ref-attr)]
                               (conj acc ref-data)
                               (throw (CelEvaluationException.
