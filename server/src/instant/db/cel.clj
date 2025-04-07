@@ -10,9 +10,10 @@
    [instant.jdbc.aurora :as aurora]
    [instant.util.coll :as ucoll]
    [instant.util.exception :as ex]
+   [instant.util.io :as io]
    [instant.util.tracer :as tracer])
   (:import
-   (com.google.common.collect ImmutableList)
+   (com.google.common.collect ImmutableList ImmutableSet)
    (com.google.protobuf NullValue)
    (dev.cel.common CelAbstractSyntaxTree
                    CelFunctionDecl
@@ -40,7 +41,8 @@
                    CelUnparserFactory
                    CelUnparser
                    Operator)
-   (dev.cel.runtime CelEvaluationException
+   (dev.cel.runtime CelAttribute
+                    CelEvaluationException
                     CelFunctionOverload
                     CelRuntime
                     CelRuntime$CelFunctionBinding
@@ -49,12 +51,16 @@
                     CelRuntimeFactory
                     CelStandardFunctions
                     CelStandardFunctions$StandardFunction
-                    CelUnknownSet)
+                    CelUnknownSet
+                    CelVariableResolver
+                    UnknownContext)
    (dev.cel.validator CelAstValidator
                       CelValidatorFactory)
    (instant.db.model.attr Attrs)
    (java.text SimpleDateFormat)
-   (java.util ArrayList Date HashMap Map Optional SimpleTimeZone)))
+   (java.util ArrayList Date HashMap Map Optional SimpleTimeZone)
+   (java.util.concurrent.atomic AtomicInteger)
+   (java.util.concurrent ConcurrentHashMap)))
 
 (set! *warn-on-reflection* true)
 
@@ -211,6 +217,9 @@
 (definterface IRef
   (ref [path-str]))
 
+;; java Map of `CelAttribute -> ref-data`
+;; Used for batching data.ref fetches
+(def ^{:private true :dynamic true} *register-missing-ref* nil)
 
 (defn ref-impl [ctx {:strs [id] :as ^CelMap _m} ^String etype ^String path-str]
   (if (= id NullValue/NULL_VALUE)
@@ -222,7 +231,10 @@
                                  :preloaded-refs
                                  (get ref-data))]
         (vec preloaded-ref)
-        (vec (get-ref ctx ref-data))))))
+        (if-let [register-missing-ref *register-missing-ref*]
+          ;; Will return an UnknownSet
+          (register-missing-ref ref-data)
+          (vec (get-ref ctx ref-data)))))))
 
 (deftype DataCelMap [ctx etype ^CelMap m]
   java.util.Map
@@ -319,6 +331,7 @@
 
 (def cel-options (-> (CelOptions/current)
                      (.populateMacroCalls true)
+                     (.enableUnknownTracking true)
                      (.build)))
 
 ;; n.b. if you edit something here, make sure you make the
@@ -425,6 +438,129 @@
     (catch CelEvaluationException e
       (ex/throw-permission-evaluation-failed!
        etype action e))))
+
+(deftype MissingRefData [ref-datas])
+
+(defn missing-ref-datas [^MissingRefData missing-ref-data]
+  (.ref_datas missing-ref-data))
+
+(defn is-missing-ref-data? [x]
+  (instance? MissingRefData x))
+
+(defn advance-program!
+  [ctx
+   {:keys [^CelRuntime$Program cel-program
+           etype
+           action]}
+   {:keys [data rule-params new-data]}]
+  (try
+    (let [missing-data-refs (HashMap.)
+          resolver (reify CelVariableResolver
+                     (find [_this var-name]
+                       (case var-name
+                         "auth" (Optional/of
+                                 (AuthCelMap. ctx (CelMap. (:current-user ctx))))
+                         "data" (Optional/of
+                                 (DataCelMap. ctx etype (CelMap. data)))
+                         "ruleParams" (Optional/of (CelMap. rule-params))
+                         "newData" (if new-data
+                                     (Optional/of (CelMap. new-data))
+                                     (Optional/empty))
+                         (Optional/empty))))
+          unknown-ctx (UnknownContext/create resolver (ImmutableList/of))
+          i (AtomicInteger.)
+          register-missing-ref (fn [ref-data]
+                                 (let [unique-name (str "i_" (.incrementAndGet i))
+                                       cel-attr (CelAttribute/create unique-name)]
+                                   (.put missing-data-refs cel-attr ref-data)
+                                   (CelUnknownSet/create cel-attr)))
+          result (binding [*register-missing-ref* register-missing-ref]
+                   (.advanceEvaluation cel-program unknown-ctx))]
+      (cond (= result NullValue/NULL_VALUE)
+            nil
+
+            (instance? CelUnknownSet result)
+            (let [^CelUnknownSet result result
+                  missing-exprs (.unknownExprIds result)
+                  ;; We don't handle unknown vars yet, but we could
+                  ;; use this to avoid pre-fetching entity maps.
+                  _ (when (seq missing-exprs)
+                      (throw (CelEvaluationException.
+                              "Tried to evaluate a cel program that used unknown variables")))
+                  ^ImmutableSet missing-ref-attrs (.attributes result)
+
+                  missing-refs
+                  (reduce (fn [acc ref-attr]
+                            (tool/def-locals)
+                            (if-let [ref-data (.get missing-data-refs ref-attr)]
+                              (conj acc ref-data)
+                              (throw (CelEvaluationException.
+                                      (str "Tried to evaluate a cel program that used unknown variables. "
+                                           "Missing attribute is not in missing-ref-attrs.")))))
+                          #{}
+                          missing-ref-attrs)]
+              (if (seq missing-refs)
+                (MissingRefData. missing-refs)
+                (throw (CelEvaluationException.
+                        (str "Tried to evaluate a cel program that used unknown variables. "
+                             "Eval returned unknown, but there are no unknown refs.")))))
+
+            :else
+            result))
+    (catch CelEvaluationException e
+      (ex/throw-permission-evaluation-failed!
+       etype action e))))
+
+(declare prefetch-missing-ref-datas)
+
+(defn create-preloaded-refs-cache []
+  (ConcurrentHashMap.))
+
+(defn eval-programs!
+  "Takes a map of unique key, e.g. [etype, eid] to program and bindings.
+   Returns an updated map with results of running the programs and an
+   updated context with preloaded data
+   Example:
+    (eval-programs!
+      ctx
+      {[\"books\", \"eid-holes\"] {:program {cel-program, etype, action}
+                                   :bindings {data, rule-params, new-data}}})
+    => {[\"books\", \"eid-holes\"] {:program {cel-program, etype, action}
+                                    :bindings {data, rule-params, new-data}
+                                    :result true}}"
+  ([ctx programs]
+   (eval-programs! {} ctx programs))
+  ([results ctx programs]
+   (assert (and (:preloaded-refs ctx)
+                (instance? ConcurrentHashMap (:preloaded-refs ctx))))
+   (let [{:keys [results missing-refs rerun-programs]}
+         (reduce-kv (fn [acc k {:keys [program bindings] :as item}]
+                      (let [result (io/warn-io :cel/advance-program!
+                                     (advance-program! ctx program bindings))]
+                        (if (is-missing-ref-data? result)
+                          (-> acc
+                              (update :missing-refs into (missing-ref-datas result))
+                              (assoc-in [:rerun-programs k] item))
+                          (-> acc
+                              (assoc-in [:results k] (assoc item :result result))))))
+                    {:results results
+                     :missing-refs #{}
+                     :rerun-programs {}}
+                    programs)]
+     (when (seq missing-refs)
+       (assert (seq rerun-programs)))
+     (when (seq rerun-programs)
+       (assert (seq missing-refs)))
+     (if-not (seq missing-refs)
+       results
+       (let [preloaded-refs (tracer/with-span! {:name "cel/prefetch-missing-ref-datas"
+                                                :attributes {:ref-data-count (count missing-refs)}}
+                              (prefetch-missing-ref-datas ctx missing-refs))]
+         (Map/.putAll (:preloaded-refs ctx) preloaded-refs)
+         (recur results
+                ctx
+                rerun-programs))))))
+
 
 ;; cel -> instaql where clauses
 ;; ----------------------------
@@ -1273,6 +1409,28 @@
                  refs
                  patterns
                  results))))
+
+(defn prefetch-missing-ref-datas
+  "refs should be a set of {:eid uuid
+                            :type string
+                            :path-str string}
+   Converts the refs to the format prefetch-data-refs expects
+   and calls prefetch-data-refs."
+  [ctx ref-datas]
+  (let [refs (vals (reduce (fn [acc {:keys [eid etype path-str]}]
+                             (update acc
+                                     [etype path-str]
+                                     (fn [x]
+                                       (update (or x {:eids #{}
+                                                      :etype etype
+                                                      :path-str path-str})
+
+                                               :eids
+                                               conj
+                                               eid))))
+                           {}
+                           ref-datas))]
+    (prefetch-data-refs ctx refs)))
 
 (def ^CelUnparser unparser (CelUnparserFactory/newUnparser))
 

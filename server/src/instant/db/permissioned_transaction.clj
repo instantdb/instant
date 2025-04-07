@@ -82,50 +82,65 @@
    original
    tx-steps))
 
-(defn object-upsert-check-fn [{:keys [action program etype eid data] :as _check}
-                              {:keys [rule-params] :as ctx}]
+(defn object-upsert-check-program [{:keys [action program etype eid data] :as _check}
+                                   {:keys [rule-params] :as _ctx}]
   (let [{:keys [original updated]} data
         rule-params (get rule-params {:eid eid :etype etype})]
     (cond
       (not program)
-      true
+      {:result true}
 
       (= :create action)
-      (cel/eval-program! ctx
-                         program
-                         {:data updated
-                          :new-data updated
-                          :rule-params rule-params})
+      {:program program
+       :bindings {:data updated
+                  :new-data updated
+                  :rule-params rule-params}}
 
       (= :update action)
-      (cel/eval-program! ctx
-                         program
-                         {:data original
-                          :new-data updated
-                          :rule-params rule-params}))))
+      {:program program
+       :bindings {:data original
+                  :new-data updated
+                  :rule-params rule-params}})))
 
-(defn object-delete-check-fn
+(defn object-delete-check-program
   [{:keys [program etype eid data] :as _check}
-   {:keys [rule-params] :as ctx}]
+   {:keys [rule-params] :as _ctx}]
   (let [{:keys [original]} data
         rule-params (get rule-params {:eid eid :etype etype})]
     (if-not program
-      true
-      (cel/eval-program! ctx
-                         program
-                         {:data original
-                          :rule-params rule-params}))))
+      {:result true}
+      {:program program
+       :bindings {:data original
+                  :rule-params rule-params}})))
 
-(defn object-view-check-fn [{:keys [program etype eid data] :as _check}
-                            {:keys [rule-params] :as ctx}]
+(defn object-view-check-program [{:keys [program etype eid data] :as _check}
+                                 {:keys [rule-params] :as _ctx}]
   (let [{:keys [original]} data
         rule-params (get rule-params {:eid eid :etype etype})]
     (if-not program
-      true
-      (cel/eval-program! ctx
-                         program
-                         {:data original
-                          :rule-params rule-params}))))
+      {:result true}
+      {:program program
+       :bindings {:data original
+                  :rule-params rule-params}})))
+
+(defn attr-create-check-program [{:keys [program data]} _ctx]
+  (let [{:keys [updated]} data]
+    (if-not program
+      {:result true}
+      {:program program
+       :bindings {:data updated}})))
+
+
+(defn check-program [{:keys [scope action] :as check} ctx]
+  (case [scope action]
+    [:object :create] (object-upsert-check-program check ctx)
+    [:object :update] (object-upsert-check-program check ctx)
+    [:object :delete] (object-delete-check-program check ctx)
+    [:object :view]   (object-view-check-program check ctx)
+    [:attr   :create] (attr-create-check-program check ctx)
+    [:attr   :delete] {:result (:admin? ctx)}
+    [:attr   :update] {:result (:admin? ctx)}))
+
 
 (defn object-checks
   "Creates check commands for each object in the transaction.
@@ -298,24 +313,6 @@
           {:groups {} :rule-params-to-copy {}}
           tx-steps))
 
-(defn attr-create-check-fn [{:keys [program data]} ctx]
-  (let [{:keys [updated]} data]
-    (if program
-      (cel/eval-program! ctx
-                         program
-                         {:data updated})
-      true)))
-
-(defn check-fn [{:keys [scope action] :as check} ctx]
-  (case [scope action]
-    [:object :create] (object-upsert-check-fn check ctx)
-    [:object :update] (object-upsert-check-fn check ctx)
-    [:object :delete] (object-delete-check-fn check ctx)
-    [:object :view]   (object-view-check-fn check ctx)
-    [:attr   :create] (attr-create-check-fn check ctx)
-    [:attr   :delete] (:admin? ctx)
-    [:attr   :update] (:admin? ctx)))
-
 (defn get-new-attrs [attr-changes]
   (->> attr-changes
        (filter (comp #{:add-attr} first))
@@ -359,17 +356,32 @@
        :action :update})))
 
 (defn run-check-commands! [ctx checks]
-  (->> checks
-       (mapv (fn [{:keys [etype action] :as c}]
-               (let [check-result (check-fn c ctx)]
-                 (if (:admin-check? ctx)
-                   (assoc c
-                          :check-result check-result
-                          :check-pass? (boolean check-result))
-                   (ex/assert-permitted!
-                    :perms-pass?
-                    [etype action]
-                    check-result)))))))
+  (let [{:keys [programs no-programs]}
+        (reduce (fn [acc c]
+                  (let [program-or-result (check-program c ctx)]
+                    (assert (or (contains? program-or-result :result)
+                                (contains? program-or-result :program)))
+                    (if (contains? program-or-result :result)
+                      (assoc-in acc
+                                [:no-programs c] program-or-result)
+                      (assoc-in acc
+                                [:programs c]
+                                program-or-result))))
+                {:programs {}
+                 :no-programs {}}
+                checks)
+        program-results (cel/eval-programs! ctx programs)]
+    (reduce-kv (fn [acc {:keys [etype action] :as c} {:keys [result]}]
+                 (conj acc (if (:admin-check? ctx)
+                             (assoc c
+                                    :check-result result
+                                    :check-pass? (boolean result))
+                             (ex/assert-permitted! :perms-pass?
+                                                   [etype action]
+                                                   result))))
+               []
+               (merge program-results
+                      no-programs))))
 
 ;; ------------
 ;; Data preload
@@ -417,54 +429,6 @@
                               etype-groups))))))
             {}
             triples-by-eid+etype)))
-
-(defn extract-refs
-  "Extracts a list of refs that can be passed to cel/prefetch-data-refs.
-   Returns: [{:etype string path-str string eids #{uuid}}]"
-  [user-id check-commands]
-  (vals
-   (reduce (fn [acc check]
-             (if (and (= :object (:scope check))
-                      (:program check))
-               (let [refs (:ref-uses (:program check))]
-                 (reduce (fn [acc {:keys [obj path]}]
-                           ;; group by etype + ref-path so we can collect all eids
-                           ;; for each group
-                           (case obj
-                             "data"
-                             (update acc
-                                     [(:etype check) path]
-                                     (fn [ref]
-                                       (-> (or ref {:etype (name (:etype check))
-                                                    :path-str path
-                                                    :eids #{}})
-                                           (update :eids conj (:eid check)))))
-                             "auth"
-                             (update acc
-                                     ["$users" path]
-                                     (fn [ref]
-                                       (cond-> (or ref {:etype "$users"
-                                                        :path-str path
-                                                        :eids #{}})
-                                         user-id (update :eids conj user-id))))
-
-                             acc))
-                         acc
-                         refs))
-               acc))
-           {}
-           check-commands)))
-
-(defn preload-refs
-  "Preloads data for data.ref so that we don't have to make a db call in the cel handler"
-  [ctx check-commands]
-  (let [refs (extract-refs (-> ctx
-                               :current-user
-                               :id)
-                           check-commands)]
-    (if (seq refs)
-      (cel/prefetch-data-refs ctx refs)
-      {})))
 
 (defn validate-reserved-names!
   "Throws a validation error if the users tries to add triples to the $users table"
@@ -589,12 +553,12 @@
 
                 check-commands
                 (io/warn-io :check-commands
-                            (concat
-                             (attr-checks ctx attr-changes)
-                             ;; Use preloaded-triples instead of object-changes.
-                             ;; It has all the same data, but the preload will also
-                             ;; resolve etypes for older version of delete-entity
-                             (object-checks ctx preloaded-triples)))
+                  (concat
+                   (attr-checks ctx attr-changes)
+                   ;; Use preloaded-triples instead of object-changes.
+                   ;; It has all the same data, but the preload will also
+                   ;; resolve etypes for older version of delete-entity
+                   (object-checks ctx preloaded-triples)))
 
                 {create-checks :create
                  view-checks :view
@@ -627,26 +591,17 @@
 
                 ctx (assoc ctx :rule-params rule-params)
 
-                update-delete-checks-resolved
-                (mapv #(resolve-check-lookup lookups->eid %) (concat update-checks delete-checks))
+                before-tx-checks-resolved
+                (mapv #(resolve-check-lookup lookups->eid %) (concat update-checks
+                                                                     delete-checks
+                                                                     view-checks))
 
-                view-checks-resolved
-                (mapv #(resolve-check-lookup lookups->eid %) view-checks)
-
-                preloaded-update-delete-refs
-                (preload-refs ctx (concat update-delete-checks-resolved
-                                          view-checks-resolved))
-
-                update-delete-checks-results
-                (io/warn-io :run-check-commands!
-                            (run-check-commands! (assoc ctx :preloaded-refs preloaded-update-delete-refs)
-                                                 update-delete-checks-resolved))
-
-                view-check-results
-                (io/warn-io :run-check-commands!
-                            (run-check-commands!
-                             (assoc ctx :preloaded-refs preloaded-update-delete-refs)
-                             view-checks-resolved))
+                before-tx-checks-results
+                (run-check-commands! (assoc ctx
+                                            ;; DWW: Should this get its own datalog-query-fn
+                                            ;;      that uses this transaction conn?
+                                            :preloaded-refs (cel/create-preloaded-refs-cache))
+                                     before-tx-checks-resolved)
 
                 tx-data
                 (tx/transact-without-tx-conn-impl! tx-conn (:attrs ctx) app-id grouped-tx-steps {})
@@ -665,15 +620,12 @@
                              rule-params)
                 ctx (assoc ctx :rule-params rule-params)
 
-                create-checks-resolved (mapv #(resolve-check-lookup create-lookups->eid %) create-checks)
-                preloaded-create-refs (preload-refs ctx create-checks-resolved)
-                create-checks-results (io/warn-io :run-create-check-commands!
-                                                  (run-check-commands!
-                                                   (assoc ctx :preloaded-refs preloaded-create-refs)
-                                                   create-checks-resolved))
-                all-check-results (concat update-delete-checks-results
-                                          create-checks-results
-                                          view-check-results)
+                after-tx-checks-resolved (mapv #(resolve-check-lookup create-lookups->eid %) create-checks)
+                after-tx-checks-results (run-check-commands!
+                                         (assoc ctx :preloaded-refs (cel/create-preloaded-refs-cache))
+                                         after-tx-checks-resolved)
+                all-check-results (concat before-tx-checks-results
+                                          after-tx-checks-results)
                 all-checks-ok? (every? (fn [r] (-> r :check-result)) all-check-results)
                 rollback? (and admin-check?
                                (or admin-dry-run? (not all-checks-ok?)))

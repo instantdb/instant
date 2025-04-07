@@ -1897,15 +1897,6 @@
              []
              etype->eids+program))
 
-(defn preload-refs [ctx etype->eids+program]
-  (let [refs (extract-refs (-> ctx
-                               :current-user
-                               :id)
-                           etype->eids+program)]
-    (if (seq refs)
-      (cel/prefetch-data-refs ctx refs)
-      {})))
-
 (defn preload-entity-maps
   "Returns a query cache for entities that are missing from the existing
   query cache, but that we'll need to fetch for a rule.
@@ -1948,48 +1939,43 @@
                 {}
                 (:data result))))))
 
-(defn get-etype+eid-check-result! [{:keys [rule-wheres] :as ctx}
+(defn get-etype+eid-check-result! [ctx
                                    {:keys [etype->eids+program query-cache]}
                                    rule-params]
   (tracer/with-span! {:name "instaql/get-eid-check-result!"}
-    (let [preloaded-refs (tracer/with-span! {:name "instaql/preload-refs"}
-                           (let [res (preload-refs ctx etype->eids+program)]
-                             (tracer/add-data! {:attributes {:ref-count (count res)}})
-                             res))
-          preloaded-entity-maps (tracer/with-span! {:name "instaql/preload-entity-maps"}
+    (let [preloaded-entity-maps (tracer/with-span! {:name "instaql/preload-entity-maps"}
                                   (let [res (preload-entity-maps ctx
                                                                  query-cache
                                                                  etype->eids+program)]
                                     (tracer/add-data! {:attributes {:entity-count (count res)}})
                                     res))
-          query-cache (merge query-cache preloaded-entity-maps)]
-      (into {}
-            (for [[etype {:keys [eids program]}] etype->eids+program
-                  eid eids]
-              [[etype eid]
-               (if-not program
-                 {:result true}
-                 {:program program
-                  :result
-                  (let [em (io/warn-io :instaql/entity-map
-                                       (entity-map ctx query-cache etype eid))
-                        ctx (assoc ctx :preloaded-refs preloaded-refs)
-                        res  (io/warn-io :instaql/eval-program
-                                         (cel/eval-program!
-                                          ctx
-                                          program
-                                          {:rule-params rule-params
-                                           :data em}))]
-                    (when-let [rule-where (get rule-wheres etype)]
-                      (when (and (not res)
-                                 ;; TODO(dww): remove check once we've figured
-                                 ;;            out how to implement short-circuit?
-                                 (not (:short-circuit? rule-where)))
-                        (tracer/record-info! {:name "instaql/rule-where-failure"
-                                              :attributes {:etype etype
-                                                           :eid eid
-                                                           :rule-where rule-where}})))
-                    res)})])))))
+          query-cache (merge query-cache preloaded-entity-maps)
+          {:keys [programs no-programs]}
+          (reduce-kv (fn [acc etype {:keys [eids program]}]
+                       (reduce (fn [acc eid]
+                                 (let [k [etype eid]]
+                                   (if program
+                                     (let [data (io/warn-io :instaql/entity-map
+                                                  (entity-map ctx
+                                                              query-cache
+                                                              etype
+                                                              eid))
+                                           bindings {:rule-params rule-params
+                                                     :data data}]
+                                       (assoc-in acc
+                                                 [:programs k]
+                                                 {:program program
+                                                  :bindings bindings}))
+                                     (assoc-in acc
+                                               [:no-programs k]
+                                               {:result true}))))
+                               acc
+                               eids))
+                     {:programs {}
+                      :no-programs {}}
+                     etype->eids+program)]
+      (merge no-programs
+             (cel/eval-programs! ctx programs)))))
 
 (defn use-rule-wheres? [ctx o]
   (let [app-id (:app-id ctx)
@@ -2040,7 +2026,8 @@
                                    :query (pr-str o)}}
     (if admin?
       (query ctx (dissoc o :$$ruleParams))
-      (let [rule-params (:$$ruleParams o)
+      (let [ctx (assoc ctx :preloaded-refs (cel/create-preloaded-refs-cache))
+            rule-params (:$$ruleParams o)
             o (dissoc o :$$ruleParams)
             rules (rule-model/get-by-app-id {:app-id app-id})
 
@@ -2058,7 +2045,8 @@
         res'))))
 
 (defn permissioned-query-check [{:keys [app-id] :as ctx} o rules-override]
-  (let [rule-params (:$$ruleParams o)
+  (let [ctx (assoc ctx :preloaded-refs (cel/create-preloaded-refs-cache))
+        rule-params (:$$ruleParams o)
         o (dissoc o :$$ruleParams)
         rules (or (when rules-override {:app_id app-id :code rules-override})
                   (rule-model/get-by-app-id {:app-id app-id}))

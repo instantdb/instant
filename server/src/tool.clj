@@ -260,7 +260,7 @@
   (def portal (p/open))
   (add-tap #'p/submit)
   (p/register! #'copy-unsafe-sql-format-query)
-  (p/eval-str portal-sql-query-viewer))
+  (p/eval-str portal portal-sql-query-viewer))
 
 (comment
   (start-portal!)
