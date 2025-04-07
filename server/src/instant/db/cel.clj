@@ -208,9 +208,6 @@
      (get m k)
      (get m (keyword k)))))
 
-(defprotocol IWithCtx
-  (withCtx [this ctx]))
-
 (definterface IRef
   (ref [path-str]))
 
@@ -238,11 +235,7 @@
 
   IRef
   (ref [_ path-str]
-    (ref-impl ctx m etype path-str))
-
-  IWithCtx
-  (withCtx [_ new-ctx]
-    (DataCelMap. new-ctx etype m)))
+    (ref-impl ctx m etype path-str)))
 
 (deftype AuthCelMap [ctx ^CelMap m]
   java.util.Map
@@ -258,11 +251,7 @@
     (let [path (clojure-string/replace path-str
                                        #"^\$user\."
                                        "")]
-      (ref-impl ctx m "$users" path)))
-
-  IWithCtx
-  (withCtx [_ new-ctx]
-    (AuthCelMap. new-ctx m)))
+      (ref-impl ctx m "$users" path))))
 
 (def ^MapType type-obj (MapType/create SimpleType/STRING SimpleType/DYN))
 
