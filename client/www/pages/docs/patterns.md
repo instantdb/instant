@@ -258,3 +258,53 @@ await adminDB.query(
   },
 );
 ```
+
+## Composite keys
+
+Sometimes you an item is unique by two or more attributes. For example, consider a `location`: it's unique by `latitude` _and_ `longitude`.
+
+How can you enforce this uniqueness in Instant?
+
+We don't have composite keys built-in, but you can manage them by creating a composite column. For example, you can make sure `locations` are unique by adding a `latLong` column:
+
+```js
+import { i } from '@instantdb/core';
+const _schema = i.schema({
+  entities: {
+    // ...
+    locations: i.entity({
+      latitude: i.number().indexed(),
+      longitude: i.number().indexed(),
+      latLong: i.string().unique() // <-- our composite column
+    }),
+  },
+```
+
+We can then set `latLong` in our updates:
+
+```js
+function createLocation({ latitude, longitude }) {
+  db.transact(
+    db.tx.locations[id()].update({
+      latitude,
+      longitude,
+      latLong: `${latitude}_${longitude}`,
+    }),
+  );
+}
+```
+
+Now, any locations with the same latitude and longitude will throw a uniqueness error. 
+
+To make sure that `latLong` _always_ matches `latitude` and `longitude`, you can add a rule in your permissions:
+
+```js
+const rules = { 
+  locations: { 
+    allow: {
+      create: "(data.latitude + '_' + data.longitude) == data.latLong",
+      update: "(newData.latitude + '_' + newData.longitude) == newData.latLong"
+    }
+  }
+}
+```
