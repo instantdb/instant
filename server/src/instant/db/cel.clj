@@ -517,8 +517,8 @@
 
 (defn eval-programs!
   "Takes a map of unique key, e.g. [etype, eid] to program and bindings.
-   Returns an updated map with results of running the programs and an
-   updated context with preloaded data
+   Returns an updated map with results of running the programs and updates
+   the preloaded-refs in the context
    Example:
     (eval-programs!
       ctx
