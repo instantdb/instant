@@ -79,11 +79,7 @@
     (process/exec "migrate"
                   "-database" database-url
                   "-path" "resources/migrations"
-                  "up")
-    (process/exec
-     {:env {"DATABASE_URL" database-url}}
-     (or (System/getenv "SHELL") "bash")
-     "dev-resources/import_test_data.sh")))
+                  "up")))
 
 (defn bootstrap-for-oss
   "Helper to setup everything the server needs for its initial run."
