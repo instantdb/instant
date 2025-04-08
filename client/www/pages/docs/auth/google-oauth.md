@@ -3,68 +3,76 @@ title: Google OAuth
 description: How to add Google OAuth to your Instant app.
 ---
 
-{% nav-default value="native" %}
+{% nav-default value="web-google-button" %}
 
-Instant supports logging in your users with their Google account.There are a few different ways to do this, based on your platform:
+Instant supports logging in your users with their Google account. Based on your platform, there are a few different ways to do this:
 
 {% nav-table %}
   {% nav-table-column title="Web" %}
     {% nav-button
       title="Google Button"
       description="Use Google's pre-styled button to sign in. Using this method you can render your custom app name in the consent screen"
-      param="authMethod"
+      param="method"
       value="web-google-button"
       recommended=true /%}
-    
     {% nav-button
-      title="Redirect Flow"
+      title="Web Redirect"
       description="Easier to integrate, but doesn't let you render your custom app name."
-      param="authMethod"
+      param="method"
       value="web-redirect" /%}
   {% /nav-table-column %}
-  
   {% nav-table-column title="React Native" %}
     {% nav-button
       title="Native Auth"
       description="Use a 'react-native-google-signin', to integrate with the native Google iOS and Android flows. Lets you render your custom app name in the consent screen"
-      param="authMethod"
-      value="native-auth"
-      recommended=true /%}
-    
+      param="method"
+      value="rn-native"
+      recommended=true /%}    
     {% nav-button
-      title="Expo Auth Session"
-      description="Use Expo's auth session to integrate browser-based oauth. Easier to implement, but doesn't let you render your custom app name."
-      param="authMethod"
-      value="expo-auth" /%}
+      title="Expo Web Auth"
+      description="Use Expo's auth session to integrate browser-based sign-in. Easier to implement, but doesn't let you render your custom app name."
+      param="method"
+      value="rn-web" /%}
   {% /nav-table-column %}
 {% /nav-table %}
 
+There's two main parts.
 
-We support flows for Web and React Native. Follow the steps below to get started.
+## Set up Oauth Screens
 
-**Step 1: Configure OAuth consent screen**
-Go to the [Google Console](https://console.cloud.google.com/apis/credentials).
+The first part is to create your OAuth screen, and connect it to Instant. Here's how:
 
-Click "CONFIGURE CONSENT SCREEN." If you already have a consent screen, you can skip to the next step.
+### 1. Configure your Google OAuth consent screen
 
-Select "External" and click "CREATE".
+- Go to the [Google Console](https://console.cloud.google.com/apis/credentials).
+- Click "CONFIGURE CONSENT SCREEN." If you already have a consent screen, you can skip to the next step.
+- Select "External" and click "CREATE".
+- Add your app's name, a support email, and developer contact information. Click "Save and continue".
+- No need to add scopes or test users. Click "Save and continue" for the next screens. Until you reach the "Summary" screen, click "Back to dashboard".
 
-Add your app's name, a support email, and developer contact information. Click "Save and continue".
 
-No need to add scopes or test users. Click "Save and continue" for the next
-screens. Until you reach the "Summary" screen, click "Back to dashboard".
+## 2. Create an OAuth client for Google
 
-**Step 2: Create an OAuth client for Google**
-From Google Console, click "+ CREATE CREDENTIALS"
+{% conditional 
+   param="method" 
+   value=["web-google-button", "web-redirect", "rn-web"] %}
 
-Select "OAuth client ID"
+- From Google Console, click "+ CREATE CREDENTIALS"
+- Select "OAuth client ID"
+- Select "Web application" as the application type.
+- Add `https://api.instantdb.com/runtime/oauth/callback` as an Authorized redirect URI.
+- If you're testing from localhost, **add both `http://localhost`** and `http://localhost:3000` to "Authorized JavaScript origins", replacing `3000` with the port you use.
+- For production, add your website's domain.
 
-Select "Web application" as the application type.
+{% /conditional %}
 
-Add `https://api.instantdb.com/runtime/oauth/callback` as an Authorized redirect URI.
+{% conditional 
+   param="method" 
+   value=["rn-native"] %}
 
-If you're testing from localhost, **add both `http://localhost`** and `http://localhost:3000` to "Authorized JavaScript origins", replacing `3000` with the port you use.
-For production, add your website's domain.
+TODO I AM HERE 
+
+{% /conditional %}
 
 **Step 3: Register your OAuth client with Instant**
 

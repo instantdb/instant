@@ -101,8 +101,10 @@ export function NavButton({
 }
 
 export function ConditionalContent({ param, value, children }) {
-  const selected = isSelected(param, value);
-
+  const selected = Array.isArray(value)
+    ? value.some((v) => isSelected(param, v))
+    : isSelected(param, value);
+    
   if (selected) {
     return <>{children}</>;
   }

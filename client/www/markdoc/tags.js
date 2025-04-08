@@ -6,7 +6,7 @@ import {
   NavButton,
   ConditionalContent,
 } from '@/components/docs/NavButton';
-import { NavTable, NavTableColumn, NavTableItem } from '../components/docs/NavButton';
+import { NavTable, NavTableColumn } from '../components/docs/NavButton';
 
 const tags = {
   callout: {
@@ -85,7 +85,7 @@ const tags = {
     render: ConditionalContent,
     attributes: {
       param: { type: String, required: true },
-      value: { type: String, required: true },
+      value: { type: [String, Array], required: true },
     },
   },
   'blank-link': {
