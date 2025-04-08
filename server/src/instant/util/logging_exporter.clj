@@ -175,14 +175,19 @@
 
           (string/starts-with? n "e2e"))))))
 
+(defn include-span? [^SpanData span]
+  (let [name (.getName span)]
+    (= "postmark/send-disabled" name)))
+
 (def log-spans?
   (not= "false" (System/getenv "INSTANT_LOG_SPANS")))
 
 (defn log-spans [spans]
-  (when log-spans?
-    (doseq [span spans
-            :when (not (exclude-span? span))]
-      (log/info (span-str span)))))
+  (doseq [span spans
+          :when (or (include-span? span)
+                    (and log-spans?
+                         (not (exclude-span? span))))]
+    (log/info (span-str span))))
 
 (defn export [^AtomicBoolean shutdown? spans]
   (if (.get shutdown?)
