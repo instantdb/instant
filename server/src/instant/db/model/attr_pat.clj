@@ -6,8 +6,8 @@
             [instant.util.json :as json]
             [instant.util.uuid :as uuid-util]
             [instant.jdbc.aurora :as aurora]
-            [instant.data.constants :refer [zeneca-app-id]]
-            [instant.db.model.triple :as triple-model]))
+            [instant.db.model.triple :as triple-model]
+            [instant.comment :as c]))
 
 (s/def ::attr-pat
   (s/cat :e (d/pattern-component uuid?)
@@ -444,9 +444,11 @@
   (:pats (attr-pats->patterns-impl ctx #{} attr-pats)))
 
 (comment
-  (def attrs (attr-model/get-by-app-id zeneca-app-id))
+  (def z (c/zeneca-app!))
+  (def z-id (:id z))
+  (def attrs (attr-model/get-by-app-id z-id))
   (def ctx {:db {:conn-pool (aurora/conn-pool :read)}
-            :app-id zeneca-app-id
+            :app-id z-id
             :datalog-query-fn #'d/query
             :attrs attrs})
   (attr-pats->patterns

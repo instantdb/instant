@@ -6,14 +6,14 @@
   queries. See go-datalog-query-reactive! for more details. We also cache datalog
   query results for perf."
   (:require
-   [instant.data.constants :refer [zeneca-app-id]]
    [instant.db.datalog :as d]
    [instant.db.instaql :as iq]
    [instant.db.model.attr :as attr-model]
    [instant.jdbc.aurora :as aurora]
    [instant.reactive.store :as rs]
    [instant.util.instaql :refer [instaql-nodes->object-tree]]
-   [instant.util.tracer :as tracer]))
+   [instant.util.tracer :as tracer]
+   [instant.comment :as c]))
 
 (defn- datalog-query-cached!
   "Returns the result of a datalog query. Leverages atom and
@@ -22,8 +22,10 @@
   (rs/swap-datalog-cache! store app-id d/query ctx datalog-query))
 
 (comment
+  (def z (c/zeneca-app!))
+  (def z-id (:id z))
   (def ctx {:db {:conn-pool (aurora/conn-pool :read)}
-            :app-id zeneca-app-id})
+            :app-id z-id})
   (def instaql-query '[[:ea ?e ?a "joe"]])
   (time
    (datalog-query-cached! rs/store ctx instaql-query)))
@@ -121,9 +123,11 @@
         (throw e)))))
 
 (comment
+  (def z (c/zeneca-app!))
+  (def z-id (:id z))
   (def ctx {:db {:conn-pool (aurora/conn-pool :read)}
-            :attrs (attr-model/get-by-app-id zeneca-app-id)
-            :app-id zeneca-app-id
+            :attrs (attr-model/get-by-app-id z-id)
+            :app-id z-id
             :current-user nil
             :session-id "moop"})
   (def instaql-query {"users" {}})

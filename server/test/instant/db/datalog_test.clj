@@ -5,11 +5,9 @@
             [instant.config :as config]
             [instant.db.datalog :as d]
             [instant.db.model.attr :as attr-model]
-            [instant.data.constants :refer [movies-app-id]]
             [instant.data.resolvers :as resolvers]
             [instant.jdbc.sql :as sql]
             [instant.fixtures :refer [with-movies-app with-zeneca-app]]))
-
 
 (defn make-ctx [app]
   {:db {:conn-pool (aurora/conn-pool :read)}
@@ -114,29 +112,31 @@
            (raw-pats->join-conds '[[:ea ?a] [:av _ ?a]])))))
 
 (deftest validations
-  (testing "throws on incorrect types"
-    (doseq [bad-pat '[[:bad-idx ?e ?a ?]
-                      [:ea "bad-e" ?a ?v]
-                      [:ea ?e "bad-a" ?v]]]
+  (with-movies-app
+    (fn [{app-id :id} _]
+      (testing "throws on incorrect types"
+        (doseq [bad-pat '[[:bad-idx ?e ?a ?]
+                          [:ea "bad-e" ?a ?v]
+                          [:ea ?e "bad-a" ?v]]]
 
-      (is
-       (thrown-with-msg?
-        clojure.lang.ExceptionInfo
-        #"Invalid input"
-        (d/query
-         {:db {:conn-pool (aurora/conn-pool :read)}
-          :app-id movies-app-id}
-         [bad-pat])))))
-  (testing "throws on unjoinable patterns"
-    (is
-     (thrown-with-msg?
-      java.lang.AssertionError
-      #"Pattern is not joinable"
-      (d/query
-       {:db {:conn-pool (aurora/conn-pool :read)}
-        :app-id movies-app-id}
-       '[[:ea ?a ?b ?c]
-         [:ea ?d ?e ?f]])))))
+          (is
+           (thrown-with-msg?
+            clojure.lang.ExceptionInfo
+            #"Invalid input"
+            (d/query
+             {:db {:conn-pool (aurora/conn-pool :read)}
+              :app-id app-id}
+             [bad-pat])))))
+      (testing "throws on unjoinable patterns"
+        (is
+         (thrown-with-msg?
+          java.lang.AssertionError
+          #"Pattern is not joinable"
+          (d/query
+           {:db {:conn-pool (aurora/conn-pool :read)}
+            :app-id app-id}
+           '[[:ea ?a ?b ?c]
+             [:ea ?d ?e ?f]])))))))
 
 (deftest coercions
   (with-movies-app
@@ -344,16 +344,16 @@
                                         [[:ea '?director person-name-aid "John McTiernan"]
                                          [:vae '?movie movie-director-aid '?director]
                                          [:ea '?movie movie-title-aid '?title]])
-                                     %
-                                     (resolvers/walk-friendly r %)
-                                     (drop-join-rows-created-at %)))
+                                       %
+                                   (resolvers/walk-friendly r %)
+                                   (drop-join-rows-created-at %)))
                       q2 (future (as-> (d/query
                                         ctx [[:ea '?e movie-title-aid "Predator"]
                                              [:eav '?e movie-director-aid '?director]
                                              [:ea '?director person-name-aid '?name]])
-                                     %
-                                     (resolvers/walk-friendly r %)
-                                     (drop-join-rows-created-at %)))]
+                                       %
+                                   (resolvers/walk-friendly r %)
+                                   (drop-join-rows-created-at %)))]
 
                   ;; Wait for queries to batch
                   (loop [i 0]

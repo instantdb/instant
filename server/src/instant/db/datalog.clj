@@ -32,8 +32,6 @@
             [instant.db.model.triple :as triple-model]
             [instant.flags :as flags]
             [instant.util.spec :as uspec]
-            [instant.data.constants :refer [zeneca-app-id]]
-            [clojure.spec.gen.alpha :as gen]
             [instant.util.tracer :as tracer]
             [instant.util.coll :as coll]
             [clojure.string :as string]
@@ -708,12 +706,6 @@
                        (constant->where-part idx app-id component-type v))))
            (function-clauses app-id named-pattern)
            (patch-values-for-av-index (idx-key idx) additional-clauses))))
-
-(comment
-  (where-clause
-   zeneca-app-id
-   (s/conform ::pattern (gen/generate (s/gen ::pattern)))
-   nil))
 
 ;; ---
 ;; join-clause

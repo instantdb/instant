@@ -2,7 +2,6 @@
   (:require
    [clojure.set :as clojure-set]
    [clojure.string :as clojure-string]
-   [instant.data.constants :refer [zeneca-app-id]]
    [instant.db.dataloader :as dataloader]
    [instant.db.datalog :as d]
    [instant.db.model.attr :as attr-model]
@@ -10,7 +9,9 @@
    [instant.jdbc.aurora :as aurora]
    [instant.util.coll :as ucoll]
    [instant.util.exception :as ex]
-   [instant.util.tracer :as tracer])
+   [instant.util.tracer :as tracer]
+   [instant.comment :as c]
+   [instant.data.resolvers :as resolvers])
   (:import
    (com.google.common.collect ImmutableList)
    (com.google.protobuf NullValue)
@@ -143,12 +144,15 @@
                :delay-ms 5
                :timeout-ms 5000}))
 (comment
+  (def z (c/zeneca-app!))
+  (def z-id (:id z))
+  (def r (resolvers/make-zeneca-resolver z-id))
   (def ctx {:db {:conn-pool (aurora/conn-pool :read)}
-            :app-id zeneca-app-id
+            :app-id z-id
             :datalog-query-fn d/query
-            :attrs (attr-model/get-by-app-id zeneca-app-id)})
+            :attrs (attr-model/get-by-app-id z-id)})
   (def params {:etype "bookshelves"
-               :eid #uuid "8164fb78-6fa3-4aab-8b92-80e706bae93a"
+               :eid (resolvers/->uuid r "eid-2014")
                :path-str "users.handle"})
   (get-ref ctx params))
 
@@ -210,7 +214,6 @@
 
 (definterface IRef
   (ref [path-str]))
-
 
 (defn ref-impl [ctx {:strs [id] :as ^CelMap _m} ^String etype ^String path-str]
   (if (= id NullValue/NULL_VALUE)
@@ -1312,22 +1315,6 @@
       (.build)
       (.validate ast)
       (.getErrors)))
-
-(comment
-  (def -attrs (attr-model/get-by-app-id zeneca-app-id))
-  (def -ctx {:db {:conn-pool (aurora/conn-pool :read)}
-             :app-id zeneca-app-id
-             :datalog-query-fn d/query
-             :attrs -attrs
-             :current-user {"email" "stopa@instantdb.com"}})
-  (let [program (rule->program :view "data.ref('users.handle').exists_one(x, x == 'alex') && data.name == 'Nonfiction'")
-        result
-        (eval-program! -ctx {:cel-program program
-                             :etype "bookshelves"}
-                       {:data {:id #uuid "8164fb78-6fa3-4aab-8b92-80e706bae93a"
-                               :creatorEmail "stopa@instantdb.com"
-                               :name "Nonfiction"}})]
-    result))
 
 ;; Helper for dev so that `rules.clj` can clear its cache when this
 ;; namespace is reloaded and the deftypes change
