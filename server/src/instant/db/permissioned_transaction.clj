@@ -598,8 +598,6 @@
 
                 before-tx-checks-results
                 (run-check-commands! (assoc ctx
-                                            ;; DWW: Should this get its own datalog-query-fn
-                                            ;;      that uses this transaction conn?
                                             :preloaded-refs (cel/create-preloaded-refs-cache))
                                      before-tx-checks-resolved)
 
