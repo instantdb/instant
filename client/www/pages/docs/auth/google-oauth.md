@@ -5,7 +5,41 @@ description: How to add Google OAuth to your Instant app.
 
 {% nav-default value="native" %}
 
-Instant supports logging in your users with their Google account.
+Instant supports logging in your users with their Google account.There are a few different ways to do this, based on your platform:
+
+{% nav-table %}
+  {% nav-table-column title="Web" %}
+    {% nav-button
+      title="Google Button"
+      description="Use Google's pre-styled button to sign in. Using this method you can render your custom app name in the consent screen"
+      param="authMethod"
+      value="web-google-button"
+      recommended=true /%}
+    
+    {% nav-button
+      title="Redirect Flow"
+      description="Easier to integrate, but doesn't let you render your custom app name."
+      param="authMethod"
+      value="web-redirect" /%}
+  {% /nav-table-column %}
+  
+  {% nav-table-column title="React Native" %}
+    {% nav-button
+      title="Native Auth"
+      description="Use a 'react-native-google-signin', to integrate with the native Google iOS and Android flows. Lets you render your custom app name in the consent screen"
+      param="authMethod"
+      value="native-auth"
+      recommended=true /%}
+    
+    {% nav-button
+      title="Expo Auth Session"
+      description="Use Expo's auth session to integrate browser-based oauth. Easier to implement, but doesn't let you render your custom app name."
+      param="authMethod"
+      value="expo-auth" /%}
+  {% /nav-table-column %}
+{% /nav-table %}
+
+
 We support flows for Web and React Native. Follow the steps below to get started.
 
 **Step 1: Configure OAuth consent screen**

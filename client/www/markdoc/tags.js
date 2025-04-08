@@ -6,6 +6,7 @@ import {
   NavButton,
   ConditionalContent,
 } from '@/components/docs/NavButton';
+import { NavTable, NavTableColumn, NavTableItem } from '../components/docs/NavButton';
 
 const tags = {
   callout: {
@@ -59,6 +60,15 @@ const tags = {
   'nav-group': {
     render: NavGroup,
   },
+  'nav-table': {
+    render: NavTable,
+  },
+  'nav-table-column': {
+    render: NavTableColumn,
+    attributes: {
+      title: { type: String },
+    },
+  },
   'nav-button': {
     selfClosing: true,
     render: NavButton,
@@ -68,6 +78,7 @@ const tags = {
       description: { type: String },
       param: { type: String },
       value: { type: String },
+      recommended: { type: Boolean },
     },
   },
   conditional: {

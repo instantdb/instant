@@ -48,7 +48,14 @@ function isSelected(param, value) {
   return value && value === (router.query[param] || defaultValue);
 }
 
-export function NavButton({ title, description, param, value, href }) {
+export function NavButton({
+  title,
+  description,
+  param,
+  value,
+  href,
+  recommended,
+}) {
   const router = useRouter();
   const selected = isSelected(param, value);
 
@@ -64,7 +71,7 @@ export function NavButton({ title, description, param, value, href }) {
   };
   const Component = (
     <div
-      className="group h-full flex flex-col relative rounded-xl border border-slate-200 dark:border-slate-800 max-w-sm hover:cursor-pointer "
+      className="group h-full flex flex-col relative rounded-xl border border-slate-200 dark:border-slate-800 max-w-sm cursor-pointer"
       onClick={() => !href && handleClick()}
     >
       <div
@@ -73,10 +80,16 @@ export function NavButton({ title, description, param, value, href }) {
           (selected ? ' opacity-100' : '')
         }
       />
-      <div className="relative overflow-hidden rounded-xl p-6">
+      <div className="relative rounded-xl p-6">
+        {recommended && (
+          <span className=" rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/10 absolute top-1 right-1">
+            RECOMMENDED
+          </span>
+        )}
         <h2 className="font-semibold text-slate-900 dark:text-white">
           {title}
         </h2>
+
         <p className="mt-1 text-sm text-slate-700 dark:text-slate-400">
           {description}
         </p>
@@ -95,4 +108,30 @@ export function ConditionalContent({ param, value, children }) {
   }
 
   return null;
+}
+
+export function NavTable({ children, title }) {
+  return (
+    <div className="not-prose">
+      <div className="flex flex-col sm:flex-row divide-y sm:divide-y-0 sm:divide-x divide-slate-200">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export function NavTableColumn(props) {
+  const { title, children } = props;
+  return (
+    <div className="flex-1">
+      {title && (
+        <div className="border-b border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-800/50">
+          <h3 className="font-semibold text-slate-900 dark:text-white">
+            {title}
+          </h3>
+        </div>
+      )}
+      <div className="space-y-4 p-2">{children}</div>
+    </div>
+  );
 }
