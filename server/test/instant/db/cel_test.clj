@@ -8,7 +8,8 @@
             [instant.db.datalog :as d]
             [instant.db.transaction :as tx])
   (:import (dev.cel.parser CelStandardMacro)
-           (dev.cel.common CelValidationException)))
+           (dev.cel.common CelValidationException)
+           (java.util Map)))
 
 (deftest test-standard-macros
   (testing "STANDARD_MACROS set contains expected macros"
@@ -348,6 +349,77 @@
                                               :current-user user)
                                        "profile"
                                        "data.id == (auth.ref('$user.profile.id'))[0]"))))))))
+
+(deftest advance-program-works
+  (with-zeneca-app
+    (fn [app _r]
+      (let [user (app-user-model/get-by-email! {:app-id (:id app)
+                                                :email "alex@instantdb.com"})
+            make-ctx (fn []
+                       {:db {:conn-pool (aurora/conn-pool :read)}
+                        :app-id (:id app)
+                        :attrs (attr-model/get-by-app-id (:id app))
+                        :datalog-query-fn d/query
+                        :current-user user})
+            code (format "auth.ref('$user.id') == ['%s']"
+                         (:id user))
+            program {:cel-program (cel/rule->program "view" code)}]
+        (testing "returns missing-refs if they're not in the cache"
+          (let [result (cel/advance-program! (make-ctx)
+                                             program
+                                             {})]
+            (is (cel/is-missing-ref-data? result))
+            (is (= (cel/missing-ref-datas result)
+                   #{{:eid (:id user)
+                      :etype "$users"
+                      :path-str "id"}}))))
+        (testing "returns result once missing refs are in cache"
+          (let [prefetched (cel/prefetch-missing-ref-datas
+                            (make-ctx)
+                            (cel/missing-ref-datas
+                             (cel/advance-program! (make-ctx)
+                                                   program
+                                                   {})))
+                preloaded-refs (cel/create-preloaded-refs-cache)
+                _ (Map/.putAll preloaded-refs prefetched)
+                result (cel/advance-program! (assoc (make-ctx)
+                                                    :preloaded-refs preloaded-refs)
+                                             program
+                                             {})]
+            (is (= result true))))))))
+
+(deftest eval-programs!-works
+  (with-zeneca-app
+    (fn [app _r]
+      (let [user (app-user-model/get-by-email! {:app-id (:id app)
+                                                :email "alex@instantdb.com"})
+            queries (atom [])
+            query-fn (fn [ctx patterns]
+                       (swap! queries conj patterns)
+                       (d/query ctx patterns))
+            preloaded-refs (cel/create-preloaded-refs-cache)
+            make-ctx (fn []
+                       {:db {:conn-pool (aurora/conn-pool :read)}
+                        :app-id (:id app)
+                        :attrs (attr-model/get-by-app-id (:id app))
+                        :datalog-query-fn query-fn
+                        :current-user user
+                        :preloaded-refs preloaded-refs})
+            code (format "auth.ref('$user.id') == ['%s']"
+                         (:id user))
+            program (cel/rule->program "view" code)
+            results (cel/eval-programs! (make-ctx)
+                                        {:first {:program {:cel-program program}
+                                                 :bindings {}}
+                                         :second {:program {:cel-program program}
+                                                  :bindings {}}})]
+
+        (is (= true (-> results :first :result)))
+        (is (= true (-> results :second :result)))
+        (is (= 1 (count @queries)))
+        (is (= {{:eid (:id user), :etype "$users", :path-str "id"} [(str (:id user))]}
+               preloaded-refs))
+        (is (= 1 (count preloaded-refs)))))))
 
 (comment
   (test/run-tests *ns*))
