@@ -1873,30 +1873,6 @@
             (datalog-query-fn ctx datalog-query))]
     (entity-model/datalog-result->map ctx datalog-result)))
 
-(defn extract-refs
-  "Extracts a list of refs that can be passed to cel/prefetch-data-refs.
-   Returns: [{:etype string, :path-str string, :eids #{uuid}}]"
-  [user-id etype->eids+program]
-  (reduce-kv (fn [acc etype {:keys [eids program]}]
-               (if-let [refs (seq (:ref-uses program))]
-                 (reduce (fn [acc {:keys [obj path]}]
-                           (case obj
-                             "data" (conj acc {:etype etype
-                                               :path-str path
-                                               :eids eids})
-                             "auth" (conj acc {:etype "$users"
-                                               :path-str path
-                                               :eids (if user-id
-                                                       #{user-id}
-                                                       #{})})
-
-                             acc))
-                         acc
-                         refs)
-                 acc))
-             []
-             etype->eids+program))
-
 (defn preload-entity-maps
   "Returns a query cache for entities that are missing from the existing
   query cache, but that we'll need to fetch for a rule.
@@ -2094,4 +2070,3 @@
   (resolvers/walk-friendly
    r
    (permissioned-query ctx {:users {}})))
-
