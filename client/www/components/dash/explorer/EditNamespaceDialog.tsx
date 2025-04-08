@@ -230,6 +230,7 @@ function AddAttrForm({
   namespaces: SchemaNamespace[];
   onClose: () => void;
 }) {
+  const [isRequired, setIsRequired] = useState(true);
   const [isIndex, setIsIndex] = useState(false);
   const [isUniq, setIsUniq] = useState(false);
   const [isCascade, setIsCascade] = useState(false);
@@ -282,6 +283,7 @@ function AddAttrForm({
         cardinality: 'one',
         'unique?': isUniq,
         'index?': isIndex,
+        'required?': isRequired,
         'checked-data-type': checkedDataType ?? undefined,
       };
 
@@ -337,6 +339,18 @@ function AddAttrForm({
           </div>
           <div className="flex flex-col gap-2">
             <h6 className="text-md font-bold">Constraints</h6>
+            <div className="flex gap-2">
+              <Checkbox
+                checked={isRequired}
+                onChange={(enabled) => setIsRequired(enabled)}
+                label={
+                  <span>
+                    <strong>Require this attribute</strong> so all entities will
+                    be guaranteed to have it
+                  </span>
+                }
+              />
+            </div>
             <div className="flex gap-2">
               <Checkbox
                 checked={isIndex}
@@ -564,6 +578,142 @@ function InvalidTriplesSample({
         </tbody>
       </table>
     </div>
+  );
+}
+
+function EditRequired({
+  appId,
+  attr,
+  isSystemCatalogNs,
+  pushNavStack,
+}: {
+  appId: string;
+  attr: SchemaAttr;
+  isSystemCatalogNs: boolean;
+  pushNavStack: PushNavStack;
+}) {
+  const token = useAuthToken();
+  const [requiredChecked, setRequiredChecked] = useState(attr.isIndex);
+  const [indexingJob, setIndexingJob] = useState<InstantIndexingJob | null>(
+    null,
+  );
+
+  const stopFetchLoop = useRef<null | (() => void)>(null);
+
+  useEffect(() => {
+    return () => stopFetchLoop.current?.();
+  }, [stopFetchLoop]);
+  const updateRequired = async () => {
+    if (!token || requiredChecked === attr.isRequired) {
+      return;
+    }
+    stopFetchLoop.current?.();
+    const friendlyName = `${attr.namespace}.${attr.name}`;
+    try {
+      const job = await createJob(
+        {
+          appId,
+          attrId: attr.id,
+          jobType: requiredChecked ? 'required' : 'remove-required',
+        },
+        token,
+      );
+      setIndexingJob(job);
+      const fetchLoop = jobFetchLoop(appId, job.id, token);
+      stopFetchLoop.current = fetchLoop.stop;
+      const finishedJob = await fetchLoop.start((data, error) => {
+        if (error) {
+          errorToast(`Error while marking ${friendlyName} as required.`);
+        }
+        if (data) {
+          setIndexingJob(data);
+        }
+      });
+      if (finishedJob) {
+        if (finishedJob.job_status === 'completed') {
+          successToast(
+            requiredChecked
+              ? `Marked ${friendlyName} as required.`
+              : `Marked ${friendlyName} as optional.`,
+          );
+          return;
+        }
+        if (finishedJob.job_status === 'canceled') {
+          errorToast('Marking required was canceled.');
+          return;
+        }
+        if (finishedJob.job_status === 'errored') {
+          if (finishedJob.error === 'invalid-triple-error') {
+            errorToast(`Found invalid data while updating ${friendlyName}.`);
+            return;
+          }
+          errorToast(`Encountered an error while updating ${friendlyName}.`);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      errorToast(`Unexpected error while updating ${friendlyName}`);
+    }
+  };
+
+  const valueNotChanged = requiredChecked === attr.isIndex;
+
+  const buttonDisabled = isSystemCatalogNs || valueNotChanged;
+
+  const closeDialog = useClose();
+
+  return (
+    <ActionForm className="flex flex-col gap-1">
+      <div className="flex gap-2">
+        <Checkbox
+          disabled={isSystemCatalogNs}
+          title={
+            isSystemCatalogNs
+              ? `Attributes in the ${attr.namespace} namespace can't be edited.`
+              : undefined
+          }
+          checked={requiredChecked}
+          onChange={(enabled) => setRequiredChecked(enabled)}
+          label={
+            <span>
+              <strong>Require this attribute</strong> so all entities will be
+              guaranteed to have it
+            </span>
+          }
+        />
+      </div>
+
+      {indexingJob?.error === 'missing-attr' ? (
+        <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
+          <div>
+            Some ${attr.namespace} entities do not have ${attr.name} set.{' '}
+          </div>
+          {/* TODO: entity ids */}
+        </div>
+      ) : null}
+
+      <ActionButton
+        type="submit"
+        label={
+          valueNotChanged
+            ? requiredChecked
+              ? 'Required'
+              : 'Optional'
+            : requiredChecked
+              ? 'Mark as required'
+              : 'Mark as optional'
+        }
+        submitLabel={jobWorkingStatus(indexingJob) || 'Updating attribute...'}
+        errorMessage="Failed to update attribute"
+        disabled={buttonDisabled}
+        title={
+          isSystemCatalogNs
+            ? `Attributes in the ${attr.namespace} namespace can't be edited.`
+            : undefined
+        }
+        onClick={updateRequired}
+      />
+    </ActionForm>
   );
 }
 
@@ -1228,6 +1378,12 @@ function EditAttrForm({
         <>
           <div className="flex flex-col gap-2">
             <h6 className="text-md font-bold">Constraints</h6>
+            <EditRequired
+              appId={appId}
+              attr={attr}
+              isSystemCatalogNs={isSystemCatalogNs}
+              pushNavStack={pushNavStack}
+            />
             <EditIndexed
               appId={appId}
               attr={attr}
