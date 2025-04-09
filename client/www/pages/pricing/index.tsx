@@ -5,6 +5,7 @@ import {
   MainNav,
 } from '@/components/marketingUi';
 import { Button } from '@/components/ui';
+import * as og from '@/lib/og';
 
 // Helpers
 // ------------------
@@ -203,6 +204,11 @@ export default function Page() {
     <LandingContainer>
       <Head>
         <title>Instant Pricing</title>
+        <meta
+          key="og:image"
+          property="og:image"
+          content={og.url({ section: 'pricing' })}
+        />
       </Head>
       <div className="flex min-h-screen justify-between flex-col">
         <div>

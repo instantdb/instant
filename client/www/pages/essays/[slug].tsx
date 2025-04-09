@@ -9,6 +9,7 @@ import {
   MainNav,
   type Post,
 } from '@/components/marketingUi';
+import * as og from '@/lib/og';
 
 function Prose({ html }: { html: string }) {
   return (
@@ -29,7 +30,7 @@ const Post = ({ post }: { post: Post }) => {
         <meta
           key="og:image"
           property="og:image"
-          content={`/api/og?title=${encodeURIComponent(title)}&section=blog`}
+          content={og.url({ title, section: 'blog' })}
         />
         <meta key="og:type" property="og:type" content="article" />
         <meta
