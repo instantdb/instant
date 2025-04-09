@@ -104,7 +104,7 @@ export function ConditionalContent({ param, value, children }) {
   const selected = Array.isArray(value)
     ? value.some((v) => isSelected(param, v))
     : isSelected(param, value);
-    
+
   if (selected) {
     return <>{children}</>;
   }

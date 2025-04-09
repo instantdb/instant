@@ -406,11 +406,11 @@ const url = db.auth.createAuthorizationURL({
         <Collapsible.Content className="">
           <div className="p-4 flex flex-col gap-4 border-t">
             <div className="flex items-center bg-white font-mono text-sm">
-              <span className='font-bold rounded-sm border text-gray-500 bg-gray-50 text-sm px-2 py-0.5'>
+              <span className="font-bold rounded-sm border text-gray-500 bg-gray-50 text-sm px-2 py-0.5">
                 {appTypeLabel(appType)}
               </span>
             </div>
-            
+
             <Copyable label="Client name" value={client.client_name} />
             <Copyable label="Google client ID" value={client.client_id || ''} />
 
@@ -445,7 +445,8 @@ const url = db.auth.createAuthorizationURL({
                   >
                     Google OAuth client
                   </a>{' '}
-                  and add Instant's redirect URL under "Authorized redirect URIs"
+                  and add Instant's redirect URL under "Authorized redirect
+                  URIs"
                 </Content>
                 <Copyable
                   label="Redirect URI"
@@ -472,14 +473,15 @@ const url = db.auth.createAuthorizationURL({
                   </a>
                 </SubsectionHeading>
                 <Content>
-                  <strong>1.</strong> Use the code below to sign in with `react-native-google-signin`:
+                  <strong>1.</strong> Use the code below to sign in with
+                  `react-native-google-signin`:
                 </Content>
                 <div className="border rounded text-sm overflow-auto">
                   <Fence code={exampleRNCode} language="typescript" />
                 </div>
               </>
             )}
-            
+
             <Divider />
             <div>
               <Button

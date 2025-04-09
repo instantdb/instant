@@ -467,9 +467,9 @@ const APP_ID = '__APP_ID__';
 const db = init({ appId: APP_ID });
 
 GoogleSignin.configure({
-  scopes: ["https://www.googleapis.com/auth/drive.readonly"],
+  scopes: ['https://www.googleapis.com/auth/drive.readonly'],
   // See https://react-native-google-signin.github.io/docs/original#configure
-  iosClientId: "YOUR_IOS_CLIENT_ID",
+  iosClientId: 'YOUR_IOS_CLIENT_ID',
 });
 
 function App() {
