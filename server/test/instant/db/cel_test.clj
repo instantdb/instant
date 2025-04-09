@@ -86,28 +86,34 @@
 (deftest where-clauses
   (let [make-ctx (fn [attr-specs]
                    {:attrs (dummy-attrs attr-specs)
-                    :current-user {:id "__auth.id__" :email "__auth.email__"}})
+                    :current-user {:id "__auth.id__" :email "__auth.email__"}
+                    :preloaded-refs (cel/create-preloaded-refs-cache)})
         get-where-clauses (fn [fields code]
-                            (let [res (cel/get-where-clauses (make-ctx (map (fn [field]
-                                                                              {:etype "etype"
-                                                                               :field field})
-                                                                            fields))
-                                                             "etype"
-                                                             code)]
+                            (let [res (cel/get-all-where-clauses
+                                       (make-ctx (map (fn [field]
+                                                        (if (string? field)
+                                                          {:etype "etype"
+                                                           :field field}
+                                                          field))
+                                                      fields))
+                                       {}
+                                       [{:etype "etype"
+                                         :where-clauses-program (cel/where-clauses-program code)}])
+                                  res (get res "etype")]
+                              (when-let [t (:thrown res)]
+                                (throw t))
                               (testing (str "ensure no short-circuit? on " code)
                                 (is (false? (:short-circuit? res))))
                               (:where-clauses res)))]
 
     (is (= {"owner.id" "__auth.id__"}
-           (:where-clauses
-            (cel/get-where-clauses (make-ctx [{:etype "etype"
-                                               :field "owner"
-                                               :rev-etype "owners"
-                                               :rev-field "etype"}
-                                              {:etype "owners"
-                                               :field "id"}])
-                                   "etype"
-                                   "cel.bind(owner, auth.id in data.ref(\"owner.id\"), owner)"))))
+           (get-where-clauses [{:etype "etype"
+                                :field "owner"
+                                :rev-etype "owners"
+                                :rev-field "etype"}
+                               {:etype "owners"
+                                :field "id"}]
+                              "cel.bind(owner, auth.id in data.ref(\"owner.id\"), owner)")))
 
     (is (= {:or [{"is_public" true}
                  {"owner" "__auth.id__"}]}
@@ -126,19 +132,6 @@
     (is (= {"conversationId" {:$isNull true}}
            (get-where-clauses ["conversationId"]
                               "data.conversationId == null")))
-
-    (is (= {:short-circuit? true
-            :where-clauses nil}
-           (select-keys (cel/get-where-clauses (make-ctx [{:etype "etype"
-                                                           :field "owner"
-                                                           :rev-etype "owners"
-                                                           :rev-field "etype"}
-                                                          {:etype "owners"
-                                                           :field "id"}])
-                                               "etype"
-                                               "null in data.ref('owner.id')")
-                        [:short-circuit?
-                         :where-clauses])))
 
     (is (= nil
            (get-where-clauses ["name"]
@@ -160,13 +153,11 @@
                               "!!data.test")))
 
     (is (= {"path" {:$like "%.jpg"}}
-           (:where-clauses
-            (cel/get-where-clauses (make-ctx [{:etype "etype"
-                                               :field "path"
-                                               :index? true
-                                               :checked-data-type :string}])
-                                   "etype"
-                                   "data.path.endsWith('.jpg')"))))
+           (get-where-clauses [{:etype "etype"
+                                :field "path"
+                                :index? true
+                                :checked-data-type :string}]
+                              "data.path.endsWith('.jpg')")))
 
     (testing "!!x == x"
       (let [fields ["deleted_at" "undeleted"]
@@ -184,53 +175,111 @@
                 "cel.bind(isDeleted, data.deleted_at == null || (data.deleted_at != null && !data.undeleted), isDeleted)")))))
 
     (is (= {:or [{"owner" {:$isNull true}} {"owner" {:$isNull true}}]}
-           (:where-clauses
-            (cel/get-where-clauses (make-ctx [{:etype "etype"
-                                               :field "owner"
-                                               :rev-etype "owners"
-                                               :rev-field "etype"}
-                                              {:etype "owners"
-                                               :field "id"}])
-                                   "etype"
-                                   "[] == data.ref('owner.id') || data.ref('owner.id') == []"))))
+           (get-where-clauses [{:etype "etype"
+                                :field "owner"
+                                :rev-etype "owners"
+                                :rev-field "etype"}
+                               {:etype "owners"
+                                :field "id"}]
+                              "[] == data.ref('owner.id') || data.ref('owner.id') == []")))
 
     (is (= {:or [{"owner" {:$isNull false}} {"owner" {:$isNull false}}]}
-           (:where-clauses
-            (cel/get-where-clauses (make-ctx [{:etype "etype"
-                                               :field "owner"
-                                               :rev-etype "owners"
-                                               :rev-field "etype"}
-                                              {:etype "owners"
-                                               :field "id"}])
-                                   "etype"
-                                   "[] != data.ref('owner.id') || data.ref('owner.id') != []"))))
+           (get-where-clauses [{:etype "etype"
+                                :field "owner"
+                                :rev-etype "owners"
+                                :rev-field "etype"}
+                               {:etype "owners"
+                                :field "id"}]
+                              "[] != data.ref('owner.id') || data.ref('owner.id') != []")))
 
     (is (= {:or [{"owner" {:$isNull true}} {"owner" {:$isNull true}}]}
-           (:where-clauses
-            (cel/get-where-clauses (make-ctx [{:etype "etype"
-                                               :field "owner"
-                                               :rev-etype "owners"
-                                               :rev-field "etype"}
-                                              {:etype "owners"
-                                               :field "id"}])
-                                   "etype"
-                                   "size(data.ref('owner.id')) == 0 || 0 == size(data.ref('owner.id'))"))))
+           (get-where-clauses [{:etype "etype"
+                                :field "owner"
+                                :rev-etype "owners"
+                                :rev-field "etype"}
+                               {:etype "owners"
+                                :field "id"}]
+                              "size(data.ref('owner.id')) == 0 || 0 == size(data.ref('owner.id'))")))
 
     (is (= {:or [{"owner" {:$isNull false}} {"owner" {:$isNull false}}]}
-           (:where-clauses
-            (cel/get-where-clauses (make-ctx [{:etype "etype"
-                                               :field "owner"
-                                               :rev-etype "owners"
-                                               :rev-field "etype"}
-                                              {:etype "owners"
-                                               :field "id"}])
-                                   "etype"
-                                   "size(data.ref('owner.id')) != 0 || 0 != size(data.ref('owner.id'))"))))))
+           (get-where-clauses [{:etype "etype"
+                                :field "owner"
+                                :rev-etype "owners"
+                                :rev-field "etype"}
+                               {:etype "owners"
+                                :field "id"}]
+                              "size(data.ref('owner.id')) != 0 || 0 != size(data.ref('owner.id'))")))))
+
+(deftest rule-wheres-short-circuit?
+  (let [make-ctx (fn [attr-specs]
+                   {:attrs (dummy-attrs attr-specs)
+                    :current-user {:id "__auth.id__" :email "__auth.email__"}
+                    :preloaded-refs (cel/create-preloaded-refs-cache)})
+        get-where-clauses (fn [fields code]
+                            (let [res (cel/get-all-where-clauses
+                                       (make-ctx (map (fn [field]
+                                                        (if (string? field)
+                                                          {:etype "etype"
+                                                           :field field}
+                                                          field))
+                                                      fields))
+                                       {}
+                                       [{:etype "etype"
+                                         :where-clauses-program (cel/where-clauses-program code)}])
+                                  res (get res "etype")]
+                              (when-let [t (:thrown res)]
+                                (throw t))
+                              res))]
+
+    (is (= {:short-circuit? true
+            :where-clauses nil}
+           (select-keys (get-where-clauses [{:etype "etype"
+                                             :field "owner"
+                                             :rev-etype "owners"
+                                             :rev-field "etype"}
+                                            {:etype "owners"
+                                             :field "id"}]
+                                           "null in data.ref('owner.id')")
+                        [:short-circuit?
+                         :where-clauses])))
+
+    (is (= {:short-circuit? true
+            :where-clauses nil}
+           (select-keys (get-where-clauses []
+                                           "auth.id == 1")
+                        [:short-circuit?
+                         :where-clauses])))
+
+    (is (= {:short-circuit? true
+            :where-clauses nil}
+           (select-keys (get-where-clauses ["field"]
+                                           "auth.id == 1 && data.field == 2")
+                        [:short-circuit?
+                         :where-clauses])))))
 
 (deftest bad-code-fails
   (let [make-ctx (fn [attr-specs]
                    {:attrs (dummy-attrs attr-specs)
-                    :current-user {:id "__auth.id__" :email "__auth.email__"}})]
+                    :current-user {:id "__auth.id__" :email "__auth.email__"}
+                    :preloaded-refs (cel/create-preloaded-refs-cache)})
+        get-where-clauses (fn [fields code]
+                            (let [res (cel/get-all-where-clauses
+                                       (make-ctx (map (fn [field]
+                                                        (if (string? field)
+                                                          {:etype "etype"
+                                                           :field field}
+                                                          field))
+                                                      fields))
+                                       {}
+                                       [{:etype "etype"
+                                         :action "view"
+                                         :where-clauses-program (cel/where-clauses-program code)}])
+                                  _ (def -res1 res)
+                                  res (get res "etype")]
+                              (when-let [t (:thrown res)]
+                                (throw (or (ex-cause t)
+                                           t)))
+                              res))]
 
     (doseq [[bad-code msg] [ ;; Can't handle size, but maybe we could do something to check empty
                             ["size(data) == 0",
@@ -276,26 +325,25 @@
       (testing (str "`" bad-code "` throws")
         (is (thrown-with-msg? Throwable
                               msg
-                              (cel/get-where-clauses (make-ctx [{:etype "etype"
-                                                                 :field "adminUserIds"}
-                                                                {:etype "etype"
-                                                                 :field "ownerId"}
-                                                                {:etype "etype"
-                                                                 :field "adminUserIds"}
-                                                                {:etype "etype"
-                                                                 :field "isPrivate"}
-                                                                {:etype "etype"
-                                                                 :field "path"
-                                                                 :index? true
-                                                                 :checked-data-type :string}
-                                                                {:etype "etype"
-                                                                 :field "owner"
-                                                                 :rev-etype "owners"
-                                                                 :rev-field "etype"}
-                                                                {:etype "owners"
-                                                                 :field "id"}])
-                                                     "etype"
-                                                     bad-code)))))
+                              (get-where-clauses [{:etype "etype"
+                                                   :field "adminUserIds"}
+                                                  {:etype "etype"
+                                                   :field "ownerId"}
+                                                  {:etype "etype"
+                                                   :field "adminUserIds"}
+                                                  {:etype "etype"
+                                                   :field "isPrivate"}
+                                                  {:etype "etype"
+                                                   :field "path"
+                                                   :index? true
+                                                   :checked-data-type :string}
+                                                  {:etype "etype"
+                                                   :field "owner"
+                                                   :rev-etype "owners"
+                                                   :rev-field "etype"}
+                                                  {:etype "owners"
+                                                   :field "id"}]
+                                                 bad-code)))))
 
     (doseq [code ["auth.email == 'random-email'"
                   "false && data.ownerId == 'me'"
@@ -303,14 +351,13 @@
                   "null"]]
       (testing (str "`" code "` short-circuits")
         (is (true? (:short-circuit?
-                    (cel/get-where-clauses (make-ctx [{:etype "etype"
-                                                       :field "adminUserIds"}
-                                                      {:etype "etype"
-                                                       :field "ownerId"}
-                                                      {:etype "etype"
-                                                       :field "adminUserIds"}])
-                                           "etype"
-                                           code))))))))
+                    (get-where-clauses [{:etype "etype"
+                                         :field "adminUserIds"}
+                                        {:etype "etype"
+                                         :field "ownerId"}
+                                        {:etype "etype"
+                                         :field "adminUserIds"}]
+                                       code))))))))
 
 (deftest where-clauses-with-auth-ref
   (with-zeneca-app
@@ -319,7 +366,8 @@
                        {:db {:conn-pool (aurora/conn-pool :read)}
                         :app-id (:id app)
                         :attrs (attr-model/get-by-app-id (:id app))
-                        :datalog-query-fn d/query})
+                        :datalog-query-fn d/query
+                        :preloaded-refs (cel/create-preloaded-refs-cache)})
             user (app-user-model/get-by-email! {:app-id (:id app)
                                                 :email "alex@instantdb.com"})
             id-attr-id (random-uuid)
@@ -344,11 +392,28 @@
                        [:add-triple profile-id id-attr-id (str profile-id)]
                        [:add-triple profile-id link-attr-id (str (:id user))]])
         (is (= {"id" (str profile-id)}
-               (:where-clauses
-                (cel/get-where-clauses (assoc (make-ctx)
-                                              :current-user user)
-                                       "profile"
-                                       "data.id == (auth.ref('$user.profile.id'))[0]"))))))))
+               (->
+                (cel/get-all-where-clauses (assoc (make-ctx)
+                                                  :current-user user)
+                                           {}
+                                           [{:etype "profile"
+                                             :action "view"
+                                             :where-clauses-program (cel/where-clauses-program
+                                                                     "data.id == (auth.ref('$user.profile.id'))[0]")}])
+                (get "profile")
+                :where-clauses)))
+
+        (is (= {"id" (str (:id user))}
+               (->
+                (cel/get-all-where-clauses (assoc (make-ctx)
+                                                  :current-user user)
+                                           {}
+                                           [{:etype "profile"
+                                             :action "view"
+                                             :where-clauses-program (cel/where-clauses-program
+                                                                     "data.id == auth.id")}])
+                (get "profile")
+                :where-clauses)))))))
 
 (deftest advance-program-works
   (with-zeneca-app

@@ -455,21 +455,22 @@
    {:keys [^CelRuntime$Program cel-program
            etype
            action]}
-   {:keys [data rule-params new-data]}]
+   {:keys [resolver data rule-params new-data]}]
   (try
     (let [missing-data-refs (HashMap.)
-          resolver (reify CelVariableResolver
-                     (find [_this var-name]
-                       (case var-name
-                         "auth" (Optional/of
-                                 (AuthCelMap. ctx (CelMap. (:current-user ctx))))
-                         "data" (Optional/of
-                                 (DataCelMap. ctx etype (CelMap. data)))
-                         "ruleParams" (Optional/of (CelMap. rule-params))
-                         "newData" (if new-data
-                                     (Optional/of (CelMap. new-data))
-                                     (Optional/empty))
-                         (Optional/empty))))
+          resolver (or resolver
+                       (reify CelVariableResolver
+                         (find [_this var-name]
+                           (case var-name
+                             "auth" (Optional/of
+                                     (AuthCelMap. ctx (CelMap. (:current-user ctx))))
+                             "data" (Optional/of
+                                     (DataCelMap. ctx etype (CelMap. data)))
+                             "ruleParams" (Optional/of (CelMap. rule-params))
+                             "newData" (if new-data
+                                         (Optional/of (CelMap. new-data))
+                                         (Optional/empty))
+                             (Optional/empty)))))
           unknown-ctx (UnknownContext/create resolver (ImmutableList/of))
           i (AtomicInteger.)
           register-missing-ref (fn [ref-data]
@@ -1239,26 +1240,93 @@
         (.setOptions where-cel-options)
         (.build))))
 
-(defn get-where-clauses
-  "Uses our customized cel compiler to generate instaql where clauses from a cel rule.
-   Will throw if it encounters a rule it can't handle."
-  [{:keys [attrs current-user] :as ctx} etype code]
-  (let [^CelAbstractSyntaxTree ast (.getAst (.compile where-cel-compiler code))
-        ^CelRuntime$Program program (.createProgram where-cel-runtime ast)
-        map-value (HashMap.)
-        _ (.put map-value "auth" (AuthCelMap. ctx (CelMap. current-user)))
-        _ (.put map-value "data" (CheckedDataMap. attrs etype))
-        evaluation-result (.eval program
-                                 map-value)]
-    (when (and (not (instance? WhereClause evaluation-result))
-               (custom-type? evaluation-result))
-      (throw (ex-info "Invalid return type from the cel rule" {:evaluation-result evaluation-result})))
+(defn where-clauses-program
+  "Takes a string, returns either an Exception (if this code can't
+   be evaluated to rule wheres) or the cel program."
+  [code]
+  (try
+    (let [^CelAbstractSyntaxTree ast (.getAst (.compile where-cel-compiler code))
+          ^CelRuntime$Program program (.createProgram where-cel-runtime ast)]
+      program)
+    (catch Exception e
+      e)))
 
-    {:short-circuit? (or (= evaluation-result NullValue/NULL_VALUE)
-                         (not evaluation-result))
-     :evaluation-result evaluation-result
-     :where-clauses (when (instance? WhereClause evaluation-result)
-                      (.where_clause ^WhereClause evaluation-result))}))
+(defn format-evaluation-result [evaluation-result]
+  (when (and (not (instance? WhereClause evaluation-result))
+             (custom-type? evaluation-result))
+    (throw (ex-info "Invalid return type from the cel rule" {:evaluation-result evaluation-result})))
+
+  {:short-circuit? (or (= evaluation-result NullValue/NULL_VALUE)
+                       (not evaluation-result))
+   :evaluation-result evaluation-result
+   :where-clauses (when (instance? WhereClause evaluation-result)
+                    (.where_clause ^WhereClause evaluation-result))})
+
+(defn get-all-where-clauses
+  "Returns a map of {etype {:thrown Throwable} |
+                           {:short-circuit? bool
+                            :evaluation-result any
+                            :where-clauses {where-clauses}}}"
+  ([ctx rule-params programs]
+   (get-all-where-clauses {} ctx rule-params programs))
+  ([results ctx rule-params programs]
+   (assert (and (:preloaded-refs ctx)
+                (instance? ConcurrentHashMap (:preloaded-refs ctx))))
+   (let [{:keys [results missing-refs rerun-programs]}
+         (reduce
+          (fn [acc {:keys [where-clauses-program etype] :as program}]
+            (assert where-clauses-program)
+            (try
+              (when (instance? Exception where-clauses-program)
+                (throw where-clauses-program))
+              (let [result
+                    (io/warn-io :cel/advance-program!
+                      (advance-program!
+                       ctx
+                       {:cel-program where-clauses-program
+                        :etype etype
+                        :action "view"}
+                       {:resolver (reify CelVariableResolver
+                                    (find [_this var-name]
+                                      (case var-name
+                                        "auth"
+                                        (Optional/of
+                                         (AuthCelMap. ctx (CelMap. (:current-user ctx))))
+                                        "data"
+                                        (Optional/of
+                                         (CheckedDataMap. (:attrs ctx) etype))
+                                        "ruleParams"
+                                        (Optional/of (CelMap. rule-params))
+
+                                        (Optional/empty))))}))]
+                (if (is-missing-ref-data? result)
+                  (-> acc
+                      (update :missing-refs into (missing-ref-datas result))
+                      (update :rerun-programs conj program))
+                  (-> acc
+                      (assoc-in [:results etype]
+                                (format-evaluation-result result)))))
+
+              (catch Throwable t
+                (assoc-in acc [:results etype] {:thrown t}))))
+          {:results results
+           :missing-refs #{}
+           :rerun-programs []}
+          programs)]
+     (when (seq missing-refs)
+       (assert (seq rerun-programs)))
+     (when (seq rerun-programs)
+       (assert (seq missing-refs)))
+     (if-not (seq missing-refs)
+       results
+       (let [preloaded-refs (tracer/with-span! {:name "cel/prefetch-missing-ref-datas"
+                                                :attributes {:ref-data-count (count missing-refs)}}
+                              (prefetch-missing-ref-datas ctx missing-refs))]
+         (Map/.putAll (:preloaded-refs ctx) preloaded-refs)
+         (recur results
+                ctx
+                rule-params
+                rerun-programs))))))
 
 ;; Static analysis
 ;; ---------------

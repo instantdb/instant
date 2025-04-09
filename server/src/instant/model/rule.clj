@@ -128,14 +128,15 @@
     (let [compiler (cel/action->compiler action)]
       (if (and (= "$users" etype)
                (= "view" action))
-        (let [code "auth.id == data.id"
+        (let [code "auth.id != null && auth.id == data.id"
               ast (cel/->ast compiler code)]
           {:etype etype
            :action action
            :code code
            :display-code code
            :cel-ast ast
-           :cel-program (cel/->program ast)})
+           :cel-program (cel/->program ast)
+           :where-clauses-program (cel/where-clauses-program code)})
         (let [display-code (format "disallow_%s_on_system_tables" action)
               code "false"
               ast (cel/->ast compiler code)]
@@ -144,7 +145,9 @@
            :display-code display-code
            :code code
            :cel-ast ast
-           :cel-program (cel/->program ast)})))))
+           :cel-program (cel/->program ast)
+           :where-clauses-program (when (= action "view")
+                                    (cel/where-clauses-program code))})))))
 
 (def program-cache (cache/lru-cache-factory {} :threshold 2048))
 
@@ -167,7 +170,9 @@
           :display-code expr
           :cel-ast ast
           :cel-program (cel/->program ast)
-          :ref-uses (cel/collect-ref-uses ast)})
+          :ref-uses (cel/collect-ref-uses ast)
+          :where-clauses-program (when (= action "view")
+                                   (cel/where-clauses-program code))})
        (catch CelValidationException e
          (ex/throw-validation-err!
           :permission
