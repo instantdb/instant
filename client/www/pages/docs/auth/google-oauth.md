@@ -5,7 +5,7 @@ description: How to add Google OAuth to your Instant app.
 
 {% nav-default value="web-google-button" %}
 
-Instant supports logging in your users with their Google account. There are a few ways to do this: it depends on whether you are building for web or React Native.
+Instant supports logging users in with their Google account. There are a few ways to do this: it depends on whether you are building for web or React Native.
 
 Choose the option that sounds best to you, and the rest of the document will show you how to add Sign in with Google to your app.
 
@@ -147,7 +147,7 @@ For production, add your website's domain.
    param="method"
    value=["rn-native"] %}
 
-Go to the {% blank-link href="http://instantdb.com/dash?s=main&t=auth" label="Instant dashboard" /%} and select the `Auth` tab for your app. For each Oauth Client you created, add it on Instant:
+Go to the {% blank-link href="http://instantdb.com/dash?s=main&t=auth" label="Instant dashboard" /%} and select the `Auth` tab for your app. For each Oauth Client you created, add it to Instant:
 
 - Click "Set up Google"
 - Enter your "Client ID"
@@ -175,7 +175,7 @@ Let's do that.
 
 **Using React**
 
-If you're using React, the easiest way to include the signin button is through the {% blank-link href="https://github.com/MomenSherif/react-oauth" label="@react-oauth/google" /%} package:
+If you're using React, the easiest way to include the Sign in Button is through the {% blank-link href="https://github.com/MomenSherif/react-oauth" label="@react-oauth/google" /%} package:
 
 ```shell
 npm install @react-oauth/google
@@ -268,7 +268,7 @@ async function handleSignInWithGoogle(response) {
 
 If you don't want to use the google styled buttons, you can use the redirect flow instead.
 
-Simply create an authorization URL via `db.auth.createAuthorizationURL` and then use the url to create a link. Here's a full example:
+Create an authorization URL via `db.auth.createAuthorizationURL` and then use the url to create a link. Here's a full example:
 
 ```javascript {% showCopy=true %}
 'use client';
@@ -444,14 +444,14 @@ You can use [react-native-google-signin/google-signin](https://github.com/react-
 There are three steps:
 
 1. Set up google-signin on Expo
-2. Use the button auth with Google and get an `idToken`
-3. Pass the idToken on to Instant's `db.auth.signInWithIdToken`, and you are logged in!
+1. Use the Sign in Button to auth with Google and get an `idToken`
+1. Pass the token on to `db.auth.signInWithIdToken`, and you are logged in!
 
 Let's do that.
 
 **Set up google-signin on Expo**
 
-First, let's install the the package:
+First, let's install the package:
 
 ```
 npx expo install @react-native-google-signin/google-signin
@@ -461,7 +461,7 @@ Then, follow the google-signin {% blank-link href="https://react-native-google-s
 
 **Use google-signin to log in with Google!**
 
-Now you're ready to add a login button to your expo app! Here's a full example:
+Now you're ready to add the Google Signin button to your expo app! Here's a full example:
 
 ```javascript {% showCopy=true %}
 import { View, Text, Button, StyleSheet } from 'react-native';
