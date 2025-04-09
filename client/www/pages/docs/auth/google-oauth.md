@@ -5,44 +5,44 @@ description: How to add Google OAuth to your Instant app.
 
 {% nav-default value="web-google-button" %}
 
-Instant supports logging in your users with their Google account. There are a few ways to do this: it depends on whether you are building for web or React Native. 
+Instant supports logging in your users with their Google account. There are a few ways to do this: it depends on whether you are building for web or React Native.
 
 Choose the option that sounds best to you, and the rest of the document will show you how to add Sign in with Google to your app.
 
 {% nav-table %}
-  {% nav-table-column title="Building for Web?" %}
-    {% nav-button
+{% nav-table-column title="Building for Web?" %}
+{% nav-button
       title="Google Button"
       description="Use Google's pre-styled button to sign in. Using this method you can render your custom app name in the consent screen"
       param="method"
       value="web-google-button"
       recommended=true /%}
-    {% nav-button
+{% nav-button
       title="Web Redirect"
       description="Easier to integrate, but doesn't let you render your custom app name."
       param="method"
       value="web-redirect" /%}
-  {% /nav-table-column %}
-  {% nav-table-column title="Building for React Native?" %}
-    {% nav-button
+{% /nav-table-column %}
+{% nav-table-column title="Building for React Native?" %}
+{% nav-button
       title="Native Auth"
       description="Use a 'react-native-google-signin', to integrate with the native Google iOS and Android flows. Lets you render your custom app name in the consent screen"
       param="method"
       value="rn-native"
-      recommended=true /%}    
-    {% nav-button
+      recommended=true /%}  
+ {% nav-button
       title="Expo Web Auth"
       description="Use Expo's auth session to integrate browser-based sign-in. Easier to implement, but doesn't let you render your custom app name."
       param="method"
       value="rn-web" /%}
-  {% /nav-table-column %}
+{% /nav-table-column %}
 {% /nav-table %}
 
-## Overview 
+## Overview
 
 There three main steps:
 
-1. **Google Console**: Set up your consent screen and create an Oauth client. 
+1. **Google Console**: Set up your consent screen and create an Oauth client.
 2. **Instant Dashboard**: Connect your Oauth client to Instant
 3. **Your app**: Add some code to log in with Google!
 
@@ -50,7 +50,7 @@ Let's dive deeper in each step:
 
 ## 1. Set up your consent screen and create an Oauth client
 
-Head on over to {% blank-link href="https://console.cloud.google.com/apis/credentials" label="Google Console" /%}. You should be in the "Credentials" section. 
+Head on over to {% blank-link href="https://console.cloud.google.com/apis/credentials" label="Google Console" /%}. You should be in the "Credentials" section.
 
 **Configure your Google OAuth consent screen**
 
@@ -61,8 +61,8 @@ Head on over to {% blank-link href="https://console.cloud.google.com/apis/creden
 
 **Create an OAuth client for Google**
 
-{% conditional 
-   param="method" 
+{% conditional
+   param="method"
    value=["web-google-button", "web-redirect", "rn-web"] %}
 
 - From Google Console, click "+ CREATE CREDENTIALS"
@@ -72,7 +72,7 @@ Head on over to {% blank-link href="https://console.cloud.google.com/apis/creden
 - If you're testing from localhost, **add both `http://localhost`** and `http://localhost:3000` to "Authorized JavaScript origins", replacing `3000` with the port you use.
 - For production, add your website's domain.
 
-And with that you have your Oauth client! 
+And with that you have your Oauth client!
 
 {% callout type="note" %}
 
@@ -82,45 +82,49 @@ Save your Client ID and your Client Secret -- you'll need it for the next step!
 
 {% /conditional %}
 
-{% conditional 
-   param="method" 
+{% conditional
+   param="method"
    value=["rn-native"] %}
 
-TODO
+For native auth, each platform needs an Oauth Client. If you support both iOS or Android for example, you'll create two clients. Here are the steps:
+
+- From Google Console, click "+ CREATE CREDENTIALS"
+- Select "OAuth client ID"
+- Select "iOS" or "Android" as the application type.
+- Fill in your bundle information.
+
+And with that you ready!
+
+{% callout type="note" %}
+
+Save your Client IDs -- you'll need it for the next step!
+
+{% /callout %}
 
 {% /conditional %}
 
 ## 2. Connect your Oauth client to Instant
 
+{% conditional
+   param="method"
+   value=["web-google-button", "web-redirect", "rn-web"] %}
+
 Go to the {% blank-link href="http://instantdb.com/dash?s=main&t=auth" label="Instant dashboard" /%} and select the `Auth` tab for your app.
 
 **Add your Oauth Client on Instant**
 
-{% conditional 
-   param="method" 
-   value=["web-google-button", "web-redirect", "rn-web"] %}
-
-- Click "Set up Google" 
-- Enter your "Client ID" 
-- Enter your "Client Secret" 
+- Click "Set up Google"
+- Enter your "Client ID"
+- Enter your "Client Secret"
 - Check "I added the redirect to Google" (make sure you actually did this!)
-- Click "Add Client" 
+- Click "Add Client"
 
 And voila, you are connected!
 
 {% /conditional %}
 
-
-{% conditional 
-   param="method" 
-   value=["rn-native"] %}
-
-TODO
-
-{% /conditional %}
-
-{% conditional 
-   param="method" 
+{% conditional
+   param="method"
    value=["web-google-button", "web-redirect"] %}
 
 **Register your website with Instant**
@@ -131,31 +135,45 @@ For production, add your website's domain.
 
 {% /conditional %}
 
+{% conditional
+   param="method"
+   value=["rn-native"] %}
+
+Go to the {% blank-link href="http://instantdb.com/dash?s=main&t=auth" label="Instant dashboard" /%} and select the `Auth` tab for your app. For each Oauth Client you created, add it on Instant:
+
+- Click "Set up Google"
+- Enter your "Client ID"
+- Make sure "skip nonce checks" is enabled.
+- Click "Add Client"
+
+And voila, you are connected!
+
+{% /conditional %}
+
 ## 3. Add some code!
 
 {% conditional param="method" value="web-google-button" %}
 
 **Method: Google Sign in Button for Web**
 
-We'll use {% blank-link href="https://developers.google.com/identity/gsi/web/guides/overview" label="Google's pre-built Sign in Button" /%}.  The benefit of using Google's button is that you can display your app's name in the consent screen.
+We'll use {% blank-link href="https://developers.google.com/identity/gsi/web/guides/overview" label="Google's pre-built Sign in Button" /%}. The benefit of using Google's button is that you can display your app's name in the consent screen.
 
 There two steps to the code:
 
 1. Use the Sign in Button to auth with Google and get an `idToken`
 2. Pass the token on to `db.auth.signInWithIdToken`, and you are logged in!
 
-Let's do that. 
+Let's do that.
 
 **Using React**
 
 If you're using React, the easiest way to include the signin button is through the {% blank-link href="https://github.com/MomenSherif/react-oauth" label="@react-oauth/google" /%} package:
 
-
 ```shell
 npm install @react-oauth/google
 ```
 
-Once you install it, include the button, and use  `db.auth.signInWithIdToken` to complete sign in. Here's a full example:
+Once you install it, include the button, and use `db.auth.signInWithIdToken` to complete sign in. Here's a full example:
 
 ```javascript {% showCopy=true %}
 'use client';
@@ -216,7 +234,7 @@ function Login() {
 }
 ```
 
-**Not using React?** 
+**Not using React?**
 
 If you're not using React or prefer to embed the button yourself, refer to {% blank-link href="https://developers.google.com/identity/gsi/web/guides/overview" label="Google's docs" /%} on how to create the button and load their client library
 
@@ -280,7 +298,7 @@ function Login() {
 }
 ```
 
-When your users clicks on the link, they'll be redirected to Google to start the OAuth flow and then back to your site. 
+When your users clicks on the link, they'll be redirected to Google to start the OAuth flow and then back to your site.
 
 Instant will automatically log them in to your app when they are redirected!
 
@@ -290,11 +308,11 @@ Instant will automatically log them in to your app when they are redirected!
 
 **Method: Expo Web Auth**
 
-Instant comes with support for Expo's AuthSession library. To use it, you need to: 
+Instant comes with support for Expo's AuthSession library. To use it, you need to:
 
 1. Set up AuthSession
 2. Register your app with Instant
-3. Use AuthSession to log in with Google! 
+3. Use AuthSession to log in with Google!
 
 Let's do that.
 
@@ -326,7 +344,7 @@ From the {% blank-link href="http://instantdb.com/dash?s=main&t=auth" label="Aut
 
 {% screenshot src="/img/docs/rn-web-redirect-origins.png" /%}
 
-**Use AuthSession to log in with Google!** 
+**Use AuthSession to log in with Google!**
 
 And from here you're ready to add a login button to your expo app! Here's a full example
 
@@ -395,6 +413,111 @@ function Login() {
         }
       }}
     ></Button>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+});
+```
+
+{% /conditional %}
+
+{% conditional param="method" value="rn-native" %}
+
+**Method: Native Auth**
+
+You can use [react-native-google-signin/google-signin](https://github.com/react-native-google-signin/google-signin), to authenticate natively on Google.
+
+There are three steps:
+
+1. Set up google-signin on Expo
+2. Use the button auth with Google and get an `idToken`
+3. Pass the idToken on to Instant's `db.auth.signInWithIdToken`, and you are logged in!
+
+Let's do that.
+
+**Set up google-signin on Expo**
+
+First, let's install the the package:
+
+```
+npx expo install @react-native-google-signin/google-signin
+```
+
+Then, follow the google-signin {% blank-link href="https://react-native-google-signin.github.io/docs/setting-up/expo/" label="installation instructions" /%} to set it up with Expo.
+
+**Use google-signin to log in with Google!**
+
+Now you're ready to add a login button to your expo app! Here's a full example:
+
+```javascript {% showCopy=true %}
+import { View, Text, Button, StyleSheet } from 'react-native';
+import { init } from '@instantdb/react-native';
+import {
+  GoogleSignin,
+  GoogleSigninButton,
+} from '@react-native-google-signin/google-signin';
+
+const APP_ID = '__APP_ID__';
+const db = init({ appId: APP_ID });
+
+GoogleSignin.configure({
+  scopes: ["https://www.googleapis.com/auth/drive.readonly"],
+  // See https://react-native-google-signin.github.io/docs/original#configure
+  iosClientId: "YOUR_IOS_CLIENT_ID",
+});
+
+function App() {
+  const { isLoading, user, error } = db.useAuth();
+
+  let content;
+  if (isLoading) {
+    content = <Text>Loading...</Text>;
+  } else if (error) {
+    content = <Text>Uh oh! {error.message}</Text>;
+  } else if (user) {
+    content = <Text>Hello {user.email}!</Text>;
+  } else {
+    content = <Login />;
+  }
+
+  return <View style={styles.container}>{content}</View>;
+}
+
+function Login() {
+  return (
+    <GoogleSigninButton
+      size={GoogleSigninButton.Size.Wide}
+      color={GoogleSigninButton.Color.Dark}
+      onPress={async () => {
+        // 1. Sign in to Google
+        await GoogleSignin.hasPlayServices();
+        const userInfo = await GoogleSignin.signIn();
+        const idToken = userInfo.data?.idToken;
+
+        if (!idToken) {
+          console.error('no ID token present!');
+          return;
+        }
+        // 2. Use your token, and sign into InstantDB!
+        try {
+          const res = await db.auth.signInWithIdToken({
+            // The unique name you gave the OAuth client when you
+            // registered it on the Instant dashboard
+            clientId: 'YOUR_INSTANT_AUTH_CLIENT_NAME',
+            idToken,
+          });
+          console.log('logged in!', res);
+        } catch (error) {
+          console.log('error signing in', error);
+        }
+      }}
+    />
   );
 }
 
