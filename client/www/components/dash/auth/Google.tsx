@@ -22,6 +22,7 @@ import {
   SubsectionHeading,
   TextInput,
   useDialog,
+  ToggleGroup,
 } from '@/components/ui';
 import Image from 'next/image';
 import googleIconSvg from '../../../public/img/google_g.svg';
@@ -42,6 +43,11 @@ function NonceCheckNotice() {
   );
 }
 
+type AppType = 'web' | 'ios' | 'android';
+function isNative(appType: AppType) {
+  return appType === 'ios' || appType === 'android';
+}
+
 export function AddClientForm({
   app,
   provider,
@@ -56,15 +62,22 @@ export function AddClientForm({
   usedClientNames: Set<string>;
 }) {
   const token = useContext(TokenContext);
+  const [appType, setAppType] = useState<'web' | 'ios' | 'android'>('web');
   const [clientName, setClientName] = useState<string>(() =>
-    findName('google', usedClientNames),
+    findName(`google-${appType}`, usedClientNames),
   );
   const [clientId, setClientId] = useState<string>('');
   const [clientSecret, setClientSecret] = useState<string>('');
   const [updatedRedirectURL, setUpdatedRedirectURL] = useState(false);
-  const [skipNonceChecks, setSkipNonceChecks] = useState(false);
-
+  const [skipNonceChecks, setSkipNonceChecks] = useState(isNative(appType));
   const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  const onChangeAppType = (item: { id: string; label: string }) => {
+    const newAppType = item.id as 'web' | 'ios' | 'android';
+    setAppType(newAppType);
+    setClientName(findName(`google-${newAppType}`, usedClientNames));
+    setSkipNonceChecks(isNative(newAppType));
+  };
 
   const validationError = () => {
     if (!clientName) {
@@ -76,7 +89,7 @@ export function AddClientForm({
     if (!clientId) {
       return 'Missing client id';
     }
-    if (!clientSecret) {
+    if (appType === 'web' && !clientSecret) {
       return 'Missing client secret';
     }
   };
@@ -96,13 +109,14 @@ export function AddClientForm({
         providerId: provider.id,
         clientName,
         clientId,
-        clientSecret,
+        clientSecret: clientSecret ? clientSecret : undefined,
         authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
         tokenEndpoint: 'https://oauth2.googleapis.com/token',
         discoveryEndpoint:
           'https://accounts.google.com/.well-known/openid-configuration',
         meta: {
           skipNonceChecks: skipNonceChecks,
+          appType,
         },
       });
       onAddClient(resp.client);
@@ -124,13 +138,29 @@ export function AddClientForm({
       data-lpignore="true"
     >
       <SubsectionHeading>Add a new Google client</SubsectionHeading>
+      <div className="mb-4">
+        <label className="block text-sm font-bold text-gray-700 mb-2">
+          Type
+        </label>
+        <ToggleGroup
+          items={[
+            { id: 'web', label: 'Web' },
+            { id: 'ios', label: 'iOS' },
+            { id: 'android', label: 'Android' },
+          ]}
+          selectedId={appType}
+          onChange={onChangeAppType}
+          ariaLabel="Application type"
+        />
+      </div>
       <TextInput
         tabIndex={1}
         value={clientName}
         onChange={setClientName}
         label="Client name"
-        placeholder="e.g. google-web"
+        placeholder={`e.g. google-${appType}`}
       />
+
       <TextInput
         tabIndex={2}
         value={clientId}
@@ -150,58 +180,65 @@ export function AddClientForm({
         }
         placeholder=""
       />
-      <TextInput
-        type="sensitive"
-        tabIndex={3}
-        value={clientSecret}
-        onChange={setClientSecret}
-        label={
-          <>
-            Client secret from{' '}
+
+      {appType === 'web' && (
+        <TextInput
+          type="sensitive"
+          tabIndex={3}
+          value={clientSecret}
+          onChange={setClientSecret}
+          label={
+            <>
+              Client secret from{' '}
+              <a
+                className="underline"
+                target="_blank"
+                rel="noopener noreferer"
+                href="https://console.developers.google.com/apis/credentials"
+              >
+                Google console
+              </a>
+            </>
+          }
+        />
+      )}
+      {appType === 'web' && (
+        <div className="rounded border p-4 flex flex-col gap-2 bg-gray-50">
+          <p className="overflow-hidden">
+            Add{' '}
+            <Copytext value="https://api.instantdb.com/runtime/oauth/callback" />{' '}
+            to the "Authorized redirect URIs" on your{' '}
             <a
               className="underline"
               target="_blank"
               rel="noopener noreferer"
-              href="https://console.developers.google.com/apis/credentials"
+              href={
+                clientId
+                  ? `https://console.cloud.google.com/apis/credentials/oauthclient/${clientId}`
+                  : 'https://console.developers.google.com/apis/credentials'
+              }
             >
-              Google console
+              Google OAuth client
             </a>
-          </>
-        }
-      />
-      <div className="rounded border p-4 flex flex-col gap-2 bg-gray-50">
-        <p className="overflow-hidden">
-          Add{' '}
-          <Copytext value="https://api.instantdb.com/runtime/oauth/callback" />{' '}
-          to the "Authorized redirect URIs" on your{' '}
-          <a
-            className="underline"
-            target="_blank"
-            rel="noopener noreferer"
-            href={
-              clientId
-                ? `https://console.cloud.google.com/apis/credentials/oauthclient/${clientId}`
-                : 'https://console.developers.google.com/apis/credentials'
-            }
-          >
-            Google OAuth client
-          </a>
-          .
-        </p>
-        <Checkbox
-          checked={updatedRedirectURL}
-          onChange={setUpdatedRedirectURL}
-          label="I added the redirect to Google"
-        />
-      </div>
-      <div className="rounded border p-4 flex flex-col gap-2 bg-gray-50">
-        <Checkbox
-          checked={skipNonceChecks}
-          onChange={setSkipNonceChecks}
-          label="Skip nonce checks"
-        />
-        <NonceCheckNotice />
-      </div>
+            .
+          </p>
+          <Checkbox
+            checked={updatedRedirectURL}
+            onChange={setUpdatedRedirectURL}
+            label="I added the redirect to Google"
+          />
+        </div>
+      )}
+      {isNative(appType) && (
+        <div className="rounded border p-4 flex flex-col gap-2 bg-gray-50">
+          <Checkbox
+            checked={skipNonceChecks}
+            onChange={setSkipNonceChecks}
+            label="Skip nonce checks"
+          />
+          <NonceCheckNotice />
+        </div>
+      )}
       <Button loading={isLoading} type="submit">
         Add client
       </Button>
@@ -257,6 +294,15 @@ export function AddGoogleProviderForm({
   );
 }
 
+function appTypeLabel(appType: AppType): string {
+  switch (appType) {
+    case 'ios':
+      return 'iOS';
+    default:
+      return appType.charAt(0).toUpperCase() + appType.slice(1);
+  }
+}
+
 export function Client({
   app,
   client,
@@ -274,6 +320,7 @@ export function Client({
   const deleteDialog = useDialog();
 
   const didSkipNonceChecks = client.meta?.skipNonceChecks;
+  const appType: AppType = client.meta?.appType || 'web';
 
   const handleDelete = async () => {
     try {
@@ -295,7 +342,7 @@ export function Client({
     }
   };
 
-  const exampleCode = `// create the authorization URL:
+  const exampleCode = `// Create the authorization URL:
 const url = db.auth.createAuthorizationURL({
   clientName: "${client.client_name}",
   redirectURL: window.location.href,
@@ -304,6 +351,34 @@ const url = db.auth.createAuthorizationURL({
 // Create a link with the url
 <a href={url}>Log in with Google</a>`;
 
+  const exampleRNCode = `
+<GoogleSigninButton
+  size={GoogleSigninButton.Size.Wide}
+  color={GoogleSigninButton.Color.Dark}
+  onPress={async () => {
+    // 1. Sign in to Google
+    await GoogleSignin.hasPlayServices();
+    const userInfo = await GoogleSignin.signIn();
+    const idToken = userInfo.data?.idToken;
+
+    if (!idToken) {
+      console.error("no ID token present!");
+      return;
+    }
+    // 2. Use your token, and sign into InstantDB!
+    try {
+      const res = await db.auth.signInWithIdToken({
+        clientName: "${client.client_name}",
+        idToken,
+      });
+      console.log("logged in!", res);
+    } catch (error) {
+      console.log("error signing in", error);
+    }
+    console.log("done");
+  }}
+/>
+  `.trim();
   return (
     <div className="">
       <Collapsible.Root
@@ -330,8 +405,15 @@ const url = db.auth.createAuthorizationURL({
         </Collapsible.Trigger>
         <Collapsible.Content className="">
           <div className="p-4 flex flex-col gap-4 border-t">
+            <div className="flex items-center bg-white font-mono text-sm">
+              <span className="font-bold rounded-sm border text-gray-500 bg-gray-50 text-sm px-2 py-0.5">
+                {appTypeLabel(appType)}
+              </span>
+            </div>
+
             <Copyable label="Client name" value={client.client_name} />
             <Copyable label="Google client ID" value={client.client_id || ''} />
+
             {didSkipNonceChecks ? (
               <div className="rounded border p-4 flex flex-col gap-2 bg-gray-50">
                 <Checkbox
@@ -342,38 +424,65 @@ const url = db.auth.createAuthorizationURL({
                 <NonceCheckNotice />
               </div>
             ) : null}
-            <SubsectionHeading>
-              <a className="underline" href="/docs/auth/google-auth">
-                Setup and usage
-              </a>
-            </SubsectionHeading>
-            <Content>
-              <strong>1.</strong> Navigate to{' '}
-              <a
-                className="underline"
-                href={`https://console.cloud.google.com/apis/credentials/oauthclient/${client.client_id}`}
-                target="_blank"
-                rel="noopener noreferer"
-              >
-                Google OAuth client
-              </a>{' '}
-              and add Instant's redirect URL under "Authorized redirect URIs
-            </Content>
-            <Copyable
-              label="Redirect URI"
-              value="https://api.instantdb.com/runtime/oauth/callback"
-            />
-            <Content>
-              <strong>2.</strong> Use the code below to generate a login link in
-              your app.
-            </Content>
-
-            <div className="border rounded p-4 text-sm overflow-auto">
-              <Fence code={exampleCode} language="typescript" />
-            </div>
+            {appType === 'web' && (
+              <>
+                <SubsectionHeading>
+                  <a
+                    className="underline font-bold"
+                    target="_blank"
+                    href="/docs/auth/google-oauth"
+                  >
+                    Setup and usage
+                  </a>
+                </SubsectionHeading>
+                <Content>
+                  <strong>1.</strong> Navigate to{' '}
+                  <a
+                    className="underline"
+                    href={`https://console.cloud.google.com/apis/credentials/oauthclient/${client.client_id}`}
+                    target="_blank"
+                    rel="noopener noreferer"
+                  >
+                    Google OAuth client
+                  </a>{' '}
+                  and add Instant's redirect URL under "Authorized redirect
+                  URIs"
+                </Content>
+                <Copyable
+                  label="Redirect URI"
+                  value="https://api.instantdb.com/runtime/oauth/callback"
+                />
+                <Content>
+                  <strong>2.</strong> Use the code below to generate a login
+                  link in your app.
+                </Content>
+                <div className="border rounded text-sm overflow-auto">
+                  <Fence code={exampleCode} language="typescript" />
+                </div>
+              </>
+            )}
+            {isNative(appType) && (
+              <>
+                <SubsectionHeading>
+                  <a
+                    className="underline font-bold"
+                    target="_blank"
+                    href="/docs/auth/google-oauth?method=react-native"
+                  >
+                    Setup and usage
+                  </a>
+                </SubsectionHeading>
+                <Content>
+                  <strong>1.</strong> Use the code below to sign in with
+                  `react-native-google-signin`:
+                </Content>
+                <div className="border rounded text-sm overflow-auto">
+                  <Fence code={exampleRNCode} language="typescript" />
+                </div>
+              </>
+            )}
 
             <Divider />
-
             <div>
               <Button
                 onClick={deleteDialog.onOpen}

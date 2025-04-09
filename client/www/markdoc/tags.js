@@ -7,7 +7,17 @@ import {
   ConditionalContent,
 } from '@/components/docs/NavButton';
 
+function CustomDiv({ className, children }) {
+  return <div className={className}>{children}</div>;
+}
+
 const tags = {
+  div: {
+    render: CustomDiv,
+    attributes: {
+      className: { type: String },
+    },
+  },
   callout: {
     attributes: {
       title: { type: String },
@@ -68,13 +78,14 @@ const tags = {
       description: { type: String },
       param: { type: String },
       value: { type: String },
+      recommended: { type: Boolean },
     },
   },
   conditional: {
     render: ConditionalContent,
     attributes: {
       param: { type: String, required: true },
-      value: { type: String, required: true },
+      value: { type: [String, Array], required: true },
     },
   },
   'blank-link': {

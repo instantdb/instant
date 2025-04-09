@@ -48,7 +48,14 @@ function isSelected(param, value) {
   return value && value === (router.query[param] || defaultValue);
 }
 
-export function NavButton({ title, description, param, value, href }) {
+export function NavButton({
+  title,
+  description,
+  param,
+  value,
+  href,
+  recommended,
+}) {
   const router = useRouter();
   const selected = isSelected(param, value);
 
@@ -64,7 +71,7 @@ export function NavButton({ title, description, param, value, href }) {
   };
   const Component = (
     <div
-      className="group h-full flex flex-col relative rounded-xl border border-slate-200 dark:border-slate-800 max-w-sm hover:cursor-pointer "
+      className="group h-full flex flex-col relative rounded-xl border border-slate-200 dark:border-slate-800 max-w-sm cursor-pointer"
       onClick={() => !href && handleClick()}
     >
       <div
@@ -73,10 +80,16 @@ export function NavButton({ title, description, param, value, href }) {
           (selected ? ' opacity-100' : '')
         }
       />
-      <div className="relative overflow-hidden rounded-xl p-6">
+      <div className="relative rounded-xl p-6">
+        {recommended && (
+          <span className=" rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/10 absolute top-2 right-2">
+            RECOMMENDED
+          </span>
+        )}
         <h2 className="font-semibold text-slate-900 dark:text-white">
           {title}
         </h2>
+
         <p className="mt-1 text-sm text-slate-700 dark:text-slate-400">
           {description}
         </p>
@@ -88,7 +101,9 @@ export function NavButton({ title, description, param, value, href }) {
 }
 
 export function ConditionalContent({ param, value, children }) {
-  const selected = isSelected(param, value);
+  const selected = Array.isArray(value)
+    ? value.some((v) => isSelected(param, v))
+    : isSelected(param, value);
 
   if (selected) {
     return <>{children}</>;
