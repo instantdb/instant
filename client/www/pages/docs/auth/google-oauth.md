@@ -9,34 +9,42 @@ Instant supports logging in your users with their Google account. There are a fe
 
 Choose the option that sounds best to you, and the rest of the document will show you how to add Sign in with Google to your app.
 
-{% nav-table %}
-{% nav-table-column title="Building for Web?" %}
+{% div className="not-prose" %}
+{% div className="grid md:grid-cols-2 gap-4" %}
+{% div className="h-full flex flex-col space-y-4" %}
+**Building for Web?**
+{% div className="grid grid-cols-2 md:grid-cols-1 md:grid-rows-2 flex-1 gap-4" %}
 {% nav-button
-      title="Google Button"
-      description="Use Google's pre-styled button to sign in. Using this method you can render your custom app name in the consent screen"
-      param="method"
-      value="web-google-button"
-      recommended=true /%}
+  title="Google Button"
+  description="Use Google's pre-styled button to sign in. Using this method you can render your custom app name in the consent screen"
+  param="method"
+  value="web-google-button"
+  recommended=true /%}
 {% nav-button
-      title="Web Redirect"
-      description="Easier to integrate, but doesn't let you render your custom app name."
-      param="method"
-      value="web-redirect" /%}
-{% /nav-table-column %}
-{% nav-table-column title="Building for React Native?" %}
+  title="Web Redirect"
+  description="Easier to integrate, but doesn't let you render your custom app name."
+  param="method"
+  value="web-redirect" /%}
+{% /div %}
+{% /div %}
+{% div className="h-full flex flex-col space-y-4" %}
+**Building for React Native?**
+{% div className="grid grid-cols-2 md:grid-cols-1 md:grid-rows-2 flex-1 gap-4" %}
 {% nav-button
-      title="Native Auth"
-      description="Use a 'react-native-google-signin', to integrate with the native Google iOS and Android flows. Lets you render your custom app name in the consent screen"
-      param="method"
-      value="rn-native"
-      recommended=true /%}  
- {% nav-button
-      title="Expo Web Auth"
-      description="Use Expo's auth session to integrate browser-based sign-in. Easier to implement, but doesn't let you render your custom app name."
-      param="method"
-      value="rn-web" /%}
-{% /nav-table-column %}
-{% /nav-table %}
+  title="Native Auth"
+  description="Use a 'react-native-google-signin', to integrate with the native Google iOS and Android flows. Lets you render your custom app name in the consent screen"
+  param="method"
+  value="rn-native"
+  recommended=true /%}
+{% nav-button
+  title="Expo Web Auth"
+  description="Use Expo's auth session to integrate browser-based sign-in. Easier to implement, but doesn't let you render your custom app name."
+  param="method"
+  value="rn-web" /%}
+{% /div %}
+{% /div %}
+{% /div %}
+{% /div %}
 
 ## Overview
 

@@ -6,9 +6,18 @@ import {
   NavButton,
   ConditionalContent,
 } from '@/components/docs/NavButton';
-import { NavTable, NavTableColumn } from '../components/docs/NavButton';
+
+function CustomDiv({ className, children }) {
+  return <div className={className}>{children}</div>;
+}
 
 const tags = {
+  div: {
+    render: CustomDiv,
+    attributes: {
+      className: { type: String },
+    },
+  },
   callout: {
     attributes: {
       title: { type: String },
@@ -59,15 +68,6 @@ const tags = {
   },
   'nav-group': {
     render: NavGroup,
-  },
-  'nav-table': {
-    render: NavTable,
-  },
-  'nav-table-column': {
-    render: NavTableColumn,
-    attributes: {
-      title: { type: String },
-    },
   },
   'nav-button': {
     selfClosing: true,
