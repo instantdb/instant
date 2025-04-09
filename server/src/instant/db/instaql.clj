@@ -2021,7 +2021,6 @@
          current-path [segment]
          etype initial-etype
          where (assoc where k v)]
-    (tool/def-locals)
     (if-let [segment-etype (link-etype attrs etype segment)]
       (let [rule-where (if (-> rule-wheres (get segment-etype) :short-circuit?)
                          {:id (str (random-uuid))}
