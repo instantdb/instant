@@ -2081,10 +2081,10 @@
                                                                ctx
                                                                rule-wheres))
                              true (select-keys [:$])
-                             true (merge (extend-where-with-rule-refs etype
-                                                                      ctx
-                                                                      rule-wheres
-                                                                      (dissoc v :$)))
+                             true (merge (add-rule-wheres-to-query etype
+                                                                   ctx
+                                                                   rule-wheres
+                                                                   (dissoc v :$)))
                              (seq etype-rule-where)
                              (update-in [:$ :where]
                                         (fn [where]
