@@ -66,7 +66,7 @@ export function DocsPage({ Component, pageProps }) {
       : [];
   }, [pageProps.markdoc]);
 
-  const imgSrc = `/api/og/essay?title=${encodeURIComponent(pageTitle)}`;
+  const imgSrc = `/api/og?title=${encodeURIComponent(title)}&section=docs`;
 
   return (
     <>

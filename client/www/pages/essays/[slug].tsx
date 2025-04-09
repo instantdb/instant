@@ -29,7 +29,7 @@ const Post = ({ post }: { post: Post }) => {
         <meta
           key="og:image"
           property="og:image"
-          content={`/api/og/essay?title=${encodeURIComponent(title)}`}
+          content={`/api/og?title=${encodeURIComponent(title)}&section=blog`}
         />
         <meta key="og:type" property="og:type" content="article" />
         <meta
