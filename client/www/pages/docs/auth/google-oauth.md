@@ -40,7 +40,7 @@ Choose the option that sounds best to you, and the rest of the document will sho
 
 ## Overview
 
-There three main steps:
+There are three main steps:
 
 1. **Google Console**: Set up your consent screen and create an Oauth client.
 2. **Instant Dashboard**: Connect your Oauth client to Instant
