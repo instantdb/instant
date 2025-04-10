@@ -2054,10 +2054,13 @@
   (reduce-kv (fn [new-where k v]
                (if (or (or-where-cond? [k v])
                        (and-where-cond? [k v]))
-                 (assoc new-where k (concat (map (partial extend-where-with-rule-refs
-                                                          ctx
-                                                          rule-wheres)
-                                                 v)
+                 (assoc new-where k (concat (map
+                                             (fn [where]
+                                               (extend-where-with-rule-refs etype
+                                                                            ctx
+                                                                            rule-wheres
+                                                                            where))
+                                             v)
                                             ;; We may have added our own ands/or
                                             ;; in add-rule-wheres-to-query
                                             (get new-where k)))
