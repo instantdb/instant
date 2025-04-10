@@ -848,16 +848,14 @@ export default function Landing2024() {
         />
       </Head>
       <GlowBackground>
-        {/* 
-          hiring-page
         <div className="w-full bg-gray-50/80 p-1 text-center">
           <p className="font-mono text-gray-500 text-sm font-semibold">
-            Instant is hiring! Want to build Figma-like tech?{' '}
+            Obsessed with typescript types? Instant is hiring!{' '}
             <span className="text-orange-600">
-              <TextLink href="/hiring">Come work with us!</TextLink>
+              <TextLink href="/hiring">Come work with us.</TextLink>
             </span>
           </p>
-        </div> */}
+        </div>
         <MainNav />
         <LandingHero />
       </GlowBackground>

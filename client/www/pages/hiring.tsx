@@ -6,8 +6,197 @@ import {
 } from '@/components/marketingUi';
 import MuxPlayer from '@mux/mux-player-react';
 import { walkthrough } from '@/lib/muxVideos';
+import { Fence } from '@/components/ui';
 
-function HiringContent() {
+function TSEngContent() {
+  return (
+    <div className="prose prose-h1:mt-8 prose-h1:mb-4 prose-h2:mt-4 prose-h2:mb-2 prose-pre:bg-gray-100">
+      <h1 id="founding-typescript-engineer">Founding Typescript Engineer</h1>
+      <p>
+        We’re looking for a founding Typescript Engineer to join our team of 4
+        in San Francisco. If you:
+      </p>
+      <ol>
+        <li>
+          Are obsessive about type ergonomics (Even with how types show up in
+          intellisense)
+        </li>
+        <li>Enjoy crafting UIs that people use for hours</li>
+        <li>Want to build a sync engine to enable the next Figma or Notion</li>
+      </ol>
+      <p>Then we want to talk to you!</p>
+      <h2 id="about-instant">About Instant</h2>
+      <p>
+        Instant is a real-time database you can use on the frontend. We give you
+        the best of both Firebase and Supabase, a sync-engine with support for
+        relations. This is the kind of tech that companies like Figma, Notion,
+        and Linear build internally to power their products.
+      </p>
+      <p>So, why those three bullet points? Let us explain:</p>
+
+      <h2 id="type-ergo">1. You are obsessive about type ergonomics</h2>
+      <p>
+        One of the benefits about using typescript in a library is the developer
+        experience you can offer your users. Types can do so much more than just
+        catch typos. Types are a tool. They give you autocomplete and good
+        feedback; shown in the right moment they can make someone’s day. We
+        don’t just want to build a great database. We want people to enjoy using
+        it.
+      </p>
+      <p>
+        Instant is{' '}
+        <a
+          href="https://www.instantdb.com/docs/instaql#typesafety"
+          target="_blank"
+        >
+          typed
+        </a>
+        . It took some serious{' '}
+        <a
+          href="https://github.com/instantdb/instant/blob/main/client/packages/core/src/queryTypes.ts#L201-L238"
+          target="_blank"
+        >
+          type fu
+        </a>
+        , but the upshot is the users get autocomplete and typesafety as a
+        result. And right now types are a first cut. Here’s some of what’s
+        ahead:
+      </p>
+      <h3 id="where-clauses">Type where clauses</h3>
+      <p>
+        Imagine you are building a goodreads alternative. You want to write a
+        query like:
+      </p>
+      <blockquote>
+        Give me profiles that have "Count of Monte Cristo" in their bookshelves.
+      </blockquote>
+      <p>This is how it would look in Instant:</p>
+      <Fence
+        code={`
+{
+  profiles: {
+    $: { where: { "bookshelves.books.title": "Count of Monte Cristo" } },
+  }
+};
+        `.trim()}
+        language="javascript"
+      ></Fence>
+      <p>
+        And with it you’d get those profiles. But{' '}
+        <code>bookshelves.books.title</code> is typed too broadly: any string is
+        allowed. That’s kind of sad; users could have typos, or forget which
+        relationships exist on <code>profiles</code>.
+      </p>
+      <p>
+        Well, we already have access to the schema. We <em>could</em> type the
+        where clause. This way, when a user starts writing "booksh", we could
+        autocomplete with all the relationships that live on{' '}
+        <code>profiles</code>!
+      </p>
+      <p>
+        This is tricky (there’s{' '}
+        <a href="https://www.instantdb.com/docs/instaql" target="_blank">
+          a lot
+        </a>{' '}
+        you can do in a query), but it would be a huge benefit to users.
+      </p>
+      <h3 id="intellisense">Improve intellisense</h3>
+      <p>
+        Or speaking of{' '}
+        <a
+          href="https://www.instantdb.com/docs/modeling-data#schema-as-code"
+          target="_blank"
+        >
+          schemas
+        </a>
+        : this is what you’ll see in Typescript when you hover over one:
+      </p>
+      <Fence
+        language="typescript"
+        code={`
+const schema: InstantSchemaDef<EntitiesWithLinks<{
+  profiles: EntityDef<{
+    name: DataAttrDef<string, true>;
+  }, {}, void>;
+  bookshelves: EntityDef<{
+    title: DataAttrDef<string, true>;
+  }, {}, void>;
+}, {
+  ...;
+}>, LinksDef<...>, RoomsDef>
+          `.trim()}
+      />
+      <p>
+        Now, complex types can look notoriously daunting in intellisense. Some
+        of the complexity is unavoidable, but there’s a <em>lot</em> that can be
+        done to improve it. For example, is it really necessary that the hover
+        includes <code>EntitiesWithLinks</code>, <code>EntityDef</code>,{' '}
+        <code>DataAttrDef</code>?
+      </p>
+      <p>
+        Some may think it’s not worth fretting over intellisense output. But you
+        know this differentiates the best libraries. Great types reap great
+        benefits.
+      </p>
+      <h3 id="1-more">Performance, utility types...</h3>
+      <p>
+        And the list goes on. We want to add more tests for type outputs (one
+        project we’re considering is to write a library that tests
+        <em>intellisense</em> output). We want to write benchmarks to see how
+        types perform in larger codebases. We want to improve how you define
+        schemas and how you write transactions. We want to add more utility
+        types, so users can build their own libraries on top of Instant.
+      </p>
+      <h2 id="crafting-uis">
+        2. You enjoy crafting UIs that people use for hours
+      </h2>
+      <p>
+        Today Instant ships with a{' '}
+        <a href="https://www.instantdb.com/docs/cli" target="_blank">
+          CLI tool
+        </a>{' '}
+        and a{' '}
+        <a href="https://instantdb.com/dash" target="_blank">
+          Dashboard
+        </a>
+        .
+      </p>
+      <p>
+        Since Instant is a core part of our user’s infra, they end up spending
+        hours every day interacting with it. The onus is on us to make their
+        experience as delightful as possible. UIs make a real difference here.
+        People may not consciously notice it, but every detail adds up. There’s
+        a lot of work to do:
+      </p>
+      <h3 id="cli-migrations">Migrations in the CLI</h3>
+      <p>
+        Right now, you can push your schema with the{' '}
+        <a href="https://www.instantdb.com/docs/cli" target="_blank">
+          CLI
+        </a>
+        , but we don’t support any destructive actions. You can add a column,
+        but you can’t delete it (You can do this manually). We held off on
+        destructive actions in the CLI, because we wanted to make the right kind
+        of UX: something that feels natural, but doesn’t let you shoot yourself
+        in the foot. Can you help design it and implement it? Maybe it’s time we
+        add migrations, or take inspiration from terraform.
+      </p>
+      <h3 id="better-sandbox">Better Sandbox</h3>
+      <p>
+        In the dashboard, we have a{' '}
+        <a
+          href="https://www.instantdb.com/dash?s=main&t=sandbox"
+          target="_blank"
+        >
+          sandbox
+        </a>{' '}
+        that lets you run queries and transactions.
+      </p>
+    </div>
+  );
+}
+
+function FoundingEngContent() {
   return (
     <div className="prose prose-h1:mt-8 prose-h1:mb-4 prose-h2:mt-4 prose-h2:mb-2 prose-pre:bg-gray-100">
       <h1 id="instantdb-founding-engineer">InstantDB Founding Engineer</h1>
@@ -228,7 +417,7 @@ export default function Page() {
       <div className="flex min-h-screen flex-col justify-between">
         <MainNav />
         <div className="mx-auto mt-6 p-4 md:max-w-2xl">
-          <HiringContent />
+          <TSEngContent />
         </div>
         <LandingFooter />
       </div>
