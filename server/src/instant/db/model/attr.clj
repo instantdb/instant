@@ -152,6 +152,10 @@
   [attr]
   (str (fwd-etype attr) "." (fwd-label attr)))
 
+(defn attr-details [attr]
+  {:etype (fwd-etype attr)
+   :label (fwd-label attr)})
+
 ;; -------
 ;; caching
 
@@ -731,3 +735,11 @@
     (:id (or (seek-by-fwd-ident-name n wrapped-attrs)
              (seek-by-rev-ident-name n wrapped-attrs)))))
 
+(defn get-attr-details
+  "Used in exception to construct nicer error messages."
+  [app-id attr-id]
+  (let [attrs (get-by-app-id app-id)]
+    (some-> (seek-by-id attr-id attrs)
+            (attr-details))))
+
+(ex/define-get-attr-details get-attr-details)
