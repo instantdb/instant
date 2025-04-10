@@ -2112,7 +2112,9 @@
                                    :current-user (pr-str current-user)
                                    :admin? admin?
                                    :query (pr-str o)}}
-    (when-not admin?
+    (when-not (or admin?
+                  ;; Prevent infinite cycle
+                  (:testing-rule-wheres ctx))
       (rule-where-testing/queue-for-testing ctx permissioned-query o))
     (if admin?
       (query ctx (dissoc o :$$ruleParams))

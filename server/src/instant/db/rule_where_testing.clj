@@ -11,7 +11,8 @@
 (defn run-test [ctx permissioned-query-fn o]
   (let [start (System/nanoTime)
         res (try
-              (permissioned-query-fn ctx o)
+              (permissioned-query-fn (assoc ctx :testing-rule-wheres true)
+                                     o)
               (catch Exception e
                 e))]
     {:ms (/ (double (- (System/nanoTime) start))
