@@ -7,13 +7,14 @@ import {
 import MuxPlayer from '@mux/mux-player-react';
 import { walkthrough } from '@/lib/muxVideos';
 import { Fence } from '@/components/ui';
+import Image from 'next/image';
 
 function TSEngContent() {
   return (
-    <div className="prose prose-h1:mt-8 prose-h1:mb-4 prose-h2:mt-4 prose-h2:mb-2 prose-pre:bg-gray-100">
+    <div className="prose">
       <h1 id="founding-typescript-engineer">Founding Typescript Engineer</h1>
       <p>
-        We’re looking for a founding Typescript Engineer to join our team of 4
+        We're looking for a founding Typescript Engineer to join our team of 4
         in San Francisco. If you:
       </p>
       <ol>
@@ -33,14 +34,13 @@ function TSEngContent() {
         and Linear build internally to power their products.
       </p>
       <p>So, why those three bullet points? Let us explain:</p>
-
       <h2 id="type-ergo">1. You are obsessive about type ergonomics</h2>
       <p>
         One of the benefits about using typescript in a library is the developer
         experience you can offer your users. Types can do so much more than just
         catch typos. Types are a tool. They give you autocomplete and good
-        feedback; shown in the right moment they can make someone’s day. We
-        don’t just want to build a great database. We want people to enjoy using
+        feedback; shown in the right moment they can make someone's day. We
+        don't just want to build a great database. We want people to enjoy using
         it.
       </p>
       <p>
@@ -59,7 +59,7 @@ function TSEngContent() {
           type fu
         </a>
         , but the upshot is the users get autocomplete and typesafety as a
-        result. And right now types are a first cut. Here’s some of what’s
+        result. And right now types are a first cut. Here's some of what's
         ahead:
       </p>
       <h3 id="where-clauses">Type where clauses</h3>
@@ -82,9 +82,9 @@ function TSEngContent() {
         language="javascript"
       ></Fence>
       <p>
-        And with it you’d get those profiles. But{' '}
+        And with it you'd get those profiles. But{' '}
         <code>bookshelves.books.title</code> is typed too broadly: any string is
-        allowed. That’s kind of sad; users could have typos, or forget which
+        allowed. That's kind of sad; users could have typos, or forget which
         relationships exist on <code>profiles</code>.
       </p>
       <p>
@@ -94,7 +94,7 @@ function TSEngContent() {
         <code>profiles</code>!
       </p>
       <p>
-        This is tricky (there’s{' '}
+        This is tricky (there's{' '}
         <a href="https://www.instantdb.com/docs/instaql" target="_blank">
           a lot
         </a>{' '}
@@ -109,7 +109,7 @@ function TSEngContent() {
         >
           schemas
         </a>
-        : this is what you’ll see in Typescript when you hover over one:
+        : this is what you'll see in Typescript when you hover over one:
       </p>
       <Fence
         language="typescript"
@@ -128,20 +128,20 @@ const schema: InstantSchemaDef<EntitiesWithLinks<{
       />
       <p>
         Now, complex types can look notoriously daunting in intellisense. Some
-        of the complexity is unavoidable, but there’s a <em>lot</em> that can be
+        of the complexity is unavoidable, but there's a <em>lot</em> that can be
         done to improve it. For example, is it really necessary that the hover
         includes <code>EntitiesWithLinks</code>, <code>EntityDef</code>,{' '}
         <code>DataAttrDef</code>?
       </p>
       <p>
-        Some may think it’s not worth fretting over intellisense output. But you
+        Some may think it's not worth fretting over intellisense output. But you
         know this differentiates the best libraries. Great types reap great
         benefits.
       </p>
       <h3 id="1-more">Performance, utility types...</h3>
       <p>
         And the list goes on. We want to add more tests for type outputs (one
-        project we’re considering is to write a library that tests
+        project we're considering is to write a library that tests
         <em>intellisense</em> output). We want to write benchmarks to see how
         types perform in larger codebases. We want to improve how you define
         schemas and how you write transactions. We want to add more utility
@@ -162,10 +162,10 @@ const schema: InstantSchemaDef<EntitiesWithLinks<{
         .
       </p>
       <p>
-        Since Instant is a core part of our user’s infra, they end up spending
+        Since Instant is a core part of our user's infra, they end up spending
         hours every day interacting with it. The onus is on us to make their
         experience as delightful as possible. UIs make a real difference here.
-        People may not consciously notice it, but every detail adds up. There’s
+        People may not consciously notice it, but every detail adds up. There's
         a lot of work to do:
       </p>
       <h3 id="cli-migrations">Migrations in the CLI</h3>
@@ -174,11 +174,11 @@ const schema: InstantSchemaDef<EntitiesWithLinks<{
         <a href="https://www.instantdb.com/docs/cli" target="_blank">
           CLI
         </a>
-        , but we don’t support any destructive actions. You can add a column,
-        but you can’t delete it (You can do this manually). We held off on
+        , but we don't support any destructive actions. You can add a column,
+        but you can't delete it (You can do this manually). We held off on
         destructive actions in the CLI, because we wanted to make the right kind
-        of UX: something that feels natural, but doesn’t let you shoot yourself
-        in the foot. Can you help design it and implement it? Maybe it’s time we
+        of UX: something that feels natural, but doesn't let you shoot yourself
+        in the foot. Can you help design it and implement it? Maybe it's time we
         add migrations, or take inspiration from terraform.
       </p>
       <h3 id="better-sandbox">Better Sandbox</h3>
@@ -190,7 +190,199 @@ const schema: InstantSchemaDef<EntitiesWithLinks<{
         >
           sandbox
         </a>{' '}
-        that lets you run queries and transactions.
+        that lets you run queries and transactions:
+      </p>
+      <p>
+        <img src="/img/hiring/sandbox.png" alt="Sandbox" />
+      </p>
+      <p>
+        You can dry-run transactions, make queries, and see how your permissions
+        work. Users live in this tool for hours. But there's a lot missing here.
+        For example, could you save snippets, or have a history of the changes
+        you've made to your sandbox?
+      </p>
+      <h3 id="explorer">Better Explorer</h3>
+      <p>
+        Or take a look at the{' '}
+        <a
+          href="https://www.instantdb.com/dash?s=main&t=explorer"
+          target="_blank"
+        >
+          Explorer
+        </a>
+        . It lets you visually query and change data. This often replaces custom
+        code users would have needed to write for an admin panel. You can
+        already make queries, create rows, link objects, and upload files:
+      </p>
+      <p>
+        <img src="/img/hiring/explorer.png" alt="Sandbox" />
+      </p>
+      <p>
+        But this is just the beggining. What else do users use an admin panel
+        for, and how can we just give it to them? We want to make an editing
+        experience on level of air table, available to every dev before they
+        even start building their app.
+      </p>
+      <h3 id="2-more">Rules, Examples</h3>
+      <p>
+        And there's so much more. We want to improve{' '}
+        <a href="https://www.instantdb.com/docs/permissions" target="_blank">
+          permissions
+        </a>{' '}
+        language, and make it easier to introspect. Our{' '}
+        <a href="https://www.instantdb.com/examples" target="_blank">
+          examples
+        </a>{' '}
+        page shows a few ways you can use Instant, but what if instead it had
+        hundreds of examples and was searchable? The list goes on!
+      </p>
+      <h2 id="sync-engine">
+        3. Want to build a sync engine to enable the next Figma or Notion
+      </h2>
+      <p>Instant's client SDK implements a sync engine:</p>
+      <p>
+        <img src="/img/hiring/sync_engine.png" alt="Sync Engine" />
+      </p>
+      <p>
+        Inside the SDK there's a client-side database which can run queries just
+        the like the server does. The client-side DB is what makes it possible
+        for Instant to work offline, and to get optimistic updates out of the
+        box. And it's full of problems that make computer science textbooks come
+        alive:
+      </p>
+      <ul>
+        <li>
+          <strong>Better joins:</strong> the client runs a{' '}
+          <a
+            href="https://github.com/instantdb/instant/blob/main/client/packages/core/src/datalog.js"
+            target="_blank"
+          >
+            nested loop
+          </a>{' '}
+          to implement joins. But as we increase how much we cache, nested loops
+          could become a problem. Perhaps it's time to add hash joins!
+        </li>
+        <li>
+          <strong>Better indexes:</strong> we use a{' '}
+          <a
+            href="https://github.com/instantdb/instant/blob/main/client/packages/core/src/store.js#L50-L70"
+            target="_blank"
+          >
+            map of maps
+          </a>{' '}
+          for our indexes. This works, but comparison queries will be less
+          efficient then they have to. Perhaps it's time to consider writing an
+          OrderedSet
+        </li>
+        <li>
+          <strong>Better introspection:</strong> we built a{' '}
+          <a
+            href="https://github.com/instantdb/instant/blob/main/client/packages/core/src/Reactor.js"
+            target="_blank"
+          >
+            state machine
+          </a>{' '}
+          to manage how different events interact: websocket updates, connection
+          changes, client / server changes. But it's quite hairy and hard to
+          reason about. Can we make it easier to observe events and replay them?
+          Perhaps we could look into the actor model or structured concurrency
+          for inspiration.
+        </li>
+        <li>
+          <strong>Better local storage:</strong> we treat IndexedDB as a key
+          values store and serialize large chunks of state. Can we serialize in
+          smaller chunks instead?
+        </li>
+        <li>
+          <strong>Less re-renders:</strong> Right now queries can change more
+          than is needed. We want every update to be fine-grained, so users have
+          less re-renders.
+        </li>
+      </ul>
+      <p>
+        If we do this right, we have the chance to build an abstraction that is
+        both <em>easy</em> — you could build any app quickly with it — but also
+        scales to the complexity of apps like Figma or Notion.
+      </p>
+      <h2 id="backend">Aside: the Backend</h2>
+      <p>
+        <img src="/img/hiring/backend.png" alt="Backend" />
+      </p>
+      <p>
+        The client SDK talks to a backend written in Clojure and Postgres.
+        Sometimes, you may end up in Clojure. We don't expect you to be a
+        Clojure expert, but if you are excited about hacking on the language
+        too, we'd be thrilled to onboard you.
+      </p>
+      <h2 id="about-us">About us</h2>
+      <p>
+        You may be thinking to yourself...that's a lot of responsibilities. From
+        typescript types, to client side databases, to UIs.
+      </p>
+      <p>
+        We hope that excites you in the same way it does us: lots of hard
+        problems are one of the reasons we love working on Instant.
+      </p>
+      <p>
+        We're a team of 4. Three of us are in San Francisco (
+        <a target="_blank" href="https://x.com/DanielWoelfel">
+          Daniel
+        </a>
+        ,{' '}
+        <a target="_blank" href="https://www.joeaverbukh.com/">
+          Joe
+        </a>
+        ,{' '}
+        <a target="_blank" href="https://stopa.io/">
+          Stopa
+        </a>
+        ), and one of us are in Berlin (
+        <a target="_blank" href="https://tonsky.me/">
+          Niki
+        </a>
+        ). Joe &amp; Stopa (the founders) have known each other for over 10
+        years, and worked across Facebook and Airbnb together. Daniel (first
+        engineer) and Stopa worked together at Wit.ai and Facebook, and have
+        been friends for 10 years. Niki shipped{' '}
+        <a target="_blank" href="https://github.com/tonsky/datascript">
+          datascript
+        </a>
+        , and wrote one of the first{' '}
+        <a
+          target="_blank"
+          href="https://tonsky.me/blog/the-web-after-tomorrow/"
+        >
+          essays
+        </a>{' '}
+        about the kinds of web applications Instant wants to empower.
+      </p>
+      <p>
+        We love working together. We aim to work with people who we will be
+        friends with for a lifetime. We love high-integrity, optimistic, and
+        principle-oriented hackers who love what they do. Internally we have a
+        hacker mentality — we build quickly, we are kind to each other, and
+        relentlessly focused on making our users happy.
+      </p>
+      <h2 id="additional-stats">Additional Stats</h2>
+
+      <ul>
+        <li>Location: We're based in San Francisco, CA!</li>
+        <li>
+          In-person or open to relocation only: We're a small team and we really
+          do prefer all working together in person!
+        </li>
+        <li>
+          Compensation: Sliding scale between 0.5%-2% equity and 150k - 200k
+          base + medical/dental/vision benefits
+        </li>
+      </ul>
+
+      <h2 id="Apply">Apply</h2>
+      <p>
+        If you've read this far and are excited, we should really talk 🙂. Send
+        us an email: founders@instantdb.com, with a bit about yourself, and a
+        project you've worked on. If you've built a Typescript library, that's a
+        big plus, but not required.
       </p>
     </div>
   );
@@ -202,29 +394,29 @@ function FoundingEngContent() {
       <h1 id="instantdb-founding-engineer">InstantDB Founding Engineer</h1>
       <p>
         Hey there! <a href="https://www.instantdb.com/">InstantDB (YC S22)</a>{' '}
-        is looking to hire our founding engineering team! We think we’re a
-        rocket-ship that’s going to power applications of the future 🚀
+        is looking to hire our founding engineering team! We think we're a
+        rocket-ship that's going to power applications of the future 🚀
       </p>
       <p>
-        We’ve put together a page explaining what is Instant, who we are, who
-        we’re looking for, and what we can accomplish together 💪
+        We've put together a page explaining what is Instant, who we are, who
+        we're looking for, and what we can accomplish together 💪
       </p>
       <p>
-        By the end of this page we hope you’re motivated to apply or send over
+        By the end of this page we hope you're motivated to apply or send over
         this page to your favorite hackers 🧑‍💻
       </p>
       <h2 id="what-is-instant-">What is Instant?</h2>
       <p>
-        In two sentences: We’re building the next Firebase. We want to make it
+        In two sentences: We're building the next Firebase. We want to make it
         easy for developers to build best-in-class applications like Figma,
         Notion, and Linear.
       </p>
       <p>What does that actually mean?</p>
       <p>
-        Imagine you’re a hacker who loves building apps. You’ve read all the PG
+        Imagine you're a hacker who loves building apps. You've read all the PG
         essays, came up with an exciting idea, and are ready to{' '}
         <strong>make something people want.</strong> You want to build an MVP
-        fast, that doesn’t completely suck. So how do you do it?
+        fast, that doesn't completely suck. So how do you do it?
       </p>
       <p>
         Most of the time we make three-tier architecture with client, server,
@@ -236,13 +428,13 @@ function FoundingEngContent() {
         basic functionality.
       </p>
       <p>
-        If we want our UI’s to feel fast, we write optimistic updates so we
-        don’t need to wait for the server. If we want live updates without
+        If we want our UI's to feel fast, we write optimistic updates so we
+        don't need to wait for the server. If we want live updates without
         refreshing we either poll or add websockets. And if we want to support
         offline mode, we need to integrate IndexedDB and pending transaction
         queues.{' '}
       </p>
-      <p>That’s a lot of work!</p>
+      <p>That's a lot of work!</p>
       <p>
         To make things worse, whenever we add a new feature, we go through the
         same song and dance over and over again: add models to our DB, write
@@ -257,9 +449,9 @@ function FoundingEngContent() {
         />
       </p>
       <p>
-        If you had a database on the client, you wouldn’t need to manage stores,
+        If you had a database on the client, you wouldn't need to manage stores,
         selectors, endpoints, caches, etc. You could just write queries to fetch
-        the data you want. If these queries were reactive, you wouldn’t have to
+        the data you want. If these queries were reactive, you wouldn't have to
         write extra logic to re-fetch whenever new data appears. Similarly you
         could just make transactions to apply mutations. These transactions
         could apply changes optimistically and be persisted locally. Putting
@@ -268,7 +460,7 @@ function FoundingEngContent() {
       </p>
       <p>
         So we built Instant. Instant gives you a database you can use in the
-        client, so you can focus on what’s important:{' '}
+        client, so you can focus on what's important:{' '}
         <strong>
           building a great UX for your users, and doing it quickly
         </strong>
@@ -285,7 +477,7 @@ function FoundingEngContent() {
       </p>
       <h2 id="who-is-instant-">Who is Instant?</h2>
       <p>
-        We’re <a href="https://linkedin.com/in/joeaverbukh">Joe</a> and{' '}
+        We're <a href="https://linkedin.com/in/joeaverbukh">Joe</a> and{' '}
         <a href="https://x.com/stopachka">Stopa</a>, engineers, best friends,
         and co-founders. We first met in San Francisco in 2014 and worked
         together as senior and staff engineers at Facebook and Airbnb.
@@ -368,23 +560,23 @@ function FoundingEngContent() {
           transactions
         </li>
       </ul>
-      <p>… and many more</p>
+      <p>... and many more</p>
       <p>
-        <strong>Rebuild our client-side reactive-layer.</strong> It’s currently
+        <strong>Rebuild our client-side reactive-layer.</strong> It's currently
         a state machine that is hard to introspect and follow simple chains of
-        changes like “what happens when a transaction is made?” or answer “what
-        is the size of the pending transaction queue?” We want to re-build this
+        changes like "what happens when a transaction is made?" or answer "what
+        is the size of the pending transaction queue?" We want to re-build this
         in a way that makes it easy to 1) test chains of changes and 2) have dev
         tooling for introspecting client-side state.
       </p>
       <p>
-        There’s a lot of opportunity to contribute to Instant’s architecture. If
-        either of these sound like something you’d enjoy working on we’d love to
+        There's a lot of opportunity to contribute to Instant's architecture. If
+        either of these sound like something you'd enjoy working on we'd love to
         talk!
       </p>
       <h2 id="additional-stats">Additional Stats</h2>
       <ul>
-        <li>Location: We’re based in San Francisco, CA!</li>
+        <li>Location: We're based in San Francisco, CA!</li>
         <li>
           In-person only: Not open to remote at this time — we want to hack
           together!
