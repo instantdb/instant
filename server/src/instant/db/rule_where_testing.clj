@@ -27,7 +27,6 @@
                                      :current-user-id (-> ctx :current-user :id)}}
       (binding [sql/*query-timeout-seconds* 5]
         (let [ctx (assoc ctx :datalog-query-fn d/query)
-              _ (tool/def-locals)
               without-rule-wheres (future
                                     (tracer/with-span! {:name "test-rule-wheres/without-rule-wheres"}
                                       (run-test (assoc ctx :use-rule-wheres? false)
