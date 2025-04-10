@@ -177,16 +177,9 @@
          stage  (-> stages first :stage)]
      (assert app-id)
      (assert attr-id)
-
-     (when-not (contains? jobs job-type)
-       (ex/throw+ {::ex/type ::ex/param-malformed
-                   ::ex/mesasge (str "Unexpected job type: " job-type)
-                   ::ex/hint args}))
-
-     (when (and (= "check-data-type" job-type)
-                (nil? checked-data-type))
-       (ex/throw+ {::ex/type ::ex/param-missing
-                   ::ex/message "checked-data-type must be provided if job type is check-data-type"}))
+     (assert (contains? jobs job-type) (str "Unexpected job type: " job-type))
+     (when (= "check-data-type" job-type)
+       (assert checked-data-type))
 
      (sql/execute-one! ::create-job!
                        conn (hsql/format {:insert-into :indexing-jobs
@@ -800,10 +793,7 @@
                                     (get (:job_type job))
                                     :stages
                                     (->> (drop-while #(not= (:stage %) (:job_stage job)))))
-          _                     (when (nil? stage)
-                                  (ex/throw+ {::ex/type ::ex/param-malformed
-                                              ::ex/mesasge (str "Unexpected job stage: " (:job_stage job))
-                                              ::ex/hint {:job job}}))
+          _                     (assert stage (str "Unknown stage: " (:job_type job) " " (:job_stage job)))
           res                   ((:fn stage) conn job)
           [res-type res-value]  (when (vector? res) res)]
       (cond
