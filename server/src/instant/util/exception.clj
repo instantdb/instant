@@ -121,7 +121,10 @@
                      cause-message)
              ::hint (merge {:rule [etype action]}
                            (when cause-data
-                             {:error {:type (keyword (name (::type cause-data)))
+                             {:error {:type (some-> cause-data
+                                                    ::type
+                                                    name
+                                                    keyword)
                                       :message (::message cause-data)
                                       :hint (::hint cause-data)}}))}
             e)))

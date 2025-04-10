@@ -12,6 +12,7 @@
    [instant.dash.ephemeral-app :as ephemeral-app]
    [instant.dash.routes :as dash-routes]
    [instant.db.indexing-jobs :as indexing-jobs]
+   [instant.db.rule-where-testing :as rule-where-testing]
    [instant.storage.sweeper :as storage-sweeper]
    [instant.flags :as flags]
    [instant.flags-impl :as flags-impl]
@@ -275,6 +276,9 @@
     (when (= (config/get-env) :prod)
       (with-log-init :welcome-email
         (welcome-email/start)))
+
+    (with-log-init :rule-where-testing
+      (rule-where-testing/start))
     (with-log-init :web-server
       (start))
     (with-log-init :shutdown-hook

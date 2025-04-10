@@ -74,6 +74,9 @@ const graph = i.graph(
       "query-hashes": i.json(),
       "query-hash-blacklist": i.json(),
     }),
+    "rule-where-testing": i.entity({
+      "enabled": i.boolean(),
+    }),
   },
   {}
 );
