@@ -11,29 +11,36 @@ import Image from 'next/image';
 
 function TSEngContent() {
   return (
-    <div className="prose">
+    <div className="prose !max-w-none">
       <h1 id="founding-typescript-engineer">Founding Typescript Engineer</h1>
+      <div className="font-bold italic -mt-4">
+        <p>
+          Instant is a real-time database you can use on the frontend. We give
+          you the best of both Firebase and Supabase, a sync-engine with support
+          for relations. This is the kind of tech that companies like Figma,
+          Notion, and Linear build internally to power their products.{' '}
+          <a href="https://www.instantdb.com/tutorial" className="font-bold">
+            Try out the demo
+          </a>{' '}
+          &mdash; no sign up required.
+        </p>
+      </div>
       <p>
         We're looking for a founding Typescript Engineer to join our team of 4
         in San Francisco. If you:
       </p>
       <ol>
         <li>
-          Are obsessive about type ergonomics (Even with how types show up in
+          Are obsessive about type ergonomics (even with how types show up in
           intellisense)
         </li>
         <li>Enjoy crafting UIs that people use for hours</li>
         <li>Want to build a sync engine to enable the next Figma or Notion</li>
       </ol>
-      <p>Then we want to talk to you!</p>
-      <h2 id="about-instant">About Instant</h2>
       <p>
-        Instant is a real-time database you can use on the frontend. We give you
-        the best of both Firebase and Supabase, a sync-engine with support for
-        relations. This is the kind of tech that companies like Figma, Notion,
-        and Linear build internally to power their products.
+        Then we want to talk to you! So, why those three bullet points? Let us
+        explain:
       </p>
-      <p>So, why those three bullet points? Let us explain:</p>
       <h2 id="type-ergo">1. You are obsessive about type ergonomics</h2>
       <p>
         One of the benefits about using typescript in a library is the developer
