@@ -26,7 +26,7 @@ function HiringContent() {
       className={clsx(
         'prose max-w-none',
         // headings
-        'prose-headings:scroll-mt-28 prose-headings:font-normal lg:prose-headings:scroll-mt-[8.5rem]',
+        'prose-headings:scroll-mt-28 lg:prose-headings:scroll-mt-[8.5rem] prose-h1:font-bold prose-h2:font-bold prose-h3:font-medium',
         'prose-h1:mt-8 prose-h1:mb-4 prose-h2:mt-4 prose-h2:mb-4 prose-h3:mt-4 prose-h3:mb-4',
         // lead
         'prose-lead:text-slate-500 dark:prose-lead:text-slate-400',
@@ -101,7 +101,7 @@ function HiringContent() {
         result. And right now types are a first cut. Here's some of what's
         ahead:
       </p>
-      <div className="pl-4">
+      <div>
         <h3 id="where-clauses">Type where clauses</h3>
         <p>
           Imagine you are building a goodreads alternative. You want to write a
@@ -210,7 +210,7 @@ const schema: InstantSchemaDef<EntitiesWithLinks<{
         People may not consciously notice it, but every detail adds up. There's
         a lot of work to do:
       </p>
-      <div className="pl-4">
+      <div>
         <h3 id="cli-migrations">Migrations in the CLI</h3>
         <p>
           Right now, you can push your schema with the{' '}
@@ -281,7 +281,7 @@ const schema: InstantSchemaDef<EntitiesWithLinks<{
         </p>
       </div>
       <NumberedHeading id="sync-engine" number={3}>
-        Want to build a sync engine to enable the next Figma or Notion
+        You want to build a sync engine to enable the next Figma or Notion
       </NumberedHeading>
       <p>Instant's client SDK implements a sync engine:</p>
       <p>
