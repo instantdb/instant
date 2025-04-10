@@ -8,21 +8,54 @@ import MuxPlayer from '@mux/mux-player-react';
 import { walkthrough } from '@/lib/muxVideos';
 import { Fence } from '@/components/ui';
 import Image from 'next/image';
+import clsx from 'clsx';
+
+function NumberedHeading(props: {
+  id: string;
+  number: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <h2 id={props.id}>
+      {props.number}. {props.children}
+    </h2>
+  );
+}
 
 function TSEngContent() {
   return (
-    <div className="prose !max-w-none">
-      <h1 id="founding-typescript-engineer">Founding Typescript Engineer</h1>
-      <div className="font-bold italic -mt-4">
+    <div
+      className={clsx(
+        'prose max-w-none',
+        // headings
+        'prose-headings:scroll-mt-28 prose-headings:font-normal lg:prose-headings:scroll-mt-[8.5rem]',
+        'prose-h1:mt-8 prose-h1:mb-4 prose-h2:mt-4 prose-h2:mb-4 prose-h3:mt-4 prose-h3:mb-4',
+        // lead
+        'prose-lead:text-slate-500 dark:prose-lead:text-slate-400',
+        // links
+        'prose-a:font-normal prose-a:text-blue-500 dark:prose-a:text-sky-400',
+        // hr
+        'dark:prose-hr:border-slate-800 prose-hr:mt-4 prose-hr:mb-4',
+        // code
+        'before:prose-code:content-none after:prose-code:content-none prose-code:bg-white prose-code:bg-opacity-50 prose-code:p-0.5',
+      )}
+    >
+      <h1 id="founding-typescript-engineer" className="font-mono font-bold">
+        Founding Typescript Engineer
+      </h1>
+      <div className="font-medium italic">
         <p>
           Instant is a real-time database you can use on the frontend. We give
           you the best of both Firebase and Supabase, a sync-engine with support
           for relations. This is the kind of tech that companies like Figma,
-          Notion, and Linear build internally to power their products.{' '}
-          <a href="https://www.instantdb.com/tutorial" className="font-bold">
+          Notion, and Linear build internally to power their products (
+          <a
+            href="https://www.instantdb.com/tutorial"
+            className="font-medium italic"
+          >
             Try out the demo
-          </a>{' '}
-          &mdash; no sign up required.
+          </a>
+          )
         </p>
       </div>
       <p>
@@ -38,10 +71,11 @@ function TSEngContent() {
         <li>Want to build a sync engine to enable the next Figma or Notion</li>
       </ol>
       <p>
-        Then we want to talk to you! So, why those three bullet points? Let us
-        explain:
+        Then we want to talk to you! So, why those three points? Let us explain:
       </p>
-      <h2 id="type-ergo">1. You are obsessive about type ergonomics</h2>
+      <NumberedHeading id="type-ergo" number={1}>
+        You are obsessive about type ergonomics
+      </NumberedHeading>
       <p>
         One of the benefits about using typescript in a library is the developer
         experience you can offer your users. Types can do so much more than just
@@ -69,58 +103,60 @@ function TSEngContent() {
         result. And right now types are a first cut. Here's some of what's
         ahead:
       </p>
-      <h3 id="where-clauses">Type where clauses</h3>
-      <p>
-        Imagine you are building a goodreads alternative. You want to write a
-        query like:
-      </p>
-      <blockquote>
-        Give me profiles that have "Count of Monte Cristo" in their bookshelves.
-      </blockquote>
-      <p>This is how it would look in Instant:</p>
-      <Fence
-        code={`
+      <div className="pl-4">
+        <h3 id="where-clauses">Type where clauses</h3>
+        <p>
+          Imagine you are building a goodreads alternative. You want to write a
+          query like:{' '}
+          <em>
+            Give me profiles that have "Count of Monte Cristo" in their
+            bookshelves
+          </em>
+          . This is how it would look in Instant:
+        </p>
+        <Fence
+          code={`
 {
   profiles: {
     $: { where: { "bookshelves.books.title": "Count of Monte Cristo" } },
   }
 };
         `.trim()}
-        language="javascript"
-      ></Fence>
-      <p>
-        And with it you'd get those profiles. But{' '}
-        <code>bookshelves.books.title</code> is typed too broadly: any string is
-        allowed. That's kind of sad; users could have typos, or forget which
-        relationships exist on <code>profiles</code>.
-      </p>
-      <p>
-        Well, we already have access to the schema. We <em>could</em> type the
-        where clause. This way, when a user starts writing "booksh", we could
-        autocomplete with all the relationships that live on{' '}
-        <code>profiles</code>!
-      </p>
-      <p>
-        This is tricky (there's{' '}
-        <a href="https://www.instantdb.com/docs/instaql" target="_blank">
-          a lot
-        </a>{' '}
-        you can do in a query), but it would be a huge benefit to users.
-      </p>
-      <h3 id="intellisense">Improve intellisense</h3>
-      <p>
-        Or speaking of{' '}
-        <a
-          href="https://www.instantdb.com/docs/modeling-data#schema-as-code"
-          target="_blank"
-        >
-          schemas
-        </a>
-        : this is what you'll see in Typescript when you hover over one:
-      </p>
-      <Fence
-        language="typescript"
-        code={`
+          language="javascript"
+        ></Fence>
+        <p>
+          And with it you'd get those profiles. But{' '}
+          <code>bookshelves.books.title</code> is typed too broadly: any string
+          is allowed. This means users could have typos, or forget which
+          relationships exist on <code>profiles</code>.
+        </p>
+        <p>
+          Well, we already have access to the schema. We <em>could</em> type the
+          where clause. This way, when a user starts writing "booksh", we could
+          autocomplete with all the relationships that live on{' '}
+          <code>profiles</code>!
+        </p>
+        <p>
+          This is tricky (there's{' '}
+          <a href="https://www.instantdb.com/docs/instaql" target="_blank">
+            a lot
+          </a>{' '}
+          you can do in a query), but it would be a huge benefit to users.
+        </p>
+        <h3 id="intellisense">Improve intellisense</h3>
+        <p>
+          Or speaking of{' '}
+          <a
+            href="https://www.instantdb.com/docs/modeling-data#schema-as-code"
+            target="_blank"
+          >
+            schemas
+          </a>
+          : this is what you'll see in Typescript when you hover over one:
+        </p>
+        <Fence
+          language="typescript"
+          code={`
 const schema: InstantSchemaDef<EntitiesWithLinks<{
   profiles: EntityDef<{
     name: DataAttrDef<string, true>;
@@ -132,31 +168,32 @@ const schema: InstantSchemaDef<EntitiesWithLinks<{
   ...;
 }>, LinksDef<...>, RoomsDef>
           `.trim()}
-      />
-      <p>
-        Now, complex types can look notoriously daunting in intellisense. Some
-        of the complexity is unavoidable, but there's a <em>lot</em> that can be
-        done to improve it. For example, is it really necessary that the hover
-        includes <code>EntitiesWithLinks</code>, <code>EntityDef</code>,{' '}
-        <code>DataAttrDef</code>?
-      </p>
-      <p>
-        Some may think it's not worth fretting over intellisense output. But you
-        know this differentiates the best libraries. Great types reap great
-        benefits.
-      </p>
-      <h3 id="1-more">Performance, utility types...</h3>
-      <p>
-        And the list goes on. We want to add more tests for type outputs (one
-        project we're considering is to write a library that tests
-        <em>intellisense</em> output). We want to write benchmarks to see how
-        types perform in larger codebases. We want to improve how you define
-        schemas and how you write transactions. We want to add more utility
-        types, so users can build their own libraries on top of Instant.
-      </p>
-      <h2 id="crafting-uis">
-        2. You enjoy crafting UIs that people use for hours
-      </h2>
+        />
+        <p>
+          Now, complex types can look notoriously daunting in intellisense. Some
+          of the complexity is unavoidable, but there's a <em>lot</em> that can
+          be done to improve it. For example, is it really necessary that the
+          hover includes <code>EntitiesWithLinks</code>, <code>EntityDef</code>,{' '}
+          <code>DataAttrDef</code>?
+        </p>
+        <p>
+          Some may think it's not worth fretting over intellisense output. But
+          you know this differentiates the best libraries. Great types reap
+          great benefits.
+        </p>
+        <h3 id="1-more">Performance, utility types...</h3>
+        <p>
+          And the list goes on. We want to add more tests for type outputs (one
+          project we're considering is to write a library that tests{' '}
+          <em>intellisense</em> output). We want to write benchmarks to see how
+          types perform in larger codebases. We want to improve how you define
+          schemas and how you write transactions. We want to add more utility
+          types, so users can build their own libraries on top of Instant.
+        </p>
+      </div>
+      <NumberedHeading id="crafting-uis" number={2}>
+        You enjoy crafting UIs that people use for hours
+      </NumberedHeading>
       <p>
         Today Instant ships with a{' '}
         <a href="https://www.instantdb.com/docs/cli" target="_blank">
@@ -175,77 +212,79 @@ const schema: InstantSchemaDef<EntitiesWithLinks<{
         People may not consciously notice it, but every detail adds up. There's
         a lot of work to do:
       </p>
-      <h3 id="cli-migrations">Migrations in the CLI</h3>
-      <p>
-        Right now, you can push your schema with the{' '}
-        <a href="https://www.instantdb.com/docs/cli" target="_blank">
-          CLI
-        </a>
-        , but we don't support any destructive actions. You can add a column,
-        but you can't delete it (You can do this manually). We held off on
-        destructive actions in the CLI, because we wanted to make the right kind
-        of UX: something that feels natural, but doesn't let you shoot yourself
-        in the foot. Can you help design it and implement it? Maybe it's time we
-        add migrations, or take inspiration from terraform.
-      </p>
-      <h3 id="better-sandbox">Better Sandbox</h3>
-      <p>
-        In the dashboard, we have a{' '}
-        <a
-          href="https://www.instantdb.com/dash?s=main&t=sandbox"
-          target="_blank"
-        >
-          sandbox
-        </a>{' '}
-        that lets you run queries and transactions:
-      </p>
-      <p>
-        <img src="/img/hiring/sandbox.png" alt="Sandbox" />
-      </p>
-      <p>
-        You can dry-run transactions, make queries, and see how your permissions
-        work. Users live in this tool for hours. But there's a lot missing here.
-        For example, could you save snippets, or have a history of the changes
-        you've made to your sandbox?
-      </p>
-      <h3 id="explorer">Better Explorer</h3>
-      <p>
-        Or take a look at the{' '}
-        <a
-          href="https://www.instantdb.com/dash?s=main&t=explorer"
-          target="_blank"
-        >
-          Explorer
-        </a>
-        . It lets you visually query and change data. This often replaces custom
-        code users would have needed to write for an admin panel. You can
-        already make queries, create rows, link objects, and upload files:
-      </p>
-      <p>
-        <img src="/img/hiring/explorer.png" alt="Sandbox" />
-      </p>
-      <p>
-        But this is just the beggining. What else do users use an admin panel
-        for, and how can we just give it to them? We want to make an editing
-        experience on level of air table, available to every dev before they
-        even start building their app.
-      </p>
-      <h3 id="2-more">Rules, Examples</h3>
-      <p>
-        And there's so much more. We want to improve{' '}
-        <a href="https://www.instantdb.com/docs/permissions" target="_blank">
-          permissions
-        </a>{' '}
-        language, and make it easier to introspect. Our{' '}
-        <a href="https://www.instantdb.com/examples" target="_blank">
-          examples
-        </a>{' '}
-        page shows a few ways you can use Instant, but what if instead it had
-        hundreds of examples and was searchable? The list goes on!
-      </p>
-      <h2 id="sync-engine">
-        3. Want to build a sync engine to enable the next Figma or Notion
-      </h2>
+      <div className="pl-4">
+        <h3 id="cli-migrations">Migrations in the CLI</h3>
+        <p>
+          Right now, you can push your schema with the{' '}
+          <a href="https://www.instantdb.com/docs/cli" target="_blank">
+            CLI
+          </a>
+          , but we don't support any destructive actions. You can add a column,
+          but you can't delete it (You can do this manually). We held off on
+          destructive actions in the CLI, because we wanted to make the right
+          kind of UX: something that feels natural, but doesn't let you shoot
+          yourself in the foot. Can you help design it and implement it? Maybe
+          it's time we add migrations, or take inspiration from terraform.
+        </p>
+        <h3 id="better-sandbox">Better Sandbox</h3>
+        <p>
+          In the dashboard, we have a{' '}
+          <a
+            href="https://www.instantdb.com/dash?s=main&t=sandbox"
+            target="_blank"
+          >
+            sandbox
+          </a>{' '}
+          that lets you run queries and transactions:
+        </p>
+        <p>
+          <img src="/img/hiring/sandbox.png" alt="Sandbox" />
+        </p>
+        <p>
+          You can dry-run transactions, make queries, and see how your
+          permissions work. Users live in this tool for hours. But there's a lot
+          missing here. For example, could you save snippets, or have a history
+          of the changes you've made to your sandbox?
+        </p>
+        <h3 id="explorer">Better Explorer</h3>
+        <p>
+          Or take a look at the{' '}
+          <a
+            href="https://www.instantdb.com/dash?s=main&t=explorer"
+            target="_blank"
+          >
+            Explorer
+          </a>
+          . It lets you visually query and change data. This often replaces
+          custom code users would have needed to write for an admin panel. You
+          can already make queries, create rows, link objects, and upload files:
+        </p>
+        <p>
+          <img src="/img/hiring/explorer.png" alt="Sandbox" />
+        </p>
+        <p>
+          But this is just the beggining. What else do users use an admin panel
+          for, and how can we just give it to them? We want to make an editing
+          experience on level of air table, available to every dev before they
+          even start building their app.
+        </p>
+        <h3 id="2-more">Rules, Examples...</h3>
+        <p>
+          And there's so much more. We want to improve{' '}
+          <a href="https://www.instantdb.com/docs/permissions" target="_blank">
+            permissions
+          </a>{' '}
+          language, and make it easier to introspect. Our{' '}
+          <a href="https://www.instantdb.com/examples" target="_blank">
+            examples
+          </a>{' '}
+          page shows a few ways you can use Instant, but what if instead it had
+          hundreds of examples and was searchable? The list goes on!
+        </p>
+      </div>
+      <NumberedHeading id="sync-engine" number={3}>
+        Want to build a sync engine to enable the next Figma or Notion
+      </NumberedHeading>
       <p>Instant's client SDK implements a sync engine:</p>
       <p>
         <img src="/img/hiring/sync_engine.png" alt="Sync Engine" />
