@@ -133,4 +133,4 @@ encrypt-secret-prod:
 	clj -X:encrypt-secret :env :prod
 
 lint:
-	clojure -M:lint
+	if command -v clj-kondo >/dev/null 2>&1; then clj-kondo --lint src test; else clojure -M:lint; fi

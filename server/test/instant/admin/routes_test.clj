@@ -729,16 +729,16 @@
       (testing "good error message for create + update with lookup"
         ;; We may be able to fix with merge in postgres 16
         ;; https://www.postgresql.org/docs/current/sql-merge.html
-        (= "Updates with lookups can only update the lookup attribute if an entity with the unique attribute value already exists."
-           (-> (transact-post
-                {:body {:steps [["update" "users" ["handle" "stopa"] {"handle" "stopa2"}]]}
-                 :headers {"app-id" (str app-id)
-                           "authorization" (str "Bearer " admin-token)}})
-               :body
-               :hint
-               :errors
-               first
-               :message)))
+        (is (= "Updates with lookups can only update the lookup attribute if an entity with the unique attribute value already exists."
+               (-> (transact-post
+                    {:body {:steps [["update" "users" ["handle" "stopa"] {"handle" "stopa2"}]]}
+                     :headers {"app-id" (str app-id)
+                               "authorization" (str "Bearer " admin-token)}})
+                   :body
+                   :hint
+                   :errors
+                   first
+                   :message))))
       (testing "update"
         (is (transact-ok?
              (transact-post
