@@ -4,11 +4,9 @@ import {
   LandingFooter,
   MainNav,
 } from '@/components/marketingUi';
-import MuxPlayer from '@mux/mux-player-react';
-import { walkthrough } from '@/lib/muxVideos';
 import { Fence } from '@/components/ui';
-import Image from 'next/image';
 import clsx from 'clsx';
+import * as og from '@/lib/og';
 
 function NumberedHeading(props: {
   id: string;
@@ -263,14 +261,14 @@ const schema: InstantSchemaDef<EntitiesWithLinks<{
           <img src="/img/hiring/explorer.png" alt="Sandbox" />
         </p>
         <p>
-          But this is just the beggining. What else do users use an admin panel
+          But this is just the beginning. What else do users use an admin panel
           for, and how can we just give it to them? We want to make an editing
-          experience on level of air table, available to every dev before they
+          experience on level of Airtable, available to every dev before they
           even start building their app.
         </p>
         <h3 id="2-more">Rules, Examples...</h3>
         <p>
-          And there's so much more. We want to improve{' '}
+          And there's so much more. We want to improve our{' '}
           <a href="https://www.instantdb.com/docs/permissions" target="_blank">
             permissions
           </a>{' '}
@@ -317,8 +315,8 @@ const schema: InstantSchemaDef<EntitiesWithLinks<{
             map of maps
           </a>{' '}
           for our indexes. This works, but comparison queries will be less
-          efficient then they have to. Perhaps it's time to consider writing an
-          OrderedSet
+          efficient then they have to be. Perhaps it's time to consider writing
+          an OrderedSet
         </li>
         <li>
           <strong>Better introspection:</strong> we built a{' '}
@@ -341,8 +339,8 @@ const schema: InstantSchemaDef<EntitiesWithLinks<{
         </li>
         <li>
           <strong>Less re-renders:</strong> Right now queries can change more
-          than is needed. We want every update to be fine-grained, so users have
-          less re-renders.
+          than is needed. We want every update to be finer-grained, so users
+          have less re-renders.
         </li>
       </ul>
       <p>
@@ -426,19 +424,26 @@ const schema: InstantSchemaDef<EntitiesWithLinks<{
       <h2 id="Apply">Apply</h2>
       <p>
         If you've read this far and are excited, we should really talk 🙂. Send
-        us an email: founders@instantdb.com, with a bit about yourself, and a
-        project you've worked on. If you've built a Typescript library, that's a
-        big plus, but not required.
+        us an email:{' '}
+        <a href="mailto:founders@instantdb.com">founders@instantdb.com</a> with
+        a bit about yourself, and a project you've worked on. If you've built a
+        Typescript library, that's a big plus, but not required.
       </p>
     </div>
   );
 }
 
 export default function Page() {
+  const title = 'Founding Typescript Engineer';
   return (
     <LandingContainer>
       <Head>
-        <title>Hiring</title>
+        <title>{title}</title>
+        <meta
+          key="og:image"
+          property="og:image"
+          content={og.url({ title, section: 'hiring' })}
+        />
       </Head>
       <div className="flex min-h-screen flex-col justify-between">
         <MainNav />
