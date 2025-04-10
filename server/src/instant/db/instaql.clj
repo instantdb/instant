@@ -12,6 +12,7 @@
    [instant.db.model.attr-pat :as attr-pat]
    [instant.db.model.entity :as entity-model]
    [instant.db.model.triple :as triple-model]
+   [instant.db.rule-where-testing :as rule-where-testing]
    [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
@@ -1961,10 +1962,12 @@
              (cel/eval-programs! ctx programs)))))
 
 (defn use-rule-wheres? [ctx o]
-  (let [app-id (:app-id ctx)
-        query-hash (forms-hash o)]
-    (flags/use-rule-wheres? {:app-id app-id
-                             :query-hash query-hash})))
+  (if (contains? ctx :use-rule-wheres?)
+    (:use-rule-wheres? ctx)
+    (let [app-id (:app-id ctx)
+          query-hash (forms-hash o)]
+      (flags/use-rule-wheres? {:app-id app-id
+                               :query-hash query-hash}))))
 
 (defn rule-wheres->where-conds [attrs etype wheres]
   (let [forms {etype {:$ {:where wheres}}}]
@@ -1988,7 +1991,7 @@
              clauses))
 
 (defn get-rule-wheres [ctx rule-params rules o]
-  (when true ;;(use-rule-wheres? ctx o)
+  (when (use-rule-wheres? ctx o)
     (tracer/with-span! {:name "instaql/get-rule-wheres"}
       (let [{:keys [referenced-etypes]} (instaql-query->patterns ctx o)
             programs (keep (fn [etype]
@@ -1997,24 +2000,32 @@
 
             program-results
             (tracer/with-span! {:name "instaql/get-all-where-clauses"}
-              (cel/get-all-where-clauses ctx rule-params programs))]
-
-        (reduce-kv (fn [acc etype result]
-                     (try
-                       (when-let [t (:thrown result)]
-                         (throw t))
-                       (when (seq (:where-clauses result))
-                         ;; Ensure we got valid where clauses back
-                         (rule-wheres->where-conds (:attrs ctx) etype (:where-clauses result)))
-                       (assoc acc etype {:short-circuit? (:short-circuit? result)
-                                         :where-clauses (:where-clauses result)})
-                       (catch Exception e
-                         (tracer/with-span! {:name "instaql/rule-where-exception"
-                                             :attributes {:code (:code (rule-model/get-program! rules etype "view"))
-                                                          :error e}}
-                           acc))))
-                   {}
-                   program-results)))))
+              (cel/get-all-where-clauses ctx rule-params programs))
+            rule-wheres
+            (reduce-kv
+             (fn [acc etype result]
+               (try
+                 (when-let [t (:thrown result)]
+                   (throw t))
+                 (when (seq (:where-clauses result))
+                   ;; Ensures we got valid where clauses back
+                   (rule-wheres->where-conds (:attrs ctx)
+                                             etype
+                                             (:where-clauses result)))
+                 (assoc acc etype {:short-circuit? (:short-circuit? result)
+                                   :where-clauses (:where-clauses result)})
+                 (catch Exception e
+                   (tracer/with-span!
+                       {:name "instaql/rule-where-exception"
+                        :attributes {:code (:code (rule-model/get-program! rules
+                                                                           etype
+                                                                           "view"))
+                                     :error e}}
+                     acc))))
+             {}
+             program-results)]
+        (tracer/add-data! {:attributes {:rule-wheres rule-wheres}})
+        rule-wheres))))
 
 (defn update-where-with-rule-refs [initial-etype attrs rule-wheres where k v]
   (loop [[segment & rest-path] (string/split (name k) #"\.")
@@ -2101,6 +2112,8 @@
                                    :current-user (pr-str current-user)
                                    :admin? admin?
                                    :query (pr-str o)}}
+    (when-not admin?
+      (rule-where-testing/queue-for-testing ctx permissioned-query o))
     (if admin?
       (query ctx (dissoc o :$$ruleParams))
       (let [ctx (assoc ctx :preloaded-refs (cel/create-preloaded-refs-cache))

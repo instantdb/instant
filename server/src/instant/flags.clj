@@ -25,7 +25,8 @@
             :threading {}
             :query-flags {}
             :app-deletion-sweeper {}
-            :rule-wheres {}})
+            :rule-wheres {}
+            :rule-where-testing {}})
 
 (defn transform-query-result
   "Function that is called on the query result before it is stored in the
@@ -124,7 +125,12 @@
                        :query-hashes (set (get rule-where-ent "query-hashes"))
                        :query-hash-blacklist (set (get rule-where-ent "query-hash-blacklist"))}
                       {:app-ids #{}
-                       :query-hashes #{}})]
+                       :query-hashes #{}})
+        rule-where-testing (-> result
+                               (get "rule-where-testing")
+                               first
+                               (get "enabled")
+                               (or false))]
     {:emails emails
      :storage-enabled-whitelist storage-enabled-whitelist
      :storage-block-list storage-block-list
@@ -138,7 +144,8 @@
      :storage-migration storage-migration
      :query-flags query-flags
      :app-deletion-sweeper app-deletion-sweeper
-     :rule-wheres rule-wheres}))
+     :rule-wheres rule-wheres
+     :rule-where-testing rule-where-testing}))
 
 (def queries [{:query query :transform #'transform-query-result}])
 
@@ -244,3 +251,6 @@
                       app-id)
            (contains? (get-in (query-result) [:rule-wheres :query-hashes])
                       query-hash))))
+
+(defn test-rule-wheres? []
+  (:rule-where-testing (query-result)))
