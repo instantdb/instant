@@ -28,22 +28,37 @@
                                      :current-user-id (-> ctx :current-user :id)}}
       (binding [sql/*query-timeout-seconds* 5]
         (let [ctx (assoc ctx :datalog-query-fn d/query)
-              without-rule-wheres (future
-                                    (tracer/with-span! {:name "test-rule-wheres/without-rule-wheres"}
-                                      (run-test (assoc ctx :use-rule-wheres? false)
-                                                permissioned-query-fn o)))
-              with-rule-wheres (future
-                                 (tracer/with-span! {:name "test-rule-wheres/with-rule-wheres"}
-                                   (run-test (assoc ctx :use-rule-wheres? true)
-                                             permissioned-query-fn o)))
-              attrs {:without.ms (:ms @without-rule-wheres)
-                     :without.error? (:error? @without-rule-wheres)
-                     :with.ms (:ms @with-rule-wheres)
-                     :improvement (- (:ms @without-rule-wheres)
-                                     (:ms @with-rule-wheres))
-                     :with.error? (:error? @with-rule-wheres)
-                     :results-match? (= (instaql-nodes->object-tree ctx (:result @without-rule-wheres))
-                                        (instaql-nodes->object-tree ctx (:result @with-rule-wheres)))}]
+              without-rule-wheres-fut
+              (future
+                (tracer/with-span! {:name "test-rule-wheres/without-rule-wheres"}
+                  (run-test (assoc ctx :use-rule-wheres? false)
+                            permissioned-query-fn o)))
+
+              with-rule-wheres-fut
+              (future
+                (tracer/with-span! {:name "test-rule-wheres/with-rule-wheres"}
+                  (run-test (assoc ctx :use-rule-wheres? true)
+                            permissioned-query-fn o)))
+
+              without-rule-wheres @without-rule-wheres-fut
+              with-rule-wheres @with-rule-wheres-fut
+              attrs {:without.ms (:ms without-rule-wheres)
+                     :without.error? (:error? without-rule-wheres)
+                     :with.ms (:ms with-rule-wheres)
+                     :improvement (- (:ms without-rule-wheres)
+                                     (:ms with-rule-wheres))
+                     :with.error? (:error? with-rule-wheres)
+                     :results-match? (cond (and (:error? with-rule-wheres)
+                                                (:error? without-rule-wheres))
+                                           true
+
+                                           (or (:error? with-rule-wheres)
+                                               (:error? without-rule-wheres))
+                                           false
+
+                                           :else
+                                           (= (instaql-nodes->object-tree ctx (:result without-rule-wheres))
+                                              (instaql-nodes->object-tree ctx (:result with-rule-wheres))))}]
           (tracer/add-data! {:attributes attrs})
           attrs)))))
 

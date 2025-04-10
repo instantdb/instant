@@ -2103,8 +2103,8 @@
                              (update-in [:$ :where]
                                         (fn [where]
                                           (if where
-                                            {:and [etype-rule-where
-                                                   where]}
+                                            {:and [where
+                                                   etype-rule-where]}
                                             etype-rule-where))))))))
               {}
               o)))
