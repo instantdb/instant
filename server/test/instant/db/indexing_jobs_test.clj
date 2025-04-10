@@ -30,19 +30,22 @@
   (with-indexing-job-queue job-queue
     (with-zeneca-app-no-indexing
       (fn [app r]
-        (let [title-job (jobs/create-check-data-type-job!
+        (let [title-job (jobs/create-job!
                          {:app-id (:id app)
                           :attr-id (resolvers/->uuid r :books/title)
+                          :job-type "check-data-type"
                           :checked-data-type "string"})
 
-              order-job (jobs/create-check-data-type-job!
+              order-job (jobs/create-job!
                          {:app-id (:id app)
                           :attr-id (resolvers/->uuid r :bookshelves/order)
+                          :job-type "check-data-type"
                           :checked-data-type "number"})
 
-              created-at-job (jobs/create-check-data-type-job!
+              created-at-job (jobs/create-job!
                               {:app-id (:id app)
                                :attr-id (resolvers/->uuid r :users/createdAt)
+                               :job-type "check-data-type"
                                :checked-data-type "date"})
 
               _ (jobs/enqueue-job job-queue title-job)
@@ -103,9 +106,10 @@
   (with-indexing-job-queue job-queue
     (with-zeneca-app-no-indexing
       (fn [app r]
-        (let [handle-job (jobs/create-check-data-type-job!
+        (let [handle-job (jobs/create-job!
                           {:app-id (:id app)
                            :attr-id (resolvers/->uuid r :users/handle)
+                           :job-type "check-data-type"
                            :checked-data-type "number"})
 
               _ (jobs/enqueue-job job-queue handle-job)
@@ -122,7 +126,7 @@
             (is (every? (fn [{:keys [checked-data-type]}]
                           (nil? checked-data-type))
                         handle-triples)))
-          (= 5 (count (jobs/invalid-triples 100 (:id handle-job))))
+          (is (= 4 (count (jobs/invalid-triples 100 (:id handle-job)))))
 
           (let [attrs (attr-model/get-by-app-id (:id app))]
             (is (nil? (-> (resolvers/->uuid r :users/handle)
@@ -136,9 +140,10 @@
   (with-indexing-job-queue job-queue
     (with-zeneca-app-no-indexing
       (fn [app r]
-        (let [title-job (jobs/create-check-data-type-job!
+        (let [title-job (jobs/create-job!
                          {:app-id (:id app)
                           :attr-id (resolvers/->uuid r :books/title)
+                          :job-type "check-data-type"
                           :checked-data-type "string"})
 
               _ (jobs/enqueue-job job-queue title-job)
@@ -160,9 +165,10 @@
               (is (= :string (-> (resolvers/->uuid r :books/title)
                                  (attr-model/seek-by-id attrs)
                                  :checked-data-type)))))
-          (let [remove-type-job (jobs/create-remove-data-type-job!
+          (let [remove-type-job (jobs/create-job!
                                  {:app-id (:id app)
-                                  :attr-id (resolvers/->uuid r :books/title)})
+                                  :attr-id (resolvers/->uuid r :books/title)
+                                  :job-type "remove-data-type"})
                 _ (jobs/enqueue-job job-queue remove-type-job)
                 _ (wait-for (fn []
                               (every? (fn [{:keys [id]}]
@@ -186,9 +192,10 @@
   (with-indexing-job-queue job-queue
     (with-zeneca-app-no-indexing
       (fn [app r]
-        (let [title-job (jobs/create-index-job!
+        (let [title-job (jobs/create-job!
                          {:app-id (:id app)
-                          :attr-id (resolvers/->uuid r :books/title)})
+                          :attr-id (resolvers/->uuid r :books/title)
+                          :job-type "index"})
 
               _ (jobs/enqueue-job job-queue title-job)
               _ (wait-for (fn []
@@ -215,9 +222,10 @@
                            (attr-model/seek-by-id attrs)
                            :indexing)))))
           (testing "remove-index"
-            (let [remove-index-job (jobs/create-remove-index-job!
+            (let [remove-index-job (jobs/create-job!
                                     {:app-id (:id app)
-                                     :attr-id (resolvers/->uuid r :books/title)})
+                                     :attr-id (resolvers/->uuid r :books/title)
+                                     :job-type "remove-index"})
                   _ (jobs/enqueue-job job-queue remove-index-job)
                   _ (wait-for (fn []
                                 (every? (fn [{:keys [id]}]
@@ -264,9 +272,10 @@
                                                            [:= :value [:cast (->json value) :jsonb]]
                                                            [:= :value-md5 md5]]))
                                                       (take triples-to-delete-count title-triples-before)))]}))
-                title-job (jobs/create-index-job!
+                title-job (jobs/create-job!
                            {:app-id (:id app)
-                            :attr-id (resolvers/->uuid r :books/title)})
+                            :attr-id (resolvers/->uuid r :books/title)
+                            :job-type "index"})
 
                 _ (jobs/enqueue-job job-queue title-job)
                 _ (wait-for (fn []
@@ -323,9 +332,10 @@
                                                            [:= :value [:cast (->json value) :jsonb]]
                                                            [:= :value-md5 md5]]))
                                                       (take triples-to-delete-count triples-before)))]}))
-                job (jobs/create-index-job!
+                job (jobs/create-job!
                      {:app-id (:id app)
-                      :attr-id (resolvers/->uuid r :users/bookshelves)})
+                      :attr-id (resolvers/->uuid r :users/bookshelves)
+                      :job-type "index"})
 
                 _ (jobs/enqueue-job job-queue job)
                 _ (wait-for (fn []
@@ -381,9 +391,10 @@
                                 (:id app)
                                 (for [i (range 1002)]
                                   [:add-triple (random-uuid) attr-id (format "%s-%s" x i)])))
-              job (jobs/create-unique-job!
+              job (jobs/create-job!
                    {:app-id (:id app)
-                    :attr-id attr-id})
+                    :attr-id attr-id
+                    :job-type "unique"})
 
               _ (jobs/enqueue-job job-queue job)
               _ (wait-for (fn []
@@ -407,9 +418,10 @@
               (is (not (-> (attr-model/seek-by-id attr-id attrs)
                            :setting-unique?)))))
           (testing "remove-unique"
-            (let [remove-unique-job (jobs/create-remove-unique-job!
+            (let [remove-unique-job (jobs/create-job!
                                      {:app-id (:id app)
-                                      :attr-id attr-id})
+                                      :attr-id attr-id
+                                      :job-type "remove-unique"})
                   _ (jobs/enqueue-job job-queue remove-unique-job)
                   _ (wait-for (fn []
                                 (every? (fn [{:keys [id]}]
@@ -457,9 +469,10 @@
                               (:id app)
                               [[:add-triple (random-uuid) attr-id "a"]
                                [:add-triple (random-uuid) attr-id "a"]])
-              job (jobs/create-unique-job!
+              job (jobs/create-job!
                    {:app-id (:id app)
-                    :attr-id attr-id})
+                    :attr-id attr-id
+                    :job-type "unique"})
 
               _ (jobs/enqueue-job job-queue job)
               _ (wait-for (fn []
@@ -522,12 +535,14 @@
                               (attr-model/get-by-app-id (:id app))
                               (:id app)
                               [[:add-triple bad-id attr-id (apply str (repeatedly 1024 random-uuid))]])
-              unique-job (jobs/create-unique-job!
+              unique-job (jobs/create-job!
                           {:app-id (:id app)
-                           :attr-id attr-id})
-              index-job (jobs/create-index-job!
+                           :attr-id attr-id
+                           :job-type "unique"})
+              index-job (jobs/create-job!
                          {:app-id (:id app)
-                          :attr-id attr-id})
+                          :attr-id attr-id
+                          :job-type "index"})
 
               _ (jobs/enqueue-job job-queue unique-job)
               _ (jobs/enqueue-job job-queue index-job)

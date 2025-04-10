@@ -1053,38 +1053,19 @@
                                 :attrs
                                 {:attr-id attr-id})
 
-        job (ex/assert-record! (case job-type
-                                 "check-data-type"
-                                 (indexing-jobs/create-check-data-type-job!
-                                  {:app-id app-id
-                                   :attr-id (:id attr)
-                                   :checked-data-type
-                                   (ex/get-param! req
-                                                  [:body :checked-data-type]
-                                                  string-util/coerce-non-blank-str)})
-
-                                 "remove-data-type"
-                                 (indexing-jobs/create-remove-data-type-job!
-                                  {:app-id app-id :attr-id (:id attr)})
-
-                                 "index"
-                                 (indexing-jobs/create-index-job!
-                                  {:app-id app-id :attr-id (:id attr)})
-
-                                 "remove-index"
-                                 (indexing-jobs/create-remove-index-job!
-                                  {:app-id app-id :attr-id (:id attr)})
-
-                                 "unique"
-                                 (indexing-jobs/create-unique-job!
-                                  {:app-id app-id :attr-id (:id attr)})
-
-                                 "remove-unique"
-                                 (indexing-jobs/create-remove-unique-job!
-                                  {:app-id app-id :attr-id (:id attr)}))
-                               :indexing-job
-                               {:attr-id attr-id
-                                :job-type job-type})]
+        job (ex/assert-record!
+             (indexing-jobs/create-job!
+              (cond-> {:app-id app-id
+                       :attr-id (:id attr)
+                       :job-type job-type}
+                (= "check-data-type" job-type)
+                (assoc :checked-data-type
+                       (ex/get-param! req
+                                      [:body :checked-data-type]
+                                      string-util/coerce-non-blank-str))))
+             :indexing-job
+             {:attr-id attr-id
+              :job-type job-type})]
     (indexing-jobs/enqueue-job job)
     (response/ok {:job (indexing-jobs/job->client-format job)})))
 

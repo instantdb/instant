@@ -408,32 +408,12 @@
 (defn create-indexing-jobs [app-id job-steps]
   (let [group-id (random-uuid)
         jobs (mapv (fn [[action {:keys [attr-id checked-data-type]}]]
-                     (let [job (case action
-                                 :check-data-type (indexing-jobs/create-check-data-type-job!
-                                                   {:app-id app-id
-                                                    :group-id group-id
-                                                    :attr-id attr-id
-                                                    :checked-data-type checked-data-type})
-                                 :remove-data-type (indexing-jobs/create-remove-data-type-job!
-                                                    {:app-id app-id
-                                                     :group-id group-id
-                                                     :attr-id attr-id})
-                                 :index (indexing-jobs/create-index-job!
-                                         {:app-id app-id
-                                          :group-id group-id
-                                          :attr-id attr-id})
-                                 :remove-index (indexing-jobs/create-remove-index-job!
-                                                {:app-id app-id
-                                                 :group-id group-id
-                                                 :attr-id attr-id})
-                                 :unique (indexing-jobs/create-unique-job!
-                                          {:app-id app-id
-                                           :group-id group-id
-                                           :attr-id attr-id})
-                                 :remove-unique (indexing-jobs/create-remove-unique-job!
-                                                 {:app-id app-id
-                                                  :group-id group-id
-                                                  :attr-id attr-id}))]
+                     (let [job (indexing-jobs/create-job!
+                                {:app-id            app-id
+                                 :group-id          group-id
+                                 :attr-id           attr-id
+                                 :job-type          (name action)
+                                 :checked-data-type checked-data-type})]
                        (indexing-jobs/enqueue-job job)
                        (indexing-jobs/job->client-format job)))
                    job-steps)]
