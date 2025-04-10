@@ -4311,5 +4311,34 @@
                          (get "$files")
                          vec))))))))))
 
+(deftest rule-wheres
+  (with-zeneca-app
+    (fn [app r]
+      (with-redefs [iq/use-rule-wheres? (constantly true)]
+        (let [make-ctx (fn []
+                         (let [attrs (attr-model/get-by-app-id (:id app))]
+                           {:db {:conn-pool (aurora/conn-pool :read)}
+                            :app-id (:id app)
+                            :attrs attrs}))]
+          (rule-model/put! (aurora/conn-pool :write)
+                           {:app-id (:id app)
+                            :code {:users {:allow {:view "data.handle == 'alex'"}}
+                                   :bookshelves {:allow {:view "data.name == 'Nonfiction'"}}
+                                   :books {:allow {:view "data.isbn13 == '9780316486668'"}}}})
+
+          (testing "rules work even when you filter fields"
+            (is (= {:users [{:id (str (resolvers/->uuid r "eid-alex"))
+                             :fullName "Alex"
+                             :bookshelves [{:id (str (resolvers/->uuid r "eid-nonfiction"))
+                                            :order 1
+                                            :books [{:id (str (resolvers/->uuid r "eid-catch-and-kill"))
+                                                     :title "Catch and Kill"}]}]}]}
+                   (pretty-perm-q (make-ctx) {:users {:$ {:fields ["fullName"]
+                                                          :where {:or [{:bookshelves.books.title "Catch and Kill"}
+                                                                       {:bookshelves.books.title "The Count of Monte Cristo"}]}}
+                                                      :bookshelves {:$ {:fields ["order"]
+                                                                        :where {:books.title "Catch and Kill"}}
+                                                                    :books {:$ {:fields ["title"]}}}}})))))))))
+
 (comment
   (test/run-tests *ns*))

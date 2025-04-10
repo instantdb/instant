@@ -2055,6 +2055,7 @@
                (if (or (or-where-cond? [k v])
                        (and-where-cond? [k v]))
                  (assoc new-where k (concat (map (partial extend-where-with-rule-refs
+                                                          etype
                                                           ctx
                                                           rule-wheres)
                                                  v)
