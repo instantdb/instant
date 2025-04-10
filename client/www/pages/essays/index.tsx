@@ -10,6 +10,7 @@ import {
   MainNav,
   Post,
 } from '@/components/marketingUi';
+import * as og from '@/lib/og';
 
 export async function getStaticProps() {
   return {
@@ -22,6 +23,11 @@ export default function Page({ posts }: { posts: Post[] }) {
     <LandingContainer>
       <Head>
         <title>Instant Essays</title>
+        <meta
+          key="og:image"
+          property="og:image"
+          content={og.url({ section: 'blog' })}
+        />
       </Head>
       <div className="flex min-h-screen flex-col justify-between">
         <MainNav />

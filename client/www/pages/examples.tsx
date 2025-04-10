@@ -22,6 +22,7 @@ import {
   MainNav,
 } from '@/components/marketingUi';
 import { useAuthToken } from '@/lib/auth';
+import * as og from '@/lib/og';
 
 export async function getStaticProps() {
   const files = getFiles();
@@ -154,6 +155,11 @@ function Main({ files }: { files: File[] }) {
     <LandingContainer>
       <Head>
         <title>Instant Examples</title>
+        <meta
+          key="og:image"
+          property="og:image"
+          content={og.url({ section: 'examples' })}
+        />
       </Head>
       <ToastContainer />
 

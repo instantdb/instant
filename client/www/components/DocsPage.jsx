@@ -3,6 +3,7 @@ import Head from 'next/head';
 import { slugifyWithCounter } from '@sindresorhus/slugify';
 import { Layout } from '@/components/docs/Layout';
 import { useMemo } from 'react';
+import * as og from '@/lib/og';
 
 function getNodeText(node) {
   let text = '';
@@ -66,8 +67,6 @@ export function DocsPage({ Component, pageProps }) {
       : [];
   }, [pageProps.markdoc]);
 
-  const imgSrc = `/api/og/essay?title=${encodeURIComponent(pageTitle)}`;
-
   return (
     <>
       <Head>
@@ -83,7 +82,11 @@ export function DocsPage({ Component, pageProps }) {
             />
           </>
         )}
-        <meta key="og:image" property="og:image" content={imgSrc} />
+        <meta
+          key="og:image"
+          property="og:image"
+          content={og.url({ title, section: 'docs' })}
+        />
         <meta
           key="twitter:card"
           name="twitter:card"
