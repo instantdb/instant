@@ -547,14 +547,16 @@
                   app-id
                   [[:= :attr-id email-attr-id]]))))
         (testing "unicity throws"
-          (is
-           (= ::ex/record-not-unique
-              (::ex/type (test-util/instant-ex-data
-                          (tx/transact!
-                           (aurora/conn-pool :write)
-                           (attr-model/get-by-app-id app-id)
-                           app-id
-                           [[:add-triple joe-eid email-attr-id "test2@instantdb.com"]]))))))))))
+          (let [ex-data  (test-util/instant-ex-data
+                           (tx/transact!
+                            (aurora/conn-pool :write)
+                            (attr-model/get-by-app-id app-id)
+                            app-id
+                            [[:add-triple joe-eid email-attr-id "test2@instantdb.com"]]))]
+            (is (= ::ex/record-not-unique
+                   (::ex/type ex-data)))
+            (is (= "`email` is a unique attribute on `users` and an entity already exists with `users.email` = \"test2@instantdb.com\""
+                   (::ex/message ex-data)))))))))
 
 (deftest tx-ref-many-to-many
   (with-empty-app

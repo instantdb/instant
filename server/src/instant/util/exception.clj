@@ -7,6 +7,7 @@
    [instant.jdbc.pgerrors :as pgerrors]
    [instant.util.json :refer [<-json]]
    [instant.util.string :refer [indexes-of safe-name]]
+   [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util])
   (:import
    (java.io IOException)
@@ -60,6 +61,21 @@
            ::message "hey!"}))
 
 ;; -------
+;; Helpers
+
+(defonce get-attr-details* (atom nil))
+
+(defn define-get-attr-details
+  "Allows us to access the function in attr.clj without
+   creating a cyclic dependency."
+  [f]
+  (reset! get-attr-details* f))
+
+(defn get-attr-details [app-id attr-id]
+  (when-let [f @get-attr-details*]
+    (f app-id attr-id)))
+
+;; -------
 ;; Records
 
 (defn throw-expiration-err! [record-type hint]
@@ -74,28 +90,127 @@
              ::hint (assoc hint :record-type record-type)}))
   record)
 
+(defn safe-char [s i]
+  (when (< i (count s))
+    (String/.charAt s i)))
+
+(defn parse-unique-detail-column!
+  "Returns the column at the given starting position.
+   Sets `i` to the start of the next column."
+  [i s]
+  (let [col (StringBuffer.)
+        advance (fn []
+                  (vswap! i inc))
+        add-char (fn [c]
+                   (.append col c)
+                   (advance))]
+    (loop [open-parens 0
+           in-quote? false]
+      (let [c (safe-char s @i)]
+        (if-not c
+          (.toString col)
+          (case c
+            \, (if in-quote?
+                 (do
+                   (add-char c)
+                   (recur open-parens
+                          in-quote?))
+                 (do
+                   (advance)
+                   ;; Consume next space
+                   (advance)
+                   (.toString col)))
+            \) (if (pos? open-parens)
+                 (do
+                   (add-char c)
+                   (recur (dec open-parens)
+                          in-quote?))
+                 (.toString col))
+            \( (do
+                 (add-char c)
+                 (recur (inc open-parens)
+                        in-quote?))
+            \" (let [escaped-quote? (= (safe-char s (dec @i))
+                                       \\)]
+                 (add-char c)
+                 (recur open-parens
+                        (if escaped-quote?
+                          in-quote?
+                          (not in-quote?))))
+            (do (add-char c)
+                (recur open-parens
+                       in-quote?))))))))
+
+(defn parse-unique-detail-columns!
+  "Finds the list of columns and returns them as a vector of strings.
+   Sets `i` to the end of the columns.
+   Given \"Key (a, b, c)=(1, 2, 3) already exists\"
+   Returns [\"a\", \"b\", \"c\"] with i at the `=` char."
+  [i s]
+  (loop [columns []
+         stage :find-columns-start]
+    (let [c (safe-char s @i)]
+      (if-not c
+        columns
+        (if (= c \))
+          (do
+            (vswap! i inc)
+            columns)
+          (case stage
+            :find-columns-start (do (vswap! i inc)
+                                    (if (= \( c)
+                                      (recur columns
+                                             :get-column)
+                                      (recur columns
+                                             :find-columns-start)))
+            :get-column (recur (conj columns
+                                     (parse-unique-detail-column! i s))
+                               :get-column)))))))
+
+(defn parse-unique-detail [s]
+  (let [i (volatile! 0)
+        keys (parse-unique-detail-columns! i s)
+        values (parse-unique-detail-columns! i s)]
+    (zipmap keys values)))
+
 (defn extract-unique-triple-data [pg-data]
   (when (and (= "triples" (:table pg-data))
-             (= "av_index" (:constraint pg-data))
-             (string/starts-with? (:detail pg-data) "Key (app_id, attr_id, json_null_to_null(value))="))
-    (let [prefix "Key (app_id, attr_id, json_null_to_null(value))=(00000000-0000-0000-0000-000000000000, "
-          attr-id (-> (subs (:detail pg-data)
-                            (count prefix)
-                            (+ (count prefix) 36))
-                      uuid-util/coerce)
-          value (-> (subs (:detail pg-data)
-                          (+ (count prefix) 36 2)
-                          (string/last-index-of (:detail pg-data) ") already exists.")))]
-      {:attr-id attr-id
-       :value value})))
+             (= "av_index" (:constraint pg-data)))
+    (try
+      (let [details (parse-unique-detail (:detail pg-data))
+            value   (get details "json_null_to_null(value)")
+            app-id  (uuid-util/coerce (get details "app_id"))
+            attr-id (uuid-util/coerce (get details "attr_id"))
+            {:keys [etype label]} (get-attr-details app-id attr-id)]
+        (cond (and etype label value)
+              {:message (format "`%s` is a unique attribute on `%s` and an entity already exists with `%s.%s` = %s"
+                                label
+                                etype
+                                etype
+                                label
+                                value)
+               :hint {:attr-id attr-id
+                      :etype etype
+                      :label label
+                      :value value}}
+
+              attr-id
+              {:hint {:attr-id attr-id
+                      :value value}}
+
+              :else nil))
+      (catch Exception e
+        (tracer/record-exception-span! e {:name "ex/extract-unique-triple-data-error"})
+        nil))))
 
 (defn throw-record-not-unique!
   ([record-type] (throw-record-not-unique! record-type nil nil))
   ([record-type pg-data e]
    (let [extra-hint-data (extract-unique-triple-data pg-data)]
      (throw+ {::type ::record-not-unique
-              ::message (format "Record not unique: %s" (name record-type))
-              ::hint (merge {:record-type record-type} extra-hint-data)}
+              ::message (or (:message extra-hint-data)
+                            (format "Record not unique: %s" (name record-type)))
+              ::hint (merge {:record-type record-type} (:hint extra-hint-data))}
              e))))
 
 ;; -----------
