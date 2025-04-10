@@ -130,14 +130,13 @@
                  (add-char c)
                  (recur (inc open-parens)
                         in-quote?))
-            \" (do
-                 (let [escaped-quote? (= (safe-char s (dec @i))
-                                         \\)]
-                   (add-char c)
-                   (recur open-parens
-                          (if escaped-quote?
-                            in-quote?
-                            (not in-quote?)))))
+            \" (let [escaped-quote? (= (safe-char s (dec @i))
+                                       \\)]
+                 (add-char c)
+                 (recur open-parens
+                        (if escaped-quote?
+                          in-quote?
+                          (not in-quote?))))
             (do (add-char c)
                 (recur open-parens
                        in-quote?))))))))
@@ -180,8 +179,8 @@
     (try
       (let [details (parse-unique-detail (:detail pg-data))
             value   (get details "json_null_to_null(value)")
-            app-id  (parse-uuid (get details "app_id"))
-            attr-id (parse-uuid (get details "attr_id"))
+            app-id  (uuid-util/coerce (get details "app_id"))
+            attr-id (uuid-util/coerce (get details "attr_id"))
             {:keys [etype label]} (get-attr-details app-id attr-id)]
         (cond (and etype label value)
               {:message (format "`%s` is a unique attribute on `%s` and an entity already exists with `%s.%s` = %s"
