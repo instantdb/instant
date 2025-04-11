@@ -1,0 +1,1 @@
+alter table indexing_jobs drop column error_data;
