@@ -445,13 +445,11 @@ export default function Page() {
           content={og.url({ title, section: 'hiring' })}
         />
       </Head>
-      <div className="flex min-h-screen flex-col justify-between">
-        <MainNav />
-        <div className="mx-auto mt-6 p-4 md:max-w-2xl">
-          <HiringContent />
-        </div>
-        <LandingFooter />
+      <MainNav />
+      <div className="mx-auto mt-6 p-4 md:max-w-2xl">
+        <HiringContent />
       </div>
+      <LandingFooter />
     </LandingContainer>
   );
 }
