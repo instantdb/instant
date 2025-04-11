@@ -1,8 +1,11 @@
-import { useEffect, useState } from 'react';
-import config from '../../config';
-import { init, tx, id, i } from '@instantdb/react';
-import { useRouter } from 'next/router';
+import { useState } from 'react';
+
+import { id, i, InstantReactAbstractDatabase } from '@instantdb/react';
+
 import { InstaQLFields } from '../../../../packages/core/dist/module';
+import EphemeralAppPage, {
+  ResetButton,
+} from '../../components/EphemeralAppPage';
 
 const _schema = i.schema({
   entities: {
@@ -32,11 +35,7 @@ const defaultFields: InstaQLFields<AppSchema, 'characters'> = [
   'rating',
 ];
 
-function Example({ appId }: { appId: string }) {
-  const router = useRouter();
-  const myConfig = { ...config, appId, schema };
-  const db = init(myConfig);
-
+function Example({ db }: { db: InstantReactAbstractDatabase<typeof _schema> }) {
   const [fields, setFields] =
     useState<InstaQLFields<AppSchema, 'characters'>>(defaultFields);
   const [noFields, setNoFields] = useState(false);
@@ -74,14 +73,10 @@ function Example({ appId }: { appId: string }) {
   return (
     <div>
       <div>
-        <button
+        <ResetButton
           className="bg-black text-white m-2 p-2"
-          onClick={() => {
-            window.location.href = router.pathname;
-          }}
-        >
-          Start over
-        </button>
+          label="Start over"
+        />
       </div>
       <div>
         {defaultFields.map((field) => {
@@ -293,106 +288,18 @@ const characters = [
   },
 ];
 
-async function provisionEphemeralApp() {
-  const r = await fetch(`${config.apiURI}/dash/apps/ephemeral`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      title: 'Comparisons example',
-    }),
-  });
-
-  const res = await r.json();
-  if (res.app) {
-    const db = init({ ...config, appId: res.app.id, schema: schema });
-    db.transact(
-      characters.map((character) => db.tx.characters[id()].update(character)),
-    );
-  }
-  return res;
+export default function Page() {
+  return (
+    <EphemeralAppPage
+      schema={schema}
+      onCreateApp={async (db) => {
+        await db.transact(
+          characters.map((character) =>
+            db.tx.characters[id()].update(character),
+          ),
+        );
+      }}
+      Component={Example}
+    />
+  );
 }
-
-async function verifyEphemeralApp({ appId }: { appId: string }) {
-  const r = await fetch(`${config.apiURI}/dash/apps/ephemeral/${appId}`, {
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  });
-
-  return r.json();
-}
-
-function App({ urlAppId }: { urlAppId: string | undefined }) {
-  const router = useRouter();
-  const [appId, setAppId] = useState();
-
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (appId) {
-      return;
-    }
-    if (urlAppId) {
-      verifyEphemeralApp({ appId: urlAppId }).then((res): any => {
-        if (res.app) {
-          setAppId(res.app.id);
-        } else {
-          provisionEphemeralApp().then((res) => {
-            if (res.app) {
-              router.replace({
-                pathname: router.pathname,
-                query: { ...router.query, app: res.app.id },
-              });
-
-              setAppId(res.app.id);
-            } else {
-              console.log(res);
-              setError('Could not create app.');
-            }
-          });
-        }
-      });
-    } else {
-      provisionEphemeralApp().then((res) => {
-        if (res.app) {
-          router.replace({
-            pathname: router.pathname,
-            query: { ...router.query, app: res.app.id },
-          });
-
-          setAppId(res.app.id);
-        } else {
-          console.log(res);
-          setError('Could not create app.');
-        }
-      });
-    }
-  }, []);
-
-  if (error) {
-    return (
-      <div>
-        <p>There was an error</p>
-        <p>{error}</p>
-      </div>
-    );
-  }
-
-  if (!appId) {
-    return <div>Loading...</div>;
-  }
-  return <Example appId={appId} />;
-}
-
-function Page() {
-  const router = useRouter();
-  if (router.isReady) {
-    return <App urlAppId={router.query.app as string} />;
-  } else {
-    return <div>Loading...</div>;
-  }
-}
-
-export default Page;
