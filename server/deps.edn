@@ -1,4 +1,4 @@
-{:paths ["src" "resources" "data"]
+{:paths ["src" "resources" "data" "target/classes"]
  :deps {cheshire/cheshire {:mvn/version "5.10.0"}
         clj-http/clj-http {:mvn/version "3.12.3"}
 
@@ -118,14 +118,8 @@
 
                             ;; headless charts 
                             "-Djava.awt.headless=true"]}
-           :storm {:extra-deps {com.github.flow-storm/clojure {:mvn/version "1.11.2-4"}
-                                com.github.flow-storm/flow-storm-dbg {:mvn/version "3.14.0"}}
-                   :override-deps {org.clojure/clojure nil}
-                   :jvm-opts ["-Dclojure.storm.instrumentEnable=true"
-                              "-Dclojure.storm.instrumentOnlyPrefixes=instant."]}
-           :build {:deps {io.github.clojure/tools.build {:git/tag "v0.10.3" :git/sha "15ead66"}}
+           :build {:extra-deps {io.github.clojure/tools.build {:git/tag "v0.10.3" :git/sha "15ead66"}}
                    :ns-default build}
-           :run {:main-opts ["-m" "instant.core"]}
            :test {:extra-paths ["test" "dev-resources"]
                   :extra-deps {io.github.tonsky/clj-reload {:mvn/version "0.9.4"}
                                zprint/zprint               {:mvn/version "1.2.9"}}

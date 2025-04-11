@@ -4,7 +4,7 @@ DC = $(shell command -v docker-compose >/dev/null 2>&1 && echo "docker-compose" 
 
 dev:
 	@echo "Booting up backend w/ local db..."
-	clojure -M:dev:run
+	clojure -T:build dev
 
 bootstrap-oss:
 	clojure -X:dev:oss-bootstrap
@@ -13,7 +13,7 @@ dev-oss:
 	@echo "Booting up backend w/ local db..."
 	clojure -X:dev:oss-bootstrap
 	@echo "Starting server..."
-	clojure -M:dev:run
+	clojure -T:build dev
 
 install-hooks:
 	@echo "Installing .git/hooks/pre-commit..."
@@ -29,13 +29,6 @@ dev-up:
 dev-down:
 	@echo "Migrating dev db up down by 1"
 	migrate -database "postgresql://localhost:5432/instant?sslmode=disable" -path resources/migrations down 1
-
-dev-storm:
-	@echo "Booting up dev with storm debugger..."
-	@echo "Usage:"
-	@echo " user> (require '[flow-storm.api :as fs-api])"
-	@echo " user> (fs-api/local-connect)"
-	clojure -M:dev:storm:run
 
 test:
 	TEST=true clojure -M:test
@@ -59,7 +52,7 @@ restart:
 dev-with-prod-db:
 	@DATABASE_URL=$$(./scripts/prod_connection_string.sh); \
 	echo "[IMPORTANT] Booting up backend w/ prod db..." && \
-	DATABASE_URL="$${DATABASE_URL}" clj -M:dev:run
+	DATABASE_URL="$${DATABASE_URL}" clj -T:build dev
 
 prod-ssh:
 	./scripts/prod_ssh.sh
