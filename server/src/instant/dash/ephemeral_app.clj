@@ -5,6 +5,7 @@
    [instant.model.app :as app-model]
    [instant.model.instant-user :as instant-user-model]
    [instant.model.rule :as rule-model]
+   [instant.model.schema :as schema-model]
    [instant.util.date :as date]
    [instant.util.exception :as ex]
    [instant.util.lang :as lang]
@@ -47,6 +48,7 @@
 
 (defn http-post-handler [req]
   (let [title (ex/get-param! req [:body :title] string-util/coerce-non-blank-str)
+        schema (get-in req [:body :schema])
         rules-code (get-in req [:body :rules :code])
         _ (when rules-code
             (ex/assert-valid! :rule rules-code (rule-model/validation-errors
@@ -55,6 +57,12 @@
     (when rules-code
       (rule-model/put! {:app-id (:id app)
                         :code rules-code}))
+    (when schema
+      (->> schema
+           (schema-model/plan! {:app-id (:id app)
+                                :check-types? true
+                                :background-updates? false})
+           (schema-model/apply-plan! (:id app))))
     (response/ok {:app app
                   :expires_ms (app-expires-ms app)})))
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import config from '../../config';
 import { init, tx, id, i } from '@instantdb/react';
 import { useRouter } from 'next/router';
+import EphemeralAppPage from '../../components/EphemeralAppPage';
 
 const schema = i.schema({
   entities: {
@@ -28,7 +29,10 @@ const schema = i.schema({
   },
 });
 
-function Example({ appId, useSchema }: { appId: string; useSchema: boolean }) {
+function Example({ appId }: { appId: string }) {
+  const router = useRouter();
+  const useSchema = router.query.schema === 'true';
+
   const myConfig = { ...config, appId };
   const db = useSchema
     ? init({ ...myConfig, schema })
@@ -83,123 +87,19 @@ function Example({ appId, useSchema }: { appId: string; useSchema: boolean }) {
   );
 }
 
-async function provisionEphemeralApp() {
-  const r = await fetch(`${config.apiURI}/dash/apps/ephemeral`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      title: 'Pagination example',
-      // Uncomment and start a new app to test rules
-      /* rules: {
-        code: {
-          goals: {
-            allow: {
-              // data.number % 2 == 0 gives me a typecasting error
-              // so does int(data.number) % 2 == 0
-              view: "data.number == 2 || data.number == 4 || data.number == 6 || data.number == 8 || data.number == 10",
-            },
-          },
-        },
-      }, */
-    }),
-  });
-
-  return r.json();
-}
-
-async function verifyEphemeralApp({ appId }: { appId: string }) {
-  const r = await fetch(`${config.apiURI}/dash/apps/ephemeral/${appId}`, {
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  });
-
-  return r.json();
-}
-
-function App({
-  urlAppId,
-  useSchema,
-}: {
-  urlAppId: string | undefined;
-  useSchema: boolean;
-}) {
-  const router = useRouter();
-  const [appId, setAppId] = useState();
-
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (appId) {
-      return;
-    }
-    if (urlAppId) {
-      verifyEphemeralApp({ appId: urlAppId }).then((res): any => {
-        if (res.app) {
-          setAppId(res.app.id);
-        } else {
-          provisionEphemeralApp().then((res) => {
-            if (res.app) {
-              router.replace({
-                pathname: router.pathname,
-                query: { ...router.query, app: res.app.id },
-              });
-
-              setAppId(res.app.id);
-            } else {
-              console.log(res);
-              setError('Could not create app.');
-            }
-          });
-        }
-      });
-    } else {
-      provisionEphemeralApp().then((res) => {
-        if (res.app) {
-          router.replace({
-            pathname: router.pathname,
-            query: { ...router.query, app: res.app.id },
-          });
-
-          setAppId(res.app.id);
-        } else {
-          console.log(res);
-          setError('Could not create app.');
-        }
-      });
-    }
-  }, []);
-
-  if (error) {
-    return (
-      <div>
-        <p>There was an error</p>
-        <p>{error}</p>
-      </div>
-    );
-  }
-
-  if (!appId) {
-    return <div>Loading...</div>;
-  }
-
-  return <Example appId={appId} useSchema={useSchema} />;
-}
-
 function Page() {
   const router = useRouter();
-  if (router.isReady) {
-    return (
-      <App
-        urlAppId={router.query.app as string}
-        useSchema={router.query.schema === 'true'}
-      />
-    );
-  } else {
+
+  if (!router.isReady) {
     return <div>Loading...</div>;
   }
+  const useSchema = router.query.schema === 'true';
+
+  return useSchema ? (
+    <EphemeralAppPage Component={Example} schema={schema} />
+  ) : (
+    <EphemeralAppPage Component={Example} />
+  );
 }
 
 export default Page;
