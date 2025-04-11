@@ -30,6 +30,9 @@ dev-down:
 	@echo "Migrating dev db up down by 1"
 	migrate -database "postgresql://localhost:5432/instant?sslmode=disable" -path resources/migrations down 1
 
+compile-java:
+	clojure -T:build compile-java
+
 test:
 	TEST=true clojure -M:test
 
