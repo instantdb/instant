@@ -57,6 +57,7 @@ The instant server will run at [localhost:8888](http://localhost:8888) and you c
 To run tests:
 
 ```sh
+make compile-java
 make test
 ```
 

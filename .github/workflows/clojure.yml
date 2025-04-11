@@ -33,6 +33,10 @@ jobs:
             echo "did_change=True" >> $GITHUB_OUTPUT
             break
           fi
+          if echo $file | grep -E '.github/workflows/clojure.yml'; then
+            echo "did_change=True" >> $GITHUB_OUTPUT
+            break
+          fi
         done
 
   clj-check:
@@ -95,6 +99,10 @@ jobs:
     - name: Install Clojure dependencies
       working-directory: server
       run: clojure -P
+
+    - name: Compile java src files
+      working-directory: server
+      run: clojure -T:build compile-java
 
     - name: Run Clojure tests
       working-directory: server
