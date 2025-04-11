@@ -3,8 +3,10 @@
   (:require
    [clojure.string :as string]
    [clojure.tools.logging :as log]
-   [instant.config :as config])
+   [instant.config :as config]
+   [instant.util.coll :as ucoll])
   (:import
+   (instant SpanTrackException)
    (io.opentelemetry.api.common AttributeKey)
    (io.opentelemetry.sdk.common CompletableResultCode)
    (io.opentelemetry.sdk.trace.data SpanData EventData)
@@ -88,8 +90,15 @@
     (doseq [attr (.asMap (.getAttributes span))]
       (append-attr sb attr))
     (doseq [^EventData event (.getEvents span)]
-      (doseq [attr (.asMap (.getAttributes event))]
-        (append-attr sb attr)))
+      (if (ucoll/exists? (fn [t]
+                           (and (instance? SpanTrackException t)
+                                (not= (.getMessage t)
+                                      (.getSpanId span))))
+                         (some-> (.getException event)
+                                 (.getSuppressed)))
+        (append-attr sb ["child-threw-exception" true])
+        (doseq [attr (.asMap (.getAttributes event))]
+          (append-attr sb attr))))
     (.toString sb)))
 
 (defn friendly-trace [trace-id]
