@@ -13,8 +13,7 @@
    [instant.util.exception :as ex]
    [instant.util.spec :as uspec]
    [instant.util.string :as string-util]
-   [instant.util.uuid :as uuid]
-   [next.jdbc :as next-jdbc]))
+   [instant.util.uuid :as uuid]))
 
 (set! *warn-on-reflection* true)
 
@@ -744,82 +743,3 @@
             (attr-details))))
 
 (ex/define-get-attr-details get-attr-details)
-
-;; ------
-;; required?
-
-(defn check-required
-  "Checks if attribute is effectiveliy required (all entities with the same etype have it set).
-   Returns map with :count and first 10 :entity-ids that miss that attribute"
-  [conn attr-id]
-  (let [query "WITH inputs_cte AS (
-                 SELECT idents.app_id, idents.etype, idents.label
-                   FROM attrs
-                   JOIN idents on attrs.forward_ident = idents.id
-                  WHERE attrs.id = ?attr-id
-                  LIMIT 1
-               ),
-               attr_ids_cte AS (
-                 SELECT attr_id
-                   FROM inputs_cte, idents
-                   JOIN attrs ON idents.id = attrs.forward_ident
-                  WHERE idents.etype = inputs_cte.etype
-               ),
-               triples_cte AS (
-                 SELECT DISTINCT entity_id
-                   FROM inputs_cte, triples
-                  WHERE triples.attr_id IN (SELECT attr_id FROM attr_ids_cte)
-                    AND triples.app_id = inputs_cte.app_id
-               )
-               SELECT triples_cte.entity_id, count(triples_cte.entity_id) OVER (), input_cte.etype, input_cte.label
-                 FROM triples_cte
-                 LEFT JOIN triples ON triples_cte.entity_id = triples.entity_id
-                                  AND triples.attr_id = ?attr-id
-                      JOIN input_cte ON 1 = 1
-                WHERE triples.ctid IS NULL
-                LIMIT 10"
-        res (sql/execute! conn (sql/format query {"?attr-id" attr-id}))]
-    (when (seq res)
-      (let [{:keys [count etype label]} (first res)
-            entity-ids (map :entity_id res)]
-        (ex/throw+
-         {::ex/message (str "Attribute " label " (" attr-id ") can’t be marked required because " count " " etype " entities are missing it")
-          ::ex/type    ::validation-failed
-          ::ex/hint    {:count count
-                        :etype etype
-                        :label label
-                        :entity-ids entity-ids}})))))
-
-(comment
-  (check-required (aurora/conn-pool :read) #uuid "6eebf15a-ed3c-4442-8869-a44a7c85a1be")
-  (check-required (aurora/conn-pool :read) #uuid "275e5c3c-d565-4f5a-b832-4290cc6de915"))
-
-(defn set-required! [conn-pool attr-id value]
-  (let [query "UPDATE attrs SET is_required = ?value WHERE id = ?attr-id"]
-    (if value
-      (do
-        (next-jdbc/with-transaction [tx-conn conn-pool]
-          ;; check that current attr is effectively required
-          (check-required tx-conn attr-id)
-
-          ;; swap is_required
-          (sql/execute! tx-conn (sql/format query {"?value" true, "?attr-id" attr-id}))
-
-          ;; commit for other txes to see results of this one
-          )
-
-        ;; now all new txes will validate against attr being required
-        (next-jdbc/with-transaction [tx-conn conn-pool]
-          ;; check again to catch possible txes between first check and flipping the flag
-          (try
-            (check-required tx-conn attr-id)
-            (catch Exception e
-              ;; undo is_required
-              (sql/execute! tx-conn (sql/format query {"?value" false, "?attr-id" attr-id}))
-              (throw e))))
-
-        ;; success!
-        )
-
-      ;; can always flip to not required
-      (sql/execute! conn-pool (sql/format query {"?value" false, "?attr-id" attr-id})))))

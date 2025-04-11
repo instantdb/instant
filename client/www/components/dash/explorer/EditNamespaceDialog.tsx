@@ -593,7 +593,7 @@ function EditRequired({
   pushNavStack: PushNavStack;
 }) {
   const token = useAuthToken();
-  const [requiredChecked, setRequiredChecked] = useState(attr.isIndex);
+  const [requiredChecked, setRequiredChecked] = useState(attr.isRequired);
   const [indexingJob, setIndexingJob] = useState<InstantIndexingJob | null>(
     null,
   );
@@ -656,7 +656,7 @@ function EditRequired({
     }
   };
 
-  const valueNotChanged = requiredChecked === attr.isIndex;
+  const valueNotChanged = requiredChecked === attr.isRequired;
 
   const buttonDisabled = isSystemCatalogNs || valueNotChanged;
 
@@ -683,12 +683,27 @@ function EditRequired({
         />
       </div>
 
-      {indexingJob?.error === 'missing-attr' ? (
+      {indexingJob?.error === 'missing-required-error' ? (
         <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
           <div>
-            Some ${attr.namespace} entities do not have ${attr.name} set.{' '}
+            {indexingJob.error_data.count} <code>{attr.namespace}</code> {indexingJob.error_data.count === 1 ? 'entity does' : 'entities do'} not have <code>{attr.name}</code> set.
           </div>
-          {/* TODO: entity ids */}
+          <InvalidTriplesSample
+            job={
+              { ...indexingJob, 'invalid_triples_sample': indexingJob.error_data['entity-ids']?.map((id) => ({'entity_id': id, 'value': null, json_type: attr.checkedDataType})) }
+            //{'invalid_triples_sample': indexingJob.error_data.entity_ids.map((id) => {'entity_id': id, 'value': undefined})}
+            }
+            attr={attr}
+            onClickSample={(t) => {
+              pushNavStack({
+                namespace: attr.namespace,
+                where: ['id', t.entity_id],
+              });
+              // It would be nice to have a way to minimize the dialog so you could go back
+              closeDialog();
+            }}
+          />
+
         </div>
       ) : null}
 
