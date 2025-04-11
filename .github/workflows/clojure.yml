@@ -35,7 +35,8 @@ jobs:
           fi
           if echo $file | grep -E '.github/workflows/clojure.yml'; then
             echo "did_change=True" >> $GITHUB_OUTPUT
-          break
+            break
+          fi
         done
 
   clj-check:
