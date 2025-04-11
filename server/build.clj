@@ -8,7 +8,6 @@
 (def basis (delay (b/create-basis {:project "deps.edn"})))
 
 (defn compile-java [_]
-  (println "COMPILE JAVA")
   (b/javac {:src-dirs ["src/java"]
             :class-dir "target/classes"
             :basis @basis
