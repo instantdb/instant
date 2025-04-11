@@ -34,7 +34,7 @@
 
 (defn uber [_]
   (clean nil)
-  (compile-java)
+  (compile-java nil)
   (b/copy-dir {:src-dirs ["src" "resources" "data"]
                :target-dir class-dir})
   (b/compile-clj {:basis @basis
