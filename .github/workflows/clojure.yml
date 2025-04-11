@@ -96,6 +96,10 @@ jobs:
       working-directory: server
       run: clojure -P
 
+    - name: Compile java src files
+      working-directory: server
+      run: clojure -T:build compile-java
+
     - name: Run Clojure tests
       working-directory: server
       env:
