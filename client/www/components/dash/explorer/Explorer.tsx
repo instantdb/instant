@@ -920,7 +920,7 @@ export function Explorer({
           },
         )}
       >
-        <div className="flex items-center gap-1 text-sm font-semibold">
+        <div className="flex items-center gap-1 text-sm font-semibold px-4">
           <ChevronLeftIcon
             height="1rem"
             className="cursor-pointer md:hidden"
@@ -930,7 +930,7 @@ export function Explorer({
         </div>
         {namespaces ? (
           <>
-            <div className="overflow-y-auto overflow-x-hidden">
+            <div className="overflow-y-auto overflow-x-hidden py-2">
               {namespaces.length ? (
                 <ToggleCollection
                   className="text-sm"
@@ -997,7 +997,9 @@ export function Explorer({
                   />
                 ) : null}
                 <div className="truncate overflow-hidden text-ellipses whitespace-nowrap font-mono text-xs flex-shrink">
-                  <strong>{selectedNamespace.name}</strong>{' '}
+                  <strong className="text-base">
+                    {selectedNamespace.name}
+                  </strong>{' '}
                   {currentNav.where ? (
                     <>
                       {' '}

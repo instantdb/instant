@@ -542,7 +542,7 @@ function Dashboard() {
   );
 }
 
-const TabContent = twel('div', 'flex flex-col max-w-2xl gap-4 p-4');
+const TabContent = twel('div', 'flex flex-col gap-4 p-4');
 
 function mergeQueryParams(query: string) {
   const newQuery = new URLSearchParams(query);
