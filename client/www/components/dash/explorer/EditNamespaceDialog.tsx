@@ -266,10 +266,10 @@ function AddAttrForm({
     if (!reverseNamespace) return;
 
     const isSelfLink = reverseNamespace.name === namespace.name;
-    setAttrName(isSelfLink ? 'children' : reverseNamespace.name);
-    setReverseAttrName(isSelfLink ? 'parent' : namespace.name);
+    setAttrName(isSelfLink ? 'parent' : reverseNamespace.name);
+    setReverseAttrName(isSelfLink ? 'children' : namespace.name);
     if (isSelfLink) {
-      setRelationship('many-one');
+      setRelationship('one-many');
     }
   }, [attrType, reverseNamespace]);
 
