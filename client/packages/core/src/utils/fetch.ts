@@ -22,13 +22,54 @@ type InstantIssueBody =
       hint: { 'record-type': string };
     }
   | {
+      type: 'record-foreign-key-invalid';
+      message: string;
+      hint: { table?: string; condition?: string; constraint?: string };
+    }
+  | {
+      type: 'record-check-violation';
+      message: string;
+      hint: { table?: string; condition?: string; constraint?: string };
+    }
+  | {
       type: 'permission-denied';
       message: string;
       hint: { input: any; expected: string };
     }
+  | {
+      type: 'permission-evaluation-failed';
+      message: string;
+      hint: {
+        rule: [string, string];
+        error?: { type: string; message: string; hint: any };
+      };
+    }
+  | {
+      type: 'sql-raise';
+      message: string;
+      hint: { table?: string; condition?: string; constraint?: string };
+    }
+  | {
+      type: 'sql-exception';
+      message: string;
+      hint: { table?: string; condition?: string; constraint?: string };
+    }
+  | {
+      type: 'rate-limited';
+      message: string;
+    }
+  | {
+      type: 'session-missing';
+      message: string;
+      hint: { 'sess-id': string };
+    }
+  | {
+      type: 'socket-missing';
+      message: string;
+      hint: { 'sess-id': string; 'exception-message'?: string };
+    }
   | { type: undefined; [k: string]: any }
   | undefined;
-
 // Note that InstantIssueBody is not exported and is only necessary for making InstantAPIError
 // below to have all the members and typecheck as InstantIssue
 export type InstantIssue = {
