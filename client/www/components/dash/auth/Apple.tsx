@@ -25,7 +25,7 @@ import { addProvider, addClient, deleteClient, findName } from './shared';
 import {
   AppsAuthResponse,
   InstantApp,
-  InstantError,
+  InstantIssue,
   OAuthClient,
   OAuthServiceProvider,
 } from '@/lib/types';
@@ -59,7 +59,7 @@ export function AppleClient({
     } catch (e) {
       console.error(e);
       const msg =
-        messageFromInstantError(e as InstantError) || 'Error deleting client.';
+        messageFromInstantError(e as InstantIssue) || 'Error deleting client.';
       errorToast(msg, { autoClose: 5000 });
     } finally {
       setIsLoading(false);
@@ -230,7 +230,7 @@ export function AddClientExpanded({
     } catch (e) {
       console.error(e);
       const msg =
-        messageFromInstantError(e as InstantError) || 'Error creating client.';
+        messageFromInstantError(e as InstantIssue) || 'Error creating client.';
       errorToast(msg, { autoClose: 5000 });
     } finally {
       setIsLoading(false);

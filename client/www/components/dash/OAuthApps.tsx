@@ -15,7 +15,7 @@ import { messageFromInstantError } from '@/lib/errors';
 import config, { discordOAuthAppsFeedbackInviteUrl } from '@/lib/config';
 import { jsonFetch } from '@/lib/fetch';
 import {
-  InstantError,
+  InstantIssue,
   OAuthApp,
   OAuthAppClient,
   OAuthAppClientSecret,
@@ -317,7 +317,7 @@ interface OAuthAppContext {
 const OAuthAppContext = createContext<OAuthAppContext | null>(null);
 
 function exceptionToast(e: unknown, backupMsg: string) {
-  const msg = messageFromInstantError(e as InstantError) || backupMsg;
+  const msg = messageFromInstantError(e as InstantIssue) || backupMsg;
   errorToast(msg, { autoClose: 60000 });
 }
 

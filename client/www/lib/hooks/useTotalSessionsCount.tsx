@@ -4,7 +4,7 @@ import useCurrentDate from './useCurrentDate';
 import config from '@/lib/config';
 import { jsonFetch } from '../fetch';
 import { messageFromInstantError } from '@/lib/errors';
-import { InstantError } from '../types';
+import { InstantIssue } from '../types';
 
 async function fetchTotalSessionsCount() {
   return jsonFetch(`${config.apiURI}/dash/stats/active_sessions`, {
@@ -42,7 +42,7 @@ export default function useTotalSessionsCount({
       } catch (error) {
         if (cancel) return;
         const message =
-          messageFromInstantError(error as InstantError) ||
+          messageFromInstantError(error as InstantIssue) ||
           'Failed to fetch total sessions count';
         setState({ data: undefined, error: { message }, isLoading: false });
       }
