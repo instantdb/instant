@@ -6,6 +6,8 @@ import {
   id,
   txInit,
   version as coreVersion,
+  InstantAPIError,
+  type InstantIssue,
   type TransactionChunk,
   type AuthToken,
   type Exactly,
@@ -177,7 +179,7 @@ async function jsonFetch(
   const json = await res.json();
   return res.status === 200
     ? Promise.resolve(json)
-    : Promise.reject({ status: res.status, body: json });
+    : Promise.reject(new InstantAPIError({ status: res.status, body: json }));
 }
 
 /**
