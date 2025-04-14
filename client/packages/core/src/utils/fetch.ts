@@ -21,6 +21,11 @@ type InstantIssueBody =
       message: string;
       hint: { 'record-type': string };
     }
+  | {
+      type: 'permission-denied';
+      message: string;
+      hint: { input: any; expected: string };
+    }
   | { type: undefined; [k: string]: any }
   | undefined;
 
