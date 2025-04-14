@@ -1,4 +1,5 @@
 (ns instant.util.pg-hint-plan
+  (:refer-clojure :exclude [memoize])
   (:require [honey.sql :as hsql]))
 
 ;; Notes on use:
@@ -23,7 +24,7 @@
 
 (honey.sql/register-clause!
  :pg-hints
- (fn [clause exps]
+ (fn [_clause exps]
    (if-not (seq exps)
      []
      (let [s (StringBuilder.)]

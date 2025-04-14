@@ -25,4 +25,4 @@ CMD ["postgres", \
        "-c", "wal_level=logical", \
        "-c", "max_replication_slots=4", \
        "-c", "max_wal_senders=4", \
-       "-c", "shared_preload_libraries='pg_hint_plan'"]
+       "-c", "shared_preload_libraries=pg_hint_plan"]
