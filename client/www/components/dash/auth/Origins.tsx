@@ -5,7 +5,7 @@ import {
   AuthorizedOrigin,
   AuthorizedOriginService,
   InstantApp,
-  InstantError,
+  InstantIssue,
   OAuthClient,
   OAuthServiceProvider,
 } from '@/lib/types';
@@ -168,7 +168,7 @@ export function AuthorizedOriginsForm({
     } catch (e) {
       console.error(e);
       const msg =
-        messageFromInstantError(e as InstantError) || 'Error creating origin.';
+        messageFromInstantError(e as InstantIssue) || 'Error creating origin.';
       errorToast(msg, { autoClose: 5000 });
     } finally {
       setIsLoading(false);
@@ -335,7 +335,7 @@ export function AuthorizedOriginRow({
     } catch (e) {
       console.error(e);
       const msg =
-        messageFromInstantError(e as InstantError) || 'Error removing origin.';
+        messageFromInstantError(e as InstantIssue) || 'Error removing origin.';
       errorToast(msg, { autoClose: 5000 });
     } finally {
       setIsLoading(false);

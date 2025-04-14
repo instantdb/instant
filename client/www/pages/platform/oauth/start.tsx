@@ -5,7 +5,7 @@ import { useAuthToken } from '@/lib/auth';
 import config, { discordInviteUrl } from '@/lib/config';
 import { messageFromInstantError } from '@/lib/errors';
 import { jsonFetch } from '@/lib/fetch';
-import { InstantError } from '@/lib/types';
+import { InstantIssue } from '@/lib/types';
 import { useEffect, useRef, useState } from 'react';
 
 /*
@@ -21,7 +21,7 @@ function InvalidRedirect({
   error?: unknown;
 }) {
   const instantError = error
-    ? messageFromInstantError(error as InstantError)
+    ? messageFromInstantError(error as InstantIssue)
     : null;
   return (
     <div className="flex h-full items-center justify-center p-4">

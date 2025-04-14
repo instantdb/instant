@@ -242,7 +242,7 @@ export type OAuthAppsResponse = {
   apps: OAuthApp[];
 };
 
-export type InstantError = {
+export type InstantIssue = {
   body:
     | { type: 'param-missing'; message: string; hint: { in: string[] } }
     | { type: 'param-malformed'; message: string; hint: { in: string[] } }

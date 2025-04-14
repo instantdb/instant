@@ -4,7 +4,7 @@ import { messageFromInstantError } from '@/lib/errors';
 import config, { stripeKey } from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
 import { jsonFetch } from '@/lib/fetch';
-import { AppsSubscriptionResponse, InstantError } from '@/lib/types';
+import { AppsSubscriptionResponse, InstantIssue } from '@/lib/types';
 import { loadStripe } from '@stripe/stripe-js';
 import { useContext, useRef } from 'react';
 import { Loading, ErrorMessage } from '@/components/dash/shared';
@@ -47,7 +47,7 @@ async function createCheckoutSession(appId: string, token: string) {
     })
     .catch((err) => {
       const message =
-        messageFromInstantError(err as InstantError) ||
+        messageFromInstantError(err as InstantIssue) ||
         'Failed to connect w/ Stripe! Try again or ping us on Discord if this persists.';
       const friendlyMessage = friendlyErrorMessage('dash-billing', message);
       errorToast(friendlyMessage);
@@ -75,7 +75,7 @@ async function createPortalSession(appId: string, token: string) {
     })
     .catch((err) => {
       const message =
-        messageFromInstantError(err as InstantError) ||
+        messageFromInstantError(err as InstantIssue) ||
         'Failed to connect w/ Stripe! Try again or ping us on Discord if this persists.';
       const friendlyMessage = friendlyErrorMessage('dash-billing', message);
       errorToast(friendlyMessage);
