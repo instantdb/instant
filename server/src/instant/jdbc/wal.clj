@@ -327,7 +327,7 @@
              shutdown-fn))))
 
 (defn closed? [o]
-  (case (class o)
+  (condp instance? o
     Connection (Connection/.isClosed o)
     PGReplicationStream (PGReplicationStream/.isClosed o)))
 
