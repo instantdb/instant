@@ -2,15 +2,12 @@
   (:refer-clojure :exclude [memoize])
   (:require [honey.sql :as hsql]))
 
-;; Notes on use:
-;; Only include one :pg-hint per query
-
-(def forbidden-strs ["/*" "*/" "?"])
-
 ;; Expects a list of hints, e.g.
 ;; {:select :*
 ;;  :pg-hints [(index-scan :t2 :ea_index)]
 ;;  :from :triples}
+;;
+;; Can only be included once per query
 
 (defn add-args! [^StringBuilder s args]
   (when (seq args)
