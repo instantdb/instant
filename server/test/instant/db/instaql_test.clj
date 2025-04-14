@@ -2618,7 +2618,6 @@
           (testing "uses index"
             (is (= "triples_boolean_type_idx" (run-explain :boolean true)))))))))
 
-;; Disabling for now because the test is flaky
 (deftest lookup-unique-uses-the-av-index
   (with-empty-app
     (fn [app]
