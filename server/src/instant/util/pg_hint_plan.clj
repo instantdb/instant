@@ -182,8 +182,3 @@
     "Sets GUC parameter to the value defined while planner is running."
     [param value]
     [:'Set param value])
-
-
-
-
-nil
