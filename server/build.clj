@@ -17,7 +17,7 @@
   (compile-java nil)
   (b/process
    (b/java-command {:basis (b/create-basis {:project "deps.edn"
-                                            :aliases ["dev"]})
+                                            :aliases [:dev]})
                     :main 'clojure.main
                     :main-args ["-m" "instant.core"]})))
 

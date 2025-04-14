@@ -9,10 +9,14 @@
    (instant SpanTrackException)
    (io.opentelemetry.api.common AttributeKey)
    (io.opentelemetry.sdk.common CompletableResultCode)
-   (io.opentelemetry.sdk.trace.data SpanData EventData)
+   (io.opentelemetry.sdk.trace.data SpanData
+                                    EventData
+                                    ExceptionEventData)
    (io.opentelemetry.sdk.trace.export SpanExporter)
    (java.util.concurrent TimeUnit)
    (java.util.concurrent.atomic AtomicBoolean)))
+
+(set! *warn-on-reflection* true)
 
 ;; ------
 ;; Colors
@@ -90,12 +94,13 @@
     (doseq [attr (.asMap (.getAttributes span))]
       (append-attr sb attr))
     (doseq [^EventData event (.getEvents span)]
-      (if (ucoll/exists? (fn [t]
-                           (and (instance? SpanTrackException t)
-                                (not= (.getMessage t)
-                                      (.getSpanId span))))
-                         (some-> (.getException event)
-                                 (.getSuppressed)))
+      (if (and (instance? ExceptionEventData event)
+               (ucoll/exists? (fn [t]
+                                (and (instance? SpanTrackException t)
+                                     (not= (.getMessage ^SpanTrackException t)
+                                           (.getSpanId span))))
+                              (some-> (.getException ^ExceptionEventData event)
+                                      (.getSuppressed))))
         (append-attr sb ["child-threw-exception" true])
         (doseq [attr (.asMap (.getAttributes event))]
           (append-attr sb attr))))
