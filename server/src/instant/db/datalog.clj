@@ -903,7 +903,6 @@
         cte [cur-table
              {:select (concat (when prev-table
                                 [(kw prev-table :.*)])
-                              [[(instant.util.json/->json named-p) :named-p]]
                               (match-table-select cur-table))
               :from (concat (list* [:triples triples-alias]
                                    (when prev-table

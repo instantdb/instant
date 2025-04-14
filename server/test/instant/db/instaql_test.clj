@@ -2495,8 +2495,8 @@
              ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili"))}))))))
 
 (deftest comparators
-  (with-zeneca-checked-data-app
-    (fn [app _]
+  (with-empty-app
+    (fn [app]
       (let [attr-ids {:string (random-uuid)
                       :number (random-uuid)
                       :boolean (random-uuid)
@@ -2515,7 +2515,6 @@
                                (#(get % "etype"))
                                (map #(get % (name return-field)))
                                set)))
-            _ (sql/select (aurora/conn-pool :write) ["ANALYZE triples"])
             run-explain (fn run-explain
                           ([data-type value]
                            (run-explain :$gt data-type value))
@@ -2618,83 +2617,79 @@
 
           (testing "uses index"
             (is (= "triples_boolean_type_idx" (run-explain :boolean true)))))))))
+
 ;; Disabling for now because the test is flaky
-#_(deftest lookup-unique-uses-the-av-index
-    (with-zeneca-app
-      ;; We don't use the zeneca app here, but we need its triples
-      ;; to make postgres choose a good index
-      (fn [_ _]
-        (with-empty-app
-          (fn [app]
-            (let [attr-ids {:id (random-uuid)
-                            :handle (random-uuid)}
-                  make-ctx (fn []
-                             (let [attrs (attr-model/get-by-app-id (:id app))]
-                               {:db {:conn-pool (aurora/conn-pool :read)}
-                                :app-id (:id app)
-                                :attrs attrs}))
-                  _ (tx/transact! (aurora/conn-pool :write)
-                                  (attr-model/get-by-app-id (:id app))
-                                  (:id app)
-                                  (concat [[:add-attr {:id (:id attr-ids)
-                                                       :forward-identity [(random-uuid) "user" "id"]
-                                                       :unique? true
-                                                       :index? false
-                                                       :value-type :blob
-                                                       :cardinality :one}]
-                                           [:add-attr {:id (:handle attr-ids)
-                                                       :forward-identity [(random-uuid) "user" "handle"]
-                                                       :unique? true
-                                                       :index? false
-                                                       :value-type :blob
-                                                       :cardinality :one}]]
-                                          (let [id (random-uuid)]
-                                            [[:add-triple id (:id attr-ids) (str id)]
-                                             [:add-triple id (:handle attr-ids) "a"]])
-                                          (let [id (random-uuid)]
-                                            [[:add-triple id (:id attr-ids) (str id)]
-                                             [:add-triple id (:handle attr-ids) "b"]])
-                                          (mapcat (fn [i]
-                                                    (let [id (random-uuid)]
-                                                      [[:add-triple id (:id attr-ids) (str id)]
-                                                       [:add-triple id (:handle attr-ids) (str i)]]))
-                                                  (range 5000))))]
-              (sql/select (aurora/conn-pool :write) ["ANALYZE triples"])
-              (testing "query on unique attr"
-                (let [{:keys [patterns]} (iq/instaql-query->patterns
-                                          (make-ctx)
-                                          {:user {:$ {:where {:handle "a"}}}})
-                      explain (d/explain (make-ctx) patterns)
-                      plan (-> explain
-                               (get "QUERY PLAN")
-                               first
-                               (get-in ["Plan" "Plans" 0]))
-                      ;; Make sure it's using the full index
-                      expected-index-cond (format "((triples.app_id = '%s'::uuid) AND (triples.attr_id = '%s'::uuid) AND (CASE WHEN (triples.value = 'null'::jsonb) THEN NULL::jsonb ELSE triples.value END = '\"a\"'::jsonb))"
-                                                  (:id app)
-                                                  (:handle attr-ids))]
-                  (is (= expected-index-cond (get plan "Index Cond")))
-                  (is (= "av_index" (get plan "Index Name")))))
+(deftest lookup-unique-uses-the-av-index
+  (with-empty-app
+    (fn [app]
+      (let [attr-ids {:id (random-uuid)
+                      :handle (random-uuid)}
+            make-ctx (fn []
+                       (let [attrs (attr-model/get-by-app-id (:id app))]
+                         {:db {:conn-pool (aurora/conn-pool :read)}
+                          :app-id (:id app)
+                          :attrs attrs}))
+            _ (tx/transact! (aurora/conn-pool :write)
+                            (attr-model/get-by-app-id (:id app))
+                            (:id app)
+                            (concat [[:add-attr {:id (:id attr-ids)
+                                                 :forward-identity [(random-uuid) "user" "id"]
+                                                 :unique? true
+                                                 :index? false
+                                                 :value-type :blob
+                                                 :cardinality :one}]
+                                     [:add-attr {:id (:handle attr-ids)
+                                                 :forward-identity [(random-uuid) "user" "handle"]
+                                                 :unique? true
+                                                 :index? false
+                                                 :value-type :blob
+                                                 :cardinality :one}]]
+                                    (let [id (random-uuid)]
+                                      [[:add-triple id (:id attr-ids) (str id)]
+                                       [:add-triple id (:handle attr-ids) "a"]])
+                                    (let [id (random-uuid)]
+                                      [[:add-triple id (:id attr-ids) (str id)]
+                                       [:add-triple id (:handle attr-ids) "b"]])
+                                    (mapcat (fn [i]
+                                              (let [id (random-uuid)]
+                                                [[:add-triple id (:id attr-ids) (str id)]
+                                                 [:add-triple id (:handle attr-ids) (str i)]]))
+                                            (range 5000))))]
+        (testing "query on unique attr"
+          (let [{:keys [patterns]} (iq/instaql-query->patterns
+                                    (make-ctx)
+                                    {:user {:$ {:where {:handle "a"}}}})
+                explain (d/explain (make-ctx) patterns)
+                plan (-> explain
+                         (get "QUERY PLAN")
+                         first
+                         (get-in ["Plan" "Plans" 0]))
+                ;; Make sure it's using the full index
+                expected-index-cond (format "((t0.app_id = '%s'::uuid) AND (t0.attr_id = '%s'::uuid) AND (CASE WHEN (t0.value = 'null'::jsonb) THEN NULL::jsonb ELSE t0.value END = '\"a\"'::jsonb))"
+                                            (:id app)
+                                            (:handle attr-ids))]
+            (is (= expected-index-cond (get plan "Index Cond")))
+            (is (= "av_index" (get plan "Index Name")))))
 
-              (testing "query with lookup"
-                (let [explain (d/explain (make-ctx) {:children
-                                                     {:pattern-groups
-                                                      [{:patterns
-                                                        [[:ea [(:handle attr-ids) "a"]]]}]}})
-                      plan (-> explain
-                               (get "QUERY PLAN")
-                               first
-                               (get-in ["Plan" "Plans"])
-                               first
-                               (get "Plans")
-                               first)
-                      ;; Make sure it's using the full index
-                      expected-index-cond (format "((triples.app_id = '%s'::uuid) AND (triples.attr_id = '%s'::uuid) AND (CASE WHEN (triples.value = 'null'::jsonb) THEN NULL::jsonb ELSE triples.value END = '\"a\"'::jsonb))"
-                                                  (:id app)
-                                                  (:handle attr-ids))]
+        (testing "query with lookup"
+          (let [explain (d/explain (make-ctx) {:children
+                                               {:pattern-groups
+                                                [{:patterns
+                                                  [[:ea [(:handle attr-ids) "a"]]]}]}})
+                plan (-> explain
+                         (get "QUERY PLAN")
+                         first
+                         (get-in ["Plan" "Plans"])
+                         first
+                         (get "Plans")
+                         first)
+                ;; Make sure it's using the full index
+                expected-index-cond (format "((triples.app_id = '%s'::uuid) AND (triples.attr_id = '%s'::uuid) AND (CASE WHEN (triples.value = 'null'::jsonb) THEN NULL::jsonb ELSE triples.value END = '\"a\"'::jsonb))"
+                                            (:id app)
+                                            (:handle attr-ids))]
 
-                  (is (= expected-index-cond (get plan "Index Cond")))
-                  (is (= "av_index" (get plan "Index Name")))))))))))
+            (is (= expected-index-cond (get plan "Index Cond")))
+            (is (= "av_index" (get plan "Index Name")))))))))
 
 (deftest arbitrary-order-by-all-types
   (with-empty-app
