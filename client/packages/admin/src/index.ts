@@ -838,6 +838,9 @@ export {
   lookup,
   i,
 
+  // error
+  InstantAPIError,
+
   // types
   type Config,
   type ImpersonationOpts,
@@ -888,4 +891,7 @@ export {
   type UploadFileResponse,
   type DeleteFileResponse,
   type DeleteManyFileResponse,
+
+  // error types
+  type InstantIssue,
 };
