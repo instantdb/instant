@@ -227,11 +227,14 @@
 
 (defn throw-permission-evaluation-failed! [etype action ^CelEvaluationException e show-cel-errors?]
   (let [cause-type (.name (.getErrorCode e))
-        cause-message (when show-cel-errors? (str " " (or (.getMessage e) "You may have a typo") "."))
-        hint-message (format "Could not evaluate permission rule for `%s.%s`.%s Debug this in the sandbox and then update your permission rules."
+        err-message (.getMessage e)
+        cause-message (if (and err-message show-cel-errors?)
+                        err-message
+                        "You may have a typo")
+        hint-message (format "Could not evaluate permission rule for `%s.%s`. %s. Debug this in the sandbox and then update your permission rules."
                              etype
                              action
-                             (or cause-message ""))]
+                             cause-message)]
     (throw+ {::type ::permission-evaluation-failed
              ::message hint-message
              ::hint (cond-> {:rule [etype action]}
