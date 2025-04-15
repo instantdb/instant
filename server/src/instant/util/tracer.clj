@@ -118,7 +118,8 @@
   [^Span span
    {:keys [exception escaping? attributes]
     :or   {attributes {}}}]
-  (when-not logging-exporter/log-spans?
+  (when (and (not logging-exporter/log-spans?)
+             (logging-exporter/exception-belongs-to-span? exception (-> span .getSpanContext .getSpanId)))
     (println exception))
   (let [attrs (cond-> attributes
                 escaping? (assoc "exception.escaped" (boolean escaping?)))]

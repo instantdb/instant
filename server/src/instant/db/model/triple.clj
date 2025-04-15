@@ -183,12 +183,13 @@
 
             missing-required-alive
             {:from ['missing-required
-                    [[:lateral {:from 'idents
-                                :where [:and
-                                        [:= 'idents/app-id app-id]
-                                        [:= 'idents/etype 'missing-required/etype]]
-                                :join ['attrs   [:= 'idents/id 'attrs/forward-ident]
-                                       'triples [:= 'triples/attr-id 'attrs/id]]
+                    [[:lateral {:from   'idents
+                                :join   ['attrs   [:= 'idents/id 'attrs/forward-ident]
+                                         'triples [:= 'triples/attr-id 'attrs/id]]
+                                :where  [:and
+                                         [:= 'idents/app-id app-id]
+                                         [:= 'idents/etype 'missing-required/etype]
+                                         [:= 'triples/entity-id 'missing-required/entity-id]]
                                 :select [[[:count 'triples/entity-id] 'cnt]]}] 'cnt]]
              :where [:> 'cnt/cnt [:inline 0]]
              :select 'missing-required/*}
