@@ -512,7 +512,7 @@
             result))
     (catch CelEvaluationException e
       (ex/throw-permission-evaluation-failed!
-       etype action e (:admin-check? ctx)))))
+       etype action e (:show-cel-errors? ctx)))))
 
 (declare prefetch-missing-ref-datas)
 

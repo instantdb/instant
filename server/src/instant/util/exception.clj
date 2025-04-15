@@ -225,9 +225,9 @@
                      :expected perm}}))
   pass?)
 
-(defn throw-permission-evaluation-failed! [etype action ^CelEvaluationException e admin?]
+(defn throw-permission-evaluation-failed! [etype action ^CelEvaluationException e show-cel-errors?]
   (let [cause-type (.name (.getErrorCode e))
-        cause-message (when admin? (str " " (or (.getMessage e) "You may have a typo") "."))
+        cause-message (when show-cel-errors? (str " " (or (.getMessage e) "You may have a typo") "."))
         hint-message (format "Could not evaluate permission rule for `%s.%s`.%s Debug this in the sandbox and then update your permission rules."
                              etype
                              action
