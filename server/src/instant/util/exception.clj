@@ -10,6 +10,7 @@
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util])
   (:import
+   (dev.cel.runtime CelEvaluationException)
    (java.io IOException)
    (org.postgresql.util PSQLException)))
 
@@ -224,24 +225,21 @@
                      :expected perm}}))
   pass?)
 
-(defn throw-permission-evaluation-failed! [etype action ^Exception e]
-  (let [cause-data (-> e (.getCause) ex-data)
-        cause-message (or (::message cause-data)
-                          "You may have a typo")]
+(defn throw-permission-evaluation-failed! [etype action ^CelEvaluationException e]
+  (let [cause-type (.name (.getErrorCode e))
+        cause-message (or (.getMessage e)
+                          "You may have a typo")
+        hint-message (format "Could not evaluate permission rule for `%s.%s`. %s. Go to the permission tab in your dashboard to update your rule."
+                             etype
+                             action
+                             cause-message)]
     (throw+ {::type ::permission-evaluation-failed
-             ::message
-             (format "Could not evaluate permission rule for `%s.%s`. %s. Go to the permission tab in your dashboard to update your rule."
-                     etype
-                     action
-                     cause-message)
+             ::message hint-message
              ::hint (merge {:rule [etype action]}
-                           (when cause-data
-                             {:error {:type (some-> cause-data
-                                                    ::type
-                                                    name
-                                                    keyword)
-                                      :message (::message cause-data)
-                                      :hint (::hint cause-data)}}))}
+                           (when cause-type
+                             {:error {:type (keyword cause-type)
+                                      :message hint-message
+                                      :hint cause-message}}))}
             e)))
 
 ;; -----------
