@@ -150,7 +150,7 @@
   [xs {:keys [as type]}]
   {:select
    [[[:cast 'elem (or type :text)] as]]
-   :from [[[:JSON_ARRAY_ELEMENTS_TEXT [:cast (->json xs) :json]] 'elem]]})
+   :from [[[:jsonb_array_elements_text [:cast (->json xs) :jsonb]] 'elem]]})
 
 (defn tupleset
   "A way to pass seq-of-tuples as an input to honeysql.
@@ -181,7 +181,7 @@
    (for [[idx {:keys [type as]}] (map vector (range) cols)]
      [[:cast [:->> 'elem [:inline idx]] (or type :text)] as])
    :from
-   [[[:json_array_elements [:cast (->json ts) :json]] 'elem]]})
+   [[[:jsonb_array_elements [:cast (->json ts) :jsonb]] 'elem]]})
 
 (defn recordset
   "A way to pass seq-of-maps as an input to honeysql.
@@ -211,7 +211,7 @@
              (if as
                [col-name as]
                col-name))
-   :from   [[[:json_to_recordset [:cast (->json rs) :json]]
+   :from   [[[:jsonb_to_recordset [:cast (->json rs) :jsonb]]
              [[:raw (str "("
                          (string/join ", "
                                       (for [[col-name {:keys [type]}] cols]
