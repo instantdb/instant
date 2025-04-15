@@ -225,21 +225,19 @@
                      :expected perm}}))
   pass?)
 
-(defn throw-permission-evaluation-failed! [etype action ^CelEvaluationException e]
+(defn throw-permission-evaluation-failed! [etype action ^CelEvaluationException e admin?]
   (let [cause-type (.name (.getErrorCode e))
-        cause-message (or (.getMessage e)
-                          "You may have a typo")
-        hint-message (format "Could not evaluate permission rule for `%s.%s`. %s. Go to the permission tab in your dashboard to update your rule."
+        cause-message (when admin? (str " " (or (.getMessage e) "You may have a typo") "."))
+        hint-message (format "Could not evaluate permission rule for `%s.%s`.%s Debug this in the sandbox and then update your permission rules."
                              etype
                              action
-                             cause-message)]
+                             (or cause-message ""))]
     (throw+ {::type ::permission-evaluation-failed
              ::message hint-message
-             ::hint (merge {:rule [etype action]}
-                           (when cause-type
-                             {:error {:type (keyword cause-type)
-                                      :message hint-message
-                                      :hint cause-message}}))}
+             ::hint (cond-> {:rule [etype action]}
+                      cause-type (assoc :error {:type (keyword cause-type)
+                                                :message hint-message
+                                                :hint cause-message}))}
             e)))
 
 ;; -----------

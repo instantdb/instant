@@ -440,7 +440,7 @@
 
     (catch CelEvaluationException e
       (ex/throw-permission-evaluation-failed!
-       etype action e))))
+       etype action e (:admin? ctx)))))
 
 (deftype MissingRefData [ref-datas])
 
@@ -512,7 +512,7 @@
             result))
     (catch CelEvaluationException e
       (ex/throw-permission-evaluation-failed!
-       etype action e))))
+       etype action e (:admin-check? ctx)))))
 
 (declare prefetch-missing-ref-datas)
 
