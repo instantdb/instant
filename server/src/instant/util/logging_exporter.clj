@@ -8,6 +8,7 @@
   (:import
    (instant SpanTrackException)
    (io.opentelemetry.api.common AttributeKey)
+   (io.opentelemetry.api.trace SpanId)
    (io.opentelemetry.sdk.common CompletableResultCode)
    (io.opentelemetry.sdk.trace.data SpanData
                                     EventData
@@ -89,18 +90,19 @@
       (.append sb (format-attr-value v))
       (.append sb " "))))
 
+(defn exception-belongs-to-span? [^Throwable t ^SpanId spanId]
+  (ucoll/exists? (fn [t]
+                   (and (instance? SpanTrackException t)
+                        (not= spanId (.getMessage ^SpanTrackException t))))
+                 (some-> t .getSuppressed)))
+
 (defn attr-str [^SpanData span]
   (let [sb (StringBuilder.)]
     (doseq [attr (.asMap (.getAttributes span))]
       (append-attr sb attr))
     (doseq [^EventData event (.getEvents span)]
       (if (and (instance? ExceptionEventData event)
-               (ucoll/exists? (fn [t]
-                                (and (instance? SpanTrackException t)
-                                     (not= (.getMessage ^SpanTrackException t)
-                                           (.getSpanId span))))
-                              (some-> (.getException ^ExceptionEventData event)
-                                      (.getSuppressed))))
+               (exception-belongs-to-span? (.getException ^ExceptionEventData event) (.getSpanId span)))
         (append-attr sb ["child-threw-exception" true])
         (doseq [attr (.asMap (.getAttributes event))]
           (append-attr sb attr))))

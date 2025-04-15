@@ -132,9 +132,18 @@
                  :current-user     nil}
             user-id    (suid "ffff")
             book-id    (suid "b00c")
-            company-id (suid "aaaa")]
+            company-id (suid "aaaa")
+            extra-user-id (suid "fffe")
+            extra-book-id (suid "b00d")]
 
-        (doseq [add-op [:add-triple #_:deep-merge-triple]]
+        ;; need extra book to exist to make sure filtering by entity-id is happening
+        (permissioned-tx/transact!
+         ctx
+         [[:add-triple extra-user-id attr-user-name "extra user"]
+          [:add-triple extra-book-id attr-book-title "extra title"]
+          [:add-triple extra-book-id attr-book-author extra-user-id]])
+
+        (doseq [add-op [:add-triple :deep-merge-triple]]
           (testing add-op
             (permissioned-tx/transact!
              ctx
@@ -183,7 +192,6 @@
                       [[:retract-triple book-id attr-book-title "title upd 2"]]))))
 
               (testing "link"
-
                 (is (validation-err?
                      (permissioned-tx/transact!
                       ctx
