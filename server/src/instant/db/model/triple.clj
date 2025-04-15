@@ -1,6 +1,7 @@
 (ns instant.db.model.triple
   (:require
    [clojure.spec.alpha :as s]
+   [clojure.string :as str]
    [honey.sql :as hsql]
    [instant.db.model.attr :as attr-model]
    [instant.db.model.triple-cols :as triple-cols-ns]
@@ -175,7 +176,9 @@
                          [:and
                           [:= 'eid+required-attrs/entity-id 'triples/entity-id]
                           [:= 'eid+required-attrs/attr-id 'triples/attr-id]]]
-             :where     [:= 'triples/value nil]
+             :where     [:or
+                         [:= 'triples/value nil]
+                         [:= 'triples/value [:cast [:inline "null"] :jsonb]]]
              :select    ['eid+required-attrs/* 'triples/value]}
 
             missing-required-alive
@@ -200,18 +203,16 @@
 
             res (sql/execute! conn (hsql/format query))]
         (when (seq res)
-          (ex/throw-validation-err!
-           :required-attrs
-           res
-           (for [{entity-id :entity_id
-                  attr-id   :attr_id
-                  etype     :etype
-                  label     :label} res]
-             {:message   (str "Entity " etype " " entity-id " is missing required attribute '" label "'")
-              :etype     etype
-              :entity-id entity-id
-              :attr-id   attr-id
-              :label     label})))))))
+          (ex/throw+
+           {::ex/type    ::ex/validation-failed
+            ::ex/message (str/join ". "
+                                   (for [[[etype label] records] (group-by (juxt :etype :label) res)]
+                                     (if (= 1 (count records))
+                                       (str "Missing required attribute `" etype "/" label "`: " (:entity_id (first records)))
+                                       (str "Missing required attributes `" etype "/" label "`: "
+                                            (str/join ", " (map :entity_id records))))))
+
+            ::ex/hint    {:records res}}))))))
 
 (defn deep-merge-multi!  [conn _attrs app-id triples]
   (let [input-triples-values
