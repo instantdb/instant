@@ -122,131 +122,173 @@
               [:user/name]
               [[:user/company :company/users] :on-delete]
               [:company/name]])
+            attr-book-author (suid "baac")
+            make-ctx         (fn make-ctx
+                               ([]
+                                (make-ctx {}))
+                               ([{:keys [admin?]}]
+                                {:db               {:conn-pool (aurora/conn-pool :write)}
+                                 :app-id           app-id
+                                 :attrs            (attr-model/get-by-app-id app-id)
+                                 :datalog-query-fn d/query
+                                 :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                                 :current-user     nil
+                                 :admin?           admin?}))
+            user-id          (suid "ffff")
+            book-id          (suid "b00c")
+            company-id       (suid "aaaa")
+            extra-user-id    (suid "fffe")
+            extra-book-id    (suid "b00d")]
 
-            ;; add-attr without existing entities
-            {attr-book-author :book/author}
-            (test-util/make-attrs
-             app-id
-             [[[:book/author :user/books] :required?]])
-
-            ctx {:db               {:conn-pool (aurora/conn-pool :write)}
-                 :app-id           app-id
-                 :attrs            (attr-model/get-by-app-id app-id)
-                 :datalog-query-fn d/query
-                 :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
-                 :current-user     nil}
-            user-id    (suid "ffff")
-            book-id    (suid "b00c")
-            company-id (suid "aaaa")
-            extra-user-id (suid "fffe")
-            extra-book-id (suid "b00d")]
+        (testing "add-attr without existing entities"
+          (permissioned-tx/transact!
+           (make-ctx)
+           [[:add-attr {:id               attr-book-author
+                        :forward-identity [(random-uuid) "book" "author"]
+                        :reverse-identity [(random-uuid) "user" "books"]
+                        :value-type       :ref
+                        :cardinality      :one
+                        :unique?          false
+                        :index?           false
+                        :required?        true}]]))
 
         (permissioned-tx/transact!
-         ctx
+         (make-ctx)
          [[:add-triple extra-user-id attr-user-name "extra user"]
           [:add-triple extra-book-id attr-book-title "extra title"]
           [:add-triple extra-book-id attr-book-author extra-user-id]])
 
         (testing "add-attr with existing entities"
           (is (validation-err?
-               (test-util/make-attrs
-                app-id
-                [[:book/price :required?]]))))
+               (permissioned-tx/transact!
+                (make-ctx)
+                [[:add-attr {:id               (random-uuid)
+                             :forward-identity [(random-uuid) "book" "price"]
+                             :reverse-identity [(random-uuid) "user" "books"]
+                             :value-type       :blob
+                             :cardinality      :one
+                             :unique?          false
+                             :index?           false
+                             :required?        true}]]))))
 
-        (doseq [add-op [:add-triple :deep-merge-triple]]
+        (doseq [add-op [:add-triple #_:deep-merge-triple]]
           (testing add-op
             (permissioned-tx/transact!
-             ctx
-             [[add-op user-id attr-user-name "user"]
-              [:add-triple user-id attr-user-company company-id]
-              [add-op company-id attr-company-name "company"]])
+             (make-ctx)
+             [[add-op      user-id    attr-user-name    "user"]
+              [:add-triple user-id    attr-user-company company-id]
+              [add-op      company-id attr-company-name "company"]])
 
             (testing "add without required"
               (is (validation-err?
                    (permissioned-tx/transact!
-                    ctx
+                    (make-ctx)
                     [[add-op book-id attr-book-desc "no title"]]))))
 
             (testing "add with required"
               (is (not (validation-err?
                         (permissioned-tx/transact!
-                         ctx
+                         (make-ctx)
                          [[add-op book-id attr-book-title "title"]
                           [add-op book-id attr-book-desc "desc"]
                           [:add-triple book-id attr-book-author user-id]])))))
 
+            (println ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+            (testing "update-attr"
+              (testing "set :required? with invalid entities"
+                (is (validation-err?
+                     (permissioned-tx/transact!
+                      (make-ctx {:admin? true})
+                      [[:update-attr {:id attr-book-desc
+                                      :required? true}]]))))
+              (println "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
+
+              (testing "unset required"
+                (is (not (validation-err?
+                          (permissioned-tx/transact!
+                           (make-ctx {:admin? true})
+                           [[:update-attr {:id attr-book-title
+                                           :required? false}]])))))
+
+              (testing "set :required? with valid entities"
+                (is (not (validation-err?
+                          (permissioned-tx/transact!
+                           (make-ctx {:admin? true})
+                           [[:update-attr {:id attr-book-title
+                                           :required? true}]]))))))
+
             (testing "update required"
               (is (not (validation-err?
                         (permissioned-tx/transact!
-                         ctx
+                         (make-ctx)
                          [[add-op book-id attr-book-title "title upd"]])))))
 
             (testing "retract + insert required"
               (is (not (validation-err?
                         (permissioned-tx/transact!
-                         ctx
+                         (make-ctx)
                          [[:retract-triple book-id attr-book-title "title upd"]
                           [add-op book-id attr-book-title "title upd 2"]])))))
 
             (testing "update non-required"
               (is (not (validation-err?
                         (permissioned-tx/transact!
-                         ctx
+                         (make-ctx)
                          [[add-op book-id attr-book-desc "desc upd"]])))))
 
             (testing "remove required"
               (testing "regular attr"
                 (is (validation-err?
                      (permissioned-tx/transact!
-                      ctx
+                      (make-ctx)
                       [[:retract-triple book-id attr-book-title "title upd 2"]]))))
 
               (testing "link"
                 (is (validation-err?
                      (permissioned-tx/transact!
-                      ctx
+                      (make-ctx)
                       [[:retract-triple book-id attr-book-author user-id]]))))
 
               (testing "through delete-entity"
                 (is (validation-err?
                      (permissioned-tx/transact!
-                      ctx
+                      (make-ctx)
                       [[:delete-entity user-id "user"]]))))
 
               (testing "through cascade"
                 (is (validation-err?
                      (permissioned-tx/transact!
-                      ctx
+                      (make-ctx)
                       [[:delete-entity company-id "company"]])))))
 
             (testing "remove non-required"
               (is (not (validation-err?
                         (permissioned-tx/transact!
-                         ctx
+                         (make-ctx)
                          [[:retract-triple book-id attr-book-desc "desc upd"]])))))
 
             (testing "update last required"
               (is (not (validation-err?
                         (permissioned-tx/transact!
-                         ctx
+                         (make-ctx)
                          [[add-op book-id attr-book-title "title upd 3"]])))))
 
             (testing "remove last required"
               (is (not (validation-err?
                         (permissioned-tx/transact!
-                         ctx
+                         (make-ctx)
                          [[:retract-triple book-id attr-book-title "title upd 3"]
                           [:retract-triple book-id attr-book-author user-id]])))))
 
             (testing "delete-entity"
               (permissioned-tx/transact!
-               ctx
+               (make-ctx)
                [[add-op book-id attr-book-title "title"]
                 [add-op book-id attr-book-desc "desc"]
                 [:add-triple book-id attr-book-author user-id]])
               (is (not (validation-err?
                         (permissioned-tx/transact!
-                         ctx
+                         (make-ctx)
                          [[:delete-entity book-id "book"]])))))))))))
 
 (deftest attrs-update

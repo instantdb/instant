@@ -257,10 +257,10 @@
                      "Namespaces are not allowed to start with a `$`.
                       Those are reserved for system namespaces.")}])))))
 
-(defn validate-required! [conn app-id attrs]
-  (doseq [attr attrs
+(defn validate-add-required! [conn app-id attrs]
+  (doseq [attr  attrs
           :when (:required? attr)
-          :let  [[_ etype name] (:forward-identity attr)
+          :let  [[_ etype label] (:forward-identity attr)
                  query "SELECT *
                           FROM idents
                           JOIN attrs ON attrs.forward_ident = idents.id
@@ -274,7 +274,7 @@
     (ex/throw-validation-err!
      :attributes
      attr
-     [{:message (str "Can't set attribute `" name "` as required because `" etype "` already have entities")}])))
+     [{:message (str "Can't set attribute `" label "` as required because `" etype "` already have entities")}])))
 
 (defn insert-multi!
   "Attr data is expressed as one object in clj but is persisted across two tables
@@ -287,7 +287,7 @@
   ([conn app-id attrs {:keys [allow-reserved-names?]}]
    (when-not allow-reserved-names?
      (validate-reserved-names! attrs))
-   (validate-required! conn app-id attrs)
+   (validate-add-required! conn app-id attrs)
    (with-cache-invalidation app-id
      (let [query {:with [[[:attr-values
                            {:columns attr-table-cols}]
@@ -470,6 +470,58 @@
     (->> updates
          (filter (fn [x]
                    (some (partial contains? x) ks))))))
+
+(defn validate-update-required! [conn app-id attrs]
+  (when-some [attrs (not-empty (filter :required? attrs))]
+    (let [query "WITH attrs_cte AS (
+                   SELECT CAST(elem AS uuid) AS id
+                   FROM JSONB_ARRAY_ELEMENTS_TEXT(CAST(?attr-ids AS JSONB)) AS elem
+                 ),
+
+                 attrs_etype_cte AS (
+                   SELECT attrs.id, idents.etype, idents.label
+                     FROM attrs_cte
+                     JOIN attrs ON attrs_cte.id = attrs.id
+                     JOIN idents ON attrs.forward_ident = idents.id
+                 )
+
+                 SELECT attrs_etype_cte.*,
+                        attr_cnt.cnt AS attr_count,
+                        etype_cnt.cnt AS etype_count
+                 FROM attrs_etype_cte,
+
+                 LATERAL (
+                   SELECT count(DISTINCT triples.entity_id) AS cnt
+                     FROM triples
+                    WHERE triples.app_id = ?app-id
+                      AND triples.attr_id = attrs_etype_cte.id
+                     AND triples.value IS NOT NULL
+                     AND triples.value <> 'null'
+                 ) AS attr_cnt,
+
+                 LATERAL (
+                   SELECT count(DISTINCT triples.entity_id) AS cnt
+                     FROM triples
+                    WHERE triples.app_id = ?app-id
+                      AND triples.attr_id IN (
+                       SELECT attrs.id
+                         FROM idents
+                         JOIN attrs on attrs.forward_ident = idents.id
+                        WHERE idents.app_id = ?app-id
+                          AND idents.etype = attrs_etype_cte.etype
+                      )
+                     AND triples.value IS NOT NULL
+                     AND triples.value <> 'null'
+                 ) AS etype_cnt"
+          params {"?attr-ids" (mapv :id attrs)
+                  "?app-id"   app-id}
+          res    (sql/execute! conn (sql/format query params))]
+      (doseq [{:keys [id etype label attr_count etype_count]} res
+              :when (not= attr_count etype_count)]
+        (ex/throw-validation-err!
+         :attributes
+         {:id id}
+         [{:message (str "Can't set attribute `" label "` as required because `" etype "` already have entities without it")}])))))
 
 (defn update-multi!
   [conn app-id updates]

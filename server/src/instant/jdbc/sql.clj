@@ -141,7 +141,7 @@
    To get to:
 
      SELECT CAST(elem AS INT) AS id
-       FROM JSON_ARRAY_ELEMENTS_TEXT(CAST(? AS JSON)) AS elem
+       FROM JSONB_ARRAY_ELEMENTS_TEXT(CAST(? AS JSONB)) AS elem
 
    This is better than passing arrays as argument with ARRAY and UNNEST
    because it always generates one input paramter (does not depend on a length
@@ -175,7 +175,7 @@
      SELECT CAST(elem ->> 0 AS INT) AS id,
             CAST(elem ->> 1 AS TEXT) AS full_name,
             CAST(elem ->> 2 AS INT) AS score
-       FROM JSON_ARRAY_ELEMENTS(CAST(? AS JSON)) AS elem"
+       FROM JSONB_ARRAY_ELEMENTS(CAST(? AS JSONB)) AS elem"
   [ts cols]
   {:select
    (for [[idx {:keys [type as]}] (map vector (range) cols)]
@@ -204,7 +204,7 @@
    To get to:
 
      SELECT id, name AS full_name, score
-       FROM JSON_TO_RECORDSET(CAST(? AS JSON))
+       FROM JSONB_TO_RECORDSET(CAST(? AS JSONB))
          AS (id int, name text, score int)"
   [rs cols]
   {:select (for [[col-name {:keys [as]}] cols]
