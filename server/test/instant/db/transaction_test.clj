@@ -112,7 +112,6 @@
     (fn [{app-id :id}]
       (let [{attr-book-title   :book/title
              attr-book-desc    :book/desc
-             attr-book-author  :book/author
              attr-user-name    :user/name
              attr-user-company :user/company
              attr-company-name :company/name}
@@ -120,10 +119,16 @@
              app-id
              [[:book/title :required?]
               [:book/desc]
-              [[:book/author :user/books] :required?]
               [:user/name]
               [[:user/company :company/users] :on-delete]
               [:company/name]])
+
+            ;; add-attr without existing entities
+            {attr-book-author :book/author}
+            (test-util/make-attrs
+             app-id
+             [[[:book/author :user/books] :required?]])
+
             ctx {:db               {:conn-pool (aurora/conn-pool :write)}
                  :app-id           app-id
                  :attrs            (attr-model/get-by-app-id app-id)
@@ -136,12 +141,17 @@
             extra-user-id (suid "fffe")
             extra-book-id (suid "b00d")]
 
-        ;; need extra book to exist to make sure filtering by entity-id is happening
         (permissioned-tx/transact!
          ctx
          [[:add-triple extra-user-id attr-user-name "extra user"]
           [:add-triple extra-book-id attr-book-title "extra title"]
           [:add-triple extra-book-id attr-book-author extra-user-id]])
+
+        (testing "add-attr with existing entities"
+          (is (validation-err?
+               (test-util/make-attrs
+                app-id
+                [[:book/price :required?]]))))
 
         (doseq [add-op [:add-triple :deep-merge-triple]]
           (testing add-op

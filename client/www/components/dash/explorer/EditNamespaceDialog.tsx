@@ -230,7 +230,7 @@ function AddAttrForm({
   namespaces: SchemaNamespace[];
   onClose: () => void;
 }) {
-  const [isRequired, setIsRequired] = useState(true);
+  const [isRequired, setIsRequired] = useState(false);
   const [isIndex, setIsIndex] = useState(false);
   const [isUniq, setIsUniq] = useState(false);
   const [isCascade, setIsCascade] = useState(false);
