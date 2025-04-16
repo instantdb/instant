@@ -2,6 +2,7 @@
   (:require
    [instant.aurora-config :refer [rds-cluster-id->db-config secret-arn->db-creds]]
    [instant.config :as config]
+   [instant.util.async :as ua]
    [instant.util.lang :as lang]
    [instant.util.tracer :as tracer]
    [next.jdbc :as next-jdbc]
@@ -136,7 +137,7 @@
           (recur (inc attempt)))))))
 
 (defn- safe-close [^Connection conn]
-  (when (try (not (.isClosed conn)) (catch SQLException _ false))
+  (when (and conn (try (not (.isClosed conn)) (catch SQLException _ false)))
     (try (.close conn) (catch SQLException _
                          nil))))
 
@@ -152,7 +153,7 @@
         current-config (atom aurora-config)
         shutdown? (atom false)
         default-sleep-ms 1000
-        config-watcher (future
+        config-watcher (ua/fut-bg
                          (loop [last-config aurora-config
                                 sleep-ms default-sleep-ms]
                            (when-not @shutdown?
@@ -181,7 +182,8 @@
                                         default-sleep-ms))))))]
     {:shutdown (fn []
                  (reset! shutdown? true)
-                 @config-watcher)
+                 (try @config-watcher
+                      (catch Exception _e nil)))
      :get-config (fn [] @current-config)}))
 
 (defn aurora-cluster-datasource
