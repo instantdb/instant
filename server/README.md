@@ -48,6 +48,12 @@ make USE_PGXS=1 PG_CONFIG=/Applications/Postgres.app/Contents/Versions/16/bin/pg
 sudo cp $HOME/postgres_extensions/Applications/Postgres.app/Contents/Versions/16/lib/postgresql/pg_hint_plan.dylib /Applications/Postgres.app/Contents/Versions/16/lib/postgresql/\
 ```
 
+Ensure your `postgresql.conf` has pg_hint_plan enabled:
+
+```conf
+shared_preload_libraries = 'pg_stat_statements,pg_hint_plan'
+```
+
 Run the migrations to initialize the database:
 
 ```sh
