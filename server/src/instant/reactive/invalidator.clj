@@ -477,12 +477,13 @@
          wal-opts (wal/make-wal-opts {:wal-chan wal-chan
                                       :close-signal-chan close-signal-chan
                                       :ex-handler wal-ex-handler
-                                      :conn-config (or (config/get-next-aurora-config)
-                                                       ;; Use the next db so that we don't
-                                                       ;; have to worry about restarting the
-                                                       ;; invalidator when failing over to a
-                                                       ;; new blue/green deployment
-                                                       (config/get-aurora-config))
+                                      :get-conn-config (fn []
+                                                         (or (config/get-next-aurora-config)
+                                                             ;; Use the next db so that we don't
+                                                             ;; have to worry about restarting the
+                                                             ;; invalidator when failing over to a
+                                                             ;; new blue/green deployment
+                                                             (config/get-aurora-config)))
                                       :slot-name process-id})]
      (ua/fut-bg
       (wal/start-worker wal-opts))

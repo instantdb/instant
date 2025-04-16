@@ -310,11 +310,11 @@
               (recur (.read stream) produce-start-state))))))))
 
 (defn make-wal-opts [{:keys [wal-chan close-signal-chan
-                             ex-handler conn-config slot-name]}]
+                             ex-handler get-conn-config slot-name]}]
   {:to wal-chan
    :close-signal-chan close-signal-chan
    :ex-handler ex-handler
-   :conn-config conn-config
+   :get-conn-config get-conn-config
    :slot-name slot-name
    :shutdown-fn (atom nil)
    :started-promise (promise)})
@@ -348,9 +348,9 @@
 
 (defn get-reconnect-conn*
   "Tries to create a new connection and restart the replication stream"
-  [conn-config slot-name]
+  [get-conn-config slot-name]
   (try
-    (let [conn (get-pg-replication-conn conn-config)]
+    (let [conn (get-pg-replication-conn (get-conn-config))]
       ;; try is double-nested so that we can dispose of the connection
       ;; if we get an error creating the stream.
       (try
@@ -370,9 +370,9 @@
 (defn get-reconnect-conn
   "Repeatedly tries to create a new connection and restart the replication stream,
    waiting a second between tries."
-  [conn-config slot-name]
+  [get-conn-config slot-name]
   (loop [i 1]
-    (if-let [res (get-reconnect-conn* conn-config slot-name)]
+    (if-let [res (get-reconnect-conn* get-conn-config slot-name)]
       res
       (do
         (tracer/record-info! {:name "wal/get-reconnect-conn"
@@ -387,9 +387,9 @@
    Note: Blocks the calling thread. Call with fut-bg.
 
    Use `shutdown!` to stop the stream and clean up."
-  [{:keys [conn-config slot-name to ex-handler close-signal-chan started-promise]
+  [{:keys [get-conn-config slot-name to ex-handler close-signal-chan started-promise]
     :as wal-opts}]
-  (let [replication-conn (get-pg-replication-conn conn-config)
+  (let [replication-conn (get-pg-replication-conn (get-conn-config))
         {:keys [lsn]} (create-logical-replication-slot! replication-conn
                                                         slot-name
                                                         "wal2json")
@@ -421,7 +421,7 @@
                                           :escpaing? false})
           (try (close-nicely stream) (catch Exception _e nil))
           (try (close-nicely replication-conn) (catch Exception _e nil))
-          (let [{new-conn :conn stream :stream} (get-reconnect-conn conn-config slot-name)]
+          (let [{new-conn :conn stream :stream} (get-reconnect-conn get-conn-config slot-name)]
             (if-not stream
               (ex-handler produce-error)
               (do

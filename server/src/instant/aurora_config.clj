@@ -1,9 +1,14 @@
 (ns instant.aurora-config
   (:require
+   [instant.util.coll :as ucoll]
    [instant.util.json :refer [<-json]])
   (:import
    (software.amazon.awssdk.services.rds RdsClient)
-   (software.amazon.awssdk.services.rds.model DBCluster DescribeDbClustersRequest)
+   (software.amazon.awssdk.services.rds.model DBCluster
+                                              DBClusterMember
+                                              DBInstance
+                                              DescribeDbClustersRequest
+                                              DescribeDbInstancesRequest)
    (software.amazon.awssdk.services.secretsmanager SecretsManagerClient)
    (software.amazon.awssdk.services.secretsmanager.model GetSecretValueRequest)))
 
@@ -29,12 +34,12 @@
      :password password}))
 
 (defn rds-cluster-id->db-config [cluster-id]
-  (let [rds-client (-> (RdsClient/builder)
-                       (.build))
+  (let [^RdsClient rds-client (-> (RdsClient/builder)
+                                  (.build))
         request (-> (DescribeDbClustersRequest/builder)
                     (.dbClusterIdentifier cluster-id)
                     (.build))
-        clusters (-> (.describeDBClusters ^RdsClient rds-client
+        clusters (-> (.describeDBClusters rds-client
                                           ^DescribeDbClustersRequest request)
                      (.dbClusters))
 
@@ -42,9 +47,29 @@
                   (format "Could not determine db cluster, found %d clusters."
                           (count clusters)))
         ^DBCluster cluster (first clusters)
-        endpoint (.endpoint cluster)
-        port (.port cluster)
-        dbname (.databaseName cluster)
+        writer-instance-id (some->> cluster
+                                    (.dbClusterMembers)
+                                    ^DBClusterMember (ucoll/seek (fn [^DBClusterMember m]
+                                                                   (.isClusterWriter m)))
+                                    (.dbInstanceIdentifier))
+        _ (assert writer-instance-id "no writer instance")
+        instance-request (-> (DescribeDbInstancesRequest/builder)
+                             (.dbInstanceIdentifier writer-instance-id)
+                             (.build))
+        instances (-> (.describeDBInstances rds-client
+                                            ^DescribeDbInstancesRequest instance-request)
+                      (.dbInstances))
+        _ (assert (= 1 (count instances))
+                  (format "Could not determine db instance, found %d instances."
+                          (count instances)))
+        ^DBInstance instance (first instances)
+        endpoint (-> instance
+                     (.endpoint)
+                     (.address))
+        port (-> instance
+                 (.endpoint)
+                 (.port))
+        dbname (.dbName instance)
         secret-arn (.secretArn (.masterUserSecret cluster))]
     (assert endpoint "missing endpoint")
     (assert port "missing port")
@@ -54,4 +79,7 @@
      :dbname dbname
      :host endpoint
      :port port
-     :secret-arn secret-arn}))
+     :secret-arn secret-arn
+     :cluster-id cluster-id
+     :instance-id writer-instance-id
+     :cluster-status (.status cluster)}))
