@@ -2659,7 +2659,8 @@
           (let [{:keys [patterns]} (iq/instaql-query->patterns
                                     (make-ctx)
                                     {:user {:$ {:where {:handle "a"}}}})
-                explain (binding [d/*use-pg-hints* true] (d/explain (make-ctx) patterns))
+                explain (binding [d/*use-pg-hints* true]
+                          (d/explain (make-ctx) patterns))
                 plan (-> explain
                          (get "QUERY PLAN")
                          first
@@ -2672,10 +2673,11 @@
             (is (= "av_index" (get plan "Index Name")))))
 
         (testing "query with lookup"
-          (let [explain (d/explain (make-ctx) {:children
-                                               {:pattern-groups
-                                                [{:patterns
-                                                  [[:ea [(:handle attr-ids) "a"]]]}]}})
+          (let [explain (binding [d/*use-pg-hints* true]
+                          (d/explain (make-ctx) {:children
+                                                 {:pattern-groups
+                                                  [{:patterns
+                                                    [[:ea [(:handle attr-ids) "a"]]]}]}}))
                 plan (-> explain
                          (get "QUERY PLAN")
                          first
