@@ -78,11 +78,11 @@
 (def send-agent (agent nil))
 
 (defn send-async! [channel-id message]
-  (send-off send-agent (fn [_]
+  #_(send-off send-agent (fn [_]
                          (send! channel-id message))))
 
 (defn send-error-async! [message]
-  (send-async! (if (= :prod (config/get-env))
+  #_(send-async! (if (= :prod (config/get-env))
                  config/discord-errors-channel-id
                  config/discord-debug-channel-id)
                message))
