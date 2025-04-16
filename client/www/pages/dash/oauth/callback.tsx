@@ -6,7 +6,7 @@ import { Button, Content, ScreenHeading } from '@/components/ui';
 import { exchangeOAuthCodeForToken } from '@/lib/auth';
 import { messageFromInstantError } from '@/lib/errors';
 import config, { cliOauthParamName } from '@/lib/config';
-import { InstantError } from '@/lib/types';
+import { InstantIssue } from '@/lib/types';
 
 type CallbackState =
   | { type: 'router-loading' }
@@ -127,7 +127,7 @@ export default function OAuthCallback() {
             router.push(finalPath);
           })
           .catch((res) => {
-            const error = messageFromInstantError(res as InstantError);
+            const error = messageFromInstantError(res as InstantIssue);
 
             setState({
               type: 'error',

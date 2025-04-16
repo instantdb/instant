@@ -89,6 +89,8 @@ import type {
   VerifyResponse,
 } from './authAPI';
 
+import { InstantAPIError, type InstantIssue } from './utils/fetch';
+
 const defaultOpenDevtool = true;
 
 // types
@@ -763,6 +765,9 @@ export {
   txInit,
   lookup,
 
+  // error
+  InstantAPIError,
+
   // cli
   i,
 
@@ -853,4 +858,7 @@ export {
   type FileOpts,
   type UploadFileResponse,
   type DeleteFileResponse,
+
+  // error types
+  type InstantIssue,
 };

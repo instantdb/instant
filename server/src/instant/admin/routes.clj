@@ -42,23 +42,26 @@
   (let [{app-id :app_id} (req->admin-token! req)
         as-token (get headers "as-token")
         as-email (get headers "as-email")
-        as-guest (get headers "as-guest")]
-    (cond
-      as-token
-      {:app-id app-id :admin? false
-       :current-user (app-user-model/get-by-refresh-token!
-                      {:app-id app-id :refresh-token as-token})}
+        as-guest (get headers "as-guest")
+        perms (cond
+                as-token
+                {:admin? false
+                 :current-user (app-user-model/get-by-refresh-token!
+                                {:app-id app-id :refresh-token as-token})}
 
-      as-email
-      {:app-id app-id :admin? false
-       :current-user (app-user-model/get-by-email!
-                      {:app-id app-id :email as-email})}
+                as-email
+                {:admin? false
+                 :current-user (app-user-model/get-by-email!
+                                {:app-id app-id :email as-email})}
 
-      as-guest
-      {:app-id app-id :admin? false :current-user nil}
+                as-guest
+                {:admin? false :current-user nil}
 
-      :else
-      {:app-id app-id :admin? true})))
+                :else
+                {:admin? true})]
+    (assoc perms
+           :app-id app-id
+           :show-cel-errors? true)))
 
 (comment
   (def counters-app-id  #uuid "137ace7a-efdd-490f-b0dc-a3c73a14f892")

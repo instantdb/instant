@@ -11,7 +11,7 @@ import {
 import config, { isDev } from '@/lib/config';
 import googleIconSvg from '../../public/img/google_g.svg';
 import Image from 'next/image';
-import { InstantError } from '@/lib/types';
+import { InstantIssue } from '@/lib/types';
 import { url } from '@/lib/url';
 import { useRouter } from 'next/router';
 
@@ -244,7 +244,7 @@ export default function Auth(props: {
   );
 }
 
-function errorFromVerifyMagicCode(res: InstantError): string {
+function errorFromVerifyMagicCode(res: InstantIssue): string {
   const errorType = res.body?.type;
   switch (errorType) {
     case 'param-missing':
@@ -260,7 +260,7 @@ function errorFromVerifyMagicCode(res: InstantError): string {
   }
 }
 
-function errorFromSendMagicCode(res: InstantError): string {
+function errorFromSendMagicCode(res: InstantIssue): string {
   const errorType = res.body?.type;
   const defaultMsg =
     'Uh oh, something went wrong sending you a magic code, please ping us!';

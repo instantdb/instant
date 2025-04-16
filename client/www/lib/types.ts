@@ -1,3 +1,5 @@
+import { InstantIssue } from '@instantdb/core';
+
 export type InstantApp = {
   id: string;
   pro: boolean;
@@ -242,31 +244,5 @@ export type OAuthAppsResponse = {
   apps: OAuthApp[];
 };
 
-export type InstantError = {
-  body:
-    | { type: 'param-missing'; message: string; hint: { in: string[] } }
-    | { type: 'param-malformed'; message: string; hint: { in: string[] } }
-    | {
-        type: 'record-not-found';
-        message: string;
-        hint: { 'record-type': string };
-      }
-    | {
-        type: 'record-not-unique';
-        message: string;
-        hint: { 'record-type': string };
-      }
-    | {
-        type: 'validation-failed';
-        message: string;
-        hint: { 'data-type': 'string'; errors: any[] };
-      }
-    | {
-        type: 'record-expired';
-        message: string;
-        hint: { 'record-type': string };
-      }
-    | { type: undefined; [k: string]: any }
-    | undefined;
-  status: number;
-};
+// re-export InstantIssue from the core library
+export { type InstantIssue };

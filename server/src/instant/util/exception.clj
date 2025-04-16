@@ -10,6 +10,7 @@
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util])
   (:import
+   (dev.cel.runtime CelEvaluationException)
    (java.io IOException)
    (org.postgresql.util PSQLException)))
 
@@ -224,24 +225,22 @@
                      :expected perm}}))
   pass?)
 
-(defn throw-permission-evaluation-failed! [etype action ^Exception e]
-  (let [cause-data (-> e (.getCause) ex-data)
-        cause-message (or (::message cause-data)
-                          "You may have a typo")]
+(defn throw-permission-evaluation-failed! [etype action ^CelEvaluationException e show-cel-errors?]
+  (let [cause-type (.name (.getErrorCode e))
+        err-message (.getMessage e)
+        cause-message (if (and err-message show-cel-errors?)
+                        err-message
+                        "You may have a typo")
+        hint-message (format "Could not evaluate permission rule for `%s.%s`. %s. Debug this in the sandbox and then update your permission rules."
+                             etype
+                             action
+                             cause-message)]
     (throw+ {::type ::permission-evaluation-failed
-             ::message
-             (format "Could not evaluate permission rule for `%s.%s`. %s. Go to the permission tab in your dashboard to update your rule."
-                     etype
-                     action
-                     cause-message)
-             ::hint (merge {:rule [etype action]}
-                           (when cause-data
-                             {:error {:type (some-> cause-data
-                                                    ::type
-                                                    name
-                                                    keyword)
-                                      :message (::message cause-data)
-                                      :hint (::hint cause-data)}}))}
+             ::message hint-message
+             ::hint (cond-> {:rule [etype action]}
+                      cause-type (assoc :error {:type (keyword cause-type)
+                                                :message hint-message
+                                                :hint cause-message}))}
             e)))
 
 ;; -----------

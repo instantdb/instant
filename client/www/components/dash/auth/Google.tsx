@@ -3,7 +3,7 @@ import { errorToast } from '@/lib/toast';
 import { TokenContext } from '@/lib/contexts';
 import {
   InstantApp,
-  InstantError,
+  InstantIssue,
   OAuthClient,
   OAuthServiceProvider,
 } from '@/lib/types';
@@ -123,7 +123,7 @@ export function AddClientForm({
     } catch (e) {
       console.error(e);
       const msg =
-        messageFromInstantError(e as InstantError) || 'Error creating client.';
+        messageFromInstantError(e as InstantIssue) || 'Error creating client.';
       errorToast(msg, { autoClose: 5000 });
     } finally {
       setIsLoading(false);
@@ -270,7 +270,7 @@ export function AddGoogleProviderForm({
     } catch (e) {
       console.error(e);
       const msg =
-        messageFromInstantError(e as InstantError) ||
+        messageFromInstantError(e as InstantIssue) ||
         'There was an error setting up Google.';
       errorToast(msg, { autoClose: 5000 });
       // report error
@@ -335,7 +335,7 @@ export function Client({
     } catch (e) {
       console.error(e);
       const msg =
-        messageFromInstantError(e as InstantError) || 'Error deleting client.';
+        messageFromInstantError(e as InstantIssue) || 'Error deleting client.';
       errorToast(msg, { autoClose: 5000 });
     } finally {
       setIsLoading(false);

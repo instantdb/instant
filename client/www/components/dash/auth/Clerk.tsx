@@ -26,7 +26,7 @@ import { messageFromInstantError } from '@/lib/errors';
 import { addProvider, addClient, deleteClient, findName } from './shared';
 import {
   InstantApp,
-  InstantError,
+  InstantIssue,
   OAuthClient,
   OAuthServiceProvider,
 } from '@/lib/types';
@@ -52,7 +52,7 @@ export function AddClerkProviderForm({
     } catch (e) {
       console.error(e);
       const msg =
-        messageFromInstantError(e as InstantError) ||
+        messageFromInstantError(e as InstantIssue) ||
         'There was an error setting up Clerk.';
       errorToast(msg, { autoClose: 5000 });
       // report error
@@ -227,7 +227,7 @@ export function ClerkClient({
     } catch (e) {
       console.error(e);
       const msg =
-        messageFromInstantError(e as InstantError) || 'Error deleting client.';
+        messageFromInstantError(e as InstantIssue) || 'Error deleting client.';
       errorToast(msg, { autoClose: 5000 });
     } finally {
       setIsLoading(false);
@@ -416,7 +416,7 @@ export function AddClerkClientForm({
     } catch (e) {
       console.error(e);
       const msg =
-        messageFromInstantError(e as InstantError) || 'Error creating client.';
+        messageFromInstantError(e as InstantIssue) || 'Error creating client.';
       errorToast(msg, { autoClose: 5000 });
     } finally {
       setIsLoading(false);
