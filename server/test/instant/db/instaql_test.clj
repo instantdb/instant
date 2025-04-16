@@ -2520,14 +2520,15 @@
                            (run-explain :$gt data-type value))
                           ([op data-type value]
                            (let [explain
-                                 (d/explain (make-ctx)
-                                            {:children
-                                             {:pattern-groups
-                                              [{:patterns
-                                                [[{:idx-key :ave, :data-type data-type}
-                                                  '?etype-0
-                                                  (get attr-ids data-type)
-                                                  {:$comparator {:op op, :value value, :data-type data-type}}]]}]}})]
+                                 (binding [d/*use-pg-hints* true]
+                                   (d/explain (make-ctx)
+                                              {:children
+                                               {:pattern-groups
+                                                [{:patterns
+                                                  [[{:idx-key :ave, :data-type data-type}
+                                                    '?etype-0
+                                                    (get attr-ids data-type)
+                                                    {:$comparator {:op op, :value value, :data-type data-type}}]]}]}}))]
                              (-> explain
                                  (get "QUERY PLAN")
                                  first
@@ -2658,7 +2659,7 @@
           (let [{:keys [patterns]} (iq/instaql-query->patterns
                                     (make-ctx)
                                     {:user {:$ {:where {:handle "a"}}}})
-                explain (d/explain (make-ctx) patterns)
+                explain (binding [d/*use-pg-hints* true] (d/explain (make-ctx) patterns))
                 plan (-> explain
                          (get "QUERY PLAN")
                          first

@@ -1574,6 +1574,8 @@
          (assoc :children {:pattern-groups (:pattern-groups res)
                            :join-sym (get-in nested-named-patterns [:children :join-sym])})))))
 
+(def ^:dynamic *use-pg-hints* false)
+
 (defn nested-match-query
   "Generates the hsql `query` and metadata about the query under `children`.
   `children` matches the structure of nested-named-patterns and has all of the
@@ -1598,7 +1600,9 @@
                                ;; option, let's not override their wisdom.
                                :else %)
                             ctes)
-                 :pg-hints pg-hints
+                 :pg-hints (if *use-pg-hints*
+                             pg-hints
+                             [])
                  :select [[(into [:json_build_array]
                                  (mapv (fn [tables]
                                          (into [:json_build_object]
