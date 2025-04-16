@@ -257,6 +257,25 @@
                      "Namespaces are not allowed to start with a `$`.
                       Those are reserved for system namespaces.")}])))))
 
+(defn validate-required! [conn app-id attrs]
+  (doseq [attr attrs
+          :when (:required? attr)
+          :let  [[_ etype name] (:forward-identity attr)
+                 query "SELECT *
+                          FROM idents
+                          JOIN attrs ON attrs.forward_ident = idents.id
+                          JOIN triples ON triples.attr_id = attrs.id
+                         WHERE idents.etype = ?etype
+                           AND idents.app_id = ?app-id
+                           AND triples.app_id = ?app-id
+                         LIMIT 1"
+                 res   (sql/execute! conn (sql/format query {"?etype" etype, "?app-id" app-id}))]
+          :when (seq res)]
+    (ex/throw-validation-err!
+     :attributes
+     attr
+     [{:message (str "Can't set attribute `" name "` as required because `" etype "` already have entities")}])))
+
 (defn insert-multi!
   "Attr data is expressed as one object in clj but is persisted across two tables
    in sql: `attrs` and `idents`.
@@ -268,6 +287,7 @@
   ([conn app-id attrs {:keys [allow-reserved-names?]}]
    (when-not allow-reserved-names?
      (validate-reserved-names! attrs))
+   (validate-required! conn app-id attrs)
    (with-cache-invalidation app-id
      (let [query {:with [[[:attr-values
                            {:columns attr-table-cols}]
