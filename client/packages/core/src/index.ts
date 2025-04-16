@@ -1,4 +1,4 @@
-import Reactor from './Reactor';
+import Reactor from './Reactor.js';
 import {
   tx,
   txInit,
@@ -6,14 +6,14 @@ import {
   getOps,
   type TxChunk,
   type TransactionChunk,
-} from './instatx';
-import weakHash from './utils/weakHash';
-import id from './utils/uuid';
-import IndexedDBStorage from './IndexedDBStorage';
-import WindowNetworkListener from './WindowNetworkListener';
-import { i } from './schema';
-import { createDevtool } from './devtool';
-import version from './version';
+} from './instatx.js';
+import weakHash from './utils/weakHash.js';
+import id from './utils/uuid.js';
+import IndexedDBStorage from './IndexedDBStorage.js';
+import WindowNetworkListener from './WindowNetworkListener.js';
+import { i } from './schema.js';
+import { createDevtool } from './devtool.js';
+import version from './version.js';
 
 import type {
   PresenceOpts,
