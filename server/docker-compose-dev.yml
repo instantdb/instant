@@ -26,6 +26,8 @@ services:
       - "max_wal_senders=4"
       - "-c"
       - "shared_preload_libraries=pg_hint_plan"
+      - "-c"
+      - "random_page_cost=1.1"
 
   server:
     depends_on:
