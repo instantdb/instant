@@ -345,7 +345,8 @@
                                                   (+ i 2))
                                                 (count s))]
                             (str (subs s 0 end-comment)
-                                 (subs s end-comment)))))))))
+                                 (subs s end-comment)))))))
+    query))
 
 (defn apply-postgres-config [postgres-config created-connection? ^Connection c]
   (when (seq postgres-config)

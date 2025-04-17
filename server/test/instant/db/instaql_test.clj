@@ -4345,7 +4345,7 @@
 
 (deftest pg-hint-plan-is-working
   (with-zeneca-app
-    (fn [app r]
+    (fn [app _r]
       (next-jdbc/with-transaction [conn (aurora/conn-pool :read)]
         (println (next-jdbc/execute! conn ["select set_config('pg_hint_plan.debug_print', 'verbose', true)"]))
         (next-jdbc/execute! conn ["select set_config('pg_hint_plan.message_level', 'warning', true)"])
