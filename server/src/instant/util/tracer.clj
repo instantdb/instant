@@ -224,22 +224,6 @@
 
 (def dataset-name "instant-server")
 
-(defn span-uri
-  ([]
-   (when *span*
-     (span-uri *span*)))
-  ([^Span span]
-   (let [ctx (.getSpanContext span)
-         trace-id (.getTraceId ctx)
-         span-id (.getSpanId ctx)]
-     (format
-      "https://ui.honeycomb.io/%s/environments/%s/datasets/%s/trace?trace_id=%s&span=%s"
-      team-name
-      (get-env-name)
-      dataset-name
-      trace-id
-      span-id))))
-
 (defn current-span-ids []
   (when-let [^Span span *span*]
     {:span-id (-> span
@@ -248,3 +232,29 @@
      :trace-id (-> span
                    (.getSpanContext)
                    (.getTraceId))}))
+
+(defn span-uri
+  ([]
+   (when *span*
+     (span-uri *span*)))
+  ([^Span span]
+   (let [ctx (.getSpanContext span)
+         trace-id (.getTraceId ctx)
+         span-id (.getSpanId ctx)]
+     (format "%s/debug-uri/%s/%s"
+             (config/dashboard-origin)
+             trace-id
+             span-id))))
+
+(defn honeycomb-uri [{:keys [trace-id span-id]}]
+  (format "https://ui.honeycomb.io/%s/environments/%s/datasets/%s/trace?trace_id=%s&span=%s"
+          team-name
+          (get-env-name)
+          dataset-name
+          trace-id
+          span-id))
+
+(defn cloudwatch-uri [{:keys [trace-id span-id]}]
+  (format "https://us-east-1.console.aws.amazon.com/cloudwatch/home?region=us-east-1#logsV2:logs-insights$3FqueryDetail$3D~(end~0~start~-43200~timeType~'RELATIVE~tz~'LOCAL~unit~'seconds~editorString~'fields*20*40timestamp*2c*20*40message*2c*20*40logStream*2c*20*40log*0a*7c*20filter*20*40message*20like*20*27%s*2f%s*27*0a*7c*20sort*20*40timestamp*20desc*0a*7c*20limit*2010000~queryId~'974cdbee-1e72-4492-9aef-c79ac11afe79~source~(~'*2faws*2felasticbeanstalk*2fInstant-docker-prod-env-2*2fvar*2flog*2feb-docker*2fcontainers*2feb-current-app*2fstdouterr.log)~lang~'CWLI)"
+          trace-id
+          span-id))

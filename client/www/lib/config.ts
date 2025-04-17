@@ -75,3 +75,5 @@ export const discordInviteUrl = 'https://discord.com/invite/VU53p7uQcE';
 
 export const discordOAuthAppsFeedbackInviteUrl =
   'https://discord.gg/2rnGtfFQup';
+
+export const bugsAndQuestionsInviteUrl = 'https://discord.gg/unA5vyV6mP';

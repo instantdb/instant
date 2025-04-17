@@ -2074,11 +2074,12 @@
                                                       :checked-data-type "string",
                                                       :attr-id (str email-attr-id)
                                                       :entity-id (str eid)}}]}}
-                   (test-util/instant-ex-data
-                    (tx/transact! (aurora/conn-pool :write)
-                                  (attr-model/get-by-app-id app-id)
-                                  app-id
-                                  [[:add-triple eid email-attr-id 10]]))))))))))
+                   (dissoc (test-util/instant-ex-data
+                             (tx/transact! (aurora/conn-pool :write)
+                                           (attr-model/get-by-app-id app-id)
+                                           app-id
+                                           [[:add-triple eid email-attr-id 10]]))
+                           ::ex/trace-id)))))))))
 
 (deftest rejects-large-values-for-indexed-data
   (with-empty-app
@@ -2123,11 +2124,12 @@
                                                       :attr-id (str email-attr-id)
                                                       :entity-id (str eid)
                                                       :value-too-large? true}}]}}
-                   (test-util/instant-ex-data
-                    (tx/transact! (aurora/conn-pool :write)
-                                  (attr-model/get-by-app-id app-id)
-                                  app-id
-                                  [[:add-triple eid email-attr-id (apply str (repeat 1000000 "a"))]]))))))
+                   (dissoc (test-util/instant-ex-data
+                             (tx/transact! (aurora/conn-pool :write)
+                                           (attr-model/get-by-app-id app-id)
+                                           app-id
+                                           [[:add-triple eid email-attr-id (apply str (repeat 1000000 "a"))]]))
+                           ::ex/trace-id)))))
         (testing "returns a friendly error message for unique data"
           (let [eid (random-uuid)]
             (is (= #:instant.util.exception{:type
@@ -2143,11 +2145,13 @@
                                                       :attr-id (str unique-attr-id)
                                                       :entity-id (str eid)
                                                       :value-too-large? true}}]}}
-                   (test-util/instant-ex-data
-                    (tx/transact! (aurora/conn-pool :write)
-                                  (attr-model/get-by-app-id app-id)
-                                  app-id
-                                  [[:add-triple eid unique-attr-id (apply str (repeat 1000000 "a"))]]))))))))))
+                   (dissoc
+                    (test-util/instant-ex-data
+                      (tx/transact! (aurora/conn-pool :write)
+                                    (attr-model/get-by-app-id app-id)
+                                    app-id
+                                    [[:add-triple eid unique-attr-id (apply str (repeat 1000000 "a"))]]))
+                    ::ex/trace-id)))))))))
 
 (deftest deep-merge-existing-object
   (with-empty-app
