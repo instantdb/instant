@@ -247,7 +247,6 @@
              span-id))))
 
 (defn honeycomb-uri [{:keys [trace-id span-id]}]
-  (tool/def-locals)
   (format "https://ui.honeycomb.io/%s/environments/%s/datasets/%s/trace?trace_id=%s&span=%s"
           team-name
           (get-env-name)
