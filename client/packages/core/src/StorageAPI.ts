@@ -1,4 +1,4 @@
-import { jsonFetch } from './utils/fetch';
+import { jsonFetch } from './utils/fetch.js';
 
 export type UploadFileResponse = {
   data: {

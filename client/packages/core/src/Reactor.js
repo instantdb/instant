@@ -20,7 +20,7 @@ import {
   insertInMutative,
 } from './utils/object';
 import { createLinkIndex } from './utils/linkIndex';
-import version from './version';
+import version from './version.js';
 import { create } from 'mutative';
 
 const STATUS = {
