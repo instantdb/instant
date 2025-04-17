@@ -2,6 +2,7 @@
   (:require
    [clojure.string :as string]
    [clojure.test :as test :refer [are deftest is testing]]
+   [instant.config :as config]
    [instant.data.bootstrap :as bootstrap]
    [instant.data.constants :as constants]
    [instant.data.resolvers :as resolvers]
