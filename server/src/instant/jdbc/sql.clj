@@ -336,8 +336,16 @@
 (defn annotate-query-with-debug-info [query]
   (if-let [{:keys [span-id trace-id]} (tracer/current-span-ids)]
     (update query 0 (fn [s]
-                      (format "-- trace-id=%s, span-id=%s\n%s" trace-id span-id s)))
-    query))
+                      (let [debug-info (str "-- trace-id=" trace-id
+                                            ", span-id=" span-id
+                                            "\n")]
+                        (if-not (string/starts-with? s "/*+")
+                          (str debug-info s)
+                          (let [end-comment (or (when-let [i (string/index-of s "*/")]
+                                                  (+ i 2))
+                                                (count s))]
+                            (str (subs s 0 end-comment)
+                                 (subs s end-comment)))))))))
 
 (defn apply-postgres-config [postgres-config created-connection? ^Connection c]
   (when (seq postgres-config)
@@ -406,7 +414,9 @@
                               _cleanup# (register-in-progress create-connection?# ~rw c# ps#)]
                     (let [res# (~query-fn ps# nil opts#)]
                       (annotate-update-count ps#)
-                      res#))
+                      (if (:attach-warnings? opts#)
+                        (with-meta res# {:warnings (.getWarnings ps#)})
+                        res#)))
                   (finally
                     ;; Don't close the connection if a java.sql.Connection was
                     ;; passed in, or we'll end transactions before they're done.

@@ -1,7 +1,7 @@
 (ns instant.db.instaql-test
   (:require
-   [clojure.test :as test :refer [deftest is are testing]]
    [clojure.string :as string]
+   [clojure.test :as test :refer [are deftest is testing]]
    [instant.data.bootstrap :as bootstrap]
    [instant.data.constants :as constants]
    [instant.data.resolvers :as resolvers]
@@ -12,25 +12,28 @@
    [instant.db.transaction :as tx]
    [instant.fixtures :refer [with-empty-app
                              with-zeneca-app
-                             with-zeneca-checked-data-app
-                             with-zeneca-byop]]
+                             with-zeneca-byop
+                             with-zeneca-checked-data-app]]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
+   [instant.model.app-file :as app-file]
    [instant.model.app-user :as app-user-model]
    [instant.model.rule :as rule-model]
    [instant.reactive.query :refer [collect-instaql-results-for-client]]
+   [instant.storage.s3 :as s3-storage]
+   [instant.util.aws-signature :as aws-sig]
+   [instant.util.coll :as ucoll]
    [instant.util.exception :as ex]
    [instant.util.instaql :refer [instaql-nodes->object-tree]]
    [instant.util.test :refer [instant-ex-data pretty-perm-q]]
+   [next.jdbc :as next-jdbc]
    [rewrite-clj.zip :as z]
-   [zprint.core :as zprint]
-   [instant.util.aws-signature :as aws-sig]
-   [instant.model.app-file :as app-file]
-   [instant.storage.s3 :as s3-storage])
+   [zprint.core :as zprint])
   (:import
    (java.time Instant)
-   (java.util UUID)))
+   (java.util UUID)
+   (org.postgresql.util PSQLWarning)))
 
 (defn make-ctx [app]
   {:db {:conn-pool (aurora/conn-pool :read)}
@@ -2530,6 +2533,7 @@
                                                     (get attr-ids data-type)
                                                     {:$comparator {:op op, :value value, :data-type data-type}}]]}]}}))]
                              (-> explain
+                                 first
                                  (get "QUERY PLAN")
                                  first
                                  (get-in ["Plan" "Plans" 0 "Index Name"])))))]
@@ -2662,6 +2666,7 @@
                 explain (binding [d/*use-pg-hints* true]
                           (d/explain (make-ctx) patterns))
                 plan (-> explain
+                         first
                          (get "QUERY PLAN")
                          first
                          (get-in ["Plan" "Plans" 0]))
@@ -2679,6 +2684,7 @@
                                                   [{:patterns
                                                     [[:ea [(:handle attr-ids) "a"]]]}]}}))
                 plan (-> explain
+                         first
                          (get "QUERY PLAN")
                          first
                          (get-in ["Plan" "Plans"])
@@ -4336,6 +4342,31 @@
                                                       :bookshelves {:$ {:fields ["order"]
                                                                         :where {:books.title "Catch and Kill"}}
                                                                     :books {:$ {:fields ["title"]}}}}})))))))))
+
+(deftest pg-hint-plan-is-working
+  (with-zeneca-app
+    (fn [app r]
+      (next-jdbc/with-transaction [conn (aurora/conn-pool :read)]
+        (println (next-jdbc/execute! conn ["select set_config('pg_hint_plan.debug_print', 'verbose', true)"]))
+        (next-jdbc/execute! conn ["select set_config('pg_hint_plan.message_level', 'warning', true)"])
+        (let [ctx {:db {:conn-pool conn}
+                   :app-id (:id app)
+                   :attrs (attr-model/get-by-app-id (:id app))}
+              {:keys [patterns]} (iq/instaql-query->patterns ctx
+                                                             {:users {:$ {:where {:handle "a"}}}})
+              explain (binding [d/*use-pg-hints* true]
+                                     (d/explain ctx patterns))
+              warnings (loop [msgs []
+                              ^PSQLWarning warnings (:warnings (meta explain))]
+                         (if warnings
+                           (recur (conj msgs (.getMessage warnings))
+                                  (.getNextWarning warnings))
+                           msgs))
+              hint-state-dump (ucoll/seek (fn [msg]
+                                            (string/includes? msg "HintStateDump"))
+                                          warnings)]
+          (is (not (nil? hint-state-dump)))
+          (is (string/includes? hint-state-dump "used hints:IndexScan(t0 av_index)IndexScan(t2 ea_index)")))))))
 
 (comment
   (test/run-tests *ns*))

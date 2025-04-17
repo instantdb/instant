@@ -49,7 +49,7 @@
          (.append s ")\n"))
        (.append s "*/")
        [(.toString s)])))
- :select)
+ :raw)
 
 ;; Scan method
 (defn seq-scan

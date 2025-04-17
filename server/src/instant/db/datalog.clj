@@ -2122,12 +2122,14 @@
                                               :match-0-
                                               (:app-id ctx)
                                               nested-named-patterns)
-          sql-query (update (hsql/format query)
-                            0
-                            (fn [s]
-                              (str "explain (analyze, verbose, buffers, timing, format json) " s)))]
-
-      (first (sql/select-string-keys (-> ctx :db :conn-pool) sql-query)))))
+          sql-query (hsql/format
+                     (assoc query
+                            :raw
+                            "explain (analyze, verbose, buffers, timing, format json)"))]
+      (sql/select-string-keys ::explain
+                              (-> ctx :db :conn-pool)
+                              sql-query
+                              {:attach-warnings? true}))))
 
 (defn query
   "Executes a Datalog(ish) query over the given aurora `conn`, Instant `app_id`
