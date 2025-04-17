@@ -689,7 +689,7 @@ function EditRequired({
               ? `Attributes in the ${attr.namespace} namespace can't be edited.`
               : undefined
           }
-          checked={requiredChecked}
+          checked={requiredChecked || false}
           onChange={(enabled) => setRequiredChecked(enabled)}
           label={
             <span>
@@ -703,23 +703,22 @@ function EditRequired({
       {indexingJob?.error === 'missing-required-error' ? (
         <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
           <div>
-            {indexingJob.error_data.count} <code>{attr.namespace}</code>{' '}
-            {indexingJob.error_data.count === 1 ? 'entity does' : 'entities do'}{' '}
+            {indexingJob.error_data?.count} <code>{attr.namespace}</code>{' '}
+            {indexingJob.error_data?.count === 1 ? 'entity does' : 'entities do'}{' '}
             not have <code>{attr.name}</code> set.
           </div>
           <InvalidTriplesSample
             job={
               {
                 ...indexingJob,
-                invalid_triples_sample: indexingJob.error_data[
+                invalid_triples_sample: indexingJob.error_data && indexingJob.error_data[
                   'entity-ids'
                 ]?.map((id) => ({
-                  entity_id: id,
+                  entity_id: String(id),
                   value: null,
-                  json_type: attr.checkedDataType,
+                  json_type: attr.checkedDataType || 'null',
                 })),
               }
-              //{'invalid_triples_sample': indexingJob.error_data.entity_ids.map((id) => {'entity_id': id, 'value': undefined})}
             }
             attr={attr}
             onClickSample={(t) => {
@@ -1545,7 +1544,7 @@ function EditAttrForm({
             <h6 className="text-md font-bold">Constraints</h6>
             <div className="flex gap-2">
               <Checkbox
-                checked={isRequired}
+                checked={isRequired || false}
                 onChange={(enabled) => setIsRequired(enabled)}
                 label={
                   <span>
