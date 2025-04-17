@@ -62,8 +62,6 @@ function Page() {
     }
   }, []);
 
-  console.log('adminInfo', adminInfo);
-
   return (
     <div className="mx-auto flex max-w-5xl flex-col px-4 py-12 flex flex-col items-center justify-center gap-4 p-8">
       <div className="text-4xl">🐞</div>
