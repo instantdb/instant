@@ -403,7 +403,7 @@
                       (fn [process-id store {:keys [app-id] :as wal-record}]
                         (if (and (= machine-id process-id) (= (:id app) app-id))
                           (swap! records conj wal-record)
-                          (invalidate! store wal-record)))]
+                          (invalidate! process-id store wal-record)))]
           (let [process (inv/start machine-id)
                 uid (random-uuid)]
             (try

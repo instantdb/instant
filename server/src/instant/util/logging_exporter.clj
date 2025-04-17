@@ -8,6 +8,7 @@
   (:import
    (instant SpanTrackException)
    (io.opentelemetry.api.common AttributeKey)
+   (io.opentelemetry.api.trace SpanId)
    (io.opentelemetry.sdk.common CompletableResultCode)
    (io.opentelemetry.sdk.trace.data SpanData
                                     EventData
@@ -89,18 +90,19 @@
       (.append sb (format-attr-value v))
       (.append sb " "))))
 
+(defn exception-belongs-to-span? [^Throwable t ^SpanId spanId]
+  (ucoll/exists? (fn [t]
+                   (and (instance? SpanTrackException t)
+                        (not= spanId (.getMessage ^SpanTrackException t))))
+                 (some-> t .getSuppressed)))
+
 (defn attr-str [^SpanData span]
   (let [sb (StringBuilder.)]
     (doseq [attr (.asMap (.getAttributes span))]
       (append-attr sb attr))
     (doseq [^EventData event (.getEvents span)]
       (if (and (instance? ExceptionEventData event)
-               (ucoll/exists? (fn [t]
-                                (and (instance? SpanTrackException t)
-                                     (not= (.getMessage ^SpanTrackException t)
-                                           (.getSpanId span))))
-                              (some-> (.getException ^ExceptionEventData event)
-                                      (.getSuppressed))))
+               (exception-belongs-to-span? (.getException ^ExceptionEventData event) (.getSpanId span)))
         (append-attr sb ["child-threw-exception" true])
         (doseq [attr (.asMap (.getAttributes event))]
           (append-attr sb attr))))
@@ -175,14 +177,19 @@
 
           (string/starts-with? n "e2e"))))))
 
+(defn include-span? [^SpanData span]
+  (let [name (.getName span)]
+    (= "postmark/send-disabled" name)))
+
 (def log-spans?
   (not= "false" (System/getenv "INSTANT_LOG_SPANS")))
 
 (defn log-spans [spans]
-  (when log-spans?
-    (doseq [span spans
-            :when (not (exclude-span? span))]
-      (log/info (span-str span)))))
+  (doseq [span spans
+          :when (or (include-span? span)
+                    (and log-spans?
+                         (not (exclude-span? span))))]
+    (log/info (span-str span))))
 
 (defn export [^AtomicBoolean shutdown? spans]
   (if (.get shutdown?)

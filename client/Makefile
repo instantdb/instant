@@ -5,6 +5,12 @@ dev:
 	@echo "Booting up frontend..."
 	pnpm run dev
 
+lint:
+	pnpm run check-format
+
+lint-fix:
+	pnpm run check-format --write
+
 index-docs-dry-run:
 	@echo "Dry run..."
 	pnpm exec tsx ./www/scripts/index-docs.ts --dry-run

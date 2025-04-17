@@ -230,6 +230,7 @@ function AddAttrForm({
   namespaces: SchemaNamespace[];
   onClose: () => void;
 }) {
+  const [isRequired, setIsRequired] = useState(false);
   const [isIndex, setIsIndex] = useState(false);
   const [isUniq, setIsUniq] = useState(false);
   const [isCascade, setIsCascade] = useState(false);
@@ -282,6 +283,7 @@ function AddAttrForm({
         cardinality: 'one',
         'unique?': isUniq,
         'index?': isIndex,
+        'required?': isRequired,
         'checked-data-type': checkedDataType ?? undefined,
       };
 
@@ -299,6 +301,7 @@ function AddAttrForm({
         'reverse-identity': [id(), reverseNamespace.name, reverseAttrName],
         'value-type': 'ref',
         'index?': false,
+        'required?': isRequired,
         'on-delete': isCascadeAllowed && isCascade ? 'cascade' : undefined,
         'on-delete-reverse':
           isCascadeReverseAllowed && isCascadeReverse ? 'cascade' : undefined,
@@ -337,6 +340,18 @@ function AddAttrForm({
           </div>
           <div className="flex flex-col gap-2">
             <h6 className="text-md font-bold">Constraints</h6>
+            <div className="flex gap-2">
+              <Checkbox
+                checked={isRequired}
+                onChange={(enabled) => setIsRequired(enabled)}
+                label={
+                  <span>
+                    <strong>Require this attribute</strong> so all entities will
+                    be guaranteed to have it
+                  </span>
+                }
+              />
+            </div>
             <div className="flex gap-2">
               <Checkbox
                 checked={isIndex}
@@ -476,6 +491,22 @@ function AddAttrForm({
               }
             />
           </div>
+
+          <div className="flex flex-col gap-1">
+            <h6 className="text-md font-bold">Constraints</h6>
+            <div className="flex gap-2">
+              <Checkbox
+                checked={isRequired}
+                onChange={(enabled) => setIsRequired(enabled)}
+                label={
+                  <span>
+                    <strong>Require this attribute</strong> so all entities will
+                    be guaranteed to have it
+                  </span>
+                }
+              />
+            </div>
+          </div>
         </>
       ) : null}
 
@@ -564,6 +595,166 @@ function InvalidTriplesSample({
         </tbody>
       </table>
     </div>
+  );
+}
+
+function EditRequired({
+  appId,
+  attr,
+  isSystemCatalogNs,
+  pushNavStack,
+}: {
+  appId: string;
+  attr: SchemaAttr;
+  isSystemCatalogNs: boolean;
+  pushNavStack: PushNavStack;
+}) {
+  const token = useAuthToken();
+  const [requiredChecked, setRequiredChecked] = useState(attr.isRequired);
+  const [indexingJob, setIndexingJob] = useState<InstantIndexingJob | null>(
+    null,
+  );
+
+  const stopFetchLoop = useRef<null | (() => void)>(null);
+
+  useEffect(() => {
+    return () => stopFetchLoop.current?.();
+  }, [stopFetchLoop]);
+  const updateRequired = async () => {
+    if (!token || requiredChecked === attr.isRequired) {
+      return;
+    }
+    stopFetchLoop.current?.();
+    const friendlyName = `${attr.namespace}.${attr.name}`;
+    try {
+      const job = await createJob(
+        {
+          appId,
+          attrId: attr.id,
+          jobType: requiredChecked ? 'required' : 'remove-required',
+        },
+        token,
+      );
+      setIndexingJob(job);
+      const fetchLoop = jobFetchLoop(appId, job.id, token);
+      stopFetchLoop.current = fetchLoop.stop;
+      const finishedJob = await fetchLoop.start((data, error) => {
+        if (error) {
+          errorToast(`Error while marking ${friendlyName} as required.`);
+        }
+        if (data) {
+          setIndexingJob(data);
+        }
+      });
+      if (finishedJob) {
+        if (finishedJob.job_status === 'completed') {
+          successToast(
+            requiredChecked
+              ? `Marked ${friendlyName} as required.`
+              : `Marked ${friendlyName} as optional.`,
+          );
+          return;
+        }
+        if (finishedJob.job_status === 'canceled') {
+          errorToast('Marking required was canceled.');
+          return;
+        }
+        if (finishedJob.job_status === 'errored') {
+          if (finishedJob.error === 'invalid-triple-error') {
+            errorToast(`Found invalid data while updating ${friendlyName}.`);
+            return;
+          }
+          errorToast(`Encountered an error while updating ${friendlyName}.`);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      errorToast(`Unexpected error while updating ${friendlyName}`);
+    }
+  };
+
+  const valueNotChanged = requiredChecked === attr.isRequired;
+
+  const buttonDisabled = isSystemCatalogNs || valueNotChanged;
+
+  const closeDialog = useClose();
+
+  return (
+    <ActionForm className="flex flex-col gap-1">
+      <div className="flex gap-2">
+        <Checkbox
+          disabled={isSystemCatalogNs}
+          title={
+            isSystemCatalogNs
+              ? `Attributes in the ${attr.namespace} namespace can't be edited.`
+              : undefined
+          }
+          checked={requiredChecked || false}
+          onChange={(enabled) => setRequiredChecked(enabled)}
+          label={
+            <span>
+              <strong>Require this attribute</strong> so all entities will be
+              guaranteed to have it
+            </span>
+          }
+        />
+      </div>
+
+      {indexingJob?.error === 'missing-required-error' ? (
+        <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
+          <div>
+            {indexingJob.error_data?.count} <code>{attr.namespace}</code>{' '}
+            {indexingJob.error_data?.count === 1 ? 'entity does' : 'entities do'}{' '}
+            not have <code>{attr.name}</code> set.
+          </div>
+          <InvalidTriplesSample
+            job={
+              {
+                ...indexingJob,
+                invalid_triples_sample: indexingJob.error_data && indexingJob.error_data[
+                  'entity-ids'
+                ]?.map((id) => ({
+                  entity_id: String(id),
+                  value: null,
+                  json_type: attr.checkedDataType || 'null',
+                })),
+              }
+            }
+            attr={attr}
+            onClickSample={(t) => {
+              pushNavStack({
+                namespace: attr.namespace,
+                where: ['id', t.entity_id],
+              });
+              // It would be nice to have a way to minimize the dialog so you could go back
+              closeDialog();
+            }}
+          />
+        </div>
+      ) : null}
+
+      <ActionButton
+        type="submit"
+        label={
+          valueNotChanged
+            ? requiredChecked
+              ? 'Required'
+              : 'Optional'
+            : requiredChecked
+              ? 'Mark as required'
+              : 'Mark as optional'
+        }
+        submitLabel={jobWorkingStatus(indexingJob) || 'Updating attribute...'}
+        errorMessage="Failed to update attribute"
+        disabled={buttonDisabled}
+        title={
+          isSystemCatalogNs
+            ? `Attributes in the ${attr.namespace} namespace can't be edited.`
+            : undefined
+        }
+        onClick={updateRequired}
+      />
+    </ActionForm>
   );
 }
 
@@ -1128,6 +1319,9 @@ function EditAttrForm({
   const isCascadeReverseAllowed =
     relationship === 'one-one' || relationship === 'many-one';
 
+  const [isRequired, setIsRequired] = useState(attr.isRequired);
+  const [wasRequired, _] = useState(isRequired);
+
   const linkValidation = validateLink({
     attrName,
     reverseAttrName,
@@ -1228,6 +1422,12 @@ function EditAttrForm({
         <>
           <div className="flex flex-col gap-2">
             <h6 className="text-md font-bold">Constraints</h6>
+            <EditRequired
+              appId={appId}
+              attr={attr}
+              isSystemCatalogNs={isSystemCatalogNs}
+              pushNavStack={pushNavStack}
+            />
             <EditIndexed
               appId={appId}
               attr={attr}
@@ -1338,6 +1538,22 @@ function EditAttrForm({
                 </span>
               }
             />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <h6 className="text-md font-bold">Constraints</h6>
+            <div className="flex gap-2">
+              <Checkbox
+                checked={isRequired || false}
+                onChange={(enabled) => setIsRequired(enabled)}
+                label={
+                  <span>
+                    <strong>Require this attribute</strong> so all entities will
+                    be guaranteed to have it
+                  </span>
+                }
+              />
+            </div>
           </div>
 
           <div className="flex flex-col gap-6">

@@ -29,6 +29,7 @@
 (def invalid-triple-error "invalid-triple-error")
 (def triple-too-large-error "triple-too-large-error")
 (def triple-not-unique-error "triple-not-unique-error")
+(def missing-required-error "missing-required-error")
 (def invalid-attr-state-error "invalid-attr-state-error")
 (def unexpected-error "unexpected-error")
 
@@ -79,7 +80,8 @@
                     :updated_at
                     :done_at
                     :invalid_unique_value
-                    :invalid_triples_sample]))
+                    :invalid_triples_sample
+                    :error_data]))
 
 (defn get-for-client-q [app-id & wheres]
   {:select [:j.*
@@ -90,7 +92,7 @@
             [[:case-expr :error
               [:inline invalid-triple-error]
               [:case-expr :job-type
-               "check-data-type"
+               [:inline "check-data-type"]
                {:select [[[:json_agg :t]]]
                 :from [[{:select [:t.entity-id :t.value [[:jsonb_typeof :t.value] :json-type]]
                          :from [[:triples :t]]
@@ -102,6 +104,7 @@
                                  [:= :t.attr_id :j.attr_id]
                                  [:not [:triples_valid_value :j.checked-data-type :t.value]]]}
                         :t]]}]
+
               [:inline triple-not-unique-error]
               {:select [[[:json_agg :t]]]
                :from [[{:select [:t.entity-id :t.value [[:jsonb_typeof :t.value] :json-type]]
@@ -125,7 +128,10 @@
                                 [:= :t.attr_id :j.attr_id]
                                 [:= :t.entity_id :j.invalid-entity-id]]}
                        :t]]}
-              ] :invalid-triples-sample]]
+
+              [:inline missing-required-error]
+              {:select [[[:json_agg 't]]]
+               :from [[{:select :* :from 'triples :where :false} 't]]}] :invalid-triples-sample]]
    :from [[:indexing-jobs :j]]
    :where (list* :and
                  [:= :app-id app-id]
@@ -180,7 +186,6 @@
      (assert (contains? jobs job-type) (str "Unexpected job type: " job-type))
      (when (= "check-data-type" job-type)
        (assert checked-data-type))
-
      (sql/execute-one! ::create-job!
                        conn (hsql/format {:insert-into :indexing-jobs
                                           :values [(cond-> {:id             (random-uuid)
@@ -372,6 +377,10 @@
                                                        :entity-id)
                                                    :uuid]}
                               {:error unexpected-error})
+
+                            ::missing-required
+                            {:error missing-required-error
+                             :error-data [:cast [:lift (::ex/hint error-data)] :jsonb]}
 
                             {:error unexpected-error})]
      (mark-error! conn job-error-fields job))))
@@ -776,6 +785,79 @@
     {:stage "update-attr-done",  :fn #'remove-unique--update-attr-done}])
 
 
+;; "required" -----------------------------------------------------------------
+
+(defn required--validate [conn job]
+  (tracer/with-span! (job-span-attrs "required" job)
+    (let [{app-id :app_id
+           attr-id :attr_id} job
+          query "WITH inputs_cte AS (
+                   SELECT idents.app_id, idents.etype, idents.label
+                     FROM attrs
+                     JOIN idents on attrs.forward_ident = idents.id
+                    WHERE attrs.id = ?attr-id
+                    LIMIT 1
+                 ),
+                 attr_ids_cte AS (
+                   SELECT attr_id
+                     FROM inputs_cte, idents
+                     JOIN attrs ON idents.id = attrs.forward_ident
+                    WHERE idents.etype = inputs_cte.etype
+                 ),
+                 triples_cte AS (
+                   SELECT DISTINCT entity_id
+                     FROM inputs_cte, triples
+                    WHERE triples.attr_id IN (SELECT attr_id FROM attr_ids_cte)
+                      AND triples.app_id = inputs_cte.app_id
+                 )
+                 SELECT triples_cte.entity_id,
+                        count(triples_cte.entity_id) OVER () AS count,
+                        inputs_cte.etype,
+                        inputs_cte.label
+                  FROM triples_cte
+                  LEFT JOIN triples ON triples_cte.entity_id = triples.entity_id
+                                   AND triples.attr_id = ?attr-id
+                       JOIN inputs_cte ON 1 = 1
+                 WHERE triples.value IS NULL
+                    OR triples.value = 'null'
+                 LIMIT 10"
+          res (sql/execute! conn (sql/format query {"?attr-id" attr-id}))]
+      (when (seq res)
+        (update-attr! conn {:app-id  app-id
+                            :attr-id attr-id
+                            :set     {:is-required false}})
+        (let [{:keys [count etype label]} (first res)
+              entity-ids (map :entity_id res)
+              message    (str "Attribute " label " (" attr-id ") can’t be marked required because " count " " etype " entities are missing it")
+              data       {:count count
+                          :etype etype
+                          :label label
+                          :entity-ids entity-ids}]
+          [::exception (ex-info message {::ex/type ::missing-required
+                                         ::ex/hint data})])))))
+
+(defn required--update-attr [conn job]
+  (update-attr! conn {:app-id  (:app_id job)
+                      :attr-id (:attr_id job)
+                      :set     {:is-required true}}))
+
+(def required--stages
+  [{:stage "validate",    :fn #'required--validate}
+   {:stage "update-attr", :fn #'required--update-attr}
+   {:stage "revalidate",  :fn #'required--validate}])
+
+
+;; "remove-required" ----------------------------------------------------------
+
+(defn remove-required--update-attr [conn job]
+  (update-attr! conn {:app-id  (:app_id job)
+                      :attr-id (:attr_id job)
+                      :set     {:is-required false}}))
+
+(def remove-required--stages
+  [{:stage "update-attr", :fn #'remove-required--update-attr}])
+
+
 ;; ----------------------------------------------------------------------------
 
 (def jobs
@@ -784,7 +866,9 @@
    "index"            {:serial-key "index",     :stages index--stages}
    "remove-index"     {:serial-key "index",     :stages remove-index--stages}
    "unique"           {:serial-key "unique",    :stages unique--stages}
-   "remove-unique"    {:serial-key "unique",    :stages remove-unique--stages}})
+   "remove-unique"    {:serial-key "unique",    :stages remove-unique--stages}
+   "required"         {:serial-key "required",  :stages required--stages}
+   "remove-required"  {:serial-key "required",  :stages remove-required--stages}})
 
 (defn run-next-stage [conn job]
   (tracer/with-span! (job-span-attrs "run-next-stage" job)
