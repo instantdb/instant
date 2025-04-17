@@ -181,6 +181,7 @@ export interface SchemaAttr {
   type: 'ref' | 'blob';
   isIndex: boolean;
   isUniq: boolean;
+  isRequired: boolean;
   isPrimary?: boolean | undefined;
   cardinality: 'one' | 'many';
   linkConfig: {

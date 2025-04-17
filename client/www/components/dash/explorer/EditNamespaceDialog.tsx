@@ -301,6 +301,7 @@ function AddAttrForm({
         'reverse-identity': [id(), reverseNamespace.name, reverseAttrName],
         'value-type': 'ref',
         'index?': false,
+        'required?': isRequired,
         'on-delete': isCascadeAllowed && isCascade ? 'cascade' : undefined,
         'on-delete-reverse':
           isCascadeReverseAllowed && isCascadeReverse ? 'cascade' : undefined,
@@ -489,6 +490,22 @@ function AddAttrForm({
                 </span>
               }
             />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <h6 className="text-md font-bold">Constraints</h6>
+            <div className="flex gap-2">
+              <Checkbox
+                checked={isRequired}
+                onChange={(enabled) => setIsRequired(enabled)}
+                label={
+                  <span>
+                    <strong>Require this attribute</strong> so all entities will
+                    be guaranteed to have it
+                  </span>
+                }
+              />
+            </div>
           </div>
         </>
       ) : null}
@@ -686,12 +703,23 @@ function EditRequired({
       {indexingJob?.error === 'missing-required-error' ? (
         <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
           <div>
-            {indexingJob.error_data.count} <code>{attr.namespace}</code> {indexingJob.error_data.count === 1 ? 'entity does' : 'entities do'} not have <code>{attr.name}</code> set.
+            {indexingJob.error_data.count} <code>{attr.namespace}</code>{' '}
+            {indexingJob.error_data.count === 1 ? 'entity does' : 'entities do'}{' '}
+            not have <code>{attr.name}</code> set.
           </div>
           <InvalidTriplesSample
             job={
-              { ...indexingJob, 'invalid_triples_sample': indexingJob.error_data['entity-ids']?.map((id) => ({'entity_id': id, 'value': null, json_type: attr.checkedDataType})) }
-            //{'invalid_triples_sample': indexingJob.error_data.entity_ids.map((id) => {'entity_id': id, 'value': undefined})}
+              {
+                ...indexingJob,
+                invalid_triples_sample: indexingJob.error_data[
+                  'entity-ids'
+                ]?.map((id) => ({
+                  entity_id: id,
+                  value: null,
+                  json_type: attr.checkedDataType,
+                })),
+              }
+              //{'invalid_triples_sample': indexingJob.error_data.entity_ids.map((id) => {'entity_id': id, 'value': undefined})}
             }
             attr={attr}
             onClickSample={(t) => {
@@ -703,7 +731,6 @@ function EditRequired({
               closeDialog();
             }}
           />
-
         </div>
       ) : null}
 
@@ -1293,6 +1320,9 @@ function EditAttrForm({
   const isCascadeReverseAllowed =
     relationship === 'one-one' || relationship === 'many-one';
 
+  const [isRequired, setIsRequired] = useState(attr.isRequired);
+  const [wasRequired, _] = useState(isRequired);
+
   const linkValidation = validateLink({
     attrName,
     reverseAttrName,
@@ -1509,6 +1539,22 @@ function EditAttrForm({
                 </span>
               }
             />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <h6 className="text-md font-bold">Constraints</h6>
+            <div className="flex gap-2">
+              <Checkbox
+                checked={isRequired}
+                onChange={(enabled) => setIsRequired(enabled)}
+                label={
+                  <span>
+                    <strong>Require this attribute</strong> so all entities will
+                    be guaranteed to have it
+                  </span>
+                }
+              />
+            </div>
           </div>
 
           <div className="flex flex-col gap-6">
