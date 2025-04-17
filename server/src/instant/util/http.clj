@@ -81,7 +81,7 @@
           response)))))
 
 (defn- instant-ex->bad-request [instant-ex]
-  (let [{:keys [::ex/type ::ex/message ::ex/hint]} (ex-data instant-ex)]
+  (let [{:keys [::ex/type ::ex/message ::ex/hint ::ex/trace-id]} (ex-data instant-ex)]
     (condp contains? type
       #{::ex/record-not-found
         ::ex/record-expired
@@ -99,9 +99,10 @@
         ::ex/param-malformed
 
         ::ex/validation-failed}
-      {:type (keyword (name type))
-       :message message
-       :hint hint}
+      (cond-> {:type (keyword (name type))
+               :message message
+               :hint hint}
+        trace-id (assoc :trace-id trace-id))
 
       ;; Oauth providers expect an `error` key
       #{::ex/oauth-error}
@@ -122,7 +123,7 @@
       (handler request)
       (catch Exception e
         (let [instant-ex (ex/find-instant-exception e)
-              {:keys [::ex/type ::ex/message ::ex/hint]} (ex-data instant-ex)
+              {:keys [::ex/type ::ex/message ::ex/hint ::ex/trace-id]} (ex-data instant-ex)
               bad-request (when instant-ex
                             (instant-ex->bad-request instant-ex))]
           (cond
@@ -146,11 +147,13 @@
 
             instant-ex (do (tracer/add-exception! instant-ex {:escaping? false})
                            (response/internal-server-error
-                            {:type (keyword (name type))
-                             :message message
-                             :hint (assoc hint :debug-uri (tracer/span-uri))}))
+                            (cond-> {:type (keyword (name type))
+                                     :message message
+                                     :hint (assoc hint :debug-uri (tracer/span-uri))}
+                              trace-id (assoc :trace-id trace-id))))
             :else (do  (tracer/add-exception! e {:escaping? false})
                        (response/internal-server-error
-                        {:type :unknown
-                         :message "Something went wrong. Please ping `debug-uri` in #bug-and-questions, and we'll take a look. Sorry about this!"
-                         :hint {:debug-uri (tracer/span-uri)}}))))))))
+                        (cond-> {:type :unknown
+                                 :message "Something went wrong. Please ping `debug-uri` in #bug-and-questions, and we'll take a look. Sorry about this!"
+                                 :hint {:debug-uri (tracer/span-uri)}}
+                          trace-id (assoc :trace-id trace-id))))))))))

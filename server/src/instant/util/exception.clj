@@ -43,7 +43,8 @@
                 ::socket-error})
 
 (s/def ::message string?)
-(s/def ::instant-exception (s/keys :req [::type ::message]))
+(s/def ::trace-id string?)
+(s/def ::instant-exception (s/keys :req [::type ::message ::trace-id]))
 
 (comment
   (s/explain-data ::instant-exception {::type ::record-not-found
@@ -55,7 +56,11 @@
 (defn throw+
   ([instant-ex] (throw+ instant-ex nil))
   ([{:keys [::message] :as instant-ex} cause]
-   (throw (ex-info (str "[instant-exception] " message) instant-ex cause))))
+   (let [{:keys [trace-id]} (tracer/current-span-ids)]
+     (throw (ex-info (str "[instant-exception] " message)
+                     (cond-> instant-ex
+                       trace-id (assoc ::trace-id trace-id))
+                     cause)))))
 
 (comment
   (throw+ {::type ::record-not-found

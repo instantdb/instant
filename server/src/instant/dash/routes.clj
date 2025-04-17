@@ -324,6 +324,31 @@
     (assert-admin-email! email)
     (response/ok {:apps (dash-admin/get-storage-metrics)})))
 
+(defn admin-debug-uri-get [req]
+  (let [{:keys [email]} (req->auth-user! req)
+        _ (assert-admin-email! email)
+        trace-id (ex/get-param! req [:params :trace-id] string-util/coerce-non-blank-str)
+        span-id (ex/get-param! req [:params :span-id] string-util/coerce-non-blank-str)]
+
+    ;; Make sure our trace-id and span-id are valid
+    (try
+      (crypt-util/hex-string->bytes trace-id)
+      (catch Exception _
+        (ex/throw+ {::type ::param-malformed
+                    ::hint {:trace-id trace-id}})))
+    (try
+      (crypt-util/hex-string->bytes span-id)
+      (catch Exception _
+        (ex/throw+ {::type ::param-malformed
+                    ::hint {:span-id span-id}})))
+
+    (response/ok {:urls [{:label "View trace in Honeycomb"
+                          :url (tracer/honeycomb-uri {:trace-id trace-id
+                                                      :span-id span-id})}
+                         {:label "Search trace in Cloudwatch"
+                          :url (tracer/cloudwatch-uri {:trace-id trace-id
+                                                       :span-id span-id})}]})))
+
 ;; ---
 ;; Dash
 
@@ -1420,6 +1445,7 @@
   (GET "/dash/investor_updates" [] admin-investor-updates-get)
   (GET "/dash/overview/daily" [] admin-overview-daily-get)
   (GET "/dash/overview/minute" [] admin-overview-minute-get)
+  (GET "/dash/admin-debug-uri" [] admin-debug-uri-get)
 
   (GET "/dash" [] dash-get)
   (POST "/dash/apps" [] apps-post)
