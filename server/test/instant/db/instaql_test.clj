@@ -2498,8 +2498,8 @@
              ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili"))}))))))
 
 (deftest comparators
-  (with-empty-app
-    (fn [app]
+  (with-zeneca-checked-data-app
+    (fn [app _r]
       (let [attr-ids {:string (random-uuid)
                       :number (random-uuid)
                       :boolean (random-uuid)
@@ -2573,6 +2573,8 @@
                              [:add-triple id (:date attr-ids) i]
                              [:add-triple id (:boolean attr-ids) (zero? (mod i 2))]]))
                         (range (count labels)))))
+        (when (= :test (config/get-env))
+          (sql/select (aurora/conn-pool :write) ["ANALYZE triples"]))
         (testing "string"
           (is (= #{"3" "4"}  (run-query :string {:etype {:$ {:where {:string {:$gt "2"}}}}})))
           (is (= #{"2" "3" "4"} (run-query :string {:etype {:$ {:where {:string {:$gte "2"}}}}})))
@@ -2624,8 +2626,8 @@
             (is (= "triples_boolean_type_idx" (run-explain :boolean true)))))))))
 
 (deftest lookup-unique-uses-the-av-index
-  (with-empty-app
-    (fn [app]
+  (with-zeneca-app
+    (fn [app _r]
       (let [attr-ids {:id (random-uuid)
                       :handle (random-uuid)}
             make-ctx (fn []
@@ -2659,6 +2661,8 @@
                                                 [[:add-triple id (:id attr-ids) (str id)]
                                                  [:add-triple id (:handle attr-ids) (str i)]]))
                                             (range 5000))))]
+        (when (= :test (config/get-env))
+          (sql/select (aurora/conn-pool :write) ["ANALYZE triples"]))
         (testing "query on unique attr"
           (let [{:keys [patterns]} (iq/instaql-query->patterns
                                     (make-ctx)
