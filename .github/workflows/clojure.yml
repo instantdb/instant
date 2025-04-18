@@ -46,7 +46,7 @@ jobs:
 
     services:
       postgres:
-        image: public.ecr.aws/z9j8u5b3/instant-public:postgresql-16
+        image: public.ecr.aws/z9j8u5b3/instant-public:postgresql-16-pg-hint-plan
         ports:
           - 5432:5432
         env:
@@ -67,6 +67,7 @@ jobs:
     - name: Prepare database
       env:
         DATABASE_URL: "postgres://test_user:test_password@localhost:5432/test_db?sslmode=disable"
+      timeout-minutes: 1
       run: |
         curl -L "https://github.com/golang-migrate/migrate/releases/download/v4.17.0/migrate.linux-amd64.tar.gz" | tar xvz
         chmod +x migrate

@@ -35,6 +35,24 @@ Ensure your `postgresql.conf` has logical replication enabled:
 wal_level = logical
 ```
 
+Install [`pg_hint_plan`](https://github.com/ossc-db/pg_hint_plan/blob/master/docs/installation.md)
+
+On a mac using postgres.app, it looks something like this:
+
+```sh
+# In a temporary directory
+git clone https://github.com/ossc-db/pg_hint_plan.git
+git checkout PG16
+make USE_PGXS=1 PG_CONFIG=/Applications/Postgres.app/Contents/Versions/16/bin/pg_config install DESTDIR=$HOME/postgres_extensions
+sudo cp $HOME/postgres_extensions/Applications/Postgres.app/Contents/Versions/16/lib/postgresql/pg_hint_plan.dylib /Applications/Postgres.app/Contents/Versions/16/lib/postgresql/
+```
+
+Ensure your `postgresql.conf` has pg_hint_plan enabled:
+
+```conf
+shared_preload_libraries = 'pg_stat_statements,pg_hint_plan'
+```
+
 Run the migrations to initialize the database:
 
 ```sh

@@ -38,6 +38,7 @@
             [honey.sql :as hsql]
             [instant.jdbc.sql :as sql]
             [instant.util.json :refer [->json]]
+            [instant.util.pg-hint-plan :as pg-hint]
             [instant.util.string :refer [safe-name]]
             [instant.util.uuid :as uuid-util])
   (:import (javax.sql DataSource)
@@ -684,6 +685,21 @@
              clause))
          clauses)))
 
+(defn pg-hint-index [[tag v :as idx]]
+  (if (and (= tag :map)
+           (= (:idx-key v) :ave))
+    (case (:data-type v)
+      :string :triples_string_trgm_gist_idx
+      :number :triples_number_type_idx
+      :boolean :triples_boolean_type_idx
+      :date :triples_date_type_idx)
+    (case (idx-key idx)
+      :ea :ea_index
+      :eav :eav_index
+      :av :av_index
+      :ave :ave_index
+      :vae :vae_index)))
+
 (defn- where-clause
   "
     Given a named pattern, return a where clause with the constants:
@@ -867,6 +883,7 @@
   [prefix app-id additional-joins symbol-map prev-idx start-of-group? named-p {:keys [page-info]}]
   (let [cur-idx (inc prev-idx)
         cur-table (kw prefix cur-idx)
+        triples-alias (kw :t cur-idx)
         prev-table (when-not (or start-of-group? (neg? prev-idx))
                      (kw prefix prev-idx))
         joins (if start-of-group?
@@ -882,31 +899,34 @@
                           variable-components
                           (keep (fn [[_ [_ sym]]]
                                   (when-let [path (get additional-joins sym)]
-                                    (kw prefix (first path))))))]
-    [cur-table
-     {:select (concat (when prev-table
-                        [(kw prev-table :.*)])
-                      (match-table-select cur-table))
-      :from (concat (list* :triples (when prev-table
-                                      [prev-table]))
-                    parent-froms)
-      :where (where-clause app-id named-p all-joins)}
-     (if (or
-          ;; only use `not materialized` when we're in the middle of an ordered
-          ;; query
-          (not page-info)
+                                    (kw prefix (first path))))))
+        cte [cur-table
+             {:select (concat (when prev-table
+                                [(kw prev-table :.*)])
+                              (match-table-select cur-table))
+              :from (concat (list* [:triples triples-alias]
+                                   (when prev-table
+                                     [prev-table]))
+                            parent-froms)
+              :where (where-clause app-id named-p all-joins)}
+             (if (or
+                  ;; only use `not materialized` when we're in the middle of an ordered
+                  ;; query
+                  (not page-info)
 
-          ;; skip isNull because it's unlikely to generate a good plan
-          (and (uspec/tagged-as? :function (:v named-p))
-               (:$isNull (uspec/tagged-unwrap (:v named-p))))
+                  ;; skip isNull because it's unlikely to generate a good plan
+                  (and (uspec/tagged-as? :function (:v named-p))
+                       (:$isNull (uspec/tagged-unwrap (:v named-p))))
 
-          ;; skip indexed with constant value because it's likely
-          ;; to return a small set of elements and we'll spend forever
-          ;; looping through the sorted elements
-          (and (= :ave (idx-key (:idx named-p)))
-               (named-constant? (:v named-p))))
-       :materialized
-       :not-materialized)]))
+                  ;; skip indexed with constant value because it's likely
+                  ;; to return a small set of elements and we'll spend forever
+                  ;; looping through the sorted elements
+                  (and (= :ave (idx-key (:idx named-p)))
+                       (named-constant? (:v named-p))))
+               :materialized
+               :not-materialized)]]
+    {:cte cte
+     :pg-hints [(pg-hint/index-scan triples-alias (pg-hint-index (:idx named-p)))]}))
 
 (defn symbol-fields-of-pattern
   "Keeps track of which idx in the triple maps to which variable.
@@ -938,15 +958,17 @@
   (let [start-of-group? (zero? group-idx)
         cte-cols (mapv sql-name (match-table-cols (kw prefix idx)))
         symbol-fields (symbol-fields-of-pattern pattern)
-        prev-idx (dec idx)]
-    {:ctes (joining-with prefix
-                         app-id
-                         additional-joins
-                         symbol-map
-                         prev-idx
-                         start-of-group?
-                         pattern
-                         opts)
+        prev-idx (dec idx)
+        {:keys [cte pg-hints]} (joining-with prefix
+                                             app-id
+                                             additional-joins
+                                             symbol-map
+                                             prev-idx
+                                             start-of-group?
+                                             pattern
+                                             opts)]
+    {:cte cte
+     :pg-hints pg-hints
      :symbol-map (symbol-map-of-pattern idx pattern)
      :pattern-meta {:cte-cols cte-cols
                     :symbol-fields symbol-fields
@@ -1005,7 +1027,7 @@
    that will be used to transform the sql result into the query result."
   [prefix app-id additional-joins acc [tag pattern] opts]
   (case tag
-    :pattern (let [{:keys [ctes symbol-map pattern-meta]}
+    :pattern (let [{:keys [cte pg-hints symbol-map pattern-meta]}
                    (cte-for-pattern prefix
                                     app-id
                                     additional-joins
@@ -1015,7 +1037,8 @@
                                     pattern
                                     opts)]
                (-> acc
-                   (update :ctes conj ctes)
+                   (update :ctes conj cte)
+                   (update :pg-hints into pg-hints)
                    (update :next-idx inc)
                    (update :group-idx inc)
                    (update :symbol-map #(merge-with into % symbol-map))
@@ -1033,6 +1056,7 @@
                           {:acc {:next-idx (:next-idx res)
                                  :group-idx 0
                                  :ctes []
+                                 :pg-hints []
                                  :symbol-map {}
                                  :pattern-metas []
                                  :or-idxes (conj (or (:or-idxes acc) #{})
@@ -1040,6 +1064,7 @@
                            :group-acc (-> group-acc
                                           (assoc :next-idx (:next-idx res))
                                           (update :ctes into (:ctes res))
+                                          (update :pg-hints into (:pg-hints res))
                                           (update :or-idxes conj (dec (:next-idx res)))
                                           (update :symbol-maps
                                                   assoc
@@ -1049,6 +1074,7 @@
                       {;; :group-acc collects information about each OR clause
                        :group-acc {:next-idx (:next-idx acc)
                                    :ctes (:ctes acc)
+                                   :pg-hints (:pg-hints acc)
                                    ;; Collect pattern maps from each or branch so that
                                    ;; we can build the topics in isolation
                                    :pattern-metas []
@@ -1065,6 +1091,7 @@
                        :acc {:next-idx (:next-idx acc)
                              :group-idx 0
                              :ctes []
+                             :pg-hints []
                              :symbol-map {}
                              :pattern-metas []
                              :or-idxes (:or-idxes acc)}}
@@ -1089,6 +1116,7 @@
                            (:or-idxes group-acc))
            :group-idx (inc (:group-idx acc))
            :ctes (conj (:ctes group-acc) gather-cte)
+           :pg-hints (:pg-hints group-acc)
            :symbol-map (merge-with into
                                    (:symbol-map acc)
                                    (apply merge-with (fn [& xs]
@@ -1103,13 +1131,14 @@
   ([prefix app-id named-patterns opts]
    (match-query {} prefix app-id {} named-patterns opts))
   ([acc prefix app-id additional-joins named-patterns opts]
-   (let [{:keys [ctes pattern-metas symbol-map next-idx]}
+   (let [{:keys [ctes pg-hints pattern-metas symbol-map next-idx]}
          (reduce (fn [acc pattern]
                    (accumulate-ctes prefix app-id additional-joins acc pattern opts))
                  (merge {:next-idx 0
                          ;; Used to determine the start of an or/and clause
                          :group-idx 0
                          :ctes []
+                         :pg-hints []
                          :symbol-map {}
                          ;; Metadata for each pattern that we'll use to transform the
                          ;; sql data into the datalog query result
@@ -1125,6 +1154,7 @@
       :symbol-map symbol-map
       :query {:with ctes
               :select (kw last-table-name :.*)
+              :pg-hints pg-hints
               :from last-table-name}})))
 
 (defn component-type-of-sym
@@ -1241,14 +1271,15 @@
            after]
     :as page-info}]
   (let [page-pattern (second named-pattern) ;; remove tag
-        [table query] (joining-with prefix
-                                    app-id
-                                    additional-joins
-                                    symbol-map
-                                    (dec next-idx)
-                                    false
-                                    page-pattern
-                                    {:page-info page-info})
+        {:keys [cte pg-hints]} (joining-with prefix
+                                             app-id
+                                             additional-joins
+                                             symbol-map
+                                             (dec next-idx)
+                                             false
+                                             page-pattern
+                                             {:page-info page-info})
+        [table query] cte
         entity-id-col :entity-id
         sym-component-type (component-type-of-sym named-pattern order-sym)
         sym-triple-idx (get (set/map-invert idx->component-type)
@@ -1428,6 +1459,8 @@
                          [(has-prev-tbl table)
                           {:select [[[:exists has-previous-query]]]}
                           :not-materialized])
+             :pg-hints (into (:pg-hints (:query match-query))
+                             pg-hints)
              :select (kw last-row-table :.*)
              :from last-table-name}
      :symbol-map symbol-map
@@ -1446,6 +1479,7 @@
   ([prefix app-id nested-named-patterns]
    (let [acc {:next-idx 0
               :ctes []
+              :pg-hints []
               :result-tables []
               :pattern-groups []}]
      (accumulate-nested-match-query acc {} prefix app-id nested-named-patterns)))
@@ -1473,10 +1507,12 @@
                                                    page-info))
 
                         ctes (:with query)
+                        pg-hints (:pg-hints query)
 
                         next-acc (cond-> acc
                                    true (assoc :next-idx next-idx)
                                    true (update :ctes into ctes)
+                                   true (update :pg-hints into pg-hints)
                                    true (update :result-tables
                                                 conj
                                                 {:table (:from query)
@@ -1538,6 +1574,8 @@
          (assoc :children {:pattern-groups (:pattern-groups res)
                            :join-sym (get-in nested-named-patterns [:children :join-sym])})))))
 
+(def ^:dynamic *use-pg-hints* false)
+
 (defn nested-match-query
   "Generates the hsql `query` and metadata about the query under `children`.
   `children` matches the structure of nested-named-patterns and has all of the
@@ -1545,7 +1583,7 @@
   topics (replacing join-sym with the actual value), and fully-qualified datalog
   queries."
   [_ctx prefix app-id nested-named-patterns]
-  (let [{:keys [ctes result-tables children]}
+  (let [{:keys [ctes result-tables children pg-hints]}
         (accumulate-nested-match-query prefix app-id nested-named-patterns)
         tables (set (map :table result-tables))
         query (when (seq ctes)
@@ -1562,6 +1600,9 @@
                                ;; option, let's not override their wisdom.
                                :else %)
                             ctes)
+                 :pg-hints (if *use-pg-hints*
+                             pg-hints
+                             [])
                  :select [[(into [:json_build_array]
                                  (mapv (fn [tables]
                                          (into [:json_build_object]
@@ -2081,12 +2122,14 @@
                                               :match-0-
                                               (:app-id ctx)
                                               nested-named-patterns)
-          sql-query (update (hsql/format query)
-                            0
-                            (fn [s]
-                              (str "explain (analyze, verbose, buffers, timing, format json) " s)))]
-
-      (first (sql/select-string-keys (-> ctx :db :conn-pool) sql-query)))))
+          sql-query (hsql/format
+                     (assoc query
+                            :raw
+                            "explain (analyze, verbose, buffers, timing, format json)"))]
+      (sql/select-string-keys ::explain
+                              (-> ctx :db :conn-pool)
+                              sql-query
+                              {:attach-warnings? true}))))
 
 (defn query
   "Executes a Datalog(ish) query over the given aurora `conn`, Instant `app_id`
