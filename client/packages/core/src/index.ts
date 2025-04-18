@@ -89,7 +89,7 @@ import type {
   VerifyResponse,
 } from './authAPI';
 
-import { InstantAPIError, type InstantIssue } from './utils/fetch';
+import { InstantAPIError, type InstantIssue } from './utils/fetch.js';
 
 const defaultOpenDevtool = true;
 

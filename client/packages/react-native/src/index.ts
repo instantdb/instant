@@ -2,7 +2,7 @@ import 'react-native-get-random-values';
 
 import Storage from './Storage';
 import NetworkListener from './NetworkListener';
-import version from './version';
+import version from './version.js';
 
 import {
   // react

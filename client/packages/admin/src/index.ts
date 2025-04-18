@@ -60,7 +60,7 @@ import {
   PresenceOf,
 } from '@instantdb/core';
 
-import version from './version';
+import version from './version.js';
 
 type DebugCheckResult = {
   /** The ID of the record. */

@@ -5,7 +5,7 @@ import type {
 } from '@instantdb/core';
 
 import InstantReactWebDatabase from './InstantReactWebDatabase';
-import version from './version';
+import version from './version.js';
 
 /**
  *

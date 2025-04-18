@@ -1,5 +1,5 @@
 import { User } from './clientTypes';
-import { jsonFetch } from './utils/fetch';
+import { jsonFetch } from './utils/fetch.js';
 
 type SharedInput = {
   apiURI: string;
