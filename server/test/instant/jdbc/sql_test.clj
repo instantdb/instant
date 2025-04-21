@@ -11,7 +11,7 @@
     (are [input result] (= (.getValue (sql/->pgobject (with-meta input {:pgtype "text[]"})))
                            result)
       ["a" "b" "c"] "{\"a\",\"b\",\"c\"}"
-      ["a\"b"] "{\"a\"b\"}")))
+      ["a\"b"] "{\"a\\\"b\"}")))
 
 (deftest in-progress-stmts
   (let [in-progress (sql/make-statement-tracker)]
