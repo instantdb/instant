@@ -18,6 +18,7 @@ export interface TransactionChunk<
   EntityName extends keyof Schema['entities'],
 > {
   __ops: Op[];
+  __etype: EntityName;
   /**
    * Create and update objects:
    *
@@ -107,6 +108,7 @@ type TransactionChunkKey = keyof TransactionChunk<any, any>;
 function getAllTransactionChunkKeys(): Set<TransactionChunkKey> {
   const v: any = 1;
   const _dummy: TransactionChunk<any, any> = {
+    __etype: v,
     __ops: v,
     update: v,
     link: v,
@@ -135,9 +137,14 @@ function transactionChunk(
   id: Id | LookupRef,
   prevOps: Op[],
 ): TransactionChunk<any, any> {
-  return new Proxy({} as TransactionChunk<any, any>, {
+  const target = {
+    __etype: etype,
+    __ops: prevOps,
+  };
+  return new Proxy(target as unknown as TransactionChunk<any, any>, {
     get: (_target, cmd: keyof TransactionChunk<any, any>) => {
       if (cmd === '__ops') return prevOps;
+      if (cmd === '__etype') return etype;
       if (!allTransactionChunkKeys.has(cmd)) {
         return undefined;
       }
@@ -172,9 +179,13 @@ export function parseLookup(k: string): LookupRef {
 
 function etypeChunk(etype: EType): ETypeChunk<any, EType> {
   return new Proxy(
-    {},
     {
-      get(_target, id: Id) {
+      __etype: etype,
+    } as unknown as ETypeChunk<any, EType>,
+    {
+      get(_target, cmd: Id) {
+        if (cmd === '__etype') return etype;
+        const id = cmd;
         if (isLookup(id)) {
           return transactionChunk(etype, parseLookup(id), []);
         }
