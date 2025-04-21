@@ -546,6 +546,17 @@
     :string :triples_extract_string_value
     :boolean :triples_extract_boolean_value))
 
+;; XXX: Needs new index
+;;     create index triples_string_idx_with_e on triples (app_id,attr_id,(triples_extract_string_value(value)),entity_id) where ave and checked_data_type = 'string'::checked_data_type;
+
+
+(defn data-type->pg-type [data-type]
+  (case data-type
+    :date "timestamptz"
+    :number "float8"
+    :string "text"
+    :boolean "boolean"))
+
 (defn- not-eq-value [idx val]
   (let [[tag idx-val] idx
         data-type (case tag
@@ -575,12 +586,13 @@
                     [:json_null_to_null :value]
                     :value)
                   (map value->jsonb v-set))
-
-        (list* :or (map (fn [v]
-                          [:and
-                           [:= :checked_data_type [:cast [:inline (name data-type)] :checked_data_type]]
-                           [:= [(extract-value-fn data-type) :value] v]])
-                        v-set))))))
+        [[:and
+          [:= :checked_data_type [:cast [:inline (name data-type)] :checked_data_type]]
+          [:=
+           [(extract-value-fn data-type) :value]
+           (if (= 1 (count v-set))
+             (first v-set)
+             [:any (with-meta v-set {:pgtype (str (data-type->pg-type data-type) "[]")})])]]]))))
 
 (defn- constant->where-part [idx app-id component-type [_ v]]
   (condp = component-type

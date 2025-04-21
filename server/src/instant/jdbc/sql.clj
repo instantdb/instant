@@ -31,9 +31,10 @@
    "{%s}"
    (string/join
     ","
-    (map (fn [s] (format "\"%s\""
-                         ;; Escape quotes (but don't double esc)
-                         (string/replace s #"(?<!\\)\"" "\\\"")))
+    (map (fn [s]
+           (format "\"%s\""
+                   ;; Escape quotes (but don't double esc)
+                   (string/replace s #"(?<!\\)\"" (string/re-quote-replacement "\\\""))))
          col))))
 
 (defn ->pg-uuid-array
@@ -47,6 +48,28 @@
     (.append s "}")
     (.toString s)))
 
+(defn ->pg-instant-array
+  "Formats as timestamptz[] in pg, i.e. {item-1, item-2, item3}"
+  [col]
+  (let [s (StringBuilder. "{")]
+    (doseq [^Instant t col]
+      (when (not= 1 (.length s))
+        (.append s \,))
+      (.append s (.toString t)))
+    (.append s "}")
+    (.toString s)))
+
+(defn ->pg-generic-array
+  "Formats float8[], boolean[] in pg, i.e. {item-1, item-2, item3}"
+  [col]
+  (let [s (StringBuilder. "{")]
+    (doseq [t col]
+      (when (not= 1 (.length s))
+        (.append s \,))
+      (.append s (String/valueOf t)))
+    (.append s "}")
+    (.toString s)))
+
 (defn ->pgobject
   "Transforms Clojure data to a PGobject that contains the data as
   JSON. PGObject type defaults to `jsonb` but can be changed via
@@ -56,6 +79,10 @@
         value (case pgtype
                 "text[]" (->pg-text-array x)
                 "uuid[]" (->pg-uuid-array x)
+                "timestamptz[]" (->pg-instant-array x)
+                ;; alias for double precision
+                "float8[]" (->pg-generic-array x)
+                "boolean[]" (->pg-generic-array x)
                 (->json x))]
     (doto (PGobject.)
       (.setType pgtype)

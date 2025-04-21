@@ -18,7 +18,8 @@
    (clojure.lang Compiler TaggedLiteral)
    (com.github.vertical_blank.sqlformatter SqlFormatter)
    (com.zaxxer.hikari HikariDataSource)
-   (java.util UUID)))
+   (java.util UUID)
+   (java.time Instant)))
 
 (defmacro def-locals*
   [prefix]
@@ -104,9 +105,10 @@
    "{%s}"
    (str/join
     ","
-    (map (fn [s] (format "\"%s\""
-                         ;; Escape quotes (but don't double esc)
-                         (str/replace s #"(?<!\\)\"" "\\\"")))
+    (map (fn [s]
+           (format "\"%s\""
+                   ;; Escape quotes (but don't double esc)
+                   (str/replace s #"(?<!\\)\"" (str/re-quote-replacement "\\\""))))
          col))))
 
 ;; Copied from sql.clj
@@ -120,6 +122,33 @@
       (.append s (.toString uuid)))
     (.append s "}")
     (.toString s)))
+
+;; Copied from sql.clj
+(defn ->pg-instant-array
+  "Formats as timestamptz[] in pg, i.e. {item-1, item-2, item3}"
+  [col]
+  (let [s (StringBuilder. "{")]
+    (doseq [^Instant t col]
+      (when (not= 1 (.length s))
+        (.append s \,))
+      (.append s (.toString t)))
+    (.append s "}")
+    (.toString s)))
+
+;; Copied from sql.clj
+(defn ->pg-generic-array
+  "Formats float8[], boolean[] in pg, i.e. {item-1, item-2, item3}"
+  [col]
+  (let [s (StringBuilder. "{")]
+    (doseq [t col]
+      (when (not= 1 (.length s))
+        (.append s \,))
+      (.append s (String/valueOf t)))
+    (.append s "}")
+    (.toString s)))
+
+(defn instant? [x]
+  (instance? Instant x))
 
 (defn unsafe-sql-format-query
   "Use with caution: this inlines parameters in the query, so it could
@@ -147,6 +176,14 @@
                                                         meta
                                                         :pgtype)) (format "'%s'"
                                                     (->pg-text-array v))
+
+                                                 (set? v)
+                                                 (cond (every? uuid? v) (format "'%s'" (->pg-uuid-array v))
+                                                       (every? string? v) (format "'%s'" (->pg-text-array v))
+                                                       (or (every? number? v)
+                                                           (every? boolean? v)) (format "'%s'" (->pg-generic-array v))
+                                                       (every? instant? v) (format "'%s'" (->pg-instant-array v))
+                                                       :else (format "'%s'" v))
                                                  (and (set? v)
                                                       (every? uuid? v)) (format "'%s'" (->pg-uuid-array v))
                                                  :else (format "'%s'" v))
