@@ -104,10 +104,11 @@ export type Config = {
 
 export type InstantConfig<S extends InstantSchemaDef<any, any, any>> = {
   appId: string;
+  schema?: S;
   websocketURI?: string;
   apiURI?: string;
   devtool?: boolean | DevtoolConfig;
-  schema?: S;
+  verbose?: boolean;
 };
 
 export type ConfigWithSchema<S extends InstantGraph<any, any>> = Config & {
