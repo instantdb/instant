@@ -124,18 +124,6 @@
     (.toString s)))
 
 ;; Copied from sql.clj
-(defn ->pg-instant-array
-  "Formats as timestamptz[] in pg, i.e. {item-1, item-2, item3}"
-  [col]
-  (let [s (StringBuilder. "{")]
-    (doseq [^Instant t col]
-      (when (not= 1 (.length s))
-        (.append s \,))
-      (.append s (.toString t)))
-    (.append s "}")
-    (.toString s)))
-
-;; Copied from sql.clj
 (defn ->pg-generic-array
   "Formats float8[], boolean[] in pg, i.e. {item-1, item-2, item3}"
   [col]
@@ -181,8 +169,8 @@
                                                  (cond (every? uuid? v) (format "'%s'" (->pg-uuid-array v))
                                                        (every? string? v) (format "'%s'" (->pg-text-array v))
                                                        (or (every? number? v)
-                                                           (every? boolean? v)) (format "'%s'" (->pg-generic-array v))
-                                                       (every? instant? v) (format "'%s'" (->pg-instant-array v))
+                                                           (every? boolean? v)
+                                                           (every? instant? v)) (format "'%s'" (->pg-generic-array v))
                                                        :else (format "'%s'" v))
                                                  (and (set? v)
                                                       (every? uuid? v)) (format "'%s'" (->pg-uuid-array v))
