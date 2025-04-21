@@ -1,11 +1,13 @@
-import * as flags from './flags';
+export interface Logger {
+  info: (...args: any[]) => void;
+  debug: (...args: any[]) => void;
+  error: (...args: any[]) => void;
+}
 
-const isEnabled = flags.devBackend || flags.instantLogs;
-
-const log = {
-  info: isEnabled ? console.info.bind(console) : () => {},
-  debug: isEnabled ? console.debug.bind(console) : () => {},
-  error: isEnabled ? console.error.bind(console) : () => {},
-};
-
-export default log;
+export default function createLogger(isEnabled: boolean): Logger {
+  return {
+    info: isEnabled ? console.info.bind(console) : () => {},
+    debug: isEnabled ? console.debug.bind(console) : () => {},
+    error: isEnabled ? console.error.bind(console) : () => {},
+  };
+}

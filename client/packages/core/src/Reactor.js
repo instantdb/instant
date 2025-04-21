@@ -1,5 +1,4 @@
 // @ts-check
-import log from './utils/log';
 import weakHash from './utils/weakHash';
 import instaql from './instaql';
 import * as instaml from './instaml';
@@ -9,6 +8,7 @@ import IndexedDBStorage from './IndexedDBStorage';
 import WindowNetworkListener from './WindowNetworkListener';
 import * as authAPI from './authAPI';
 import * as StorageApi from './StorageAPI';
+import * as flags from './utils/flags';
 import { buildPresenceSlice, hasPresenceResponseChanged } from './presence';
 import { Deferred } from './utils/Deferred';
 import { PersistedObject } from './utils/PersistedObject';
@@ -22,6 +22,9 @@ import {
 import { createLinkIndex } from './utils/linkIndex';
 import version from './version.js';
 import { create } from 'mutative';
+import createLogger from './utils/log';
+
+/** @typedef {import('./utils/log').Logger} Logger */
 
 const STATUS = {
   CONNECTING: 'connecting',
@@ -146,6 +149,8 @@ export default class Reactor {
   _currentUserCached = { isLoading: true, error: undefined, user: undefined };
   _beforeUnloadCbs = [];
   _dataForQueryCache = {};
+  /** @type {Logger} */
+  _log;
 
   constructor(
     config,
@@ -154,6 +159,11 @@ export default class Reactor {
     versions,
   ) {
     this.config = { ...defaultConfig, ...config };
+
+    this._log = createLogger(
+      config.verbose || flags.devBackend || flags.instantLogs,
+    );
+
     this.versions = { ...(versions || {}), '@instantdb/core': version };
 
     if (this.config.schema) {
@@ -192,12 +202,17 @@ export default class Reactor {
         if (isOnline === this._isOnline) {
           return;
         }
-        log.info('[network] online =', isOnline);
+        this._log.info('[network] online =', isOnline);
         this._isOnline = isOnline;
         if (this._isOnline) {
           this._startSocket();
         } else {
-          log.info('Changing status from', this.status, 'to', STATUS.CLOSED);
+          this._log.info(
+            'Changing status from',
+            this.status,
+            'to',
+            STATUS.CLOSED,
+          );
           this._setStatus(STATUS.CLOSED);
         }
       });
@@ -361,7 +376,7 @@ export default class Reactor {
         ? Boolean(this.config.cardinalityInference)
         : true);
     if (!ignoreLogging[msg.op]) {
-      log.info('[receive]', wsId, msg.op, msg);
+      this._log.info('[receive]', wsId, msg.op, msg);
     }
     switch (msg.op) {
       case 'init-ok':
@@ -1059,7 +1074,7 @@ export default class Reactor {
       return;
     }
     if (!ignoreLogging[msg.op]) {
-      log.info('[send]', this._ws._id, msg.op, msg);
+      this._log.info('[send]', this._ws._id, msg.op, msg);
     }
     this._ws.send(JSON.stringify({ 'client-event-id': eventId, ...msg }));
   }
@@ -1067,14 +1082,14 @@ export default class Reactor {
   _wsOnOpen = (e) => {
     const targetWs = e.target;
     if (this._ws !== targetWs) {
-      log.info(
+      this._log.info(
         '[socket][open]',
         targetWs._id,
         'skip; this is no longer the current ws',
       );
       return;
     }
-    log.info('[socket][open]', this._ws._id);
+    this._log.info('[socket][open]', this._ws._id);
     this._setStatus(STATUS.OPENED);
     this.getCurrentUser().then((resp) => {
       this._trySend(uuid(), {
@@ -1096,7 +1111,7 @@ export default class Reactor {
     const targetWs = e.target;
     const m = JSON.parse(e.data.toString());
     if (this._ws !== targetWs) {
-      log.info(
+      this._log.info(
         '[socket][message]',
         targetWs._id,
         m,
@@ -1110,20 +1125,20 @@ export default class Reactor {
   _wsOnError = (e) => {
     const targetWs = e.target;
     if (this._ws !== targetWs) {
-      log.info(
+      this._log.info(
         '[socket][error]',
         targetWs._id,
         'skip; this is no longer the current ws',
       );
       return;
     }
-    log.error('[socket][error]', targetWs._id, e);
+    this._log.error('[socket][error]', targetWs._id, e);
   };
 
   _wsOnClose = (e) => {
     const targetWs = e.target;
     if (this._ws !== targetWs) {
-      log.info(
+      this._log.info(
         '[socket][close]',
         targetWs._id,
         'skip; this is no longer the current ws',
@@ -1138,14 +1153,14 @@ export default class Reactor {
     }
 
     if (this._isShutdown) {
-      log.info(
+      this._log.info(
         '[socket][close]',
         targetWs._id,
         'Reactor has been shut down and will not reconnect',
       );
       return;
     }
-    log.info(
+    this._log.info(
       '[socket][close]',
       targetWs._id,
       'schedule reconnect, ms =',
@@ -1157,7 +1172,7 @@ export default class Reactor {
         10000,
       );
       if (!this._isOnline) {
-        log.info(
+        this._log.info(
           '[socket][close]',
           targetWs._id,
           'we are offline, no need to start socket',
@@ -1173,7 +1188,7 @@ export default class Reactor {
       // Our current websocket is in a 'connecting' state.
       // There's no need to start another one, as the socket is
       // effectively fresh.
-      log.info(
+      this._log.info(
         '[socket][start]',
         this._ws._id,
         'maintained as current ws, we were still in a connecting state',
@@ -1188,7 +1203,7 @@ export default class Reactor {
     this._ws.onmessage = this._wsOnMessage;
     this._ws.onclose = this._wsOnClose;
     this._ws.onerror = this._wsOnError;
-    log.info('[socket][start]', this._ws._id);
+    this._log.info('[socket][start]', this._ws._id);
     if (prevWs?.readyState === WS_OPEN_STATUS) {
       // When the network dies, it doesn't always mean that our
       // socket connection will fire a close event.
@@ -1198,7 +1213,7 @@ export default class Reactor {
       //
       // This means that we have to make sure to kill the previous one ourselves.
       // c.f https://issues.chromium.org/issues/41343684
-      log.info(
+      this._log.info(
         '[socket][start]',
         this._ws._id,
         'close previous ws id = ',
@@ -1516,7 +1531,7 @@ export default class Reactor {
     }
     const wantsToSkip = opts.invalidateToken === false;
     if (wantsToSkip) {
-      log.info('[auth-invalidate] skipped invalidateToken');
+      this._log.info('[auth-invalidate] skipped invalidateToken');
       return;
     }
     authAPI
@@ -1526,7 +1541,7 @@ export default class Reactor {
         refreshToken,
       })
       .then(() => {
-        log.info('[auth-invalidate] completed invalidateToken');
+        this._log.info('[auth-invalidate] completed invalidateToken');
       })
       .catch((e) => {});
   }
