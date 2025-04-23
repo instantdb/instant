@@ -33,6 +33,7 @@
    [instant.util.json :refer [<-json]]
    [instant.util.semver :as semver]
    [instant.util.e2e-tracer :as e2e-tracer]
+   [instant.util.string :as string-util]
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
    [lambdaisland.uri :as uri])
@@ -296,18 +297,23 @@
       :ws-ping-latency-ms ws-ping-latency-ms}
      (auth-and-creator-attrs auth creator versions))))
 
-(defn- handle-join-room! [store sess-id {:keys [client-event-id room-id] :as _event}]
+(defn validate-room-id [event]
+  (ex/get-param! event [:room-id] string-util/coerce-non-blank-str))
+
+(defn- handle-join-room! [store sess-id {:keys [client-event-id] :as event}]
   (let [auth (get-auth! store sess-id)
         app-id (-> auth :app :id)
-        current-user (-> auth :user)]
+        current-user (-> auth :user)
+        room-id (validate-room-id event)]
     (eph/join-room! app-id sess-id current-user room-id)
     (rs/send-event! store app-id sess-id {:op :join-room-ok
                                           :room-id room-id
                                           :client-event-id client-event-id})))
 
-(defn- handle-leave-room! [store sess-id {:keys [client-event-id room-id] :as _event}]
+(defn- handle-leave-room! [store sess-id {:keys [client-event-id] :as event}]
   (let [auth (get-auth! store sess-id)
-        app-id (-> auth :app :id)]
+        app-id (-> auth :app :id)
+        room-id (validate-room-id event)]
     (eph/leave-room! app-id sess-id room-id)
     (rs/send-event! store app-id sess-id {:op :leave-room-ok
                                           :room-id room-id
@@ -321,9 +327,10 @@
      [{:message "You have not entered this room yet."}])))
 
 (defn- handle-set-presence!
-  [store sess-id {:keys [client-event-id room-id data] :as _event}]
+  [store sess-id {:keys [client-event-id data] :as event}]
   (let [auth (get-auth! store sess-id)
         app-id (-> auth :app :id)
+        room-id (validate-room-id event)
         _ (assert-in-room! app-id room-id sess-id)]
     (eph/set-presence! app-id sess-id room-id data)
     (rs/send-event! store app-id sess-id {:op :set-presence-ok
@@ -332,10 +339,11 @@
 
 (def patch-presence-min-version (semver/parse "v0.17.5"))
 
-(defn- handle-refresh-presence! [store sess-id {:keys [app-id room-id data edits]}]
+(defn- handle-refresh-presence! [store sess-id {:keys [app-id data edits] :as event}]
   (let [version (-> (rs/session store sess-id)
                     :session/versions
-                    (get core-version-key))]
+                    (get core-version-key))
+        room-id (validate-room-id event)]
     (cond
       (and edits (empty? edits))
       :nop
@@ -358,9 +366,10 @@
 
 (defn- handle-client-broadcast!
   "Broadcasts a client message to other sessions in the room"
-  [store sess-id {:keys [client-event-id room-id topic data] :as _event}]
+  [store sess-id {:keys [client-event-id topic data] :as event}]
   (let [auth (get-auth! store sess-id)
         app-id (-> auth :app :id)
+        room-id (validate-room-id event)
         _ (assert-in-room! app-id room-id sess-id)
         current-user (-> auth :user)
         {:keys [local-ids remote-ids]} (eph/get-room-session-ids app-id room-id)
@@ -386,12 +395,13 @@
                                                 :op :client-broadcast-ok
                                                 :client-event-id client-event-id))))
 
-(defn- handle-server-broadcast! [store sess-id {:keys [app-id room-id topic data]}]
-  (when (eph/in-room? app-id room-id sess-id)
-    (rs/send-event! store app-id sess-id {:op :server-broadcast
-                                          :room-id room-id
-                                          :topic topic
-                                          :data data})))
+(defn- handle-server-broadcast! [store sess-id {:keys [app-id topic data] :as event}]
+  (let [room-id (validate-room-id event)]
+    (when (eph/in-room? app-id room-id sess-id)
+      (rs/send-event! store app-id sess-id {:op :server-broadcast
+                                            :room-id room-id
+                                            :topic topic
+                                            :data data}))))
 
 (defn handle-event [store session event debug-info]
   (let [{:keys [op]} event
