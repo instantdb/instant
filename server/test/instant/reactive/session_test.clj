@@ -716,6 +716,22 @@
           (is (= rid (:room-id join-room-ok)))
           (is (eph/in-room? movies-app-id rid sess-id)))))))
 
+(deftest join-room-errors-on-invalid-room-id
+  (with-session
+    (fn [_store {:keys [socket movies-app-id]}]
+      (blocking-send-msg :init-ok socket {:op :init
+                                          :app-id movies-app-id})
+      (let [rid (str (UUID/randomUUID))
+            sess-id (:id socket)]
+
+        (send-msg socket
+                  {:op :join-room
+                   :room-id nil})
+
+        (let [msg (first (read-msgs 1 socket))]
+          (is (= :error (:op msg)))
+          (is (= :param-missing (:type msg))))))))
+
 (deftest leave-room-works
   (with-session
     (fn [_store {:keys [socket movies-app-id]}]
