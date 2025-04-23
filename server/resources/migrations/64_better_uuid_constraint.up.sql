@@ -23,11 +23,10 @@ as $$
   end;
 $$;
 
--- We use `not valid` here to prevent a full table scan when we add the constraint
+-- We used `not valid` here to prevent a full table scan when we add the constraint
 -- We need to run validate constraint in production after adding this
 -- See note https://www.postgresql.org/docs/current/sql-altertable.html#SQL-ALTERTABLE-NOTES
 -- TODO: run `alter table triples validate constraint valid_value_data_type;` in production
 alter table triples
   add constraint valid_ref_value
-    check (public.triples_valid_ref_value(triples))
-    not valid;
+    check (public.triples_valid_ref_value(triples));
