@@ -625,17 +625,16 @@
                        [[:= :attr-id tag-attr-id]])))))
         (testing "invalid uuids are rejected"
           (is
-           (= :invalid-text-representation
+           (= ::ex/validation-failed
               (->  (test-util/instant-ex-data
                     (tx/transact!
                      (aurora/conn-pool :write)
                      (attr-model/get-by-app-id app-id)
                      app-id
                      [[:add-triple stopa-eid tag-attr-id "Foo"]]))
-                   ::ex/hint
-                   :condition)))
+                   ::ex/type)))
           (is
-           (= "Check Violation: ref_values_are_uuid"
+           (= "Linked value must be a valid uuid."
               (-> (test-util/instant-ex-data
                    (tx/transact!
                     (aurora/conn-pool :write)
