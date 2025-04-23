@@ -503,15 +503,15 @@ function jobWorkingStatus(job: InstantIndexingJob | null) {
 }
 
 function InvalidTriplesSample({
-  job,
+  indexingJob,
   attr,
   onClickSample,
 }: {
-  job: InstantIndexingJob | null;
+  indexingJob: InstantIndexingJob | null;
   attr: SchemaAttr;
   onClickSample: (triple: InstantIndexingJobInvalidTriple) => void;
 }) {
-  if (!job?.invalid_triples_sample?.length) {
+  if (!indexingJob?.invalid_triples_sample?.length) {
     return;
   }
   return (
@@ -526,7 +526,7 @@ function InvalidTriplesSample({
           </tr>
         </thead>
         <tbody>
-          {job.invalid_triples_sample.slice(0, 3).map((t, i) => (
+          {indexingJob.invalid_triples_sample.slice(0, 3).map((t, i) => (
             <tr
               key={i}
               className="cursor-pointer whitespace-nowrap rounded-md px-2 hover:bg-gray-200"
@@ -545,6 +545,195 @@ function InvalidTriplesSample({
       </table>
     </div>
   );
+}
+
+function IndexingJobError({
+  indexingJob,
+  attr
+}: {
+  job: InstantIndexingJob | null;
+  attr: SchemaAttr;
+}) {
+  if (!indexingJob)
+    return;
+
+  if (indexingJob.error === 'missing-required-error') {
+    return <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
+             <div>
+               {indexingJob.error_data?.count} <code>{attr.namespace}</code>{' '}
+               {indexingJob.error_data?.count === 1 ? 'entity does' : 'entities do'}{' '}
+               not have <code>{attr.name}</code> set.
+             </div>
+             <InvalidTriplesSample
+               indexingJob={
+                 {
+                   ...indexingJob,
+                   invalid_triples_sample: indexingJob.error_data && indexingJob.error_data[
+                     'entity-ids'
+                   ]?.map((id) => ({
+                     entity_id: String(id),
+                     value: null,
+                     json_type: attr.checkedDataType || 'null',
+                   })),
+                 }
+               }
+               attr={attr}
+               onClickSample={(t) => {
+                 pushNavStack({
+                   namespace: attr.namespace,
+                   where: ['id', t.entity_id],
+                 });
+                 // It would be nice to have a way to minimize the dialog so you could go back
+                 closeDialog();
+               }}
+             />
+          </div>
+  }
+
+  if (indexingJob.error === 'triple-too-large-error') {
+    return <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
+             <div>Some of the existing data is too large to index. </div>
+             <InvalidTriplesSample
+               indexingJob={indexingJob}
+               attr={attr}
+               onClickSample={(t) => {
+                 pushNavStack({
+                   namespace: attr.namespace,
+                   where: ['id', t.entity_id],
+                 });
+                 // It would be nice to have a way to minimize the dialog so you could go back
+                 closeDialog();
+               }}
+             />
+          </div>
+  }
+
+  if (indexingJob.error === 'invalid-triple-error') {
+    return <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
+             <div>
+               The type can't be set to {indexingJob?.checked_data_type} because
+               some data is the wrong type.
+             </div>
+             <InvalidTriplesSample
+               indexingJob={indexingJob}
+               attr={attr}
+               onClickSample={(t) => {
+                 pushNavStack({
+                   namespace: attr.namespace,
+                   where: ['id', t.entity_id],
+                 });
+                 // It would be nice to have a way to minimize the dialog so you could go back
+                 closeDialog();
+               }}
+             />
+           </div>
+  }
+
+  if (indexingJob.error === 'triple-not-unique-error') {
+    return <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
+             <div>Some of the existing data is not unique. </div>
+             {indexingJob.invalid_unique_value != null ? (
+               <div>
+                 Found{' '}
+                 <span
+                   className={
+                     typeof indexingJob.invalid_unique_value === 'object'
+                       ? ''
+                       : 'cursor-pointer underline'
+                   }
+                   onClick={
+                     typeof indexingJob.invalid_unique_value === 'object'
+                       ? undefined
+                       : () => {
+                           pushNavStack({
+                             namespace: attr.namespace,
+                             where: [attr.name, indexingJob.invalid_unique_value],
+                           });
+                           // It would be nice to have a way to minimize the dialog so you could go back
+                           closeDialog();
+                         }
+                   }
+                 >
+                   multiple entities with value{' '}
+                   <code>{JSON.stringify(indexingJob.invalid_unique_value)}</code>
+                 </span>
+                 .
+               </div>
+             ) : null}
+             <InvalidTriplesSample
+               indexingJob={indexingJob}
+               attr={attr}
+               onClickSample={(t) => {
+                 pushNavStack({
+                   namespace: attr.namespace,
+                   where: ['id', t.entity_id],
+                 });
+                 // It would be nice to have a way to minimize the dialog so you could go back
+                 closeDialog();
+               }}
+             />
+           </div>
+  }
+}
+
+async function updateRequired({
+  appId,
+  attr,
+  isRequired,
+  token,
+  setIndexingJob,
+  stopFetchLoop
+}) {
+  if (!token || isRequired === attr.isRequired) {
+    return;
+  }
+  stopFetchLoop.current?.();
+  const friendlyName = `${attr.namespace}.${attr.name}`;
+  try {
+    const job = await createJob(
+      {
+        appId,
+        attrId: attr.id,
+        jobType: isRequired ? 'required' : 'remove-required',
+      },
+      token,
+    );
+    setIndexingJob(job);
+    const fetchLoop = jobFetchLoop(appId, job.id, token);
+    stopFetchLoop.current = fetchLoop.stop;
+    const finishedJob = await fetchLoop.start((data, error) => {
+      if (error) {
+        errorToast(`Error while marking ${friendlyName} as required.`);
+      }
+      if (data) {
+        setIndexingJob(data);
+      }
+    });
+    if (finishedJob) {
+      if (finishedJob.job_status === 'completed') {
+        successToast(
+          isRequired
+            ? `Marked ${friendlyName} as required.`
+            : `Marked ${friendlyName} as optional.`,
+        );
+        return;
+      }
+      if (finishedJob.job_status === 'canceled') {
+        errorToast('Marking required was canceled.');
+        return;
+      }
+      if (finishedJob.job_status === 'errored') {
+        if (finishedJob.error === 'invalid-triple-error') {
+          errorToast(`Found invalid data while updating ${friendlyName}.`);
+          return;
+        }
+        errorToast(`Encountered an error while updating ${friendlyName}.`);
+      }
+    }
+  } catch (e) {
+    console.error(e);
+    errorToast(`Unexpected error while updating ${friendlyName}`);
+  }
 }
 
 function EditRequired({
@@ -569,57 +758,16 @@ function EditRequired({
   useEffect(() => {
     return () => stopFetchLoop.current?.();
   }, [stopFetchLoop]);
-  const updateRequired = async () => {
-    if (!token || requiredChecked === attr.isRequired) {
-      return;
-    }
-    stopFetchLoop.current?.();
-    const friendlyName = `${attr.namespace}.${attr.name}`;
-    try {
-      const job = await createJob(
-        {
-          appId,
-          attrId: attr.id,
-          jobType: requiredChecked ? 'required' : 'remove-required',
-        },
-        token,
-      );
-      setIndexingJob(job);
-      const fetchLoop = jobFetchLoop(appId, job.id, token);
-      stopFetchLoop.current = fetchLoop.stop;
-      const finishedJob = await fetchLoop.start((data, error) => {
-        if (error) {
-          errorToast(`Error while marking ${friendlyName} as required.`);
-        }
-        if (data) {
-          setIndexingJob(data);
-        }
-      });
-      if (finishedJob) {
-        if (finishedJob.job_status === 'completed') {
-          successToast(
-            requiredChecked
-              ? `Marked ${friendlyName} as required.`
-              : `Marked ${friendlyName} as optional.`,
-          );
-          return;
-        }
-        if (finishedJob.job_status === 'canceled') {
-          errorToast('Marking required was canceled.');
-          return;
-        }
-        if (finishedJob.job_status === 'errored') {
-          if (finishedJob.error === 'invalid-triple-error') {
-            errorToast(`Found invalid data while updating ${friendlyName}.`);
-            return;
-          }
-          errorToast(`Encountered an error while updating ${friendlyName}.`);
-        }
-      }
-    } catch (e) {
-      console.error(e);
-      errorToast(`Unexpected error while updating ${friendlyName}`);
-    }
+
+  const onRequiredChanged = async () => {
+    updateRequired({
+      appId,
+      attr,
+      isRequired: requiredChecked,
+      token,
+      setIndexingJob,
+      stopFetchLoop
+    });
   };
 
   const valueNotChanged = requiredChecked === attr.isRequired;
@@ -649,38 +797,7 @@ function EditRequired({
         />
       </div>
 
-      {indexingJob?.error === 'missing-required-error' ? (
-        <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
-          <div>
-            {indexingJob.error_data?.count} <code>{attr.namespace}</code>{' '}
-            {indexingJob.error_data?.count === 1 ? 'entity does' : 'entities do'}{' '}
-            not have <code>{attr.name}</code> set.
-          </div>
-          <InvalidTriplesSample
-            job={
-              {
-                ...indexingJob,
-                invalid_triples_sample: indexingJob.error_data && indexingJob.error_data[
-                  'entity-ids'
-                ]?.map((id) => ({
-                  entity_id: String(id),
-                  value: null,
-                  json_type: attr.checkedDataType || 'null',
-                })),
-              }
-            }
-            attr={attr}
-            onClickSample={(t) => {
-              pushNavStack({
-                namespace: attr.namespace,
-                where: ['id', t.entity_id],
-              });
-              // It would be nice to have a way to minimize the dialog so you could go back
-              closeDialog();
-            }}
-          />
-        </div>
-      ) : null}
+      <IndexingJobError indexingJob={indexingJob} attr={attr} />
 
       <ActionButton
         type="submit"
@@ -701,7 +818,7 @@ function EditRequired({
             ? `Attributes in the ${attr.namespace} namespace can't be edited.`
             : undefined
         }
-        onClick={updateRequired}
+        onClick={onRequiredChanged}
       />
     </ActionForm>
   );
@@ -809,23 +926,7 @@ function EditIndexed({
         />
       </div>
 
-      {indexingJob?.error === 'triple-too-large-error' ? (
-        <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
-          <div>Some of the existing data is too large to index. </div>
-          <InvalidTriplesSample
-            job={indexingJob}
-            attr={attr}
-            onClickSample={(t) => {
-              pushNavStack({
-                namespace: attr.namespace,
-                where: ['id', t.entity_id],
-              });
-              // It would be nice to have a way to minimize the dialog so you could go back
-              closeDialog();
-            }}
-          />
-        </div>
-      ) : null}
+      <IndexingJobError indexingJob={indexingJob} attr={attr} />
 
       <ActionButton
         type="submit"
@@ -954,69 +1055,7 @@ function EditUnique({
         />
       </div>
 
-      {indexingJob?.error === 'triple-not-unique-error' ? (
-        <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
-          <div>Some of the existing data is not unique. </div>
-          {indexingJob.invalid_unique_value != null ? (
-            <div>
-              Found{' '}
-              <span
-                className={
-                  typeof indexingJob.invalid_unique_value === 'object'
-                    ? ''
-                    : 'cursor-pointer underline'
-                }
-                onClick={
-                  typeof indexingJob.invalid_unique_value === 'object'
-                    ? undefined
-                    : () => {
-                        pushNavStack({
-                          namespace: attr.namespace,
-                          where: [attr.name, indexingJob.invalid_unique_value],
-                        });
-                        // It would be nice to have a way to minimize the dialog so you could go back
-                        closeDialog();
-                      }
-                }
-              >
-                multiple entities with value{' '}
-                <code>{JSON.stringify(indexingJob.invalid_unique_value)}</code>
-              </span>
-              .
-            </div>
-          ) : null}
-          <InvalidTriplesSample
-            job={indexingJob}
-            attr={attr}
-            onClickSample={(t) => {
-              pushNavStack({
-                namespace: attr.namespace,
-                where: ['id', t.entity_id],
-              });
-              // It would be nice to have a way to minimize the dialog so you could go back
-              closeDialog();
-            }}
-          />
-        </div>
-      ) : null}
-
-      {indexingJob?.error === 'triple-too-large-error' ? (
-        <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
-          <div>Some of the existing data is too large to index. </div>
-          <InvalidTriplesSample
-            job={indexingJob}
-            attr={attr}
-            onClickSample={(t) => {
-              pushNavStack({
-                namespace: attr.namespace,
-                where: ['id', t.entity_id],
-              });
-              // It would be nice to have a way to minimize the dialog so you could go back
-              closeDialog();
-            }}
-          />
-        </div>
-      ) : null}
+      <IndexingJobError indexingJob={indexingJob} attr={attr} />
 
       <ActionButton
         type="submit"
@@ -1192,26 +1231,9 @@ function EditCheckedDataType({
           />
         </div>
       </div>
-      {indexingJob?.error === 'invalid-triple-error' ? (
-        <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
-          <div>
-            The type can't be set to {indexingJob?.checked_data_type} because
-            some data is the wrong type.
-          </div>
-          <InvalidTriplesSample
-            job={indexingJob}
-            attr={attr}
-            onClickSample={(t) => {
-              pushNavStack({
-                namespace: attr.namespace,
-                where: ['id', t.entity_id],
-              });
-              // It would be nice to have a way to minimize the dialog so you could go back
-              closeDialog();
-            }}
-          />
-        </div>
-      ) : null}
+
+      <IndexingJobError indexingJob={indexingJob} attr={attr} />
+
       <ActionButton
         type="submit"
         label={buttonLabel}
