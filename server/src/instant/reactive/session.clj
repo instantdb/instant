@@ -33,7 +33,6 @@
    [instant.util.json :refer [<-json]]
    [instant.util.semver :as semver]
    [instant.util.e2e-tracer :as e2e-tracer]
-   [instant.util.string :as string-util]
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
    [lambdaisland.uri :as uri])
@@ -298,7 +297,9 @@
      (auth-and-creator-attrs auth creator versions))))
 
 (defn validate-room-id [event]
-  (ex/get-param! event [:room-id] string-util/coerce-non-blank-str))
+  (ex/get-param! event [:room-id] (fn [s]
+                                    (when (string? s)
+                                      s))))
 
 (defn- handle-join-room! [store sess-id {:keys [client-event-id] :as event}]
   (let [auth (get-auth! store sess-id)
