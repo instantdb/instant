@@ -450,6 +450,7 @@
                         (if (= "t" (:av triple))
                           "Value is too large for a unique attribute."
                           "Value is too large for an indexed attribute.")
+                        "valid_ref_value" "Linked value must be a valid uuid."
 
                         (format "Check Violation: %s" (name (:constraint data))))
              :hint (merge

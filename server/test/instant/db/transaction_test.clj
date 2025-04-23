@@ -2030,6 +2030,29 @@
                         [[:add-triple stopa-eid (UUID/randomUUID) "Stopa"]]))
                       ::ex/type))))))))
 
+;; Will fail until the existing contraint in the database is dropped
+#_(deftest good-error-for-invalid-ref-uuid
+    (with-zeneca-app
+      (fn [app r]
+        (let [alex-eid (resolvers/->uuid r "eid-alex")
+              bookshelf-aid (resolvers/->uuid r :users/bookshelves)
+              ex (test-util/instant-ex-data
+                   (tx/transact!
+                    (aurora/conn-pool :write)
+                    (attr-model/get-by-app-id (:id app))
+                    (:id app)
+                    [[:add-triple alex-eid bookshelf-aid ""]]))]
+          (tool/def-locals)
+          (is ex)
+          (is (= ::ex/validation-failed
+                 (::ex/type ex)))
+          (is (= "" (-> ex
+                        ::ex/hint
+                        :errors
+                        first
+                        :hint
+                        :value)))))))
+
 (deftest rejects-invalid-data-for-checked-attrs
   (with-empty-app
     (fn [{app-id :id}]
