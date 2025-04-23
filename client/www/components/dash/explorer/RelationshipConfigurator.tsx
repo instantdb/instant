@@ -1,4 +1,4 @@
-import { Select, TextInput } from '@/components/ui';
+import { Checkbox, Select, TextInput } from '@/components/ui';
 import { RelationshipKinds } from '@/lib/relationships';
 import { ReactNode } from 'react';
 
@@ -11,6 +11,14 @@ export function RelationshipConfigurator({
   setAttrName,
   setReverseAttrName,
   setRelationship,
+  isCascade,
+  setIsCascade,
+  isCascadeAllowed,
+  isCascadeReverse,
+  setIsCascadeReverse,
+  isCascadeReverseAllowed,
+  isRequired,
+  setIsRequired
 }: {
   relationship: RelationshipKinds;
   reverseNamespaceName: string | undefined;
@@ -21,6 +29,17 @@ export function RelationshipConfigurator({
   setAttrName: (n: string) => void;
   setReverseAttrName: (n: string) => void;
   setRelationship: (n: RelationshipKinds) => void;
+
+  isCascadeAllowed: boolean,
+  isCascade: boolean,
+  setIsCascade: (n: boolean) => void,
+
+  isCascadeReverseAllowed: boolean,
+  isCascadeReverse: boolean,
+  setIsCascadeReverse: (n: boolean) => void,
+
+  isRequired: boolean,
+  setIsRequired: (n: boolean) => void,
 }) {
   const isFullLink = attrName && reverseNamespaceName && reverseAttrName;
 
@@ -89,6 +108,66 @@ export function RelationshipConfigurator({
           ) : (
             <>&nbsp;</>
           )}
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        <Checkbox
+          checked={isCascadeAllowed && isCascade}
+          disabled={!isCascadeAllowed}
+          onChange={setIsCascade}
+          label={
+            <span>
+              <div>
+                <strong>
+                  Cascade Delete {reverseNamespaceName} →{' '}
+                  {namespaceName}
+                </strong>
+              </div>
+              When a <strong>{reverseNamespaceName}</strong>{' '}
+              entity is deleted, all linked{' '}
+              <strong>{namespaceName}</strong> will be
+              deleted automatically
+            </span>
+          }
+        />
+      </div>
+
+      <div className="flex gap-2">
+        <Checkbox
+          checked={isCascadeReverseAllowed && isCascadeReverse}
+          disabled={!isCascadeReverseAllowed}
+          onChange={setIsCascadeReverse}
+          label={
+            <span>
+              <div>
+                <strong>
+                  Cascade Delete {namespaceName} →{' '}
+                  {reverseNamespaceName}
+                </strong>
+              </div>
+              When a <strong>{namespaceName}</strong>{' '}
+              entity is deleted, all linked{' '}
+              <strong>{reverseNamespaceName}</strong> will be
+              deleted automatically
+            </span>
+          }
+        />
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <h6 className="text-md font-bold">Constraints</h6>
+        <div className="flex gap-2">
+          <Checkbox
+            checked={isRequired}
+            onChange={(enabled) => setIsRequired(enabled)}
+            label={
+              <span>
+                <strong>Require this attribute</strong> so all entities will
+                be guaranteed to have it
+              </span>
+            }
+          />
         </div>
       </div>
     </>
