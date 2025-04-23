@@ -2041,7 +2041,6 @@
                   (attr-model/get-by-app-id (:id app))
                   (:id app)
                   [[:add-triple alex-eid bookshelf-aid ""]]))]
-        (tool/def-locals)
         (is ex)
         (is (= ::ex/validation-failed
                (::ex/type ex)))
