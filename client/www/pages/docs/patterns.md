@@ -116,7 +116,7 @@ import type { InstantRules } from '@instantdb/react';
 const rules = {
   todos: {
     allow: {
-      create: "size(data.ref('owner.todos.id')) <= 2",
+      create: "size(data.ref('owner.ownedTodos.id')) <= 2",
     },
   },
 } satisfies InstantRules;
