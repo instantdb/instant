@@ -165,7 +165,7 @@
             {:from 'eid+etypes-cte
              :join ['idents [:and
                              [:= 'idents/app-id app-id]
-                             [:= 'idents/etype 'idents/etype]]
+                             [:= 'idents/etype 'eid+etypes-cte/etype]]
                     'attrs [:= 'idents/id 'attrs/forward-ident]]
              :where [:= 'attrs/is_required true]
              :select-distinct ['entity-id ['attrs/id 'attr-id] 'idents/etype 'idents/label]}
