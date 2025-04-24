@@ -45,7 +45,14 @@ export type InstantAppInvite = {
 export type InstantIndexingJobInvalidTriple = {
   entity_id: string;
   value: any;
-  json_type: 'string' | 'number' | 'boolean' | 'null' | 'object' | 'array' | 'date';
+  json_type:
+    | 'string'
+    | 'number'
+    | 'boolean'
+    | 'null'
+    | 'object'
+    | 'array'
+    | 'date';
 };
 export type InstantIndexingJob = {
   id: string;
@@ -80,9 +87,9 @@ export type InstantIndexingJob = {
     | null
     | undefined;
   error_data?: {
-    count: number,
-    'entity-ids': number[]
-  }
+    count: number;
+    'entity-ids': number[];
+  };
   checked_data_type: CheckedDataType | null | undefined;
   created_at: string;
   updated_at: string;
