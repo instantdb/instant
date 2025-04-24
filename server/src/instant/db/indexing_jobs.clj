@@ -85,9 +85,10 @@
 
 (defn get-for-client-q [app-id & wheres]
   {:select [:j.*
-            [{:select [[[:|| :idents.etype "." :idents.label]]]
-              :from :idents
-              :where [:= :attr-id :j.attr-id]}
+            [{:select [[[:|| :idents.etype [:inline "."] :idents.label]]]
+              :from :attrs
+              :join [:idents [:= :attrs.forward_ident :idents.id]]
+              :where [:= :attrs.id :j.attr-id]}
              :attr-name]
             [[:case-expr :error
               [:inline invalid-triple-error]
