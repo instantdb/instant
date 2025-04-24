@@ -600,7 +600,6 @@ function EmailInput({
         value={email}
         onChange={(e) => {
           setEmail(e.target.value);
-          //searchDebounce(e.target.value);
         }}
         onKeyDown={(e) => {
           if (e.metaKey && e.key === 'Enter') {
@@ -614,6 +613,16 @@ function EmailInput({
         modal={false}
         className="mt-1 w-[var(--input-width)] overflow-auto bg-white shadow-lg z-10 border border-gray-300 divide-y"
       >
+        {!email ? (
+          <ComboboxOption
+            key="none"
+            value=""
+            className={clsx('text-xs px-2 py-0.5 data-[focus]:bg-blue-100', {})}
+          >
+            <span>{'<none>'}</span>
+          </ComboboxOption>
+        ) : null}
+
         {comboOptions.map((user, i) => (
           <ComboboxOption
             key={user.id}
