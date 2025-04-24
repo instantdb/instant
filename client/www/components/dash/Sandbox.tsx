@@ -10,6 +10,13 @@ import { Button, Checkbox, Label, TextInput } from '@/components/ui';
 import { dbAttrsToExplorerSchema } from '@/lib/schema';
 import clsx from 'clsx';
 import useLocalStorage from '@/lib/hooks/useLocalStorage';
+import {
+  Combobox,
+  ComboboxInput,
+  ComboboxOption,
+  ComboboxOptions,
+} from '@headlessui/react';
+import { InstantReactWebDatabase } from '@instantdb/react';
 
 let cachedSandboxValue = '';
 
@@ -17,13 +24,22 @@ try {
   cachedSandboxValue = getLocal('__instant_sandbox_value') ?? '';
 } catch (error) {}
 
-export function Sandbox({ app }: { app: InstantApp }) {
+export function Sandbox({
+  app,
+  db,
+}: {
+  app: InstantApp;
+  db: InstantReactWebDatabase<any>;
+}) {
   const consoleRef = useRef<HTMLDivElement>(null);
   const [sandboxCodeValue, setSandboxValue] = useLocalStorage(
     `__instant_sandbox_value:${app.id}`,
     cachedSandboxValue,
   );
-  const [runAsUserEmail, setRunAsUserEmail] = useState('');
+  const [runAsUserEmail, setRunAsUserEmail] = useLocalStorage(
+    `__instant_sandbox_email:${app.id}`,
+    '',
+  );
   const [dangerouslyCommitTx, setDangerouslyCommitTx] = useState(false);
   const [appendResults, setAppendResults] = useState(false);
   const [collapseQuery, setHideQuery] = useState(false);
@@ -245,6 +261,23 @@ export function Sandbox({ app }: { app: InstantApp }) {
             />
           </div>
         </div>
+        <div className="flex flex-col border-b">
+          <div className="flex flex-col px-2 py-1 gap-1 bg-gray-50 border-b text-xs">
+            Context
+          </div>
+          <div className="px-2 py-1 flex gap-2 items-center">
+            <Label className="text-xs font-normal">
+              Set <code className="px-2 border bg-white">auth.email</code>
+            </Label>
+            <EmailInput
+              key={app.id}
+              db={db}
+              email={runAsUserEmail}
+              setEmail={setRunAsUserEmail}
+              onEnter={execRef.current}
+            />
+          </div>
+        </div>
 
         <div className="flex flex-col flex-1">
           <div className="py-1 px-2 bg-gray-50 border-b text-xs flex gap-2 items-center">
@@ -295,28 +328,6 @@ export function Sandbox({ app }: { app: InstantApp }) {
                 />
               )}
             </div>
-          </div>
-        </div>
-
-        <div className="flex flex-col border-b">
-          <div className="flex flex-col px-2 py-1 gap-1 bg-gray-50 border-b text-xs">
-            Context
-          </div>
-          <div className="px-2 py-1 flex gap-2 items-center">
-            <Label className="text-xs font-normal">
-              Set <code className="px-2 border bg-white">auth.email</code>
-            </Label>
-            <TextInput
-              className="text-xs px-2 py-0.5"
-              placeholder="happyuser@instantdb.com"
-              value={runAsUserEmail}
-              onChange={setRunAsUserEmail}
-              onKeyDown={(e) => {
-                if (e.metaKey && e.key === 'Enter') {
-                  execRef.current();
-                }
-              }}
-            />
           </div>
         </div>
       </div>
@@ -546,6 +557,74 @@ export function Sandbox({ app }: { app: InstantApp }) {
         </div>
       </div>
     </div>
+  );
+}
+
+function EmailInput({
+  db,
+  email,
+  setEmail,
+  onEnter,
+}: {
+  db: InstantReactWebDatabase<any>;
+  email: string;
+  setEmail: (email: string) => void;
+  onEnter: () => void;
+}) {
+  const { data } = db.useQuery({
+    $users: {
+      $: {
+        where: {
+          email: { $ilike: `%${email}%` },
+        },
+        limit: 10,
+        fields: ['email'],
+      },
+    },
+  });
+
+  // @ts-ignore: expects users to have unknown properties
+  const comboOptions: { id: string; email: string }[] = data?.$users || [];
+
+  return (
+    <Combobox
+      value={email}
+      onChange={(email) => {
+        setEmail(email ?? '');
+      }}
+      immediate={true}
+    >
+      <ComboboxInput
+        size={32}
+        className="text-xs px-2 py-0.5"
+        value={email}
+        onChange={(e) => {
+          setEmail(e.target.value);
+          //searchDebounce(e.target.value);
+        }}
+        onKeyDown={(e) => {
+          if (e.metaKey && e.key === 'Enter') {
+            onEnter();
+          }
+        }}
+        placeholder="happyuser@instantdb.com"
+      />
+      <ComboboxOptions
+        anchor="bottom start"
+        modal={false}
+        className="mt-1 w-[var(--input-width)] overflow-auto bg-white shadow-lg z-10 border border-gray-300 divide-y"
+      >
+        {comboOptions.map((user, i) => (
+          <ComboboxOption
+            key={user.id}
+            value={user.email}
+            className={clsx('text-xs px-2 py-0.5 data-[focus]:bg-blue-100', {})}
+          >
+            <span>{user.email}</span>
+          </ComboboxOption>
+        ))}
+      </ComboboxOptions>
+    </Combobox>
   );
 }
 

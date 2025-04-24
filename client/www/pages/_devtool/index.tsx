@@ -341,7 +341,7 @@ function DevtoolWithData({
             <Explorer db={connection.db} appId={appId} />
           ) : tab === 'sandbox' ? (
             <div className="min-w-[960px] w-full">
-              <Sandbox app={app} />
+              <Sandbox app={app} db={connection.db} />
             </div>
           ) : tab === 'admin' ? (
             <div className="min-w-[960px] w-full p-4">
