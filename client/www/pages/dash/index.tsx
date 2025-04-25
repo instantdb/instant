@@ -509,7 +509,7 @@ function Dashboard() {
                     db={connection.db}
                   />
                 ) : tab === 'sandbox' ? (
-                  <Sandbox key={appId} app={app} />
+                  <Sandbox key={appId} app={app} db={connection.db} />
                 ) : tab === 'perms' ? (
                   <Perms app={app} dashResponse={dashResponse} />
                 ) : tab === 'auth' ? (
