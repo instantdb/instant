@@ -274,7 +274,7 @@
     (ex/throw-validation-err!
      :attributes
      attr
-     [{:message (str "Can't set attribute `" label "` as required because `" etype "` already have entities")}])))
+     [{:message (str "Can't create attribute `" label "` as required because `" etype "` already have entities")}])))
 
 (defn insert-multi!
   "Attr data is expressed as one object in clj but is persisted across two tables
@@ -521,7 +521,7 @@
         (ex/throw-validation-err!
          :attributes
          {:id id}
-         [{:message (str "Can't set attribute `" label "` as required because `" etype "` already have entities without it")}])))))
+         [{:message (str "Can't update attribute `" label "` to required because `" etype "` already have entities without it")}])))))
 
 (defn update-multi!
   [conn app-id updates]
