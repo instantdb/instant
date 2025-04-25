@@ -175,7 +175,8 @@
              :left-join ['triples
                          [:and
                           [:= 'eid+required-attrs/entity-id 'triples/entity-id]
-                          [:= 'eid+required-attrs/attr-id 'triples/attr-id]]]
+                          [:= 'eid+required-attrs/attr-id 'triples/attr-id]
+                          [:= 'triples/app-id app-id]]]
              :where     [:or
                          [:= 'triples/value nil]
                          [:= 'triples/value [:cast [:inline "null"] :jsonb]]]
@@ -185,7 +186,9 @@
             {:from ['missing-required
                     [[:lateral {:from   'idents
                                 :join   ['attrs   [:= 'idents/id 'attrs/forward-ident]
-                                         'triples [:= 'triples/attr-id 'attrs/id]]
+                                         'triples [:and
+                                                   [:= 'triples/attr-id 'attrs/id]
+                                                   [:= 'triples/app-id app-id]]]
                                 :where  [:and
                                          [:= 'idents/app-id app-id]
                                          [:= 'idents/etype 'missing-required/etype]

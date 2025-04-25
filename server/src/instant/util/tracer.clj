@@ -120,7 +120,9 @@
     :or   {attributes {}}}]
   (when (and (not logging-exporter/log-spans?)
              (logging-exporter/exception-belongs-to-span? exception (-> span .getSpanContext .getSpanId)))
-    (println exception))
+    ;; helps to capture output in tests
+    (binding [*out* (clojure.lang.Var/.getRawRoot #'*out*)]
+      (println exception)))
   (let [attrs (cond-> attributes
                 escaping? (assoc "exception.escaped" (boolean escaping?)))]
     (.recordException span exception (attr/->attributes attrs))))
