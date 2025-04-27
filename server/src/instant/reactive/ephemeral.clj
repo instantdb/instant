@@ -39,8 +39,8 @@
 (declare handle-broadcast-message)
 
 (defn init-hz [env store {:keys [instance-name cluster-name]
-                          :or {instance-name "instant-hz-v4"
-                               cluster-name "instant-server-v3"}}]
+                               :or {instance-name "instant-hz-v3"
+                                    cluster-name "instant-server-v2"}}]
   (-> (java.util.logging.Logger/getLogger "com.hazelcast")
       (.setLevel (if (= env :prod)
                    java.util.logging.Level/INFO
