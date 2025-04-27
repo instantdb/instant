@@ -27,6 +27,7 @@ import prettier from 'prettier';
 import toggle from './toggle.js';
 import { exportData } from './export.js';
 import { importData } from './import.js';
+import { migrateData } from './migrate.js';
 
 const execAsync = promisify(exec);
 
@@ -503,6 +504,49 @@ program
   .description('Import schema and data from exported JSON files.')
   .action(async function (opts) {
     await handleImport(opts);
+  });
+
+program
+  .command('migrate')
+  .argument('[scripts...]', 'Migration scripts to run (JS files with a default export function)')
+  .option(
+    '-a --app <app-id>',
+    'App ID to migrate. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .option(
+    '-b --base <base-dir>',
+    'Base directory to use for migration. Can be an export directory, "select" to choose from available exports, or omitted to export current app.',
+  )
+  .option(
+    '--publish',
+    'Import migrated data back to the app after migration completes',
+    false
+  )
+  .option(
+    '--batch-size <size>',
+    'Number of entities to process in each API request batch (for export/import).',
+    (val) => parseInt(val, 10),
+    100
+  )
+  .option(
+    '--sleep <ms>',
+    'Milliseconds to sleep between API request batches (for rate limiting).',
+    (val) => parseInt(val, 10),
+    100
+  )
+  .option(
+    '--verbose',
+    'Print detailed logs during migration process',
+    false
+  )
+  .option(
+    '--force',
+    'Skip confirmation prompts',
+    false
+  )
+  .description('Migrate data through scripts and optionally publish changes.')
+  .action(async function (scripts, opts) {
+    await handleMigrate(scripts, opts);
   });
 
 program.parse(process.argv);
@@ -2035,4 +2079,38 @@ async function handleImport(opts) {
   };
   
   await importData(appId, pkgAndAuthInfo, importOptions);
+}
+
+async function handleMigrate(scripts, opts) {
+  const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
+  if (!pkgAndAuthInfo) return;
+  const { ok, appId } = await detectOrCreateAppWithErrorLogging(opts);
+  if (!ok) return;
+  
+  if (scripts.length === 0) {
+    console.error(chalk.red('Error: No migration scripts specified.'));
+    console.log('Usage: instant migrate [scripts...] [options]');
+    console.log('Example: instant migrate ./migrations/add-timestamps.js ./migrations/update-schema.js --publish');
+    return;
+  }
+  
+  // Check that all scripts exist
+  for (const script of scripts) {
+    if (!await pathExists(script)) {
+      console.error(chalk.red(`Error: Migration script not found: ${script}`));
+      return;
+    }
+  }
+  
+  // Prepare options with correct property names
+  const migrateOptions = {
+    base: opts.base,
+    publish: opts.publish,
+    batchSize: opts.batchSize,
+    sleep: opts.sleep,
+    verbose: opts.verbose,
+    force: opts.force,
+  };
+  
+  await migrateData(appId, scripts, pkgAndAuthInfo, migrateOptions);
 }
