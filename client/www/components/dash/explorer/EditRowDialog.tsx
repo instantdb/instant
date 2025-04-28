@@ -118,7 +118,14 @@ function parseFieldValue(value: any, type: FieldType) {
 
   if (type === 'number') {
     const cleaned = String(value).replace(/[^\d.-]/g, '');
-    if (cleaned === '-' || cleaned === '.' || cleaned === '-.') return cleaned;
+    if (
+      cleaned === '' ||
+      cleaned === '-' ||
+      cleaned === '.' ||
+      cleaned === '-.'
+    ) {
+      return cleaned;
+    }
     const match = cleaned.match(/^(-?\d*\.?\d*)\.?$/);
     return match ? Number(match[0]) : '';
   } else if (type === 'boolean') {
