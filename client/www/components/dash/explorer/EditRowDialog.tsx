@@ -123,8 +123,9 @@ function parseFieldValue(value: any, type: FieldType) {
       cleaned === '-' ||
       cleaned === '.' ||
       cleaned === '-.'
-    )
+    ) {
       return cleaned;
+    }
     const match = cleaned.match(/^(-?\d*\.?\d*)\.?$/);
     return match ? Number(match[0]) : '';
   } else if (type === 'boolean') {
