@@ -356,6 +356,8 @@
                            (:deep-merge-triple results)
                            (:retract-triple results)))
             _  (triple-model/validate-required! conn attrs app-id eid+attr-ids)
+            updated-attrs (-> grouped-tx-steps :update-attr (->> (map second)))
+            _  (attr-model/validate-update-required! conn app-id updated-attrs)
             tx (transaction-model/create! conn {:app-id app-id})]
         (let [tx-created-at (Date/.toInstant (:created_at tx))]
           (e2e-tracer/start-invalidator-tracking! {:tx-id (:id tx)

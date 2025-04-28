@@ -185,3 +185,13 @@ input#docsearch-input {
   width: 100%;
   height: 100%;
 }
+
+/* Toastify */
+
+div.Toastify__toast-body {
+  align-items: flex-start;
+}
+
+div.Toastify__toast-icon {
+  margin-top: 3px;
+}

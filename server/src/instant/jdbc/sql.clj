@@ -1,4 +1,5 @@
 (ns instant.jdbc.sql
+  (:refer-clojure :exclude [format])
   (:require
    [clojure.string :as string]
    ;; load all pg-ops for hsql
@@ -27,13 +28,13 @@
 (defn ->pg-text-array
   "Formats as text[] in pg, i.e. {item-1, item-2, item3}"
   [col]
-  (format
+  (clojure.core/format
    "{%s}"
    (string/join
     ","
-    (map (fn [s] (format "\"%s\""
-                         ;; Escape quotes (but don't double esc)
-                         (string/replace s #"(?<!\\)\"" "\\\"")))
+    (map (fn [s] (clojure.core/format "\"%s\""
+                                      ;; Escape quotes (but don't double esc)
+                                      (string/replace s #"(?<!\\)\"" "\\\"")))
          col))))
 
 (defn ->pg-uuid-array
@@ -140,7 +141,7 @@
    To get to:
 
      SELECT CAST(elem AS INT) AS id
-       FROM JSON_ARRAY_ELEMENTS_TEXT(CAST(? AS JSON)) AS elem
+       FROM JSONB_ARRAY_ELEMENTS_TEXT(CAST(? AS JSONB)) AS elem
 
    This is better than passing arrays as argument with ARRAY and UNNEST
    because it always generates one input paramter (does not depend on a length
@@ -149,7 +150,7 @@
   [xs {:keys [as type]}]
   {:select
    [[[:cast 'elem (or type :text)] as]]
-   :from [[[:JSON_ARRAY_ELEMENTS_TEXT [:cast (->json xs) :json]] 'elem]]})
+   :from [[[:jsonb_array_elements_text [:cast (->json xs) :jsonb]] 'elem]]})
 
 (defn tupleset
   "A way to pass seq-of-tuples as an input to honeysql.
@@ -174,13 +175,13 @@
      SELECT CAST(elem ->> 0 AS INT) AS id,
             CAST(elem ->> 1 AS TEXT) AS full_name,
             CAST(elem ->> 2 AS INT) AS score
-       FROM JSON_ARRAY_ELEMENTS(CAST(? AS JSON)) AS elem"
+       FROM JSONB_ARRAY_ELEMENTS(CAST(? AS JSONB)) AS elem"
   [ts cols]
   {:select
    (for [[idx {:keys [type as]}] (map vector (range) cols)]
      [[:cast [:->> 'elem [:inline idx]] (or type :text)] as])
    :from
-   [[[:json_array_elements [:cast (->json ts) :json]] 'elem]]})
+   [[[:jsonb_array_elements [:cast (->json ts) :jsonb]] 'elem]]})
 
 (defn recordset
   "A way to pass seq-of-maps as an input to honeysql.
@@ -203,19 +204,37 @@
    To get to:
 
      SELECT id, name AS full_name, score
-       FROM JSON_TO_RECORDSET(CAST(? AS JSON))
+       FROM JSONB_TO_RECORDSET(CAST(? AS JSONB))
          AS (id int, name text, score int)"
   [rs cols]
   {:select (for [[col-name {:keys [as]}] cols]
              (if as
                [col-name as]
                col-name))
-   :from   [[[:json_to_recordset [:cast (->json rs) :json]]
+   :from   [[[:jsonb_to_recordset [:cast (->json rs) :jsonb]]
              [[:raw (str "("
                          (string/join ", "
                                       (for [[col-name {:keys [type]}] cols]
                                         (str (name col-name) " " (name (or type "text")))))
                          ")")]]]]})
+
+(defn format
+  "Given SQL string with named placeholders (\"?symbol\") and map of values,
+   returns [query params...] with positional placeholders.
+
+     (sql/format
+       \"SELECT * FROM triples
+          WHERE attr_id = ?attr-id
+            AND app_id  = ?app-id\"
+       {\"?attr-id\" #uuid ...
+        \"?app-id\"  #uuid ...})
+
+    => [\"SELECT * FROM triples WHERE attr_id = ? and app_id = ?\" #uuid ... #uuid ...]"
+  [sql params]
+  (let [re   #"\?[\p{Alpha}*!_?$%&=<>.|''\-+#:0-9]+"
+        args (re-seq re sql)
+        vals (map params args)]
+    (into [(string/replace sql re "?")] vals)))
 
 (defn span-attrs-from-conn-pool [conn]
   (when (instance? HikariDataSource conn)
@@ -385,7 +404,7 @@
     (catch Throwable _e nil)))
 
 (defmacro defsql [name query-fn rw opts]
-  (let [span-name (format "sql/%s" name)]
+  (let [span-name (clojure.core/format "sql/%s" name)]
     `(defn ~name
        ([~'conn ~'query]
         (~name nil ~'conn ~'query nil))

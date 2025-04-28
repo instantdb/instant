@@ -1063,13 +1063,7 @@
         job-type (ex/get-param! req
                                 [:body :job-type]
                                 string-util/coerce-non-blank-str)
-        _ (when-not (contains? #{"check-data-type"
-                                 "remove-data-type"
-                                 "index"
-                                 "remove-index"
-                                 "unique"
-                                 "remove-unique"}
-                               job-type)
+        _ (when-not (contains? indexing-jobs/jobs job-type)
             (ex/throw-validation-err! :job-type
                                       job-type
                                       [{:message (format "Invalid job type %s." job-type)}]))

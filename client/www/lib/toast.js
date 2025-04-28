@@ -29,6 +29,7 @@ export function errorToast(text, options) {
     ),
     toastId: text,
     autoClose: 500000000,
+    className: 'whitespace-pre-wrap',
     ...options,
   });
 }

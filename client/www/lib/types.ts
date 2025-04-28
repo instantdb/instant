@@ -45,7 +45,14 @@ export type InstantAppInvite = {
 export type InstantIndexingJobInvalidTriple = {
   entity_id: string;
   value: any;
-  json_type: 'string' | 'number' | 'boolean' | 'null' | 'object' | 'array';
+  json_type:
+    | 'string'
+    | 'number'
+    | 'boolean'
+    | 'null'
+    | 'object'
+    | 'array'
+    | 'date';
 };
 export type InstantIndexingJob = {
   id: string;
@@ -74,10 +81,15 @@ export type InstantIndexingJob = {
     | 'invalid-attr-state-error'
     | 'triple-not-unique-error'
     | 'triple-too-large-error'
+    | 'missing-required-error'
     | 'unexpected-error'
     | string
     | null
     | undefined;
+  error_data?: {
+    count: number;
+    'entity-ids': number[];
+  };
   checked_data_type: CheckedDataType | null | undefined;
   created_at: string;
   updated_at: string;
@@ -151,6 +163,7 @@ export interface DBAttr {
   'reverse-identity'?: DBIdent;
   'index?': boolean;
   'unique?': boolean;
+  'required?'?: boolean;
   'primary?'?: boolean | undefined;
   cardinality: 'one' | 'many';
   'value-type': 'ref' | 'blob';
@@ -181,6 +194,7 @@ export interface SchemaAttr {
   type: 'ref' | 'blob';
   isIndex: boolean;
   isUniq: boolean;
+  isRequired?: boolean;
   isPrimary?: boolean | undefined;
   cardinality: 'one' | 'many';
   linkConfig: {

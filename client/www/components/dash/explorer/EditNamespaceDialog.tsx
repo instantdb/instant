@@ -1,6 +1,13 @@
 import { id } from '@instantdb/core';
 import { InstantReactWebDatabase } from '@instantdb/react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  ReactNode,
+  MutableRefObject,
+} from 'react';
 import { ArrowLeftIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/solid';
 import { errorToast, successToast } from '@/lib/toast';
 import {
@@ -27,7 +34,6 @@ import {
   SchemaAttr,
   SchemaNamespace,
 } from '@/lib/types';
-import { RelationshipConfigurator } from '@/components/dash/explorer/RelationshipConfigurator';
 import { createJob, jobFetchLoop } from '@/lib/indexingJobs';
 import { useAuthToken } from '@/lib/auth';
 import type { PushNavStack } from './Explorer';
@@ -172,6 +178,7 @@ export function EditNamespaceDialog({
     </>
   );
 }
+
 function DeleteForm({
   name,
   onClose,
@@ -219,6 +226,7 @@ function DeleteForm({
     </ActionForm>
   );
 }
+
 function AddAttrForm({
   db,
   namespace,
@@ -230,6 +238,7 @@ function AddAttrForm({
   namespaces: SchemaNamespace[];
   onClose: () => void;
 }) {
+  const [isRequired, setIsRequired] = useState(false);
   const [isIndex, setIsIndex] = useState(false);
   const [isUniq, setIsUniq] = useState(false);
   const [isCascade, setIsCascade] = useState(false);
@@ -240,17 +249,16 @@ function AddAttrForm({
   const [relationship, setRelationship] =
     useState<RelationshipKinds>('many-many');
 
-  const isCascadeAllowed =
-    relationship === 'one-one' || relationship === 'one-many';
-
-  const isCascadeReverseAllowed =
-    relationship === 'one-one' || relationship === 'many-one';
-
   const [reverseNamespace, setReverseNamespace] = useState<
     SchemaNamespace | undefined
   >(() => namespaces.find((n) => n.name !== namespace.name) ?? namespaces[0]);
   const [attrName, setAttrName] = useState('');
   const [reverseAttrName, setReverseAttrName] = useState(namespace.name);
+
+  const isCascadeAllowed =
+    relationship === 'one-one' || relationship === 'one-many';
+  const isCascadeReverseAllowed =
+    relationship === 'one-one' || relationship === 'many-one';
 
   const linkValidation = validateLink({
     attrName,
@@ -282,6 +290,7 @@ function AddAttrForm({
         cardinality: 'one',
         'unique?': isUniq,
         'index?': isIndex,
+        'required?': isRequired,
         'checked-data-type': checkedDataType ?? undefined,
       };
 
@@ -299,6 +308,7 @@ function AddAttrForm({
         'reverse-identity': [id(), reverseNamespace.name, reverseAttrName],
         'value-type': 'ref',
         'index?': false,
+        'required?': isRequired,
         'on-delete': isCascadeAllowed && isCascade ? 'cascade' : undefined,
         'on-delete-reverse':
           isCascadeReverseAllowed && isCascadeReverse ? 'cascade' : undefined,
@@ -337,6 +347,18 @@ function AddAttrForm({
           </div>
           <div className="flex flex-col gap-2">
             <h6 className="text-md font-bold">Constraints</h6>
+            <div className="flex gap-2">
+              <Checkbox
+                checked={isRequired}
+                onChange={(enabled) => setIsRequired(enabled)}
+                label={
+                  <span>
+                    <strong>Require this attribute</strong> so all entities will
+                    be guaranteed to have it
+                  </span>
+                }
+              />
+            </div>
             <div className="flex gap-2">
               <Checkbox
                 checked={isIndex}
@@ -435,47 +457,15 @@ function AddAttrForm({
             setAttrName={setAttrName}
             setReverseAttrName={setReverseAttrName}
             setRelationship={setRelationship}
+            isCascadeAllowed={isCascadeAllowed}
+            isCascade={isCascade}
+            setIsCascade={setIsCascade}
+            isCascadeReverseAllowed={isCascadeReverseAllowed}
+            isCascadeReverse={isCascadeReverse}
+            setIsCascadeReverse={setIsCascadeReverse}
+            isRequired={isRequired}
+            setIsRequired={setIsRequired}
           />
-
-          <div className="flex gap-2">
-            <Checkbox
-              checked={isCascadeAllowed && isCascade}
-              disabled={!isCascadeAllowed}
-              onChange={setIsCascade}
-              label={
-                <span>
-                  <div>
-                    <strong>
-                      Cascade Delete {reverseNamespace?.name} → {namespace.name}
-                    </strong>
-                  </div>
-                  When a <strong>{reverseNamespace?.name}</strong> entity is
-                  deleted, all linked <strong>{namespace.name}</strong> will be
-                  deleted automatically
-                </span>
-              }
-            />
-          </div>
-
-          <div className="flex gap-2">
-            <Checkbox
-              checked={isCascadeReverseAllowed && isCascadeReverse}
-              disabled={!isCascadeReverseAllowed}
-              onChange={setIsCascadeReverse}
-              label={
-                <span>
-                  <div>
-                    <strong>
-                      Cascade Delete {namespace.name} → {reverseNamespace?.name}
-                    </strong>
-                  </div>
-                  When a <strong>{namespace.name}</strong> entity is deleted,
-                  all linked <strong>{reverseNamespace?.name}</strong> will be
-                  deleted automatically
-                </span>
-              }
-            />
-          </div>
         </>
       ) : null}
 
@@ -523,15 +513,15 @@ function jobWorkingStatus(job: InstantIndexingJob | null) {
 }
 
 function InvalidTriplesSample({
-  job,
+  indexingJob,
   attr,
   onClickSample,
 }: {
-  job: InstantIndexingJob | null;
+  indexingJob: InstantIndexingJob | null;
   attr: SchemaAttr;
   onClickSample: (triple: InstantIndexingJobInvalidTriple) => void;
 }) {
-  if (!job?.invalid_triples_sample?.length) {
+  if (!indexingJob?.invalid_triples_sample?.length) {
     return;
   }
   return (
@@ -546,7 +536,7 @@ function InvalidTriplesSample({
           </tr>
         </thead>
         <tbody>
-          {job.invalid_triples_sample.slice(0, 3).map((t, i) => (
+          {indexingJob.invalid_triples_sample.slice(0, 3).map((t, i) => (
             <tr
               key={i}
               className="cursor-pointer whitespace-nowrap rounded-md px-2 hover:bg-gray-200"
@@ -564,6 +554,561 @@ function InvalidTriplesSample({
         </tbody>
       </table>
     </div>
+  );
+}
+
+function IndexingJobError({
+  indexingJob,
+  attr,
+  pushNavStack,
+  onClose,
+}: {
+  indexingJob?: InstantIndexingJob | null;
+  attr: SchemaAttr;
+  pushNavStack: PushNavStack;
+  onClose: () => void;
+}) {
+  if (!indexingJob) return;
+
+  if (indexingJob.error === 'missing-required-error') {
+    return (
+      <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
+        <div>
+          {indexingJob.error_data?.count} <code>{attr.namespace}</code>{' '}
+          {indexingJob.error_data?.count === 1 ? 'entity does' : 'entities do'}{' '}
+          not have <code>{attr.name}</code> set.
+        </div>
+        <InvalidTriplesSample
+          indexingJob={{
+            ...indexingJob,
+            invalid_triples_sample:
+              indexingJob.error_data &&
+              indexingJob.error_data['entity-ids']?.map((id) => ({
+                entity_id: String(id),
+                value: null,
+                json_type: attr.checkedDataType || 'null',
+              })),
+          }}
+          attr={attr}
+          onClickSample={(t) => {
+            pushNavStack({
+              namespace: attr.namespace,
+              where: ['id', t.entity_id],
+            });
+            // It would be nice to have a way to minimize the dialog so you could go back
+            onClose();
+          }}
+        />
+      </div>
+    );
+  }
+
+  if (indexingJob.error === 'triple-too-large-error') {
+    return (
+      <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
+        <div>Some of the existing data is too large to index. </div>
+        <InvalidTriplesSample
+          indexingJob={indexingJob}
+          attr={attr}
+          onClickSample={(t) => {
+            pushNavStack({
+              namespace: attr.namespace,
+              where: ['id', t.entity_id],
+            });
+            // It would be nice to have a way to minimize the dialog so you could go back
+            onClose();
+          }}
+        />
+      </div>
+    );
+  }
+
+  if (indexingJob.error === 'invalid-triple-error') {
+    return (
+      <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
+        <div>
+          The type can't be set to {indexingJob?.checked_data_type} because some
+          data is the wrong type.
+        </div>
+        <InvalidTriplesSample
+          indexingJob={indexingJob}
+          attr={attr}
+          onClickSample={(t) => {
+            pushNavStack({
+              namespace: attr.namespace,
+              where: ['id', t.entity_id],
+            });
+            // It would be nice to have a way to minimize the dialog so you could go back
+            onClose();
+          }}
+        />
+      </div>
+    );
+  }
+
+  if (indexingJob.error === 'triple-not-unique-error') {
+    return (
+      <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
+        <div>Some of the existing data is not unique. </div>
+        {indexingJob.invalid_unique_value != null ? (
+          <div>
+            Found{' '}
+            <span
+              className={
+                typeof indexingJob.invalid_unique_value === 'object'
+                  ? ''
+                  : 'cursor-pointer underline'
+              }
+              onClick={
+                typeof indexingJob.invalid_unique_value === 'object'
+                  ? undefined
+                  : () => {
+                      pushNavStack({
+                        namespace: attr.namespace,
+                        where: [attr.name, indexingJob.invalid_unique_value],
+                      });
+                      // It would be nice to have a way to minimize the dialog so you could go back
+                      onClose();
+                    }
+              }
+            >
+              multiple entities with value{' '}
+              <code>{JSON.stringify(indexingJob.invalid_unique_value)}</code>
+            </span>
+            .
+          </div>
+        ) : null}
+        <InvalidTriplesSample
+          indexingJob={indexingJob}
+          attr={attr}
+          onClickSample={(t) => {
+            pushNavStack({
+              namespace: attr.namespace,
+              where: ['id', t.entity_id],
+            });
+            // It would be nice to have a way to minimize the dialog so you could go back
+            onClose();
+          }}
+        />
+      </div>
+    );
+  }
+}
+
+function RelationshipConfigurator({
+  attrName,
+  reverseAttrName,
+  namespaceName,
+  reverseNamespaceName,
+  relationship,
+  setAttrName,
+  setReverseAttrName,
+  setRelationship,
+  isCascade,
+  setIsCascade,
+  isCascadeAllowed,
+  isCascadeReverse,
+  setIsCascadeReverse,
+  isCascadeReverseAllowed,
+  isRequired,
+  setIsRequired,
+}: {
+  relationship: RelationshipKinds;
+  reverseNamespaceName: string | undefined;
+  attrName: string;
+  reverseAttrName: string;
+  namespaceName: string;
+
+  setAttrName: (n: string) => void;
+  setReverseAttrName: (n: string) => void;
+  setRelationship: (n: RelationshipKinds) => void;
+
+  isCascadeAllowed: boolean;
+  isCascade: boolean;
+  setIsCascade: (n: boolean) => void;
+
+  isCascadeReverseAllowed: boolean;
+  isCascadeReverse: boolean;
+  setIsCascadeReverse: (n: boolean) => void;
+
+  isRequired: boolean;
+  setIsRequired: (n: boolean) => void;
+}) {
+  const isFullLink = attrName && reverseNamespaceName && reverseAttrName;
+
+  return (
+    <>
+      <div className="flex flex-col gap-4 md:flex-row md:gap-2">
+        <div className="flex flex-1 flex-col gap-1">
+          <h6 className="text-md font-bold">Forward attribute name</h6>
+          <TextInput value={attrName} onChange={(n) => setAttrName(n)} />
+          <div className="rounded-sm py-0.5 text-xs text-gray-500">
+            {isFullLink ? (
+              <>
+                <strong>
+                  {namespaceName}.{attrName}
+                </strong>{' '}
+                will link to <strong>{reverseNamespaceName}</strong>
+              </>
+            ) : (
+              <>&nbsp;</>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-1 flex-col gap-1">
+          <h6 className="text-md font-bold">Reverse attribute name</h6>
+          <TextInput
+            value={reverseAttrName}
+            onChange={(n) => setReverseAttrName(n)}
+          />
+          <div className="rounded-sm py-0.5 text-xs text-gray-500">
+            {isFullLink ? (
+              <>
+                <strong>
+                  {reverseNamespaceName}.{reverseAttrName}
+                </strong>{' '}
+                will link to <strong>{namespaceName}</strong>
+              </>
+            ) : (
+              <>&nbsp;</>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <h6 className="text-md font-bold">Relationship</h6>
+        <RelationshipSelect
+          disabled={!isFullLink}
+          value={relationship}
+          onChange={(v) => {
+            setRelationship(v.value);
+          }}
+          namespace={namespaceName}
+          reverseNamespace={reverseNamespaceName ?? ''}
+          attr={attrName}
+          reverseAttr={reverseAttrName}
+        />
+        <div className={'break-words text-xs text-gray-500'}>
+          {isFullLink ? (
+            relationshipDescriptions[relationship](
+              namespaceName,
+              reverseNamespaceName,
+              attrName,
+              reverseAttrName,
+            )
+          ) : (
+            <>&nbsp;</>
+          )}
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        <Checkbox
+          checked={isCascadeAllowed && isCascade}
+          disabled={!isCascadeAllowed}
+          onChange={setIsCascade}
+          label={
+            <span>
+              <div>
+                <strong>
+                  Cascade Delete {reverseNamespaceName} → {namespaceName}
+                </strong>
+              </div>
+              When a <strong>{reverseNamespaceName}</strong> entity is deleted,
+              all linked <strong>{namespaceName}</strong> will be deleted
+              automatically
+            </span>
+          }
+        />
+      </div>
+
+      <div className="flex gap-2">
+        <Checkbox
+          checked={isCascadeReverseAllowed && isCascadeReverse}
+          disabled={!isCascadeReverseAllowed}
+          onChange={setIsCascadeReverse}
+          label={
+            <span>
+              <div>
+                <strong>
+                  Cascade Delete {namespaceName} → {reverseNamespaceName}
+                </strong>
+              </div>
+              When a <strong>{namespaceName}</strong> entity is deleted, all
+              linked <strong>{reverseNamespaceName}</strong> will be deleted
+              automatically
+            </span>
+          }
+        />
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <h6 className="text-md font-bold">Constraints</h6>
+        <div className="flex gap-2">
+          <Checkbox
+            checked={isRequired}
+            onChange={(enabled) => setIsRequired(enabled)}
+            label={
+              <span>
+                <strong>Require this attribute</strong> so all entities will be
+                guaranteed to have it
+              </span>
+            }
+          />
+        </div>
+      </div>
+    </>
+  );
+}
+
+function RelationshipSelect({
+  value,
+  disabled,
+  onChange,
+  namespace,
+  attr,
+  reverseNamespace,
+  reverseAttr,
+}: {
+  disabled?: boolean;
+  value: RelationshipKinds;
+  onChange: (v: { value: RelationshipKinds; label: string }) => void;
+  namespace: string;
+  attr: string;
+  reverseNamespace: string;
+  reverseAttr: string;
+}) {
+  return (
+    <Select
+      disabled={disabled}
+      value={value}
+      onChange={(v) => {
+        if (!v) return;
+
+        onChange(v as { value: RelationshipKinds; label: string });
+      }}
+      options={[
+        {
+          label: 'Many-to-many',
+          value: 'many-many',
+        },
+        {
+          label: 'One-to-one',
+          value: 'one-one',
+        },
+        {
+          label: `${namespace} has-many ${
+            attr || '---'
+          } / ${reverseNamespace} has-one ${reverseAttr || '---'}`,
+          value: 'many-one',
+        },
+        {
+          label: `${namespace} has-one ${
+            attr || '---'
+          } / ${reverseNamespace} has-many ${reverseAttr || '---'}`,
+          value: 'one-many',
+        },
+      ]}
+    />
+  );
+}
+
+const relationshipDescriptions: Record<
+  RelationshipKinds,
+  (f: string, r: string, fa: string, ra: string) => ReactNode
+> = {
+  'many-many': (fn, rn, fa, ra) => (
+    <>
+      <strong>{fn}</strong> can have many <strong>{fa}</strong>, and{' '}
+      <strong>{rn}</strong> can be associated with more than one{' '}
+      <strong>{ra}</strong>
+    </>
+  ),
+  'one-one': (fn, rn, fa, ra) => (
+    <>
+      <strong>{fn}</strong> can have only one <strong>{fa}</strong>, and a{' '}
+      <strong>{rn}</strong> can only have one <strong>{ra}</strong>
+    </>
+  ),
+  'many-one': (fn, rn, fa, ra) => (
+    <>
+      <strong>{fn}</strong> can have many <strong>{fa}</strong>, but{' '}
+      <strong>{rn}</strong> can only have one <strong>{ra}</strong>
+    </>
+  ),
+  'one-many': (fn, rn, fa, ra) => (
+    <>
+      <strong>{fn}</strong> can have only one <strong>{fa}</strong>, but{' '}
+      <strong>{rn}</strong> can be associated with more than one{' '}
+      <strong>{ra}</strong>
+    </>
+  ),
+};
+
+async function updateRequired({
+  appId,
+  attr,
+  isRequired,
+  authToken,
+  setIndexingJob,
+  stopFetchLoop,
+}: {
+  appId: string;
+  attr: SchemaAttr;
+  isRequired: boolean;
+  authToken: string | undefined;
+  setIndexingJob: (job: InstantIndexingJob) => void;
+  stopFetchLoop: MutableRefObject<null | (() => void)>;
+}) {
+  if (!authToken || isRequired === attr.isRequired) {
+    return;
+  }
+  stopFetchLoop.current?.();
+  const friendlyName = `${attr.namespace}.${attr.name}`;
+  try {
+    const job = await createJob(
+      {
+        appId,
+        attrId: attr.id,
+        jobType: isRequired ? 'required' : 'remove-required',
+      },
+      authToken,
+    );
+    setIndexingJob(job);
+    const fetchLoop = jobFetchLoop(appId, job.id, authToken);
+    stopFetchLoop.current = fetchLoop.stop;
+    const finishedJob = await fetchLoop.start((data, error) => {
+      if (error) {
+        errorToast(`Error while marking ${friendlyName} as required.`);
+      }
+      if (data) {
+        setIndexingJob(data);
+      }
+    });
+    if (finishedJob) {
+      if (finishedJob.job_status === 'completed') {
+        successToast(
+          isRequired
+            ? `Marked ${friendlyName} as required.`
+            : `Marked ${friendlyName} as optional.`,
+        );
+        return 'completed';
+      }
+      if (finishedJob.job_status === 'canceled') {
+        errorToast('Marking required was canceled.');
+        return 'canceled';
+      }
+      if (finishedJob.job_status === 'errored') {
+        if (finishedJob.error === 'invalid-triple-error') {
+          errorToast(`Found invalid data while updating ${friendlyName}.`);
+        } else {
+          errorToast(`Encountered an error while updating ${friendlyName}.`);
+        }
+        return 'errored';
+      }
+    }
+  } catch (e) {
+    console.error(e);
+    errorToast(`Unexpected error while updating ${friendlyName}`);
+    return 'errored';
+  }
+}
+
+function EditRequired({
+  appId,
+  attr,
+  isSystemCatalogNs,
+  pushNavStack,
+}: {
+  appId: string;
+  attr: SchemaAttr;
+  isSystemCatalogNs: boolean;
+  pushNavStack: PushNavStack;
+}) {
+  const [requiredChecked, setRequiredChecked] = useState(
+    attr.isRequired || false,
+  );
+
+  const authToken = useAuthToken();
+  const [indexingJob, setIndexingJob] = useState<InstantIndexingJob | null>(
+    null,
+  );
+
+  const stopFetchLoop = useRef<null | (() => void)>(null);
+
+  useEffect(() => {
+    return () => stopFetchLoop.current?.();
+  }, [stopFetchLoop]);
+
+  const onRequiredChanged = async () => {
+    return updateRequired({
+      appId,
+      attr,
+      isRequired: requiredChecked,
+      authToken,
+      setIndexingJob,
+      stopFetchLoop,
+    });
+  };
+
+  const valueNotChanged = requiredChecked === attr.isRequired;
+
+  const buttonDisabled = isSystemCatalogNs || valueNotChanged;
+
+  const closeDialog = useClose();
+
+  return (
+    <ActionForm className="flex flex-col gap-1">
+      <div className="flex gap-2">
+        <Checkbox
+          disabled={isSystemCatalogNs}
+          title={
+            isSystemCatalogNs
+              ? `Attributes in the ${attr.namespace} namespace can't be edited.`
+              : undefined
+          }
+          checked={requiredChecked || false}
+          onChange={(enabled) => setRequiredChecked(enabled)}
+          label={
+            <span>
+              <strong>Require this attribute</strong> so all entities will be
+              guaranteed to have it
+            </span>
+          }
+        />
+      </div>
+
+      <IndexingJobError
+        indexingJob={indexingJob}
+        attr={attr}
+        pushNavStack={pushNavStack}
+        onClose={closeDialog}
+      />
+
+      <ActionButton
+        type="submit"
+        label={
+          valueNotChanged
+            ? requiredChecked
+              ? 'Required'
+              : 'Optional'
+            : requiredChecked
+              ? 'Mark as required'
+              : 'Mark as optional'
+        }
+        submitLabel={jobWorkingStatus(indexingJob) || 'Updating attribute...'}
+        errorMessage="Failed to update attribute"
+        disabled={buttonDisabled}
+        title={
+          isSystemCatalogNs
+            ? `Attributes in the ${attr.namespace} namespace can't be edited.`
+            : undefined
+        }
+        onClick={onRequiredChanged}
+      />
+    </ActionForm>
   );
 }
 
@@ -669,23 +1214,12 @@ function EditIndexed({
         />
       </div>
 
-      {indexingJob?.error === 'triple-too-large-error' ? (
-        <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
-          <div>Some of the existing data is too large to index. </div>
-          <InvalidTriplesSample
-            job={indexingJob}
-            attr={attr}
-            onClickSample={(t) => {
-              pushNavStack({
-                namespace: attr.namespace,
-                where: ['id', t.entity_id],
-              });
-              // It would be nice to have a way to minimize the dialog so you could go back
-              closeDialog();
-            }}
-          />
-        </div>
-      ) : null}
+      <IndexingJobError
+        indexingJob={indexingJob}
+        attr={attr}
+        pushNavStack={pushNavStack}
+        onClose={closeDialog}
+      />
 
       <ActionButton
         type="submit"
@@ -814,69 +1348,12 @@ function EditUnique({
         />
       </div>
 
-      {indexingJob?.error === 'triple-not-unique-error' ? (
-        <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
-          <div>Some of the existing data is not unique. </div>
-          {indexingJob.invalid_unique_value != null ? (
-            <div>
-              Found{' '}
-              <span
-                className={
-                  typeof indexingJob.invalid_unique_value === 'object'
-                    ? ''
-                    : 'cursor-pointer underline'
-                }
-                onClick={
-                  typeof indexingJob.invalid_unique_value === 'object'
-                    ? undefined
-                    : () => {
-                        pushNavStack({
-                          namespace: attr.namespace,
-                          where: [attr.name, indexingJob.invalid_unique_value],
-                        });
-                        // It would be nice to have a way to minimize the dialog so you could go back
-                        closeDialog();
-                      }
-                }
-              >
-                multiple entities with value{' '}
-                <code>{JSON.stringify(indexingJob.invalid_unique_value)}</code>
-              </span>
-              .
-            </div>
-          ) : null}
-          <InvalidTriplesSample
-            job={indexingJob}
-            attr={attr}
-            onClickSample={(t) => {
-              pushNavStack({
-                namespace: attr.namespace,
-                where: ['id', t.entity_id],
-              });
-              // It would be nice to have a way to minimize the dialog so you could go back
-              closeDialog();
-            }}
-          />
-        </div>
-      ) : null}
-
-      {indexingJob?.error === 'triple-too-large-error' ? (
-        <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
-          <div>Some of the existing data is too large to index. </div>
-          <InvalidTriplesSample
-            job={indexingJob}
-            attr={attr}
-            onClickSample={(t) => {
-              pushNavStack({
-                namespace: attr.namespace,
-                where: ['id', t.entity_id],
-              });
-              // It would be nice to have a way to minimize the dialog so you could go back
-              closeDialog();
-            }}
-          />
-        </div>
-      ) : null}
+      <IndexingJobError
+        indexingJob={indexingJob}
+        attr={attr}
+        pushNavStack={pushNavStack}
+        onClose={closeDialog}
+      />
 
       <ActionButton
         type="submit"
@@ -1052,26 +1529,14 @@ function EditCheckedDataType({
           />
         </div>
       </div>
-      {indexingJob?.error === 'invalid-triple-error' ? (
-        <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
-          <div>
-            The type can't be set to {indexingJob?.checked_data_type} because
-            some data is the wrong type.
-          </div>
-          <InvalidTriplesSample
-            job={indexingJob}
-            attr={attr}
-            onClickSample={(t) => {
-              pushNavStack({
-                namespace: attr.namespace,
-                where: ['id', t.entity_id],
-              });
-              // It would be nice to have a way to minimize the dialog so you could go back
-              closeDialog();
-            }}
-          />
-        </div>
-      ) : null}
+
+      <IndexingJobError
+        indexingJob={indexingJob}
+        attr={attr}
+        pushNavStack={pushNavStack}
+        onClose={closeDialog}
+      />
+
       <ActionButton
         type="submit"
         label={buttonLabel}
@@ -1119,12 +1584,28 @@ function EditAttrForm({
   });
 
   const [isCascade, setIsCascade] = useState(() => attr.onDelete === 'cascade');
-  const isCascadeAllowed =
-    relationship === 'one-one' || relationship === 'one-many';
 
   const [isCascadeReverse, setIsCascadeReverse] = useState(
     () => attr.onDeleteReverse === 'cascade',
   );
+
+  const [isRequired, setIsRequired] = useState(attr.isRequired || false);
+  const [wasRequired, _] = useState(isRequired);
+
+  const authToken = useAuthToken();
+  const [indexingJob, setIndexingJob] = useState<InstantIndexingJob | null>(
+    null,
+  );
+
+  const stopFetchLoop = useRef<null | (() => void)>(null);
+  const closeDialog = useClose();
+
+  useEffect(() => {
+    return () => stopFetchLoop.current?.();
+  }, [stopFetchLoop]);
+
+  const isCascadeAllowed =
+    relationship === 'one-one' || relationship === 'one-many';
   const isCascadeReverseAllowed =
     relationship === 'one-one' || relationship === 'many-one';
 
@@ -1138,6 +1619,19 @@ function EditAttrForm({
   async function updateRef() {
     if (!attr.linkConfig.reverse) {
       throw new Error('No reverse link config');
+    }
+
+    if (isRequired !== wasRequired) {
+      const res = await updateRequired({
+        appId,
+        attr,
+        isRequired,
+        authToken,
+        setIndexingJob,
+        stopFetchLoop,
+      });
+
+      if (res != 'completed') return;
     }
 
     const ops = [
@@ -1156,8 +1650,9 @@ function EditAttrForm({
             attr.linkConfig.reverse.namespace,
             reverseAttrName,
           ],
-          'on-delete': isCascade ? 'cascade' : null,
-          'on-delete-reverse': isCascadeReverse ? 'cascade' : null,
+          'on-delete': isCascadeAllowed && isCascade ? 'cascade' : null,
+          'on-delete-reverse':
+            isCascadeReverseAllowed && isCascadeReverse ? 'cascade' : null,
         },
       ],
     ];
@@ -1228,6 +1723,12 @@ function EditAttrForm({
         <>
           <div className="flex flex-col gap-2">
             <h6 className="text-md font-bold">Constraints</h6>
+            <EditRequired
+              appId={appId}
+              attr={attr}
+              isSystemCatalogNs={isSystemCatalogNs}
+              pushNavStack={pushNavStack}
+            />
             <EditIndexed
               appId={appId}
               attr={attr}
@@ -1294,51 +1795,25 @@ function EditAttrForm({
             setAttrName={setAttrName}
             setReverseAttrName={setReverseAttrName}
             setRelationship={setRelationship}
+            isCascadeAllowed={isCascadeAllowed}
+            isCascade={isCascade}
+            setIsCascade={setIsCascade}
+            isCascadeReverseAllowed={isCascadeReverseAllowed}
+            isCascadeReverse={isCascadeReverse}
+            setIsCascadeReverse={setIsCascadeReverse}
+            isRequired={isRequired}
+            setIsRequired={setIsRequired}
           />
 
-          <div className="flex gap-2">
-            <Checkbox
-              checked={isCascadeAllowed && isCascade}
-              disabled={!isCascadeAllowed}
-              onChange={setIsCascade}
-              label={
-                <span>
-                  <div>
-                    <strong>
-                      Cascade Delete {attr.linkConfig.reverse!.namespace} →{' '}
-                      {attr.linkConfig.forward.namespace}
-                    </strong>
-                  </div>
-                  When a <strong>{attr.linkConfig.reverse!.namespace}</strong>{' '}
-                  entity is deleted, all linked{' '}
-                  <strong>{attr.linkConfig.forward.namespace}</strong> will be
-                  deleted automatically
-                </span>
-              }
-            />
-          </div>
-
-          <div className="flex gap-2">
-            <Checkbox
-              checked={isCascadeReverseAllowed && isCascadeReverse}
-              disabled={!isCascadeReverseAllowed}
-              onChange={setIsCascadeReverse}
-              label={
-                <span>
-                  <div>
-                    <strong>
-                      Cascade Delete {attr.linkConfig.forward.namespace} →{' '}
-                      {attr.linkConfig.reverse!.namespace}
-                    </strong>
-                  </div>
-                  When a <strong>{attr.linkConfig.forward.namespace}</strong>{' '}
-                  entity is deleted, all linked{' '}
-                  <strong>{attr.linkConfig.reverse!.namespace}</strong> will be
-                  deleted automatically
-                </span>
-              }
-            />
-          </div>
+          <IndexingJobError
+            indexingJob={indexingJob}
+            attr={attr}
+            pushNavStack={pushNavStack}
+            onClose={() => {
+              closeDialog();
+              onClose();
+            }}
+          />
 
           <div className="flex flex-col gap-6">
             <ActionButton
