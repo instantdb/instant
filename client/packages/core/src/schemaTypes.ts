@@ -1,9 +1,9 @@
 import type { RoomSchemaShape } from './presence';
 
-export class DataAttrDef<ValueType, IsRequired extends boolean> {
+export class DataAttrDef<ValueType, Requirement extends RequirementKind> {
   constructor(
     public valueType: ValueTypes,
-    public required: IsRequired,
+    public requirement: Requirement,
     public config: {
       indexed: boolean;
       unique: boolean;
@@ -11,14 +11,18 @@ export class DataAttrDef<ValueType, IsRequired extends boolean> {
     } = { indexed: false, unique: false },
   ) {}
 
+  required() {
+    return new DataAttrDef<ValueType, 'required'>(this.valueType, 'required');
+  }
+
   optional() {
-    return new DataAttrDef<ValueType, false>(this.valueType, false);
+    return new DataAttrDef<ValueType, 'optional'>(this.valueType, 'optional');
   }
 
   unique() {
-    return new DataAttrDef<ValueType, IsRequired>(
+    return new DataAttrDef<ValueType, Requirement>(
       this.valueType,
-      this.required,
+      this.requirement,
       {
         ...this.config,
         unique: true,
@@ -27,9 +31,9 @@ export class DataAttrDef<ValueType, IsRequired extends boolean> {
   }
 
   indexed() {
-    return new DataAttrDef<ValueType, IsRequired>(
+    return new DataAttrDef<ValueType, Requirement>(
       this.valueType,
-      this.required,
+      this.requirement,
       {
         ...this.config,
         indexed: true,
@@ -69,6 +73,8 @@ export interface IContainEntitiesAndLinks<
 export type ValueTypes = 'string' | 'number' | 'boolean' | 'date' | 'json';
 
 export type CardinalityKind = 'one' | 'many';
+
+export type RequirementKind = 'required' | 'default' | 'optional';
 
 export type AttrsDefs = Record<string, DataAttrDef<any, any>>;
 
@@ -224,7 +230,7 @@ type LinksIndexedByEntity<
 
 type RequiredKeys<Attrs extends AttrsDefs> = {
   [K in keyof Attrs]: Attrs[K] extends DataAttrDef<any, infer R>
-    ? R extends true
+    ? R extends 'required' | 'default' // TODO move 'default' to optional
       ? K
       : never
     : never;
@@ -232,7 +238,7 @@ type RequiredKeys<Attrs extends AttrsDefs> = {
 
 type OptionalKeys<Attrs extends AttrsDefs> = {
   [K in keyof Attrs]: Attrs[K] extends DataAttrDef<any, infer R>
-    ? R extends false
+    ? R extends 'optional'
       ? K
       : never
     : never;
@@ -379,7 +385,7 @@ type EntityDefFromRoomSlice<Shape extends { [k: string]: any }> = EntityDef<
   {
     [AttrName in keyof Shape]: DataAttrDef<
       Shape[AttrName],
-      Shape[AttrName] extends undefined ? false : true
+      Shape[AttrName] extends undefined ? 'optional' : 'default'
     >;
   },
   any,
@@ -401,7 +407,7 @@ type EntityDefFromShape<Shape, K extends keyof Shape> = EntityDef<
   {
     [AttrName in keyof Shape[K]]: DataAttrDef<
       Shape[K][AttrName],
-      Shape[K][AttrName] extends undefined ? false : true
+      Shape[K][AttrName] extends undefined ? 'optional' : 'default'
     >;
   },
   {
@@ -438,7 +444,7 @@ export type BackwardsCompatibleSchema<
 
 export type UnknownEntity = EntityDef<
   {
-    id: DataAttrDef<string, true>;
+    id: DataAttrDef<string, 'default'>;
     [AttrName: string]: DataAttrDef<any, any>;
   },
   { [LinkName: string]: LinkAttrDef<'many', string> },
@@ -484,9 +490,9 @@ export type UpdateParams<
     infer ValueType,
     infer IsRequired
   >
-    ? IsRequired extends true
-      ? ValueType
-      : ValueType | null
+    ? IsRequired extends 'optional'
+      ? ValueType | null
+      : ValueType
     : never;
 };
 
