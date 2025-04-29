@@ -13,7 +13,7 @@
    [instant.util.tracer :as tracer])
   (:import
    (java.lang AutoCloseable)
-   (java.time Period DayOfWeek ZonedDateTime)))
+   (java.time Period ZonedDateTime)))
 
 ;; Find recent users and set the welcome-email flag to ensure
 ;; we don't send multiple emails to the same user.
@@ -116,12 +116,7 @@ Were you thinking of using Instant for your company? How's your experience been 
                       send-at-pst
                       (Period/ofDays 1))]
     (->> periodic-seq
-         (filter (fn [^ZonedDateTime x] (.isAfter x now)))
-         ;; Only run Monday through Friday
-         (filter (fn [^ZonedDateTime x]
-                   (let [day-of-week (.getDayOfWeek x)]
-                     (not (contains? #{DayOfWeek/SATURDAY DayOfWeek/SUNDAY}
-                                     day-of-week))))))))
+         (filter (fn [^ZonedDateTime x] (.isAfter x now))))))
 
 (defonce schedule (atom nil))
 
