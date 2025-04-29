@@ -7,7 +7,7 @@ const schema = i.schema({
       createdAt: i.date(),
     }),
     posts: i.entity({
-      title: i.string(),
+      title: i.string().required(),
       body: i.string(),
       slug: i.string().unique(),
       createdAt: i.date().indexed(),
