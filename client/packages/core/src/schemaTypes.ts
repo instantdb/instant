@@ -1,44 +1,42 @@
 import type { RoomSchemaShape } from './presence';
 
-export class DataAttrDef<ValueType, Requirement extends RequirementKind> {
+export class DataAttrDef<ValueType, IsRequired extends RequirementKind> {
   constructor(
     public valueType: ValueTypes,
-    public requirement: Requirement,
     public config: {
       indexed: boolean;
       unique: boolean;
+      required?: IsRequired;
       // clientValidator?: (value: ValueType) => boolean;
     } = { indexed: false, unique: false },
   ) {}
 
   required() {
-    return new DataAttrDef<ValueType, 'required'>(this.valueType, 'required');
+    return new DataAttrDef<ValueType, true>(this.valueType, {
+      ...this.config,
+      required: true,
+    });
   }
 
   optional() {
-    return new DataAttrDef<ValueType, 'optional'>(this.valueType, 'optional');
+    return new DataAttrDef<ValueType, false>(this.valueType, {
+      ...this.config,
+      required: false,
+    });
   }
 
   unique() {
-    return new DataAttrDef<ValueType, Requirement>(
-      this.valueType,
-      this.requirement,
-      {
-        ...this.config,
-        unique: true,
-      },
-    );
+    return new DataAttrDef<ValueType, IsRequired>(this.valueType, {
+      ...this.config,
+      unique: true,
+    });
   }
 
   indexed() {
-    return new DataAttrDef<ValueType, Requirement>(
-      this.valueType,
-      this.requirement,
-      {
-        ...this.config,
-        indexed: true,
-      },
-    );
+    return new DataAttrDef<ValueType, IsRequired>(this.valueType, {
+      ...this.config,
+      indexed: true,
+    });
   }
 
   // clientValidate(clientValidator: (value: ValueType) => boolean) {
@@ -74,7 +72,10 @@ export type ValueTypes = 'string' | 'number' | 'boolean' | 'date' | 'json';
 
 export type CardinalityKind = 'one' | 'many';
 
-export type RequirementKind = 'required' | 'default' | 'optional';
+// true      - force required
+// undefined - required in types, not required in backend
+// false     - optional, not required
+export type RequirementKind = true | undefined | false;
 
 export type AttrsDefs = Record<string, DataAttrDef<any, any>>;
 
@@ -121,6 +122,7 @@ export type LinkDef<
     on: FwdEntity;
     label: FwdAttr;
     has: FwdCardinality;
+    required?: RequirementKind;
     onDelete?: 'cascade';
   };
   reverse: {
@@ -230,7 +232,7 @@ type LinksIndexedByEntity<
 
 type RequiredKeys<Attrs extends AttrsDefs> = {
   [K in keyof Attrs]: Attrs[K] extends DataAttrDef<any, infer R>
-    ? R extends 'required' | 'default' // TODO move 'default' to optional
+    ? R extends true | undefined // TODO move undefined to OptionalKeys
       ? K
       : never
     : never;
@@ -238,7 +240,7 @@ type RequiredKeys<Attrs extends AttrsDefs> = {
 
 type OptionalKeys<Attrs extends AttrsDefs> = {
   [K in keyof Attrs]: Attrs[K] extends DataAttrDef<any, infer R>
-    ? R extends 'optional'
+    ? R extends false
       ? K
       : never
     : never;
@@ -385,7 +387,7 @@ type EntityDefFromRoomSlice<Shape extends { [k: string]: any }> = EntityDef<
   {
     [AttrName in keyof Shape]: DataAttrDef<
       Shape[AttrName],
-      Shape[AttrName] extends undefined ? 'optional' : 'default'
+      Shape[AttrName] extends undefined ? false : undefined
     >;
   },
   any,
@@ -407,7 +409,7 @@ type EntityDefFromShape<Shape, K extends keyof Shape> = EntityDef<
   {
     [AttrName in keyof Shape[K]]: DataAttrDef<
       Shape[K][AttrName],
-      Shape[K][AttrName] extends undefined ? 'optional' : 'default'
+      Shape[K][AttrName] extends undefined ? false : undefined
     >;
   },
   {
@@ -444,7 +446,7 @@ export type BackwardsCompatibleSchema<
 
 export type UnknownEntity = EntityDef<
   {
-    id: DataAttrDef<string, 'default'>;
+    id: DataAttrDef<string, undefined>;
     [AttrName: string]: DataAttrDef<any, any>;
   },
   { [LinkName: string]: LinkAttrDef<'many', string> },
@@ -490,7 +492,7 @@ export type UpdateParams<
     infer ValueType,
     infer IsRequired
   >
-    ? IsRequired extends 'optional'
+    ? IsRequired extends false
       ? ValueType | null
       : ValueType
     : never;
