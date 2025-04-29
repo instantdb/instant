@@ -401,6 +401,7 @@ program
     '-a --app <app-id>',
     'App ID to push to. Defaults to *_INSTANT_APP_ID in .env',
   )
+  .option('-o --override', 'Override existing schema')
   .description('Pull schema and perm files from production.')
   .action(async function (arg, inputOpts) {
     const ret = convertPushPullToCurrentFormat('pull', arg, inputOpts);
@@ -503,7 +504,7 @@ async function handlePull(bag, opts) {
   await pull(bag, appId, pkgAndAuthInfo);
 }
 
-async function pull(bag, appId, pkgAndAuthInfo) {
+async function pull(bag, appId, pkgAndAuthInfo, opts) {
   if (bag === 'schema' || bag === 'all') {
     const { ok } = await pullSchema(appId, pkgAndAuthInfo);
     if (!ok) return process.exit(1);
@@ -746,7 +747,7 @@ async function resolvePackageAndAuthInfoWithErrorLogging() {
   return { pkgDir, instantModuleName, authToken };
 }
 
-async function pullSchema(appId, { pkgDir, instantModuleName }) {
+async function pullSchema(appId, { pkgDir, instantModuleName }, { override }) {
   console.log('Pulling schema...');
 
   const pullRes = await fetchJson({
@@ -764,8 +765,9 @@ async function pullSchema(appId, { pkgDir, instantModuleName }) {
     console.log('Schema is empty. Skipping.');
     return { ok: true };
   }
+
   const prev = await readLocalSchemaFile();
-  if (prev) {
+  if (!override && prev) {
     const shouldContinue = await promptOk(
       'This will overwrite your local instant.schema file, OK to proceed?',
     );
@@ -790,7 +792,7 @@ async function pullSchema(appId, { pkgDir, instantModuleName }) {
   return { ok: true };
 }
 
-async function pullPerms(appId, { pkgDir, instantModuleName }) {
+async function pullPerms(appId, { pkgDir, instantModuleName }, { override }) {
   console.log('Pulling perms...');
 
   const pullRes = await fetchJson({
@@ -801,7 +803,7 @@ async function pullPerms(appId, { pkgDir, instantModuleName }) {
 
   if (!pullRes.ok) return pullRes;
   const prev = await readLocalPermsFile();
-  if (prev) {
+  if (!override && prev) {
     const shouldContinue = await promptOk(
       'This will overwrite your local instant.perms file, OK to proceed?',
     );
@@ -839,6 +841,12 @@ function indexingJobCompletedActionMessage(job) {
   }
   if (job.job_type === 'remove-unique') {
     return `removing uniqueness constraint from ${job.attr_name}`;
+  }
+  if (job.job_type === 'required') {
+    return `adding required constraint to ${job.attr_name}`;
+  }
+  if (job.job_type === 'remove-required') {
+    return `removing required constraint from ${job.attr_name}`;
   }
 }
 
@@ -1114,6 +1122,22 @@ async function pushSchema(appId, opts) {
         console.log(
           '%s from %s',
           chalk.red('REMOVE UNIQUE CONSTRAINT'),
+          attrFwdName(attr),
+        );
+        break;
+      }
+      case 'required': {
+        console.log(
+          '%s to %s',
+          chalk.green('ADD REQUIRED CONSTRAINT'),
+          attrFwdName(attr),
+        );
+        break;
+      }
+      case 'remove-required': {
+        console.log(
+          '%s from %s',
+          chalk.red('REMOVE REQUIRED CONSTRAINT'),
           attrFwdName(attr),
         );
         break;
@@ -1737,6 +1761,7 @@ function schemaBlobToCodeStr(name, attrs) {
           `i.${type}()`,
           config['unique?'] ? '.unique()' : '',
           config['index?'] ? '.indexed()' : '',
+          config['required?'] ? '.required()' : '',
           `,`,
         ].join('');
       })
@@ -1865,6 +1890,9 @@ function generateSchemaTypescriptFile(
           label: rlabel,
         },
       };
+      if (config['required?']) {
+        desc.forward.required = true;
+      }
       if (config['on-delete'] === 'cascade') {
         desc.forward.onDelete = 'cascade';
       } else if (config['on-delete-reverse'] === 'cascade') {

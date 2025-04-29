@@ -66,29 +66,29 @@ function entity<Attrs extends AttrsDefs>(
 
 function string<StringEnum extends string = string>(): DataAttrDef<
   StringEnum,
-  'default'
+  undefined
 > {
-  return new DataAttrDef('string', 'default');
+  return new DataAttrDef('string');
 }
 
-function number(): DataAttrDef<number, 'default'> {
-  return new DataAttrDef('number', 'default');
+function number(): DataAttrDef<number, undefined> {
+  return new DataAttrDef('number');
 }
 
-function boolean(): DataAttrDef<boolean, 'default'> {
-  return new DataAttrDef('boolean', 'default');
+function boolean(): DataAttrDef<boolean, undefined> {
+  return new DataAttrDef('boolean');
 }
 
-function date(): DataAttrDef<string | number, 'default'> {
-  return new DataAttrDef('date', 'default');
+function date(): DataAttrDef<string | number, undefined> {
+  return new DataAttrDef('date');
 }
 
-function json<T = any>(): DataAttrDef<T, 'default'> {
-  return new DataAttrDef('json', 'default');
+function json<T = any>(): DataAttrDef<T, undefined> {
+  return new DataAttrDef('json');
 }
 
-function any(): DataAttrDef<any, 'default'> {
-  return new DataAttrDef('json', 'default');
+function any(): DataAttrDef<any, undefined> {
+  return new DataAttrDef('json');
 }
 
 // ==========
