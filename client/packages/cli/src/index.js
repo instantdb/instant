@@ -2114,3 +2114,6 @@ async function handleMigrate(scripts, opts) {
   
   await migrateData(appId, scripts, pkgAndAuthInfo, migrateOptions);
 }
+
+// Export utility functions for use in other modules
+export { generateSchemaTypescriptFile, readLocalSchemaFile };

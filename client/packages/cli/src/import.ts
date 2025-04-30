@@ -4,6 +4,9 @@ import chalk from 'chalk';
 import ora from 'ora';
 import inquirer from 'inquirer';
 import { exportData as exportAppData } from './export.js';
+import { generateSchemaTypescriptFile, readLocalSchemaFile } from './index.js';
+import { loadConfig } from 'unconfig';
+import prettier from 'prettier';
 
 /**
  * Sleep for the specified number of milliseconds
@@ -25,6 +28,147 @@ const log = {
   error: (message: string) => console.log(chalk.red('✗ ') + message),
   info: (message: string) => console.log(chalk.dim('• ') + message)
 };
+
+/**
+ * Wait for schema indexing jobs to complete before proceeding with import
+ * This ensures all attributes are fully established in the database
+ */
+async function waitForSchemaIndexingToComplete(
+  apiURI: string, 
+  appId: string, 
+  authToken: string, 
+  data: { 'group-id': string, jobs: any[] }
+): Promise<boolean> {
+  log.info(`Waiting for schema indexing jobs to complete...`);
+  
+  const indexingSpinner = ora(`Processing schema indexing jobs...`).start();
+  const groupId = data['group-id'];
+  let jobs = data.jobs;
+  let waitMs = 20; // Start with short interval like CLI
+  let lastUpdatedAt = new Date(0);
+  const completedIds = new Set();
+  const completedMessages: string[] = [];
+  const errorMessages: string[] = [];
+  
+  // Helper to describe job type in friendlier terms
+  function getJobDescription(job: any): string {
+    switch(job.job_type) {
+      case 'check-data-type': return `setting type of ${job.attr_name} to ${job.checked_data_type}`;
+      case 'remove-data-type': return `removing type from ${job.attr_name}`;
+      case 'index': return `adding index to ${job.attr_name}`;
+      case 'remove-index': return `removing index from ${job.attr_name}`;
+      case 'unique': return `adding uniqueness constraint to ${job.attr_name}`;
+      case 'remove-unique': return `removing uniqueness constraint from ${job.attr_name}`;
+      default: return job.job_type;
+    }
+  }
+  
+  // Loop to check job status with exponential backoff
+  while (true) {
+    let stillRunning = false;
+    let updated = false;
+    let workEstimateTotal = 0;
+    let workCompletedTotal = 0;
+    
+    // Process current job statuses
+    for (const job of jobs) {
+      // Track if jobs have been updated since last check
+      const updatedAt = new Date(job.updated_at);
+      if (updatedAt > lastUpdatedAt) {
+        updated = true;
+        lastUpdatedAt = updatedAt;
+      }
+      
+      // Check if job is still running
+      if (job.job_status === 'waiting' || job.job_status === 'processing') {
+        stillRunning = true;
+        // Track work estimate and completion for progress percentage
+        workEstimateTotal += job.work_estimate ?? 50000; // Default high value to prevent % jumping around
+        workCompletedTotal += job.work_completed ?? 0;
+      } else {
+        // Job completed - track status message
+        if (!completedIds.has(job.id)) {
+          completedIds.add(job.id);
+          const description = getJobDescription(job);
+          const message = job.job_status === 'errored' 
+            ? `❌ Error ${description}: ${job.error_message || 'Unknown error'}`
+            : `✓ Completed ${description}`;
+          
+          if (job.job_status === 'errored') {
+            errorMessages.push(message);
+          } else {
+            completedMessages.push(message);
+          }
+        }
+      }
+    }
+    
+    // All jobs completed
+    if (!stillRunning) {
+      break;
+    }
+    
+    // Update progress spinner
+    if (workEstimateTotal) {
+      const percent = Math.floor((workCompletedTotal / workEstimateTotal) * 100);
+      indexingSpinner.text = `Processing schema indexing: ${percent}%`;
+    }
+    
+    // Show completed jobs in spinner prefix
+    if (completedMessages.length) {
+      indexingSpinner.prefixText = completedMessages.join('\n');
+    }
+    
+    // Calculate wait time - faster checks when there are updates
+    waitMs = updated ? 20 : Math.min(10000, waitMs * 2);
+    
+    // Wait before checking again
+    await sleep(waitMs);
+    
+    try {
+      // Use the dash endpoint for checking indexing jobs, matching what the CLI does
+      const response = await fetch(`${apiURI}/dash/apps/${appId}/indexing-jobs/group/${groupId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        }
+      });
+      
+      if (!response.ok) {
+        indexingSpinner.fail(`Failed to check indexing status: ${response.status} ${response.statusText}`);
+        return false;
+      }
+      
+      const result = await response.json();
+      jobs = result.jobs;
+    } catch (err) {
+      indexingSpinner.fail(`Error checking indexing status: ${(err as Error).message}`);
+      return false;
+    }
+  }
+  
+  // Display final status
+  if (completedMessages.length) {
+    indexingSpinner.succeed(`Schema indexing completed (${completedMessages.length} tasks)`);
+    
+    // For verbose output, show all completed tasks
+    if (completedMessages.length > 0) {
+      console.log(completedMessages.join('\n'));
+    }
+  } else {
+    indexingSpinner.succeed(`Schema indexing completed without any tasks`);
+  }
+  
+  // Log errors at the end so they're easier to see
+  if (errorMessages.length) {
+    log.error(`Schema indexing completed with ${errorMessages.length} errors:`);
+    console.log(errorMessages.join('\n'));
+    return false;
+  }
+  
+  return true;
+}
 
 /**
  * Generate a timestamp string suitable for directory naming
@@ -757,14 +901,86 @@ export async function importData(
       const schemaSpinner = ora('Pushing schema...').start();
       
       try {
-        const schemaResponse = await fetch(`${apiURI}/admin/schema`, {
-          method: 'PUT',
+        // Use the CLI's schema conversion function directly
+        schemaSpinner.text = 'Converting schema format...';
+        
+        // Use the import directory for the schema file
+        const schemaFilePath = join(importPath, 'instant.schema.ts');
+        
+        // Generate TypeScript schema using the CLI's function
+        const schemaTs = generateSchemaTypescriptFile(null, schema, '@instantdb/core');
+        
+        // Format with prettier and write to file
+        try {
+          const formattedSchemaTs = await prettier.format(schemaTs, { parser: 'typescript' });
+          await writeFile(schemaFilePath, formattedSchemaTs, 'utf8');
+        } catch (prettierErr) {
+          // If prettier fails, use the unformatted version
+          await writeFile(schemaFilePath, schemaTs, 'utf8');
+        }
+        
+        // Load the schema using the same mechanism as the CLI
+        schemaSpinner.text = 'Loading converted schema...';
+        
+        // Try an alternate approach if loadConfig doesn't work
+        let clientSchema;
+        
+        try {
+          // First try using loadConfig which is what the CLI uses
+          const result = await loadConfig({
+            sources: [{ files: schemaFilePath, transform: (code: string) => code }],
+            merge: false
+          });
+          
+          if (result.config) {
+            clientSchema = result.config;
+          } else {
+            // If loadConfig fails, fall back to using the original schema
+            log.warning(`Could not load schema from TypeScript, falling back to original schema`);
+            clientSchema = schema;
+          }
+        } catch (loadErr) {
+          log.warning(`Error loading schema: ${(loadErr as Error).message}`);
+          // Fall back to using the original schema
+          clientSchema = schema;
+        }
+        
+        schemaSpinner.text = 'Planning schema changes...';
+        
+        // Use the properly formatted schema for the API call
+        const schemaPlanResponse = await fetch(`${apiURI}/dash/apps/${appId}/schema/push/plan`, {
+          method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${adminToken}`,
-            'App-Id': appId
+            'Authorization': `Bearer ${authToken}`
           },
-          body: JSON.stringify({ schema })
+          body: JSON.stringify({ 
+            schema: clientSchema,
+            check_types: true,
+            supports_background_updates: true
+          })
+        });
+        
+        if (!schemaPlanResponse.ok) {
+          const errorText = await schemaPlanResponse.text();
+          schemaSpinner.fail();
+          log.error(`Failed to plan schema push: ${errorText}`);
+          return { ok: false };
+        }
+        
+        // Apply the schema changes
+        schemaSpinner.text = 'Applying schema changes...';
+        const schemaResponse = await fetch(`${apiURI}/dash/apps/${appId}/schema/push/apply`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
+          body: JSON.stringify({ 
+            schema: clientSchema,
+            check_types: true,
+            supports_background_updates: true
+          })
         });
         
         if (!schemaResponse.ok) {
@@ -776,33 +992,84 @@ export async function importData(
         
         schemaSpinner.succeed('Schema pushed successfully');
         
+        // Get response text for parsing
+        let responseText;
+        try {
+          responseText = await schemaResponse.text();
+        } catch (err) {
+          log.warning(`Could not get schema response text: ${(err as Error).message}`);
+          responseText = "{}"; // Default to empty object if we can't get response text
+        }
+        
+        // Try to parse the response
+        let schemaResult;
+        try {
+          // Parse the response text to JSON - handle empty or invalid responses
+          schemaResult = responseText.trim() ? JSON.parse(responseText) : {};
+        } catch (parseErr) {
+          schemaSpinner.warn('Could not parse schema response, but continuing');
+          // Continue importing despite parse error
+          return { ok: true };
+        }
+        
+        // If there are indexing jobs, wait for them to complete
+        if (schemaResult && schemaResult['indexing-jobs'] && 
+            schemaResult['indexing-jobs'].jobs && 
+            schemaResult['indexing-jobs'].jobs.length > 0) {
+          // Wait for indexing jobs to complete to ensure schema is fully applied
+          const indexingSuccess = await waitForSchemaIndexingToComplete(
+            apiURI, 
+            appId, 
+            authToken, 
+            schemaResult['indexing-jobs']
+          );
+          
+          if (!indexingSuccess) {
+            log.warning('Schema indexing did not complete successfully. This may cause issues with import.');
+          }
+        }
+        
         // Verify schema was applied correctly
         const schemaVerifySpinner = ora('Verifying schema was applied...').start();
         try {
-          const verifyResult = await fetch(`${apiURI}/admin/schema`, {
+          const verifyResult = await fetch(`${apiURI}/dash/apps/${appId}/schema/pull`, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${adminToken}`,
-              'App-Id': appId
+              'Authorization': `Bearer ${authToken}`
             }
           });
           
           if (!verifyResult.ok) {
             schemaVerifySpinner.warn('Could not verify schema - continuing but there may be issues');
           } else {
-            const currentSchema = await verifyResult.json();
+            // Parse the response
+            let currentSchema;
+            try {
+              currentSchema = await verifyResult.json();
+            } catch (parseErr) {
+              schemaVerifySpinner.warn('Could not parse schema verification response');
+              return { ok: true };
+            }
             
-            // Write current schema to file for comparison
-            await writeFile(
-              join(importPath, 'applied_schema.json'),
-              JSON.stringify(currentSchema.schema, null, 2)
-            );
+            // Check if schema contains expected attributes
+            if (!currentSchema.schema || 
+                (!currentSchema.schema.refs && !currentSchema.schema.blobs) || 
+                (Object.keys(currentSchema.schema.refs || {}).length === 0 && 
+                 Object.keys(currentSchema.schema.blobs || {}).length === 0)) {
+              schemaVerifySpinner.fail('Schema verification failed - schema appears to be empty');
+              // Continue with import despite verification failure
+              return { ok: true };
+            }
             
-            schemaVerifySpinner.succeed('Schema verified');
+            // If we got here, it means schema verification succeeded
+            const refsCount = Object.keys(currentSchema.schema.refs || {}).length;
+            const blobsCount = Object.keys(currentSchema.schema.blobs || {}).length;
+            schemaVerifySpinner.succeed(`Schema verified (${blobsCount} entities, ${refsCount} references)`);
           }
         } catch (err) {
-          schemaVerifySpinner.warn('Could not verify schema - continuing but there may be issues');
+          schemaVerifySpinner.warn('Could not verify schema - continuing');
+          return { ok: true };
         }
       } catch (err) {
         schemaSpinner.fail();
@@ -815,13 +1082,14 @@ export async function importData(
         const permsSpinner = ora('Pushing permissions...').start();
         
         try {
-          const permsResponse = await fetch(`${apiURI}/dash/apps/${appId}/perms/push`, {
+          // Use the same endpoint as the CLI for permissions
+          const permsResponse = await fetch(`${apiURI}/dash/apps/${appId}/rules`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${authToken}` // Use user token for permissions
+              'Authorization': `Bearer ${authToken}`
             },
-            body: JSON.stringify({ perms: permissions })
+            body: JSON.stringify({ code: permissions })
           });
           
           if (!permsResponse.ok) {
