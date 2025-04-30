@@ -401,7 +401,6 @@ program
     '-a --app <app-id>',
     'App ID to push to. Defaults to *_INSTANT_APP_ID in .env',
   )
-  .option('-o --override', 'Override existing schema')
   .description('Pull schema and perm files from production.')
   .action(async function (arg, inputOpts) {
     const ret = convertPushPullToCurrentFormat('pull', arg, inputOpts);
@@ -504,7 +503,7 @@ async function handlePull(bag, opts) {
   await pull(bag, appId, pkgAndAuthInfo);
 }
 
-async function pull(bag, appId, pkgAndAuthInfo, opts) {
+async function pull(bag, appId, pkgAndAuthInfo) {
   if (bag === 'schema' || bag === 'all') {
     const { ok } = await pullSchema(appId, pkgAndAuthInfo);
     if (!ok) return process.exit(1);
@@ -747,7 +746,7 @@ async function resolvePackageAndAuthInfoWithErrorLogging() {
   return { pkgDir, instantModuleName, authToken };
 }
 
-async function pullSchema(appId, { pkgDir, instantModuleName }, { override }) {
+async function pullSchema(appId, { pkgDir, instantModuleName }) {
   console.log('Pulling schema...');
 
   const pullRes = await fetchJson({
@@ -767,7 +766,7 @@ async function pullSchema(appId, { pkgDir, instantModuleName }, { override }) {
   }
 
   const prev = await readLocalSchemaFile();
-  if (!override && prev) {
+  if (prev) {
     const shouldContinue = await promptOk(
       'This will overwrite your local instant.schema file, OK to proceed?',
     );
@@ -792,7 +791,7 @@ async function pullSchema(appId, { pkgDir, instantModuleName }, { override }) {
   return { ok: true };
 }
 
-async function pullPerms(appId, { pkgDir, instantModuleName }, { override }) {
+async function pullPerms(appId, { pkgDir, instantModuleName }) {
   console.log('Pulling perms...');
 
   const pullRes = await fetchJson({
@@ -803,7 +802,7 @@ async function pullPerms(appId, { pkgDir, instantModuleName }, { override }) {
 
   if (!pullRes.ok) return pullRes;
   const prev = await readLocalPermsFile();
-  if (!override && prev) {
+  if (prev) {
     const shouldContinue = await promptOk(
       'This will overwrite your local instant.perms file, OK to proceed?',
     );
