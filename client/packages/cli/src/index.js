@@ -362,7 +362,7 @@ program
   .description('Push schema and perm files to production.')
   .action(async function (arg, inputOpts) {
     const ret = convertPushPullToCurrentFormat('push', arg, inputOpts);
-    if (!ret.ok) return;
+    if (!ret.ok) return process.exit(1);
     const { bag, opts } = ret;
     await handlePush(bag, opts);
   });
@@ -404,7 +404,7 @@ program
   .description('Pull schema and perm files from production.')
   .action(async function (arg, inputOpts) {
     const ret = convertPushPullToCurrentFormat('pull', arg, inputOpts);
-    if (!ret.ok) return;
+    if (!ret.ok) return process.exit(1);
     const { bag, opts } = ret;
     await handlePull(bag, opts);
   });
@@ -414,22 +414,23 @@ program.parse(process.argv);
 // command actions
 async function handlePush(bag, opts) {
   const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
-  if (!pkgAndAuthInfo) return;
+  if (!pkgAndAuthInfo) return process.exit(1);
   const { ok, appId } = await detectOrCreateAppAndWriteToEnv(
     pkgAndAuthInfo,
     opts,
   );
-  if (!ok) return;
+  if (!ok) return process.exit(1);
   await push(bag, appId, opts);
 }
 
 async function push(bag, appId, opts) {
   if (bag === 'schema' || bag === 'all') {
     const { ok } = await pushSchema(appId, opts);
-    if (!ok) return;
+    if (!ok) return process.exit(1);
   }
   if (bag === 'perms' || bag === 'all') {
-    await pushPerms(appId);
+    const { ok } = await pushPerms(appId);
+    if (!ok) return process.exit(1);
   }
 }
 
@@ -491,22 +492,25 @@ async function detectOrCreateAppAndWriteToEnv(pkgAndAuthInfo, opts) {
 
 async function handlePull(bag, opts) {
   const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
-  if (!pkgAndAuthInfo) return;
+  if (!pkgAndAuthInfo) return process.exit(1);
   const { ok, appId } = await detectOrCreateAppAndWriteToEnv(
     pkgAndAuthInfo,
     opts,
   );
-  if (!ok) return;
+  if (!ok) {
+    return process.exit(1);
+  }
   await pull(bag, appId, pkgAndAuthInfo);
 }
 
 async function pull(bag, appId, pkgAndAuthInfo) {
   if (bag === 'schema' || bag === 'all') {
     const { ok } = await pullSchema(appId, pkgAndAuthInfo);
-    if (!ok) return;
+    if (!ok) return process.exit(1);
   }
   if (bag === 'perms' || bag === 'all') {
-    await pullPerms(appId, pkgAndAuthInfo);
+    const { ok } = await pullPerms(appId, pkgAndAuthInfo);
+    if (!ok) return process.exit(1);
   }
 }
 
@@ -519,7 +523,9 @@ async function login(options) {
     noAuth: true,
   });
 
-  if (!registerRes.ok) return;
+  if (!registerRes.ok) {
+    return process.exit(1);
+  }
 
   const { secret, ticket } = registerRes.data;
 
@@ -535,7 +541,7 @@ async function login(options) {
   console.log('Waiting for authentication...');
   const authTokenRes = await waitForAuthToken({ secret });
   if (!authTokenRes) {
-    return;
+    return process.exit(1);
   }
 
   const { token, email } = authTokenRes;
@@ -793,7 +799,7 @@ async function pullPerms(appId, { pkgDir, instantModuleName }) {
     errorMessage: 'Failed to pull perms.',
   });
 
-  if (!pullRes.ok) return;
+  if (!pullRes.ok) return pullRes;
   const prev = await readLocalPermsFile();
   if (prev) {
     const shouldContinue = await promptOk(
@@ -812,7 +818,7 @@ async function pullPerms(appId, { pkgDir, instantModuleName }) {
 
   console.log('✅ Wrote permissions to instant.perms.ts');
 
-  return true;
+  return { ok: true };
 }
 
 function indexingJobCompletedActionMessage(job) {
@@ -1144,7 +1150,7 @@ async function pushSchema(appId, opts) {
 async function pushPerms(appId) {
   const res = await readLocalPermsFileWithErrorLogging();
   if (!res) {
-    return;
+    return { ok: true };
   }
 
   console.log('Planning perms...');
@@ -1155,7 +1161,7 @@ async function pushPerms(appId) {
     errorMessage: 'Failed to pull perms.',
   });
 
-  if (!prodPerms.ok) return;
+  if (!prodPerms.ok) return prodPerms;
 
   const diffedStr = jsonDiff.diffString(
     prodPerms.data.perms || {},
@@ -1163,14 +1169,14 @@ async function pushPerms(appId) {
   );
   if (!diffedStr.length) {
     console.log('No perms changes detected. Skipping.');
-    return;
+    return { ok: true };
   }
 
   console.log('The following changes will be applied to your perms:');
   console.log(diffedStr);
 
   const okPush = await promptOk('OK to proceed?');
-  if (!okPush) return;
+  if (!okPush) return { ok: true };
 
   const permsRes = await fetchJson({
     method: 'POST',
@@ -1182,11 +1188,11 @@ async function pushPerms(appId) {
     },
   });
 
-  if (!permsRes.ok) return;
+  if (!permsRes.ok) return permsRes;
 
   console.log(chalk.green('Permissions updated!'));
 
-  return true;
+  return { ok: true };
 }
 
 async function waitForAuthToken({ secret }) {
