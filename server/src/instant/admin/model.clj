@@ -208,7 +208,11 @@
       "ruleParams" (expand-rule-params attrs args)
       "add-attr" (expand-add-attr attrs args)
       "delete-attr" (expand-delete-attr attrs args)
-      (throw (ex-info (str "unsupported action " action) {})))))
+      (ex/throw-validation-err!
+       :action
+       action
+       [{:message (str "Unsupported action " action)
+         :hint {:value action}}]))))
 
 (defn create-object-attr
   ([etype label] (create-object-attr etype label nil))
