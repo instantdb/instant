@@ -1760,7 +1760,7 @@ function schemaBlobToCodeStr(name, attrs) {
           `i.${type}()`,
           config['unique?'] ? '.unique()' : '',
           config['index?'] ? '.indexed()' : '',
-          config['required?'] ? '.required()' : '',
+          config['required?'] ? '' : '.optional()',
           `,`,
         ].join('');
       })

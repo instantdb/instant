@@ -182,7 +182,7 @@
                                        :reverse-identity  [nil (:on reverse) (:label reverse)]
                                        :cardinality       (keyword (:has forward))
                                        :unique?           (= "one" (:has reverse))
-                                       :required?         (-> forward :required boolean)}])
+                                       :required?         (true? (:required forward))}])
                                    links))
         blobs-indexed (map-map (fn [[ns-name def]]
                                  (map-map (fn [[attr-name attr-def]]
@@ -192,7 +192,7 @@
                                              :forward-identity  [nil (name ns-name) (name attr-name)]
                                              :unique?           (-> attr-def :config :unique boolean)
                                              :index?            (-> attr-def :config :indexed boolean)
-                                             :required?         (-> attr-def :config :required boolean)
+                                             :required?         (true? (:required attr-def))
                                              :checked-data-type (let [{:keys [valueType]} attr-def]
                                                                   (when (contains? attr-model/checked-data-types valueType)
                                                                     (keyword valueType)))})
