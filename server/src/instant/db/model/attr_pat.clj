@@ -346,7 +346,10 @@
         :else
         (if (and (:checked-data-type attr)
                  (not (:checking-data-type? attr)))
-          (coerced-value-with-checked-type! state attr (:checked-data-type attr) v)
+          (let [coerced (coerced-value-with-checked-type! state attr (:checked-data-type attr) v)]
+            (if (:index? attr)
+              coerced
+              v))
           v)))
 
 (defn ->value-attr-pat
