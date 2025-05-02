@@ -192,6 +192,12 @@ const defaultConfig = {
 };
 
 // hmr
+function initSchemaHashStore(): WeakMap<any, string> {
+  globalThis.__instantDbSchemaHashStore =
+    globalThis.__instantDbSchemaHashStore ?? new WeakMap<any, string>();
+  return globalThis.__instantDbSchemaHashStore;
+}
+
 function initGlobalInstantCoreStore(): Record<string, any> {
   globalThis.__instantDbStore = globalThis.__instantDbStore ?? {};
   return globalThis.__instantDbStore;
@@ -212,6 +218,7 @@ function reactorKey(config: InstantConfig<any>): string {
 }
 
 const globalInstantCoreStore = initGlobalInstantCoreStore();
+const schemaHashStore = initSchemaHashStore();
 
 type SignoutOpts = {
   invalidateToken?: boolean;
@@ -647,6 +654,27 @@ class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
   }
 }
 
+function schemaHash(schema: InstantSchemaDef<any, any, any> | string): string {
+  if (schemaHashStore.get(schema)) {
+    console.log('getting cached schema');
+    return schemaHashStore.get(schema);
+  }
+  console.log('calculating schema hash');
+  const hash = weakHash(schema);
+  schemaHashStore.set(schema, hash);
+  return hash;
+}
+
+function schemaChanged(
+  existingClient: InstantCoreDatabase<any>,
+  newSchema?: InstantSchemaDef<any, any, any>,
+): boolean {
+  return (
+    schemaHash(existingClient._reactor.config.schema || 'no-schema') !==
+    schemaHash(newSchema || 'no-schema')
+  );
+}
+
 /**
  *
  * The first step: init your application!
@@ -680,6 +708,9 @@ function init<
   ] as InstantCoreDatabase<any>;
 
   if (existingClient) {
+    if (schemaChanged(existingClient, config.schema)) {
+      existingClient._reactor.updateSchema(config.schema);
+    }
     return existingClient;
   }
 

@@ -224,6 +224,15 @@ export default class Reactor {
     }
   }
 
+  updateSchema(schema) {
+    this.config = {
+      ...this.config,
+      schema: schema,
+      cardinalityInference: Boolean(schema),
+    };
+    this._linkIndex = schema ? createLinkIndex(this.config.schema) : null;
+  }
+
   _initStorage(Storage) {
     this._persister = new Storage(`instant_${this.config.appId}_5`);
     this.querySubs = new PersistedObject(
