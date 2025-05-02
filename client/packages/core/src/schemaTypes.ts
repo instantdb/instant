@@ -3,40 +3,50 @@ import type { RoomSchemaShape } from './presence';
 export class DataAttrDef<ValueType, IsRequired extends RequirementKind> {
   constructor(
     public valueType: ValueTypes,
+    public required: IsRequired,
     public config: {
       indexed: boolean;
       unique: boolean;
-      required?: IsRequired;
       // clientValidator?: (value: ValueType) => boolean;
     } = { indexed: false, unique: false },
   ) {}
 
-  required() {
-    return new DataAttrDef<ValueType, true>(this.valueType, {
-      ...this.config,
-      required: true,
-    });
+  clientRequired() {
+    return new DataAttrDef<ValueType, 'clientRequired'>(
+      this.valueType,
+      'clientRequired',
+      this.config,
+    );
   }
 
   optional() {
-    return new DataAttrDef<ValueType, false>(this.valueType, {
-      ...this.config,
-      required: false,
-    });
+    return new DataAttrDef<ValueType, false>(
+      this.valueType,
+      false,
+      this.config,
+    );
   }
 
   unique() {
-    return new DataAttrDef<ValueType, IsRequired>(this.valueType, {
-      ...this.config,
-      unique: true,
-    });
+    return new DataAttrDef<ValueType, IsRequired>(
+      this.valueType,
+      this.required,
+      {
+        ...this.config,
+        unique: true,
+      },
+    );
   }
 
   indexed() {
-    return new DataAttrDef<ValueType, IsRequired>(this.valueType, {
-      ...this.config,
-      indexed: true,
-    });
+    return new DataAttrDef<ValueType, IsRequired>(
+      this.valueType,
+      this.required,
+      {
+        ...this.config,
+        indexed: true,
+      },
+    );
   }
 
   // clientValidate(clientValidator: (value: ValueType) => boolean) {
@@ -72,10 +82,10 @@ export type ValueTypes = 'string' | 'number' | 'boolean' | 'date' | 'json';
 
 export type CardinalityKind = 'one' | 'many';
 
-// true      - force required
-// undefined - required in types, not required in backend
-// false     - optional, not required
-export type RequirementKind = true | undefined | false;
+// true           - force required
+// clientRequired - required in types, not required in backend
+// false          - optional, not required
+export type RequirementKind = true | 'clientRequired' | false;
 
 export type AttrsDefs = Record<string, DataAttrDef<any, any>>;
 
@@ -232,7 +242,7 @@ type LinksIndexedByEntity<
 
 type RequiredKeys<Attrs extends AttrsDefs> = {
   [K in keyof Attrs]: Attrs[K] extends DataAttrDef<any, infer R>
-    ? R extends true | undefined // TODO move undefined to OptionalKeys
+    ? R extends true | 'clientRequired'
       ? K
       : never
     : never;
@@ -387,7 +397,7 @@ type EntityDefFromRoomSlice<Shape extends { [k: string]: any }> = EntityDef<
   {
     [AttrName in keyof Shape]: DataAttrDef<
       Shape[AttrName],
-      Shape[AttrName] extends undefined ? false : undefined
+      Shape[AttrName] extends undefined ? false : true
     >;
   },
   any,
@@ -409,7 +419,7 @@ type EntityDefFromShape<Shape, K extends keyof Shape> = EntityDef<
   {
     [AttrName in keyof Shape[K]]: DataAttrDef<
       Shape[K][AttrName],
-      Shape[K][AttrName] extends undefined ? false : undefined
+      Shape[K][AttrName] extends undefined ? false : true
     >;
   },
   {
@@ -446,7 +456,7 @@ export type BackwardsCompatibleSchema<
 
 export type UnknownEntity = EntityDef<
   {
-    id: DataAttrDef<string, undefined>;
+    id: DataAttrDef<string, 'clientRequired'>;
     [AttrName: string]: DataAttrDef<any, any>;
   },
   { [LinkName: string]: LinkAttrDef<'many', string> },
@@ -492,9 +502,9 @@ export type UpdateParams<
     infer ValueType,
     infer IsRequired
   >
-    ? IsRequired extends false
-      ? ValueType | null
-      : ValueType
+    ? IsRequired extends true | 'clientRequired'
+      ? ValueType
+      : ValueType | null
     : never;
 };
 
