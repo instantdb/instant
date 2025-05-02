@@ -985,6 +985,7 @@ export default class Reactor {
   };
 
   shutdown() {
+    this._log.info('[shutdown]', this.config.appId);
     this._isShutdown = true;
     this._ws?.close();
   }
