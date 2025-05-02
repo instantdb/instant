@@ -12,28 +12,52 @@ const schema = i.schema({
   },
 });
 
-const db = init({ ...config, schema });
+const db = init({
+  ...config,
+  schema, // feel free to comment this out too
+});
 
 function PostsQuery() {
   const { data, isLoading, error } = db.useQuery({ posts: {} });
 
+  const addPost = async () => {
+    const postId = id();
+    await db.transact(
+      db.tx.posts[postId].update({ title: `Post ${Date.now()}` }),
+    );
+  };
+  const deletePosts = async () => {
+    const { posts } = data || {};
+    if (!posts) return;
+    await db.transact(posts.map((post) => db.tx.posts[post.id].delete()));
+  };
   return (
-    <ul className="space-y-1">
-      <li>
-        <span className="font-semibold">isLoading:</span>{' '}
-        {isLoading ? 'true' : 'false'}
-      </li>
-      <li>
-        <span className="font-semibold">error:</span>{' '}
-        {error ? error.message : 'none'}
-      </li>
-      <li className="font-semibold">posts:</li>
-      {data?.posts.map((p) => (
-        <li key={p.id} className="ml-4 list-disc">
-          {JSON.stringify(p)}
+    <div className="space-y-4">
+      <ul className="space-y-1">
+        <li>
+          <span className="font-semibold">isLoading:</span>{' '}
+          {isLoading ? 'true' : 'false'}
         </li>
-      ))}
-    </ul>
+        <li>
+          <span className="font-semibold">error:</span>{' '}
+          {error ? error.message : 'none'}
+        </li>
+        <li className="font-semibold">posts:</li>
+        {data?.posts.map((p) => (
+          <li key={p.id} className="ml-4 list-disc">
+            {JSON.stringify(p)}
+          </li>
+        ))}
+      </ul>
+      <div className="space-x-2">
+        <button onClick={addPost} className="text-white bg-black p-2">
+          Add post
+        </button>
+        <button onClick={deletePosts} className="text-white bg-black p-2">
+          Delete posts
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -47,13 +71,6 @@ export default function App() {
     );
     return () => clearInterval(t);
   }, []);
-
-  const addPost = async () => {
-    const postId = id();
-    await db.transact(
-      db.tx.posts[postId].update({ title: `Post ${Date.now()}` }),
-    );
-  };
 
   return (
     <div className="font-sans p-6 space-y-8">
@@ -76,9 +93,6 @@ export default function App() {
         <section className="space-y-4">
           <h2 className="text-xl font-semibold">Test 2: Live query</h2>
           <PostsQuery />
-          <button onClick={addPost} className="text-white bg-black p-2">
-            Add post
-          </button>
           <p>
             Click “Add post”, then tweak the schema again and add another post.
             The same&nbsp;

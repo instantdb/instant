@@ -654,7 +654,11 @@ class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
   }
 }
 
-function schemaHash(schema: InstantSchemaDef<any, any, any> | string): string {
+function schemaHash(schema?: InstantSchemaDef<any, any, any>): string {
+  if (!schema) {
+    return '0';
+  }
+
   if (schemaHashStore.get(schema)) {
     console.log('getting cached schema');
     return schemaHashStore.get(schema);
@@ -670,8 +674,7 @@ function schemaChanged(
   newSchema?: InstantSchemaDef<any, any, any>,
 ): boolean {
   return (
-    schemaHash(existingClient._reactor.config.schema || 'no-schema') !==
-    schemaHash(newSchema || 'no-schema')
+    schemaHash(existingClient._reactor.config.schema) !== schemaHash(newSchema)
   );
 }
 
