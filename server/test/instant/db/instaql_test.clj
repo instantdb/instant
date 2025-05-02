@@ -406,6 +406,92 @@
                                                       attrs))
                                                 nil
                                                 0]}}}))))))))
+(deftest equality-on-dates-without-index
+  (with-empty-app
+    (fn [app]
+      (let [id-aid (random-uuid)
+            date-aid (random-uuid)
+            post-id (random-uuid)
+            date-num (System/currentTimeMillis)]
+        (tx/transact! (aurora/conn-pool :write)
+                      (attr-model/get-by-app-id (:id app))
+                      (:id app)
+                      [[:add-attr {:id id-aid
+                                   :forward-identity [(random-uuid) "posts" "id"]
+                                   :unique? true
+                                   :index?  true
+                                   :value-type :blob
+                                   :cardinality :one}]
+                       [:add-attr {:id date-aid
+                                   :forward-identity [(random-uuid) "posts" "date"]
+                                   :unique? false
+                                   :index? false
+                                   :value-type :blob
+                                   :checked-data-type :date
+                                   :cardinality :one}]
+                       [:add-triple post-id id-aid post-id]
+                       [:add-triple post-id date-aid date-num]])
+        (testing "If we search for the exact underlying value, we will find it"
+          (let [ctx (make-ctx app)
+                {:strs [posts]} (instaql-nodes->object-tree
+                                 ctx
+                                 (iq/query ctx {:posts {:$ {:where {:date date-num}}}}))]
+
+            (is (= [date-num]
+                   (map (fn [x] (get x "date")) posts)))))
+        (testing "If we search for the value, but formatted differently, we will not find it"
+          (let [ctx (make-ctx app)
+                {:strs [posts]} (instaql-nodes->object-tree
+                                 ctx
+                                 (iq/query ctx {:posts {:$ {:where {:date
+                                                                    (.toString
+                                                                     (Instant/ofEpochMilli date-num))}}}}))]
+
+            (is (empty? posts))))))))
+
+(deftest equality-on-dates-with-index
+  (with-empty-app
+    (fn [app]
+      (let [id-aid (random-uuid)
+            date-aid (random-uuid)
+            post-id (random-uuid)
+            date-num (System/currentTimeMillis)]
+        (tx/transact! (aurora/conn-pool :write)
+                      (attr-model/get-by-app-id (:id app))
+                      (:id app)
+                      [[:add-attr {:id id-aid
+                                   :forward-identity [(random-uuid) "posts" "id"]
+                                   :unique? true
+                                   :index?  true
+                                   :value-type :blob
+                                   :cardinality :one}]
+                       [:add-attr {:id date-aid
+                                   :forward-identity [(random-uuid) "posts" "date"]
+                                   :unique? false
+                                   :index? true
+                                   :value-type :blob
+                                   :checked-data-type :date
+                                   :cardinality :one}]
+                       [:add-triple post-id id-aid post-id]
+                       [:add-triple post-id date-aid date-num]])
+        (testing "If we search for the exact underlying value, we will find it"
+          (let [ctx (make-ctx app)
+                {:strs [posts]} (instaql-nodes->object-tree
+                                 ctx
+                                 (iq/query ctx {:posts {:$ {:where {:date date-num}}}}))]
+
+            (is (= [date-num]
+                   (map (fn [x] (get x "date")) posts)))))
+        (testing "If we search for the value, but formatted differently, we will _still_ find it"
+          (let [ctx (make-ctx app)
+                {:strs [posts]} (instaql-nodes->object-tree
+                                 ctx
+                                 (iq/query ctx {:posts {:$ {:where {:date
+                                                                    (.toString
+                                                                     (Instant/ofEpochMilli date-num))}}}}))]
+
+            (is (= [date-num]
+                   (map (fn [x] (get x "date")) posts)))))))))
 
 (deftest pagination
   (with-zeneca-app
@@ -4360,7 +4446,7 @@
               {:keys [patterns]} (iq/instaql-query->patterns ctx
                                                              {:users {:$ {:where {:handle "a"}}}})
               explain (binding [d/*use-pg-hints* true]
-                                     (d/explain ctx patterns))
+                        (d/explain ctx patterns))
               warnings (loop [msgs []
                               ^PSQLWarning warnings (:warnings (meta explain))]
                          (if warnings
