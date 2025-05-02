@@ -22,8 +22,12 @@ import {
   getInstallCommand,
 } from './util/packageManager.js';
 import { pathExists, readJsonFile } from './util/fs.js';
+import { isLinkedCLI, displayLinkedWarning } from './util/linkedCLI.js';
 import prettier from 'prettier';
 import toggle from './toggle.js';
+import { exportData } from './export.js';
+import { importData } from './import.js';
+import { migrateData } from './migrate.js';
 
 const execAsync = promisify(exec);
 
@@ -123,7 +127,10 @@ async function packageDirectoryWithErrorLogging() {
   return pkgDir;
 }
 
-// cli
+// Display linked CLI warning
+if (isLinkedCLI(version)) {
+  displayLinkedWarning();
+}
 
 // Header -- this shows up in every command
 const logoChalk = chalk.bold('instant-cli');
@@ -407,6 +414,139 @@ program
     if (!ret.ok) return process.exit(1);
     const { bag, opts } = ret;
     await handlePull(bag, opts);
+  });
+
+program
+  .command('export')
+  .option(
+    '-a --app <app-id>',
+    'App ID to export from. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .option(
+    '-o --output <output-dir>',
+    'Directory to export data to. Defaults to ./instant-export',
+  )
+  .option(
+    '-l --limit <limit>',
+    'Limit the number of entities per namespace. Use "none" for no limit.',
+    (val) => val === 'none' ? 'none' : parseInt(val, 10),
+    10
+  )
+  .option(
+    '--link-limit <limit>',
+    'Limit the number of linked entities per relationship. Use "none" for no limit.',
+    '100'
+  )
+  .option(
+    '--batch-size <size>',
+    'Number of entities to fetch in each API request batch.',
+    (val) => parseInt(val, 10),
+    100
+  )
+  .option(
+    '--sleep <ms>',
+    'Milliseconds to sleep between API request batches (for rate limiting).',
+    (val) => parseInt(val, 10),
+    100
+  )
+  .option(
+    '--dry-run',
+    'Print queries without executing them or writing files',
+    false
+  )
+  .option(
+    '--verbose',
+    'Print detailed logs during export process',
+    false
+  )
+  .description('Export schema and data to local JSON files.')
+  .action(async function (opts) {
+    await handleExport(opts);
+  });
+
+program
+  .command('import')
+  .option(
+    '-a --app <app-id>',
+    'App ID to import to. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .option(
+    '-i --input <input-dir>',
+    'Directory to import data from. Defaults to ./instant-export',
+  )
+  .option(
+    '--batch-size <size>',
+    'Number of entities to import in each API request batch.',
+    (val) => parseInt(val, 10),
+    100
+  )
+  .option(
+    '--sleep <ms>',
+    'Milliseconds to sleep between API request batches (for rate limiting).',
+    (val) => parseInt(val, 10),
+    100
+  )
+  .option(
+    '--dry-run',
+    'Print operations without executing them',
+    false
+  )
+  .option(
+    '--verbose',
+    'Print detailed logs during import process',
+    false
+  )
+  .option(
+    '--force',
+    'Skip confirmation prompts',
+    false
+  )
+  .description('Import schema and data from exported JSON files.')
+  .action(async function (opts) {
+    await handleImport(opts);
+  });
+
+program
+  .command('migrate')
+  .argument('[scripts...]', 'Migration scripts to run (JS files with a default export function)')
+  .option(
+    '-a --app <app-id>',
+    'App ID to migrate. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .option(
+    '-b --base <base-dir>',
+    'Base directory to use for migration. Can be an export directory, "select" to choose from available exports, or omitted to export current app.',
+  )
+  .option(
+    '--publish',
+    'Import migrated data back to the app after migration completes',
+    false
+  )
+  .option(
+    '--batch-size <size>',
+    'Number of entities to process in each API request batch (for export/import).',
+    (val) => parseInt(val, 10),
+    100
+  )
+  .option(
+    '--sleep <ms>',
+    'Milliseconds to sleep between API request batches (for rate limiting).',
+    (val) => parseInt(val, 10),
+    100
+  )
+  .option(
+    '--verbose',
+    'Print detailed logs during migration process',
+    false
+  )
+  .option(
+    '--force',
+    'Skip confirmation prompts',
+    false
+  )
+  .description('Migrate data through scripts and optionally publish changes.')
+  .action(async function (scripts, opts) {
+    await handleMigrate(scripts, opts);
   });
 
 program.parse(process.argv);
@@ -1907,3 +2047,79 @@ export type { AppSchema }
 export default schema;
 `;
 }
+
+async function handleExport(opts) {
+  const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
+  if (!pkgAndAuthInfo) return;
+  const { ok, appId } = await detectOrCreateAppWithErrorLogging(opts);
+  if (!ok) return;
+  
+  // Prepare options with correct property names
+  const exportOptions = {
+    output: opts.output,
+    limit: opts.limit,
+    linkLimit: opts.linkLimit,
+    dryRun: opts.dryRun,
+    batchSize: opts.batchSize,
+    sleep: opts.sleep,
+    verbose: opts.verbose,
+  };
+  
+  await exportData(appId, pkgAndAuthInfo, exportOptions);
+}
+
+async function handleImport(opts) {
+  const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
+  if (!pkgAndAuthInfo) return;
+  const { ok, appId } = await detectOrCreateAppWithErrorLogging(opts);
+  if (!ok) return;
+  
+  // Prepare options with correct property names
+  const importOptions = {
+    input: opts.input,
+    dryRun: opts.dryRun,
+    batchSize: opts.batchSize,
+    sleep: opts.sleep,
+    verbose: opts.verbose,
+    force: opts.force,
+  };
+  
+  await importData(appId, pkgAndAuthInfo, importOptions);
+}
+
+async function handleMigrate(scripts, opts) {
+  const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
+  if (!pkgAndAuthInfo) return;
+  const { ok, appId } = await detectOrCreateAppWithErrorLogging(opts);
+  if (!ok) return;
+  
+  if (scripts.length === 0) {
+    console.error(chalk.red('Error: No migration scripts specified.'));
+    console.log('Usage: instant migrate [scripts...] [options]');
+    console.log('Example: instant migrate ./migrations/add-timestamps.js ./migrations/update-schema.js --publish');
+    return;
+  }
+  
+  // Check that all scripts exist
+  for (const script of scripts) {
+    if (!await pathExists(script)) {
+      console.error(chalk.red(`Error: Migration script not found: ${script}`));
+      return;
+    }
+  }
+  
+  // Prepare options with correct property names
+  const migrateOptions = {
+    base: opts.base,
+    publish: opts.publish,
+    batchSize: opts.batchSize,
+    sleep: opts.sleep,
+    verbose: opts.verbose,
+    force: opts.force,
+  };
+  
+  await migrateData(appId, scripts, pkgAndAuthInfo, migrateOptions);
+}
+
+// Export utility functions for use in other modules
+export { generateSchemaTypescriptFile, readLocalSchemaFile };

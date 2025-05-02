@@ -27,7 +27,9 @@
     "test": "vitest",
     "build": "rm -rf dist; tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json -w --skipLibCheck --preserveWatchOutput",
-    "publish-package": "pnpm publish --access public --no-git-checks"
+    "publish-package": "pnpm publish --access public --no-git-checks",
+    "link": "pnpm build && npm link",
+    "unlink": "npm unlink -g instant-cli"
   },
   "devDependencies": {
     "@babel/core": "^7.17.9",
