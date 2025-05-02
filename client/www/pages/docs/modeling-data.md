@@ -157,21 +157,23 @@ Instant will _make sure_ that all `title` attributes are strings, and you'll get
 
 ### Required constraints
 
-All attributes you define are considered *required* by default. This constraint is enforced on the backend: Instant guarantees that every entity of that type will have a value and reports errors if you attempt to add an entity without a required attribute.
+All attributes you define are considered _required_ by default. This constraint is enforced on the backend: Instant guarantees that every entity of that type will have a value and reports errors if you attempt to add an entity without a required attribute.
 
 ```typescript
 const _schema = i.schema({
   entities: {
     posts: i.entity({
-      title: i.string(),  // <-- required
-      published: i.date() // <-- required
-    })
-  }
+      title: i.string(), // <-- required
+      published: i.date(), // <-- required
+    }),
+  },
 });
 
-db.transact(db.tx.goals[id()].update({
-  'title': 'abc' // <-- no published -- will throw
-}));
+db.transact(
+  db.tx.goals[id()].update({
+    title: 'abc', // <-- no published -- will throw
+  }),
+);
 ```
 
 You can mark attribute as optional by calling `.optional()`:
@@ -180,15 +182,17 @@ You can mark attribute as optional by calling `.optional()`:
 const _schema = i.schema({
   entities: {
     posts: i.entity({
-      title: i.string(),  // <-- required
-      published: i.date().optional() // <-- optional
-    })
-  }
+      title: i.string(), // <-- required
+      published: i.date().optional(), // <-- optional
+    }),
+  },
 });
 
-db.transact(db.tx.goals[id()].update({
-  'title': 'abc' // <-- no published -- still okay
-}));
+db.transact(
+  db.tx.goals[id()].update({
+    title: 'abc', // <-- no published -- still okay
+  }),
+);
 ```
 
 This will also reflect in types: query results containing `posts` will show `title: string` (non-nullable) and `published: string | number | null` (nullable).
@@ -209,9 +213,9 @@ const _schema = i.schema({
   entities: {
     posts: i.entity({
       title: i.string().clientRequired(),
-      published: i.date().optional()
-    })
-  }
+      published: i.date().optional(),
+    }),
+  },
 });
 ```
 
