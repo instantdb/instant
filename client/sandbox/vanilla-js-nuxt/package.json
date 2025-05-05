@@ -1,0 +1,19 @@
+{
+  "name": "issue-demo-idbinwisr",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "@instantdb/admin": "*",
+    "@instantdb/core": "*",
+    "nuxt": "^3.17.0",
+    "uuid": "^11.1.0",
+    "vue": "^3.5.13"
+  }
+}
