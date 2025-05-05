@@ -305,67 +305,68 @@
           [:delete-entity entity_id etype])))))
 
 (defn transact-without-tx-conn-impl! [conn attrs app-id grouped-tx-steps opts]
-  (let [tx-steps (apply concat (vals grouped-tx-steps))]
-    (tracer/with-span! {:name "transaction/transact!"
-                        :attributes {:app-id app-id
-                                     :num-tx-steps (count tx-steps)
-                                     :detailed-tx-steps (pr-str tx-steps)}}
-      (prevent-system-catalog-updates! app-id opts)
-      (prevent-$files-updates attrs grouped-tx-steps opts)
-      (let [results
-            (reduce-kv
-             (fn [acc op tx-steps]
-               (when (#{:add-attr :update-attr} op)
-                 (prevent-system-catalog-attrs-updates! op tx-steps))
-               (cond
-                 (empty? tx-steps)
-                 acc
+  (binding [ex/*get-attr-for-exception* (partial get-attr-for-exception attrs)]
+    (let [tx-steps (apply concat (vals grouped-tx-steps))]
+      (tracer/with-span! {:name "transaction/transact!"
+                          :attributes {:app-id app-id
+                                       :num-tx-steps (count tx-steps)
+                                       :detailed-tx-steps (pr-str tx-steps)}}
+        (prevent-system-catalog-updates! app-id opts)
+        (prevent-$files-updates attrs grouped-tx-steps opts)
+        (let [results
+              (reduce-kv
+               (fn [acc op tx-steps]
+                 (when (#{:add-attr :update-attr} op)
+                   (prevent-system-catalog-attrs-updates! op tx-steps))
+                 (cond
+                   (empty? tx-steps)
+                   acc
 
-                 (= :rule-params op)
-                 acc
+                   (= :rule-params op)
+                   acc
 
-                 :else
-                 (assoc acc op
-                        (case op
-                          :add-attr
-                          (attr-model/insert-multi! conn app-id (map second tx-steps))
+                   :else
+                   (assoc acc op
+                          (case op
+                            :add-attr
+                            (attr-model/insert-multi! conn app-id (map second tx-steps))
 
-                          :delete-attr
-                          (attr-model/delete-multi! conn app-id (map second tx-steps))
+                            :delete-attr
+                            (attr-model/delete-multi! conn app-id (map second tx-steps))
 
-                          :update-attr
-                          (attr-model/update-multi! conn app-id (map second tx-steps))
+                            :update-attr
+                            (attr-model/update-multi! conn app-id (map second tx-steps))
 
-                          :delete-entity
-                          (triple-model/delete-entity-multi! conn app-id (map next tx-steps))
+                            :delete-entity
+                            (triple-model/delete-entity-multi! conn app-id (map next tx-steps))
 
-                          :add-triple
-                          (triple-model/insert-multi! conn attrs app-id (map next tx-steps))
+                            :add-triple
+                            (triple-model/insert-multi! conn attrs app-id (map next tx-steps))
 
-                          :deep-merge-triple
-                          (triple-model/deep-merge-multi! conn attrs app-id (map next tx-steps))
+                            :deep-merge-triple
+                            (triple-model/deep-merge-multi! conn attrs app-id (map next tx-steps))
 
-                          :retract-triple
-                          (triple-model/delete-multi! conn app-id (map next tx-steps))))))
-             {}
-             grouped-tx-steps)
-            eid+attr-ids (distinct
-                          (concat
-                           (:delete-entity results)
-                           (:add-triple results)
-                           (:deep-merge-triple results)
-                           (:retract-triple results)))
-            _  (triple-model/validate-required! conn attrs app-id eid+attr-ids)
-            updated-attrs (-> grouped-tx-steps :update-attr (->> (map second)))
-            _  (attr-model/validate-update-required! conn app-id updated-attrs)
-            tx (transaction-model/create! conn {:app-id app-id})]
-        (let [tx-created-at (Date/.toInstant (:created_at tx))]
-          (e2e-tracer/start-invalidator-tracking! {:tx-id (:id tx)
-                                                   :tx-created-at tx-created-at})
-          (e2e-tracer/invalidator-tracking-step! {:tx-id (:id tx)
-                                                  :tx-created-at tx-created-at
-                                                  :name "transact"}))
-        (assoc tx :results results)))))
+                            :retract-triple
+                            (triple-model/delete-multi! conn app-id (map next tx-steps))))))
+               {}
+               grouped-tx-steps)
+              eid+attr-ids (distinct
+                            (concat
+                             (:delete-entity results)
+                             (:add-triple results)
+                             (:deep-merge-triple results)
+                             (:retract-triple results)))
+              _  (triple-model/validate-required! conn attrs app-id eid+attr-ids)
+              updated-attrs (-> grouped-tx-steps :update-attr (->> (map second)))
+              _  (attr-model/validate-update-required! conn app-id updated-attrs)
+              tx (transaction-model/create! conn {:app-id app-id})]
+          (let [tx-created-at (Date/.toInstant (:created_at tx))]
+            (e2e-tracer/start-invalidator-tracking! {:tx-id (:id tx)
+                                                     :tx-created-at tx-created-at})
+            (e2e-tracer/invalidator-tracking-step! {:tx-id (:id tx)
+                                                    :tx-created-at tx-created-at
+                                                    :name "transact"}))
+          (assoc tx :results results))))))
 
 (defn preprocess-tx-steps [conn attrs app-id tx-steps]
   (-> (group-by first tx-steps)
@@ -379,6 +380,9 @@
   ([conn attrs app-id tx-steps opts]
    (let [grouped-tx-steps (preprocess-tx-steps conn attrs app-id tx-steps)]
      (transact-without-tx-conn-impl! conn attrs app-id grouped-tx-steps opts))))
+
+(defn get-attr-for-exception [attrs attr-id]
+  (attr-model/seek-by-id attr-id attrs))
 
 (defn transact!
   ([conn attrs app-id tx-steps]
