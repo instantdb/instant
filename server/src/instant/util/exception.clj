@@ -505,7 +505,7 @@
         (throw+ {::type ::parameter-limit-exceeded
                  ::message "There are too many parameters in the transaction or query."
                  ::hint {:message "Consider batching transactions to reduce the number of writes in a single transaction."
-                         :docs "https://www.instantdb.com/docs/instaml#batching-transactions"}
+                         :doc-urls ["https://www.instantdb.com/docs/instaml#batching-transactions"]}
                  ::pg-error-data data})
         (default-psql-throw! e data hint))
 
