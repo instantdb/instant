@@ -764,6 +764,7 @@ async function pullSchema(appId, { pkgDir, instantModuleName }) {
     console.log('Schema is empty. Skipping.');
     return { ok: true };
   }
+
   const prev = await readLocalSchemaFile();
   if (prev) {
     const shouldContinue = await promptOk(
@@ -839,6 +840,12 @@ function indexingJobCompletedActionMessage(job) {
   }
   if (job.job_type === 'remove-unique') {
     return `removing uniqueness constraint from ${job.attr_name}`;
+  }
+  if (job.job_type === 'required') {
+    return `adding required constraint to ${job.attr_name}`;
+  }
+  if (job.job_type === 'remove-required') {
+    return `removing required constraint from ${job.attr_name}`;
   }
 }
 
@@ -1114,6 +1121,22 @@ async function pushSchema(appId, opts) {
         console.log(
           '%s from %s',
           chalk.red('REMOVE UNIQUE CONSTRAINT'),
+          attrFwdName(attr),
+        );
+        break;
+      }
+      case 'required': {
+        console.log(
+          '%s to %s',
+          chalk.green('ADD REQUIRED CONSTRAINT'),
+          attrFwdName(attr),
+        );
+        break;
+      }
+      case 'remove-required': {
+        console.log(
+          '%s from %s',
+          chalk.red('REMOVE REQUIRED CONSTRAINT'),
           attrFwdName(attr),
         );
         break;
@@ -1737,6 +1760,7 @@ function schemaBlobToCodeStr(name, attrs) {
           `i.${type}()`,
           config['unique?'] ? '.unique()' : '',
           config['index?'] ? '.indexed()' : '',
+          config['required?'] ? '' : '.optional()',
           `,`,
         ].join('');
       })
@@ -1865,6 +1889,9 @@ function generateSchemaTypescriptFile(
           label: rlabel,
         },
       };
+      if (config['required?']) {
+        desc.forward.required = true;
+      }
       if (config['on-delete'] === 'cascade') {
         desc.forward.onDelete = 'cascade';
       } else if (config['on-delete-reverse'] === 'cascade') {

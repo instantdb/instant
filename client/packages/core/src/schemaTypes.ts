@@ -1,6 +1,6 @@
 import type { RoomSchemaShape } from './presence';
 
-export class DataAttrDef<ValueType, IsRequired extends boolean> {
+export class DataAttrDef<ValueType, IsRequired extends RequirementKind> {
   constructor(
     public valueType: ValueTypes,
     public required: IsRequired,
@@ -11,8 +11,25 @@ export class DataAttrDef<ValueType, IsRequired extends boolean> {
     } = { indexed: false, unique: false },
   ) {}
 
+  /**
+   * @deprecated Only use this temporarily for attributes that you want
+   * to treat as required in frontend code but can’t yet mark as required
+   * and enforced for backend
+   */
+  clientRequired() {
+    return new DataAttrDef<ValueType, true>(
+      this.valueType,
+      false as unknown as true,
+      this.config,
+    );
+  }
+
   optional() {
-    return new DataAttrDef<ValueType, false>(this.valueType, false);
+    return new DataAttrDef<ValueType, false>(
+      this.valueType,
+      false,
+      this.config,
+    );
   }
 
   unique() {
@@ -70,6 +87,10 @@ export type ValueTypes = 'string' | 'number' | 'boolean' | 'date' | 'json';
 
 export type CardinalityKind = 'one' | 'many';
 
+// true  - force required
+// false - optional, not required
+export type RequirementKind = true | false;
+
 export type AttrsDefs = Record<string, DataAttrDef<any, any>>;
 
 export class EntityDef<
@@ -115,6 +136,7 @@ export type LinkDef<
     on: FwdEntity;
     label: FwdAttr;
     has: FwdCardinality;
+    required?: RequirementKind;
     onDelete?: 'cascade';
   };
   reverse: {
