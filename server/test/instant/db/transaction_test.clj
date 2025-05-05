@@ -3158,7 +3158,7 @@
 (deftest too-many-params
   (with-zeneca-app
     (fn [app r]
-      (let [txes (for [i (range 100000)
+      (let [txes (for [_i (range 100000)
                        :let [id (random-uuid)]]
                    [:add-triple id (resolvers/->uuid r :users/id) (str id)])
 

@@ -436,7 +436,7 @@
                      (string/trim (subs detail (inc start) end)))
                    (partition 2 1 borders))))))
 
-(defn default-psql-throw! [e {:keys [server-message condition table] :as data} hint]
+(defn default-psql-throw! [e {:keys [condition] :as data} hint]
   (throw+ {::type ::sql-exception
            ::message (format "SQL Exception: %s" (name condition))
            ::hint hint
