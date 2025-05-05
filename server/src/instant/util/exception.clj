@@ -35,6 +35,7 @@
                 ::validation-failed
                 ::operation-timed-out
                 ::rate-limited
+                ::parameter-limit-exceeded
 
                 ::oauth-error
 
@@ -417,6 +418,13 @@
                      (string/trim (subs detail (inc start) end)))
                    (partition 2 1 borders))))))
 
+(defn default-psql-throw! [e {:keys [server-message condition table] :as data} hint]
+  (throw+ {::type ::sql-exception
+           ::message (format "SQL Exception: %s" (name condition))
+           ::hint hint
+           ::pg-error-data data}
+          e))
+
 (defn translate-and-throw-psql-exception!
   [^PSQLException e]
   (let [{:keys [server-message condition table] :as data} (pgerrors/extract-data e)
@@ -474,6 +482,15 @@
                ::message "The query took too long to complete."}
               e)
 
+      :invalid-parameter-value
+      (if (string/starts-with? (.getMessage e) "PreparedStatement can have at most")
+        (throw+ {::type ::parameter-limit-exceeded
+                 ::message "There are too many parameters in the transaction or query."
+                 ::hint {:message "Consider batching transactions to reduce the number of writes in a single transaction."
+                         :docs "https://www.instantdb.com/docs/instaml#batching-transactions"}
+                 ::pg-error-data data})
+        (default-psql-throw! e data hint))
+
       :raise-exception
       (throw+ {::type ::sql-raise
                ::message (format "Raised Exception: %s" server-message)
@@ -481,11 +498,7 @@
                ::pg-error-data data}
               e)
 
-      (throw+ {::type ::sql-exception
-               ::message (format "SQL Exception: %s" (name condition))
-               ::hint hint
-               ::pg-error-data data}
-              e))))
+      (default-psql-throw! e data hint))))
 
 ;; -----
 ;; Oauth
