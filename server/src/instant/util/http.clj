@@ -83,22 +83,7 @@
 (defn- instant-ex->bad-request [instant-ex]
   (let [{:keys [::ex/type ::ex/message ::ex/hint ::ex/trace-id]} (ex-data instant-ex)]
     (condp contains? type
-      #{::ex/record-not-found
-        ::ex/record-expired
-        ::ex/record-not-unique
-        ::ex/record-foreign-key-invalid
-        ::ex/record-check-violation
-        ::ex/sql-raise
-        ::ex/timeout
-        ::ex/rate-limited
-
-        ::ex/permission-denied
-        ::ex/permission-evaluation-failed
-
-        ::ex/param-missing
-        ::ex/param-malformed
-
-        ::ex/validation-failed}
+      ex/bad-request-types
       (cond-> {:type (keyword (name type))
                :message message
                :hint hint}

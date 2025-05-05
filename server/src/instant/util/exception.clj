@@ -47,6 +47,24 @@
 (s/def ::trace-id string?)
 (s/def ::instant-exception (s/keys :req [::type ::message ::trace-id]))
 
+(def bad-request-types #{::record-not-found
+                         ::record-expired
+                         ::record-not-unique
+                         ::record-foreign-key-invalid
+                         ::record-check-violation
+                         ::sql-raise
+                         ::timeout
+                         ::rate-limited
+
+                         ::permission-denied
+                         ::permission-evaluation-failed
+                         ::parameter-limit-exceeded
+
+                         ::param-missing
+                         ::param-malformed
+
+                         ::validation-failed})
+
 (comment
   (s/explain-data ::instant-exception {::type ::record-not-found
                                        ::message "Record not found"
