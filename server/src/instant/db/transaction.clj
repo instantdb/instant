@@ -304,6 +304,12 @@
         (for [[entity_id etype] (set (concat ids+etypes ids+etypes'))]
           [:delete-entity entity_id etype])))))
 
+(defn get-attr-for-exception
+  "Used by exception.clj to lookup the attr by its attr id when it gets an attr id
+   in a sql exception."
+  [attrs attr-id]
+  (attr-model/seek-by-id attr-id attrs))
+
 (defn transact-without-tx-conn-impl! [conn attrs app-id grouped-tx-steps opts]
   (binding [ex/*get-attr-for-exception* (partial get-attr-for-exception attrs)]
     (let [tx-steps (apply concat (vals grouped-tx-steps))]
@@ -380,9 +386,6 @@
   ([conn attrs app-id tx-steps opts]
    (let [grouped-tx-steps (preprocess-tx-steps conn attrs app-id tx-steps)]
      (transact-without-tx-conn-impl! conn attrs app-id grouped-tx-steps opts))))
-
-(defn get-attr-for-exception [attrs attr-id]
-  (attr-model/seek-by-id attr-id attrs))
 
 (defn transact!
   ([conn attrs app-id tx-steps]
