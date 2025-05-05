@@ -3,6 +3,7 @@
   (:gen-class)
   (:require
    [clojure.main :as main]
+   [clojure.test :as test]
    [instant.config :as config]
    [instant.util.logging-exporter :as logging-exporter]
    [instant.util.coll :as ucoll]
@@ -119,10 +120,9 @@
    {:keys [exception escaping? attributes]
     :or   {attributes {}}}]
   (when (and (not logging-exporter/log-spans?)
+             (nil? test/*report-counters*)
              (logging-exporter/exception-belongs-to-span? exception (-> span .getSpanContext .getSpanId)))
-    ;; helps to capture output in tests
-    (binding [*out* (clojure.lang.Var/.getRawRoot #'*out*)]
-      (println exception)))
+    (println exception))
   (let [attrs (cond-> attributes
                 escaping? (assoc "exception.escaped" (boolean escaping?)))]
     (.recordException span exception (attr/->attributes attrs))))
