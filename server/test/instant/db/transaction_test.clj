@@ -3155,5 +3155,21 @@
               deleted-triples (count (:delete-entity (:results res)))]
           (is (= (-> @children (* 2) (+ 1)) deleted-triples)))))))
 
+(deftest too-many-params
+  (with-zeneca-app
+    (fn [app r]
+      (let [txes (for [_i (range 100000)
+                       :let [id (random-uuid)]]
+                   [:add-triple id (resolvers/->uuid r :users/id) (str id)])
+
+            instant-ex-data (test-util/instant-ex-data
+                              (tx/transact!
+                               (aurora/conn-pool :write)
+                               (attr-model/get-by-app-id (:id app))
+                               (:id app)
+                               txes))]
+        (is (= ::ex/parameter-limit-exceeded
+               (::ex/type instant-ex-data)))))))
+
 (comment
   (test/run-tests *ns*))
