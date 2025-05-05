@@ -11,10 +11,15 @@ export class DataAttrDef<ValueType, IsRequired extends RequirementKind> {
     } = { indexed: false, unique: false },
   ) {}
 
+  /**
+   * @deprecated Only use this temporarily for attributes that you want
+   * to treat as required in frontend code but can’t yet mark as required
+   * and enforced for backend
+   */
   clientRequired() {
-    return new DataAttrDef<ValueType, 'clientRequired'>(
+    return new DataAttrDef<ValueType, true>(
       this.valueType,
-      'clientRequired',
+      false as unknown as true,
       this.config,
     );
   }
@@ -82,10 +87,9 @@ export type ValueTypes = 'string' | 'number' | 'boolean' | 'date' | 'json';
 
 export type CardinalityKind = 'one' | 'many';
 
-// true           - force required
-// clientRequired - required in types, not required in backend
-// false          - optional, not required
-export type RequirementKind = true | 'clientRequired' | false;
+// true  - force required
+// false - optional, not required
+export type RequirementKind = true | false;
 
 export type AttrsDefs = Record<string, DataAttrDef<any, any>>;
 
@@ -242,7 +246,7 @@ type LinksIndexedByEntity<
 
 type RequiredKeys<Attrs extends AttrsDefs> = {
   [K in keyof Attrs]: Attrs[K] extends DataAttrDef<any, infer R>
-    ? R extends true | 'clientRequired'
+    ? R extends true
       ? K
       : never
     : never;
@@ -456,7 +460,7 @@ export type BackwardsCompatibleSchema<
 
 export type UnknownEntity = EntityDef<
   {
-    id: DataAttrDef<string, 'clientRequired'>;
+    id: DataAttrDef<string, true>;
     [AttrName: string]: DataAttrDef<any, any>;
   },
   { [LinkName: string]: LinkAttrDef<'many', string> },
@@ -502,7 +506,7 @@ export type UpdateParams<
     infer ValueType,
     infer IsRequired
   >
-    ? IsRequired extends true | 'clientRequired'
+    ? IsRequired extends true
       ? ValueType
       : ValueType | null
     : never;
