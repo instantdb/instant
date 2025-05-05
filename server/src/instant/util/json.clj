@@ -39,6 +39,7 @@
         (nil? v)
         "null"
         (or (vector? v)
-            (list? v))
+            (list? v)
+            (seq? v))
         "array"
         :else "object"))

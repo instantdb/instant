@@ -701,10 +701,7 @@
                     (attr-model/get-by-app-id app-id)
                     app-id
                     [[:add-triple stopa-eid tag-attr-id {:foo "bar"}]]))
-                  ::ex/hint
-                  :errors
-                  first
-                  :message))))))))
+                  ::ex/message))))))))
 
 (deftest tx-ref-many-to-one
   (with-empty-app
@@ -2105,9 +2102,6 @@
                (::ex/type ex)))
         (is (= "" (-> ex
                       ::ex/hint
-                      :errors
-                      first
-                      :hint
                       :value)))))))
 
 (deftest rejects-invalid-data-for-checked-attrs
@@ -2144,16 +2138,13 @@
           (let [eid (random-uuid)]
             (is (= #:instant.util.exception{:type
                                             :instant.util.exception/validation-failed,
-                                            :message "Validation failed for triple",
-                                            :hint
-                                            {:data-type :triple,
-                                             :input 10,
-                                             :errors
-                                             [{:message "Invalid value type for triple.",
-                                               :hint {:value 10,
-                                                      :checked-data-type "string",
-                                                      :attr-id (str email-attr-id)
-                                                      :entity-id (str eid)}}]}}
+                                            :message "Invalid value type for users.email. Value must be a string but the provided value type is number.",
+                                            :hint {:namespace "users",
+                                                   :attribute "email",
+                                                   :value 10,
+                                                   :checked-data-type "string",
+                                                   :attr-id (str email-attr-id)
+                                                   :entity-id (str eid)}}
                    (dissoc (test-util/instant-ex-data
                              (tx/transact! (aurora/conn-pool :write)
                                            (attr-model/get-by-app-id app-id)
@@ -2193,17 +2184,15 @@
           (let [eid (random-uuid)]
             (is (= #:instant.util.exception{:type
                                             :instant.util.exception/validation-failed,
-                                            :message "Validation failed for triple",
-                                            :hint
-                                            {:data-type :triple,
-                                             :input "\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
-                                             :errors
-                                             [{:message "Value is too large for an indexed attribute.",
-                                               :hint {:value "\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
-                                                      :checked-data-type "string",
-                                                      :attr-id (str email-attr-id)
-                                                      :entity-id (str eid)
-                                                      :value-too-large? true}}]}}
+                                            :message "Value is too large for an indexed attribute."
+                                            :hint {:namespace "users",
+                                                   :attribute "email",
+                                                   :value
+                                                   "\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa...",
+                                                   :checked-data-type "string",
+                                                   :attr-id (str email-attr-id)
+                                                   :entity-id (str eid)
+                                                   :value-too-large? true}}
                    (dissoc (test-util/instant-ex-data
                              (tx/transact! (aurora/conn-pool :write)
                                            (attr-model/get-by-app-id app-id)
@@ -2214,17 +2203,15 @@
           (let [eid (random-uuid)]
             (is (= #:instant.util.exception{:type
                                             :instant.util.exception/validation-failed,
-                                            :message "Validation failed for triple",
+                                            :message "Value is too large for a unique attribute.",
                                             :hint
-                                            {:data-type :triple,
-                                             :input "\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
-                                             :errors
-                                             [{:message "Value is too large for a unique attribute.",
-                                               :hint {:value "\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
-                                                      :checked-data-type "string",
-                                                      :attr-id (str unique-attr-id)
-                                                      :entity-id (str eid)
-                                                      :value-too-large? true}}]}}
+                                            {:namespace "users",
+                                             :attribute "unique",
+                                             :value "\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa..."
+                                             :checked-data-type "string",
+                                             :attr-id (str unique-attr-id)
+                                             :entity-id (str eid)
+                                             :value-too-large? true}}
                    (dissoc
                     (test-util/instant-ex-data
                       (tx/transact! (aurora/conn-pool :write)

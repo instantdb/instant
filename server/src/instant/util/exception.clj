@@ -5,7 +5,7 @@
    [clojure.walk :as w]
    [inflections.core :as inflections]
    [instant.jdbc.pgerrors :as pgerrors]
-   [instant.util.json :refer [<-json]]
+   [instant.util.json :as json :refer [<-json]]
    [instant.util.string :refer [indexes-of safe-name]]
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util])
@@ -443,6 +443,8 @@
            ::pg-error-data data}
           e))
 
+(def ^:dynamic *get-attr-for-exception* nil)
+
 (defn translate-and-throw-psql-exception!
   [^PSQLException e]
   (let [{:keys [server-message condition table] :as data} (pgerrors/extract-data e)
@@ -460,33 +462,62 @@
 
       :check-violation
       (if-let [triple (extract-triple-from-constraint data)]
-        (let [value (try
-                      (some-> (:value triple)
-                              <-json)
-                      (catch Exception _e
-                        ;; We may get a truncated value, so just give that back to the user
-                        (:value triple)))]
-          (throw-validation-err!
-           :triple
-           value
-           [{:message (case (:constraint data)
-                        "valid_value_data_type" "Invalid value type for triple."
+        (let [attr (when-let [get-attr *get-attr-for-exception*]
+                     (some-> triple
+                             :attr-id
+                             uuid-util/coerce
+                             get-attr))
+              attr-name (when attr
+                          (format "%s.%s"
+                                  (-> attr
+                                      :forward-identity
+                                      second)
+                                  (-> attr
+                                      :forward-identity
+                                      last)))
+              {:keys [value truncated-value?]}
+              (try
+                {:value (some-> (:value triple)
+                                <-json)
+                 :truncated-value? false}
+                (catch Exception _e
+                  ;; We may get a truncated value, so just give that back to the user
+                  {:value (:value triple)
+                   :truncated-value? true}))
+              msg (case (:constraint data)
+                    "valid_value_data_type" (str "Invalid value type"
+                                                 (if attr
+                                                   (format " for %s." attr-name)
+                                                   ".")
+                                                 (when-let [data-type (:checked-data-type triple)]
+                                                   (str " Value must be a " data-type
+                                                        (if truncated-value?
+                                                          "."
+                                                          (str " but the provided value type is " (json/json-type-of-clj value) ".")))))
 
-                        "indexed_values_are_constrained"
-                        (if (= "t" (:av triple))
-                          "Value is too large for a unique attribute."
-                          "Value is too large for an indexed attribute.")
-                        "valid_ref_value" "Linked value must be a valid uuid."
+                    "indexed_values_are_constrained"
+                    (if (= "t" (:av triple))
+                      "Value is too large for a unique attribute."
+                      "Value is too large for an indexed attribute.")
+                    "valid_ref_value" "Linked value must be a valid uuid."
 
-                        (format "Check Violation: %s" (name (:constraint data))))
-             :hint (merge
-                    {:value value
-                     :checked-data-type (:checked-data-type triple)
-                     :attr-id (:attr-id triple)
-                     :entity-id (:entity-id triple)}
-                    (when (= (:constraint data)
-                             "indexed_values_are_constrained")
-                      {:value-too-large? true}))}]))
+                    (format "Check Violation: %s" (name (:constraint data))))]
+          (throw+ {::type ::validation-failed
+                   ::message msg
+                   ::hint (merge (when attr
+                                   {:namespace (-> attr
+                                                   :forward-identity
+                                                   second)
+                                    :attribute (-> attr
+                                                   :forward-identity
+                                                   last)})
+                                 {:value value
+                                  :checked-data-type (:checked-data-type triple)
+                                  :attr-id (:attr-id triple)
+                                  :entity-id (:entity-id triple)}
+                                 (when (= (:constraint data)
+                                          "indexed_values_are_constrained")
+                                   {:value-too-large? true}))}))
         (throw+ {::type ::record-check-violation
                  ::message (format "Check Violation: %s" (name condition))
                  ::hint hint

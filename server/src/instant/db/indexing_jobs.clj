@@ -351,10 +351,6 @@
    (mark-error-from-ex-info! (aurora/conn-pool :write) e job))
   ([conn ^ExceptionInfo e job]
    (let [error-data (ex-data e)
-         validation-error (some-> error-data
-                                  ::ex/hint
-                                  :errors
-                                  first)
          job-error-fields (case (::ex/type error-data)
                             ::ex/record-not-unique
                             {:error triple-not-unique-error
@@ -365,16 +361,16 @@
                                                     :jsonb]}
 
                             ::ex/validation-failed
-                            (if (and (some-> validation-error
-                                             :hint
+                            (if (and (some-> error-data
+                                             ::ex/hint
                                              :entity-id)
-                                     (some-> validation-error
-                                             :hint
+                                     (some-> error-data
+                                             ::ex/hint
                                              :value-too-large?))
                               {:error triple-too-large-error
                                :invalid-entity-id [:cast
-                                                   (-> validation-error
-                                                       :hint
+                                                   (-> error-data
+                                                       ::ex/hint
                                                        :entity-id)
                                                    :uuid]}
                               {:error unexpected-error})
