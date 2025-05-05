@@ -468,7 +468,7 @@
                              uuid-util/coerce
                              get-attr))
               attr-name (when attr
-                          (format "%s.%s."
+                          (format "%s.%s"
                                   (-> attr
                                       :forward-identity
                                       second)
@@ -487,7 +487,7 @@
               msg (case (:constraint data)
                     "valid_value_data_type" (str "Invalid value type"
                                                  (if attr
-                                                   (format " for %s" attr-name)
+                                                   (format " for %s." attr-name)
                                                    ".")
                                                  (when-let [data-type (:checked-data-type triple)]
                                                    (str " Value must be a " data-type
