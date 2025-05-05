@@ -59,6 +59,13 @@ const APP_ID = '__APP_ID__';
 
 const schema = i.schema({
   entities: {
+    $files: i.entity({
+      path: i.string().unique().indexed(),
+      url: i.any(),
+    }),
+    $users: i.entity({
+      email: i.string().unique().indexed(),
+    }),
     todos: i.entity({
       text: i.string(),
       done: i.boolean(),
