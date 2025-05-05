@@ -976,6 +976,7 @@ export default class Reactor {
   };
 
   shutdown() {
+    this._log.info('[shutdown]', this.config.appId);
     this._isShutdown = true;
     this._ws?.close();
   }
@@ -1184,6 +1185,14 @@ export default class Reactor {
   };
 
   _startSocket() {
+    if (this._isShutdown) {
+      this._log.info(
+        '[socket][start]',
+        this.config.appId,
+        'Reactor has been shut down and will not start a new socket',
+      );
+      return;
+    }
     if (this._ws && this._ws.readyState == WS_CONNECTING_STATUS) {
       // Our current websocket is in a 'connecting' state.
       // There's no need to start another one, as the socket is
