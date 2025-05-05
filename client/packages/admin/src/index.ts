@@ -176,10 +176,24 @@ async function jsonFetch(
     'Instant-Core-Version': coreVersion,
   };
   const res = await fetch(input, { ...defaultFetchOpts, ...init, headers });
-  const json = await res.json();
-  return res.status === 200
-    ? Promise.resolve(json)
-    : Promise.reject(new InstantAPIError({ status: res.status, body: json }));
+  if (res.status === 200) {
+    const json = await res.json();
+    return Promise.resolve(json);
+  }
+  const body = await res.text();
+  try {
+    const json = JSON.parse(body);
+    return Promise.reject(
+      new InstantAPIError({ status: res.status, body: json }),
+    );
+  } catch (_e) {
+    return Promise.reject(
+      new InstantAPIError({
+        status: res.status,
+        body: { type: undefined, message: body },
+      }),
+    );
+  }
 }
 
 /**
