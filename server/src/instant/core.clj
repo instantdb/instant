@@ -5,7 +5,6 @@
    [clojure.java.io :as io]
    [clojure.tools.logging :as log]
    [compojure.core :refer [defroutes GET POST routes wrap-routes]]
-   [compojure.route :as route]
    [instant.admin.routes :as admin-routes]
    [instant.auth.jwt :as jwt]
    [instant.auth.oauth :as oauth]
