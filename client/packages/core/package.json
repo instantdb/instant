@@ -2,10 +2,10 @@
   "name": "@instantdb/core",
   "version": "v0.18.10",
   "description": "Instant's core local abstraction",
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.cts",
   "type": "module",
+  "module": "./dist/index.js",
+  "main": "./dist/index.cjs",
+  "types": "./dist/index.d.cts",
   "exports": {
     "./package.json": "./package.json",
     ".": {
