@@ -160,6 +160,7 @@ export function usePresence<
   });
 
   useEffect(() => {
+    console.log('OPTS!', opts);
     const unsub = room._core._reactor.subscribePresence(
       room.type,
       room.id,

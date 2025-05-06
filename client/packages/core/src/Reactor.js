@@ -397,6 +397,7 @@ export default class Reactor {
         // which item is us
         this._sessionId = msg['session-id'];
 
+        // DWW: Publish last presence on this._rooms
         for (const roomId of Object.keys(this._rooms)) {
           this._tryJoinRoom(roomId);
         }
@@ -1628,7 +1629,8 @@ export default class Reactor {
   // --------
   // Rooms
 
-  joinRoom(roomId) {
+  joinRoom(roomId, data) {
+    console.log('DATA', data);
     if (!this._rooms[roomId]) {
       this._rooms[roomId] = {
         isConnected: false,
@@ -1636,9 +1638,10 @@ export default class Reactor {
       };
     }
 
+    // DWW: Might need to do something to this._presence
     this._presence[roomId] = this._presence[roomId] || {};
 
-    this._tryJoinRoom(roomId);
+    this._tryJoinRoom(roomId, data);
 
     return () => {
       this._cleanupRoom(roomId);
@@ -1713,8 +1716,9 @@ export default class Reactor {
     });
   }
 
-  _tryJoinRoom(roomId) {
-    this._trySendAuthed(uuid(), { op: 'join-room', 'room-id': roomId });
+  _tryJoinRoom(roomId, data) {
+    console.log('TJR DATA', data);
+    this._trySendAuthed(uuid(), { op: 'join-room', 'room-id': roomId, data });
     delete this._roomsPendingLeave[roomId];
   }
 
@@ -1724,7 +1728,8 @@ export default class Reactor {
 
   // TODO: look into typing again
   subscribePresence(roomType, roomId, opts, cb) {
-    const leaveRoom = this.joinRoom(roomId);
+    console.log('opts.data', opts.data);
+    const leaveRoom = this.joinRoom(roomId, opts.data);
 
     const handler = { ...opts, roomId, cb, prev: null };
 

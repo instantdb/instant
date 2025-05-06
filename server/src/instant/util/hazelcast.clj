@@ -152,6 +152,47 @@
   (make-serializer-config JoinRoomMergeV1
                           join-room-serializer))
 
+;; -----------
+;; Join room 2
+
+;; Helper to add a session to the room in the hazelcast map
+(defrecord JoinRoomMergeV2 [^UUID session-id ^UUID user-id data]
+  BiFunction
+  (apply [_ room-data _]
+    (update room-data
+            session-id
+            merge
+            {:peer-id session-id
+             :user (when user-id
+                     {:id user-id})
+             :data data})))
+
+(defn join-room-2! [^IMap hz-map ^RoomKeyV1 room-key ^UUID session-id ^UUID user-id data]
+  (.merge hz-map
+          room-key
+          {session-id {:peer-id session-id
+                       :user (when user-id
+                               {:id user-id})
+                       :data data}}
+          (->JoinRoomMergeV2 session-id user-id data)))
+
+(def ^ByteArraySerializer join-room-2-serializer
+  (reify ByteArraySerializer
+    ;; Must be unique within the project
+    (getTypeId [_] 8)
+    (write ^bytes [_ obj]
+      (let [{:keys [^UUID session-id ^UUID user-id data]} obj]
+        (nippy/fast-freeze [session-id user-id data])))
+    (read [_ ^bytes in]
+      (let [[session-id user-id data] (nippy/fast-thaw in)]
+        (->JoinRoomMergeV2 session-id user-id data)))
+    (destroy [_])))
+
+(def join-room-2-config
+  (make-serializer-config JoinRoomMergeV2
+                          join-room-2-serializer))
+
+
 ;; ------------
 ;; Set presence
 
@@ -255,6 +296,7 @@
   [remove-session-config
    room-broadcast-config
    join-room-config
+   join-room-2-config
    set-presence-config
    room-key-config
    task-config])

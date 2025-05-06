@@ -136,8 +136,10 @@ const Canvas: FC = () => {
 
   // Set up InstantDB room and presence (using the "canvas" room with a fake id)
   const room = db.room('canvas', 'fake-id');
-  const { isLoading, publishPresence, user, peers } =
-    db.rooms.usePresence(room);
+  const { isLoading, publishPresence, user, peers } = db.rooms.usePresence(
+    room,
+    { data: ['sticker-22'] },
+  );
 
   // Update local sticker selection based on the drawn selection area
   useEffect(() => {
