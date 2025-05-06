@@ -26,7 +26,7 @@
     "test:ci": "vitest run",
     "bench:ci": "vitest bench --run",
     "check": "tsc --noEmit",
-    "build": "rm -rf dist; tsup && npm run build:standalone",
+    "build": "rm -rf dist; tsup && npm run build:standalone && attw --pack .",
     "dev": "tsup --watch",
     "build:standalone": "vite build",
     "publish-package": "pnpm publish --access public --no-git-checks"
