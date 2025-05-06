@@ -44,6 +44,9 @@
 
 (def shortcodes-etype (map-invert etype-shortcodes))
 
+(defn reserved? [etype]
+  (string/starts-with? etype "$"))
+
 (def label-shortcodes
   {"id" "id"
    "email" "email"

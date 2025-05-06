@@ -29,6 +29,7 @@
             [instant.model.app-email-sender :as app-email-sender-model]
             [instant.model.instant-cli-login :as instant-cli-login-model]
             [instant.postmark :as postmark]
+            [instant.system-catalog :as system-catalog]
             [instant.util.async :refer [fut-bg]]
             [instant.util.coll :as ucoll]
             [instant.util.crypt :as crypt-util]
@@ -1011,7 +1012,7 @@
 
 (defn- remove-system-namespaces [entities]
   (ucoll/filter-keys
-   #(not (string/starts-with? (name %) "$"))
+   #(not (system-catalog/reserved? (name %)))
    entities))
 
 (defn schema-push-plan-post [req]
