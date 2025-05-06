@@ -50,7 +50,8 @@
    [ring.middleware.json :refer [wrap-json-body wrap-json-response]]
    [ring.middleware.keyword-params :refer [wrap-keyword-params]]
    [ring.middleware.multipart-params :refer [wrap-multipart-params]]
-   [ring.middleware.params :refer [wrap-params]])
+   [ring.middleware.params :refer [wrap-params]]
+   [ring.util.http-response :as response])
   (:import
    (clojure.lang IFn)
    (io.undertow Undertow UndertowOptions Undertow$Builder Undertow$ListenerInfo)
