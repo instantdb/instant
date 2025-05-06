@@ -2,9 +2,23 @@
   "name": "@instantdb/core",
   "version": "v0.18.10",
   "description": "Instant's core local abstraction",
-  "main": "dist/index.js",
-  "module": "dist/module/index.js",
-  "types": "dist/module/index.d.ts",
+  "main": "./dist/commonjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/commonjs/index.d.ts",
+  "type": "module",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "import": {
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/commonjs/index.d.ts",
+        "default": "./dist/commonjs/index.js"
+      }
+    }
+  },
   "unpkg": "standalone/index.umd.js",
   "scripts": {
     "test": "vitest",
