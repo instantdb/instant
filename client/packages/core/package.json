@@ -2,20 +2,20 @@
   "name": "@instantdb/core",
   "version": "v0.18.10",
   "description": "Instant's core local abstraction",
-  "main": "./dist/commonjs/index.js",
-  "module": "./dist/esm/index.js",
-  "types": "./dist/commonjs/index.d.ts",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.cts",
   "type": "module",
   "exports": {
     "./package.json": "./package.json",
     ".": {
       "import": {
-        "types": "./dist/esm/index.d.ts",
-        "default": "./dist/esm/index.js"
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
       },
       "require": {
-        "types": "./dist/commonjs/index.d.ts",
-        "default": "./dist/commonjs/index.js"
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
       }
     }
   },
@@ -26,16 +26,13 @@
     "test:ci": "vitest run",
     "bench:ci": "vitest bench --run",
     "check": "tsc --noEmit",
-    "build": "rm -rf dist; npm run build:main && npm run build:module && npm run build:standalone",
-    "dev:main": "tsc -p tsconfig.json -w --skipLibCheck --preserveWatchOutput | grep -v '^$'",
-    "dev:module": "tsc -p tsconfig.module.json -w --skipLibCheck --preserveWatchOutput | grep -v '^$'",
-    "dev": "run-p dev:main dev:module",
-    "build:main": "tsc -p tsconfig.json",
-    "build:module": "tsc -p tsconfig.module.json",
+    "build": "rm -rf dist; tsup && npm run build:standalone",
+    "dev": "tsup --watch",
     "build:standalone": "vite build",
     "publish-package": "pnpm publish --access public --no-git-checks"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.17.4",
     "@babel/core": "^7.17.9",
     "@babel/preset-env": "^7.16.11",
     "@types/node": "^18.11.18",
@@ -43,6 +40,7 @@
     "@types/websocket": "^1.0.5",
     "fake-indexeddb": "^6.0.0",
     "npm-run-all": "^4.1.5",
+    "tsup": "^8.4.0",
     "typescript": "^5.5.4",
     "vite": "^5.2.0",
     "vitest": "^1.6.0"
