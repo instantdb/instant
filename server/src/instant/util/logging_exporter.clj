@@ -9,7 +9,7 @@
   (:import
    (instant SpanTrackException)
    (io.opentelemetry.api.common AttributeKey)
-   (io.opentelemetry.api.trace SpanId)
+   (io.opentelemetry.api.trace Span SpanId)
    (io.opentelemetry.sdk.common CompletableResultCode)
    (io.opentelemetry.sdk.trace.data SpanData
                                     EventData
@@ -91,11 +91,20 @@
       (.append sb (format-attr-value v))
       (.append sb " "))))
 
+(defn add-span-tracker-to-exception [^Span span ^Throwable t]
+  (when-not (ucoll/exists?
+             (fn [s] (instance? SpanTrackException s))
+             (.getSuppressed t))
+    (.addSuppressed t (SpanTrackException. (-> span
+                                               (.getSpanContext)
+                                               (.getSpanId))))))
+
 (defn exception-belongs-to-span? [^Throwable t ^SpanId spanId]
-  (ucoll/exists? (fn [t]
-                   (and (instance? SpanTrackException t)
-                        (not= spanId (.getMessage ^SpanTrackException t))))
-                 (some-> t .getSuppressed)))
+  (ucoll/exists?
+   (fn [t]
+     (and (instance? SpanTrackException t)
+          (= spanId (.getMessage ^SpanTrackException t))))
+   (some-> t .getSuppressed)))
 
 (defn attr-str [^SpanData span]
   (let [sb (StringBuilder.)]
