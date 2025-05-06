@@ -138,7 +138,7 @@ const Canvas: FC = () => {
   const room = db.room('canvas', 'fake-id');
   const { isLoading, publishPresence, user, peers } = db.rooms.usePresence(
     room,
-    { data: ['sticker-22'] },
+    { data: { selectedIds: ['sticker-22'] } },
   );
 
   // Update local sticker selection based on the drawn selection area
@@ -164,7 +164,7 @@ const Canvas: FC = () => {
 
   // Publish presence with current selection state
   useEffect(() => {
-    if (!isLoading) {
+    if (!isLoading && (selectionArea || selectedStickerIds.size)) {
       publishPresence({
         selectionArea: selectionArea || undefined,
         selectedIds: Array.from(selectedStickerIds),
