@@ -105,6 +105,9 @@
 
     true))
 
+(defn not-found [_req]
+  (response/not-found {:message "Oops! We couldn't match this route."}))
+
 (defn handler []
   (routes (-> stripe-webhook-routes
               (wrap-routes http-util/tracer-record-route)
@@ -136,7 +139,7 @@
               (wrap-cors :access-control-allow-origin allow-cors-origin?
                          :access-control-allow-methods [:get :put :post :delete])
               (http-util/tracer-wrap-span))
-          (route/not-found "Oops! We couldn't match this route.")))
+          (wrap-json-response not-found)))
 
 (defonce ^Undertow server
   nil)

@@ -133,7 +133,9 @@
 
 (defn socket-ip [{:keys [^WebSocketHttpExchange http-req]}]
   (some-> http-req
-          (.getRequestHeader "cf-connecting-ip")))
+          (.getRequestHeader "x-forwarded-for")
+          (String/.split ",")
+          last))
 
 (defn report-active-sessions [store]
   (let [db @(:sessions store)]

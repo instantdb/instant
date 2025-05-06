@@ -334,13 +334,15 @@
     (try
       (crypt-util/hex-string->bytes trace-id)
       (catch Exception _
-        (ex/throw+ {::type ::param-malformed
-                    ::hint {:trace-id trace-id}})))
+        (ex/throw+ {::ex/type ::ex/param-malformed
+                    ::ex/message "Invalid trace id"
+                    ::ex/hint {:trace-id trace-id}})))
     (try
       (crypt-util/hex-string->bytes span-id)
       (catch Exception _
-        (ex/throw+ {::type ::param-malformed
-                    ::hint {:span-id span-id}})))
+        (ex/throw+ {::ex/type ::ex/param-malformed
+                    ::ex/message "Invalid span id"
+                    ::ex/hint {:span-id span-id}})))
 
     (response/ok {:urls [{:label "View trace in Honeycomb"
                           :url (tracer/honeycomb-uri {:trace-id trace-id
