@@ -1040,7 +1040,19 @@ function linkOptsPretty(attr) {
 async function pushSchema(appId, opts) {
   const res = await readLocalSchemaFileWithErrorLogging();
   if (!res) return { ok: false };
-  const { schema } = res;
+  var { schema } = res;
+
+  // skip system namespaces
+  if (schema && schema.entities) {
+    const entities = { ... schema.entities };
+    Object.keys(entities).forEach(key => {
+      if (key.startsWith('$')) {
+        delete entities[key];
+      }
+    });
+    schema = { ...schema, entities };
+  }
+
   console.log('Planning schema...');
 
   const planRes = await fetchJson({
