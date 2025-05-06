@@ -1,72 +1,54 @@
 #!/usr/bin/env node
-// fix-imports.mjs
-//--------------------------------------------
-// Make all relative imports/export specifiers
-// in *.js/ts/tsx/jsx/mjs/cjs explicit by
-// adding the real on-disk extension.
-//--------------------------------------------
+// fix-imports.mjs  (quote-safe version)
 import { promises as fsp } from 'fs';
 import fs from 'fs';
 import path from 'path';
 
-/*
-  Regex notes
-  -----------
-  – Captures     1: everything up to the opening quote
-                 2: the opening quote  (" or ')
-                 3: the specifier      ./foo/bar
-  – Ensures we only touch import/export/require-like code,
-    not arbitrary strings.
+/*  Capture groups:
+    1 → leading “import … from ” / “export … from ” / “import(”
+    2 → the opening quote character (' or ")
+    3 → the specifier (./foo/bar)
+    (we rely on \2 in the regex to ensure it already ends with the same quote)
 */
 const RELATIVE_RE =
-  /((?:\bimport\b\s*\(\s*|\bimport\b[\s\S]*?\bfrom\b\s*|\bexport\b[\s\S]*?\bfrom\b\s*)["'])(\.{1,2}\/[^"'\s]+?)["']/g;
+  /(\bimport\b\s*\(\s*|\bimport\b[\s\S]*?\bfrom\b\s*|\bexport\b[\s\S]*?\bfrom\b\s*)(["'])(\.{1,2}\/[^"' \n]+?)\2/g;
 
 const EXT_ORDER = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'];
-
 const ROOT = path.resolve(process.argv[2] ?? 'src');
 
 async function* walk(dir) {
-  for (const dirent of await fsp.readdir(dir, { withFileTypes: true })) {
-    const res = path.join(dir, dirent.name);
-    if (dirent.isDirectory()) yield* walk(res);
-    else if (
-      /\.(?:[cm]?js|tsx?)$/.test(dirent.name) &&
-      !dirent.name.endsWith('.d.ts')
-    )
+  for (const d of await fsp.readdir(dir, { withFileTypes: true })) {
+    const res = path.join(dir, d.name);
+    if (d.isDirectory()) yield* walk(res);
+    else if (/\.(?:[cm]?js|tsx?)$/.test(d.name) && !d.name.endsWith('.d.ts'))
       yield res;
   }
 }
 
-/**
- * Pick the first existing extension for spec
- */
-function findExistingExt(specAbsBase) {
+function findExt(absBase) {
   for (const ext of EXT_ORDER) {
-    if (fs.existsSync(specAbsBase + ext)) return ext;
+    if (fs.existsSync(absBase + ext)) return ext;
   }
-  // Support `index.*`
   for (const ext of EXT_ORDER) {
-    if (fs.existsSync(path.join(specAbsBase, `index${ext}`)))
-      return `/index${ext}`;
+    // ./dir -> ./dir/index.ts
+    if (fs.existsSync(path.join(absBase, `index${ext}`))) return `/index${ext}`;
   }
   return null;
 }
 
-async function fixFile(file) {
+async function fix(file) {
   const original = await fsp.readFile(file, 'utf8');
   let changed = false;
 
-  const updated = original.replace(RELATIVE_RE, (whole, prefix, specRel) => {
-    if (path.extname(specRel)) return whole; // already explicit
+  const updated = original.replace(RELATIVE_RE, (_, lead, quote, spec) => {
+    if (path.extname(spec)) return _; // already explicit
 
-    const importerDir = path.dirname(file);
-    const absBase = path.resolve(importerDir, specRel); // no ext
-    const ext = findExistingExt(absBase);
-
-    if (!ext) return whole; // nothing found
+    const absBase = path.resolve(path.dirname(file), spec);
+    const ext = findExt(absBase);
+    if (!ext) return _; // nothing to add
 
     changed = true;
-    return `${prefix}${specRel}${ext}"`;
+    return `${lead}${quote}${spec}${ext}${quote}`;
   });
 
   if (changed) {
@@ -78,15 +60,13 @@ async function fixFile(file) {
 
 (async () => {
   let total = 0;
-  for await (const file of walk(ROOT)) {
-    if (await fixFile(file)) total++;
-  }
+  for await (const f of walk(ROOT)) if (await fix(f)) total++;
   console.log(
     total
       ? `✅  Explicit extensions added in ${total} file${total > 1 ? 's' : ''}.`
       : 'ℹ️  No changes were necessary.',
   );
-})().catch((err) => {
-  console.error(err);
+})().catch((e) => {
+  console.error(e);
   process.exit(1);
 });
