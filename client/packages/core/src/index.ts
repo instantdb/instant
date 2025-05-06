@@ -20,13 +20,13 @@ import type {
   PresenceResponse,
   PresenceSlice,
   RoomSchemaShape,
-} from './presence';
+} from './presence.ts';
 import type {
   DevtoolConfig,
   IDatabase,
   IInstantDatabase,
   StrictDevtoolConfig,
-} from './coreTypes';
+} from './coreTypes.ts';
 import type {
   Query,
   QueryResponse,
@@ -40,20 +40,20 @@ import type {
   InstaQLEntity,
   InstaQLResult,
   InstaQLFields,
-} from './queryTypes';
+} from './queryTypes.ts';
 import type {
   AuthState,
   User,
   AuthResult,
   ConnectionStatus,
-} from './clientTypes';
+} from './clientTypes.ts';
 import type {
   InstantQuery,
   InstantQueryResult,
   InstantSchema,
   InstantEntity,
   InstantSchemaDatabase,
-} from './helperTypes';
+} from './helperTypes.ts';
 import type {
   AttrsDefs,
   CardinalityKind,
@@ -77,8 +77,8 @@ import type {
   UpdateParams,
   LinkParams,
   RuleParams,
-} from './schemaTypes';
-import type { UploadFileResponse, DeleteFileResponse } from './StorageAPI';
+} from './schemaTypes.ts';
+import type { UploadFileResponse, DeleteFileResponse } from './StorageAPI.ts';
 
 import type {
   ExchangeCodeForTokenParams,
@@ -87,7 +87,7 @@ import type {
   SignInWithIdTokenParams,
   VerifyMagicCodeParams,
   VerifyResponse,
-} from './authAPI';
+} from './authAPI.ts';
 
 import { InstantAPIError, type InstantIssue } from './utils/fetch.js';
 

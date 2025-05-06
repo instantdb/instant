@@ -1,6 +1,6 @@
-import { getOps, isLookup, parseLookup } from './instatx';
-import { immutableRemoveUndefined } from './utils/object';
-import uuid from './utils/uuid';
+import { getOps, isLookup, parseLookup } from './instatx.ts';
+import { immutableRemoveUndefined } from './utils/object.js';
+import uuid from './utils/uuid.ts';
 
 // Rewrites optimistic attrs with the attrs we get back from the server.
 export function rewriteStep(attrMapping, txStep) {

@@ -2,8 +2,8 @@ import {
   DevtoolConfig,
   DevtoolPosition,
   StrictDevtoolConfig,
-} from './coreTypes';
-import * as flags from './utils/flags';
+} from './coreTypes.ts';
+import * as flags from './utils/flags.ts';
 
 type Devtool = { dispose: () => void };
 
