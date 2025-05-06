@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// fix-imports.mjs  (quote-safe version)
+
 import { promises as fsp } from 'fs';
 import fs from 'fs';
 import path from 'path';
