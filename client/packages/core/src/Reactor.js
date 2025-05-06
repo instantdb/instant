@@ -399,7 +399,8 @@ export default class Reactor {
 
         // DWW: Publish last presence on this._rooms
         for (const roomId of Object.keys(this._rooms)) {
-          this._tryJoinRoom(roomId);
+          const room = this._rooms[roomId];
+          this._tryJoinRoom(roomId, room.lastData);
         }
         break;
       case 'add-query-exists':
@@ -1635,11 +1636,18 @@ export default class Reactor {
       this._rooms[roomId] = {
         isConnected: false,
         error: undefined,
+        lastData: data,
       };
     }
 
     // DWW: Might need to do something to this._presence
     this._presence[roomId] = this._presence[roomId] || {};
+
+    if (data) {
+      this._presence[roomId].result = this._presence[roomId].result || {};
+      this._presence[roomId].result.user = data;
+      this._notifyPresenceSubs(roomId);
+    }
 
     this._tryJoinRoom(roomId, data);
 
@@ -1697,6 +1705,8 @@ export default class Reactor {
       ...presence.result.user,
       ...partialData,
     };
+
+    room.lastData = data;
 
     presence.result.user = data;
 
