@@ -34,6 +34,10 @@ const graph = i.graph(
     "rate-limited-apps": i.entity({
       appId: i.string().unique(),
     }),
+    "log-sampled-apps": i.entity({
+      appId: i.string().unique(),
+      sampleRate: i.number(),
+    }),
     "storage-whitelist": i.entity({
       appId: i.string().unique().indexed(),
       email: i.string(),

@@ -4,6 +4,7 @@
    [clojure.string :as string]
    [clojure.tools.logging :as log]
    [instant.config :as config]
+   [instant.flags :as flags]
    [instant.util.coll :as ucoll])
   (:import
    (instant SpanTrackException)
@@ -137,6 +138,7 @@
                 attr-str)))))
 
 (def op-attr-key (AttributeKey/stringKey "op"))
+(def app-id-attr-key (AttributeKey/stringKey "app_id"))
 
 (def exclude-span?
   (if (= :prod (config/get-env))
@@ -184,10 +186,18 @@
 (def log-spans?
   (not= "false" (System/getenv "INSTANT_LOG_SPANS")))
 
+(defn should-log? [^SpanData span]
+  (if-let [app-id (-> span .getAttributes (.get app-id-attr-key))]
+    (if-let [sample-rate (flags/log-sampled-apps app-id)]
+      (<= (rand) sample-rate)
+      true)  ; App ID not in config, always log
+    true))  ; No app ID, always log
+
 (defn log-spans [spans]
   (doseq [span spans
           :when (or (include-span? span)
                     (and log-spans?
+                         (should-log? span)
                          (not (exclude-span? span))))]
     (log/info (span-str span))))
 
