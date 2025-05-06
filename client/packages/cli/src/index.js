@@ -1040,7 +1040,7 @@ function linkOptsPretty(attr) {
 async function pushSchema(appId, opts) {
   const res = await readLocalSchemaFileWithErrorLogging();
   if (!res) return { ok: false };
-  var { schema } = res;
+  const { schema } = res;
   console.log('Planning schema...');
 
   const planRes = await fetchJson({
