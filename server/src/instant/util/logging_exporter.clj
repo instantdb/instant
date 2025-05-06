@@ -106,13 +106,20 @@
           (= spanId (.getMessage ^SpanTrackException t))))
    (some-> t .getSuppressed)))
 
+(defn exception-belongs-to-child-span? [^Throwable t ^SpanId spanId]
+  (ucoll/exists?
+   (fn [t]
+     (and (instance? SpanTrackException t)
+          (not= spanId (.getMessage ^SpanTrackException t))))
+   (some-> t .getSuppressed)))
+
 (defn attr-str [^SpanData span]
   (let [sb (StringBuilder.)]
     (doseq [attr (.asMap (.getAttributes span))]
       (append-attr sb attr))
     (doseq [^EventData event (.getEvents span)]
       (if (and (instance? ExceptionEventData event)
-               (exception-belongs-to-span? (.getException ^ExceptionEventData event) (.getSpanId span)))
+               (exception-belongs-to-child-span? (.getException ^ExceptionEventData event) (.getSpanId span)))
         (append-attr sb ["child-threw-exception" true])
         (doseq [attr (.asMap (.getAttributes event))]
           (append-attr sb attr))))
