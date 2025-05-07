@@ -4,7 +4,7 @@ import type {
   InstantUnknownSchema,
 } from '@instantdb/core';
 
-import InstantReactWebDatabase from './InstantReactWebDatabase';
+import InstantReactWebDatabase from './InstantReactWebDatabase.ts';
 import version from './version.js';
 
 /**

@@ -31,9 +31,9 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
-import { useQueryInternal } from './useQuery';
-import { useTimeout } from './useTimeout';
-import { InstantReactRoom, rooms } from './InstantReactRoom';
+import { useQueryInternal } from './useQuery.ts';
+import { useTimeout } from './useTimeout.ts';
+import { InstantReactRoom, rooms } from './InstantReactRoom.ts';
 
 const defaultAuthState = {
   isLoading: true,
