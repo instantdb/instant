@@ -1641,7 +1641,7 @@ export default class Reactor {
         error: undefined,
       };
     }
-    
+
     this._presence[roomId] = this._presence[roomId] || {};
 
     if (initialData) {
