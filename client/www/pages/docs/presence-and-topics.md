@@ -140,12 +140,16 @@ function App() {
     user: myPresence,
     peers,
     publishPresence,
-  } = db.rooms.usePresence(room);
+  } = db.rooms.usePresence(
+    room,
+    // Publish your presence when you join the room
+    { initialData: { name: user.name } },
+  );
 
-  // Publish your presence to the room
+  // Update your presence when your name changes
   useEffect(() => {
     publishPresence({ name: user.name });
-  }, []);
+  }, [user.name]);
 
   if (!myPresence) {
     return <p>App loading...</p>;
