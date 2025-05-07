@@ -109,6 +109,7 @@ web_modules/
 
 # tshy
 .tshy
+.tshy-build
 
 # Optional eslint cache
 .eslintcache
