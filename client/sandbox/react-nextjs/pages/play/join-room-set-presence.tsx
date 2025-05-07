@@ -54,18 +54,24 @@ function App() {
   const [presenceData, setPresenceData] = useState('');
   return (
     <div>
-      <button
-        className="bg-black text-white m-2 p-2"
-        onClick={() => setShowPresence(!showPresence)}
-      >
-        {showPresence ? 'Leave room' : 'Join room'}
-      </button>
+      <p>
+        Open two tabs. Join the room in the first tab, then join the room in the
+        second tab.
+      </p>
+      <p>You should see no updates with an empty presence value.</p>
       <input
         type="text"
         value={presenceData}
         placeholder="Set presence value"
         onChange={(e) => setPresenceData(e.target.value)}
       ></input>
+      <button
+        className="bg-black text-white m-2 p-2"
+        onClick={() => setShowPresence(!showPresence)}
+      >
+        {showPresence ? 'Leave room' : 'Join room'}
+      </button>
+
       {showPresence ? <Presence presenceData={presenceData} /> : null}
     </div>
   );

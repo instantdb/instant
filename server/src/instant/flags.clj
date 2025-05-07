@@ -26,7 +26,8 @@
             :query-flags {}
             :app-deletion-sweeper {}
             :rule-wheres {}
-            :rule-where-testing {}})
+            :rule-where-testing {}
+            :toggles {}})
 
 (defn transform-query-result
   "Function that is called on the query result before it is stored in the
@@ -115,6 +116,10 @@
                                                                      :value value}))
                             {}
                             (get result "query-flags"))
+        toggles (reduce (fn [acc {:strs [setting toggled]}]
+                          (assoc acc (keyword setting) toggled))
+                        {}
+                        (get result "toggles"))
         rule-wheres (if-let [rule-where-ent (-> result
                                                 (get "rule-wheres")
                                                 first)]
@@ -145,7 +150,8 @@
      :query-flags query-flags
      :app-deletion-sweeper app-deletion-sweeper
      :rule-wheres rule-wheres
-     :rule-where-testing rule-where-testing}))
+     :rule-where-testing rule-where-testing
+     :toggles toggles}))
 
 (def queries [{:query query :transform #'transform-query-result}])
 
@@ -254,3 +260,6 @@
 
 (defn test-rule-wheres? []
   (:rule-where-testing (query-result)))
+
+(defn toggled? [key]
+  (get-in (query-result) [:toggles key]))

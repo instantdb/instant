@@ -9,11 +9,11 @@ importers:
   .:
     dependencies:
       '@instantdb/core':
-        specifier: ^0.17.12
-        version: 0.17.12
+        specifier: ^0.19.1
+        version: 0.19.1
       instant-cli:
-        specifier: ^0.17.12
-        version: 0.17.12
+        specifier: ^0.19.1
+        version: 0.19.1
 
 packages:
 
@@ -235,8 +235,8 @@ packages:
     resolution: {integrity: sha512-XvJRx+2KR3YXyYtPUUy+qd9i7p+GO9Ko6VIIpWlBrpWwXDv8WLFeHTxz35CfQFUiBMLXlGHhGzys7lqit9gWag==}
     engines: {node: '>=18'}
 
-  '@instantdb/core@0.17.12':
-    resolution: {integrity: sha512-YBcuTn+OoFIcnFam3HwsKffk1kvpLRSbdGMasrersRDpaG4dDr8N0a6jeVYRUhjSL734zm/hVkv/yG0pevVT3A==}
+  '@instantdb/core@0.19.1':
+    resolution: {integrity: sha512-t03/9mR+8TPr4L2ALJu5+8khVRKJ8ZKx/y9p5p8BMapRLO/KCuLxu5QKiPDklLgZwKwpC06a9MNchpRPVG3/Bg==}
 
   '@types/mute-stream@0.0.4':
     resolution: {integrity: sha512-CPM9nzrCPPJHQNA9keH9CVkVI+WR5kMa+7XEs5jcGQ0VoAGnLv242w8lIVgwAEfmE4oufJRaTc9PNLQl0ioAow==}
@@ -396,8 +396,8 @@ packages:
     resolution: {integrity: sha512-tyao/4Vo36XnUItZ7DnUXX4f1jVao2mSrleV/5IPtW/XAEA26hRVsbc68nuTEKWcr5vMP/1mVoT2O7u8H4v1Vg==}
     engines: {node: '>=18'}
 
-  instant-cli@0.17.12:
-    resolution: {integrity: sha512-HHAHjdX3CTDyqdRLRVVzrBMyH+9rY66bhWJCchhRntSNhqkn9iWWXK6CliA9djwhPz7Apa0crrLP/URLnMMmBg==}
+  instant-cli@0.19.1:
+    resolution: {integrity: sha512-42MmdEU4wBu/6KV0xOOiZp1fae/OmzBa1N5dghXw0TjitJ4yXOlNycPtoTeKMAmCtS4zi5eChQqH50qNdcSPSg==}
     hasBin: true
 
   is-docker@3.0.0:
@@ -800,7 +800,7 @@ snapshots:
     dependencies:
       mute-stream: 1.0.0
 
-  '@instantdb/core@0.17.12':
+  '@instantdb/core@0.19.1':
     dependencies:
       mutative: 1.1.0
       uuid: 9.0.1
@@ -964,7 +964,7 @@ snapshots:
       run-async: 3.0.0
       rxjs: 7.8.1
 
-  instant-cli@0.17.12:
+  instant-cli@0.19.1:
     dependencies:
       '@inquirer/core': 9.0.10
       '@inquirer/prompts': 5.3.8

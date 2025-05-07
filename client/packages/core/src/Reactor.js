@@ -66,14 +66,12 @@ function isClient() {
   return hasWindow || isChrome;
 }
 
-/* const ignoreLogging = {
+const ignoreLogging = {
   'set-presence': true,
   'set-presence-ok': true,
   'refresh-presence': true,
   'patch-presence': true,
-}; */
-
-const ignoreLogging = {};
+};
 
 function querySubsFromJSON(str) {
   const parsed = JSON.parse(str);
