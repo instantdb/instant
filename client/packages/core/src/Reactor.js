@@ -141,7 +141,7 @@ export default class Reactor {
   /** @type BroadcastChannel | undefined */
   _broadcastChannel;
 
-  /** @type {Record<string, {isConnected: boolean; error: any}>} */
+  /** @type {Record<string, {isConnected: boolean; error: any; lastData: any}>} */
   _rooms = {};
   /** @type {Record<string, boolean>} */
   _roomsPendingLeave = {};
@@ -1632,26 +1632,30 @@ export default class Reactor {
   // --------
   // Rooms
 
-  joinRoom(roomId, data) {
-    console.log('DATA', data);
+  /**
+   * @param {string} roomId
+   * @param {any | null | undefined} [initialData] -- initial presence data to send when joining the room
+   * @returns () => void
+   */
+  joinRoom(roomId, initialData) {
     if (!this._rooms[roomId]) {
       this._rooms[roomId] = {
         isConnected: false,
         error: undefined,
-        lastData: data,
+        lastData: initialData,
       };
     }
 
     // DWW: Might need to do something to this._presence
     this._presence[roomId] = this._presence[roomId] || {};
 
-    if (data) {
+    if (initialData) {
       this._presence[roomId].result = this._presence[roomId].result || {};
-      this._presence[roomId].result.user = data;
+      this._presence[roomId].result.user = initialData;
       this._notifyPresenceSubs(roomId);
     }
 
-    this._tryJoinRoom(roomId, data);
+    this._tryJoinRoom(roomId, initialData);
 
     return () => {
       this._cleanupRoom(roomId);
@@ -1729,7 +1733,6 @@ export default class Reactor {
   }
 
   _tryJoinRoom(roomId, data) {
-    console.log('TJR DATA', data);
     this._trySendAuthed(uuid(), { op: 'join-room', 'room-id': roomId, data });
     delete this._roomsPendingLeave[roomId];
   }
@@ -1740,7 +1743,6 @@ export default class Reactor {
 
   // TODO: look into typing again
   subscribePresence(roomType, roomId, opts, cb) {
-    console.log('opts.data', opts.data);
     const leaveRoom = this.joinRoom(roomId, opts.data);
 
     const handler = { ...opts, roomId, cb, prev: null };
