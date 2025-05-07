@@ -213,14 +213,12 @@
        (let [details (parse-unique-detail (:detail pg-data))
              etype (get details "etype")
              label (get details "label")]
-         (cond (and etype label)
-               {:message (format "`%s` already exists on `%s`"
-                                 label
-                                 etype)
-
-                :hint {:etype etype
-                       :label label}}
-               :else nil)))
+         (when (and etype label)
+           {:message (format "`%s` already exists on `%s`"
+                             label
+                             etype)
+            :hint {:etype etype
+                   :label label}})))
      pg-data
      "ex/extract-duplicate-ident-data")))
 
