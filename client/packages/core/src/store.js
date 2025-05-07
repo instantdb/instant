@@ -1,5 +1,5 @@
 import { create } from 'mutative';
-import { immutableDeepMerge } from './utils/object';
+import { immutableDeepMerge } from './utils/object.js';
 
 function hasEA(attr) {
   return attr['cardinality'] === 'one';

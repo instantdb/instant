@@ -1,4 +1,4 @@
-import type { RoomSchemaShape } from './presence';
+import type { RoomSchemaShape } from './presence.ts';
 
 export class DataAttrDef<ValueType, IsRequired extends RequirementKind> {
   constructor(
