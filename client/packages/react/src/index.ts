@@ -55,10 +55,10 @@ import {
   type DeleteFileResponse,
 } from '@instantdb/core';
 
-import InstantReactAbstractDatabase from './InstantReactAbstractDatabase';
-import InstantReactWebDatabase from './InstantReactWebDatabase';
-import { init, init_experimental } from './init';
-import { Cursors } from './Cursors';
+import InstantReactAbstractDatabase from './InstantReactAbstractDatabase.ts';
+import InstantReactWebDatabase from './InstantReactWebDatabase.ts';
+import { init, init_experimental } from './init.ts';
+import { Cursors } from './Cursors.tsx';
 
 export {
   id,

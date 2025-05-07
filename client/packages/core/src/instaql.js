@@ -1,6 +1,6 @@
-import { query as datalogQuery } from './datalog';
-import { uuidCompare } from './utils/uuid';
-import * as s from './store';
+import { query as datalogQuery } from './datalog.js';
+import { uuidCompare } from './utils/uuid.ts';
+import * as s from './store.js';
 
 // Pattern variables
 // -----------------

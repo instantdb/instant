@@ -15,7 +15,7 @@ import {
   useState,
 } from 'react';
 
-import { useTimeout } from './useTimeout';
+import { useTimeout } from './useTimeout.ts';
 
 export type PresenceHandle<
   PresenceShape,

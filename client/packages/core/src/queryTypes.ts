@@ -9,7 +9,7 @@ import type {
   RuleParams,
   ResolveAttrs,
   ResolveEntityAttrs,
-} from './schemaTypes';
+} from './schemaTypes.ts';
 
 type BuiltIn = Date | Function | Error | RegExp;
 

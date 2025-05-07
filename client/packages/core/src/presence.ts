@@ -1,5 +1,5 @@
-import { pick } from './utils/pick';
-import { areObjectsShallowEqual, areObjectKeysEqual } from './utils/object';
+import { pick } from './utils/pick.js';
+import { areObjectsShallowEqual, areObjectKeysEqual } from './utils/object.js';
 
 export type RoomSchemaShape = {
   [k: string]: {

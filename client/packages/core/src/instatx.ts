@@ -3,7 +3,7 @@ import type {
   LinkParams,
   UpdateParams,
   RuleParams,
-} from './schemaTypes';
+} from './schemaTypes.ts';
 
 type Action = 'update' | 'link' | 'unlink' | 'delete' | 'merge' | 'ruleParams';
 type EType = string;

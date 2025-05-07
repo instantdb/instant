@@ -3,9 +3,12 @@ import type {
   InstaQLResult,
   InstaQLParams,
   Remove$,
-} from './queryTypes';
-import type { IContainEntitiesAndLinks, InstantSchemaDef } from './schemaTypes';
-import type { IInstantDatabase } from './coreTypes';
+} from './queryTypes.ts';
+import type {
+  IContainEntitiesAndLinks,
+  InstantSchemaDef,
+} from './schemaTypes.ts';
+import type { IInstantDatabase } from './coreTypes.ts';
 
 /**
  * @deprecated
