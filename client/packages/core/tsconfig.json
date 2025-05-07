@@ -6,8 +6,6 @@
     "outDir": "dist/commonjs",
     "rootDir": "src",
     "checkJs": false,
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
     "rewriteRelativeImportExtensions": true
   }
 }
