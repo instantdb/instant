@@ -1,30 +1,30 @@
 // @ts-check
-import weakHash from './utils/weakHash';
-import instaql from './instaql';
-import * as instaml from './instaml';
-import * as s from './store';
-import uuid from './utils/uuid';
-import IndexedDBStorage from './IndexedDBStorage';
-import WindowNetworkListener from './WindowNetworkListener';
-import * as authAPI from './authAPI';
-import * as StorageApi from './StorageAPI';
-import * as flags from './utils/flags';
-import { buildPresenceSlice, hasPresenceResponseChanged } from './presence';
-import { Deferred } from './utils/Deferred';
-import { PersistedObject } from './utils/PersistedObject';
-import { extractTriples } from './model/instaqlResult';
+import weakHash from './utils/weakHash.ts';
+import instaql from './instaql.js';
+import * as instaml from './instaml.js';
+import * as s from './store.js';
+import uuid from './utils/uuid.ts';
+import IndexedDBStorage from './IndexedDBStorage.js';
+import WindowNetworkListener from './WindowNetworkListener.js';
+import * as authAPI from './authAPI.ts';
+import * as StorageApi from './StorageAPI.ts';
+import * as flags from './utils/flags.ts';
+import { buildPresenceSlice, hasPresenceResponseChanged } from './presence.ts';
+import { Deferred } from './utils/Deferred.js';
+import { PersistedObject } from './utils/PersistedObject.js';
+import { extractTriples } from './model/instaqlResult.js';
 import {
   areObjectsDeepEqual,
   assocInMutative,
   dissocInMutative,
   insertInMutative,
-} from './utils/object';
-import { createLinkIndex } from './utils/linkIndex';
+} from './utils/object.js';
+import { createLinkIndex } from './utils/linkIndex.ts';
 import version from './version.js';
 import { create } from 'mutative';
-import createLogger from './utils/log';
+import createLogger from './utils/log.ts';
 
-/** @typedef {import('./utils/log').Logger} Logger */
+/** @typedef {import('./utils/log.ts').Logger} Logger */
 
 const STATUS = {
   CONNECTING: 'connecting',
@@ -101,7 +101,7 @@ function querySubsToJSON(querySubs) {
 }
 
 /**
- * @template {import('./presence').RoomSchemaShape} [RoomSchema = {}]
+ * @template {import('./presence.ts').RoomSchemaShape} [RoomSchema = {}]
  */
 export default class Reactor {
   attrs;
@@ -133,7 +133,7 @@ export default class Reactor {
   /** @type {Promise<null | {error: {message: string}}>}**/
   _oauthCallbackResponse = null;
 
-  /** @type {null | import('./utils/linkIndex').LinkIndex}} */
+  /** @type {null | import('./utils/linkIndex.ts').LinkIndex}} */
   _linkIndex = null;
 
   /** @type BroadcastChannel | undefined */

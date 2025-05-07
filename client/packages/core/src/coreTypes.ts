@@ -1,6 +1,6 @@
-import { TxChunk } from './instatx';
-import { RoomSchemaShape } from './presence';
-import type { IContainEntitiesAndLinks, InstantSchemaDef } from './schemaTypes';
+import { TxChunk } from './instatx.ts';
+import { RoomSchemaShape } from './presence.ts';
+import type { IContainEntitiesAndLinks, InstantSchemaDef } from './schemaTypes.ts';
 
 export interface IDatabase<
   Schema extends IContainEntitiesAndLinks<any, any> | {} = {},

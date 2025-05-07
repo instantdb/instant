@@ -7,7 +7,7 @@ import type {
   InstantObject,
   Query,
   QueryResponse,
-} from './queryTypes';
+} from './queryTypes.ts';
 
 /**
  * The purpose of these sanity checks:

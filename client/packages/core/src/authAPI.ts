@@ -1,4 +1,4 @@
-import { User } from './clientTypes';
+import { User } from './clientTypes.ts';
 import { jsonFetch } from './utils/fetch.js';
 
 type SharedInput = {

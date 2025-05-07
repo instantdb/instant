@@ -8,7 +8,7 @@ import {
   type LinksDef,
   type RoomsDef,
   type UnknownRooms,
-} from './schemaTypes';
+} from './schemaTypes.ts';
 
 // ==========
 // API
