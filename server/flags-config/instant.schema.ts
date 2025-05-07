@@ -73,6 +73,7 @@ const _schema = i.schema({
       "disableLegacy?": i.boolean(),
       "dualWrite?": i.boolean().optional(),
       "useLocationId?": i.boolean(),
+    }),
     "log-sampled-apps": i.entity({
       appId: i.string().unique(),
       sampleRate: i.number(),
