@@ -6,10 +6,8 @@
    [clojure.test :as test]
    [instant.config :as config]
    [instant.util.logging-exporter :as logging-exporter]
-   [instant.util.coll :as ucoll]
    [steffan-westcott.clj-otel.api.attributes :as attr])
   (:import
-   (instant SpanTrackException)
    (io.opentelemetry.api.common AttributeKey Attributes)
    (io.opentelemetry.api.trace Span StatusCode)
    (io.opentelemetry.context Context)
@@ -147,10 +145,11 @@
    (when *span*
      (add-exception! *span* exception opts)))
   ([^Span span exception {:keys [escaping?]}]
-   (let [triage      (main/ex-triage (Throwable->map exception))
-         attrs       (into triage (ex-data exception))
-         status      {:code        :error
-                      :description (main/ex-str triage)}]
+   (logging-exporter/add-span-tracker-to-exception span exception)
+   (let [triage (main/ex-triage (Throwable->map exception))
+         attrs  (into triage (ex-data exception))
+         status {:code        :error
+                 :description (main/ex-str triage)}]
      (if (and *silence-exceptions?*
               @*silence-exceptions?*)
        (add-data! span {:attributes
@@ -175,13 +174,6 @@
      (binding [*silence-exceptions?* silencer#]
        ~@body)))
 
-(defn add-span-tracker-to-exception [^Span span ^Throwable t]
-  (when-not (ucoll/exists? (fn [s] (instance? SpanTrackException s))
-                           (.getSuppressed t))
-    (.addSuppressed t (SpanTrackException. (-> span
-                                               (.getSpanContext)
-                                               (.getSpanId))))))
-
 (defmacro with-span!
   [span-opts & body]
   `(let [source# {:code-line ~(:line (meta &form))
@@ -192,7 +184,6 @@
        (try
          (do ~@body)
          (catch Throwable t#
-           (add-span-tracker-to-exception *span* t#)
            (add-exception! *span* t# {:escaping? true})
            (throw t#))
          (finally
