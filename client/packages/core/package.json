@@ -36,6 +36,7 @@
     "publish-package": "pnpm publish --access public --no-git-checks"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.17.4",
     "@babel/core": "^7.17.9",
     "@babel/preset-env": "^7.16.11",
     "@types/node": "^18.11.18",
