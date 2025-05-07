@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { id, i, InstantReactAbstractDatabase } from '@instantdb/react';
 
-import { InstaQLFields } from '../../../../packages/core/dist/module';
+import { InstaQLFields } from '../../../../packages/core/dist/esm';
 import EphemeralAppPage, {
   ResetButton,
 } from '../../components/EphemeralAppPage';
