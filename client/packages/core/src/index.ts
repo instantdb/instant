@@ -608,8 +608,12 @@ class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
   joinRoom<RoomType extends keyof RoomsOf<Schema>>(
     roomType: RoomType = '_defaultRoomType' as RoomType,
     roomId: string = '_defaultRoomId',
+    initialPresenceData?:
+      | Partial<PresenceOf<Schema, RoomType>>
+      | null
+      | undefined,
   ): RoomHandle<PresenceOf<Schema, RoomType>, TopicsOf<Schema, RoomType>> {
-    const leaveRoom = this._reactor.joinRoom(roomId);
+    const leaveRoom = this._reactor.joinRoom(roomId, initialPresenceData);
 
     return {
       leaveRoom,
