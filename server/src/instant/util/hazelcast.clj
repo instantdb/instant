@@ -102,58 +102,6 @@
   (make-serializer-config RemoveSessionMergeV1
                           remove-session-serializer))
 
-;; -------------
-;; Join room old
-
-;; DWW: Remove after JoinRoomMergeV2 is fully deployed
-
-;; Helper to add a session to the room in the hazelcast map
-(defrecord JoinRoomMergeV1 [^UUID session-id ^UUID user-id]
-  BiFunction
-  (apply [_ room-data _]
-    (update room-data
-            session-id
-            (fnil merge {:data {}})
-            {:peer-id session-id
-             :user (when user-id
-                     {:id user-id})})))
-
-(defn join-room-old! [^IMap hz-map ^RoomKeyV1 room-key ^UUID session-id ^UUID user-id]
-  (.merge hz-map
-          room-key
-          {session-id {:peer-id session-id
-                       :user (when user-id
-                               {:id user-id})
-                       :data {}}}
-          (->JoinRoomMergeV1 session-id user-id)))
-
-(def ^ByteArraySerializer join-room-old-serializer
-  (reify ByteArraySerializer
-    ;; Must be unique within the project
-    (getTypeId [_] 2)
-    (write ^bytes [_ obj]
-      (let [{:keys [^UUID session-id ^UUID user-id]} obj
-            byte-buffer (ByteBuffer/allocate (if user-id 32 16))]
-        (.putLong byte-buffer (.getMostSignificantBits session-id))
-        (.putLong byte-buffer (.getLeastSignificantBits session-id))
-        (when user-id
-          (.putLong byte-buffer (.getMostSignificantBits user-id))
-          (.putLong byte-buffer (.getLeastSignificantBits user-id)))
-        (.array byte-buffer)))
-    (read [_ ^bytes in]
-      (let [buf (ByteBuffer/wrap in)
-            session-id (UUID. (.getLong buf)
-                              (.getLong buf))
-            user-id (when (.hasRemaining buf)
-                      (UUID. (.getLong buf)
-                             (.getLong buf)))]
-        (->JoinRoomMergeV1 session-id user-id)))
-    (destroy [_])))
-
-(def join-room-old-config
-  (make-serializer-config JoinRoomMergeV1
-                          join-room-old-serializer))
-
 ;; ---------
 ;; Join room
 
@@ -298,7 +246,6 @@
   [remove-session-config
    room-broadcast-config
    join-room-config
-   join-room-old-config
    set-presence-config
    room-key-config
    task-config])
