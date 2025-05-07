@@ -3,9 +3,11 @@
   "include": ["src"],
   "exclude": ["node_modules", "dist"],
   "compilerOptions": {
-    "outDir": "dist",
+    "module": "NodeNext",
+    "moduleResolution": "nodenext",
+    "outDir": "dist/tsc",
+    "rewriteRelativeImportExtensions": true,
     "rootDir": "src",
-    "jsx": "react-jsx",
-    "rewriteRelativeImportExtensions": true
+    "jsx": "react-jsx"
   }
 }
