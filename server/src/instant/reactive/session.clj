@@ -223,6 +223,16 @@
     (tracer/with-span! {:name "handle-refresh/send-event!"
                         :attributes tracer-attrs}
       (when (seq computations)
+        (doseq [{q :instaql-query
+                 r :instaql-result} computations
+                :when (= {:flicker
+                          {:$ {:where {:id "4a14b14b-3096-49d9-be47-5dd792cbd467"}}}} q)
+                :let [rows (-> r first :data :datalog-result :join-rows first)]
+                [e a v _tx] rows
+                :when (= #uuid "4a14b14b-3096-49d9-be47-5dd792cbd467" e)
+                :when (= #uuid "40c7f050-e464-4d2f-88ba-d6e799a563d5" a)]
+          (println "refresh" v))
+
         (rs/send-event! store app-id sess-id (with-meta
                                                {:op :refresh-ok
                                                 :processed-tx-id processed-tx-id

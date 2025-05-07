@@ -1,165 +1,96 @@
-// playgrounds/TodoFlickerExample.tsx
-import { useState, useEffect, useRef, useCallback } from 'react';
-import {
-  id,
-  i,
-  InstantReactAbstractDatabase,
-  InstaQLEntity,
-} from '@instantdb/react';
-
-import EphemeralAppPage from '../../components/EphemeralAppPage';
+import { i, id, init, tx } from '@instantdb/react';
+import { useEffect, useState } from 'react';
+import config from '../../config';
 
 const schema = i.schema({
   entities: {
-    todos: i.entity({
-      title: i.string(),
-      description: i.string(),
-      checked: i.boolean(),
-      order: i.number(),
+    flicker: i.entity({
+      count: i.number()
     }),
   },
 });
 
-type Todo = InstaQLEntity<typeof schema, 'todos'>;
+const db = init({ ...config, schema });
+const the_id = '4a14b14b-3096-49d9-be47-5dd792cbd467';
 
-function TodoMain({
-  db,
-  todos,
-}: {
-  db: InstantReactAbstractDatabase<typeof schema>;
-  todos: Todo[];
-}) {
-  const [changes, setChanges] = useState<number[]>([]);
-  const interval = useRef<NodeJS.Timer | null>(null);
-  function toggleUpdates() {
-    if (interval.current) {
-      clearInterval(interval.current);
-      interval.current = null;
-      return null;
+function App() {
+  return <Main />;
+}
+
+function autoclick() {
+  let i = 0;
+
+  const set = () => {
+    db.transact(
+      db.tx.flicker[the_id].update({
+        count: i
+      }),
+    );
+    i += 1;
+    if (i < 1000) {
+      setTimeout(set, 10);
     }
-    let idx = -1;
-    let _todos = todos;
-    interval.current = setInterval(() => {
-      idx = (idx + 1) % _todos.length;
-      const todo = _todos[idx];
-      db.transact(
-        db.tx.todos[todo.id].update({
-          checked: !todo.checked,
-        }),
-      );
-      _todos = _todos.map((t) => {
-        if (t.id === todo.id) {
-          return { ...t, checked: !t.checked };
+  };
+
+  set();
+}
+
+function Main() {
+  const [ states, setStates ] = useState([]);
+  const { isLoading, error, data } = db.useQuery({
+    flicker: {
+      $: {
+        where: {
+          id: the_id
         }
-        return t;
-      });
-    }, 10);
-  }
-  const prevTodosRef = useRef<Todo[]>(todos);
+      }
+    },
+  });
+
   useEffect(() => {
-    const prevTodos = prevTodosRef.current;
-    const differences = todos
-      .map((currTodo, idx) => {
-        const prevTodo = prevTodos[idx] as Todo;
-        return currTodo.checked !== prevTodo.checked ? idx : null;
-      })
-      .filter((x) => Number.isInteger(x)) as number[];
+    setStates([...states, isLoading || error ? -1 : item.count]);
+  }, [data]);
 
-    setChanges((prev) => [...prev, ...differences]);
-    prevTodosRef.current = todos;
-  }, [todos]);
+  if (isLoading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
 
-  const chunks: number[][] = [];
-  for (let i = 0; i < changes.length; i += 3) {
-    if (i + 3 > changes.length) {
-      break;
-    }
-    chunks.push(changes.slice(i, i + 3));
-  }
+  const item = data.flicker[0];
+
   return (
-    <div className="p-4">
-      <div>
-        <button
-          className="bg-black text-white m-2 p-2"
-          onClick={async () => {
-            await db.transact(
-              todos.map((todo) =>
-                db.tx.todos[todo.id].update({ checked: false }),
-              ),
-            );
-            window.location.reload();
-          }}
-        >
-          Reset Todos
+    <div className="p-10 flex flex-col gap-1">
+      <div>{item.id} {": "} {item.count}</div>
+
+      <div className="flex flex-row gap-1">
+        <button className="rounded-lg bg-gray-500 px-3 py-2 text-sm/6 font-bold text-white"
+          onClick={() => {
+              db.transact(
+                db.tx.flicker[the_id].update({ count: item.count + 1 }),
+              );
+            }}>
+          Increment
         </button>
-        <button className="bg-black text-white m-2 p-2" onClick={toggleUpdates}>
-          Toggle Updates
+        <button className="rounded-lg bg-gray-500 px-3 py-2 text-sm/6 font-bold text-white"
+          onClick={() => {
+              db.transact(
+                db.tx.flicker[the_id].update({ count: 0 }),
+              );
+            }}>
+          Reset
+        </button>
+        <button className="rounded-lg bg-gray-500 px-3 py-2 text-sm/6 font-bold text-white"
+          onClick={() => { setStates([]); autoclick(); }}>
+          Autoclick
         </button>
       </div>
-      <div>
-        {todos.map((todo) => (
-          <div key={todo.id} className="flex items-center">
-            <input
-              type="checkbox"
-              checked={todo.checked}
-              onChange={(e) => {
-                db.transact(
-                  db.tx.todos[todo.id].update({ checked: e.target.checked }),
-                );
-              }}
-            />
-            <span className="ml-2">{todo.title}</span>
-          </div>
-        ))}
-      </div>
-      <div className="flex space-x-1 flex-wrap">
-        {chunks.map((chunk, idx) => {
-          const [a, b, c] = chunk;
-          const isCorrect = a === 0 && b === 1 && c === 2;
-          return (
-            <div
-              key={idx}
-              className={`rounded-sm ${isCorrect ? 'bg-green-500' : 'bg-red-500'}`}
-            >
-              {a}, {b}, {c}
-            </div>
-          );
-        })}
+
+      <div className="flex flex-row gap-1 flex-wrap">
+        { states.map((state, i) => {
+            let correct = i == 0 || states[i - 1] + 1 == state;
+            return <span className={"px-1 " + (correct ? "bg-gray-200" : "bg-red-200")}>{state}</span>;
+          })}
       </div>
     </div>
   );
 }
 
-function Example({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
-  const { isLoading, error, data } = db.useQuery({ todos: {} });
-  if (isLoading) return null;
-  if (error) return <div>Error: {error.message}</div>;
-  const todos = data.todos.toSorted((a, b) => a.order - b.order);
-  return <TodoMain db={db} todos={todos} />;
-}
-
-export default function Page() {
-  return (
-    <EphemeralAppPage
-      schema={schema}
-      onCreateApp={async (db) => {
-        const longText =
-          'This is long. Why? So the update is slow enough to trigger flickers. '
-            .repeat(1000)
-            .trim();
-        const initialTodos = [0, 1, 2].map((order) => {
-          return {
-            title: `Todo ${order}`,
-            description: longText,
-            checked: false,
-            order,
-          };
-        });
-        await db.transact(
-          initialTodos.map((todo) => db.tx.todos[id()].update(todo)),
-        );
-      }}
-      Component={Example}
-    />
-  );
-}
+export default App;
