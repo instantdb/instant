@@ -10,8 +10,8 @@
     "dev:push": "INSTANT_CLI_DEV=1 instant-cli push"
   },
   "dependencies": {
-    "@instantdb/core": "^0.17.12",
-    "instant-cli": "^0.17.12"
+    "@instantdb/core": "^0.19.1",
+    "instant-cli": "^0.19.1"
   },
   "packageManager": "pnpm@10.2.0"
 }

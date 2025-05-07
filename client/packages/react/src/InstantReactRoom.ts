@@ -205,7 +205,7 @@ export function useSyncPresence<
   data: Partial<RoomSchema[RoomType]['presence']>,
   deps?: any[],
 ): void {
-  useEffect(() => room._core._reactor.joinRoom(room.id), [room.id]);
+  useEffect(() => room._core._reactor.joinRoom(room.id, data), [room.id]);
   useEffect(() => {
     return room._core._reactor.publishPresence(room.type, room.id, data);
   }, [room.type, room.id, deps ?? JSON.stringify(data)]);

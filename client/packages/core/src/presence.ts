@@ -16,6 +16,8 @@ export type PresenceOpts<PresenceShape, Keys extends keyof PresenceShape> = {
   user?: boolean;
   peers?: string[];
   keys?: Keys[];
+  // Initial presence data to set when joining the room
+  initialData?: Partial<PresenceShape>;
 };
 
 type PresencePeer<PresenceShape, Keys extends keyof PresenceShape> = Pick<

@@ -102,8 +102,10 @@
   (make-serializer-config RemoveSessionMergeV1
                           remove-session-serializer))
 
-;; ---------
-;; Join room
+;; -------------
+;; Join room old
+
+;; DWW: Remove after JoinRoomMergeV2 is fully deployed
 
 ;; Helper to add a session to the room in the hazelcast map
 (defrecord JoinRoomMergeV1 [^UUID session-id ^UUID user-id]
@@ -116,7 +118,7 @@
              :user (when user-id
                      {:id user-id})})))
 
-(defn join-room! [^IMap hz-map ^RoomKeyV1 room-key ^UUID session-id ^UUID user-id]
+(defn join-room-old! [^IMap hz-map ^RoomKeyV1 room-key ^UUID session-id ^UUID user-id]
   (.merge hz-map
           room-key
           {session-id {:peer-id session-id
@@ -125,7 +127,7 @@
                        :data {}}}
           (->JoinRoomMergeV1 session-id user-id)))
 
-(def ^ByteArraySerializer join-room-serializer
+(def ^ByteArraySerializer join-room-old-serializer
   (reify ByteArraySerializer
     ;; Must be unique within the project
     (getTypeId [_] 2)
@@ -148,9 +150,50 @@
         (->JoinRoomMergeV1 session-id user-id)))
     (destroy [_])))
 
-(def join-room-config
+(def join-room-old-config
   (make-serializer-config JoinRoomMergeV1
+                          join-room-old-serializer))
+
+;; ---------
+;; Join room
+
+;; Helper to add a session to the room in the hazelcast map
+(defrecord JoinRoomMergeV2 [^UUID session-id ^UUID user-id data]
+  BiFunction
+  (apply [_ room-data _]
+    (update room-data
+            session-id
+            merge
+            {:peer-id session-id
+             :user (when user-id
+                     {:id user-id})
+             :data data})))
+
+(defn join-room! [^IMap hz-map ^RoomKeyV1 room-key ^UUID session-id ^UUID user-id data]
+  (.merge hz-map
+          room-key
+          {session-id {:peer-id session-id
+                       :user (when user-id
+                               {:id user-id})
+                       :data data}}
+          (->JoinRoomMergeV2 session-id user-id data)))
+
+(def ^ByteArraySerializer join-room-serializer
+  (reify ByteArraySerializer
+    ;; Must be unique within the project
+    (getTypeId [_] 8)
+    (write ^bytes [_ obj]
+      (let [{:keys [^UUID session-id ^UUID user-id data]} obj]
+        (nippy/fast-freeze [session-id user-id data])))
+    (read [_ ^bytes in]
+      (let [[session-id user-id data] (nippy/fast-thaw in)]
+        (->JoinRoomMergeV2 session-id user-id data)))
+    (destroy [_])))
+
+(def join-room-config
+  (make-serializer-config JoinRoomMergeV2
                           join-room-serializer))
+
 
 ;; ------------
 ;; Set presence
@@ -255,6 +298,7 @@
   [remove-session-config
    room-broadcast-config
    join-room-config
+   join-room-old-config
    set-presence-config
    room-key-config
    task-config])

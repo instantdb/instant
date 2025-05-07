@@ -398,7 +398,8 @@ export default class Reactor {
         this._sessionId = msg['session-id'];
 
         for (const roomId of Object.keys(this._rooms)) {
-          this._tryJoinRoom(roomId);
+          const enqueuedUserPresence = this._presence[roomId]?.result?.user;
+          this._tryJoinRoom(roomId, enqueuedUserPresence);
         }
         break;
       case 'add-query-exists':
@@ -1628,7 +1629,12 @@ export default class Reactor {
   // --------
   // Rooms
 
-  joinRoom(roomId) {
+  /**
+   * @param {string} roomId
+   * @param {any | null | undefined} [initialData] -- initial presence data to send when joining the room
+   * @returns () => void
+   */
+  joinRoom(roomId, initialData) {
     if (!this._rooms[roomId]) {
       this._rooms[roomId] = {
         isConnected: false,
@@ -1638,7 +1644,13 @@ export default class Reactor {
 
     this._presence[roomId] = this._presence[roomId] || {};
 
-    this._tryJoinRoom(roomId);
+    if (initialData) {
+      this._presence[roomId].result = this._presence[roomId].result || {};
+      this._presence[roomId].result.user = initialData;
+      this._notifyPresenceSubs(roomId);
+    }
+
+    this._tryJoinRoom(roomId, initialData);
 
     return () => {
       this._cleanupRoom(roomId);
@@ -1713,8 +1725,8 @@ export default class Reactor {
     });
   }
 
-  _tryJoinRoom(roomId) {
-    this._trySendAuthed(uuid(), { op: 'join-room', 'room-id': roomId });
+  _tryJoinRoom(roomId, data) {
+    this._trySendAuthed(uuid(), { op: 'join-room', 'room-id': roomId, data });
     delete this._roomsPendingLeave[roomId];
   }
 
@@ -1724,7 +1736,7 @@ export default class Reactor {
 
   // TODO: look into typing again
   subscribePresence(roomType, roomId, opts, cb) {
-    const leaveRoom = this.joinRoom(roomId);
+    const leaveRoom = this.joinRoom(roomId, opts.data);
 
     const handler = { ...opts, roomId, cb, prev: null };
 

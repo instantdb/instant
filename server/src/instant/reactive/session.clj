@@ -301,12 +301,14 @@
                                     (when (string? s)
                                       s))))
 
-(defn- handle-join-room! [store sess-id {:keys [client-event-id] :as event}]
+(defn- handle-join-room! [store sess-id {:keys [client-event-id data] :as event}]
   (let [auth (get-auth! store sess-id)
         app-id (-> auth :app :id)
         current-user (-> auth :user)
         room-id (validate-room-id event)]
-    (eph/join-room! app-id sess-id current-user room-id)
+    (if (flags/toggled? :join-room-v2)
+      (eph/join-room! app-id sess-id current-user room-id (or data {}))
+      (eph/join-room-old! app-id sess-id current-user room-id))
     (rs/send-event! store app-id sess-id {:op :join-room-ok
                                           :room-id room-id
                                           :client-event-id client-event-id})))
