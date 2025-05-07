@@ -319,6 +319,12 @@
                                        :detailed-tx-steps (pr-str tx-steps)}}
         (prevent-system-catalog-updates! app-id opts)
         (prevent-$files-updates attrs grouped-tx-steps opts)
+
+        (doseq [[_op e a v] (:add-triple grouped-tx-steps)
+                :when (= #uuid "4a14b14b-3096-49d9-be47-5dd792cbd467" e)
+                :when (= #uuid "40c7f050-e464-4d2f-88ba-d6e799a563d5" a)]
+          (println "add-triple" v))
+
         (let [results
               (reduce-kv
                (fn [acc op tx-steps]
