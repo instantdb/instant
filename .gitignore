@@ -107,6 +107,9 @@ web_modules/
 # Optional npm cache directory
 .npm
 
+# tshy
+.tshy
+
 # Optional eslint cache
 .eslintcache
 
