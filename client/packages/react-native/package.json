@@ -1,11 +1,18 @@
 {
   "name": "@instantdb/react-native",
-  "version": "v0.19.1",
+  "version": "v0.19.2",
   "description": "Instant DB for React Native",
   "main": "dist/index.js",
   "module": "dist/module/index.js",
   "types": "dist/module/index.d.ts",
   "unpkg": "dist/index.js",
+  "exports": {
+    ".": {
+      "import": "./dist/module/index.js",
+      "require": "./dist/index.js",
+      "types": "./dist/module/index.d.ts"
+    }
+  },
   "scripts": {
     "test": "vitest",
     "build": "rm -rf dist; npm run build:main && npm run build:module",

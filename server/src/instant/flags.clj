@@ -20,6 +20,7 @@
             :drop-refresh-spam {}
             :promo-emails {}
             :rate-limited-apps {}
+            :log-sampled-apps {}
             :welcome-email-config {}
             :e2e-logging {}
             :threading {}
@@ -99,6 +100,11 @@
                                   #{}
                                   (get result "rate-limited-apps"))
 
+        log-sampled-apps (reduce (fn [acc {:strs [appId sampleRate]}]
+                                   (assoc acc appId sampleRate))
+                                 {}
+                                 (get result "log-sampled-apps"))
+
         app-deletion-sweeper (when-let [flag (->  (get result "app-deletion-sweeper")
                                                   first)]
                                {:disabled? (get flag "disabled" false)})
@@ -143,6 +149,7 @@
      :promo-code-emails promo-code-emails
      :drop-refresh-spam drop-refresh-spam
      :rate-limited-apps rate-limited-apps
+     :log-sampled-apps log-sampled-apps
      :e2e-logging e2e-logging
      :welcome-email-config welcome-email-config
      :threading threading
@@ -188,6 +195,10 @@
 (defn storage-disabled? [app-id]
   (let [app-id (str app-id)]
     (contains? (storage-block-list) app-id)))
+
+(defn log-sampled-apps [app-id]
+  (let [app-id (str app-id)]
+    (get-in (query-result) [:log-sampled-apps app-id] nil)))
 
 (defn use-patch-presence? [app-id]
   (let [flag (:use-patch-presence (query-result))

@@ -29,7 +29,9 @@
             [instant.model.app-email-sender :as app-email-sender-model]
             [instant.model.instant-cli-login :as instant-cli-login-model]
             [instant.postmark :as postmark]
+            [instant.system-catalog :as system-catalog]
             [instant.util.async :refer [fut-bg]]
+            [instant.util.coll :as ucoll]
             [instant.util.crypt :as crypt-util]
             [instant.util.email :as email]
             [instant.util.json :as json]
@@ -334,13 +336,15 @@
     (try
       (crypt-util/hex-string->bytes trace-id)
       (catch Exception _
-        (ex/throw+ {::type ::param-malformed
-                    ::hint {:trace-id trace-id}})))
+        (ex/throw+ {::ex/type ::ex/param-malformed
+                    ::ex/message "Invalid trace id"
+                    ::ex/hint {:trace-id trace-id}})))
     (try
       (crypt-util/hex-string->bytes span-id)
       (catch Exception _
-        (ex/throw+ {::type ::param-malformed
-                    ::hint {:span-id span-id}})))
+        (ex/throw+ {::ex/type ::ex/param-malformed
+                    ::ex/message "Invalid span id"
+                    ::ex/hint {:span-id span-id}})))
 
     (response/ok {:urls [{:label "View trace in Honeycomb"
                           :url (tracer/honeycomb-uri {:trace-id trace-id
@@ -1008,10 +1012,18 @@
 ;; ---
 ;; CLI
 
+(defn- remove-system-namespaces [entities]
+  (ucoll/filter-keys
+   #(not (system-catalog/reserved? (name %)))
+   entities))
+
 (defn schema-push-plan-post [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
-        client-defs (-> req :body :schema)
-        check-types? (-> req :body :check_types)
+        client-defs         (-> req
+                                :body
+                                :schema
+                                (update :entities remove-system-namespaces))
+        check-types?        (-> req :body :check_types)
         background-updates? (-> req :body :supports_background_updates)]
     (response/ok (schema-model/plan! {:app-id app-id
                                       :check-types? check-types?
@@ -1020,8 +1032,11 @@
 
 (defn schema-push-apply-post [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
-        client-defs (-> req :body :schema)
-        check-types? (-> req :body :check_types)
+        client-defs         (-> req
+                                :body
+                                :schema
+                                (update :entities remove-system-namespaces))
+        check-types?        (-> req :body :check_types)
         background-updates? (-> req :body :supports_background_updates)
         r (schema-model/plan! {:app-id app-id
                                :check-types? check-types?

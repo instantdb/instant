@@ -687,8 +687,9 @@ export function ActionButton({
       }
     } catch (error) {
       if ((error as any)?.hint) {
-        const msg = `${errorMessage}\n${(error as any).message}\n${
-          (error as any).hint?.errors?.[0]?.message
+        const hintMessage = (error as any).hint?.errors?.[0]?.message;
+        const msg = `${errorMessage}\n${(error as any).message}${
+          hintMessage ? `\n${hintMessage}` : ''
         }`;
         errorToast(msg);
       } else {

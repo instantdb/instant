@@ -5,7 +5,6 @@
    [clojure.java.io :as io]
    [clojure.tools.logging :as log]
    [compojure.core :refer [defroutes GET POST routes wrap-routes]]
-   [compojure.route :as route]
    [instant.admin.routes :as admin-routes]
    [instant.auth.jwt :as jwt]
    [instant.auth.oauth :as oauth]
@@ -50,7 +49,8 @@
    [ring.middleware.json :refer [wrap-json-body wrap-json-response]]
    [ring.middleware.keyword-params :refer [wrap-keyword-params]]
    [ring.middleware.multipart-params :refer [wrap-multipart-params]]
-   [ring.middleware.params :refer [wrap-params]])
+   [ring.middleware.params :refer [wrap-params]]
+   [ring.util.http-response :as response])
   (:import
    (clojure.lang IFn)
    (io.undertow Undertow UndertowOptions Undertow$Builder Undertow$ListenerInfo)
@@ -105,6 +105,9 @@
 
     true))
 
+(defn not-found [_req]
+  (response/not-found {:message "Oops! We couldn't match this route."}))
+
 (defn handler []
   (routes (-> stripe-webhook-routes
               (wrap-routes http-util/tracer-record-route)
@@ -136,7 +139,7 @@
               (wrap-cors :access-control-allow-origin allow-cors-origin?
                          :access-control-allow-methods [:get :put :post :delete])
               (http-util/tracer-wrap-span))
-          (route/not-found "Oops! We couldn't match this route.")))
+          (wrap-json-response not-found)))
 
 (defonce ^Undertow server
   nil)

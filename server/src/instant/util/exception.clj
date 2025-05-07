@@ -198,40 +198,68 @@
         values (parse-unique-detail-columns! i s)]
     (zipmap keys values)))
 
+(defn- safely-extract-data [f pg-data span-name]
+  (try
+    (f pg-data)
+    (catch Exception e
+      (tracer/record-exception-span! e {:name span-name})
+      nil)))
+
+(defn extract-duplicate-ident-data [pg-data]
+  (when (and (= "idents" (:table pg-data))
+             (= "app_ident_uq" (:constraint pg-data)))
+    (safely-extract-data
+     (fn [pg-data]
+       (let [details (parse-unique-detail (:detail pg-data))
+             etype (get details "etype")
+             label (get details "label")]
+         (when (and etype label)
+           {:message (format "`%s` already exists on `%s`"
+                             label
+                             etype)
+            :hint {:etype etype
+                   :label label}})))
+     pg-data
+     "ex/extract-duplicate-ident-data")))
+
 (defn extract-unique-triple-data [pg-data]
   (when (and (= "triples" (:table pg-data))
              (= "av_index" (:constraint pg-data)))
-    (try
-      (let [details (parse-unique-detail (:detail pg-data))
-            value   (get details "json_null_to_null(value)")
-            app-id  (uuid-util/coerce (get details "app_id"))
-            attr-id (uuid-util/coerce (get details "attr_id"))
-            {:keys [etype label]} (get-attr-details app-id attr-id)]
-        (cond (and etype label value)
-              {:message (format "`%s` is a unique attribute on `%s` and an entity already exists with `%s.%s` = %s"
-                                label
-                                etype
-                                etype
-                                label
-                                value)
-               :hint {:attr-id attr-id
-                      :etype etype
-                      :label label
-                      :value value}}
+    (safely-extract-data
+     (fn [pg-data]
+       (let [details (parse-unique-detail (:detail pg-data))
+             value   (get details "json_null_to_null(value)")
+             app-id  (uuid-util/coerce (get details "app_id"))
+             attr-id (uuid-util/coerce (get details "attr_id"))
+             {:keys [etype label]} (get-attr-details app-id attr-id)]
+         (cond (and etype label value)
+               {:message (format "`%s` is a unique attribute on `%s` and an entity already exists with `%s.%s` = %s"
+                                 label
+                                 etype
+                                 etype
+                                 label
+                                 value)
+                :hint {:attr-id attr-id
+                       :etype etype
+                       :label label
+                       :value value}}
 
-              attr-id
-              {:hint {:attr-id attr-id
-                      :value value}}
+               attr-id
+               {:hint {:attr-id attr-id
+                       :value value}}
 
-              :else nil))
-      (catch Exception e
-        (tracer/record-exception-span! e {:name "ex/extract-unique-triple-data-error"})
-        nil))))
+               :else nil)))
+     pg-data
+     "ex/extract-unique-triple-data")))
+
+(defn build-not-unqiue-hint [pg-data]
+  (or (extract-duplicate-ident-data pg-data)
+      (extract-unique-triple-data pg-data)))
 
 (defn throw-record-not-unique!
   ([record-type] (throw-record-not-unique! record-type nil nil))
   ([record-type pg-data e]
-   (let [extra-hint-data (extract-unique-triple-data pg-data)]
+   (let [extra-hint-data (build-not-unqiue-hint pg-data)]
      (throw+ {::type ::record-not-unique
               ::message (or (:message extra-hint-data)
                             (format "Record not unique: %s" (name record-type)))
