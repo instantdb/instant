@@ -4,7 +4,10 @@ import type {
   InstaQLParams,
   Remove$,
 } from './queryTypes.ts';
-import type { IContainEntitiesAndLinks, InstantSchemaDef } from './schemaTypes.ts';
+import type {
+  IContainEntitiesAndLinks,
+  InstantSchemaDef,
+} from './schemaTypes.ts';
 import type { IInstantDatabase } from './coreTypes.ts';
 
 /**

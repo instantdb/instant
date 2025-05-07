@@ -8,8 +8,8 @@ import {
   LinksDef,
 } from '@instantdb/react';
 import { useEffect, useState } from 'react';
-import { RoomsDef, TransactionChunk } from '../../../packages/core/dist/module';
-import { IContainEntitiesAndLinks } from '../../../packages/core/dist/module/schemaTypes';
+import { RoomsDef, TransactionChunk } from '../../../packages/core/dist/esm';
+import { IContainEntitiesAndLinks } from '../../../packages/core/dist/esm/schemaTypes';
 
 async function provisionEphemeralApp({
   perms,
