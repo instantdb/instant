@@ -139,7 +139,7 @@ export default class Reactor {
   /** @type BroadcastChannel | undefined */
   _broadcastChannel;
 
-  /** @type {Record<string, {isConnected: boolean; error: any; lastData: any}>} */
+  /** @type {Record<string, {isConnected: boolean; error: any}>} */
   _rooms = {};
   /** @type {Record<string, boolean>} */
   _roomsPendingLeave = {};
@@ -397,10 +397,9 @@ export default class Reactor {
         // which item is us
         this._sessionId = msg['session-id'];
 
-        // DWW: Publish last presence on this._rooms
         for (const roomId of Object.keys(this._rooms)) {
-          const room = this._rooms[roomId];
-          this._tryJoinRoom(roomId, room.lastData);
+          const enqueuedUserPresence = this._presence[roomId]?.result?.user;
+          this._tryJoinRoom(roomId, enqueuedUserPresence);
         }
         break;
       case 'add-query-exists':
@@ -1640,11 +1639,9 @@ export default class Reactor {
       this._rooms[roomId] = {
         isConnected: false,
         error: undefined,
-        lastData: initialData,
       };
     }
-
-    // DWW: Might need to do something to this._presence
+    
     this._presence[roomId] = this._presence[roomId] || {};
 
     if (initialData) {
@@ -1709,8 +1706,6 @@ export default class Reactor {
       ...presence.result.user,
       ...partialData,
     };
-
-    room.lastData = data;
 
     presence.result.user = data;
 

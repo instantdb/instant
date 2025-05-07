@@ -306,8 +306,7 @@
         app-id (-> auth :app :id)
         current-user (-> auth :user)
         room-id (validate-room-id event)]
-    (tool/def-locals)
-    (if (flags/toggled? :join-rooom-v2)
+    (if (flags/toggled? :join-room-v2)
       (eph/join-room! app-id sess-id current-user room-id (or data {}))
       (eph/join-room-old! app-id sess-id current-user room-id))
     (rs/send-event! store app-id sess-id {:op :join-room-ok

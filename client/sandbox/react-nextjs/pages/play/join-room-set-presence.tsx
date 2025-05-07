@@ -25,12 +25,6 @@ function Presence({ presenceData }: { presenceData: string }) {
   useEffect(() => {
     // Don't publish unless it changes
     if (presenceData !== initialData.current) {
-      console.log(
-        'presenceData',
-        presenceData,
-        'initialData',
-        initialData.current,
-      );
       db._core._reactor.publishPresence('main', 'set-and-join', {
         value: presenceData,
       });
