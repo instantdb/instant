@@ -260,13 +260,6 @@
   [app-id room-id sess-id]
   (contains? (get-room-data app-id room-id) sess-id))
 
-(defn join-room-old! [app-id sess-id current-user room-id]
-  (register-session! app-id room-id sess-id)
-  (hazelcast/join-room-old! (get-hz-rooms-map)
-                            (hazelcast/room-key app-id room-id)
-                            sess-id
-                            (:id current-user)))
-
 (defn join-room! [app-id sess-id current-user room-id data]
   (register-session! app-id room-id sess-id)
   (hazelcast/join-room! (get-hz-rooms-map)
