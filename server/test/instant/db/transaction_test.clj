@@ -608,15 +608,75 @@
                   [[:= :attr-id email-attr-id]]))))
         (testing "unicity throws"
           (let [ex-data  (test-util/instant-ex-data
-                           (tx/transact!
-                            (aurora/conn-pool :write)
-                            (attr-model/get-by-app-id app-id)
-                            app-id
-                            [[:add-triple joe-eid email-attr-id "test2@instantdb.com"]]))]
+                          (tx/transact!
+                           (aurora/conn-pool :write)
+                           (attr-model/get-by-app-id app-id)
+                           app-id
+                           [[:add-triple joe-eid email-attr-id "test2@instantdb.com"]]))]
             (is (= ::ex/record-not-unique
                    (::ex/type ex-data)))
             (is (= "`email` is a unique attribute on `users` and an entity already exists with `users.email` = \"test2@instantdb.com\""
                    (::ex/message ex-data)))))))))
+
+(deftest duplicate-ident-data-test
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [created-at-attr-id #uuid "5f3b1902-0025-4f5a-9624-12c5ee27a192"
+            created-at-fwd-ident #uuid "9fb42d0d-40f6-4baa-b7d6-982b9ba55ac8"
+            duplicate-attr-id #uuid "6f3b1902-0025-4f5a-9624-12c5ee27a193"
+            duplicate-fwd-ident #uuid "7fb42d0d-40f6-4baa-b7d6-982b9ba55ac7"]
+
+        ;; Add the original createdAt attribute
+        (tx/transact!
+         (aurora/conn-pool :write)
+         (attr-model/get-by-app-id app-id)
+         app-id
+         [[:add-attr
+           {:id created-at-attr-id
+            :forward-identity [created-at-fwd-ident "todos" "createdAt"]
+            :value-type :instant
+            :cardinality :one
+            :unique? false
+            :index? true}]])
+
+        (testing "original attribute is created successfully"
+          (is (= {:id created-at-attr-id
+                  :value-type :instant,
+                  :cardinality :one,
+                  :forward-identity
+                  [created-at-fwd-ident "todos" "createdAt"],
+                  :unique? false,
+                  :index? true,
+                  :required? false,
+                  :inferred-types nil,
+                  :catalog :user}
+                 (attr-model/seek-by-id
+                  created-at-attr-id
+                  (attr-model/get-by-app-id app-id)))))
+
+        (testing "adding duplicate attribute label throws with proper error message"
+          (let [ex-data (test-util/instant-ex-data
+                         (tx/transact!
+                          (aurora/conn-pool :write)
+                          (attr-model/get-by-app-id app-id)
+                          app-id
+                          [[:add-attr
+                            {:id duplicate-attr-id
+                             :forward-identity [duplicate-fwd-ident "todos" "createdAt"]
+                             :value-type :string
+                             :cardinality :one
+                             :index? true}]]))]
+
+            (is (= ::ex/record-not-unique
+                   (::ex/type ex-data)))
+
+            (is (= "`createdAt` already exists on `todos`"
+                   (::ex/message ex-data)))
+
+            (is (= {:record-type :ident
+                    :etype "todos"
+                    :label "createdAt"}
+                   (::ex/hint ex-data)))))))))
 
 (deftest tx-ref-many-to-many
   (with-empty-app
