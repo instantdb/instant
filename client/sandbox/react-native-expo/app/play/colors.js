@@ -3,7 +3,10 @@ import { View, Text, Button, StyleSheet } from 'react-native';
 
 import config from '../config';
 
-const { useQuery, transact } = init(config);
+const { useQuery, transact } = init({
+  appId: '595a5896-ccab-47f3-b4a8-201ca66391b0',
+  verbose: true,
+});
 
 function App() {
   return <Main />;
