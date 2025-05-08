@@ -663,10 +663,8 @@ function schemaHash(schema?: InstantSchemaDef<any, any, any>): string {
   }
 
   if (schemaHashStore.get(schema)) {
-    console.log('getting cached schema');
     return schemaHashStore.get(schema);
   }
-  console.log('calculating schema hash');
   const hash = weakHash(schema);
   schemaHashStore.set(schema, hash);
   return hash;

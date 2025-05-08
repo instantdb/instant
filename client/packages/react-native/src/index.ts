@@ -1,8 +1,8 @@
 import 'react-native-get-random-values';
 
-import Storage from './Storage.js';
-import NetworkListener from './NetworkListener.js';
-import version from './version.js';
+import Storage from './Storage';
+import NetworkListener from './NetworkListener';
+import version from './version';
 
 import {
   // react

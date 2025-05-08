@@ -178,9 +178,13 @@ export default class Reactor {
     if (typeof BroadcastChannel === 'function') {
       this._broadcastChannel = new BroadcastChannel('@instantdb');
       this._broadcastChannel.addEventListener('message', async (e) => {
-        if (e.data?.type === 'auth') {
-          const res = await this.getCurrentUser();
-          this.updateUser(res.user);
+        try {
+          if (e.data?.type === 'auth') {
+            const res = await this.getCurrentUser();
+            this.updateUser(res.user);
+          }
+        } catch (e) {
+          this._log.error('[error] handle broadcast channel', e);
         }
       });
     }
@@ -1102,20 +1106,24 @@ export default class Reactor {
     }
     this._log.info('[socket][open]', this._ws._id);
     this._setStatus(STATUS.OPENED);
-    this.getCurrentUser().then((resp) => {
-      this._trySend(uuid(), {
-        op: 'init',
-        'app-id': this.config.appId,
-        'refresh-token': resp.user?.['refresh_token'],
-        versions: this.versions,
-        // If an admin token is provided for an app, we will
-        // skip all permission checks. This is an advanced feature,
-        // to let users write internal tools
-        // This option is not exposed in `Config`, as it's
-        // not ready for prime time
-        '__admin-token': this.config.__adminToken,
+    this.getCurrentUser()
+      .then((resp) => {
+        this._trySend(uuid(), {
+          op: 'init',
+          'app-id': this.config.appId,
+          'refresh-token': resp.user?.['refresh_token'],
+          versions: this.versions,
+          // If an admin token is provided for an app, we will
+          // skip all permission checks. This is an advanced feature,
+          // to let users write internal tools
+          // This option is not exposed in `Config`, as it's
+          // not ready for prime time
+          '__admin-token': this.config.__adminToken,
+        });
+      })
+      .catch((e) => {
+        this._log.error('[socket][error]', targetWs._id, e);
       });
-    });
   };
 
   _wsOnMessage = (e) => {
