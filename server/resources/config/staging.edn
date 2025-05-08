@@ -29,6 +29,6 @@
  :google-oauth-client {:client-id "785415128641-7tdd4bhtna2mk4vmu2dtucpi4fppp6j9.apps.googleusercontent.com"
                        :client-secret {:enc "013a60131260c9ff112d0877004e6ae09fdeb1ba50c262dd0ad5607cd5b5004cc857e82d1bb8bd79b99df707d37a8d323d1ae82034ee5f9cc1ca216dce767df9c79f297395aca4e1b76f2cab35d049fc4c1b389011e2d6f4"}}
 
- :database-cluster-id "instant-aurora-staging"
+ :database-cluster-id "instant-aurora-staging-cluster"
 
  :instant-config-app-id #uuid "24a4d71b-7bb2-4630-9aee-01146af26239"}
