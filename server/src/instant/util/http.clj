@@ -47,7 +47,13 @@
                  :app-id app-id
                  :cli-version cli-version
                  :core-version core-version
-                 :admin-version admin-version}]
+                 :admin-version admin-version
+                 ;; cloudflare tracking id
+                 :cf-ray-id (get headers "cf-ray")
+                 ;; cloudfront tracking id
+                 :amz-fc-id (get headers "x-amz-cf-id")
+                 ;; amazon load balancer trace id
+                 :amzn-trace-id (get headers "x-amzn-trace-id")}]
       (tracer/add-data! {:attributes attrs})
       (handler request))))
 
