@@ -271,3 +271,38 @@ jobs:
       run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
     - name: Deploy Project Artifacts to Vercel
       run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+  vercel-staging-deploy:
+    name: Deploy to vercel staging
+    runs-on: ubuntu-latest
+    if: contains(github.event.head_commit.message, '[staging]')
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Cache turbo build setup
+      uses: actions/cache@v4
+      with:
+        path: client/.turbo
+        key: ${{ runner.os }}-turbo-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-turbo-
+    - uses: pnpm/action-setup@v2
+      with:
+        version: '10.2.0'
+    - name: Setup Node.js environment
+      uses: actions/setup-node@v4
+      with:
+        node-version: 23
+        cache: 'pnpm'
+        cache-dependency-path: client
+    - name: Install Vercel CLI
+      run: npm install --g vercel@canary
+    - name: Pull Vercel Environment Information
+      run: vercel pull --yes --environment=staging --token=${{ secrets.VERCEL_TOKEN }}
+    - name: Build Project Artifacts
+      run: vercel build --target=staging --token=${{ secrets.VERCEL_TOKEN }}
+    - name: Deploy Project Artifacts to Vercel
+      run: vercel deploy --prebuilt --target=staging --token=${{ secrets.VERCEL_TOKEN }}

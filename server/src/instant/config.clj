@@ -24,13 +24,19 @@
 (defn get-env []
   (cond
     (some? *env*)                           *env*
+    ;; n.b. make sure this the staging check is first so that we can
+    ;;      override it in the eb env vars
+    (= "true" (System/getenv "STAGING"))    :staging
     (= "true" (System/getenv "PRODUCTION")) :prod
     (= "true" (System/getenv "TEST"))       :test
     :else                                   :dev))
 
+(defn aws-env? []
+  (contains? #{:prod :staging} (get-env)))
+
 (defonce instance-id
   (delay
-    (when (= :prod (get-env))
+    (when (aws-env?)
       (aws-util/get-instance-id))))
 
 (defonce process-id
@@ -38,9 +44,8 @@
     (string/replace
      (string/join "_"
                   [(name (get-env))
-                   (if (= :prod (get-env))
-                     @instance-id
-                     (crypt-util/random-hex 8))
+                   (or @instance-id
+                       (crypt-util/random-hex 8))
                    (crypt-util/random-hex 8)])
      #"-" "_")))
 
@@ -52,7 +57,7 @@
            (config-edn/decrypted-config crypt-util/obfuscate
                                         crypt-util/get-hybrid-decrypt-primitive
                                         crypt-util/hybrid-decrypt
-                                        (= :prod (get-env))
+                                        (aws-env?)
                                         (config-edn/read-config (get-env))))))
 
 (defn instant-config-app-id []
@@ -69,6 +74,7 @@
 
 (defn sendgrid-token []
   (some-> @config-map :sendgrid-token crypt-util/secret-value))
+
 (defn postmark-account-token []
   (some-> @config-map :postmark-account-token crypt-util/secret-value))
 
@@ -150,6 +156,14 @@
                                                       @hostname
                                                       @process-id)))))
 
+(defn dashboard-origin
+  ([] (dashboard-origin {:env (get-env)}))
+  ([{:keys [env]}]
+   (case env
+     :prod "https://www.instantdb.com"
+     :staging "https://staging.instantdb.com"
+     "http://localhost:3000")))
+
 ;; ---
 ;; Stripe
 (defn stripe-secret []
@@ -161,19 +175,13 @@
 (defn stripe-webhook-secret []
   (-> @config-map :stripe-webhook-secret crypt-util/secret-value))
 
-(defn stripe-success-url
-  ([] (stripe-success-url {:env (get-env)}))
-  ([{:keys [env]}]
-   (case env
-     :prod "https://instantdb.com/dash?t=billing"
-     "http://localhost:3000/dash?t=billing")))
+(defn stripe-success-url []
+  (str (dashboard-origin)
+       "/dash?t=billing"))
 
-(defn stripe-cancel-url
-  ([] (stripe-cancel-url {:env (get-env)}))
-  ([{:keys [env]}]
-   (case env
-     :prod "https://instantdb.com/dash?t=billing"
-     "http://localhost:3000/dash?t=billing")))
+(defn stripe-cancel-url []
+  (str (dashboard-origin)
+       "/dash?t=billing"))
 
 (def test-pro-subscription "price_1P4ocVL5BwOwpxgU8Fe6oRWy")
 (def prod-pro-subscription "price_1P4nokL5BwOwpxgUpWoidzdL")
@@ -196,22 +204,20 @@
 
 (def server-origin (case (get-env)
                      :prod "https://api.instantdb.com"
+                     :staging "https://api-staging.instantdb.com"
                      "http://localhost:8888"))
 
 (def s3-bucket-name
   (case (get-env)
     :prod "instant-storage"
+    :staging "instant-storage-staging"
     "instantdb-test-bucket"))
 
-(defn dashboard-origin
-  ([] (dashboard-origin {:env (get-env)}))
-  ([{:keys [env]}]
-   (case env
-     :prod "https://www.instantdb.com"
-     "http://localhost:3000")))
-
 (defn get-connection-pool-size []
-  (if (= :prod (get-env)) 400 20))
+  (if (or (= :prod (get-env))
+          (= :staging (get-env)))
+    400
+    20))
 
 (defn env-integer [var-name]
   (when-let [envvar (System/getenv var-name)]
@@ -235,7 +241,7 @@
 (defn get-nrepl-bind-address []
   (or (System/getenv "NREPL_BIND_ADDRESS")
       (case (get-env)
-        :prod "0.0.0.0"
+        (:prod :staging) "0.0.0.0"
         nil)))
 
 (defn init []

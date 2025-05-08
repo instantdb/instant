@@ -2,6 +2,8 @@ export const isBrowser = typeof window != 'undefined';
 
 export const isDev = process.env.NODE_ENV === 'development';
 
+const isStaging = process.env.NEXT_PUBLIC_STAGING === 'true';
+
 const devBackend = getLocal('devBackend');
 
 let localPort = '8888';
@@ -16,10 +18,10 @@ if (devBackend && isBrowser) {
 const config = {
   apiURI: getLocal('devBackend')
     ? `http://localhost:${localPort}`
-    : 'https://api.instantdb.com',
+    : `https://${isStaging ? 'api-staging' : 'api'}.instantdb.com`,
   websocketURI: getLocal('devBackend')
     ? `ws://localhost:${localPort}/runtime/session`
-    : 'wss://api.instantdb.com/runtime/session',
+    : `wss://${isStaging ? 'api-staging' : 'api'}.instantdb.com/runtime/session`,
 };
 
 export default config;

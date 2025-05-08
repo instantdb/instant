@@ -42,7 +42,7 @@
                                :or {instance-name "instant-hz-v3"
                                     cluster-name "instant-server-v2"}}]
   (-> (java.util.logging.Logger/getLogger "com.hazelcast")
-      (.setLevel (if (= env :prod)
+      (.setLevel (if (config/aws-env?)
                    java.util.logging.Level/INFO
                    java.util.logging.Level/WARNING)))
   (.setLevel (java.util.logging.Logger/getLogger "com.hazelcast.system.logo")
@@ -59,7 +59,7 @@
     (.setInstanceName config instance-name)
     (.setEnabled (.getMulticastConfig join-config) false)
     (case env
-      :prod
+      (:prod :staging)
       (let [ip (aws-util/get-instance-ip)]
         (.setPublicAddress network-config ip)
         (.setPort network-config (config/get-hz-port))

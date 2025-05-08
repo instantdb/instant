@@ -1,0 +1,34 @@
+{:aead-keyset
+ {:encrypted? true
+  :kms-key-url "aws-kms://arn:aws:kms:us-east-1:597134865416:key/mrk-e64dfe83b1464bbdbc20f23e652ad2a5"
+  :json "{\"encryptedKeyset\":\"AQICAHhpp/gyLqbSj/AUco4gftFgpQ99AbOx+UEx1DTG6st//AEUCucLcnPJ1OMFTSf7lHMCAAAAvjCBuwYJKoZIhvcNAQcGoIGtMIGqAgEAMIGkBgkqhkiG9w0BBwEwHgYJYIZIAWUDBAEuMBEEDO7PNmyMP4IbTNzIXgIBEIB367jm89EwqLzORz+20LUL5x8XRZdG2zStBomG2HKTalNyFu7Y0XwTu7sXpmnZroal8YQmprMcDR3X7UXxkVG+xfeWAsXImxk2nxvBl1LXigwf8j3IJsi74HRxzPeadcxt+nPmYAyOyr85Wsnzy2UCwGL8DQq5sQ4=\",\"keysetInfo\":{\"primaryKeyId\":740543858,\"keyInfo\":[{\"typeUrl\":\"type.googleapis.com/google.crypto.tink.AesGcmKey\",\"status\":\"ENABLED\",\"keyId\":740543858,\"outputPrefixType\":\"TINK\"}]}}"}
+
+ :hybrid-keyset
+ {:kms-key-url "aws-kms://arn:aws:kms:us-east-1:597134865416:key/mrk-e64dfe83b1464bbdbc20f23e652ad2a5"
+  :json "{\"encryptedKeyset\":\"AQICAHhpp/gyLqbSj/AUco4gftFgpQ99AbOx+UEx1DTG6st//AERTRZG1mjA+/sIVpuBqmjQAAABAjCB/wYJKoZIhvcNAQcGoIHxMIHuAgEAMIHoBgkqhkiG9w0BBwEwHgYJYIZIAWUDBAEuMBEEDENmkjF6QKj0tfRjPAIBEICBugiW0QYejUYE8vhadpo7VXsbei6mcr8sbu/V14VCErJx40wWEUP3MZEaqyw1mRqiMIrcbJLlew+z9Loq8iXbGcmPfhS4wtKpNOWkLQQtkx2TK+q5sDX9xvcJlHRAy2FZWErqpw75ywY2YGP8g3fgGbahgV85Z3ZYVNuLYz1+d/nVfVElDxeTERhygV//dMogG96iunJOkbNrCKCHWk2WOHMlkWQRzoopmNYLFWDRyqO9gZmuMsAKd9Z/Kw==\",\"keysetInfo\":{\"primaryKeyId\":979374866,\"keyInfo\":[{\"typeUrl\":\"type.googleapis.com/google.crypto.tink.HpkePrivateKey\",\"status\":\"ENABLED\",\"keyId\":979374866,\"outputPrefixType\":\"TINK\"}]}}"
+  :public-key-json "{\"primaryKeyId\":979374866,\"key\":[{\"keyData\":{\"typeUrl\":\"type.googleapis.com/google.crypto.tink.HpkePublicKey\",\"value\":\"EgYIARABGAIaIFKugbxgV5SmgNUuWEkly/X5a35aWSKPdIORjj5Nzm9Y\",\"keyMaterialType\":\"ASYMMETRIC_PUBLIC\"},\"status\":\"ENABLED\",\"keyId\":979374866,\"outputPrefixType\":\"TINK\"}]}"}
+
+ :s3-storage-access-key {:enc "013a6013125548d655cbda9ab659a416ea7daa142bb65516f4700311522a0c443d79268d46c2a4c1183e761164c8dd303ddf0a8ffefa40b14a6e51e27b26e21d08a9e809d027b2cc98"}
+
+ :s3-storage-secret-key {:enc "013a601312fe65c4b3af981601082a027ec5456c04e914b29e1773f2b5bd36b87b37aa580c3c7d3f3f00cba1a8bf473ff723fd71fd94bc6567f1e5d38eb5f38c5a4b5581da3ea966f7c50b27f65458255665c6b7910c1f5ad8a88360f6"}
+
+ :postmark-token {:enc "013a601312f8230d84e52b7ae05199c524c53ab1e077edbec2e3c24f7af354d03e8e132e7eab33769928473d4fd1a4e6afb88139a95a34718cd1fd6da4659e6325d28e3362e4181e72358dc4a9e9b8c82f18efc62d22922022"}
+
+ :sendgrid-token {:enc "013a6013129ec05d80fe8c70ed09dfc123948ac2a87bc76a528a73483fcf39eab3c7257651a210900da01cca15eeea594c0c1204b3d6afb2f0c33ee592d7e2df8ebc7605317aa465567ccfd122864a0051290c686ea75aeeb7bbcc3013dbea6d32555a3b8191de2dfcad6adfda21499271228845bffbb676d486"}
+
+ :postmark-account-token {:enc "013a6013128d6cfbad540ccfae903f7f67903e3c72900c535d419bbec5dc0be79663fe5f0e9b26f41703e2c80acbd2b3e9ccb158a4501864a59efd4d8005a30bc544adde1fce116e29f2cadd3be8785987f8c7aea058f1dc56"}
+
+ :secret-discord-token {:enc "013a601312304b52bfc3b450bccbf6039c968c8fa5cfefc8715f0f04b3be1f030dbd7bc12b00e0764453b5ff0ac1d86cfdea6938b0aa24585873292443b1cad280a9191f0d1b1d76fc4c327e5ddcfc3b446b4e4427fd4e1606a83605f94f77df62e27bc13b1384e7a036a24b7e37eaf2e05baaf219f69b6762b2fbd87a"}
+
+ :stripe-secret {:enc "013a60131255d2cba1d976a5789e49bfbc2040924e0f565329aeccf1d5a41314989d527e390d9f897901a5fa8a809573786c848437d62ed9bd698112364030a5eb673abd2a14ab7aa1a71369c1ab230421ce38303e2e017597b9888b1a4540408f3f9298842bfccd72bb7a0c69abcc1b7a810817ce5c2e844e031b099c81170d637bcfb452918c161f628a5fa6d53dec162f692a545f4022e044a39071377daf"}
+
+ :stripe-webhook-secret {:enc "013a601312172e96d4808a283432ac1a2c1f6c487551d39108ba096a480c2cbfba2f02c3411c51838496ff784223ce3572f1ef57e4c4d52cad07b49a6b5be5a7327353de743e1b5e6668d5c241afa2960f1e51051df8b2f479175876404ae9456c465ca4228e3729137f56407175e924cc366bd3dbbde645746a2b"}
+
+ :honeycomb-api-key {:enc "013a601312442980c6e099cd6f8c60a0ff2b53ffe6fa67671cc6c2c29cd124366701d0b04f6d0915b6d17d383fbfd9b6f6ad3a5868f95c58193431a3dbed36be1b73fd307efc71985005fc7e61c9820611ad35e128c8063b8a8e9f2d9e88a9cf8e93d7a2922d96af01490527b2e8e7b19ee1c5b8b5"}
+
+ :google-oauth-client {:client-id "785415128641-7tdd4bhtna2mk4vmu2dtucpi4fppp6j9.apps.googleusercontent.com"
+                       :client-secret {:enc "013a60131260c9ff112d0877004e6ae09fdeb1ba50c262dd0ad5607cd5b5004cc857e82d1bb8bd79b99df707d37a8d323d1ae82034ee5f9cc1ca216dce767df9c79f297395aca4e1b76f2cab35d049fc4c1b389011e2d6f4"}}
+
+ :database-cluster-id "instant-aurora-staging-cluster"
+
+ :instant-config-app-id #uuid "24a4d71b-7bb2-4630-9aee-01146af26239"}

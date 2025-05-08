@@ -50,7 +50,7 @@
   [honeycomb-api-key]
   (let [trace-provider-builder (SdkTracerProvider/builder)
         sdk-builder (OpenTelemetrySdk/builder)
-        log-processor (if (= :prod (config/get-env))
+        log-processor (if (config/aws-env?)
                         (let [builder (BatchSpanProcessor/builder (logging-exporter/create))]
                           (.setScheduleDelay builder 500 TimeUnit/MILLISECONDS)
                           (.build builder))
@@ -212,8 +212,9 @@
 (def team-name "instantdb")
 
 (defn get-env-name []
-  (if  (= :prod (config/get-env))
-    "prod"
+  (case (config/get-env)
+    :prod "prod"
+    :staging "staging"
     "test"))
 
 (def dataset-name "instant-server")
