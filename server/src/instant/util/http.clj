@@ -51,7 +51,7 @@
                  ;; cloudflare tracking id
                  :cf-ray-id (get headers "cf-ray")
                  ;; cloudfront tracking id
-                 :amz-fc-id (get headers "x-amz-cf-id")
+                 :amz-cf-id (get headers "x-amz-cf-id")
                  ;; amazon load balancer trace id
                  :amzn-trace-id (get headers "x-amzn-trace-id")}]
       (tracer/add-data! {:attributes attrs})
