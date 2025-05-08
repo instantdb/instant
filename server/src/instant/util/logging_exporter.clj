@@ -44,7 +44,7 @@
     (format "\033[1;38;5;%dm%s\033[0m" (colors i) s)))
 
 (defn colorize [color-f s]
-  (if (= :prod (config/get-env))
+  (if (config/aws-env?)
     s
     (color-f s)))
 
@@ -84,7 +84,7 @@
   (let [k (str k)]
     (when-not (exclude? k)
       (.append sb (if (and (= k "exception.message")
-                           (not= :prod (config/get-env)))
+                           (not (config/aws-env?)))
                     (colorize error-color k)
                     k))
       (.append sb "=")
@@ -127,7 +127,7 @@
 
 (defn friendly-trace [trace-id]
   (if (seq trace-id)
-    (if (= :prod (config/get-env))
+    (if (config/aws-env?)
       trace-id
       (subs trace-id 0 4))
     "unk"))
@@ -136,7 +136,7 @@
   (.replace s "\n" "\\\\n"))
 
 (def span-str
-  (if (= :prod (config/get-env))
+  (if (config/aws-env?)
     (fn [^SpanData span]
       (let [attr-str (attr-str span)]
         (format "[%s/%s] %sms [%s] %s"
@@ -157,7 +157,7 @@
 (def app-id-attr-key (AttributeKey/stringKey "app_id"))
 
 (def exclude-span?
-  (if (= :prod (config/get-env))
+  (if (config/aws-env?)
     (fn [^SpanData span]
       (let [n (.getName span)]
         (case n
