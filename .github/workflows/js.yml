@@ -207,6 +207,10 @@ jobs:
           echo "ALIAS_URL=$aliasUrl" >> $GITHUB_ENV
           echo "aliasing $deploymentUrl to https://$aliasUrl"
           vercel alias $deploymentUrl $aliasUrl --token=${{ secrets.VERCEL_TOKEN }} --scope jsv
+          if [[ "${{ github.event.head_commit.message }}" == *"[staging]"* ]]; then
+            echo "Deploying to staging"
+            vercel alias $deploymentUrl "staging.instantdb.com" --token=${{ secrets.VERCEL_TOKEN }} --scope jsv
+          fi
         else
             echo "There was an error"
         fi

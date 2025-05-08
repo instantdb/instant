@@ -161,6 +161,7 @@
   ([{:keys [env]}]
    (case env
      :prod "https://www.instantdb.com"
+     :staging "https://staging.instantdb.com"
      "http://localhost:3000")))
 
 ;; ---
