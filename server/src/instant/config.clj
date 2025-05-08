@@ -174,17 +174,13 @@
 (defn stripe-webhook-secret []
   (-> @config-map :stripe-webhook-secret crypt-util/secret-value))
 
-(defn stripe-success-url
-  ([] (stripe-success-url {:env (get-env)}))
-  ([{:keys [env]}]
-   (str (dashboard-origin)
-        "/dash?t=billing")))
+(defn stripe-success-url []
+  (str (dashboard-origin)
+       "/dash?t=billing"))
 
-(defn stripe-cancel-url
-  ([] (stripe-cancel-url {:env (get-env)}))
-  ([{:keys [env]}]
-   (str (dashboard-origin)
-        "/dash?t=billing")))
+(defn stripe-cancel-url []
+  (str (dashboard-origin)
+       "/dash?t=billing"))
 
 (def test-pro-subscription "price_1P4ocVL5BwOwpxgU8Fe6oRWy")
 (def prod-pro-subscription "price_1P4nokL5BwOwpxgUpWoidzdL")
