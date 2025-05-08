@@ -135,7 +135,10 @@
   (some-> http-req
           (.getRequestHeader "x-forwarded-for")
           (String/.split ",")
-          last))
+          ;; Drop the ip added by the elb
+          drop-last
+          last
+          string/trim))
 
 (defn report-active-sessions [store]
   (let [db @(:sessions store)]
