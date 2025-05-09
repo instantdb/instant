@@ -1,14 +1,6 @@
-import {
-  PropsWithChildren,
-  RefObject,
-  createRef,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import { PropsWithChildren, useState } from 'react';
 import produce from 'immer';
 import clsx from 'clsx';
-import { i, init } from '@instantdb/react';
 import Head from 'next/head';
 
 import { Tab, Switch as HeadlessSwitch } from '@headlessui/react';
@@ -30,52 +22,12 @@ import {
 
 import { ChevronRightIcon } from '@heroicons/react/24/solid';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
-import config from '@/lib/config';
 import MuxPlayer from '@mux/mux-player-react';
 import * as muxVideos from '@/lib/muxVideos';
 import useTotalSessionsCount from '@/lib/hooks/useTotalSessionsCount';
 import AnimatedCounter from '@/components/AnimatedCounter';
 
-type EmojiName = keyof typeof emoji;
-
-const emoji = {
-  fire: '🔥',
-  wave: '👋',
-  confetti: '🎉',
-  heart: '❤️',
-} as const;
-
-const emojiNames = Object.keys(emoji) as EmojiName[];
-
-const refsInit = Object.fromEntries(
-  emojiNames.map((a) => [a, createRef<HTMLDivElement>()]),
-);
-
 const appId = 'fc5a4977-910a-43d9-ac28-39c7837c1eb5';
-
-const schema = i.schema({
-  entities: {},
-  rooms: {
-    landing: {
-      presence: i.entity({}),
-      topics: {
-        emoji: i.entity({
-          name: i.string<EmojiName>(),
-          rotationAngle: i.number(),
-          directionAngle: i.number(),
-        }),
-      },
-    },
-  },
-});
-
-const db = init({
-  ...config,
-  appId,
-  schema,
-});
-
-const room = db.room('landing', 'landing');
 
 function Switch({
   enabled,
@@ -568,164 +520,6 @@ const SeeTheCodeButton = ({ href }: { href: string }) => (
   </Link>
 );
 
-function LandingParty() {
-  const elRefsRef = useRef<{
-    [k: string]: RefObject<HTMLDivElement>;
-  }>(refsInit);
-
-  const publishEmoji = room.usePublishTopic('emoji');
-
-  db.rooms.useTopicEffect(room, 'emoji', (event) => {
-    const { name, directionAngle, rotationAngle } = event;
-
-    const el = elRefsRef.current[name]?.current;
-    if (!el) return;
-
-    animateEmoji({ emoji: emoji[name], directionAngle, rotationAngle }, el);
-  });
-
-  useEffect(() => {
-    const konamiHandler = __konami(() => {
-      emojiNames.forEach((emote) => {
-        Array(20)
-          .fill(null)
-          .forEach((_, i) => {
-            setTimeout(() => {
-              sendEmoji(emote);
-            }, i * 200);
-          });
-      });
-    });
-
-    window.addEventListener('keydown', konamiHandler);
-
-    return () => {
-      window.removeEventListener('keydown', konamiHandler);
-    };
-  }, []);
-
-  function sendEmoji(name: EmojiName) {
-    const el = elRefsRef.current[name]?.current;
-    if (!el) return;
-
-    const params = {
-      name,
-      rotationAngle: Math.random() * 360,
-      directionAngle: Math.random() * 360,
-    };
-
-    animateEmoji(
-      {
-        emoji: emoji[name],
-        rotationAngle: params.rotationAngle,
-        directionAngle: params.directionAngle,
-      },
-      elRefsRef.current[name].current,
-    );
-
-    publishEmoji(params);
-  }
-
-  return (
-    <div className="flex flex-col items-center gap-3">
-      <div className="hidden text-sm text-gray-600 md:block">
-        This is <strong>live</strong>. Open another tab and press the emojis!
-      </div>
-      <div className="text-sm text-gray-600 md:hidden">
-        This is <strong>live</strong>. Try it with a friend on their device!
-      </div>
-      <div className="inline-flex select-none gap-6 rounded-xl border bg-white p-6 shadow-lg">
-        {emojiNames.map((name, i) => (
-          <div key={i} ref={elRefsRef.current[name]} className="relative">
-            <button
-              className="rounded-lg bg-gray-100 p-2 text-4xl transition-transform hover:scale-110 hover:bg-gray-50 active:scale-90 active:bg-gray-200"
-              onClick={() => {
-                sendEmoji(name);
-              }}
-            >
-              {emoji[name]}
-            </button>
-          </div>
-        ))}
-      </div>
-      <SeeTheCodeButton href="/examples#5-reactions" />
-    </div>
-  );
-}
-
-function LandingMultiplayerGraphic() {
-  const [items, setItems] = useState([
-    { title: 'Hack', done: false },
-    { title: 'Write tests', done: false },
-    { title: 'Ship', done: false },
-    { title: 'Talk to customers', done: false },
-  ]);
-
-  useEffect(() => {
-    const t = setInterval(() => {
-      const i = Math.floor(Math.random() * items.length);
-
-      setItems((items) =>
-        produce(items, (d) => {
-          const nextCheckIdx = items.findIndex((i) => !i.done);
-
-          if (nextCheckIdx > -1) {
-            d[nextCheckIdx].done = !d[nextCheckIdx].done;
-          } else {
-            for (let index = 0; index < items.length; index++) {
-              d[index].done = false;
-            }
-          }
-        }),
-      );
-    }, 2000);
-
-    return () => clearInterval(t);
-  }, []);
-
-  return (
-    <div className="flex h-full items-center justify-center">
-      <div className="flex flex-1 translate-x-2 flex-row">
-        {[1, 2].map((s) => (
-          <div
-            key={s}
-            className={clsx(
-              'w-1/2 rounded bg-gray-500/10 p-1 shadow-xl',
-              '-translate-x-4 first:translate-x-0',
-              'translate-y-3 first:translate-y-0',
-            )}
-          >
-            <div className="flex h-full w-full flex-col gap-1 overflow-auto rounded bg-white p-4 text-sm text-gray-600">
-              {items.map((item, i) => (
-                <div key={i} className="flex gap-2">
-                  <input
-                    type="checkbox"
-                    checked={item.done}
-                    onChange={() =>
-                      setItems(
-                        produce(items, (d) => {
-                          d[i].done = !d[i].done;
-                        }),
-                      )
-                    }
-                  />
-                  <span
-                    className={clsx(
-                      item.done ? 'text-gray-400 line-through' : undefined,
-                    )}
-                  >
-                    {item.title}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function LandingOfflineGraphic() {
   const showQueueLength = 3;
   const [state, setState] = useState<{
@@ -1000,74 +794,3 @@ const mutationWithoutInstantExampleCode = /*js*/ `async function deleteTodo(id) 
     });
   }
 }`;
-
-const presenceExampleComponentCode = /*js*/ `function App() {
-  const { user, peers } = usePresence('home-page', roomId);
-
-  return <Inspector data={{ user, peers }} />
-}`;
-
-const presenceExampleDataCode = /*json*/ `{
-  me: { cursor: { x: 455, y: 232 } },
-  others: [...]
-}`;
-
-function animateEmoji(
-  config: { emoji: string; directionAngle: number; rotationAngle: number },
-  target: HTMLDivElement | null,
-) {
-  if (!target) return;
-
-  const rootEl = document.createElement('div');
-  const directionEl = document.createElement('div');
-  const spinEl = document.createElement('div');
-
-  spinEl.innerText = config.emoji;
-  directionEl.appendChild(spinEl);
-  rootEl.appendChild(directionEl);
-  target.appendChild(rootEl);
-
-  style(rootEl, {
-    transform: `rotate(${config.directionAngle * 360}deg)`,
-    position: 'absolute',
-    top: '0',
-    left: '0',
-    right: '0',
-    bottom: '0',
-    margin: 'auto',
-    zIndex: '10',
-    pointerEvents: 'none',
-  });
-
-  style(spinEl, {
-    transform: `rotateZ(${config.rotationAngle * 400}deg)`,
-    fontSize: `40px`,
-  });
-
-  setTimeout(() => {
-    style(directionEl, {
-      transform: `translateY(20vh) scale(2)`,
-      transition: 'all 400ms',
-      opacity: '0',
-    });
-  }, 20);
-
-  setTimeout(() => rootEl.remove(), 800);
-}
-
-function style(el: HTMLElement, styles: Partial<CSSStyleDeclaration>) {
-  Object.assign(el.style, styles);
-}
-
-function __konami(callback: (event: KeyboardEvent) => void) {
-  let kkeys: number[] = [];
-  // up,up,down,down,left,right,left,right,B,A
-  const konami = '38,38,40,40,37,39,37,39,66,65';
-  return (event: KeyboardEvent) => {
-    kkeys.push(event.keyCode);
-    if (kkeys.toString().indexOf(konami) >= 0) {
-      callback(event);
-      kkeys = [];
-    }
-  };
-}
