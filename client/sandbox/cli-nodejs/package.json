@@ -1,5 +1,5 @@
 {
-  "name": "sandbox-cli",
+  "name": "sandbox/cli-nodejs",
   "private": true,
   "dependencies": {
     "@instantdb/admin": "workspace:*",
