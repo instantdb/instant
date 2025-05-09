@@ -5,4 +5,9 @@ export default defineNuxtConfig({
   devServer: {
     port: 3060,
   },
+  telemetry: false,
+  vite: {
+    clearScreen: false,
+    logLevel: 'warn',
+  },
 });

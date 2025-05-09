@@ -1,5 +1,5 @@
 {
-  "name": "sandbox-node",
+  "name": "sandbox/admin-sdk-express",
   "version": "0.0.1",
   "description": "Test script for admin SDK",
   "type": "module",
