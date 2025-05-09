@@ -5,7 +5,8 @@
     "dev": "next dev",
     "build": "next build",
     "gen-llms": "pnpm exec tsx scripts/gen-llms-txt.ts",
-    "postbuild": "pnpm gen-llms && next-sitemap",
+    "gen-docs": "pnpm exec tsx scripts/gen-md-docs.ts",
+    "postbuild": "pnpm gen-docs && pnpm gen-llms && next-sitemap",
     "start": "next start",
     "test": "jest --watch"
   },

@@ -19,6 +19,10 @@ client/www/public/sitemap.xml
 client/www/public/llms.txt
 client/www/public/llms-full.txt
 
+# static docs
+client/www/public/docs
+client/www/public/docs*
+
 # production
 www/build
 

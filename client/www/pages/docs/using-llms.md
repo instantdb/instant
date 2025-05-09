@@ -25,6 +25,10 @@ If you are ever interrupted while outputting a file and need to continue start t
 // [llms.txt and llms-full.txt pasted below]
 ```
 
+You can also attach `.md` to the end of any doc page url to get the raw markdown
+you can copy and paste into your LLM. For example, here's the [Getting
+Started page](/docs.md)
+
 If you have any feedback on your experience using LLMs w/ Instant we would love
 to hear it! Feel free to use the feedback buttons below or reach out to us on
 [Discord](https://discord.com/invite/VU53p7uQcE).
