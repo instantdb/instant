@@ -926,7 +926,18 @@
                :materialized
                :not-materialized)]]
     {:cte cte
-     :pg-hints [(pg-hint/index-scan triples-alias (pg-hint-index (:idx named-p)))]}))
+     :pg-hints (let [v-tag (first (:v named-p))]
+                 (if (and
+                      ;; functions sometimes don't use the index well, let postgres decide
+                      (not= :function v-tag)
+                      ;; string index is bad for exact matches, let postgres determine
+                      ;; when to use
+                      (not= :string (-> named-p
+                                        :idx
+                                        second
+                                        :data-type)))
+                   [(pg-hint/index-scan triples-alias (pg-hint-index (:idx named-p)))]
+                   []))}))
 
 (defn symbol-fields-of-pattern
   "Keeps track of which idx in the triple maps to which variable.
