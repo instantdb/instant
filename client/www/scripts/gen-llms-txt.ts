@@ -60,7 +60,7 @@ async function findMarkdownFiles(dir: string): Promise<string[]> {
 }
 
 function getDocumentUrl(href: string): string {
-  return `https://instantdb.com/api/markdown${href}.md`;
+  return `https://instantdb.com${href}.md`;
 }
 
 async function processMarkdownFile(filePath: string): Promise<Document | null> {
