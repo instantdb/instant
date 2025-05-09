@@ -1,7 +1,4 @@
-import {
-  PropsWithChildren,
-  useState,
-} from 'react';
+import { PropsWithChildren, useState } from 'react';
 import produce from 'immer';
 import clsx from 'clsx';
 import Head from 'next/head';
