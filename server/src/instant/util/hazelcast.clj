@@ -114,8 +114,9 @@
             merge
             {:peer-id session-id
              :user (when user-id
-                     {:id user-id})
-             :data data})))
+                     {:id user-id})}
+            (when data
+              {:data data}))))
 
 (defn join-room! [^IMap hz-map ^RoomKeyV1 room-key ^UUID session-id ^UUID user-id data]
   (.merge hz-map
