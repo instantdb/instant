@@ -111,12 +111,14 @@
   (apply [_ room-data _]
     (update room-data
             session-id
-            merge
-            {:peer-id session-id
-             :user (when user-id
-                     {:id user-id})}
-            (when data
-              {:data data}))))
+            (fn [existing]
+              (merge existing
+                     {:peer-id session-id
+                      :user (when user-id
+                              {:id user-id})}
+                     (if data
+                       {:data data}
+                       {:data (or (:data existing) {})}))))))
 
 (defn join-room! [^IMap hz-map ^RoomKeyV1 room-key ^UUID session-id ^UUID user-id data]
   (.merge hz-map
