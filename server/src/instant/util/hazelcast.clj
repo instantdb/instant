@@ -124,7 +124,7 @@
           {session-id {:peer-id session-id
                        :user (when user-id
                                {:id user-id})
-                       :data data}}
+                       :data (or data {})}}
           (->JoinRoomMergeV2 session-id user-id data)))
 
 (def ^ByteArraySerializer join-room-serializer
