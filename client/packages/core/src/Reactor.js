@@ -431,33 +431,72 @@ export default class Reactor {
       case 'refresh-ok':
         const { computations, attrs } = msg;
         this._setAttrs(attrs);
+
+        const mutations = this._rewriteMutations(
+          attrs,
+          this.pendingMutations.currentValue,
+        );
+
+        const processedTxId = msg['processed-tx-id'];
+
         const updates = computations.map((x) => {
           const q = x['instaql-query'];
           const result = x['instaql-result'];
           const hash = weakHash(q);
           const triples = extractTriples(result);
-          const store = s.createStore(
+          let store = s.createStore(
             this.attrs,
             triples,
             enableCardinalityInference,
             this._linkIndex,
           );
+
+          // apply pendingMutations that this query has not yet seen
+          for (const mut of Object.values(mutations)) {
+            if (!mut['tx-id'] && mut['tx-id'] > processedTxId) {
+              store = s.transact(store, mut['tx-steps']);
+            }
+          }
+
           const pageInfo = result?.[0]?.data?.['page-info'];
           const aggregate = result?.[0]?.data?.['aggregate'];
           return { hash, store, pageInfo, aggregate };
         });
+
         updates.forEach(({ hash, store, pageInfo, aggregate }) => {
           this.querySubs.set((prev) => {
-            prev[hash].result = { store, pageInfo, aggregate };
+            prev[hash].result = { store, pageInfo, aggregate, processedTxId };
             return prev;
           });
         });
+
+        // clean up pendingMutations that all queries have seen
+        let minProcessedTxId = Number.MAX_SAFE_INTEGER;
+        for (const { result } of Object.values(this.querySubs.currentValue)) {
+          if (result?.processedTxId) {
+            minProcessedTxId = Math.min(
+              minProcessedTxId,
+              result?.processedTxId,
+            );
+          }
+        }
+
+        this.pendingMutations.set((prev) => {
+          for (const [eventId, mut] of Array.from(prev.entries())) {
+            if (mut['tx-id'] && mut['tx-id'] <= minProcessedTxId) {
+              prev.delete(eventId);
+            }
+          }
+          return prev;
+        });
+
         updates.forEach(({ hash }) => {
           this.notifyOne(hash);
         });
         break;
       case 'transact-ok':
         const { 'client-event-id': eventId, 'tx-id': txId } = msg;
+
         const muts = this._rewriteMutations(
           this.attrs,
           this.pendingMutations.currentValue,
@@ -467,24 +506,9 @@ export default class Reactor {
           break;
         }
 
-        // Now that this transaction is accepted,
-        // We can delete it from our queue.
+        // update pendingMutation with server-side tx-id
         this.pendingMutations.set((prev) => {
-          prev.delete(eventId);
-          return prev;
-        });
-
-        // We apply this transaction to all our existing queries
-        const txStepsToApply = prevMutation['tx-steps'];
-        this.querySubs.set((prev) => {
-          for (const [hash, sub] of Object.entries(prev)) {
-            const store = sub?.result?.store;
-            if (!store) {
-              continue;
-            }
-            const newStore = s.transact(store, txStepsToApply);
-            prev[hash].result.store = newStore;
-          }
+          prev.set(eventId, { ...prev.get(eventId), 'tx-id': txId });
           return prev;
         });
 

@@ -5,7 +5,7 @@ import config from '../../config';
 const schema = i.schema({
   entities: {
     flicker: i.entity({
-      count: i.number()
+      count: i.number(),
     }),
   },
 });
@@ -23,7 +23,7 @@ function autoclick() {
   const set = () => {
     db.transact(
       db.tx.flicker[the_id].update({
-        count: i
+        count: i,
       }),
     );
     i += 1;
@@ -36,14 +36,14 @@ function autoclick() {
 }
 
 function Main() {
-  const [ states, setStates ] = useState([]);
+  const [states, setStates] = useState([]);
   const { isLoading, error, data } = db.useQuery({
     flicker: {
       $: {
         where: {
-          id: the_id
-        }
-      }
+          id: the_id,
+        },
+      },
     },
   });
 
@@ -58,36 +58,51 @@ function Main() {
 
   return (
     <div className="p-10 flex flex-col gap-1">
-      <div>{item.id} {": "} {item.count}</div>
+      <div>
+        {item.id} {': '} {item.count}
+      </div>
 
       <div className="flex flex-row gap-1">
-        <button className="rounded-lg bg-gray-500 px-3 py-2 text-sm/6 font-bold text-white"
+        <button
+          className="rounded-lg bg-gray-500 px-3 py-2 text-sm/6 font-bold text-white"
           onClick={() => {
-              db.transact(
-                db.tx.flicker[the_id].update({ count: item.count + 1 }),
-              );
-            }}>
+            db.transact(
+              db.tx.flicker[the_id].update({ count: item.count + 1 }),
+            );
+          }}
+        >
           Increment
         </button>
-        <button className="rounded-lg bg-gray-500 px-3 py-2 text-sm/6 font-bold text-white"
+        <button
+          className="rounded-lg bg-gray-500 px-3 py-2 text-sm/6 font-bold text-white"
           onClick={() => {
-              db.transact(
-                db.tx.flicker[the_id].update({ count: 0 }),
-              );
-            }}>
+            db.transact(db.tx.flicker[the_id].update({ count: 0 }));
+          }}
+        >
           Reset
         </button>
-        <button className="rounded-lg bg-gray-500 px-3 py-2 text-sm/6 font-bold text-white"
-          onClick={() => { setStates([]); autoclick(); }}>
+        <button
+          className="rounded-lg bg-gray-500 px-3 py-2 text-sm/6 font-bold text-white"
+          onClick={() => {
+            setStates([]);
+            autoclick();
+          }}
+        >
           Autoclick
         </button>
       </div>
 
       <div className="flex flex-row gap-1 flex-wrap">
-        { states.map((state, i) => {
-            let correct = i == 0 || states[i - 1] + 1 == state;
-            return <span className={"px-1 " + (correct ? "bg-gray-200" : "bg-red-200")}>{state}</span>;
-          })}
+        {states.map((state, i) => {
+          let correct = i == 0 || states[i - 1] + 1 == state;
+          return (
+            <span
+              className={'px-1 ' + (correct ? 'bg-gray-200' : 'bg-red-200')}
+            >
+              {state}
+            </span>
+          );
+        })}
       </div>
     </div>
   );
