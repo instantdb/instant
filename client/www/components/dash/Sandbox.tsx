@@ -146,6 +146,7 @@ export function Sandbox({
           throw error;
         }
       },
+      tx,
     };
 
     try {
@@ -676,7 +677,7 @@ function initialSandboxValue(name: string) {
   const namePropCode = isJsSimpleKey(name) ? `.${name}` : `["${name}"]`;
   return `
 // This is a space to hack on queries and mutations
-// \`db\`, \`id\`, \`tx\`, and \`lookup\` are all available globally
+// \`db\`, \`id\`, and \`lookup\` are all available globally
 // Press Cmd/Ctrl + Enter to run the code
 
 const res = await db.query({
@@ -693,7 +694,7 @@ console.log('${name} ID:', itemId);
 
 if (itemId) {
   await db.transact([
-    tx${namePropCode}[itemId].update({ test: 1 }),
+    db.tx${namePropCode}[itemId].update({ test: 1 }),
   ]);
 }
 `.trim();
@@ -703,6 +704,7 @@ const tsTypes = /* ts */ `
 type InstantDB = {
   transact: (steps) => Promise<number>;
   query: (iql, opts?: {ruleParams?: Record<string, any>}) => Promise<any>;
+  tx: InstantTx;
 };
 
 type InstantTx = {
