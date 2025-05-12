@@ -306,7 +306,7 @@
         app-id (-> auth :app :id)
         current-user (-> auth :user)
         room-id (validate-room-id event)]
-    (eph/join-room! app-id sess-id current-user room-id (or data {}))
+    (eph/join-room! app-id sess-id current-user room-id data)
     (rs/send-event! store app-id sess-id {:op :join-room-ok
                                           :room-id room-id
                                           :client-event-id client-event-id})))

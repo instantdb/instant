@@ -397,6 +397,9 @@ importers:
       '@instantdb/admin':
         specifier: workspace:*
         version: link:../../packages/admin
+      '@instantdb/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@instantdb/react':
         specifier: workspace:*
         version: link:../../packages/react
