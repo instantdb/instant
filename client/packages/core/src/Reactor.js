@@ -100,6 +100,15 @@ function querySubsToJSON(querySubs) {
   return JSON.stringify(jsonSubs);
 }
 
+function compareMutations(a, b) {
+  const a_order = a.order || 0;
+  const b_order = b.order || 0;
+  if (a_order == b_order) {
+    return a.eventId < b.eventId ? -1 : a.eventId > b.eventId ? 1 : 0;
+  }
+  return a.order - b.order;
+}
+
 /**
  * @template {import('./presence.ts').RoomSchemaShape} [RoomSchema = {}]
  */
@@ -432,10 +441,12 @@ export default class Reactor {
         const { computations, attrs } = msg;
         this._setAttrs(attrs);
 
-        const mutations = this._rewriteMutations(
-          attrs,
-          this.pendingMutations.currentValue,
-        );
+        const mutations = [
+          ...this._rewriteMutations(
+            attrs,
+            this.pendingMutations.currentValue,
+          ).values(),
+        ].sort(compareMutations);
 
         const processedTxId = msg['processed-tx-id'];
 
@@ -452,8 +463,8 @@ export default class Reactor {
           );
 
           // apply pendingMutations that this query has not yet seen
-          for (const mut of Object.values(mutations)) {
-            if (!mut['tx-id'] && mut['tx-id'] > processedTxId) {
+          for (const mut of mutations) {
+            if (!mut['tx-id'] || mut['tx-id'] > processedTxId) {
               store = s.transact(store, mut['tx-steps']);
             }
           }
@@ -994,10 +1005,13 @@ export default class Reactor {
    */
   pushOps = (txSteps, error) => {
     const eventId = uuid();
+    const mutations = [...this.pendingMutations.currentValue.values()];
+    const order = Math.max(...mutations.map((mut) => mut.order || 0)) + 1;
     const mutation = {
       op: 'transact',
       'tx-steps': txSteps,
-      error: error,
+      error,
+      order,
     };
     this.pendingMutations.set((prev) => {
       prev.set(eventId, mutation);

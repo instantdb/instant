@@ -21,13 +21,14 @@ function autoclick() {
   let i = 0;
 
   const set = () => {
+    console.log('db.transact', i);
     db.transact(
       db.tx.flicker[the_id].update({
         count: i,
       }),
     );
     i += 1;
-    if (i < 1000) {
+    if (i < 200) {
       setTimeout(set, 10);
     }
   };
@@ -36,7 +37,7 @@ function autoclick() {
 }
 
 function Main() {
-  const [states, setStates] = useState([]);
+  const [states, setStates] = useState<number[]>([]);
   const { isLoading, error, data } = db.useQuery({
     flicker: {
       $: {
@@ -69,6 +70,7 @@ function Main() {
             db.transact(
               db.tx.flicker[the_id].update({ count: item.count + 1 }),
             );
+            console.log('db.transact', item.count + 1);
           }}
         >
           Increment
