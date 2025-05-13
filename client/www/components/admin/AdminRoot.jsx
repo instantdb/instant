@@ -103,9 +103,6 @@ export default function AdminPage() {
               What do you want to build?:{' '}
               <span className="font-normal">{user.meta?.build}</span>
             </p>
-            <p className="text-lg font-bold">
-              Num tx: <span className="font-normal">{user.num_tx}</span>
-            </p>
           </div>
         );
       })}

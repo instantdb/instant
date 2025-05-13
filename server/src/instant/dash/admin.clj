@@ -8,13 +8,13 @@
    [instant.stripe :as stripe]
    [instant.model.app-file :as app-file-model]))
 
-;; Fetch our last 50 sign-ups. We want to
-;; see whether people are finishing sign-up and
-;; how they found us / what they're doing.
 (defn excluded-emails []
   (let [{:keys [test team friend]} (get-emails)]
     (vec (concat test team friend))))
 
+;; Fetch our last 50 sign-ups. We want to
+;; see whether people are finishing sign-up and
+;; how they found us / what they're doing.
 (defn get-recent
   ([]
    (get-recent (aurora/conn-pool :read)))
@@ -23,8 +23,7 @@
                ["SELECT
                    u.*,
                    a.app_created_at,
-                   a2.title as app_title,
-                   t.num_tx
+                   a2.title as app_title
                 FROM (
                   SELECT
                      u.id,
@@ -42,12 +41,8 @@
                  GROUP BY 1
                 ) a ON a.creator_id = u.id
                 LEFT JOIN apps a2 on a2.creator_id = a.creator_id AND a2.created_at = a.app_created_at
-                LEFT JOIN (
-                  SELECT app_id, COUNT(id) as num_tx
-                  FROM transactions
-                  GROUP BY 1
-                ) t ON t.app_id = a2.id
-                ORDER BY u.user_created_at DESC"])))
+                ORDER BY u.user_created_at DESC
+                LIMIT 50"])))
 
 (defn get-top-users
   "Fetches the users with their transactions in the last `n` days."
