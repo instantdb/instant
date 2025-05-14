@@ -181,3 +181,160 @@ test('rewrite mutations works with multiple transactions', () => {
     expect(rewrittenMutations.get(k)['tx-steps']).toEqual(serverSteps);
   }
 });
+
+test('optimisticTx is not overwritten by refresh-ok', async () => {
+  const appId = uuid();
+  const reactor = new Reactor({ appId });
+  reactor._initStorage(IndexedDBStorage);
+  reactor._setAttrs(zenecaAttrs);
+  const q = { users: {} };
+  const joe_id = 'ce942051-2d74-404a-9c7d-4aa3f2d54ae4';
+
+  await reactor.querySubs.waitForLoaded();
+
+  let data = null;
+
+  reactor.subscribeQuery(q, (res) => {
+    data = res;
+  });
+
+  // Initialize the store
+  reactor._handleReceive(0, {
+    op: 'add-query-ok',
+    q,
+    'processed-tx-id': 0,
+    result: [
+      {
+        data: {
+          'datalog-result': {
+            'join-rows': [zenecaTriples],
+          },
+        },
+        'child-nodes': [],
+      },
+    ],
+  });
+
+  await reactor.querySubs.waitForSync();
+
+  expect(data.data.users.map((x) => x.handle)).toEqual([
+    'joe',
+    'alex',
+    'stopa',
+    'nicolegf',
+  ]);
+
+  // first optimistic
+  const ops2 = [
+    instatx.tx.users[joe_id].update({
+      handle: 'joe2',
+    }),
+  ];
+
+  reactor.pushTx(ops2);
+
+  await reactor.querySubs.waitForSync();
+
+  expect(data.data.users.map((x) => x.handle)).toEqual([
+    'joe2',
+    'alex',
+    'stopa',
+    'nicolegf',
+  ]);
+
+  const [eventId2] = reactor.pendingMutations.currentValue.keys();
+
+  // second optimistic
+  const ops3 = [
+    instatx.tx.users[joe_id].update({
+      handle: 'joe3',
+    }),
+  ];
+
+  reactor.pushTx(ops3);
+
+  await reactor.querySubs.waitForSync();
+
+  expect(data.data.users.map((x) => x.handle)).toEqual([
+    'joe3',
+    'alex',
+    'stopa',
+    'nicolegf',
+  ]);
+
+  const [_, eventId3] = reactor.pendingMutations.currentValue.keys();
+
+  // confirmation from server for first optimistic
+  reactor._handleReceive(1, {
+    op: 'transact-ok',
+    'client-event-id': eventId2,
+    'tx-id': 100,
+  });
+
+  await reactor.querySubs.waitForSync();
+
+  expect(data.data.users.map((x) => x.handle)).toEqual([
+    'joe3',
+    'alex',
+    'stopa',
+    'nicolegf',
+  ]);
+
+  // query refresh after first tx
+  reactor._handleReceive(3, {
+    op: 'refresh-ok',
+    'processed-tx-id': 100,
+    attrs: zenecaAttrs,
+    computations: [
+      {
+        'instaql-query': q,
+        'instaql-result': [
+          {
+            data: {
+              'datalog-result': {
+                'join-rows': [zenecaTriples],
+              },
+            },
+            'child-nodes': [],
+          },
+        ],
+      },
+    ],
+  });
+
+  // make sure it doesn’t override local results
+  await reactor.querySubs.waitForSync();
+
+  expect(data.data.users.map((x) => x.handle)).toEqual([
+    'joe3',
+    'alex',
+    'stopa',
+    'nicolegf',
+  ]);
+
+  // confirmation from server for second optimistic
+  reactor._handleReceive(2, {
+    op: 'transact-ok',
+    'client-event-id': eventId3,
+    'tx-id': 101,
+  });
+
+  await reactor.querySubs.waitForSync();
+
+  expect(data.data.users.map((x) => x.handle)).toEqual([
+    'joe3',
+    'alex',
+    'stopa',
+    'nicolegf',
+  ]);
+
+  // make sure it still doesn’t override local results
+  await reactor.querySubs.waitForSync();
+
+  expect(data.data.users.map((x) => x.handle)).toEqual([
+    'joe3',
+    'alex',
+    'stopa',
+    'nicolegf',
+  ]);
+});
