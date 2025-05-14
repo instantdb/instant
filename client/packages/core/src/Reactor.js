@@ -439,15 +439,16 @@ export default class Reactor {
           prev[hash].result = { store, pageInfo, aggregate };
           return prev;
         });
+        this._cleanupPendingMutationsQueries();
         this.notifyOne(hash);
         this.notifyOneQueryOnce(hash);
-        this._cleanupPendingMutations();
+        this._cleanupPendingMutationsTimeout();
         break;
       case 'refresh-ok':
         const { computations, attrs } = msg;
         this._setAttrs(attrs);
 
-        this._cleanupPendingMutations();
+        this._cleanupPendingMutationsTimeout();
 
         const mutations = this._rewriteMutationsSorted(
           attrs,
@@ -487,6 +488,8 @@ export default class Reactor {
           });
         });
 
+        this._cleanupPendingMutationsQueries();
+
         updates.forEach(({ hash }) => {
           this.notifyOne(hash);
         });
@@ -505,11 +508,15 @@ export default class Reactor {
 
         // update pendingMutation with server-side tx-id
         this.pendingMutations.set((prev) => {
-          prev.set(eventId, { ...prev.get(eventId), 'tx-id': txId, confirmed: Date.now() });
+          prev.set(eventId, {
+            ...prev.get(eventId),
+            'tx-id': txId,
+            confirmed: Date.now(),
+          });
           return prev;
         });
 
-        this._cleanupPendingMutations();
+        this._cleanupPendingMutationsTimeout();
 
         const newAttrs = prevMutation['tx-steps']
           .filter(([action, ..._args]) => action === 'add-attr')
@@ -1109,12 +1116,38 @@ export default class Reactor {
   }
 
   /**
+   * Clean up pendingMutations that all queries have seen
+   */
+  _cleanupPendingMutationsQueries() {
+    let minProcessedTxId = Number.MAX_SAFE_INTEGER;
+    for (const { result } of Object.values(this.querySubs.currentValue)) {
+      if (result?.processedTxId) {
+        minProcessedTxId = Math.min(minProcessedTxId, result?.processedTxId);
+      }
+    }
+
+    this.pendingMutations.set((prev) => {
+      for (const [eventId, mut] of Array.from(prev.entries())) {
+        if (mut['tx-id'] && mut['tx-id'] <= minProcessedTxId) {
+          prev.delete(eventId);
+        }
+      }
+      return prev;
+    });
+  }
+
+  /**
    * After mutations is confirmed by server, we give each query 30 sec
    * to update its results. If that doesn't happen, we assume query is
    * unaffected by this mutation and it’s safe to delete it from local queue
    */
-  _cleanupPendingMutations() {
+  _cleanupPendingMutationsTimeout() {
     const now = Date.now();
+
+    if (this.pendingMutations.currentValue.size < 200) {
+      return;
+    }
+
     this.pendingMutations.set((prev) => {
       let deleted = false;
       let timeless = false;
@@ -1137,7 +1170,6 @@ export default class Reactor {
           }
         }
       }
-
       return prev;
     });
   }
