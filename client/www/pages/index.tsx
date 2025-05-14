@@ -644,9 +644,9 @@ export default function Landing2024() {
       <GlowBackground>
         <div className="w-full bg-gray-50/80 p-1 text-center">
           <p className="font-mono text-gray-500 text-sm font-semibold">
-            Obsessed with Typescript types? Instant is hiring!{' '}
+            Want to work on the hardest problems in modern app development?{' '}
             <span className="text-orange-600">
-              <TextLink href="/hiring/ts-hacker">Come work with us.</TextLink>
+              <TextLink href="/hiring">Come work with us!</TextLink>
             </span>
           </p>
         </div>
