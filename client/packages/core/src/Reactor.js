@@ -101,13 +101,17 @@ function querySubsToJSON(querySubs) {
   return JSON.stringify(jsonSubs);
 }
 
-function compareMutations(a, b) {
-  const a_order = a.order || 0;
-  const b_order = b.order || 0;
-  if (a_order == b_order) {
-    return a.eventId < b.eventId ? -1 : a.eventId > b.eventId ? 1 : 0;
-  }
-  return a.order - b.order;
+function sortedMutationEntries(entries) {
+  return [...entries].sort((a, b) => {
+    const [ka, muta] = a;
+    const [kb, mutb] = b;
+    const a_order = muta.order || 0;
+    const b_order = mutb.order || 0;
+    if (a_order == b_order) {
+      return ka < kb ? -1 : ka > kb ? 1 : 0;
+    }
+    return a_order - b_order;
+  });
 }
 
 /**
@@ -362,11 +366,11 @@ export default class Reactor {
     const ret = new Map([...storageMuts.entries(), ...inMemoryMuts.entries()]);
     this.pendingMutations.set((_) => ret);
     this.loadedNotifyAll();
-    const rewrittenStorageMuts = this._rewriteMutations(
+    const rewrittenStorageMuts = this._rewriteMutationsSorted(
       this.attrs,
       storageMuts,
     );
-    rewrittenStorageMuts.forEach((mut, k) => {
+    rewrittenStorageMuts.forEach(([k, mut]) => {
       if (!inMemoryMuts.has(k) && !mut['tx-id']) {
         this._sendMutation(k, mut);
       }
@@ -445,12 +449,10 @@ export default class Reactor {
 
         this._cleanupPendingMutations();
 
-        const mutations = [
-          ...this._rewriteMutations(
-            attrs,
-            this.pendingMutations.currentValue,
-          ).values(),
-        ].sort(compareMutations);
+        const mutations = this._rewriteMutationsSorted(
+          attrs,
+          this.pendingMutations.currentValue,
+        );
 
         const processedTxId = msg['processed-tx-id'];
 
@@ -467,7 +469,7 @@ export default class Reactor {
           );
 
           // apply pendingMutations that this query has not yet seen
-          for (const mut of mutations) {
+          for (const [_, mut] of mutations) {
             if (!mut['tx-id'] || mut['tx-id'] > processedTxId) {
               store = s.transact(store, mut['tx-steps']);
             }
@@ -850,6 +852,10 @@ export default class Reactor {
     return rewritten;
   }
 
+  _rewriteMutationsSorted(attrs, muts) {
+    return sortedMutationEntries(this._rewriteMutations(attrs, muts).entries());
+  }
+
   // ---------------------------
   // Transact
 
@@ -917,9 +923,9 @@ export default class Reactor {
     }
 
     const { store, pageInfo, aggregate } = result;
-    const muts = this._rewriteMutations(store.attrs, pendingMutations);
+    const muts = this._rewriteMutationsSorted(store.attrs, pendingMutations);
 
-    const txSteps = [...muts.values()].flatMap((x) => x['tx-steps']);
+    const txSteps = [...muts].flatMap(([_, x]) => x['tx-steps']);
     const newStore = s.transact(store, txSteps);
     const resp = instaql({ store: newStore, pageInfo, aggregate }, q);
 
@@ -992,7 +998,7 @@ export default class Reactor {
   pushOps = (txSteps, error) => {
     const eventId = uuid();
     const mutations = [...this.pendingMutations.currentValue.values()];
-    const order = Math.max(...mutations.map((mut) => mut.order || 0)) + 1;
+    const order = Math.max(0, ...mutations.map((mut) => mut.order || 0)) + 1;
     const mutation = {
       op: 'transact',
       'tx-steps': txSteps,
@@ -1091,11 +1097,11 @@ export default class Reactor {
         this._trySendAuthed(eventId, { op: 'add-query', q });
       });
 
-    const muts = this._rewriteMutations(
+    const muts = this._rewriteMutationsSorted(
       this.attrs,
       this.pendingMutations.currentValue,
     );
-    muts.forEach((mut, eventId) => {
+    muts.forEach(([eventId, mut]) => {
       if (!mut['tx-id']) {
         this._sendMutation(eventId, mut);
       }
