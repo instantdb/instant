@@ -35,6 +35,7 @@ const STATUS = {
 };
 
 const QUERY_ONCE_TIMEOUT = 30_000;
+const PENDING_TX_CLEANUP_TIMEOUT = 30_000;
 
 const WS_CONNECTING_STATUS = 0;
 const WS_OPEN_STATUS = 1;
@@ -282,25 +283,25 @@ export default class Reactor {
 
   /**
    * @param {'enqueued' | 'pending' | 'synced' | 'timeout' |  'error' } status
-   * @param string clientId
+   * @param string eventId
    * @param {{message?: string, hint?: string, error?: Error}} [errDetails]
    */
-  _finishTransaction(status, clientId, errDetails) {
-    const dfd = this.mutationDeferredStore.get(clientId);
-    this.mutationDeferredStore.delete(clientId);
+  _finishTransaction(status, eventId, errDetails) {
+    const dfd = this.mutationDeferredStore.get(eventId);
+    this.mutationDeferredStore.delete(eventId);
     const ok = status !== 'error' && status !== 'timeout';
 
     if (!dfd && !ok) {
       // console.erroring here, as there are no listeners to let know
-      console.error('Mutation failed', { status, clientId, ...errDetails });
+      console.error('Mutation failed', { status, eventId, ...errDetails });
     }
     if (!dfd) {
       return;
     }
     if (ok) {
-      dfd.resolve({ status, clientId });
+      dfd.resolve({ status, eventId });
     } else {
-      dfd.reject({ status, clientId, ...errDetails });
+      dfd.reject({ status, eventId, ...errDetails });
     }
   }
 
@@ -436,10 +437,13 @@ export default class Reactor {
         });
         this.notifyOne(hash);
         this.notifyOneQueryOnce(hash);
+        this._cleanupPendingMutations();
         break;
       case 'refresh-ok':
         const { computations, attrs } = msg;
         this._setAttrs(attrs);
+
+        this._cleanupPendingMutations();
 
         const mutations = [
           ...this._rewriteMutations(
@@ -481,26 +485,6 @@ export default class Reactor {
           });
         });
 
-        // clean up pendingMutations that all queries have seen
-        let minProcessedTxId = Number.MAX_SAFE_INTEGER;
-        for (const { result } of Object.values(this.querySubs.currentValue)) {
-          if (result?.processedTxId) {
-            minProcessedTxId = Math.min(
-              minProcessedTxId,
-              result?.processedTxId,
-            );
-          }
-        }
-
-        this.pendingMutations.set((prev) => {
-          for (const [eventId, mut] of Array.from(prev.entries())) {
-            if (mut['tx-id'] && mut['tx-id'] <= minProcessedTxId) {
-              prev.delete(eventId);
-            }
-          }
-          return prev;
-        });
-
         updates.forEach(({ hash }) => {
           this.notifyOne(hash);
         });
@@ -519,9 +503,11 @@ export default class Reactor {
 
         // update pendingMutation with server-side tx-id
         this.pendingMutations.set((prev) => {
-          prev.set(eventId, { ...prev.get(eventId), 'tx-id': txId });
+          prev.set(eventId, { ...prev.get(eventId), 'tx-id': txId, confirmed: Date.now() });
           return prev;
         });
+
+        this._cleanupPendingMutations();
 
         const newAttrs = prevMutation['tx-steps']
           .filter(([action, ..._args]) => action === 'add-attr')
@@ -1010,6 +996,7 @@ export default class Reactor {
     const mutation = {
       op: 'transact',
       'tx-steps': txSteps,
+      created: Date.now(),
       error,
       order,
     };
@@ -1112,6 +1099,40 @@ export default class Reactor {
       if (!mut['tx-id']) {
         this._sendMutation(eventId, mut);
       }
+    });
+  }
+
+  /**
+   * After mutations is confirmed by server, we give each query 30 sec
+   * to update its results. If that doesn't happen, we assume query is
+   * unaffected by this mutation and it’s safe to delete it from local queue
+   */
+  _cleanupPendingMutations() {
+    const now = Date.now();
+    this.pendingMutations.set((prev) => {
+      let deleted = false;
+      let timeless = false;
+
+      for (const [eventId, mut] of Array.from(prev.entries())) {
+        if (!mut.confirmed) {
+          timeless = true;
+        }
+        if (mut.confirmed && mut.confirmed + PENDING_TX_CLEANUP_TIMEOUT < now) {
+          prev.delete(eventId);
+          deleted = true;
+        }
+      }
+
+      // backwards compat for mutations with no `confirmed`
+      if (deleted && timeless) {
+        for (const [eventId, mut] of Array.from(prev.entries())) {
+          if (!mut.confirmed) {
+            prev.delete(eventId);
+          }
+        }
+      }
+
+      return prev;
     });
   }
 
