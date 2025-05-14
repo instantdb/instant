@@ -109,7 +109,8 @@ export default function HiringIndexPage() {
           <div className="max-w-2xl mx-auto">
             <p className="mb-4 text-gray-700">
               If none of the current roles fit your expertise but you're still
-              interested in joining us, we would love to hear from you anyway! Please feel free to reach out :)
+              interested in joining us, we would love to hear from you anyway!
+              Please feel free to reach out :)
             </p>
             <div className="mt-8 text-center">
               <Button
