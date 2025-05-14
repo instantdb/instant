@@ -350,8 +350,9 @@ export function QueryInspector({
         <h2 className="px-3 text-sm font-semibold mt-4 mb-1">Query results</h2>
         <div className="flex-1 border-y rounded overflow-hidden">
           <CodeEditor
-            language="json"
-            value={JSON.stringify(data || {}, null, 2)}
+            loading={isLoading}
+            language={'json'}
+            value={JSON.stringify(data || error || {}, null, 2)}
             onChange={() => {}}
           />
         </div>

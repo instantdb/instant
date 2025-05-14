@@ -872,9 +872,11 @@ export function CodeEditor(props: {
   onMount?: OnMount;
   path?: string;
   tabIndex?: number;
+  loading?: boolean;
 }) {
   return (
     <Editor
+      className={props.loading ? 'animate-pulse' : undefined}
       height={'100%'}
       language={props.language}
       value={props.value ?? ''}
