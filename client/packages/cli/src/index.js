@@ -847,6 +847,7 @@ function indexingJobCompletedActionMessage(job) {
   if (job.job_type === 'remove-required') {
     return `removing required constraint from ${job.attr_name}`;
   }
+  return `${job.job_type} (${job.id})`;
 }
 
 function truncate(s, maxLen) {
@@ -935,6 +936,8 @@ function jobGroupDescription(jobs) {
     'remove-index': 'updating indexes',
     unique: 'updating uniqueness constraints',
     'remove-unique': 'updating uniqueness constraints',
+    required: 'making attributes required',
+    'remove-required': 'making attributes optional',
   };
   for (const job of jobs) {
     actions.add(jobActions[job.job_type]);
