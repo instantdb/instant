@@ -35,6 +35,7 @@ const STATUS = {
 };
 
 const QUERY_ONCE_TIMEOUT = 30_000;
+const PENDING_TX_CLEANUP_TIMEOUT = 30_000;
 
 const WS_CONNECTING_STATUS = 0;
 const WS_OPEN_STATUS = 1;
@@ -98,6 +99,19 @@ function querySubsToJSON(querySubs) {
     jsonSubs[key] = jsonSub;
   }
   return JSON.stringify(jsonSubs);
+}
+
+function sortedMutationEntries(entries) {
+  return [...entries].sort((a, b) => {
+    const [ka, muta] = a;
+    const [kb, mutb] = b;
+    const a_order = muta.order || 0;
+    const b_order = mutb.order || 0;
+    if (a_order == b_order) {
+      return ka < kb ? -1 : ka > kb ? 1 : 0;
+    }
+    return a_order - b_order;
+  });
 }
 
 /**
@@ -273,25 +287,25 @@ export default class Reactor {
 
   /**
    * @param {'enqueued' | 'pending' | 'synced' | 'timeout' |  'error' } status
-   * @param string clientId
+   * @param string eventId
    * @param {{message?: string, hint?: string, error?: Error}} [errDetails]
    */
-  _finishTransaction(status, clientId, errDetails) {
-    const dfd = this.mutationDeferredStore.get(clientId);
-    this.mutationDeferredStore.delete(clientId);
+  _finishTransaction(status, eventId, errDetails) {
+    const dfd = this.mutationDeferredStore.get(eventId);
+    this.mutationDeferredStore.delete(eventId);
     const ok = status !== 'error' && status !== 'timeout';
 
     if (!dfd && !ok) {
       // console.erroring here, as there are no listeners to let know
-      console.error('Mutation failed', { status, clientId, ...errDetails });
+      console.error('Mutation failed', { status, eventId, ...errDetails });
     }
     if (!dfd) {
       return;
     }
     if (ok) {
-      dfd.resolve({ status, clientId });
+      dfd.resolve({ status, eventId });
     } else {
-      dfd.reject({ status, clientId, ...errDetails });
+      dfd.reject({ status, eventId, ...errDetails });
     }
   }
 
@@ -352,11 +366,11 @@ export default class Reactor {
     const ret = new Map([...storageMuts.entries(), ...inMemoryMuts.entries()]);
     this.pendingMutations.set((_) => ret);
     this.loadedNotifyAll();
-    const rewrittenStorageMuts = this._rewriteMutations(
+    const rewrittenStorageMuts = this._rewriteMutationsSorted(
       this.attrs,
       storageMuts,
     );
-    rewrittenStorageMuts.forEach((mut, k) => {
+    rewrittenStorageMuts.forEach(([k, mut]) => {
       if (!inMemoryMuts.has(k) && !mut['tx-id']) {
         this._sendMutation(k, mut);
       }
@@ -425,39 +439,64 @@ export default class Reactor {
           prev[hash].result = { store, pageInfo, aggregate };
           return prev;
         });
+        this._cleanupPendingMutationsQueries();
         this.notifyOne(hash);
         this.notifyOneQueryOnce(hash);
+        this._cleanupPendingMutationsTimeout();
         break;
       case 'refresh-ok':
         const { computations, attrs } = msg;
         this._setAttrs(attrs);
+
+        this._cleanupPendingMutationsTimeout();
+
+        const mutations = this._rewriteMutationsSorted(
+          attrs,
+          this.pendingMutations.currentValue,
+        );
+
+        const processedTxId = msg['processed-tx-id'];
+
         const updates = computations.map((x) => {
           const q = x['instaql-query'];
           const result = x['instaql-result'];
           const hash = weakHash(q);
           const triples = extractTriples(result);
-          const store = s.createStore(
+          let store = s.createStore(
             this.attrs,
             triples,
             enableCardinalityInference,
             this._linkIndex,
           );
+
+          // apply pendingMutations that this query has not yet seen
+          for (const [_, mut] of mutations) {
+            if (!mut['tx-id'] || mut['tx-id'] > processedTxId) {
+              store = s.transact(store, mut['tx-steps']);
+            }
+          }
+
           const pageInfo = result?.[0]?.data?.['page-info'];
           const aggregate = result?.[0]?.data?.['aggregate'];
           return { hash, store, pageInfo, aggregate };
         });
+
         updates.forEach(({ hash, store, pageInfo, aggregate }) => {
           this.querySubs.set((prev) => {
-            prev[hash].result = { store, pageInfo, aggregate };
+            prev[hash].result = { store, pageInfo, aggregate, processedTxId };
             return prev;
           });
         });
+
+        this._cleanupPendingMutationsQueries();
+
         updates.forEach(({ hash }) => {
           this.notifyOne(hash);
         });
         break;
       case 'transact-ok':
         const { 'client-event-id': eventId, 'tx-id': txId } = msg;
+
         const muts = this._rewriteMutations(
           this.attrs,
           this.pendingMutations.currentValue,
@@ -467,26 +506,17 @@ export default class Reactor {
           break;
         }
 
-        // Now that this transaction is accepted,
-        // We can delete it from our queue.
+        // update pendingMutation with server-side tx-id
         this.pendingMutations.set((prev) => {
-          prev.delete(eventId);
+          prev.set(eventId, {
+            ...prev.get(eventId),
+            'tx-id': txId,
+            confirmed: Date.now(),
+          });
           return prev;
         });
 
-        // We apply this transaction to all our existing queries
-        const txStepsToApply = prevMutation['tx-steps'];
-        this.querySubs.set((prev) => {
-          for (const [hash, sub] of Object.entries(prev)) {
-            const store = sub?.result?.store;
-            if (!store) {
-              continue;
-            }
-            const newStore = s.transact(store, txStepsToApply);
-            prev[hash].result.store = newStore;
-          }
-          return prev;
-        });
+        this._cleanupPendingMutationsTimeout();
 
         const newAttrs = prevMutation['tx-steps']
           .filter(([action, ..._args]) => action === 'add-attr')
@@ -829,6 +859,10 @@ export default class Reactor {
     return rewritten;
   }
 
+  _rewriteMutationsSorted(attrs, muts) {
+    return sortedMutationEntries(this._rewriteMutations(attrs, muts).entries());
+  }
+
   // ---------------------------
   // Transact
 
@@ -896,9 +930,9 @@ export default class Reactor {
     }
 
     const { store, pageInfo, aggregate } = result;
-    const muts = this._rewriteMutations(store.attrs, pendingMutations);
+    const muts = this._rewriteMutationsSorted(store.attrs, pendingMutations);
 
-    const txSteps = [...muts.values()].flatMap((x) => x['tx-steps']);
+    const txSteps = [...muts].flatMap(([_, x]) => x['tx-steps']);
     const newStore = s.transact(store, txSteps);
     const resp = instaql({ store: newStore, pageInfo, aggregate }, q);
 
@@ -970,10 +1004,14 @@ export default class Reactor {
    */
   pushOps = (txSteps, error) => {
     const eventId = uuid();
+    const mutations = [...this.pendingMutations.currentValue.values()];
+    const order = Math.max(0, ...mutations.map((mut) => mut.order || 0)) + 1;
     const mutation = {
       op: 'transact',
       'tx-steps': txSteps,
-      error: error,
+      created: Date.now(),
+      error,
+      order,
     };
     this.pendingMutations.set((prev) => {
       prev.set(eventId, mutation);
@@ -1066,14 +1104,73 @@ export default class Reactor {
         this._trySendAuthed(eventId, { op: 'add-query', q });
       });
 
-    const muts = this._rewriteMutations(
+    const muts = this._rewriteMutationsSorted(
       this.attrs,
       this.pendingMutations.currentValue,
     );
-    muts.forEach((mut, eventId) => {
+    muts.forEach(([eventId, mut]) => {
       if (!mut['tx-id']) {
         this._sendMutation(eventId, mut);
       }
+    });
+  }
+
+  /**
+   * Clean up pendingMutations that all queries have seen
+   */
+  _cleanupPendingMutationsQueries() {
+    let minProcessedTxId = Number.MAX_SAFE_INTEGER;
+    for (const { result } of Object.values(this.querySubs.currentValue)) {
+      if (result?.processedTxId) {
+        minProcessedTxId = Math.min(minProcessedTxId, result?.processedTxId);
+      }
+    }
+
+    this.pendingMutations.set((prev) => {
+      for (const [eventId, mut] of Array.from(prev.entries())) {
+        if (mut['tx-id'] && mut['tx-id'] <= minProcessedTxId) {
+          prev.delete(eventId);
+        }
+      }
+      return prev;
+    });
+  }
+
+  /**
+   * After mutations is confirmed by server, we give each query 30 sec
+   * to update its results. If that doesn't happen, we assume query is
+   * unaffected by this mutation and it’s safe to delete it from local queue
+   */
+  _cleanupPendingMutationsTimeout() {
+    const now = Date.now();
+
+    if (this.pendingMutations.currentValue.size < 200) {
+      return;
+    }
+
+    this.pendingMutations.set((prev) => {
+      let deleted = false;
+      let timeless = false;
+
+      for (const [eventId, mut] of Array.from(prev.entries())) {
+        if (!mut.confirmed) {
+          timeless = true;
+        }
+        if (mut.confirmed && mut.confirmed + PENDING_TX_CLEANUP_TIMEOUT < now) {
+          prev.delete(eventId);
+          deleted = true;
+        }
+      }
+
+      // backwards compat for mutations with no `confirmed`
+      if (deleted && timeless) {
+        for (const [eventId, mut] of Array.from(prev.entries())) {
+          if (!mut.confirmed) {
+            prev.delete(eventId);
+          }
+        }
+      }
+      return prev;
     });
   }
 
