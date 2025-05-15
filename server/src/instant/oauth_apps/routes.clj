@@ -304,7 +304,8 @@
                                                             (::ex/param-missing
                                                              ::ex/param-malformed) "invalid_request"
                                                             "server_error")
-                                                   :error_description msg}))
+                                                   :error_description msg
+                                                   :state (:state redirect)}))
             (throw e)))))
     (catch clojure.lang.ExceptionInfo e
       (if-let [msg (-> e ex-data ::ex/message)]
@@ -332,7 +333,8 @@
             (ex/throw+ {::ex/type ::ex/param-missing
                         ::ex/message "Invalid cookie."}))]
     (response/found (url/add-query-params (:redirect_uri redirect)
-                                          {:error "access_denied"}))))
+                                          {:error "access_denied"
+                                           :state (:state redirect)}))))
 
 (defn complete-pkce-access-token-request
   "Exchanges a code for a new access token with PKCE, does not return
