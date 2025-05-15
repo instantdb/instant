@@ -90,6 +90,9 @@ importers:
       prettier:
         specifier: ^3.3.3
         version: 3.4.2
+      semver:
+        specifier: 7.7.2
+        version: 7.7.2
       terminal-link:
         specifier: ^3.0.0
         version: 3.0.0
@@ -10218,13 +10221,8 @@ packages:
     engines: {node: '>=10'}
     hasBin: true
 
-  semver@7.7.0:
-    resolution: {integrity: sha512-DrfFnPzblFmNrIZzg5RzHegbiRWg7KMR7btwi2yjHwx06zsUbO5g613sVwEV7FTwmzJu+Io0lJe2GJ3LxqpvBQ==}
-    engines: {node: '>=10'}
-    hasBin: true
-
-  semver@7.7.1:
-    resolution: {integrity: sha512-hlq8tAfn0m/61p4BVRcPzIGr6LKiMwo4VM6dGi6pt4qcRkmNzTcWq6eCEjEh+qXjkMDvPlOFFSGwQjoEa6gyMA==}
+  semver@7.7.2:
+    resolution: {integrity: sha512-RF0Fw+rO5AMf9MAyaRXI4AV0Ulj5lMHqVxxdSgiVbixSCXoEmmX/jk0CuJw4+3SqroYO9VoUh+HcuJivvtJemA==}
     engines: {node: '>=10'}
     hasBin: true
 
@@ -12105,7 +12103,7 @@ snapshots:
       commander: 10.0.1
       marked: 9.1.6
       marked-terminal: 7.3.0(marked@9.1.6)
-      semver: 7.7.1
+      semver: 7.7.2
 
   '@arethetypeswrong/core@0.17.4':
     dependencies:
@@ -12114,7 +12112,7 @@ snapshots:
       cjs-module-lexer: 1.4.3
       fflate: 0.8.2
       lru-cache: 10.4.3
-      semver: 7.7.1
+      semver: 7.7.2
       typescript: 5.6.1-rc
       validate-npm-package-name: 5.0.1
 
@@ -13666,7 +13664,7 @@ snapshots:
       resolve: 1.22.10
       resolve-from: 5.0.0
       resolve.exports: 2.0.3
-      semver: 7.7.0
+      semver: 7.7.2
       send: 0.18.0
       slugify: 1.6.6
       source-map-support: 0.5.21
@@ -13703,7 +13701,7 @@ snapshots:
       getenv: 1.0.0
       glob: 10.4.5
       resolve-from: 5.0.0
-      semver: 7.7.0
+      semver: 7.7.2
       slash: 3.0.0
       slugify: 1.6.6
       xcode: 3.0.1
@@ -13722,7 +13720,7 @@ snapshots:
       getenv: 1.0.0
       glob: 10.4.5
       resolve-from: 5.0.0
-      semver: 7.7.0
+      semver: 7.7.2
       slash: 3.0.0
       slugify: 1.6.6
       xcode: 3.0.1
@@ -13744,7 +13742,7 @@ snapshots:
       require-from-string: 2.0.2
       resolve-from: 5.0.0
       resolve-workspace-root: 2.0.0
-      semver: 7.7.0
+      semver: 7.7.2
       slugify: 1.6.6
       sucrase: 3.35.0
     transitivePeerDependencies:
@@ -13762,7 +13760,7 @@ snapshots:
       require-from-string: 2.0.2
       resolve-from: 5.0.0
       resolve-workspace-root: 2.0.0
-      semver: 7.7.0
+      semver: 7.7.2
       slugify: 1.6.6
       sucrase: 3.35.0
     transitivePeerDependencies:
@@ -13806,7 +13804,7 @@ snapshots:
       minimatch: 3.1.2
       p-limit: 3.1.0
       resolve-from: 5.0.0
-      semver: 7.7.0
+      semver: 7.7.2
     transitivePeerDependencies:
       - supports-color
 
@@ -13819,7 +13817,7 @@ snapshots:
       jimp-compact: 0.16.1
       parse-png: 2.1.0
       resolve-from: 5.0.0
-      semver: 7.7.0
+      semver: 7.7.2
       temp-dir: 2.0.0
       unique-string: 2.0.0
 
@@ -13893,7 +13891,7 @@ snapshots:
       debug: 4.4.0
       fs-extra: 9.1.0
       resolve-from: 5.0.0
-      semver: 7.7.0
+      semver: 7.7.2
       xml2js: 0.6.0
     transitivePeerDependencies:
       - supports-color
@@ -14502,7 +14500,7 @@ snapshots:
       nopt: 5.0.0
       npmlog: 5.0.1
       rimraf: 3.0.2
-      semver: 7.7.1
+      semver: 7.7.2
       tar: 6.2.1
     transitivePeerDependencies:
       - encoding
@@ -14515,7 +14513,7 @@ snapshots:
       https-proxy-agent: 7.0.6
       node-fetch: 2.7.0
       nopt: 8.1.0
-      semver: 7.7.1
+      semver: 7.7.2
       tar: 7.4.3
     transitivePeerDependencies:
       - encoding
@@ -14656,7 +14654,7 @@ snapshots:
       precinct: 11.0.5
       require-package-name: 2.0.1
       resolve: 2.0.0-next.5
-      semver: 7.7.1
+      semver: 7.7.2
       tmp-promise: 3.0.3
       toml: 3.0.0
       unixify: 1.0.0
@@ -14736,7 +14734,7 @@ snapshots:
 
   '@npmcli/fs@3.1.1':
     dependencies:
-      semver: 7.7.0
+      semver: 7.7.2
 
   '@nuxt/cli@3.25.0(magicast@0.3.5)':
     dependencies:
@@ -14759,7 +14757,7 @@ snapshots:
       perfect-debounce: 1.0.0
       pkg-types: 2.1.0
       scule: 1.3.0
-      semver: 7.7.1
+      semver: 7.7.2
       std-env: 3.9.0
       tinyexec: 1.0.1
       ufo: 1.6.1
@@ -14787,7 +14785,7 @@ snapshots:
       pathe: 2.0.3
       pkg-types: 2.1.0
       prompts: 2.4.2
-      semver: 7.7.1
+      semver: 7.7.2
 
   '@nuxt/devtools@2.4.0(vite@6.3.5(@types/node@22.13.0)(jiti@2.4.2)(lightningcss@1.27.0)(terser@5.37.0)(tsx@4.19.3)(yaml@2.7.0))(vue@3.5.13(typescript@5.8.3))':
     dependencies:
@@ -14814,7 +14812,7 @@ snapshots:
       pathe: 2.0.3
       perfect-debounce: 1.0.0
       pkg-types: 2.1.0
-      semver: 7.7.1
+      semver: 7.7.2
       simple-git: 3.27.0
       sirv: 3.0.1
       structured-clone-es: 1.0.0
@@ -14847,7 +14845,7 @@ snapshots:
       pathe: 2.0.3
       pkg-types: 2.1.0
       scule: 1.3.0
-      semver: 7.7.1
+      semver: 7.7.2
       std-env: 3.9.0
       tinyglobby: 0.2.13
       ufo: 1.6.1
@@ -15406,7 +15404,7 @@ snapshots:
       execa: 5.1.1
       node-stream-zip: 1.15.0
       ora: 5.4.1
-      semver: 7.7.0
+      semver: 7.7.2
       strip-ansi: 5.2.0
       wcwidth: 1.0.1
       yaml: 2.7.0
@@ -15459,7 +15457,7 @@ snapshots:
       open: 6.4.0
       ora: 5.4.1
       prompts: 2.4.2
-      semver: 7.7.0
+      semver: 7.7.2
       shell-quote: 1.8.2
       sudo-prompt: 9.2.1
 
@@ -15484,7 +15482,7 @@ snapshots:
       fs-extra: 8.1.0
       graceful-fs: 4.2.11
       prompts: 2.4.2
-      semver: 7.7.0
+      semver: 7.7.2
     transitivePeerDependencies:
       - bufferutil
       - supports-color
@@ -16434,7 +16432,7 @@ snapshots:
       debug: 4.4.0
       globby: 11.1.0
       is-glob: 4.0.3
-      semver: 7.7.1
+      semver: 7.7.2
       tsutils: 3.21.0(typescript@5.8.3)
     optionalDependencies:
       typescript: 5.8.3
@@ -16449,7 +16447,7 @@ snapshots:
       fast-glob: 3.3.3
       is-glob: 4.0.3
       minimatch: 9.0.5
-      semver: 7.7.1
+      semver: 7.7.2
       ts-api-utils: 2.1.0(typescript@5.8.3)
       typescript: 5.8.3
     transitivePeerDependencies:
@@ -20380,7 +20378,7 @@ snapshots:
       jest-util: 28.1.3
       natural-compare: 1.4.0
       pretty-format: 28.1.3
-      semver: 7.7.0
+      semver: 7.7.2
     transitivePeerDependencies:
       - supports-color
 
@@ -20856,7 +20854,7 @@ snapshots:
 
   make-dir@4.0.0:
     dependencies:
-      semver: 7.7.0
+      semver: 7.7.2
 
   make-error@1.3.6: {}
 
@@ -21576,7 +21574,7 @@ snapshots:
       rollup: 4.40.2
       rollup-plugin-visualizer: 5.14.0(rollup@4.40.2)
       scule: 1.3.0
-      semver: 7.7.1
+      semver: 7.7.2
       serve-placeholder: 2.0.2
       serve-static: 2.2.0
       source-map: 0.7.4
@@ -21688,7 +21686,7 @@ snapshots:
   normalize-package-data@6.0.2:
     dependencies:
       hosted-git-info: 7.0.2
-      semver: 7.7.1
+      semver: 7.7.2
       validate-npm-package-license: 3.0.4
 
   normalize-path@2.1.1:
@@ -21703,7 +21701,7 @@ snapshots:
     dependencies:
       hosted-git-info: 7.0.2
       proc-log: 4.2.0
-      semver: 7.7.0
+      semver: 7.7.2
       validate-npm-package-name: 5.0.1
 
   npm-run-all@4.1.5:
@@ -21795,7 +21793,7 @@ snapshots:
       pkg-types: 2.1.0
       radix3: 1.1.2
       scule: 1.3.0
-      semver: 7.7.1
+      semver: 7.7.2
       std-env: 3.9.0
       strip-literal: 3.0.0
       tinyglobby: 0.2.13
@@ -22823,7 +22821,7 @@ snapshots:
       react-refresh: 0.14.2
       regenerator-runtime: 0.13.11
       scheduler: 0.24.0-canary-efb381bbf-20230505
-      semver: 7.7.0
+      semver: 7.7.2
       stacktrace-parser: 0.1.10
       whatwg-fetch: 3.6.20
       ws: 6.2.3
@@ -23276,9 +23274,7 @@ snapshots:
 
   semver@7.6.3: {}
 
-  semver@7.7.0: {}
-
-  semver@7.7.1: {}
+  semver@7.7.2: {}
 
   send@0.18.0:
     dependencies:
@@ -23402,7 +23398,7 @@ snapshots:
     dependencies:
       color: 4.2.3
       detect-libc: 2.0.3
-      semver: 7.7.0
+      semver: 7.7.2
     optionalDependencies:
       '@img/sharp-darwin-arm64': 0.33.5
       '@img/sharp-darwin-x64': 0.33.5
