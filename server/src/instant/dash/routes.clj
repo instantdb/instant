@@ -38,6 +38,7 @@
             [instant.util.tracer :as tracer]
             [instant.util.url :as url-util]
             [instant.util.uuid :as uuid-util]
+            [instant.util.semver :as semver]
             [instant.util.string :as string-util]
             [instant.util.number :as number-util]
             [instant.session-counter :as session-counter]
@@ -69,6 +70,8 @@
    (com.stripe.model.checkout Session)
    (io.undertow.websockets.core WebSocketChannel)
    (java.util Map UUID)))
+
+(def cli-min-version (semver/parse "v0.19.0"))
 
 ;; ---
 ;; Auth helpers
@@ -1487,6 +1490,8 @@
   (POST "/dash/cli/auth/check" [] cli-auth-check-post)
   (POST "/dash/cli/auth/claim" [] cli-auth-claim-post)
   (POST "/dash/cli/auth/void" [] cli-auth-void-post)
+
+  (GET "/dash/cli/version" [] (response/ok {:min-version cli-min-version}))
 
   (GET "/dash/session_counts" [] session-counts-get)
 

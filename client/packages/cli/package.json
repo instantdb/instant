@@ -20,13 +20,14 @@
     "ora": "^8.1.1",
     "pkg-dir": "^8.0.0",
     "prettier": "^3.3.3",
+    "semver": "7.7.2",
     "terminal-link": "^3.0.0",
     "unconfig": "^0.5.5"
   },
   "scripts": {
     "test": "vitest",
     "build": "rm -rf dist; tsc -p tsconfig.json",
-    "dev": "tsc -p tsconfig.json -w --skipLibCheck --preserveWatchOutput | grep -v '^$'",
+    "dev": "tsc -p tsconfig.json --watch --skipLibCheck --preserveWatchOutput | grep -v '^$'",
     "publish-package": "pnpm publish --access public --no-git-checks"
   },
   "devDependencies": {
