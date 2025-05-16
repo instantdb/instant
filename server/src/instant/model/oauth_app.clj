@@ -6,8 +6,8 @@
             [instant.util.coll :as ucoll]
             [instant.util.crypt :as crypt-util]
             [instant.util.exception :as ex]
-            [instant.util.token :refer [platform-refresh-token-prefix
-                                        platform-access-token-prefix]]
+            [instant.util.token :refer [generate-platform-refresh-token
+                                        generate-platform-access-token]]
             [next.jdbc :as next-jdbc])
   (:import (java.nio ByteBuffer)
            (java.nio.charset StandardCharsets)
@@ -665,8 +665,8 @@
 
 (defn new-token [type]
   (case type
-    :access (str platform-access-token-prefix (crypt-util/random-hex 32))
-    :refresh (str platform-refresh-token-prefix (crypt-util/random-hex 32))))
+    :access (generate-platform-access-token)
+    :refresh (generate-platform-refresh-token)))
 
 (defn create-refresh-token
   ([params]

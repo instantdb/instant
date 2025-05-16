@@ -904,15 +904,16 @@
 (defn personal-access-tokens-get [req]
   (let [{user-id :id} (req->auth-user! req)
         personal-access-tokens (instant-personal-access-token-model/list-by-user-id! {:user-id user-id})]
-    (response/ok {:data personal-access-tokens})))
+    (response/ok {:data (map instant-personal-access-token-model/format-token-for-api
+                             personal-access-tokens)})))
 
 (defn personal-access-tokens-post [req]
   (let [{user-id :id} (req->auth-user! req)
         name (ex/get-param! req [:body :name] string-util/coerce-non-blank-str)
-        personal-access-tokens (instant-personal-access-token-model/create! {:id (UUID/randomUUID)
-                                                                             :user-id user-id
-                                                                             :name name})]
-    (response/ok {:data personal-access-tokens})))
+        personal-access-token (instant-personal-access-token-model/create! {:user-id user-id
+                                                                            :name name})]
+    (response/ok {:data (instant-personal-access-token-model/format-token-for-api
+                         personal-access-token)})))
 
 (defn personal-access-tokens-delete [req]
   (let [{user-id :id} (req->auth-user! req)

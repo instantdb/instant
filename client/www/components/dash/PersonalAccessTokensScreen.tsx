@@ -21,9 +21,12 @@ import {
   Button,
   Checkbox,
   cn,
+  Content,
+  Copyable,
   Dialog,
   Label,
   SectionHeading,
+  SubsectionHeading,
 } from '@/components/ui';
 import { TokenContext } from '@/lib/contexts';
 import { errorToast, successToast } from '@/lib/toast';
@@ -51,10 +54,10 @@ async function fetchPersonalAccessTokens(
   return data;
 }
 
-async function createPersonalAccessTokens(
+async function createPersonalAccessToken(
   token: string,
   name: string,
-): Promise<PersonalAccessToken[]> {
+): Promise<PersonalAccessToken & { token: string }> {
   const { data } = await jsonFetch(
     `${config.apiURI}/dash/personal_access_tokens`,
     {
@@ -174,29 +177,60 @@ function CopyText({
   );
 }
 
+function CopyTokenDialog({
+  token,
+  onClose,
+}: {
+  token: string;
+  onClose: () => void;
+}) {
+  return (
+    <Dialog open={Boolean(token)} onClose={onClose}>
+      <SubsectionHeading>Copy your token</SubsectionHeading>
+      <div className="flex flex-col gap-2 p-2">
+        <Content>
+          <p>
+            Copy and save your token somewhere safe. Instant does not keep a
+            copy of the token. You will have to generate a new token if this one
+            is lost.
+          </p>
+        </Content>
+        <div>
+          <Copyable value={token} label="Token" defaultHidden={true} />
+        </div>
+      </div>
+    </Dialog>
+  );
+}
+
 export default function PersonalAccessTokensTab({
   className,
 }: {
   className?: string;
 }) {
-  const token = useContext(TokenContext);
+  const authToken = useContext(TokenContext);
   const [
     personalAccessTokens = [],
     isLoadingPersonalAccessTokens,
     personalAccessTokensError,
     refreshPersonalAccessTokens,
-  ] = usePersonalAccessTokens(token);
+  ] = usePersonalAccessTokens(authToken);
   const [isCreatingNewToken, setIsCreatingNewToken] = useState(false);
   const [newPersonalAccessTokenName, setNewPersonalAccessTokenName] =
     useState('Platform Token');
+  const [newTokenValue, setNewTokenValue] = useState<string | null>(null);
 
   const handleGenerateNewToken = async () => {
     try {
-      await createPersonalAccessTokens(token, newPersonalAccessTokenName);
+      const token = await createPersonalAccessToken(
+        authToken,
+        newPersonalAccessTokenName,
+      );
       await refreshPersonalAccessTokens();
       setIsCreatingNewToken(false);
       setNewPersonalAccessTokenName('');
       successToast(`Successfully generated "${newPersonalAccessTokenName}"`);
+      setNewTokenValue(token.token);
     } catch (err: any) {
       console.error('Failed to create token:', err);
       errorToast(`Failed to create token: ${err.body.message}`);
@@ -209,7 +243,7 @@ export default function PersonalAccessTokensTab({
     }
 
     try {
-      await deletePersonalAccessToken(token, id);
+      await deletePersonalAccessToken(authToken, id);
       await refreshPersonalAccessTokens();
     } catch (err: any) {
       console.error('Failed to delete:', err);
@@ -220,6 +254,12 @@ export default function PersonalAccessTokensTab({
     <div
       className={cn('flex-1 flex flex-col p-4 max-w-2xl mx-auto', className)}
     >
+      {newTokenValue ? (
+        <CopyTokenDialog
+          onClose={() => setNewTokenValue(null)}
+          token={newTokenValue}
+        />
+      ) : null}
       <div className="flex justify-between flex-row items-center">
         <div className="pt-1 pb-4">
           <div className="prose">
@@ -256,14 +296,7 @@ export default function PersonalAccessTokensTab({
               </th>
               <th
                 className={cn(
-                  'w-full z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1',
-                )}
-              >
-                Token
-              </th>
-              <th
-                className={cn(
-                  'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1 text-right',
+                  'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1',
                 )}
               >
                 Created
@@ -279,21 +312,11 @@ export default function PersonalAccessTokensTab({
             {personalAccessTokens.map(({ id, name, created_at }) => (
               <tr key={id} className="group border-b bg-white">
                 <td className="whitespace-nowrap px-4 py-1">{name}</td>
-                <td className="w-full whitespace-nowrap px-4 py-1">
-                  <CopyText
-                    label={id
-                      .slice(0, 4)
-                      .concat('************************')
-                      .concat(id.slice(-4))}
-                    value={id}
-                  />
-                </td>
-                <td className="whitespace-nowrap px-4 py-1 text-right">
+                <td className="whitespace-nowrap px-4 py-1">
                   {format(new Date(created_at), 'MMM dd, h:mma')}
                 </td>
                 <td className="px-4 py-1" style={{}}>
                   <div className="flex items-center gap-1">
-                    <CopyButton value={id} />
                     <Button
                       variant="destructive"
                       size="mini"
