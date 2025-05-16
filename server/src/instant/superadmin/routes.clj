@@ -40,8 +40,12 @@
                                                   scope-str)
           (ex/throw-missing-scope! scope-str)
           (instant-user-model/get-by-id! {:id (:user_id access-token-record)})))
-      (instant-user-model/get-by-personal-access-token!
-       {:personal-access-token token}))))
+      (let [personal-access-token (if (token-util/is-personal-access-token? token)
+                                    token
+                                    ;; Backwards compatibility for tokens generated before 5/16/2025
+                                    (token-util/->PersonalAccessToken (str token)))]
+        (instant-user-model/get-by-personal-access-token!
+         {:personal-access-token personal-access-token})))))
 
 (defn req->superadmin-user-and-app! [scope req]
   (let [{user-id :id :as user} (req->superadmin-user! scope req)

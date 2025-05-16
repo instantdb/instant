@@ -1,71 +1,73 @@
 (ns instant.dash.routes
   (:require [clj-http.client :as clj-http]
-            [clojure.string :as string]
+            [clojure.core.cache.wrapped :as cache]
             [clojure.set :as set]
+            [clojure.string :as string]
             [clojure.tools.logging :as log]
-            [compojure.core :refer [defroutes GET POST DELETE PUT] :as compojure]
+            [clojure.walk :as w]
+            [compojure.core :as compojure :refer [defroutes DELETE GET POST PUT]]
+            [instant.config :as config]
             [instant.dash.admin :as dash-admin]
-            [instant.model.app :as app-model]
-            [instant.model.app-authorized-redirect-origin :as app-authorized-redirect-origin-model]
-            [instant.model.app-oauth-client :as app-oauth-client-model]
-            [instant.model.app-oauth-service-provider :as app-oauth-service-provider-model]
-            [instant.model.instant-user-magic-code :as  instant-user-magic-code-model]
-            [instant.model.outreach :as outreach-model]
-            [instant.discord :as discord]
-            [instant.model.instant-user-refresh-token :as instant-user-refresh-token-model]
-            [instant.model.instant-user :as instant-user-model]
-            [instant.model.app-member-invites :as instant-app-member-invites-model]
-            [instant.model.app-members :as instant-app-members]
-            [instant.model.instant-oauth-code :as instant-oauth-code-model]
-            [instant.model.instant-oauth-redirect :as instant-oauth-redirect-model]
-            [instant.model.oauth-app :as oauth-app-model]
+            [instant.dash.ephemeral-app :as ephemeral-app]
             [instant.db.indexing-jobs :as indexing-jobs]
             [instant.db.model.attr :as attr-model]
-            [instant.flags :refer [admin-email?] :as flags]
-            [instant.model.rule :as rule-model]
-            [instant.model.instant-profile :as instant-profile-model]
-            [instant.model.instant-subscription :as instant-subscription-model]
-            [instant.model.app-email-template :as app-email-template-model]
+            [instant.discord :as discord]
+            [instant.fixtures :as fixtures]
+            [instant.flags :as flags :refer [admin-email?]]
+            [instant.intern.metrics :as metrics]
+            [instant.jdbc.aurora :as aurora]
+            [instant.lib.ring.websocket :as ws]
+            [instant.machine-summaries :as machine-summaries]
+            [instant.model.app :as app-model]
+            [instant.model.app-admin-token :as app-admin-token-model]
+            [instant.model.app-authorized-redirect-origin :as app-authorized-redirect-origin-model]
             [instant.model.app-email-sender :as app-email-sender-model]
+            [instant.model.app-email-template :as app-email-template-model]
+            [instant.model.app-file :as app-file-model]
+            [instant.model.app-member-invites :as instant-app-member-invites-model]
+            [instant.model.app-members :as instant-app-members]
+            [instant.model.app-oauth-client :as app-oauth-client-model]
+            [instant.model.app-oauth-service-provider :as app-oauth-service-provider-model]
             [instant.model.instant-cli-login :as instant-cli-login-model]
+            [instant.model.instant-oauth-code :as instant-oauth-code-model]
+            [instant.model.instant-oauth-redirect :as instant-oauth-redirect-model]
+            [instant.model.instant-personal-access-token :as instant-personal-access-token-model]
+            [instant.model.instant-profile :as instant-profile-model]
+            [instant.model.instant-stripe-customer :as instant-stripe-customer-model]
+            [instant.model.instant-subscription :as instant-subscription-model]
+            [instant.model.instant-user :as instant-user-model]
+            [instant.model.instant-user-magic-code :as instant-user-magic-code-model]
+            [instant.model.instant-user-refresh-token :as instant-user-refresh-token-model]
+            [instant.model.oauth-app :as oauth-app-model]
+            [instant.model.outreach :as outreach-model]
+            [instant.model.rule :as rule-model]
+            [instant.model.schema :as schema-model]
             [instant.postmark :as postmark]
+            [instant.reactive.ephemeral :as eph]
+            [instant.session-counter :as session-counter]
+            [instant.storage.coordinator :as storage-coordinator]
+            [instant.stripe :as stripe]
+            [instant.superadmin.routes :refer [req->superadmin-user-and-app!]]
             [instant.system-catalog :as system-catalog]
             [instant.util.async :refer [fut-bg]]
             [instant.util.coll :as ucoll]
             [instant.util.crypt :as crypt-util]
+            [instant.util.date :as date]
             [instant.util.email :as email]
+            [instant.util.exception :as ex]
+            [instant.util.http :as http-util]
             [instant.util.json :as json]
+            [instant.util.number :as number-util]
+            [instant.util.semver :as semver]
+            [instant.util.string :as string-util]
+            [instant.util.token :as token-util]
             [instant.util.tracer :as tracer]
             [instant.util.url :as url-util]
             [instant.util.uuid :as uuid-util]
-            [instant.util.semver :as semver]
-            [instant.util.string :as string-util]
-            [instant.util.number :as number-util]
-            [instant.session-counter :as session-counter]
-            [ring.middleware.cookies :refer [wrap-cookies]]
-            [ring.util.http-response :as response]
-            [instant.model.app-admin-token :as app-admin-token-model]
-            [clojure.walk :as w]
-            [instant.config :as config]
-            [instant.fixtures :as fixtures]
-            [instant.dash.ephemeral-app :as ephemeral-app]
-            [instant.model.instant-stripe-customer :as instant-stripe-customer-model]
-            [instant.util.date :as date]
-            [instant.util.exception :as ex]
-            [instant.util.http :as http-util]
-            [next.jdbc :as next-jdbc]
-            [instant.lib.ring.websocket :as ws]
-            [instant.jdbc.aurora :as aurora]
-            [instant.stripe :as stripe]
-            [instant.model.instant-personal-access-token :as instant-personal-access-token-model]
-            [instant.model.schema :as schema-model]
-            [instant.intern.metrics :as metrics]
             [medley.core :as medley]
-            [instant.reactive.ephemeral :as eph]
-            [instant.machine-summaries :as machine-summaries]
-            [instant.storage.coordinator :as storage-coordinator]
-            [instant.model.app-file :as app-file-model]
-            [clojure.core.cache.wrapped :as cache])
+            [next.jdbc :as next-jdbc]
+            [ring.middleware.cookies :refer [wrap-cookies]]
+            [ring.util.http-response :as response])
   (:import
    (com.stripe.model.checkout Session)
    (io.undertow.websockets.core WebSocketChannel)
@@ -127,6 +129,12 @@
         (= user-id app-creator-id) :owner
         (stripe/pro-plan? subscription) (get-member-role app-id user-id)))
      {:app app :user user :subscription subscription})))
+
+(defn req->app-and-user-accepting-platform-tokens! [least-privilege scope req]
+  (let [token (http-util/req->bearer-token! req)]
+    (if (token-util/is-platform-token? token)
+      (req->superadmin-user-and-app! scope req)
+      (req->app-and-user! least-privilege req))))
 
 (defn with-team-app-fixtures [role f]
   (fixtures/with-team-app
@@ -426,7 +434,9 @@
 ;; Rules
 
 (defn rules-post [req]
-  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+  (let [{{app-id :id} :app} (req->app-and-user-accepting-platform-tokens! :collaborator
+                                                                          :apps/write
+                                                                          req)
         code (ex/get-param! req [:body :code] w/stringify-keys)]
     (ex/assert-valid! :rule code (rule-model/validation-errors code))
     (response/ok {:rules (rule-model/put! {:app-id app-id
@@ -904,15 +914,16 @@
 (defn personal-access-tokens-get [req]
   (let [{user-id :id} (req->auth-user! req)
         personal-access-tokens (instant-personal-access-token-model/list-by-user-id! {:user-id user-id})]
-    (response/ok {:data personal-access-tokens})))
+    (response/ok {:data (map instant-personal-access-token-model/format-token-for-api
+                             personal-access-tokens)})))
 
 (defn personal-access-tokens-post [req]
   (let [{user-id :id} (req->auth-user! req)
         name (ex/get-param! req [:body :name] string-util/coerce-non-blank-str)
-        personal-access-tokens (instant-personal-access-token-model/create! {:id (UUID/randomUUID)
-                                                                             :user-id user-id
-                                                                             :name name})]
-    (response/ok {:data personal-access-tokens})))
+        personal-access-token (instant-personal-access-token-model/create! {:user-id user-id
+                                                                            :name name})]
+    (response/ok {:data (instant-personal-access-token-model/format-token-for-api
+                         personal-access-token)})))
 
 (defn personal-access-tokens-delete [req]
   (let [{user-id :id} (req->auth-user! req)
@@ -929,7 +940,7 @@
   (personal-access-tokens-get {:headers headers})
   (personal-access-tokens-delete {:headers headers :params {:id (-> record :body :data :id)}}))
 
-;; --- 
+;; ---------------
 ;; Email templates
 
 (defn email-template-post [req]
@@ -1021,7 +1032,9 @@
    entities))
 
 (defn schema-push-plan-post [req]
-  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+  (let [{{app-id :id} :app} (req->app-and-user-accepting-platform-tokens! :collaborator
+                                                                          :apps/read
+                                                                          req)
         client-defs         (-> req
                                 :body
                                 :schema
@@ -1034,7 +1047,9 @@
                                      client-defs))))
 
 (defn schema-push-apply-post [req]
-  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+  (let [{{app-id :id} :app} (req->app-and-user-accepting-platform-tokens! :collaborator
+                                                                          :apps/write
+                                                                          req)
         client-defs         (-> req
                                 :body
                                 :schema
@@ -1049,13 +1064,17 @@
     (response/ok (merge r plan-result))))
 
 (defn schema-pull-get [req]
-  (let [{{app-id :id app-title :title} :app} (req->app-and-user! :collaborator req)
+  (let [{{app-id :id app-title :title} :app} (req->app-and-user-accepting-platform-tokens! :collaborator
+                                                                                           :apps/read
+                                                                                           req)
         current-attrs (attr-model/get-by-app-id app-id)
         current-schema (schema-model/attrs->schema current-attrs)]
     (response/ok {:schema current-schema :app-title app-title})))
 
 (defn perms-pull-get [req]
-  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+  (let [{{app-id :id} :app} (req->app-and-user-accepting-platform-tokens! :collaborator
+                                                                          :apps/write
+                                                                          req)
         perms (rule-model/get-by-app-id {:app-id app-id})
         r {:perms (:code perms)}]
     (response/ok r)))
@@ -1119,7 +1138,7 @@
   (schema-push-plan-post {:params {:app_id counters-app-id}
                           :headers {"authorization" (str "Bearer " (:id r))}}))
 
-;; --- 
+;; --------
 ;; CLI auth
 
 (defn cli-auth-register-post [_]
@@ -1153,19 +1172,19 @@
         res {:token token :email email}]
     (response/ok res)))
 
-;; --- 
-;; WS playground 
+;; -------------
+;; WS playground
 
 (def id-atom (atom 0))
 (defn ws-playground-get
-  "This is a simple websocket playground, to play with undertow's websocket behavior. 
-  
-   To try it out, 
+  "This is a simple websocket playground, to play with undertow's websocket behavior.
+
+   To try it out,
    ```bash
-   brew install websocat 
-   websocat ws://localhost:8888/dash/ws_playground 
-   hi 
-   break 
+   brew install websocat
+   websocat ws://localhost:8888/dash/ws_playground
+   hi
+   break
    ```"
   [_]
   (let [id (swap! id-atom inc)]
