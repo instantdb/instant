@@ -27,6 +27,10 @@
 (defn is-personal-access-token? [t]
   (instance? PersonalAccessToken t))
 
+(defn is-platform-token? [t]
+  (or (is-platform-access-token? t)
+      (is-personal-access-token? t)))
+
 (defn coerce-token-from-string [^String s]
   (cond (string/starts-with? s platform-access-token-prefix)
         (->PlatformAccessToken s)
