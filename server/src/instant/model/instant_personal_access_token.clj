@@ -3,9 +3,7 @@
             [instant.jdbc.sql :as sql]
             [instant.model.instant-user :as instant-user-model]
             [instant.util.crypt :as crypt-util]
-            [instant.util.token :as token-util])
-  (:import
-   (java.util UUID)))
+            [instant.util.token :as token-util]))
 
 (defn format-token-for-api [token]
   (select-keys token [:token :id :user_id :name :created_at]))
