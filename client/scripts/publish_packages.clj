@@ -9,7 +9,8 @@
                     :admin "./packages/admin"
                     :react "./packages/react"
                     :react-native "./packages/react-native"
-                    :cli "./packages/cli"})
+                    :cli "./packages/cli"
+                    :platform "./packages/platform"})
 
 (defn package-json-path [main]
   (str main "/package.json"))
