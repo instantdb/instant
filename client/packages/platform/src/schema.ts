@@ -23,41 +23,45 @@ function capitalizeFirstLetter(string: string): string {
   return string.charAt(0).toUpperCase() + string.slice(1);
 }
 
+function indentLines(s: string, n = 2) {
+  const space = ' '.repeat(n);
+  return s
+    .split('\n')
+    .map((l) => `${space}${l}`)
+    .join('\n');
+}
+
+/**
+ * Generates code for a single attr:
+ *   attr2: i.number.index()
+ */
+function attrToCodeString([name, config]: [string, InstantDBAttr]) {
+  const { type } = deriveClientType(config);
+  const unique = config['unique?'] ? '.unique()' : '';
+  const index = config['index?'] ? '.indexed()' : '';
+  const required = config['required?'] ? '' : '.optional()';
+  return `"${name}": i.${type}()${unique}${index}${required}`;
+}
+
+/**
+ * Generates code for an entity:
+ *  i.entity({
+ *    attr1: i.string(),
+ *    attr2: i.number.index()
+ * })
+ *
+ */
 function schemaBlobToCodeStr(
   name: string,
   attrs: InstantAPIPlatformSchema['blobs'][string],
 ) {
-  // a block of code for each entity
-  return [
-    `  `,
-    `"${name}"`,
-    `: `,
-    `i.entity`,
-    `({`,
-    `\n`,
-    // a line of code for each attribute in the entity
-    sortedEntries(attrs)
-      .filter(([name]) => name !== 'id')
-      .map(([name, config]) => {
-        const { type } = deriveClientType(config);
-
-        return [
-          `    `,
-          `"${name}"`,
-          `: `,
-          `i.${type}()`,
-          config['unique?'] ? '.unique()' : '',
-          config['index?'] ? '.indexed()' : '',
-          config['required?'] ? '' : '.optional()',
-          `,`,
-        ].join('');
-      })
-      .join('\n'),
-    `\n`,
-    `  `,
-    `})`,
-    `,`,
-  ].join('');
+  const attrBlock = sortedEntries(attrs)
+    .filter(([name]) => name !== 'id')
+    .map((attr) => attrToCodeString(attr))
+    .join(',\n');
+  return `"${name}": i.entity({
+${indentLines(attrBlock, 2)}
+})`;
 }
 
 /**
@@ -158,19 +162,19 @@ function roomDefToCodeStr(room: RoomsDef[string]) {
   let ret = '{';
 
   if (room.presence) {
-    ret += `${entityDefToCodeStr('presence', room.presence)}`;
+    ret += `\n${indentLines(entityDefToCodeStr('presence', room.presence), 2)}`;
   }
 
   if (room.topics) {
-    ret += `topics: {`;
+    ret += `\n    topics: {`;
 
     for (const [topicName, topicConfig] of Object.entries(room.topics)) {
-      ret += entityDefToCodeStr(topicName, topicConfig);
+      ret += `\n${indentLines(entityDefToCodeStr(topicName, topicConfig), 4)}`;
     }
-    ret += `}`;
+    ret += `\n    }`;
   }
 
-  ret += '}';
+  ret += ret === '{' ? '}' : '\n  }';
 
   return ret;
 }
@@ -179,9 +183,9 @@ function roomsCodeStr(rooms: RoomsDef) {
   let ret = '{';
 
   for (const [roomType, roomDef] of Object.entries(rooms)) {
-    ret += `"${roomType}": ${roomDefToCodeStr(roomDef)},`;
+    ret += `\n  "${roomType}": ${roomDefToCodeStr(roomDef)},`;
   }
-  ret += '}';
+  ret += ret === '{' ? '}' : '\n}';
 
   return ret;
 }
@@ -197,7 +201,7 @@ export function generateSchemaTypescriptFile(
   // entities
   const entitiesEntriesCode = sortedEntries(newSchema.blobs)
     .map(([name, attrs]) => schemaBlobToCodeStr(name, attrs))
-    .join('\n');
+    .join(',\n');
   const inferredAttrs = Object.values(newSchema.blobs)
     .flatMap(Object.values)
     .filter(
@@ -206,7 +210,7 @@ export function generateSchemaTypescriptFile(
         deriveClientType(attr).origin === 'inferred',
     );
 
-  const entitiesObjCode = `{\n${entitiesEntriesCode}\n}`;
+  const entitiesObjCode = `{\n${indentLines(entitiesEntriesCode, 2)}\n}`;
 
   const entitiesComment =
     inferredAttrs.length > 0
@@ -241,17 +245,14 @@ export function generateSchemaTypescriptFile(
       return [`${fe}${capitalizeFirstLetter(flabel)}`, desc];
     }),
   );
-  const linksEntriesCode = JSON.stringify(linksEntries, null, '  ').trim();
+  const linksEntriesCode = JSON.stringify(linksEntries, null, 2).trim();
+
   // rooms
   const rooms = prevSchema?.rooms || {};
   const roomsCode = roomsCodeStr(rooms);
   const kv = (k: string, v: string, comment?: string) => {
-    return comment
-      ? `
-        ${comment}
-        ${k}: ${v}
-      `.trim()
-      : `${k}: ${v}`;
+    const res = comment ? `${comment}\n${k}: ${v}` : `${k}: ${v}`;
+    return indentLines(res, 2);
   };
 
   return `// Docs: https://www.instantdb.com/docs/modeling-data
@@ -259,9 +260,9 @@ export function generateSchemaTypescriptFile(
 import { i } from "${instantModuleName ?? '@instantdb/core'}";
 
 const _schema = i.schema({
-  ${kv('entities', entitiesObjCode, entitiesComment)},
-  ${kv('links', linksEntriesCode)},
-  ${kv('rooms', roomsCode)}
+${kv('entities', entitiesObjCode, entitiesComment)},
+${kv('links', linksEntriesCode)},
+${kv('rooms', roomsCode)}
 });
 
 // This helps Typescript display nicer intellisense

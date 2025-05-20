@@ -19,11 +19,11 @@ export type InstantDBAttr = {
   'unique?': boolean;
   'index?': boolean;
   'required?': boolean;
-  'inferred-types': InstantDBInferredType[];
+  'inferred-types': InstantDBInferredType[] | null;
   catalog: 'system' | 'user';
   'on-delete'?: InstantDBAttrOnDelete | null | undefined;
   'on-delete-reverse'?: InstantDBAttrOnDelete | null | undefined;
   'checked-data-type'?: InstantDBCheckedDataType | null | undefined;
-  'indexing?': boolean;
-  'setting-unique?': boolean;
+  'indexing?'?: boolean;
+  'setting-unique?'?: boolean;
 };
