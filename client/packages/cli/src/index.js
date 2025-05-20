@@ -1,6 +1,9 @@
 // @ts-check
 
-import { generateSchemaTypescriptFile } from '@instantdb/platform';
+import {
+  generatePermsTypescriptFile,
+  generateSchemaTypescriptFile,
+} from '@instantdb/platform';
 import version from './version.js';
 import { mkdir, writeFile, readFile } from 'fs/promises';
 import path, { join } from 'path';
@@ -1718,39 +1721,4 @@ function detectAppIdFromEnvWithErrorLogging() {
 
 function appDashUrl(id) {
   return `${instantDashOrigin}/dash?s=main&t=home&app=${id}`;
-}
-
-function generatePermsTypescriptFile(perms, instantModuleName) {
-  const rulesTxt =
-    perms && Object.keys(perms).length
-      ? JSON.stringify(perms, null, 2)
-      : `
-{
-  /**
-   * Welcome to Instant's permission system!
-   * Right now your rules are empty. To start filling them in, check out the docs:
-   * https://www.instantdb.com/docs/permissions
-   *
-   * Here's an example to give you a feel:
-   * posts: {
-   *   allow: {
-   *     view: "true",
-   *     create: "isOwner",
-   *     update: "isOwner",
-   *     delete: "isOwner",
-   *   },
-   *   bind: ["isOwner", "auth.id != null && auth.id == data.ownerId"],
-   * },
-   */
-}
-`.trim();
-  return `
-// Docs: https://www.instantdb.com/docs/permissions
-
-import type { InstantRules } from "${instantModuleName ?? '@instantdb/core'}";
-
-const rules = ${rulesTxt} satisfies InstantRules;
-
-export default rules;
-  `.trim();
 }
