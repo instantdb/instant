@@ -1,15 +1,7 @@
 import { test, expect } from 'vitest';
 
 import { generateSchemaTypescriptFile } from '../../src/schema';
-import {
-  RoomSchemaShape,
-  InstantSchemaDef,
-  EntitiesDef,
-  LinksDef,
-  EntityDef,
-  DataAttrDef,
-  i,
-} from '@instantdb/core';
+import { i } from '@instantdb/core';
 
 test('generates schema', () => {
   expect(
