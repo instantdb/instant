@@ -55,6 +55,13 @@ import type {
   InstantSchemaDatabase,
 } from './helperTypes.ts';
 import type {
+  InstantDBAttr,
+  InstantDBAttrOnDelete,
+  InstantDBCheckedDataType,
+  InstantDBIdent,
+  InstantDBInferredType,
+} from './attrTypes.ts';
+import type {
   AttrsDefs,
   CardinalityKind,
   DataAttrDef,
@@ -881,6 +888,13 @@ export {
   type UpdateParams,
   type LinkParams,
   type RuleParams,
+
+  // attr types
+  type InstantDBAttr,
+  type InstantDBAttrOnDelete,
+  type InstantDBCheckedDataType,
+  type InstantDBIdent,
+  type InstantDBInferredType,
 
   // auth types
   type ExchangeCodeForTokenParams,

@@ -1,0 +1,60 @@
+{
+  "name": "@instantdb/platform",
+  "version": "v0.19.7",
+  "description": "Instant's platform package for managing Instant apps.",
+  "type": "module",
+  "main": "./dist/commonjs/index.js",
+  "types": "./dist/commonjs/index.d.ts",
+  "module": "./dist/esm/index.js",
+  "unpkg": "standalone/index.umd.js",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "import": {
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/commonjs/index.d.ts",
+        "default": "./dist/commonjs/index.js"
+      }
+    }
+  },
+  "tshy": {
+    "selfLink": false,
+    "main": true,
+    "module": true,
+    "project": "./tsconfig.json",
+    "exports": {
+      "./package.json": "./package.json",
+      ".": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "test": "vitest",
+    "test:ci": "vitest run",
+    "check": "tsc --noEmit",
+    "check-exports": "attw --pack .",
+    "dev": "tshy --watch",
+    "build": "rm -rf dist; npm run build:tshy && npm run build:standalone && npm run check-exports",
+    "build:tshy": "tshy",
+    "build:standalone": "vite build",
+    "publish-package": "pnpm publish --access public --no-git-checks"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.17.9",
+    "@babel/preset-env": "^7.16.11",
+    "@types/node": "^18.11.18",
+    "@types/uuid": "^8.3.4",
+    "@types/websocket": "^1.0.5",
+    "fake-indexeddb": "^6.0.0",
+    "tshy": "^3.0.2",
+    "@arethetypeswrong/cli": "^0.17.4",
+    "typescript": "^5.8.3",
+    "vite": "^5.2.0",
+    "vitest": "^1.6.0"
+  },
+  "dependencies": {
+    "@instantdb/core": "workspace:*"
+  }
+}
