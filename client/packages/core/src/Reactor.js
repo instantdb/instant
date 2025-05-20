@@ -436,7 +436,12 @@ export default class Reactor {
           this._linkIndex,
         );
         this.querySubs.set((prev) => {
-          prev[hash].result = { store, pageInfo, aggregate };
+          prev[hash].result = {
+            store,
+            pageInfo,
+            aggregate,
+            processedTxId: msg['processed-tx-id'],
+          };
           return prev;
         });
         this._cleanupPendingMutationsQueries();
@@ -462,23 +467,21 @@ export default class Reactor {
           const result = x['instaql-result'];
           const hash = weakHash(q);
           const triples = extractTriples(result);
-          let store = s.createStore(
+          const store = s.createStore(
             this.attrs,
             triples,
             enableCardinalityInference,
             this._linkIndex,
           );
-
-          // apply pendingMutations that this query has not yet seen
-          for (const [_, mut] of mutations) {
-            if (!mut['tx-id'] || mut['tx-id'] > processedTxId) {
-              store = s.transact(store, mut['tx-steps']);
-            }
-          }
+          const newStore = this._applyOptimisticUpdates(
+            store,
+            mutations,
+            processedTxId,
+          );
 
           const pageInfo = result?.[0]?.data?.['page-info'];
           const aggregate = result?.[0]?.data?.['aggregate'];
-          return { hash, store, pageInfo, aggregate };
+          return { hash, store: newStore, pageInfo, aggregate };
         });
 
         updates.forEach(({ hash, store, pageInfo, aggregate }) => {
@@ -929,11 +932,16 @@ export default class Reactor {
       return cached.data;
     }
 
-    const { store, pageInfo, aggregate } = result;
-    const muts = this._rewriteMutationsSorted(store.attrs, pendingMutations);
-
-    const txSteps = [...muts].flatMap(([_, x]) => x['tx-steps']);
-    const newStore = s.transact(store, txSteps);
+    const { store, pageInfo, aggregate, processedTxId } = result;
+    const mutations = this._rewriteMutationsSorted(
+      store.attrs,
+      pendingMutations,
+    );
+    const newStore = this._applyOptimisticUpdates(
+      store,
+      mutations,
+      processedTxId,
+    );
     const resp = instaql({ store: newStore, pageInfo, aggregate }, q);
 
     this._dataForQueryCache[hash] = {
@@ -943,6 +951,15 @@ export default class Reactor {
     };
 
     return resp;
+  }
+
+  _applyOptimisticUpdates(store, mutations, processedTxId) {
+    for (const [_, mut] of mutations) {
+      if (!mut['tx-id'] || (processedTxId && mut['tx-id'] > processedTxId)) {
+        store = s.transact(store, mut['tx-steps']);
+      }
+    }
+    return store;
   }
 
   /** Re-run instaql and call all callbacks with new data */
