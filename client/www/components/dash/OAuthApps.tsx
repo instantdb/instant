@@ -431,10 +431,10 @@ function ClientRedirectUrl({
     }
   };
   return (
-    <div className="group flex flex-row gap-4">
+    <div className="group/redirect flex flex-row gap-4">
       <Copyable value={redirectUrl} />
       <Button
-        className="hidden group-hover:block"
+        className="invisible group-hover/redirect:visible"
         size="mini"
         variant="destructive"
         onClick={removeRedirectUrl}
