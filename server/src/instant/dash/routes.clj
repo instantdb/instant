@@ -236,14 +236,14 @@
   (postmark/send-structured! (magic-code-email {:user user :magic-code m})))
 
 (defn send-magic-code-post [req]
-  (let [email (ex/get-param! req [:body :email] email/coerce)
-        {user-id :id :as u} (or  (instant-user-model/get-by-email {:email email})
-                                 (instant-user-model/create!
-                                  {:id (UUID/randomUUID) :email email}))
-        magic-code (instant-user-magic-code-model/create!
-                    {:id (UUID/randomUUID)
-                     :code (instant-user-magic-code-model/rand-code)
-                     :user-id user-id})]
+  (let [email #p (ex/get-param! req [:body :email] email/coerce)
+        {user-id :id :as u} #p (or (instant-user-model/get-by-email {:email email})
+                                   (instant-user-model/create!
+                                    {:id (UUID/randomUUID) :email email}))
+        magic-code #p (instant-user-magic-code-model/create!
+                       {:id (UUID/randomUUID)
+                        :code (instant-user-magic-code-model/rand-code)
+                        :user-id user-id})]
     (postmark/send-structured!
      (magic-code-email {:user u :magic-code magic-code}))
     (response/ok {:sent true})))
