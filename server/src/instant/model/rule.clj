@@ -60,6 +60,25 @@
    ;; Don't cache if we're using a custom connection
    (get-by-app-id* conn app-id)))
 
+(defn get-by-app-ids
+  ([params]
+   (get-by-app-ids (aurora/conn-pool :read) params))
+  ([conn {:keys [app-ids]}]
+   (let [rows (sql/select :get-by-app-ids
+                          conn
+                          (hsql/format {:select :*
+                                        :from :rules
+                                        :where [:= :app-id [:any (with-meta (set app-ids)
+                                                                   {:pgtype "uuid[]"})]]}))
+         row-by-app-id (reduce (fn [acc row]
+                                 (assoc acc (:app_id row) row))
+                               {}
+                               rows)]
+     (reduce (fn [acc app-id]
+               (assoc acc app-id (get row-by-app-id app-id)))
+             {}
+             app-ids))))
+
 (defn delete-by-app-id!
   ([params] (delete-by-app-id! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id]}]

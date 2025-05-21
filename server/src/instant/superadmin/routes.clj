@@ -59,8 +59,31 @@
 
 (defn apps-list-get [req]
   (let [{user-id :id} (req->superadmin-user! :apps/read req)
-        apps (app-model/list-by-creator-id user-id)]
-    (response/ok {:apps apps})))
+        apps (app-model/list-by-creator-id user-id)
+        includes (some-> (ex/get-optional-param! req
+                                                 [:params :include]
+                                                 string-util/coerce-non-blank-str)
+                         (String/.split ",")
+                         set)]
+    (response/ok (cond-> {:apps apps}
+                   (contains? includes "schema")
+                   (update :apps
+                           (fn [apps]
+                             (let [attrs-by-app (attr-model/get-by-app-ids (map :id apps))]
+                               (map (fn [app]
+                                      (assoc app :schema (schema-model/attrs->schema
+                                                          (get attrs-by-app (:id app)))))
+                                    apps))))
+
+                   (contains? includes "perms")
+                   (update :apps
+                           (fn [apps]
+                             (let [rules-by-app (rule-model/get-by-app-ids
+                                                 {:app-ids (map :id apps)})]
+                               (map (fn [app]
+                                      (assoc app :perms (get-in rules-by-app
+                                                                [(:id app) :code])))
+                                    apps))))))))
 
 (defn apps-create-post [req]
   (let [{user-id :id} (req->superadmin-user! :apps/write req)

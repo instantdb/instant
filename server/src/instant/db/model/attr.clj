@@ -767,6 +767,33 @@
      ;; Don't cache if we're using a custom connection
      (get-by-app-id* conn app-id))))
 
+(defn get-by-app-ids
+  "Returns a map of attrs by app-id"
+  ([app-ids]
+   (get-by-app-ids (aurora/conn-pool :read) app-ids))
+  ([conn app-ids]
+   (let [rows (sql/select
+               ::get-by-app-ids
+               conn
+               (hsql/format
+                {:select [:attrs.*
+                          [:fwd-idents.etype :fwd-etype]
+                          [:fwd-idents.label :fwd-label]
+                          [:rev-idents.etype :rev-etype]
+                          [:rev-idents.label :rev-label]]
+                 :from :attrs
+                 :join [[:idents :fwd-idents] [:= :attrs.forward-ident :fwd-idents.id]]
+                 :left-join [[:idents :rev-idents] [:= :attrs.reverse-ident :rev-idents.id]]
+                 :where [:= :attrs.app-id [:any (with-meta (conj (set app-ids) system-catalog-app-id)
+                                                  {:pgtype "uuid[]"})]]}))
+         rows-by-app-id (group-by :app_id rows)
+         system-catalog-attrs (map row->attr (get rows-by-app-id system-catalog-app-id))]
+     (reduce (fn [acc app-id]
+               (assoc acc app-id (wrap-attrs (concat (map row->attr (get rows-by-app-id app-id))
+                                                     system-catalog-attrs))))
+             {}
+             app-ids))))
+
 ;; ------
 ;; seek
 
