@@ -342,7 +342,7 @@ class Auth {
    *   app.post('/custom_endpoint', async (req, res) => {
    *     const user = await db.auth.verifyToken(req.headers['token'])
    *     if (!user) {
-   *       return res.status(400).send('Uh oh, you are not authenticated')
+   *       return res.status(401).send('Uh oh, you are not authenticated')
    *     }
    *     // ...
    *   })
