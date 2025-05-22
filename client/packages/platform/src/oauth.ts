@@ -11,6 +11,41 @@ export type InstantDBOAuthAccessToken = {
   expiresAt: Date;
 };
 
+export class InstantOAuthError extends Error {
+  error: string;
+  errorDescription: string | null | undefined;
+
+  constructor({
+    message,
+    error,
+    errorDescription,
+  }: {
+    message: string;
+    error: string;
+    errorDescription?: string | null | undefined;
+  }) {
+    super(message);
+
+    const actualProto = new.target.prototype;
+    if (Object.setPrototypeOf) {
+      Object.setPrototypeOf(this, actualProto);
+    }
+
+    // Maintain proper stack trace for where our error was thrown
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, InstantOAuthError);
+    }
+
+    this.name = 'InstantOAuthError';
+    this.error = error;
+    this.errorDescription = errorDescription;
+  }
+
+  get [Symbol.toStringTag]() {
+    return 'InstantAPIError';
+  }
+}
+
 function getWindowOpts(): string {
   const windowWidth = Math.min(800, Math.floor(window.outerWidth * 0.8));
   const windowHeight = Math.min(630, Math.floor(window.outerHeight * 0.5));
@@ -93,18 +128,23 @@ async function exchangeCodeForToken({
 
   if (!res.ok) {
     const text = await res.text();
-    let msg;
+    let error;
 
     try {
       const json = JSON.parse(text);
-      msg = json.error || 'Uknown error authenticating with InstantDB.';
+      error = {
+        error: json.error,
+        errorDescription: json.error_description,
+        message: `OAuth error: ${json.error || 'server_error'}`,
+      };
     } catch (e) {
-      console.error(e);
-      // XXX: Log?
-      msg = 'Error authenticating with InstantDB.';
+      error = {
+        error: 'server_error',
+        message: 'OAuth error: server_error',
+      };
     }
 
-    throw new Error(msg);
+    throw new InstantOAuthError(error);
   }
 
   const json = (await res.json()) as {
@@ -185,7 +225,12 @@ export function startInstantOAuthClientOnlyFlow({
           return;
         }
 
-        const { state: redirectState, error, code } = event.data;
+        const {
+          state: redirectState,
+          error,
+          code,
+          errorDescription,
+        } = event.data;
 
         if (!redirectState || redirectState !== state) {
           return;
@@ -202,12 +247,31 @@ export function startInstantOAuthClientOnlyFlow({
             });
             resolve(token);
           } catch (e) {
+            if (e instanceof InstantOAuthError) {
+              reject(e);
+            }
             reject(
-              new Error(e instanceof Error ? e.message : 'Unknown error.'),
+              new InstantOAuthError({
+                error: 'server_error',
+                message: 'OAuth error exchanging code for token',
+              }),
             );
           }
+        } else if (typeof error === 'string') {
+          reject(
+            new InstantOAuthError({
+              error,
+              errorDescription,
+              message: `OAuth error: ${error}`,
+            }),
+          );
         } else {
-          reject(new Error(error || 'Unknown error.'));
+          reject(
+            new InstantOAuthError({
+              error: 'server_error',
+              message: 'OAuth error: server_error',
+            }),
+          );
         }
 
         channel.postMessage({ type: 'oauth-redirect-window-done' });
