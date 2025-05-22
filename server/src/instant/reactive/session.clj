@@ -277,6 +277,14 @@
                    :message message
                    :hint hint}))
 
+
+;; ---------
+;; heartbeat
+
+(defn handle-heartbeat! [store sess-id _event]
+  (rs/assoc-session! store sess-id
+                     :session/heartbeat (System/currentTimeMillis)))
+
 ;; ------
 ;; worker
 
@@ -416,6 +424,7 @@
       :refresh      (handle-refresh! store id event debug-info)
       :transact     (handle-transact! store id event)
       :error        (handle-error! store id event)
+      :heartbeat    (handle-heartbeat! store id event)
       ;; -----
       ;; EPH events
       :join-room        (handle-join-room! store id event)

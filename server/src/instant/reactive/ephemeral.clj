@@ -1,6 +1,7 @@
 (ns instant.reactive.ephemeral
   "Handles our ephemeral data apis for a session (presence, cursors)"
   (:require
+   [chime.core :as chime-core]
    [datascript.core :as ds]
    [editscript.core :as editscript]
    [instant.config :as config]
@@ -9,6 +10,7 @@
    [instant.util.aws :as aws-util]
    [instant.util.coll :as coll]
    [instant.util.hazelcast :as hazelcast]
+   [instant.util.lang :as lang]
    [instant.util.tracer :as tracer]
    [medley.core :as medley])
   (:import
@@ -20,8 +22,10 @@
                                EntryRemovedListener
                                EntryUpdatedListener)
    (com.hazelcast.topic ITopic MessageListener Message)
+   (java.time Duration Instant)
+   (java.time.temporal ChronoUnit)
    (java.util AbstractMap$SimpleImmutableEntry)
-   (java.util.concurrent Future)))
+   (java.util.concurrent Future TimeUnit)))
 
 ;; ------
 ;; Setup
@@ -221,6 +225,25 @@
                                              session-ids)))))
     (hazelcast/remove-session! (get-hz-rooms-map) room-key sess-id)))
 
+(defn clean-sessions []
+  (doseq [:let [now    (System/currentTimeMillis)
+                hz-map (get-hz-rooms-map)]
+          ^AbstractMap$SimpleImmutableEntry entry (.entrySet hz-map)
+          :let [{:keys [app-id room-id]} (.getKey entry)
+                v (.getValue entry)]
+          :when (and app-id room-id)
+          sess-id (keys v)
+          :let [session   (rs/session rs/store sess-id)
+                heartbeat (:session/heartbeat session)]
+          :when (and heartbeat
+                     (< (+ heartbeat (* 2 rs/heartbeat-interval)) now))]
+    (tracer/with-span! {:name "clean-session"
+                        :attributes {:app-id     app-id
+                                     :room-id    room-id
+                                     :session-id sess-id
+                                     :delay      (- now heartbeat)}}
+      (remove-session! app-id room-id sess-id))))
+
 (defn clean-old-sessions []
   (let [oldest-timestamp (aws-util/oldest-instance-timestamp)
         hz-map (get-hz-rooms-map)]
@@ -289,10 +312,19 @@
     (delay
       (init-hz (config/get-env) rs/store {})))
   (let [^Future f (future @hz)]
-    (.get f (* 60 1000) java.util.concurrent.TimeUnit/MILLISECONDS)))
+    (.get f (* 60 1000) TimeUnit/MILLISECONDS))
+
+  (def clean-sessions-schedule
+    (chime-core/chime-at
+     (chime-core/periodic-seq
+      (-> (Instant/now) (.plus ^long rs/heartbeat-interval ChronoUnit/MILLIS))
+      (Duration/ofMillis rs/heartbeat-interval))
+     (fn [_time]
+       (clean-sessions)))))
 
 (defn stop []
-  (when-let [^HazelcastInstance hz (try (get-hz) (catch Exception _e nil))]
+  (lang/close clean-sessions-schedule)
+  (when-some [^HazelcastInstance hz (try (get-hz) (catch Exception _e nil))]
     (.shutdown hz)))
 
 (defn restart []

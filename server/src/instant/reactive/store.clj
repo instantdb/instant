@@ -32,6 +32,9 @@
 
 (set! *warn-on-reflection* true)
 
+;; must match Reactor.js / HEARTBEAT_INTERVAL
+(def heartbeat-interval 30000)
+
 (defrecord ReactiveStore [sessions ^Map conns])
 
 (declare store)
@@ -42,7 +45,8 @@
    :session/auth           {}   ;; {:app app :user user :admin? admin?} (from session.clj)
    :session/creator        {}   ;; user (from session.clj)
    :session/versions       {}   ;; library versions, e.g. {"@instantdb/react": "v0.1.2"}
-   :session/datalog-loader {}}) ;; datalog-loader (from datalog.clj)
+   :session/datalog-loader {}   ;; datalog-loader (from datalog.clj)
+   :session/heartbeat      {}}) ;; last time this session set heartbeat
 
 (def
   ^{:doc

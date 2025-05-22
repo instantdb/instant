@@ -36,6 +36,8 @@ const STATUS = {
 
 const QUERY_ONCE_TIMEOUT = 30_000;
 const PENDING_TX_CLEANUP_TIMEOUT = 30_000;
+// must match reactive/store.clj / heartbeat-interval
+const HEARTBEAT_INTERVAL = 30_000;
 
 const WS_CONNECTING_STATUS = 0;
 const WS_OPEN_STATUS = 1;
@@ -142,6 +144,7 @@ export default class Reactor {
   _reconnectTimeoutId = null;
   _reconnectTimeoutMs = 0;
   _ws;
+  _heartbeatTimer = null;
   _localIdPromises = {};
   _errorMessage = null;
   /** @type {Promise<null | {error: {message: string}}>}**/
@@ -1208,6 +1211,10 @@ export default class Reactor {
     this._ws.send(JSON.stringify({ 'client-event-id': eventId, ...msg }));
   }
 
+  _heartbeat() {
+    this._trySend(uuid(), { op: 'heartbeat' });
+  }
+
   _wsOnOpen = (e) => {
     const targetWs = e.target;
     if (this._ws !== targetWs) {
@@ -1220,6 +1227,9 @@ export default class Reactor {
     }
     this._log.info('[socket][open]', this._ws._id);
     this._setStatus(STATUS.OPENED);
+    this._heartbeatTimer = setInterval(() => {
+      this._heartbeat();
+    }, HEARTBEAT_INTERVAL);
     this.getCurrentUser()
       .then((resp) => {
         this._trySend(uuid(), {
@@ -1280,6 +1290,11 @@ export default class Reactor {
     }
 
     this._setStatus(STATUS.CLOSED);
+
+    if (this._heartbeatTimer) {
+      clearInterval(this._heartbeatTimer);
+      this._heartbeatTimer = null;
+    }
 
     for (const room of Object.values(this._rooms)) {
       room.isConnected = false;
