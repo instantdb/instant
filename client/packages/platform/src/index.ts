@@ -2,6 +2,7 @@ import {
   type InstantDBOAuthAccessToken,
   type OAuthHandlerConfig,
   OAuthHandler,
+  InstantOAuthError,
 } from './oauth.ts';
 import { generatePermsTypescriptFile } from './perms.ts';
 import {
@@ -16,6 +17,7 @@ export {
   type InstantDBOAuthAccessToken,
   type OAuthHandlerConfig,
   OAuthHandler,
+  InstantOAuthError,
   generateSchemaTypescriptFile,
   generatePermsTypescriptFile,
   version,
