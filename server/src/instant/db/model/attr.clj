@@ -271,11 +271,10 @@
           :when (:required? attr)
           :let  [[_ etype label] (:forward-identity attr)
                  query "SELECT *
-                          FROM idents
-                          JOIN attrs ON attrs.forward_ident = idents.id
-                          JOIN triples ON triples.attr_id = attrs.id
-                         WHERE idents.etype = ?etype
-                           AND idents.app_id = ?app-id
+                          FROM attrs
+                          JOIN triples ON attrs.id = triples.attr_id
+                         WHERE attrs.app_id = ?app-id
+                           AND attrs.etype = ?etype
                            AND triples.app_id = ?app-id
                          LIMIT 1"
                  res   (sql/execute! conn (sql/format query {"?etype" etype, "?app-id" app-id}))]
@@ -481,10 +480,9 @@
                  ),
 
                  attrs_etype_cte AS (
-                   SELECT attrs.id, idents.etype, idents.label
+                   SELECT attrs.id, attrs.etype, attrs.label
                      FROM attrs_cte
                      JOIN attrs ON attrs_cte.id = attrs.id
-                     JOIN idents ON attrs.forward_ident = idents.id
                  )
 
                  SELECT attrs_etype_cte.*,
@@ -507,10 +505,9 @@
                     WHERE triples.app_id = ?app-id
                       AND triples.attr_id IN (
                        SELECT attrs.id
-                         FROM idents
-                         JOIN attrs on attrs.forward_ident = idents.id
-                        WHERE idents.app_id = ?app-id
-                          AND idents.etype = attrs_etype_cte.etype
+                         FROM attrs
+                        WHERE attrs.app_id = ?app-id
+                          AND attrs.etype = attrs_etype_cte.etype
                       )
                      AND triples.value IS NOT NULL
                      AND triples.value <> 'null'
@@ -615,11 +612,11 @@
            is_indexed
            is_required
            forward_ident
-           fwd_label
-           fwd_etype
+           etype
+           label
            reverse_ident
-           rev_label
-           rev_etype
+           reverse_etype
+           reverse_label
            inferred_types
            on_delete
            on_delete_reverse
@@ -630,7 +627,7 @@
   (cond-> {:id id
            :value-type (keyword value_type)
            :cardinality (keyword cardinality)
-           :forward-identity [forward_ident fwd_etype fwd_label]
+           :forward-identity [forward_ident etype label]
            :unique? is_unique
            :index? is_indexed
            :required? is_required
@@ -641,7 +638,7 @@
                       :user)}
     on_delete (assoc :on-delete (keyword on_delete))
     on_delete_reverse (assoc :on-delete-reverse (keyword on_delete_reverse))
-    reverse_ident (assoc :reverse-identity [reverse_ident rev_etype rev_label])
+    reverse_ident (assoc :reverse-identity [reverse_ident reverse_etype reverse_label])
     checked_data_type (assoc :checked-data-type (keyword checked_data_type))
     checking_data_type (assoc :checking-data-type? true)
     indexing (assoc :indexing? true)
@@ -747,14 +744,8 @@
          ::get-by-app-id*
          conn
          (hsql/format
-          {:select [:attrs.*
-                    [:fwd-idents.etype :fwd-etype]
-                    [:fwd-idents.label :fwd-label]
-                    [:rev-idents.etype :rev-etype]
-                    [:rev-idents.label :rev-label]]
+          {:select :*
            :from :attrs
-           :join [[:idents :fwd-idents] [:= :attrs.forward-ident :fwd-idents.id]]
-           :left-join [[:idents :rev-idents] [:= :attrs.reverse-ident :rev-idents.id]]
            :where [:or
                    [:= :attrs.app-id [:cast app-id :uuid]]
                    [:= :attrs.app-id [:cast system-catalog-app-id :uuid]]]})))))

@@ -163,12 +163,11 @@
 
             eid+required-attrs
             {:from 'eid+etypes-cte
-             :join ['idents [:and
-                             [:= 'idents/app-id app-id]
-                             [:= 'idents/etype 'eid+etypes-cte/etype]]
-                    'attrs [:= 'idents/id 'attrs/forward-ident]]
+             :join ['attrs [:and
+                            [:= 'attrs/app-id app-id]
+                            [:= 'attrs/etype 'eid+etypes-cte/etype]]]
              :where [:= 'attrs/is_required true]
-             :select-distinct ['entity-id ['attrs/id 'attr-id] 'idents/etype 'idents/label]}
+             :select-distinct ['entity-id ['attrs/id 'attr-id] 'attrs/etype 'attrs/label]}
 
             missing-required
             {:from      'eid+required-attrs
@@ -184,14 +183,13 @@
 
             missing-required-alive
             {:from ['missing-required
-                    [[:lateral {:from   'idents
-                                :join   ['attrs   [:= 'idents/id 'attrs/forward-ident]
-                                         'triples [:and
+                    [[:lateral {:from   'attrs
+                                :join   ['triples [:and
                                                    [:= 'triples/attr-id 'attrs/id]
                                                    [:= 'triples/app-id app-id]]]
                                 :where  [:and
-                                         [:= 'idents/app-id app-id]
-                                         [:= 'idents/etype 'missing-required/etype]
+                                         [:= 'attrs/app-id app-id]
+                                         [:= 'attrs/etype 'missing-required/etype]
                                          [:= 'triples/entity-id 'missing-required/entity-id]]
                                 :select [[[:count 'triples/entity-id] 'cnt]]}] 'cnt]]
              :where [:> 'cnt/cnt [:inline 0]]
@@ -690,28 +688,26 @@
         {:select 'triples/ctid
          :from   'triples
          :join   ['id-etypes [:= 'triples/entity_id 'id-etypes/entity_id]
-                  'attrs     [:= 'triples/attr_id 'attrs/id]
-                  'idents    [:= 'idents/id 'attrs/forward-ident]]
+                  'attrs     [:= 'triples/attr_id 'attrs/id]]
          :where  [:and
                   [:= 'triples/app-id app-id]
-                  [:= 'idents/etype 'id-etypes/etype]
+                  [:= 'attrs/etype 'id-etypes/etype]
                   [:or
-                   [:= 'idents/app-id app-id]
-                   [:= 'idents/app-id system-catalog-app-id]]]}
+                   [:= 'attrs/app-id app-id]
+                   [:= 'attrs/app-id system-catalog-app-id]]]}
 
         reverse-attrs
         {:select 'triples/ctid
          :from   'triples
          :join   ['id-etypes [:= 'triples/value [:to_jsonb 'id-etypes/entity_id]]
-                  'attrs     [:= 'triples/attr_id 'attrs/id]
-                  'idents    [:= 'idents/id 'attrs/reverse-ident]]
+                  'attrs     [:= 'triples/attr_id 'attrs/id]]
          :where  [:and
                   'vae
                   [:= 'triples/app-id app-id]
-                  [:= 'idents/etype 'id-etypes/etype]
+                  [:= 'attrs/reverse-etype 'id-etypes/etype]
                   [:or
-                   [:= 'idents/app-id app-id]
-                   [:= 'idents/app-id system-catalog-app-id]]]}
+                   [:= 'attrs/app-id app-id]
+                   [:= 'attrs/app-id system-catalog-app-id]]]}
 
         query  {:with [['id-etypes id-etypes]
                        ['forward-attrs forward-attrs]
