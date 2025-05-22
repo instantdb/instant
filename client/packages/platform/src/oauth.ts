@@ -15,16 +15,12 @@ export class InstantOAuthError extends Error {
   error: string;
   errorDescription: string | null | undefined;
 
-  constructor({
-    message,
-    error,
-    errorDescription,
-  }: {
+  constructor(config: {
     message: string;
     error: string;
     errorDescription?: string | null | undefined;
   }) {
-    super(message);
+    super(config.message);
 
     const actualProto = new.target.prototype;
     if (Object.setPrototypeOf) {
@@ -34,11 +30,11 @@ export class InstantOAuthError extends Error {
     // Maintain proper stack trace for where our error was thrown
     if (Error.captureStackTrace) {
       Error.captureStackTrace(this, InstantOAuthError);
-    }
+    }    
 
     this.name = 'InstantOAuthError';
-    this.error = error;
-    this.errorDescription = errorDescription;
+    this.error = config.error;
+    this.errorDescription = config.errorDescription;
   }
 
   get [Symbol.toStringTag]() {
