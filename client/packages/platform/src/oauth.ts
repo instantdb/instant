@@ -30,7 +30,7 @@ export class InstantOAuthError extends Error {
     // Maintain proper stack trace for where our error was thrown
     if (Error.captureStackTrace) {
       Error.captureStackTrace(this, InstantOAuthError);
-    }    
+    }
 
     this.name = 'InstantOAuthError';
     this.error = config.error;
