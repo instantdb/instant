@@ -17,9 +17,17 @@
 
 (def apps-read-scope "apps-read")
 (def apps-write-scope "apps-write")
+(def data-read-scope "data-read")
+(def data-write-scope "data-write")
+(def storage-read-scope "storage-read")
+(def storage-write-scope "storage-write")
 
 (def all-scopes (set [apps-read-scope
-                      apps-write-scope]))
+                      apps-write-scope
+                      data-read-scope
+                      data-write-scope
+                      storage-read-scope
+                      storage-write-scope]))
 
 (def default-expires-at [:+ :%now [:interval "10 minutes"]])
 
@@ -27,7 +35,15 @@
   (condp = scope
     apps-read-scope (or (ucoll/exists? #(= % apps-read-scope) scopes)
                         (ucoll/exists? #(= % apps-write-scope) scopes))
-    apps-write-scope (ucoll/exists? #(= % apps-write-scope) scopes)))
+    apps-write-scope (ucoll/exists? #(= % apps-write-scope) scopes)
+
+    data-read-scope (or (ucoll/exists? #(= % data-read-scope) scopes)
+                        (ucoll/exists? #(= % data-write-scope) scopes))
+    data-write-scope (ucoll/exists? #(= % data-write-scope) scopes)
+
+    storage-read-scope (or (ucoll/exists? #(= % storage-read-scope) scopes)
+                           (ucoll/exists? #(= % storage-write-scope) scopes))
+    storage-write-scope (ucoll/exists? #(= % storage-write-scope) scopes)))
 
 (defn hash-client-secret ^bytes [^String client-secret]
   (crypt-util/str->sha256 client-secret))

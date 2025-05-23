@@ -31,8 +31,12 @@
             (oauth-app-model/access-token-by-token-value!
              {:access-token (token-util/platform-access-token-value token)})
             scope-str (case scope
-                        :apps/read "apps-read"
-                        :apps/write "apps-write"
+                        :apps/read oauth-app-model/apps-read-scope
+                        :apps/write oauth-app-model/apps-write-scope
+                        :data/read oauth-app-model/data-read-scope
+                        :data/write oauth-app-model/data-write-scope
+                        :storage/read oauth-app-model/storage-read-scope
+                        :storage/write oauth-app-model/storage-write-scope
                         ;; We don't let the OAuth app transfer apps,
                         ;; using an unused scope to prevent it.
                         :apps/transfer "apps-transfer")]
