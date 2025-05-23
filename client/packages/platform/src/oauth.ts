@@ -1,4 +1,6 @@
 import { pkceVerifier, pkceCodeChallengeOfVerifier } from './crypto.ts';
+import { version as coreVersion } from '@instantdb/core';
+import version from './version.js';
 
 export type InstantDBOAuthAccessToken = {
   /**
@@ -112,7 +114,11 @@ async function exchangeCodeForToken({
 }): Promise<InstantDBOAuthAccessToken> {
   const res = await fetch(`${apiOrigin}/platform/oauth/token`, {
     method: 'POST',
-    headers: { 'Content-type': 'application/json' },
+    headers: {
+      'Content-type': 'application/json',
+      'Instant-Platform-Version': version,
+      'Instant-Core-Version': coreVersion,
+    },
     body: JSON.stringify({
       grant_type: 'authorization_code',
       code,
