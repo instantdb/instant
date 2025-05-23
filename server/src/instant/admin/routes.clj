@@ -8,17 +8,20 @@
    [instant.db.permissioned-transaction :as permissioned-tx]
    [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
+   [instant.model.app :as app-model]
    [instant.model.app-admin-token :as app-admin-token-model]
    [instant.model.app-user :as app-user-model]
    [instant.model.app-user-magic-code :as app-user-magic-code-model]
    [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
    [instant.model.rule :as rule-model]
+   [instant.superadmin.routes :refer [req->superadmin-user!]]
    [instant.util.email :as email]
    [instant.util.exception :as ex]
    [instant.util.http :as http-util]
    [instant.util.instaql :refer [instaql-nodes->object-tree]]
    [instant.util.json :refer [->json <-json]]
    [instant.util.string :as string-util]
+   [instant.util.token :as token-util]
    [instant.util.uuid :as uuid-util]
    [ring.util.http-response :as response]
    [instant.model.schema :as schema-model]
@@ -31,15 +34,30 @@
   (:import
    (java.util UUID)))
 
-(defn req->app-id! [req]
+(defn req->app-id-untrusted! [req]
   (ex/get-param! req [:headers "app-id"] uuid-util/coerce))
 
-(defn req->admin-token! [req]
-  (app-admin-token-model/fetch! {:app-id (req->app-id! req)
-                                 :token (http-util/req->bearer-token! req)}))
+(defn req->app-id-authed!
+  "Returns a map with {:app-id app-id} if the
+  request has adequate permission to access the app.
 
-(defn get-perms! [{:keys [headers] :as req}]
-  (let [{app-id :app_id} (req->admin-token! req)
+  If the token is an app-admin-token, then it has access regardless of
+  the scope requirement.
+
+  If the token is a platform token (personal or oauth), then it must
+  satisfy the provided scope."
+  [req oauth-scope]
+  (let [app-id (req->app-id-untrusted! req)
+        token (http-util/req->bearer-token! req)]
+    (if-not (token-util/is-platform-token? token)
+      {:app-id (:app_id (app-admin-token-model/fetch! {:app-id app-id :token token}))}
+      (let [{user-id :id} (req->superadmin-user! oauth-scope req)
+            app (app-model/get-by-id-and-creator! {:user-id user-id
+                                                   :app-id app-id})]
+        {:app-id (:id app)}))))
+
+(defn get-perms! [{:keys [headers] :as req} oauth-scope]
+  (let [{:keys [app-id]} (req->app-id-authed! req oauth-scope)
         as-token (get headers "as-token")
         as-email (get headers "as-email")
         as-guest (get headers "as-guest")
@@ -68,10 +86,12 @@
   (def admin-token #uuid "82900c15-faac-495b-b385-9f9e7743b629")
 
   (get-perms! {:headers {"app-id" (str counters-app-id)
-                         "authorization" (format "Bearer %s" admin-token)}})
+                         "authorization" (format "Bearer %s" admin-token)}}
+              :data/read)
   (get-perms! {:headers {"app-id" (str counters-app-id)
                          "authorization" (format "Bearer %s" admin-token)
-                         "as-email" "stopa@instantdb.com"}})
+                         "as-email" "stopa@instantdb.com"}}
+              :data/read)
   (def refresh-token
     (app-user-refresh-token-model/create!
      {:id (UUID/randomUUID)
@@ -79,11 +99,14 @@
 
   (get-perms! {:headers {"app-id" (str counters-app-id)
                          "authorization" (format "Bearer %s" admin-token)
-                         "as-token" (str (:id refresh-token))}})
+                         "as-token" (str (:id refresh-token))}}
+              :data/read)
 
-  (get-perms! {:headers {"app-id" (str counters-app-id)}})
+  (get-perms! {:headers {"app-id" (str counters-app-id)}}
+              :data/read)
   (get-perms! {:headers {"app-id" (str counters-app-id)
-                         "authorization" "foo"}}))
+                         "authorization" "foo"}}
+              :data/read))
 
 ;; ------
 ;; Query
@@ -91,7 +114,7 @@
 (defn query-post [req]
   (let [query (ex/get-param! req [:body :query] #(when (map? %) %))
         inference? (-> req :body :inference? boolean)
-        {:keys [app-id] :as perms} (get-perms! req)
+        {:keys [app-id] :as perms} (get-perms! req :data/read)
         attrs (attr-model/get-by-app-id app-id)
         ctx (merge {:db {:conn-pool (aurora/conn-pool :read)}
                     :app-id app-id
@@ -112,7 +135,7 @@
                          "authorization" (str "Bearer " admin-token)}}))
 
 (defn query-perms-check [req]
-  (let [{:keys [app-id] :as perms} (get-perms! req)
+  (let [{:keys [app-id] :as perms} (get-perms! req :data/read)
         _ (ex/assert-valid! :non-admin "non-admin"
                             (when (:admin? perms)
                               [{:message "Cannot test perms as admin"}]))
@@ -153,7 +176,7 @@
         throw-on-missing-attrs? (ex/get-optional-param!
                                  req
                                  [:body :throw-on-missing-attrs?] boolean)
-        {:keys [app-id] :as perms} (get-perms! req)
+        {:keys [app-id] :as perms} (get-perms! req :data/write)
         attrs (attr-model/get-by-app-id app-id)
         ctx (merge {:db {:conn-pool (aurora/conn-pool :write)}
                     :app-id app-id
@@ -170,7 +193,7 @@
       (response/ok {:tx-id tx-id}))))
 
 (defn transact-perms-check [req]
-  (let [{:keys [app-id] :as perms} (get-perms! req)
+  (let [{:keys [app-id] :as perms} (get-perms! req :data/write)
         _ (ex/assert-valid! :non-admin "non-admin"
                             (when (:admin? perms)
                               [{:message "Cannot test perms as admin"}]))
@@ -230,7 +253,7 @@
 ;; Refresh tokens
 
 (defn refresh-tokens-post [req]
-  (let [{app-id :app_id} (req->admin-token! req)
+  (let [{:keys [app-id]} (req->app-id-authed! req :data/write)
         email (ex/get-param! req [:body :email] email/coerce)
         {user-id :id :as user}
         (or (app-user-model/get-by-email {:app-id app-id
@@ -249,7 +272,7 @@
     (response/ok {:user (assoc user :refresh_token refresh-token-id)})))
 
 (defn sign-out-post [{:keys [body] :as req}]
-  (let [{app-id :app_id} (req->admin-token! req)
+  (let [{:keys [app-id]} (req->app-id-authed! req :data/write)
         {:keys [email refresh_token id]} body]
     (cond
       id
@@ -276,8 +299,8 @@
        [{:message "Please provide an `id`, `email`, or `refresh_token`"}]))
     (response/ok {:ok true})))
 
-(defn req->app-user! [{:keys [params] :as req}]
-  (let [{app-id :app_id} (req->admin-token! req)
+(defn req->app-user! [{:keys [params] :as req} oauth-scope]
+  (let [{:keys [app-id]} (req->app-id-authed! req oauth-scope)
         {:keys [email refresh_token id]} params]
     (cond
       email
@@ -302,17 +325,17 @@
        [{:message "Please provide a user id, email, or refresh_token"}]))))
 
 (defn app-users-get [req]
-  (let [user (req->app-user! req)]
+  (let [user (req->app-user! req :data/read)]
     (response/ok {:user user})))
 
 (defn app-users-delete [req]
-  (let [{user-id :id app-id :app_id} (req->app-user! req)]
+  (let [{user-id :id app-id :app_id} (req->app-user! req :data/write)]
     (if user-id
       (response/ok {:deleted (app-user-model/delete-by-id! {:id user-id :app-id app-id})})
       (response/ok {:deleted nil}))))
 
 (defn magic-code-post [req]
-  (let [{app-id :app_id} (req->admin-token! req)
+  (let [{:keys [app-id]} (req->app-id-authed! req :data/write)
         email (ex/get-param! req [:body :email] email/coerce)
         {user-id :id} (app-user-model/get-or-create-by-email! {:email email :app-id app-id})
         {code :code} (app-user-magic-code-model/create!
@@ -395,7 +418,7 @@
 ;; Storage
 
 (defn upload-put [req]
-  (let [{app-id :app_id} (req->admin-token! req)
+  (let [{:keys [app-id]} (req->app-id-authed! req :storage/write)
         params (:headers req)
         path (ex/get-param! params ["path"] string-util/coerce-non-blank-str)
         file (ex/get-param! req [:body] identity)
@@ -411,7 +434,7 @@
     (response/ok {:data data})))
 
 (defn file-delete [req]
-  (let [{app-id :app_id} (req->admin-token! req)
+  (let [{:keys [app-id]} (req->app-id-authed! req :storage/write)
         filename (ex/get-param! req [:params :filename] string-util/coerce-non-blank-str)
         data (storage-coordinator/delete-file! {:app-id app-id
                                                 :path filename
@@ -419,7 +442,7 @@
     (response/ok {:data data})))
 
 (defn files-delete [req]
-  (let [{app-id :app_id} (req->admin-token! req)
+  (let [{:keys [app-id]} (req->app-id-authed! req :storage/write)
         filenames (ex/get-param! req [:body :filenames] vec)
         data (storage-coordinator/delete-files! {:app-id app-id
                                                  :paths filenames})]
@@ -445,7 +468,7 @@
 
 ;; Experimental. If we change this let the Kosmik folks know
 (defn schema-get [req]
-  (let [{app-id :app_id} (req->admin-token! req)
+  (let [{:keys [app-id]} (req->app-id-authed! req :apps/read)
         current-attrs (attr-model/get-by-app-id app-id)
         current-schema (schema-model/attrs->schema current-attrs)]
     (response/ok {:schema (update current-schema
@@ -455,7 +478,7 @@
 
 (defn with-rate-limiting [handler]
   (fn [req]
-    (let [app-id (req->app-id! req)]
+    (let [app-id (req->app-id-untrusted! req)]
       (if (flags/app-rate-limited? app-id)
         (ex/throw-rate-limited!)
         (handler req)))))
@@ -465,7 +488,7 @@
 ;; -------------------------
 
 (defn signed-upload-url-post [req]
-  (let [{app-id :app_id} (req->admin-token! req)
+  (let [{:keys [app-id]} (req->app-id-authed! req :storage/write)
         filename (ex/get-param! req [:body :filename] string-util/coerce-non-blank-str)
         data (storage-coordinator/create-upload-url! {:app-id app-id
                                                       :path filename
@@ -473,7 +496,7 @@
     (response/ok {:data data})))
 
 (defn signed-download-url-get [req]
-  (let [{app-id :app_id} (req->admin-token! req)
+  (let [{:keys [app-id]} (req->app-id-authed! req :storage/read)
         filename (ex/get-param! req [:params :filename] string-util/coerce-non-blank-str)
         data (storage-coordinator/create-download-url {:app-id app-id
                                                        :path filename
@@ -491,7 +514,7 @@
      :last_modified nil}))
 
 (defn files-get [req]
-  (let [{app-id :app_id} (req->admin-token! req)
+  (let [{:keys [app-id]} (req->app-id-authed! req :storage/write)
         res (query-post (assoc-in req [:body :query] {:$files {}}))
         files (get-in res [:body "$files"])
         data (map (fn [item]
@@ -502,13 +525,13 @@
     (response/ok {:data data})))
 
 (defn presence-get [req]
-  (let [{app-id :app_id} (req->admin-token! req)
-        ;; Our frontend APIs require a `room-type`. 
+  (let [{:keys [app-id]} (req->app-id-authed! req :data/read)
+        ;; Our frontend APIs require a `room-type`.
         ;; However when we first implemented the backend for presence
-        ;; we did not actually use it. 
-        ;; Eventually we do want to use this, especially when we add permissions to 
-        ;; rooms. 
-        ;; Adding this as a required field so once we do use it we won't have a breaking 
+        ;; we did not actually use it.
+        ;; Eventually we do want to use this, especially when we add permissions to
+        ;; rooms.
+        ;; Adding this as a required field so once we do use it we won't have a breaking
         ;; issue here.
         _room-type (ex/get-param! req [:params :room-type] string-util/coerce-non-blank-str)
         room-id (ex/get-param! req [:params :room-id] string-util/coerce-non-blank-str)

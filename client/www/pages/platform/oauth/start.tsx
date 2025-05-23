@@ -74,6 +74,27 @@ const scopeDescriptions = [
     description: 'Create new apps in your Instant account.',
     applies: (scopes: string[]) => scopes.includes('apps-write'),
   },
+  {
+    description: 'Query all of the data in any of your Instant databases.',
+    applies: (scopes: string[]) =>
+      scopes.includes('data-read') || scopes.includes('data-write'),
+  },
+  {
+    description:
+      'Create, update, and delete data in any of your Instant databases.',
+    applies: (scopes: string[]) => scopes.includes('data-write'),
+  },
+  {
+    description:
+      'Download storage ($files) data from any of your Instant databases.',
+    applies: (scopes: string[]) =>
+      scopes.includes('storage-read') || scopes.includes('storage-write'),
+  },
+  {
+    description:
+      'Upload, update, and delete storage ($files) data from any of your Instant databases.',
+    applies: (scopes: string[]) => scopes.includes('storage-write'),
+  },
 ];
 
 type ClaimResult = {
