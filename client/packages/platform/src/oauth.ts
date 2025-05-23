@@ -1,6 +1,8 @@
-import { pkceVerifier, pkceCodeChallengeOfVerifier } from './crypto.ts';
 import { version as coreVersion } from '@instantdb/core';
+import { pkceVerifier, pkceCodeChallengeOfVerifier } from './crypto.ts';
+import { InstantOAuthError } from './oauthCommon.ts';
 import version from './version.js';
+
 
 export type InstantDBOAuthAccessToken = {
   /**
@@ -12,37 +14,6 @@ export type InstantDBOAuthAccessToken = {
    */
   expiresAt: Date;
 };
-
-export class InstantOAuthError extends Error {
-  error: string;
-  errorDescription: string | null | undefined;
-
-  constructor(config: {
-    message: string;
-    error: string;
-    errorDescription?: string | null | undefined;
-  }) {
-    super(config.message);
-
-    const actualProto = new.target.prototype;
-    if (Object.setPrototypeOf) {
-      Object.setPrototypeOf(this, actualProto);
-    }
-
-    // Maintain proper stack trace for where our error was thrown
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, InstantOAuthError);
-    }
-
-    this.name = 'InstantOAuthError';
-    this.error = config.error;
-    this.errorDescription = config.errorDescription;
-  }
-
-  get [Symbol.toStringTag]() {
-    return 'InstantAPIError';
-  }
-}
 
 function getWindowOpts(): string {
   const windowWidth = Math.min(800, Math.floor(window.outerWidth * 0.8));
