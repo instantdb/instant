@@ -12,7 +12,7 @@ export type InstantRules<
   Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
 > = {
   $default?: { bind?: string[]; allow: InstantRulesAllowBlock };
-  attrs: { bind?: string[]; allow: InstantRulesAllowBlock };
+  attrs?: { bind?: string[]; allow: InstantRulesAllowBlock };
 } & {
   [EntityName in keyof Schema['entities']]: {
     bind?: string[];
