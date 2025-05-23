@@ -190,27 +190,36 @@
   "Manual reflection of postgres attr table columns"
   [:id :app-id :value-type
    :cardinality :is-unique :is-indexed :is-required
-   :forward-ident :reverse-ident :on-delete :on-delete-reverse
+   :forward-ident :etype :label
+   :reverse-ident :reverse-etype :reverse-label
+   :on-delete :on-delete-reverse
    :checked-data-type])
 
 (defn attr-table-values
   "Marshals a collection of attrs into insertable sql attr values"
   [app-id attrs]
-  (map (fn [{:keys [id value-type cardinality unique? index? required?
-                    forward-identity reverse-identity on-delete on-delete-reverse
-                    checked-data-type]}]
-         [id
-          app-id
-          [:cast (when value-type (name value-type)) :text]
-          [:cast (when cardinality (name cardinality)) :text]
-          [:cast unique? :boolean]
-          [:cast index? :boolean]
-          [:cast (or required? false) :boolean]
-          [:cast (first forward-identity) :uuid]
-          [:cast (first reverse-identity) :uuid]
-          [:cast (some-> on-delete name) :attr_on_delete]
-          [:cast (some-> on-delete-reverse name) :attr_on_delete]
-          [:cast (some-> checked-data-type name) :checked_data_type]])
+  (map (fn [attr]
+         (let [{:keys [id value-type cardinality unique? index? required?
+                       forward-identity reverse-identity on-delete on-delete-reverse
+                       checked-data-type]} attr
+               [forward-ident etype label] forward-identity
+               [reverse-ident reverse-etype reverse-label] reverse-identity]
+           [id
+            app-id
+            [:cast (when value-type (name value-type)) :text]
+            [:cast (when cardinality (name cardinality)) :text]
+            [:cast unique? :boolean]
+            [:cast index? :boolean]
+            [:cast (or required? false) :boolean]
+            [:cast forward-ident :uuid]
+            [:cast etype :text]
+            [:cast label :text]
+            [:cast reverse-ident :uuid]
+            [:cast reverse-etype :text]
+            [:cast reverse-label :text]
+            [:cast (some-> on-delete name) :attr_on_delete]
+            [:cast (some-> on-delete-reverse name) :attr_on_delete]
+            [:cast (some-> checked-data-type name) :checked_data_type]]))
        attrs))
 
 (def ident-table-cols
@@ -226,7 +235,7 @@
   "Extracts ident information from a collection of attrs/updates
   and marshals into into sql-compatible ident values"
   [app-id attrs]
-  (mapcat (fn [{:keys [:id :forward-identity :reverse-identity]}]
+  (mapcat (fn [{:keys [id forward-identity reverse-identity]}]
             (cond-> []
               forward-identity
               (conj (->ident-row id app-id forward-identity))
@@ -464,13 +473,6 @@
 (defn- not-null-or [check fallback]
   [:case [:not= check nil] check :else fallback])
 
-(defn- changes-that-require-attr-model-updates
-  [updates]
-  (let [ks #{:cardinality :value-type :unique? :index? :on-delete :on-delete-reverse}]
-    (->> updates
-         (filter (fn [x]
-                   (some (partial contains? x) ks))))))
-
 (defn validate-update-required! [conn app-id attrs]
   (when-some [attrs (not-empty (filter :required? attrs))]
     (let [query "WITH attrs_cte AS (
@@ -532,40 +534,39 @@
      conn
      (hsql/format
       {:with (concat
-              (if-let [attr-table-updates
-                       (seq (changes-that-require-attr-model-updates updates))]
-                [[[:attr-values
-                   {:columns attr-table-cols}]
-                  {:values (attr-table-values app-id attr-table-updates)}]
-                 [:attr-updates
-                  {:update :attrs
-                   :set {:value-type        (not-null-or :attr-values.value-type :attrs.value-type)
-                         :cardinality       (not-null-or :attr-values.cardinality :attrs.cardinality)
-                         :is-unique         (not-null-or :attr-values.is-unique :attrs.is-unique)
-                         :is-indexed        (not-null-or :attr-values.is-indexed :attrs.is-indexed)
-                         :on-delete         :attr-values.on-delete
-                         :on-delete-reverse :attr-values.on-delete-reverse}
-                   :from [:attr-values]
-                   :where [:and
-                           [:= :attrs.id :attr-values.id]
-                           [:= :attrs.app-id :attr-values.app-id]]
-                   :returning [:attrs.*]}]
-                 [:triple-updates
-                  {:update :triples
-                   :set {:ea  [:case [:= :a.cardinality [:inline "one"]] true :else false]
-                         :eav [:case [:= :a.value-type [:inline "ref"]] true :else false]
-                         :av :a.is-unique
-                         :ave :a.is-indexed}
-                   :from [[:attr-updates :a]]
-                   :where [:and
-                           [:= :triples.app-id :a.app-id]
-                           [:= :triples.attr-id :a.id]]
-                   :returning :triples.entity_id}]]
-                [[:attr-updates
-                  {:select [[[:cast nil :uuid] :id]]}]
-                 [:triple-updates
-                  {:select [[[:cast nil :uuid] :entity-id]]}]])
-              (if-let [ident-table-vals (seq (ident-table-values app-id updates))]
+              [[[:attr-values
+                 {:columns attr-table-cols}]
+                {:values (attr-table-values app-id updates)}]
+               [:attr-updates
+                {:update :attrs
+                 :set {:etype             (not-null-or :attr-values.etype :attrs.etype)
+                       :label             (not-null-or :attr-values.label :attrs.label)
+                       :reverse-etype     (not-null-or :attr-values.reverse-etype :attrs.reverse-etype)
+                       :reverse-label     (not-null-or :attr-values.reverse-label :attrs.reverse-label)
+                       :value-type        (not-null-or :attr-values.value-type :attrs.value-type)
+                       :cardinality       (not-null-or :attr-values.cardinality :attrs.cardinality)
+                       :is-unique         (not-null-or :attr-values.is-unique :attrs.is-unique)
+                       :is-indexed        (not-null-or :attr-values.is-indexed :attrs.is-indexed)
+                       :is-required       (not-null-or :attr-values.is-required :attrs.is-required)
+                       :on-delete         :attr-values.on-delete
+                       :on-delete-reverse :attr-values.on-delete-reverse}
+                 :from [:attr-values]
+                 :where [:and
+                         [:= :attrs.id :attr-values.id]
+                         [:= :attrs.app-id :attr-values.app-id]]
+                 :returning [:attrs.*]}]
+               [:triple-updates
+                {:update :triples
+                 :set {:ea  [:case [:= :a.cardinality [:inline "one"]] true :else false]
+                       :eav [:case [:= :a.value-type [:inline "ref"]] true :else false]
+                       :av :a.is-unique
+                       :ave :a.is-indexed}
+                 :from [[:attr-updates :a]]
+                 :where [:and
+                         [:= :triples.app-id :a.app-id]
+                         [:= :triples.attr-id :a.id]]
+                 :returning :triples.entity_id}]]
+              (if-some [ident-table-vals (seq (ident-table-values app-id updates))]
                 [[[:ident-values
                    {:columns ident-table-cols}]
                   {:values ident-table-vals}]
