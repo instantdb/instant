@@ -11,7 +11,7 @@ import {
   Fragment,
   PropsWithChildren,
 } from 'react';
-import { Editor, OnMount } from '@monaco-editor/react';
+import { Editor, Monaco, OnMount } from '@monaco-editor/react';
 import {
   Dialog as HeadlessDialog,
   Popover,
@@ -907,9 +907,28 @@ export function JSONEditor(props: {
 }) {
   const [draft, setDraft] = useState(props.value);
 
+  const [monacoInstance, setMonacomonacoInstance] = useState<Monaco | null>(
+    null,
+  );
+
   useEffect(() => {
     setDraft(props.value);
   }, [props.value]);
+
+  useEffect(() => {
+    if (monacoInstance && props.schema) {
+      monacoInstance.languages.json.jsonDefaults.setDiagnosticsOptions({
+        validate: true,
+        schemas: [
+          {
+            uri: 'http://myserver/myJsonTypeSchema', // A URI for your schema (can be a dummy URI)
+            fileMatch: ['*'], // Associate with your model
+            schema: props.schema,
+          },
+        ],
+      });
+    }
+  }, [monacoInstance, props.schema]);
 
   return (
     <div className="flex flex-col gap-2 h-full min-h-0">
@@ -923,22 +942,11 @@ export function JSONEditor(props: {
           value={props.value}
           onChange={(draft) => setDraft(draft)}
           onMount={function handleEditorDidMount(editor, monaco) {
+            setMonacomonacoInstance(monaco);
             // cmd+S binding to save
             editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () =>
               props.onSave(editor.getValue()),
             );
-
-            if (!props.schema) return;
-            monaco.languages.json.jsonDefaults.setDiagnosticsOptions({
-              validate: true,
-              schemas: [
-                {
-                  uri: 'http://myserver/myJsonTypeSchema', // A URI for your schema (can be a dummy URI)
-                  fileMatch: ['*'], // Associate with your model
-                  schema: props.schema,
-                },
-              ],
-            });
           }}
         />
       </div>

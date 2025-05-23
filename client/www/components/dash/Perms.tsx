@@ -6,15 +6,19 @@ import { errorToast, successToast } from '@/lib/toast';
 import config from '@/lib/config';
 import { jsonFetch } from '@/lib/fetch';
 import { TokenContext } from '@/lib/contexts';
-import { InstantApp, DashResponse } from '@/lib/types';
+import { InstantApp, DashResponse, SchemaNamespace } from '@/lib/types';
 import { Button, Content, JSONEditor, SectionHeading } from '@/components/ui';
 import { HomeButton } from '@/pages/dash';
+import { InstantReactWebDatabase } from '@instantdb/react';
+import { useSchemaQuery } from '@/lib/hooks/explorer';
 
 export function Perms({
   app,
+  db,
   dashResponse,
 }: {
   app: InstantApp;
+  db: InstantReactWebDatabase<any>;
   dashResponse: SWRResponse<DashResponse>;
 }) {
   const [errorRes, setErrorRes] = useState<{
@@ -25,6 +29,10 @@ export function Perms({
   const value = useMemo(() => {
     return app.rules ? JSON.stringify(app.rules, null, 2) : '';
   }, [app]);
+
+  const { namespaces } = useSchemaQuery(db);
+
+  const schema = rulesSchema(namespaces);
 
   return (
     <div className="flex flex-1 flex-col md:flex-row min-h-0">
@@ -69,7 +77,7 @@ export function Perms({
             </>
           }
           value={value}
-          schema={rulesSchema}
+          schema={schema}
           onSave={async (r) => {
             const er = await onEditRules(dashResponse, app.id, r, token).catch(
               (error) => error,
@@ -150,32 +158,48 @@ function updateRules(token: string, appId: string, newRulesObj: object) {
   });
 }
 
-export const rulesSchema = {
-  type: 'object',
-  patternProperties: {
-    '^[$a-zA-Z0-9_\\-]+$': {
-      type: 'object',
-      properties: {
-        allow: {
-          type: 'object',
-          properties: {
-            create: { type: 'string' },
-            update: { type: 'string' },
-            delete: { type: 'string' },
-            view: { type: 'string' },
-            $default: { type: 'string' },
-          },
-          additionalProperties: false,
+const rulesSchema = (namespaces: SchemaNamespace[] | null) => {
+  const ruleBlock = {
+    type: 'object',
+    properties: {
+      allow: {
+        type: 'object',
+        properties: {
+          create: { type: 'string' },
+          update: { type: 'string' },
+          delete: { type: 'string' },
+          view: { type: 'string' },
+          $default: { type: 'string' },
         },
-        bind: {
-          type: 'array',
-          // Use a combination of "items" and "additionalItems" for validation
-          items: { type: 'string' },
-          minItems: 2,
-        },
+        additionalProperties: false,
       },
-      additionalProperties: false,
+      bind: {
+        type: 'array',
+        // Use a combination of "items" and "additionalItems" for validation
+        items: { type: 'string' },
+        minItems: 2,
+      },
     },
-  },
-  additionalProperties: false,
+    additionalProperties: false,
+  };
+
+  const properties: Record<string, typeof ruleBlock> = {
+    $default: ruleBlock,
+    attrs: ruleBlock,
+  };
+
+  if (namespaces) {
+    for (const namespace of namespaces) {
+      properties[namespace.name] = ruleBlock;
+    }
+  }
+
+  return {
+    type: 'object',
+    properties,
+    patternProperties: {
+      '^[$a-zA-Z0-9_\\-]+$': ruleBlock,
+    },
+    additionalProperties: false,
+  };
 };

@@ -85,6 +85,7 @@ import type {
   LinkParams,
   RuleParams,
 } from './schemaTypes.ts';
+import type { InstantRules } from './rulesTypes.ts';
 import type { UploadFileResponse, DeleteFileResponse } from './StorageAPI.ts';
 
 import type {
@@ -769,19 +770,6 @@ function handleDevtool(appId: string, devtool: boolean | DevtoolConfig) {
 
   createDevtool(appId, config);
 }
-
-type InstantRules = {
-  [EntityName: string]: {
-    allow: {
-      view?: string;
-      create?: string;
-      update?: string;
-      delete?: string;
-      $default?: string;
-    };
-    bind?: string[];
-  };
-};
 
 /**
  * @deprecated
