@@ -7,6 +7,7 @@
             [instant.db.model.triple :as triple-model]
             [instant.db.transaction :as tx]
             [instant.fixtures :refer [with-empty-app
+                                      with-zeneca-app
                                       with-zeneca-app-no-indexing
                                       with-indexing-job-queue]]
             [instant.jdbc.aurora :as aurora]
@@ -579,3 +580,149 @@
           (is (= [(str bad-id)]
                  (map #(get % "entity_id") (-> unique-job-for-client
                                                :invalid_triples_sample)))))))))
+
+(deftest required-works-with-no-errors
+  (with-indexing-job-queue job-queue
+    (with-zeneca-app
+      (fn [app r]
+        (let [title-job (jobs/create-job!
+                         {:app-id (:id app)
+                          :attr-id (resolvers/->uuid r :books/title)
+                          :job-type "required"})
+
+              _ (jobs/enqueue-job job-queue title-job)
+              _ (wait-for (fn []
+                            (every? (fn [{:keys [id]}]
+                                      (= "completed" (:job_status (jobs/get-by-id id))))
+                                    [title-job]))
+                          wait-timeout)]
+
+          (let [attrs (attr-model/get-by-app-id (:id app))]
+            (is (-> (resolvers/->uuid r :books/title)
+                    (attr-model/seek-by-id attrs)
+                    :required?))))
+        (testing "remove-required-works"
+          (let [title-job (jobs/create-job!
+                           {:app-id (:id app)
+                            :attr-id (resolvers/->uuid r :books/title)
+                            :job-type "remove-required"})
+
+                _ (jobs/enqueue-job job-queue title-job)
+                _ (wait-for (fn []
+                              (every? (fn [{:keys [id]}]
+                                        (= "completed" (:job_status (jobs/get-by-id id))))
+                                      [title-job]))
+                            wait-timeout)]
+
+            (let [attrs (attr-model/get-by-app-id (:id app))]
+              (is (not (-> (resolvers/->uuid r :books/title)
+                           (attr-model/seek-by-id attrs)
+                           :required?))))))))))
+
+
+(deftest required-works-with-errors
+  (with-indexing-job-queue job-queue
+    (with-zeneca-app
+      (fn [app r]
+        (let [triples-to-delete-count 202
+
+              title-triples-before (triple-model/fetch (aurora/conn-pool :read)
+                                                       (:id app)
+                                                       [[:= :attr-id (resolvers/->uuid r :books/title)]])
+              _ (sql/execute! (aurora/conn-pool :write)
+                              (hsql/format
+                               {:delete-from :triples
+                                :where [:and
+                                        [:= :app-id (:id app)]
+                                        (list* :or
+                                               (map (fn [{:keys [triple md5]}]
+                                                      (let [[entity-id attr-id value] triple]
+                                                        [:and
+                                                         [:= :entity_id entity-id]
+                                                         [:= :attr-id attr-id]
+                                                         [:= :value [:cast (->json value) :jsonb]]
+                                                         [:= :value-md5 md5]]))
+                                                    (take triples-to-delete-count title-triples-before)))]}))
+              title-job (jobs/create-job!
+                         {:app-id (:id app)
+                          :attr-id (resolvers/->uuid r :books/title)
+                          :job-type "required"})
+
+              _ (jobs/enqueue-job job-queue title-job)
+              _ (tool/def-locals)
+              _ (wait-for (fn []
+                            (every? (fn [{:keys [id]}]
+                                      (= "errored" (:job_status (jobs/get-by-id id))))
+                                    [title-job]))
+                          wait-timeout)
+              job-after (jobs/get-by-id (:id title-job))]
+
+          (is (= (:error job-after)
+                 "missing-required-error"))
+
+          (is (= 202 (get-in job-after [:error_data "count"])))
+
+          (is (= "books" (get-in job-after [:error_data "etype"])))
+
+          (is (= "title" (get-in job-after [:error_data "label"])))
+
+          (is (seq (get-in job-after [:error_data "entity-ids"])))
+
+          (let [attrs (attr-model/get-by-app-id (:id app))]
+            (is (not (-> (resolvers/->uuid r :books/title)
+                         (attr-model/seek-by-id attrs)
+                         :required?)))))))))
+
+(deftest required-works-with-null
+  (with-indexing-job-queue job-queue
+    (with-zeneca-app
+      (fn [app r]
+        (let [triples-to-delete-count 202
+
+              title-triples-before (triple-model/fetch (aurora/conn-pool :read)
+                                                       (:id app)
+                                                       [[:= :attr-id (resolvers/->uuid r :books/title)]])
+              _ (sql/execute! (aurora/conn-pool :write)
+                              (hsql/format
+                               {:update :triples
+                                :set {:value [:cast "null" :jsonb]}
+                                :where [:and
+                                        [:= :app-id (:id app)]
+                                        (list* :or
+                                               (map (fn [{:keys [triple md5]}]
+                                                      (let [[entity-id attr-id value] triple]
+                                                        [:and
+                                                         [:= :entity_id entity-id]
+                                                         [:= :attr-id attr-id]
+                                                         [:= :value [:cast (->json value) :jsonb]]
+                                                         [:= :value-md5 md5]]))
+                                                    (take triples-to-delete-count title-triples-before)))]}))
+              title-job (jobs/create-job!
+                         {:app-id (:id app)
+                          :attr-id (resolvers/->uuid r :books/title)
+                          :job-type "required"})
+
+              _ (jobs/enqueue-job job-queue title-job)
+              _ (tool/def-locals)
+              _ (wait-for (fn []
+                            (every? (fn [{:keys [id]}]
+                                      (= "errored" (:job_status (jobs/get-by-id id))))
+                                    [title-job]))
+                          wait-timeout)
+              job-after (jobs/get-by-id (:id title-job))]
+
+          (is (= (:error job-after)
+                 "missing-required-error"))
+
+          (is (= 202 (get-in job-after [:error_data "count"])))
+
+          (is (= "books" (get-in job-after [:error_data "etype"])))
+
+          (is (= "title" (get-in job-after [:error_data "label"])))
+
+          (is (seq (get-in job-after [:error_data "entity-ids"])))
+
+          (let [attrs (attr-model/get-by-app-id (:id app))]
+            (is (not (-> (resolvers/->uuid r :books/title)
+                         (attr-model/seek-by-id attrs)
+                         :required?)))))))))

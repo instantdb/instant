@@ -788,50 +788,50 @@
   (tracer/with-span! (job-span-attrs "required" job)
     (let [{app-id :app_id
            attr-id :attr_id} job
-          query "WITH inputs_cte AS (
-                   SELECT idents.app_id, idents.etype, idents.label
-                     FROM attrs
-                     JOIN idents on attrs.forward_ident = idents.id
-                    WHERE attrs.id = ?attr-id
-                    LIMIT 1
-                 ),
-                 attr_ids_cte AS (
-                   SELECT attr_id
-                     FROM inputs_cte, idents
-                     JOIN attrs ON idents.id = attrs.forward_ident
-                    WHERE idents.etype = inputs_cte.etype
-                 ),
-                 triples_cte AS (
-                   SELECT DISTINCT entity_id
-                     FROM inputs_cte, triples
-                    WHERE triples.attr_id IN (SELECT attr_id FROM attr_ids_cte)
-                      AND triples.app_id = inputs_cte.app_id
-                 )
-                 SELECT triples_cte.entity_id,
-                        count(triples_cte.entity_id) OVER () AS count,
-                        inputs_cte.etype,
-                        inputs_cte.label
-                  FROM triples_cte
-                  LEFT JOIN triples ON triples_cte.entity_id = triples.entity_id
-                                   AND triples.attr_id = ?attr-id
-                       JOIN inputs_cte ON 1 = 1
-                 WHERE triples.value IS NULL
-                    OR triples.value = 'null'
-                 LIMIT 10"
-          res (sql/execute! conn (sql/format query {"?attr-id" attr-id}))]
-      (when (seq res)
-        (update-attr! conn {:app-id  app-id
-                            :attr-id attr-id
-                            :set     {:is-required false}})
-        (let [{:keys [count etype label]} (first res)
-              entity-ids (map :entity_id res)
-              message    (str "Attribute " label " (" attr-id ") can’t be marked required because " count " " etype " entities are missing it")
-              data       {:count count
-                          :etype etype
-                          :label label
-                          :entity-ids entity-ids}]
-          [::exception (ex-info message {::ex/type ::missing-required
-                                         ::ex/hint data})])))))
+          attrs (attr-model/get-by-app-id conn app-id)
+          attr (attr-model/seek-by-id attr-id attrs)
+          attr-etype (attr-model/fwd-etype attr)
+          id-attr (->> (attr-model/get-by-app-id conn app-id)
+                       (attr-model/seek-by-fwd-ident-name [attr-etype "id"]))]
+      (if-not id-attr
+        (do (update-attr! conn {:app-id  app-id
+                                :attr-id attr-id
+                                :set     {:is-required false}})
+            [::exception (ex-info (str "Could not find id attribute for entity.")
+                                  {::ex/type ::missing-required
+                                   ::ex/hint {:attr-id attr-id
+                                              :etype attr-etype}})])
+        (let [query {:select 't-id/entity-id
+                     :from [['triples 't-id]]
+                     :where [:and
+                             [:= 't-id/app-id app-id]
+                             [:= 't-id/attr-id (:id id-attr)]
+                             [:not
+                              [:exists
+                               {:select :1
+                                :from [['triples 't-a]]
+                                :where [:and
+                                        [:= 't-a/entity-id 't-id/entity-id]
+                                        [:= 't-a/app-id app-id]
+                                        [:= 't-a/attr-id attr-id]
+                                        [:not= 't-a/value [:cast "null" :jsonb]]]}]]]}
+              res (sql/select conn (hsql/format query))]
+          (when (seq res)
+            (update-attr! conn {:app-id  app-id
+                                :attr-id attr-id
+                                :set     {:is-required false}})
+            (let [entity-ids (map :entity_id res)
+                  message (format "Attribute %s (%s) can't be marked required because %s %s entities are missing it."
+                                  (attr-model/fwd-label attr)
+                                  attr-id
+                                  (count entity-ids)
+                                  attr-etype)
+                  data {:count (count entity-ids)
+                        :etype attr-etype
+                        :label (attr-model/fwd-label attr)
+                        :entity-ids (take 10 entity-ids)}]
+              [::exception (ex-info message {::ex/type ::missing-required
+                                             ::ex/hint data})])))))))
 
 (defn required--update-attr [conn job]
   (update-attr! conn {:app-id  (:app_id job)
