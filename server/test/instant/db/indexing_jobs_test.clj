@@ -649,7 +649,6 @@
                           :job-type "required"})
 
               _ (jobs/enqueue-job job-queue title-job)
-              _ (tool/def-locals)
               _ (wait-for (fn []
                             (every? (fn [{:keys [id]}]
                                       (= "errored" (:job_status (jobs/get-by-id id))))
@@ -703,7 +702,6 @@
                           :job-type "required"})
 
               _ (jobs/enqueue-job job-queue title-job)
-              _ (tool/def-locals)
               _ (wait-for (fn []
                             (every? (fn [{:keys [id]}]
                                       (= "errored" (:job_status (jobs/get-by-id id))))
