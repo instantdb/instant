@@ -797,7 +797,7 @@
         (do (update-attr! conn {:app-id  app-id
                                 :attr-id attr-id
                                 :set     {:is-required false}})
-            [::exception (ex-info (str "Could not find id attribute for entity.")
+            [::exception (ex-info "Could not find id attribute for entity."
                                   {::ex/type ::missing-required
                                    ::ex/hint {:attr-id attr-id
                                               :etype attr-etype}})])

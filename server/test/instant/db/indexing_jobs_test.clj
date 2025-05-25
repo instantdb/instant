@@ -595,12 +595,12 @@
                             (every? (fn [{:keys [id]}]
                                       (= "completed" (:job_status (jobs/get-by-id id))))
                                     [title-job]))
-                          wait-timeout)]
+                          wait-timeout)
+              attrs (attr-model/get-by-app-id (:id app))]
 
-          (let [attrs (attr-model/get-by-app-id (:id app))]
-            (is (-> (resolvers/->uuid r :books/title)
-                    (attr-model/seek-by-id attrs)
-                    :required?))))
+          (is (-> (resolvers/->uuid r :books/title)
+                  (attr-model/seek-by-id attrs)
+                  :required?)))
         (testing "remove-required-works"
           (let [title-job (jobs/create-job!
                            {:app-id (:id app)
@@ -612,12 +612,12 @@
                               (every? (fn [{:keys [id]}]
                                         (= "completed" (:job_status (jobs/get-by-id id))))
                                       [title-job]))
-                            wait-timeout)]
+                            wait-timeout)
+                attrs (attr-model/get-by-app-id (:id app))]
 
-            (let [attrs (attr-model/get-by-app-id (:id app))]
-              (is (not (-> (resolvers/->uuid r :books/title)
-                           (attr-model/seek-by-id attrs)
-                           :required?))))))))))
+            (is (not (-> (resolvers/->uuid r :books/title)
+                         (attr-model/seek-by-id attrs)
+                         :required?)))))))))
 
 
 (deftest required-works-with-errors
