@@ -1,13 +1,16 @@
 (ns instant.util.hazelcast
-  (:require [instant.util.uuid :as uuid-util]
-            [medley.core :refer [update-existing]]
-            [taoensso.nippy :as nippy])
-  (:import (com.hazelcast.config GlobalSerializerConfig SerializerConfig)
-           (com.hazelcast.map IMap)
-           (com.hazelcast.nio.serialization ByteArraySerializer)
-           (java.nio ByteBuffer)
-           (java.util UUID)
-           (java.util.function BiFunction)))
+  (:require
+   [instant.util.coll :as ucoll]
+   [instant.util.uuid :as uuid-util]
+   [medley.core :refer [update-existing]]
+   [taoensso.nippy :as nippy])
+  (:import
+   (com.hazelcast.config GlobalSerializerConfig SerializerConfig)
+   (com.hazelcast.map IMap)
+   (com.hazelcast.nio.serialization ByteArraySerializer)
+   (java.nio ByteBuffer)
+   (java.util UUID)
+   (java.util.function BiFunction)))
 
 ;; Be careful when you update the records and serializers in this
 ;; namespace. Hazelcast shares them across the fleet, so they must be
@@ -28,6 +31,16 @@
       (.setTypeClass protocol)
       (.setImplementation serializer)))
 
+;; Must be unique within the project
+(def remove-session-type-id 1)
+(def set-presence-type-id 3)
+(def room-key-type-id 4)
+(def global-type-id 5)
+(def room-broadcast-type-id 6)
+(def task-type-id 7)
+(def join-room-type-id 8)
+(def patch-type-id 9)
+
 ;; --------
 ;; Room key
 
@@ -35,8 +48,8 @@
 
 (def ^ByteArraySerializer room-key-serializer
   (reify ByteArraySerializer
-    ;; Must be unique within the project
-    (getTypeId [_] 4)
+    (getTypeId [_]
+      room-key-type-id)
     (write ^bytes [_ obj]
       (let [uuid-bytes (uuid-util/->bytes (:app-id obj))
             ^String room-id (:room-id obj)
@@ -89,8 +102,8 @@
 
 (def ^ByteArraySerializer remove-session-serializer
   (reify ByteArraySerializer
-    ;; Must be unique within the project
-    (getTypeId [_] 1)
+    (getTypeId [_]
+      remove-session-type-id)
     (write ^bytes [_ obj]
       (uuid-util/->bytes (:session-id obj)))
     (read [_ ^bytes in]
@@ -124,15 +137,15 @@
   (.merge hz-map
           room-key
           {session-id {:peer-id session-id
-                       :user (when user-id
-                               {:id user-id})
-                       :data (or data {})}}
+                       :user    (when user-id
+                                  {:id user-id})
+                       :data    (or data {})}}
           (->JoinRoomMergeV2 session-id user-id data)))
 
 (def ^ByteArraySerializer join-room-serializer
   (reify ByteArraySerializer
-    ;; Must be unique within the project
-    (getTypeId [_] 8)
+    (getTypeId [_]
+      join-room-type-id)
     (write ^bytes [_ obj]
       (let [{:keys [^UUID session-id ^UUID user-id data]} obj]
         (nippy/fast-freeze [session-id user-id data])))
@@ -168,8 +181,8 @@
 
 (def ^ByteArraySerializer set-presence-serializer
   (reify ByteArraySerializer
-    ;; Must be unique within the project
-    (getTypeId [_] 3)
+    (getTypeId [_]
+      set-presence-type-id)
     (write ^bytes [_ obj]
       (let [{:keys [^UUID session-id data]} obj]
         (nippy/fast-freeze [session-id data])))
@@ -192,8 +205,8 @@
 
 (def ^ByteArraySerializer room-broadcast-serializer
   (reify ByteArraySerializer
-    ;; Must be unique within the project
-    (getTypeId [_] 6)
+    (getTypeId [_]
+      room-broadcast-type-id)
     (write ^bytes [_ obj]
       (nippy/fast-freeze obj))
     (read [_ ^bytes in]
@@ -215,8 +228,8 @@
 
 (def ^ByteArraySerializer task-serializer
   (reify ByteArraySerializer
-    ;; Must be unique within the project
-    (getTypeId [_] 7)
+    (getTypeId [_]
+      task-type-id)
     (write ^bytes [_ {:keys [v]}]
       (assert (var? v) "Expected Task to get a resolved var.")
       (nippy/fast-freeze (str (symbol v))))
@@ -229,12 +242,74 @@
                           task-serializer))
 
 ;; -----------------
+;; Path serializer
+
+(defrecord Patch [edits]
+  BiFunction
+  (apply [_ data _]
+    (reduce
+     (fn [data [op & args]]
+       (case op
+         :assoc     (apply assoc data args)
+         :assoc-in  (let [[path value] args]
+                      (assoc-in data path value))
+         :dissoc    (apply assoc data args)
+         :dissoc-in (let [[path] args]
+                      (ucoll/dissoc-in data path))
+         :merge     (apply merge data args)
+         :merge-in  (let [[path map] args]
+                      (if (empty? path)
+                        (merge data map)
+                        (update-in data path merge map)))))
+     data edits)))
+
+(def ^ByteArraySerializer patch-serializer
+  (reify ByteArraySerializer
+    (getTypeId [_]
+      patch-type-id)
+    (write ^bytes [_ obj]
+      (nippy/fast-freeze (:edits obj)))
+    (read [_ ^bytes in]
+      (->Patch (nippy/fast-thaw in)))
+    (destroy [_])))
+
+(def patch-config
+  (make-serializer-config Patch patch-serializer))
+
+(defn patch-assoc [^IMap hz-map key value]
+  (.set hz-map key value))
+
+(defn patch-assoc-in [^IMap hz-map path value]
+  (if (= 1 (count path))
+    (.set hz-map (first path) value)
+    (.merge hz-map
+            (first path)
+            (assoc-in {} (next path) value)
+            (->Patch [[:assoc-in (next path) value]]))))
+
+(defn patch-merge-in [^IMap hz-map path value]
+  (.merge hz-map
+          (first path)
+          (if (= 1 (count path)) value (assoc-in {} (next path) value))
+          (->Patch [[:merge-in (next path) value]])))
+
+(defn patch-dissoc [^IMap hz-map key]
+  (.delete hz-map key))
+
+(defn patch-dissoc-in [^IMap hz-map path]
+  (if (= 1 (count path))
+    (.delete hz-map (first path))
+    (.merge hz-map (first path) {}
+            (->Patch [[:dissoc-in (next path)]]))))
+
+
+;; -----------------
 ;; Global serializer
 
 (def ^ByteArraySerializer global-serializer
   (reify ByteArraySerializer
-    ;; Must be unique within the project
-    (getTypeId [_] 5)
+    (getTypeId [_]
+      global-type-id)
     (write ^bytes [_ obj]
       (nippy/fast-freeze obj))
     (read [_ ^bytes in]
@@ -251,4 +326,5 @@
    join-room-config
    set-presence-config
    room-key-config
-   task-config])
+   task-config
+   patch-config])
