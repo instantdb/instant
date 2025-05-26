@@ -801,20 +801,24 @@
                                   {::ex/type ::missing-required
                                    ::ex/hint {:attr-id attr-id
                                               :etype attr-etype}})])
-        (let [query {:select 't-id/entity-id
-                     :from [['triples 't-id]]
+        (let [query {:select :t-id/entity-id
+                     :from [[:triples :t-id]]
                      :where [:and
-                             [:= 't-id/app-id app-id]
-                             [:= 't-id/attr-id (:id id-attr)]
+                             [:= :t-id/app-id app-id]
+                             [:= :t-id/attr-id (:id id-attr)]
+                             ;; hsql will filter the nil out
+                             (when (and (:unique? id-attr)
+                                        (not (:setting-unique? id-attr)))
+                               :t-id/av)
                              [:not
                               [:exists
                                {:select :1
-                                :from [['triples 't-a]]
+                                :from [[:triples :t-a]]
                                 :where [:and
-                                        [:= 't-a/entity-id 't-id/entity-id]
-                                        [:= 't-a/app-id app-id]
-                                        [:= 't-a/attr-id attr-id]
-                                        [:not= 't-a/value [:cast "null" :jsonb]]]}]]]}
+                                        [:= :t-a/entity-id :t-id/entity-id]
+                                        [:= :t-a/app-id app-id]
+                                        [:= :t-a/attr-id attr-id]
+                                        [:not= :t-a/value [:cast "null" :jsonb]]]}]]]}
               res (sql/select conn (hsql/format query))]
           (when (seq res)
             (update-attr! conn {:app-id  app-id
