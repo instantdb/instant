@@ -49,6 +49,7 @@
     {}
     (let [lookups-set (set lookups)
           triples (sql/execute!
+                   ::fetch-lookups->eid
                    conn
                    (hsql/format
                     {:select :*
@@ -203,7 +204,7 @@
              :select ['entity-id 'attr-id 'etype 'label]
              :from   'missing-required-alive}
 
-            res (sql/execute! conn (hsql/format query))]
+            res (sql/execute! ::validate-required! conn (hsql/format query))]
         (when (seq res)
           (ex/throw+
            {::ex/type    ::ex/validation-failed
@@ -357,7 +358,7 @@
                     [[:attr-inferred-types attr-inferred-types]]))
            :select ['entity-id 'attr-id]
            :from :ea-index-inserts}]
-    (sql/execute! conn (hsql/format q))))
+    (sql/execute! ::deep-merge-mult! conn (hsql/format q))))
 
 (defn insert-multi!
   "Given a set of raw triples, we enhance each triple with metadata based on
@@ -440,7 +441,7 @@
                                             :av
                                             [:= :attr-id a]
                                             [:=
-                                              ;; Make sure it can lookup just from the av_index
+                                             ;; Make sure it can lookup just from the av_index
                                              [:json_null_to_null :value]
                                              [:cast (->json v) :jsonb]]]))]}]}
 
@@ -650,7 +651,7 @@
                :select ['entity-id 'attr-id]}]
 
     (try
-      (sql/do-execute! conn (hsql/format query))
+      (sql/do-execute! ::insert-multi! conn (hsql/format query))
       (catch Exception e
         (let [pg-server-message (-> e
                                     ex-data
@@ -718,7 +719,7 @@
                                [{:nest {:select :* :from 'forward-attrs}}
                                 {:nest {:select :* :from 'reverse-attrs}}]}]
                 :returning   ['entity_id 'attr_id 'value 'created-at]}]
-    (sql/execute! conn (hsql/format query))))
+    (sql/execute! ::delete-entity-multi! conn (hsql/format query))))
 
 ;; n.b. if we ever use `:retract-triple` for blob attrs (it's currently
 ;;      just links), we'll need to add code in `delete-multi!` to
@@ -772,7 +773,7 @@
                  [:composite :app-id :entity-id :attr-id :value-md5]
                  {:select :* :from :enhanced-triples}]
          :returning [:entity-id :attr-id]}]
-    (sql/execute! conn (hsql/format query))))
+    (sql/execute! ::delete-multi! conn (hsql/format query))))
 
 ;; ---
 ;; fetch
@@ -801,6 +802,7 @@
   ([conn app-id stmts]
    (map row->enhanced-triple
         (sql/select
+         ::fetch
          conn
          (hsql/format
           {:select
