@@ -1079,13 +1079,6 @@ export default class Reactor {
     } else {
       this._trySend(eventId, mutation);
 
-      // If a transaction is pending for over 3 seconds,
-      // we want to unblock the UX, so mark it as pending
-      // and keep trying to process the transaction in the background
-      setTimeout(() => {
-        this._finishTransaction('pending', eventId);
-      }, 3_000);
-
       setTimeout(() => {
         if (!this._isOnline) {
           return;
