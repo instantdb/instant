@@ -55,8 +55,9 @@ export function Sandbox({
   function out(
     type: 'log' | 'error' | 'query' | 'transaction' | 'eval',
     data: any,
+    execTimeMs?: number,
   ) {
-    setOutput((o) => o.concat({ type, data }));
+    setOutput((o) => o.concat({ type, data, execTimeMs }));
   }
 
   useEffect(() => {
@@ -120,13 +121,14 @@ export function Sandbox({
     const _db = {
       transact: async (s: any) => {
         try {
+          const startTime = performance.now();
           const response = await adminDb.debugTransact(s, {
             rules,
             // @ts-expect-error because this is a private API - shh! 🤫
             __dangerouslyCommit: dangerouslyCommitTx,
           });
-
-          out('transaction', { response, rules });
+          const execTimeMs = performance.now() - startTime;
+          out('transaction', { response, rules }, execTimeMs);
 
           return { 'tx-id': response['tx-id'] };
         } catch (error) {
@@ -136,9 +138,10 @@ export function Sandbox({
       },
       query: async (q: any, opts?: any) => {
         try {
+          const startTime = performance.now();
           const response = await adminDb.debugQuery(q, { rules, ...opts });
-
-          out('query', { response, rules });
+          const execTimeMs = performance.now() - startTime;
+          out('query', { response, rules }, execTimeMs);
 
           return response.result;
         } catch (error) {
@@ -400,7 +403,10 @@ export function Sandbox({
                     'text-purple-600': o.type === 'transaction',
                   })}
                 >
-                  {o.type}
+                  {o.type}{' '}
+                  {o.execTimeMs != null
+                    ? ` - (${o.execTimeMs.toFixed(1)} ms)`
+                    : ''}
                 </div>
                 {o.type === 'log' && !collapseLog && (
                   <div className="flex flex-col p-3 gap-1">
