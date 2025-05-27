@@ -380,3 +380,18 @@ function Login() {
   );
 }
 ```
+
+## Dealing with timeouts
+
+Complicated queries or large transactions may fail due to timeouts. Right now we
+have a hard limit of 5 seconds for both queries and transactions. We do this to
+ensure real-time doesn't suffer from long-running operations.
+
+To get a sense for how long a query or transaction takes, you can use the
+`Sandbox` tab in the dashboard. Using `await db.query` or `await db.transact` will
+show you the time it took to run the operation in the console. Queries and
+transactions in the sandbox can run for up to 30 seconds,
+
+Once you have a sense of how long your queries and transactions take, you can
+iteratively optimize them. For example, you can use pagination or add indexes
+to speed up queries, or break up large transactions into smaller ones.
