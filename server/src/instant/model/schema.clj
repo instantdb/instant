@@ -425,20 +425,30 @@
    {:refs {["comments" "post" "posts" "comments"] {:unique? true :cardinality "one"}}
     :blobs {:ns {:a {:cardinality "many"} :b {:cardinality  "many"}}}}))
 
-(defn create-indexing-jobs [app-id job-steps]
+(defn create-indexing-jobs [app-id steps]
   (let [group-id (random-uuid)
-        jobs (mapv (fn [[action {:keys [attr-id checked-data-type]}]]
-                     (let [job (indexing-jobs/create-job!
-                                {:app-id            app-id
-                                 :group-id          group-id
-                                 :attr-id           attr-id
-                                 :job-type          (name action)
-                                 :checked-data-type checked-data-type})]
-                       (indexing-jobs/enqueue-job job)
-                       (indexing-jobs/job->client-format job)))
-                   job-steps)]
-    {:group-id group-id
-     :jobs jobs}))
+        {:keys [jobs steps]}
+        (reduce (fn [acc [action {:keys [attr-id checked-data-type]} :as step]]
+                  (if-not (contains? indexing-jobs/jobs (name action))
+                    (update acc :steps conj step)
+                    (let [job (indexing-jobs/create-job!
+                               {:app-id            app-id
+                                :group-id          group-id
+                                :attr-id           attr-id
+                                :job-type          (name action)
+                                :checked-data-type checked-data-type})]
+                      (indexing-jobs/enqueue-job job)
+                      (indexing-jobs/job->client-format job)
+                      (-> acc
+                          (update :jobs conj job)
+                          (update :steps conj (update step 1 assoc :job-id (:id job)))))))
+                {:jobs []
+                 :steps []}
+                steps)]
+    {:indexing-jobs (when (seq jobs)
+                      {:group-id group-id
+                       :jobs jobs})
+     :steps steps}))
 
 (defn apply-plan! [app-id {:keys [steps] :as _plan}]
   (let [ctx {:admin? true
@@ -452,11 +462,7 @@
                          steps)
         tx-res (when (seq tx-steps)
                  (permissioned-tx/transact! ctx tx-steps))
-        job-steps (filter (fn [[action]]
-                            (contains? indexing-jobs/jobs
-                                       (name action)))
-                          steps)
-        jobs-res (when (seq job-steps)
-                   (create-indexing-jobs app-id job-steps))]
+        {:keys [indexing-jobs steps]} (create-indexing-jobs app-id steps)]
     {:transaction tx-res
-     :indexing-jobs jobs-res}))
+     :steps steps
+     :indexing-jobs indexing-jobs}))
