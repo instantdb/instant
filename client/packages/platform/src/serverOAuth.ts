@@ -5,15 +5,15 @@ async function exchangeCodeForToken({
   clientId,
   clientSecret,
   redirectUri,
-  apiOrigin,
+  apiURI,
 }: {
   code: string;
   clientId: string;
   clientSecret: string;
   redirectUri: string;
-  apiOrigin: string;
+  apiURI: string;
 }) {
-  const res = await fetch(`${apiOrigin}/platform/oauth/token`, {
+  const res = await fetch(`${apiURI}/platform/oauth/token`, {
     method: 'POST',
     headers: { 'Content-type': 'application/json' },
     body: JSON.stringify({

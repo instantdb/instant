@@ -49,16 +49,16 @@ function oAuthStartUrl({
   clientId,
   state,
   codeChallenge,
-  apiOrigin,
+  apiURI,
   redirectUri,
 }: {
   clientId: string;
   state: string;
   codeChallenge: string;
-  apiOrigin: string;
+  apiURI: string;
   redirectUri: string;
 }): string {
-  const oauthUrl = new URL(`${apiOrigin}/platform/oauth/start`);
+  const oauthUrl = new URL(`${apiURI}/platform/oauth/start`);
   oauthUrl.searchParams.set('client_id', clientId);
   oauthUrl.searchParams.set('redirect_uri', redirectUri);
   oauthUrl.searchParams.set('scope', 'apps-write');
@@ -74,16 +74,16 @@ async function exchangeCodeForToken({
   code,
   clientId,
   verifier,
-  apiOrigin,
+  apiURI,
   redirectUri,
 }: {
   code: string;
   clientId: string;
   verifier: string;
-  apiOrigin: string;
+  apiURI: string;
   redirectUri: string;
 }): Promise<InstantDBOAuthAccessToken> {
-  const res = await fetch(`${apiOrigin}/platform/oauth/token`, {
+  const res = await fetch(`${apiURI}/platform/oauth/token`, {
     method: 'POST',
     headers: {
       'Content-type': 'application/json',
@@ -168,11 +168,11 @@ export function handleClientRedirect() {
 
 export function startInstantOAuthClientOnlyFlow({
   clientId,
-  apiOrigin,
+  apiURI,
   redirectUri,
 }: {
   clientId: string;
-  apiOrigin: string;
+  apiURI: string;
   redirectUri: string;
 }): Promise<InstantDBOAuthAccessToken> {
   if (typeof window === 'undefined') {
@@ -215,7 +215,7 @@ export function startInstantOAuthClientOnlyFlow({
               clientId,
               code,
               verifier,
-              apiOrigin,
+              apiURI,
               redirectUri,
             });
             resolve(token);
@@ -271,7 +271,7 @@ export function startInstantOAuthClientOnlyFlow({
       clientId,
       state,
       codeChallenge,
-      apiOrigin,
+      apiURI,
       redirectUri,
     });
     w.location.href = oauthUrl;
@@ -297,7 +297,7 @@ export interface OAuthHandlerConfig {
    * Optional Instant API base-URL.
    * Defaults to `https://api.instantdb.com`.
    */
-  apiOrigin?: string | null;
+  apiURI?: string | null;
 }
 
 /**
@@ -314,11 +314,11 @@ export class OAuthHandler {
    * Base URL for InstantDB’s REST API.
    * Defaults to `https://api.instantdb.com`.
    */
-  readonly apiOrigin: string;
+  readonly apiURI: string;
 
   constructor(config: OAuthHandlerConfig) {
     this.redirectUri = config.redirectUri;
-    this.apiOrigin = config.apiOrigin ?? 'https://api.instantdb.com';
+    this.apiURI = config.apiURI ?? 'https://api.instantdb.com';
     this.clientId = config.clientId;
   }
 
@@ -349,7 +349,7 @@ export class OAuthHandler {
   startClientOnlyFlow(): Promise<InstantDBOAuthAccessToken> {
     return startInstantOAuthClientOnlyFlow({
       clientId: this.clientId,
-      apiOrigin: this.apiOrigin,
+      apiURI: this.apiURI,
       redirectUri: this.redirectUri,
     });
   }

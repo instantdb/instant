@@ -9,8 +9,11 @@ import {
   type InstantAPIPlatformSchema,
   generateSchemaTypescriptFile,
 } from './schema.ts';
+import { PlatformApi, translatePlanSteps } from './api.ts';
 
 import version from './version.js';
+import { ProgressPromise } from './ProgressPromise.ts';
+import { i } from '@instantdb/core';
 
 export {
   type InstantAPIPlatformSchema,
@@ -21,4 +24,8 @@ export {
   generateSchemaTypescriptFile,
   generatePermsTypescriptFile,
   version,
+  translatePlanSteps,
+  PlatformApi,
+  ProgressPromise,
+  i,
 };
