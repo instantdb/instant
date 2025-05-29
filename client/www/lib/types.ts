@@ -65,14 +65,10 @@ export type InstantIndexingJob = {
     | 'remove-index'
     | 'unique'
     | 'remove-unique'
+    | 'required'
+    | 'remove-required'
     | string;
-  job_status:
-    | 'completed'
-    | 'waiting'
-    | 'processing'
-    | 'canceled'
-    | 'errored'
-    | string;
+  job_status: 'completed' | 'waiting' | 'processing' | 'errored' | string;
   job_stage: string;
   work_estimate: number | null | undefined;
   work_completed: number | null | undefined;

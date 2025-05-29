@@ -3,6 +3,7 @@
 import {
   generatePermsTypescriptFile,
   generateSchemaTypescriptFile,
+  translatePlanSteps,
 } from '@instantdb/platform';
 import version from './version.js';
 import { mkdir, writeFile, readFile } from 'fs/promises';
@@ -1105,12 +1106,13 @@ async function pushSchema(appId, opts) {
     'The following changes will be applied to your production schema:',
   );
 
-  for (const [action, attr] of planRes.data.steps) {
-    switch (action) {
+  for (const step of translatePlanSteps(planRes.data.steps)) {
+    switch (step.type) {
       case 'add-attr':
       case 'update-attr': {
+        const attr = step.attr;
         const valueType = attr['value-type'];
-        const isAdd = action === 'add-attr';
+        const isAdd = step.type === 'add-attr';
         if (valueType === 'blob' && attrFwdLabel(attr) === 'id') {
           console.log(
             `${isAdd ? chalk.magenta('ADD ENTITY') : chalk.magenta('UPDATE ENTITY')} ${attrFwdName(attr)}`,
@@ -1132,27 +1134,37 @@ async function pushSchema(appId, opts) {
       }
       case 'check-data-type': {
         console.log(
-          `${chalk.green('CHECK TYPE')} ${attrFwdName(attr)} => ${attr['checked-data-type']}`,
+          `${chalk.green('CHECK TYPE')} ${identName(step.forwardIdentity)} => ${step.checkedDataType}`,
         );
         break;
       }
       case 'remove-data-type': {
-        console.log(`${chalk.red('REMOVE TYPE')} ${attrFwdName(attr)} => any`);
+        console.log(
+          `${chalk.red('REMOVE TYPE')} ${identName(step.forwardIdentity)} => any`,
+        );
         break;
       }
       case 'index': {
-        console.log('%s on %s', chalk.green('ADD INDEX'), attrFwdName(attr));
+        console.log(
+          '%s on %s',
+          chalk.green('ADD INDEX'),
+          identName(step.forwardIdentity),
+        );
         break;
       }
       case 'remove-index': {
-        console.log('%s on %s', chalk.red('REMOVE INDEX'), attrFwdName(attr));
+        console.log(
+          '%s on %s',
+          chalk.red('REMOVE INDEX'),
+          identName(step.forwardIdentity),
+        );
         break;
       }
       case 'unique': {
         console.log(
           '%s to %s',
           chalk.green('ADD UNIQUE CONSTRAINT'),
-          attrFwdName(attr),
+          identName(step.forwardIdentity),
         );
         break;
       }
@@ -1160,7 +1172,7 @@ async function pushSchema(appId, opts) {
         console.log(
           '%s from %s',
           chalk.red('REMOVE UNIQUE CONSTRAINT'),
-          attrFwdName(attr),
+          identName(step.forwardIdentity),
         );
         break;
       }
@@ -1168,7 +1180,7 @@ async function pushSchema(appId, opts) {
         console.log(
           '%s to %s',
           chalk.green('ADD REQUIRED CONSTRAINT'),
-          attrFwdName(attr),
+          identName(step.forwardIdentity),
         );
         break;
       }
@@ -1176,7 +1188,7 @@ async function pushSchema(appId, opts) {
         console.log(
           '%s from %s',
           chalk.red('REMOVE REQUIRED CONSTRAINT'),
-          attrFwdName(attr),
+          identName(step.forwardIdentity),
         );
         break;
       }
@@ -1641,6 +1653,17 @@ function capitalizeFirstLetter(string) {
 }
 
 // attr helpers
+function identEtype(ident) {
+  return ident[1];
+}
+
+function identLabel(ident) {
+  return ident[2];
+}
+
+function identName(ident) {
+  return `${identEtype(ident)}.${identLabel(ident)}`;
+}
 
 function attrFwdLabel(attr) {
   return attr['forward-identity']?.[2];
