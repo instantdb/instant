@@ -925,10 +925,7 @@ export class PlatformApi {
    * Gets the schema for an app by its id.
    *
    * ```ts
-   * const { apps } = await api.getApps({
-   *   includeSchema: true,
-   *   includePerms: true,
-   * });
+   * const { schema } = await api.getSchema('MY_APP_ID');
    * ```
    *
    * @param appId -- UUID of the app
@@ -940,6 +937,10 @@ export class PlatformApi {
   /**
    * Gets the permissions for an app by its id.
    *
+   * ```ts
+   * const { perms } = await api.getPerms('MY_APP_ID');
+   * ```
+   *
    * @param appId -- UUID of the app
    */
   async getPerms(appId: string): Promise<InstantAPIGetAppPermsResponse> {
@@ -948,6 +949,12 @@ export class PlatformApi {
 
   /**
    * Update the title of an app by its id.
+   *
+   * ```ts
+   * const { app } = await api.updateApp('MY_APP_ID', {
+   *   title: 'New title',
+   * });
+   * ```
    *
    * @param appId -- UUID of the app
    * @param fields.title -- New title for the app
@@ -961,6 +968,10 @@ export class PlatformApi {
 
   /**
    * Delete an app by its id.
+   *
+   * ```ts
+   * const { app } = await api.deleteApp('MY_APP_ID');
+   * ```
    *
    * @param appId -- UUID of the app
    */
