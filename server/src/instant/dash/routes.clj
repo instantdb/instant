@@ -1089,7 +1089,9 @@
     (response/ok {:job job})))
 
 (defn indexing-jobs-group-get [req]
-  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+  (let [{{app-id :id} :app} (req->app-and-user-accepting-platform-tokens! :collaborator
+                                                                          :apps/write
+                                                                          req)
         group-id (ex/get-param! req [:params :group_id] uuid-util/coerce)
         jobs (indexing-jobs/get-by-group-id-for-client app-id group-id)]
     (response/ok {:jobs jobs})))

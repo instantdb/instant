@@ -132,7 +132,30 @@
 
               [:inline missing-required-error]
               {:select [[[:json_agg 't]]]
-               :from [[{:select :* :from 'triples :where :false} 't]]}] :invalid-triples-sample]]
+               :from [[{:select [:t.entity-id [nil :value] ["null" :json-type]]
+                        :from [[:triples :t]]
+                        :limit 10
+                        :where [:and
+                                [:= :app-id app-id]
+                                [:= :t.app_id :j.app_id]
+                                [:= :t.attr_id {:select :id
+                                                :from :attrs
+                                                :where [:and
+                                                        [:= :app-id app-id]
+                                                        [:= :label [:inline "id"]]
+                                                        [:= :etype {:select :etype
+                                                                    :from :attrs
+                                                                    :where [:and
+                                                                            [:= :app-id app-id]
+                                                                            [:= :id :j.attr-id]]}]]}]
+                                [:in :t.entity_id {:select [[[:cast
+                                                              [:json_array_elements_text
+                                                               [:cast
+                                                                [:-> :j.error_data [:inline "entity-ids"]]
+                                                                :json]]
+                                                              :uuid]]]}]]}
+                       :t]]}]
+             :invalid-triples-sample]]
    :from [[:indexing-jobs :j]]
    :where (list* :and
                  [:= :app-id app-id]
@@ -245,8 +268,8 @@
   (let [attrs (attr-model/get-by-app-id conn app_id)
         etype (attr-model/fwd-etype (attr-model/seek-by-id attr_id attrs))
         _ (assert etype "Attribute has no etype")
-        id-attr-id (:id (attr-model/seek-by-fwd-ident-name [etype "id"] attrs))
-        _ (assert id-attr-id (str etype " has no id attribute"))
+        id-attr (attr-model/seek-by-fwd-ident-name [etype "id"] attrs)
+        _ (assert id-attr (str etype " has no id attribute"))
         indexed-attr (attr-model/seek-by-id attr_id attrs)
         _ (assert indexed-attr (str "no attr found with id " attr_id))]
     (if (not= (:value-type indexed-attr) :blob)
@@ -254,7 +277,10 @@
       [:= [:inline 1] [:inline 0]]
       [:and
        [:= :triples.app-id app_id]
-       [:= :triples.attr-id id-attr-id]
+       [:= :triples.attr-id (:id id-attr)]
+       (when (and (:unique? id-attr)
+                  (not (:setting-unique? id-attr)))
+         :triples.av)
        [:not [:exists {:select :1
                        :from [[:triples :attr-triples]]
                        :where [:and
