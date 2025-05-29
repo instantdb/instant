@@ -3,7 +3,6 @@ import { pkceVerifier, pkceCodeChallengeOfVerifier } from './crypto.ts';
 import { InstantOAuthError } from './oauthCommon.ts';
 import version from './version.js';
 
-
 export type InstantDBOAuthAccessToken = {
   /**
    * Token that can be used to access the Instant platform API on behalf of a user

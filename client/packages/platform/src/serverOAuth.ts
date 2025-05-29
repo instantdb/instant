@@ -1,6 +1,6 @@
 import { InstantOAuthError } from './oauthCommon.ts';
 
-async function exchangeCodeForToken({
+export async function exchangeCodeForToken({
   code,
   clientId,
   clientSecret,
@@ -58,4 +58,3 @@ async function exchangeCodeForToken({
     refreshToken: json.refresh_token,
   };
 }
-
