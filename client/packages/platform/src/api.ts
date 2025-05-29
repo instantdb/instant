@@ -814,9 +814,27 @@ export type PlatformApiConfig = {
   apiURI?: string;
 };
 
+/**
+ * API methods for the Platform API
+ *
+ * Usage:
+ * ```ts
+ * import { PlatformApi } from '@instantdb/platform';
+ *
+ * const api = new PlatformApi({auth: {token: 'oauth-access-token'}});
+ * const { apps } = await api.getApps({includeSchema: true, includePerms: true});
+ * ```
+ */
 export class PlatformApi {
   #token: string;
   #apiURI: string;
+
+  /**
+   * @param config – Runtime configuration.
+   * @param config.auth.token – OAuth access-token obtained via the
+   *   oauth flow or a personal access token.
+   * @throws {Error} When `token` is missing.
+   */
   constructor(config: PlatformApiConfig) {
     this.#token = config.auth.token;
     this.#apiURI = config.apiURI || 'https://api.instantdb.com';
@@ -826,6 +844,23 @@ export class PlatformApi {
     }
   }
 
+  /**
+   * Fetch a single app by its id.
+   *
+   * ```ts
+   * const { app } = await api.getApp('MY_APP_ID', {
+   *   includeSchema: true,
+   *   includePerms:  true
+   * });
+   * ```
+   *
+   * @template Opts – Narrow the shape of the response via the
+   *   {@link AppDataOpts} flags.
+   * @param appId – UUID of the app.
+   * @param opts  – `{ includeSchema?: boolean; includePerms?: boolean }`
+   * @returns A typed wrapper containing the app, whose shape is expanded
+   *   according to `Opts`.
+   */
   async getApp<Opts extends AppDataOpts>(
     appId: string,
     opts?: Opts,
@@ -833,20 +868,43 @@ export class PlatformApi {
     return getApp<Opts>(this.#apiURI, this.#token, appId, opts);
   }
 
+  /**
+   * List **all apps** owned by the auth owner.
+   *
+   * @template Opts – Same as {@link getApp}.
+   * @param opts  – `{ includeSchema?: boolean; includePerms?: boolean }`
+   * @returns An array wrapper; each element’s shape follows `Opts`.
+   */
   async getApps<Opts extends AppDataOpts>(
     opts?: Opts,
   ): Promise<InstantAPIListAppsResponse<Opts>> {
     return getApps<Opts>(this.#apiURI, this.#token, opts);
   }
 
+  /**
+   * Gets the schema for an app by its id.
+   *
+   * @param appId -- UUID of the app
+   */
   async getSchema(appId: string): Promise<InstantAPIGetAppSchemaResponse> {
     return getAppSchema(this.#apiURI, this.#token, appId);
   }
 
+  /**
+   * Gets the permissions for an app by its id.
+   *
+   * @param appId -- UUID of the app
+   */
   async getPerms(appId: string): Promise<InstantAPIGetAppPermsResponse> {
     return getAppPerms(this.#apiURI, this.#token, appId);
   }
 
+  /**
+   * Update the title of an app by its id.
+   *
+   * @param appId -- UUID of the app
+   * @param fields.title -- New title for the app
+   */
   async updateApp(
     appId: string,
     fields: InstantAPIUpdateAppBody,
@@ -854,10 +912,23 @@ export class PlatformApi {
     return updateApp(this.#apiURI, this.#token, appId, fields);
   }
 
+  /**
+   * Delete an app by its id.
+   *
+   * @param appId -- UUID of the app
+   */
   async deleteApp(appId: string): Promise<InstantAPIDeleteAppResponse> {
     return deleteApp(this.#apiURI, this.#token, appId);
   }
 
+  /**
+   * Dry-run a **schema push** and receive a *plan* of steps the server would
+   * execute.
+   *
+   * ```ts
+   * const { steps } = await api.planSchemaPush(appId, body);
+   * ```
+   */
   async planSchemaPush(
     appId: string,
     body: InstantAPISchemaPushBody,
@@ -865,6 +936,30 @@ export class PlatformApi {
     return planSchemaPush(this.#apiURI, this.#token, appId, body);
   }
 
+  /**
+   * Execute a **schema push**. The server returns a long-running job
+   * represented as a {@link ProgressPromise}: you can both `await` the final
+   * result **or** subscribe to intermediate status updates.
+   *
+   * ```ts
+   * // 1) Subscribe to progress
+   * const schema = i.schema({
+   *   entities: {
+   *     books: i.entity({
+   *       title: i.string().indexed()
+   *     })
+   *   }
+   * });
+   * const job = api.schemaPush(appId, { schema: schema });
+   * job.then(({ summary }) => console.log('done!', summary)).catch(e => console.error(e));
+   * job.subscribe({
+   *   next: status => renderProgress(status),
+   * });
+   *
+   * // 2) Or just await it
+   * const result = await api.schemaPush(appId, { schema: schema });
+   * ```
+   */
   schemaPush(
     appId: string,
     body: InstantAPISchemaPushBody,

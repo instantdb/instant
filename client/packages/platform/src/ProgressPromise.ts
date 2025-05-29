@@ -27,7 +27,6 @@ export class ProgressPromise<StatusT, ResultT> {
 
   #onNext = (status: StatusT) => {
     if (this.#result) {
-      // Maybe this should error?
       return;
     }
     for (const observer of this.#observers) {
