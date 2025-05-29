@@ -29,7 +29,7 @@ type NonEmpty<T> = {
 }[keyof T];
 
 type WhereArgs = {
-  /** @deprecated use `$in` instead of `in` */
+  /** @deprecated Use `$in` instead of `in` */
   in?: (string | number | boolean)[];
   $in?: (string | number | boolean)[];
   $not?: string | number | boolean;
@@ -58,11 +58,10 @@ type WhereClause =
   | (WhereClauseWithCombination & BaseWhereClause);
 
 /**
- * A tuple representing a cursor.
- * These should not be constructed manually. The current format
- * is an implementation detail that may change in the future.
- * Use the `endCursor` or `startCursor` from the PageInfoResponse as the
- * `before` or `after` field in the query options.
+ * A tuple representing a cursor. These should not be constructed manually. The
+ * current format is an implementation detail that may change in the future. Use
+ * the `endCursor` or `startCursor` from the PageInfoResponse as the `before` or
+ * `after` field in the query options.
  */
 type Cursor = [string, string, any, number];
 
@@ -141,27 +140,20 @@ type PageInfoResponse<T> = {
 };
 
 /**
- * (XXX)
- * https://github.com/microsoft/TypeScript/issues/26051
+ * (XXX) https://github.com/microsoft/TypeScript/issues/26051
  *
  * Typescript can permit extra keys when a generic extends a type.
  *
  * For some reason, it makes it possible to write a query like so:
  *
- * dummyQuery({
- *  users: {
- *    $: { where: { "foo": 1 } },
- *    posts: {
- *      $: { "far": {} }
- *    }
- *  }
+ * DummyQuery({ users: { $: { where: { "foo": 1 } }, posts: { $: { "far": {} } }
+ * }
  *
- *  The problem: $: { "far": {} }
+ * The problem: $: { "far": {} }
  *
- *  This passes, when it should in reality fail. I don't know why
- *  adding `Exactly` fixes this, but it does.
- *
- * */
+ * This passes, when it should in reality fail. I don't know why adding
+ * `Exactly` fixes this, but it does.
+ */
 type Exactly<Parent, Child> = Parent & {
   [K in keyof Child]: K extends keyof Parent ? Child[K] : never;
 };
@@ -339,14 +331,12 @@ type InstaQLParams<S extends IContainEntitiesAndLinks<any, any>> = {
 };
 
 /**
- * @deprecated
- * `InstaQLQueryParams` is deprecated. Use `InstaQLParams` instead.
- *
+ * @deprecated `InstaQLQueryParams` is deprecated. Use `InstaQLParams` instead.
  * @example
- * // Before
- * const myQuery = {...} satisfies InstaQLQueryParams<Schema>
- * // After
- * const myQuery = {...} satisfies InstaQLParams<Schema>
+ *   // Before
+ *   const myQuery = {...} satisfies InstaQLQueryParams<Schema>
+ *   // After
+ *   const myQuery = {...} satisfies InstaQLParams<Schema>
  */
 type InstaQLQueryParams<S extends IContainEntitiesAndLinks<any, any>> =
   InstaQLParams<S>;

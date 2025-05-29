@@ -115,7 +115,8 @@ function sortedMutationEntries(entries) {
 }
 
 /**
- * @template {import('./presence.ts').RoomSchemaShape} [RoomSchema = {}]
+ * @template {import('./presence.ts').RoomSchemaShape} [RoomSchema={}] Default
+ *   is `{}`
  */
 export default class Reactor {
   attrs;
@@ -128,9 +129,9 @@ export default class Reactor {
   /** @type {PersistedObject} */
   pendingMutations;
 
-  /** @type {Record<string, Array<{ q: any, cb: (data: any) => any }>>} */
+  /** @type {Record<string, { q: any; cb: (data: any) => any }[]>} */
   queryCbs = {};
-  /** @type {Record<string, Array<{ q: any, eventId: string, dfd: Deferred }>>} */
+  /** @type {Record<string, { q: any; eventId: string; dfd: Deferred }[]>} */
   queryOnceDfds = {};
   authCbs = [];
   attrsCbs = [];
@@ -144,16 +145,20 @@ export default class Reactor {
   _ws;
   _localIdPromises = {};
   _errorMessage = null;
-  /** @type {Promise<null | {error: {message: string}}>}**/
+  /** @type {Promise<null | { error: { message: string } }>} * */
   _oauthCallbackResponse = null;
 
-  /** @type {null | import('./utils/linkIndex.ts').LinkIndex}} */
+  /** @type {null | import('./utils/linkIndex.ts').LinkIndex} } */
   _linkIndex = null;
 
-  /** @type BroadcastChannel | undefined */
+  /**
+   * @type BroadcastChannel
+   *
+   *   | undefined
+   */
   _broadcastChannel;
 
-  /** @type {Record<string, {isConnected: boolean; error: any}>} */
+  /** @type {Record<string, { isConnected: boolean; error: any }>} */
   _rooms = {};
   /** @type {Record<string, boolean>} */
   _roomsPendingLeave = {};
@@ -286,9 +291,9 @@ export default class Reactor {
   }
 
   /**
-   * @param {'enqueued' | 'pending' | 'synced' | 'timeout' |  'error' } status
-   * @param string eventId
-   * @param {{message?: string, hint?: string, error?: Error}} [errDetails]
+   * @param {'enqueued' | 'pending' | 'synced' | 'timeout' | 'error'} status
+   * @param string EventId
+   * @param {{ message?: string; hint?: string; error?: Error }} [errDetails]
    */
   _finishTransaction(status, eventId, errDetails) {
     const dfd = this.mutationDeferredStore.get(eventId);
@@ -316,9 +321,9 @@ export default class Reactor {
   }
 
   /**
-   *  merge querySubs from storage and in memory. Has the following side
-   *  effects:
-   *  - We notify all queryCbs because results may been added during merge
+   * Merge querySubs from storage and in memory. Has the following side effects:
+   *
+   * - We notify all queryCbs because results may been added during merge
    */
   _onMergeQuerySubs = (_storageSubs, inMemorySubs) => {
     const storageSubs = _storageSubs || {};
@@ -359,7 +364,7 @@ export default class Reactor {
   };
 
   /**
-   * merge pendingMutations from storage and in memory. Has a side effect of
+   * Merge pendingMutations from storage and in memory. Has a side effect of
    * sending mutations that were stored but not acked
    */
   _onMergePendingMutations = (storageMuts, inMemoryMuts) => {
@@ -583,7 +588,7 @@ export default class Reactor {
   /**
    * @param {'timeout' | 'error'} status
    * @param {string} eventId
-   * @param {{message?: string, hint?: string, error?: Error}} errDetails
+   * @param {{ message?: string; hint?: string; error?: Error }} errDetails
    */
   _handleMutationError(status, eventId, errDetails) {
     const mut = this.pendingMutations.currentValue.get(eventId);
@@ -699,14 +704,14 @@ export default class Reactor {
   }
 
   /**
-   *  When a user subscribes to a query the following side effects occur:
+   * When a user subscribes to a query the following side effects occur:
    *
-   *  - We update querySubs to include the new query
-   *  - We update queryCbs to include the new cb
-   *  - If we already have a result for the query we call cb immediately
-   *  - We send the server an `add-query` message
+   * - We update querySubs to include the new query
+   * - We update queryCbs to include the new cb
+   * - If we already have a result for the query we call cb immediately
+   * - We send the server an `add-query` message
    *
-   *  Returns an unsubscribe function
+   * Returns an unsubscribe function
    */
   subscribeQuery(q, cb, opts) {
     if (opts && 'ruleParams' in opts) {
@@ -1015,8 +1020,8 @@ export default class Reactor {
   };
 
   /**
-   * @param {*} txSteps
-   * @param {*} [error]
+   * @param {any} txSteps
+   * @param {any} [error]
    * @returns
    */
   pushOps = (txSteps, error) => {
@@ -1051,11 +1056,9 @@ export default class Reactor {
   }
 
   /**
-   * Sends mutation to server and schedules a timeout to cancel it if
-   * we don't hear back in time.
-   * Note: If we're offline we don't schedule a timeout, we'll schedule it
-   * later once we're back online and send the mutation again
-   *
+   * Sends mutation to server and schedules a timeout to cancel it if we don't
+   * hear back in time. Note: If we're offline we don't schedule a timeout,
+   * we'll schedule it later once we're back online and send the mutation again
    */
   _sendMutation(eventId, mutation) {
     if (mutation.error) {
@@ -1125,9 +1128,7 @@ export default class Reactor {
     });
   }
 
-  /**
-   * Clean up pendingMutations that all queries have seen
-   */
+  /** Clean up pendingMutations that all queries have seen */
   _cleanupPendingMutationsQueries() {
     let minProcessedTxId = Number.MAX_SAFE_INTEGER;
     for (const { result } of Object.values(this.querySubs.currentValue)) {
@@ -1147,9 +1148,9 @@ export default class Reactor {
   }
 
   /**
-   * After mutations is confirmed by server, we give each query 30 sec
-   * to update its results. If that doesn't happen, we assume query is
-   * unaffected by this mutation and it’s safe to delete it from local queue
+   * After mutations is confirmed by server, we give each query 30 sec to update
+   * its results. If that doesn't happen, we assume query is unaffected by this
+   * mutation and it’s safe to delete it from local queue
    */
   _cleanupPendingMutationsTimeout() {
     const now = Date.now();
@@ -1364,8 +1365,8 @@ export default class Reactor {
    *
    * Note: If the user deletes their local storage, this id will change.
    *
-   * We use this._localIdPromises to ensure that we only generate a local
-   * id once, even if multiple callers call this function concurrently.
+   * We use this._localIdPromises to ensure that we only generate a local id
+   * once, even if multiple callers call this function concurrently.
    */
   async getLocalId(name) {
     const k = `localToken_${name}`;
@@ -1437,10 +1438,7 @@ export default class Reactor {
     }
   }
 
-  /**
-   *
-   * @returns Promise<null | {error: {message: string}}>
-   */
+  /** @returns Promise<null | {error: {message: string}}> */
   async _oauthLoginInit() {
     if (
       typeof window === 'undefined' ||
@@ -1688,9 +1686,12 @@ export default class Reactor {
 
   /**
    * Creates an OAuth authorization URL.
+   *
    * @param {Object} params - The parameters to create the authorization URL.
-   * @param {string} params.clientName - The name of the client requesting authorization.
-   * @param {string} params.redirectURL - The URL to redirect users to after authorization.
+   * @param {string} params.clientName - The name of the client requesting
+   *   authorization.
+   * @param {string} params.redirectURL - The URL to redirect users to after
+   *   authorization.
    * @returns {string} The created authorization URL.
    */
   createAuthorizationURL({ clientName, redirectURL }) {
@@ -1701,7 +1702,8 @@ export default class Reactor {
   /**
    * @param {Object} params
    * @param {string} params.code - The code received from the OAuth service.
-   * @param {string} [params.codeVerifier] - The code verifier used to generate the code challenge.
+   * @param {string} [params.codeVerifier] - The code verifier used to generate
+   *   the code challenge.
    */
   async exchangeCodeForToken({ code, codeVerifier }) {
     const res = await authAPI.exchangeCodeForToken({
@@ -1721,9 +1723,11 @@ export default class Reactor {
 
   /**
    * @param {Object} params
-   * @param {string} params.clientName - The name of the client requesting authorization.
+   * @param {string} params.clientName - The name of the client requesting
+   *   authorization.
    * @param {string} params.idToken - The id_token from the external service
-   * @param {string | null | undefined} [params.nonce] - The nonce used when requesting the id_token from the external service
+   * @param {string | null | undefined} [params.nonce] - The nonce used when
+   *   requesting the id_token from the external service
    */
   async signInWithIdToken({ idToken, clientName, nonce }) {
     const currentUser = await this.getCurrentUser();
@@ -1746,7 +1750,8 @@ export default class Reactor {
 
   /**
    * @param {string} roomId
-   * @param {any | null | undefined} [initialData] -- initial presence data to send when joining the room
+   * @param {any | null | undefined} [initialData] -- initial presence data to
+   *   send when joining the room
    * @returns () => void
    */
   joinRoom(roomId, initialData) {

@@ -48,15 +48,16 @@ export const defaultActivityStopTimeout = 1_000;
 /**
  * Listen for broadcasted events given a room and topic.
  *
- * @see https://instantdb.com/docs/presence-and-topics
  * @example
- *  function App({ roomId }) {
- *    const room = db.room('chats', roomId);
- *    db.rooms.useTopicEffect(room, 'emoji', (message, peer) => {
- *      console.log(peer.name, 'sent', message);
- *    });
- *    // ...
- *  }
+ *   function App({ roomId }) {
+ *     const room = db.room('chats', roomId);
+ *     db.rooms.useTopicEffect(room, 'emoji', (message, peer) => {
+ *       console.log(peer.name, 'sent', message);
+ *     });
+ *     // ...
+ *   }
+ *
+ * @see https://instantdb.com/docs/presence-and-topics
  */
 export function useTopicEffect<
   RoomSchema extends RoomSchemaShape,
@@ -86,17 +87,17 @@ export function useTopicEffect<
 /**
  * Broadcast an event to a room.
  *
- * @see https://instantdb.com/docs/presence-and-topics
  * @example
- * function App({ roomId }) {
+ *   function App({ roomId }) {
  *   const room = db.room('chat', roomId);
  *   const publishTopic = db.rooms.usePublishTopic(room, "emoji");
  *
  *   return (
- *     <button onClick={() => publishTopic({ emoji: "🔥" })}>Send emoji</button>
+ *   <button onClick={() => publishTopic({ emoji: "🔥" })}>Send emoji</button>
  *   );
- * }
+ *   }
  *
+ * @see https://instantdb.com/docs/presence-and-topics
  */
 export function usePublishTopic<
   RoomSchema extends RoomSchemaShape,
@@ -127,18 +128,19 @@ export function usePublishTopic<
 // Presence
 
 /**
- * Listen for peer's presence data in a room, and publish the current user's presence.
+ * Listen for peer's presence data in a room, and publish the current user's
+ * presence.
+ *
+ * @example
+ *   function App({ roomId }) {
+ *     const { peers, publishPresence } = db
+ *       .room(roomType, roomId)
+ *       .usePresence({ keys: ['name', 'avatar'] });
+ *
+ *     // ...
+ *   }
  *
  * @see https://instantdb.com/docs/presence-and-topics
- * @example
- *  function App({ roomId }) {
- *    const {
- *      peers,
- *      publishPresence
- *    } = db.room(roomType, roomId).usePresence({ keys: ["name", "avatar"] });
- *
- *    // ...
- *  }
  */
 export function usePresence<
   RoomSchema extends RoomSchemaShape,
@@ -190,12 +192,13 @@ export function usePresence<
 /**
  * Publishes presence data to a room
  *
- * @see https://instantdb.com/docs/presence-and-topics
  * @example
- *  function App({ roomId, nickname }) {
- *    const room = db.room('chat', roomId);
- *    db.rooms.useSyncPresence(room, { nickname });
- *  }
+ *   function App({ roomId, nickname }) {
+ *     const room = db.room('chat', roomId);
+ *     db.rooms.useSyncPresence(room, { nickname });
+ *   }
+ *
+ * @see https://instantdb.com/docs/presence-and-topics
  */
 export function useSyncPresence<
   RoomSchema extends RoomSchemaShape,
@@ -217,18 +220,19 @@ export function useSyncPresence<
 /**
  * Manage typing indicator state
  *
- * @see https://instantdb.com/docs/presence-and-topics
  * @example
- *  function App({ roomId }) {
- *    const room = db.room('chat', roomId);
- *    const {
- *      active,
- *      setActive,
- *      inputProps,
- *    } = db.rooms.useTypingIndicator(room, "chat-input");
+ *   function App({ roomId }) {
+ *   const room = db.room('chat', roomId);
+ *   const {
+ *   active,
+ *   setActive,
+ *   inputProps,
+ *   } = db.rooms.useTypingIndicator(room, "chat-input");
  *
- *    return <input {...inputProps} />;
- *  }
+ *   return <input {...inputProps} />;
+ *   }
+ *
+ * @see https://instantdb.com/docs/presence-and-topics
  */
 export function useTypingIndicator<
   RoomSchema extends RoomSchemaShape,
@@ -329,18 +333,16 @@ export class InstantReactRoom<
   }
 
   /**
-   * @deprecated
-   * `db.room(...).useTopicEffect` is deprecated. You can replace it with `db.rooms.useTopicEffect`.
-   *
+   * @deprecated `db.room(...).useTopicEffect` is deprecated. You can replace
+   *   it with `db.rooms.useTopicEffect`.
    * @example
+   *   // Before
+   *   const room = db.room('chat', 'room-id');
+   *   room.useTopicEffect('emoji', (message, peer) => {});
    *
-   * // Before
-   * const room = db.room('chat', 'room-id');
-   * room.useTopicEffect('emoji', (message, peer) => {  });
-   *
-   * // After
-   * const room = db.room('chat', 'room-id');
-   * db.rooms.useTopicEffect(room, 'emoji', (message, peer) => {  });
+   *   // After
+   *   const room = db.room('chat', 'room-id');
+   *   db.rooms.useTopicEffect(room, 'emoji', (message, peer) => {});
    */
   useTopicEffect = <TopicType extends keyof RoomSchema[RoomType]['topics']>(
     topic: TopicType,
@@ -353,18 +355,16 @@ export class InstantReactRoom<
   };
 
   /**
-   * @deprecated
-   * `db.room(...).usePublishTopic` is deprecated. You can replace it with `db.rooms.usePublishTopic`.
-   *
+   * @deprecated `db.room(...).usePublishTopic` is deprecated. You can replace
+   *   it with `db.rooms.usePublishTopic`.
    * @example
+   *   // Before
+   *   const room = db.room('chat', 'room-id');
+   *   const publish = room.usePublishTopic('emoji');
    *
-   * // Before
-   * const room = db.room('chat', 'room-id');
-   * const publish = room.usePublishTopic('emoji');
-   *
-   * // After
-   * const room = db.room('chat', 'room-id');
-   * const publish = db.rooms.usePublishTopic(room, 'emoji');
+   *   // After
+   *   const room = db.room('chat', 'room-id');
+   *   const publish = db.rooms.usePublishTopic(room, 'emoji');
    */
   usePublishTopic = <Topic extends keyof RoomSchema[RoomType]['topics']>(
     topic: Topic,
@@ -373,18 +373,18 @@ export class InstantReactRoom<
   };
 
   /**
-   * @deprecated
-   * `db.room(...).usePresence` is deprecated. You can replace it with `db.rooms.usePresence`.
-   *
+   * @deprecated `db.room(...).usePresence` is deprecated. You can replace it
+   *   with `db.rooms.usePresence`.
    * @example
+   *   // Before
+   *   const room = db.room('chat', 'room-id');
+   *   const { peers } = room.usePresence({ keys: ['name', 'avatar'] });
    *
-   * // Before
-   * const room = db.room('chat', 'room-id');
-   * const { peers } = room.usePresence({ keys: ["name", "avatar"] });
-   *
-   * // After
-   * const room = db.room('chat', 'room-id');
-   * const { peers } = db.rooms.usePresence(room, { keys: ["name", "avatar"] });
+   *   // After
+   *   const room = db.room('chat', 'room-id');
+   *   const { peers } = db.rooms.usePresence(room, {
+   *     keys: ['name', 'avatar'],
+   *   });
    */
   usePresence = <Keys extends keyof RoomSchema[RoomType]['presence']>(
     opts: PresenceOpts<RoomSchema[RoomType]['presence'], Keys> = {},
@@ -393,18 +393,16 @@ export class InstantReactRoom<
   };
 
   /**
-   * @deprecated
-   * `db.room(...).useSyncPresence` is deprecated. You can replace it with `db.rooms.useSyncPresence`.
-   *
+   * @deprecated `db.room(...).useSyncPresence` is deprecated. You can replace
+   *   it with `db.rooms.useSyncPresence`.
    * @example
+   *   // Before
+   *   const room = db.room('chat', 'room-id');
+   *   room.useSyncPresence(room, { nickname });
    *
-   * // Before
-   * const room = db.room('chat', 'room-id');
-   * room.useSyncPresence(room, { nickname });
-   *
-   * // After
-   * const room = db.room('chat', 'room-id');
-   * db.rooms.useSyncPresence(room, { nickname });
+   *   // After
+   *   const room = db.room('chat', 'room-id');
+   *   db.rooms.useSyncPresence(room, { nickname });
    */
   useSyncPresence = (
     data: Partial<RoomSchema[RoomType]['presence']>,
@@ -414,18 +412,16 @@ export class InstantReactRoom<
   };
 
   /**
-   * @deprecated
-   * `db.room(...).useTypingIndicator` is deprecated. You can replace it with `db.rooms.useTypingIndicator`.
-   *
+   * @deprecated `db.room(...).useTypingIndicator` is deprecated. You can
+   *   replace it with `db.rooms.useTypingIndicator`.
    * @example
+   *   // Before
+   *   const room = db.room('chat', 'room-id');
+   *   const typing = room.useTypingIndiactor(room, 'chat-input');
    *
-   * // Before
-   * const room = db.room('chat', 'room-id');
-   * const typing = room.useTypingIndiactor(room, 'chat-input');
-   *
-   * // After
-   * const room = db.room('chat', 'room-id');
-   * const typing = db.rooms.useTypingIndiactor(room, 'chat-input');
+   *   // After
+   *   const room = db.room('chat', 'room-id');
+   *   const typing = db.rooms.useTypingIndiactor(room, 'chat-input');
    */
   useTypingIndicator = (
     inputName: string,

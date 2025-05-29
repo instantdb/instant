@@ -23,8 +23,8 @@ export interface TransactionChunk<
    * Create and update objects:
    *
    * @example
-   *  const goalId = id();
-   *  db.tx.goals[goalId].update({title: "Get fit", difficulty: 5})
+   *   const goalId = id();
+   *   db.tx.goals[goalId].update({ title: 'Get fit', difficulty: 5 });
    */
   update: (
     args: UpdateParams<Schema, EntityName>,
@@ -33,28 +33,29 @@ export interface TransactionChunk<
    * Link two objects together
    *
    * @example
-   * const goalId = id();
-   * const todoId = id();
-   * db.transact([
-   *   db.tx.goals[goalId].update({title: "Get fit"}),
-   *   db.tx.todos[todoId].update({title: "Go on a run"}),
-   *   db.tx.goals[goalId].link({todos: todoId}),
-   * ])
+   *   const goalId = id();
+   *   const todoId = id();
+   *   db.transact([
+   *     db.tx.goals[goalId].update({ title: 'Get fit' }),
+   *     db.tx.todos[todoId].update({ title: 'Go on a run' }),
+   *     db.tx.goals[goalId].link({ todos: todoId }),
+   *   ]);
    *
-   * // Now, if you query:
-   * useQuery({ goals: { todos: {} } })
-   * // You'll get back:
+   *   // Now, if you query:
+   *   useQuery({ goals: { todos: {} } });
+   *   // You'll get back:
    *
-   * // { goals: [{ title: "Get fit", todos: [{ title: "Go on a run" }]}
+   *   // { goals: [{ title: "Get fit", todos: [{ title: "Go on a run" }]}
    */
   link: (
     args: LinkParams<Schema, EntityName>,
   ) => TransactionChunk<Schema, EntityName>;
   /**
    * Unlink two objects
+   *
    * @example
-   *  // to "unlink" a todo from a goal:
-   *  db.tx.goals[goalId].unlink({todos: todoId})
+   *   // to "unlink" a todo from a goal:
+   *   db.tx.goals[goalId].unlink({ todos: todoId });
    */
   unlink: (
     args: LinkParams<Schema, EntityName>,
@@ -63,37 +64,46 @@ export interface TransactionChunk<
    * Delete an object, alongside all of its links.
    *
    * @example
-   *   db.tx.goals[goalId].delete()
+   *   db.tx.goals[goalId].delete();
    */
   delete: () => TransactionChunk<Schema, EntityName>;
 
   /**
+   * Similar to `update`, but instead of overwriting the current value, it will
+   * merge the provided values into the current value.
    *
-   * Similar to `update`, but instead of overwriting the current value, it will merge the provided values into the current value.
-   *
-   * This is useful for deeply nested, document-style values, or for updating a single attribute at an arbitrary depth without overwriting the rest of the object.
+   * This is useful for deeply nested, document-style values, or for updating a
+   * single attribute at an arbitrary depth without overwriting the rest of the
+   * object.
    *
    * For example, if you have a goal with a nested `metrics` object:
    *
    * ```js
-   * goal = { name: "Get fit", metrics: { progress: 0.3 } }
+   * goal = { name: 'Get fit', metrics: { progress: 0.3 } };
    * ```
    *
    * You can update the `progress` attribute like so:
    *
    * ```js
-   * db.tx.goals[goalId].merge({ metrics: { progress: 0.5 }, category: "Fitness" })
+   * db.tx.goals[goalId].merge({
+   *   metrics: { progress: 0.5 },
+   *   category: 'Fitness',
+   * });
    * ```
    *
    * And the resulting object will be:
    *
    * ```js
-   * goal = { name: "Get fit", metrics: { progress: 0.5 }, category: "Fitness"  }
-   *  ```
+   * goal = {
+   *   name: 'Get fit',
+   *   metrics: { progress: 0.5 },
+   *   category: 'Fitness',
+   * };
+   * ```
    *
    * @example
-   *  const goalId = id();
-   *  db.tx.goals[goalId].merge({title: "Get fitter"})
+   *   const goalId = id();
+   *   db.tx.goals[goalId].merge({ title: 'Get fitter' });
    */
   merge: (args: {
     [attribute: string]: any;
@@ -162,7 +172,9 @@ function transactionChunk(
  * Creates a lookup to use in place of an id in a transaction
  *
  * @example
- * db.tx.users[lookup('email', 'lyndon@example.com')].update({name: 'Lyndon'})
+ *   db.tx.users[lookup('email', 'lyndon@example.com')].update({
+ *     name: 'Lyndon',
+ *   });
  */
 export function lookup(attribute: string, value: any): Lookup {
   return `lookup__${attribute}__${JSON.stringify(value)}`;
@@ -214,7 +226,7 @@ export function txInit<
  * You must start with the `namespace` you want to change:
  *
  * @example
- *   db.tx.goals[goalId].update({title: "Get fit"})
+ *   db.tx.goals[goalId].update({ title: 'Get fit' });
  *   // Note: you don't need to create `goals` ahead of time.
  */
 export const tx = txInit();

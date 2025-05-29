@@ -633,7 +633,8 @@ export function Dialog({
 // abstractions
 
 /**
- * @deprecated Use `useForm` with a regular `<form>` and` <Button type="submit">` instead
+ * @deprecated Use `useForm` with a regular `<form>` and` <Button
+ *   type="submit">` instead
  */
 export function ActionForm({
   className,

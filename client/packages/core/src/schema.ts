@@ -14,15 +14,13 @@ import {
 // API
 
 /**
- * @deprecated
- * `i.graph` is deprecated. Use `i.schema` instead.
- *
+ * @deprecated `i.graph` is deprecated. Use `i.schema` instead.
  * @example
- * // Before
- * i.graph(entities, links).withRoomSchema<RoomType>();
+ *   // Before
+ *   i.graph(entities, links).withRoomSchema<RoomType>();
  *
- * // After
- * i.schema({ entities, links, rooms })
+ *   // After
+ *   i.schema({ entities, links, rooms });
  *
  * @see
  * https://instantdb.com/docs/schema
@@ -46,17 +44,18 @@ function graph<
 /**
  * Creates an entity definition, to be used in conjunction with `i.graph`.
  *
- * @see https://instantdb.com/docs/schema
  * @example
  *   {
- *     posts: i.entity({
- *       title: i.string(),
- *       body: i.string(),
- *     }),
- *     comments: i.entity({
- *       body: i.string(),
- *     })
+ *   posts: i.entity({
+ *   title: i.string(),
+ *   body: i.string(),
+ *   }),
+ *   comments: i.entity({
+ *   body: i.string(),
+ *   })
  *   }
+ *
+ * @see https://instantdb.com/docs/schema
  */
 function entity<Attrs extends AttrsDefs>(
   attrs: Attrs,
@@ -137,19 +136,20 @@ type LinksIndex = Record<
 /**
  * Lets you define a schema for your database.
  *
- * You can define entities, links between entities, and if you use
- * presence, you can define rooms.
+ * You can define entities, links between entities, and if you use presence, you
+ * can define rooms.
  *
- * You can push this schema to your database with the CLI,
- * or use it inside `init`, to get typesafety and autocompletion.
+ * You can push this schema to your database with the CLI, or use it inside
+ * `init`, to get typesafety and autocompletion.
  *
- * @see https://instantdb.com/docs/schema
  * @example
  *   i.schema({
- *     entities: { },
- *     links: { },
- *     rooms: { }
+ *     entities: {},
+ *     links: {},
+ *     rooms: {},
  *   });
+ *
+ * @see https://instantdb.com/docs/schema
  */
 function schema<
   EntitiesWithoutLinks extends EntitiesDef,

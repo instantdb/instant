@@ -95,7 +95,7 @@ export function immutableOmitValue(obj, v) {}
 /**
  * Like `assocInMutative`, but
  *
- * - for arrays: inserts the value at the specified index, instead of replacing it
+ * - For arrays: inserts the value at the specified index, instead of replacing it
  */
 export function insertInMutative(obj, path, value) {
   if (!obj) {

@@ -1,6 +1,6 @@
 /**
- * Exports our docs to public/docs directory and transforms the content
- * to be markdown compatible with LLMs.
+ * Exports our docs to public/docs directory and transforms the content to be
+ * markdown compatible with LLMs.
  *
  * Usage: pnpm exec tsx scripts/gen-md-docs.ts
  */

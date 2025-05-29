@@ -79,11 +79,11 @@ export function buildPresenceSlice<
 }
 
 /**
- * Compare two presence slices
- * 0. compare isLoading and error
- * 1. shallow compare user
- * 2. compare peers keys
- * 3. shallow compare each peer
+ * Compare two presence slices 0. compare isLoading and error
+ *
+ * 1. Shallow compare user
+ * 2. Compare peers keys
+ * 3. Shallow compare each peer
  */
 export function hasPresenceResponseChanged<
   PresenceShape,

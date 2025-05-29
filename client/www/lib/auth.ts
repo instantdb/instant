@@ -118,8 +118,8 @@ export function useTokenFetch<Res>(
 }
 
 /**
- * Friendly error messages to display to our users
- * We can add more cases as we encounter them
+ * Friendly error messages to display to our users We can add more cases as we
+ * encounter them
  */
 export function friendlyErrorMessage(label: string, message: string) {
   switch (label) {
@@ -229,14 +229,16 @@ export async function voidTicket({
 }
 
 /**
- * Abstracts over the common pattern of optimistically updating an SWR response during a mutation call
- * Takes an SWR response, a mutation action, and an Immer producer that generates optimistic data
- * It handles:
+ * Abstracts over the common pattern of optimistically updating an SWR response
+ * during a mutation call Takes an SWR response, a mutation action, and an Immer
+ * producer that generates optimistic data It handles:
+ *
  * 1. Updating the SWR cache with the optimistic data
  * 2. Revalidating the SWR response after the mutation
  * 3. Rolling back the cache if the mutation fails
  *
  * Context:
+ *
  * - https://swr.vercel.app/docs/mutation#optimistic-updates
  * - https://swr.vercel.app/docs/mutation#update-cache-after-mutation
  */

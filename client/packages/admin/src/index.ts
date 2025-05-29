@@ -197,30 +197,31 @@ async function jsonFetch(
 }
 
 /**
- *
  * The first step: init your application!
  *
  * Visit https://instantdb.com/dash to get your `appId` :)
  *
  * @example
- *  import { init } from "@instantdb/admin"
+ *   ```ts
+ *   import { init } from "@instantdb/admin"
  *
- *  const db = init({
- *    appId: "my-app-id",
- *    adminToken: process.env.INSTANT_ADMIN_TOKEN
- *  })
+ *   const db = init({
+ *   appId: "my-app-id",
+ *   adminToken: process.env.INSTANT_ADMIN_TOKEN
+ *   })
  *
- *  // You can also provide a schema for type safety and editor autocomplete!
+ *   // You can also provide a schema for type safety and editor autocomplete!
  *
- *  import { init } from "@instantdb/admin"
- *  import schema from ""../instant.schema.ts";
+ *   import { init } from "@instantdb/admin"
+ *   import schema from ""../instant.schema.ts";
  *
- *  const db = init({
- *    appId: "my-app-id",
- *    adminToken: process.env.INSTANT_ADMIN_TOKEN,
- *    schema,
- *  })
- *  // To learn more: https://instantdb.com/docs/modeling-data
+ *   const db = init({
+ *   appId: "my-app-id",
+ *   adminToken: process.env.INSTANT_ADMIN_TOKEN,
+ *   schema,
+ *   })
+ *   ```;
+ *   // To learn more: https://instantdb.com/docs/modeling-data
  */
 function init<
   Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
@@ -229,18 +230,18 @@ function init<
 }
 
 /**
- * @deprecated
- * `init_experimental` is deprecated. You can replace it with `init`.
- *
+ * @deprecated `init_experimental` is deprecated. You can replace it with
+ *   `init`.
  * @example
+ *   ```ts
+ *   // Before
+ *   import { init_experimental } from "@instantdb/admin"
+ *   const db = init_experimental({  ...  });
  *
- * // Before
- * import { init_experimental } from "@instantdb/admin"
- * const db = init_experimental({  ...  });
- *
- * // After
- * import { init } from "@instantdb/admin"
- * const db = init({ ...  });
+ *   // After
+ *   import { init } from "@instantdb/admin"
+ *   const db = init({ ...  });
+ *   ```;
  */
 const init_experimental = init;
 
@@ -284,16 +285,18 @@ class Auth {
   }
 
   /**
-   * Generates a magic code for the user with the given email,  used to sign in on the frontend.
-   * This is useful for writing custom auth flows.
+   * Generates a magic code for the user with the given email, used to sign in
+   * on the frontend. This is useful for writing custom auth flows.
    *
    * @example
+   *   ```ts
    *   try {
-   *     const user = await db.auth.generateMagicCode({ email })
+   *     const user = await db.auth.generateMagicCode({ email });
    *     // send an email to user with magic code
    *   } catch (err) {
-   *     console.error("Failed to generate magic code:", err.message);
+   *     console.error('Failed to generate magic code:', err.message);
    *   }
+   *   ```;
    *
    * @see https://instantdb.com/docs/backend#generate-magic-code
    */
@@ -306,17 +309,19 @@ class Auth {
   };
 
   /**
-   * Creates a login token for the user with the given email.
-   * If that user does not exist, we create one.
+   * Creates a login token for the user with the given email. If that user does
+   * not exist, we create one.
    *
    * This is often useful for writing custom auth flows.
    *
    * @example
+   *   ```ts
    *   app.post('/custom_sign_in', async (req, res) => {
    *     // ... your custom flow for users
-   *     const token = await db.auth.createToken(email)
-   *     return res.status(200).send({ token })
-   *   })
+   *     const token = await db.auth.createToken(email);
+   *     return res.status(200).send({ token });
+   *   });
+   *   ```;
    *
    * @see https://instantdb.com/docs/backend#custom-auth
    */
@@ -335,17 +340,20 @@ class Auth {
   /**
    * Verifies a given token and returns the associated user.
    *
-   * This is often useful for writing custom endpoints, where you need
-   * to authenticate users.
+   * This is often useful for writing custom endpoints, where you need to
+   * authenticate users.
    *
    * @example
+   *   ```ts
    *   app.post('/custom_endpoint', async (req, res) => {
-   *     const user = await db.auth.verifyToken(req.headers['token'])
+   *     const user = await db.auth.verifyToken(req.headers['token']);
    *     if (!user) {
-   *       return res.status(401).send('Uh oh, you are not authenticated')
+   *       return res.status(401).send('Uh oh, you are not authenticated');
    *     }
    *     // ...
-   *   })
+   *   });
+   *   ```;
+   *
    * @see https://instantdb.com/docs/backend#custom-endpoints
    */
   verifyToken = async (token: AuthToken): Promise<User> => {
@@ -367,12 +375,14 @@ class Auth {
    * Retrieves an app user by id, email, or refresh token.
    *
    * @example
+   *   ```ts
    *   try {
-   *     const user = await db.auth.getUser({ email })
-   *     console.log("Found user:", user)
+   *     const user = await db.auth.getUser({ email });
+   *     console.log('Found user:', user);
    *   } catch (err) {
-   *     console.error("Failed to retrieve user:", err.message);
+   *     console.error('Failed to retrieve user:', err.message);
    *   }
+   *   ```;
    *
    * @see https://instantdb.com/docs/backend#retrieve-a-user
    */
@@ -397,15 +407,15 @@ class Auth {
   /**
    * Deletes an app user by id, email, or refresh token.
    *
-   * NB: This _only_ deletes the user; it does not delete all user data.
-   * You will need to handle this manually.
+   * NB: This _only_ deletes the user; it does not delete all user data. You
+   * will need to handle this manually.
    *
    * @example
    *   try {
-   *     const deletedUser = await db.auth.deleteUser({ email })
-   *     console.log("Deleted user:", deletedUser)
+   *     const deletedUser = await db.auth.deleteUser({ email });
+   *     console.log('Deleted user:', deletedUser);
    *   } catch (err) {
-   *     console.error("Failed to delete user:", err.message);
+   *     console.error('Failed to delete user:', err.message);
    *   }
    *
    * @see https://instantdb.com/docs/backend#delete-a-user
@@ -426,16 +436,16 @@ class Auth {
   };
 
   /**
-   * Signs out the user with the given email.
-   * This invalidates any tokens associated with the user.
-   * If the user is not found, an error will be thrown.
+   * Signs out the user with the given email. This invalidates any tokens
+   * associated with the user. If the user is not found, an error will be
+   * thrown.
    *
    * @example
    *   try {
-   *     await auth.signOut({ email: "alyssa_p_hacker@instantdb.com" });
-   *     console.log("Successfully signed out");
+   *     await auth.signOut({ email: 'alyssa_p_hacker@instantdb.com' });
+   *     console.log('Successfully signed out');
    *   } catch (err) {
-   *     console.error("Sign out failed:", err.message);
+   *     console.error('Sign out failed:', err.message);
    *   }
    *
    * @see https://instantdb.com/docs/backend#sign-out
@@ -445,15 +455,14 @@ class Auth {
   ): Promise<void>;
 
   /**
-   * @deprecated Passing an email string directly is deprecated.
-   * Use an object with the `email` key instead.
-   *
+   * @deprecated Passing an email string directly is deprecated. Use an object
+   *   with the `email` key instead.
    * @example
-   * // Before
-   * auth.signOut(email)
+   *   // Before
+   *   auth.signOut(email);
    *
-   * // After
-   * auth.signOut({ email })
+   *   // After
+   *   auth.signOut({ email });
    */
   async signOut(email: string): Promise<void>;
 
@@ -491,9 +500,7 @@ type DeleteManyFileResponse = {
   };
 };
 
-/**
- * Functions to manage file storage.
- */
+/** Functions to manage file storage. */
 class Storage {
   config: FilledConfig;
 
@@ -504,10 +511,14 @@ class Storage {
   /**
    * Uploads file at the provided path.
    *
-   * @see https://instantdb.com/docs/storage
    * @example
    *   const buffer = fs.readFileSync('demo.png');
-   *   const isSuccess = await db.storage.uploadFile('photos/demo.png', buffer);
+   *   const isSuccess = await db.storage.uploadFile(
+   *     'photos/demo.png',
+   *     buffer,
+   *   );
+   *
+   * @see https://instantdb.com/docs/storage
    */
   uploadFile = async (
     path: string,
@@ -535,9 +546,10 @@ class Storage {
   /**
    * Deletes a file by its path name (e.g. "photos/demo.png").
    *
-   * @see https://instantdb.com/docs/storage
    * @example
-   *   await db.storage.delete("photos/demo.png");
+   *   await db.storage.delete('photos/demo.png');
+   *
+   * @see https://instantdb.com/docs/storage
    */
   delete = async (pathname: string): Promise<DeleteFileResponse> => {
     return jsonFetch(
@@ -552,11 +564,17 @@ class Storage {
   };
 
   /**
-   * Deletes multiple files by their path names (e.g. "photos/demo.png", "essays/demo.txt").
+   * Deletes multiple files by their path names (e.g. "photos/demo.png",
+   * "essays/demo.txt").
+   *
+   * @example
+   *   await db.storage.deleteMany([
+   *     'images/1.png',
+   *     'images/2.png',
+   *     'images/3.png',
+   *   ]);
    *
    * @see https://instantdb.com/docs/storage
-   * @example
-   *   await db.storage.deleteMany(["images/1.png", "images/2.png", "images/3.png"]);
    */
   deleteMany = async (pathnames: string[]): Promise<DeleteManyFileResponse> => {
     return jsonFetch(`${this.config.apiURI}/admin/storage/files/delete`, {
@@ -598,9 +616,10 @@ class Storage {
   };
 
   /**
-   * @deprecated. This method will be removed in the future. Use `query` instead
    * @example
-   * const files = await db.query({ $files: {}})
+   *   const files = await db.query({ $files: {} });
+   *
+   * @deprecated. This method will be removed in the future. Use `query` instead
    */
   list = async (): Promise<StorageFile[]> => {
     const { data } = await jsonFetch(
@@ -647,13 +666,12 @@ type AdminQueryOpts = {
 };
 
 /**
- *
  * The first step: init your application!
  *
  * Visit https://instantdb.com/dash to get your `appId` and `adminToken` :)
  *
  * @example
- *  const db = init({ appId: "my-app-id", adminToken: "my-admin-token" })
+ *   const db = init({ appId: 'my-app-id', adminToken: 'my-admin-token' });
  */
 class InstantAdminDatabase<Schema extends InstantSchemaDef<any, any, any>> {
   config: InstantConfigFilled<Schema>;
@@ -676,9 +694,10 @@ class InstantAdminDatabase<Schema extends InstantSchemaDef<any, any, any>> {
    *
    * You can provide a user's auth token, email, or impersonate a guest.
    *
-   * @see https://instantdb.com/docs/backend#impersonating-users
    * @example
-   *  await db.asUser({email: "stopa@instantdb.com"}).query({ goals: {} })
+   *   await db.asUser({ email: 'stopa@instantdb.com' }).query({ goals: {} });
+   *
+   * @see https://instantdb.com/docs/backend#impersonating-users
    */
   asUser = (opts: ImpersonationOpts): InstantAdminDatabase<Schema> => {
     const newClient = new InstantAdminDatabase<Schema>({
@@ -691,17 +710,17 @@ class InstantAdminDatabase<Schema extends InstantSchemaDef<any, any, any>> {
   /**
    * Use this to query your data!
    *
-   * @see https://instantdb.com/docs/instaql
-   *
    * @example
-   *  // fetch all goals
-   *  await db.query({ goals: {} })
+   *   // fetch all goals
+   *   await db.query({ goals: {} });
    *
-   *  // goals where the title is "Get Fit"
-   *  await db.query({ goals: { $: { where: { title: "Get Fit" } } } })
+   *   // goals where the title is "Get Fit"
+   *   await db.query({ goals: { $: { where: { title: 'Get Fit' } } } });
    *
-   *  // all goals, _alongside_ their todos
-   *  await db.query({ goals: { todos: {} } })
+   *   // all goals, _alongside_ their todos
+   *   await db.query({ goals: { todos: {} } });
+   *
+   * @see https://instantdb.com/docs/instaql
    */
   query = <Q extends InstaQLParams<Schema>>(
     query: Q,
@@ -729,25 +748,25 @@ class InstantAdminDatabase<Schema extends InstantSchemaDef<any, any, any>> {
   /**
    * Use this to write data! You can create, update, delete, and link objects
    *
-   * @see https://instantdb.com/docs/instaml
-   *
    * @example
    *   // Create a new object in the `goals` namespace
    *   const goalId = id();
-   *   db.transact(db.tx.goals[goalId].update({title: "Get fit"}))
+   *   db.transact(db.tx.goals[goalId].update({ title: 'Get fit' }));
    *
    *   // Update the title
-   *   db.transact(db.tx.goals[goalId].update({title: "Get super fit"}))
+   *   db.transact(db.tx.goals[goalId].update({ title: 'Get super fit' }));
    *
    *   // Delete it
-   *   db.transact(db.tx.goals[goalId].delete())
+   *   db.transact(db.tx.goals[goalId].delete());
    *
    *   // Or create an association:
    *   todoId = id();
    *   db.transact([
-   *    db.tx.todos[todoId].update({ title: 'Go on a run' }),
-   *    db.tx.goals[goalId].link({todos: todoId}),
-   *  ])
+   *     db.tx.todos[todoId].update({ title: 'Go on a run' }),
+   *     db.tx.goals[goalId].link({ todos: todoId }),
+   *   ]);
+   *
+   * @see https://instantdb.com/docs/instaml
    */
   transact = (
     inputChunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
@@ -763,25 +782,24 @@ class InstantAdminDatabase<Schema extends InstantSchemaDef<any, any, any>> {
   };
 
   /**
-   * Like `query`, but returns debugging information
-   * for permissions checks along with the result.
-   * Useful for inspecting the values returned by the permissions checks.
-   * Note, this will return debug information for *all* entities
-   * that match the query's `where` clauses.
+   * Like `query`, but returns debugging information for permissions checks
+   * along with the result. Useful for inspecting the values returned by the
+   * permissions checks. Note, this will return debug information for _all_
+   * entities that match the query's `where` clauses.
    *
-   * Requires a user/guest context to be set with `asUser`,
-   * since permissions checks are user-specific.
+   * Requires a user/guest context to be set with `asUser`, since permissions
+   * checks are user-specific.
    *
-   * Accepts an optional configuration object with a `rules` key.
-   * The provided rules will override the rules in the database for the query.
-   *
-   * @see https://instantdb.com/docs/instaql
+   * Accepts an optional configuration object with a `rules` key. The provided
+   * rules will override the rules in the database for the query.
    *
    * @example
-   *  await db.asUser({ guest: true }).debugQuery(
-   *    { goals: {} },
-   *    { rules: { goals: { allow: { read: "auth.id != null" } } }
-   *  )
+   *   await db.asUser({ guest: true }).debugQuery(
+   *   { goals: {} },
+   *   { rules: { goals: { allow: { read: "auth.id != null" } } }
+   *   )
+   *
+   * @see https://instantdb.com/docs/instaql
    */
   debugQuery = async <Q extends InstaQLParams<Schema>>(
     query: Q,
@@ -810,21 +828,22 @@ class InstantAdminDatabase<Schema extends InstantSchemaDef<any, any, any>> {
   };
 
   /**
-   * Like `transact`, but does not write to the database.
-   * Returns debugging information for permissions checks.
-   * Useful for inspecting the values returned by the permissions checks.
+   * Like `transact`, but does not write to the database. Returns debugging
+   * information for permissions checks. Useful for inspecting the values
+   * returned by the permissions checks.
    *
-   * Requires a user/guest context to be set with `asUser`,
-   * since permissions checks are user-specific.
+   * Requires a user/guest context to be set with `asUser`, since permissions
+   * checks are user-specific.
    *
-   * Accepts an optional configuration object with a `rules` key.
-   * The provided rules will override the rules in the database for the duration of the transaction.
+   * Accepts an optional configuration object with a `rules` key. The provided
+   * rules will override the rules in the database for the duration of the
+   * transaction.
    *
    * @example
    *   const goalId = id();
    *   db.asUser({ guest: true }).debugTransact(
-   *      [db.tx.goals[goalId].update({title: "Get fit"})],
-   *      { rules: { goals: { allow: { update: "auth.id != null" } } }
+   *   [db.tx.goals[goalId].update({title: "Get fit"})],
+   *   { rules: { goals: { allow: { update: "auth.id != null" } } }
    *   )
    */
   debugTransact = (

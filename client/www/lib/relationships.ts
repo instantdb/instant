@@ -8,7 +8,7 @@ export const relationshipConstraints: Record<
   RelationshipKinds,
   { cardinality: 'one' | 'many'; 'unique?': boolean }
 > = {
-  /**
+  /*
    * users has_many tags
    * tags has_many users
    */
@@ -16,7 +16,7 @@ export const relationshipConstraints: Record<
     cardinality: 'many',
     'unique?': false,
   },
-  /**
+  /*
    * users has_one profile
    * profiles has_one owner
    */
@@ -24,7 +24,7 @@ export const relationshipConstraints: Record<
     cardinality: 'one',
     'unique?': true,
   },
-  /**
+  /*
    *  users has_many posts
    *  posts has_one author
    *  [?users :users/posts ?posts]
@@ -35,7 +35,7 @@ export const relationshipConstraints: Record<
     'unique?': true,
   },
 
-  /**
+  /*
    *  posts has_one owner
    *  users has_many owned_posts
    *  [?posts :posts/user ?users]

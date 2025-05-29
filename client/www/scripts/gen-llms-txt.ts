@@ -3,9 +3,9 @@
  *
  * Reads markdown files from the docs directory and
  *
- * 1) Generates llms.txt with the titles and descriptions of each document
- * 2) Generates llms-full.txt with the full content of each document
- * concatenated together
+ * 1. Generates llms.txt with the titles and descriptions of each document
+ * 2. Generates llms-full.txt with the full content of each document concatenated
+ *    together
  *
  * The output files are saved in the public directory. Sections are in the same
  * order as our docs navigation.

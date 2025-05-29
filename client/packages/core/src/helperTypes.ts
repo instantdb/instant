@@ -11,67 +11,60 @@ import type {
 import type { IInstantDatabase } from './coreTypes.ts';
 
 /**
- * @deprecated
- * `InstantQuery` is deprecated. Use `InstaQLParams` instead.
- *
+ * @deprecated `InstantQuery` is deprecated. Use `InstaQLParams` instead.
  * @example
- *  // Before
- *  const db = init_experimental({ ...config, schema });
- *  type DB = typeof db;
- *  const myQuery = { ... } satisfies InstantQuery<DB>;
+ *   // Before
+ *   const db = init_experimental({ ...config, schema });
+ *   type DB = typeof db;
+ *   const myQuery = { ... } satisfies InstantQuery<DB>;
  *
- *  // After
- *  type Schema = typeof schema;
- *  const myQuery = { ... } satisfies InstaQLParams<Schema>;
+ *   // After
+ *   type Schema = typeof schema;
+ *   const myQuery = { ... } satisfies InstaQLParams<Schema>;
  */
 export type InstantQuery<DB extends IInstantDatabase<any>> =
   DB extends IInstantDatabase<infer Schema> ? InstaQLParams<Schema> : never;
 
 /**
- * @deprecated
- * `InstantQueryResult` is deprecated. Use `InstaQLResult` instead.
- *
+ * @deprecated `InstantQueryResult` is deprecated. Use `InstaQLResult` instead.
  * @example
- * // Before
- * const db = init_experimental({ ...config, schema });
- * type DB = typeof db;
- * type MyQueryResult = InstantQueryResult<DB, typeof myQuery>;
+ *   // Before
+ *   const db = init_experimental({ ...config, schema });
+ *   type DB = typeof db;
+ *   type MyQueryResult = InstantQueryResult<DB, typeof myQuery>;
  *
- * // After
- * type Schema = typeof schema;
- * type MyQueryResult = InstaQLResult<Schema, typeof myQuery>;
+ *   // After
+ *   type Schema = typeof schema;
+ *   type MyQueryResult = InstaQLResult<Schema, typeof myQuery>;
  */
 export type InstantQueryResult<DB extends IInstantDatabase<any>, Q> =
   DB extends IInstantDatabase<infer Schema>
     ? InstaQLResult<Schema, Remove$<Q>>
     : never;
 /**
- * @deprecated
- * `InstantSchema` is deprecated. Use typeof schema directly:
+ * @deprecated `InstantSchema` is deprecated. Use typeof schema directly:
  * @example
- * // Before
- * const db = init_experimental({ ...config, schema });
- * type Schema = InstantSchema<typeof db>;
+ *   // Before
+ *   const db = init_experimental({ ...config, schema });
+ *   type Schema = InstantSchema<typeof db>;
  *
- * // After
- * type Schema = typeof schema;
+ *   // After
+ *   type Schema = typeof schema;
  */
 export type InstantSchema<DB extends IInstantDatabase<any>> =
   DB extends IInstantDatabase<infer Schema> ? Schema : never;
 
 /**
- * @deprecated
- * `InstantEntity` is deprecated. Use `InstaQLEntity` instead.
- *
+ * @deprecated `InstantEntity` is deprecated. Use `InstaQLEntity` instead.
  * @example
- * // Before
- * const db = init_experimental({ ...config, schema });
- * type DB = typeof db;
- * type MyEntity = InstantEntity<DB, "myEntityName">;
+ *   // Before
+ *   const db = init_experimental({ ...config, schema });
+ *   type DB = typeof db;
+ *   type MyEntity = InstantEntity<DB, 'myEntityName'>;
  *
- * // After
- * type Schema = typeof schema;
- * type MyEntity = InstaQLEntity<Schema, "myEntityName">;
+ *   // After
+ *   type Schema = typeof schema;
+ *   type MyEntity = InstaQLEntity<Schema, 'myEntityName'>;
  */
 export type InstantEntity<
   DB extends IInstantDatabase<any>,
@@ -95,16 +88,15 @@ export type InstantEntity<
     : never;
 
 /**
- * @deprecated
- * `InstantSchemaDatabase` is deprecated. You generally don't need to
- * create a return type for a DB. But, if you like you can use `IInstantDatabase`:
- *
+ * @deprecated `InstantSchemaDatabase` is deprecated. You generally don't need
+ *   to create a return type for a DB. But, if you like you can use
+ *   `IInstantDatabase`:
  * @example
- * // Before
- * type DB = InstantSchemaDatabase<typeof schema>;
+ *   // Before
+ *   type DB = InstantSchemaDatabase<typeof schema>;
  *
- * // After
- * type DB = IInstantDatabase<typeof schema>;
+ *   // After
+ *   type DB = IInstantDatabase<typeof schema>;
  */
 export type InstantSchemaDatabase<
   Schema extends InstantSchemaDef<any, any, any>,

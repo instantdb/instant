@@ -14,8 +14,8 @@ function _extractTriplesHelper(idNodes, acc = []) {
 
 /**
  * Marshall instaql-result into list of triples. Instaql-result may have
- * multiple datalog-results, each datalog-result may have multiple join-rows
- * and each join-row may have triples.The union of these triples may have
+ * multiple datalog-results, each datalog-result may have multiple join-rows and
+ * each join-row may have triples.The union of these triples may have
  * duplicates, so we dedup them.
  */
 export function extractTriples(idNodes) {

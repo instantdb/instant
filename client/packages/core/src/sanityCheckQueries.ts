@@ -10,13 +10,14 @@ import type {
 } from './queryTypes.ts';
 
 /**
- * The purpose of these sanity checks:
- * If we make changes and something breaks, our build will fail.
+ * The purpose of these sanity checks: If we make changes and something breaks,
+ * our build will fail.
  *
- * AFAIK we _could_ write this in our `tests` folder.
- * The latest version of `vitest` does support `assertType`, but:
- *  * it's easy to get false positives if configured incorrectly
- *  * the api is more vebose than this
+ * AFAIK we _could_ write this in our `tests` folder. The latest version of
+ * `vitest` does support `assertType`, but:
+ *
+ * - It's easy to get false positives if configured incorrectly
+ * - The api is more vebose than this
  */
 
 export function dummyQuery<Q extends Query>(

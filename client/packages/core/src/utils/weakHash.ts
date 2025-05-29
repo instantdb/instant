@@ -1,8 +1,7 @@
 /**
- *
- * Unique Hashing implementation inspired by djb2/fnv1a algorithms,
- * where we are not concerned with the hash being decoded.
- * Focuses on speed while maintaining good hash distribution
+ * Unique Hashing implementation inspired by djb2/fnv1a algorithms, where we are
+ * not concerned with the hash being decoded. Focuses on speed while maintaining
+ * good hash distribution
  *
  * Note: We could also use something like Murmurhash instead
  * https://github.com/jensyt/imurmurhash-js/blob/master/imurmurhash.js

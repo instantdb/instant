@@ -1551,7 +1551,7 @@ function regenerateAdminToken(
   });
 }
 
-/**
+/*
  * (XXX)
  * We could type the result of our fetches, and write a better error
  */

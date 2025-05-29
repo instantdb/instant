@@ -12,9 +12,9 @@ export class DataAttrDef<ValueType, IsRequired extends RequirementKind> {
   ) {}
 
   /**
-   * @deprecated Only use this temporarily for attributes that you want
-   * to treat as required in frontend code but can’t yet mark as required
-   * and enforced for backend
+   * @deprecated Only use this temporarily for attributes that you want to treat
+   *   as required in frontend code but can’t yet mark as required and enforced
+   *   for backend
    */
   clientRequired() {
     return new DataAttrDef<ValueType, true>(
@@ -262,8 +262,9 @@ type OptionalKeys<Attrs extends AttrsDefs> = {
 
 /**
  * MappedAttrs:
- *   - Required keys => `key: ValueType`
- *   - Optional keys => `key?: ValueType`
+ *
+ * - Required keys => `key: ValueType`
+ * - Optional keys => `key?: ValueType`
  */
 type MappedAttrs<Attrs extends AttrsDefs> = {
   [K in RequiredKeys<Attrs>]: Attrs[K] extends DataAttrDef<infer V, any>
@@ -344,21 +345,22 @@ export class InstantSchemaDef<
   ) {}
 
   /**
-   * @deprecated
-   * `withRoomSchema` is deprecated. Define your schema in `rooms` directly:
-   *
+   * @deprecated `withRoomSchema` is deprecated. Define your schema in `rooms`
+   *   directly:
    * @example
-   * // Before:
-   * const schema = i.schema({
-   *   // ...
-   * }).withRoomSchema<RoomSchema>()
+   *   // Before:
+   *   const schema = i
+   *     .schema({
+   *       // ...
+   *     })
+   *     .withRoomSchema<RoomSchema>();
    *
-   * // After
-   * const schema = i.schema({
-   *  rooms: {
-   *    // ...
-   *  }
-   * })
+   *   // After
+   *   const schema = i.schema({
+   *     rooms: {
+   *       // ...
+   *     },
+   *   });
    *
    * @see https://instantdb.com/docs/presence-and-topics#typesafety
    */
@@ -373,9 +375,7 @@ export class InstantSchemaDef<
 }
 
 /**
- * @deprecated
- * `i.graph` is deprecated. Use `i.schema` instead.
- *
+ * @deprecated `i.graph` is deprecated. Use `i.schema` instead.
  * @see https://instantdb.com/docs/modeling-data
  */
 export class InstantGraph<
@@ -440,11 +440,11 @@ type EntityDefFromShape<Shape, K extends keyof Shape> = EntityDef<
  * migrate.
  *
  * @example
- * // Before
- * const db = init<Schema, Rooms>({...})
+ *   // Before
+ *   const db = init<Schema, Rooms>({...})
  *
- * // After
- * const db = init<BackwardsCompatibleSchema<Schema, Rooms>>({...})
+ *   // After
+ *   const db = init<BackwardsCompatibleSchema<Schema, Rooms>>({...})
  */
 export type BackwardsCompatibleSchema<
   Shape extends { [k: string]: any },

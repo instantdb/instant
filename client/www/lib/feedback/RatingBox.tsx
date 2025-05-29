@@ -7,8 +7,8 @@ import { Rating } from '@/lib/feedback/instant.schema';
 /**
  * A handy component to collect feedback for a particular page.
  *
- * Asks "Was this page helpful?", and lets the user
- * provide more details if they want too.
+ * Asks "Was this page helpful?", and lets the user provide more details if they
+ * want too.
  *
  * No login required!
  */
@@ -119,10 +119,9 @@ type SavingTextAreaProps = {
 >;
 
 /**
- * A handy textarea that lets you save a value.
- * If the incoming `savedValue` changes, we'll update the textarea.
- * We'll _skip_ the update if you are focused on the input
- * and in the middle of making a change though! :)
+ * A handy textarea that lets you save a value. If the incoming `savedValue`
+ * changes, we'll update the textarea. We'll _skip_ the update if you are
+ * focused on the input and in the middle of making a change though! :)
  */
 function SavingTextArea({ savedValue, onSave, ...props }: SavingTextAreaProps) {
   const textAreaRef = useRef<HTMLTextAreaElement>(null);

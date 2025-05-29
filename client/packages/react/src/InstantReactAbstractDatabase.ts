@@ -72,28 +72,29 @@ export default abstract class InstantReactAbstractDatabase<
   }
 
   /**
-   * Returns a unique ID for a given `name`. It's stored in local storage,
-   * so you will get the same ID across sessions.
+   * Returns a unique ID for a given `name`. It's stored in local storage, so
+   * you will get the same ID across sessions.
    *
-   * This is useful for generating IDs that could identify a local device or user.
+   * This is useful for generating IDs that could identify a local device or
+   * user.
    *
    * @example
-   *  const deviceId = await db.getLocalId('device');
+   *   const deviceId = await db.getLocalId('device');
    */
   getLocalId = (name: string): Promise<string> => {
     return this._core.getLocalId(name);
   };
 
   /**
-   * A hook that returns a unique ID for a given `name`. localIds are
-   * stored in local storage, so you will get the same ID across sessions.
+   * A hook that returns a unique ID for a given `name`. localIds are stored in
+   * local storage, so you will get the same ID across sessions.
    *
    * Initially returns `null`, and then loads the localId.
    *
    * @example
-   * const deviceId = db.useLocalId('device');
-   * if (!deviceId) return null; // loading
-   * console.log('Device ID:', deviceId)
+   *   const deviceId = db.useLocalId('device');
+   *   if (!deviceId) return null; // loading
+   *   console.log('Device ID:', deviceId);
    */
   useLocalId = (name: string): string | null => {
     const [localId, setLocalId] = useState<string | null>(null);
@@ -113,16 +114,18 @@ export default abstract class InstantReactAbstractDatabase<
   };
 
   /**
-   * Obtain a handle to a room, which allows you to listen to topics and presence data
+   * Obtain a handle to a room, which allows you to listen to topics and
+   * presence data
    *
-   * If you don't provide a `type` or `id`, Instant will default to `_defaultRoomType` and `_defaultRoomId`
-   * as the room type and id, respectively.
-   *
-   * @see https://instantdb.com/docs/presence-and-topics
+   * If you don't provide a `type` or `id`, Instant will default to
+   * `_defaultRoomType` and `_defaultRoomId` as the room type and id,
+   * respectively.
    *
    * @example
-   *  const room = db.room('chat', roomId);
-   *  const { peers } = db.rooms.usePresence(room);
+   *   const room = db.room('chat', roomId);
+   *   const { peers } = db.rooms.usePresence(room);
+   *
+   * @see https://instantdb.com/docs/presence-and-topics
    */
   room<RoomType extends keyof Rooms>(
     type: RoomType = '_defaultRoomType' as RoomType,
@@ -134,38 +137,38 @@ export default abstract class InstantReactAbstractDatabase<
   /**
    * Hooks for working with rooms
    *
-   * @see https://instantdb.com/docs/presence-and-topics
-   *
    * @example
-   *  const room = db.room('chat', roomId);
-   *  const { peers } = db.rooms.usePresence(room);
-   *  const publish = db.rooms.usePublishTopic(room, 'emoji');
-   *  // ...
+   *   const room = db.room('chat', roomId);
+   *   const { peers } = db.rooms.usePresence(room);
+   *   const publish = db.rooms.usePublishTopic(room, 'emoji');
+   *   // ...
+   *
+   * @see https://instantdb.com/docs/presence-and-topics
    */
   rooms = rooms;
 
   /**
    * Use this to write data! You can create, update, delete, and link objects
    *
-   * @see https://instantdb.com/docs/instaml
-   *
    * @example
    *   // Create a new object in the `goals` namespace
    *   const goalId = id();
-   *   db.transact(db.tx.goals[goalId].update({title: "Get fit"}))
+   *   db.transact(db.tx.goals[goalId].update({ title: 'Get fit' }));
    *
    *   // Update the title
-   *   db.transact(db.tx.goals[goalId].update({title: "Get super fit"}))
+   *   db.transact(db.tx.goals[goalId].update({ title: 'Get super fit' }));
    *
    *   // Delete it
-   *   db.transact(db.tx.goals[goalId].delete())
+   *   db.transact(db.tx.goals[goalId].delete());
    *
    *   // Or create an association:
    *   todoId = id();
    *   db.transact([
-   *    db.tx.todos[todoId].update({ title: 'Go on a run' }),
-   *    db.tx.goals[goalId].link({todos: todoId}),
-   *  ])
+   *     db.tx.todos[todoId].update({ title: 'Go on a run' }),
+   *     db.tx.goals[goalId].link({ todos: todoId }),
+   *   ]);
+   *
+   * @see https://instantdb.com/docs/instaml
    */
   transact = (
     chunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
@@ -176,20 +179,20 @@ export default abstract class InstantReactAbstractDatabase<
   /**
    * Use this to query your data!
    *
-   * @see https://instantdb.com/docs/instaql
-   *
    * @example
-   *  // listen to all goals
-   *  db.useQuery({ goals: {} })
+   *   // listen to all goals
+   *   db.useQuery({ goals: {} });
    *
-   *  // goals where the title is "Get Fit"
-   *  db.useQuery({ goals: { $: { where: { title: "Get Fit" } } } })
+   *   // goals where the title is "Get Fit"
+   *   db.useQuery({ goals: { $: { where: { title: 'Get Fit' } } } });
    *
-   *  // all goals, _alongside_ their todos
-   *  db.useQuery({ goals: { todos: {} } })
+   *   // all goals, _alongside_ their todos
+   *   db.useQuery({ goals: { todos: {} } });
    *
-   *  // skip if `user` is not logged in
-   *  db.useQuery(auth.user ? { goals: {} } : null)
+   *   // skip if `user` is not logged in
+   *   db.useQuery(auth.user ? { goals: {} } : null);
+   *
+   * @see https://instantdb.com/docs/instaql
    */
   useQuery = <Q extends InstaQLParams<Schema>>(
     query: null | Q,
@@ -199,27 +202,27 @@ export default abstract class InstantReactAbstractDatabase<
   };
 
   /**
-   * Listen for the logged in state. This is useful
-   * for deciding when to show a login screen.
+   * Listen for the logged in state. This is useful for deciding when to show a
+   * login screen.
    *
    * Check out the docs for an example `Login` component too!
    *
-   * @see https://instantdb.com/docs/auth
    * @example
-   *  function App() {
-   *    const { isLoading, user, error } = db.useAuth()
-   *    if (isLoading) {
-   *      return <div>Loading...</div>
-   *    }
-   *    if (error) {
-   *      return <div>Uh oh! {error.message}</div>
-   *    }
-   *    if (user) {
-   *      return <Main user={user} />
-   *    }
-   *    return <Login />
-   *  }
+   *   function App() {
+   *   const { isLoading, user, error } = db.useAuth()
+   *   if (isLoading) {
+   *   return <div>Loading...</div>
+   *   }
+   *   if (error) {
+   *   return <div>Uh oh! {error.message}</div>
+   *   }
+   *   if (user) {
+   *   return <Main user={user} />
+   *   }
+   *   return <Login />
+   *   }
    *
+   * @see https://instantdb.com/docs/auth
    */
   useAuth = (): AuthState => {
     // We use a ref to store the result of the query.
@@ -251,14 +254,14 @@ export default abstract class InstantReactAbstractDatabase<
   };
 
   /**
-   * One time query for the logged in state. This is useful
-   * for scenarios where you want to know the current auth
-   * state without subscribing to changes.
+   * One time query for the logged in state. This is useful for scenarios where
+   * you want to know the current auth state without subscribing to changes.
    *
-   * @see https://instantdb.com/docs/auth
    * @example
    *   const user = await db.getAuth();
-   *   console.log('logged in as', user.email)
+   *   console.log('logged in as', user.email);
+   *
+   * @see https://instantdb.com/docs/auth
    */
   getAuth(): Promise<User | null> {
     return this._core.getAuth();
@@ -268,23 +271,24 @@ export default abstract class InstantReactAbstractDatabase<
    * Listen for connection status changes to Instant. Use this for things like
    * showing connection state to users
    *
-   * @see https://www.instantdb.com/docs/patterns#connection-status
    * @example
-   *  function App() {
-   *    const status = db.useConnectionStatus()
-   *    const connectionState =
-   *      status === 'connecting' || status === 'opened'
-   *        ? 'authenticating'
-   *      : status === 'authenticated'
-   *        ? 'connected'
-   *      : status === 'closed'
-   *        ? 'closed'
-   *      : status === 'errored'
-   *        ? 'errored'
-   *      : 'unexpected state';
+   *   function App() {
+   *   const status = db.useConnectionStatus()
+   *   const connectionState =
+   *   status === 'connecting' || status === 'opened'
+   *   ? 'authenticating'
+   *   : status === 'authenticated'
+   *   ? 'connected'
+   *   : status === 'closed'
+   *   ? 'closed'
+   *   : status === 'errored'
+   *   ? 'errored'
+   *   : 'unexpected state';
    *
-   *    return <div>Connection state: {connectionState}</div>
-   *  }
+   *   return <div>Connection state: {connectionState}</div>
+   *   }
+   *
+   * @see https://www.instantdb.com/docs/patterns#connection-status
    */
   useConnectionStatus = (): ConnectionStatus => {
     const statusRef = useRef<ConnectionStatus>(
@@ -313,17 +317,16 @@ export default abstract class InstantReactAbstractDatabase<
   };
 
   /**
-   * Use this for one-off queries.
-   * Returns local data if available, otherwise fetches from the server.
-   * Because we want to avoid stale data, this method will throw an error
-   * if the user is offline or there is no active connection to the server.
-   *
-   * @see https://instantdb.com/docs/instaql
+   * Use this for one-off queries. Returns local data if available, otherwise
+   * fetches from the server. Because we want to avoid stale data, this method
+   * will throw an error if the user is offline or there is no active connection
+   * to the server.
    *
    * @example
+   *   const resp = await db.queryOnce({ goals: {} });
+   *   console.log(resp.data.goals);
    *
-   *  const resp = await db.queryOnce({ goals: {} });
-   *  console.log(resp.data.goals)
+   * @see https://instantdb.com/docs/instaql
    */
   queryOnce = <Q extends InstaQLParams<Schema>>(
     query: Q,

@@ -243,13 +243,15 @@ class Auth {
   /**
    * Sends a magic code to the user's email address.
    *
-   * Once you send the magic code, see {@link auth.signInWithMagicCode} to let the
-   * user verify.
+   * Once you send the magic code, see {@link auth.signInWithMagicCode} to let
+   * the user verify.
+   *
+   * @example
+   *   db.auth
+   *     .sendMagicCode({ email: 'example@gmail.com' })
+   *     .catch((err) => console.error(err.body?.message));
    *
    * @see https://instantdb.com/docs/auth
-   * @example
-   *  db.auth.sendMagicCode({email: "example@gmail.com"})
-   *    .catch((err) => console.error(err.body?.message))
    */
   sendMagicCode = (
     params: SendMagicCodeParams,
@@ -260,11 +262,12 @@ class Auth {
   /**
    * Verify a magic code that was sent to the user's email address.
    *
-   * @see https://instantdb.com/docs/auth
-   *
    * @example
-   *  db.auth.signInWithMagicCode({email: "example@gmail.com", code: "123456"})
-   *       .catch((err) => console.error(err.body?.message))
+   *   db.auth
+   *     .signInWithMagicCode({ email: 'example@gmail.com', code: '123456' })
+   *     .catch((err) => console.error(err.body?.message));
+   *
+   * @see https://instantdb.com/docs/auth
    */
   signInWithMagicCode = (
     params: VerifyMagicCodeParams,
@@ -275,13 +278,13 @@ class Auth {
   /**
    * Sign in a user with a refresh token
    *
-   * @see https://instantdb.com/docs/backend#frontend-auth-sign-in-with-token
-   *
    * @example
    *   // Get the token from your backend
    *   const token = await fetch('/signin', ...);
    *   //Sign in
    *   db.auth.signInWithToken(token);
+   *
+   * @see https://instantdb.com/docs/backend#frontend-auth-sign-in-with-token
    */
   signInWithToken = (token: AuthToken): Promise<VerifyResponse> => {
     return this.db.signInWithCustomToken(token);
@@ -290,17 +293,17 @@ class Auth {
   /**
    * Create an authorization url to sign in with an external provider
    *
-   * @see https://instantdb.com/docs/auth
-   *
    * @example
    *   // Get the authorization url from your backend
    *   const url = db.auth.createAuthorizationUrl({
-   *     clientName: "google",
-   *     redirectURL: window.location.href,
+   *   clientName: "google",
+   *   redirectURL: window.location.href,
    *   });
    *
    *   // Put it in a sign in link
    *   <a href={url}>Log in with Google</a>
+   *
+   * @see https://instantdb.com/docs/auth
    */
   createAuthorizationURL = (params: {
     clientName: string;
@@ -312,20 +315,20 @@ class Auth {
   /**
    * Sign in with the id_token from an external provider like Google
    *
-   * @see https://instantdb.com/docs/auth
    * @example
    *   db.auth
-   *  .signInWithIdToken({
-   *    // Token from external service
-   *    idToken: id_token,
-   *    // The name you gave the client when you registered it with Instant
-   *    clientName: "google",
-   *    // The nonce, if any, that you used when you initiated the auth flow
-   *    // with the external service.
-   *    nonce: your_nonce
-   *  })
-   *  .catch((err) => console.error(err.body?.message));
+   *     .signInWithIdToken({
+   *       // Token from external service
+   *       idToken: id_token,
+   *       // The name you gave the client when you registered it with Instant
+   *       clientName: 'google',
+   *       // The nonce, if any, that you used when you initiated the auth flow
+   *       // with the external service.
+   *       nonce: your_nonce,
+   *     })
+   *     .catch((err) => console.error(err.body?.message));
    *
+   * @see https://instantdb.com/docs/auth
    */
   signInWithIdToken = (
     params: SignInWithIdTokenParams,
@@ -336,41 +339,37 @@ class Auth {
   /**
    * Sign in with the id_token from an external provider like Google
    *
-   * @see https://instantdb.com/docs/auth
    * @example
    *   db.auth
-   *  .exchangeOAuthCode({
-   *    // code received in redirect from OAuth callback
-   *    code: code
-   *    // The PKCE code_verifier, if any, that you used when you
-   *    // initiated the auth flow
-   *    codeVerifier: your_code_verifier
-   *  })
-   *  .catch((err) => console.error(err.body?.message));
+   *   .exchangeOAuthCode({
+   *   // code received in redirect from OAuth callback
+   *   code: code
+   *   // The PKCE code_verifier, if any, that you used when you
+   *   // initiated the auth flow
+   *   codeVerifier: your_code_verifier
+   *   })
+   *   .catch((err) => console.error(err.body?.message));
    *
+   * @see https://instantdb.com/docs/auth
    */
   exchangeOAuthCode = (params: ExchangeCodeForTokenParams) => {
     return this.db.exchangeCodeForToken(params);
   };
 
   /**
-   * OpenID Discovery path for use with tools like
-   * expo-auth-session that use auto-discovery of
-   * OAuth parameters.
+   * OpenID Discovery path for use with tools like expo-auth-session that use
+   * auto-discovery of OAuth parameters.
+   *
+   * @example
+   *   const discovery = useAutoDiscovery(db.auth.issuerURI());
    *
    * @see https://instantdb.com/docs/auth
-   * @example
-   *   const discovery = useAutoDiscovery(
-   *     db.auth.issuerURI()
-   *   );
    */
   issuerURI = (): string => {
     return this.db.issuerURI();
   };
 
-  /**
-   * Sign out the current user
-   */
+  /** Sign out the current user */
   signOut = (opts: SignoutOpts = { invalidateToken: true }): Promise<void> => {
     return this.db.signOut(opts);
   };
@@ -381,19 +380,18 @@ type FileOpts = {
   contentDisposition?: string;
 };
 
-/**
- * Functions to manage file storage.
- */
+/** Functions to manage file storage. */
 class Storage {
   constructor(private db: Reactor) {}
 
   /**
    * Uploads file at the provided path.
    *
-   * @see https://instantdb.com/docs/storage
    * @example
    *   const [file] = e.target.files; // result of file input
    *   const data = await db.storage.uploadFile('photos/demo.png', file);
+   *
+   * @see https://instantdb.com/docs/storage
    */
   uploadFile = (
     path: string,
@@ -406,9 +404,10 @@ class Storage {
   /**
    * Deletes a file by path name.
    *
-   * @see https://instantdb.com/docs/storage
    * @example
    *   await db.storage.delete('photos/demo.png');
+   *
+   * @see https://instantdb.com/docs/storage
    */
   delete = (pathname: string) => {
     return this.db.deleteFile(pathname);
@@ -425,9 +424,7 @@ class Storage {
     return this.db.upload(pathname, file);
   };
 
-  /**
-   * @deprecated Use `db.storage.uploadFile` instead
-   */
+  /** @deprecated Use `db.storage.uploadFile` instead */
   put = this.upload;
 
   /**
@@ -474,25 +471,25 @@ class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
   /**
    * Use this to write data! You can create, update, delete, and link objects
    *
-   * @see https://instantdb.com/docs/instaml
-   *
    * @example
    *   // Create a new object in the `goals` namespace
    *   const goalId = id();
-   *   db.transact(db.tx.goals[goalId].update({title: "Get fit"}))
+   *   db.transact(db.tx.goals[goalId].update({ title: 'Get fit' }));
    *
    *   // Update the title
-   *   db.transact(db.tx.goals[goalId].update({title: "Get super fit"}))
+   *   db.transact(db.tx.goals[goalId].update({ title: 'Get super fit' }));
    *
    *   // Delete it
-   *   db.transact(db.tx.goals[goalId].delete())
+   *   db.transact(db.tx.goals[goalId].delete());
    *
    *   // Or create an association:
    *   todoId = id();
    *   db.transact([
-   *    db.tx.todos[todoId].update({ title: 'Go on a run' }),
-   *    db.tx.goals[goalId].link({todos: todoId}),
-   *  ])
+   *     db.tx.todos[todoId].update({ title: 'Go on a run' }),
+   *     db.tx.goals[goalId].link({ todos: todoId }),
+   *   ]);
+   *
+   * @see https://instantdb.com/docs/instaml
    */
   transact(
     chunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
@@ -507,26 +504,26 @@ class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
   /**
    * Use this to query your data!
    *
-   * @see https://instantdb.com/docs/instaql
-   *
    * @example
-   *  // listen to all goals
-   *  db.subscribeQuery({ goals: {} }, (resp) => {
-   *    console.log(resp.data.goals)
-   *  })
+   *   // listen to all goals
+   *   db.subscribeQuery({ goals: {} }, (resp) => {
+   *     console.log(resp.data.goals);
+   *   });
    *
-   *  // goals where the title is "Get Fit"
-   *  db.subscribeQuery(
-   *    { goals: { $: { where: { title: "Get Fit" } } } },
-   *    (resp) => {
-   *      console.log(resp.data.goals)
-   *    }
-   *  )
+   *   // goals where the title is "Get Fit"
+   *   db.subscribeQuery(
+   *     { goals: { $: { where: { title: 'Get Fit' } } } },
+   *     (resp) => {
+   *       console.log(resp.data.goals);
+   *     },
+   *   );
    *
-   *  // all goals, _alongside_ their todos
-   *  db.subscribeQuery({ goals: { todos: {} } }, (resp) => {
-   *    console.log(resp.data.goals)
-   *  });
+   *   // all goals, _alongside_ their todos
+   *   db.subscribeQuery({ goals: { todos: {} } }, (resp) => {
+   *     console.log(resp.data.goals);
+   *   });
+   *
+   * @see https://instantdb.com/docs/instaql
    */
   subscribeQuery<Q extends InstaQLParams<Schema>>(
     query: Q,
@@ -537,57 +534,59 @@ class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
   }
 
   /**
-   * Listen for the logged in state. This is useful
-   * for deciding when to show a login screen.
+   * Listen for the logged in state. This is useful for deciding when to show a
+   * login screen.
    *
-   * @see https://instantdb.com/docs/auth
    * @example
    *   const unsub = db.subscribeAuth((auth) => {
    *     if (auth.user) {
-   *     console.log('logged in as', auth.user.email)
-   *    } else {
-   *      console.log('logged out')
-   *    }
-   *  })
+   *       console.log('logged in as', auth.user.email);
+   *     } else {
+   *       console.log('logged out');
+   *     }
+   *   });
+   *
+   * @see https://instantdb.com/docs/auth
    */
   subscribeAuth(cb: (auth: AuthResult) => void): UnsubscribeFn {
     return this._reactor.subscribeAuth(cb);
   }
 
   /**
-   * One time query for the logged in state. This is useful
-   * for scenarios where you want to know the current auth
-   * state without subscribing to changes.
+   * One time query for the logged in state. This is useful for scenarios where
+   * you want to know the current auth state without subscribing to changes.
    *
-   * @see https://instantdb.com/docs/auth
    * @example
    *   const user = await db.getAuth();
-   *   console.log('logged in as', user.email)
+   *   console.log('logged in as', user.email);
+   *
+   * @see https://instantdb.com/docs/auth
    */
   getAuth(): Promise<User | null> {
     return this._reactor.getAuth();
   }
 
   /**
-   * Listen for connection status changes to Instant. This is useful
-   * for building things like connectivity indicators
+   * Listen for connection status changes to Instant. This is useful for
+   * building things like connectivity indicators
    *
-   * @see https://www.instantdb.com/docs/patterns#connection-status
    * @example
    *   const unsub = db.subscribeConnectionStatus((status) => {
    *     const connectionState =
    *       status === 'connecting' || status === 'opened'
    *         ? 'authenticating'
-   *       : status === 'authenticated'
-   *         ? 'connected'
-   *       : status === 'closed'
-   *         ? 'closed'
-   *       : status === 'errored'
-   *         ? 'errored'
-   *       : 'unexpected state';
+   *         : status === 'authenticated'
+   *           ? 'connected'
+   *           : status === 'closed'
+   *             ? 'closed'
+   *             : status === 'errored'
+   *               ? 'errored'
+   *               : 'unexpected state';
    *
    *     console.log('Connection status:', connectionState);
    *   });
+   *
+   * @see https://www.instantdb.com/docs/patterns#connection-status
    */
   subscribeConnectionStatus(
     cb: (status: ConnectionStatus) => void,
@@ -598,20 +597,21 @@ class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
   /**
    * Join a room to publish and subscribe to topics and presence.
    *
-   * @see https://instantdb.com/docs/presence-and-topics
    * @example
-   * // init
-   * const db = init();
-   * const room = db.joinRoom(roomType, roomId);
-   * // usage
-   * const unsubscribeTopic = room.subscribeTopic("foo", console.log);
-   * const unsubscribePresence = room.subscribePresence({}, console.log);
-   * room.publishTopic("hello", { message: "hello world!" });
-   * room.publishPresence({ name: "joe" });
-   * // later
-   * unsubscribePresence();
-   * unsubscribeTopic();
-   * room.leaveRoom();
+   *   // init
+   *   const db = init();
+   *   const room = db.joinRoom(roomType, roomId);
+   *   // usage
+   *   const unsubscribeTopic = room.subscribeTopic('foo', console.log);
+   *   const unsubscribePresence = room.subscribePresence({}, console.log);
+   *   room.publishTopic('hello', { message: 'hello world!' });
+   *   room.publishPresence({ name: 'joe' });
+   *   // later
+   *   unsubscribePresence();
+   *   unsubscribeTopic();
+   *   room.leaveRoom();
+   *
+   * @see https://instantdb.com/docs/presence-and-topics
    */
   joinRoom<RoomType extends keyof RoomsOf<Schema>>(
     roomType: RoomType = '_defaultRoomType' as RoomType,
@@ -642,17 +642,16 @@ class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
   }
 
   /**
-   * Use this for one-off queries.
-   * Returns local data if available, otherwise fetches from the server.
-   * Because we want to avoid stale data, this method will throw an error
-   * if the user is offline or there is no active connection to the server.
-   *
-   * @see https://instantdb.com/docs/instaql
+   * Use this for one-off queries. Returns local data if available, otherwise
+   * fetches from the server. Because we want to avoid stale data, this method
+   * will throw an error if the user is offline or there is no active connection
+   * to the server.
    *
    * @example
+   *   const resp = await db.queryOnce({ goals: {} });
+   *   console.log(resp.data.goals);
    *
-   *  const resp = await db.queryOnce({ goals: {} });
-   *  console.log(resp.data.goals)
+   * @see https://instantdb.com/docs/instaql
    */
   queryOnce<Q extends InstaQLParams<Schema>>(
     query: Q,
@@ -688,24 +687,23 @@ function schemaChanged(
 }
 
 /**
- *
  * The first step: init your application!
  *
  * Visit https://instantdb.com/dash to get your `appId` :)
  *
  * @example
- *  import { init } from "@instantdb/core"
+ *   import { init } from "@instantdb/core"
  *
- *  const db = init({ appId: "my-app-id" })
+ *   const db = init({ appId: "my-app-id" })
  *
- *  // You can also provide a schema for type safety and editor autocomplete!
+ *   // You can also provide a schema for type safety and editor autocomplete!
  *
- *  import { init } from "@instantdb/core"
- *  import schema from ""../instant.schema.ts";
+ *   import { init } from "@instantdb/core"
+ *   import schema from ""../instant.schema.ts";
  *
- *  const db = init({ appId: "my-app-id", schema })
+ *   const db = init({ appId: "my-app-id", schema })
  *
- *  // To learn more: https://instantdb.com/docs/modeling-data
+ *   // To learn more: https://instantdb.com/docs/modeling-data
  */
 function init<
   Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
@@ -772,18 +770,16 @@ function handleDevtool(appId: string, devtool: boolean | DevtoolConfig) {
 }
 
 /**
- * @deprecated
- * `init_experimental` is deprecated. You can replace it with `init`.
- *
+ * @deprecated `init_experimental` is deprecated. You can replace it with
+ *   `init`.
  * @example
+ *   // Before
+ *   import { init_experimental } from "@instantdb/core"
+ *   const db = init_experimental({  ...  });
  *
- * // Before
- * import { init_experimental } from "@instantdb/core"
- * const db = init_experimental({  ...  });
- *
- * // After
- * import { init } from "@instantdb/core"
- * const db = init({ ...  });
+ *   // After
+ *   import { init } from "@instantdb/core"
+ *   const db = init({ ...  });
  */
 const init_experimental = init;
 

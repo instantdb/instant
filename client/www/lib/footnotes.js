@@ -1,6 +1,6 @@
 /**
- * Footnotes extension for marked.js
- * Inspo: https://github.com/markedjs/marked/issues/1562#issuecomment-1213367729
+ * Footnotes extension for marked.js Inspo:
+ * https://github.com/markedjs/marked/issues/1562#issuecomment-1213367729
  */
 import { marked } from 'marked';
 

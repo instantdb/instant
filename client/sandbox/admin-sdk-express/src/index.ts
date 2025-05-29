@@ -144,9 +144,7 @@ async function testDeleteUser() {
 // testFetchUser();
 // testDeleteUser();
 
-/**
- * Storage API tests
- */
+/** Storage API tests */
 
 async function testUploadFile(src: string, dest: string, contentType?: string) {
   const buffer = fs.readFileSync(path.join(__dirname, src));
@@ -255,9 +253,7 @@ async function testDeleteAllowedInTx(
 // testMergeFileFails()
 // testDeleteAllowedInTx('circle_blue.jpg', 'circle_blue.jpg', 'image/jpeg');
 
-/**
- * Legacy Storage API tests (deprecated Jan 2025)
- */
+/** Legacy Storage API tests (deprecated Jan 2025) */
 async function testAdminStorage(
   src: string,
   dest: string,
@@ -303,9 +299,7 @@ async function testGetDownloadUrl(filename: string) {
 // testAdminStorageBulkDelete("admin/demo");
 // testGetDownloadUrl("admin/demo.jpeg");
 
-/**
- * Superadmin
- */
+/** Superadmin */
 
 async function testSuperadminListApps() {
   const response = await fetch(`${config.apiURI}/superadmin/apps`, {

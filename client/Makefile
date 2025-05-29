@@ -9,7 +9,7 @@ lint:
 	pnpm run check-format
 
 lint-fix:
-	pnpm run check-format --write
+	pnpm run format
 
 index-docs-dry-run:
 	@echo "Dry run..."

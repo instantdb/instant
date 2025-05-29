@@ -633,15 +633,10 @@ function determineOrder(form) {
 /**
  * Given a query like:
  *
- * {
- *   users: {
- *     $: { where: { name: "Joe" } },
- *   },
- * };
+ * { users: { $: { where: { name: "Joe" } }, }, };
  *
- * `resolveObjects`, turns where clause: `{ name: "Joe" }`
- * into a datalog query. We then run the datalog query,
- * and reduce all the triples into objects.
+ * `resolveObjects`, turns where clause: `{ name: "Joe" }` into a datalog query.
+ * We then run the datalog query, and reduce all the triples into objects.
  */
 function resolveObjects(store, { etype, level, form, join, pageInfo }) {
   const limit = form.$?.limit || form.$?.first || form.$?.last;
@@ -679,13 +674,11 @@ function resolveObjects(store, { etype, level, form, join, pageInfo }) {
 }
 
 /**
- * It's possible that we query
- * for an attribute that doesn't exist yet.
+ * It's possible that we query for an attribute that doesn't exist yet.
  *
  * { users: { $: { where: { nonExistentProperty: "foo" } } } }
  *
- * This swallows the missing attr error and returns
- * an empty result instead
+ * This swallows the missing attr error and returns an empty result instead
  */
 function guardedResolveObjects(store, opts) {
   try {
@@ -700,12 +693,7 @@ function guardedResolveObjects(store, opts) {
 /**
  * Given a query like:
  *
- * {
- *   users: {
- *     $: { where: { name: "Joe" } },
- *     posts: {},
- *   },
- * };
+ * { users: { $: { where: { name: "Joe" } }, posts: {}, }, };
  *
  * `guardResolveObjects` will return the relevant `users` objects
  * `extendObjects` will then extend each `user` object with relevant `posts`.

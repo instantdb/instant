@@ -1,9 +1,9 @@
-/**
+/*
  * Video extension for marked.js
  *
  * Usage:
- * [!video](https://www.youtube.com/watch?v=video-id "Video Title")
- * [!video](https://stream.mux.com/video-id "Video Title")
+ * [!video](https://www.youtube.com/watch?v=video-id)
+ * [!video](https://stream.mux.com/video-id)
  */
 import { marked } from 'marked';
 

@@ -219,25 +219,21 @@ function getCreatedAt(store, attr, triple) {
   }
 
   /**
-   * (XXX)
-   * Two hacks here, for generating a `createdAt`
+   * (XXX) Two hacks here, for generating a `createdAt`
    *
-   * 1. We multiply Date.now() by 10, to make sure that
-   *  `createdAt` is always greater than anything the server
-   *   could return
+   * 1. We multiply Date.now() by 10, to make sure that `createdAt` is always
+   *    greater than anything the server could return
    *
-   *   We do this because right now we know we _only_ insert
-   *   triples as optimistic updates.
+   * We do this because right now we know we _only_ insert triples as optimistic
+   * updates.
    *
-   * 2. We increment by `_seed`, to make sure there are no
-   *    two triples with the same `createdAt`. This is
-   *    done to make tests more predictable.
+   * 2. We increment by `_seed`, to make sure there are no two triples with the
+   *    same `createdAt`. This is done to make tests more predictable.
    *
-   * We may need to rethink this. Because we * 10, we can't
-   * use this value as an _actual_ `createdAt` timestamp.
-   * Eventually we may want too though; For example, we could
-   * use `createdAt` for each triple, to infer a `createdAt` and
-   * `updatedAt` value for each object.
+   * We may need to rethink this. Because we * 10, we can't use this value as an
+   * _actual_ `createdAt` timestamp. Eventually we may want too though; For
+   * example, we could use `createdAt` for each triple, to infer a `createdAt`
+   * and `updatedAt` value for each object.
    */
   return createdAt || Date.now() * 10 + _seed++;
 }

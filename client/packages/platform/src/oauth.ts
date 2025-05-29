@@ -4,11 +4,13 @@ import version from './version.js';
 
 export type InstantDBOAuthAccessToken = {
   /**
-   * Token that can be used to access the Instant platform API on behalf of a user
+   * Token that can be used to access the Instant platform API on behalf of a
+   * user
    */
   token: string;
   /**
-   * The date when the token expires (2 weeks from when it was issued by default)
+   * The date when the token expires (2 weeks from when it was issued by
+   * default)
    */
   expiresAt: Date;
 };
@@ -309,9 +311,7 @@ export function startInstantOAuthClientOnlyFlow({
   return flowCompletePromise.finally(() => channel.close());
 }
 
-/**
- * Configuration for {@link OAuthHandler}.
- */
+/** Configuration for {@link OAuthHandler}. */
 export interface OAuthHandlerConfig {
   /**
    * Must exactly match one of the **Authorized Redirect URIs** in your OAuth
@@ -322,16 +322,11 @@ export interface OAuthHandlerConfig {
   /** OAuth client ID from the Instant dashboard. */
   clientId: string;
 
-  /**
-   * Optional Instant API base-URL.
-   * Defaults to `https://api.instantdb.com`.
-   */
+  /** Optional Instant API base-URL. Defaults to `https://api.instantdb.com`. */
   apiOrigin?: string | null;
 }
 
-/**
- * Thin wrapper that drives InstantDB’s browser-only OAuth flow.
- */
+/** Thin wrapper that drives InstantDB’s browser-only OAuth flow. */
 export class OAuthHandler {
   /** Redirect URI that the provider will call back into. */
   readonly redirectUri: string;
@@ -339,10 +334,7 @@ export class OAuthHandler {
   /** OAuth client ID. */
   readonly clientId: string;
 
-  /**
-   * Base URL for InstantDB’s REST API.
-   * Defaults to `https://api.instantdb.com`.
-   */
+  /** Base URL for InstantDB’s REST API. Defaults to `https://api.instantdb.com`. */
   readonly apiOrigin: string;
 
   constructor(config: OAuthHandlerConfig) {
@@ -352,28 +344,27 @@ export class OAuthHandler {
   }
 
   /**
-   * **Client-only flow** using PKCE (no client-secret required).
-   * Opens a popup to start the OAuth flow.
-   * Returns an {@link InstantDBOAuthAccessToken}.
-   * *Refresh tokens are **not** available in this flow.*
+   * **Client-only flow** using PKCE (no client-secret required). Opens a popup
+   * to start the OAuth flow. Returns an {@link InstantDBOAuthAccessToken}.
+   * _Refresh tokens are **not** available in this flow._
    *
    * @example
-   * const oauthHandler = new OAuthHandler({
+   *   const oauthHandler = new OAuthHandler({
    *   clientId: YOUR_CLIENT_ID,
    *   redirectUri: YOUR_REDIRECT_URI,
-   * });
+   *   });
    *
-   * function ConnectToInstant() {
+   *   function ConnectToInstant() {
    *   const handleConnect = async () => {
-   *     try {
-   *       const token = await oauthHandler.startClientOnlyFlow();
-   *       console.log('success!', token)
-   *     } catch (e) {
-   *       console.log('OAuth flow failed', e);
-   *     }
+   *   try {
+   *   const token = await oauthHandler.startClientOnlyFlow();
+   *   console.log('success!', token)
+   *   } catch (e) {
+   *   console.log('OAuth flow failed', e);
+   *   }
    *   }
    *   return <button onClick={handleConnect}>Connect to Instant</button>
-   * }
+   *   }
    */
   startClientOnlyFlow(): Promise<InstantDBOAuthAccessToken> {
     return startInstantOAuthClientOnlyFlow({
@@ -384,24 +375,24 @@ export class OAuthHandler {
   }
 
   /**
-   * Call from the page served at {@link OAuthHandlerConfig.redirectUri}.
-   * Parses `state` & `code` from the URL, exchanges them for an access token,
-   * then automatically closes the popup/window.
+   * Call from the page served at {@link OAuthHandlerConfig.redirectUri}. Parses
+   * `state` & `code` from the URL, exchanges them for an access token, then
+   * automatically closes the popup/window.
    *
    * @example
-   * ```tsx
-   * const oauthHandler = new OAuthHandler({
-   *   clientId: YOUR_CLIENT_ID,
-   *   redirectUri: YOUR_REDIRECT_URI,
-   * })
+   *   ```tsx
+   *   const oauthHandler = new OAuthHandler({
+   *     clientId: YOUR_CLIENT_ID,
+   *     redirectUri: YOUR_REDIRECT_URI,
+   *   })
    *
-   * function RedirectPage() {
-   *   useEffect(() => {
-   *     return oauthHandler.handleClientRedirect();
-   *   }, []);
-   *   return <div>Loading…</div>;
-   * }
-   * ```
+   *   function RedirectPage() {
+   *     useEffect(() => {
+   *       return oauthHandler.handleClientRedirect();
+   *     }, []);
+   *     return <div>Loading…</div>;
+   *   }
+   *   ```;
    */
   handleClientRedirect(): () => void {
     return handleClientRedirect();

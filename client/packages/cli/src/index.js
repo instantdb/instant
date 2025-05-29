@@ -1293,7 +1293,7 @@ async function waitForAuthToken({ secret }) {
  * @param {string} options.errorMessage
  * @param {string} options.path
  * @param {'POST' | 'GET'} [options.method]
- * @param {Object} [options.body=undefined]
+ * @param {Object} [options.body=undefined] Default is `undefined`
  * @param {boolean} [options.noAuth]
  * @param {boolean} [options.noLogError]
  * @returns {Promise<{ ok: boolean; data: any }>}
@@ -1401,12 +1401,11 @@ async function promptOk(message, defaultAnswer = false) {
  *
  * If a user writes import { i } from '@instantdb/react-native'
  *
- * We will fail to evaluate the file. This is because
- * `@instantdb/react-native` brings in `react-native`, which
- * does not run in a node context.
+ * We will fail to evaluate the file. This is because `@instantdb/react-native`
+ * brings in `react-native`, which does not run in a node context.
  *
- * To bypass this, we have a 'cli' module inside `react-native`, which
- * has all the necessary imports
+ * To bypass this, we have a 'cli' module inside `react-native`, which has all
+ * the necessary imports
  */
 function transformImports(code) {
   return code.replace(

@@ -135,7 +135,10 @@ function resetGameState(game, opts = {}) {
   };
 }
 
-/** Given a game and coordinates for a move, returns an update to alter game state */
+/**
+ * Given a game and coordinates for a move, returns an update to alter game
+ * state
+ */
 function move(game, [r, c]) {
   const { board, turn, players } = game;
   const mark = getMarker(turn);

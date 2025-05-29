@@ -31,10 +31,7 @@ function indentLines(s: string, n = 2) {
     .join('\n');
 }
 
-/**
- * Generates code for a single attr:
- *   attr2: i.number.index()
- */
+/** Generates code for a single attr: attr2: i.number.index() */
 function attrToCodeString([name, config]: [string, InstantDBAttr]) {
   const { type } = deriveClientType(config);
   const unique = config['unique?'] ? '.unique()' : '';
@@ -44,12 +41,8 @@ function attrToCodeString([name, config]: [string, InstantDBAttr]) {
 }
 
 /**
- * Generates code for an entity:
- *  i.entity({
- *    attr1: i.string(),
- *    attr2: i.number.index()
- * })
- *
+ * Generates code for an entity: i.entity({ attr1: i.string(), attr2:
+ * i.number.index() })
  */
 function schemaBlobToCodeStr(
   name: string,
@@ -65,13 +58,14 @@ ${indentLines(attrBlock, 2)}
 }
 
 /**
- * Note:
- * This is _very_ similar to `schemaBlobToCodeStr`.
+ * Note: This is _very_ similar to `schemaBlobToCodeStr`.
  *
- * Right now, the frontend and backend have slightly different data structures for storing entity info.
+ * Right now, the frontend and backend have slightly different data structures
+ * for storing entity info.
  *
  * The backend returns {etype: attrs}, where attr keep things like `value-type`
- * The frontend stores {etype: EntityDef}, where EntityDef has a `valueType` field.
+ * The frontend stores {etype: EntityDef}, where EntityDef has a `valueType`
+ * field.
  *
  * For now, keeping the two functions separate.
  */

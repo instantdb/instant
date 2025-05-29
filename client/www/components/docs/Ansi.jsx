@@ -7,6 +7,7 @@ const converter = new AnsiToHtml();
  * You may be wondering, how do you actually get the ANSI text?
  *
  * Here's what you do:
+ *
  * 1. Open your terminal
  * 2. Run `script -q transcript.txt` to start recording your terminal session
  * 3. Run the commands you want to record
