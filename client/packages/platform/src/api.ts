@@ -74,6 +74,14 @@ export type InstantAPISchemaPushBody = {
   schema: InstantSchemaDef<EntitiesDef, LinksDef<EntitiesDef>, RoomsDef>;
 };
 
+export type InstantAPIPushPermsBody = {
+  perms: InstantRules;
+};
+
+export type InstantAPIPushPermsResponse = {
+  perms: InstantRules;
+};
+
 type PlanStep =
   | ['add-attr', InstantDBAttr]
   | ['update-attr', InstantDBAttr]
@@ -805,6 +813,27 @@ function schemaPush(
   });
 }
 
+async function pushPerms(
+  apiURI: string,
+  token: string,
+  appId: string,
+  body: InstantAPIPushPermsBody,
+): Promise<InstantAPIPushPermsResponse> {
+  const result = await jsonFetch<{ rules: { code: InstantRules } }>(
+    `${apiURI}/superadmin/apps/${appId}/perms`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ code: body.perms }),
+    },
+  );
+
+  return { perms: result.rules.code };
+}
+
 export type PlatformApiAuth = {
   token: string;
 };
@@ -818,11 +847,15 @@ export type PlatformApiConfig = {
  * API methods for the Platform API
  *
  * Usage:
+ *
  * ```ts
  * import { PlatformApi } from '@instantdb/platform';
  *
- * const api = new PlatformApi({auth: {token: 'oauth-access-token'}});
- * const { apps } = await api.getApps({includeSchema: true, includePerms: true});
+ * const api = new PlatformApi({ auth: { token: 'oauth-access-token' } });
+ * const { apps } = await api.getApps({
+ *   includeSchema: true,
+ *   includePerms: true,
+ * });
  * ```
  */
 export class PlatformApi {
@@ -831,8 +864,8 @@ export class PlatformApi {
 
   /**
    * @param config – Runtime configuration.
-   * @param config.auth.token – OAuth access-token obtained via the
-   *   oauth flow or a personal access token.
+   * @param config.auth.token – OAuth access-token obtained via the oauth flow
+   *   or a personal access token.
    * @throws {Error} When `token` is missing.
    */
   constructor(config: PlatformApiConfig) {
@@ -850,14 +883,14 @@ export class PlatformApi {
    * ```ts
    * const { app } = await api.getApp('MY_APP_ID', {
    *   includeSchema: true,
-   *   includePerms:  true
+   *   includePerms: true,
    * });
    * ```
    *
    * @template Opts – Narrow the shape of the response via the
    *   {@link AppDataOpts} flags.
    * @param appId – UUID of the app.
-   * @param opts  – `{ includeSchema?: boolean; includePerms?: boolean }`
+   * @param opts – `{ includeSchema?: boolean; includePerms?: boolean }`
    * @returns A typed wrapper containing the app, whose shape is expanded
    *   according to `Opts`.
    */
@@ -871,8 +904,15 @@ export class PlatformApi {
   /**
    * List **all apps** owned by the auth owner.
    *
+   * ```ts
+   * const { apps } = await api.getApps({
+   *   includeSchema: true,
+   *   includePerms: true,
+   * });
+   * ```
+   *
    * @template Opts – Same as {@link getApp}.
-   * @param opts  – `{ includeSchema?: boolean; includePerms?: boolean }`
+   * @param opts – `{ includeSchema?: boolean; includePerms?: boolean }`
    * @returns An array wrapper; each element’s shape follows `Opts`.
    */
   async getApps<Opts extends AppDataOpts>(
@@ -883,6 +923,13 @@ export class PlatformApi {
 
   /**
    * Gets the schema for an app by its id.
+   *
+   * ```ts
+   * const { apps } = await api.getApps({
+   *   includeSchema: true,
+   *   includePerms: true,
+   * });
+   * ```
    *
    * @param appId -- UUID of the app
    */
@@ -922,7 +969,7 @@ export class PlatformApi {
   }
 
   /**
-   * Dry-run a **schema push** and receive a *plan* of steps the server would
+   * Dry-run a **schema push** and receive a _plan_ of steps the server would
    * execute.
    *
    * ```ts
@@ -946,14 +993,16 @@ export class PlatformApi {
    * const schema = i.schema({
    *   entities: {
    *     books: i.entity({
-   *       title: i.string().indexed()
-   *     })
-   *   }
+   *       title: i.string().indexed(),
+   *     }),
+   *   },
    * });
    * const job = api.schemaPush(appId, { schema: schema });
-   * job.then(({ summary }) => console.log('done!', summary)).catch(e => console.error(e));
+   * job
+   *   .then(({ summary }) => console.log('done!', summary))
+   *   .catch((e) => console.error(e));
    * job.subscribe({
-   *   next: status => renderProgress(status),
+   *   next: (status) => renderProgress(status),
    * });
    *
    * // 2) Or just await it
@@ -965,5 +1014,26 @@ export class PlatformApi {
     body: InstantAPISchemaPushBody,
   ): ProgressPromise<InProgressStepsSummary, InstantAPISchemaPushResponse> {
     return schemaPush(this.#apiURI, this.#token, appId, body);
+  }
+
+  /**
+   * Update permission rules for an app by its id.
+   *
+   * Completely replaces the current rule set.
+   *
+   * ```ts
+   * const { steps } = await api.pushPerms(appId, {
+   *   perms: {
+   *     $default: { allow: { $default: 'false' } },
+   *     books: { allow: { view: 'true', $default: 'false' } },
+   *   },
+   * });
+   * ```
+   */
+  async pushPerms(
+    appId: string,
+    body: InstantAPIPushPermsBody,
+  ): Promise<InstantAPIPushPermsResponse> {
+    return pushPerms(this.#apiURI, this.#token, appId, body);
   }
 }
