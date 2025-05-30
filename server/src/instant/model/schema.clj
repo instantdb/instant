@@ -6,7 +6,8 @@
             [instant.db.indexing-jobs :as indexing-jobs]
             [instant.model.rule :as rule-model]
             [instant.db.permissioned-transaction :as permissioned-tx]
-            [instant.util.exception :as ex])
+            [instant.util.exception :as ex]
+            [instant.system-catalog :as system-catalog])
   (:import (java.util UUID)))
 
 (defn map-map [f m]
@@ -140,8 +141,21 @@
          (filter some?)
          vec)))
 
+(def $files-url-aid (system-catalog/get-attr-id "$files" "url"))
+
+(defn transform-$files-url-attr
+  "$files.url is a derived attribute that we always return from queries. 
+  It does not exist inside our database, so it's marked as optional. 
+
+  However, to our users, it's seen as a required attribute, since we always 
+  provide it."
+  [{:keys [id] :as a}]
+  (if (= $files-url-aid id)
+    (assoc a :required? true)
+    a))
+
 (defn attrs->schema [attrs]
-  (let [filtered-attrs (attr-model/remove-hidden attrs)
+  (let [filtered-attrs (map transform-$files-url-attr (attr-model/remove-hidden attrs))
         {blobs :blob refs :ref} (group-by :value-type filtered-attrs)
         refs-indexed (into {} (map (fn [{:keys [forward-identity reverse-identity] :as attr}]
                                      [[(second forward-identity)
