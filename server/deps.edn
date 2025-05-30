@@ -28,7 +28,7 @@
         software.amazon.awssdk.crt/aws-crt {:mvn/version "0.33.11"}
 
         juji/editscript {:mvn/version "0.6.4"}
-        io.github.tonsky/clojure-plus {:mvn/version "1.4.0"}
+        io.github.tonsky/clojure-plus {:mvn/version "1.5.0"}
 
         org.bouncycastle/bcprov-jdk15on {:mvn/version "1.70"}
 
@@ -87,7 +87,7 @@
                  :extra-deps {refactor-nrepl/refactor-nrepl {:mvn/version "3.10.0"}
                               criterium/criterium           {:mvn/version "0.4.6"}
                               spec-provider/spec-provider   {:mvn/version "0.4.14"}
-                              io.github.tonsky/clj-reload   {:mvn/version "0.9.4"}
+                              io.github.tonsky/clj-reload   {:mvn/version "0.9.7"}
                               ;; https://github.com/kkinnear/zprint/pull/351
                               io.github.tonsky/zprint       {:mvn/version "1.2.10"}}
                  :jvm-opts ["-XX:+UseZGC"
