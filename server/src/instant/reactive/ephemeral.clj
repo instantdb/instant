@@ -39,8 +39,8 @@
 (declare handle-broadcast-message)
 
 (defn init-hz [env store {:keys [instance-name cluster-name]
-                               :or {instance-name "instant-hz-v3"
-                                    cluster-name "instant-server-v2"}}]
+                          :or {instance-name "instant-hz-v3"
+                               cluster-name "instant-server-v2"}}]
   (-> (java.util.logging.Logger/getLogger "com.hazelcast")
       (.setLevel (if (config/aws-env?)
                    java.util.logging.Level/INFO
@@ -55,7 +55,11 @@
         tcp-ip-config        (.getTcpIpConfig join-config)
         aws-config           (.getAwsConfig join-config)
         serialization-config (.getSerializationConfig config)
-        metrics-config       (.getMetricsConfig config)]
+        metrics-config       (.getMetricsConfig config)
+        member-attribute-config (doto (com.hazelcast.config.MemberAttributeConfig.)
+                                  (.setAttribute "instance-id" (or @config/instance-id
+                                                                   "dev")))]
+    (.setMemberAttributeConfig config member-attribute-config)
     (.setInstanceName config instance-name)
     (.setEnabled (.getMulticastConfig join-config) false)
     (case env

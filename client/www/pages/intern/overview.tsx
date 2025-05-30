@@ -120,6 +120,14 @@ function flattenedSessionReports(machineToReport: any) {
   return items;
 }
 
+function makeMachineSummary(machineToReport: any): Record<string, number> {
+  const res: any = {};
+  for (const [memberId, reports] of Object.entries(machineToReport)) {
+    res[memberId] = Object.keys(reports as any).length;
+  }
+  return res;
+}
+
 const OriginColumn = ({ origins }: { origins: any }) => {
   if (!origins || Object.keys(origins).length === 0) return '-';
 
@@ -180,6 +188,7 @@ export function Main() {
   const sessions = flattenedSessionReports(
     minute.data['session-reports'],
   ).toSorted((a: any, b: any) => b.count - a.count);
+  const machineSummary = makeMachineSummary(minute.data['session-reports']);
   const totalSessions = sessions.reduce(
     (acc: number, x: any) => acc + x.count,
     0,
@@ -238,11 +247,22 @@ export function Main() {
         <div className="flex-1 p-4 space-y-2 flex flex-col min-h-0 w-1/2">
           <h3 className="text-lg">{format(minute.sentAt, 'hh:mma')}</h3>
           <div className="flex justify-between items-baseline">
-            <div className="inline-flex items-baseline space-x-4 justify-between">
+            <div className="inline-flex items-baseline space-x-4">
               <h1 className="leading-none" style={{ fontSize: 120 }}>
                 {totalSessions}
               </h1>
-              <div className="font-bold leading-none">Active Connections</div>
+
+              <div className="flex flex-col justify-between self-stretch m-4">
+                <div>
+                  {Object.entries(machineSummary).map(([machine, count]) => (
+                    <div key={machine}>
+                      {machine}: {Intl.NumberFormat().format(count)}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="font-bold leading-none">Active Connections</div>
+              </div>
             </div>
             <div className="inline-flex items-baseline space-x-4">
               <h3 className="font-bold" style={{ fontSize: 30 }}>
@@ -256,6 +276,9 @@ export function Main() {
               <tbody>
                 {sessions.map((session: any, i) => (
                   <tr key={session['app-title'] + i}>
+                    <td className="px-4 py-2 text-right">
+                      {Intl.NumberFormat().format(session.count)}
+                    </td>
                     <td className="px-4 py-2">{session['app-title']}</td>
                     <td className="px-4 py-2">
                       {session['creator-email'] || '-'}
@@ -263,7 +286,6 @@ export function Main() {
                     <td className="px-4 py-2">
                       <OriginColumn origins={session['origins']} />
                     </td>
-                    <td className="px-4 py-2 text-right">{session.count}</td>
                   </tr>
                 ))}
               </tbody>
