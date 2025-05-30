@@ -1395,6 +1395,10 @@ export default function OAuthApps({ appId }: { appId: string }) {
       ...data,
       apps: [app, ...(data?.apps || [])],
     });
+    const params = new URLSearchParams(encode(router.query));
+    params.set('oauthapp', app.id);
+    const href = `${router.pathname}?${params.toString()}`;
+    router.push(href);
   };
 
   const handleUpdateApp = (app: OAuthApp) => {
