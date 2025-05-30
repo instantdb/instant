@@ -1,6 +1,5 @@
 (ns instant.util.hazelcast
   (:require
-   [instant.util.coll :as ucoll]
    [instant.util.uuid :as uuid-util]
    [medley.core :refer [update-existing]]
    [taoensso.nippy :as nippy])
@@ -39,9 +38,7 @@
 (def room-broadcast-type-id 6)
 (def task-type-id 7)
 (def join-room-type-id 8)
-(def patch-type-id 9)
-
-(declare patch-assoc patch-assoc-in patch-merge-in patch-dissoc patch-dissoc-in)
+(def join-room-v3-type-id 9)
 
 ;; --------
 ;; Room key
@@ -160,6 +157,36 @@
   (make-serializer-config JoinRoomMergeV2
                           join-room-serializer))
 
+(defrecord JoinRoomMergeV3 [^UUID session-id ^String instance-id ^UUID user-id data]
+  BiFunction
+  (apply [_ room-data _]
+    (update room-data
+            session-id
+            (fn [existing]
+              (merge existing
+                     {:peer-id     session-id
+                      :instance-id instance-id
+                      :user        (when user-id
+                                     {:id user-id})}
+                     (if data
+                       {:data data}
+                       {:data (or (:data existing) {})}))))))
+
+(def ^ByteArraySerializer join-room-v3-serializer
+  (reify ByteArraySerializer
+    (getTypeId [_]
+      join-room-v3-type-id)
+    (write ^bytes [_ obj]
+      (let [{:keys [^UUID session-id ^String instance-id ^UUID user-id data]} obj]
+        (nippy/fast-freeze [session-id instance-id user-id data])))
+    (read [_ ^bytes in]
+      (let [[session-id instance-id user-id data] (nippy/fast-thaw in)]
+        (->JoinRoomMergeV3 session-id instance-id user-id data)))
+    (destroy [_])))
+
+(def join-room-v3-config
+  (make-serializer-config JoinRoomMergeV3
+                          join-room-v3-serializer))
 
 ;; ------------
 ;; Set presence
@@ -244,70 +271,6 @@
                           task-serializer))
 
 ;; -----------------
-;; Path serializer
-
-;; DO NOT change implementation here. Make a new version and do three-step
-;; deploy (see comment at the top of the file)
-(defrecord Patch [edits]
-  BiFunction
-  (apply [_ data _]
-    (reduce
-     (fn [data [op & args]]
-       (case op
-         :assoc     (apply assoc data args)
-         :assoc-in  (let [[path value] args]
-                      (assoc-in data path value))
-         :dissoc    (apply assoc data args)
-         :dissoc-in (let [[path] args]
-                      (ucoll/dissoc-in data path))
-         :merge     (apply merge data args)
-         :merge-in  (let [[path map] args]
-                      (if (empty? path)
-                        (merge data map)
-                        (update-in data path merge map)))))
-     data edits)))
-
-(def ^ByteArraySerializer patch-serializer
-  (reify ByteArraySerializer
-    (getTypeId [_]
-      patch-type-id)
-    (write ^bytes [_ obj]
-      (nippy/fast-freeze (:edits obj)))
-    (read [_ ^bytes in]
-      (->Patch (nippy/fast-thaw in)))
-    (destroy [_])))
-
-(def patch-config
-  (make-serializer-config Patch patch-serializer))
-
-(defn patch-assoc [^IMap hz-map key value]
-  (.set hz-map key value))
-
-(defn patch-assoc-in [^IMap hz-map path value]
-  (if (= 1 (count path))
-    (.set hz-map (first path) value)
-    (.merge hz-map
-            (first path)
-            (assoc-in {} (next path) value)
-            (->Patch [[:assoc-in (next path) value]]))))
-
-(defn patch-merge-in [^IMap hz-map path value]
-  (.merge hz-map
-          (first path)
-          (if (= 1 (count path)) value (assoc-in {} (next path) value))
-          (->Patch [[:merge-in (next path) value]])))
-
-(defn patch-dissoc [^IMap hz-map key]
-  (.delete hz-map key))
-
-(defn patch-dissoc-in [^IMap hz-map path]
-  (if (= 1 (count path))
-    (.delete hz-map (first path))
-    (.merge hz-map (first path) {}
-            (->Patch [[:dissoc-in (next path)]]))))
-
-
-;; -----------------
 ;; Global serializer
 
 (def ^ByteArraySerializer global-serializer
@@ -328,7 +291,7 @@
   [remove-session-config
    room-broadcast-config
    join-room-config
+   join-room-v3-config
    set-presence-config
    room-key-config
-   task-config
-   patch-config])
+   task-config])
