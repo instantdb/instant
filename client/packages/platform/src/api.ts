@@ -60,6 +60,16 @@ export type InstantAPIGetAppSchemaResponse = {
 
 export type InstantAPIGetAppPermsResponse = { perms: InstantRules };
 
+export type InstantAPICreateAppBody = {
+  title: string;
+  schema: InstantSchemaDef<EntitiesDef, LinksDef<EntitiesDef>, RoomsDef>;
+  perms: InstantRules;
+};
+
+export type InstantAPICreateAppResponse = Simplify<{
+  app: InstantAPIAppDetails<{ includePerms: true; includeSchema: true }>;
+}>;
+
 export type InstantAPIUpdateAppBody = { title: string };
 
 export type InstantAPIUpdateAppResponse = Simplify<{
@@ -328,6 +338,21 @@ async function getApp<Opts extends AppDataOpts>(
       ...(schemaPromise ? { schema: (await schemaPromise).schema } : {}),
     },
   };
+}
+
+async function createApp(
+  apiURI: string,
+  token: string,
+  fields: InstantAPICreateAppBody,
+): Promise<InstantAPICreateAppResponse> {
+  return jsonFetch<InstantAPICreateAppResponse>(`${apiURI}/superadmin/apps`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(fields),
+  });
 }
 
 async function updateApp(
@@ -945,6 +970,12 @@ export class PlatformApi {
    */
   async getPerms(appId: string): Promise<InstantAPIGetAppPermsResponse> {
     return getAppPerms(this.#apiURI, this.#token, appId);
+  }
+
+  async createApp(
+    fields: InstantAPICreateAppBody,
+  ): Promise<InstantAPICreateAppResponse> {
+    return createApp(this.#apiURI, this.#token, fields);
   }
 
   /**

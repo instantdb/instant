@@ -92,11 +92,30 @@
 (defn apps-create-post [req]
   (let [{user-id :id} (req->superadmin-user! :apps/write req)
         title (ex/get-param! req [:body :title] string-util/coerce-non-blank-str)
-        app (app-model/create! {:id (UUID/randomUUID)
+        schema (get-in req [:body :schema])
+        rules-code (get-in req [:body :perms])
+        _ (when rules-code
+            (ex/assert-valid! :perms rules-code (rule-model/validation-errors
+                                                 rules-code)))
+        app (app-model/create! {:id (random-uuid)
                                 :title title
                                 :creator-id user-id
-                                :admin-token (UUID/randomUUID)})]
-    (response/ok {:app app})))
+                                :admin-token (random-uuid)})
+        perms (when rules-code
+                (rule-model/put! {:app-id (:id app)
+                                  :code rules-code}))]
+
+    (when schema
+      (->> schema
+           (schema-model/plan! {:app-id (:id app)
+                                :check-types? true
+                                :background-updates? false})
+           (schema-model/apply-plan! (:id app))))
+
+    (response/ok {:app (assoc app
+                              :perms (:code perms)
+                              :schema (schema-model/attrs->schema
+                                       (attr-model/get-by-app-id (:id app))))})))
 
 (defn app-details-get [req]
   (let [{:keys [app]} (req->superadmin-user-and-app! :apps/read req)]
