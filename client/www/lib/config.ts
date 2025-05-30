@@ -76,6 +76,6 @@ export const cliOauthParamName = '_cli_oauth_ticket';
 export const discordInviteUrl = 'https://discord.com/invite/VU53p7uQcE';
 
 export const discordOAuthAppsFeedbackInviteUrl =
-  'https://discord.gg/2rnGtfFQup';
+  'https://discord.gg/GrvbPTBDEX';
 
 export const bugsAndQuestionsInviteUrl = 'https://discord.gg/unA5vyV6mP';
