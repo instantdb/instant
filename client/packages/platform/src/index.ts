@@ -13,13 +13,14 @@ import { PlatformApi, translatePlanSteps } from './api.ts';
 
 import version from './version.js';
 import { ProgressPromise } from './ProgressPromise.ts';
-import { i } from '@instantdb/core';
+import { i, type InstantRules } from '@instantdb/core';
 
 export {
   type InstantAPIPlatformSchema,
   type InstantDBOAuthAccessToken,
   type OAuthHandlerConfig,
   type OAuthScope,
+  type InstantRules,
   OAuthHandler,
   InstantOAuthError,
   generateSchemaTypescriptFile,

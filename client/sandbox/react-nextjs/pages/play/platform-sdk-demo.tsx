@@ -1,6 +1,13 @@
-import { OAuthHandler, OAuthScope, PlatformApi } from '@instantdb/platform';
+import { OAuthHandler, OAuthScope, PlatformApi, i } from '@instantdb/platform';
 import { useState } from 'react';
 import config from '../../config';
+
+// @ts-ignore: _dev for testing in console
+globalThis._dev = {
+  i,
+  PlatformApi,
+  OAuthHandler,
+};
 
 const OAUTH_CLIENT_ID = process.env.NEXT_PUBLIC_PLATFORM_OAUTH_CLIENT_ID;
 
@@ -95,6 +102,9 @@ function ApiDemo({ accessToken }: { accessToken: string }) {
     auth: { token: accessToken },
     apiURI: config.apiURI,
   });
+
+  // @ts-ignore: dev helper for testing in console
+  globalThis._dev.api = api;
   const [result, setResult] = useState<any>(null);
 
   const getApps = async () => {
