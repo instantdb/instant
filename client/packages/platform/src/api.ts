@@ -60,6 +60,16 @@ export type InstantAPIGetAppSchemaResponse = {
 
 export type InstantAPIGetAppPermsResponse = { perms: InstantRules };
 
+export type InstantAPICreateAppBody = {
+  title: string;
+  schema: InstantSchemaDef<EntitiesDef, LinksDef<EntitiesDef>, RoomsDef>;
+  perms: InstantRules;
+};
+
+export type InstantAPICreateAppResponse = Simplify<{
+  app: InstantAPIAppDetails<{ includePerms: true; includeSchema: true }>;
+}>;
+
 export type InstantAPIUpdateAppBody = { title: string };
 
 export type InstantAPIUpdateAppResponse = Simplify<{
@@ -328,6 +338,21 @@ async function getApp<Opts extends AppDataOpts>(
       ...(schemaPromise ? { schema: (await schemaPromise).schema } : {}),
     },
   };
+}
+
+async function createApp(
+  apiURI: string,
+  token: string,
+  fields: InstantAPICreateAppBody,
+): Promise<InstantAPICreateAppResponse> {
+  return jsonFetch<InstantAPICreateAppResponse>(`${apiURI}/superadmin/apps`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(fields),
+  });
 }
 
 async function updateApp(
@@ -945,6 +970,34 @@ export class PlatformApi {
    */
   async getPerms(appId: string): Promise<InstantAPIGetAppPermsResponse> {
     return getAppPerms(this.#apiURI, this.#token, appId);
+  }
+
+  /**
+   * Create a new app in the authenticated user's account.
+   *
+   * Optionally set permissions and schema.
+   *
+   * ```ts
+   * const { app } = await api.createApp({
+   *   title: 'My new app',
+   *   // Optional permissions
+   *   perms: { $default: { allow: { $default: 'false' } } },
+   *   // Optional schema
+   *   schema: i.schema({
+   *     entities: { books: i.entity({ title: i.string() }) },
+   *   }),
+   * });
+   * ```
+   *
+   * @param fields
+   * @param fields.title -- Title for app
+   * @param fields.schema -- Optional schema for the app
+   * @param fields.perms -- Optional permissions for the app
+   */
+  async createApp(
+    fields: InstantAPICreateAppBody,
+  ): Promise<InstantAPICreateAppResponse> {
+    return createApp(this.#apiURI, this.#token, fields);
   }
 
   /**
