@@ -284,7 +284,8 @@
    (make-attr "$files" "path"
               :unique? true
               :index? true
-              :checked-data-type :string)
+              :checked-data-type :string
+              :required? true)
    (make-attr "$files" "size"
               :unique? false
               :index? true
@@ -308,7 +309,8 @@
    (make-attr "$files" "url"
               :unique? false
               :index? false
-              :checked-data-type :string)])
+              :checked-data-type :string
+              :required? true)])
 
 (def all-attrs (concat $users-attrs
                        $magic-code-attrs
