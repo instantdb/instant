@@ -1,4 +1,4 @@
-import { InstantOAuthError } from './oauthCommon.ts';
+import { InstantOAuthError, type OAuthScope } from './oauthCommon.ts';
 import {
   type InstantDBOAuthAccessToken,
   type OAuthHandlerConfig,
@@ -19,6 +19,7 @@ export {
   type InstantAPIPlatformSchema,
   type InstantDBOAuthAccessToken,
   type OAuthHandlerConfig,
+  type OAuthScope,
   OAuthHandler,
   InstantOAuthError,
   generateSchemaTypescriptFile,
