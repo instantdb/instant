@@ -62,8 +62,11 @@ export type InstantAPIGetAppPermsResponse = { perms: InstantRules };
 
 export type InstantAPICreateAppBody = {
   title: string;
-  schema: InstantSchemaDef<EntitiesDef, LinksDef<EntitiesDef>, RoomsDef>;
-  perms: InstantRules;
+  schema?:
+    | InstantSchemaDef<EntitiesDef, LinksDef<EntitiesDef>, RoomsDef>
+    | null
+    | undefined;
+  perms?: InstantRules | null | undefined;
 };
 
 export type InstantAPICreateAppResponse = Simplify<{
