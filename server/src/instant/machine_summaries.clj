@@ -4,6 +4,7 @@
    [instant.reactive.ephemeral :as eph]
    [instant.reactive.store :as rs])
   (:import
+   (com.hazelcast.cluster Member)
    (com.hazelcast.core HazelcastInstance IExecutorService)))
 
 (defn app-sessions->report [app-sessions]
@@ -32,7 +33,9 @@
   (let [executor (HazelcastInstance/.getExecutorService hz "session-report-executor")
         futures  (IExecutorService/.submitToAllMembers executor (hz/->Task #'session-report-task))]
     (into {} (for [[member fut] futures]
-               [(str member) @fut]))))
+               [(str (or (Member/.getAttribute member "instance-id")
+                         (Member/.getAddress member)))
+                @fut]))))
 
 (comment
   (get-all-session-reports (eph/get-hz)))
