@@ -776,9 +776,10 @@
         (is (eph/in-room? movies-app-id rid sess-id))
 
         ;; session data is empty
-        (is (= {sess-id {:peer-id sess-id
-                         :user nil
-                         :data {}}}
+        (is (= {sess-id {:peer-id     sess-id
+                         :instance-id "dev"
+                         :user        nil
+                         :data        {}}}
                (eph/get-room-data movies-app-id rid)))
 
         ;; set session data
@@ -789,9 +790,10 @@
                   :room-id rid
                   :edits   [[[sess-id :data] :r {:a "a" :b "b" :c "c" :d "d" :e "e"}]]}}
                (read-msgs 2 socket)))
-        (is (= {sess-id {:peer-id sess-id
-                         :user    nil
-                         :data    d1}}
+        (is (= {sess-id {:peer-id     sess-id
+                         :instance-id "dev"
+                         :user        nil
+                         :data        d1}}
                (eph/get-room-data movies-app-id rid)))
 
         ;; udpate session data
@@ -803,9 +805,10 @@
                             [[sess-id :data :e] :r "E"]
                             [[sess-id :data :f] :+ "F"]]}}
                (read-msgs 2 socket)))
-        (is (= {sess-id {:peer-id sess-id
-                         :user    nil
-                         :data    d2}}
+        (is (= {sess-id {:peer-id     sess-id
+                         :instance-id "dev"
+                         :user        nil
+                         :data        d2}}
                (eph/get-room-data movies-app-id rid)))))))
 
 (deftest set-presence-two-sessions
@@ -825,7 +828,7 @@
 
         (send-msg socket-1 {:op :join-room, :room-id rid})
         (is (= #{{:op :join-room-ok, :room-id rid}
-                 {:op :refresh-presence, :room-id rid, :data {sess-id-1 {:data {}, :peer-id sess-id-1, :user nil}}}}
+                 {:op :refresh-presence, :room-id rid, :data {sess-id-1 {:data {}, :instance-id "dev", :peer-id sess-id-1, :user nil}}}}
                (read-msgs 2 socket-1)))
 
         (send-msg socket-1 {:op :set-presence, :room-id rid, :data d1})
@@ -841,18 +844,21 @@
         (is (= #{{:op :join-room-ok, :room-id rid}
                  {:op      :refresh-presence
                   :room-id rid
-                  :data    {sess-id-1 {:data    d1
-                                       :peer-id sess-id-1
-                                       :user    nil}
-                            sess-id-2 {:data    {}
-                                       :peer-id sess-id-2
-                                       :user    nil}}}}
+                  :data    {sess-id-1 {:data        d1
+                                       :peer-id     sess-id-1
+                                       :instance-id "dev"
+                                       :user        nil}
+                            sess-id-2 {:data        {}
+                                       :peer-id     sess-id-2
+                                       :instance-id "dev"
+                                       :user        nil}}}}
                (read-msgs 2 socket-2)))
         (is (= {:op      :patch-presence
                 :room-id rid
-                :edits   [[[sess-id-2] :+ {:data {}
-                                           :peer-id sess-id-2
-                                           :user nil}]]}
+                :edits   [[[sess-id-2] :+ {:data        {}
+                                           :peer-id     sess-id-2
+                                           :instance-id "dev"
+                                           :user        nil}]]}
                (read-msg socket-1)))
 
         ;; socket-1 updating
