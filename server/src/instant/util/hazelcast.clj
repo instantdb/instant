@@ -41,6 +41,8 @@
 (def join-room-type-id 8)
 (def patch-type-id 9)
 
+(declare patch-assoc patch-assoc-in patch-merge-in patch-dissoc patch-dissoc-in)
+
 ;; --------
 ;; Room key
 
@@ -244,6 +246,8 @@
 ;; -----------------
 ;; Path serializer
 
+;; DO NOT change implementation here. Make a new version and do three-step
+;; deploy (see comment at the top of the file)
 (defrecord Patch [edits]
   BiFunction
   (apply [_ data _]
