@@ -95,6 +95,8 @@ export default function Page() {
 }
 ```
 
+The client-only flow described here uses PKCE and does not support refresh tokens. For a server-based flow that supports refresh tokens, see the [Platform OAuth docs](https://www.instantdb.com/docs/auth/platform-oauth).
+
 ## Making API requests
 
 Once you have your token, you can perform actions on the user's behalf with the `PlatformApi` class.
