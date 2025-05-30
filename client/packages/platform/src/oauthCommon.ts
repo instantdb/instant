@@ -1,3 +1,11 @@
+export type OAuthScope =
+  | 'apps-read'
+  | 'apps-write'
+  | 'data-read'
+  | 'data-write'
+  | 'storage-read'
+  | 'storage-write';
+
 export class InstantOAuthError extends Error {
   error: string;
   errorDescription: string | null | undefined;

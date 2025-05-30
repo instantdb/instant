@@ -450,7 +450,7 @@ https://api.instantdb.com/platform/oauth/revoke?token=YOUR_TOKEN
 ### Get schema
 
 - **Description:** Views the schema for the app.
-- **Method:** `POST`
+- **Method:** `GET`
 - **Path:** `/superadmin/apps/:app_id/schema`
 - **Authentication:** Required (Bearer Token)
 - **Required OAuth Scope:** `apps-read`

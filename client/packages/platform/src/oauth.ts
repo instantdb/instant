@@ -1,6 +1,6 @@
 import { version as coreVersion } from '@instantdb/core';
 import { pkceVerifier, pkceCodeChallengeOfVerifier } from './crypto.ts';
-import { InstantOAuthError } from './oauthCommon.ts';
+import { InstantOAuthError, OAuthScope } from './oauthCommon.ts';
 import version from './version.js';
 
 export type InstantDBOAuthAccessToken = {
@@ -50,17 +50,19 @@ function oAuthStartUrl({
   codeChallenge,
   apiURI,
   redirectUri,
+  scopes,
 }: {
   clientId: string;
   state: string;
   codeChallenge: string;
   apiURI: string;
   redirectUri: string;
+  scopes: string[];
 }): string {
   const oauthUrl = new URL(`${apiURI}/platform/oauth/start`);
   oauthUrl.searchParams.set('client_id', clientId);
   oauthUrl.searchParams.set('redirect_uri', redirectUri);
-  oauthUrl.searchParams.set('scope', 'apps-write');
+  oauthUrl.searchParams.set('scope', scopes.join(' '));
   oauthUrl.searchParams.set('state', state);
   oauthUrl.searchParams.set('response_type', 'code');
   oauthUrl.searchParams.set('code_challenge', codeChallenge);
@@ -169,10 +171,12 @@ export function startInstantOAuthClientOnlyFlow({
   clientId,
   apiURI,
   redirectUri,
+  scopes,
 }: {
   clientId: string;
   apiURI: string;
   redirectUri: string;
+  scopes: OAuthScope[];
 }): Promise<InstantDBOAuthAccessToken> {
   if (typeof window === 'undefined') {
     throw new Error('OAuth flow can only be started on the client.');
@@ -272,6 +276,7 @@ export function startInstantOAuthClientOnlyFlow({
       codeChallenge,
       apiURI,
       redirectUri,
+      scopes,
     });
     w.location.href = oauthUrl;
   });
@@ -336,7 +341,7 @@ export class OAuthHandler {
    * function ConnectToInstant() {
    *   const handleConnect = async () => {
    *     try {
-   *       const token = await oauthHandler.startClientOnlyFlow();
+   *       const token = await oauthHandler.startClientOnlyFlow(['apps-write']);
    *       console.log('success!', token)
    *     } catch (e) {
    *       console.log('OAuth flow failed', e);
@@ -345,11 +350,14 @@ export class OAuthHandler {
    *   return <button onClick={handleConnect}>Connect to Instant</button>
    * }
    */
-  startClientOnlyFlow(): Promise<InstantDBOAuthAccessToken> {
+  startClientOnlyFlow(
+    scopes: OAuthScope[],
+  ): Promise<InstantDBOAuthAccessToken> {
     return startInstantOAuthClientOnlyFlow({
       clientId: this.clientId,
       apiURI: this.apiURI,
       redirectUri: this.redirectUri,
+      scopes,
     });
   }
 
