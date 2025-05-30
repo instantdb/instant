@@ -20,7 +20,20 @@ async function fetchDailyOverview(token: string) {
   });
 }
 
-async function fetchMinuteOverview(token: string) {
+type MachineId = string;
+type AppId = string;
+type AppSessions = {
+  'app-id': AppId;
+  'app-title': string;
+  'creator-email': string;
+  count: number;
+  origins: Record<string, number>;
+};
+type MachineSessions = Record<AppId, AppSessions>;
+type SessionReports = Record<MachineId, MachineSessions>;
+type MinuteOverview = { 'session-reports': SessionReports };
+
+async function fetchMinuteOverview(token: string): Promise<MinuteOverview> {
   return jsonFetch(`${config.apiURI}/dash/overview/minute`, {
     method: 'GET',
     headers: {
@@ -58,7 +71,12 @@ function useDailyOverview(token: string) {
   return { ...state, sentAt };
 }
 
-function useMinuteOverview(token: string) {
+function useMinuteOverview(token: string): {
+  isLoading: boolean;
+  error: Error | undefined;
+  data: MinuteOverview | undefined;
+  sentAt: Date;
+} {
   const sentAt = useCurrentDate({ refreshSeconds: 30 });
   const [state, setState] = useState<any>({
     isLoading: true,
@@ -106,7 +124,7 @@ function mergeSessions(sessA: any, sessB: any) {
   return ret;
 }
 
-function flattenedSessionReports(machineToReport: any) {
+function flattenedSessionReports(machineToReport: SessionReports) {
   const res: any = {};
   for (const memberId in machineToReport) {
     const memberReports = machineToReport[memberId];
@@ -120,10 +138,16 @@ function flattenedSessionReports(machineToReport: any) {
   return items;
 }
 
-function makeMachineSummary(machineToReport: any): Record<string, number> {
+function makeMachineSummary(
+  machineToReport: SessionReports,
+): Record<string, number> {
   const res: any = {};
   for (const [memberId, reports] of Object.entries(machineToReport)) {
-    res[memberId] = Object.keys(reports as any).length;
+    let total = 0;
+    for (const [_appId, appReport] of Object.entries(reports)) {
+      total += appReport.count;
+    }
+    res[memberId] = total;
   }
   return res;
 }
@@ -179,6 +203,13 @@ export function Main() {
     return (
       <div>
         Error: <pre>{JSON.stringify(error.body, null, 2)}</pre>
+      </div>
+    );
+  }
+  if (!minute.data || !daily.data) {
+    return (
+      <div>
+        Error: <pre>Missing data for minute.</pre>
       </div>
     );
   }
