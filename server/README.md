@@ -44,12 +44,13 @@ On a mac using postgres.app, it looks something like this:
 git clone https://github.com/ossc-db/pg_hint_plan.git
 git checkout PG16
 make USE_PGXS=1 PG_CONFIG=/Applications/Postgres.app/Contents/Versions/16/bin/pg_config install DESTDIR=$HOME/postgres_extensions
-sudo cp $HOME/postgres_extensions/Applications/Postgres.app/Contents/Versions/16/lib/postgresql/pg_hint_plan.dylib /Applications/Postgres.app/Contents/Versions/16/lib/postgresql/
+sudo cp $HOME/postgres_extensions/Applications/Postgres.app/Contents/Versions/16/lib/postgresql/pg_hint_plan.dylib /usr/local/lib/
 ```
 
-Ensure your `postgresql.conf` has pg_hint_plan enabled:
+Ensure your `postgresql.conf` can find pg_hint_plan and has pg_hint_plan enabled:
 
 ```conf
+dynamic_library_path = '/usr/local/lib:$libdir'
 shared_preload_libraries = 'pg_stat_statements,pg_hint_plan'
 ```
 
