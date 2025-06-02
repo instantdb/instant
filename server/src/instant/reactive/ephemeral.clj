@@ -237,28 +237,29 @@
     (hazelcast/remove-session! (get-hz-rooms-map) room-key sess-id)))
 
 (defn clean-orphan-sessions [_time]
-  (let [instance-ids (-> (:hz @hz)
-                         HazelcastInstance/.getCluster
-                         Cluster/.getMembers
-                         (->>
-                          (map #(Member/.getAttribute % "instance-id"))
-                          (into #{})))]
-    (doseq [^Map$Entry entry (IMap/.entrySet (:hz-rooms-map @hz))
-            :let [{:keys [app-id room-id]} (.getKey entry)
-                  v (.getValue entry)]
-            :when (and app-id room-id)
-            [sess-id {:keys [instance-id]}] v
-            :when (or
-                   (nil? instance-id)
-                   (not (contains? instance-ids instance-id))
-                   (and (= instance-id (:instance-id @hz))
-                        (nil? (rs/session rs/store sess-id))))]
-      (tracer/with-span! {:name "clean-orphan-session"
-                          :attributes {:app-id      app-id
-                                       :room-id     room-id
-                                       :session-id  sess-id
-                                       :instance-id instance-id}}
-        (remove-session! app-id room-id sess-id)))))
+  (tracer/with-span! {:name "clean-orphan-sessions"}
+    (let [instance-ids (-> (:hz @hz)
+                           HazelcastInstance/.getCluster
+                           Cluster/.getMembers
+                           (->>
+                            (map #(Member/.getAttribute % "instance-id"))
+                            (into #{})))]
+      (doseq [^Map$Entry entry (IMap/.entrySet (:hz-rooms-map @hz))
+              :let [{:keys [app-id room-id]} (.getKey entry)
+                    v (.getValue entry)]
+              :when (and app-id room-id)
+              [sess-id {:keys [instance-id]}] v
+              :when (or
+                     (nil? instance-id)
+                     (not (contains? instance-ids instance-id))
+                     (and (= instance-id (:instance-id @hz))
+                          (nil? (rs/session rs/store sess-id))))]
+        (tracer/with-span! {:name "clean-orphan-session"
+                            :attributes {:app-id      app-id
+                                         :room-id     room-id
+                                         :session-id  sess-id
+                                         :instance-id instance-id}}
+          (remove-session! app-id room-id sess-id))))))
 
 (defn clean-old-sessions []
   (let [oldest-timestamp (aws-util/oldest-instance-timestamp)
