@@ -1,14 +1,17 @@
 (ns instant.db.rule-where-testing
   (:require [clojure.core.async :as a]
+            [clojure.core.cache.wrapped :as cache]
             [instant.db.datalog :as d]
             [instant.flags :as flags]
             [instant.jdbc.sql :as sql]
             ;; [instant.model.rule :as rule-model]
             ;; [instant.util.coll :as ucoll]
             [instant.util.tracer :as tracer]
-            [instant.util.instaql :refer [instaql-nodes->object-tree]]))
+            [instant.util.instaql :refer [instaql-nodes->object-tree forms-hash]]))
 
 ;; DWW: Temporarily hijacking this ns to test out pg_hint_plan
+
+(def seen (cache/ttl-cache-factory {} :ttl (* 1000 60)))
 
 (defn run-test [ctx permissioned-query-fn o]
   (let [start (System/nanoTime)
@@ -22,7 +25,8 @@
      :result res
      :error? (instance? Exception res)}))
 
-(defn test-rule-wheres [ctx permissioned-query-fn o]
+(defn test-rule-wheres [ctx permissioned-query-fn o query-hash]
+  (cache/lookup-or-miss seen query-hash (constantly true))
   (binding [tracer/*span* nil] ;; Create new root span
     (tracer/with-span! {:name "test-pg-hint-plan"
                         :attributes {:query o
@@ -74,14 +78,16 @@
                                (rule-model/get-program! rules (name field) "view"))
                              (keys o))))))
 
-(defn worth-testing? [_ctx _o]
-  (flags/test-rule-wheres?))
+(defn worth-testing? [_ctx _o query-hash]
+  (and (flags/test-rule-wheres?)
+       (not (cache/lookup seen query-hash))))
 
 (defonce process-chan (atom (a/chan (a/sliding-buffer 10))))
 
 (defn queue-for-testing [ctx permissioned-query-fn o]
-  (when (worth-testing? ctx o)
-    (a/put! @process-chan [ctx permissioned-query-fn o])))
+  (let [query-hash (forms-hash o)]
+    (when (worth-testing? ctx o query-hash)
+      (a/put! @process-chan [ctx permissioned-query-fn o query-hash]))))
 
 (defn start []
   (reset! process-chan (a/chan (a/sliding-buffer 10)))
