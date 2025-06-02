@@ -3,7 +3,6 @@
    [clojure.set :as set :refer [map-invert]]
    [clojure.spec.alpha :as s]
    [clojure.string :as string]
-   [clojure.walk :as walk]
    [honey.sql :as hsql]
    [instant.data.resolvers :as resolvers]
    [instant.db.cel :as cel]
