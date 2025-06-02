@@ -42,6 +42,7 @@ On a mac using postgres.app, it looks something like this:
 ```sh
 # In a temporary directory
 git clone https://github.com/ossc-db/pg_hint_plan.git
+cd pg_hint_plan
 git checkout PG16
 make USE_PGXS=1 PG_CONFIG=/Applications/Postgres.app/Contents/Versions/16/bin/pg_config install DESTDIR=$HOME/postgres_extensions
 sudo cp $HOME/postgres_extensions/Applications/Postgres.app/Contents/Versions/16/lib/postgresql/pg_hint_plan.dylib /usr/local/lib/
