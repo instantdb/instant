@@ -69,7 +69,8 @@
                          (Map/.values)
                          (keep Queue/.peek)
                          not-empty)]
-    (- (System/currentTimeMillis) (transduce (map ::put-at) min items))))
+    (let [now (System/currentTimeMillis)]
+      (- now (transduce (map ::put-at) min now items)))))
 
 (defn start
   "Options:
