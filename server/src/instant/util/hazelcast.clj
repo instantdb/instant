@@ -37,7 +37,6 @@
 (def global-type-id 5)
 (def room-broadcast-type-id 6)
 (def task-type-id 7)
-(def join-room-type-id 8) ;; TODO remove after deploy
 (def join-room-v3-type-id 9)
 
 ;; --------
@@ -118,39 +117,6 @@
 ;; Join room
 
 ;; Helper to add a session to the room in the hazelcast map
-;; TODO remove after deploy
-(defrecord JoinRoomMergeV2 [^UUID session-id ^UUID user-id data]
-  BiFunction
-  (apply [_ room-data _]
-    (update room-data
-            session-id
-            (fn [existing]
-              (merge existing
-                     {:peer-id session-id
-                      :user (when user-id
-                              {:id user-id})}
-                     (if data
-                       {:data data}
-                       {:data (or (:data existing) {})}))))))
-
-;; TODO remove after deploy
-(def ^ByteArraySerializer join-room-serializer
-  (reify ByteArraySerializer
-    (getTypeId [_]
-      join-room-type-id)
-    (write ^bytes [_ obj]
-      (let [{:keys [^UUID session-id ^UUID user-id data]} obj]
-        (nippy/fast-freeze [session-id user-id data])))
-    (read [_ ^bytes in]
-      (let [[session-id user-id data] (nippy/fast-thaw in)]
-        (->JoinRoomMergeV2 session-id user-id data)))
-    (destroy [_])))
-
-;; TODO remove after deploy
-(def join-room-config
-  (make-serializer-config JoinRoomMergeV2
-                          join-room-serializer))
-
 (defrecord JoinRoomMergeV3 [^UUID session-id ^String instance-id ^UUID user-id data]
   BiFunction
   (apply [_ room-data _]
@@ -294,7 +260,6 @@
 (def serializer-configs
   [remove-session-config
    room-broadcast-config
-   join-room-config ;; TODO remove after deploy
    join-room-v3-config
    set-presence-config
    room-key-config

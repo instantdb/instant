@@ -16,19 +16,19 @@
 
 (deftest join-room-roundtrips
   (testing "with user"
-    (let [start (h/->JoinRoomMergeV2 (random-uuid) (random-uuid) {"hello" "world"})
-          serializer h/join-room-serializer]
+    (let [start (h/->JoinRoomMergeV3 (random-uuid) "dev" (random-uuid) {"hello" "world"})
+          serializer h/join-room-v3-serializer]
       (is (= start (->> (.write serializer start)
                         (.read serializer))))))
   (testing "without user"
-    (let [start (h/->JoinRoomMergeV2 (random-uuid) nil nil)
-          serializer h/join-room-serializer]
+    (let [start (h/->JoinRoomMergeV3 (random-uuid) "dev" nil nil)
+          serializer h/join-room-v3-serializer]
       (is (= start (->> (.write serializer start)
                         (.read serializer))))))
 
   (testing "without data"
-    (let [start (h/->JoinRoomMergeV2 (random-uuid) (random-uuid) nil)
-          serializer h/join-room-serializer]
+    (let [start (h/->JoinRoomMergeV3 (random-uuid) "dev" (random-uuid) nil)
+          serializer h/join-room-v3-serializer]
       (is (= start (->> (.write serializer start)
                         (.read serializer)))))))
 
