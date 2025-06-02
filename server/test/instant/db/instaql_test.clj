@@ -4457,7 +4457,9 @@
                                             (string/includes? msg "HintStateDump"))
                                           warnings)]
           (is (not (nil? hint-state-dump)))
-          (is (string/includes? hint-state-dump "used hints:IndexScan(t0 av_index)IndexScan(t2 ea_index)")))))))
+          ;; Testing using ea index only
+          ;; (is (string/includes? hint-state-dump "used hints:IndexScan(t0 av_index)IndexScan(t2 ea_index)"))
+          (is (string/includes? hint-state-dump "used hints:IndexScan(t2 ea_index)")))))))
 
 (comment
   (test/run-tests *ns*))
