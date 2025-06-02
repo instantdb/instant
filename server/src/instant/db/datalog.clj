@@ -1471,8 +1471,10 @@
                          [(has-prev-tbl table)
                           {:select [[[:exists has-previous-query]]]}
                           :not-materialized])
-             :pg-hints (into (:pg-hints (:query match-query))
-                             pg-hints)
+             :pg-hints (if true ;; disable hints for pagination until we can generate better plans
+                         []
+                         (into (:pg-hints (:query match-query))
+                               pg-hints))
              :select (kw last-row-table :.*)
              :from last-table-name}
      :symbol-map symbol-map
