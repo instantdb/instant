@@ -20,6 +20,7 @@
    [instant.util.coll :as ucoll]
    [instant.util.exception :as ex]
    [instant.util.io :as io]
+   [instant.util.instaql :refer [forms-hash]]
    [instant.util.json :refer [->json]]
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
@@ -1172,33 +1173,6 @@
     {:patterns {:children {:pattern-groups pattern-groups}}
      :forms forms
      :referenced-etypes referenced-etypes}))
-
-(defn clean-where-for-hash [where]
-  (walk/postwalk (fn [x]
-                   (cond (string? x)
-                         :string
-                         (number? x)
-                         :number
-                         (uuid? x)
-                         :uuid
-                         (boolean? x)
-                         :boolean
-                         :else x))
-                 where))
-
-(defn clean-forms-for-hash [forms]
-  (walk/postwalk (fn [v]
-                   (if (and (map? v)
-                            (contains? v :$))
-                     (-> v
-                         (update-existing-in [:$ :where] clean-where-for-hash)
-                         (update-existing-in [:$ :before] (constantly :cursor))
-                         (update-existing-in [:$ :after] (constantly :cursor)))
-                     v))
-                 forms))
-
-(defn forms-hash [forms]
-  (hash (clean-forms-for-hash forms)))
 
 (defn query-normal
   "Generates and runs a nested datalog query, then collects the results into nodes."
