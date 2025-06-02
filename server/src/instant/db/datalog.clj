@@ -935,7 +935,8 @@
                       (not= :string (-> named-p
                                         :idx
                                         second
-                                        :data-type)))
+                                        :data-type))
+                      (= :ea_index (pg-hint-index (:idx named-p))))
                    [(pg-hint/index-scan triples-alias (pg-hint-index (:idx named-p)))]
                    []))}))
 
