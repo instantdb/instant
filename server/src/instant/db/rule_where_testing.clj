@@ -11,7 +11,7 @@
 
 ;; DWW: Temporarily hijacking this ns to test out pg_hint_plan
 
-(def seen (cache/ttl-cache-factory {} :ttl (* 1000 60 5)))
+(def seen (cache/ttl-cache-factory {} :ttl (* 1000 60)))
 
 (defn run-test [ctx permissioned-query-fn o]
   (let [start (System/nanoTime)
