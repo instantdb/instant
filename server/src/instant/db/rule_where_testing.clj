@@ -10,6 +10,9 @@
             [instant.util.instaql :refer [instaql-nodes->object-tree forms-hash]]))
 
 ;; DWW: Temporarily hijacking this ns to test out pg_hint_plan
+;;      Add a new row to `toggles` in the instant-config app with
+;;      setting="pg-hint-test/postgres-index-name" (e.g. pg-hint-test/av_index), value=true
+;;      to test with that index enabled.
 
 (def seen (cache/ttl-cache-factory {} :ttl (* 1000 60)))
 
@@ -29,22 +32,23 @@
   (cache/lookup-or-miss seen query-hash (constantly true))
   (binding [tracer/*span* nil] ;; Create new root span
     (tracer/with-span! {:name "test-pg-hint-plan"
-                        :attributes {:query o
-                                     :app-id (:app-id ctx)
-                                     :current-user-id (-> ctx :current-user :id)}}
+                        :attributes (merge {:query o
+                                            :app-id (:app-id ctx)
+                                            :current-user-id (-> ctx :current-user :id)}
+                                           (flags/pg-hint-testing-toggles))}
       (binding [sql/*query-timeout-seconds* 5]
         (let [ctx (assoc ctx :datalog-query-fn d/query)
               without-rule-wheres-fut
               (future
                 (tracer/with-span! {:name "test-pg-hint-plan/without-hint-plan"}
-                  (binding [d/*use-pg-hints* false]
+                  (binding [d/*testing-pg-hints* false]
                     (run-test ctx ;;(assoc ctx :use-rule-wheres? false)
                               permissioned-query-fn o))))
 
               with-rule-wheres-fut
               (future
                 (tracer/with-span! {:name "test-pg-hint-plan/with-hint-plan"}
-                  (binding [d/*use-pg-hints* true]
+                  (binding [d/*testing-pg-hints* true]
                     (run-test ctx ;;(assoc ctx :use-rule-wheres? true)
                               permissioned-query-fn o))))
 

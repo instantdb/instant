@@ -274,3 +274,11 @@
 
 (defn toggled? [key]
   (get-in (query-result) [:toggles key]))
+
+(defn pg-hint-testing-toggles []
+  (reduce-kv (fn [acc k v]
+               (if (= (namespace k) "pg-hint-test")
+                 (assoc acc k v)
+                 acc))
+             {}
+             (get (query-result) :toggles)))

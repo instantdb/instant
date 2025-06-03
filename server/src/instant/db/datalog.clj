@@ -871,6 +871,12 @@
     (when (seq ors)
       (list* :or ors))))
 
+(def ^:dynamic *testing-pg-hints* false)
+
+(defn test-pg-hint-for-index? [idx]
+  (and *testing-pg-hints*
+       (flags/toggled? (keyword "pg-hint-test" (name idx)))))
+
 ;; ---
 ;; match-query
 
@@ -936,7 +942,9 @@
                                         :idx
                                         second
                                         :data-type))
-                      (= :ea_index (pg-hint-index (:idx named-p))))
+                      (let [idx (pg-hint-index (:idx named-p))]
+                        (or (= :ea_index idx)
+                            (test-pg-hint-for-index? idx))))
                    [(pg-hint/index-scan triples-alias (pg-hint-index (:idx named-p)))]
                    []))}))
 
@@ -1588,8 +1596,6 @@
          (assoc :children {:pattern-groups (:pattern-groups res)
                            :join-sym (get-in nested-named-patterns [:children :join-sym])})))))
 
-(def ^:dynamic *use-pg-hints* false)
-
 (defn nested-match-query
   "Generates the hsql `query` and metadata about the query under `children`.
   `children` matches the structure of nested-named-patterns and has all of the
@@ -1614,9 +1620,9 @@
                                ;; option, let's not override their wisdom.
                                :else %)
                             ctes)
-                 :pg-hints (if *use-pg-hints*
-                             pg-hints
-                             [])
+                 :pg-hints (if (flags/toggled? :disable-pg-hints)
+                             []
+                             pg-hints)
                  :select [[(into [:json_build_array]
                                  (mapv (fn [tables]
                                          (into [:json_build_object]
