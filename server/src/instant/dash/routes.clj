@@ -943,6 +943,14 @@
 ;; ---------------
 ;; Email templates
 
+(defn sender-verification-get [req]
+  (let [{{app-id :id} :app} (req->app-and-user! :admin req)
+        {postmark-id :postmark_id}
+        (app-email-template-model/get-by-app-id-and-email-type
+         {:app-id app-id :email-type "magic-code"})]
+    (response/ok {:verification (when postmark-id
+                                  (postmark/get-sender! {:id postmark-id}))})))
+
 (defn email-template-post [req]
   (let [{app :app user :user} (req->app-and-user! :admin req)
         email-type (ex/get-param! req [:body :email-type] string-util/coerce-non-blank-str)

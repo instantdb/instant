@@ -1,6 +1,6 @@
-import { useContext, useState } from 'react';
+import { useContext, useState, useEffect } from 'react';
 import config from '@/lib/config';
-import { jsonMutate } from '@/lib/fetch';
+import { jsonMutate, jsonFetch } from '@/lib/fetch';
 import { APIResponse } from '@/lib/auth';
 import { TokenContext } from '@/lib/contexts';
 import { DashResponse, InstantApp } from '@/lib/types';
@@ -26,6 +26,42 @@ export type EmailValues = {
   senderEmail: string;
 };
 
+export type SenderVerificationInfo = {
+  ID: number;
+  Domain: string;
+  EmailAddress: string;
+  Name: string;
+  Confirmed: boolean;
+  SPFHost: string;
+  SPFVerified: boolean;
+  SPFTextValue: string;
+  DKIMHost: string;
+  DKIMVerified: boolean;
+  DKIMUpdateStatus: string;
+  DKIMPendingHost: string;
+  DKIMPendingTextValue: string;
+  DKIMTextValue: string;
+  ReturnPathDomainVerified: boolean;
+  ReturnPathDomainCNAMEValue: string;
+};
+
+export function getSenderVerification({
+  token,
+  appId,
+}: {
+  token: string;
+  appId: string;
+}): Promise<{ senderEmail: string; verification: SenderVerificationInfo }> {
+  return jsonFetch(`${config.apiURI}/dash/apps/${appId}/sender-verification`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${token}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({}),
+  });
+}
+
 export function Email({
   dashResponse,
   app,
@@ -37,6 +73,54 @@ export function Email({
   const template = app.magic_code_email_template;
   const token = useContext(TokenContext);
   const [isEditing, setIsEditing] = useState(Boolean(template) ?? false);
+  const [senderVerification, setSenderVerification] =
+    useState<SenderVerificationInfo | null>(null);
+  const [isLoadingVerification, setIsLoadingVerification] = useState(false);
+  const [isCheckingVerification, setIsCheckingVerification] = useState(false);
+  const [senderEmail, setSenderEmail] = useState<string | null>(null);
+
+  // Extract domain from email address
+  const getDomainFromEmail = (email: string) => {
+    const parts = email.split('@');
+    return parts.length === 2 ? parts[1] : '';
+  };
+
+  // Load sender verification info
+  const loadSenderVerification = async () => {
+    setIsLoadingVerification(true);
+    try {
+      const response = await getSenderVerification({
+        token,
+        appId: app.id,
+      });
+      setSenderVerification(response.verification);
+      setSenderEmail(response.senderEmail || 'stopa@instantdb.com');
+    } catch (error) {
+      console.error('Failed to load sender verification:', error);
+      setSenderVerification(null);
+      setSenderEmail(null);
+    } finally {
+      setIsLoadingVerification(false);
+    }
+  };
+
+  // Check/refresh verification status
+  const checkVerification = async () => {
+    setIsCheckingVerification(true);
+    try {
+      const response = await getSenderVerification({
+        token,
+        appId: app.id,
+      });
+      setSenderVerification(response.verification);
+      setSenderEmail(response.senderEmail);
+    } catch (error) {
+      console.error('Failed to check verification:', error);
+      errorToast('Failed to check verification status');
+    } finally {
+      setIsCheckingVerification(false);
+    }
+  };
 
   async function onSubmit(values: EmailValues) {
     return dashResponse
@@ -58,6 +142,9 @@ export function Email({
       .then(
         () => {
           successToast('Email template saved!');
+          if (values.senderEmail) {
+            loadSenderVerification();
+          }
         },
         (errorRes) =>
           displayInstantStandardError(errorRes, form, {
@@ -85,6 +172,12 @@ export function Email({
       : formDefaults,
   });
 
+  useEffect(() => {
+    if (template?.email) {
+      loadSenderVerification();
+    }
+  }, []);
+
   if (!isEditing) {
     return (
       <div className="flex flex-col gap-2">
@@ -95,7 +188,6 @@ export function Email({
       </div>
     );
   }
-
   return (
     <form {...form.formProps()} className="flex flex-col gap-2">
       <SectionHeading>Custom Magic Code Email</SectionHeading>
@@ -159,9 +251,8 @@ export function Email({
         </SubsectionHeading>
 
         <Content className="text-gray-600 italic text-sm">
-          If you provide a custom sender address, you'll need to confirm it
-          before we can start delivering from it. Our email partner will send a
-          confirmation to the provided address with a link to verify.
+          By default, emails are sent from our domain. Add a custom sender to
+          send emails from your own domain and build trust with recipients.
         </Content>
 
         <TextInput
@@ -170,6 +261,164 @@ export function Email({
           placeholder="hi@yourdomain.co"
         />
       </div>
+
+      {senderVerification && senderEmail && (
+        <div className="flex flex-col gap-4 mt-4">
+          {/* Header with Verify Button for Both Sections */}
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-medium text-gray-700">
+              Verify {senderEmail}
+            </div>
+            <Button
+              onClick={checkVerification}
+              loading={isCheckingVerification}
+              variant="primary"
+              size="mini"
+            >
+              Refresh Status
+            </Button>
+          </div>
+
+          {/* Email Confirmation Status */}
+          <div className="border rounded-lg p-4 bg-white">
+            <div className="flex items-center justify-between mb-2">
+              <div className="font-medium text-sm">Email Confirmation</div>
+              <div className="flex items-center gap-2">
+                {senderVerification.Confirmed ? (
+                  <div className="flex items-center gap-2 text-green-600 text-xs">
+                    <div className="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center">
+                      <span className="text-white text-xs">✓</span>
+                    </div>
+                    Confirmed
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-gray-500 text-xs">
+                    <div
+                      className={`w-3 h-3 rounded-full ${isCheckingVerification ? 'bg-gray-400' : 'bg-red-500'}`}
+                    ></div>
+                    Pending confirmation
+                  </div>
+                )}
+              </div>
+            </div>
+            <Content className="text-sm text-gray-600">
+              {senderVerification.Confirmed
+                ? `Great! You've confirmed ${senderVerification.EmailAddress} and can now send emails from this address.`
+                : `We've sent a confirmation email to ${senderVerification.EmailAddress}. Please click the link in that email to confirm ownership.`}
+            </Content>
+          </div>
+
+          {/* Domain Verification */}
+          <div className="border rounded-lg p-4 bg-white">
+            <div className="flex items-center justify-between mb-2">
+              <div className="font-medium text-sm">
+                Bonus: Domain Verification
+              </div>
+            </div>
+
+            <Content className="text-sm text-gray-600 mb-3">
+              Add DNS records to improve email deliverability and avoid spam
+              filters.
+            </Content>
+
+            <div className="border rounded-lg overflow-hidden mb-3">
+              {/* Table Header */}
+              <div className="grid grid-cols-[1fr_80px_2fr] bg-gray-50 border-b text-sm font-medium text-gray-700 px-4 py-3">
+                <div>Record</div>
+                <div>Type</div>
+                <div>Value</div>
+              </div>
+
+              {/* DKIM Record Row */}
+              <div className="grid grid-cols-[1fr_80px_2fr] border-b px-4 py-3 text-sm">
+                <div className="flex items-center gap-3">
+                  <div>
+                    <div className="font-medium">DKIM</div>
+                    <div className="flex items-center gap-2 text-xs">
+                      {isCheckingVerification ? (
+                        <div className="w-3 h-3 rounded-full bg-gray-400"></div>
+                      ) : senderVerification?.DKIMVerified ? (
+                        <div className="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center">
+                          <span className="text-white text-xs">✓</span>
+                        </div>
+                      ) : (
+                        <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                      )}
+                      <span className="text-gray-500">
+                        {senderVerification?.DKIMVerified
+                          ? 'Verified'
+                          : senderVerification?.DKIMUpdateStatus === 'Failed'
+                            ? 'Failed'
+                            : 'Not verified'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center text-gray-600 text-sm">
+                  TXT
+                </div>
+                <div className="flex flex-col gap-2">
+                  <div>
+                    <div className="text-xs text-gray-600 mb-1">Hostname:</div>
+                    <code className="text-xs bg-gray-100 px-2 py-1 rounded break-all select-all block">
+                      {senderVerification.DKIMPendingHost?.replace(
+                        `.${getDomainFromEmail(senderEmail)}`,
+                        '',
+                      )}
+                    </code>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-600 mb-1">Value:</div>
+                    <code className="text-xs bg-gray-100 px-2 py-1 rounded break-all select-all block">
+                      {senderVerification.DKIMPendingTextValue}
+                    </code>
+                  </div>
+                </div>
+              </div>
+
+              {/* Return Path Record Row */}
+              <div className="grid grid-cols-[1fr_80px_2fr] px-4 py-3 text-sm">
+                <div className="flex items-center gap-3">
+                  <div>
+                    <div className="font-medium">Return-Path</div>
+                    <div className="flex items-center gap-2 text-xs">
+                      {isCheckingVerification ? (
+                        <div className="w-3 h-3 rounded-full bg-gray-400"></div>
+                      ) : senderVerification?.ReturnPathDomainVerified ? (
+                        <div className="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center">
+                          <span className="text-white text-xs">✓</span>
+                        </div>
+                      ) : (
+                        <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                      )}
+                      <span className="text-gray-500">
+                        {senderVerification?.ReturnPathDomainVerified
+                          ? 'Verified'
+                          : 'Not verified'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center text-gray-600 text-sm">
+                  CNAME
+                </div>
+                <div className="flex items-center">
+                  <code className="text-xs bg-gray-100 px-2 py-1 rounded break-all select-all">
+                    {senderVerification?.ReturnPathDomainCNAMEValue}
+                  </code>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-blue-50 p-3 rounded text-xs text-blue-800">
+              <strong>💡 Next steps:</strong> Add these DNS records to your
+              domain provider (GoDaddy, Cloudflare, etc.). Changes typically
+              take 15-30 minutes to propagate. Click "Refresh Status" to check
+              the status.
+            </div>
+          </div>
+        </div>
+      )}
 
       <Button {...form.submitButtonProps()} />
 
