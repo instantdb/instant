@@ -434,52 +434,56 @@
         {:keys [client-event-id]} original-event
         {:keys [::ex/type ::ex/message ::ex/hint] :as err-data} (ex-data instant-ex)]
     (tracer/add-data! {:attributes {:err-data (pr-str err-data)}})
-    (case type
-      (::ex/record-not-found
-       ::ex/record-expired
-       ::ex/record-not-unique
-       ::ex/record-foreign-key-invalid
-       ::ex/record-check-violation
-       ::ex/sql-raise
+    (if (= :error (:op original-event))
+      ;; Don't send an error if we failed to send the error or we'll get into an
+      ;; infinite loop of errors
+      (tracer/add-data! {:attributes {:error-on-error true}})
+      (case type
+        (::ex/record-not-found
+         ::ex/record-expired
+         ::ex/record-not-unique
+         ::ex/record-foreign-key-invalid
+         ::ex/record-check-violation
+         ::ex/sql-raise
 
-       ::ex/permission-denied
-       ::ex/permission-evaluation-failed
+         ::ex/permission-denied
+         ::ex/permission-evaluation-failed
 
-       ::ex/param-missing
-       ::ex/param-malformed
+         ::ex/param-missing
+         ::ex/param-malformed
 
-       ::ex/validation-failed)
-      (receive-queue/put! q
-                          {:op :error
-                           :app-id app-id
-                           :status 400
-                           :client-event-id client-event-id
-                           :original-event (merge original-event
-                                                  debug-info)
-                           :type (keyword (name type))
-                           :message message
-                           :hint hint
-                           :session-id sess-id})
-
-      (::ex/session-missing
-       ::ex/socket-missing
-       ::ex/socket-error)
-      (tracer/record-exception-span! instant-ex
-                                     {:name "receive-worker/socket-unreachable"})
-
-      (do
-        (tracer/add-exception! instant-ex {:escaping? false})
+         ::ex/validation-failed)
         (receive-queue/put! q
                             {:op :error
                              :app-id app-id
-                             :status 500
+                             :status 400
                              :client-event-id client-event-id
                              :original-event (merge original-event
                                                     debug-info)
                              :type (keyword (name type))
                              :message message
                              :hint hint
-                             :session-id sess-id})))))
+                             :session-id sess-id})
+
+        (::ex/session-missing
+         ::ex/socket-missing
+         ::ex/socket-error)
+        (tracer/record-exception-span! instant-ex
+                                       {:name "receive-worker/socket-unreachable"})
+
+        (do
+          (tracer/add-exception! instant-ex {:escaping? false})
+          (receive-queue/put! q
+                              {:op :error
+                               :app-id app-id
+                               :status 500
+                               :client-event-id client-event-id
+                               :original-event (merge original-event
+                                                      debug-info)
+                               :type (keyword (name type))
+                               :message message
+                               :hint hint
+                               :session-id sess-id}))))))
 
 (defn- handle-uncaught-err [session app-id original-event root-err debug-info]
   (let [sess-id (:session/id session)
