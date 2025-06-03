@@ -24,26 +24,40 @@
              (Queue/.remove group) ;; remove item2
              (recur (assoc item12 ::combined (inc (::combined item1 1))))))))
 
+(declare process)
+
+(deftype ProcessTask [q key group]
+  Runnable
+  (run [this]
+    (process this q key group)))
+
 (defn- process
   "Main worker process function"
-  [{:keys [groups process-fn combine-fn num-workers num-items processing?] :as q} key group]
+  [process-task
+   {:keys [executor
+           groups
+           process-fn
+           combine-fn
+           num-workers
+           num-items
+           processing?] :as q}
+   key
+   group]
   (AtomicInteger/.incrementAndGet num-workers)
-  (loop []
-    (when @processing?
-      (if-some [item (poll group combine-fn)]
-        (do
-          (try
-            (process-fn key item)
-            (catch Throwable t
-              (tracer/record-exception-span! t {:name "grouped-queue/process-error"})))
-          (AtomicInteger/.addAndGet num-items (- (::combined item 1)))
-          (recur))
-        (when (= ::loop (locking q
-                          (if (some? (Queue/.peek group))
-                            ::loop
-                            (Map/.remove groups key))))
-          (recur)))))
+  (when @processing?
+    (when-some [item (poll group combine-fn)]
+      (try
+        (process-fn key item)
+        (catch Throwable t
+          (tracer/record-exception-span! t {:name "grouped-queue/process-error"})))
+      (AtomicInteger/.addAndGet num-items (- (::combined item 1))))
+    (when (= ::loop (locking q
+                      (if (some? (Queue/.peek group))
+                        ::loop
+                        (Map/.remove groups key))))
+      (ExecutorService/.execute executor process-task)))
   (AtomicInteger/.decrementAndGet num-workers))
+
 
 (defn put!
   "Schedule item for execution on q"
@@ -51,16 +65,16 @@
   (when @accepting?
     (let [item   (assoc item ::put-at (System/currentTimeMillis))
           key    (or (group-key-fn item) ::default)
-          run-fn (locking q
-                   (if-some [group (Map/.get groups key)]
-                     (do
-                       (Queue/.offer group item)
-                       nil)
-                     (let [group (ConcurrentLinkedQueue. [item])]
-                       (Map/.put groups key group)
-                       #(process q key group))))]
-      (when (fn? run-fn)
-        (ExecutorService/.submit executor ^Runnable run-fn))
+          process-task (locking q
+                         (if-some [group (Map/.get groups key)]
+                           (do
+                             (Queue/.offer group item)
+                             nil)
+                           (let [group (ConcurrentLinkedQueue. [item])]
+                             (Map/.put groups key group)
+                             (ProcessTask. q key group))))]
+      (when process-task
+        (ExecutorService/.execute executor process-task))
       (AtomicInteger/.incrementAndGet num-items)
       (AtomicInteger/.incrementAndGet num-puts))))
 

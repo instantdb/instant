@@ -3,7 +3,8 @@
    [clojure.test :refer [deftest testing is]]
    [instant.grouped-queue :as grouped-queue])
   (:import
-   (java.util.concurrent CountDownLatch Executors)))
+   (java.util.concurrent CountDownLatch Executors)
+   (java.util.concurrent.atomic AtomicInteger)))
 
 (def groups
   "abcdefghijklmnopqrstuvwxyz")
@@ -21,22 +22,31 @@
    {:executor (Executors/newCachedThreadPool)}
    {:executor (Executors/newVirtualThreadPerTaskExecutor)}])
 
+(defn wait-for-queue-to-drain [q timeout]
+  (let [wait-fut (future (while (not= 0 (AtomicInteger/.get (:num-items q)))
+                           (Thread/sleep 1)))]
+    (when (= ::timeout (deref wait-fut timeout ::timeout))
+      (future-cancel wait-fut)
+      (throw (Error. "timeout while waiting for queue to drain.")))))
+
 (deftest basic-test
   (doseq [opts (make-opts)]
     (testing (pr-str opts)
       (let [input (for [group groups
                         id    ids]
                     {:group group :id id})
+            input-count (count input)
             output (atom [])
             q (grouped-queue/start
                (merge
                 {:group-key-fn :group
-                 :process-fn   (fn [_group item]
-                                 (swap! output conj item))}
+                 :process-fn (fn [_group item]
+                               (swap! output conj item))}
                 opts))]
         (try
           (doseq [item input]
             (grouped-queue/put! q item))
+          (wait-for-queue-to-drain q 1000)
           (finally
             (is (= :shutdown (grouped-queue/stop q {:timeout-ms 1000})))
             (is (= (count @output) (* (count groups) (count ids))))
@@ -64,6 +74,7 @@
         (try
           (doseq [item input]
             (grouped-queue/put! q item))
+          (wait-for-queue-to-drain q 1000)
           (finally
             (is (= :shutdown (grouped-queue/stop q {:timeout-ms 1000})))
             (doseq [group groups
@@ -100,3 +111,28 @@
         (is (< 1000 (- (System/currentTimeMillis) t0) 5000)))
       (finally
         (grouped-queue/stop q)))))
+
+(deftest the-queue-is-fair
+  (let [q-promise (promise)
+        processed (atom [])
+        stopped (promise)
+        q (grouped-queue/start
+           {:group-key-fn :group
+            :max-workers 1
+            :process-fn (fn [group items]
+                          (if (< 3 (count (swap! processed conj items)))
+                            (do
+                              (deliver stopped true)
+                              (grouped-queue/stop @q-promise))
+                            (do
+                              (grouped-queue/put! @q-promise {:group 2})
+                              (grouped-queue/put! @q-promise {:group 1}))))})]
+    (deliver q-promise q)
+
+    (grouped-queue/put! q {:group 1})
+
+    (when (= ::timeout (deref stopped 1000 ::timeout))
+      (throw (Error. "Timeout while waiting for queue to process")))
+
+    (is (= (map :group @processed)
+           [1 2 1 2]))))
