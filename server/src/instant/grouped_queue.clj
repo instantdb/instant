@@ -64,7 +64,6 @@
       (clean-or-reschedule process-task q group key)))
   (AtomicInteger/.decrementAndGet num-workers))
 
-
 (defn put!
   "Schedule item for execution on q"
   [{:keys [executor groups group-key-fn num-items num-puts accepting?] :as q} item]
