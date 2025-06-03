@@ -434,7 +434,7 @@
         {:keys [client-event-id]} original-event
         {:keys [::ex/type ::ex/message ::ex/hint] :as err-data} (ex-data instant-ex)]
     (tracer/add-data! {:attributes {:err-data (pr-str err-data)}})
-    (if (= (:error (:op original-event)))
+    (if (= :error (:op original-event))
       ;; Don't send an error if we failed to send the error or we'll get into an
       ;; infinite loop of errors
       (tracer/add-data! {:attributes {:error-on-error true}})
