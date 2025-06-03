@@ -31,6 +31,13 @@
   (run [this]
     (process this q key group)))
 
+(defn- clean-or-reschedule [process-task {:keys [executor groups] :as q} group key]
+  (when (= ::reschedule (locking q
+                        (if (some? (Queue/.peek group))
+                          ::reschedule
+                          (Map/.remove groups key))))
+    (ExecutorService/.execute executor process-task)))
+
 (defn- process
   "Main worker process function"
   [process-task
@@ -45,17 +52,17 @@
    group]
   (AtomicInteger/.incrementAndGet num-workers)
   (when @processing?
-    (when-some [item (poll group combine-fn)]
-      (try
-        (process-fn key item)
-        (catch Throwable t
-          (tracer/record-exception-span! t {:name "grouped-queue/process-error"})))
-      (AtomicInteger/.addAndGet num-items (- (::combined item 1))))
-    (when (= ::loop (locking q
-                      (if (some? (Queue/.peek group))
-                        ::loop
-                        (Map/.remove groups key))))
-      (ExecutorService/.execute executor process-task)))
+    (if-some [item (poll group combine-fn)]
+      (do
+        (try
+          (process-fn key item)
+          (catch Throwable t
+            (tracer/record-exception-span! t {:name "grouped-queue/process-error"})))
+        (AtomicInteger/.addAndGet num-items (- (::combined item 1)))
+        (if (some? (Queue/.peek group))
+          (ExecutorService/.execute executor process-task)
+          (clean-or-reschedule process-task q group key)))
+      (clean-or-reschedule process-task q group key)))
   (AtomicInteger/.decrementAndGet num-workers))
 
 
