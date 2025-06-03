@@ -42,7 +42,6 @@
   "Main worker process function"
   [process-task
    {:keys [executor
-           groups
            process-fn
            combine-fn
            num-workers
