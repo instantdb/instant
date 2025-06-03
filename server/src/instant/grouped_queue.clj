@@ -33,9 +33,9 @@
 
 (defn- clean-or-reschedule [process-task {:keys [executor groups] :as q} group key]
   (when (= ::reschedule (locking q
-                        (if (some? (Queue/.peek group))
-                          ::reschedule
-                          (Map/.remove groups key))))
+                          (if (some? (Queue/.peek group))
+                            ::reschedule
+                            (Map/.remove groups key))))
     (ExecutorService/.execute executor process-task)))
 
 (defn- process
