@@ -35,7 +35,6 @@
       (let [input (for [group groups
                         id    ids]
                     {:group group :id id})
-            input-count (count input)
             output (atom [])
             q (grouped-queue/start
                (merge
@@ -119,7 +118,7 @@
         q (grouped-queue/start
            {:group-key-fn :group
             :max-workers 1
-            :process-fn (fn [group items]
+            :process-fn (fn [_group items]
                           (if (< 3 (count (swap! processed conj items)))
                             (do
                               (deliver stopped true)
