@@ -51,7 +51,10 @@ export function getSenderVerification({
 }: {
   token: string;
   appId: string;
-}): Promise<{ senderEmail: string; verification: SenderVerificationInfo }> {
+}): Promise<{
+  senderEmail: string;
+  verification: SenderVerificationInfo | null;
+}> {
   return jsonFetch(`${config.apiURI}/dash/apps/${appId}/sender-verification`, {
     method: 'GET',
     headers: {
@@ -72,29 +75,30 @@ export function Email({
   const template = app.magic_code_email_template;
   const token = useContext(TokenContext);
   const [isEditing, setIsEditing] = useState(Boolean(template) ?? false);
-  const [senderVerification, setSenderVerification] =
-    useState<SenderVerificationInfo | null>(null);
-  const [isCheckingVerification, setIsCheckingVerification] = useState(false);
-
-  // Extract domain from email address
-  const getDomainFromEmail = (email: string) => {
-    const parts = email.split('@');
-    return parts.length === 2 ? parts[1] : '';
-  };
+  const [{ isVerifying, verification }, setVerification] = useState<{
+    isVerifying: boolean;
+    verification: SenderVerificationInfo | null;
+  }>({
+    isVerifying: false,
+    verification: null,
+  });
 
   const checkVerification = async () => {
-    setIsCheckingVerification(true);
+    setVerification((prev) => ({ ...prev, isVerifying: true }));
     try {
       const response = await getSenderVerification({
         token,
         appId: app.id,
       });
-      setSenderVerification(response.verification);
+      setVerification((prev) => ({
+        ...prev,
+        verification: response.verification,
+      }));
     } catch (error) {
       console.error('Failed to check verification:', error);
       errorToast('Failed to check verification status');
     } finally {
-      setIsCheckingVerification(false);
+      setVerification((prev) => ({ ...prev, isVerifying: false }));
     }
   };
 
@@ -222,15 +226,12 @@ export function Email({
       </div>
 
       <div className="flex flex-col gap-2 border p-3 bg-gray-50 rounded">
-        <SubsectionHeading>
-          Use a custom 'From' address (optional)
-        </SubsectionHeading>
-
-        <Content className="text-gray-600 italic text-sm">
-          By default, emails are sent from our domain. Add a custom sender to
-          send emails from your own domain and build trust with recipients.
+        <SubsectionHeading>Use a custom 'From' address</SubsectionHeading>
+        <Content className="text-sm">
+          By default emails are sent from our domain. Add a custom sender to
+          send emails from your own domain and build trust with recipients. You
+          need access to this email to confirm ownership.
         </Content>
-
         <TextInput
           {...form.inputProps('senderEmail')}
           label="Sender email address"
@@ -238,16 +239,15 @@ export function Email({
         />
       </div>
 
-      {senderVerification && (
+      {verification && (
         <div className="flex flex-col gap-2 border p-3 bg-gray-50 rounded">
-          {/* Header with Verify Button for Both Sections */}
           <div className="flex items-center justify-between">
             <SubsectionHeading>
-              Verify {senderVerification.EmailAddress}
+              Verify {verification.EmailAddress}
             </SubsectionHeading>
             <Button
               onClick={checkVerification}
-              loading={isCheckingVerification}
+              loading={isVerifying}
               variant="primary"
               size="mini"
             >
@@ -255,16 +255,15 @@ export function Email({
             </Button>
           </div>
 
-          {/* Email Confirmation Status */}
           <div className="border rounded-lg p-4 bg-white">
             <div className="flex items-center justify-between mb-2">
               <div className="font-medium text-sm">Email Confirmation</div>
               <div className="flex items-center gap-2">
                 <StatusCircle
-                  isLoading={isCheckingVerification}
-                  isSuccess={senderVerification.Confirmed}
+                  isLoading={isVerifying}
+                  isSuccess={verification.Confirmed}
                 />
-                {senderVerification.Confirmed ? (
+                {verification.Confirmed ? (
                   <div className="text-green-600 text-xs font-medium">
                     Confirmed
                   </div>
@@ -276,9 +275,9 @@ export function Email({
               </div>
             </div>
             <Content className="text-sm text-gray-600">
-              {senderVerification.Confirmed
-                ? `Great! You've confirmed ${senderVerification.EmailAddress} and can now send emails from this address.`
-                : `We've sent a confirmation email to ${senderVerification.EmailAddress}. Please click the link in that email to confirm ownership.`}
+              {verification.Confirmed
+                ? `Great! You've confirmed ${verification.EmailAddress} and can now send emails from this address.`
+                : `We've sent a confirmation email to ${verification.EmailAddress}. Please click the link in that email to confirm ownership.`}
             </Content>
           </div>
 
@@ -307,15 +306,13 @@ export function Email({
                     <div className="font-medium">DKIM</div>
                     <div className="flex gap-2 text-xs">
                       <StatusCircle
-                        isLoading={isCheckingVerification}
-                        isSuccess={senderVerification?.DKIMVerified || false}
+                        isLoading={isVerifying}
+                        isSuccess={verification?.DKIMVerified || false}
                       />
                       <span className="text-gray-500">
-                        {senderVerification?.DKIMVerified
+                        {verification?.DKIMVerified
                           ? 'Verified'
-                          : senderVerification?.DKIMUpdateStatus === 'Failed'
-                            ? 'Failed'
-                            : 'Not verified'}
+                          : 'Not verified'}
                       </span>
                     </div>
                   </div>
@@ -325,32 +322,28 @@ export function Email({
                   <div>
                     <div className="text-xs text-gray-600 mb-1">Hostname:</div>
                     <code className="text-xs bg-gray-100 px-2 py-1 rounded break-all select-all block">
-                      {senderVerification.DKIMPendingHost}
+                      {verification.DKIMPendingHost}
                     </code>
                   </div>
                   <div>
                     <div className="text-xs text-gray-600 mb-1">Value:</div>
                     <code className="text-xs bg-gray-100 px-2 py-1 rounded break-all select-all block">
-                      {senderVerification.DKIMPendingTextValue}
+                      {verification.DKIMPendingTextValue}
                     </code>
                   </div>
                 </div>
               </div>
-
-              {/* Return Path Record Row */}
               <div className="grid grid-cols-[1fr_80px_2fr] px-4 py-3 text-sm">
                 <div className="flex items-center gap-3">
                   <div>
                     <div className="font-medium">Return-Path</div>
                     <div className="flex items-center gap-2 text-xs">
                       <StatusCircle
-                        isLoading={isCheckingVerification}
-                        isSuccess={
-                          senderVerification?.ReturnPathDomainVerified || false
-                        }
+                        isLoading={isVerifying}
+                        isSuccess={verification.ReturnPathDomainVerified}
                       />
                       <span className="text-gray-500">
-                        {senderVerification?.ReturnPathDomainVerified
+                        {verification.ReturnPathDomainVerified
                           ? 'Verified'
                           : 'Not verified'}
                       </span>
@@ -362,17 +355,10 @@ export function Email({
                 </div>
                 <div className="flex items-center">
                   <code className="text-xs bg-gray-100 px-2 py-1 rounded break-all select-all">
-                    {senderVerification?.ReturnPathDomainCNAMEValue}
+                    {verification.ReturnPathDomainCNAMEValue}
                   </code>
                 </div>
               </div>
-            </div>
-
-            <div className="bg-blue-50 p-3 rounded text-xs text-blue-800">
-              <strong>💡 Next steps:</strong> Add these DNS records to your
-              domain provider (GoDaddy, Cloudflare, etc.). Changes typically
-              take 15-30 minutes to propagate. Click "Refresh Status" to check
-              the status.
             </div>
           </div>
         </div>
