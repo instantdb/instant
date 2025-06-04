@@ -27,23 +27,15 @@ export type EmailValues = {
 };
 
 export type SenderVerificationInfo = {
-  ID: number;
-  Domain: string;
+  id: number;
   EmailAddress: string;
-  Name: string;
   Confirmed: boolean;
-  SPFHost: string;
-  SPFVerified: boolean;
-  SPFTextValue: string;
   DKIMHost?: string;
-  DKIMVerified: boolean;
-  DKIMUpdateStatus: string;
   DKIMPendingHost?: string;
   DKIMPendingTextValue?: string;
   DKIMTextValue?: string;
-  ReturnPathDomainVerified: boolean;
-  ReturnPathDomainCNAMEValue: string;
   ReturnPathDomain: string;
+  ReturnPathDomainCNAMEValue: string;
 };
 
 export function getSenderVerification({

@@ -949,7 +949,12 @@
         (app-email-template-model/get-by-app-id-and-email-type
          {:app-id app-id :email-type "magic-code"})]
     (response/ok {:verification (when postmark-id
-                                  (:body (postmark/get-sender! {:id postmark-id})))})))
+                                  (-> (postmark/get-sender! {:id postmark-id})
+                                      :body
+                                      (select-keys [:ID :EmailAddress :Confirmed
+                                                    :DKIMHost :DKIMPendingHost
+                                                    :DKIMPendingTextValue :DKIMTextValue
+                                                    :ReturnPathDomain :ReturnPathDomainCNAMEValue])))})))
 
 (defn email-template-post [req]
   (let [{app :app user :user} (req->app-and-user! :admin req)
