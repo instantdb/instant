@@ -2,6 +2,7 @@
 
 import {
   generatePermsTypescriptFile,
+  apiSchemaToInstantSchemaDef,
   generateSchemaTypescriptFile,
   translatePlanSteps,
 } from '@instantdb/platform';
@@ -817,7 +818,7 @@ async function pullSchema(appId, { pkgDir, instantModuleName }) {
     schemaPath,
     generateSchemaTypescriptFile(
       prev?.schema,
-      pullRes.data.schema,
+      apiSchemaToInstantSchemaDef(pullRes.data.schema),
       instantModuleName,
     ),
     'utf-8',

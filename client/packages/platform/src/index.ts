@@ -9,7 +9,11 @@ import {
   type InstantAPIPlatformSchema,
   generateSchemaTypescriptFile,
 } from './schema.ts';
-import { PlatformApi, translatePlanSteps } from './api.ts';
+import {
+  apiSchemaToInstantSchemaDef,
+  PlatformApi,
+  translatePlanSteps,
+} from './api.ts';
 
 import version from './version.js';
 import { ProgressPromise } from './ProgressPromise.ts';
@@ -25,6 +29,7 @@ export {
   InstantOAuthError,
   generateSchemaTypescriptFile,
   generatePermsTypescriptFile,
+  apiSchemaToInstantSchemaDef,
   version,
   translatePlanSteps,
   PlatformApi,

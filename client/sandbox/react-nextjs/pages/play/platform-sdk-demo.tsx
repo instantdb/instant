@@ -1,4 +1,10 @@
-import { OAuthHandler, OAuthScope, PlatformApi, i } from '@instantdb/platform';
+import {
+  OAuthHandler,
+  OAuthScope,
+  PlatformApi,
+  i,
+  generateSchemaTypescriptFile,
+} from '@instantdb/platform';
 import { useState } from 'react';
 import config from '../../config';
 
@@ -7,6 +13,7 @@ globalThis._dev = {
   i,
   PlatformApi,
   OAuthHandler,
+  generateSchemaTypescriptFile,
 };
 
 const OAUTH_CLIENT_ID = process.env.NEXT_PUBLIC_PLATFORM_OAUTH_CLIENT_ID;
@@ -107,9 +114,9 @@ function ApiDemo({ accessToken }: { accessToken: string }) {
   globalThis._dev.api = api;
   const [result, setResult] = useState<any>(null);
 
-  const getApps = async () => {
+  const getApps = async (opts: any) => {
     try {
-      setResult(await api.getApps());
+      setResult(await api.getApps(opts));
     } catch (e) {
       setResult(e);
     }
@@ -120,6 +127,18 @@ function ApiDemo({ accessToken }: { accessToken: string }) {
       <div>
         <button className="bg-black text-white m-2 p-2" onClick={getApps}>
           Get Apps
+        </button>
+        <button
+          className="bg-black text-white m-2 p-2"
+          onClick={() => getApps({ includeSchema: true })}
+        >
+          Get Apps with schema
+        </button>
+        <button
+          className="bg-black text-white m-2 p-2"
+          onClick={() => getApps({ includePerms: true })}
+        >
+          Get Apps with perms
         </button>
       </div>
       {result ? (

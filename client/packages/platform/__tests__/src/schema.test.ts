@@ -1,6 +1,7 @@
 import { test, expect } from 'vitest';
 
 import { generateSchemaTypescriptFile } from '../../src/schema';
+import { apiSchemaToInstantSchemaDef } from '../../src/api';
 import { i } from '@instantdb/core';
 
 test('generates schema', () => {
@@ -23,7 +24,7 @@ test('generates schema', () => {
           },
         },
       }),
-      {
+      apiSchemaToInstantSchemaDef({
         refs: {
           '["bookshelves" "books" "books" "bookshelves"]': {
             'required?': false,
@@ -67,6 +68,23 @@ test('generates schema', () => {
           },
         },
         blobs: {
+          onlyId: {
+            id: {
+              'required?': false,
+              'forward-identity': [
+                '9203a9d8-b345-47d7-8caf-b800101bc814',
+                'books',
+                'id',
+              ],
+              id: '54f72bd0-aa44-4b3f-a8d7-d55cf45e72d4',
+              'unique?': true,
+              cardinality: 'one',
+              'inferred-types': ['string'],
+              'value-type': 'blob',
+              catalog: 'user',
+              'index?': true,
+            },
+          },
           books: {
             description: {
               'required?': false,
@@ -132,7 +150,7 @@ test('generates schema', () => {
               'index?': true,
             },
             title: {
-              'required?': false,
+              'required?': true,
               'forward-identity': [
                 'c0afd326-3458-405c-b746-bb834150cbd9',
                 'books',
@@ -404,7 +422,7 @@ test('generates schema', () => {
             },
           },
         },
-      },
+      }),
       '@instantdb/core',
     ),
   ).toEqual(`// Docs: https://www.instantdb.com/docs/modeling-data
@@ -417,31 +435,32 @@ const _schema = i.schema({
   // run \`push schema\` again to enforce the types.
   entities: {
     "$files": i.entity({
-      "metadata": i.any().optional(),
+      "metadata": i.json().optional(),
       "path": i.string().unique().indexed().optional(),
-      "url": i.any().optional()
+      "url": i.json().optional(),
     }),
     "$users": i.entity({
-      "email": i.string().unique().indexed().optional()
+      "email": i.string().unique().indexed().optional(),
     }),
     "books": i.entity({
       "description": i.string().optional(),
       "isbn13": i.string().unique().optional(),
       "pageCount": i.number().indexed().optional(),
-      "thumbnail": i.any().optional(),
-      "title": i.string().indexed().optional()
+      "thumbnail": i.json().optional(),
+      "title": i.string().indexed(),
     }),
     "bookshelves": i.entity({
       "desc": i.string().optional(),
-      "name": i.any().optional(),
-      "order": i.number().indexed().optional()
+      "name": i.json().optional(),
+      "order": i.number().indexed().optional(),
     }),
+    "onlyId": i.entity({}),
     "users": i.entity({
       "createdAt": i.date().optional(),
       "email": i.string().unique().indexed().optional(),
       "fullName": i.string().optional(),
-      "handle": i.string().unique().indexed().optional()
-    })
+      "handle": i.string().unique().indexed().optional(),
+    }),
   },
   links: {
     "bookshelvesBooks": {

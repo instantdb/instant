@@ -9,6 +9,11 @@ import {
   InstantDBAttr,
   InstantDBIdent,
   InstantDBCheckedDataType,
+  i,
+  EntityDef,
+  AttrsDefs,
+  InstantDBInferredType,
+  DataAttrDef,
 } from '@instantdb/core';
 import version from './version.js';
 import {
@@ -21,6 +26,12 @@ import {
   InstantAPISchemaPushStep,
 } from './schema.ts';
 import { ProgressPromise } from './ProgressPromise.ts';
+import {
+  capitalizeFirstLetter,
+  deriveClientType,
+  rels,
+  sortedEntries,
+} from './util.ts';
 
 type Simplify<T> = {
   [K in keyof T]: T[K];
@@ -30,6 +41,21 @@ type AppDataOpts = {
   includePerms?: boolean | null | undefined;
   includeSchema?: boolean | null | undefined;
 };
+
+type AppResponseJSON<Opts extends AppDataOpts | undefined> = Simplify<
+  {
+    id: string;
+    title: string;
+    created_at: Date;
+  } & (NonNullable<Opts>['includePerms'] extends true
+    ? { perms: InstantRules }
+    : {}) &
+    (NonNullable<Opts>['includeSchema'] extends true
+      ? {
+          schema: InstantAPIPlatformSchema;
+        }
+      : {})
+>;
 
 export type InstantAPIAppDetails<Opts extends AppDataOpts | undefined> =
   Simplify<
@@ -41,7 +67,13 @@ export type InstantAPIAppDetails<Opts extends AppDataOpts | undefined> =
       ? { perms: InstantRules }
       : {}) &
       (NonNullable<Opts>['includeSchema'] extends true
-        ? { schema: InstantAPIPlatformSchema }
+        ? {
+            schema: InstantSchemaDef<
+              EntitiesDef,
+              LinksDef<EntitiesDef>,
+              RoomsDef
+            >;
+          }
         : {})
   >;
 
@@ -55,7 +87,7 @@ export type InstantAPIListAppsResponse<Opts extends AppDataOpts | undefined> =
   }>;
 
 export type InstantAPIGetAppSchemaResponse = {
-  schema: InstantAPIPlatformSchema;
+  schema: InstantSchemaDef<EntitiesDef, LinksDef<EntitiesDef>, RoomsDef>;
 };
 
 export type InstantAPIGetAppPermsResponse = { perms: InstantRules };
@@ -192,8 +224,8 @@ type SchemaPushResponseJSON = {
 };
 
 export type InstantAPIPlanSchemaPushResponse = {
-  newSchema: InstantAPIPlatformSchema;
-  currentSchema: InstantAPIPlatformSchema;
+  newSchema: InstantSchemaDef<EntitiesDef, LinksDef<EntitiesDef>, RoomsDef>;
+  currentSchema: InstantSchemaDef<EntitiesDef, LinksDef<EntitiesDef>, RoomsDef>;
   steps: InstantAPISchemaPlanStep[];
 };
 
@@ -210,7 +242,7 @@ type InProgressStepsSummary = {
 };
 
 export type InstantAPISchemaPushResponse = {
-  newSchema: InstantAPIPlatformSchema;
+  newSchema: InstantSchemaDef<EntitiesDef, LinksDef<EntitiesDef>, RoomsDef>;
   steps: InstantAPISchemaPushStep[];
   summary: InProgressStepsSummary;
 };
@@ -245,6 +277,133 @@ async function jsonFetch<T>(
   }
 }
 
+function attrDefForType(
+  type: InstantDBCheckedDataType | InstantDBInferredType | 'any',
+) {
+  switch (type) {
+    case 'string':
+      return i.string();
+    case 'any':
+      return i.any();
+    case 'json':
+      return i.json();
+    case 'boolean':
+      return i.boolean();
+    case 'date':
+      return i.date();
+    case 'number':
+      return i.number();
+    default: {
+      const neverType: never = type;
+      throw new Error(`Unknown type ${neverType}.`);
+    }
+  }
+}
+
+function apiSchemaAttrToDataAttrDef(attr: InstantDBAttr) {
+  const { type, origin } = deriveClientType(attr);
+  let i: DataAttrDef<string, boolean> = attrDefForType(type);
+  if (attr['unique?']) {
+    i = i.unique();
+  }
+  if (attr['index?']) {
+    i = i.indexed();
+  }
+  if (!attr['required?']) {
+    i = i.optional();
+  }
+  i.metadata.typeOrigin = origin;
+  return i;
+}
+
+function apiSchemaBlobToEntityDef(
+  attrs: InstantAPIPlatformSchema['blobs'][string],
+) {
+  const defs: Record<string, DataAttrDef<string, boolean>> = {};
+  for (const [label, attr] of sortedEntries(attrs)) {
+    if (label === 'id') {
+      continue;
+    }
+    defs[label] = apiSchemaAttrToDataAttrDef(attr);
+  }
+  return i.entity(defs);
+}
+
+function apiSchemaAttrToLinkName(attr: InstantDBAttr): string {
+  const [, fe, flabel] = attr['forward-identity'];
+  return `${fe}${capitalizeFirstLetter(flabel)}`;
+}
+
+function apiSchemaAttrToLinkDef(attr: InstantDBAttr) {
+  const [, fe, flabel] = attr['forward-identity'];
+  const [, re, rlabel] = attr['reverse-identity']!;
+  const [fhas, rhas] = rels[`${attr.cardinality}-${attr['unique?']}`];
+  return {
+    forward: {
+      on: fe,
+      has: fhas,
+      label: flabel,
+      required: attr['required?'] || undefined,
+      onDelete:
+        attr['on-delete'] === 'cascade' ? ('cascade' as 'cascade') : undefined,
+    },
+    reverse: {
+      on: re,
+      has: rhas,
+      label: rlabel,
+      onDelete:
+        attr['on-delete-reverse'] === 'cascade'
+          ? ('cascade' as 'cascade')
+          : undefined,
+    },
+  };
+}
+
+export function apiSchemaToInstantSchemaDef(
+  apiSchema: InstantAPIPlatformSchema,
+): InstantSchemaDef<EntitiesDef, LinksDef<EntitiesDef>, RoomsDef> {
+  const entities: EntitiesDef = {};
+  for (const [etype, attrs] of sortedEntries(apiSchema.blobs)) {
+    entities[etype] = apiSchemaBlobToEntityDef(attrs);
+  }
+  const links: LinksDef<EntitiesDef> = {};
+  for (const [_name, attr] of sortedEntries(apiSchema.refs)) {
+    const link = apiSchemaAttrToLinkDef(attr);
+    const linkName = apiSchemaAttrToLinkName(attr);
+    links[linkName] = link;
+  }
+
+  return i.schema({ entities, links });
+}
+
+function coerceApp<Opts extends AppDataOpts>(
+  app: AppResponseJSON<Opts>,
+): InstantAPIAppDetails<Opts> {
+  const base = {
+    id: app.id,
+    title: app.title,
+    createdAt: new Date(app.created_at),
+  };
+
+  // `in` narrows the union, so it’s safe to read `perms` / `schema`
+  // when the property exists. :contentReference[oaicite:0]{index=0}
+  const permsPart = (
+    'perms' in app ? { perms: app.perms } : {}
+  ) as InstantAPIAppDetails<Opts>;
+
+  const schemaPart = (
+    'schema' in app
+      ? {
+          schema: apiSchemaToInstantSchemaDef(
+            app.schema as InstantAPIPlatformSchema,
+          ),
+        }
+      : {}
+  ) as InstantAPIAppDetails<Opts>;
+
+  return { ...base, ...permsPart, ...schemaPart };
+}
+
 async function getApps<Opts extends AppDataOpts>(
   apiURI: string,
   token: string,
@@ -262,7 +421,7 @@ async function getApps<Opts extends AppDataOpts>(
   if (include.length) {
     url.searchParams.set('include', include.join(','));
   }
-  return await jsonFetch<InstantAPIListAppsResponse<typeof opts>>(
+  const resp = await jsonFetch<{ apps: AppResponseJSON<typeof opts>[] }>(
     url.toString(),
     {
       method: 'GET',
@@ -271,6 +430,8 @@ async function getApps<Opts extends AppDataOpts>(
       },
     },
   );
+
+  return { apps: resp.apps.map(coerceApp) };
 }
 
 async function getAppSchema(
@@ -278,7 +439,7 @@ async function getAppSchema(
   token: string,
   appId: string,
 ): Promise<InstantAPIGetAppSchemaResponse> {
-  return await jsonFetch<InstantAPIGetAppSchemaResponse>(
+  const { schema } = await jsonFetch<{ schema: InstantAPIPlatformSchema }>(
     `${apiURI}/superadmin/apps/${appId}/schema`,
     {
       method: 'GET',
@@ -287,6 +448,7 @@ async function getAppSchema(
       },
     },
   );
+  return { schema: apiSchemaToInstantSchemaDef(schema) };
 }
 
 async function getAppPerms(
@@ -320,26 +482,29 @@ async function getApp<Opts extends AppDataOpts>(
     schemaPromise = getAppSchema(apiURI, token, appId);
   }
 
-  const res = await jsonFetch<
-    InstantAPIGetAppResponse<NonNullable<typeof opts>>
-  >(`${apiURI}/superadmin/apps/${appId}`, {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${token}`,
+  const { app: apiApp } = await jsonFetch<{ app: AppResponseJSON<{}> }>(
+    `${apiURI}/superadmin/apps/${appId}`,
+    {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     },
-  });
+  );
 
   if (!permsPromise && !schemaPromise) {
-    return res;
+    const app = coerceApp(apiApp) as InstantAPIAppDetails<{}>;
+    return { app } as Simplify<InstantAPIGetAppResponse<Opts>>;
   }
 
+  const app = {
+    ...(coerceApp(apiApp) as unknown as Simplify<InstantAPIGetAppResponse<{}>>),
+    ...(permsPromise ? { perms: (await permsPromise).perms } : {}),
+    ...(schemaPromise ? { schema: (await schemaPromise).schema } : {}),
+  } as unknown as InstantAPIAppDetails<Opts>;
+
   return {
-    ...res,
-    app: {
-      ...res.app,
-      ...(permsPromise ? { perms: (await permsPromise).perms } : {}),
-      ...(schemaPromise ? { schema: (await schemaPromise).schema } : {}),
-    },
+    app,
   };
 }
 
@@ -348,7 +513,9 @@ async function createApp(
   token: string,
   fields: InstantAPICreateAppBody,
 ): Promise<InstantAPICreateAppResponse> {
-  return jsonFetch<InstantAPICreateAppResponse>(`${apiURI}/superadmin/apps`, {
+  const { app } = await jsonFetch<{
+    app: AppResponseJSON<{ includePerms: true; includeSchema: true }>;
+  }>(`${apiURI}/superadmin/apps`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -356,6 +523,12 @@ async function createApp(
     },
     body: JSON.stringify(fields),
   });
+  return {
+    app: coerceApp(app) as InstantAPIAppDetails<{
+      includePerms: true;
+      includeSchema: true;
+    }>,
+  };
 }
 
 async function updateApp(
@@ -364,7 +537,7 @@ async function updateApp(
   appId: string,
   fields: InstantAPIUpdateAppBody,
 ): Promise<InstantAPIUpdateAppResponse> {
-  return jsonFetch<InstantAPIUpdateAppResponse>(
+  const { app } = await jsonFetch<{ app: AppResponseJSON<{}> }>(
     `${apiURI}/superadmin/apps/${appId}`,
     {
       method: 'POST',
@@ -375,6 +548,8 @@ async function updateApp(
       body: JSON.stringify(fields),
     },
   );
+
+  return { app: coerceApp(app) };
 }
 
 async function deleteApp(
@@ -382,7 +557,7 @@ async function deleteApp(
   token: string,
   appId: string,
 ): Promise<InstantAPIDeleteAppResponse> {
-  return jsonFetch<InstantAPIDeleteAppResponse>(
+  const { app } = await jsonFetch<{ app: AppResponseJSON<{}> }>(
     `${apiURI}/superadmin/apps/${appId}`,
     {
       method: 'DELETE',
@@ -392,6 +567,7 @@ async function deleteApp(
       },
     },
   );
+  return { app: coerceApp(app) };
 }
 
 function translatePlanStep(apiStep: PlanStep): InstantAPISchemaPlanStep {
@@ -558,8 +734,8 @@ async function planSchemaPush(
   );
 
   return {
-    newSchema: resp['new-schema'],
-    currentSchema: resp['current-schema'],
+    newSchema: apiSchemaToInstantSchemaDef(resp['new-schema']),
+    currentSchema: apiSchemaToInstantSchemaDef(resp['current-schema']),
     steps: translatePlanSteps(resp['steps']),
   };
 }
