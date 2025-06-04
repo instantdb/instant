@@ -27,7 +27,7 @@ export type EmailValues = {
 };
 
 export type SenderVerificationInfo = {
-  id: number;
+  ID: number;
   EmailAddress: string;
   Confirmed: boolean;
   DKIMHost?: string;
