@@ -239,12 +239,12 @@ export function Email({
       </div>
 
       {senderVerification && (
-        <div className="flex flex-col gap-4 mt-4">
+        <div className="flex flex-col gap-2 border p-3 bg-gray-50 rounded">
           {/* Header with Verify Button for Both Sections */}
           <div className="flex items-center justify-between">
-            <div className="text-sm font-medium text-gray-700">
+            <SubsectionHeading>
               Verify {senderVerification.EmailAddress}
-            </div>
+            </SubsectionHeading>
             <Button
               onClick={checkVerification}
               loading={isCheckingVerification}
@@ -260,18 +260,16 @@ export function Email({
             <div className="flex items-center justify-between mb-2">
               <div className="font-medium text-sm">Email Confirmation</div>
               <div className="flex items-center gap-2">
+                <StatusCircle
+                  isLoading={isCheckingVerification}
+                  isSuccess={senderVerification.Confirmed}
+                />
                 {senderVerification.Confirmed ? (
-                  <div className="flex items-center gap-2 text-green-600 text-xs">
-                    <div className="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center">
-                      <span className="text-white text-xs">✓</span>
-                    </div>
+                  <div className="text-green-600 text-xs font-medium">
                     Confirmed
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2 text-gray-500 text-xs">
-                    <div
-                      className={`w-3 h-3 rounded-full ${isCheckingVerification ? 'bg-gray-400' : 'bg-red-500'}`}
-                    ></div>
+                  <div className="text-gray-500 text-xs">
                     Pending confirmation
                   </div>
                 )}
@@ -298,28 +296,20 @@ export function Email({
             </Content>
 
             <div className="border rounded-lg overflow-hidden mb-3">
-              {/* Table Header */}
               <div className="grid grid-cols-[1fr_80px_2fr] bg-gray-50 border-b text-sm font-medium text-gray-700 px-4 py-3">
                 <div>Record</div>
                 <div>Type</div>
                 <div>Value</div>
               </div>
-
-              {/* DKIM Record Row */}
               <div className="grid grid-cols-[1fr_80px_2fr] border-b px-4 py-3 text-sm">
-                <div className="flex items-center gap-3">
+                <div className="flex gap-3">
                   <div>
                     <div className="font-medium">DKIM</div>
-                    <div className="flex items-center gap-2 text-xs">
-                      {isCheckingVerification ? (
-                        <div className="w-3 h-3 rounded-full bg-gray-400"></div>
-                      ) : senderVerification?.DKIMVerified ? (
-                        <div className="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center">
-                          <span className="text-white text-xs">✓</span>
-                        </div>
-                      ) : (
-                        <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                      )}
+                    <div className="flex gap-2 text-xs">
+                      <StatusCircle
+                        isLoading={isCheckingVerification}
+                        isSuccess={senderVerification?.DKIMVerified || false}
+                      />
                       <span className="text-gray-500">
                         {senderVerification?.DKIMVerified
                           ? 'Verified'
@@ -330,9 +320,7 @@ export function Email({
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center text-gray-600 text-sm">
-                  TXT
-                </div>
+                <div className="flex text-gray-600 text-sm">TXT</div>
                 <div className="flex flex-col gap-2">
                   <div>
                     <div className="text-xs text-gray-600 mb-1">Hostname:</div>
@@ -355,15 +343,12 @@ export function Email({
                   <div>
                     <div className="font-medium">Return-Path</div>
                     <div className="flex items-center gap-2 text-xs">
-                      {isCheckingVerification ? (
-                        <div className="w-3 h-3 rounded-full bg-gray-400"></div>
-                      ) : senderVerification?.ReturnPathDomainVerified ? (
-                        <div className="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center">
-                          <span className="text-white text-xs">✓</span>
-                        </div>
-                      ) : (
-                        <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                      )}
+                      <StatusCircle
+                        isLoading={isCheckingVerification}
+                        isSuccess={
+                          senderVerification?.ReturnPathDomainVerified || false
+                        }
+                      />
                       <span className="text-gray-500">
                         {senderVerification?.ReturnPathDomainVerified
                           ? 'Verified'
@@ -481,4 +466,26 @@ function validateHtml(xmlStr: string) {
   if (errorNode) {
     return { error: 'Invalid HTML' };
   }
+}
+
+function StatusCircle({
+  isLoading,
+  isSuccess,
+}: {
+  isLoading?: boolean;
+  isSuccess: boolean;
+}) {
+  if (isLoading) {
+    return <div className="w-3 h-3 rounded-full bg-gray-400"></div>;
+  }
+
+  if (isSuccess) {
+    return (
+      <div className="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center">
+        <span className="text-white text-xs">✓</span>
+      </div>
+    );
+  }
+
+  return <div className="w-3 h-3 rounded-full bg-red-500"></div>;
 }
