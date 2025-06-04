@@ -303,20 +303,7 @@ export function Email({
               </div>
               <div className="grid grid-cols-[1fr_80px_2fr] border-b px-4 py-3 text-sm">
                 <div className="flex gap-3">
-                  <div>
-                    <div className="font-medium">DKIM</div>
-                    <div className="flex gap-2 text-xs">
-                      <StatusCircle
-                        isLoading={isVerifying}
-                        isSuccess={verification?.DKIMVerified}
-                      />
-                      <span className="text-gray-500">
-                        {verification?.DKIMVerified
-                          ? 'Verified'
-                          : 'Not verified'}
-                      </span>
-                    </div>
-                  </div>
+                  <div className="font-medium">DKIM</div>
                 </div>
                 <div className="flex text-gray-600 text-sm">TXT</div>
                 <div className="flex flex-col gap-2">
@@ -337,20 +324,7 @@ export function Email({
               </div>
               <div className="grid grid-cols-[1fr_80px_2fr] px-4 py-3 text-sm">
                 <div className="flex items-center gap-3">
-                  <div>
-                    <div className="font-medium">Return-Path</div>
-                    <div className="flex items-center gap-2 text-xs">
-                      <StatusCircle
-                        isLoading={isVerifying}
-                        isSuccess={verification.ReturnPathDomainVerified}
-                      />
-                      <span className="text-gray-500">
-                        {verification.ReturnPathDomainVerified
-                          ? 'Verified'
-                          : 'Not verified'}
-                      </span>
-                    </div>
-                  </div>
+                  <div className="font-medium">Return-Path</div>
                 </div>
                 <div className="flex items-center text-gray-600 text-sm">
                   CNAME
