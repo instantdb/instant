@@ -35,14 +35,15 @@ export type SenderVerificationInfo = {
   SPFHost: string;
   SPFVerified: boolean;
   SPFTextValue: string;
-  DKIMHost: string;
+  DKIMHost?: string;
   DKIMVerified: boolean;
   DKIMUpdateStatus: string;
-  DKIMPendingHost: string;
-  DKIMPendingTextValue: string;
-  DKIMTextValue: string;
+  DKIMPendingHost?: string;
+  DKIMPendingTextValue?: string;
+  DKIMTextValue?: string;
   ReturnPathDomainVerified: boolean;
   ReturnPathDomainCNAMEValue: string;
+  ReturnPathDomain: string;
 };
 
 export function getSenderVerification({
@@ -307,7 +308,7 @@ export function Email({
                     <div className="flex gap-2 text-xs">
                       <StatusCircle
                         isLoading={isVerifying}
-                        isSuccess={verification?.DKIMVerified || false}
+                        isSuccess={verification?.DKIMVerified}
                       />
                       <span className="text-gray-500">
                         {verification?.DKIMVerified
@@ -322,13 +323,14 @@ export function Email({
                   <div>
                     <div className="text-xs text-gray-600 mb-1">Hostname:</div>
                     <code className="text-xs bg-gray-100 px-2 py-1 rounded break-all select-all block">
-                      {verification.DKIMPendingHost}
+                      {verification.DKIMPendingHost || verification.DKIMHost}
                     </code>
                   </div>
                   <div>
                     <div className="text-xs text-gray-600 mb-1">Value:</div>
                     <code className="text-xs bg-gray-100 px-2 py-1 rounded break-all select-all block">
-                      {verification.DKIMPendingTextValue}
+                      {verification.DKIMPendingTextValue ||
+                        verification.DKIMTextValue}
                     </code>
                   </div>
                 </div>
@@ -353,10 +355,19 @@ export function Email({
                 <div className="flex items-center text-gray-600 text-sm">
                   CNAME
                 </div>
-                <div className="flex items-center">
-                  <code className="text-xs bg-gray-100 px-2 py-1 rounded break-all select-all">
-                    {verification.ReturnPathDomainCNAMEValue}
-                  </code>
+                <div className="flex flex-col gap-2">
+                  <div>
+                    <div className="text-xs text-gray-600 mb-1">Hostname:</div>
+                    <code className="text-xs bg-gray-100 px-2 py-1 rounded break-all select-all block">
+                      {verification.ReturnPathDomain}
+                    </code>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-600 mb-1">Value:</div>
+                    <code className="text-xs bg-gray-100 px-2 py-1 rounded break-all select-all block">
+                      {verification.ReturnPathDomainCNAMEValue}
+                    </code>
+                  </div>
                 </div>
               </div>
             </div>
