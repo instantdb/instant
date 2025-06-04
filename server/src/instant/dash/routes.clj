@@ -944,7 +944,7 @@
 ;; Email templates
 
 (defn sender-verification-get [req]
-  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+  (let [{{app-id :id} :app} (req->app-and-user! :admin req)
         {postmark-id :postmark_id}
         (app-email-template-model/get-by-app-id-and-email-type
          {:app-id app-id :email-type "magic-code"})]
@@ -1538,7 +1538,6 @@
   (POST "/dash/apps/:app_id/email_templates" [] email-template-post)
   (DELETE "/dash/apps/:app_id/email_templates/:id" [] email-template-delete)
 
-
   (POST "/dash/invites/accept" [] team-member-invite-accept-post)
   (POST "/dash/invites/decline" [] team-member-invite-decline-post)
 
@@ -1576,5 +1575,4 @@
   (POST "/dash/apps/:app_id/oauth-app-clients/:client_id" [] oauth-app-client-post)
   (DELETE "/dash/apps/:app_id/oauth-app-clients/:client_id" [] oauth-app-client-delete)
   (POST "/dash/apps/:app_id/oauth-app-clients/:client_id/client-secrets" [] oauth-app-client-secrets)
-
   (DELETE "/dash/apps/:app_id/oauth-app-client-secrets/:client_secret_id" [] oauth-app-client-secret-delete))

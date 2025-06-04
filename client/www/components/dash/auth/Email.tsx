@@ -227,11 +227,14 @@ export function Email({
       </div>
 
       <div className="flex flex-col gap-2 border p-3 bg-gray-50 rounded">
-        <SubsectionHeading>Use a custom 'From' address</SubsectionHeading>
+        <SubsectionHeading>
+          Use a custom 'From' address (optional)
+        </SubsectionHeading>
         <Content className="text-sm">
           By default emails are sent from our domain. Add a custom sender to
-          send emails from your own domain and build trust with recipients. You
-          need access to this email to confirm ownership.
+          send emails from your own domain and build trust with recipients. Our
+          email partner will send a confirmation to the provided address with a
+          link to verify.
         </Content>
         <TextInput
           {...form.inputProps('senderEmail')}
