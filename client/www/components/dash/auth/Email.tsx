@@ -53,12 +53,11 @@ export function getSenderVerification({
   appId: string;
 }): Promise<{ senderEmail: string; verification: SenderVerificationInfo }> {
   return jsonFetch(`${config.apiURI}/dash/apps/${appId}/sender-verification`, {
-    method: 'POST',
+    method: 'GET',
     headers: {
       authorization: `Bearer ${token}`,
       'content-type': 'application/json',
     },
-    body: JSON.stringify({}),
   });
 }
 
@@ -75,9 +74,7 @@ export function Email({
   const [isEditing, setIsEditing] = useState(Boolean(template) ?? false);
   const [senderVerification, setSenderVerification] =
     useState<SenderVerificationInfo | null>(null);
-  const [isLoadingVerification, setIsLoadingVerification] = useState(false);
   const [isCheckingVerification, setIsCheckingVerification] = useState(false);
-  const [senderEmail, setSenderEmail] = useState<string | null>(null);
 
   // Extract domain from email address
   const getDomainFromEmail = (email: string) => {
@@ -85,26 +82,6 @@ export function Email({
     return parts.length === 2 ? parts[1] : '';
   };
 
-  // Load sender verification info
-  const loadSenderVerification = async () => {
-    setIsLoadingVerification(true);
-    try {
-      const response = await getSenderVerification({
-        token,
-        appId: app.id,
-      });
-      setSenderVerification(response.verification);
-      setSenderEmail(response.senderEmail || 'stopa@instantdb.com');
-    } catch (error) {
-      console.error('Failed to load sender verification:', error);
-      setSenderVerification(null);
-      setSenderEmail(null);
-    } finally {
-      setIsLoadingVerification(false);
-    }
-  };
-
-  // Check/refresh verification status
   const checkVerification = async () => {
     setIsCheckingVerification(true);
     try {
@@ -113,7 +90,6 @@ export function Email({
         appId: app.id,
       });
       setSenderVerification(response.verification);
-      setSenderEmail(response.senderEmail);
     } catch (error) {
       console.error('Failed to check verification:', error);
       errorToast('Failed to check verification status');
@@ -143,7 +119,7 @@ export function Email({
         () => {
           successToast('Email template saved!');
           if (values.senderEmail) {
-            loadSenderVerification();
+            checkVerification();
           }
         },
         (errorRes) =>
@@ -174,7 +150,7 @@ export function Email({
 
   useEffect(() => {
     if (template?.email) {
-      loadSenderVerification();
+      checkVerification();
     }
   }, []);
 
@@ -262,12 +238,12 @@ export function Email({
         />
       </div>
 
-      {senderVerification && senderEmail && (
+      {senderVerification && (
         <div className="flex flex-col gap-4 mt-4">
           {/* Header with Verify Button for Both Sections */}
           <div className="flex items-center justify-between">
             <div className="text-sm font-medium text-gray-700">
-              Verify {senderEmail}
+              Verify {senderVerification.EmailAddress}
             </div>
             <Button
               onClick={checkVerification}
@@ -361,10 +337,7 @@ export function Email({
                   <div>
                     <div className="text-xs text-gray-600 mb-1">Hostname:</div>
                     <code className="text-xs bg-gray-100 px-2 py-1 rounded break-all select-all block">
-                      {senderVerification.DKIMPendingHost?.replace(
-                        `.${getDomainFromEmail(senderEmail)}`,
-                        '',
-                      )}
+                      {senderVerification.DKIMPendingHost}
                     </code>
                   </div>
                   <div>

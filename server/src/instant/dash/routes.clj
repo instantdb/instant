@@ -944,12 +944,12 @@
 ;; Email templates
 
 (defn sender-verification-get [req]
-  (let [{{app-id :id} :app} (req->app-and-user! :admin req)
+  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         {postmark-id :postmark_id}
         (app-email-template-model/get-by-app-id-and-email-type
          {:app-id app-id :email-type "magic-code"})]
     (response/ok {:verification (when postmark-id
-                                  (postmark/get-sender! {:id postmark-id}))})))
+                                  (:body (postmark/get-sender! {:id postmark-id})))})))
 
 (defn email-template-post [req]
   (let [{app :app user :user} (req->app-and-user! :admin req)
@@ -1534,8 +1534,10 @@
   (DELETE "/dash/apps/:app_id/members/remove" [] team-member-remove-delete)
   (POST "/dash/apps/:app_id/members/update" [] team-member-update-post)
 
+  (GET "/dash/apps/:app_id/sender-verification" [] sender-verification-get)
   (POST "/dash/apps/:app_id/email_templates" [] email-template-post)
   (DELETE "/dash/apps/:app_id/email_templates/:id" [] email-template-delete)
+
 
   (POST "/dash/invites/accept" [] team-member-invite-accept-post)
   (POST "/dash/invites/decline" [] team-member-invite-decline-post)
