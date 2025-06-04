@@ -943,6 +943,19 @@
 ;; ---------------
 ;; Email templates
 
+(defn sender-verification-get [req]
+  (let [{{app-id :id} :app} (req->app-and-user! :admin req)
+        {postmark-id :postmark_id}
+        (app-email-template-model/get-by-app-id-and-email-type
+         {:app-id app-id :email-type "magic-code"})]
+    (response/ok {:verification (when postmark-id
+                                  (-> (postmark/get-sender! {:id postmark-id})
+                                      :body
+                                      (select-keys [:ID :EmailAddress :Confirmed
+                                                    :DKIMHost :DKIMPendingHost
+                                                    :DKIMPendingTextValue :DKIMTextValue
+                                                    :ReturnPathDomain :ReturnPathDomainCNAMEValue])))})))
+
 (defn email-template-post [req]
   (let [{app :app user :user} (req->app-and-user! :admin req)
         email-type (ex/get-param! req [:body :email-type] string-util/coerce-non-blank-str)
@@ -1526,6 +1539,7 @@
   (DELETE "/dash/apps/:app_id/members/remove" [] team-member-remove-delete)
   (POST "/dash/apps/:app_id/members/update" [] team-member-update-post)
 
+  (GET "/dash/apps/:app_id/sender-verification" [] sender-verification-get)
   (POST "/dash/apps/:app_id/email_templates" [] email-template-post)
   (DELETE "/dash/apps/:app_id/email_templates/:id" [] email-template-delete)
 
@@ -1566,5 +1580,4 @@
   (POST "/dash/apps/:app_id/oauth-app-clients/:client_id" [] oauth-app-client-post)
   (DELETE "/dash/apps/:app_id/oauth-app-clients/:client_id" [] oauth-app-client-delete)
   (POST "/dash/apps/:app_id/oauth-app-clients/:client_id/client-secrets" [] oauth-app-client-secrets)
-
   (DELETE "/dash/apps/:app_id/oauth-app-client-secrets/:client_secret_id" [] oauth-app-client-secret-delete))

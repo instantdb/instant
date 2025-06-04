@@ -1,6 +1,6 @@
-import { useContext, useState } from 'react';
+import { useContext, useState, useEffect } from 'react';
 import config from '@/lib/config';
-import { jsonMutate } from '@/lib/fetch';
+import { jsonMutate, jsonFetch } from '@/lib/fetch';
 import { APIResponse } from '@/lib/auth';
 import { TokenContext } from '@/lib/contexts';
 import { DashResponse, InstantApp } from '@/lib/types';
@@ -26,6 +26,37 @@ export type EmailValues = {
   senderEmail: string;
 };
 
+export type SenderVerificationInfo = {
+  ID: number;
+  EmailAddress: string;
+  Confirmed: boolean;
+  DKIMHost?: string;
+  DKIMPendingHost?: string;
+  DKIMPendingTextValue?: string;
+  DKIMTextValue?: string;
+  ReturnPathDomain: string;
+  ReturnPathDomainCNAMEValue: string;
+};
+
+export function getSenderVerification({
+  token,
+  appId,
+}: {
+  token: string;
+  appId: string;
+}): Promise<{
+  senderEmail: string;
+  verification: SenderVerificationInfo | null;
+}> {
+  return jsonFetch(`${config.apiURI}/dash/apps/${appId}/sender-verification`, {
+    method: 'GET',
+    headers: {
+      authorization: `Bearer ${token}`,
+      'content-type': 'application/json',
+    },
+  });
+}
+
 export function Email({
   dashResponse,
   app,
@@ -37,6 +68,32 @@ export function Email({
   const template = app.magic_code_email_template;
   const token = useContext(TokenContext);
   const [isEditing, setIsEditing] = useState(Boolean(template) ?? false);
+  const [{ isVerifying, verification }, setVerification] = useState<{
+    isVerifying: boolean;
+    verification: SenderVerificationInfo | null;
+  }>({
+    isVerifying: false,
+    verification: null,
+  });
+
+  const checkVerification = async () => {
+    setVerification((prev) => ({ ...prev, isVerifying: true }));
+    try {
+      const response = await getSenderVerification({
+        token,
+        appId: app.id,
+      });
+      setVerification((prev) => ({
+        ...prev,
+        verification: response.verification,
+      }));
+    } catch (error) {
+      console.error('Failed to check verification:', error);
+      errorToast('Failed to check verification status');
+    } finally {
+      setVerification((prev) => ({ ...prev, isVerifying: false }));
+    }
+  };
 
   async function onSubmit(values: EmailValues) {
     return dashResponse
@@ -58,6 +115,9 @@ export function Email({
       .then(
         () => {
           successToast('Email template saved!');
+          if (values.senderEmail) {
+            checkVerification();
+          }
         },
         (errorRes) =>
           displayInstantStandardError(errorRes, form, {
@@ -85,6 +145,12 @@ export function Email({
       : formDefaults,
   });
 
+  useEffect(() => {
+    if (template?.email) {
+      checkVerification();
+    }
+  }, []);
+
   if (!isEditing) {
     return (
       <div className="flex flex-col gap-2">
@@ -95,7 +161,6 @@ export function Email({
       </div>
     );
   }
-
   return (
     <form {...form.formProps()} className="flex flex-col gap-2">
       <SectionHeading>Custom Magic Code Email</SectionHeading>
@@ -157,19 +222,127 @@ export function Email({
         <SubsectionHeading>
           Use a custom 'From' address (optional)
         </SubsectionHeading>
-
-        <Content className="text-gray-600 italic text-sm">
-          If you provide a custom sender address, you'll need to confirm it
-          before we can start delivering from it. Our email partner will send a
-          confirmation to the provided address with a link to verify.
+        <Content className="text-sm">
+          By default emails are sent from our domain. Add a custom sender to
+          send emails from your own domain and build trust with recipients. Our
+          email partner will send a confirmation to the provided address with a
+          link to verify.
         </Content>
-
         <TextInput
           {...form.inputProps('senderEmail')}
           label="Sender email address"
           placeholder="hi@yourdomain.co"
         />
       </div>
+
+      {verification && (
+        <div className="flex flex-col gap-2 border p-3 bg-gray-50 rounded">
+          <div className="flex items-center justify-between">
+            <SubsectionHeading>
+              Verify {verification.EmailAddress}
+            </SubsectionHeading>
+            <Button
+              onClick={checkVerification}
+              loading={isVerifying}
+              variant="primary"
+              size="mini"
+            >
+              Refresh Status
+            </Button>
+          </div>
+
+          <div className="border rounded-lg p-4 bg-white">
+            <div className="flex items-center justify-between mb-2">
+              <div className="font-medium text-sm">Email Confirmation</div>
+              <div className="flex items-center gap-2">
+                <StatusCircle
+                  isLoading={isVerifying}
+                  isSuccess={verification.Confirmed}
+                />
+                {verification.Confirmed ? (
+                  <div className="text-green-600 text-xs font-medium">
+                    Confirmed
+                  </div>
+                ) : (
+                  <div className="text-gray-500 text-xs">
+                    Pending confirmation
+                  </div>
+                )}
+              </div>
+            </div>
+            <Content className="text-sm text-gray-600">
+              {verification.Confirmed
+                ? `Great! You've confirmed ${verification.EmailAddress} and can now send emails from this address.`
+                : `We've sent a confirmation email to ${verification.EmailAddress}. Please click the link in that email to confirm ownership.`}
+            </Content>
+          </div>
+
+          {/* Domain Verification */}
+          <div className="border rounded-lg p-4 bg-white">
+            <div className="flex items-center justify-between mb-2">
+              <div className="font-medium text-sm">
+                Bonus: Domain Verification
+              </div>
+            </div>
+
+            <Content className="text-sm text-gray-600 mb-3">
+              Add DNS records to improve email deliverability and avoid spam
+              filters.
+            </Content>
+
+            <div className="border rounded-lg overflow-hidden mb-3">
+              <div className="grid grid-cols-[1fr_80px_2fr] bg-gray-50 border-b text-sm font-medium text-gray-700 px-4 py-3">
+                <div>Record</div>
+                <div>Type</div>
+                <div>Value</div>
+              </div>
+              <div className="grid grid-cols-[1fr_80px_2fr] border-b px-4 py-3 text-sm">
+                <div className="flex gap-3">
+                  <div className="font-medium">DKIM</div>
+                </div>
+                <div className="flex text-gray-600 text-sm">TXT</div>
+                <div className="flex flex-col gap-2">
+                  <div>
+                    <div className="text-xs text-gray-600 mb-1">Hostname:</div>
+                    <code className="text-xs bg-gray-100 px-2 py-1 rounded break-all select-all block">
+                      {verification.DKIMPendingHost || verification.DKIMHost}
+                    </code>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-600 mb-1">Value:</div>
+                    <code className="text-xs bg-gray-100 px-2 py-1 rounded break-all select-all block">
+                      {verification.DKIMPendingTextValue ||
+                        verification.DKIMTextValue}
+                    </code>
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-[1fr_80px_2fr] px-4 py-3 text-sm">
+                <div className="flex items-center gap-3">
+                  <div className="font-medium">Return-Path</div>
+                </div>
+                <div className="flex items-center text-gray-600 text-sm">
+                  CNAME
+                </div>
+                <div className="flex flex-col gap-2">
+                  <div>
+                    <div className="text-xs text-gray-600 mb-1">Hostname:</div>
+                    <code className="text-xs bg-gray-100 px-2 py-1 rounded break-all select-all block">
+                      {verification.ReturnPathDomain}
+                    </code>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-600 mb-1">Value:</div>
+                    <code className="text-xs bg-gray-100 px-2 py-1 rounded break-all select-all block">
+                      {verification.ReturnPathDomainCNAMEValue}
+                    </code>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Button {...form.submitButtonProps()} />
 
@@ -259,4 +432,26 @@ function validateHtml(xmlStr: string) {
   if (errorNode) {
     return { error: 'Invalid HTML' };
   }
+}
+
+function StatusCircle({
+  isLoading,
+  isSuccess,
+}: {
+  isLoading?: boolean;
+  isSuccess: boolean;
+}) {
+  if (isLoading) {
+    return <div className="w-3 h-3 rounded-full bg-gray-400"></div>;
+  }
+
+  if (isSuccess) {
+    return (
+      <div className="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center">
+        <span className="text-white text-xs">✓</span>
+      </div>
+    );
+  }
+
+  return <div className="w-3 h-3 rounded-full bg-red-500"></div>;
 }
