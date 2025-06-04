@@ -262,3 +262,70 @@
                 [:= :t.attr_id fm-attr]
                 [:= :t.checked-data-type [:cast "number" :checked_data_type]]
                 :t.ave]})))))
+
+(defn update-path!
+  "Updates the path of a file in the database"
+  ([params] (update-path! (aurora/conn-pool :write) params))
+  ([conn {:keys [app-id path new-path]}]
+   (update-op
+    conn
+    {:app-id app-id
+     :etype etype}
+    (fn [{:keys [transact! resolve-id get-entity]}]
+      (let [path-attr-id (resolve-id :path)
+            lookup [path-attr-id path]
+            file (get-entity lookup)]
+        (when-not file
+          (ex/throw-validation-err!
+           :file-not-found
+           path
+           "File not found"))
+        (transact!
+         [[:retract-triple (:id file) path-attr-id path]
+          [:add-triple (:id file) path-attr-id new-path]]
+         {:allow-$files-update? true})
+        file)))))
+
+(defn get-by-path-prefix
+  "Gets all files whose paths start with the given prefix"
+  ([params] (get-by-path-prefix (aurora/conn-pool :read) params))
+  ([conn {:keys [app-id path-prefix]}]
+   (query-op conn
+             {:app-id app-id
+              :etype etype}
+             (fn [{:keys [get-entities-where]}]
+               ;; Use $like with trailing % to match all files under the path prefix
+               (get-entities-where {:path {:$like (str path-prefix "%")}})))))
+
+(defn update-path-prefix!
+  "Updates the path of multiple files by replacing a path prefix with a new prefix"
+  ([params] (update-path-prefix! (aurora/conn-pool :write) params))
+  ([conn {:keys [app-id old-prefix new-prefix]}]
+   (update-op
+    conn
+    {:app-id app-id
+     :etype etype}
+    (fn [{:keys [transact! resolve-id get-entities-where]}]
+       (let [path-attr-id (resolve-id :path)
+             ;; Find all files with paths starting with the old prefix
+             files (get-entities-where {:path {:$like (str old-prefix "%")}})
+             
+             ;; Build transactions to update each file's path
+             triples (mapcat (fn [file]
+                              (let [old-path (:path file)
+                                    ;; Replace the old prefix with the new prefix
+                                    new-path (str new-prefix (subs old-path (count old-prefix)))]
+                                [[:retract-triple (:id file) path-attr-id old-path]
+                                 [:add-triple (:id file) path-attr-id new-path]]))
+                            files)]
+         
+         (when (seq files)
+           (transact! triples {:allow-$files-update? true}))
+         
+         ;; Return updated file info
+         {:updated-count (count files)
+          :files (mapv (fn [file]
+                        (let [old-path (:path file)
+                              new-path (str new-prefix (subs old-path (count old-prefix)))]
+                          (assoc file :path new-path)))
+                      files)})))))

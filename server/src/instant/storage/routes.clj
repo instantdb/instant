@@ -41,8 +41,21 @@
                                                 :current-user current-user})]
     (response/ok {:data data})))
 
-;; Legacy routes for backwards compatibility (deprecated Jan 2025)
-;; -------------------------
+(defn move-put [req]
+  (let [{:keys [app-id current-user]} (req->app-file! req (:params req))
+        targets (ex/get-param! req [:body :targets] (fn [v] 
+                                                     (if (sequential? v)
+                                                       (mapv string-util/coerce-non-blank-str v)
+                                                       (ex/throw-validation-err! 
+                                                        :targets 
+                                                        v 
+                                                        "targets must be a list of strings"))))
+        dest (ex/get-param! req [:body :dest] string-util/coerce-non-blank-str)
+        data (storage-coordinator/move-files! {:app-id app-id
+                                              :targets targets
+                                              :dest dest
+                                              :current-user current-user})]
+    (response/ok {:data data})))
 
 (defn create-upload-url-post [req]
   (let [{:keys [app-id path current-user]} (req->app-file! req (:body req))
@@ -71,6 +84,7 @@
 (defroutes routes
   (PUT "/storage/upload" [] upload-put)
   (DELETE "/storage/files" [] file-delete)
+  (PUT "/storage/move" [] move-put)
   (POST "/storage/signed-upload-url" [] create-upload-url-post)
   (PUT "/storage/:upload-id/consume-upload-url" [] consume-upload-url-put)
   (GET "/storage/signed-download-url" [] signed-download-url-get))

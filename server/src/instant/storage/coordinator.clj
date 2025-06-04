@@ -6,7 +6,8 @@
             [instant.util.exception :as ex]
             [instant.db.cel :as cel]
             [instant.model.app-upload-url :as app-upload-url-model]
-            [instant.config :as config])
+            [instant.config :as config]
+            [clojure.string :as str])
   (:import
    (java.time Instant)
    (java.util Date)))
@@ -66,6 +67,129 @@
   (let [{:keys [id location-id]} (app-file-model/delete-by-path! {:app-id app-id :path path})
         _ (instant-s3/delete-file! app-id location-id)]
     {:id id}))
+
+(defn- is-ancestor? [potential-ancestor path]
+  "Checks if potential-ancestor is an ancestor of path.
+   Returns true if path starts with potential-ancestor (considering path separators)."
+  (or (= potential-ancestor path)
+      (and (.startsWith ^String path ^String potential-ancestor)
+           (or (.endsWith ^String potential-ancestor "/")
+               (= (nth path (count potential-ancestor) nil) \/)))))
+
+(defn move-files!
+  "Moves multiple files/directories to a destination.
+   - targets: list of paths to move
+   - dest: destination path
+   - Errors if any target is an ancestor of the destination
+   - Skips targets that don't exist
+   - No-op if none of the targets exist"
+  [{:keys [app-id targets dest current-user skip-perms-check?]}]
+  (storage-beta/assert-storage-enabled! app-id)
+  
+  ;; Validate that no target is an ancestor of destination
+  (doseq [target targets]
+    (when (is-ancestor? target dest)
+      (ex/throw-validation-err!
+       :invalid-move
+       {:target target :dest dest}
+       (format "Cannot move '%s' to '%s': target is an ancestor of destination" target dest))))
+  
+  ;; Get all existing files for all targets
+  (let [existing-files (mapcat (fn [target]
+                                ;; Check if target is a file
+                                (if-let [file (app-file-model/get-by-path {:app-id app-id :path target})]
+                                  [file]
+                                  ;; If not a file, check if it's a directory prefix
+                                  (app-file-model/get-by-path-prefix {:app-id app-id :path-prefix target})))
+                              targets)
+        ;; Remove duplicates that might occur if targets overlap
+        unique-files (distinct existing-files)]
+    
+    ;; If no files exist, it's a no-op
+    (if (empty? unique-files)
+      {:moved-count 0
+       :files []}
+      
+      (do
+        ;; Check permissions for all files that will be moved
+        (when (not skip-perms-check?)
+          (doseq [file unique-files]
+            (let [old-path (:path file)
+                  ;; Determine the new path based on which target this file belongs to
+                  new-path (loop [remaining-targets targets]
+                            (if (empty? remaining-targets)
+                              ;; This shouldn't happen, but fallback
+                              (str dest "/" (last (str/split old-path #"/")))
+                              (let [target (first remaining-targets)]
+                                (cond
+                                  ;; Exact match - file is the target itself
+                                  (= old-path target)
+                                  (str dest "/" (last (str/split target #"/")))
+                                  
+                                  ;; File is under this target directory
+                                  (and (.startsWith ^String old-path ^String target)
+                                       (or (.endsWith ^String target "/")
+                                           (= (nth old-path (count target) nil) \/)))
+                                  (let [target-dir-name (if (.endsWith ^String target "/")
+                                                         (last (filter #(not (empty? %)) (str/split target #"/")))
+                                                         (last (str/split target #"/")))
+                                        ;; Get the remaining path after the target, ensuring we include the separator
+                                        remaining-path (if (.endsWith ^String target "/")
+                                                        (subs old-path (count target))
+                                                        (subs old-path (inc (count target))))]
+                                    (str dest "/" target-dir-name "/" remaining-path))
+                                  
+                                  ;; Try next target
+                                  :else
+                                  (recur (rest remaining-targets))))))]
+              ;; Check "update" permission on the old path
+              (assert-storage-permission! "update" {:app-id app-id
+                                                   :path old-path
+                                                   :current-user current-user})
+              ;; Check "create" permission on the new path
+              (assert-storage-permission! "create" {:app-id app-id
+                                                   :path new-path
+                                                   :current-user current-user}))))
+        
+        ;; Perform the moves
+        (let [moved-files (for [file unique-files]
+                           (let [old-path (:path file)
+                                 ;; Determine the new path based on which target this file belongs to
+                                 new-path (loop [remaining-targets targets]
+                                           (if (empty? remaining-targets)
+                                             ;; This shouldn't happen, but fallback
+                                             (str dest "/" (last (str/split old-path #"/")))
+                                             (let [target (first remaining-targets)]
+                                               (cond
+                                                 ;; Exact match - file is the target itself
+                                                 (= old-path target)
+                                                 (str dest "/" (last (str/split target #"/")))
+                                                 
+                                                 ;; File is under this target directory
+                                                 (and (.startsWith ^String old-path ^String target)
+                                                      (or (.endsWith ^String target "/")
+                                                          (= (nth old-path (count target) nil) \/)))
+                                                 (let [target-dir-name (if (.endsWith ^String target "/")
+                                                                        (last (filter #(not (empty? %)) (str/split target #"/")))
+                                                                        (last (str/split target #"/")))
+                                                                       ;; Get the remaining path after the target, ensuring we include the separator
+                                                                       remaining-path (if (.endsWith ^String target "/")
+                                                                                       (subs old-path (count target))
+                                                                                       (subs old-path (inc (count target))))]
+                                                                       (str dest "/" target-dir-name "/" remaining-path))
+                                                 
+                                                 ;; Try next target
+                                                 :else
+                                                 (recur (rest remaining-targets))))))]
+                             ;; Update the file path
+                             (app-file-model/update-path! {:app-id app-id
+                                                          :path old-path
+                                                          :new-path new-path})
+                             (assoc file :path new-path)))]
+          
+          ;; Return summary of the operation
+          {:moved-count (count moved-files)
+           :files moved-files})))))
 
 ;; Logic for legacy S3 upload/download URLs
 ;; -------------------------
