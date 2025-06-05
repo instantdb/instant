@@ -2734,6 +2734,7 @@
       (let [conn (aurora/conn-pool :write)
             app-attrs (attr-model/get-by-app-id app-id)
             path-attr-id (attr-model/resolve-attr-id app-attrs "$files" "path")
+            id-attr-id (attr-model/resolve-attr-id app-attrs "$files" "id")
             {file-id :id} (app-file-model/create! conn
                                                   {:app-id app-id
                                                    :path "test.jpg"
@@ -2745,11 +2746,25 @@
         (testing "Updates on path are allowed"
           (let [new-path "new-path.jpg"]
             (tx/transact! conn
-                          (attr-model/get-by-app-id app-id)
+                          app-attrs
                           app-id
                           [[:add-triple file-id path-attr-id new-path]])
             (is (= new-path
                    (:path (app-file-model/get-by-path {:app-id app-id :path new-path}))))))
+        (testing "Updates on non-existing files should fail"
+          (let [new-id (random-uuid)]
+            (is (validation-err?
+                 (tx/transact! conn
+                               app-attrs
+                               app-id
+                               [[:add-triple new-id id-attr-id new-id]])))))
+        (testing "Updates on non-existing lookups should fail"
+          (let [new-id #uuid "3edbebab-c179-4ce7-94ab-b597377c7875"]
+            (is (validation-err?
+                 (tx/transact! conn
+                               app-attrs
+                               app-id
+                               [[:add-triple [id-attr-id new-id] path-attr-id "random-path.jpg"]])))))
         (testing "Updating to an existing path should fail"
           (let [existing-path "existing-path.jpg"]
             (app-file-model/create! conn
@@ -2769,6 +2784,14 @@
                      (::ex/type ex-data)))
               (is (= "`path` is a unique attribute on `$files` and an entity already exists with `$files.path` = \"existing-path.jpg\""
                      (::ex/message ex-data))))))
+
+        (testing "Changing id should fail"
+          (is (validation-err?
+               (tx/transact! conn
+                             app-attrs
+                             app-id
+                             [[:add-triple file-id id-attr-id (random-uuid)]]))))
+
         (testing "Updates other attrs should fail"
           (let [loc-attr-id  (attr-model/resolve-attr-id app-attrs "$files" "location-id")]
             (is (validation-err?
