@@ -686,40 +686,73 @@
                        {:as 'etype :type :text}])
 
         forward-attrs
-        {:select 'triples/ctid
-         :from   'triples
-         :join   ['id-etypes [:= 'triples/entity_id 'id-etypes/entity_id]
-                  'attrs     [:= 'triples/attr_id 'attrs/id]]
-         :where  [:and
-                  [:= 'triples/app-id app-id]
-                  [:= 'attrs/etype 'id-etypes/etype]
-                  [:or
-                   [:= 'attrs/app-id app-id]
-                   [:= 'attrs/app-id system-catalog-app-id]]]}
+        {:returning ['entity_id 'attr_id 'value 'created-at [[:inline "forward"] 'dir]]
+         :delete-from 'triples
+         :where [:in 'ctid
+                 {:select 'triples/ctid
+                  :from 'triples
+                  :join   ['id-etypes [:= 'triples/entity_id 'id-etypes/entity_id]
+                           'attrs     [:= 'triples/attr_id 'attrs/id]]
+                  :where  [:and
+                           [:= 'triples/app-id app-id]
+                           [:= 'attrs/etype 'id-etypes/etype]
+                           [:or
+                            [:= 'attrs/app-id app-id]
+                            [:= 'attrs/app-id system-catalog-app-id]]]}]}
 
         reverse-attrs
-        {:select 'triples/ctid
-         :from   'triples
-         :join   ['id-etypes [:= 'triples/value [:to_jsonb 'id-etypes/entity_id]]
-                  'attrs     [:= 'triples/attr_id 'attrs/id]]
-         :where  [:and
-                  'vae
-                  [:= 'triples/app-id app-id]
-                  [:= 'attrs/reverse-etype 'id-etypes/etype]
-                  [:or
-                   [:= 'attrs/app-id app-id]
-                   [:= 'attrs/app-id system-catalog-app-id]]]}
+        {:returning ['entity_id 'attr_id 'value 'created-at [[:inline "reverse"] 'dir]]
+         :delete-from 'triples
+         :where [:in 'ctid
+                 {:select 'triples/ctid
+                  :from 'triples
 
-        query  {:with [['id-etypes id-etypes]
-                       ['forward-attrs forward-attrs]
-                       ['reverse-attrs reverse-attrs]]
-                :delete-from 'triples
-                :where       [:in 'ctid
-                              {:union
-                               [{:nest {:select :* :from 'forward-attrs}}
-                                {:nest {:select :* :from 'reverse-attrs}}]}]
-                :returning   ['entity_id 'attr_id 'value 'created-at]}]
-    (sql/execute! ::delete-entity-multi! conn (hsql/format query))))
+                  :join   ['id-etypes [:= 'triples/value [:to_jsonb 'id-etypes/entity_id]]
+                           'attrs     [:= 'triples/attr_id 'attrs/id]]
+                  :where  [:and
+                           'vae
+                           [:= 'triples/app-id app-id]
+                           [:= 'attrs/reverse-etype 'id-etypes/etype]
+                           [:or
+                            [:= 'attrs/app-id app-id]
+                            [:= 'attrs/app-id system-catalog-app-id]]]}]}
+
+        query  {:with   [['id-etypes id-etypes]
+                         ['forward-attrs forward-attrs]
+                         ['reverse-attrs reverse-attrs]]
+                :union [{:select :* :from 'forward-attrs}
+                        {:select :* :from 'reverse-attrs}]}
+        res    (sql/execute! ::delete-entity-multi! conn (hsql/format query))
+        fwds   (filter #(= "forward" (:dir %)) res)]
+    (when (seq fwds)
+      (let [insert   "WITH input_entities AS (
+                        SELECT
+                          cast(elem ->> 0 AS uuid) AS entity_id,
+                          cast(elem ->> 1 AS uuid) AS attr_id
+                        FROM
+                          jsonb_array_elements(cast(?eids+aids AS jsonb)) AS elem
+                      ),
+                      to_insert AS (
+                        SELECT DISTINCT
+                          ie.entity_id,
+                          attrs.etype
+                        FROM
+                          input_entities ie
+                          JOIN attrs ON ie.attr_id = attrs.id
+                      )
+                      INSERT INTO deleted_entities (app_id, entity_id, etype)
+                      SELECT
+                        ?app-id,
+                        entity_id,
+                        etype
+                      FROM
+                        to_insert
+                      ON CONFLICT DO NOTHING"
+            eid+aids (->json (map (juxt :entity_id :attr_id) fwds))
+            params   {"?eids+aids"  eid+aids
+                      "?app-id" app-id}]
+        (sql/execute! ::delete-entity-multi-deleted! conn (sql/format insert params))))
+    res))
 
 ;; n.b. if we ever use `:retract-triple` for blob attrs (it's currently
 ;;      just links), we'll need to add code in `delete-multi!` to
