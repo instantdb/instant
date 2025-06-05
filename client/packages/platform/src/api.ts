@@ -301,8 +301,8 @@ function attrDefForType(
 }
 
 function apiSchemaAttrToDataAttrDef(attr: InstantDBAttr) {
-  const { type, origin } = deriveClientType(attr);
-  let i: DataAttrDef<string, boolean> = attrDefForType(type);
+  const derivedType = deriveClientType(attr);
+  let i: DataAttrDef<string, boolean> = attrDefForType(derivedType.type);
   if (attr['unique?']) {
     i = i.unique();
   }
@@ -312,7 +312,7 @@ function apiSchemaAttrToDataAttrDef(attr: InstantDBAttr) {
   if (!attr['required?']) {
     i = i.optional();
   }
-  i.metadata.typeOrigin = origin;
+  i.metadata.derivedType = derivedType;
   return i;
 }
 

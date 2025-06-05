@@ -250,8 +250,12 @@ export type InstantAPISchemaPushStep =
   | InstantAPISchemaPushCheckDataTypeStep
   | InstantAPISchemaPushRemoveDataTypeStep;
 
-function attrDefToCodeString([name, attr]: [string, DataAttrDef<any, any>]) {
-  const type = attr['valueType'] || 'any';
+function attrDefToCodeString([name, attr]: [
+  string,
+  DataAttrDef<string, boolean>,
+]) {
+  const type =
+    (attr.metadata.derivedType as any)?.type || attr.valueType || 'any';
   const unique = attr.config.unique ? '.unique()' : '';
   const index = attr.config.indexed ? '.indexed()' : '';
   const required = attr.required ? '' : '.optional()';
@@ -374,7 +378,7 @@ export function generateSchemaTypescriptFile(
 
   for (const entity of Object.values(newSchema.entities)) {
     for (const attr of Object.values(entity.attrs)) {
-      if (attr.metadata.typeOrigin === 'inferred') {
+      if ((attr.metadata.derivedType as any)?.origin === 'inferred') {
         inferredAttrs.push(attr);
       }
     }
