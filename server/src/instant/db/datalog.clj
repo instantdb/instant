@@ -1480,7 +1480,9 @@
                           {:select [[[:exists has-previous-query]]]}
                           :not-materialized])
              :pg-hints (if true ;; disable hints for pagination until we can generate better plans
-                         []
+                         (if *testing-pg-hints*
+                           (:pg-hints (:query match-query))
+                           [])
                          (into (:pg-hints (:query match-query))
                                pg-hints))
              :select (kw last-row-table :.*)
