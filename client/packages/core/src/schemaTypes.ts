@@ -1,6 +1,8 @@
 import type { RoomSchemaShape } from './presence.ts';
 
 export class DataAttrDef<ValueType, IsRequired extends RequirementKind> {
+  public metadata: Record<string, unknown> = {};
+
   constructor(
     public valueType: ValueTypes,
     public required: IsRequired,

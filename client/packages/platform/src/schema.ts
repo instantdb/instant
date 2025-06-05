@@ -1,16 +1,22 @@
-import type {
+import {
   AttrsDefs,
   CardinalityKind,
-  EntitiesDef,
+  DataAttrDef,
   EntityDef,
   InstantDBAttr,
   InstantDBCheckedDataType,
   InstantDBIdent,
   InstantSchemaDef,
   LinkAttrDef,
-  LinksDef,
   RoomsDef,
 } from '@instantdb/core';
+
+import {
+  indentLines,
+  joinWithTrailingSep,
+  sortedEntries,
+  formatKey,
+} from './util.ts';
 
 export type InstantAPIPlatformSchema = {
   refs: Record<string, InstantDBAttr>;
@@ -244,66 +250,18 @@ export type InstantAPISchemaPushStep =
   | InstantAPISchemaPushCheckDataTypeStep
   | InstantAPISchemaPushRemoveDataTypeStep;
 
-function sortedEntries<T>(o: Record<string, T>): [string, T][] {
-  return Object.entries(o).sort(([a], [b]) => a.localeCompare(b));
+function attrDefToCodeString([name, attr]: [
+  string,
+  DataAttrDef<string, boolean>,
+]) {
+  const type =
+    (attr.metadata.derivedType as any)?.type || attr.valueType || 'any';
+  const unique = attr.config.unique ? '.unique()' : '';
+  const index = attr.config.indexed ? '.indexed()' : '';
+  const required = attr.required ? '' : '.optional()';
+  return `${formatKey(name)}: i.${type}()${unique}${index}${required}`;
 }
 
-function capitalizeFirstLetter(string: string): string {
-  return string.charAt(0).toUpperCase() + string.slice(1);
-}
-
-function indentLines(s: string, n = 2) {
-  const space = ' '.repeat(n);
-  return s
-    .split('\n')
-    .map((l) => `${space}${l}`)
-    .join('\n');
-}
-
-/**
- * Generates code for a single attr:
- *   attr2: i.number.index()
- */
-function attrToCodeString([name, config]: [string, InstantDBAttr]) {
-  const { type } = deriveClientType(config);
-  const unique = config['unique?'] ? '.unique()' : '';
-  const index = config['index?'] ? '.indexed()' : '';
-  const required = config['required?'] ? '' : '.optional()';
-  return `"${name}": i.${type}()${unique}${index}${required}`;
-}
-
-/**
- * Generates code for an entity:
- *  i.entity({
- *    attr1: i.string(),
- *    attr2: i.number.index()
- * })
- *
- */
-function schemaBlobToCodeStr(
-  name: string,
-  attrs: InstantAPIPlatformSchema['blobs'][string],
-) {
-  const attrBlock = sortedEntries(attrs)
-    .filter(([name]) => name !== 'id')
-    .map((attr) => attrToCodeString(attr))
-    .join(',\n');
-  return `"${name}": i.entity({
-${indentLines(attrBlock, 2)}
-})`;
-}
-
-/**
- * Note:
- * This is _very_ similar to `schemaBlobToCodeStr`.
- *
- * Right now, the frontend and backend have slightly different data structures for storing entity info.
- *
- * The backend returns {etype: attrs}, where attr keep things like `value-type`
- * The frontend stores {etype: EntityDef}, where EntityDef has a `valueType` field.
- *
- * For now, keeping the two functions separate.
- */
 function entityDefToCodeStr(
   name: string,
   edef: EntityDef<
@@ -312,35 +270,14 @@ function entityDefToCodeStr(
     any
   >,
 ) {
-  // a block of code for each entity
-  return [
-    `  `,
-    `"${name}"`,
-    `: `,
-    `i.entity`,
-    `({`,
-    `\n`,
-    // a line of code for each attribute in the entity
-    sortedEntries(edef.attrs)
-      .map(([name, attr]) => {
-        const type = attr['valueType'] || 'any';
+  const attrBlock = joinWithTrailingSep(
+    sortedEntries(edef.attrs).map(attrDefToCodeString),
+    ',\n',
+    ',',
+  );
 
-        return [
-          `    `,
-          `"${name}"`,
-          `: `,
-          `i.${type}()`,
-          attr?.config['unique'] ? '.unique()' : '',
-          attr?.config['indexed'] ? '.indexed()' : '',
-          `,`,
-        ].join('');
-      })
-      .join('\n'),
-    `\n`,
-    `  `,
-    `})`,
-    `,`,
-  ].join('');
+  // a block of code for each entity
+  return `${formatKey(name)}: i.entity({${attrBlock.length ? '\n' : ''}${indentLines(attrBlock, 2)}${attrBlock.length ? '\n' : ''}})`;
 }
 
 export function identEtype(ident: InstantDBIdent) {
@@ -381,58 +318,22 @@ export function attrRevName(attr: InstantDBAttr) {
   }
 }
 
-function inferredType(attr: InstantDBAttr) {
-  if (attr.catalog === 'system') {
-    return null;
-  }
-
-  const inferredList = attr['inferred-types'];
-  const hasJustOne = inferredList?.length === 1;
-
-  if (!hasJustOne) {
-    return null;
-  }
-
-  return inferredList[0];
-}
-
-function deriveClientType(attr: InstantDBAttr) {
-  if (attr['checked-data-type']) {
-    return { type: attr['checked-data-type'], origin: 'checked' };
-  }
-
-  const inferred = inferredType(attr);
-
-  if (inferred) {
-    return { type: inferred, origin: 'inferred' };
-  }
-
-  return { type: 'any', origin: 'unknown' };
-}
-
 function easyPlural(strn: string, n: number) {
   return n === 1 ? strn : strn + 's';
 }
-
-const rels = {
-  'many-false': ['many', 'many'],
-  'one-true': ['one', 'one'],
-  'many-true': ['many', 'one'],
-  'one-false': ['one', 'many'],
-};
 
 function roomDefToCodeStr(room: RoomsDef[string]) {
   let ret = '{';
 
   if (room.presence) {
-    ret += `\n${indentLines(entityDefToCodeStr('presence', room.presence), 2)}`;
+    ret += `\n${indentLines(entityDefToCodeStr('presence', room.presence), 4)},`;
   }
 
   if (room.topics) {
     ret += `\n    topics: {`;
 
     for (const [topicName, topicConfig] of Object.entries(room.topics)) {
-      ret += `\n${indentLines(entityDefToCodeStr(topicName, topicConfig), 4)}`;
+      ret += `\n${indentLines(entityDefToCodeStr(topicName, topicConfig), 6)},`;
     }
     ret += `\n    }`;
   }
@@ -446,32 +347,42 @@ function roomsCodeStr(rooms: RoomsDef) {
   let ret = '{';
 
   for (const [roomType, roomDef] of Object.entries(rooms)) {
-    ret += `\n  "${roomType}": ${roomDefToCodeStr(roomDef)},`;
+    ret += `\n  ${formatKey(roomType)}: ${roomDefToCodeStr(roomDef)},`;
   }
   ret += ret === '{' ? '}' : '\n}';
 
   return ret;
 }
 
+type GenericSchemaDef = InstantSchemaDef<
+  Record<string, EntityDef<AttrsDefs, any, any>>,
+  any,
+  any
+>;
+
 export function generateSchemaTypescriptFile(
-  prevSchema:
-    | InstantSchemaDef<EntitiesDef, LinksDef<EntitiesDef>, RoomsDef>
-    | null
-    | undefined,
-  newSchema: InstantAPIPlatformSchema,
+  prevSchema: GenericSchemaDef | null | undefined,
+  newSchema: GenericSchemaDef,
   instantModuleName: string,
 ): string {
   // entities
-  const entitiesEntriesCode = sortedEntries(newSchema.blobs)
-    .map(([name, attrs]) => schemaBlobToCodeStr(name, attrs))
-    .join(',\n');
-  const inferredAttrs = Object.values(newSchema.blobs)
-    .flatMap(Object.values)
-    .filter(
-      (attr) =>
-        attrFwdLabel(attr) !== 'id' &&
-        deriveClientType(attr).origin === 'inferred',
-    );
+  const entitiesEntriesCode = joinWithTrailingSep(
+    sortedEntries(newSchema.entities).map(([etype, entityDef]) =>
+      entityDefToCodeStr(etype, entityDef),
+    ),
+    ',\n',
+    ',',
+  );
+
+  const inferredAttrs: DataAttrDef<string, boolean>[] = [];
+
+  for (const entity of Object.values(newSchema.entities)) {
+    for (const attr of Object.values(entity.attrs)) {
+      if ((attr.metadata.derivedType as any)?.origin === 'inferred') {
+        inferredAttrs.push(attr);
+      }
+    }
+  }
 
   const entitiesObjCode = `{\n${indentLines(entitiesEntriesCode, 2)}\n}`;
 
@@ -482,33 +393,7 @@ export function generateSchemaTypescriptFile(
 // run \`push schema\` again to enforce the types.`
       : '';
 
-  // links
-  const linksEntries = Object.fromEntries(
-    sortedEntries(newSchema.refs).map(([_name, config]) => {
-      const [, fe, flabel] = config['forward-identity'];
-      const [, re, rlabel] = config['reverse-identity']!;
-      const [fhas, rhas] = rels[`${config.cardinality}-${config['unique?']}`];
-      const desc = {
-        forward: {
-          on: fe,
-          has: fhas,
-          label: flabel,
-          required: config['required?'] || undefined,
-          onDelete: config['on-delete'] === 'cascade' ? 'cascade' : undefined,
-        },
-        reverse: {
-          on: re,
-          has: rhas,
-          label: rlabel,
-          onDelete:
-            config['on-delete-reverse'] === 'cascade' ? 'cascade' : undefined,
-        },
-      };
-
-      return [`${fe}${capitalizeFirstLetter(flabel)}`, desc];
-    }),
-  );
-  const linksEntriesCode = JSON.stringify(linksEntries, null, 2).trim();
+  const linksEntriesCode = JSON.stringify(newSchema.links, null, 2).trim();
 
   // rooms
   const rooms = prevSchema?.rooms || {};
@@ -518,7 +403,7 @@ export function generateSchemaTypescriptFile(
     return indentLines(res, 2);
   };
 
-  return `// Docs: https://www.instantdb.com/docs/modeling-data
+  const code = `// Docs: https://www.instantdb.com/docs/modeling-data
 
 import { i } from "${instantModuleName ?? '@instantdb/core'}";
 
@@ -536,4 +421,6 @@ const schema: AppSchema = _schema;
 export type { AppSchema }
 export default schema;
 `;
+
+  return code;
 }
