@@ -127,12 +127,16 @@
   (doseq [t tx-steps
           :let [etype (let [[_op _eid aid] t]
                         (-> (attr-model/seek-by-id aid attrs)
-                            attr-model/fwd-etype))]
-          :when (= etype "$files")]
+                            attr-model/fwd-etype))
+                label (let [[_op _eid aid] t]
+                        (-> (attr-model/seek-by-id aid attrs)
+                            attr-model/fwd-label))]
+          :when (and (= etype "$files")
+                     (not (contains? #{"id" "path"} label)))]
     (ex/throw-validation-err!
      :tx-step
      [op t]
-     [{:message (format "update or merge is not allowed on $files in transact.")}])))
+     [{:message (format "update or merge is only allowed on `path` for $files in transact.")}])))
 
 (defn prevent-$files-updates
   "Files support delete, link/unlink, but not update or merge"

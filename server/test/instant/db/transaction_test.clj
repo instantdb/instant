@@ -2,6 +2,7 @@
   (:require
    [clojure.string :as string]
    [clojure.test :as test :refer [are deftest is testing]]
+   [instant.system-catalog :refer [all-attrs] :rename {all-attrs $system-attrs}]
    [instant.db.cel :as cel]
    [instant.data.bootstrap :as bootstrap]
    [instant.data.constants :refer [test-user-id]]
@@ -10,6 +11,7 @@
    [instant.db.instaql :as iq]
    [instant.db.model.attr :as attr-model]
    [instant.db.model.triple :as triple-model]
+   [instant.model.app-file :as app-file-model]
    [instant.db.permissioned-transaction :as permissioned-tx]
    [instant.db.transaction :as tx]
    [instant.fixtures :refer [with-empty-app
@@ -2726,6 +2728,35 @@
                                    :cardinality :one
                                    :unique? false
                                    :index? false}]]))))))
+
+(deftest restricted-files-updates
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [conn (aurora/conn-pool :write)
+            {file-id :id} (app-file-model/create! conn
+                                                  {:app-id app-id
+                                                   :path "test.jpg"
+                                                   :location-id "loc1"
+                                                   :metadata {:size 100
+                                                              :content-type "image/jpeg"
+                                                              :content-disposition "inline"}})]
+
+        (testing "Updates on path are allowed"
+          (let [path-attr-id  (attr-model/resolve-attr-id $system-attrs "$files" "path")
+                new-path "new-path.jpg"]
+            (tx/transact! conn
+                          (attr-model/get-by-app-id app-id)
+                          app-id
+                          [[:add-triple file-id path-attr-id new-path]])
+            (is (= new-path
+                   (:path (app-file-model/get-by-path {:app-id app-id :path new-path}))))))
+        (testing "Updates on other properties is restricted"
+          (let [loc-attr-id  (attr-model/resolve-attr-id $system-attrs "$files" "location-id")]
+            (is (validation-err?
+                 (tx/transact! conn
+                               (attr-model/get-by-app-id app-id)
+                               app-id
+                               [[:add-triple file-id loc-attr-id "new-location"]])))))))))
 
 (deftest perms-rejects-writes-to-users-table
   (with-empty-app

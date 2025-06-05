@@ -402,6 +402,32 @@ Use `db.storage.delete(path)` to delete a file.
 await db.storage.delete('demo.png');
 ```
 
+### Update file paths
+
+You can use `db.transact` to update file paths.
+
+```javascript
+// Move all files under 'documents/my-video-project/' to 'videos/my-video-project/'
+
+const { data } = await db.query({
+  $files: { $: { where: { path: { $like: 'documents/my-video-project/%' } } } }
+})
+
+await db.transact(
+  data.$files.map(file =>
+    db.tx.$files[file.id].update({
+      path: file.path.replace('documents/my-video-project/', 'videos/my-video-project/')
+    })
+  )
+)
+```
+
+`path` is a unique attribute so if the path already exists the transaction
+will fail.
+
+At the moment we only allow updating the `path` attribute of `$files`. If you
+try to update another attribute like `content-type` the transaction will fail.
+
 ### Link files
 
 Use links to associate files with other entities in your schema.
@@ -570,6 +596,7 @@ By default, Storage permissions are disabled. This means that until you explicit
 
 - _create_ permissions enable uploading `$files`
 - _view_ permissions enable viewing `$files`
+- _update_ permissions enable updating `$files`
 - _delete_ permissions enable deleting `$files`
 - _view_ permissions on `$files` and _update_ permisssions on the forward entity enabling linking and unlinking `$files`
 
@@ -604,13 +631,14 @@ Allow all authenticated users to view and upload files:
 }
 ```
 
-Authenticated users may only upload and view files from their own subdirectory:
+Authenticated users may only upload, view, update files from their own subdirectory:
 
 ```json
 {
   "$files": {
     "allow": {
       "view": "isOwner",
+      "update": "isOwner"
       "create": "isOwner"
     },
     "bind": ["isOwner", "data.path.startsWith(auth.id + '/')"]
