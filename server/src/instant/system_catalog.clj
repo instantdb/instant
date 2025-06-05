@@ -301,7 +301,8 @@
    (make-attr "$files" "location-id"
               :unique? true
               :index? true
-              :checked-data-type :string)
+              :checked-data-type :string
+              :required? true)
    (make-attr "$files" "key-version"
               :unique? false
               :index? false

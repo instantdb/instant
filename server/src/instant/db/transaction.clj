@@ -177,58 +177,29 @@
     #uuid "005a8767-c0e7-4158-bb9a-62ce1a5858ed"
     #uuid "005b08a1-4046-4fba-b1d1-a78b0628901c"]))
 
-(defn find-missing-lookups
-  "Finds lookups that cannot be resolved.
-   Returns missing lookups: [[attr-id value] ...]"
-  [conn app-id tx-steps]
-  (let [lookups (into []
-                      (distinct)
-                      (keep (fn [[_op eid aid v]]
-                              (cond
-                                (and (vector? eid)
-                                     (= 2 (count eid)))
-                                eid
-
-                                (and (= eid v)
-                                     (not (vector? eid)))
-                                [aid (str eid)]
-                                :else nil))
-                            tx-steps))]
-    (if (empty? lookups)
-      []
-      (let [resolved (resolve-lookups conn app-id lookups)]
-        (remove #(contains? resolved %) lookups)))))
-
-(defn prevent-$files-add-retract! [conn app-id attrs op tx-steps]
-  (let [missing-lookups (find-missing-lookups conn app-id tx-steps)]
-    (when (seq missing-lookups)
-      (ex/throw-validation-err!
-       :missing-lookups
-       missing-lookups
-       [{:message "Cannot use update with non-existing file ids"}]))
-
-    (doseq [t tx-steps
-            :let [[_op eid aid v] t
-                  attr (attr-model/seek-by-id aid attrs)
-                  etype (attr-model/fwd-etype attr)
-                  label (attr-model/fwd-label attr)]
-            :when (and (= etype "$files")
-                       (or (not (contains? #{"id" "path"} label))
-                           (and (= label "id") (not= eid v))))]
-      (ex/throw-validation-err!
-       :tx-step
-       [op t]
-       [{:message (format "update or merge is only allowed on `path` for $files in transact.")}]))))
+(defn prevent-$files-add-retract! [attrs op tx-steps]
+  (doseq [t tx-steps
+          :let [[_op eid aid v] t
+                attr (attr-model/seek-by-id aid attrs)
+                etype (attr-model/fwd-etype attr)
+                label (attr-model/fwd-label attr)]
+          :when (and (= etype "$files")
+                     (or (not (contains? #{"id" "path"} label))
+                         (and (= label "id") (not= eid v))))]
+    (ex/throw-validation-err!
+     :tx-step
+     [op t]
+     [{:message (format "update or merge is only allowed on `path` for $files in transact.")}])))
 
 (defn prevent-$files-updates
   "Files support delete, link/unlink, but not update or merge"
-  [conn app-id attrs grouped-tx-steps opts]
+  [attrs grouped-tx-steps opts]
   (when (not (:allow-$files-update? opts))
     (doseq [batch grouped-tx-steps
             :let [[op tx-steps] batch]]
       (case op
         (:add-triple :deep-merge-triple :retract-triple)
-        (prevent-$files-add-retract! conn app-id attrs op tx-steps)
+        (prevent-$files-add-retract! attrs op tx-steps)
 
         nil))))
 
@@ -350,7 +321,7 @@
                                        :num-tx-steps (count tx-steps)
                                        :detailed-tx-steps (pr-str tx-steps)}}
         (prevent-system-catalog-updates! app-id opts)
-        (prevent-$files-updates conn app-id attrs grouped-tx-steps opts)
+        (prevent-$files-updates attrs grouped-tx-steps opts)
         (let [results
               (reduce-kv
                (fn [acc op tx-steps]
