@@ -435,9 +435,9 @@ const _schema = i.schema({
   // run \`push schema\` again to enforce the types.
   entities: {
     "$files": i.entity({
-      "metadata": i.json().optional(),
+      "metadata": i.any().optional(),
       "path": i.string().unique().indexed().optional(),
-      "url": i.json().optional(),
+      "url": i.any().optional(),
     }),
     "$users": i.entity({
       "email": i.string().unique().indexed().optional(),
@@ -446,12 +446,12 @@ const _schema = i.schema({
       "description": i.string().optional(),
       "isbn13": i.string().unique().optional(),
       "pageCount": i.number().indexed().optional(),
-      "thumbnail": i.json().optional(),
+      "thumbnail": i.any().optional(),
       "title": i.string().indexed(),
     }),
     "bookshelves": i.entity({
       "desc": i.string().optional(),
-      "name": i.json().optional(),
+      "name": i.any().optional(),
       "order": i.number().indexed().optional(),
     }),
     "onlyId": i.entity({}),
