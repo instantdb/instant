@@ -425,7 +425,7 @@ await db.transact(
 );
 ```
 
-`path` is a unique attribute so if the path already exists the transaction
+`path` is a unique attribute so if another file exists with that path, then the transaction
 will fail.
 
 At the moment we only allow updating the `path` attribute of `$files`. If you
