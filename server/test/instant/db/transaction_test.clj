@@ -2,7 +2,6 @@
   (:require
    [clojure.string :as string]
    [clojure.test :as test :refer [are deftest is testing]]
-   [instant.system-catalog :refer [all-attrs] :rename {all-attrs $system-attrs}]
    [instant.db.cel :as cel]
    [instant.data.bootstrap :as bootstrap]
    [instant.data.constants :refer [test-user-id]]
@@ -2733,6 +2732,8 @@
   (with-empty-app
     (fn [{app-id :id}]
       (let [conn (aurora/conn-pool :write)
+            app-attrs (attr-model/get-by-app-id app-id)
+            path-attr-id (attr-model/resolve-attr-id app-attrs "$files" "path")
             {file-id :id} (app-file-model/create! conn
                                                   {:app-id app-id
                                                    :path "test.jpg"
@@ -2742,19 +2743,37 @@
                                                               :content-disposition "inline"}})]
 
         (testing "Updates on path are allowed"
-          (let [path-attr-id  (attr-model/resolve-attr-id $system-attrs "$files" "path")
-                new-path "new-path.jpg"]
+          (let [new-path "new-path.jpg"]
             (tx/transact! conn
                           (attr-model/get-by-app-id app-id)
                           app-id
                           [[:add-triple file-id path-attr-id new-path]])
             (is (= new-path
                    (:path (app-file-model/get-by-path {:app-id app-id :path new-path}))))))
-        (testing "Updates on other properties is restricted"
-          (let [loc-attr-id  (attr-model/resolve-attr-id $system-attrs "$files" "location-id")]
+        (testing "Updating to an existing path should fail"
+          (let [existing-path "existing-path.jpg"]
+            (app-file-model/create! conn
+                                    {:app-id app-id
+                                     :path existing-path
+                                     :location-id "loc2"
+                                     :metadata {:size 100
+                                                :content-type "image/jpeg"
+                                                :content-disposition "inline"}})
+            (let [ex-data  (test-util/instant-ex-data
+                            (tx/transact!
+                             conn
+                             app-attrs
+                             app-id
+                             [[:add-triple file-id path-attr-id existing-path]]))]
+              (is (= ::ex/record-not-unique
+                     (::ex/type ex-data)))
+              (is (= "`path` is a unique attribute on `$files` and an entity already exists with `$files.path` = \"existing-path.jpg\""
+                     (::ex/message ex-data))))))
+        (testing "Updates other attrs should fail"
+          (let [loc-attr-id  (attr-model/resolve-attr-id app-attrs "$files" "location-id")]
             (is (validation-err?
                  (tx/transact! conn
-                               (attr-model/get-by-app-id app-id)
+                               app-attrs
                                app-id
                                [[:add-triple file-id loc-attr-id "new-location"]])))))))))
 
