@@ -510,9 +510,11 @@ function RefItem({
 const isEditableBlobAttr = (namespace: SchemaNamespace, attr: SchemaAttr) => {
   return (
     (attr.type === 'blob' && namespace.name !== '$files') ||
-    (namespace.name === '$files' && attr.type === 'blob' && attr.name === 'path')
+    (namespace.name === '$files' &&
+      attr.type === 'blob' &&
+      attr.name === 'path')
   );
-}
+};
 
 export function EditRowDialog({
   db,

@@ -410,16 +410,19 @@ You can use `db.transact` to update file paths.
 // Move all files under 'documents/my-video-project/' to 'videos/my-video-project/'
 
 const { data } = await db.query({
-  $files: { $: { where: { path: { $like: 'documents/my-video-project/%' } } } }
-})
+  $files: { $: { where: { path: { $like: 'documents/my-video-project/%' } } } },
+});
 
 await db.transact(
-  data.$files.map(file =>
+  data.$files.map((file) =>
     db.tx.$files[file.id].update({
-      path: file.path.replace('documents/my-video-project/', 'videos/my-video-project/')
-    })
-  )
-)
+      path: file.path.replace(
+        'documents/my-video-project/',
+        'videos/my-video-project/',
+      ),
+    }),
+  ),
+);
 ```
 
 `path` is a unique attribute so if the path already exists the transaction
