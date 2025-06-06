@@ -63,7 +63,7 @@ the following configuration to your MCP settings:
 ```json
 {
   "mcpServers": {
-    "instant: {
+    "instant": {
       "command": "wsl",
       "args": ["npx", "-y", "@instantdb/mcp", "--token", "<token>"]
     }
