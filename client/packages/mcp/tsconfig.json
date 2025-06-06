@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "include": ["src"],
+  "exclude": ["node_modules", "dist"],
+  "compilerOptions": {
+    "strict": true,
+    "outDir": "dist",
+    "rewriteRelativeImportExtensions": true,
+    "resolveJsonModule": true,
+    "rootDir": "src",
+    "checkJs": false,
+    "skipLibCheck": true,
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "target": "ES2022"
+  }
+}
