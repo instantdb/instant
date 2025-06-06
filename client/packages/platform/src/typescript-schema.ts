@@ -42,9 +42,8 @@ function astToJson(node: Node | null): JsonValue | null {
       const objNode = node as ObjectExpression;
       return objNode.properties.reduce(
         (obj: { [key: string]: JsonValue }, prop) => {
-          // Using prop.type directly for checks
           if (prop.type === 'ObjectProperty') {
-            const objectProperty = prop as ObjectProperty; // Cast to ObjectProperty
+            const objectProperty = prop as ObjectProperty;
             let key: string | number;
             if (objectProperty.key.type === 'Identifier') {
               key = (objectProperty.key as Identifier).name;
@@ -81,7 +80,6 @@ function astToJson(node: Node | null): JsonValue | null {
           if (element && element.type === 'SpreadElement') {
             return undefined;
           }
-          // element can be Expression, SpreadElement or null
           return astToJson(element as Expression | SpreadElement | null);
         })
         .filter((value) => value !== undefined) as JsonValue[];
@@ -349,20 +347,6 @@ function roomsNodeToRoomsDef(
     }
 
     rooms[roomName] = roomNodeToRoomDef(roomName, property.value);
-
-    // if (
-    //   property.value.type !== 'CallExpression' ||
-    //   property.value.callee.type !== 'MemberExpression' ||
-    //   property.value.callee.object.type !== 'Identifier' ||
-    //   property.value.callee.object.name !== 'i' ||
-    //   property.value.arguments.length !== 1 ||
-    //   property.value.arguments[0].type !== 'ObjectExpression'
-    // ) {
-    //   throw new Error(
-    //     `Could not extract entity \`${etype}\`. Expected a call to \`i.entity()\`, got something else.`,
-    //   );
-    // }
-    // entities[etype] = entityNodeToEntityDef(etype, property.value.arguments[0]);
   }
 
   return rooms;
