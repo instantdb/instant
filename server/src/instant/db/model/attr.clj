@@ -210,7 +210,7 @@
             [:cast (when cardinality (name cardinality)) :text]
             [:cast unique? :boolean]
             [:cast index? :boolean]
-            [:cast (or required? false) :boolean]
+            [:cast required? :boolean]
             [:cast forward-ident :uuid]
             [:cast etype :text]
             [:cast label :text]
@@ -630,7 +630,7 @@
            :forward-identity [forward_ident etype label]
            :unique? is_unique
            :index? is_indexed
-           :required? is_required
+           :required? (or is_required false)
            :inferred-types (when inferred_types
                              (friendly-inferred-types inferred_types))
            :catalog (if (= app_id system-catalog-app-id)
