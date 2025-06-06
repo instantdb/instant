@@ -494,7 +494,7 @@ const _schema = i.schema({
         "name": i.string(),
         "status": i.string(),
       }),
-      topics: {
+      "topics": {
         "sendEmoji": i.entity({
           "emoji": i.string(),
         }),

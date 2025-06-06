@@ -14,6 +14,7 @@ import {
   PlatformApi,
   translatePlanSteps,
 } from './api.ts';
+import { schemaTypescriptFileToInstantSchema } from './typescript-schema.ts';
 
 import version from './version.js';
 import { ProgressPromise } from './ProgressPromise.ts';
@@ -30,6 +31,7 @@ export {
   generateSchemaTypescriptFile,
   generatePermsTypescriptFile,
   apiSchemaToInstantSchemaDef,
+  schemaTypescriptFileToInstantSchema,
   version,
   translatePlanSteps,
   PlatformApi,
