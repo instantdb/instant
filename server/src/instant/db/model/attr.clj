@@ -630,7 +630,7 @@
            :forward-identity [forward_ident etype label]
            :unique? is_unique
            :index? is_indexed
-           :required? is_required
+           :required? (or is_required false)
            :inferred-types (when inferred_types
                              (friendly-inferred-types inferred_types))
            :catalog (if (= app_id system-catalog-app-id)
