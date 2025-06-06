@@ -20,11 +20,18 @@
   (:import
    (java.util Date)))
 
+(s/def ::mode
+  #{:create :update :upsert})
+
+(s/def ::opts
+  (s/nilable
+   (s/keys :opt-un [::upsert])))
+
 (s/def ::add-triple-step
-  (s/cat :op #{:add-triple} :triple ::triple-model/triple))
+  (s/cat :op #{:add-triple} :triple ::triple-model/triple :opts (s/? ::opts)))
 
 (s/def ::deep-merge-triple-step
-  (s/cat :op #{:deep-merge-triple} :triple ::triple-model/triple))
+  (s/cat :op #{:deep-merge-triple} :triple ::triple-model/triple :opts (s/? ::opts)))
 
 (s/def ::retract-triple-step
   (s/cat :op #{:retract-triple} :triple ::triple-model/triple))
