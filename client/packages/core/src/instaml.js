@@ -186,15 +186,16 @@ function expandUnlink(attrs, [etype, eidA, obj]) {
   return withIdAttrForLookup(attrs, etype, eidA, retractTriples);
 }
 
-function expandUpdate(attrs, [etype, eid, obj_]) {
+function expandUpdate(attrs, [etype, eid, obj_, opts]) {
   const obj = immutableRemoveUndefined(obj_);
+  const serverOpts = opts?.upsert === false ? { mode: 'update' } : null;
   const lookup = extractLookup(attrs, etype, eid);
   // id first so that we don't clobber updates on the lookup field
   const attrTuples = [['id', lookup]]
     .concat(Object.entries(obj))
     .map(([identName, value]) => {
       const attr = getAttrByFwdIdentName(attrs, etype, identName);
-      return ['add-triple', lookup, attr.id, value];
+      return ['add-triple', lookup, attr.id, value, serverOpts];
     });
   return attrTuples;
 }
@@ -204,12 +205,13 @@ function expandDelete(attrs, [etype, eid]) {
   return [['delete-entity', lookup, etype]];
 }
 
-function expandDeepMerge(attrs, [etype, eid, obj_]) {
+function expandDeepMerge(attrs, [etype, eid, obj_, opts]) {
   const obj = immutableRemoveUndefined(obj_);
+  const serverOpts = opts?.upsert === false ? { mode: 'update' } : null;
   const lookup = extractLookup(attrs, etype, eid);
   const attrTuples = Object.entries(obj).map(([identName, value]) => {
     const attr = getAttrByFwdIdentName(attrs, etype, identName);
-    return ['deep-merge-triple', lookup, attr.id, value];
+    return ['deep-merge-triple', lookup, attr.id, value, serverOpts];
   });
 
   const idTuple = [
@@ -217,6 +219,7 @@ function expandDeepMerge(attrs, [etype, eid, obj_]) {
     lookup,
     getAttrByFwdIdentName(attrs, etype, 'id').id,
     lookup,
+    opts,
   ];
 
   // id first so that we don't clobber updates on the lookup field
@@ -229,13 +232,13 @@ function expandRuleParams(attrs, [etype, eid, ruleParams]) {
 }
 
 function removeIdFromArgs(step) {
-  const [op, etype, eid, obj] = step;
+  const [op, etype, eid, obj, opts] = step;
   if (!obj) {
     return step;
   }
   const newObj = { ...obj };
   delete newObj.id;
-  return [op, etype, eid, newObj];
+  return [op, etype, eid, newObj, opts];
 }
 
 function toTxSteps(attrs, step) {
