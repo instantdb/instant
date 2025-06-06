@@ -6,6 +6,7 @@
     "strict": true,
     "outDir": "dist",
     "rewriteRelativeImportExtensions": true,
+    "resolveJsonModule": true,
     "rootDir": "src",
     "checkJs": false,
     "skipLibCheck": true,

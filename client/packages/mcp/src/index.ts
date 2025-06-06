@@ -6,6 +6,8 @@ import { z } from 'zod';
 import { PlatformApi } from '@instantdb/platform';
 import { zodToSchema } from './schema.ts';
 import { parseArgs } from 'node:util';
+import packageJson from '../package.json';
+
 
 // Helpers
 // -----------
@@ -18,8 +20,8 @@ function createPlatformApi(token: string, apiURI?: string): PlatformApi {
 
 function createMCPServer(): McpServer {
   return new McpServer({
-    name: 'instant-mcp',
-    version: '1.0.0',
+    name: '@instantdb/mcp',
+    version: packageJson.version,
   });
 }
 
