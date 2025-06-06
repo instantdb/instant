@@ -16,6 +16,7 @@ import {
   joinWithTrailingSep,
   sortedEntries,
   formatKey,
+  GenericSchemaDef,
 } from './util.ts';
 
 export type InstantAPIPlatformSchema = {
@@ -330,7 +331,7 @@ function roomDefToCodeStr(room: RoomsDef[string]) {
   }
 
   if (room.topics) {
-    ret += `\n    topics: {`;
+    ret += `\n    "topics": {`;
 
     for (const [topicName, topicConfig] of Object.entries(room.topics)) {
       ret += `\n${indentLines(entityDefToCodeStr(topicName, topicConfig), 6)},`;
@@ -353,12 +354,6 @@ function roomsCodeStr(rooms: RoomsDef) {
 
   return ret;
 }
-
-type GenericSchemaDef = InstantSchemaDef<
-  Record<string, EntityDef<AttrsDefs, any, any>>,
-  any,
-  any
->;
 
 export function generateSchemaTypescriptFile(
   prevSchema: GenericSchemaDef | null | undefined,

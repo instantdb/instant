@@ -1,8 +1,13 @@
 import {
+  AttrsDefs,
   CardinalityKind,
+  EntityDef,
   InstantDBAttr,
   InstantDBCheckedDataType,
   InstantDBInferredType,
+  InstantSchemaDef,
+  LinksDef,
+  RoomsDef,
 } from '@instantdb/core';
 
 export function sortedEntries<T>(o: Record<string, T>): [string, T][] {
@@ -85,3 +90,9 @@ export function formatKey(key: string) {
   // }
   // return `"${key}"`;
 }
+
+export type GenericSchemaDef = InstantSchemaDef<
+  Record<string, EntityDef<AttrsDefs, any, any>>,
+  LinksDef<Record<string, EntityDef<AttrsDefs, any, any>>>,
+  RoomsDef
+>;

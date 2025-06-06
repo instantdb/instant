@@ -393,12 +393,45 @@ Some failed steps will include an `invalidTriplesSample` in the background job, 
 The platform package includes helpers for generating the `instant.schema.ts` and `instant.perms.ts` config files from the schema and perms data returned from the API.
 
 ```ts
-import { generateSchemaTypescriptFile, generatePermsTypescriptFile } from '@instantdb/platform;
+import {
+  generateSchemaTypescriptFile,
+  generatePermsTypescriptFile,
+} from '@instantdb/platform';
 
-console.log(generateSchemaTypescriptFile(null, shemaFromApi, '@instantdb/core'));
+console.log(
+  generateSchemaTypescriptFile(null, shemaFromApi, '@instantdb/core'),
+);
 
 console.log(generatePermsTypescriptFile(permsFromApi, '@instantdb/core'));
 ```
+
+Use `schemaTypescriptFileToInstantSchema` to recover an `InstantSchemaDef` from the typescript file:
+
+```ts
+import {
+  i,
+  generateSchemaTypescriptFile,
+  schemaTypescriptFileToInstantSchema,
+} from '@instantdb/platform';
+
+// Example schema
+const schema = i.schema({
+  entities: {
+    books: i.entity({
+      title: i.string().unique(),
+    }),
+  },
+});
+
+// Example of the typescript file that was generated for a schema
+const code = generateTypescriptFile(null, schema, '@instantdb/core');
+
+const recoveredSchema = schemaTypescriptFileToInstantSchema(code);
+
+schema == recoveredSchema;
+```
+
+This is useful when parsing a schema that the user manually edited or pulled with `npx instant-cli pull`.
 
 # Questions?
 
