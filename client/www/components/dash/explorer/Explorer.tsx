@@ -1371,7 +1371,7 @@ export function Explorer({
                           lastSelectedIdRef.current = item.id as string;
                         }}
                       />
-                      {readOnlyNs || sanitizedNsName === '$files' ? null : (
+                      {readOnlyNs ? null : (
                         <button
                           className="opacity-0 group-hover:opacity-100 transition-opacity"
                           onClick={() => setEditableRowId(item.id)}

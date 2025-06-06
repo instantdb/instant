@@ -10,6 +10,7 @@
    [instant.db.instaql :as iq]
    [instant.db.model.attr :as attr-model]
    [instant.db.model.triple :as triple-model]
+   [instant.model.app-file :as app-file-model]
    [instant.db.permissioned-transaction :as permissioned-tx]
    [instant.db.transaction :as tx]
    [instant.fixtures :refer [with-empty-app
@@ -2726,6 +2727,78 @@
                                    :cardinality :one
                                    :unique? false
                                    :index? false}]]))))))
+
+(deftest restricted-files-updates
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [conn (aurora/conn-pool :write)
+            app-attrs (attr-model/get-by-app-id app-id)
+            path-attr-id (attr-model/resolve-attr-id app-attrs "$files" "path")
+            id-attr-id (attr-model/resolve-attr-id app-attrs "$files" "id")
+            {file-id :id} (app-file-model/create! conn
+                                                  {:app-id app-id
+                                                   :path "test.jpg"
+                                                   :location-id "loc1"
+                                                   :metadata {:size 100
+                                                              :content-type "image/jpeg"
+                                                              :content-disposition "inline"}})]
+
+        (testing "Updates on path are allowed"
+          (let [new-path "new-path.jpg"]
+            (tx/transact! conn
+                          app-attrs
+                          app-id
+                          [[:add-triple file-id path-attr-id new-path]])
+            (is (= new-path
+                   (:path (app-file-model/get-by-path {:app-id app-id :path new-path}))))))
+        (testing "Updates on non-existing files should fail"
+          (let [new-id (random-uuid)]
+            (is (validation-err?
+                 (tx/transact! conn
+                               app-attrs
+                               app-id
+                               [[:add-triple new-id id-attr-id new-id]])))))
+        (testing "Updates on non-existing lookups should fail"
+          (let [new-id #uuid "3edbebab-c179-4ce7-94ab-b597377c7875"]
+            (is (validation-err?
+                 (tx/transact! conn
+                               app-attrs
+                               app-id
+                               [[:add-triple [id-attr-id new-id] path-attr-id "random-path.jpg"]])))))
+        (testing "Updating to an existing path should fail"
+          (let [existing-path "existing-path.jpg"]
+            (app-file-model/create! conn
+                                    {:app-id app-id
+                                     :path existing-path
+                                     :location-id "loc2"
+                                     :metadata {:size 100
+                                                :content-type "image/jpeg"
+                                                :content-disposition "inline"}})
+            (let [ex-data  (test-util/instant-ex-data
+                            (tx/transact!
+                             conn
+                             app-attrs
+                             app-id
+                             [[:add-triple file-id path-attr-id existing-path]]))]
+              (is (= ::ex/record-not-unique
+                     (::ex/type ex-data)))
+              (is (= "`path` is a unique attribute on `$files` and an entity already exists with `$files.path` = \"existing-path.jpg\""
+                     (::ex/message ex-data))))))
+
+        (testing "Changing id should fail"
+          (is (validation-err?
+               (tx/transact! conn
+                             app-attrs
+                             app-id
+                             [[:add-triple file-id id-attr-id (random-uuid)]]))))
+
+        (testing "Updates other attrs should fail"
+          (let [loc-attr-id  (attr-model/resolve-attr-id app-attrs "$files" "location-id")]
+            (is (validation-err?
+                 (tx/transact! conn
+                               app-attrs
+                               app-id
+                               [[:add-triple file-id loc-attr-id "new-location"]])))))))))
 
 (deftest perms-rejects-writes-to-users-table
   (with-empty-app

@@ -92,7 +92,6 @@
   (clojure.set/intersection bind-keys
                             (cel/ident-usages compiler expr)))
 
-
 (defn with-binds [rule etype action expr]
   (let [binds (get-in rule [etype "bind"])]
     (if (empty? binds)
@@ -220,20 +219,6 @@
 
     "view" nil))
 
-(defn $files-validation-errors
-  "Restrict users from changing the `update` rules for $files."
-  [rules action]
-  (case action
-    "update"
-    (when (and (not (nil? (get-in rules ["$files" "allow" action])))
-               (not= (get-in rules ["$files" "allow" action])
-                     "false"))
-      [{:message (format "The %s namespace does not allow `update` permissions. Set `%s.allow.%s` to `\"false\"`."
-                         "$files" "$files" action)
-        :in ["$files" :allow action]}])
-
-    ("view" "create" "delete") nil))
-
 (defn system-attribute-validation-errors
   "Don't allow users to change rules for restricted system namespaces."
   [etype action]
@@ -269,8 +254,6 @@
        (mapcat (fn [[etype action]]
                  (or (and (= etype "$users")
                           ($users-validation-errors rules action))
-                     (and (= etype "$files")
-                          ($files-validation-errors rules action))
                      (system-attribute-validation-errors etype action)
                      (try
                        (when-let [expr (extract rules etype action)]
