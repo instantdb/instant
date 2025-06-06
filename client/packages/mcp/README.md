@@ -125,9 +125,8 @@ Below is a list of the current tools we expose
 
 ## Adding context to your LLM
 
-Use our rules file to give your LLM context on how to use Instant for things
-like queries, transactions, authentication, and more. You can find the rules
-here.
+[Use our rules file](https://instantdb.com/rules.txt) to give your LLM context on how to use Instant for things
+like queries, transactions, authentication, and more.
 
 ## Example Conversation
 
