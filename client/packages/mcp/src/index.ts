@@ -334,7 +334,7 @@ function registerTools(server: McpServer, api: PlatformApi) {
 
   server.tool(
     'push-perms',
-    "Execute a permissions push. Use this after 'plan-perms-push' to apply changes",
+    "Execute a permissions push.",
     {
       appId: z.string().uuid().describe('UUID of the app'),
       perms: appPerms.describe(
