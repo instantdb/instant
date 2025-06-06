@@ -1,20 +1,20 @@
 /**
  * There's a bug in Firefox, where click events are dispatched to the wrong target element.
- *
- * This happens around our Monaco Editor.
+ * This happens when libraries use setPointerCapture, a la our Monaco Editor.
  *
  * Here's the repro scenario:
  *
- * 1. Click inside our Monaco Editor, and start dragging your cursor
+ * 1. Click inside our Monaco Editor, start dragging your cursor
  * 2. Release your cursor over a Nav item
  * 3. Firefox will trigger a "click" event on the Nav item!
  *
+ * It _should_ have triggered a click event on the Monaco Editor, not the nav item.
  *
  * Root cause
  *
  * Monaco editor uses `setPointerCapture` for drag and drop operations.
  * When Monaco releases the pointer, Firefox needs to decide where the click happened.
- * It incorrectly decides the click happened wherever the mouse is on Mouseup
+ * It incorrectly decides the click happened wherever the mouse ended up.
  *
  * The fix
  *
@@ -23,6 +23,7 @@
  *
  * @see https://github.com/microsoft/monaco-editor/issues/4379
  * @see https://bugzilla.mozilla.org/show_bug.cgi?id=1556240
+ * @see https://github.com/w3c/pointerevents/issues/356
  */
 export default function patchFirefoxClicks() {
   if (typeof window === 'undefined' || typeof navigator === 'undefined') {
