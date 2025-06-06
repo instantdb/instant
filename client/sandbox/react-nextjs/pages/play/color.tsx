@@ -49,7 +49,9 @@ function Main() {
             return (
               <button
                 onClick={() => {
-                  db.transact(tx.colors[selectId].update({ color: c }));
+                  db.transact(
+                    tx.colors[selectId].update({ color: c }, { upsert: false }),
+                  );
                 }}
                 className={`bg-white p-2`}
                 key={c}
@@ -62,7 +64,10 @@ function Main() {
             className={`bg-white p-2`}
             onClick={() => {
               db.transact(
-                tx.colors[selectId].update({ color: nextColor(color) }),
+                tx.colors[selectId].update(
+                  { color: nextColor(color) },
+                  { upsert: false },
+                ),
               );
             }}
           >
