@@ -123,29 +123,6 @@
      app-id
      [{:message (format "You can't make updates to this app.")}])))
 
-(defn prevent-$files-add-retract! [op attrs tx-steps]
-  (doseq [t tx-steps
-          :let [etype (let [[_op _eid aid] t]
-                        (-> (attr-model/seek-by-id aid attrs)
-                            attr-model/fwd-etype))]
-          :when (= etype "$files")]
-    (ex/throw-validation-err!
-     :tx-step
-     [op t]
-     [{:message (format "update or merge is not allowed on $files in transact.")}])))
-
-(defn prevent-$files-updates
-  "Files support delete, link/unlink, but not update or merge"
-  [attrs grouped-tx-steps opts]
-  (when (not (:allow-$files-update? opts))
-    (doseq [batch grouped-tx-steps
-            :let [[op tx-steps] batch]]
-      (case op
-        (:add-triple :deep-merge-triple :retract-triple)
-        (prevent-$files-add-retract! op attrs tx-steps)
-
-        nil))))
-
 (defn resolve-lookups
   "Given [[attr-id value] [attr-id value] ...],
    returns {[attr-id value] eid,
@@ -199,6 +176,32 @@
    [#uuid "4d39508b-9ee2-48a3-b70d-8192d9c5a059"
     #uuid "005a8767-c0e7-4158-bb9a-62ce1a5858ed"
     #uuid "005b08a1-4046-4fba-b1d1-a78b0628901c"]))
+
+(defn prevent-$files-add-retract! [attrs op tx-steps]
+  (doseq [t tx-steps
+          :let [[_op eid aid v] t
+                attr (attr-model/seek-by-id aid attrs)
+                etype (attr-model/fwd-etype attr)
+                label (attr-model/fwd-label attr)]
+          :when (and (= etype "$files")
+                     (or (not (contains? #{"id" "path"} label))
+                         (and (= label "id") (not= eid v))))]
+    (ex/throw-validation-err!
+     :tx-step
+     [op t]
+     [{:message (format "update or merge is only allowed on `path` for $files in transact.")}])))
+
+(defn prevent-$files-updates
+  "Files support delete, link/unlink, but not update or merge"
+  [attrs grouped-tx-steps opts]
+  (when (not (:allow-$files-update? opts))
+    (doseq [batch grouped-tx-steps
+            :let [[op tx-steps] batch]]
+      (case op
+        (:add-triple :deep-merge-triple :retract-triple)
+        (prevent-$files-add-retract! attrs op tx-steps)
+
+        nil))))
 
 (defn resolve-lookups-for-delete-entity [tx-steps conn app-id]
   (let [lookup-refs (->> tx-steps

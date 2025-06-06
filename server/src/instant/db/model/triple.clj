@@ -165,7 +165,9 @@
             eid+required-attrs
             {:from 'eid+etypes-cte
              :join ['attrs [:and
-                            [:= 'attrs/app-id app-id]
+                            [:or
+                             [:= 'attrs/app-id app-id]
+                             [:= 'attrs/app-id system-catalog-app-id]]
                             [:= 'attrs/etype 'eid+etypes-cte/etype]]]
              :where [:= 'attrs/is_required true]
              :select-distinct ['entity-id ['attrs/id 'attr-id] 'attrs/etype 'attrs/label]}
@@ -189,7 +191,9 @@
                                                    [:= 'triples/attr-id 'attrs/id]
                                                    [:= 'triples/app-id app-id]]]
                                 :where  [:and
-                                         [:= 'attrs/app-id app-id]
+                                         [:or
+                                          [:= 'attrs/app-id app-id]
+                                          [:= 'attrs/app-id system-catalog-app-id]]
                                          [:= 'attrs/etype 'missing-required/etype]
                                          [:= 'triples/entity-id 'missing-required/entity-id]]
                                 :select [[[:count 'triples/entity-id] 'cnt]]}] 'cnt]]

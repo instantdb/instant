@@ -71,12 +71,6 @@
            :in ["$users" :allow "create"]}]
          (rule/validation-errors {"$users" {"allow" {"create" "true"}}}))))
 
-(deftest cant-create-update-rules-for-files
-  (is (= [{:message
-           "The $files namespace does not allow `update` permissions. Set `$files.allow.update` to `\"false\"`.",
-           :in ["$files" :allow "update"]}]
-         (rule/validation-errors {"$files" {"allow" {"update" "true"}}}))))
-
 (deftest cant-write-rules-for-system-attrs
   (is (= [{:message
            "The $codes namespace is a reserved internal namespace that does not yet support rules.",
