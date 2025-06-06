@@ -1,6 +1,6 @@
 {
   "name": "@instantdb/platform",
-  "version": "v0.19.15",
+  "version": "v0.19.16",
   "description": "Instant's platform package for managing Instant apps.",
   "type": "module",
   "main": "./dist/commonjs/index.js",
