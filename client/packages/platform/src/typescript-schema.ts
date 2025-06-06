@@ -1,5 +1,4 @@
 import { parse, type ParseResult, type File } from '@babel/parser';
-import traverse from '@babel/traverse';
 import type {
   CallExpression,
   ObjectExpression,
@@ -374,57 +373,60 @@ function astToSchemaDef(ast: ParseResult<File>): GenericSchemaDef {
   let links = {};
   let rooms = {};
 
-  traverse(ast, {
-    VariableDeclarator(path) {
-      const node = path.node;
-      if (node.id.type === 'Identifier' && node.id.name === '_schema') {
-        // We're in `const _schema = ...`
-        path.stop();
+  for (const n of ast.program.body) {
+    if (
+      n.type !== 'VariableDeclaration' ||
+      n.declarations.length !== 1 ||
+      n.declarations[0].id.type !== 'Identifier' ||
+      n.declarations[0].id.name !== '_schema'
+    ) {
+      continue;
+    }
 
-        if (
-          !node.init ||
-          node.init.type !== 'CallExpression' ||
-          node.init.callee.type !== 'MemberExpression' ||
-          node.init.callee.object.type !== 'Identifier' ||
-          node.init.callee.object.name !== 'i' ||
-          node.init.arguments.length !== 1 ||
-          node.init.arguments[0].type !== 'ObjectExpression'
-        ) {
-          throw new Error(
-            `Could not extract schema. Expected a call to \`i.schema()\`, got something else.`,
-          );
+    const node = n.declarations[0];
+
+    if (
+      !node.init ||
+      node.init.type !== 'CallExpression' ||
+      node.init.callee.type !== 'MemberExpression' ||
+      node.init.callee.object.type !== 'Identifier' ||
+      node.init.callee.object.name !== 'i' ||
+      node.init.arguments.length !== 1 ||
+      node.init.arguments[0].type !== 'ObjectExpression'
+    ) {
+      throw new Error(
+        `Could not extract schema. Expected a call to \`i.schema()\`, got something else.`,
+      );
+    }
+
+    for (const property of node.init.arguments[0].properties) {
+      if (property.type !== 'ObjectProperty') {
+        throw new Error(
+          `Could not extra schema property, expected an \`ObjectProperty\`, got \`${property.type}\'.`,
+        );
+      }
+      const section = keyName(property);
+      if (property.value.type !== 'ObjectExpression') {
+        throw new Error(
+          `Failed to extract ${section}, expected an \`ObjectExpression\`, got \`${property.value.type}\`.`,
+        );
+      }
+      switch (keyName(property)) {
+        case 'entities': {
+          entities = entitiesNodeToEntitiesDef(property.value);
+          break;
         }
-
-        for (const property of node.init.arguments[0].properties) {
-          if (property.type !== 'ObjectProperty') {
-            throw new Error(
-              `Could not extra schema property, expected an \`ObjectProperty\`, got \`${property.type}\'.`,
-            );
-          }
-          const section = keyName(property);
-          if (property.value.type !== 'ObjectExpression') {
-            throw new Error(
-              `Failed to extract ${section}, expected an \`ObjectExpression\`, got \`${property.value.type}\`.`,
-            );
-          }
-          switch (keyName(property)) {
-            case 'entities': {
-              entities = entitiesNodeToEntitiesDef(property.value);
-              break;
-            }
-            case 'links': {
-              links = astToJson(property.value) || {};
-              break;
-            }
-            case 'rooms': {
-              rooms = roomsNodeToRoomsDef(property.value);
-              break;
-            }
-          }
+        case 'links': {
+          links = astToJson(property.value) || {};
+          break;
+        }
+        case 'rooms': {
+          rooms = roomsNodeToRoomsDef(property.value);
+          break;
         }
       }
-    },
-  });
+    }
+  }
 
   if (!entities) {
     throw new Error('Could not extract schema, did not find any entities.');
