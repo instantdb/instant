@@ -210,7 +210,7 @@
             [:cast (when cardinality (name cardinality)) :text]
             [:cast unique? :boolean]
             [:cast index? :boolean]
-            [:cast (or required? false) :boolean]
+            [:cast required? :boolean]
             [:cast forward-ident :uuid]
             [:cast etype :text]
             [:cast label :text]
