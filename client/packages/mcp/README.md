@@ -5,7 +5,7 @@ editor to enable creating, managing, and updating your InstantDB applications,
 
 ## Setup Instructions
 
-If you haven't already make sure to get a personal access token from your
+If you haven't already, make sure to get a personal access token from your
 [Instant dashboard](https://www.instantdb.com/dash?s=personal-access-tokens)
 
 Once you have your token, you can set up the Instant MCP server in your
@@ -158,10 +158,10 @@ Excellent! The schema update has been successfully completed.
 // .. info about the pushed changes
 ```
 
-## Develop with MCP Inspector
+## Developing and Debugging
 
-To develop and debug against the Instant MCP server, you can use the MCP
-Inspector `@modelcontextprotocol/inspector`
+You can use the MCP Inspector `@modelcontextprotocol/inspector` to debug and
+develop against this server locally.
 
 ```bash
 # Clone this repo
@@ -171,13 +171,13 @@ git clone ..
 cd ..
 npm run build
 
-## Run the server
+# Run the server
 npx @modelcontextprotocol/inspector node ./dist/index.js --token <token>
 
-## Or alternatively via environment variable
-INSTANCE_ACCESS_TOKEN=<token> npx @modelcontextprotocol/inspector node ./build/index.js
+# Or alternatively via environment variable
+INSTANT_ACCESS_TOKEN=<token> npx @modelcontextprotocol/inspector node ./build/index.js
 
-## You can also specify a url to connect to a local instance of your instant server
+# You can also specify a url to connect to a local instance of your instant server
 npx @modelcontextprotocol/inspector node ./dist/index.js --token <token> --api-url
 http://localhost:8888
 ```
