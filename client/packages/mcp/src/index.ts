@@ -8,7 +8,6 @@ import { zodToSchema } from './schema.ts';
 import { parseArgs } from 'node:util';
 import packageJson from '../package.json';
 
-
 // Helpers
 // -----------
 function createPlatformApi(token: string, apiURI?: string): PlatformApi {
@@ -334,7 +333,7 @@ function registerTools(server: McpServer, api: PlatformApi) {
 
   server.tool(
     'push-perms',
-    "Execute a permissions push.",
+    'Execute a permissions push.',
     {
       appId: z.string().uuid().describe('UUID of the app'),
       perms: appPerms.describe(
