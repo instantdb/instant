@@ -9,6 +9,8 @@ import { DocsPage } from '@/components/DocsPage';
 import { Button } from '@/components/ui';
 import { isDev } from '@/lib/config';
 import { Dev } from '@/components/Dev';
+import patchFirefoxClicks from '@/lib/patchFirefoxClicks';
+import { useEffect } from 'react';
 
 declare global {
   function __getAppId(): any;
@@ -30,7 +32,9 @@ function App({ Component, pageProps }: AppProps) {
   ) : (
     <Component {...pageProps} />
   );
-
+  useEffect(() => {
+    return patchFirefoxClicks();
+  }, []);
   return (
     <>
       <AppHead />
