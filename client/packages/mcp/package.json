@@ -25,7 +25,10 @@
   },
   "dependencies": {
     "@instantdb/core": "workspace:*",
-    "@instantdb/platform": "workspace:*"
+    "@instantdb/platform": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "esbuild": "^0.25.5",
+    "zod": "^3.25.39"
   },
   "engines": {
     "node": ">=18"
