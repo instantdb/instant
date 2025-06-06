@@ -171,6 +171,49 @@ importers:
         specifier: ^1.6.0
         version: 1.6.1(@types/node@18.19.74)(jsdom@20.0.3)(lightningcss@1.27.0)(terser@5.37.0)
 
+  packages/mcp:
+    dependencies:
+      '@instantdb/core':
+        specifier: workspace:*
+        version: link:../core
+      '@instantdb/platform':
+        specifier: workspace:*
+        version: link:../platform
+    devDependencies:
+      '@arethetypeswrong/cli':
+        specifier: ^0.17.4
+        version: 0.17.4
+      '@babel/core':
+        specifier: ^7.17.9
+        version: 7.26.7
+      '@babel/preset-env':
+        specifier: ^7.16.11
+        version: 7.26.7(@babel/core@7.26.7)
+      '@types/node':
+        specifier: ^18.11.18
+        version: 18.19.74
+      '@types/uuid':
+        specifier: ^8.3.4
+        version: 8.3.4
+      '@types/websocket':
+        specifier: ^1.0.5
+        version: 1.0.10
+      fake-indexeddb:
+        specifier: ^6.0.0
+        version: 6.0.0
+      tshy:
+        specifier: ^3.0.2
+        version: 3.0.2
+      typescript:
+        specifier: ^5.8.3
+        version: 5.8.3
+      vite:
+        specifier: ^5.2.0
+        version: 5.4.14(@types/node@18.19.74)(lightningcss@1.27.0)(terser@5.37.0)
+      vitest:
+        specifier: ^1.6.0
+        version: 1.6.1(@types/node@18.19.74)(jsdom@20.0.3)(lightningcss@1.27.0)(terser@5.37.0)
+
   packages/platform:
     dependencies:
       '@instantdb/core':

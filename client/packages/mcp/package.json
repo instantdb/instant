@@ -1,0 +1,33 @@
+{
+  "name": "@instantdb/mcp",
+  "version": "v0.19.15",
+  "description": "Model Context Protocol (MCP) server for managing Instant apps, schemas, and permissions!",
+  "type": "module",
+  "bin": {
+    "instant-mcp": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "test": "vitest",
+    "test:ci": "vitest run",
+    "dev": "tsx watch src/index.ts",
+    "build": "rm -rf dist && tsc",
+    "prepublishOnly": "npm run build",
+    "publish-package": "pnpm publish --access public --no-git-checks"
+  },
+  "devDependencies": {
+    "@types/node": "^18.11.18",
+    "tsx": "^4.7.0",
+    "typescript": "^5.8.3",
+    "vitest": "^1.6.0"
+  },
+  "dependencies": {
+    "@instantdb/core": "workspace:*",
+    "@instantdb/platform": "workspace:*"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
