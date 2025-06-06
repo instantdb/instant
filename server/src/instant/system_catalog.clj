@@ -310,8 +310,7 @@
    (make-attr "$files" "url"
               :unique? false
               :index? false
-              :checked-data-type :string
-              :required? true)])
+              :checked-data-type :string)])
 
 (def all-attrs (concat $users-attrs
                        $magic-code-attrs
