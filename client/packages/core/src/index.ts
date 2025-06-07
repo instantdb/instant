@@ -397,7 +397,7 @@ class Storage {
    */
   uploadFile = (
     path: string,
-    file: File,
+    file: File | Blob,
     opts: FileOpts = {},
   ): Promise<UploadFileResponse> => {
     return this.db.uploadFile(path, file, opts);

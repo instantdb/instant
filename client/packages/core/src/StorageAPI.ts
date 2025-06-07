@@ -24,7 +24,7 @@ export async function uploadFile({
   apiURI: string;
   appId: string;
   path: string;
-  file: File;
+  file: File | Blob;
   refreshToken?: string;
   contentType?: string;
   contentDisposition?: string;
