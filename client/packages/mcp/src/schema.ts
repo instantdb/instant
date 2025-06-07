@@ -15,11 +15,15 @@ type LinkConfig = {
     entity: string;
     has: 'one' | 'many';
     label: string;
+    required?: boolean;
+    onDelete?: 'cascade';
   };
   to: {
     entity: string;
     has: 'one' | 'many';
     label: string;
+    required?: boolean;
+    onDelete?: 'cascade';
   };
 };
 
@@ -64,11 +68,15 @@ export function zodToSchema(additions: Additions) {
           on: linkConfig.from.entity,
           has: linkConfig.from.has,
           label: linkConfig.from.label,
+          required: linkConfig.from.required,
+          onDelete: linkConfig.from.onDelete,
         },
         reverse: {
           on: linkConfig.to.entity,
           has: linkConfig.to.has,
           label: linkConfig.to.label,
+          required: linkConfig.to.required,
+          onDelete: linkConfig.to.onDelete,
         },
       };
     }
