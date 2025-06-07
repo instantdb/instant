@@ -54,7 +54,7 @@ Now all requests will go to your local backend at [localhost:8888](http://localh
 
 The instant client can show development logs. You can turn this on by writing:
 
-```
+```javascript
 localStorage.setItem("__instantLogging", true);
 ```
 
@@ -71,7 +71,7 @@ You can create local apps by following these steps
 
 You can then connect to this app in a new project with the following snippet
 
-```
+```javascript
 const APP_ID = '<your app id from your own server>'
 const db = init({
   appId: APP_ID,
