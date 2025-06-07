@@ -65,11 +65,15 @@ const schemaAdditions = z.object({
           entity: z.string(),
           has: z.enum(['one', 'many']),
           label: z.string(),
+          required: z.boolean().optional(),
+          onDelete: z.literal('cascade').optional(),
         }),
         to: z.object({
           entity: z.string(),
           has: z.enum(['one', 'many']),
           label: z.string(),
+          required: z.boolean().optional(),
+          onDelete: z.literal('cascade').optional(),
         }),
       }),
     )
