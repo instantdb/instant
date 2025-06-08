@@ -1,6 +1,6 @@
 FROM node:20 AS builder
 WORKDIR /app
-COPY client/ .
+COPY . .
 RUN corepack enable && corepack prepare pnpm@10.2.0 --activate
 RUN pnpm install --frozen-lockfile
 RUN pnpm build-packages
