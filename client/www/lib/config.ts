@@ -6,6 +6,8 @@ const isStaging = process.env.NEXT_PUBLIC_STAGING === 'true';
 
 const devBackend = getLocal('devBackend');
 
+const envBackendBase = process.env.NEXT_PUBLIC_BACKEND_BASE?.replace(/\/+$/, '');
+
 let localPort = '8888';
 
 if (devBackend && isBrowser) {
@@ -16,11 +18,13 @@ if (devBackend && isBrowser) {
 }
 
 const config = {
-  apiURI: getLocal('devBackend')
+  apiURI: devBackend
     ? `http://localhost:${localPort}`
-    : `https://${isStaging ? 'api-staging' : 'api'}.instantdb.com`,
-  websocketURI: getLocal('devBackend')
+    : envBackendBase || `https://${isStaging ? 'api-staging' : 'api'}.instantdb.com`,
+  websocketURI: devBackend
     ? `ws://localhost:${localPort}/runtime/session`
+    : envBackendBase
+    ? envBackendBase.replace(/^http/, 'ws') + '/runtime/session'
     : `wss://${isStaging ? 'api-staging' : 'api'}.instantdb.com/runtime/session`,
 };
 
