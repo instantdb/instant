@@ -14,17 +14,29 @@
 ;; Configuration
 ;; ----------------------
 
-(def ^:private s3-client* (delay (.build (S3Client/builder))))
+(def ^:private s3-client*
+  (delay
+    (let [builder (S3Client/builder)]
+      (when-let [ep (System/getenv "S3_ENDPOINT")]
+        (.endpointOverride builder (java.net.URI. ep))
+        (.forcePathStyle builder true))
+      (.build builder)))
+  )
 
 (defn s3-client
   "Standard blocking S3 client. We use this for most operations."
   ^S3Client []
   @s3-client*)
 
-(def ^:private s3-async-client* (delay
-                                  (-> (S3AsyncClient/crtBuilder)
-                                      (.targetThroughputInGbps 20.0)
-                                      (.build))))
+(def ^:private s3-async-client*
+  (delay
+    (let [builder (S3AsyncClient/crtBuilder)]
+      (when-let [ep (System/getenv "S3_ENDPOINT")]
+        (.endpointOverride builder (java.net.URI. ep))
+        (.forcePathStyle builder true))
+      (.targetThroughputInGbps builder 20.0)
+      (.build builder)))
+  )
 
 (defn s3-async-client
   "Async S3 Client. Useful when you want to asynchronously upload streams to S3"
