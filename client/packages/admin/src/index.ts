@@ -62,6 +62,11 @@ import {
 
 import version from './version.js';
 
+type SendMagicCodeParams = { email: string };
+type SendMagicCodeResponse = { sent: true };
+type VerifyMagicCodeParams = { email: string; code: string };
+type VerifyMagicCodeResponse = { user: User; token: AuthToken };
+
 type DebugCheckResult = {
   /** The ID of the record. */
   id: string;
@@ -302,6 +307,64 @@ class Auth {
       method: 'POST',
       headers: authorizedHeaders(this.config),
       body: JSON.stringify({ email }),
+    });
+  };
+
+  /**
+   * Sends a magic code to the user's email address.
+   * This will create a user if one doesn't exist with the provided email.
+   *
+   * @example
+   *   try {
+   *     await db.auth.sendMagicCode({ email: "user@example.com" })
+   *     console.log("Magic code sent successfully")
+   *   } catch (err) {
+   *     console.error("Failed to send magic code:", err.message);
+   *   }
+   *
+   * @see https://instantdb.com/docs/backend#send-magic-code
+   */
+  sendMagicCode = async (
+    params: SendMagicCodeParams,
+  ): Promise<SendMagicCodeResponse> => {
+    return jsonFetch(`${this.config.apiURI}/admin/send_magic_code`, {
+      method: 'POST',
+      headers: authorizedHeaders(this.config),
+      body: JSON.stringify({
+        'app-id': this.config.appId,
+        email: params.email,
+      }),
+    });
+  };
+
+  /**
+   * Verifies a magic code that was sent to the user's email address.
+   * Returns the user and a refresh token upon successful verification.
+   *
+   * @example
+   *   try {
+   *     const result = await db.auth.verifyMagicCode({
+   *       email: "user@example.com",
+   *       code: "123456"
+   *     })
+   *     console.log("User verified:", result.user)
+   *   } catch (err) {
+   *     console.error("Failed to verify magic code:", err.message);
+   *   }
+   *
+   * @see https://instantdb.com/docs/backend#verify-magic-code
+   */
+  verifyMagicCode = async (
+    params: VerifyMagicCodeParams,
+  ): Promise<VerifyMagicCodeResponse> => {
+    return jsonFetch(`${this.config.apiURI}/admin/verify_magic_code`, {
+      method: 'POST',
+      headers: authorizedHeaders(this.config),
+      body: JSON.stringify({
+        'app-id': this.config.appId,
+        email: params.email,
+        code: params.code,
+      }),
     });
   };
 
@@ -861,6 +924,10 @@ export {
   type TransactionChunk,
   type DebugCheckResult,
   type InstantAdminDatabase,
+  type SendMagicCodeParams,
+  type SendMagicCodeResponse,
+  type VerifyMagicCodeParams,
+  type VerifyMagicCodeResponse,
 
   // core types
   type User,

@@ -2,18 +2,22 @@
   (:require
    [compojure.core :as compojure :refer [defroutes DELETE GET POST PUT]]
    [instant.admin.model :as admin-model]
+   [instant.auth.magic-code :as magic-code]
    [instant.db.datalog :as d]
    [instant.db.instaql :as iq]
    [instant.db.model.attr :as attr-model]
+   [instant.db.model.transaction :as transaction-model]
    [instant.db.permissioned-transaction :as permissioned-tx]
    [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
    [instant.model.app :as app-model]
    [instant.model.app-admin-token :as app-admin-token-model]
+   [instant.model.app-email-template :as app-email-template-model]
    [instant.model.app-user :as app-user-model]
    [instant.model.app-user-magic-code :as app-user-magic-code-model]
    [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
    [instant.model.rule :as rule-model]
+   [instant.postmark :as postmark]
    [instant.superadmin.routes :refer [req->superadmin-user!]]
    [instant.util.email :as email]
    [instant.util.exception :as ex]
@@ -22,6 +26,7 @@
    [instant.util.json :refer [->json <-json]]
    [instant.util.string :as string-util]
    [instant.util.token :as token-util]
+   [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
    [ring.util.http-response :as response]
    [instant.model.schema :as schema-model]
@@ -30,7 +35,8 @@
    [instant.storage.s3 :as instant-s3]
    [clojure.walk :as w]
    [instant.reactive.ephemeral :as eph]
-   [medley.core :as medley])
+   [medley.core :as medley]
+   [next.jdbc :as next-jdbc])
   (:import
    (java.util UUID)))
 
@@ -296,7 +302,7 @@
       (ex/throw-validation-err!
        :body
        body
-       [{:message "Please provide an `id`, `email`, or `refresh_token`"}]))
+       [{:message "Please provide an `id`, `email`, or `refresh_token"}]))
     (response/ok {:ok true})))
 
 (defn req->app-user! [{:keys [params] :as req} oauth-scope]
@@ -348,8 +354,20 @@
 (comment
   (magic-code-post {:body {:email "hi@marky.fyi"}}))
 
+(defn send-magic-code-post [req]
+  (let [{:keys [app-id]} (req->app-id-authed! req :data/write)
+        email (ex/get-param! req [:body :email] email/coerce)
+        result (magic-code/send-magic-code! {:app-id app-id :email email})]
+    (response/ok result)))
+
+(defn verify-magic-code-post [req]
+  (let [{:keys [app-id]} (req->app-id-authed! req :data/write)
+        email (ex/get-param! req [:body :email] email/coerce)
+        code (ex/get-param! req [:body :code] string-util/safe-trim)
+        result (magic-code/verify-magic-code! {:app-id app-id :email email :code code})]
+    (response/ok result)))
+
 (comment
-  ;; Set up test data
   (def counters-app-id  #uuid "137ace7a-efdd-490f-b0dc-a3c73a14f892")
   (def admin-token #uuid "82900c15-faac-495b-b385-9f9e7743b629")
   (def email "test@example.com")
@@ -566,6 +584,8 @@
   (POST "/admin/sign_out" [] sign-out-post)
   (POST "/admin/refresh_tokens" [] refresh-tokens-post)
   (POST "/admin/magic_code" [] magic-code-post)
+  (POST "/admin/send_magic_code" [] send-magic-code-post)
+  (POST "/admin/verify_magic_code" [] verify-magic-code-post)
 
   (GET "/admin/users", [] app-users-get)
   (DELETE "/admin/users", [] app-users-delete)
