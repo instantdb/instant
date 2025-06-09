@@ -1,0 +1,63 @@
+services:
+
+  postgres:
+    image: public.ecr.aws/z9j8u5b3/instant-public:postgresql-16-pg-hint-plan
+    ports:
+      - '8890:5432'
+    environment:
+      POSTGRES_PASSWORD: pass
+      POSTGRES_USER: instant
+      POSTGRES_DB: instant
+    volumes:
+      - 'backend-db:/var/lib/postgresql/data'
+    networks:
+      - application
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "instant"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command:
+      - "postgres"
+      - "-c"
+      - "wal_level=logical"
+      # - "-c"
+      # - "max_replication_slots=4" # Dev
+      # - "max_replication_slots=10" # Default
+      - "-c"
+      - "max_wal_senders=4"
+      - "-c"
+      - "shared_preload_libraries=pg_hint_plan"
+      - "-c"
+      - "random_page_cost=1.1"
+
+  backend:
+    # image: REPLACEME
+    build: ../server
+    ports:
+      - '8888:8888'
+      - '6005:6005'
+    environment:
+      DATABASE_URL: "postgresql://instant:pass@postgres:5432/instant"
+      NREPL_BIND_ADDRESS: "0.0.0.0"
+      SERVER_ORIGIN: http://localhost:8888
+    networks:
+      - application
+    stop_grace_period: 2m
+    restart: on-failure
+    cap_add:
+      - CAP_PERFMON
+    depends_on:
+      - postgres
+    command: sh -c 'java $${JAVA_OPTS} -agentpath:/usr/local/YourKit-JavaProfiler-2024.9/bin/linux-x86-64/libyjpagent.so=port=10001,listen=all --add-modules java.se --add-exports java.base/jdk.internal.ref=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/sun.nio.ch=ALL-UNNAMED --add-opens java.management/sun.management=ALL-UNNAMED --add-opens jdk.management/com.sun.management.internal=ALL-UNNAMED -XX:+UnlockDiagnosticVMOptions -XX:+DebugNonSafepoints -Djdk.attach.allowAttachSelf -Djava.awt.headless=true -server -jar target/instant-standalone.jar'
+
+  client:
+    build: ../client
+    ports:
+      - '3000:3000'
+
+networks:
+  application:
+    driver: bridge
+volumes:
+  backend-db:

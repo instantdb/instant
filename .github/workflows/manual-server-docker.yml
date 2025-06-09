@@ -1,4 +1,4 @@
-name: Build server Docker image
+name: Build Docker images
 
 on:
   workflow_dispatch:
@@ -17,10 +17,16 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and push
+      - name: Build and push server
         uses: docker/build-push-action@v5
         with:
           context: ./server
           push: true
-          # tags: ghcr.io/${{ github.repository }}:${{ github.ref_name }}
-          tags: ghcr.io/${{ github.repository }}:main
+          tags: ghcr.io/${{ github.repository }}/server:main
+
+      - name: Build and push client
+        uses: docker/build-push-action@v5
+        with:
+          context: ./client
+          push: true
+          tags: ghcr.io/${{ github.repository }}/client:main
