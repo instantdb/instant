@@ -25,7 +25,7 @@ const config = {
     ? `${devHost}:${devPort}`
     : `https://${isStaging ? 'api-staging' : 'api'}.instantdb.com`,
   websocketURI: devBackend
-    ? `${devHost}:${devPort}/runtime/session`
+    ? `${devHost.replace(/^http/, 'ws')}:${devPort}/runtime/session`
     : `wss://${isStaging ? 'api-staging' : 'api'}.instantdb.com/runtime/session`,
 };
 
