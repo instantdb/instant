@@ -34,7 +34,7 @@ the following configuration to your MCP settings:
 
 **MacOS/Linux**
 
-```json
+```json {% showCopy="true" %}
 {
   "mcpServers": {
     "instant": {
@@ -47,7 +47,7 @@ the following configuration to your MCP settings:
 
 **Windows**
 
-```json
+```json {% showCopy="true" %}
 {
   "mcpServers": {
     "instant": {
@@ -60,7 +60,7 @@ the following configuration to your MCP settings:
 
 **Windows WSL**
 
-```json
+```json {% showCopy="true" %}
 {
   "mcpServers": {
     "instant": {
@@ -78,7 +78,7 @@ the editor! You should now see the Instant MCP server active and enabled!
 
 Open your Zed settings and add the following
 
-```json
+```json {% showCopy="true" %}
 {
   "context_servers": {
     "linear": {
@@ -104,7 +104,7 @@ steps:
 1. Open the file `~/Library/Application Support/Claude/claude_desktop_config.json`
 2. Add the following configuration to the `claude_desktop_config.json` file:
 
-```json
+```json {% showCopy="true" %}
 {
   "mcpServers": {
     "instant": {
