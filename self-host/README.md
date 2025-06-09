@@ -55,6 +55,19 @@ export SERVER_ORIGIN="https://api.example.com"
 
 Restart the jar to pick up the new value.
 
+## Overriding the dashboard origin
+
+The frontend dashboard uses `dashboard-origin` to generate OAuth redirect URLs
+and to validate CORS requests. By default this value depends on the environment
+and falls back to `http://localhost:3000` when running locally. You can override
+it at runtime:
+
+```bash
+export DASHBOARD_ORIGIN="https://dashboard.example.com"
+```
+
+Restart the jar to pick up the new value.
+
 ## Using Minio instead of S3
 
 Set `S3_ENDPOINT` to point the S3 clients at your local Minio instance:
