@@ -30,7 +30,8 @@
    [instant.storage.s3 :as instant-s3]
    [clojure.walk :as w]
    [instant.reactive.ephemeral :as eph]
-   [medley.core :as medley])
+   [medley.core :as medley]
+   [instant.runtime.magic-code-auth :as magic-code-auth])
   (:import
    (java.util UUID)))
 
@@ -337,13 +338,31 @@
 (defn magic-code-post [req]
   (let [{:keys [app-id]} (req->app-id-authed! req :data/write)
         email (ex/get-param! req [:body :email] email/coerce)
-        {user-id :id} (app-user-model/get-or-create-by-email! {:email email :app-id app-id})
-        {code :code} (app-user-magic-code-model/create!
-                      {:app-id app-id
-                       :id (UUID/randomUUID)
-                       :code (app-user-magic-code-model/rand-code)
-                       :user-id user-id})]
+        {:keys [magic-code]} (magic-code-auth/create! {:app-id app-id :email email})
+        {:keys [code]} magic-code]
     (response/ok {:code code})))
+
+(defn send-magic-code-post [req]
+  (let [{:keys [app-id]} (req->app-id-authed! req :data/write)
+        email (ex/get-param! req [:body :email] email/coerce)
+        {:keys [magic-code]} (magic-code-auth/send! {:app-id app-id :email email})
+        {:keys [code]} magic-code]
+    (response/ok {:code code})))
+
+(defn send-magic-code-post [req]
+  (let [{:keys [app-id]} (req->app-id-authed! req :data/write)
+        email (ex/get-param! req [:body :email] email/coerce)
+        {:keys [magic-code]} (magic-code-auth/send! {:app-id app-id :email email})
+        {:keys [code]} magic-code]
+    (response/ok {:code code})))
+
+(defn verify-magic-code-post [req]
+  (let [{:keys [app-id]} (req->app-id-authed! req :data/write)
+        email (ex/get-param! req [:body :email] email/coerce)
+        code (ex/get-param! req [:body :code] string-util/safe-trim)]
+    (response/ok {:user (magic-code-auth/verify! {:app-id app-id
+                                                  :email email
+                                                  :code code})})))
 
 (comment
   (magic-code-post {:body {:email "hi@marky.fyi"}}))
