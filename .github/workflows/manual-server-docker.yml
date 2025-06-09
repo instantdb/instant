@@ -24,9 +24,9 @@ jobs:
           push: true
           tags: ghcr.io/${{ github.repository }}/server:main
 
-      # - name: Build and push client
-      #   uses: docker/build-push-action@v5
-      #   with:
-      #     context: ./client
-      #     push: true
-      #     tags: ghcr.io/${{ github.repository }}/client:main
+      - name: Build and push client
+        uses: docker/build-push-action@v5
+        with:
+          context: ./client
+          push: true
+          tags: ghcr.io/${{ github.repository }}/client:main
