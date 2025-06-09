@@ -57,24 +57,17 @@
                                                   :email "stopa@instantdb.com"}))
 
   (send-magic-code-post {:body {:email "stopainstantdb.com"}})
-  (send-magic-code-post {:body {:email "stopa@instantdb.com" :app-id 1}}))
+  (send-magic-code-post {:body {:email "stopa@instantdb.com" :app-id 1}})
+  (send-magic-code-post {:body {:email "stopa@instantdb.com" :app-id (:id app)}}))
 
 (defn verify-magic-code-post [req]
   (let [email (ex/get-param! req [:body :email] email/coerce)
         code (ex/get-param! req [:body :code] string-util/safe-trim)
-
-        app-id (ex/get-param! req [:body :app-id] uuid-util/coerce)
-        m (app-user-magic-code-model/consume!
-           {:app-id app-id
-            :code code
-            :email email})
-        {user-id :user_id} m
-        {refresh-token-id :id} (app-user-refresh-token-model/create! {:app-id app-id
-                                                                      :id (random-uuid)
-                                                                      :user-id user-id})
-        user (app-user-model/get-by-id {:app-id app-id :id user-id})]
-
-    (response/ok {:user (assoc user :refresh_token refresh-token-id)})))
+        app-id (ex/get-param! req [:body :app-id] uuid-util/coerce)]
+    (response/ok
+     (magic-code-auth/verify! {:app-id app-id
+                               :email email
+                               :code code}))))
 
 (comment
   (def instant-user (instant-user-model/get-by-email
