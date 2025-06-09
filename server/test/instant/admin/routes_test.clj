@@ -12,6 +12,7 @@
             [instant.util.http :as http-util]
             [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
             [instant.model.app-user :as app-user-model]
+            [instant.model.app-user-magic-code :as app-user-magic-code-model]
             [instant.reactive.ephemeral :as eph])
   (:import [java.util UUID]))
 
@@ -32,6 +33,12 @@
 
 (defn sign-out-post [& args]
   (apply (http-util/wrap-errors admin-routes/sign-out-post) args))
+
+(defn send-magic-code-post [& args]
+  (apply (http-util/wrap-errors admin-routes/send-magic-code-post) args))
+
+(defn verify-magic-code-post [& args]
+  (apply (http-util/wrap-errors admin-routes/verify-magic-code-post) args))
 
 (defn transact-ok? [transact-res]
   (= 200 (:status transact-res)))
@@ -491,7 +498,7 @@
             (is (= 200 (:status refresh-ret)))
             (is (some? token))
 
-;; delete user by refresh token
+            ;; delete user by refresh token
             (let [delete-user-ret (app-users-delete
                                    {:params {:refresh_token token}
                                     :headers {"app-id" app-id
@@ -915,6 +922,182 @@
                        :created_at louis-created-at
                        :email louis-email}}}}
                    body))))))))
+
+(deftest send-magic-code-test
+  (with-empty-app
+    (fn [{app-id :id admin-token :admin-token}]
+      (let [email "test@example.com"]
+        (testing "no app-id fails"
+          (let [ret (send-magic-code-post
+                     {:body {:email email}
+                      :headers {"app-id" nil
+                                "authorization" (str "Bearer " admin-token)}})]
+            (is (= 400 (:status ret)))
+            (is (= :param-missing (-> ret :body :type)))))
+
+        (testing "no token fails"
+          (let [ret (send-magic-code-post
+                     {:body {:email email}
+                      :headers {"app-id" (str app-id)
+                                "authorization" nil}})]
+            (is (= 400 (:status ret)))
+            (is (= :param-missing (-> ret :body :type)))))
+
+        (testing "no email fails"
+          (let [ret (send-magic-code-post
+                     {:body {}
+                      :headers {"app-id" (str app-id)
+                                "authorization" (str "Bearer " admin-token)}})]
+            (is (= 400 (:status ret)))
+            (is (= :param-missing (-> ret :body :type)))))
+
+        (testing "invalid email fails"
+          (let [ret (send-magic-code-post
+                     {:body {:email "invalid-email"}
+                      :headers {"app-id" (str app-id)
+                                "authorization" (str "Bearer " admin-token)}})]
+            (is (= 400 (:status ret)))
+            (is (= :param-malformed (-> ret :body :type)))))
+
+        (testing "valid request succeeds"
+          (let [ret (send-magic-code-post
+                     {:body {:email email}
+                      :headers {"app-id" (str app-id)
+                                "authorization" (str "Bearer " admin-token)}})]
+            (is (= 200 (:status ret)))
+            (is (= true (-> ret :body :sent)))))
+
+        (testing "sends email to new user"
+          (let [new-email "newuser@example.com"
+                ret (send-magic-code-post
+                     {:body {:email new-email}
+                      :headers {"app-id" (str app-id)
+                                "authorization" (str "Bearer " admin-token)}})]
+            (is (= 200 (:status ret)))
+            (is (= true (-> ret :body :sent)))
+            ;; Verify user was created
+            (let [user (app-user-model/get-by-email {:app-id app-id :email new-email})]
+              (is (some? user))
+              (is (= new-email (:email user))))))
+
+        (testing "sends email to existing user"
+          (let [existing-email "existing@example.com"
+                ;; Create user first
+                _ (app-user-model/create! {:id (random-uuid)
+                                           :app-id app-id
+                                           :email existing-email})
+                ret (send-magic-code-post
+                     {:body {:email existing-email}
+                      :headers {"app-id" (str app-id)
+                                "authorization" (str "Bearer " admin-token)}})]
+            (is (= 200 (:status ret)))
+            (is (= true (-> ret :body :sent)))))))))
+
+(deftest verify-magic-code-test
+  (with-empty-app
+    (fn [{app-id :id admin-token :admin-token}]
+      (let [email "test@example.com"]
+        (testing "no app-id fails"
+          (let [ret (verify-magic-code-post
+                     {:body {:email email :code "123456"}
+                      :headers {"app-id" nil
+                                "authorization" (str "Bearer " admin-token)}})]
+            (is (= 400 (:status ret)))
+            (is (= :param-missing (-> ret :body :type)))))
+
+        (testing "no token fails"
+          (let [ret (verify-magic-code-post
+                     {:body {:email email :code "123456"}
+                      :headers {"app-id" (str app-id)
+                                "authorization" nil}})]
+            (is (= 400 (:status ret)))
+            (is (= :param-missing (-> ret :body :type)))))
+
+        (testing "no email fails"
+          (let [ret (verify-magic-code-post
+                     {:body {:code "123456"}
+                      :headers {"app-id" (str app-id)
+                                "authorization" (str "Bearer " admin-token)}})]
+            (is (= 400 (:status ret)))
+            (is (= :param-missing (-> ret :body :type)))))
+
+        (testing "no code fails"
+          (let [ret (verify-magic-code-post
+                     {:body {:email email}
+                      :headers {"app-id" (str app-id)
+                                "authorization" (str "Bearer " admin-token)}})]
+            (is (= 400 (:status ret)))
+            (is (= :param-missing (-> ret :body :type)))))
+
+        (testing "invalid email fails"
+          (let [ret (verify-magic-code-post
+                     {:body {:email "invalid-email" :code "123456"}
+                      :headers {"app-id" (str app-id)
+                                "authorization" (str "Bearer " admin-token)}})]
+            (is (= 400 (:status ret)))
+            (is (= :param-malformed (-> ret :body :type)))))
+
+        (testing "invalid code fails"
+          (let [;; First send a magic code
+                _ (send-magic-code-post
+                   {:body {:email email}
+                    :headers {"app-id" (str app-id)
+                              "authorization" (str "Bearer " admin-token)}})
+                ;; Try to verify with wrong code
+                ret (verify-magic-code-post
+                     {:body {:email email :code "wrong-code"}
+                      :headers {"app-id" (str app-id)
+                                "authorization" (str "Bearer " admin-token)}})]
+            ;; Should fail with validation error (magic code not found)
+            (is (= 400 (:status ret)))))
+
+        (testing "valid magic code verification succeeds"
+          (let [test-email "verify-test@example.com"
+                ;; Send magic code first
+                _ (send-magic-code-post
+                   {:body {:email test-email}
+                    :headers {"app-id" (str app-id)
+                              "authorization" (str "Bearer " admin-token)}})
+                ;; Get the user and magic code from database
+                user (app-user-model/get-by-email {:app-id app-id :email test-email})
+                magic-codes (app-user-magic-code-model/get-by-user-id {:app-id app-id :user-id (:id user)})
+                magic-code (first magic-codes)
+                ;; Verify the magic code
+                ret (verify-magic-code-post
+                     {:body {:email test-email :code (:code magic-code)}
+                      :headers {"app-id" (str app-id)
+                                "authorization" (str "Bearer " admin-token)}})]
+            (is (= 200 (:status ret)))
+            (is (some? (-> ret :body :user)))
+            (is (some? (-> ret :body :token)))
+            (is (= test-email (-> ret :body :user :email)))
+            (is (= (-> ret :body :token) (-> ret :body :user :refresh_token)))))
+
+        (testing "magic code can only be used once"
+          (let [single-use-email "single-use@example.com"
+                ;; Send magic code first
+                _ (send-magic-code-post
+                   {:body {:email single-use-email}
+                    :headers {"app-id" (str app-id)
+                              "authorization" (str "Bearer " admin-token)}})
+                ;; Get the magic code
+                user (app-user-model/get-by-email {:app-id app-id :email single-use-email})
+                magic-codes (app-user-magic-code-model/get-by-user-id {:app-id app-id :user-id (:id user)})
+                magic-code (first magic-codes)
+                ;; Use the magic code once
+                first-ret (verify-magic-code-post
+                           {:body {:email single-use-email :code (:code magic-code)}
+                            :headers {"app-id" (str app-id)
+                                      "authorization" (str "Bearer " admin-token)}})
+                ;; Try to use it again
+                second-ret (verify-magic-code-post
+                            {:body {:email single-use-email :code (:code magic-code)}
+                             :headers {"app-id" (str app-id)
+                                       "authorization" (str "Bearer " admin-token)}})]
+            ;; First use should succeed
+            (is (= 200 (:status first-ret)))
+            ;; Second use should fail
+            (is (= 400 (:status second-ret)))))))))
 
 (comment
   (test/run-tests *ns*))
