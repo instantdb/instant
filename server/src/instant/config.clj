@@ -157,12 +157,16 @@
                                                       @process-id)))))
 
 (defn dashboard-origin
+  "Return the base URL for the Instant dashboard. The value normally depends on
+  the current environment but can be overridden with the `DASHBOARD_ORIGIN`
+  environment variable."
   ([] (dashboard-origin {:env (get-env)}))
   ([{:keys [env]}]
-   (case env
-     :prod "https://www.instantdb.com"
-     :staging "https://staging.instantdb.com"
-     "http://localhost:3000")))
+   (or (System/getenv "DASHBOARD_ORIGIN")
+       (case env
+         :prod "https://www.instantdb.com"
+         :staging "https://staging.instantdb.com"
+         "http://localhost:3000"))))
 
 ;; ---
 ;; Stripe
