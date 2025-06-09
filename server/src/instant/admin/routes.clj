@@ -11,7 +11,6 @@
    [instant.model.app :as app-model]
    [instant.model.app-admin-token :as app-admin-token-model]
    [instant.model.app-user :as app-user-model]
-   [instant.model.app-user-magic-code :as app-user-magic-code-model]
    [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
    [instant.model.rule :as rule-model]
    [instant.superadmin.routes :refer [req->superadmin-user!]]
@@ -585,6 +584,8 @@
   (POST "/admin/sign_out" [] sign-out-post)
   (POST "/admin/refresh_tokens" [] refresh-tokens-post)
   (POST "/admin/magic_code" [] magic-code-post)
+  (POST "/admin/send_magic_code" [] send-magic-code-post)
+  (POST "/admin/verify_magic_code" [] verify-magic-code-post)
 
   (GET "/admin/users", [] app-users-get)
   (DELETE "/admin/users", [] app-users-delete)

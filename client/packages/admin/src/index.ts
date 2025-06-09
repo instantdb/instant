@@ -284,7 +284,7 @@ class Auth {
   }
 
   /**
-   * Generates a magic code for the user with the given email,  used to sign in on the frontend.
+   * Generates a magic code for the user with the given email, used to sign in on the frontend.
    * This is useful for writing custom auth flows.
    *
    * @example
@@ -303,6 +303,52 @@ class Auth {
       headers: authorizedHeaders(this.config),
       body: JSON.stringify({ email }),
     });
+  };
+
+  /**
+   * Sends a magic code to the user with the given email, used to sign in on the frontend.
+   *
+   * @example
+   *   try {
+   *     await db.auth.sendMagicCode({ email })
+   *     // send an email to user with magic code
+   *   } catch (err) {
+   *     console.error("Failed to send magic code:", err.message);
+   *   }
+   *
+   * @see https://instantdb.com/docs/backend#send-magic-code
+   */
+  sendMagicCode = async (email: string): Promise<{ code: string }> => {
+    return jsonFetch(`${this.config.apiURI}/admin/send_magic_code`, {
+      method: 'POST',
+      headers: authorizedHeaders(this.config),
+      body: JSON.stringify({ email }),
+    });
+  };
+
+  /**
+   * Verifies a magic code for the user with the given email.
+   *
+   * @example
+   *   try {
+   *     const user = await db.auth.verifyMagicCode({ email, code })
+   *     console.log("Verified user:", user)
+   *   } catch (err) {
+   *     console.error("Failed to verify magic code:", err.message);
+   *   }
+   *
+   * @see https://instantdb.com/docs/backend#verify-magic-code
+   */
+  verifyMagicCode = async (email: string, code: string): Promise<User> => {
+    const { user } = await jsonFetch(
+      `${this.config.apiURI}/admin/verify_magic_code`,
+      {
+        method: 'POST',
+        headers: authorizedHeaders(this.config),
+        body: JSON.stringify({ email, code }),
+      },
+    );
+    return user;
   };
 
   /**

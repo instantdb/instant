@@ -289,7 +289,7 @@ function Login() {
 }
 ```
 
-## Generating magic codes
+## Custom magic codes
 
 We support a [magic code flow](/docs/auth) out of the box. However, if you'd like to use your own email provider to send the code, you can do this with `db.auth.generateMagicCode` function:
 
@@ -300,6 +300,16 @@ app.post('/custom-send-magic-code', async (req, res) => {
   await sendMyCustomMagicCodeEmail(req.body.email, code);
   return res.status(200).send({ token });
 });
+```
+
+You can also send magic code emails and verify them on the backend as well:
+
+```typescript
+// You can tigger a magic code email in your backend with `sendMagicCode`
+const { code } = await db.auth.sendMagicCode(req.body.email);
+
+// And verify a magic code with `verifyMagicCode`
+const user = await db.auth.verifyMagicCode(req.body.email, req.body.code);
 ```
 
 ## Authenticated Endpoints
