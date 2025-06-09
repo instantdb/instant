@@ -6,18 +6,15 @@
    [instant.db.datalog :as d]
    [instant.db.instaql :as iq]
    [instant.db.model.attr :as attr-model]
-   [instant.db.model.transaction :as transaction-model]
    [instant.db.permissioned-transaction :as permissioned-tx]
    [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
    [instant.model.app :as app-model]
    [instant.model.app-admin-token :as app-admin-token-model]
-   [instant.model.app-email-template :as app-email-template-model]
    [instant.model.app-user :as app-user-model]
    [instant.model.app-user-magic-code :as app-user-magic-code-model]
    [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
    [instant.model.rule :as rule-model]
-   [instant.postmark :as postmark]
    [instant.superadmin.routes :refer [req->superadmin-user!]]
    [instant.util.email :as email]
    [instant.util.exception :as ex]
@@ -26,7 +23,6 @@
    [instant.util.json :refer [->json <-json]]
    [instant.util.string :as string-util]
    [instant.util.token :as token-util]
-   [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
    [ring.util.http-response :as response]
    [instant.model.schema :as schema-model]
@@ -35,8 +31,7 @@
    [instant.storage.s3 :as instant-s3]
    [clojure.walk :as w]
    [instant.reactive.ephemeral :as eph]
-   [medley.core :as medley]
-   [next.jdbc :as next-jdbc])
+   [medley.core :as medley])
   (:import
    (java.util UUID)))
 

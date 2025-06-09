@@ -6,11 +6,8 @@
             [instant.auth.magic-code :as magic-code]
             [instant.auth.oauth :as oauth]
             [instant.config :as config]
-            [instant.db.model.transaction :as transaction-model]
-            [instant.jdbc.aurora :as aurora]
             [instant.model.app :as app-model]
             [instant.model.app-authorized-redirect-origin :as app-authorized-redirect-origin-model]
-            [instant.model.app-email-template :as app-email-template-model]
             [instant.model.app-oauth-client :as app-oauth-client-model]
             [instant.model.app-oauth-code :as app-oauth-code-model]
             [instant.model.app-oauth-redirect :as app-oauth-redirect-model]
@@ -19,7 +16,6 @@
             [instant.model.app-user-oauth-link :as app-user-oauth-link-model]
             [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
             [instant.model.instant-user :as instant-user-model]
-            [instant.postmark :as postmark]
             [instant.reactive.receive-queue :as receive-queue]
             [instant.reactive.session :as session]
             [instant.reactive.store :as rs]
@@ -32,7 +28,6 @@
             [instant.util.url :as url]
             [instant.util.uuid :as uuid-util]
             [lambdaisland.uri :as uri]
-            [next.jdbc :as next-jdbc]
             [ring.middleware.cookies :refer [wrap-cookies]]
             [ring.util.http-response :as response])
   (:import (java.util UUID)))
@@ -63,24 +58,6 @@
 
 ;; ------
 ;; Routes
-
-(def postmark-unconfirmed-sender-body-error-code 400)
-(def postmark-not-found-sender-body-error-code 401)
-
-(defn invalid-sender? [e]
-  (let [code (-> e ex-data :body :ErrorCode)]
-    (or (= code postmark-unconfirmed-sender-body-error-code)
-        (= code postmark-not-found-sender-body-error-code))))
-
-(defn template-replace [template params]
-  (reduce
-   (fn [acc [k v]]
-     (string/replace acc (str "{" (name k) "}") v))
-   template
-   params))
-
-(comment
-  (template-replace "Hello {name}, your code is {code}" {:name "Stepan" :code "123"}))
 
 (comment
   (def instant-user (instant-user-model/get-by-email
