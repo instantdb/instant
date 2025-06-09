@@ -50,14 +50,6 @@ localStorage.setItem('devBackend', true);
 
 Now all requests will go to your local backend at [localhost:8888](http://localhost:8888). If you haven't set up a local backend, follow the [server README](../server/README.md)
 
-You can also override the default backend domain by setting the `NEXT_PUBLIC_BACKEND_BASE` environment variable when running the app:
-
-```bash
-NEXT_PUBLIC_BACKEND_BASE=https://api.my-domain.com pnpm run dev
-```
-
-This value is ignored when the `devBackend` flag is present.
-
 ### Show client logs
 
 The instant client can show development logs. You can turn this on by writing:
