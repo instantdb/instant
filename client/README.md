@@ -72,11 +72,11 @@ You can create local apps by following these steps
 You can then connect to this app in a new project with the following snippet
 
 ```javascript
-const APP_ID = '<your app id from your own server>'
+const APP_ID = '<your app id from your own server>';
 const db = init({
   appId: APP_ID,
-  apiURI: "http://localhost:8888",
-  websocketURI: "ws://localhost:8888/runtime/session",
+  apiURI: 'http://localhost:8888',
+  websocketURI: 'ws://localhost:8888/runtime/session',
 });
 ```
 
