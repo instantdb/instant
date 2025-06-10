@@ -284,16 +284,15 @@ class Auth {
   }
 
   /**
-   * Generates a magic code for the user with the given email, used to sign in on the frontend.
-   * This is useful for writing custom auth flows.
+   * Generates a magic code for the user with the given email.
+   * This is useful if you want to use your own email provider
+   * to send magic codes.
    *
    * @example
-   *   try {
-   *     const user = await db.auth.generateMagicCode({ email })
-   *     // send an email to user with magic code
-   *   } catch (err) {
-   *     console.error("Failed to generate magic code:", err.message);
-   *   }
+   *   // Generate a magic code
+   *   const { code } = await db.auth.generateMagicCode({ email })
+   *   // Send the magic code to the user with your own email provider
+   *   await customEmailProvider.sendMagicCode(email, code)
    *
    * @see https://instantdb.com/docs/backend#generate-magic-code
    */
@@ -306,15 +305,12 @@ class Auth {
   };
 
   /**
-   * Sends a magic code to the user with the given email, used to sign in on the frontend.
+   * Sends a magic code to the user with the given email.
+   * This uses Instant's built-in email provider.
    *
    * @example
-   *   try {
-   *     await db.auth.sendMagicCode({ email })
-   *     // send an email to user with magic code
-   *   } catch (err) {
-   *     console.error("Failed to send magic code:", err.message);
-   *   }
+   *   // Send an email to user with magic code
+   *   await db.auth.sendMagicCode({ email })
    *
    * @see https://instantdb.com/docs/backend#send-magic-code
    */
@@ -330,12 +326,8 @@ class Auth {
    * Verifies a magic code for the user with the given email.
    *
    * @example
-   *   try {
-   *     const user = await db.auth.verifyMagicCode({ email, code })
-   *     console.log("Verified user:", user)
-   *   } catch (err) {
-   *     console.error("Failed to verify magic code:", err.message);
-   *   }
+   *   const user = await db.auth.verifyMagicCode({ email, code })
+   *   console.log("Verified user:", user)
    *
    * @see https://instantdb.com/docs/backend#verify-magic-code
    */
