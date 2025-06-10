@@ -352,7 +352,7 @@ function apiSchemaAttrToLinkDef(attr: InstantDBAttr) {
       has: rhas,
       label: rlabel,
       required:
-        (attr['required?'] && fhas === 'one' && rhas === 'one') || undefined,      
+        (attr['required?'] && fhas === 'one' && rhas === 'one') || undefined,
       onDelete:
         attr['on-delete-reverse'] === 'cascade'
           ? ('cascade' as 'cascade')
