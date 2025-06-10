@@ -294,7 +294,7 @@ class Auth {
    *   // Send the magic code to the user with your own email provider
    *   await customEmailProvider.sendMagicCode(email, code)
    *
-   * @see https://instantdb.com/docs/backend#generate-magic-code
+   * @see https://instantdb.com/docs/backend#custom-magic-codes
    */
   generateMagicCode = async (email: string): Promise<{ code: string }> => {
     return jsonFetch(`${this.config.apiURI}/admin/magic_code`, {
@@ -312,7 +312,7 @@ class Auth {
    *   // Send an email to user with magic code
    *   await db.auth.sendMagicCode({ email })
    *
-   * @see https://instantdb.com/docs/backend#send-magic-code
+   * @see https://instantdb.com/docs/backend#custom-magic-codes
    */
   sendMagicCode = async (email: string): Promise<{ code: string }> => {
     return jsonFetch(`${this.config.apiURI}/admin/send_magic_code`, {
@@ -329,7 +329,7 @@ class Auth {
    *   const user = await db.auth.verifyMagicCode({ email, code })
    *   console.log("Verified user:", user)
    *
-   * @see https://instantdb.com/docs/backend#verify-magic-code
+   * @see https://instantdb.com/docs/backend#custom-magic-codes
    */
   verifyMagicCode = async (email: string, code: string): Promise<User> => {
     const { user } = await jsonFetch(

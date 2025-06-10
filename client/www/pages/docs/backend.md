@@ -302,14 +302,18 @@ app.post('/custom-send-magic-code', async (req, res) => {
 });
 ```
 
-You can also send magic code emails and verify them on the backend as well:
+You can also use Instant's default email provider to send a magic code with `db.auth.sendMagicCode`:
 
 ```typescript
 // You can tigger a magic code email in your backend with `sendMagicCode`
 const { code } = await db.auth.sendMagicCode(req.body.email);
+```
 
-// And verify a magic code with `verifyMagicCode`
+Similarily, you can verify a magic code with `db.auth.verifyMagicCode`:
+
+```typescript
 const user = await db.auth.verifyMagicCode(req.body.email, req.body.code);
+const token = user.refresh_token;
 ```
 
 ## Authenticated Endpoints
