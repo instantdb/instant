@@ -81,7 +81,7 @@ Open your Zed settings and add the following
 ```json {% showCopy="true" %}
 {
   "context_servers": {
-    "linear": {
+    "instant": {
       "command": {
         "path": "npx",
         "args": ["-y", "@instantdb/mcp", "--token", "<token>"],
