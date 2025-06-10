@@ -495,6 +495,24 @@
                       ::ex/message "Unrecognized `grant_type` parameter, expected either `authorization_code` or `refresh_token`"
                       ::ex/hint {:input grant-type}}))))))
 
+(defn get-token-info [req]
+  (let [token-str (ex/get-param! (:params req)
+                                 [:access_token]
+                                 string-util/coerce-non-blank-str)
+        token (token-util/coerce-token-from-string token-str)]
+    (when-not (token-util/is-platform-access-token? token)
+      (ex/throw-validation-err! :access_token
+                                {}
+                                [{:message "The access_token is not a valid platform OAuth access token."}]))
+
+    (let [record (oauth-app-model/access-token-by-token-value!
+                  {:access-token (token-util/platform-access-token-value token)})]
+      (response/ok {:expires_in (oauth-app-model/access-token-expires-in record)
+                    :token_type "Bearer"
+                    :scopes (->> record
+                                 :scopes
+                                 (string/join " "))}))))
+
 (defn revoke-oauth-token [req]
   (let [token (ex/get-param! req
                              [:params :token]
@@ -516,4 +534,5 @@
   (POST "/platform/oauth/grant" [] (wrap-cookies oauth-grant-access {:decoder parse-cookie}))
   (POST "/platform/oauth/deny" [] (wrap-cookies oauth-deny-access {:decoder parse-cookie}))
   (POST "/platform/oauth/token" [] oauth-token)
+  (GET "/platform/oauth/token-info" [] get-token-info)
   (POST "/platform/oauth/revoke" [] revoke-oauth-token))
