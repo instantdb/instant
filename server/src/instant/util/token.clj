@@ -45,7 +45,7 @@
   (str platform-access-token-prefix (crypt-util/random-hex 32)))
 
 (defn generate-platform-refresh-token []
-  (str platform-access-token-prefix (crypt-util/random-hex 32)))
+  (str platform-refresh-token-prefix (crypt-util/random-hex 32)))
 
 (defn generate-personal-access-token []
   (str personal-access-token-prefix (crypt-util/random-hex 32)))
