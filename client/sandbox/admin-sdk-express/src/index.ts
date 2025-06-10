@@ -352,10 +352,24 @@ async function testSuperadminAppsFlow() {
   await testSuperadminListApps();
 }
 
-async function generateMagicCode() {
-  const r = await db.auth.generateMagicCode('hi@marky.fyi');
+async function testGenerateMagicCode() {
+  const r = await db.auth.generateMagicCode('stopa@instantdb.com');
   console.log(r);
 }
+
+async function testSendMagicCode() {
+  const r = await db.auth.sendMagicCode('stopa@instantdb.com');
+  console.log(r);
+}
+
+async function testVerifyMagicCode() {
+  const r = await db.auth.verifyMagicCode('stopa@instantdb.com', '123456');
+  console.log(r);
+}
+
+// testGenerateMagicCode();
+// testSendMagicCode();
+// testVerifyMagicCode();
 
 // testSuperadminListApps();
 // testSuperadminCreateApp("Test App");
