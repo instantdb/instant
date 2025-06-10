@@ -348,13 +348,6 @@
         {:keys [code]} magic-code]
     (response/ok {:code code})))
 
-(defn send-magic-code-post [req]
-  (let [{:keys [app-id]} (req->app-id-authed! req :data/write)
-        email (ex/get-param! req [:body :email] email/coerce)
-        {:keys [magic-code]} (magic-code-auth/send! {:app-id app-id :email email})
-        {:keys [code]} magic-code]
-    (response/ok {:code code})))
-
 (defn verify-magic-code-post [req]
   (let [{:keys [app-id]} (req->app-id-authed! req :data/write)
         email (ex/get-param! req [:body :email] email/coerce)
