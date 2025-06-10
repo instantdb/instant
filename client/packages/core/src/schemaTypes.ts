@@ -515,7 +515,7 @@ export type UpdateParams<
 };
 
 export type UpdateOpts = {
-  upsert?: boolean;
+  upsert?: boolean | undefined;
 };
 
 export type LinkParams<

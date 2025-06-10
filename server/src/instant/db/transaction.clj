@@ -25,7 +25,7 @@
 
 (s/def ::opts
   (s/nilable
-   (s/keys :opt-un [::upsert])))
+   (s/keys :opt-un [::mode])))
 
 (s/def ::add-triple-step
   (s/cat :op #{:add-triple} :triple ::triple-model/triple :opts (s/? ::opts)))
@@ -73,6 +73,17 @@
      [{:expected 'coll? :in in}]))
   x)
 
+(defn coerce-attr-args [[action args :as tx-step]]
+  (if (#{:add-attr :update-attr} action)
+    [action (-> args
+                (coll/update-in-when [:value-type] keyword)
+                (coll/update-in-when [:cardinality] keyword))]
+    tx-step))
+
+(defn coerce-opts [tx-step]
+  (let [opts-idx 4]
+    (coll/update-in-when tx-step [opts-idx :mode] keyword)))
+
 (defn coerce!
   "Takes an input tx-steps, and: 
    - converts strings to keywords when needed  
@@ -81,22 +92,18 @@
    At some point, we may prefer to use a tool like 
    [coax](https://github.com/exoscale/coax)"
   [tx-steps]
-  (let [action-idx 0
-        state {:in [] :root tx-steps}]
-    (->> tx-steps
-         (assert-coll! state)
-         (map-indexed
-          (fn [idx tx-step]
-            (assert-coll! (update state :in conj idx) tx-step)
-            (update tx-step action-idx keyword)))
-         (mapv
-          (fn [[action args :as tx-step]]
-            (if (#{:add-attr :update-attr} action)
-              [action (-> args
-                          (coll/update-in-when [:value-type] keyword)
-                          (coll/update-in-when [:cardinality] keyword))]
-              tx-step)))
-         uuid/walk-uuids)))
+  (assert-coll! {:in [] :root tx-steps} tx-steps)
+  (mapv
+   (fn [idx tx-step]
+     (assert-coll! {:in [idx] :root tx-steps} tx-step)
+     (let [action-idx 0]
+       (-> tx-step
+           (update action-idx keyword)
+           coerce-attr-args
+           coerce-opts
+           uuid/walk-uuids)))
+   (range)
+   tx-steps))
 
 (defn validate! [tx-steps]
   (let [valid? (s/valid? ::tx-steps tx-steps)]

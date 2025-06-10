@@ -195,7 +195,13 @@ function expandUpdate(attrs, [etype, eid, obj_, opts]) {
     .concat(Object.entries(obj))
     .map(([identName, value]) => {
       const attr = getAttrByFwdIdentName(attrs, etype, identName);
-      return ['add-triple', lookup, attr.id, value, serverOpts];
+      return [
+        'add-triple',
+        lookup,
+        attr.id,
+        value,
+        ...(serverOpts ? [serverOpts] : []),
+      ];
     });
   return attrTuples;
 }
@@ -211,7 +217,13 @@ function expandDeepMerge(attrs, [etype, eid, obj_, opts]) {
   const lookup = extractLookup(attrs, etype, eid);
   const attrTuples = Object.entries(obj).map(([identName, value]) => {
     const attr = getAttrByFwdIdentName(attrs, etype, identName);
-    return ['deep-merge-triple', lookup, attr.id, value, serverOpts];
+    return [
+      'deep-merge-triple',
+      lookup,
+      attr.id,
+      value,
+      ...(serverOpts ? [serverOpts] : []),
+    ];
   });
 
   const idTuple = [
@@ -219,7 +231,7 @@ function expandDeepMerge(attrs, [etype, eid, obj_, opts]) {
     lookup,
     getAttrByFwdIdentName(attrs, etype, 'id').id,
     lookup,
-    opts,
+    ...(serverOpts ? [serverOpts] : []),
   ];
 
   // id first so that we don't clobber updates on the lookup field
@@ -238,7 +250,7 @@ function removeIdFromArgs(step) {
   }
   const newObj = { ...obj };
   delete newObj.id;
-  return [op, etype, eid, newObj, opts];
+  return [op, etype, eid, newObj, ...(opts ? [opts] : [])];
 }
 
 function toTxSteps(attrs, step) {

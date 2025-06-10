@@ -10,11 +10,9 @@ type Action = 'update' | 'link' | 'unlink' | 'delete' | 'merge' | 'ruleParams';
 type EType = string;
 type Id = string;
 type Args = any;
-type Opts = {
-  upsert?: boolean | undefined;
-};
 type LookupRef = [string, any];
 type Lookup = string;
+type Opts = UpdateOpts;
 export type Op = [Action, EType, Id | LookupRef, Args, Opts?];
 
 export interface TransactionChunk<
