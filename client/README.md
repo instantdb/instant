@@ -55,7 +55,7 @@ Now all requests will go to your local backend at [localhost:8888](http://localh
 The instant client can show development logs. You can turn this on by writing:
 
 ```javascript
-localStorage.setItem("__instantLogging", true);
+localStorage.setItem('__instantLogging', true);
 ```
 
 ### Running a local app
