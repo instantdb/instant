@@ -339,14 +339,10 @@ function registerTools(server: McpServer, api: PlatformApi) {
     },
     async ({ appId, additions }) => {
       try {
-        console.log('additions', additions);
         const schema = zodToSchema(additions);
-        console.log('schema', schema);
         const result = await api.schemaPush(appId, {
           schema: schema as unknown as any,
         });
-
-        console.log('result', result);
 
         return {
           content: [
@@ -357,7 +353,6 @@ function registerTools(server: McpServer, api: PlatformApi) {
           ],
         };
       } catch (error) {
-        console.log('error', error);
         return handleError(error);
       }
     },

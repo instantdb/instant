@@ -171,7 +171,7 @@ export class ServiceProvider implements OAuthServerProvider {
     res
       .cookie('__session', cookie, {
         httpOnly: true,
-        secure: false, // XXX: Check if dev
+        secure: this.#oauthConfig.serverOrigin.startsWith('https'),
         sameSite: 'lax',
         path: '/oauth',
         expires: new Date(Date.now() + 1000 * 60 * 5),
