@@ -4253,6 +4253,9 @@
                                  :bookshelves {:allow {:view "data.name == 'Nonfiction'"}}
                                  :books {:allow {:view "data.isbn13 == '9780316486668'"}}}})
 
+        ;; prevent attrs lookup from messing with query count
+        (attr-model/get-by-app-id (:id app))
+
         (testing "rules work even when you filter fields"
           (is (= {:users [{:id (str (resolvers/->uuid r "eid-alex"))
                            :fullName "Alex"
