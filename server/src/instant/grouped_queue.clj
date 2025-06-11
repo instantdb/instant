@@ -6,8 +6,16 @@
    [instant.util.tracer :as tracer])
   (:import
    (java.util Map Queue)
-   (java.util.concurrent ConcurrentHashMap ConcurrentLinkedQueue Executors ExecutorService TimeUnit)
+   (java.util.concurrent ConcurrentHashMap ConcurrentLinkedQueue Executor Executors ExecutorService TimeUnit)
    (java.util.concurrent.atomic AtomicInteger)))
+
+(defn- execute [{:keys [executor error-fn]} ^Runnable task]
+  (try
+    (Executor/.execute executor task)
+    (catch Exception e
+      (if error-fn
+        (error-fn e)
+        (throw e)))))
 
 (defn- poll
   "Gets 0..∞ items from group, fetching as many combinable items as possible in a row.
@@ -31,18 +39,17 @@
   (run [this]
     (process this q key group)))
 
-(defn- clean-or-reschedule [process-task {:keys [executor groups] :as q} group key]
+(defn- clean-or-reschedule [process-task {:keys [groups] :as q} group key]
   (when (= ::reschedule (locking q
                           (if (some? (Queue/.peek group))
                             ::reschedule
                             (Map/.remove groups key))))
-    (ExecutorService/.execute executor process-task)))
+    (execute q process-task)))
 
 (defn- process
   "Main worker process function"
   [process-task
-   {:keys [executor
-           process-fn
+   {:keys [process-fn
            combine-fn
            num-workers
            num-items
@@ -59,14 +66,14 @@
             (tracer/record-exception-span! t {:name "grouped-queue/process-error"})))
         (AtomicInteger/.addAndGet num-items (- (::combined item 1)))
         (if (some? (Queue/.peek group))
-          (ExecutorService/.execute executor process-task)
+          (execute q process-task)
           (clean-or-reschedule process-task q group key)))
       (clean-or-reschedule process-task q group key)))
   (AtomicInteger/.decrementAndGet num-workers))
 
 (defn put!
   "Schedule item for execution on q"
-  [{:keys [executor groups group-key-fn num-items num-puts accepting?] :as q} item]
+  [{:keys [groups group-key-fn num-items num-puts accepting?] :as q} item]
   (when @accepting?
     (let [item   (assoc item ::put-at (System/currentTimeMillis))
           key    (or (group-key-fn item) ::default)
@@ -79,7 +86,7 @@
                              (Map/.put groups key group)
                              (ProcessTask. q key group))))]
       (when process-task
-        (ExecutorService/.execute executor process-task))
+        (execute q process-task))
       (AtomicInteger/.incrementAndGet num-items)
       (AtomicInteger/.incrementAndGet num-puts))))
 
@@ -119,7 +126,7 @@
      :metrics-path :: String | nil
 
    A string to report gauge metrics to. If skipped, no reporting"
-  [{:keys [group-key-fn combine-fn process-fn executor max-workers metrics-path]
+  [{:keys [group-key-fn combine-fn process-fn error-fn executor max-workers metrics-path]
     :or {max-workers 2}}]
   (let [groups       (ConcurrentHashMap.)
         accepting?   (atom true)
@@ -170,6 +177,7 @@
     {:group-key-fn (or group-key-fn identity)
      :combine-fn   (or combine-fn (fn [_ _] nil))
      :process-fn   process-fn
+     :error-fn     error-fn
      :groups       groups
      :accepting?   accepting?
      :processing?  processing?

@@ -117,15 +117,16 @@
         stopped (promise)
         q (grouped-queue/start
            {:group-key-fn :group
-            :max-workers 1
-            :process-fn (fn [_group items]
+            :max-workers  1
+            :process-fn   (fn [_group items]
                           (if (< 3 (count (swap! processed conj items)))
                             (do
                               (deliver stopped true)
                               (grouped-queue/stop @q-promise))
                             (do
                               (grouped-queue/put! @q-promise {:group 2})
-                              (grouped-queue/put! @q-promise {:group 1}))))})]
+                              (grouped-queue/put! @q-promise {:group 1}))))
+            :error-fn     (fn [_])})]
     (deliver q-promise q)
 
     (grouped-queue/put! q {:group 1})
