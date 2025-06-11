@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import 'dotenv/config';
+import express, { Request, Response, Express, query } from 'express';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
@@ -7,12 +9,33 @@ import { PlatformApi } from '@instantdb/platform';
 import { zodToSchema } from './schema.ts';
 import { parseArgs } from 'node:util';
 import version from './version.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+
+import { mcpAuthRouter } from '@modelcontextprotocol/sdk/server/auth/router.js';
+import { pinoHttp } from 'pino-http';
+import { pino } from 'pino';
+import { init } from '@instantdb/admin';
+
+import schema from './db/instant.schema.ts';
+import { requireBearerAuth } from '@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js';
+import { PlatformApiAuth } from '../../platform/dist/esm/api.js';
+import {
+  addOAuthRoutes,
+  makeApiAuth,
+  OAuthConfig,
+  ServiceProvider,
+  tokensOfBearerToken,
+} from './oauth-service-provider.ts';
+import { KeyConfig } from './crypto.ts';
 
 // Helpers
 // -----------
-function createPlatformApi(token: string, apiURI?: string): PlatformApi {
+function createPlatformApi(
+  auth: PlatformApiAuth,
+  apiURI?: string,
+): PlatformApi {
   return new PlatformApi({
-    auth: { token },
+    auth,
     apiURI,
   });
 }
@@ -316,10 +339,14 @@ function registerTools(server: McpServer, api: PlatformApi) {
     },
     async ({ appId, additions }) => {
       try {
+        console.log('additions', additions);
         const schema = zodToSchema(additions);
+        console.log('schema', schema);
         const result = await api.schemaPush(appId, {
           schema: schema as unknown as any,
         });
+
+        console.log('result', result);
 
         return {
           content: [
@@ -330,6 +357,7 @@ function registerTools(server: McpServer, api: PlatformApi) {
           ],
         };
       } catch (error) {
+        console.log('error', error);
         return handleError(error);
       }
     },
@@ -363,9 +391,7 @@ function registerTools(server: McpServer, api: PlatformApi) {
   );
 }
 
-// Main function to run the server
-// -----------
-async function main() {
+async function startStdio() {
   const {
     values: { token, ['api-url']: apiUrl },
   } = parseArgs({
@@ -387,13 +413,139 @@ async function main() {
     process.exit(1);
   }
 
-  const api = createPlatformApi(accessToken, apiUrl);
+  const api = createPlatformApi({ token: accessToken }, apiUrl);
   const server = createMCPServer();
   registerTools(server, api);
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error('Instant Platform MCP Server running on stdio');
+}
+
+function ensureEnv(key: string): string {
+  const v = process.env[key];
+  if (!v) {
+    throw new Error(`Missing environment variable ${key}`);
+  }
+  return v;
+}
+
+async function startSse() {
+  const db = init({
+    adminToken: ensureEnv('INSTANT_ADMIN_TOKEN'),
+    appId: ensureEnv('INSTANT_APP_ID'),
+    schema,
+  });
+
+  const oauthConfig: OAuthConfig = {
+    clientId: ensureEnv('INSTANT_OAUTH_CLIENT_ID'),
+    clientSecret: ensureEnv('INSTANT_OAUTH_CLIENT_SECRET'),
+    serverOrigin: ensureEnv('SERVER_ORIGIN'),
+  };
+
+  const keyConfig: KeyConfig = JSON.parse(ensureEnv('INSTANT_AES_KEY'));
+
+  const app = express();
+  const logger = pino({ level: 'info' });
+  app.use(
+    pinoHttp({
+      logger,
+      transport: { target: 'pino-pretty', options: { colorize: true } },
+    }),
+  );
+  app.use(express.json());
+
+  const proxyProvider = new ServiceProvider(db, oauthConfig, keyConfig);
+
+  app.use(
+    mcpAuthRouter({
+      scopesSupported: ['apps-read', 'apps-write'],
+      provider: proxyProvider,
+      issuerUrl: new URL(oauthConfig.serverOrigin),
+      baseUrl: new URL(oauthConfig.serverOrigin),
+      serviceDocumentationUrl: new URL('https://instantdb.com/docs'),
+    }),
+  );
+
+  addOAuthRoutes(app, db, oauthConfig);
+
+  const requireTokenMiddleware = requireBearerAuth({
+    verifier: proxyProvider,
+    resourceMetadataUrl: `${oauthConfig.serverOrigin}/.well-known/oauth-protected-resource`,
+  });
+
+  // Handle POST requests for client-to-server communication
+  app.post(
+    '/mcp',
+    requireTokenMiddleware,
+    async (req: Request, res: Response) => {
+      const server = createMCPServer();
+      try {
+        const tokens = await tokensOfBearerToken(db, req.auth!.token);
+
+        const api = createPlatformApi(
+          makeApiAuth(oauthConfig, keyConfig, db, tokens.instantToken),
+        );
+
+        registerTools(server, api);
+        const transport: StreamableHTTPServerTransport =
+          new StreamableHTTPServerTransport({
+            sessionIdGenerator: undefined,
+          });
+
+        req.on('close', () => {
+          transport.close();
+          server.close();
+        });
+        await server.connect(transport);
+        await transport.handleRequest(req, res, req.body);
+      } catch (e) {
+        console.error('Error handling MCP request:', e);
+        if (!res.headersSent) {
+          res.status(500).json({
+            jsonrpc: '2.0',
+            error: {
+              code: -32603,
+              message: 'Internal server error',
+            },
+            id: null,
+          });
+        }
+      }
+    },
+  );
+
+  // We're a stateless server
+  const handleSessionRequest = async (
+    _req: express.Request,
+    res: express.Response,
+  ) => {
+    res.writeHead(405).end(
+      JSON.stringify({
+        jsonrpc: '2.0',
+        error: {
+          code: -32000,
+          message: 'Method not allowed.',
+        },
+        id: null,
+      }),
+    );
+  };
+
+  app.get('/mcp', handleSessionRequest);
+  app.delete('/mcp', handleSessionRequest);
+
+  const port = process.env.PORT || 3123;
+  console.log(`listening on port ${port}`);
+
+  app.listen(process.env.PORT || 3123);
+}
+
+async function main() {
+  if (process.env.SERVER_TYPE === 'http') {
+    return startSse();
+  }
+  return startStdio();
 }
 
 main().catch((error) => {
