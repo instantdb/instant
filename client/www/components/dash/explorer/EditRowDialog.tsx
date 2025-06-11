@@ -997,6 +997,56 @@ export function EditRowDialog({
                       />
                     ) : type === 'number' ? (
                       attr.checkedDataType === 'date' ? (
+                        <div className="flex flex-col gap-1">
+                          <div className="flex">
+                            <input
+                              tabIndex={tabIndex}
+                              type="datetime-local"
+                              className="flex flex-1 rounded-l-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 border-r-0"
+                              value={formatDateForInput(value)}
+                              onChange={(e) =>
+                                handleUpdateFieldValue(
+                                  attr.name,
+                                  parseDateFromInput(e.target.value, type),
+                                )
+                              }
+                            />
+                            <Button
+                              type="button"
+                              size="mini"
+                              variant="subtle"
+                              title="Set to current date/time"
+                              className="px-3 py-1 border border-gray-200 border-l-0 rounded-r-sm rounded-l-none bg-white hover:bg-gray-50 flex-shrink-0"
+                              onClick={() =>
+                                handleUpdateFieldValue(
+                                  attr.name,
+                                  getCurrentDateForType(type),
+                                )
+                              }
+                            >
+                              <ClockIcon height={14} />
+                              <span className="ml-1">Now</span>
+                            </Button>
+                          </div>
+                          {value && (
+                            <div className="text-xs text-gray-500 font-mono">
+                              Stored as: {JSON.stringify(value)}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <input
+                          tabIndex={tabIndex}
+                          type="number"
+                          className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400"
+                          value={value ?? ''}
+                          onChange={(num) =>
+                            handleUpdateFieldValue(attr.name, num.target.value)
+                          }
+                        />
+                      )
+                    ) : attr.checkedDataType === 'date' ? (
+                      <div className="flex flex-col gap-1">
                         <div className="flex">
                           <input
                             tabIndex={tabIndex}
@@ -1027,47 +1077,11 @@ export function EditRowDialog({
                             <span className="ml-1">Now</span>
                           </Button>
                         </div>
-                      ) : (
-                        <input
-                          tabIndex={tabIndex}
-                          type="number"
-                          className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400"
-                          value={value ?? ''}
-                          onChange={(num) =>
-                            handleUpdateFieldValue(attr.name, num.target.value)
-                          }
-                        />
-                      )
-                    ) : attr.checkedDataType === 'date' ? (
-                      <div className="flex">
-                        <input
-                          tabIndex={tabIndex}
-                          type="datetime-local"
-                          className="flex flex-1 rounded-l-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 border-r-0"
-                          value={formatDateForInput(value)}
-                          onChange={(e) =>
-                            handleUpdateFieldValue(
-                              attr.name,
-                              parseDateFromInput(e.target.value, type),
-                            )
-                          }
-                        />
-                        <Button
-                          type="button"
-                          size="mini"
-                          variant="subtle"
-                          title="Set to current date/time"
-                          className="px-3 py-1 border border-gray-200 border-l-0 rounded-r-sm rounded-l-none bg-white hover:bg-gray-50 flex-shrink-0"
-                          onClick={() =>
-                            handleUpdateFieldValue(
-                              attr.name,
-                              getCurrentDateForType(type),
-                            )
-                          }
-                        >
-                          <ClockIcon height={14} />
-                          <span className="ml-1">Now</span>
-                        </Button>
+                        {value && (
+                          <div className="text-xs text-gray-500 font-mono">
+                            Stored as: {JSON.stringify(value)}
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <input
