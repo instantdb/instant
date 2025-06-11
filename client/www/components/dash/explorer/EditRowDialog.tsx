@@ -1074,6 +1074,28 @@ export function EditRowDialog({
                       />
                     )}
                   </>
+                ) : attr.checkedDataType === 'date' ? (
+                  <div className="flex gap-2">
+                    <div className="flex-1 rounded-sm border border-gray-200 bg-gray-50 px-3 py-1 text-gray-500 italic">
+                      null
+                    </div>
+                    <Button
+                      type="button"
+                      size="mini"
+                      variant="subtle"
+                      title="Set to current date/time"
+                      className="px-2 flex-shrink-0"
+                      onClick={() => {
+                        handleNullToggle(attr.name, false);
+                        handleUpdateFieldValue(
+                          attr.name,
+                          getCurrentDateForType(type),
+                        );
+                      }}
+                    >
+                      <ClockIcon height={14} />
+                    </Button>
+                  </div>
                 ) : (
                   <div className="flex-1 rounded-sm border border-gray-200 bg-gray-50 px-3 py-1 text-gray-500 italic">
                     null
