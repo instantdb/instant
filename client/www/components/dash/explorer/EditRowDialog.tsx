@@ -1,5 +1,6 @@
 import { id, InstantReactWebDatabase, tx } from '@instantdb/react';
 import { useMemo, useRef, useState } from 'react';
+import { format } from 'date-fns';
 
 import {
   ActionButton,
@@ -25,6 +26,7 @@ import {
   Cog8ToothIcon,
   TrashIcon,
   InformationCircleIcon,
+  ClockIcon,
 } from '@heroicons/react/24/solid';
 import { validate } from 'uuid';
 import clsx from 'clsx';
@@ -117,6 +119,15 @@ function parseFieldValue(value: any, type: FieldType) {
   }
 
   if (type === 'number') {
+    // Handle date values that might be coming from date inputs
+    if (typeof value === 'string' && value.includes('T')) {
+      // Looks like an ISO date string, convert to timestamp
+      const date = new Date(value);
+      if (!isNaN(date.getTime())) {
+        return date.getTime();
+      }
+    }
+
     const cleaned = String(value).replace(/[^\d.-]/g, '');
     if (
       cleaned === '' ||
@@ -131,6 +142,15 @@ function parseFieldValue(value: any, type: FieldType) {
   } else if (type === 'boolean') {
     return value === 'true';
   } else if (type === 'string') {
+    // Handle date values that might be timestamps
+    if (typeof value === 'number' && value > 1000000000000) {
+      // Looks like a timestamp, convert to ISO string
+      const date = new Date(value);
+      if (!isNaN(date.getTime())) {
+        return date.toISOString();
+      }
+    }
+
     return isJsonObject(value) ? JSON.stringify(value) : String(value);
   } else if (type === 'json') {
     return tryJsonParse(value);
@@ -141,6 +161,53 @@ function parseFieldValue(value: any, type: FieldType) {
 
 function uuidValidate(uuid: string): string | null {
   return validate(uuid) ? null : 'Invalid UUID.';
+}
+
+// Date helper functions
+function formatDateForInput(value: any): string {
+  if (!value) return '';
+
+  let date: Date;
+  if (typeof value === 'number') {
+    // Handle timestamp (milliseconds)
+    date = new Date(value);
+  } else if (typeof value === 'string') {
+    // Handle ISO string or other date string formats
+    date = new Date(value);
+  } else {
+    return '';
+  }
+
+  if (isNaN(date.getTime())) {
+    return '';
+  }
+
+  // Format as local datetime string for input[type="datetime-local"]
+  return format(date, "yyyy-MM-dd'T'HH:mm");
+}
+
+function parseDateFromInput(inputValue: string, targetType: FieldType): any {
+  if (!inputValue) return '';
+
+  const date = new Date(inputValue);
+  if (isNaN(date.getTime())) {
+    return inputValue; // Return original if invalid
+  }
+
+  if (targetType === 'number') {
+    return date.getTime(); // Return timestamp in milliseconds
+  } else {
+    return date.toISOString(); // Return ISO string
+  }
+}
+
+function getCurrentDateForType(targetType: FieldType): any {
+  const now = new Date();
+  if (targetType === 'number') {
+    return now.getTime(); // Return timestamp in milliseconds
+  } else {
+    return now.toISOString(); // Return ISO string
+  }
 }
 
 function RefItemTooltip({
@@ -938,6 +1005,36 @@ export function EditRowDialog({
                           handleUpdateFieldValue(attr.name, num.target.value)
                         }
                       />
+                    ) : attr.checkedDataType === 'date' ? (
+                      <div className="flex gap-1">
+                        <input
+                          tabIndex={tabIndex}
+                          type="datetime-local"
+                          className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400"
+                          value={formatDateForInput(value)}
+                          onChange={(e) =>
+                            handleUpdateFieldValue(
+                              attr.name,
+                              parseDateFromInput(e.target.value, type),
+                            )
+                          }
+                        />
+                        <Button
+                          type="button"
+                          size="mini"
+                          variant="subtle"
+                          title="Set to current date/time"
+                          onClick={() =>
+                            handleUpdateFieldValue(
+                              attr.name,
+                              getCurrentDateForType(type),
+                            )
+                          }
+                        >
+                          <ClockIcon height={14} />
+                          Now
+                        </Button>
+                      </div>
                     ) : (
                       <input
                         tabIndex={tabIndex}
