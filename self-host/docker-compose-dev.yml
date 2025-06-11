@@ -1,3 +1,5 @@
+
+# This was just for developing the coolify docker compose... ignore it
 services:
 
   postgres:

@@ -1,0 +1,19 @@
+# If you are using Coolify, you can connect to the service network with this and run migrations as follows:
+# docker compose -f docker-compose-admin.yml run --rm -it admin sh
+# migrate -database "postgresql://USER:PASS@postgres:5432/instant?sslmode=disable" -path resources/migrations up
+
+version: '3.8'
+services:
+  admin:
+    build:
+      context: ../server
+      dockerfile: Dockerfile-dev
+    networks:
+      - ckc48o4gwko4ogw08wskskw4 # replace with your instantdb coolify network
+    volumes:
+      - '../server:/app'
+
+
+networks:
+  ckc48o4gwko4ogw08wskskw4:
+    external: true

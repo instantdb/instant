@@ -1,0 +1,90 @@
+services:
+
+  postgres:
+    image: public.ecr.aws/z9j8u5b3/instant-public:postgresql-16-pg-hint-plan
+    # ports:
+    #   - '8890:5432'
+    environment:
+      - 'POSTGRES_DB=${POSTGRES_DB:-instant}'
+      - POSTGRES_PASSWORD=$SERVICE_PASSWORD_POSTGRES
+      - POSTGRES_USER=$SERVICE_USER_POSTGRES
+      # POSTGRES_PASSWORD: pass
+      # POSTGRES_USER: instant
+      # POSTGRES_DB: instant
+    volumes:
+      - 'psql-data:/var/lib/postgresql/data'
+    # networks:
+    #   - application
+    healthcheck:
+      # test: ["CMD", "pg_isready", "-U", "instant"]
+      test:
+        - CMD-SHELL
+        - 'pg_isready -h localhost -U $${POSTGRES_USER} -d $${POSTGRES_DB}'
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command:
+      - "postgres"
+      - "-c"
+      - "wal_level=logical"
+      # - "-c"
+      # - "max_replication_slots=4" # Dev
+      # - "max_replication_slots=10" # Default
+      - "-c"
+      - "max_wal_senders=4"
+      - "-c"
+      - "shared_preload_libraries=pg_hint_plan"
+      - "-c"
+      - "random_page_cost=1.1"
+
+  backend:
+    image: ghcr.io/bioshazard/instant/server:main
+    # ports:
+    #   - '8888:8888'
+    #   - '6005:6005'
+    environment:
+      # DATABASE_URL: "postgresql://instant:pass@postgres:5432/instant"
+      # NREPL_BIND_ADDRESS: "0.0.0.0"
+      # SERVER_ORIGIN: http://localhost:8888
+      
+      - SERVICE_FQDN_INSTANTAPI_8888
+      - DATABASE_URL=postgresql://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/${POSTGRES_DB:-instant}
+      - SERVER_ORIGIN=$SERVICE_FQDN_INSTANTAPI_8888
+      - NREPL_BIND_ADDRESS=0.0.0.0
+
+      # Change to your Minio host and auth (bucket is hard-coded as "instantdb-test-bucket" for now, see server/src/)
+      # Or delete S3_ENDPOINT to use AWS S3
+      # - S3_ENDPOINT=CHANGEME
+      # - S3_BUCKET=instantdb-test-bucket # TODO, add env var
+      - AWS_ACCESS_KEY=REPLACEME
+      - AWS_SECRET_ACCESS_KEY=REPLACEME
+      
+    stop_grace_period: 2m
+    restart: on-failure
+    cap_add:
+      - CAP_PERFMON
+    depends_on:
+      - postgres
+    # (original) command: sh -c 'java $${JAVA_OPTS} -agentpath:/usr/local/YourKit-JavaProfiler-2024.9/bin/linux-x86-64/libyjpagent.so=port=10001,listen=all --add-modules java.se --add-exports java.base/jdk.internal.ref=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/sun.nio.ch=ALL-UNNAMED --add-opens java.management/sun.management=ALL-UNNAMED --add-opens jdk.management/com.sun.management.internal=ALL-UNNAMED -XX:+UnlockDiagnosticVMOptions -XX:+DebugNonSafepoints -Djdk.attach.allowAttachSelf -Djava.awt.headless=true -server -jar target/instant-standalone.jar'
+    command: # this one mounts the override.edn at runtime
+      - sh
+      - -c
+      - |
+        java $${JAVA_OPTS} -agentpath:/usr/local/YourKit-JavaProfiler-2024.9/bin/linux-x86-64/libyjpagent.so=port=10001,listen=all --add-modules java.se --add-exports java.base/jdk.internal.ref=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/sun.nio.ch=ALL-UNNAMED --add-opens java.management/sun.management=ALL-UNNAMED --add-opens jdk.management/com.sun.management.internal=ALL-UNNAMED -XX:+UnlockDiagnosticVMOptions -XX:+DebugNonSafepoints -Djdk.attach.allowAttachSelf -Djava.awt.headless=true -server -cp /overlay:/app/target/instant-standalone.jar clojure.main -m instant.core
+
+    volumes:
+      # You can mount a .edn post-build
+      - type: bind
+        source: ./overlay/config/override.edn
+        target: /overlay/config/override.edn
+        content: |
+          {:aead-keyset {:encrypted? false, :json "{\"primaryKeyId\":2410661595,\"key\":[{\"keyData\":{\"typeUrl\":\"type.googleapis.com/google.crypto.tink.AesGcmKey\",\"value\":\"GhCzMWJ04yOoSUKEXNyya2Nj\",\"keyMaterialType\":\"SYMMETRIC\"},\"status\":\"ENABLED\",\"keyId\":2410661595,\"outputPrefixType\":\"TINK\"}]}\n"}}
+
+  client:
+    image: ghcr.io/bioshazard/instant/client:main
+    environment:
+      - SERVICE_FQDN_INSTANTWWW_3000
+      - NEXT_PUBLIC_DEVHOST=$SERVICE_FQDN_INSTANTAPI_8888
+
+volumes:
+  psql-data:
