@@ -5,14 +5,20 @@ export async function exchangeCodeForToken({
   clientId,
   clientSecret,
   redirectUri,
-  apiURI,
+  apiURI = 'https://api.instantdb.com',
 }: {
   code: string;
   clientId: string;
   clientSecret: string;
   redirectUri: string;
-  apiURI: string;
-}) {
+  apiURI?: string;
+}): Promise<{
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: Date;
+  scopes: string;
+  tokenType: 'Bearer';
+}> {
   const res = await fetch(`${apiURI}/platform/oauth/token`, {
     method: 'POST',
     headers: { 'Content-type': 'application/json' },
@@ -50,11 +56,57 @@ export async function exchangeCodeForToken({
     access_token: string;
     refresh_token: string;
     expires_in: number;
+    scopes: string;
+    token_type: 'Bearer';
   };
 
   return {
-    token: json.access_token,
+    accessToken: json.access_token,
     expiresAt: new Date((json.expires_in - 30) * 1000),
     refreshToken: json.refresh_token,
+    scopes: json.scopes,
+    tokenType: json.token_type,
+  };
+}
+
+export async function exchangeRefreshToken({
+  clientId,
+  clientSecret,
+  refreshToken,
+  apiURI = 'https://api.instantdb.com',
+}: {
+  clientId: string;
+  clientSecret: string;
+  refreshToken: string;
+  apiURI?: string;
+}): Promise<{
+  accessToken: string;
+  expiresAt: Date;
+  scopes: string;
+  tokenType: 'Bearer';
+}> {
+  const res = await fetch(`${apiURI}/platform/oauth/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+      client_id: clientId,
+      client_secret: clientSecret,
+    }),
+  });
+
+  const json = (await res.json()) as {
+    access_token: string;
+    expires_in: number;
+    scopes: string;
+    token_type: 'Bearer';
+  };
+
+  return {
+    accessToken: json.access_token,
+    expiresAt: new Date((json.expires_in - 30) * 1000),
+    scopes: json.scopes,
+    tokenType: json.token_type,
   };
 }
