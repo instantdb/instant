@@ -48,6 +48,8 @@ const _schema = i.schema({
       instantCode: i.string().optional(),
       mcpCodeHash: i.string().indexed().optional(),
       state: i.string(),
+      clientToken: i.string(),
+      shownConfirmPage: i.boolean().optional(),
     }),
   },
   links: {

@@ -1,4 +1,11 @@
-import { Express, Request, Response } from 'express';
+import {
+  Express,
+  NextFunction,
+  Request,
+  RequestHandler,
+  Response,
+  urlencoded,
+} from 'express';
 import crypto from 'crypto';
 import {
   id,
@@ -164,6 +171,7 @@ export class ServiceProvider implements OAuthServerProvider {
           cookieHash,
           authParams: params,
           state,
+          clientToken: crypto.randomUUID(),
           expiresAt: new Date(Date.now() + 1000 * 60 * 10).getTime(),
         })
         .link({ client: lookup('client_id', client.client_id) }),
@@ -392,39 +400,279 @@ export class ServiceProvider implements OAuthServerProvider {
   }
 }
 
+interface ReqWithRedirect extends Request {
+  oauthRedirect?: InstaQLResult<
+    AppSchema,
+    {
+      redirects: {
+        client: {};
+      };
+    }
+  >['redirects'][number];
+}
+
+function useRedirectFromCookie(
+  db: InstantAdminDatabase<AppSchema>,
+): RequestHandler {
+  return async (req: ReqWithRedirect, res: Response, next: NextFunction) => {
+    const cookie = req.cookies.__session;
+    if (!cookie) {
+      res.status(400).send('Missing cookie, cannot complete OAuth flow.');
+      return;
+    }
+    const cookieHash = hash(cookie);
+
+    const queryRes = await db.query({
+      redirects: {
+        $: { where: { cookieHash } },
+        client: {},
+      },
+    });
+
+    const redirect = queryRes.redirects[0];
+
+    if (!redirect) {
+      res.status(400).send('Could not find OAuth flow, please try again.');
+      return;
+    }
+
+    if (new Date(redirect.expiresAt) < new Date()) {
+      await db.transact(db.tx.redirects[redirect.id].delete());
+      res.status(400).send('OAuth flow is expired, please try again.');
+      return;
+    }
+
+    req.oauthRedirect = redirect;
+    next();
+  };
+}
+
+async function cleanupRedirect(
+  db: InstantAdminDatabase<AppSchema>,
+  redirect: NonNullable<ReqWithRedirect['oauthRedirect']>,
+) {
+  await db.transact(db.tx.redirects[redirect.id].delete());
+}
+
+function oauthStartHtml(
+  redirect: NonNullable<ReqWithRedirect['oauthRedirect']>,
+) {
+  const clientName = redirect.client?.client_name || 'Unknown client';
+  const redirectUri = encodeURI(redirect.authParams.redirectUri);
+
+  return /* HTML */ `<!DOCTYPE html>
+    <html lang="en">
+      <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Authorize ${clientName}</title>
+        <style>
+          :root {
+            --primary-color: #007bff;
+            --primary-hover-color: #0056b3;
+            --secondary-color: #6c757d;
+            --secondary-hover-color: #5a6268;
+            --bg-color: #f8f9fa;
+            --card-bg-color: #ffffff;
+            --text-color: #212529;
+            --border-color: #dee2e6;
+            --uri-bg-color: #e9ecef;
+            --uri-border-color: #ced4da;
+            --border-radius: 8px;
+            --shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+          }
+
+          body {
+            font-family: sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 1rem;
+            box-sizing: border-box;
+          }
+
+          .container {
+            background-color: var(--card-bg-color);
+            padding: 2.5rem;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            max-width: 520px;
+            width: 100%;
+            /* CHANGED: Text is now left-aligned */
+            text-align: left;
+          }
+
+          h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-top: 0;
+            margin-bottom: 1rem;
+          }
+
+          p {
+            line-height: 1.6;
+            margin-bottom: 1rem; /* Adjusted margin for new layout */
+          }
+
+          .client-name {
+            font-weight: 700;
+            color: var(--primary-color);
+          }
+
+          /* NEW: Styling for the dedicated URL block */
+          .uri-display {
+            background-color: var(--uri-bg-color);
+            padding: 0.75rem 1rem;
+            margin-top: 0.5rem;
+            margin-bottom: 2rem;
+            border: 1px solid var(--uri-border-color);
+            border-radius: 6px;
+            font-family: 'Source Code Pro', monospace;
+            word-break: break-all;
+            font-size: 0.9rem;
+            color: var(--text-color);
+          }
+
+          .actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-start; /* Aligns buttons to the left */
+            margin-top: 2rem;
+          }
+
+          .actions form {
+            flex: 1 1 0;
+            display: flex;
+          }
+
+          .btn {
+            display: inline-block;
+            font-family: inherit;
+            font-size: 1rem;
+            font-weight: 500;
+            padding: 0.75rem 1rem;
+            border-radius: var(--border-radius);
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition:
+              background-color 0.2s ease-in-out,
+              color 0.2s ease-in-out,
+              border-color 0.2s ease-in-out;
+            width: 100%;
+            text-decoration: none;
+            text-align: center;
+          }
+
+          .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+          }
+
+          .btn-primary:hover {
+            background-color: var(--primary-hover-color);
+          }
+
+          .btn-secondary {
+            background-color: transparent;
+            color: var(--secondary-color);
+            border-color: var(--border-color);
+          }
+
+          .btn-secondary:hover {
+            background-color: var(--secondary-color);
+            color: white;
+            border-color: var(--secondary-color);
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>Authorize Application</h1>
+          <p>
+            The application
+            <strong class="client-name">${clientName}</strong> is requesting
+            permission to access your InstantDB account.
+          </p>
+
+          <p>
+            If you approve, you will first be sent to InstantDB to confirm, then
+            you will be redirected to the application at the following address:
+          </p>
+
+          <div class="uri-display">${redirectUri}</div>
+
+          <div class="actions">
+            <form method="POST" action="/oauth/deny">
+              <button type="submit" class="btn btn-secondary">Deny</button>
+            </form>
+            <form method="POST" action="/oauth/redirect-from-start">
+              <input
+                type="hidden"
+                name="clientToken"
+                value="${redirect.clientToken}"
+              />
+              <button type="submit" class="btn btn-primary">Authorize</button>
+            </form>
+          </div>
+        </div>
+      </body>
+    </html>`;
+}
+
 async function oauthStart(
   db: InstantAdminDatabase<AppSchema>,
-  oauthConfig: OAuthConfig,
-  req: Request,
+  req: ReqWithRedirect,
   res: Response,
 ) {
-  const cookie = req.cookies.__session;
-  if (!cookie) {
-    res.status(400).send('Missing cookie, cannot complete OAuth flow.');
+  const redirect = req.oauthRedirect!;
+  if (redirect.shownConfirmPage) {
+    await cleanupRedirect(db, redirect);
+    res
+      .status(400)
+      .send('OAuth request is in an invalid state. Please try again.');
     return;
   }
-  const cookieHash = hash(cookie);
+  await db.transact(
+    db.tx.redirects[redirect.id].update({ shownConfirmPage: true }),
+  );
 
-  const queryRes = await db.query({
-    redirects: {
-      $: { where: { cookieHash } },
-      client: {},
-    },
-  });
+  res
+    .status(200)
+    .set('Content-Type', 'text/html; charset=UTF-8')
+    .send(oauthStartHtml(redirect));
+}
 
-  const redirect = queryRes.redirects[0];
+async function oauthRedirectFromStart(
+  db: InstantAdminDatabase<AppSchema>,
+  oauthConfig: OAuthConfig,
+  req: ReqWithRedirect,
+  res: Response,
+) {
+  const redirect = req.oauthRedirect!;
 
-  if (!redirect) {
-    res.status(400).send('Could not find OAuth flow, please try again.');
+  if (!redirect.shownConfirmPage) {
+    await cleanupRedirect(db, redirect);
+    res
+      .status(400)
+      .send('OAuth request is in an invalid state. Please try again.');
     return;
   }
 
-  if (new Date(redirect.expiresAt) < new Date()) {
-    await db.transact(db.tx.redirects[redirect.id].delete());
-    res.status(400).send('OAuth flow is expired, please try again.');
+  if (
+    !req.body.clientToken ||
+    !crypto.timingSafeEqual(
+      Buffer.from(req.body.clientToken, 'utf-8'),
+      Buffer.from(redirect.clientToken, 'utf-8'),
+    )
+  ) {
+    await cleanupRedirect(db, redirect);
+    res.status(400).send('Invalid OAuth request. Please try again.');
     return;
   }
-
   const externalAuthUrl = new URL(
     `https://api.instantdb.com/platform/oauth/start`,
   );
@@ -443,49 +691,42 @@ async function oauthStart(
     `${oauthConfig.serverOrigin}/oauth/external-redirect`,
   );
 
-  // XXX: Needs a consent screen
-
   res.redirect(externalAuthUrl.toString());
 }
 
 async function oauthExternalRedirect(
   db: InstantAdminDatabase<AppSchema>,
-  req: Request,
+  req: ReqWithRedirect,
   res: Response,
 ) {
-  const cookie = req.cookies.__session;
-  if (!cookie) {
-    res.status(400).send('Missing cookie, cannot complete OAuth flow.');
-    return;
-  }
-  const cookieHash = hash(cookie);
+  const redirect = req.oauthRedirect!;
 
-  const queryRes = await db.query({
-    redirects: {
-      $: { where: { cookieHash } },
-      client: {},
-    },
-  });
-
-  const redirect = queryRes.redirects[0];
-
-  if (!redirect) {
-    res.status(400).send('Could not find OAuth flow, please try again.');
-    return;
-  }
-
-  if (
-    new Date(redirect.expiresAt) < new Date() ||
-    redirect.exchangedForInstantCode
-  ) {
-    await db.transact(db.tx.redirects[redirect.id].delete());
+  if (redirect.exchangedForInstantCode) {
+    await cleanupRedirect(db, redirect);
     res.status(400).send('OAuth flow is expired, please try again.');
+    return;
+  }
+
+  if (req.query.error) {
+    await cleanupRedirect(db, redirect);
+    const redirectUri = new URL(
+      (redirect.authParams as AuthorizationParams).redirectUri,
+    );
+    redirectUri.searchParams.set('error', req.query.error as string);
+    if (req.query.error_description) {
+      redirectUri.searchParams.set(
+        'error_description',
+        req.query.error_description as string,
+      );
+    }
+    res.redirect(redirectUri.toString());
     return;
   }
 
   const instantCode = req.query.code as string | undefined;
 
   if (!instantCode) {
+    await cleanupRedirect(db, redirect);
     res
       .status(400)
       .send(
@@ -497,6 +738,7 @@ async function oauthExternalRedirect(
   const state = req.query.state;
 
   if (!state) {
+    await cleanupRedirect(db, redirect);
     res
       .status(400)
       .send(
@@ -511,6 +753,7 @@ async function oauthExternalRedirect(
       Buffer.from(redirect.state),
     )
   ) {
+    await cleanupRedirect(db, redirect);
     res
       .status(400)
       .send(
@@ -548,14 +791,41 @@ export function addOAuthRoutes(
   app.get(
     '/oauth/start',
     cookieParser(),
+    useRedirectFromCookie(db),
     async (req: Request, res: Response) => {
-      return await oauthStart(db, oauthConfig, req, res);
+      return await oauthStart(db, req, res);
+    },
+  );
+
+  app.post(
+    '/oauth/redirect-from-start',
+    cookieParser(),
+    useRedirectFromCookie(db),
+    urlencoded({ extended: true }),
+    async (req: Request, res: Response) => {
+      return await oauthRedirectFromStart(db, oauthConfig, req, res);
+    },
+  );
+
+  app.post(
+    '/oauth/deny',
+    cookieParser(),
+    useRedirectFromCookie(db),
+    async (req: ReqWithRedirect, res: Response) => {
+      const redirect = req.oauthRedirect!;
+      await db.transact(db.tx.redirects[redirect.id].delete());
+      const redirectUri = new URL(
+        (redirect.authParams as AuthorizationParams).redirectUri,
+      );
+      redirectUri.searchParams.set('error', 'access_denied');
+      res.redirect(redirectUri.toString());
     },
   );
 
   app.get(
     '/oauth/external-redirect',
     cookieParser(),
+    useRedirectFromCookie(db),
     async (req: Request, res: Response) => {
       return await oauthExternalRedirect(db, req, res);
     },

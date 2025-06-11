@@ -510,7 +510,7 @@ async function startSse() {
     },
   );
 
-  // We're a stateless server
+  // We're a stateless server, so disallow these
   const handleSessionRequest = async (
     _req: express.Request,
     res: express.Response,
