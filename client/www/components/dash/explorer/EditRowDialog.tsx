@@ -997,11 +997,11 @@ export function EditRowDialog({
                       />
                     ) : type === 'number' ? (
                       attr.checkedDataType === 'date' ? (
-                        <div className="flex gap-2">
+                        <div className="relative">
                           <input
                             tabIndex={tabIndex}
                             type="number"
-                            className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400"
+                            className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 pr-16 placeholder:text-gray-400"
                             value={value ?? ''}
                             onChange={(num) =>
                               handleUpdateFieldValue(
@@ -1015,7 +1015,7 @@ export function EditRowDialog({
                             size="mini"
                             variant="subtle"
                             title="Set to current date/time"
-                            className="px-2 flex-shrink-0"
+                            className="absolute right-1 top-1/2 -translate-y-1/2 px-2 py-0.5 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100"
                             onClick={() =>
                               handleUpdateFieldValue(
                                 attr.name,
@@ -1023,7 +1023,8 @@ export function EditRowDialog({
                               )
                             }
                           >
-                            <ClockIcon height={14} />
+                            <ClockIcon height={12} />
+                            <span className="ml-1">now</span>
                           </Button>
                         </div>
                       ) : (
@@ -1038,10 +1039,10 @@ export function EditRowDialog({
                         />
                       )
                     ) : attr.checkedDataType === 'date' ? (
-                      <div className="flex gap-2">
+                      <div className="relative">
                         <input
                           tabIndex={tabIndex}
-                          className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400"
+                          className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 pr-16 placeholder:text-gray-400"
                           value={value ?? ''}
                           onChange={(e) =>
                             handleUpdateFieldValue(attr.name, e.target.value)
@@ -1052,7 +1053,7 @@ export function EditRowDialog({
                           size="mini"
                           variant="subtle"
                           title="Set to current date/time"
-                          className="px-2 flex-shrink-0"
+                          className="absolute right-1 top-1/2 -translate-y-1/2 px-2 py-0.5 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100"
                           onClick={() =>
                             handleUpdateFieldValue(
                               attr.name,
@@ -1060,7 +1061,8 @@ export function EditRowDialog({
                             )
                           }
                         >
-                          <ClockIcon height={14} />
+                          <ClockIcon height={12} />
+                          <span className="ml-1">now</span>
                         </Button>
                       </div>
                     ) : (
@@ -1075,8 +1077,8 @@ export function EditRowDialog({
                     )}
                   </>
                 ) : attr.checkedDataType === 'date' ? (
-                  <div className="flex gap-2">
-                    <div className="flex-1 rounded-sm border border-gray-200 bg-gray-50 px-3 py-1 text-gray-500 italic">
+                  <div className="relative">
+                    <div className="flex w-full flex-1 rounded-sm border border-gray-200 bg-gray-50 px-3 py-1 pr-16 text-gray-500 italic">
                       null
                     </div>
                     <Button
@@ -1084,7 +1086,7 @@ export function EditRowDialog({
                       size="mini"
                       variant="subtle"
                       title="Set to current date/time"
-                      className="px-2 flex-shrink-0"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 px-2 py-0.5 text-xs text-gray-400 hover:text-gray-500 hover:bg-gray-200"
                       onClick={() => {
                         handleNullToggle(attr.name, false);
                         handleUpdateFieldValue(
@@ -1093,7 +1095,8 @@ export function EditRowDialog({
                         );
                       }}
                     >
-                      <ClockIcon height={14} />
+                      <ClockIcon height={12} />
+                      <span className="ml-1">now</span>
                     </Button>
                   </div>
                 ) : (
