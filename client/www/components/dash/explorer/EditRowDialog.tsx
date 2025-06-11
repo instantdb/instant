@@ -948,6 +948,20 @@ export function EditRowDialog({
                         }
                       />
                     )}
+                    {attr.checkedDataType === 'date' && (
+                      <button
+                        onClick={() => {
+                          handleUpdateFieldValue(
+                            attr.name,
+                            type === 'number'
+                              ? Date.now()
+                              : new Date().toISOString(),
+                          );
+                        }}
+                      >
+                        now
+                      </button>
+                    )}
                   </>
                 ) : (
                   <div className="flex-1 rounded-sm border border-gray-200 bg-gray-50 px-3 py-1 text-gray-500 italic">
