@@ -907,7 +907,7 @@ export function EditRowDialog({
               </div>
               <div className="flex gap-1 flex-col">
                 {!isNullField ? (
-                  <div className="flex space-x-2">
+                  <div className="flex space-x-1">
                     <div className="flex-1">
                       {type === 'json' ? (
                         <div className="h-32 border rounded w-full">
