@@ -19,6 +19,7 @@ import { schemaTypescriptFileToInstantSchema } from './typescript-schema.ts';
 import version from './version.js';
 import { ProgressPromise } from './ProgressPromise.ts';
 import { i, type InstantRules } from '@instantdb/core';
+import { exchangeCodeForToken, exchangeRefreshToken } from './serverOAuth.ts';
 
 export {
   type InstantAPIPlatformSchema,
@@ -36,5 +37,7 @@ export {
   translatePlanSteps,
   PlatformApi,
   ProgressPromise,
+  exchangeCodeForToken,
+  exchangeRefreshToken,
   i,
 };

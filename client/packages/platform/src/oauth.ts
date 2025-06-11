@@ -128,7 +128,7 @@ async function exchangeCodeForToken({
 
   return {
     token: json.access_token,
-    expiresAt: new Date((json.expires_in - 30) * 1000),
+    expiresAt: new Date(Date.now() + (json.expires_in - 30) * 1000),
   };
 }
 
