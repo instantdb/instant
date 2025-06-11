@@ -4236,26 +4236,21 @@
 (deftest fields-with-rules
   (with-zeneca-app
     (fn [app r]
-      (let [make-ctx (fn []
-                       (let [attrs (attr-model/get-by-app-id (:id app))]
-                         {:db {:conn-pool (aurora/conn-pool :read)}
-                          :app-id (:id app)
-                          :attrs attrs}))
-            query-count (atom 0)
+      (let [attrs         (attr-model/get-by-app-id (:id app))
+            ctx           {:db {:conn-pool (aurora/conn-pool :read)}
+                           :app-id (:id app)
+                           :attrs attrs}
+            query-count   (atom 0)
             query-tracker {:add (fn [_ _]
                                   (swap! query-count inc))
                            :remove (fn [_ _]
                                      nil)
-                           :stmts (atom #{})}]
-        (rule-model/put! (aurora/conn-pool :write)
-                         {:app-id (:id app)
-                          :code {:users {:allow {:view "data.handle == 'alex'"}}
-                                 :bookshelves {:allow {:view "data.name == 'Nonfiction'"}}
-                                 :books {:allow {:view "data.isbn13 == '9780316486668'"}}}})
-
-        ;; prevent attrs lookup from messing with query count
-        (attr-model/get-by-app-id (:id app))
-
+                           :stmts (atom #{})}
+            _             (rule-model/put! (aurora/conn-pool :write)
+                                           {:app-id (:id app)
+                                            :code {:users {:allow {:view "data.handle == 'alex'"}}
+                                                   :bookshelves {:allow {:view "data.name == 'Nonfiction'"}}
+                                                   :books {:allow {:view "data.isbn13 == '9780316486668'"}}}})]
         (testing "rules work even when you filter fields"
           (is (= {:users [{:id (str (resolvers/->uuid r "eid-alex"))
                            :fullName "Alex"
@@ -4264,9 +4259,9 @@
                                           :books [{:id (str (resolvers/->uuid r "eid-catch-and-kill"))
                                                    :title "Catch and Kill"}]}]}]}
                  (binding [sql/*in-progress-stmts* query-tracker]
-                   (pretty-perm-q (make-ctx) {:users {:$ {:fields ["fullName"]}
-                                                      :bookshelves {:$ {:fields ["order"]}
-                                                                    :books {:$ {:fields ["title"]}}}}}))))
+                   (pretty-perm-q ctx {:users {:$ {:fields ["fullName"]}
+                                               :bookshelves {:$ {:fields ["order"]}
+                                                             :books {:$ {:fields ["title"]}}}}}))))
 
           ;; 1 to fetch the query result
           ;; 1 to fetch rules
