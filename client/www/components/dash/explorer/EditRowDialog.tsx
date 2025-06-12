@@ -28,6 +28,7 @@ import {
 } from '@heroicons/react/24/solid';
 import { validate } from 'uuid';
 import clsx from 'clsx';
+import { ClockIcon } from '@heroicons/react/24/outline';
 
 type FieldType = 'string' | 'number' | 'boolean' | 'json';
 type FieldTypeOption = { value: FieldType; label: string };
@@ -906,49 +907,71 @@ export function EditRowDialog({
               </div>
               <div className="flex gap-1 flex-col">
                 {!isNullField ? (
-                  <>
-                    {type === 'json' ? (
-                      <div className="h-32 border rounded w-full">
-                        <CodeEditor
+                  <div className="flex space-x-1">
+                    <div className="flex-1">
+                      {type === 'json' ? (
+                        <div className="h-32 border rounded w-full">
+                          <CodeEditor
+                            tabIndex={tabIndex}
+                            language="json"
+                            value={json}
+                            onChange={(code) =>
+                              handleUpdateJson(attr.name, code)
+                            }
+                          />
+                        </div>
+                      ) : type === 'boolean' ? (
+                        <Select
                           tabIndex={tabIndex}
-                          language="json"
-                          value={json}
-                          onChange={(code) => handleUpdateJson(attr.name, code)}
+                          value={value}
+                          options={[
+                            { value: 'false', label: 'false' },
+                            { value: 'true', label: 'true' },
+                          ]}
+                          onChange={(option) =>
+                            handleUpdateFieldValue(attr.name, option!.value)
+                          }
                         />
-                      </div>
-                    ) : type === 'boolean' ? (
-                      <Select
-                        tabIndex={tabIndex}
-                        value={value}
-                        options={[
-                          { value: 'false', label: 'false' },
-                          { value: 'true', label: 'true' },
-                        ]}
-                        onChange={(option) =>
-                          handleUpdateFieldValue(attr.name, option!.value)
-                        }
-                      />
-                    ) : type === 'number' ? (
-                      <input
-                        tabIndex={tabIndex}
-                        type="number"
-                        className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400"
-                        value={value ?? ''}
-                        onChange={(num) =>
-                          handleUpdateFieldValue(attr.name, num.target.value)
-                        }
-                      />
-                    ) : (
-                      <input
-                        tabIndex={tabIndex}
-                        className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400"
-                        value={value ?? ''}
-                        onChange={(e) =>
-                          handleUpdateFieldValue(attr.name, e.target.value)
-                        }
-                      />
+                      ) : type === 'number' ? (
+                        <input
+                          tabIndex={tabIndex}
+                          type="number"
+                          className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400"
+                          value={value ?? ''}
+                          onChange={(num) =>
+                            handleUpdateFieldValue(attr.name, num.target.value)
+                          }
+                        />
+                      ) : (
+                        <input
+                          tabIndex={tabIndex}
+                          className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400"
+                          value={value ?? ''}
+                          onChange={(e) =>
+                            handleUpdateFieldValue(attr.name, e.target.value)
+                          }
+                        />
+                      )}
+                    </div>
+                    {attr.checkedDataType === 'date' && (
+                      <Button
+                        variant="subtle"
+                        size="mini"
+                        className="border"
+                        onClick={() => {
+                          handleUpdateFieldValue(
+                            attr.name,
+                            type === 'number'
+                              ? Date.now()
+                              : new Date().toISOString(),
+                          );
+                        }}
+                      >
+                        <ClockIcon height={14} />
+                        now
+                      </Button>
                     )}
-                  </>
+                  </div>
                 ) : (
                   <div className="flex-1 rounded-sm border border-gray-200 bg-gray-50 px-3 py-1 text-gray-500 italic">
                     null
