@@ -600,6 +600,10 @@ async function startSse() {
   const port = parseInt(process.env.PORT || '3123');
   const host = process.env.IN_FLY ? '0.0.0.0' : 'localhost';
 
+  if (process.env.IN_FLY) {
+    app.set('trust proxy', true);
+  }
+
   app.listen(port, host, () => console.log(`listening on port ${port}`));
 }
 
