@@ -172,7 +172,7 @@
                              :index?           false
                              :required?        true}]]))))
 
-        (doseq [add-op [:add-triple #_:deep-merge-triple]]
+        (doseq [add-op [:add-triple :deep-merge-triple]]
           (testing add-op
             (permissioned-tx/transact!
              (make-ctx)
@@ -194,7 +194,6 @@
                           [add-op book-id attr-book-desc "desc"]
                           [:add-triple book-id attr-book-author user-id]])))))
 
-            (println ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
             (testing "update-attr"
               (testing "set :required? with invalid entities"
                 (is (validation-err?
@@ -202,7 +201,6 @@
                       (make-ctx {:admin? true})
                       [[:update-attr {:id attr-book-desc
                                       :required? true}]]))))
-              (println "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
 
               (testing "unset required"
                 (is (not (validation-err?
@@ -291,6 +289,63 @@
                         (permissioned-tx/transact!
                          (make-ctx)
                          [[:delete-entity book-id "book"]])))))))))))
+
+(deftest update-mode-update
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [{attr-book-title :book/title
+             attr-book-desc  :book/desc}
+            (test-util/make-attrs app-id [[:book/title :unique?] [:book/desc]])
+            make-ctx (fn make-ctx
+                       ([]
+                        (make-ctx {}))
+                       ([{:keys [admin?]}]
+                        {:db               {:conn-pool (aurora/conn-pool :write)}
+                         :app-id           app-id
+                         :attrs            (attr-model/get-by-app-id app-id)
+                         :datalog-query-fn d/query
+                         :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                         :current-user     nil
+                         :admin?           admin?}))
+            book1-id (suid "b00c")
+            book2-id (suid "b00d")]
+
+        (permissioned-tx/transact!
+         (make-ctx)
+         [[:add-triple book1-id attr-book-title "book 1"]
+          [:add-triple book1-id attr-book-desc "book 1 desc"]
+          [:add-triple book2-id attr-book-title "book 2"]])
+
+        (doseq [add-op [:add-triple :deep-merge-triple]]
+          (testing add-op
+            (is (not (validation-err?
+                      (permissioned-tx/transact!
+                       (make-ctx)
+                       [[add-op book1-id attr-book-title (str "book 1 " (rand)) {:mode :update}]
+                        [add-op book1-id attr-book-desc  (str "book 1 desc " (rand)) {:mode :update}]]))))
+
+            (is (validation-err?
+                 (permissioned-tx/transact!
+                  (make-ctx)
+                  [[add-op (random-uuid) attr-book-title (str "book " (rand)) {:mode :update}]])))
+
+            (is (validation-err?
+                 (permissioned-tx/transact!
+                  (make-ctx)
+                  [[add-op book1-id      attr-book-title (str "book 1 " (rand)) {:mode :update}]
+                   [add-op (random-uuid) attr-book-title (str "book " (rand)) {:mode :update}]])))
+
+            (testing "lookup refs"
+              (is (not (validation-err?
+                        (permissioned-tx/transact!
+                         (make-ctx)
+                         [[add-op [attr-book-title "book 2"] attr-book-desc (str "book 2 desc " (rand)) {:mode :update}]]))))
+
+              (is (validation-err?
+                   (permissioned-tx/transact!
+                    (make-ctx)
+                    [[add-op [attr-book-title "book 3"] attr-book-desc (str "book 3 desc " (rand)) {:mode :update}]]))))))))))
+
 
 (deftest attrs-update
   (with-empty-app
@@ -1752,6 +1807,7 @@
                     (map (comp last :triple))
                     set)
                book-id)))))))
+
 (deftest lookup-perms
   (with-empty-app
     (fn [{app-id :id}]
