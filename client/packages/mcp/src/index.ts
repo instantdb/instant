@@ -597,10 +597,10 @@ async function startSse() {
     res.status(200).send('Tip top!');
   });
 
-  const port = process.env.PORT || 3123;
-  console.log(`listening on port ${port}`);
+  const port = parseInt(process.env.PORT || '3123');
+  const host = process.env.IN_FLY ? '0.0.0.0' : 'localhost';
 
-  app.listen(process.env.PORT || 3123);
+  app.listen(port, host, () => console.log(`listening on port ${port}`));
 }
 
 async function main() {

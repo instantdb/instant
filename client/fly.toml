@@ -26,6 +26,7 @@ primary_region = 'sjc'
   PORT = '8000'
   SERVER_TYPE = 'http'
   SERVER_ORIGIN = 'https://mcp.instantdb.com'
+  IN_FLY = 'true'
 
 [[vm]]
   memory = '1gb'
