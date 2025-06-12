@@ -80,28 +80,6 @@ export AWS_SECRET_ACCESS_KEY=... # your Minio secret key
 
 Create the bucket specified by the server configuration before starting the jar.
 
-## Keycloak as an OAuth provider
-
-Create a provider and client in the dashboard using the Keycloak discovery URL:
-
-```json
-{ "provider_name": "keycloak" }
-```
-
-Then register an OAuth client:
-
-```json
-{
-  "provider_id": "<provider-id>",
-  "client_name": "my-keycloak",
-  "client_id": "<oidc-client-id>",
-  "client_secret": "<oidc-client-secret>",
-  "discovery_endpoint": "https://keycloak.lab1.bios.dev/realms/<realm>/protocol/openid-connect/.well-known/openid-configuration"
-}
-```
-
-Use the resulting `client_name` when starting an OAuth flow from your frontend.
-
 ## Production mode
 
 Set `PRODUCTION=true` to run in production mode. This enables background jobs and uses production defaults. If Honeycomb credentials are absent, the tracer falls back to log-only mode.
