@@ -27,6 +27,7 @@ import {
   tokensOfBearerToken,
 } from './oauth-service-provider.ts';
 import { KeyConfig } from './crypto.ts';
+import indexHtml from './index.html.ts';
 
 // Helpers
 // -----------
@@ -533,109 +534,7 @@ async function startSse() {
     res
       .status(200)
       .set('Content-Type', 'text/html; charset=UTF-8')
-      .send(
-        /* HTML */
-        `<!DOCTYPE html>
-          <html lang="en">
-            <head>
-              <meta charset="UTF-8" />
-              <meta
-                name="viewport"
-                content="width=device-width, initial-scale=1.0"
-              />
-              <title>InstantDB Remote MCP Server</title>
-              <style>
-                body {
-                  font-family: sans-serif;
-                  display: flex;
-                  justify-content: center;
-                  align-items: center;
-                  margin: 64px;
-                  color: #1c1e21;
-                }
-                .container {
-                  text-align: center;
-                  padding: 2rem;
-                  display: flex;
-                  flex-direction: column;
-                  align-items: center;
-                }
-                .copy-container {
-                  display: flex;
-                  margin-top: 1rem;
-                  width: 384px;
-                }
-                #mcpUrl {
-                  flex-grow: 1; /* Allows input to fill available space */
-                  padding: 0.5rem;
-                  font-size: 1rem;
-                  border: 1px solid #ccc;
-                  border-right: none;
-                  border-radius: 4px 0 0 4px;
-                  background-color: #f9f9f9;
-                }
-                #copyButton {
-                  padding: 0.5rem 1rem;
-                  border: 1px solid #007bff;
-                  background-color: #007bff;
-                  color: white;
-                  cursor: pointer;
-                  border-radius: 0 4px 4px 0;
-                  font-size: 1rem;
-                }
-              </style>
-            </head>
-            <body>
-              <div class="container">
-                <h1>Welcome to InstantDB's remote MCP Server!</h1>
-
-                <p>
-                  <a
-                    href="https://cursor.com/install-mcp?name=InstantDB&config=eyJ1cmwiOiJodHRwczovL21jcC5pbnN0YW50ZGIuY29tL21jcCJ9"
-                  >
-                    <img
-                      src="https://cursor.com/deeplink/mcp-install-dark.svg"
-                      alt="Add InstantDB's MCP server to Cursor"
-                      height="32"
-                    />
-                  </a>
-                </p>
-
-                <div class="copy-container">
-                  <input
-                    type="text"
-                    value="https://mcp.instantdb.com/mcp"
-                    id="mcpUrl"
-                    readonly
-                  />
-                  <button id="copyButton">Copy</button>
-                </div>
-              </div>
-
-              <script>
-                const copyButton = document.getElementById('copyButton');
-                const mcpUrlInput = document.getElementById('mcpUrl');
-
-                copyButton.addEventListener('click', () => {
-                  // Use the modern Navigator Clipboard API
-                  navigator.clipboard
-                    .writeText(mcpUrlInput.value)
-                    .then(() => {
-                      // Provide visual feedback to the user
-                      copyButton.textContent = 'Copied!';
-                      // Reset the button text after 2 seconds
-                      setTimeout(() => {
-                        copyButton.textContent = 'Copy';
-                      }, 2000);
-                    })
-                    .catch((err) => {
-                      console.error('Failed to copy text: ', err);
-                    });
-                });
-              </script>
-            </body>
-          </html>`,
-      );
+      .send(indexHtml(oauthConfig.serverOrigin));
   });
 
   app.get('/health', (_req, res: Response) => {
