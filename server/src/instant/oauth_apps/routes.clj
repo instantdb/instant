@@ -227,7 +227,7 @@
                                           :oauth-app-app-id (:app_id oauth-app)}})
 
         _ (when (and (or (not (:is_public oauth-app))
-                         (= "localhost" (:host (uri/parse (:redirect_url redirect)))))
+                         (= "localhost" (:host (uri/parse (:redirect_uri redirect)))))
                      (not (app-model/get-by-id-and-creator {:app-id (:app_id oauth-app)
                                                             :user-id (:id user)}))
                      (not (get-member-role (:app_id oauth-app)
@@ -237,7 +237,7 @@
                         ::ex/message
                         (cond (not (:is_public oauth-app))
                               "This OAuth app is not public, only members of the app may use it."
-                              (= "localhost" (:host (uri/parse (:redirect_url redirect))))
+                              (= "localhost" (:host (uri/parse (:redirect_uri redirect))))
                               "Redirects to localhost can only be used by members of the app."
                               :else (throw (Exception. "Unhandled case")))}))]
     (response/ok {:appName (:app_name oauth-app)
