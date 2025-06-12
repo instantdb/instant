@@ -42,14 +42,14 @@ const _schema = i.schema({
     }),
     redirects: i.entity({
       authParams: i.json(),
+      clientToken: i.string(),
       cookieHash: i.string().indexed(),
       exchangedForInstantCode: i.boolean().optional(),
       expiresAt: i.date(),
       instantCode: i.string().optional(),
       mcpCodeHash: i.string().indexed().optional(),
-      state: i.string(),
-      clientToken: i.string(),
       shownConfirmPage: i.boolean().optional(),
+      state: i.string(),
     }),
   },
   links: {
@@ -135,7 +135,6 @@ const _schema = i.schema({
       reverse: {
         on: 'instantTokens',
         has: 'many',
-        required: true,
         label: 'mcpTokens',
       },
     },
