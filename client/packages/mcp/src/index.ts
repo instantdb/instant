@@ -28,6 +28,7 @@ import {
 } from './oauth-service-provider.ts';
 import { KeyConfig } from './crypto.ts';
 import indexHtml from './index.html.ts';
+import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 
 // Helpers
 // -----------
@@ -529,6 +530,61 @@ async function startSse() {
 
   app.get('/mcp', handleSessionRequest);
   app.delete('/mcp', handleSessionRequest);
+
+  // SSE for older clients
+  const transports = {
+    sse: {} as Record<string, SSEServerTransport>,
+  };
+
+  app.get(
+    '/sse',
+    requireTokenMiddleware,
+    async (req: Request, res: Response) => {
+      const server = createMCPServer();
+      const transport = new SSEServerTransport('/messages', res);
+      res.on('close', () => {
+        delete transports.sse[transport.sessionId];
+      });
+
+      try {
+        const tokens = await tokensOfBearerToken(db, req.auth!.token);
+
+        const api = createPlatformApi(
+          makeApiAuth(oauthConfig, keyConfig, db, tokens.instantToken),
+        );
+
+        registerTools(server, api);
+
+        transports.sse[transport.sessionId] = transport;
+      } catch (e) {
+        console.error('Error handling MCP SSE request:', e);
+        if (!res.headersSent) {
+          res.status(500).json({
+            jsonrpc: '2.0',
+            error: {
+              code: -32603,
+              message: 'Internal server error',
+            },
+            id: null,
+          });
+        }
+        return;
+      }
+
+      await server.connect(transport);
+    },
+  );
+
+  // Legacy message endpoint for older clients
+  app.post('/messages', async (req, res) => {
+    const sessionId = req.query.sessionId as string;
+    const transport = transports.sse[sessionId];
+    if (transport) {
+      await transport.handlePostMessage(req, res, req.body);
+    } else {
+      res.status(400).send('No transport found for sessionId');
+    }
+  });
 
   app.get('/', (_req, res: Response) => {
     res
