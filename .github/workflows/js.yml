@@ -95,7 +95,7 @@ jobs:
 
   detect_changes:
     runs-on: ubuntu-latest
-    #if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main'
     outputs:
       docs_did_change: ${{ steps.detect-docs-change.outputs.docs_did_change }}
       mcp_did_change: ${{ steps.detect-mcp-change.outputs.mcp_did_change }}
