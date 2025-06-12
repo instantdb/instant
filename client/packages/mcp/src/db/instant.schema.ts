@@ -18,7 +18,7 @@ const _schema = i.schema({
       client_id: i.string().unique().indexed(),
       client_id_issued_at: i.number().optional(),
       client_name: i.string().optional(),
-      client_secret: i.string(),
+      client_secret: i.string().optional(),
       client_uri: i.string().optional(),
       grant_types: i.json().optional(),
       redirect_uris: i.json().optional(),

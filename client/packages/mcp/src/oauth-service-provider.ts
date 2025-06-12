@@ -31,7 +31,10 @@ import { AuthInfo } from '@modelcontextprotocol/sdk/server/auth/types.js';
 import { PlatformApiAuth } from '../../platform/dist/esm/api.js';
 import { PlatformApi } from '@instantdb/platform';
 import cookieParser from 'cookie-parser';
-import { InvalidTokenError } from '@modelcontextprotocol/sdk/server/auth/errors.js';
+import {
+  InvalidRequestError,
+  InvalidTokenError,
+} from '@modelcontextprotocol/sdk/server/auth/errors.js';
 
 export type OAuthConfig = {
   clientId: string;
@@ -103,6 +106,17 @@ export function makeApiAuth(
   };
 }
 
+// https://github.com/modelcontextprotocol/modelcontextprotocol/issues/653
+// Anthropic says it's fixed, but it doesn't seem like it
+function patchClientForClaude(
+  client: OAuthClientInformationFull,
+): OAuthClientInformationFull {
+  if (client.scope?.includes('claudeai')) {
+    return { ...client, scope: 'apps-read apps-write' };
+  }
+  return client;
+}
+
 export class ServiceProvider implements OAuthServerProvider {
   #db: InstantAdminDatabase<AppSchema>;
   #oauthConfig: OAuthConfig;
@@ -131,27 +145,38 @@ export class ServiceProvider implements OAuthServerProvider {
 
         return {
           ...client,
-          client_secret: decrypt({
-            key: this.#keyConfig,
-            enc: client.client_secret,
-            aad: client.client_id,
-          }),
+          ...(client.client_secret
+            ? {
+                client_secret: decrypt({
+                  key: this.#keyConfig,
+                  enc: client.client_secret,
+                  aad: client.client_id,
+                }),
+              }
+            : {}),
         } as OAuthClientInformationFull;
       },
 
-      registerClient: async (client: OAuthClientInformationFull) => {
-        const clientSecret = crypto.randomUUID();
+      registerClient: async (rawClient: OAuthClientInformationFull) => {
+        const client = {
+          ...patchClientForClaude(rawClient),
+        };
+
         await this.#db.transact(
           this.#db.tx.clients[id()].update({
             ...client,
-            client_secret: encrypt({
-              key: this.#keyConfig,
-              aad: client.client_id,
-              plaintext: clientSecret,
-            }),
+            ...(client.client_secret
+              ? {
+                  client_secret: encrypt({
+                    key: this.#keyConfig,
+                    aad: client.client_id,
+                    plaintext: client.client_secret,
+                  }),
+                }
+              : {}),
           }),
         );
-        return { ...client, client_secret: clientSecret };
+        return client;
       },
     };
   }
@@ -228,18 +253,18 @@ export class ServiceProvider implements OAuthServerProvider {
     const redirect = queryRes.redirects[0];
 
     if (!redirect) {
-      throw new Error('Could not find OAuth request.');
+      throw new InvalidRequestError('Could not find OAuth request.');
     }
 
     await this.#db.transact(this.#db.tx.redirects[redirect.id].delete());
 
     const originalRedirectUri = redirect.authParams.redirectUri;
     if (originalRedirectUri !== redirectUri) {
-      throw new Error('Invalid redirect_uri.');
+      throw new InvalidRequestError('Invalid redirect_uri.');
     }
 
     if (!redirect.exchangedForInstantCode || !redirect.instantCode) {
-      throw new Error(
+      throw new InvalidRequestError(
         'OAuth flow is in an invalid state. Expected to exchange a code for a token first.',
       );
     }
