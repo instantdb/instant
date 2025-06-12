@@ -298,7 +298,7 @@ app.post('/custom-send-magic-code', async (req, res) => {
   const { code } = await db.auth.generateMagicCode(req.body.email);
   // Now you can use your email provider to send magic codes
   await sendMyCustomMagicCodeEmail(req.body.email, code);
-  return res.status(200).send({ token });
+  return res.status(200).send({ ok: true });
 });
 ```
 
