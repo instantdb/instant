@@ -2711,6 +2711,49 @@
           (testing "uses index"
             (is (= "triples_boolean_type_idx" (run-explain :boolean true)))))))))
 
+(deftest $not-with-refs
+  (with-zeneca-app
+    (fn [app r]
+      (let [ctx (make-ctx app)
+            uid #uuid "1b27ab60-d8b6-4327-93a2-5e9a296e9f02"
+            query-pretty (partial query-pretty ctx r)]
+        (is-pretty-eq? (query-pretty {:users {:$ {:where {:bookshelves {:$not uid}}
+                                                  :limit 1}}})
+                       '({:topics ([:vae _ #{:users/bookshelves}
+                                    {:$not #uuid "1b27ab60-d8b6-4327-93a2-5e9a296e9f02"}]
+                                   [:ea _ #{:users/id} _]
+                                   [:ea _ #{:users/bookshelves} _]
+                                   [:ea #{"eid-stepan-parunashvili"} #{:users/id} _]
+                                   --
+                                   [:ea #{"eid-stepan-parunashvili"}
+                                    #{:users/createdAt :users/email :users/id :users/fullName
+                                      :users/handle} _])
+                          :triples
+                          (("eid-stepan-parunashvili" :users/bookshelves "eid-uncategorized")
+                           ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili")
+                           --
+                           ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
+                           ("eid-stepan-parunashvili" :users/createdAt "2021-01-07 18:50:43.447955")
+                           ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
+                           ("eid-stepan-parunashvili" :users/handle "stopa")
+                           ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili"))}))
+
+        (is-pretty-eq? (query-pretty {:bookshelves {:$ {:where {:users {:$not uid}}
+                                                        :limit 1}}})
+                       '({:topics ([:ea _ #{:bookshelves/id} _]
+                                   [:ea #{"eid-for-the-soul"} #{:bookshelves/id} _]
+                                   --
+                                   [:ea #{"eid-for-the-soul"}
+                                    #{:bookshelves/desc :bookshelves/name :bookshelves/order
+                                      :bookshelves/id} _])
+                          :triples (("eid-for-the-soul" :bookshelves/id "eid-for-the-soul")
+                                    ("eid-for-the-soul" :bookshelves/id "eid-for-the-soul")
+                                    --
+                                    ("eid-for-the-soul" :bookshelves/desc "")
+                                    ("eid-for-the-soul" :bookshelves/order 9)
+                                    ("eid-for-the-soul" :bookshelves/id "eid-for-the-soul")
+                                    ("eid-for-the-soul" :bookshelves/name "For the Soul"))}))))))
+
 (deftest lookup-unique-uses-the-av-index
   (with-zeneca-app
     (fn [app _r]
