@@ -445,7 +445,6 @@ async function startSse() {
   app.use(
     pinoHttp({
       logger,
-      transport: { target: 'pino-pretty', options: { colorize: true } },
     }),
   );
   app.use(express.json());

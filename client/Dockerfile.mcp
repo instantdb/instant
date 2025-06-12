@@ -1,6 +1,6 @@
 FROM node:23-alpine AS base
 
-# Install libc6-compat for some binaries and enable pnpm via corepack
+# Install libc6-compat for some binaries
 RUN apk add --no-cache libc6-compat
 
 # Set up pnpm in PATH
@@ -11,6 +11,7 @@ WORKDIR /app
 
 # -----
 # prune
+#  creates a directory with just the packages we need to build mcp
 FROM base AS prune
 
 RUN corepack enable
@@ -18,12 +19,12 @@ RUN corepack enable
 RUN pnpm install --global turbo@2.5.4
 
 COPY . .
-# turbo pulls just the packages we need to build mcp
+
 RUN turbo prune @instantdb/mcp --docker
-RUN ls
 
 # ----
 # deps
+#  Installs deps with the --prod flag to keep node_modules small(er)
 FROM base AS deps
 
 WORKDIR /app
@@ -40,6 +41,7 @@ RUN ls packages/mcp/node_modules
 
 # -----
 # build
+#  Builds the mcp server
 FROM base AS build
 
 WORKDIR /app
@@ -49,18 +51,17 @@ RUN corepack enable
 COPY --from=prune /app/out/pnpm-lock.yaml ./pnpm-lock.yaml
 COPY --from=prune /app/out/json/ .
 
-# Install only the dependencies needed to build mcp
 RUN pnpm install --frozen-lockfile
 
-# Copy in the full source for build
 COPY --from=prune /app/out/full/ .
 
 COPY tsconfig.base.json .
 
 RUN pnpm exec turbo run build
 
-RUN ls
-
+# ------
+# runner
+#  This is the image that we'll deploy
 FROM node:23-alpine AS runner
 
 WORKDIR /app
@@ -70,7 +71,7 @@ RUN addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 mcp
 USER mcp
 
-# Copy only the production output from the installer
+# Copy only the production output from the builder
 COPY --from=build --chown=mcp:nodejs /app/packages/mcp/package.json packages/mcp/package.json
 COPY --from=build --chown=mcp:nodejs /app/packages/mcp/dist packages/mcp/dist
 
@@ -83,13 +84,12 @@ COPY --from=build --chown=mcp:nodejs /app/packages/admin/dist packages/admin/dis
 COPY --from=build --chown=mcp:nodejs /app/packages/platform/package.json packages/platform/package.json
 COPY --from=build --chown=mcp:nodejs /app/packages/platform/dist packages/platform/dist
 
+# Copy the node_modules from the deps that did pnpm i --prod
 COPY --from=deps --chown=mcp:nodejs  /app/packages/mcp/node_modules packages/mcp/node_modules
 COPY --from=deps --chown=mcp:nodejs  /app/packages/core/node_modules packages/core/node_modules
 COPY --from=deps --chown=mcp:nodejs  /app/packages/admin/node_modules packages/admin/node_modules
 COPY --from=deps --chown=mcp:nodejs  /app/packages/platform/node_modules packages/platform/node_modules
 COPY --from=deps --chown=mcp:nodejs  /app/node_modules node_modules
-
-RUN ls
 
 ENV PORT=8000
 
