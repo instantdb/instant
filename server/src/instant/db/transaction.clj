@@ -191,6 +191,62 @@
     #uuid "005a8767-c0e7-4158-bb9a-62ce1a5858ed"
     #uuid "005b08a1-4046-4fba-b1d1-a78b0628901c"]))
 
+(defn validate-exist [conn app-id grouped-tx-steps]
+  (let [tx-steps (->> (concat
+                       (:add-triple grouped-tx-steps)
+                       (:deep-merge-triple grouped-tx-steps))
+                      (filter (fn [[_ _ _ _ opts]]
+                                (= :update (:mode opts)))))
+        eids     (into #{} (keep (fn [[_ e _ _ _]] (when (uuid? e) e))) tx-steps)
+        lookups  (into #{} (keep (fn [[_ e _ _ _]] (when (triple-model/eid-lookup-ref? e) e))) tx-steps)]
+    (when (or (seq eids) (seq lookups))
+      (let [query   "WITH eids AS (
+                       SELECT cast(elem AS uuid) AS id
+                       FROM jsonb_array_elements_text(cast(?eids AS jsonb)) AS elem
+                     ),
+                     missing_eids AS (
+                       SELECT id
+                       FROM eids
+                       LEFT JOIN triples
+                              ON app_id = ?app-id
+                             AND id = entity_id
+                       WHERE entity_id IS NULL
+                     ),
+                     lookups AS (
+                       SELECT CAST(elem ->> 0 AS uuid) AS attr_id,
+                              CAST(elem ->> 1 AS jsonb) AS value
+                       FROM JSONB_ARRAY_ELEMENTS(CAST(?lookups AS JSONB)) AS elem
+                     ),
+                     missing_lookups AS (
+                       SELECT lookups.attr_id, lookups.value
+                       FROM lookups
+                       LEFT JOIN triples
+                              ON app_id = ?app-id
+                             AND triples.av
+                             AND lookups.attr_id = triples.attr_id
+                             AND lookups.value = triples.value
+                       WHERE triples.entity_id IS NULL
+                     )
+                     SELECT id, NULL AS attr_id, NULL AS value
+                     FROM missing_eids
+                     UNION
+                     SELECT NULL as id, attr_id, value
+                     FROM missing_lookups"
+            params  {"?eids"    (->json eids)
+                     "?lookups" (->json (map (fn [[a v]] [a (->json v)]) lookups))
+                     "?app-id"  app-id}
+            missing (->> (sql/select conn (sql/format query params))
+                         (map (fn [{:keys [id attr_id value]}]
+                                (or id [attr_id value])))
+                         (into #{}))]
+        (when (seq missing)
+          (ex/throw-validation-err!
+           :tx-step
+           (->> tx-steps
+                (filterv (fn [[_ e _ _ _]]
+                           (missing e))))
+           [{:message (str "Updating entities that don't exist: " (string/join ", " missing))}]))))))
+
 (defn prevent-$files-add-retract! [attrs op tx-steps]
   (doseq [t tx-steps
           :let [[_op eid aid v] t
@@ -203,7 +259,7 @@
     (ex/throw-validation-err!
      :tx-step
      [op t]
-     [{:message (format "update or merge is only allowed on `path` for $files in transact.")}])))
+     [{:message "update or merge is only allowed on `path` for $files in transact."}])))
 
 (defn prevent-$files-updates
   "Files support delete, link/unlink, but not update or merge"
@@ -336,6 +392,7 @@
                                        :detailed-tx-steps (pr-str tx-steps)}}
         (prevent-system-catalog-updates! app-id opts)
         (prevent-$files-updates attrs grouped-tx-steps opts)
+        (validate-exist conn app-id grouped-tx-steps)
         (let [results
               (reduce-kv
                (fn [acc op tx-steps]
