@@ -93,11 +93,12 @@ jobs:
         working-directory: client
         run: pnpm run check-format
 
-  detect_docs:
+  detect_changes:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    #if: github.ref == 'refs/heads/main'
     outputs:
-      did_change: ${{ steps.detect-change.outputs.did_change }}
+      docs_did_change: ${{ steps.detect-docs-change.outputs.docs_did_change }}
+      mcp_did_change: ${{ steps.detect-mcp-change.outputs.mcp_did_change }}
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -112,14 +113,26 @@ jobs:
             echo "changed_files=$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }} | xargs)" >> $GITHUB_OUTPUT
         fi
     - name: Detect docs changes
-      id: detect-change
+      id: detect-docs-change
       run: |
         changeArr=($(echo ${{ steps.changed-files.outputs.changed_files }}))
-        echo "did_change=False" >> $GITHUB_OUTPUT
+        echo "docs_did_change=False" >> $GITHUB_OUTPUT
         for file in ${changeArr[*]}
         do
           if echo $file | grep -E 'docs'; then
-            echo "did_change=True" >> $GITHUB_OUTPUT
+            echo "docs_did_change=True" >> $GITHUB_OUTPUT
+            break
+          fi
+        done
+    - name: Detect mcp changes
+      id: detect-mcp-change
+      run: |
+        changeArr=($(echo ${{ steps.changed-files.outputs.changed_files }}))
+        echo "mcp_did_change=False" >> $GITHUB_OUTPUT
+        for file in ${changeArr[*]}
+        do
+          if [[ $file =~ (packages/(mcp|core|platform|admin)|Dockerfile\.mcp|client/fly\.toml|workflows/js\.yml) ]]; then
+            echo "mcp_did_change=True" >> $GITHUB_OUTPUT
             break
           fi
         done
@@ -127,8 +140,8 @@ jobs:
   publish-docs:
     name: Publish algolia changes
     runs-on: ubuntu-latest
-    needs: [ build, detect_docs ]
-    if: needs.detect_docs.outputs.did_change == 'True'
+    needs: [ build, detect_changes ]
+    if: needs.detect_changes.outputs.docs_did_change == 'True'
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -156,6 +169,22 @@ jobs:
         ALGOLIA_API_KEY: ${{ secrets.ALGOLIA_API_KEY }}
       working-directory: 'client'
       run: pnpm exec tsx ./www/scripts/index-docs.ts
+
+  deploy-remote-mcp:
+    name: Deploy remote MCP
+    runs-on: ubuntu-latest
+    needs: [ build, detect_changes ]
+    if: needs.detect_changes.outputs.mcp_did_change == 'True'
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Setup fly
+      uses: superfly/flyctl-actions@1.5
+    - name: Deploy
+      working-directory: 'client'
+      run: flyctl deploy --remote-only
+      env:
+        FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 
   vercel-preview:
     name: Deploy to vercel preview
