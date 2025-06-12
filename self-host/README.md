@@ -3,6 +3,7 @@
 ## Backend
 
 - Override server origin for OAuth with env var: `SERVER_ORIGIN`
+- Override OAuth scope with env var: `OAUTH_DEFAULT_SCOPE`
 - Override S3: TBD
 
 ## Frontend
