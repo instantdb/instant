@@ -232,7 +232,7 @@
                                                             :user-id (:id user)}))
                      (not (get-member-role (:app_id oauth-app)
                                            (:id user))))
-            (oauth-app-model/deny-redirect {:redirect-id redirect-id})
+            (oauth-app-model/deny-redirect! {:redirect-id redirect-id})
             (ex/throw+ {::ex/type ::ex/permission-denied
                         ::ex/message
                         (cond (not (:is_public oauth-app))
@@ -320,7 +320,7 @@
         grant-token (ex/get-param! req
                                    [:params :grant_token]
                                    uuid-util/coerce)
-        redirect (oauth-app-model/deny-redirect {:redirect-id redirect-id
+        redirect (oauth-app-model/deny-redirect! {:redirect-id redirect-id
                                                  :grant-token grant-token})
 
         cookie-param (get-in req [:cookies cookie-name :value])
