@@ -613,16 +613,19 @@
                               {:args [{:redirect-id redirect-id}]})
            (assert-not-expired! :oauth-app-redirect))))))
 
-(defn deny-redirect
+(defn deny-redirect!
   "Deletes the redirect without returning it."
   ([params]
-   (deny-redirect (aurora/conn-pool :write) params))
+   (deny-redirect! (aurora/conn-pool :write) params))
   ([conn {:keys [redirect-id]}]
    (let [lookup-key (crypt-util/uuid->sha256 redirect-id)
          q {:delete-from :instant_oauth_app_redirects
             :where [:= :lookup-key lookup-key]
-            :returning :*}]
-     (sql/execute-one! ::deny-redirect conn (hsql/format q)))))
+            :returning :*}
+         record (sql/execute-one! ::deny-redirect conn (hsql/format q))]
+     (-> record
+         (ex/assert-record! :oauth-app-redirect
+                            {:args [{:redirect-id redirect-id}]})))))
 
 (defn create-code
   ([params]
