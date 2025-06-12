@@ -3,6 +3,7 @@
 ## Backend
 
 - Override server origin for OAuth with env var: `SERVER_ORIGIN`
+- Override OAuth scope with env var: `OAUTH_DEFAULT_SCOPE`
 - Override S3: TBD
 
 ## Frontend
@@ -32,6 +33,52 @@ If you are running remotely, you will need to construct the URL after you Sign U
 ```
 http://my-local-lab-host:8888/dash?ticket=f232863d-bfb0-4af5-a1c1-9d9f8fc8a5c5
 ```
+
+Then it will also print the token you can use for Keycloak setup if you like...
+
+## Keycloak Setup
+
+The token generated above can be used as a `Bearer` token for admin REST calls. Here is how you set up auth with your own Keycloak:
+
+```
+curl -X POST "https://my-instant-db.domain.com/dash/apps/63bef763-f7d2-4436-9ac6-f816c9824e96/oauth_service_providers" \
+  -H "Authorization: Bearer <ADMNIN TOKEN GOES HERE>" \
+  -H "Content-Type: application/json" \
+  -d '{ "provider_name": "keycloak" }'
+```
+
+Example output:
+
+```
+{"provider":{"id":"3e575dfa-15b3-40fd-bd5e-1cc612969dfb","provider_name":"keycloak","created_at":"2025-06-12T01:13:00Z"}}
+```
+
+Next, take the keycloak client details you made in keycloak and set them on that provider you added:
+
+```
+curl -X POST "https://my-instant-db.domain.com/dash/apps/63bef763-f7d2-4436-9ac6-f816c9824e96/oauth_clients" \
+  -H "Authorization: Bearer <ADMNIN TOKEN GOES HERE>" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "provider_id": "3e575dfa-15b3-40fd-bd5e-1cc612969dfb",
+        "client_name": "my-keycloak",
+        "client_id": "instant",
+        "client_secret": "REDACTED",
+        "discovery_endpoint": "https://keycloak.domain.com/realms/MY_REALM/.well-known/openid-configuration"
+      }'
+```
+
+Example output:
+
+```
+{"client":{"id":"095f7576-cef1-423f-8111-49f1e44a3238","provider_id":"3e575dfa-15b3-40fd-bd5e-1cc612969dfb","client_name":"my-keycloak","client_id":"instant","created_at":"2025-06-12T10:03:55Z","meta":null,"discovery_endpoint":"https://keycloak.domain.com/realms/MY_REALM/.well-known/openid-configuration"}}
+```
+
+Then in the Dashboard, you need to add your web app domain to the list of Website Origins under Auth.
+
+And if you are using Keycloak, you need to set this env var: `OAUTH_DEFAULT_SCOPE=email openid`
+
+Instant needs an ID token and Keycloak needs to be asked for `openid` to give it.
 
 # Other Points
 

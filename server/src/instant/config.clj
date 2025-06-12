@@ -213,6 +213,9 @@
         :staging "https://api-staging.instantdb.com"
         "http://localhost:8888")))
 
+(def oauth-default-scope
+  (or (System/getenv "OAUTH_DEFAULT_SCOPE") "email"))
+
 (def s3-bucket-name
   (case (get-env)
     :prod "instant-storage"

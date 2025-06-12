@@ -38,7 +38,8 @@ services:
       - "random_page_cost=1.1"
 
   backend:
-    image: ghcr.io/bioshazard/instant/server:main
+    # image: ghcr.io/bioshazard/instant/server:main
+    image: instant-api:test
     # ports:
     #   - '8888:8888'
     #   - '6005:6005'
@@ -50,14 +51,17 @@ services:
       - SERVICE_FQDN_INSTANTAPI_8888
       - DATABASE_URL=postgresql://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/${POSTGRES_DB:-instant}
       - SERVER_ORIGIN=$SERVICE_FQDN_INSTANTAPI_8888
+      # - SERVER_ORIGIN=https://instant-api.domain.com # you might need to hard code this... mine stuck to the original auto-FQDN
       - NREPL_BIND_ADDRESS=0.0.0.0
 
       # Change to your Minio host and auth (bucket is hard-coded as "instantdb-test-bucket" for now, see server/src/)
       # Or delete S3_ENDPOINT to use AWS S3
-      # - S3_ENDPOINT=CHANGEME
       # - S3_BUCKET=instantdb-test-bucket # TODO, add env var
+      - S3_ENDPOINT=CHANGEME
       - AWS_ACCESS_KEY=REPLACEME
       - AWS_SECRET_ACCESS_KEY=REPLACEME
+      # Keycloak needs `openid` too
+      - OAUTH_DEFAULT_SCOPE=email openid
       
     stop_grace_period: 2m
     restart: on-failure
