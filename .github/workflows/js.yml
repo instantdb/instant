@@ -178,8 +178,10 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v4
+
     - name: Setup fly
-      uses: superfly/flyctl-actions@1.5
+      uses: superfly/flyctl-actions/setup-flyctl@1.5
+
     - name: Deploy
       working-directory: 'client'
       run: flyctl deploy --remote-only
