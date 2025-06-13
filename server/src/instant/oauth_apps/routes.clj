@@ -241,6 +241,7 @@
                               "Redirects to localhost can only be used by members of the app."
                               :else (throw (Exception. "Unhandled case")))}))]
     (response/ok {:appName (:app_name oauth-app)
+                  :userEmail (:email user)
                   :supportEmail (:support_email oauth-app)
                   :appPrivacyPolicyLink (:app_privacy_policy_link oauth-app)
                   :appLogo (some-> oauth-app
