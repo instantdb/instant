@@ -799,7 +799,8 @@ class InstantAdminDatabase<Schema extends InstantSchemaDef<any, any, any>> {
       headers: authorizedHeaders(this.config, this.impersonationOpts),
       body: JSON.stringify({
         steps: steps(inputChunks),
-        'throw-on-missing-attrs?': this.config.rejectNewAttrs ?? !!this.config.schema,
+        'throw-on-missing-attrs?':
+          this.config.rejectNewAttrs ?? !!this.config.schema,
       }),
     });
   };
