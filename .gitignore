@@ -215,3 +215,5 @@ server/resources/emails/*
 
 # algolia 
 client/www/scripts/algolia-objects.json
+
+.pnpm-store
