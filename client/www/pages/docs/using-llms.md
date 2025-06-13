@@ -19,6 +19,120 @@ Started page](/docs.md)
 We've also built [`@instantdb/mcp`](https://github.com/instantdb/instant/tree/main/client/packages/mcp) to enable creating, managing, and updating your Instant apps.
 Combine the MCP with our rules file to build full-stack apps directly in your editor.
 
+## Remote MCP server
+
+We host the latest version of the MCP server at [https://mcp.instantdb.com](https://mcp.instantdb.com).
+
+For modern clients that support streamable HTTP use:
+
+```text {% showCopy="true" %}
+https://mcp.instantdb.com/mcp
+```
+
+For legacy clients that require SSE use:
+
+```text {% showCopy="true" %}
+https://mcp.instantdb.com/sse
+```
+
+### Auth
+
+When you add the MCP server, you'll be sent through an OAuth flow to grant access to your Instant Account.
+
+### Cursor
+
+[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/install-mcp?name=InstantDB&config=eyJ1cmwiOiJodHRwczovL21jcC5pbnN0YW50ZGIuY29tL21jcCJ9)
+
+Or edit your `~/.cursor/mcp.json` directly:
+
+```json {% showCopy="true" %}
+{
+  "mcpServers": {
+    "instant": {
+      "url": "https://mcp.instantdb.com/mcp"
+    }
+  }
+}
+```
+
+### Claude
+
+If you're on a paid plan, go to Settings > Integrations. Add a custom integration and use the url:
+
+```text {% showCopy="true" %}
+https://mcp.instantdb.com/mcp
+```
+
+### Windsurf
+
+Use the SSE endpoint for Windsurf with [`mcp-remote`](https://www.npmjs.com/package/mcp-remote).
+
+Edit your `~/.codeium/windsurf/mcp_config.json`:
+
+**MacOS/Linux**
+
+```json {% showCopy="true" %}
+{
+  "mcpServers": {
+    "instant": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://mcp.instantdb.com/sse"]
+    }
+  }
+}
+```
+
+**Windows**
+
+```json {% showCopy="true" %}
+{
+  "mcpServers": {
+    "instant": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "mcp-remote", "https://mcp.instantdb.com/sse"]
+    }
+  }
+}
+```
+
+**Windows WSL**
+
+```json {% showCopy="true" %}
+{
+  "mcpServers": {
+    "instant": {
+      "command": "wsl",
+      "args": ["npx", "-y", "mcp-remote", "https://mcp.instantdb.com/sse"]
+    }
+  }
+}
+```
+
+### Zed
+
+Use the SSE endpoint for Zed with [`mcp-remote`](https://www.npmjs.com/package/mcp-remote).
+
+Open your Zed settings and add the following
+
+```json {% showCopy="true" %}
+{
+  "context_servers": {
+    "instant": {
+      "command": {
+        "path": "npx",
+        "args": ["-y", "mcp-remote", "https://mcp.instantdb.com/sse"],
+        "env": {}
+      },
+      "settings": {}
+    }
+  }
+}
+```
+
+## Local MCP server
+
+You can run [`@instantdb/mcp`](https://github.com/instantdb/instant/tree/main/client/packages/mcp) locally.
+
 ### Get your Personal Access Token
 
 If you haven't already, make sure to get a personal access token from your
