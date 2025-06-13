@@ -74,3 +74,19 @@ Here's an example configuration for MacOS/Linux:
   }
 }
 ```
+
+### Remote MCP
+
+```bash
+cp .env.example .env
+```
+
+Fill in all of the environment variables for your new `.env` file.
+
+```bash
+pnpm run dev
+```
+
+Visit the server at [http://localhost:3123](http://localhost:3123).
+
+To work on the `stdio` version of the codebase, update your `.env` file with `SERVER_TYPE=stdio`.

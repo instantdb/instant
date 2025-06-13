@@ -10,8 +10,6 @@ import {
   InstantDBIdent,
   InstantDBCheckedDataType,
   i,
-  EntityDef,
-  AttrsDefs,
   InstantDBInferredType,
   DataAttrDef,
 } from '@instantdb/core';

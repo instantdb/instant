@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import 'dotenv/config';
+import express, { Request, Response, Express, query, response } from 'express';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
@@ -7,12 +9,35 @@ import { PlatformApi } from '@instantdb/platform';
 import { zodToSchema } from './schema.ts';
 import { parseArgs } from 'node:util';
 import version from './version.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+
+import { mcpAuthRouter } from '@modelcontextprotocol/sdk/server/auth/router.js';
+import { pinoHttp } from 'pino-http';
+import { pino } from 'pino';
+import { init } from '@instantdb/admin';
+
+import schema from './db/instant.schema.ts';
+import { requireBearerAuth } from '@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js';
+import { PlatformApiAuth } from '../../platform/dist/esm/api.js';
+import {
+  addOAuthRoutes,
+  makeApiAuth,
+  OAuthConfig,
+  ServiceProvider,
+  tokensOfBearerToken,
+} from './oauth-service-provider.ts';
+import { KeyConfig } from './crypto.ts';
+import indexHtml from './index.html.ts';
+import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 
 // Helpers
 // -----------
-function createPlatformApi(token: string, apiURI?: string): PlatformApi {
+function createPlatformApi(
+  auth: PlatformApiAuth,
+  apiURI?: string,
+): PlatformApi {
   return new PlatformApi({
-    auth: { token },
+    auth,
     apiURI,
   });
 }
@@ -363,9 +388,7 @@ function registerTools(server: McpServer, api: PlatformApi) {
   );
 }
 
-// Main function to run the server
-// -----------
-async function main() {
+async function startStdio() {
   const {
     values: { token, ['api-url']: apiUrl },
   } = parseArgs({
@@ -387,13 +410,208 @@ async function main() {
     process.exit(1);
   }
 
-  const api = createPlatformApi(accessToken, apiUrl);
+  const api = createPlatformApi({ token: accessToken }, apiUrl);
   const server = createMCPServer();
   registerTools(server, api);
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error('Instant Platform MCP Server running on stdio');
+}
+
+function ensureEnv(key: string): string {
+  const v = process.env[key];
+  if (!v) {
+    throw new Error(`Missing environment variable ${key}`);
+  }
+  return v;
+}
+
+async function startSse() {
+  const db = init({
+    adminToken: ensureEnv('INSTANT_ADMIN_TOKEN'),
+    appId: ensureEnv('INSTANT_APP_ID'),
+    schema,
+  });
+
+  const oauthConfig: OAuthConfig = {
+    clientId: ensureEnv('INSTANT_OAUTH_CLIENT_ID'),
+    clientSecret: ensureEnv('INSTANT_OAUTH_CLIENT_SECRET'),
+    serverOrigin: ensureEnv('SERVER_ORIGIN'),
+  };
+
+  const keyConfig: KeyConfig = JSON.parse(ensureEnv('INSTANT_AES_KEY'));
+
+  const app = express();
+  const logger = pino({ level: 'info' });
+  app.use(
+    pinoHttp({
+      logger,
+    }),
+  );
+  app.use(express.json());
+
+  const proxyProvider = new ServiceProvider(db, oauthConfig, keyConfig);
+
+  app.use(
+    mcpAuthRouter({
+      scopesSupported: ['apps-read', 'apps-write'],
+      provider: proxyProvider,
+      issuerUrl: new URL(oauthConfig.serverOrigin),
+      baseUrl: new URL(oauthConfig.serverOrigin),
+      serviceDocumentationUrl: new URL('https://instantdb.com/docs'),
+    }),
+  );
+
+  addOAuthRoutes(app, db, oauthConfig);
+
+  const requireTokenMiddleware = requireBearerAuth({
+    verifier: proxyProvider,
+    resourceMetadataUrl: `${oauthConfig.serverOrigin}/.well-known/oauth-protected-resource`,
+  });
+
+  // Handle POST requests for client-to-server communication
+  app.post(
+    '/mcp',
+    requireTokenMiddleware,
+    async (req: Request, res: Response) => {
+      const server = createMCPServer();
+      try {
+        const tokens = await tokensOfBearerToken(db, req.auth!.token);
+
+        const api = createPlatformApi(
+          makeApiAuth(oauthConfig, keyConfig, db, tokens.instantToken),
+        );
+
+        registerTools(server, api);
+        const transport: StreamableHTTPServerTransport =
+          new StreamableHTTPServerTransport({
+            sessionIdGenerator: undefined,
+          });
+
+        req.on('close', () => {
+          transport.close();
+          server.close();
+        });
+        await server.connect(transport);
+        await transport.handleRequest(req, res, req.body);
+      } catch (e) {
+        console.error('Error handling MCP request:', e);
+        if (!res.headersSent) {
+          res.status(500).json({
+            jsonrpc: '2.0',
+            error: {
+              code: -32603,
+              message: 'Internal server error',
+            },
+            id: null,
+          });
+        }
+      }
+    },
+  );
+
+  // We're a stateless server, so disallow these
+  const handleSessionRequest = async (
+    _req: express.Request,
+    res: express.Response,
+  ) => {
+    res.writeHead(405).end(
+      JSON.stringify({
+        jsonrpc: '2.0',
+        error: {
+          code: -32000,
+          message: 'Method not allowed.',
+        },
+        id: null,
+      }),
+    );
+  };
+
+  app.get('/mcp', handleSessionRequest);
+  app.delete('/mcp', handleSessionRequest);
+
+  // SSE for older clients
+  const transports = {
+    sse: {} as Record<string, SSEServerTransport>,
+  };
+
+  app.get(
+    '/sse',
+    requireTokenMiddleware,
+    async (req: Request, res: Response) => {
+      const server = createMCPServer();
+      const transport = new SSEServerTransport('/messages', res);
+      res.on('close', () => {
+        delete transports.sse[transport.sessionId];
+      });
+
+      try {
+        const tokens = await tokensOfBearerToken(db, req.auth!.token);
+
+        const api = createPlatformApi(
+          makeApiAuth(oauthConfig, keyConfig, db, tokens.instantToken),
+        );
+
+        registerTools(server, api);
+
+        transports.sse[transport.sessionId] = transport;
+      } catch (e) {
+        console.error('Error handling MCP SSE request:', e);
+        if (!res.headersSent) {
+          res.status(500).json({
+            jsonrpc: '2.0',
+            error: {
+              code: -32603,
+              message: 'Internal server error',
+            },
+            id: null,
+          });
+        }
+        return;
+      }
+
+      await server.connect(transport);
+    },
+  );
+
+  // Legacy message endpoint for older clients
+  app.post('/messages', async (req, res) => {
+    const sessionId = req.query.sessionId as string;
+    const transport = transports.sse[sessionId];
+    if (transport) {
+      await transport.handlePostMessage(req, res, req.body);
+    } else {
+      res.status(400).send('No transport found for sessionId');
+    }
+  });
+
+  app.get('/', (_req, res: Response) => {
+    res
+      .status(200)
+      .set('Content-Type', 'text/html; charset=UTF-8')
+      .send(indexHtml(oauthConfig.serverOrigin));
+  });
+
+  app.get('/health', (_req, res: Response) => {
+    res.status(200).send('Tip top!');
+  });
+
+  const port = parseInt(process.env.PORT || '3123');
+  const host = process.env.IN_FLY ? '0.0.0.0' : 'localhost';
+
+  if (process.env.IN_FLY) {
+    app.set('trust proxy', true);
+  }
+
+  app.listen(port, host, () => console.log(`listening on port ${port}`));
+}
+
+async function main() {
+  if (process.env.SERVER_TYPE === 'http') {
+    return startSse();
+  }
+  return startStdio();
 }
 
 main().catch((error) => {

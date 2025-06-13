@@ -215,3 +215,4 @@ server/resources/emails/*
 
 # algolia 
 client/www/scripts/algolia-objects.json
+client/packages/mcp/.env
