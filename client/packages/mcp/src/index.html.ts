@@ -31,7 +31,7 @@ const html = (serverOrigin: string): string => {
           }
           .copy-container {
             display: flex;
-            margin-top: 1rem;
+            margin: 1rem;
             width: 384px;
           }
           #mcpUrl {
@@ -72,6 +72,18 @@ const html = (serverOrigin: string): string => {
             <input type="text" value="${mcpUrl}" id="mcpUrl" readonly />
             <button id="copyButton">Copy</button>
           </div>
+
+          <p>
+            <a href="https://www.instantdb.com/docs/using-llms"
+              >Learn more in the docs.</a
+            >
+          </p>
+
+          <p>
+            <a href="https://github.com/instantdb/instant/tree/main/client/packages/mcp"
+              >View the code on GitHub.</a
+            >
+          </p>
         </div>
 
         <script>
