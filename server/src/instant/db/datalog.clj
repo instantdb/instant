@@ -129,9 +129,9 @@
    (map-indexed
     (fn [i c]
       (if (or
-           (and (or (= i 0))
+           (and (= i 0)
                 (map? c)
-                (or (contains? c :$not)))
+                (contains? c :$not))
            ;; Don't override function clauses
            (and (= i 2)
                 (map? c)
@@ -682,7 +682,7 @@
                       [:<= :entity-id (prefix->uuid-end prefix)]]])))
     []))
 
-(defn- entity-function-clauses [app-id idx [e-tag e-value]]
+(defn- entity-function-clauses [[e-tag e-value]]
   (case e-tag
     :function (let [[func val] (first e-value)]
                 (case func
@@ -692,7 +692,7 @@
 (defn- function-clauses [app-id named-pattern]
   (concat
    (value-function-clauses app-id (:idx named-pattern) (:v named-pattern))
-   (entity-function-clauses app-id (:idx named-pattern) (:e named-pattern))))
+   (entity-function-clauses (:e named-pattern))))
 
 (defn patch-values-for-av-index
   "Make sure we wrap :value in [:json_null_to_null :value] when using :av
