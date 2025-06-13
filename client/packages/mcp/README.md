@@ -26,7 +26,7 @@ Welcome to [Instant's](http://instantdb.com) MCP server.
 # Instant MCP
 
 This MCP is a wrapper around the Instant Platform SDK. Add this MCP to your
-editor to enable creating, managing, and updating your InstantDB applications,
+editor to enable creating, managing, and updating your InstantDB applications.
 
 ## Remote MCP server
 
