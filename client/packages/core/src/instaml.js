@@ -1,3 +1,4 @@
+import { allMapValues } from './store.js';
 import { getOps, isLookup, parseLookup } from './instatx.ts';
 import { immutableRemoveUndefined } from './utils/object.js';
 import uuid from './utils/uuid.ts';
@@ -136,7 +137,7 @@ function withIdAttrForLookup(attrs, etype, eidA, txSteps) {
   return [idTuple].concat(txSteps);
 }
 
-function expandLink(attrs, [etype, eidA, obj]) {
+function expandLink({ attrs }, [etype, eidA, obj]) {
   const addTriples = Object.entries(obj).flatMap(([label, eidOrEids]) => {
     const eids = Array.isArray(eidOrEids) ? eidOrEids : [eidOrEids];
     const fwdAttr = getAttrByFwdIdentName(attrs, etype, label);
@@ -161,7 +162,7 @@ function expandLink(attrs, [etype, eidA, obj]) {
   return withIdAttrForLookup(attrs, etype, eidA, addTriples);
 }
 
-function expandUnlink(attrs, [etype, eidA, obj]) {
+function expandUnlink({ attrs }, [etype, eidA, obj]) {
   const retractTriples = Object.entries(obj).flatMap(([label, eidOrEids]) => {
     const eids = Array.isArray(eidOrEids) ? eidOrEids : [eidOrEids];
     const fwdAttr = getAttrByFwdIdentName(attrs, etype, label);
@@ -186,10 +187,54 @@ function expandUnlink(attrs, [etype, eidA, obj]) {
   return withIdAttrForLookup(attrs, etype, eidA, retractTriples);
 }
 
-function expandUpdate(attrs, [etype, eid, obj_, opts]) {
+function checkEntityExists(stores, etype, eid) {
+  if (Array.isArray(eid)) {
+    // lookup ref
+    const [entity_a, entity_v] = eid;
+    for (const store of stores || []) {
+      const ev = store?.aev.get(entity_a);
+      if (ev) {
+        // This would be a lot more efficient with a ave index
+        for (const [e_, a_, v] of allMapValues(ev, 2)) {
+          if (v === entity_v) {
+            return true;
+          }
+        }
+      }
+    }
+  } else {
+    // eid
+    for (const store of stores || []) {
+      const av = store?.eav.get(eid);
+      if (av) {
+        for (const attr_id of av.keys()) {
+          if (store.attrs[attr_id]['forward-identity'][1] == etype) {
+            return true;
+          }
+        }
+      }
+    }
+  }
+  return false;
+}
+
+function convertOpts({ stores, attrs }, [etype, eid, obj_, opts]) {
+  checkEntityExists(stores, etype, eid);
+  return opts?.upsert === false
+    ? { mode: 'update' }
+    : opts?.upsert === true
+      ? null
+      : checkEntityExists(stores, etype, eid)
+        ? { mode: 'update' }
+        : null; // { mode: 'create' };
+}
+
+function expandUpdate(ctx, step) {
+  const { stores, attrs } = ctx;
+  const [etype, eid, obj_, opts] = step;
   const obj = immutableRemoveUndefined(obj_);
-  const serverOpts = opts?.upsert === false ? { mode: 'update' } : null;
   const lookup = extractLookup(attrs, etype, eid);
+  const serverOpts = convertOpts(ctx, [etype, lookup, obj_, opts]);
   // id first so that we don't clobber updates on the lookup field
   const attrTuples = [['id', lookup]]
     .concat(Object.entries(obj))
@@ -206,15 +251,17 @@ function expandUpdate(attrs, [etype, eid, obj_, opts]) {
   return attrTuples;
 }
 
-function expandDelete(attrs, [etype, eid]) {
+function expandDelete({ attrs }, [etype, eid]) {
   const lookup = extractLookup(attrs, etype, eid);
   return [['delete-entity', lookup, etype]];
 }
 
-function expandDeepMerge(attrs, [etype, eid, obj_, opts]) {
+function expandDeepMerge(ctx, step) {
+  const { stores, attrs } = ctx;
+  const [etype, eid, obj_, opts] = step;
   const obj = immutableRemoveUndefined(obj_);
-  const serverOpts = opts?.upsert === false ? { mode: 'update' } : null;
   const lookup = extractLookup(attrs, etype, eid);
+  const serverOpts = convertOpts(ctx, [etype, lookup, obj_, opts]);
   const attrTuples = Object.entries(obj).map(([identName, value]) => {
     const attr = getAttrByFwdIdentName(attrs, etype, identName);
     return [
@@ -238,7 +285,7 @@ function expandDeepMerge(attrs, [etype, eid, obj_, opts]) {
   return [idTuple].concat(attrTuples);
 }
 
-function expandRuleParams(attrs, [etype, eid, ruleParams]) {
+function expandRuleParams({ attrs }, [etype, eid, ruleParams]) {
   const lookup = extractLookup(attrs, etype, eid);
   return [['rule-params', lookup, etype, ruleParams]];
 }
@@ -253,21 +300,21 @@ function removeIdFromArgs(step) {
   return [op, etype, eid, newObj, ...(opts ? [opts] : [])];
 }
 
-function toTxSteps(attrs, step) {
+function toTxSteps(ctx, step) {
   const [action, ...args] = removeIdFromArgs(step);
   switch (action) {
     case 'merge':
-      return expandDeepMerge(attrs, args);
+      return expandDeepMerge(ctx, args);
     case 'update':
-      return expandUpdate(attrs, args);
+      return expandUpdate(ctx, args);
     case 'link':
-      return expandLink(attrs, args);
+      return expandLink(ctx, args);
     case 'unlink':
-      return expandUnlink(attrs, args);
+      return expandUnlink(ctx, args);
     case 'delete':
-      return expandDelete(attrs, args);
+      return expandDelete(ctx, args);
     case 'ruleParams':
-      return expandRuleParams(attrs, args);
+      return expandRuleParams(ctx, args);
     default:
       throw new Error(`unsupported action ${action}`);
   }
@@ -522,6 +569,7 @@ export function transform(ctx, inputChunks) {
   const chunks = Array.isArray(inputChunks) ? inputChunks : [inputChunks];
   const ops = chunks.flatMap((tx) => getOps(tx));
   const [newAttrs, addAttrTxSteps] = createMissingAttrs(ctx, ops);
-  const txSteps = ops.flatMap((op) => toTxSteps(newAttrs, op));
+  const newCtx = { ...ctx, attrs: newAttrs };
+  const txSteps = ops.flatMap((op) => toTxSteps(newCtx, op));
   return [...addAttrTxSteps, ...txSteps];
 }
