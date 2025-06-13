@@ -1005,7 +1005,13 @@ export default class Reactor {
   pushTx = (chunks) => {
     try {
       const txSteps = instaml.transform(
-        { attrs: this.optimisticAttrs(), schema: this.config.schema },
+        {
+          attrs: this.optimisticAttrs(),
+          schema: this.config.schema,
+          stores: Object.values(this.querySubs.currentValue).map(
+            (sub) => sub?.result?.store,
+          ),
+        },
         chunks,
       );
       return this.pushOps(txSteps);
