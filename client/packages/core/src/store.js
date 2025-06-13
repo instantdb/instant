@@ -584,6 +584,7 @@ export function getTriples(store, [e, a, v]) {
           res.push(...triplesByValue(store, aMap, v));
         }
       }
+      return res;
     }
     default: {
       return allMapValues(store.eav, 3);
