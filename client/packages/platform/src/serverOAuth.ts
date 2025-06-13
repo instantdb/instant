@@ -62,7 +62,7 @@ export async function exchangeCodeForToken({
 
   return {
     accessToken: json.access_token,
-    expiresAt: new Date((json.expires_in - 30) * 1000),
+    expiresAt: new Date(Date.now() + (json.expires_in - 30) * 1000),
     refreshToken: json.refresh_token,
     scopes: json.scopes,
     tokenType: json.token_type,
