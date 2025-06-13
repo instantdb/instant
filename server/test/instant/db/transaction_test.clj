@@ -290,7 +290,7 @@
                          (make-ctx)
                          [[:delete-entity book-id "book"]])))))))))))
 
-(deftest update-mode-update
+(deftest update-modes
   (with-empty-app
     (fn [{app-id :id}]
       (let [{attr-book-title :book/title
@@ -307,8 +307,8 @@
                          :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
                          :current-user     nil
                          :admin?           admin?}))
-            book1-id (suid "b00c")
-            book2-id (suid "b00d")]
+            book1-id    (suid "b00c")
+            book2-id    (suid "b00d")]
 
         (permissioned-tx/transact!
          (make-ctx)
@@ -316,35 +316,84 @@
           [:add-triple book1-id attr-book-desc "book 1 desc"]
           [:add-triple book2-id attr-book-title "book 2"]])
 
-        (doseq [add-op [:add-triple :deep-merge-triple]]
-          (testing add-op
-            (is (not (validation-err?
-                      (permissioned-tx/transact!
-                       (make-ctx)
-                       [[add-op book1-id attr-book-title (str "book 1 " (rand)) {:mode :update}]
-                        [add-op book1-id attr-book-desc  (str "book 1 desc " (rand)) {:mode :update}]]))))
+        (doseq [op [:add-triple :deep-merge-triple]]
+          (testing op
+            (testing "create"
+              (testing "new id"
+                (let [new-book-id (random-uuid)]
+                  (is (not (validation-err?
+                            (permissioned-tx/transact!
+                             (make-ctx)
+                             [[op new-book-id attr-book-title (str "book " (rand)) {:mode :create}]
+                              [op new-book-id attr-book-desc  (str "book desc " (rand)) {:mode :create}]]))))))
 
-            (is (validation-err?
-                 (permissioned-tx/transact!
-                  (make-ctx)
-                  [[add-op (random-uuid) attr-book-title (str "book " (rand)) {:mode :update}]])))
+              (testing "new lookup ref"
+                (is (not (validation-err?
+                          (permissioned-tx/transact!
+                           (make-ctx)
+                           [[op [attr-book-title (str "book " (rand))] attr-book-desc (str "book desc " (rand)) {:mode :create}]])))))
 
-            (is (validation-err?
-                 (permissioned-tx/transact!
-                  (make-ctx)
-                  [[add-op book1-id      attr-book-title (str "book 1 " (rand)) {:mode :update}]
-                   [add-op (random-uuid) attr-book-title (str "book " (rand)) {:mode :update}]])))
+              (testing "existing id"
+                (is (validation-err?
+                     (permissioned-tx/transact!
+                      (make-ctx)
+                      [[op book1-id attr-book-title (str "book 1 " (rand)) {:mode :create}]]))))
 
-            (testing "lookup refs"
-              (is (not (validation-err?
-                        (permissioned-tx/transact!
-                         (make-ctx)
-                         [[add-op [attr-book-title "book 2"] attr-book-desc (str "book 2 desc " (rand)) {:mode :update}]]))))
+              (testing "existing lookup ref"
+                (is (validation-err?
+                     (permissioned-tx/transact!
+                      (make-ctx)
+                      [[op [attr-book-title "book 2"] attr-book-desc (str "book 2 desc " (rand)) {:mode :create}]])))))
 
-              (is (validation-err?
-                   (permissioned-tx/transact!
-                    (make-ctx)
-                    [[add-op [attr-book-title "book 3"] attr-book-desc (str "book 3 desc " (rand)) {:mode :update}]]))))))))))
+            (testing "update"
+              (testing "new id"
+                (let [new-book-id (random-uuid)]
+                  (is (validation-err?
+                       (permissioned-tx/transact!
+                        (make-ctx)
+                        [[op new-book-id attr-book-title (str "book " (rand)) {:mode :update}]
+                         [op new-book-id attr-book-desc  (str "book desc " (rand)) {:mode :update}]])))))
+
+              (testing "new lookup ref"
+                (is (validation-err?
+                     (permissioned-tx/transact!
+                      (make-ctx)
+                      [[op [attr-book-title "book 3"] attr-book-desc (str "book 3 desc " (rand)) {:mode :update}]]))))
+
+              (testing "existing id"
+                (is (not (validation-err?
+                          (permissioned-tx/transact!
+                           (make-ctx)
+                           [[op book1-id attr-book-title (str "book 1 " (rand)) {:mode :update}]
+                            [op book1-id attr-book-desc  (str "book 1 desc " (rand)) {:mode :update}]])))))
+
+              (testing "existing lookup ref"
+                (is (not (validation-err?
+                          (permissioned-tx/transact!
+                           (make-ctx)
+                           [[op [attr-book-title "book 2"] attr-book-desc (str "book 2 desc " (rand)) {:mode :update}]]))))))
+
+            (testing "all together"
+              (let [new-book-id (random-uuid)]
+                (is (not (validation-err?
+                          (permissioned-tx/transact!
+                           (make-ctx)
+                           [[op new-book-id attr-book-title (str "book " (rand)) {:mode :create}]
+                            [op new-book-id attr-book-desc  (str "book desc " (rand)) {:mode :create}]
+                            [op [attr-book-title (str "book " (rand))] attr-book-desc (str "book desc " (rand)) {:mode :create}]
+                            [op book1-id attr-book-title (str "book 1 " (rand)) {:mode :update}]
+                            [op book1-id attr-book-desc  (str "book 1 desc " (rand)) {:mode :update}]
+                            [op [attr-book-title "book 2"] attr-book-desc (str "book 2 desc " (rand)) {:mode :update}]])))))
+
+              (let [new-book-id (random-uuid)]
+                (is (validation-err?
+                     (permissioned-tx/transact!
+                      (make-ctx)
+                      [[op book1-id attr-book-title (str "book 1 " (rand)) {:mode :create}]
+                       [op [attr-book-title "book 2"] attr-book-desc (str "book 2 desc " (rand)) {:mode :create}]
+                       [op new-book-id attr-book-title (str "book " (rand)) {:mode :update}]
+                       [op new-book-id attr-book-desc  (str "book desc " (rand)) {:mode :update}]
+                       [op [attr-book-title "book 3"] attr-book-desc (str "book 3 desc " (rand)) {:mode :update}]])))))))))))
 
 
 (deftest attrs-update
