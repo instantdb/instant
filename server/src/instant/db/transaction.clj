@@ -191,61 +191,78 @@
     #uuid "005a8767-c0e7-4158-bb9a-62ce1a5858ed"
     #uuid "005b08a1-4046-4fba-b1d1-a78b0628901c"]))
 
-(defn validate-exist [conn app-id grouped-tx-steps]
-  (let [tx-steps (->> (concat
-                       (:add-triple grouped-tx-steps)
-                       (:deep-merge-triple grouped-tx-steps))
-                      (filter (fn [[_ _ _ _ opts]]
-                                (= :update (:mode opts)))))
-        eids     (into #{} (keep (fn [[_ e _ _ _]] (when (uuid? e) e))) tx-steps)
-        lookups  (into #{} (keep (fn [[_ e _ _ _]] (when (triple-model/eid-lookup-ref? e) e))) tx-steps)]
+(defn validate-mode [conn app-id grouped-tx-steps]
+  (let [tx-steps     (concat
+                      (:add-triple grouped-tx-steps)
+                      (:deep-merge-triple grouped-tx-steps))
+        create-steps (filter (fn [[_ _ _ _ opts]]
+                               (= :create (:mode opts))) tx-steps)
+        update-steps (filter (fn [[_ _ _ _ opts]]
+                               (= :update (:mode opts))) tx-steps)
+        eids         (into #{}
+                           (keep (fn [[_ e _ _ _]]
+                                   (when (uuid? e) e)))
+                           (concat create-steps update-steps))
+        lookups      (into #{}
+                           (keep (fn [[_ e _ _ _]]
+                                   (when (triple-model/eid-lookup-ref? e) e)))
+                           (concat create-steps update-steps))]
     (when (or (seq eids) (seq lookups))
-      (let [query   "WITH eids AS (
-                       SELECT cast(elem AS uuid) AS id
-                       FROM jsonb_array_elements_text(cast(?eids AS jsonb)) AS elem
-                     ),
-                     missing_eids AS (
-                       SELECT id
-                       FROM eids
-                       LEFT JOIN triples
-                              ON app_id = ?app-id
-                             AND id = entity_id
-                       WHERE entity_id IS NULL
-                     ),
-                     lookups AS (
-                       SELECT CAST(elem ->> 0 AS uuid) AS attr_id,
-                              CAST(elem ->> 1 AS jsonb) AS value
-                       FROM JSONB_ARRAY_ELEMENTS(CAST(?lookups AS JSONB)) AS elem
-                     ),
-                     missing_lookups AS (
-                       SELECT lookups.attr_id, lookups.value
-                       FROM lookups
-                       LEFT JOIN triples
-                              ON app_id = ?app-id
-                             AND triples.av
-                             AND lookups.attr_id = triples.attr_id
-                             AND lookups.value = triples.value
-                       WHERE triples.entity_id IS NULL
-                     )
-                     SELECT id, NULL AS attr_id, NULL AS value
-                     FROM missing_eids
-                     UNION
-                     SELECT NULL as id, attr_id, value
-                     FROM missing_lookups"
-            params  {"?eids"    (->json eids)
-                     "?lookups" (->json (map (fn [[a v]] [a (->json v)]) lookups))
-                     "?app-id"  app-id}
-            missing (->> (sql/select conn (sql/format query params))
-                         (map (fn [{:keys [id attr_id value]}]
-                                (or id [attr_id value])))
-                         (into #{}))]
-        (when (seq missing)
+      (let [query    "WITH eids AS (
+                        SELECT cast(elem AS uuid) AS id
+                        FROM jsonb_array_elements_text(cast(?eids AS jsonb)) AS elem
+                      ),
+                      check_eids AS (
+                        SELECT DISTINCT id, entity_id
+                        FROM eids
+                        LEFT JOIN triples
+                               ON app_id = ?app-id
+                              AND id = entity_id
+                      ),
+                      lookups AS (
+                        SELECT CAST(elem ->> 0 AS uuid) AS attr_id,
+                               CAST(elem ->> 1 AS jsonb) AS value
+                        FROM JSONB_ARRAY_ELEMENTS(CAST(?lookups AS JSONB)) AS elem
+                      ),
+                      check_lookups AS (
+                        SELECT DISTINCT lookups.attr_id, lookups.value, triples.entity_id
+                        FROM lookups
+                        LEFT JOIN triples
+                               ON app_id = ?app-id
+                              AND triples.av
+                              AND lookups.attr_id = triples.attr_id
+                              AND lookups.value = triples.value
+                      )
+                      SELECT id, NULL AS attr_id, NULL AS value, entity_id
+                      FROM check_eids
+                      UNION
+                      SELECT NULL as id, attr_id, value, entity_id
+                      FROM check_lookups"
+            params   {"?eids"    (->json eids)
+                      "?lookups" (->json (map (fn [[a v]] [a (->json v)]) lookups))
+                      "?app-id"  app-id}
+            resolved (->> (sql/select conn (sql/format query params))
+                          (map (fn [{:keys [id attr_id value entity_id]}]
+                                 [(or id [attr_id value]) entity_id]))
+                          (into {}))]
+
+        ;; check create over existing entities
+        (when-some [existing (->> create-steps
+                                  (filter (fn [[_ e _ _ _]] (resolved e)))
+                                  not-empty)]
           (ex/throw-validation-err!
            :tx-step
-           (->> tx-steps
-                (filterv (fn [[_ e _ _ _]]
-                           (missing e))))
-           [{:message (str "Updating entities that don't exist: " (string/join ", " missing))}]))))))
+           existing
+           [{:message (str "Creating entities that exist: " (string/join ", " (map (fn [[_ e _ _ _]] e) existing)))}]))
+
+        ;; check update over missing entities
+        (when-some [missing (->> update-steps
+                                 (filter (fn [[_ e _ _ _]] (nil? (resolved e))))
+                                 not-empty)]
+          (ex/throw-validation-err!
+           :tx-step
+           missing
+           [{:message (str "Updating entities that don't exist: " (string/join ", " (map (fn [[_ e _ _ _]] e) missing)))}]))))))
 
 (defn prevent-$files-add-retract! [attrs op tx-steps]
   (doseq [t tx-steps
@@ -392,7 +409,7 @@
                                        :detailed-tx-steps (pr-str tx-steps)}}
         (prevent-system-catalog-updates! app-id opts)
         (prevent-$files-updates attrs grouped-tx-steps opts)
-        (validate-exist conn app-id grouped-tx-steps)
+        (validate-mode conn app-id grouped-tx-steps)
         (let [results
               (reduce-kv
                (fn [acc op tx-steps]
