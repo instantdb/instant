@@ -84,6 +84,10 @@ type InstantConfig<Schema extends InstantSchemaDef<any, any, any>> = {
   adminToken: string;
   apiURI?: string;
   schema?: Schema;
+  /** If set to true, will reject any transactions that would create new attributes on an entity.
+   *  Defaults to true when `schema` is provided, otherwise false
+   */
+  rejectNewAttrs?: boolean;
 };
 
 type InstantConfigFilled<Schema extends InstantSchemaDef<any, any, any>> =
@@ -795,7 +799,7 @@ class InstantAdminDatabase<Schema extends InstantSchemaDef<any, any, any>> {
       headers: authorizedHeaders(this.config, this.impersonationOpts),
       body: JSON.stringify({
         steps: steps(inputChunks),
-        'throw-on-missing-attrs?': !!this.config.schema,
+        'throw-on-missing-attrs?': this.config.rejectNewAttrs ?? !!this.config.schema,
       }),
     });
   };
