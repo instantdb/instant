@@ -2,6 +2,8 @@ import { test, expect } from 'vitest';
 import * as instaml from '../../src/instaml';
 import * as instatx from '../../src/instatx';
 import zenecaAttrs from './data/zeneca/attrs.json';
+import zenecaTriples from './data/zeneca/triples.json';
+import { createStore, transact } from '../../src/store';
 import uuid from '../../src/utils/uuid';
 import { i } from '../../src/index';
 
@@ -9,6 +11,13 @@ const zenecaAttrToId = zenecaAttrs.reduce((res, x) => {
   res[`${x['forward-identity'][1]}/${x['forward-identity'][2]}`] = x.id;
   return res;
 }, {});
+
+const zenecaIdToAttr = zenecaAttrs.reduce((res, x) => {
+  res[x.id] = x;
+  return res;
+}, {});
+
+const store = createStore(zenecaIdToAttr, zenecaTriples);
 
 test('simple update transform', () => {
   const testId = uuid();
@@ -654,6 +663,50 @@ test('lookups create entities from unlinks', () => {
   expect(result).toHaveLength(expected.length);
   for (const item of expected) {
     expect(result).toContainEqual(item);
+  }
+});
+
+test('mode: update', () => {
+  // create
+  var id = uuid();
+  var ops = instatx.tx.users[id].update({ handle: 'test' });
+  var result = instaml.transform({ attrs: zenecaAttrs, stores: [store] }, ops);
+  for (const txStep of result) {
+    expect(txStep[4]).toEqual(undefined);
+  }
+
+  // update by id
+  ops = instatx.tx.users['ce942051-2d74-404a-9c7d-4aa3f2d54ae4'].update({
+    handle: 'joe2',
+  });
+  result = instaml.transform({ attrs: zenecaAttrs, stores: [store] }, ops);
+  for (const txStep of result) {
+    expect(txStep[4]).toEqual({ mode: 'update' });
+  }
+
+  // update by lookup
+  ops = instatx.tx.users[instatx.lookup('email', 'stopa@instantdb.com')].update(
+    { handle: 'stopa2' },
+  );
+  result = instaml.transform({ attrs: zenecaAttrs, stores: [store] }, ops);
+  for (const txStep of result) {
+    expect(txStep[4]).toEqual({ mode: 'update' });
+  }
+
+  // forced mode
+  var ops = instatx.tx.users[id].update({ handle: 'test' }, { upsert: false });
+  var result = instaml.transform({ attrs: zenecaAttrs, stores: [store] }, ops);
+  for (const txStep of result) {
+    expect(txStep[4]).toEqual({ mode: 'update' });
+  }
+
+  var ops = instatx.tx.users['ce942051-2d74-404a-9c7d-4aa3f2d54ae4'].update(
+    { handle: 'test' },
+    { upsert: true },
+  );
+  var result = instaml.transform({ attrs: zenecaAttrs, stores: [store] }, ops);
+  for (const txStep of result) {
+    expect(txStep[4]).toEqual(undefined);
   }
 });
 

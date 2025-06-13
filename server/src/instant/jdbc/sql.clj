@@ -136,7 +136,7 @@
    One can use:
 
      (hsql/format
-      (tupleset xs {:as 'id, :type :int}))
+      (elementset xs {:as 'id, :type :int}))
 
    To get to:
 
