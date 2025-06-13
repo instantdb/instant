@@ -80,7 +80,8 @@ const html = (serverOrigin: string): string => {
           </p>
 
           <p>
-            <a href="https://github.com/instantdb/instant/tree/main/client/packages/mcp"
+            <a
+              href="https://github.com/instantdb/instant/tree/main/client/packages/mcp"
               >View the code on GitHub.</a
             >
           </p>
