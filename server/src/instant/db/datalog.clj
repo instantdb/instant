@@ -55,6 +55,8 @@
         :variable symbol?))
 
 (s/def ::$not ::triple-model/value)
+;; $not for the entity_id should always be a uuid
+(s/def :datalog-entity-id/$not uuid?)
 (s/def ::attr-id uuid?)
 (s/def ::nil? boolean?)
 (s/def ::$isNull (s/keys :req-un [::attr-id ::nil?]))
@@ -63,6 +65,11 @@
 (s/def ::data-type #{:string :number :date :boolean})
 (s/def ::value any?)
 (s/def ::$comparator (s/keys :req-un [::op ::data-type ::value]))
+
+(s/def ::entity-value-component (s/or :constant (s/coll-of ::triple-model/lookup :kind set? :min-count 0)
+                                      :any #{'_}
+                                      :variable symbol?
+                                      :function (s/keys :req-un [:datalog-entity-id/$not])))
 
 (s/def ::value-pattern-component (s/or :constant (s/coll-of ::triple-model/value
                                                             :kind set?
@@ -79,7 +86,7 @@
 
 (s/def ::pattern
   (s/cat :idx ::index
-         :e (pattern-component ::triple-model/lookup)
+         :e ::entity-value-component
          :a (pattern-component uuid?)
          :v ::value-pattern-component
          :created-at (pattern-component number?)))
@@ -122,6 +129,9 @@
    (map-indexed
     (fn [i c]
       (if (or
+           (and (= i 0)
+                (map? c)
+                (contains? c :$not))
            ;; Don't override function clauses
            (and (= i 2)
                 (map? c)
@@ -633,22 +643,25 @@
                                :not-in
                                :in)
                              :entity-id
-                             {:select (if (and (:ref? val)
-                                               (:reverse? val))
-                                        [[[:cast [:->> :t.value :0] :uuid]]]
-                                        :t.entity-id)
-                              :from [[:triples :t]]
-                              :where (list* :and
-                                            [:= :t.app-id app-id]
-                                            [:= :t.entity-id :entity-id]
-                                            [:= :t.attr-id (:attr-id val)]
-                                            (if-let [data-type (:indexed-checked-type val)]
-                                              [:ave
-                                               [:=
-                                                :checked_data_type
-                                                [:cast [:inline (name data-type)] :checked_data_type]]
-                                               [:not= [(extract-value-fn data-type) :t.value] nil]]
-                                              [[:not= :t.value [:cast (->json nil) :jsonb]]]))}]]
+                             (let [reverse-ref? (and (:ref? val)
+                                                     (:reverse? val))]
+                               {:select (if reverse-ref?
+                                          [[[:cast [:->> :t.value :0] :uuid]]]
+                                          :t.entity-id)
+                                :from [[:triples :t]]
+                                :where (list* :and
+                                              [:= :t.app-id app-id]
+                                              [:= :t.entity-id :entity-id]
+                                              [:= :t.attr-id (:attr-id val)]
+                                              (when reverse-ref?
+                                                :eav)
+                                              (if-let [data-type (:indexed-checked-type val)]
+                                                [:ave
+                                                 [:=
+                                                  :checked_data_type
+                                                  [:cast [:inline (name data-type)] :checked_data_type]]
+                                                 [:not= [(extract-value-fn data-type) :t.value] nil]]
+                                                [[:not= :t.value [:cast (->json nil) :jsonb]]]))})]]
                   :$comparator (let [{:keys [op value data-type]} val]
                                  [[(case op
                                      :$gt :>
@@ -669,8 +682,17 @@
                       [:<= :entity-id (prefix->uuid-end prefix)]]])))
     []))
 
+(defn- entity-function-clauses [[e-tag e-value]]
+  (case e-tag
+    :function (let [[func val] (first e-value)]
+                (case func
+                  :$not [[:not= :entity-id val]]))
+    []))
+
 (defn- function-clauses [app-id named-pattern]
-  (value-function-clauses app-id (:idx named-pattern) (:v named-pattern)))
+  (concat
+   (value-function-clauses app-id (:idx named-pattern) (:v named-pattern))
+   (entity-function-clauses (:e named-pattern))))
 
 (defn patch-values-for-av-index
   "Make sure we wrap :value in [:json_null_to_null :value] when using :av

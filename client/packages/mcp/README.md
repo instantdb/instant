@@ -26,10 +26,27 @@ Welcome to [Instant's](http://instantdb.com) MCP server.
 # Instant MCP
 
 This MCP is a wrapper around the Instant Platform SDK. Add this MCP to your
-editor to enable creating, managing, and updating your InstantDB applications,
+editor to enable creating, managing, and updating your InstantDB applications.
 
-**This README contains info on how to locally develop against this MCP server. To
-learn how to use this MCP in your own editor/apps, see [the public docs](https://www.instantdb.com/docs/using-llms)**
+## Remote MCP server
+
+Instant hosts the latest version of the server at `https://mcp.instantdb.com`.
+
+For modern clients that support streamable HTTP use `https://mcp.instantdb.com/mcp`.
+
+For legacy clients that require SSE use `https://mcp.instantdb.com/sse`.
+
+For more editor-specific instructions, see [the public docs](https://www.instantdb.com/docs/using-llms).
+
+## Local MCP server
+
+If you haven't already, make sure to get a [personal access token from your Instant dashboard](https://www.instantdb.com/dash?s=personal-access-tokens).
+
+Run the server in stdio mode with `npx -y @instantdb/mcp --token <token>`.
+
+For more editor-specific instructions, see [the public docs](https://www.instantdb.com/docs/using-llms).
+
+# Contributing
 
 ## Quick Start
 
@@ -74,3 +91,19 @@ Here's an example configuration for MacOS/Linux:
   }
 }
 ```
+
+### Remote MCP
+
+```bash
+cp .env.example .env
+```
+
+Fill in all of the environment variables for your new `.env` file.
+
+```bash
+pnpm run dev
+```
+
+Visit the server at [http://localhost:3123](http://localhost:3123).
+
+To work on the `stdio` version of the codebase, update your `.env` file with `SERVER_TYPE=stdio`.

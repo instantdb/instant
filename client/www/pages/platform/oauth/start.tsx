@@ -99,6 +99,7 @@ const scopeDescriptions = [
 
 type ClaimResult = {
   appName: string;
+  userEmail: string;
   supportEmail: string | null;
   appPrivacyPolicyLink: string | null;
   appLogo: string | null;
@@ -159,6 +160,9 @@ function OAuthForm({ redirectId }: { redirectId: string }) {
           <span className="font-mono text-sm lowercase text-gray-400">
             Instant
           </span>
+        </span>
+        <span className="text-gray-700 italic text-sm">
+          Logged in as <span className="font-semibold">{data.userEmail}</span>
         </span>
         <div className="flex flex-row gap-4 items-center">
           <div className="flex h-full">

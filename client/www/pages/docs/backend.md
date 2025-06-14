@@ -289,7 +289,7 @@ function Login() {
 }
 ```
 
-## Generating magic codes
+## Custom magic codes
 
 We support a [magic code flow](/docs/auth) out of the box. However, if you'd like to use your own email provider to send the code, you can do this with `db.auth.generateMagicCode` function:
 
@@ -298,8 +298,22 @@ app.post('/custom-send-magic-code', async (req, res) => {
   const { code } = await db.auth.generateMagicCode(req.body.email);
   // Now you can use your email provider to send magic codes
   await sendMyCustomMagicCodeEmail(req.body.email, code);
-  return res.status(200).send({ token });
+  return res.status(200).send({ ok: true });
 });
+```
+
+You can also use Instant's default email provider to send a magic code with `db.auth.sendMagicCode`:
+
+```typescript
+// You can tigger a magic code email in your backend with `sendMagicCode`
+const { code } = await db.auth.sendMagicCode(req.body.email);
+```
+
+Similarily, you can verify a magic code with `db.auth.verifyMagicCode`:
+
+```typescript
+const user = await db.auth.verifyMagicCode(req.body.email, req.body.code);
+const token = user.refresh_token;
 ```
 
 ## Authenticated Endpoints

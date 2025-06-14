@@ -7,24 +7,29 @@ To secure user data, you can use Instant’s Rule Language. Our rule language
 takes inspiration from Rails’ ActiveRecord, Google’s CEL, and JSON.
 Here’s an example ruleset below
 
-```typescript {% showCopy=true %}
+<!-- prettier-ignore-start -->
+```tsx {% showCopy=true %}
 // instant.perms.ts
 import type { InstantRules } from '@instantdb/react';
 
 const rules = {
-  todos: {
-    allow: {
-      view: 'auth.id != null',
-      create: 'isOwner',
-      update: 'isOwner',
-      delete: 'isOwner',
+  "todos": {
+    "allow": {
+      "view": "auth.id != null",
+      "create": "isOwner",
+      "update": "isOwner && isStillOwner",
+      "delete": "isOwner",
     },
-    bind: ['isOwner', 'auth.id != null && auth.id == data.creatorId'],
-  },
+    "bind": [
+      "isOwner", "auth.id != null && auth.id == data.creatorId",
+      "isStillOwner", "auth.id != null && auth.id == newData.creatorId"
+    ]
+  }
 } satisfies InstantRules;
 
 export default rules;
 ```
+<!-- prettier-ignore-end -->
 
 You can manage permissions via configuration files or through the Instant dashboard.
 

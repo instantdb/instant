@@ -2711,6 +2711,53 @@
           (testing "uses index"
             (is (= "triples_boolean_type_idx" (run-explain :boolean true)))))))))
 
+(deftest $not-with-refs
+  (with-zeneca-checked-data-app
+    (fn [app r]
+      (let [ctx (make-ctx app)
+            uid #uuid "1b27ab60-d8b6-4327-93a2-5e9a296e9f02"
+            query-pretty (partial query-pretty ctx r)]
+        (is (= (instaql-nodes->object-tree
+                ctx
+                (iq/query ctx
+                          {:users {:$ {:where {:bookshelves {:$not uid}}
+                                       :order {:handle "desc"}}}}))
+               (instaql-nodes->object-tree
+                ctx
+                (iq/query ctx
+                          {:users {:$ {:order {:handle "desc"}}}}))))
+
+        (is-pretty-eq? (query-pretty {:bookshelves
+                                      {:$ {:where {:and [{:users {:$not (resolvers/->uuid r "eid-stepan-parunashvili")}}
+                                                         {:users {:$not (resolvers/->uuid r "eid-nicole")}}
+                                                         {:users {:$not (resolvers/->uuid r "eid-joe-averbukh")}}]}
+                                           :order {:order "desc"}
+                                           :limit 1}}})
+                       '({:topics ([:eav {:$not "eid-stepan-parunashvili"} #{:users/bookshelves} _]
+                                   [:ea _ #{:bookshelves/id} _]
+                                   [:ea _ #{:users/bookshelves} _]
+                                   [:vae {:$not "eid-nicole"} #{:users/bookshelves} _]
+                                   [:ea _ #{:bookshelves/id} _]
+                                   [:ea _ #{:users/bookshelves} _]
+                                   [:vae {:$not "eid-joe-averbukh"} #{:users/bookshelves}
+                                    #{"eid-nonfiction"}]
+                                   [:ea #{"eid-nonfiction"} #{:bookshelves/id} _]
+                                   [:ea _ #{:users/bookshelves} _]
+                                   [:ave #{"eid-nonfiction"} #{:bookshelves/order} _]
+                                   --
+                                   [:ea #{"eid-nonfiction"}
+                                    #{:bookshelves/desc :bookshelves/name :bookshelves/order
+                                      :bookshelves/id} _])
+                          :triples (("eid-alex" :users/bookshelves "eid-nonfiction")
+                                    ("eid-alex" :users/bookshelves "eid-nonfiction")
+                                    ("eid-alex" :users/bookshelves "eid-nonfiction")
+                                    ("eid-nonfiction" :bookshelves/order 1)
+                                    --
+                                    ("eid-nonfiction" :bookshelves/id "eid-nonfiction")
+                                    ("eid-nonfiction" :bookshelves/name "Nonfiction")
+                                    ("eid-nonfiction" :bookshelves/desc "")
+                                    ("eid-nonfiction" :bookshelves/order 1))}))))))
+
 (deftest lookup-unique-uses-the-av-index
   (with-zeneca-app
     (fn [app _r]
@@ -4236,23 +4283,21 @@
 (deftest fields-with-rules
   (with-zeneca-app
     (fn [app r]
-      (let [make-ctx (fn []
-                       (let [attrs (attr-model/get-by-app-id (:id app))]
-                         {:db {:conn-pool (aurora/conn-pool :read)}
-                          :app-id (:id app)
-                          :attrs attrs}))
-            query-count (atom 0)
+      (let [attrs         (attr-model/get-by-app-id (:id app))
+            ctx           {:db {:conn-pool (aurora/conn-pool :read)}
+                           :app-id (:id app)
+                           :attrs attrs}
+            query-count   (atom 0)
             query-tracker {:add (fn [_ _]
                                   (swap! query-count inc))
                            :remove (fn [_ _]
                                      nil)
-                           :stmts (atom #{})}]
-        (rule-model/put! (aurora/conn-pool :write)
-                         {:app-id (:id app)
-                          :code {:users {:allow {:view "data.handle == 'alex'"}}
-                                 :bookshelves {:allow {:view "data.name == 'Nonfiction'"}}
-                                 :books {:allow {:view "data.isbn13 == '9780316486668'"}}}})
-
+                           :stmts (atom #{})}
+            _             (rule-model/put! (aurora/conn-pool :write)
+                                           {:app-id (:id app)
+                                            :code {:users {:allow {:view "data.handle == 'alex'"}}
+                                                   :bookshelves {:allow {:view "data.name == 'Nonfiction'"}}
+                                                   :books {:allow {:view "data.isbn13 == '9780316486668'"}}}})]
         (testing "rules work even when you filter fields"
           (is (= {:users [{:id (str (resolvers/->uuid r "eid-alex"))
                            :fullName "Alex"
@@ -4261,9 +4306,9 @@
                                           :books [{:id (str (resolvers/->uuid r "eid-catch-and-kill"))
                                                    :title "Catch and Kill"}]}]}]}
                  (binding [sql/*in-progress-stmts* query-tracker]
-                   (pretty-perm-q (make-ctx) {:users {:$ {:fields ["fullName"]}
-                                                      :bookshelves {:$ {:fields ["order"]}
-                                                                    :books {:$ {:fields ["title"]}}}}}))))
+                   (pretty-perm-q ctx {:users {:$ {:fields ["fullName"]}
+                                               :bookshelves {:$ {:fields ["order"]}
+                                                             :books {:$ {:fields ["title"]}}}}}))))
 
           ;; 1 to fetch the query result
           ;; 1 to fetch rules

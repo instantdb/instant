@@ -10,8 +10,6 @@ import {
   InstantDBIdent,
   InstantDBCheckedDataType,
   i,
-  EntityDef,
-  AttrsDefs,
   InstantDBInferredType,
   DataAttrDef,
 } from '@instantdb/core';
@@ -32,6 +30,7 @@ import {
   rels,
   sortedEntries,
 } from './util.ts';
+import { exchangeRefreshToken } from './serverOAuth.ts';
 
 type Simplify<T> = {
   [K in keyof T]: T[K];
@@ -125,6 +124,12 @@ export type InstantAPIPushPermsBody = {
 
 export type InstantAPIPushPermsResponse = {
   perms: InstantRules;
+};
+
+export type InstantAPITokenInfoResponse = {
+  expiresAt: Date;
+  scopes: string;
+  tokenType: 'Bearer';
 };
 
 type PlanStep =
@@ -1038,9 +1043,39 @@ async function pushPerms(
   return { perms: result.rules.code };
 }
 
-export type PlatformApiAuth = {
-  token: string;
-};
+async function tokenInfo(
+  apiURI: string,
+  token: string,
+): Promise<InstantAPITokenInfoResponse> {
+  const result = await jsonFetch<{
+    expires_in: number;
+    scopes: string;
+    token_type: 'Bearer';
+  }>(`${apiURI}/platform/oauth/token-info?access_token=${token}`, {
+    method: 'GET',
+  });
+
+  return {
+    tokenType: result.token_type,
+    scopes: result.scopes,
+    expiresAt: new Date(Date.now() + (result.expires_in - 60) * 1000),
+  };
+}
+
+export type PlatformApiAuth =
+  | {
+      token: string;
+    }
+  | {
+      accessToken: string;
+      refreshToken: string;
+      clientId: string;
+      clientSecret: string;
+      onRefresh?: (tokenInfo: {
+        accessToken: string;
+        expiresAt: Date;
+      }) => Promise<void>;
+    };
 
 export type PlatformApiConfig = {
   auth: PlatformApiAuth;
@@ -1063,7 +1098,7 @@ export type PlatformApiConfig = {
  * ```
  */
 export class PlatformApi {
-  #token: string;
+  #auth: PlatformApiAuth;
   #apiURI: string;
 
   /**
@@ -1073,11 +1108,85 @@ export class PlatformApi {
    * @throws {Error} When `token` is missing.
    */
   constructor(config: PlatformApiConfig) {
-    this.#token = config.auth.token;
+    this.#auth = config.auth;
     this.#apiURI = config.apiURI || 'https://api.instantdb.com';
 
-    if (!this.#token) {
-      throw new Error('PlatformApi must be constructed with a token.');
+    if (!this.#auth) {
+      throw new Error('PlatformApi must be constructed with auth.');
+    }
+  }
+
+  token(): string {
+    if ('token' in this.#auth) {
+      return this.#auth.token;
+    }
+    return this.#auth.accessToken;
+  }
+
+  canRefreshToken(): boolean {
+    return (
+      'refreshToken' in this.#auth &&
+      'clientId' in this.#auth &&
+      'clientSecret' in this.#auth &&
+      this.#auth.refreshToken != null &&
+      this.#auth.clientId != null &&
+      this.#auth.clientSecret != null
+    );
+  }
+
+  async refreshToken(): Promise<null | {
+    accessToken: string;
+    expiresAt: Date;
+  }> {
+    if (
+      !this.canRefreshToken() ||
+      // Checked in canRefreshToken, but this lets
+      // typescript refine this.#auth here
+      !('clientId' in this.#auth)
+    ) {
+      return null;
+    }
+    const token = await exchangeRefreshToken({
+      apiURI: this.#apiURI,
+      clientId: this.#auth.clientId,
+      clientSecret: this.#auth.clientSecret,
+      refreshToken: this.#auth.refreshToken,
+    });
+    this.#auth.accessToken = token.accessToken;
+    if (this.#auth.onRefresh) {
+      await this.#auth.onRefresh(token);
+    }
+    return token;
+  }
+
+  async withRetry<F extends (...args: any[]) => any>(
+    f: F,
+    args: Parameters<F>,
+  ) {
+    let attempt = 0;
+    const [apiURI, tokenInArg, ...restArgs] = args;
+    let token = tokenInArg;
+    while (attempt < 2) {
+      try {
+        return await f(apiURI, token, ...restArgs);
+      } catch (e) {
+        if (
+          e instanceof InstantAPIError &&
+          (e.status === 401 ||
+            e.body?.type === 'record-expired' ||
+            (e.body?.type === 'record-not-found' &&
+              e.body.hint['record-type'].match(/token/i))) &&
+          this.canRefreshToken()
+        ) {
+          const refreshedToken = await this.refreshToken();
+          if (refreshedToken) {
+            token = refreshedToken.accessToken;
+            attempt++;
+            continue;
+          }
+        }
+        throw e;
+      }
     }
   }
 
@@ -1102,7 +1211,7 @@ export class PlatformApi {
     appId: string,
     opts?: Opts,
   ): Promise<InstantAPIGetAppResponse<Opts>> {
-    return getApp<Opts>(this.#apiURI, this.#token, appId, opts);
+    return this.withRetry(getApp, [this.#apiURI, this.token(), appId, opts]);
   }
 
   /**
@@ -1122,7 +1231,7 @@ export class PlatformApi {
   async getApps<Opts extends AppDataOpts>(
     opts?: Opts,
   ): Promise<InstantAPIListAppsResponse<Opts>> {
-    return getApps<Opts>(this.#apiURI, this.#token, opts);
+    return this.withRetry(getApps, [this.#apiURI, this.token(), opts]);
   }
 
   /**
@@ -1135,7 +1244,7 @@ export class PlatformApi {
    * @param appId -- UUID of the app
    */
   async getSchema(appId: string): Promise<InstantAPIGetAppSchemaResponse> {
-    return getAppSchema(this.#apiURI, this.#token, appId);
+    return this.withRetry(getAppSchema, [this.#apiURI, this.token(), appId]);
   }
 
   /**
@@ -1148,7 +1257,7 @@ export class PlatformApi {
    * @param appId -- UUID of the app
    */
   async getPerms(appId: string): Promise<InstantAPIGetAppPermsResponse> {
-    return getAppPerms(this.#apiURI, this.#token, appId);
+    return this.withRetry(getAppPerms, [this.#apiURI, this.token(), appId]);
   }
 
   /**
@@ -1176,7 +1285,7 @@ export class PlatformApi {
   async createApp(
     fields: InstantAPICreateAppBody,
   ): Promise<InstantAPICreateAppResponse> {
-    return createApp(this.#apiURI, this.#token, fields);
+    return this.withRetry(createApp, [this.#apiURI, this.token(), fields]);
   }
 
   /**
@@ -1195,7 +1304,12 @@ export class PlatformApi {
     appId: string,
     fields: InstantAPIUpdateAppBody,
   ): Promise<InstantAPIUpdateAppResponse> {
-    return updateApp(this.#apiURI, this.#token, appId, fields);
+    return this.withRetry(updateApp, [
+      this.#apiURI,
+      this.token(),
+      appId,
+      fields,
+    ]);
   }
 
   /**
@@ -1208,7 +1322,7 @@ export class PlatformApi {
    * @param appId -- UUID of the app
    */
   async deleteApp(appId: string): Promise<InstantAPIDeleteAppResponse> {
-    return deleteApp(this.#apiURI, this.#token, appId);
+    return this.withRetry(deleteApp, [this.#apiURI, this.token(), appId]);
   }
 
   /**
@@ -1223,7 +1337,12 @@ export class PlatformApi {
     appId: string,
     body: InstantAPISchemaPushBody,
   ): Promise<InstantAPIPlanSchemaPushResponse> {
-    return planSchemaPush(this.#apiURI, this.#token, appId, body);
+    return this.withRetry(planSchemaPush, [
+      this.#apiURI,
+      this.token(),
+      appId,
+      body,
+    ]);
   }
 
   /**
@@ -1256,7 +1375,26 @@ export class PlatformApi {
     appId: string,
     body: InstantAPISchemaPushBody,
   ): ProgressPromise<InProgressStepsSummary, InstantAPISchemaPushResponse> {
-    return schemaPush(this.#apiURI, this.#token, appId, body);
+    return new ProgressPromise(async (progress, resolve, reject) => {
+      // It's tricky to add withRetry to the background process that fetches the jobs,
+      // so we'll just refresh the token at the start.
+      if (this.canRefreshToken()) {
+        try {
+          await this.refreshToken();
+        } catch (_e) {}
+      }
+      schemaPush(this.#apiURI, this.token(), appId, body).subscribe({
+        complete(v) {
+          resolve(v);
+        },
+        error(e) {
+          reject(e);
+        },
+        next(v) {
+          progress(v);
+        },
+      });
+    });
   }
 
   /**
@@ -1277,6 +1415,10 @@ export class PlatformApi {
     appId: string,
     body: InstantAPIPushPermsBody,
   ): Promise<InstantAPIPushPermsResponse> {
-    return pushPerms(this.#apiURI, this.#token, appId, body);
+    return this.withRetry(pushPerms, [this.#apiURI, this.token(), appId, body]);
+  }
+
+  async tokenInfo(): Promise<InstantAPITokenInfoResponse> {
+    return this.withRetry(tokenInfo, [this.#apiURI, this.token()]);
   }
 }

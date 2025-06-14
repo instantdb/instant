@@ -1,4 +1,10 @@
 node_modules
-.pnpm-store
+.git
+.gitignore
+*.md
+dist
 .turbo
-Dockerfile
+www
+sandbox
+scripts
+.env

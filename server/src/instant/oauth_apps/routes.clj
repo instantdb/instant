@@ -227,20 +227,21 @@
                                           :oauth-app-app-id (:app_id oauth-app)}})
 
         _ (when (and (or (not (:is_public oauth-app))
-                         (= "localhost" (:host (uri/parse (:redirect_url redirect)))))
+                         (= "localhost" (:host (uri/parse (:redirect_uri redirect)))))
                      (not (app-model/get-by-id-and-creator {:app-id (:app_id oauth-app)
                                                             :user-id (:id user)}))
                      (not (get-member-role (:app_id oauth-app)
                                            (:id user))))
-            (oauth-app-model/deny-redirect {:redirect-id redirect-id})
+            (oauth-app-model/deny-redirect! {:redirect-id redirect-id})
             (ex/throw+ {::ex/type ::ex/permission-denied
                         ::ex/message
                         (cond (not (:is_public oauth-app))
                               "This OAuth app is not public, only members of the app may use it."
-                              (= "localhost" (:host (uri/parse (:redirect_url redirect))))
+                              (= "localhost" (:host (uri/parse (:redirect_uri redirect))))
                               "Redirects to localhost can only be used by members of the app."
                               :else (throw (Exception. "Unhandled case")))}))]
     (response/ok {:appName (:app_name oauth-app)
+                  :userEmail (:email user)
                   :supportEmail (:support_email oauth-app)
                   :appPrivacyPolicyLink (:app_privacy_policy_link oauth-app)
                   :appLogo (some-> oauth-app
@@ -320,7 +321,7 @@
         grant-token (ex/get-param! req
                                    [:params :grant_token]
                                    uuid-util/coerce)
-        redirect (oauth-app-model/deny-redirect {:redirect-id redirect-id
+        redirect (oauth-app-model/deny-redirect! {:redirect-id redirect-id
                                                  :grant-token grant-token})
 
         cookie-param (get-in req [:cookies cookie-name :value])
@@ -495,6 +496,24 @@
                       ::ex/message "Unrecognized `grant_type` parameter, expected either `authorization_code` or `refresh_token`"
                       ::ex/hint {:input grant-type}}))))))
 
+(defn get-token-info [req]
+  (let [token-str (ex/get-param! (:params req)
+                                 [:access_token]
+                                 string-util/coerce-non-blank-str)
+        token (token-util/coerce-token-from-string token-str)]
+    (when-not (token-util/is-platform-access-token? token)
+      (ex/throw-validation-err! :access_token
+                                {}
+                                [{:message "The access_token is not a valid platform OAuth access token."}]))
+
+    (let [record (oauth-app-model/access-token-by-token-value!
+                  {:access-token (token-util/platform-access-token-value token)})]
+      (response/ok {:expires_in (oauth-app-model/access-token-expires-in record)
+                    :token_type "Bearer"
+                    :scopes (->> record
+                                 :scopes
+                                 (string/join " "))}))))
+
 (defn revoke-oauth-token [req]
   (let [token (ex/get-param! req
                              [:params :token]
@@ -516,4 +535,5 @@
   (POST "/platform/oauth/grant" [] (wrap-cookies oauth-grant-access {:decoder parse-cookie}))
   (POST "/platform/oauth/deny" [] (wrap-cookies oauth-deny-access {:decoder parse-cookie}))
   (POST "/platform/oauth/token" [] oauth-token)
+  (GET "/platform/oauth/token-info" [] get-token-info)
   (POST "/platform/oauth/revoke" [] revoke-oauth-token))
