@@ -106,8 +106,15 @@
             ;; e.g. google but we still need to make sure it was
             ;; issued by our client and has all of the fields we need
             ;; https://developers.google.com/identity/sign-in/ios/backend-auth#verify-the-integrity-of-the-id-token
-            issuer-mismatch (not= (.getIssuer verified-jwt)
-                                  issuer)
+            jwt-issuer (.getIssuer verified-jwt)
+            ;; Handle Apple's issuer inconsistency: discovery endpoint and JWT tokens
+            ;; use different issuer URLs (account.apple.com vs appleid.apple.com)
+            issuer-mismatch (not (or (= jwt-issuer issuer)
+                                     ;; Allow both Apple issuer URLs to match each other
+                                     (and (or (= issuer "https://account.apple.com")
+                                              (= issuer "https://appleid.apple.com"))
+                                          (or (= jwt-issuer "https://account.apple.com")
+                                              (= jwt-issuer "https://appleid.apple.com")))))
             unsupported-alg (not (contains? id-token-signing-alg-values-supported
                                             (.getAlgorithm verified-jwt)))
             client-id-mismatch (and (not ignore-audience?)
@@ -298,3 +305,5 @@
 
   (restart)
   discovery-endpoint-cache)
+
+
