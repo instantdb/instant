@@ -19,7 +19,7 @@
      :etype etype}
     (fn [{:keys [transact! resolve-id]}]
       (let [lookup [(resolve-id :path) path]
-            {:keys [size content-type content-disposition]} metadata
+            {:keys [size content-type content-disposition hash last-modified]} metadata
 
             res
             (transact!
@@ -28,7 +28,9 @@
               [:add-triple lookup (resolve-id :content-type) content-type]
               [:add-triple lookup (resolve-id :content-disposition) content-disposition]
               [:add-triple lookup (resolve-id :location-id) location-id]
-              [:add-triple lookup (resolve-id :key-version) 1]]
+              [:add-triple lookup (resolve-id :key-version) 1]
+              [:add-triple lookup (resolve-id :hash) hash]
+              [:add-triple lookup (resolve-id :lastModified) last-modified]]
              {:allow-$files-update? true})]
         {:id (->> (get-in res [:results :add-triple])
                   (map :entity_id)
@@ -118,7 +120,7 @@
     (fn [{:keys [transact! resolve-id]}]
       (let [triples
             (mapcat (fn [{:keys [file-id path location-id metadata]}]
-                      (let [{:keys [size content-type content-disposition]}
+                      (let [{:keys [size content-type content-disposition hash last-modified]}
                             metadata]
                         [[:add-triple file-id (resolve-id :id) file-id]
                          [:add-triple file-id (resolve-id :path) path]
@@ -126,7 +128,9 @@
                          [:add-triple file-id (resolve-id :content-type) content-type]
                          [:add-triple file-id (resolve-id :content-disposition) content-disposition]
                          [:add-triple file-id (resolve-id :location-id) location-id]
-                         [:add-triple file-id (resolve-id :key-version) 1]]))
+                         [:add-triple file-id (resolve-id :key-version) 1]
+                         [:add-triple file-id (resolve-id :hash) hash]
+                         [:add-triple file-id (resolve-id :lastModified) last-modified]]))
                     data)
             res (transact! triples {:allow-$files-update? true})]
         (->> (get-in res [:results :add-triple])

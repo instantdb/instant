@@ -100,8 +100,8 @@
   (-> object-metadata
       (select-keys [:content-disposition :content-type :content-length :etag])
       (assoc :size (:content-length object-metadata)
-             :last-modified
-             (.toEpochMilli ^Instant (object-metadata :last-modified)))))
+             :hash (:etag object-metadata)
+             :last-modified (.toEpochMilli ^Instant (object-metadata :last-modified)))))
 
 (defn get-object-metadata
   ([app-id location-id] (get-object-metadata bucket-name app-id location-id))
