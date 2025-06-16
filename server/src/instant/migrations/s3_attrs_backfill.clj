@@ -11,7 +11,6 @@
    [clojure.tools.logging :as log]
    [honey.sql :as hsql]
    [instant.db.model.attr :as attr-model]
-   [instant.db.model.triple :as triple-model]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.storage.s3 :as s3]
@@ -30,8 +29,9 @@
 ;; Helper functions
 ;; ----------------
 
-(defn md5 [^String s]
+(defn md5
   "Calculate MD5 hash of a string (used for triple value_md5)"
+  [^String s]
   (let [digest (.digest (MessageDigest/getInstance "MD5") (.getBytes s "UTF-8"))]
     (format "%032x" (new java.math.BigInteger 1 digest))))
 
