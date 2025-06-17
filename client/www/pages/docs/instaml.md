@@ -68,6 +68,14 @@ db.transact(db.tx.goals[eatId].update({ lastTimeEaten: 'Today' }));
 
 This will only update the value of the `lastTimeEaten` attribute for entity `eat`.
 
+`update` function works as create or update depending of whether the entity already exists or not (so called “upsert” mode). If entity doesn’t exist yet, calling `update` will create it, otherwise it will update.
+
+To force “strict update” mode, pass `{ upsert: false }` option:
+
+```javascript
+db.transact(db.tx.goals[eatId].update({ lastTimeEaten: 'Today' }, { upsert: false }));
+```
+
 ## Merge data
 
 When you `update` an attribute, you overwrite it. This is fine for updating
