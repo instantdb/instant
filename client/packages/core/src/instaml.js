@@ -219,14 +219,13 @@ function checkEntityExists(stores, etype, eid) {
 }
 
 function convertOpts({ stores, attrs }, [etype, eid, obj_, opts]) {
-  checkEntityExists(stores, etype, eid);
   return opts?.upsert === false
     ? { mode: 'update' }
     : opts?.upsert === true
       ? null
       : checkEntityExists(stores, etype, eid)
         ? { mode: 'update' }
-        : null; // { mode: 'create' };
+        : null; // auto mode chooses between update and upsert, not update and create, just in case
 }
 
 function expandUpdate(ctx, step) {
