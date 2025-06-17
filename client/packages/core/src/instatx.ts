@@ -1,12 +1,13 @@
 import type {
   IContainEntitiesAndLinks,
   LinkParams,
+  CreateParams,
   UpdateParams,
   UpdateOpts,
   RuleParams,
 } from './schemaTypes.ts';
 
-type Action = 'update' | 'link' | 'unlink' | 'delete' | 'merge' | 'ruleParams';
+type Action = 'create' | 'update' | 'link' | 'unlink' | 'delete' | 'merge' | 'ruleParams';
 type EType = string;
 type Id = string;
 type Args = any;
@@ -23,15 +24,29 @@ export interface TransactionChunk<
   __etype: EntityName;
   /**
    * Create and update objects:
+   */
+  create: (
+    args: CreateParams<Schema, EntityName>,
+  ) => TransactionChunk<Schema, EntityName>;
+
+  /**
+   * Create and update objects. By default works in upsert mode (will create
+   * entity if that doesn't exist). Can be optionally put into "strict update"
+   * mode by providing { upsert: false } option as second argument:
    *
    * @example
    *  const goalId = id();
+   *  // upsert
    *  db.tx.goals[goalId].update({title: "Get fit", difficulty: 5})
+   *
+   *  // strict update
+   *  db.tx.goals[goalId].update({title: "Get fit"}, {upsert: false})
    */
   update: (
     args: UpdateParams<Schema, EntityName>,
     opts?: UpdateOpts,
   ) => TransactionChunk<Schema, EntityName>;
+
   /**
    * Link two objects together
    *
@@ -116,6 +131,7 @@ function getAllTransactionChunkKeys(): Set<TransactionChunkKey> {
   const _dummy: TransactionChunk<any, any> = {
     __etype: v,
     __ops: v,
+    create: v,
     update: v,
     link: v,
     unlink: v,

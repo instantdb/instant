@@ -5,9 +5,9 @@ description: How to write data with Instant using InstaML.
 
 Instant uses a **Firebase-inspired** interface for mutations. We call our mutation language **InstaML**
 
-## Update data
+## Creating data
 
-We use the `update` action to create entities.
+We use the `create` action to create entities:
 
 ```typescript
 import { init, id } from '@instantdb/react';
@@ -17,7 +17,7 @@ const db = init({
 });
 
 // transact! 🔥
-db.transact(db.tx.goals[id()].update({ title: 'eat' }));
+db.transact(db.tx.goals[id()].create({ title: 'eat' }));
 ```
 
 This creates a new `goal` with the following properties:
@@ -25,33 +25,19 @@ This creates a new `goal` with the following properties:
 - It's identified by a randomly generated id via the `id()` function.
 - It has an attribute `title` with value `eat`.
 
-Similar to NoSQL, you don't need to use the same schema for each entity in a namespace. After creating the previous goal you can run the following:
-
-```javascript
-db.transact(
-  db.tx.goals[id()].update({
-    priority: 'none',
-    isSecret: true,
-    value: 10,
-    aList: [1, 2, 3],
-    anObject: { foo: 'bar' },
-  }),
-);
-```
-
 You can store `strings`, `numbers`, `booleans`, `arrays`, and `objects` as values. You can also generate values via functions. Below is an example for picking a random goal title.
 
 ```javascript
 db.transact(
-  db.tx.goals[id()].update({
+  db.tx.goals[id()].create({
     title: ['eat', 'sleep', 'hack', 'repeat'][Math.floor(Math.random() * 4)],
   }),
 );
 ```
 
----
+## Update data
 
-The `update` action is also used for updating entities. Suppose we had created the following goal
+The `update` action is used for updating entities. Suppose we had created the following goal
 
 ```javascript
 const eatId = id();
@@ -67,6 +53,20 @@ db.transact(db.tx.goals[eatId].update({ lastTimeEaten: 'Today' }));
 ```
 
 This will only update the value of the `lastTimeEaten` attribute for entity `eat`.
+
+Similar to NoSQL, you don't need to use the same schema for each entity in a namespace. After creating the previous goal you can run the following:
+
+```javascript
+db.transact(
+  db.tx.goals[id()].update({
+    priority: 'none',
+    isSecret: true,
+    value: 10,
+    aList: [1, 2, 3],
+    anObject: { foo: 'bar' },
+  }),
+);
+```
 
 `update` function works as create or update depending of whether the entity already exists or not (so called “upsert” mode). If entity doesn’t exist yet, calling `update` will create it, otherwise it will update.
 
