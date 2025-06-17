@@ -208,7 +208,9 @@
                                    (when (triple-model/eid-lookup-ref? e) e)))
                            (concat create-steps update-steps))]
     (when (or (seq eids) (seq lookups))
-      (let [query    "WITH eids AS (
+      (tracer/with-span! {:name "transaction/validate-mode"
+                          :attributes {:app-id app-id}}
+        (let [query    "WITH eids AS (
                         SELECT cast(elem AS uuid) AS id
                         FROM jsonb_array_elements_text(cast(?eids AS jsonb)) AS elem
                       ),
@@ -238,31 +240,31 @@
                       UNION
                       SELECT NULL as id, attr_id, value, entity_id
                       FROM check_lookups"
-            params   {"?eids"    (->json eids)
-                      "?lookups" (->json (map (fn [[a v]] [a (->json v)]) lookups))
-                      "?app-id"  app-id}
-            resolved (->> (sql/select conn (sql/format query params))
-                          (map (fn [{:keys [id attr_id value entity_id]}]
-                                 [(or id [attr_id value]) entity_id]))
-                          (into {}))]
+              params   {"?eids"    (->json eids)
+                        "?lookups" (->json (map (fn [[a v]] [a (->json v)]) lookups))
+                        "?app-id"  app-id}
+              resolved (->> (sql/select ::validate-mode conn (sql/format query params))
+                            (map (fn [{:keys [id attr_id value entity_id]}]
+                                   [(or id [attr_id value]) entity_id]))
+                            (into {}))]
 
         ;; check create over existing entities
-        (when-some [existing (->> create-steps
-                                  (filter (fn [[_ e _ _ _]] (resolved e)))
-                                  not-empty)]
-          (ex/throw-validation-err!
-           :tx-step
-           existing
-           [{:message (str "Creating entities that exist: " (string/join ", " (map (fn [[_ e _ _ _]] e) existing)))}]))
+          (when-some [existing (->> create-steps
+                                    (filter (fn [[_ e _ _ _]] (resolved e)))
+                                    not-empty)]
+            (ex/throw-validation-err!
+             :tx-step
+             existing
+             [{:message (str "Creating entities that exist: " (string/join ", " (map (fn [[_ e _ _ _]] e) existing)))}]))
 
         ;; check update over missing entities
-        (when-some [missing (->> update-steps
-                                 (filter (fn [[_ e _ _ _]] (nil? (resolved e))))
-                                 not-empty)]
-          (ex/throw-validation-err!
-           :tx-step
-           missing
-           [{:message (str "Updating entities that don't exist: " (string/join ", " (map (fn [[_ e _ _ _]] e) missing)))}]))))))
+          (when-some [missing (->> update-steps
+                                   (filter (fn [[_ e _ _ _]] (nil? (resolved e))))
+                                   not-empty)]
+            (ex/throw-validation-err!
+             :tx-step
+             missing
+             [{:message (str "Updating entities that don't exist: " (string/join ", " (map (fn [[_ e _ _ _]] e) missing)))}])))))))
 
 (defn prevent-$files-add-retract! [attrs op tx-steps]
   (doseq [t tx-steps

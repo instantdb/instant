@@ -73,7 +73,9 @@ This will only update the value of the `lastTimeEaten` attribute for entity `eat
 To force “strict update” mode, pass `{ upsert: false }` option:
 
 ```javascript
-db.transact(db.tx.goals[eatId].update({ lastTimeEaten: 'Today' }, { upsert: false }));
+db.transact(
+  db.tx.goals[eatId].update({ lastTimeEaten: 'Today' }, { upsert: false }),
+);
 ```
 
 ## Merge data
