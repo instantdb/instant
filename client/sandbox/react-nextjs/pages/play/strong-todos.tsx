@@ -1,4 +1,4 @@
-import { i, init, InstaQLEntity, type InstaQLParams } from '@instantdb/react';
+import { i, id, init, InstaQLEntity, type InstaQLParams } from '@instantdb/react';
 
 import config from '../../config';
 
@@ -7,6 +7,7 @@ const _schema = i.schema({
     todos: i.entity({
       text: i.string(),
       completed: i.boolean(),
+      author: i.string().optional(),
     }),
     owner: i.entity({
       name: i.string(),
@@ -44,6 +45,16 @@ const todosQuery = {
 } satisfies InstaQLParams<AppSchema>;
 
 export type Todo = InstaQLEntity<AppSchema, 'todos'>;
+
+function addTodo(text: string) {
+  db.transact(
+    db.tx.todos[id()].create({
+      text: '',
+      completed: false,
+      author: "aaa"
+    })
+  )
+}
 
 export default function TodoApp() {
   const result = db.useQuery(todosQuery);
