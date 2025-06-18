@@ -122,6 +122,25 @@ function ApiDemo({ accessToken }: { accessToken: string }) {
     }
   };
 
+  const createApp = async () => {
+    try {
+      const result = await api.createApp({
+        title: 'Test App from Platform SDK Demo',
+        schema: i.schema({
+          entities: {
+            todos: i.entity({
+              title: i.string(),
+              done: i.boolean().optional(),
+            }),
+          },
+        }),
+      });
+      setResult(result);
+    } catch (e) {
+      setResult(e);
+    }
+  };
+
   return (
     <div>
       <div>
@@ -139,6 +158,9 @@ function ApiDemo({ accessToken }: { accessToken: string }) {
           onClick={() => getApps({ includePerms: true })}
         >
           Get Apps with perms
+        </button>
+        <button className="bg-blue-600 text-white m-2 p-2" onClick={createApp}>
+          Create App
         </button>
       </div>
       {result ? (
