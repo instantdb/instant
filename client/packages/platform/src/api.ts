@@ -46,6 +46,7 @@ type AppResponseJSON<Opts extends AppDataOpts | undefined> = Simplify<
     id: string;
     title: string;
     created_at: Date;
+    'admin-token'?: string;
   } & (NonNullable<Opts>['includePerms'] extends true
     ? { perms: InstantRules }
     : {}) &
@@ -101,7 +102,9 @@ export type InstantAPICreateAppBody = {
 };
 
 export type InstantAPICreateAppResponse = Simplify<{
-  app: InstantAPIAppDetails<{ includePerms: true; includeSchema: true }>;
+  app: InstantAPIAppDetails<{ includePerms: true; includeSchema: true }> & {
+    adminToken: string;
+  };
 }>;
 
 export type InstantAPIUpdateAppBody = { title: string };
@@ -388,6 +391,7 @@ function coerceApp<Opts extends AppDataOpts>(
     id: app.id,
     title: app.title,
     createdAt: new Date(app.created_at),
+    ...(app['admin-token'] ? { adminToken: app['admin-token'] } : {}),
   };
 
   // `in` narrows the union, so it’s safe to read `perms` / `schema`
@@ -519,7 +523,9 @@ async function createApp(
   fields: InstantAPICreateAppBody,
 ): Promise<InstantAPICreateAppResponse> {
   const { app } = await jsonFetch<{
-    app: AppResponseJSON<{ includePerms: true; includeSchema: true }>;
+    app: AppResponseJSON<{ includePerms: true; includeSchema: true }> & {
+      'admin-token': string;
+    };
   }>(`${apiURI}/superadmin/apps`, {
     method: 'POST',
     headers: {
@@ -528,11 +534,12 @@ async function createApp(
     },
     body: JSON.stringify(fields),
   });
+  const withAdminToken = {
+    ...coerceApp<{ includePerms: true; includeSchema: true }>(app),
+    adminToken: app['admin-token'],
+  };
   return {
-    app: coerceApp(app) as InstantAPIAppDetails<{
-      includePerms: true;
-      includeSchema: true;
-    }>,
+    app: withAdminToken,
   };
 }
 
