@@ -320,19 +320,6 @@
 
 (def create-check? (comp (partial = :create) :action))
 
-(defn optimistic-attrs
-  "Why do we need optimistic attrs?
-   Consider tx-steps like:
-   [
-      [:add-attr {:id goal-attr-id
-                  :forward-identity [... \"goals\" \"title\"]}]
-      [:add-triple goal-eid goal-attr-id \"Hack\"]
-   ]
-   If user 'creates' an attr in the same transaction,
-   We need to be able to resolve the attr-id for this `add-triple`"
-  [{:keys [attrs]} attr-changes]
-  (into attrs (get-new-attrs attr-changes)))
-
 (defn attr-checks [ctx attr-changes]
   (for [[action args] attr-changes]
     (case action
