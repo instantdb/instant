@@ -21,6 +21,7 @@ module.exports = [
         nextHref: '/docs/init',
         optionalLLM: true,
       },
+      { title: 'Using LLMs', href: '/docs/using-llms', optionalLLM: true },
     ],
   },
   {
@@ -72,7 +73,6 @@ module.exports = [
       { title: 'Custom emails', href: '/docs/emails', optionalLLM: true },
       { title: 'App teams', href: '/docs/teams', optionalLLM: true },
       { title: 'Storage', href: '/docs/storage' },
-      { title: 'Using LLMs', href: '/docs/using-llms', optionalLLM: true },
     ],
   },
 ];
