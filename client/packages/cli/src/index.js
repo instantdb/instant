@@ -567,13 +567,16 @@ async function login(options) {
 
   const { secret, ticket } = registerRes.data;
 
+  if (verbose) {
+    console.log(`This will open: ${instantDashOrigin}/dash?ticket=${ticket}`);
+  }
+
   const ok = await promptOk(
     `This will open instantdb.com in your browser, OK to proceed?`,
     /*defaultAnswer=*/ true,
   );
 
   if (!ok) return;
-
   openInBrowser(`${instantDashOrigin}/dash?ticket=${ticket}`);
 
   console.log('Waiting for authentication...');
