@@ -626,9 +626,50 @@ export function getPrimaryKeyAttr(store, etype) {
   return store.attrIndexes.forwardIdents.get(etype)?.get('id');
 }
 
+function findTriple(store, rawTriple) {
+  const triple = resolveLookupRefs(store, rawTriple);
+  if (!triple) {
+    return;
+  }
+
+  const [eid, aid, v] = triple;
+  const attr = getAttr(store.attrs, aid);
+  if (!attr) {
+    // (XXX): Due to the way we're handling attrs, it's
+    // possible to enter a state where we receive a triple without an attr.
+    // See: https://github.com/jsventures/instant-local/pull/132 for details.
+    // For now, if we receive a command without an attr, we no-op.
+    return;
+  }
+
+  return getInMap(store.eav, [eid, aid]);
+}
+
 export function transact(store, txSteps) {
+  const txStepsFiltered = txSteps.filter(([action, ...rawTriple]) => {
+    if (action !== 'add-triple' && action !== 'deep-merge-triple') {
+      return true;
+    }
+
+    const mode = rawTriple[3]?.mode;
+    if (mode !== 'create' && mode !== 'update') {
+      return true;
+    }
+
+    const exists = findTriple(store, rawTriple);
+    if (mode === 'create' && exists) {
+      return false;
+    }
+
+    if (mode === 'update' && !exists) {
+      return false;
+    }
+
+    return true;
+  });
+
   return create(store, (draft) => {
-    txSteps.forEach((txStep) => {
+    txStepsFiltered.forEach((txStep) => {
       applyTxStep(draft, txStep);
     });
   });
