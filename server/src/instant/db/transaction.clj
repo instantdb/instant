@@ -20,11 +20,18 @@
   (:import
    (java.util Date)))
 
+(s/def ::mode
+  #{:create :update :upsert})
+
+(s/def ::opts
+  (s/nilable
+   (s/keys :opt-un [::mode])))
+
 (s/def ::add-triple-step
-  (s/cat :op #{:add-triple} :triple ::triple-model/triple))
+  (s/cat :op #{:add-triple} :triple ::triple-model/triple :opts (s/? ::opts)))
 
 (s/def ::deep-merge-triple-step
-  (s/cat :op #{:deep-merge-triple} :triple ::triple-model/triple))
+  (s/cat :op #{:deep-merge-triple} :triple ::triple-model/triple :opts (s/? ::opts)))
 
 (s/def ::retract-triple-step
   (s/cat :op #{:retract-triple} :triple ::triple-model/triple))
@@ -66,6 +73,17 @@
      [{:expected 'coll? :in in}]))
   x)
 
+(defn coerce-attr-args [[action args :as tx-step]]
+  (if (#{:add-attr :update-attr} action)
+    [action (-> args
+                (coll/update-in-when [:value-type] keyword)
+                (coll/update-in-when [:cardinality] keyword))]
+    tx-step))
+
+(defn coerce-opts [tx-step]
+  (let [opts-idx 4]
+    (coll/update-in-when tx-step [opts-idx :mode] keyword)))
+
 (defn coerce!
   "Takes an input tx-steps, and: 
    - converts strings to keywords when needed  
@@ -74,22 +92,18 @@
    At some point, we may prefer to use a tool like 
    [coax](https://github.com/exoscale/coax)"
   [tx-steps]
-  (let [action-idx 0
-        state {:in [] :root tx-steps}]
-    (->> tx-steps
-         (assert-coll! state)
-         (map-indexed
-          (fn [idx tx-step]
-            (assert-coll! (update state :in conj idx) tx-step)
-            (update tx-step action-idx keyword)))
-         (mapv
-          (fn [[action args :as tx-step]]
-            (if (#{:add-attr :update-attr} action)
-              [action (-> args
-                          (coll/update-in-when [:value-type] keyword)
-                          (coll/update-in-when [:cardinality] keyword))]
-              tx-step)))
-         uuid/walk-uuids)))
+  (assert-coll! {:in [] :root tx-steps} tx-steps)
+  (mapv
+   (fn [idx tx-step]
+     (assert-coll! {:in [idx] :root tx-steps} tx-step)
+     (let [action-idx 0]
+       (-> tx-step
+           (update action-idx keyword)
+           coerce-attr-args
+           coerce-opts
+           uuid/walk-uuids)))
+   (range)
+   tx-steps))
 
 (defn validate! [tx-steps]
   (let [valid? (s/valid? ::tx-steps tx-steps)]
@@ -177,6 +191,81 @@
     #uuid "005a8767-c0e7-4158-bb9a-62ce1a5858ed"
     #uuid "005b08a1-4046-4fba-b1d1-a78b0628901c"]))
 
+(defn validate-mode [conn app-id grouped-tx-steps]
+  (let [tx-steps     (concat
+                      (:add-triple grouped-tx-steps)
+                      (:deep-merge-triple grouped-tx-steps))
+        create-steps (filter (fn [[_ _ _ _ opts]]
+                               (= :create (:mode opts))) tx-steps)
+        update-steps (filter (fn [[_ _ _ _ opts]]
+                               (= :update (:mode opts))) tx-steps)
+        eids         (into #{}
+                           (keep (fn [[_ e _ _ _]]
+                                   (when (uuid? e) e)))
+                           (concat create-steps update-steps))
+        lookups      (into #{}
+                           (keep (fn [[_ e _ _ _]]
+                                   (when (triple-model/eid-lookup-ref? e) e)))
+                           (concat create-steps update-steps))]
+    (when (or (seq eids) (seq lookups))
+      (tracer/with-span! {:name "transaction/validate-mode"
+                          :attributes {:app-id app-id}}
+        (let [query    "WITH eids AS (
+                        SELECT cast(elem AS uuid) AS id
+                        FROM jsonb_array_elements_text(cast(?eids AS jsonb)) AS elem
+                      ),
+                      check_eids AS (
+                        SELECT DISTINCT id, entity_id
+                        FROM eids
+                        LEFT JOIN triples
+                               ON app_id = ?app-id
+                              AND id = entity_id
+                      ),
+                      lookups AS (
+                        SELECT CAST(elem ->> 0 AS uuid) AS attr_id,
+                               CAST(elem ->> 1 AS jsonb) AS value
+                        FROM JSONB_ARRAY_ELEMENTS(CAST(?lookups AS JSONB)) AS elem
+                      ),
+                      check_lookups AS (
+                        SELECT DISTINCT lookups.attr_id, lookups.value, triples.entity_id
+                        FROM lookups
+                        LEFT JOIN triples
+                               ON app_id = ?app-id
+                              AND triples.av
+                              AND lookups.attr_id = triples.attr_id
+                              AND lookups.value = triples.value
+                      )
+                      SELECT id, NULL AS attr_id, NULL AS value, entity_id
+                      FROM check_eids
+                      UNION
+                      SELECT NULL as id, attr_id, value, entity_id
+                      FROM check_lookups"
+              params   {"?eids"    (->json eids)
+                        "?lookups" (->json (map (fn [[a v]] [a (->json v)]) lookups))
+                        "?app-id"  app-id}
+              resolved (->> (sql/select ::validate-mode conn (sql/format query params))
+                            (map (fn [{:keys [id attr_id value entity_id]}]
+                                   [(or id [attr_id value]) entity_id]))
+                            (into {}))]
+
+        ;; check create over existing entities
+          (when-some [existing (->> create-steps
+                                    (filter (fn [[_ e _ _ _]] (resolved e)))
+                                    not-empty)]
+            (ex/throw-validation-err!
+             :tx-step
+             existing
+             [{:message (str "Creating entities that exist: " (string/join ", " (map (fn [[_ e _ _ _]] e) existing)))}]))
+
+        ;; check update over missing entities
+          (when-some [missing (->> update-steps
+                                   (filter (fn [[_ e _ _ _]] (nil? (resolved e))))
+                                   not-empty)]
+            (ex/throw-validation-err!
+             :tx-step
+             missing
+             [{:message (str "Updating entities that don't exist: " (string/join ", " (map (fn [[_ e _ _ _]] e) missing)))}])))))))
+
 (defn prevent-$files-add-retract! [attrs op tx-steps]
   (doseq [t tx-steps
           :let [[_op eid aid v] t
@@ -189,7 +278,7 @@
     (ex/throw-validation-err!
      :tx-step
      [op t]
-     [{:message (format "update or merge is only allowed on `path` for $files in transact.")}])))
+     [{:message "update or merge is only allowed on `path` for $files in transact."}])))
 
 (defn prevent-$files-updates
   "Files support delete, link/unlink, but not update or merge"
@@ -322,6 +411,7 @@
                                        :detailed-tx-steps (pr-str tx-steps)}}
         (prevent-system-catalog-updates! app-id opts)
         (prevent-$files-updates attrs grouped-tx-steps opts)
+        (validate-mode conn app-id grouped-tx-steps)
         (let [results
               (reduce-kv
                (fn [acc op tx-steps]
