@@ -218,7 +218,17 @@
                                         (str (name col-name) " " (name (or type "text")))))
                          ")")]]]]})
 
-(defn format
+(defn format-preprocess [sql]
+  (let [re   #"\?[\p{Alpha}*!_?$%&=<>.|''\-+#:0-9]+"
+        args (re-seq re sql)]
+    [(string/replace sql re "?") args]))
+
+(defn format-get [params name]
+  (or
+   (get params name)
+   (throw (ex-info (str "Missing parameter: " name) {:params params}))))
+
+(defmacro format
   "Given SQL string with named placeholders (\"?symbol\") and map of values,
    returns [query params...] with positional placeholders.
 
@@ -231,10 +241,15 @@
 
     => [\"SELECT * FROM triples WHERE attr_id = ? and app_id = ?\" #uuid ... #uuid ...]"
   [sql params]
-  (let [re   #"\?[\p{Alpha}*!_?$%&=<>.|''\-+#:0-9]+"
-        args (re-seq re sql)
-        vals (map params args)]
-    (into [(string/replace sql re "?")] vals)))
+  (if (string? sql)
+    ;; if string is statically known, we can preprocess it
+    (let [[sql' param-names] (format-preprocess sql)
+          params-sym (gensym "params")]
+      `(let [~params-sym ~params]
+         [~sql' ~@(map #(list `format-get params-sym %) param-names)]))
+    `(let [params# ~params
+           [sql'# param-names#] (format-preprocess ~sql)]
+       (into [sql'#] (map #(format-get params# %) param-names#)))))
 
 (defn span-attrs-from-conn-pool [conn]
   (when (instance? HikariDataSource conn)
