@@ -684,46 +684,59 @@
    2. Deletes all reference triples where this entity is the value:
       [_ _ id]"
   [conn app-id id+etypes]
-  (let [id-etypes
-        (sql/tupleset id+etypes
-                      [{:as 'entity_id :type :uuid}
-                       {:as 'etype :type :text}])
+  (let [query (sql/format
+               "WITH
 
-        forward-attrs
-        {:select 'triples/ctid
-         :from   'triples
-         :join   ['id-etypes [:= 'triples/entity_id 'id-etypes/entity_id]
-                  'attrs     [:= 'triples/attr_id 'attrs/id]]
-         :where  [:and
-                  [:= 'triples/app-id app-id]
-                  [:= 'attrs/etype 'id-etypes/etype]
-                  [:or
-                   [:= 'attrs/app-id app-id]
-                   [:= 'attrs/app-id system-catalog-app-id]]]}
+                id_etypes AS (
+                  SELECT
+                    cast(elem ->> 0 AS uuid) AS entity_id,
+                    cast(elem ->> 1 AS text) AS etype,
+                    TO_JSONB(cast(elem ->> 0 AS uuid)) AS entity_id_jsonb
+                  FROM
+                    jsonb_array_elements(cast(?id+etypes AS jsonb)) AS elem
+                ),
 
-        reverse-attrs
-        {:select 'triples/ctid
-         :from   'triples
-         :join   ['id-etypes [:= 'triples/value [:to_jsonb 'id-etypes/entity_id]]
-                  'attrs     [:= 'triples/attr_id 'attrs/id]]
-         :where  [:and
-                  'vae
-                  [:= 'triples/app-id app-id]
-                  [:= 'attrs/reverse-etype 'id-etypes/etype]
-                  [:or
-                   [:= 'attrs/app-id app-id]
-                   [:= 'attrs/app-id system-catalog-app-id]]]}
+                forward_attrs AS (
+                  SELECT
+                    triples.ctid
+                  FROM
+                    triples
+                    JOIN id_etypes ON triples.entity_id = id_etypes.entity_id
+                    JOIN attrs ON triples.attr_id = attrs.id
+                  WHERE triples.app_id = ?app-id
+                  AND attrs.etype = id_etypes.etype
+                ),
 
-        query  {:with [['id-etypes id-etypes]
-                       ['forward-attrs forward-attrs]
-                       ['reverse-attrs reverse-attrs]]
-                :delete-from 'triples
-                :where       [:in 'ctid
-                              {:union
-                               [{:nest {:select :* :from 'forward-attrs}}
-                                {:nest {:select :* :from 'reverse-attrs}}]}]
-                :returning   ['entity_id 'attr_id 'value 'created-at]}]
-    (sql/execute! ::delete-entity-multi! conn (hsql/format query))))
+                reverse_attrs AS (
+                  SELECT
+                    triples.ctid
+                  FROM
+                    triples
+                    JOIN id_etypes ON triples.value = entity_id_jsonb
+                    JOIN attrs ON triples.attr_id = attrs.id
+                  WHERE
+                    triples.vae
+                    AND triples.app_id = ?app-id
+                    AND attrs.reverse_etype = id_etypes.etype
+                )
+
+                DELETE FROM triples
+
+                WHERE ctid IN (
+                  (SELECT * FROM forward_attrs)
+                  UNION
+                  (SELECT * FROM reverse_attrs)
+                )
+
+                RETURNING
+                  entity_id,
+                  attr_id,
+                  value,
+                  created_at"
+               {"?id+etypes" (->json id+etypes)
+                "?app-id" app-id})]
+
+    (sql/execute! ::delete-entity-multi! conn query)))
 
 ;; n.b. if we ever use `:retract-triple` for blob attrs (it's currently
 ;;      just links), we'll need to add code in `delete-multi!` to

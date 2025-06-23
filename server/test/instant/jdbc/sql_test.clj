@@ -4,7 +4,9 @@
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.util.test :refer [wait-for]]
-   [clojure.test :refer [deftest testing is are]]))
+   [clojure.test :refer [deftest testing is are]])
+  (:import
+   [clojure.lang ExceptionInfo]))
 
 (deftest ->pgobject
   (testing "formats text[]"
@@ -100,7 +102,15 @@
              (sql/recordset [] columns)))))))
 
 (deftest format-test
-  (is (= ["WHERE ? = ? OR ? = ?" 1 2 1 3]
-         (sql/format
-          "WHERE ?a = ?b OR ?a = ?c"
-          {"?a" 1, "?b" 2, "?c" 3}))))
+  (testing "static"
+    (is (= ["WHERE ? = ? OR ? = ?" 1 2 1 3]
+           (sql/format "WHERE ?a = ?b OR ?a = ?c" {"?a" 1, "?b" 2, "?c" 3})))
+    (is (thrown-with-msg? ExceptionInfo #"Missing parameter: \?b"
+                          (sql/format "WHERE ?a = ?b" {"?a" 1}))))
+  (testing "dynamic"
+    (is (= ["WHERE ? = ? OR ? = ?" 1 2 1 3]
+           (let [q "WHERE ?a = ?b OR ?a = ?c"]
+             (sql/format q {"?a" 1, "?b" 2, "?c" 3}))))
+    (is (thrown-with-msg? ExceptionInfo #"Missing parameter: \?b"
+                          (let [q "WHERE ?a = ?b"]
+                            (sql/format q {"?a" 1}))))))
