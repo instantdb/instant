@@ -2,6 +2,7 @@ import type {
   IContainEntitiesAndLinks,
   LinkParams,
   UpdateParams,
+  UpdateOpts,
   RuleParams,
 } from './schemaTypes.ts';
 
@@ -11,7 +12,8 @@ type Id = string;
 type Args = any;
 type LookupRef = [string, any];
 type Lookup = string;
-export type Op = [Action, EType, Id | LookupRef, Args];
+type Opts = UpdateOpts;
+export type Op = [Action, EType, Id | LookupRef, Args, Opts?];
 
 export interface TransactionChunk<
   Schema extends IContainEntitiesAndLinks<any, any>,
@@ -28,6 +30,7 @@ export interface TransactionChunk<
    */
   update: (
     args: UpdateParams<Schema, EntityName>,
+    opts?: UpdateOpts,
   ) => TransactionChunk<Schema, EntityName>;
   /**
    * Link two objects together
@@ -95,9 +98,12 @@ export interface TransactionChunk<
    *  const goalId = id();
    *  db.tx.goals[goalId].merge({title: "Get fitter"})
    */
-  merge: (args: {
-    [attribute: string]: any;
-  }) => TransactionChunk<Schema, EntityName>;
+  merge: (
+    args: {
+      [attribute: string]: any;
+    },
+    opts?: UpdateOpts,
+  ) => TransactionChunk<Schema, EntityName>;
 
   ruleParams: (args: RuleParams) => TransactionChunk<Schema, EntityName>;
 }
@@ -148,10 +154,10 @@ function transactionChunk(
       if (!allTransactionChunkKeys.has(cmd)) {
         return undefined;
       }
-      return (args: Args) => {
+      return (args: Args, opts?: Opts) => {
         return transactionChunk(etype, id, [
           ...prevOps,
-          [cmd, etype, id, args],
+          [cmd, etype, id, args, opts],
         ]);
       };
     },

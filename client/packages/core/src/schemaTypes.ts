@@ -514,6 +514,10 @@ export type UpdateParams<
     : never;
 };
 
+export type UpdateOpts = {
+  upsert?: boolean | undefined;
+};
+
 export type LinkParams<
   Schema extends IContainEntitiesAndLinks<any, any>,
   EntityName extends keyof Schema['entities'],
