@@ -238,13 +238,7 @@ function expandCreate(ctx, step) {
     .concat(Object.entries(obj))
     .map(([identName, value]) => {
       const attr = getAttrByFwdIdentName(attrs, etype, identName);
-      return [
-        'add-triple',
-        lookup,
-        attr.id,
-        value,
-        { mode: 'create' },
-      ];
+      return ['add-triple', lookup, attr.id, value, { mode: 'create' }];
     });
   return attrTuples;
 }

@@ -93,7 +93,11 @@ function deleteCompleted(todos) {
 
 function toggleAll(todos) {
   const newVal = !todos.every((todo) => todo.done);
-  transact(todos.map((todo) => tx.todos[todo.id].update({ done: newVal }, { upsert: false })));
+  transact(
+    todos.map((todo) =>
+      tx.todos[todo.id].update({ done: newVal }, { upsert: false }),
+    ),
+  );
 }
 
 // Components

@@ -7,7 +7,14 @@ import type {
   RuleParams,
 } from './schemaTypes.ts';
 
-type Action = 'create' | 'update' | 'link' | 'unlink' | 'delete' | 'merge' | 'ruleParams';
+type Action =
+  | 'create'
+  | 'update'
+  | 'link'
+  | 'unlink'
+  | 'delete'
+  | 'merge'
+  | 'ruleParams';
 type EType = string;
 type Id = string;
 type Args = any;

@@ -1,4 +1,10 @@
-import { i, id, init, InstaQLEntity, type InstaQLParams } from '@instantdb/react';
+import {
+  i,
+  id,
+  init,
+  InstaQLEntity,
+  type InstaQLParams,
+} from '@instantdb/react';
 
 import config from '../../config';
 
@@ -51,9 +57,9 @@ function addTodo(text: string) {
     db.tx.todos[id()].create({
       text: '',
       completed: false,
-      author: "aaa"
-    })
-  )
+      author: 'aaa',
+    }),
+  );
 }
 
 export default function TodoApp() {

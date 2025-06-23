@@ -504,14 +504,18 @@ export type CreateParams<
   Schema extends IContainEntitiesAndLinks<any, any>,
   EntityName extends keyof Schema['entities'],
 > = {
-  [AttrName in RequiredKeys<Schema['entities'][EntityName]['attrs']>]: Schema['entities'][EntityName]['attrs'][AttrName] extends DataAttrDef<
+  [AttrName in RequiredKeys<
+    Schema['entities'][EntityName]['attrs']
+  >]: Schema['entities'][EntityName]['attrs'][AttrName] extends DataAttrDef<
     infer ValueType,
     any
   >
     ? ValueType
     : never;
 } & {
-  [AttrName in OptionalKeys<Schema['entities'][EntityName]['attrs']>]?: Schema['entities'][EntityName]['attrs'][AttrName] extends DataAttrDef<
+  [AttrName in OptionalKeys<
+    Schema['entities'][EntityName]['attrs']
+  >]?: Schema['entities'][EntityName]['attrs'][AttrName] extends DataAttrDef<
     infer ValueType,
     any
   >
