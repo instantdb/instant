@@ -69,7 +69,7 @@ function TodoApp() {
 // ---------
 function addTodo(text) {
   transact(
-    tx.todos[id()].update({
+    tx.todos[id()].create({
       text,
       done: false,
       createdAt: new Date(),
@@ -82,7 +82,7 @@ function deleteTodo(todo) {
 }
 
 function toggleDone(todo) {
-  transact(tx.todos[todo.id].update({ done: !todo.done }));
+  transact(tx.todos[todo.id].update({ done: !todo.done }, { upsert: false }));
 }
 
 function deleteCompleted(todos) {
@@ -93,7 +93,11 @@ function deleteCompleted(todos) {
 
 function toggleAll(todos) {
   const newVal = !todos.every((todo) => todo.done);
-  transact(todos.map((todo) => tx.todos[todo.id].update({ done: newVal })));
+  transact(
+    todos.map((todo) =>
+      tx.todos[todo.id].update({ done: newVal }, { upsert: false }),
+    ),
+  );
 }
 
 // Components

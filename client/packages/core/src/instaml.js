@@ -228,6 +228,21 @@ function convertOpts({ stores, attrs }, [etype, eid, obj_, opts]) {
         : null; // auto mode chooses between update and upsert, not update and create, just in case
 }
 
+function expandCreate(ctx, step) {
+  const { stores, attrs } = ctx;
+  const [etype, eid, obj_, opts] = step;
+  const obj = immutableRemoveUndefined(obj_);
+  const lookup = extractLookup(attrs, etype, eid);
+  // id first so that we don't clobber updates on the lookup field
+  const attrTuples = [['id', lookup]]
+    .concat(Object.entries(obj))
+    .map(([identName, value]) => {
+      const attr = getAttrByFwdIdentName(attrs, etype, identName);
+      return ['add-triple', lookup, attr.id, value, { mode: 'create' }];
+    });
+  return attrTuples;
+}
+
 function expandUpdate(ctx, step) {
   const { stores, attrs } = ctx;
   const [etype, eid, obj_, opts] = step;
@@ -304,6 +319,8 @@ function toTxSteps(ctx, step) {
   switch (action) {
     case 'merge':
       return expandDeepMerge(ctx, args);
+    case 'create':
+      return expandCreate(ctx, args);
     case 'update':
       return expandUpdate(ctx, args);
     case 'link':
