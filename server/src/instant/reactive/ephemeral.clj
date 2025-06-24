@@ -238,14 +238,12 @@
 
 (defn clean-orphan-sessions [_time]
   (tracer/with-span! {:name "clean-orphan-sessions"}
-    (let [instance-ids (if (config/aws-env?)
-                         (aws-util/active-instance-ids)
-                         (-> (:hz @hz)
-                             HazelcastInstance/.getCluster
-                             Cluster/.getMembers
-                             (->>
-                              (map #(Member/.getAttribute % "instance-id"))
-                              (into #{}))))]
+    (let [instance-ids (-> (:hz @hz)
+                           HazelcastInstance/.getCluster
+                           Cluster/.getMembers
+                           (->>
+                            (map #(Member/.getAttribute % "instance-id"))
+                            (into #{})))]
       (doseq [^Map$Entry entry (IMap/.entrySet (:hz-rooms-map @hz))
               :let [{:keys [app-id room-id]} (.getKey entry)
                     v (.getValue entry)]
