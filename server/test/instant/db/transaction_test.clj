@@ -111,17 +111,23 @@
 (deftest required-attrs
   (with-empty-app
     (fn [{app-id :id}]
-      (let [{attr-book-title   :book/title
+      (let [{attr-book-id      :book/id
+             attr-book-title   :book/title
              attr-book-desc    :book/desc
+             attr-user-id      :user/id
              attr-user-name    :user/name
              attr-user-company :user/company
+             attr-company-id   :company/id
              attr-company-name :company/name}
             (test-util/make-attrs
              app-id
-             [[:book/title :required?]
+             [[:book/id :required? :index? :unique?]
+              [:book/title :required?]
               [:book/desc]
+              [:user/id :required? :index? :unique?]
               [:user/name]
               [[:user/company :company/users] :on-delete]
+              [:company/id :required? :index? :unique?]
               [:company/name]])
             attr-book-author (suid "baac")
             make-ctx         (fn make-ctx
@@ -155,7 +161,9 @@
 
         (permissioned-tx/transact!
          (make-ctx)
-         [[:add-triple extra-user-id attr-user-name "extra user"]
+         [[:add-triple extra-user-id attr-user-id extra-user-id]
+          [:add-triple extra-user-id attr-user-name "extra user"]
+          [:add-triple extra-book-id attr-book-id extra-book-id]
           [:add-triple extra-book-id attr-book-title "extra title"]
           [:add-triple extra-book-id attr-book-author extra-user-id]])
 
@@ -176,21 +184,25 @@
           (testing add-op
             (permissioned-tx/transact!
              (make-ctx)
-             [[add-op      user-id    attr-user-name    "user"]
+             [[add-op      user-id    attr-user-id      user-id]
+              [add-op      user-id    attr-user-name    "user"]
               [:add-triple user-id    attr-user-company company-id]
+              [add-op      company-id attr-company-id   company-id]
               [add-op      company-id attr-company-name "company"]])
 
             (testing "add without required"
               (is (validation-err?
                    (permissioned-tx/transact!
                     (make-ctx)
-                    [[add-op book-id attr-book-desc "no title"]]))))
+                    [[add-op book-id attr-book-id   book-id]
+                     [add-op book-id attr-book-desc "no title"]]))))
 
             (testing "add with required"
               (is (not (validation-err?
                         (permissioned-tx/transact!
                          (make-ctx)
-                         [[add-op book-id attr-book-title "title"]
+                         [[add-op book-id attr-book-id   book-id]
+                          [add-op book-id attr-book-title "title"]
                           [add-op book-id attr-book-desc "desc"]
                           [:add-triple book-id attr-book-author user-id]])))))
 
@@ -220,20 +232,23 @@
               (is (not (validation-err?
                         (permissioned-tx/transact!
                          (make-ctx)
-                         [[add-op book-id attr-book-title "title upd"]])))))
+                         [[add-op book-id attr-book-id    book-id]
+                          [add-op book-id attr-book-title "title upd"]])))))
 
             (testing "retract + insert required"
               (is (not (validation-err?
                         (permissioned-tx/transact!
                          (make-ctx)
-                         [[:retract-triple book-id attr-book-title "title upd"]
+                         [[add-op book-id attr-book-id    book-id]
+                          [:retract-triple book-id attr-book-title "title upd"]
                           [add-op book-id attr-book-title "title upd 2"]])))))
 
             (testing "update non-required"
               (is (not (validation-err?
                         (permissioned-tx/transact!
                          (make-ctx)
-                         [[add-op book-id attr-book-desc "desc upd"]])))))
+                         [[add-op book-id attr-book-id   book-id]
+                          [add-op book-id attr-book-desc "desc upd"]])))))
 
             (testing "remove required"
               (testing "regular attr"
@@ -270,13 +285,15 @@
               (is (not (validation-err?
                         (permissioned-tx/transact!
                          (make-ctx)
-                         [[add-op book-id attr-book-title "title upd 3"]])))))
+                         [[add-op book-id attr-book-id    book-id]
+                          [add-op book-id attr-book-title "title upd 3"]])))))
 
             (testing "remove last required"
               (is (not (validation-err?
                         (permissioned-tx/transact!
                          (make-ctx)
-                         [[:retract-triple book-id attr-book-title "title upd 3"]
+                         [[:retract-triple book-id attr-book-id    book-id]
+                          [:retract-triple book-id attr-book-title "title upd 3"]
                           [:retract-triple book-id attr-book-author user-id]])))))
 
             (testing "delete-entity"
