@@ -946,34 +946,39 @@
    defined at this point in the query."
   [named-p symbol-map]
   (let [components [:e :a :v]
-        known-components (set (filter (fn [c]
-                                        (let [[tag value] (get named-p c)]
-                                          (case tag
-                                            :constant true
-                                            :any false
-                                            :function true
-                                            :variable (contains? symbol-map value))))
-                                      components))
+
+        known-components
+        (set (filter (fn [c]
+                       (let [[tag value] (get named-p c)]
+                         (case tag
+                           :constant true
+                           :any false
+                           :function true
+                           :variable (contains? symbol-map value))))
+                     components))
+
         ;; it may be a good idea to give something a better score if it's a
         ;; constant rather than in the symbol-map
-        scored-indexes (map (fn [{:keys [cols] :as idx-config}]
-                              (let [score (if (or (and (:idx-key idx-config)
-                                                       (not= (:idx-key idx-config)
-                                                             (idx-key (:idx named-p))))
-                                                  (and (:data-type idx-config)
-                                                       (not (= (:data-type idx-config)
-                                                               (idx-data-type (:idx named-p))))))
-                                            -1
-                                            (+ (if (and (:idx-key idx-config)
-                                                        (= (:idx-key idx-config)
-                                                           (idx-key (:idx named-p))))
-                                                 0.5
-                                                 0)
-                                               (count (take-while (fn [col]
-                                                                    (contains? known-components col))
-                                                                  cols))))]
-                                (assoc idx-config :score score)))
-                            index-configs)
+        scored-indexes
+        (map (fn [{:keys [cols] :as idx-config}]
+               (let [score (if (or (and (:idx-key idx-config)
+                                        (not= (:idx-key idx-config)
+                                              (idx-key (:idx named-p))))
+                                   (and (:data-type idx-config)
+                                        (not (= (:data-type idx-config)
+                                                (idx-data-type (:idx named-p))))))
+                             -1
+                             (+ (if (and (:idx-key idx-config)
+                                         (= (:idx-key idx-config)
+                                            (idx-key (:idx named-p))))
+                                  0.5
+                                  0)
+                                (count (take-while (fn [col]
+                                                     (contains? known-components col))
+                                                   cols))))]
+                 (assoc idx-config :score score)))
+             index-configs)
+
         best-index (last (sort-by :score scored-indexes))]
     best-index))
 
