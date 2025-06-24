@@ -172,6 +172,12 @@
       :map (:idx-key v)
       :keyword v)))
 
+(defn idx-data-type [idx]
+  (let [[tag v] idx]
+    (case tag
+      :map (:data-type v)
+      :keyword nil)))
+
 (defn untag-e
   "Removes the tag from the entity-id position, where it can be either :entity-id
    or :lookup-ref. We can inspect the type (uuid? vs vector?) to determine if it's
@@ -707,6 +713,43 @@
              clause))
          clauses)))
 
+(def index-configs
+  [{:name :triples_pkey
+    :cols [:e :a]}
+   {:name :ave_index
+    :cols [:a :v]
+    :idx-key :ave}
+   {:name :ea_index
+    :cols [:e :a]
+    :idx-key :ea}
+   {:name :eav_index
+    :cols [:e :a :v]
+    :idx-key :eav}
+   {:name :triples_string_trgm_gist_idx
+    :cols [:a :v]
+    :idx-key :ave
+    :data-type :string}
+   {:name :vae_index
+    :cols [:v :a :e]
+    :idx-key :vae}
+   {:name :triples_created_at_idx
+    :cols [:a :created-at]}
+   {:name :av_index
+    :cols [:a :v :e]
+    :idx-key :av}
+   {:name :triples_number_type_idx
+    :cols [:a :v]
+    :idx-key :ave
+    :data-type :number}
+   {:name :triples_boolean_type_idx
+    :cols [:a :v]
+    :idx-key :ave
+    :data-type :boolean}
+   {:name :triples_date_type_idx
+    :cols [:a :v]
+    :idx-key :ave
+    :data-type :date}])
+
 (defn pg-hint-index [[tag v :as idx]]
   (if (and (= tag :map)
            (= (:idx-key v) :ave))
@@ -895,9 +938,44 @@
 
 (def ^:dynamic *testing-pg-hints* false)
 
-(defn test-pg-hint-for-index? [idx]
-  (and *testing-pg-hints*
-       (flags/toggled? (keyword "pg-hint-test" (name idx)))))
+(defn test-pg-hints? []
+  *testing-pg-hints*)
+
+(defn best-index
+  "Determines the best index to use based on which components we know will be
+   defined at this point in the query."
+  [named-p symbol-map]
+  (let [components [:e :a :v]
+        known-components (set (filter (fn [c]
+                                        (let [[tag value] (get named-p c)]
+                                          (case tag
+                                            :constant true
+                                            :any false
+                                            :function true
+                                            :variable (contains? symbol-map value))))
+                                      components))
+        ;; it may be a good idea to give something a better score if it's a
+        ;; constant rather than in the symbol-map
+        scored-indexes (map (fn [{:keys [cols] :as idx-config}]
+                              (let [score (if (or (and (:idx-key idx-config)
+                                                       (not= (:idx-key idx-config)
+                                                             (idx-key (:idx named-p))))
+                                                  (and (:data-type idx-config)
+                                                       (not (= (:data-type idx-config)
+                                                               (idx-data-type (:idx named-p))))))
+                                            -1
+                                            (+ (if (and (:idx-key idx-config)
+                                                        (= (:idx-key idx-config)
+                                                           (idx-key (:idx named-p))))
+                                                 0.5
+                                                 0)
+                                               (count (take-while (fn [col]
+                                                                    (contains? known-components col))
+                                                                  cols))))]
+                                (assoc idx-config :score score)))
+                            index-configs)
+        best-index (last (sort-by :score scored-indexes))]
+    best-index))
 
 ;; ---
 ;; match-query
@@ -954,21 +1032,11 @@
                :materialized
                :not-materialized)]]
     {:cte cte
-     :pg-hints (let [v-tag (first (:v named-p))]
-                 (if (and
-                      ;; functions sometimes don't use the index well, let postgres decide
-                      (not= :function v-tag)
-                      ;; string index is bad for exact matches, let postgres determine
-                      ;; when to use
-                      (not= :string (-> named-p
-                                        :idx
-                                        second
-                                        :data-type))
-                      (let [idx (pg-hint-index (:idx named-p))]
-                        (or (= :ea_index idx)
-                            (test-pg-hint-for-index? idx))))
-                   [(pg-hint/index-scan triples-alias (pg-hint-index (:idx named-p)))]
-                   []))}))
+     :pg-hints (if (test-pg-hints?)
+                 (let [best-idx (best-index named-p (merge symbol-map
+                                                           additional-joins))]
+                   [(pg-hint/index-scan triples-alias (:name best-idx))])
+                 [])}))
 
 (defn symbol-fields-of-pattern
   "Keeps track of which idx in the triple maps to which variable.
@@ -1501,10 +1569,8 @@
                          [(has-prev-tbl table)
                           {:select [[[:exists has-previous-query]]]}
                           :not-materialized])
-             :pg-hints (if true ;; disable hints for pagination until we can generate better plans
-                         []
-                         (into (:pg-hints (:query match-query))
-                               pg-hints))
+             :pg-hints (into (:pg-hints (:query match-query))
+                               pg-hints)
              :select (kw last-row-table :.*)
              :from last-table-name}
      :symbol-map symbol-map
