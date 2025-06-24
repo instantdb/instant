@@ -716,7 +716,7 @@ type InstantDB = {
 type InstantTx = {
   [namespace: string]: {
     [id: string]: {
-      update: (v: Record<string, any>) => any;
+      update: (v: Record<string, any>, opts?: {upsert?: boolean | undefined}) => any;
       merge: (v: Record<string, any>) => any;
       delete: () => any;
       link: (v: Record<string, string>) => any;

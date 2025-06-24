@@ -160,20 +160,25 @@
                 tx-steps))
             obj)))
 
-(defn expand-update [attrs [etype eid obj]]
+(defn convert-opts [opts]
+  (cond-> nil
+    (some? (get opts "upsert"))
+    (assoc :mode (if (get opts "upsert") :upsert :update))))
+
+(defn expand-update [attrs [etype eid obj opts]]
   (let [lookup (extract-lookup attrs etype eid)]
     (map (fn [[label value]]
            (let [attr (attr-model/seek-by-fwd-ident-name [etype label] attrs)]
-             [:add-triple lookup (:id attr) value]))
+             [:add-triple lookup (:id attr) value (convert-opts opts)]))
          ;; id first so that we don't clobber updates on the lookup field
          (concat [["id" lookup]] obj))))
 
-(defn expand-merge [attrs [etype eid obj]]
+(defn expand-merge [attrs [etype eid obj opts]]
   (let [lookup (extract-lookup attrs etype eid)]
     (map (fn [[label value]]
            (let [attr (attr-model/seek-by-fwd-ident-name [etype label] attrs)
                  op (if (= label "id") :add-triple :deep-merge-triple)]
-             [op lookup (:id attr) value]))
+             [op lookup (:id attr) value (convert-opts opts)]))
          ;; id first so that we don't clobber updates on the lookup field
          (concat [["id" lookup]] obj))))
 
@@ -194,8 +199,8 @@
 (defn expand-delete-attr [_ [id]]
   [[:delete-attr id]])
 
-(defn remove-id-from-step [[op etype eid obj]]
-  [op etype eid (dissoc obj "id")])
+(defn remove-id-from-step [[op etype eid obj opts]]
+  [op etype eid (dissoc obj "id") opts])
 
 (defn to-tx-steps [attrs step]
   (let [[action & args] (remove-id-from-step step)]
@@ -379,11 +384,18 @@
 (s/def ::lookup (s/or :entity-id coercible-uuid?
                       :lookup-ref ::lookup-ref))
 
+(s/def ::upsert
+  (s/nilable boolean?))
+
+(s/def ::update-opts
+  (s/nilable
+   (s/keys :opt-un [::upsert])))
+
 (s/def ::update-op
-  (s/cat :op #{"update"} :args (s/cat :etype string? :eid ::lookup :args map?)))
+  (s/cat :op #{"update"} :args (s/cat :etype string? :eid ::lookup :args map? :opts (s/? ::update-opts))))
 
 (s/def ::merge-op
-  (s/cat :op #{"merge"} :args (s/cat :etype string? :eid ::lookup :args map?)))
+  (s/cat :op #{"merge"} :args (s/cat :etype string? :eid ::lookup :args map? :opts (s/? ::update-opts))))
 
 (s/def ::link-value (s/or :eid ::lookup :eids (s/coll-of ::lookup)))
 
