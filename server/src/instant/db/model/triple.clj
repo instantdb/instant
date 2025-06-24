@@ -157,58 +157,65 @@
                                     :when (etypes-with-required etype)]
                                 [entity_id etype]))]
     (when (seq eid+etypes)
-      (let [eid+etypes-cte
-            (sql/tupleset eid+etypes
-                          [{:type :uuid, :as 'entity-id}
-                           {:type :text, :as 'etype}])
+      (let [query (sql/format
+                   "WITH eid_etypes_cte AS (
+                        SELECT
+                            cast(elem ->> 0 AS uuid) AS entity_id,
+                            cast(elem ->> 1 AS text) AS etype
+                        FROM
+                            jsonb_array_elements(cast(?eid+etypes AS jsonb)) AS elem
+                    ),
 
-            eid+required-attrs
-            {:from 'eid+etypes-cte
-             :join ['attrs [:and
-                            [:or
-                             [:= 'attrs/app-id app-id]
-                             [:= 'attrs/app-id system-catalog-app-id]]
-                            [:= 'attrs/etype 'eid+etypes-cte/etype]]]
-             :where [:= 'attrs/is_required true]
-             :select-distinct ['entity-id ['attrs/id 'attr-id] 'attrs/etype 'attrs/label]}
+                    -- filter out dead eids
+                    alive_eid_etypes AS (
+                        SELECT
+                            eid_etypes_cte.*
+                        FROM
+                            eid_etypes_cte
+                        JOIN attrs
+                            ON attrs.app_id = ?app-id
+                            AND attrs.etype = eid_etypes_cte.etype
+                            AND attrs.label = 'id'
+                        LEFT JOIN triples
+                            ON triples.app_id = ?app-id
+                            AND triples.entity_id = eid_etypes_cte.entity_id
+                            AND triples.attr_id = attrs.id
+                            AND triples.ea
+                        WHERE
+                            triples.value IS NOT NULL
+                    ),
 
-            missing-required
-            {:from      'eid+required-attrs
-             :left-join ['triples
-                         [:and
-                          [:= 'eid+required-attrs/entity-id 'triples/entity-id]
-                          [:= 'eid+required-attrs/attr-id 'triples/attr-id]
-                          [:= 'triples/app-id app-id]]]
-             :where     [:or
-                         [:= 'triples/value nil]
-                         [:= 'triples/value [:cast [:inline "null"] :jsonb]]]
-             :select    ['eid+required-attrs/* 'triples/value]}
+                    -- populate eids with required attrs
+                    eid_required_attrs AS (
+                        SELECT DISTINCT
+                            entity_id,
+                            attrs.id AS attr_id,
+                            attrs.etype,
+                            attrs.label
+                        FROM
+                            alive_eid_etypes
+                        JOIN attrs
+                            ON (attrs.app_id = ?app-id OR attrs.app_id = ?system-catalog-app-id)
+                            AND attrs.etype = alive_eid_etypes.etype
+                        WHERE
+                            attrs.is_required = TRUE
+                    )
 
-            missing-required-alive
-            {:from ['missing-required
-                    [[:lateral {:from   'attrs
-                                :join   ['triples [:and
-                                                   [:= 'triples/attr-id 'attrs/id]
-                                                   [:= 'triples/app-id app-id]]]
-                                :where  [:and
-                                         [:or
-                                          [:= 'attrs/app-id app-id]
-                                          [:= 'attrs/app-id system-catalog-app-id]]
-                                         [:= 'attrs/etype 'missing-required/etype]
-                                         [:= 'triples/entity-id 'missing-required/entity-id]]
-                                :select [[[:count 'triples/entity-id] 'cnt]]}] 'cnt]]
-             :where [:> 'cnt/cnt [:inline 0]]
-             :select 'missing-required/*}
-
-            query
-            {:with   [['eid+etypes-cte         eid+etypes-cte]
-                      ['eid+required-attrs     eid+required-attrs]
-                      ['missing-required       missing-required]
-                      ['missing-required-alive missing-required-alive]]
-             :select ['entity-id 'attr-id 'etype 'label]
-             :from   'missing-required-alive}
-
-            res (sql/execute! ::validate-required! conn (hsql/format query))]
+                    -- join with triples to see what's missing
+                    SELECT
+                        eid_required_attrs.*
+                    FROM
+                        eid_required_attrs
+                    LEFT JOIN triples
+                        ON triples.app_id = ?app-id
+                        AND triples.entity_id = eid_required_attrs.entity_id
+                        AND triples.attr_id = eid_required_attrs.attr_id
+                    WHERE
+                        triples.value IS NULL OR triples.value = cast('null' AS jsonb)"
+                   {"?eid+etypes"            (->json eid+etypes)
+                    "?app-id"                app-id
+                    "?system-catalog-app-id" system-catalog-app-id})
+            res (sql/execute! ::validate-required! conn query)]
         (when (seq res)
           (ex/throw+
            {::ex/type    ::ex/validation-failed
