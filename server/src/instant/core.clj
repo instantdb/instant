@@ -190,19 +190,21 @@
   (start))
 
 (defn shutdown-hook []
-  (tracer/record-info! {:name "shut-down"})
-  (tracer/with-span! {:name "stop-server"}
-    (stop))
-  @(ua/all-of
-    (future
-      (tracer/with-span! {:name "stop-invalidator"}
-        (inv/stop-global)))
-    (future
-      (tracer/with-span! {:name "stop-ephemeral"}
-        (eph/stop)))
-    (future
-      (tracer/with-span! {:name "stop-indexing-jobs"}
-        (indexing-jobs/stop)))))
+  (tracer/record-info! {:name "shut-down.start"})
+  (tracer/with-span! {:name "shut-down"}
+    (tracer/with-span! {:name "stop-server"}
+      (stop))
+    @(ua/all-of
+      (future
+        (tracer/with-span! {:name "stop-invalidator"}
+          (inv/stop-global)))
+      (future
+        (tracer/with-span! {:name "stop-ephemeral"}
+          (eph/stop)))
+      (future
+        (tracer/with-span! {:name "stop-indexing-jobs"}
+          (indexing-jobs/stop)))))
+  (tracer/shutdown))
 
 (defn add-shutdown-hook []
   (.addShutdownHook
