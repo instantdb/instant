@@ -24,6 +24,8 @@
 ;; Used to mute `add-exception!` from the outside when the caller expects errors
 (def ^:dynamic *silence-exceptions?* nil)
 
+(defonce tracer-sdk
+  (atom nil))
 (defonce tracer
   (atom nil))
 
@@ -79,7 +81,12 @@
   (let [sdk (if-let [honeycomb-api-key (config/get-honeycomb-api-key)]
               (make-honeycomb-sdk honeycomb-api-key)
               (make-log-only-sdk))]
+    (reset! tracer-sdk sdk)
     (reset! tracer (.getTracer sdk "instant-server"))))
+
+(defn shutdown []
+  (when-let [^OpenTelemetrySdk sdk @tracer-sdk]
+    (.close sdk)))
 
 (defn new-span!
   [{span-name :name :keys [attributes source] :as params}]
