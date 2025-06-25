@@ -20,5 +20,6 @@ services:
       driver: awslogs
       options:
         awslogs-region: us-east-1
-        awslogs-group: /aws/elasticbeanstalk/${EB_ENV_NAME}/var/log/eb-docker/containers/eb-current-app/stdouterr.log
+        # EB_ENV_NAME will replaced by .platform/hooks/prebuild/prebuild.sh
+        awslogs-group: /aws/elasticbeanstalk/EB_ENV_NAME/var/log/eb-docker/containers/eb-current-app/stdouterr.log
         awslogs-create-group: 'true'
