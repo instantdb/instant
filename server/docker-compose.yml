@@ -19,6 +19,6 @@ services:
     logging:
       driver: awslogs
       options:
-        awslogs-region: us-west-1
+        awslogs-region: us-east-1
         awslogs-group: /aws/elasticbeanstalk/Instant-docker-prod-env-2/web.docker.log
         awslogs-create-group: 'true'
