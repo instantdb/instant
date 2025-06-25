@@ -166,19 +166,23 @@
     (assoc :mode (if (get opts "upsert") :upsert :update))))
 
 (defn expand-update [attrs [etype eid obj opts]]
-  (let [lookup (extract-lookup attrs etype eid)]
+  (let [lookup (extract-lookup attrs etype eid)
+        opts'  (convert-opts opts)]
     (map (fn [[label value]]
            (let [attr (attr-model/seek-by-fwd-ident-name [etype label] attrs)]
-             [:add-triple lookup (:id attr) value (convert-opts opts)]))
+             (cond-> [:add-triple lookup (:id attr) value]
+               opts' (conj opts'))))
          ;; id first so that we don't clobber updates on the lookup field
          (concat [["id" lookup]] obj))))
 
 (defn expand-merge [attrs [etype eid obj opts]]
-  (let [lookup (extract-lookup attrs etype eid)]
+  (let [lookup (extract-lookup attrs etype eid)
+        opts'  (convert-opts opts)]
     (map (fn [[label value]]
            (let [attr (attr-model/seek-by-fwd-ident-name [etype label] attrs)
                  op (if (= label "id") :add-triple :deep-merge-triple)]
-             [op lookup (:id attr) value (convert-opts opts)]))
+             (cond-> [op lookup (:id attr) value]
+               opts' (conj opts'))))
          ;; id first so that we don't clobber updates on the lookup field
          (concat [["id" lookup]] obj))))
 
@@ -200,7 +204,8 @@
   [[:delete-attr id]])
 
 (defn remove-id-from-step [[op etype eid obj opts]]
-  [op etype eid (dissoc obj "id") opts])
+  (cond-> [op etype eid (dissoc obj "id")]
+    opts (conj opts)))
 
 (defn to-tx-steps [attrs step]
   (let [[action & args] (remove-id-from-step step)]

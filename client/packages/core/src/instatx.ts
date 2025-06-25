@@ -180,7 +180,7 @@ function transactionChunk(
       return (args: Args, opts?: Opts) => {
         return transactionChunk(etype, id, [
           ...prevOps,
-          [cmd, etype, id, args, opts],
+          opts ? [cmd, etype, id, args, opts] : [cmd, etype, id, args],
         ]);
       };
     },
