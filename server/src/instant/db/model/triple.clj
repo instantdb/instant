@@ -159,59 +159,52 @@
     (when (seq eid+etypes)
       (let [query (sql/format
                    "WITH eid_etypes_cte AS (
-                        SELECT
-                            cast(elem ->> 0 AS uuid) AS entity_id,
-                            cast(elem ->> 1 AS text) AS etype
-                        FROM
-                            jsonb_array_elements(cast(?eid+etypes AS jsonb)) AS elem
+                      SELECT
+                        cast(elem ->> 0 AS uuid) AS entity_id,
+                        cast(elem ->> 1 AS text) AS etype
+                      FROM
+                        jsonb_array_elements(cast(?eid+etypes AS jsonb)) AS elem
                     ),
 
-                    -- filter out dead eids
-                    alive_eid_etypes AS (
-                        SELECT
-                            eid_etypes_cte.*
-                        FROM
-                            eid_etypes_cte
-                        JOIN attrs
-                            ON attrs.app_id = ?app-id
-                            AND attrs.etype = eid_etypes_cte.etype
-                            AND attrs.label = 'id'
-                        LEFT JOIN triples
-                            ON triples.app_id = ?app-id
-                            AND triples.entity_id = eid_etypes_cte.entity_id
-                            AND triples.attr_id = attrs.id
-                            AND triples.ea
-                        WHERE
-                            triples.value IS NOT NULL
-                    ),
-
-                    -- populate eids with required attrs
+                    -- populate entities with attrs
                     eid_required_attrs AS (
-                        SELECT DISTINCT
-                            entity_id,
-                            attrs.id AS attr_id,
-                            attrs.etype,
-                            attrs.label
-                        FROM
-                            alive_eid_etypes
-                        JOIN attrs
-                            ON (attrs.app_id = ?app-id OR attrs.app_id = ?system-catalog-app-id)
-                            AND attrs.etype = alive_eid_etypes.etype
-                        WHERE
-                            attrs.is_required = TRUE
+                      SELECT DISTINCT
+                        entity_id,
+                        attrs.id AS attr_id,
+                        attrs.etype,
+                        attrs.label
+                      FROM
+                        eid_etypes_cte
+                      JOIN attrs
+                        ON (attrs.app_id = ?app-id OR attrs.app_id = ?system-catalog-app-id)
+                        AND attrs.etype = eid_etypes_cte.etype
+                      WHERE
+                        attrs.is_required = TRUE
+                        OR attrs.label = 'id'
+                    ),
+
+                    -- select all triples related to our eids
+                    triples_cte AS (
+                      SELECT DISTINCT
+                        entity_id,
+                        attr_id
+                      FROM
+                        triples
+                      WHERE
+                        app_id = ?app-id
+                        AND entity_id IN (SELECT entity_id FROM eid_etypes_cte)
+                        AND value <> cast('null' AS jsonb)
                     )
 
-                    -- join with triples to see what's missing
                     SELECT
-                        eid_required_attrs.*
+                      *
                     FROM
-                        eid_required_attrs
-                    LEFT JOIN triples
-                        ON triples.app_id = ?app-id
-                        AND triples.entity_id = eid_required_attrs.entity_id
-                        AND triples.attr_id = eid_required_attrs.attr_id
+                      eid_required_attrs
                     WHERE
-                        triples.value IS NULL OR triples.value = cast('null' AS jsonb)"
+                      -- check entity is alive
+                      entity_id IN (SELECT entity_id FROM triples_cte)
+                      -- check for attrs missing from triples
+                      AND (entity_id, attr_id) NOT IN (SELECT entity_id, attr_id FROM triples_cte)"
                    {"?eid+etypes"            (->json eid+etypes)
                     "?app-id"                app-id
                     "?system-catalog-app-id" system-catalog-app-id})

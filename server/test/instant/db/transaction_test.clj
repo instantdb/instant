@@ -299,8 +299,9 @@
             (testing "delete-entity"
               (permissioned-tx/transact!
                (make-ctx)
-               [[add-op book-id attr-book-title "title"]
-                [add-op book-id attr-book-desc "desc"]
+               [[add-op book-id attr-book-id    book-id]
+                [add-op book-id attr-book-title "title"]
+                [add-op book-id attr-book-desc  "desc"]
                 [:add-triple book-id attr-book-author user-id]])
               (is (not (validation-err?
                         (permissioned-tx/transact!
@@ -2873,6 +2874,7 @@
                           [[:add-triple file-id path-attr-id new-path]])
             (is (= new-path
                    (:path (app-file-model/get-by-path {:app-id app-id :path new-path}))))))
+
         (testing "Updates on non-existing files should fail"
           (let [new-id (random-uuid)]
             (is (validation-err?
@@ -2887,6 +2889,7 @@
                                app-attrs
                                app-id
                                [[:add-triple [id-attr-id new-id] path-attr-id "random-path.jpg"]])))))
+
         (testing "Updating to an existing path should fail"
           (let [existing-path "existing-path.jpg"]
             (app-file-model/create! conn
