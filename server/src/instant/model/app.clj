@@ -71,6 +71,18 @@
   ([conn params]
    (ex/assert-record! (get-by-id conn params) :app {:args [params]})))
 
+(defn get-by-admin-token
+  ([params]
+   (get-by-admin-token (aurora/conn-pool :read) params))
+  ([conn {:keys [token]}]
+   (sql/select-one ::get-by-admin-token
+                   conn
+                   (hsql/format {:select :*
+                                 :from :apps
+                                 :where [:= :id {:select :app_id
+                                                 :from :app_admin_tokens
+                                                 :where [:= :token token]}]}))))
+
 (defn list-by-creator-id
   ([user-id] (list-by-creator-id (aurora/conn-pool :read) user-id))
   ([conn user-id]
