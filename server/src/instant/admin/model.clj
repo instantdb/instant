@@ -165,6 +165,15 @@
     (some? (get opts "upsert"))
     (assoc :mode (if (get opts "upsert") :upsert :update))))
 
+(defn expand-create [attrs [etype eid obj]]
+  (let [lookup (extract-lookup attrs etype eid)
+        opts'  {:mode :create}]
+    (map (fn [[label value]]
+           (let [attr (attr-model/seek-by-fwd-ident-name [etype label] attrs)]
+             [:add-triple lookup (:id attr) value opts']))
+         ;; id first so that we don't clobber updates on the lookup field
+         (concat [["id" lookup]] obj))))
+
 (defn expand-update [attrs [etype eid obj opts]]
   (let [lookup (extract-lookup attrs etype eid)
         opts'  (convert-opts opts)]
@@ -210,6 +219,7 @@
 (defn to-tx-steps [attrs step]
   (let [[action & args] (remove-id-from-step step)]
     (case action
+      "create" (expand-create attrs args)
       "update" (expand-update attrs args)
       "merge" (expand-merge attrs args)
       "link"   (expand-link attrs args)
@@ -256,9 +266,9 @@
             props))))
 
 (def obj-actions #{"link" "unlink" "update" "merge"})
-(def update-actions #{"update", "merge"})
+(def update-actions #{"create" "update" "merge"})
 (def ref-actions #{"link" "unlink"})
-(def supports-lookup-actions #{"link" "unlink" "update" "merge" "delete"})
+(def supports-lookup-actions #{"link" "unlink" "create" "update" "merge" "delete"})
 
 (defn add-attr [{:keys [attrs add-ops]} attr]
   {:attrs (conj attrs attr)
@@ -396,6 +406,9 @@
   (s/nilable
    (s/keys :opt-un [::upsert])))
 
+(s/def ::create-op
+  (s/cat :op #{"create"} :args (s/cat :etype string? :eid ::lookup :args map?)))
+
 (s/def ::update-op
   (s/cat :op #{"update"} :args (s/cat :etype string? :eid ::lookup :args map? :opts (s/? ::update-opts))))
 
@@ -431,6 +444,7 @@
   (s/cat :op #{"delete-attr"} :eid coercible-uuid?))
 
 (s/def ::op (s/or
+             :create ::create-op
              :update ::update-op
              :merge ::merge-op
              :link ::link-op

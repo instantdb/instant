@@ -57,7 +57,7 @@ async function testTransact() {
   const todoBId = id();
   const user = { id: '3c32701d-f4a2-40e8-b83c-077dd4cb5cec' };
   const res = await transact([
-    tx.todos[todoAId].update({ title: 'Go on a run', creatorId: user.id }),
+    tx.todos[todoAId].create({ title: 'Go on a run', creatorId: user.id }),
     tx.todos[todoBId].update({
       title: 'Drink a protein shake',
       creatorId: user.id,
