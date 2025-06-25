@@ -2,6 +2,8 @@
 
 set -x
 
+# Rotate Hazelcast port on every deploy
+
 file="/etc/deploy_count.txt"
 
 touch "$file"
@@ -16,3 +18,7 @@ echo "$new_count" > "$file"
 hz_port=$((5701 + (new_count % 8)))
 
 echo "HZ_PORT=$hz_port" > hazelcast.env
+
+# Set EB_ENV_NAME for use in the docker-compose.yml
+
+echo "EB_ENV_NAME=$(/opt/elasticbeanstalk/bin/get-config container -k environment_name)" > eb.env
