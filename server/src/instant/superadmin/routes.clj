@@ -60,7 +60,6 @@
 
 (defn req->superadmin-app! [scope req]
   (let [token (http-util/req->bearer-token! req)]
-    (tool/def-locals)
     (if (or (token-util/is-platform-access-token? token)
             (token-util/is-personal-access-token? token)
             (instant-user-model/get-by-personal-access-token
