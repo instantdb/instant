@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -x
+
 # We log the container logs directly from docker container with the
 # awslogs driver in the docker-compose.yml.
 
