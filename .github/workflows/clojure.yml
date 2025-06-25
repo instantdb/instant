@@ -233,7 +233,7 @@ jobs:
     runs-on: ubuntu-latest
     # Publish to elastic beanstalk only if we pass the tests
     needs:
-      # - clj-check
+      - clj-check
       - publish-image
     permissions:
       id-token: write
