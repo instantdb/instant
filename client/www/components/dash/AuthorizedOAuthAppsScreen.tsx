@@ -131,7 +131,6 @@ export default function OAuthAppsTab({ className }: { className?: string }) {
 
     try {
       await revoke(id);
-      await refresh();
     } catch (err: any) {
       console.error('Failed to revoke access:', err);
       errorToast(`Failed to revoke access: ${err.body.message}`);
