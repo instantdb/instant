@@ -7,7 +7,10 @@ import NextLink from 'next/link';
 import { useRouter } from 'next/router';
 import { capitalize } from 'lodash';
 import {
+  ArrowLeftIcon,
+  BackwardIcon,
   ChevronDownIcon,
+  Cog6ToothIcon,
   PlusIcon,
   TrashIcon,
 } from '@heroicons/react/24/solid';
@@ -70,6 +73,7 @@ import { asClientOnlyPage, useReadyRouter } from '@/components/clientOnlyPage';
 import { createdAtComparator } from '@/lib/app';
 import OAuthApps from '@/components/dash/OAuthApps';
 import clsx from 'clsx';
+import AuthorizedOAuthAppsScreen from '@/components/dash/AuthorizedOAuthAppsScreen';
 
 // (XXX): we may want to expose this underlying type
 type InstantReactClient = ReturnType<typeof init>;
@@ -92,7 +96,8 @@ type TabId =
   | 'admin'
   | 'billing'
   | 'docs'
-  | 'oauth-apps';
+  | 'oauth-apps'
+  | 'pat';
 
 interface Tab {
   id: TabId;
@@ -112,6 +117,7 @@ const tabs: Tab[] = [
   { id: 'billing', title: 'Billing' },
   { id: 'docs', title: 'Docs' },
   { id: 'oauth-apps', title: 'OAuth Apps' },
+  { id: 'pat', title: 'Access Tokens' },
 ];
 
 const tabIndex = new Map(tabs.map((t) => [t.id, t]));
@@ -433,7 +439,42 @@ function Dashboard() {
           <title>Instant - {tabIndex.get(tab)?.title}</title>
         </Head>
         <StyledToastContainer />
-        <PersonalAccessTokensScreen />
+        <PersonalAccessTokensScreen className="mx-auto" />
+      </div>
+    );
+  }
+  if (screen === 'user-settings') {
+    return (
+      <div className="flex h-full w-full flex-col overflow-hidden md:flex-row">
+        <Head>
+          <title>Instant - User Settings</title>
+        </Head>
+        <StyledToastContainer />
+        <Nav
+          hasInvites={false}
+          tab={tab}
+          availableTabs={[
+            { id: 'pat', label: 'Access Tokens' },
+            { id: 'oauth-apps', label: 'OAuth Apps' },
+          ]}
+          appId={appId}
+          nav={(params) => nav({ s: 'user-settings', app: appId, ...params })}
+          screen={screen}
+          title={'User Settings'}
+        />
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <div className="flex w-full flex-1 flex-col overflow-hidden">
+            <div className="flex flex-1 flex-col overflow-hidden">
+              <div className="flex flex-col flex-1 overflow-y-scroll">
+                {tab === 'pat' ? (
+                  <PersonalAccessTokensScreen />
+                ) : tab === 'oauth-apps' ? (
+                  <AuthorizedOAuthAppsScreen />
+                ) : null}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -450,7 +491,8 @@ function Dashboard() {
           appId={appId}
           tab={tab}
           availableTabs={availableTabs}
-          nav={nav}
+          nav={(params) => nav({ s: 'main', app: appId, ...params })}
+          screen={screen}
         />
       ) : null}
       <div className="flex flex-1 flex-col overflow-hidden">
@@ -870,6 +912,83 @@ function ExplorerTab({ db, appId }: { db: InstantReactClient; appId: string }) {
   );
 }
 
+function AppCombobox({
+  apps,
+  appId,
+  nav,
+  tab,
+}: {
+  apps: InstantApp[];
+  nav: (p: { s: string; t?: string; app?: string }, cb?: () => void) => void;
+  appId: string;
+  tab: TabId;
+}) {
+  const currentApp = apps.find((a) => a.id === appId) || null;
+
+  const [appQuery, setAppQuery] = useState('');
+  const comboboxInputRef = useRef<HTMLInputElement | null>(null);
+
+  const filteredApps = appQuery
+    ? apps.filter((a) => a.title.toLowerCase().includes(appQuery))
+    : apps;
+
+  return (
+    <Combobox
+      immediate={true}
+      value={currentApp}
+      onChange={(app: InstantApp | null) => {
+        if (!app) {
+          return;
+        }
+        setAppQuery('');
+        nav(
+          { s: 'main', app: app.id, t: tab },
+          () => comboboxInputRef.current && comboboxInputRef.current.blur(),
+        );
+      }}
+      onClose={() => setAppQuery('')}
+    >
+      <div className="relative">
+        <ComboboxInput
+          ref={comboboxInputRef}
+          className={clsx(
+            'w-0 basis-[35%] md:w-full md:basis-full truncate text-sm rounded-sm border-gray-300 py-1',
+            'pr-8 pl-3 text-sm/6',
+            'focus:outline-none data-[focus]:outline-2 data-[focus]:-outline-offset-2 data-[focus]:outline-white/25',
+          )}
+          displayValue={(app: InstantApp | null) => (app ? app.title : '')}
+          onChange={(e) => setAppQuery(e.target.value)}
+        />
+        <ComboboxButton className="group absolute inset-y-0 right-0 px-2.5">
+          <ChevronDownIcon
+            height={'1em'}
+            className="fill-gray/300 group-data-[hover]:fill-gray"
+          />
+        </ComboboxButton>
+      </div>
+      <ComboboxOptions
+        anchor="bottom"
+        transition
+        className={clsx(
+          'min-w-[var(--input-width)] bg-white shadow-lg border border-gray-300 divide-y empty:invisible z-50',
+          'border p-1 mx-2 my-1 [--anchor-gap:var(--spacing-1)] ',
+          'transition duration-100 ease-in data-[leave]:data-[closed]:opacity-0',
+        )}
+      >
+        {filteredApps.map((app) => (
+          <ComboboxOption
+            key={app.id}
+            value={app}
+            className="group cursor-pointer px-3 py-1 data-[focus]:bg-blue-100"
+          >
+            <div className="">{app.title}</div>
+          </ComboboxOption>
+        ))}
+      </ComboboxOptions>
+    </Combobox>
+  );
+}
+
 function Nav({
   apps,
   hasInvites,
@@ -877,98 +996,52 @@ function Nav({
   appId,
   tab,
   availableTabs,
+  title,
+  screen,
 }: {
-  apps: InstantApp[];
+  apps?: InstantApp[];
   hasInvites: boolean;
-  nav: (p: { s: string; t?: string; app?: string }, cb?: () => void) => void;
+  nav: (p: { s?: string; t?: string; app?: string }, cb?: () => void) => void;
   appId: string;
   tab: TabId;
   availableTabs: TabItem[];
+  title?: string;
+  screen: string;
 }) {
   const router = useRouter();
-  const currentApp = apps.find((a) => a.id === appId) || null;
-  const [appQuery, setAppQuery] = useState('');
-  const comboboxInputRef = useRef<HTMLInputElement | null>(null);
-
-  const filteredApps = appQuery
-    ? apps.filter((a) => a.title.toLowerCase().includes(appQuery))
-    : apps;
+  const showAppNav = apps;
   return (
     <div className="flex flex-col gap-2 border-b border-gray-300 md:w-40 md:gap-0 md:border-b-0 md:border-r bg-gray-50">
-      <div className="flex flex-row justify-between gap-2 p-2 md:flex-col md:justify-start bg-gray-50">
-        <Combobox
-          immediate={true}
-          value={currentApp}
-          onChange={(app: InstantApp | null) => {
-            if (!app) {
-              return;
-            }
-            setAppQuery('');
-            nav(
-              { s: 'main', app: app.id, t: tab },
-              () => comboboxInputRef.current && comboboxInputRef.current.blur(),
-            );
-          }}
-          onClose={() => setAppQuery('')}
-        >
-          <div className="relative">
-            <ComboboxInput
-              ref={comboboxInputRef}
-              className={clsx(
-                'w-0 basis-[35%] md:w-full md:basis-full truncate text-sm rounded-sm border-gray-300 py-1',
-                'pr-8 pl-3 text-sm/6',
-                'focus:outline-none data-[focus]:outline-2 data-[focus]:-outline-offset-2 data-[focus]:outline-white/25',
-              )}
-              displayValue={(app: InstantApp | null) => (app ? app.title : '')}
-              onChange={(e) => setAppQuery(e.target.value)}
-            />
-            <ComboboxButton className="group absolute inset-y-0 right-0 px-2.5">
-              <ChevronDownIcon
-                height={'1em'}
-                className="fill-gray/300 group-data-[hover]:fill-gray"
-              />
-            </ComboboxButton>
-          </div>
-          <ComboboxOptions
-            anchor="bottom"
-            transition
-            className={clsx(
-              'min-w-[var(--input-width)] bg-white shadow-lg border border-gray-300 divide-y empty:invisible z-50',
-              'border p-1 mx-2 my-1 [--anchor-gap:var(--spacing-1)] ',
-              'transition duration-100 ease-in data-[leave]:data-[closed]:opacity-0',
-            )}
-          >
-            {filteredApps.map((app) => (
-              <ComboboxOption
-                key={app.id}
-                value={app}
-                className="group cursor-pointer px-3 py-1 data-[focus]:bg-blue-100"
-              >
-                <div className="">{app.title}</div>
-              </ComboboxOption>
-            ))}
-          </ComboboxOptions>
-        </Combobox>
-        <div className="flex md:flex-col gap-2">
-          <Button
-            size="mini"
-            variant="secondary"
-            onClick={() => nav({ s: 'new', app: appId })}
-          >
-            <PlusIcon height={14} /> New app
-          </Button>
-          {hasInvites ? (
-            <Button size="mini" onClick={() => nav({ s: 'invites' })}>
-              Invites
-            </Button>
-          ) : null}
+      {title ? (
+        <div className="flex flex-row justify-between gap-2 p-2 md:flex-col md:justify-start bg-gray-50">
+          <h2>{title}</h2>
         </div>
-      </div>
+      ) : null}
+      {showAppNav ? (
+        <div className="flex flex-row justify-between gap-2 p-2 md:flex-col md:justify-start bg-gray-50">
+          <AppCombobox apps={apps} appId={appId} nav={nav} tab={tab} />
+
+          <div className="flex md:flex-col gap-2">
+            <Button
+              size="mini"
+              variant="secondary"
+              onClick={() => nav({ s: 'new', app: appId })}
+            >
+              <PlusIcon height={14} /> New app
+            </Button>
+            {hasInvites ? (
+              <Button size="mini" onClick={() => nav({ s: 'invites' })}>
+                Invites
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
       <div className="hidden md:visible md:static flex-row overflow-auto md:flex md:flex-col bg-gray-50 h-full">
         <ToggleCollection
           className="gap-0 text-sm"
           buttonClassName="rounded-none py-2"
-          onChange={(t) => nav({ s: 'main', app: appId, t: t.id })}
+          onChange={(t) => nav({ t: t.id })}
           selectedId={tab}
           items={availableTabs.map((t) => ({
             ...t,
@@ -980,7 +1053,23 @@ function Nav({
           }))}
         />
       </div>
-      <div className="p-2 border-t bg-gray-50">
+      <div className="p-2 border-t bg-gray-50 flex flex-row items-center justify-center gap-2">
+        <Button
+          size="nano"
+          variant="subtle"
+          className="bg-transparent"
+          onClick={() => {
+            screen === 'user-settings'
+              ? nav({ s: 'main', app: appId })
+              : nav({ s: 'user-settings', t: 'pat', app: appId });
+          }}
+        >
+          {screen === 'user-settings' ? (
+            <ArrowLeftIcon height={18} />
+          ) : (
+            <Cog6ToothIcon height={18} />
+          )}
+        </Button>
         <Button
           className="w-full"
           size="mini"

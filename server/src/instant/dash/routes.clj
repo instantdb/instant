@@ -1479,6 +1479,34 @@
     (response/ok {:clientSecret (oauth-app-model/format-client-secret-for-api
                                  client-secret)})))
 
+(defn authorized-oauth-apps [user-id]
+  (let [oauth-apps (oauth-app-model/user-authorized {:user-id user-id})]
+    (map (fn [app]
+           {:id (:id app)
+            :name (:app_name app)
+            :logo (:app_logo app)
+            :homePage (:app_home_page app)
+            :privacyPolicyLink (:app_privacy_policy_link app)
+            :tosLink (:app_tos_link app)})
+         oauth-apps)))
+
+(defn user-oauth-apps-get [req]
+  (let [user (req->auth-user! req)]
+    (response/ok {:oauthApps (authorized-oauth-apps (:id user))})))
+
+(defn user-oauth-apps-revoke-access [req]
+  (let [user (req->auth-user! req)
+        oauth-app-id (ex/get-param! req
+                                    [:body :oauthAppId]
+                                    uuid-util/coerce)]
+    (tracer/with-span! {:name "revoke-oauth-app"
+                        :attributes {:user-id (:id user)
+                                     :oauth-app-id oauth-app-id}}
+      (let [revoked-tokens (oauth-app-model/revoke-app-for-user {:user-id (:id user)
+                                                                 :oauth-app-id oauth-app-id})]
+        (tracer/add-data! {:attributes {:revoked-token-count (count revoked-tokens)}})))
+    (response/ok {:oauthApps (authorized-oauth-apps (:id user))})))
+
 (defroutes routes
   (POST "/dash/auth/send_magic_code" [] send-magic-code-post)
   (POST "/dash/auth/verify_magic_code" [] verify-magic-code-post)
@@ -1580,4 +1608,7 @@
   (POST "/dash/apps/:app_id/oauth-app-clients/:client_id" [] oauth-app-client-post)
   (DELETE "/dash/apps/:app_id/oauth-app-clients/:client_id" [] oauth-app-client-delete)
   (POST "/dash/apps/:app_id/oauth-app-clients/:client_id/client-secrets" [] oauth-app-client-secrets)
-  (DELETE "/dash/apps/:app_id/oauth-app-client-secrets/:client_secret_id" [] oauth-app-client-secret-delete))
+  (DELETE "/dash/apps/:app_id/oauth-app-client-secrets/:client_secret_id" [] oauth-app-client-secret-delete)
+
+  (GET "/dash/user/oauth_apps" [] user-oauth-apps-get)
+  (POST "/dash/user/oauth_apps/revoke_access" [] user-oauth-apps-revoke-access))

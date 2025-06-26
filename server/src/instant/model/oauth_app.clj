@@ -803,3 +803,52 @@
                     conn
                     (hsql/format {:delete-from :instant_user_oauth_access_tokens
                                   :where [:= :lookup-key (crypt-util/str->sha256 token)]}))))
+
+(defn user-authorized
+  ([params]
+   (user-authorized (aurora/conn-pool :read) params))
+  ([conn {:keys [user-id]}]
+   (sql/select ::user-authorized
+               conn
+               (hsql/format {:select :*
+                             :from :instant_oauth_apps
+                             :where [:in :id {:select :oauth_app_id
+                                              :from :instant_oauth_app_clients
+                                              :where [:in :client_id {:union-all [{:select :client_id
+                                                                                   :from :instant_user_oauth_access_tokens
+                                                                                   :where [:= :user_id user-id]}
+                                                                                  {:select :client_id
+                                                                                   :from :instant_user_oauth_refresh_tokens
+                                                                                   :where [:= :user_id user-id]}]}]}]}))))
+
+(defn revoke-app-for-user
+  ([params]
+   (revoke-app-for-user (aurora/conn-pool :write) params))
+  ([conn {:keys [oauth-app-id user-id]}]
+   (sql/execute! ::revoke-app-for-user
+                 conn
+                 (hsql/format {:with [[:client_ids
+                                       {:select :client_id
+                                        :from :instant_oauth_app_clients
+                                        :where [:= :oauth-app-id oauth-app-id]}]
+
+                                      [:refresh_token_ids
+                                       {:delete-from :instant_user_oauth_refresh_tokens
+                                        :where [:and
+                                                [:= :user-id user-id]
+                                                [:= :client-id [:any {:select :client_id :from :client_ids}]]]
+                                        :returning :lookup-key}]
+
+                                      [:access_token_ids
+                                       {:delete-from :instant_user_oauth_access_tokens
+                                        :where [:and
+                                                [:= :user-id user-id]
+                                                [:= :client-id [:any {:select :client_id :from :client_ids}]]]
+                                        :returning :lookup-key}]
+
+                                      [:ids {:union-all [{:select :lookup-key
+                                                          :from :refresh_token_ids}
+                                                         {:select :lookup-key
+                                                          :from :access_token_ids}]}]]
+                               :select :lookup-key
+                               :from :ids}))))
