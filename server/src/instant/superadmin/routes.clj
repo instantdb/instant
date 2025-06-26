@@ -58,6 +58,21 @@
                                                :app-id id})]
     {:user user :app app}))
 
+(defn req->superadmin-app! [scope req]
+  (let [token (http-util/req->bearer-token! req)]
+    (if (or (token-util/is-platform-access-token? token)
+            (token-util/is-personal-access-token? token)
+            (instant-user-model/get-by-personal-access-token
+             {:personal-access-token
+              (token-util/->PersonalAccessToken (str token))}))
+      (:app (req->superadmin-user-and-app! scope req))
+
+
+      (if-let [app (app-model/get-by-admin-token {:token token})]
+        app
+        (ex/throw+ {::ex/type ::ex/record-not-found
+                    ::ex/message "Record not found: token"})))))
+
 ;; --------
 ;; App crud
 
@@ -118,17 +133,17 @@
                                        (attr-model/get-by-app-id (:id app))))})))
 
 (defn app-details-get [req]
-  (let [{:keys [app]} (req->superadmin-user-and-app! :apps/read req)]
+  (let [app (req->superadmin-app! :apps/read req)]
     (response/ok {:app app})))
 
 (defn app-update-post [req]
-  (let [{{app-id :id} :app} (req->superadmin-user-and-app! :apps/write req)
+  (let [{app-id :id} (req->superadmin-app! :apps/write req)
         title (ex/get-param! req [:body :title] string-util/coerce-non-blank-str)
         app (app-model/rename-by-id! {:id app-id :title title})]
     (response/ok {:app app})))
 
 (defn app-delete [req]
-  (let [{{app-id :id} :app} (req->superadmin-user-and-app! :apps/write req)
+  (let [{app-id :id} (req->superadmin-app! :apps/write req)
         app (app-model/mark-for-deletion! {:id app-id})]
     (response/ok {:app app})))
 
@@ -183,12 +198,12 @@
 ;; Rules
 
 (defn app-rules-get [req]
-  (let [{{app-id :id} :app} (req->superadmin-user-and-app! :apps/read req)
+  (let [{app-id :id} (req->superadmin-app! :apps/read req)
         {:keys [code]} (rule-model/get-by-app-id {:app-id app-id})]
     (response/ok {:perms code})))
 
 (defn app-rules-post [req]
-  (let [{{app-id :id} :app} (req->superadmin-user-and-app! :apps/write req)
+  (let [{app-id :id} (req->superadmin-app! :apps/write req)
         code (ex/get-param! req [:body :code] w/stringify-keys)]
     (ex/assert-valid! :rule code (rule-model/validation-errors code))
     (response/ok {:rules (rule-model/put! {:app-id app-id
@@ -198,13 +213,13 @@
 ;; Schema
 
 (defn app-schema-get [req]
-  (let [{{app-id :id} :app} (req->superadmin-user-and-app! :apps/read req)
+  (let [{app-id :id} (req->superadmin-app! :apps/read req)
         attrs (attr-model/get-by-app-id app-id)
         schema (schema-model/attrs->schema attrs)]
     (response/ok {:schema schema})))
 
 (defn app-schema-plan-post [req]
-  (let [{{app-id :id} :app} (req->superadmin-user-and-app! :apps/read req)
+  (let [{app-id :id} (req->superadmin-app! :apps/read req)
         client-defs (-> req :body :schema)
         check-types? (-> req :body :check_types)
         background-updates? (-> req :body :supports_background_updates)]
@@ -214,7 +229,7 @@
                                      client-defs))))
 
 (defn app-schema-apply-post [req]
-  (let [{{app-id :id} :app} (req->superadmin-user-and-app! :apps/write req)
+  (let [{app-id :id} (req->superadmin-app! :apps/write req)
         client-defs (-> req :body :schema)
         check-types? (-> req :body :check_types)
         background-updates? (-> req :body :supports_background_updates)
