@@ -187,7 +187,7 @@ export default function OAuthAppsTab({ className }: { className?: string }) {
                             >
                               Terms of Service
                             </a>
-                          ) : null}
+                          ) : null}{' '}
                           {privacyPolicyLink ? (
                             <a
                               href={privacyPolicyLink}

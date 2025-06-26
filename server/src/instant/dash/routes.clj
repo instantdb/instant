@@ -1484,7 +1484,9 @@
     (map (fn [app]
            {:id (:id app)
             :name (:app_name app)
-            :logo (:app_logo app)
+            :logo (some-> app
+                          :app_logo
+                          oauth-app-model/bytes->base64-image-url)
             :homePage (:app_home_page app)
             :privacyPolicyLink (:app_privacy_policy_link app)
             :tosLink (:app_tos_link app)})
