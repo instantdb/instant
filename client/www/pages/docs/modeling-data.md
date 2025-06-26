@@ -170,7 +170,7 @@ const _schema = i.schema({
 });
 
 db.transact(
-  db.tx.goals[id()].update({
+  db.tx.posts[id()].update({
     title: 'abc', // <-- no published -- will throw
   }),
 );
@@ -189,7 +189,7 @@ const _schema = i.schema({
 });
 
 db.transact(
-  db.tx.goals[id()].update({
+  db.tx.posts[id()].update({
     title: 'abc', // <-- no published -- still okay
   }),
 );
