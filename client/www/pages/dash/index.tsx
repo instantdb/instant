@@ -7,7 +7,9 @@ import NextLink from 'next/link';
 import { useRouter } from 'next/router';
 import { capitalize } from 'lodash';
 import {
+  ArrowLeftIcon,
   ChevronDownIcon,
+  Cog6ToothIcon,
   PlusIcon,
   TrashIcon,
 } from '@heroicons/react/24/solid';
@@ -70,6 +72,7 @@ import { asClientOnlyPage, useReadyRouter } from '@/components/clientOnlyPage';
 import { createdAtComparator } from '@/lib/app';
 import OAuthApps from '@/components/dash/OAuthApps';
 import clsx from 'clsx';
+import AuthorizedOAuthAppsScreen from '@/components/dash/AuthorizedOAuthAppsScreen';
 
 // (XXX): we may want to expose this underlying type
 type InstantReactClient = ReturnType<typeof init>;
@@ -78,9 +81,7 @@ type Role = 'collaborator' | 'admin' | 'owner';
 
 const roleOrder = ['collaborator', 'admin', 'owner'] as const;
 
-const defaultTab: TabId = 'home';
-
-type TabId =
+type MainTabId =
   | 'home'
   | 'explorer'
   | 'repl'
@@ -94,14 +95,33 @@ type TabId =
   | 'docs'
   | 'oauth-apps';
 
-interface Tab {
+type UserSettingsTabId = 'pat' | 'oauth-apps';
+
+type Screen =
+  | 'main'
+  | 'user-settings'
+  | 'personal-access-tokens'
+  | 'new'
+  | 'invites';
+
+function defaultTab(screen: 'main'): MainTabId;
+function defaultTab(screen: 'user-settings'): UserSettingsTabId;
+function defaultTab(screen: Screen): MainTabId | UserSettingsTabId;
+function defaultTab(screen: Screen): MainTabId | UserSettingsTabId {
+  if (screen === 'user-settings') {
+    return 'oauth-apps';
+  }
+  return 'home';
+}
+
+interface Tab<TabId> {
   id: TabId;
   title: string;
   icon?: React.ReactNode;
   minRole?: 'admin' | 'owner';
 }
 
-const tabs: Tab[] = [
+const mainTabs: Tab<MainTabId>[] = [
   { id: 'home', title: 'Home' },
   { id: 'explorer', title: 'Explorer' },
   { id: 'perms', title: 'Permissions' },
@@ -114,7 +134,13 @@ const tabs: Tab[] = [
   { id: 'oauth-apps', title: 'OAuth Apps' },
 ];
 
-const tabIndex = new Map(tabs.map((t) => [t.id, t]));
+const userTabs: Tab<UserSettingsTabId>[] = [
+  { id: 'oauth-apps', title: 'OAuth Apps' },
+  { id: 'pat', title: 'Access Tokens' },
+];
+
+const mainTabIndex = new Map(mainTabs.map((t) => [t.id, t]));
+const userTabIndex = new Map(userTabs.map((t) => [t.id, t]));
 
 export function isMinRole(minRole: Role, role: Role) {
   return roleOrder.indexOf(role) >= roleOrder.indexOf(minRole);
@@ -246,17 +272,25 @@ function DashV2() {
   );
 }
 
-function isTabAvailable(tab: Tab, role?: Role) {
+function isTabAvailable(tab: Tab<MainTabId>, role?: Role) {
   return tab.minRole ? role && isMinRole(tab.minRole, role) : true;
+}
+
+function screenTab(screen: Screen, tab: string | null | undefined) {
+  if (screen === 'user-settings') {
+    return tab && userTabIndex.has(tab as UserSettingsTabId)
+      ? tab
+      : defaultTab('user-settings');
+  }
+  return tab && mainTabIndex.has(tab as MainTabId) ? tab : defaultTab(screen);
 }
 
 function Dashboard() {
   const token = useContext(TokenContext);
   const router = useReadyRouter();
   const appId = router.query.app as string;
-  const screen = (router.query.s as string) || 'main';
-  const _tab = router.query.t as TabId;
-  const tab = tabIndex.has(_tab) ? _tab : defaultTab;
+  const screen = ((router.query.s as string) || 'main') as Screen;
+  const tab = screenTab(screen, router.query.t as string);
 
   // Local states
   const [hideAppId, setHideAppId] = useLocalStorage('hide_app_id', false);
@@ -290,25 +324,6 @@ function Dashboard() {
   const app = apps?.find((a) => a.id === appId);
 
   // ui
-  const availableTabs: TabItem[] = tabs
-    .filter((t) => isTabAvailable(t, app?.user_app_role))
-    .map((t) => {
-      if (t.id === 'docs') {
-        return {
-          id: t.id,
-          label: t.title,
-          link: {
-            href: app ? `/docs?app=${app.id}` : '/docs',
-            target: '_blank',
-          },
-        };
-      }
-      return {
-        id: t.id,
-        label: t.title,
-        link: { href: `/dash?s=main&app=${appId}&t=${t.id}` },
-      };
-    });
   const showAppOnboarding = !apps.length && !dashResponse.data?.invites?.length;
   const showNav = !showAppOnboarding;
   const showApp = app && connection && screen === 'main';
@@ -430,17 +445,73 @@ function Dashboard() {
     return (
       <div className="flex h-full w-full flex-col overflow-hidden md:flex-row">
         <Head>
-          <title>Instant - {tabIndex.get(tab)?.title}</title>
+          <title>Instant - Personal Access Tokens</title>
         </Head>
         <StyledToastContainer />
-        <PersonalAccessTokensScreen />
+        <PersonalAccessTokensScreen className="mx-auto" />
       </div>
     );
   }
+  if (screen === 'user-settings') {
+    return (
+      <div className="flex h-full w-full flex-col overflow-hidden md:flex-row">
+        <Head>
+          <title>Instant - User Settings</title>
+        </Head>
+        <StyledToastContainer />
+        <Nav
+          hasInvites={false}
+          tab={tab as UserSettingsTabId}
+          availableTabs={userTabs.map((t) => ({
+            id: t.id,
+            label: t.title,
+          }))}
+          appId={appId}
+          nav={(params) => nav({ s: 'user-settings', app: appId, ...params })}
+          screen={screen}
+          title={'User Settings'}
+        />
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <div className="flex w-full flex-1 flex-col overflow-hidden">
+            <div className="flex flex-1 flex-col overflow-hidden">
+              <div className="flex flex-col flex-1 overflow-y-scroll">
+                {tab === 'pat' ? (
+                  <PersonalAccessTokensScreen />
+                ) : tab === 'oauth-apps' ? (
+                  <AuthorizedOAuthAppsScreen />
+                ) : null}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const availableTabs: TabItem[] = mainTabs
+    .filter((t) => isTabAvailable(t, app?.user_app_role))
+    .map((t) => {
+      if (t.id === 'docs') {
+        return {
+          id: t.id,
+          label: t.title,
+          link: {
+            href: app ? `/docs?app=${app.id}` : '/docs',
+            target: '_blank',
+          },
+        };
+      }
+      return {
+        id: t.id,
+        label: t.title,
+        link: { href: `/dash?s=main&app=${appId}&t=${t.id}` },
+      };
+    });
+
   return (
     <div className="flex h-full w-full flex-col overflow-hidden md:flex-row">
       <Head>
-        <title>Instant - {tabIndex.get(tab)?.title}</title>
+        <title>Instant - {mainTabIndex.get(tab as MainTabId)?.title}</title>
       </Head>
       <StyledToastContainer />
       {showNav ? (
@@ -448,9 +519,10 @@ function Dashboard() {
           apps={apps}
           hasInvites={Boolean(dashResponse.data?.invites?.length)}
           appId={appId}
-          tab={tab}
+          tab={tab as MainTabId}
           availableTabs={availableTabs}
-          nav={nav}
+          nav={(params) => nav({ s: 'main', app: appId, ...params })}
+          screen={screen}
         />
       ) : null}
       <div className="flex flex-1 flex-col overflow-hidden">
@@ -464,7 +536,7 @@ function Dashboard() {
           <Onboarding
             onCreate={async (p) => {
               await dashResponse.mutate();
-              nav({ s: 'main', app: p.id, t: defaultTab });
+              nav({ s: 'main', app: p.id, t: defaultTab('main') });
             }}
           />
         ) : screen === 'invites' || showInvitesOnboarding ? (
@@ -870,6 +942,83 @@ function ExplorerTab({ db, appId }: { db: InstantReactClient; appId: string }) {
   );
 }
 
+function AppCombobox({
+  apps,
+  appId,
+  nav,
+  tab,
+}: {
+  apps: InstantApp[];
+  nav: (p: { s: string; t?: string; app?: string }, cb?: () => void) => void;
+  appId: string;
+  tab: MainTabId;
+}) {
+  const currentApp = apps.find((a) => a.id === appId) || null;
+
+  const [appQuery, setAppQuery] = useState('');
+  const comboboxInputRef = useRef<HTMLInputElement | null>(null);
+
+  const filteredApps = appQuery
+    ? apps.filter((a) => a.title.toLowerCase().includes(appQuery))
+    : apps;
+
+  return (
+    <Combobox
+      immediate={true}
+      value={currentApp}
+      onChange={(app: InstantApp | null) => {
+        if (!app) {
+          return;
+        }
+        setAppQuery('');
+        nav(
+          { s: 'main', app: app.id, t: tab },
+          () => comboboxInputRef.current && comboboxInputRef.current.blur(),
+        );
+      }}
+      onClose={() => setAppQuery('')}
+    >
+      <div className="relative">
+        <ComboboxInput
+          ref={comboboxInputRef}
+          className={clsx(
+            'w-0 basis-[35%] md:w-full md:basis-full truncate text-sm rounded-sm border-gray-300 py-1',
+            'pr-8 pl-3 text-sm/6',
+            'focus:outline-none data-[focus]:outline-2 data-[focus]:-outline-offset-2 data-[focus]:outline-white/25',
+          )}
+          displayValue={(app: InstantApp | null) => (app ? app.title : '')}
+          onChange={(e) => setAppQuery(e.target.value)}
+        />
+        <ComboboxButton className="group absolute inset-y-0 right-0 px-2.5">
+          <ChevronDownIcon
+            height={'1em'}
+            className="fill-gray/300 group-data-[hover]:fill-gray"
+          />
+        </ComboboxButton>
+      </div>
+      <ComboboxOptions
+        anchor="bottom"
+        transition
+        className={clsx(
+          'min-w-[var(--input-width)] bg-white shadow-lg border border-gray-300 divide-y empty:invisible z-50',
+          'border p-1 mx-2 my-1 [--anchor-gap:var(--spacing-1)] ',
+          'transition duration-100 ease-in data-[leave]:data-[closed]:opacity-0',
+        )}
+      >
+        {filteredApps.map((app) => (
+          <ComboboxOption
+            key={app.id}
+            value={app}
+            className="group cursor-pointer px-3 py-1 data-[focus]:bg-blue-100"
+          >
+            <div className="">{app.title}</div>
+          </ComboboxOption>
+        ))}
+      </ComboboxOptions>
+    </Combobox>
+  );
+}
+
 function Nav({
   apps,
   hasInvites,
@@ -877,98 +1026,57 @@ function Nav({
   appId,
   tab,
   availableTabs,
+  title,
+  screen,
 }: {
-  apps: InstantApp[];
+  apps?: InstantApp[];
   hasInvites: boolean;
-  nav: (p: { s: string; t?: string; app?: string }, cb?: () => void) => void;
+  nav: (p: { s?: string; t?: string; app?: string }, cb?: () => void) => void;
   appId: string;
-  tab: TabId;
+  tab: MainTabId | UserSettingsTabId;
   availableTabs: TabItem[];
+  title?: string;
+  screen: string;
 }) {
   const router = useRouter();
-  const currentApp = apps.find((a) => a.id === appId) || null;
-  const [appQuery, setAppQuery] = useState('');
-  const comboboxInputRef = useRef<HTMLInputElement | null>(null);
-
-  const filteredApps = appQuery
-    ? apps.filter((a) => a.title.toLowerCase().includes(appQuery))
-    : apps;
+  const showAppNav = apps;
   return (
     <div className="flex flex-col gap-2 border-b border-gray-300 md:w-40 md:gap-0 md:border-b-0 md:border-r bg-gray-50">
-      <div className="flex flex-row justify-between gap-2 p-2 md:flex-col md:justify-start bg-gray-50">
-        <Combobox
-          immediate={true}
-          value={currentApp}
-          onChange={(app: InstantApp | null) => {
-            if (!app) {
-              return;
-            }
-            setAppQuery('');
-            nav(
-              { s: 'main', app: app.id, t: tab },
-              () => comboboxInputRef.current && comboboxInputRef.current.blur(),
-            );
-          }}
-          onClose={() => setAppQuery('')}
-        >
-          <div className="relative">
-            <ComboboxInput
-              ref={comboboxInputRef}
-              className={clsx(
-                'w-0 basis-[35%] md:w-full md:basis-full truncate text-sm rounded-sm border-gray-300 py-1',
-                'pr-8 pl-3 text-sm/6',
-                'focus:outline-none data-[focus]:outline-2 data-[focus]:-outline-offset-2 data-[focus]:outline-white/25',
-              )}
-              displayValue={(app: InstantApp | null) => (app ? app.title : '')}
-              onChange={(e) => setAppQuery(e.target.value)}
-            />
-            <ComboboxButton className="group absolute inset-y-0 right-0 px-2.5">
-              <ChevronDownIcon
-                height={'1em'}
-                className="fill-gray/300 group-data-[hover]:fill-gray"
-              />
-            </ComboboxButton>
-          </div>
-          <ComboboxOptions
-            anchor="bottom"
-            transition
-            className={clsx(
-              'min-w-[var(--input-width)] bg-white shadow-lg border border-gray-300 divide-y empty:invisible z-50',
-              'border p-1 mx-2 my-1 [--anchor-gap:var(--spacing-1)] ',
-              'transition duration-100 ease-in data-[leave]:data-[closed]:opacity-0',
-            )}
-          >
-            {filteredApps.map((app) => (
-              <ComboboxOption
-                key={app.id}
-                value={app}
-                className="group cursor-pointer px-3 py-1 data-[focus]:bg-blue-100"
-              >
-                <div className="">{app.title}</div>
-              </ComboboxOption>
-            ))}
-          </ComboboxOptions>
-        </Combobox>
-        <div className="flex md:flex-col gap-2">
-          <Button
-            size="mini"
-            variant="secondary"
-            onClick={() => nav({ s: 'new', app: appId })}
-          >
-            <PlusIcon height={14} /> New app
-          </Button>
-          {hasInvites ? (
-            <Button size="mini" onClick={() => nav({ s: 'invites' })}>
-              Invites
-            </Button>
-          ) : null}
+      {title ? (
+        <div className="flex flex-row justify-between gap-2 p-2 md:flex-col md:justify-start bg-gray-50">
+          <h2>{title}</h2>
         </div>
-      </div>
+      ) : null}
+      {showAppNav ? (
+        <div className="flex flex-row justify-between gap-2 p-2 md:flex-col md:justify-start bg-gray-50">
+          <AppCombobox
+            apps={apps}
+            appId={appId}
+            nav={nav}
+            tab={tab as MainTabId}
+          />
+
+          <div className="flex md:flex-col gap-2">
+            <Button
+              size="mini"
+              variant="secondary"
+              onClick={() => nav({ s: 'new', app: appId })}
+            >
+              <PlusIcon height={14} /> New app
+            </Button>
+            {hasInvites ? (
+              <Button size="mini" onClick={() => nav({ s: 'invites' })}>
+                Invites
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
       <div className="hidden md:visible md:static flex-row overflow-auto md:flex md:flex-col bg-gray-50 h-full">
         <ToggleCollection
           className="gap-0 text-sm"
           buttonClassName="rounded-none py-2"
-          onChange={(t) => nav({ s: 'main', app: appId, t: t.id })}
+          onChange={(t) => nav({ t: t.id })}
           selectedId={tab}
           items={availableTabs.map((t) => ({
             ...t,
@@ -980,7 +1088,23 @@ function Nav({
           }))}
         />
       </div>
-      <div className="p-2 border-t bg-gray-50">
+      <div className="p-2 border-t bg-gray-50 flex flex-row items-center justify-center gap-2">
+        <Button
+          size="nano"
+          variant="subtle"
+          className="bg-transparent"
+          onClick={() => {
+            screen === 'user-settings'
+              ? nav({ s: 'main', app: appId })
+              : nav({ s: 'user-settings', t: 'oauth-apps', app: appId });
+          }}
+        >
+          {screen === 'user-settings' ? (
+            <ArrowLeftIcon height={18} />
+          ) : (
+            <Cog6ToothIcon height={18} />
+          )}
+        </Button>
         <Button
           className="w-full"
           size="mini"

@@ -856,7 +856,11 @@ function CreateClient({
   );
 }
 
-function AppLogo({ app }: { app: OAuthApp }) {
+export function AppLogo({
+  app,
+}: {
+  app: { appLogo: string | null; appName: string };
+}) {
   return app.appLogo ? (
     <img className="w-12 h-12" src={app.appLogo} />
   ) : (
