@@ -507,7 +507,7 @@ function printDotEnvInfo(envType, appId) {
   console.log(terminalLink('Dashboard:', appDashUrl(appId)) + '\n');
 }
 
-async function handleEnvFile(pkgAndAuthInfo, appId) {
+async function handleEnvFile(pkgAndAuthInfo, { appId, appToken }) {
   const { pkgDir } = pkgAndAuthInfo;
   const envType = await detectEnvType(pkgAndAuthInfo);
   const envName = potentialEnvs[envType];
@@ -533,16 +533,23 @@ async function handleEnvFile(pkgAndAuthInfo, appId) {
     );
     return;
   }
-  await writeFile(join(pkgDir, '.env'), `${envName}=${appId}`, 'utf-8');
+  const content =
+    [
+      [envName, appId],
+      ['INSTANT_APP_ADMIN_TOKEN', appToken],
+    ]
+      .map(([k, v]) => `${k}=${v}`)
+      .join('\n') + '\n';
+  await writeFile(join(pkgDir, '.env'), content, 'utf-8');
   console.log(`Created ${chalk.green('`.env`')} file!`);
 }
 
 async function detectOrCreateAppAndWriteToEnv(pkgAndAuthInfo, opts) {
   const ret = await detectOrCreateAppWithErrorLogging(opts);
   if (!ret.ok) return ret;
-  const { appId, source } = ret;
+  const { appId, appToken, source } = ret;
   if (source === 'created' || source === 'imported') {
-    await handleEnvFile(pkgAndAuthInfo, appId);
+    await handleEnvFile(pkgAndAuthInfo, { appId, appToken });
   }
   return ret;
 }
