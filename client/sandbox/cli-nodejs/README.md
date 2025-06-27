@@ -16,10 +16,21 @@ cp .env.example .env
 # fill in the variables in .env
 ```
 
-Once you do that, call instant-cli commands like so:
+Now start the local server to build/watch package changes
 
 ```bash
-INSTANT_CLI_DEV=1 pnpm exec instant-cli -h
+# From the client root
+make dev
+```
+
+Now you can run and test the cli tool!
+
+```bash
+# Pull the schema and permissions from your Instant app in prod
+pnpm exec instant-cli pull
+
+# Push the schema and permissions to your Instant app on the local backend
+INSTANT_CLI_DEV=1 pnpm exec instant-cli pull
 ```
 
 # Questions?

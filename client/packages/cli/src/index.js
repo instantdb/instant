@@ -11,7 +11,7 @@ import { mkdir, writeFile, readFile } from 'fs/promises';
 import path, { join } from 'path';
 import { randomUUID } from 'crypto';
 import jsonDiff from 'json-diff';
-import dotenv from 'dotenv';
+import dotenvFlow from 'dotenv-flow';
 import chalk from 'chalk';
 import { program, Option } from 'commander';
 import { input, select } from '@inquirer/prompts';
@@ -35,7 +35,7 @@ import toggle from './toggle.js';
 const execAsync = promisify(exec);
 
 // config
-dotenv.config();
+dotenvFlow.config();
 
 const dev = Boolean(process.env.INSTANT_CLI_DEV);
 const verbose = Boolean(process.env.INSTANT_CLI_VERBOSE);
