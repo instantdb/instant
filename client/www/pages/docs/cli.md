@@ -6,6 +6,7 @@ description: How to use the Instant CLI to manage schema and permissions.
 The Instant CLI was designed to drive your Instant application entirely from a project's codebase. You can create apps, define your data model, and update your permissions, **all through your terminal**.
 
 ## Login
+
 To get started, you need to log in to your Instant account. You can do this by running:
 
 ```shell {% showCopy=true %}
@@ -62,6 +63,7 @@ npx instant-cli@latest pull
 This will generate new `instant.schema.ts` and `instant.perms.ts` files, based on your production state.
 
 ## Create App
+
 Sometimes you may just want to create a new Instant app without overwriting your
 existing schema and permission files. This is convenient when you want to create
 a new app for testing schema changes or permissions. You can use the `create-app` command to generate a new app without affecting your current files:
