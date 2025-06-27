@@ -8,7 +8,6 @@ import { useRouter } from 'next/router';
 import { capitalize } from 'lodash';
 import {
   ArrowLeftIcon,
-  BackwardIcon,
   ChevronDownIcon,
   Cog6ToothIcon,
   PlusIcon,
@@ -82,9 +81,7 @@ type Role = 'collaborator' | 'admin' | 'owner';
 
 const roleOrder = ['collaborator', 'admin', 'owner'] as const;
 
-const defaultTab: TabId = 'home';
-
-type TabId =
+type MainTabId =
   | 'home'
   | 'explorer'
   | 'repl'
@@ -96,17 +93,35 @@ type TabId =
   | 'admin'
   | 'billing'
   | 'docs'
-  | 'oauth-apps'
-  | 'pat';
+  | 'oauth-apps';
 
-interface Tab {
+type UserSettingsTabId = 'pat' | 'oauth-apps';
+
+type Screen =
+  | 'main'
+  | 'user-settings'
+  | 'personal-access-tokens'
+  | 'new'
+  | 'invites';
+
+function defaultTab(screen: 'main'): MainTabId;
+function defaultTab(screen: 'user-settings'): UserSettingsTabId;
+function defaultTab(screen: Screen): MainTabId | UserSettingsTabId;
+function defaultTab(screen: Screen): MainTabId | UserSettingsTabId {
+  if (screen === 'user-settings') {
+    return 'oauth-apps';
+  }
+  return 'home';
+}
+
+interface Tab<TabId> {
   id: TabId;
   title: string;
   icon?: React.ReactNode;
   minRole?: 'admin' | 'owner';
 }
 
-const tabs: Tab[] = [
+const mainTabs: Tab<MainTabId>[] = [
   { id: 'home', title: 'Home' },
   { id: 'explorer', title: 'Explorer' },
   { id: 'perms', title: 'Permissions' },
@@ -117,10 +132,15 @@ const tabs: Tab[] = [
   { id: 'billing', title: 'Billing' },
   { id: 'docs', title: 'Docs' },
   { id: 'oauth-apps', title: 'OAuth Apps' },
+];
+
+const userTabs: Tab<UserSettingsTabId>[] = [
+  { id: 'oauth-apps', title: 'OAuth Apps' },
   { id: 'pat', title: 'Access Tokens' },
 ];
 
-const tabIndex = new Map(tabs.map((t) => [t.id, t]));
+const mainTabIndex = new Map(mainTabs.map((t) => [t.id, t]));
+const userTabIndex = new Map(userTabs.map((t) => [t.id, t]));
 
 export function isMinRole(minRole: Role, role: Role) {
   return roleOrder.indexOf(role) >= roleOrder.indexOf(minRole);
@@ -252,17 +272,25 @@ function DashV2() {
   );
 }
 
-function isTabAvailable(tab: Tab, role?: Role) {
+function isTabAvailable(tab: Tab<MainTabId>, role?: Role) {
   return tab.minRole ? role && isMinRole(tab.minRole, role) : true;
+}
+
+function screenTab(screen: Screen, tab: string | null | undefined) {
+  if (screen === 'user-settings') {
+    return tab && userTabIndex.has(tab as UserSettingsTabId)
+      ? tab
+      : defaultTab('user-settings');
+  }
+  return tab && mainTabIndex.has(tab as MainTabId) ? tab : defaultTab(screen);
 }
 
 function Dashboard() {
   const token = useContext(TokenContext);
   const router = useReadyRouter();
   const appId = router.query.app as string;
-  const screen = (router.query.s as string) || 'main';
-  const _tab = router.query.t as TabId;
-  const tab = tabIndex.has(_tab) ? _tab : defaultTab;
+  const screen = ((router.query.s as string) || 'main') as Screen;
+  const tab = screenTab(screen, router.query.t as string);
 
   // Local states
   const [hideAppId, setHideAppId] = useLocalStorage('hide_app_id', false);
@@ -296,25 +324,6 @@ function Dashboard() {
   const app = apps?.find((a) => a.id === appId);
 
   // ui
-  const availableTabs: TabItem[] = tabs
-    .filter((t) => isTabAvailable(t, app?.user_app_role))
-    .map((t) => {
-      if (t.id === 'docs') {
-        return {
-          id: t.id,
-          label: t.title,
-          link: {
-            href: app ? `/docs?app=${app.id}` : '/docs',
-            target: '_blank',
-          },
-        };
-      }
-      return {
-        id: t.id,
-        label: t.title,
-        link: { href: `/dash?s=main&app=${appId}&t=${t.id}` },
-      };
-    });
   const showAppOnboarding = !apps.length && !dashResponse.data?.invites?.length;
   const showNav = !showAppOnboarding;
   const showApp = app && connection && screen === 'main';
@@ -436,7 +445,7 @@ function Dashboard() {
     return (
       <div className="flex h-full w-full flex-col overflow-hidden md:flex-row">
         <Head>
-          <title>Instant - {tabIndex.get(tab)?.title}</title>
+          <title>Instant - Personal Access Tokens</title>
         </Head>
         <StyledToastContainer />
         <PersonalAccessTokensScreen className="mx-auto" />
@@ -452,11 +461,11 @@ function Dashboard() {
         <StyledToastContainer />
         <Nav
           hasInvites={false}
-          tab={tab}
-          availableTabs={[
-            { id: 'pat', label: 'Access Tokens' },
-            { id: 'oauth-apps', label: 'OAuth Apps' },
-          ]}
+          tab={tab as UserSettingsTabId}
+          availableTabs={userTabs.map((t) => ({
+            id: t.id,
+            label: t.title,
+          }))}
           appId={appId}
           nav={(params) => nav({ s: 'user-settings', app: appId, ...params })}
           screen={screen}
@@ -478,10 +487,31 @@ function Dashboard() {
       </div>
     );
   }
+
+  const availableTabs: TabItem[] = mainTabs
+    .filter((t) => isTabAvailable(t, app?.user_app_role))
+    .map((t) => {
+      if (t.id === 'docs') {
+        return {
+          id: t.id,
+          label: t.title,
+          link: {
+            href: app ? `/docs?app=${app.id}` : '/docs',
+            target: '_blank',
+          },
+        };
+      }
+      return {
+        id: t.id,
+        label: t.title,
+        link: { href: `/dash?s=main&app=${appId}&t=${t.id}` },
+      };
+    });
+
   return (
     <div className="flex h-full w-full flex-col overflow-hidden md:flex-row">
       <Head>
-        <title>Instant - {tabIndex.get(tab)?.title}</title>
+        <title>Instant - {mainTabIndex.get(tab as MainTabId)?.title}</title>
       </Head>
       <StyledToastContainer />
       {showNav ? (
@@ -489,7 +519,7 @@ function Dashboard() {
           apps={apps}
           hasInvites={Boolean(dashResponse.data?.invites?.length)}
           appId={appId}
-          tab={tab}
+          tab={tab as MainTabId}
           availableTabs={availableTabs}
           nav={(params) => nav({ s: 'main', app: appId, ...params })}
           screen={screen}
@@ -506,7 +536,7 @@ function Dashboard() {
           <Onboarding
             onCreate={async (p) => {
               await dashResponse.mutate();
-              nav({ s: 'main', app: p.id, t: defaultTab });
+              nav({ s: 'main', app: p.id, t: defaultTab('main') });
             }}
           />
         ) : screen === 'invites' || showInvitesOnboarding ? (
@@ -921,7 +951,7 @@ function AppCombobox({
   apps: InstantApp[];
   nav: (p: { s: string; t?: string; app?: string }, cb?: () => void) => void;
   appId: string;
-  tab: TabId;
+  tab: MainTabId;
 }) {
   const currentApp = apps.find((a) => a.id === appId) || null;
 
@@ -1003,7 +1033,7 @@ function Nav({
   hasInvites: boolean;
   nav: (p: { s?: string; t?: string; app?: string }, cb?: () => void) => void;
   appId: string;
-  tab: TabId;
+  tab: MainTabId | UserSettingsTabId;
   availableTabs: TabItem[];
   title?: string;
   screen: string;
@@ -1019,7 +1049,12 @@ function Nav({
       ) : null}
       {showAppNav ? (
         <div className="flex flex-row justify-between gap-2 p-2 md:flex-col md:justify-start bg-gray-50">
-          <AppCombobox apps={apps} appId={appId} nav={nav} tab={tab} />
+          <AppCombobox
+            apps={apps}
+            appId={appId}
+            nav={nav}
+            tab={tab as MainTabId}
+          />
 
           <div className="flex md:flex-col gap-2">
             <Button
@@ -1061,7 +1096,7 @@ function Nav({
           onClick={() => {
             screen === 'user-settings'
               ? nav({ s: 'main', app: appId })
-              : nav({ s: 'user-settings', t: 'pat', app: appId });
+              : nav({ s: 'user-settings', t: 'oauth-apps', app: appId });
           }}
         >
           {screen === 'user-settings' ? (
