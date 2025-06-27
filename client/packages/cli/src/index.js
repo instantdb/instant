@@ -326,7 +326,7 @@ program
 
 program
   .command('create-app')
-  .description('Generate an ')
+  .description('Generate an app ID and admin token for a new app.')
   .action(async () => {
     await checkVersion();
     const authToken = await readAuthTokenOrLoginWithErrorLogging();
@@ -338,7 +338,9 @@ program
     const { appId, appTitle, appToken } = result;
     console.log(`\n✅ Created app "${chalk.green(appTitle)}"\n`);
     console.log(`App ID: ${chalk.cyan(appId)}`);
-    console.log(`App Admin Token: ${chalk.cyan(appToken)}`);
+    console.log(
+      `App Admin Token (double click first 4 digits to select): ${chalk.dim(appToken.substring(0, 4))}${chalk.hidden(appToken.substring(4))}`,
+    );
     console.log(terminalLink('Dashboard:', appDashUrl(appId)) + '\n');
   });
 
