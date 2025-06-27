@@ -324,6 +324,24 @@ program
     await handlePull('all', opts);
   });
 
+program
+  .command('create-app')
+  .description('Generate an ')
+  .action(async () => {
+    await checkVersion();
+    const authToken = await readAuthTokenOrLoginWithErrorLogging();
+    if (!authToken) return process.exit(1);
+
+    const result = await promptCreateApp();
+    if (!result.ok) return process.exit(1);
+
+    const { appId, appTitle, appToken } = result;
+    console.log(`\n✅ Created app "${chalk.green(appTitle)}"\n`);
+    console.log(`App ID: ${chalk.cyan(appId)}`);
+    console.log(`App Admin Token: ${chalk.cyan(appToken)}`);
+    console.log(terminalLink('Dashboard:', appDashUrl(appId)) + '\n');
+  });
+
 // Note: Nov 20, 2024
 // We can eventually delete this,
 // once we know most people use the new pull and push commands
@@ -484,7 +502,7 @@ function printDotEnvInfo(envType, appId) {
   otherEnvs.sort();
   const otherEnvStr = otherEnvs.map((x) => '  ' + chalk.green(x)).join('\n');
   console.log(`Alternative names: \n${otherEnvStr} \n`);
-  console.log(terminalLink('Dashboard', appDashUrl(appId)) + '\n');
+  console.log(terminalLink('Dashboard:', appDashUrl(appId)) + '\n');
 }
 
 async function handleEnvFile(pkgAndAuthInfo, appId) {
@@ -667,6 +685,7 @@ async function promptCreateApp() {
     ok: true,
     appId: id,
     appTitle: title,
+    appToken: token,
     source: 'created',
   };
 }
