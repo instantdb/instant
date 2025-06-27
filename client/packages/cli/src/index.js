@@ -284,10 +284,10 @@ function globalOption(flags, description, argParser) {
 function warnDeprecation(oldCmd, newCmd) {
   warn(
     chalk.yellow('`instant-cli ' + oldCmd + '` is deprecated.') +
-    ' Use ' +
-    chalk.green('`instant-cli ' + newCmd + '`') +
-    ' instead.' +
-    '\n',
+      ' Use ' +
+      chalk.green('`instant-cli ' + newCmd + '`') +
+      ' instead.' +
+      '\n',
   );
 }
 
@@ -320,7 +320,7 @@ program
     '-a --app <app-id>',
     'If you have an existing app ID, we can pull schema and perms from there.',
   )
-  .action(async function(opts) {
+  .action(async function (opts) {
     await handlePull('all', opts);
   });
 
@@ -367,7 +367,7 @@ program
     "Don't check types on the server when pushing schema",
   )
   .description('Push schema and perm files to production.')
-  .action(async function(arg, inputOpts) {
+  .action(async function (arg, inputOpts) {
     const ret = convertPushPullToCurrentFormat('push', arg, inputOpts);
     if (!ret.ok) return process.exit(1);
     const { bag, opts } = ret;
@@ -409,7 +409,7 @@ program
     'App ID to push to. Defaults to *_INSTANT_APP_ID in .env',
   )
   .description('Pull schema and perm files from production.')
-  .action(async function(arg, inputOpts) {
+  .action(async function (arg, inputOpts) {
     const ret = convertPushPullToCurrentFormat('pull', arg, inputOpts);
     if (!ret.ok) return process.exit(1);
     const { bag, opts } = ret;
@@ -1571,9 +1571,9 @@ async function readLocalSchemaFileWithErrorLogging() {
     error("We couldn't find your schema export.");
     error(
       'In your ' +
-      chalk.green('`instant.schema.ts`') +
-      ' file, make sure you ' +
-      chalk.green('`export default schema`'),
+        chalk.green('`instant.schema.ts`') +
+        ' file, make sure you ' +
+        chalk.green('`export default schema`'),
     );
     return;
   }
