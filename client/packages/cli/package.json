@@ -7,13 +7,14 @@
     "instant-cli": "bin/index.js"
   },
   "dependencies": {
-    "@instantdb/platform": "workspace:*",
     "@inquirer/core": "9.0.10",
     "@inquirer/prompts": "5.3.8",
+    "@instantdb/platform": "workspace:*",
     "ansi-escapes": "4.3.2",
     "chalk": "^5.3.0",
     "commander": "^12.1.0",
     "dotenv": "^16.3.1",
+    "dotenv-flow": "^4.1.0",
     "env-paths": "^3.0.0",
     "inquirer": "^10.1.6",
     "json-diff": "^1.0.6",
