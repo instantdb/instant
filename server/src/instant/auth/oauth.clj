@@ -50,7 +50,8 @@
 
   (get-user-info [_ code redirect-url]
     (let [secret (case issuer
-                   "https://appleid.apple.com"
+                   ("https://account.apple.com"
+                    "https://appleid.apple.com")
                    (jwt/apple-client-secret
                     {:client-id   client-id
                      :team-id     (get meta "teamId")
