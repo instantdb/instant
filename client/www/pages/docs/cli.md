@@ -5,6 +5,15 @@ description: How to use the Instant CLI to manage schema and permissions.
 
 The Instant CLI was designed to drive your Instant application entirely from a project's codebase. You can create apps, define your data model, and update your permissions, **all through your terminal**.
 
+## Login
+To get started, you need to log in to your Instant account. You can do this by running:
+
+```shell {% showCopy=true %}
+npx instant-cli@latest login
+```
+
+This will open a browser window where you can authenticate with your Instant account. Once authenticated you'll be able to run commands that interact with your Instant apps!
+
 ## Init
 
 To get started, head on over to your project's root repository, and write:
