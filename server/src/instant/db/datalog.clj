@@ -1321,6 +1321,9 @@
                              (= :date order-col-type)
                              (triple-model/parse-date-value cursor-val)
 
+                             (= :string order-col-type)
+                             (->json cursor-val)
+
                              :else
                              cursor-val)
                        (case order-col-type
