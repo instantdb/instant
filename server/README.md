@@ -81,6 +81,22 @@ make compile-java
 make test
 ```
 
+# Setting up local https
+
+Add to `/etc/hosts`:
+
+```
+127.0.0.1   dev.instantdb.com
+```
+
+Run `./scripts/install_dev_certs.sh`
+
+- When asked for password, type `changeit` (couple of times)
+- If asked for override, type `yes`
+- Type your macOS password if asked in a popup
+
+After that, certs from `dev-resources/certs` will be picked up by server automatically. Server https address is https://dev.instantdb.com:8889
+
 # Config
 
 If you want to make any changes to your configuration, update the `resources/config/override.edn` file that was created when you ran `make docker-compose` or `make bootstrap-oss`. `src/instant/config_edn.clj` has a spec that describes the data for the file, or you can look at `resources/config/dev.edn` for an example.
