@@ -17,6 +17,7 @@
             :team-emails {}
             :test-emails {}
             :use-patch-presence {}
+            :refresh-skip-attrs {}
             :drop-refresh-spam {}
             :promo-emails {}
             :rate-limited-apps {}
@@ -78,6 +79,24 @@
                                 :enabled-apps enabled-apps
                                 :default-value default-value
                                 :disabled? disabled?}))
+
+        refresh-skip-attrs (when-let [hz-flag (-> (get result "refresh-skip-attrs")
+                                                  first)]
+                             (let [disabled-apps (-> hz-flag
+                                                     (get "disabled-apps")
+                                                     (#(map parse-uuid %))
+                                                     set)
+                                   enabled-apps (-> hz-flag
+                                                    (get "enabled-apps")
+                                                    (#(map parse-uuid %))
+                                                    set)
+                                   default-value (get hz-flag "default-value" false)
+                                   disabled? (get hz-flag "disabled" false)]
+                               {:disabled-apps disabled-apps
+                                :enabled-apps enabled-apps
+                                :default-value default-value
+                                :disabled? disabled?}))
+
         promo-code-emails (set (keep (fn [o]
                                        (get o "email"))
                                      (get result "promo-emails")))
@@ -146,6 +165,7 @@
      :storage-enabled-whitelist storage-enabled-whitelist
      :storage-block-list storage-block-list
      :use-patch-presence use-patch-presence
+     :refresh-skip-attrs refresh-skip-attrs
      :promo-code-emails promo-code-emails
      :drop-refresh-spam drop-refresh-spam
      :rate-limited-apps rate-limited-apps
@@ -202,6 +222,25 @@
 
 (defn use-patch-presence? [app-id]
   (let [flag (:use-patch-presence (query-result))
+        {:keys [disabled-apps enabled-apps default-value disabled?]} flag]
+    (cond
+      (nil? flag)
+      true
+
+      disabled?
+      false
+
+      (contains? disabled-apps app-id)
+      false
+
+      (contains? enabled-apps app-id)
+      true
+
+      :else
+      default-value)))
+
+(defn refresh-skip-attrs? [app-id]
+  (let [flag (:refresh-skip-attrs (query-result))
         {:keys [disabled-apps enabled-apps default-value disabled?]} flag]
     (cond
       (nil? flag)

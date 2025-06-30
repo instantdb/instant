@@ -503,6 +503,71 @@
             ;; we also recorded the tx-id that was processed
           (is (= 5 (rs/get-processed-tx-id store app-id))))))))
 
+(deftest refresh-skip-attrs
+  (with-movies-app
+    (fn [{app-id :id :as _app} r]
+      (with-session
+        (fn [store {{sess-id :id :as socket} :socket}]
+          (send-msg socket {:op :init
+                            :app-id app-id
+                            :versions {session/core-version-key "0.20.5"}})
+          (let [ret (read-msg socket)]
+            (is (= :init-ok (:op ret)))
+            (is (contains? ret :attrs)))
+
+          (blocking-send-msg :add-query-ok
+                             socket
+                             {:op :add-query
+                              :q (:kw-q query-1987)})
+
+          ;; mark topic as stale
+          ;; clear the query hash so that the refresh will trigger a send
+          (rs/mark-stale-topics! store
+                                 app-id
+                                 0
+                                 [(d/pat->coarse-topic
+                                   [:ea
+                                    (resolvers/->uuid r "eid-predator")])])
+          (ds/transact! (rs/app-conn store app-id)
+                        [[:db/retract [:instaql-query/session-id+query [sess-id (:kw-q query-1987)]] :instaql-query/hash]])
+
+          (testing "if attrs don't change, don't send them"
+            (send-msg socket {:session-id (:id socket)
+                              :op :refresh})
+            (let [ret (read-msg socket)]
+              (is (= :refresh-ok (:op ret)))
+              (is (not (contains? ret :attrs)))))
+
+          ;; change attrs
+          (tx/transact! (aurora/conn-pool :write)
+                        (attr-model/get-by-app-id app-id)
+                        app-id
+                        [[:add-attr {:id (random-uuid)
+                                     :forward-identity [(random-uuid) "profile" "id"]
+                                     :unique? true
+                                     :index? false
+                                     :value-type :blob
+                                     :cardinality :one}]])
+
+          ;; mark topic as stale
+          ;; clear the query hash so that the refresh will trigger a send
+          (rs/mark-stale-topics! store
+                                 app-id
+                                 0
+                                 [(d/pat->coarse-topic
+                                   [:ea
+                                    (resolvers/->uuid r "eid-predator")])])
+          (ds/transact! (rs/app-conn store app-id)
+                        [[:db/retract [:instaql-query/session-id+query [sess-id (:kw-q query-1987)]] :instaql-query/hash]])
+
+          (testing "if attrs change, they get send again"
+            (send-msg socket {:session-id (:id socket)
+                              :op :refresh})
+            (let [ret (read-msg socket)]
+              (is (= :refresh-ok (:op ret)))
+              (is (contains? ret :attrs)))))))))
+
+
 (deftest refresh-populates-cache
   (with-movies-app
     (fn [{app-id :id :as _app} r]
