@@ -585,7 +585,7 @@
          [:json_null_to_null :value]
          :value)
        (value->jsonb val)]
-      (data-type-comparison :is-distinct-from :value val))))
+      (data-type-comparison data-type :is-distinct-from :value val))))
 
 (defn- in-or-eq-value [idx v-set]
   (let [[tag idx-val] idx
