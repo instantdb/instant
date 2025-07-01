@@ -9,6 +9,7 @@
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.system-catalog :refer [system-catalog-app-id]]
+   [instant.util.coll :as coll]
    [instant.util.crypt :refer [json-null-md5]]
    [instant.util.exception :as ex]
    [instant.util.spec :as uspec]
@@ -644,32 +645,6 @@
     indexing (assoc :indexing? true)
     setting_unique (assoc :setting-unique? true)))
 
-(defn index-attrs
-  "Groups attrs by common lookup patterns so that we can efficiently look them up."
-  [attrs]
-  (reduce (fn [acc attr]
-            (cond-> acc
-              true
-              (update :by-id assoc (:id attr) attr)
-
-              true
-              (update :by-fwd-ident assoc (fwd-ident-name attr) attr)
-
-              (seq (rev-ident-name attr))
-              (update :by-rev-ident assoc (rev-ident-name attr) attr)
-
-              true
-              (update :ids-by-etype update (fwd-etype attr) (fnil conj #{}) (:id attr))
-
-              (= :one (:cardinality attr))
-              (update :ea-ids-by-etype update (fwd-etype attr) (fnil conj #{}) (:id attr))))
-          {:by-id {}
-           :by-fwd-ident {}
-           :by-rev-ident {}
-           :ids-by-etype {}
-           :ea-ids-by-etype {}}
-          attrs))
-
 (defprotocol AttrsExtension
   (seekById [this id])
   (seekByFwdIdentName [this fwd-ident])
@@ -681,28 +656,31 @@
 ;; Creates a wrapper over attrs. Makes them act like a regular list, but
 ;; we can also index them on demand so that our access patterns will be
 ;; efficient.
-(deftype Attrs [elements cache]
+(declare wrap-attrs)
+
+(deftype Attrs [elements
+                by-id-cache
+                by-fwd-ident-cache
+                by-rev-ident-cache
+                ids-by-etype-cache
+                ea-ids-by-etype-cache]
   clojure.lang.ISeq
   (count [_this]
     (count elements))
   (first [_this]
     (first elements))
   (next [_this]
-    (let [nxt (next elements)]
-      (if nxt
-        (Attrs. nxt (delay (index-attrs nxt)))
-        nil)))
+    (some-> elements next wrap-attrs))
   (more [_this]
-    (if-let [nxt (next elements)]
-      (Attrs. nxt (delay (index-attrs nxt)))
+    (if-some [nxt (next elements)]
+      (wrap-attrs nxt)
       clojure.lang.PersistentList/EMPTY))
   (empty [_this]
-    (Attrs. () (delay {})))
+    (wrap-attrs ()))
   (equiv [_this other]
     (= elements other))
   (cons [_this o]
-    (let [new-elements (cons o elements)]
-      (Attrs. new-elements (delay (index-attrs new-elements)))))
+    (wrap-attrs (cons o elements)))
   (seq [this]
     (if (empty? elements)
       nil
@@ -720,30 +698,40 @@
 
   AttrsExtension
   (seekById [_this id]
-    (-> @cache
-        :by-id
-        (get id)))
+    (get @by-id-cache id))
   (seekByFwdIdentName [_this fwdIdent]
-    (-> @cache
-        :by-fwd-ident
-        (get fwdIdent)))
+    (get @by-fwd-ident-cache fwdIdent))
   (seekByRevIdentName [_this revIdent]
-    (-> @cache
-        :by-rev-ident
-        (get revIdent)))
+    (get @by-rev-ident-cache revIdent))
   (attrIdsForEtype [_this etype]
-    (-> @cache
-        :ids-by-etype
-        (get etype #{})))
-  (unwrap [_this]
-    elements)
+    (get @ids-by-etype-cache etype #{}))
   (eaIdsForEtype [_this etype]
-    (-> @cache
-        :ea-ids-by-etype
-        (get etype #{}))))
+    (get @ea-ids-by-etype-cache etype #{}))
+  (unwrap [_this]
+    elements))
 
 (defn wrap-attrs [attrs]
-  (Attrs. attrs (delay (index-attrs attrs))))
+  (Attrs.
+   attrs
+   ;; by-id-cache
+   (delay
+     (coll/map-by :id attrs))
+   ;; by-fwd-ident-cache
+   (delay
+     (coll/map-by fwd-ident-name attrs))
+   ;; by-rev-ident-cache
+   (delay
+     (->> attrs
+          (filter rev-ident-name)
+          (coll/map-by rev-ident-name)))
+   ;; ids-by-etype-cache
+   (delay
+     (coll/group-by-to fwd-etype :id #{} attrs))
+   ;; ea-ids-by-etype-cache
+   (delay
+     (->> attrs
+          (filter #(= :one (:cardinality %)))
+          (coll/group-by-to fwd-etype :id #{})))))
 
 (defn get-by-app-id*
   "Returns clj representation of all attrs for an app"

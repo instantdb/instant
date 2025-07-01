@@ -218,17 +218,28 @@
                [(transient []) (transient [])] xs)]
     [(persistent! f) (persistent! r)]))
 
-(defn group-by-to
-  "Like group-by but applies (val-fn x) to values"
-  [key-fn val-fn xs]
+(defn map-by
+  "Given xs, builds a map of {(key-fn x) x}"
+  [key-fn xs]
   (persistent!
    (reduce
     (fn [m x]
-      (let [k (key-fn x)
-            v (val-fn x)
-            old-v (get m k [])]
-        (assoc! m k (conj old-v v))))
+      (assoc! m (key-fn x) x))
     (transient {}) xs)))
+
+(defn group-by-to
+  "Like group-by but applies (val-fn x) to values"
+  ([key-fn val-fn xs]
+   (group-by-to key-fn val-fn [] xs))
+  ([key-fn val-fn container xs]
+   (persistent!
+    (reduce
+     (fn [m x]
+       (let [k (key-fn x)
+             v (val-fn x)
+             old-v (get m k container)]
+         (assoc! m k (conj old-v v))))
+     (transient {}) xs))))
 
 (defn reduce-tr
   "Like reduce but makes acc transient/persistent automatically"
