@@ -120,7 +120,7 @@
             (when versions
               [:session/versions versions])
             (when can-skip-attrs?
-              [:session/attrs attrs])))
+              [:session/attrs-hash (hash attrs)])))
     (rs/send-event! store app-id sess-id {:op              :init-ok
                                           :session-id      sess-id
                                           :client-event-id client-event-id
@@ -226,15 +226,16 @@
                       :num-computations num-computations
                       :dropped-spam? drop-spam?
                       :tx-latency-ms (e2e-tracer/tx-latency-ms (:tx-created-at event))}
-        {prev-attrs :session/attrs
+        {prev-attrs-hash :session/attrs-hash
          version :session/versions} (rs/session store sess-id)
         parsed-version  (some-> version (get core-version-key) (semver/parse))
         can-skip-attrs? (and (flags/refresh-skip-attrs? app-id)
                              parsed-version
                              (pos? (semver/compare-semver parsed-version refresh-skip-attrs-min-version)))
-        attrs-changed?  (not= prev-attrs attrs)]
+        attrs-hash      (hash attrs)
+        attrs-changed?  (not= prev-attrs-hash attrs-hash)]
     (when (and can-skip-attrs? attrs-changed?)
-      (rs/assoc-session! store sess-id :session/attrs attrs))
+      (rs/assoc-session! store sess-id :session/attrs-hash attrs-hash))
     (e2e-tracer/invalidator-tracking-step! {:tx-id (:tx-id event)
                                             :tx-created-at (:tx-created-at event)
                                             :name "finish-refresh-queries"

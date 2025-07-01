@@ -708,6 +708,16 @@
       nil
       this))
 
+  clojure.lang.IHashEq
+  (hasheq [_this]
+    (clojure.lang.Murmur3/hashUnordered elements))
+
+  java.lang.Object
+  (equals [_this o]
+    (and (instance? Attrs o)
+         (= (set elements)
+            (set (.-elements ^Attrs o)))))
+
   AttrsExtension
   (seekById [_this id]
     (-> @cache
