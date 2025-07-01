@@ -80,9 +80,9 @@
 (deftest joins
   (testing "join conditions bind symbols to the matching previous patterns"
     (is (=
-         '(([:= :entity-id :match-0-value-uuid])
+         '(([:= :entity-id [:json_uuid_to_uuid :match-0-value-blob]])
            ([:= :entity-id :match-0-attr-id]
-            [:= :attr-id :match-0-value-uuid]
+            [:= :attr-id [:json_uuid_to_uuid :match-0-value-blob]]
             [:= :attr-id :match-1-entity-id]))
          (raw-pats->join-conds '[[:eav ?a ?b ?c]
                                  [:ea ?c ?d ?e]
@@ -99,10 +99,10 @@
     (is (= '(([:= :value [:to_jsonb :match-0-attr-id]]))
            (raw-pats->join-conds '[[:av _ ?a] [:eav _ _ ?a]]))))
   (testing "join conditions matches entities to coerced values"
-    (is (= '(([:= :entity-id :match-0-value-uuid]))
+    (is (= '(([:= :entity-id [:json_uuid_to_uuid :match-0-value-blob]]))
            (raw-pats->join-conds '[[:eav _ _ ?a] [:vae ?a]]))))
   (testing "join conditions matches attrs to coerced values"
-    (is (= '(([:= :attr-id :match-0-value-uuid]))
+    (is (= '(([:= :attr-id [:json_uuid_to_uuid :match-0-value-blob]]))
            (raw-pats->join-conds '[[:eav _ _ ?a] [:av _ ?a]]))))
   (testing "join conditions matches entities to attrs"
     (is (= '(([:= :entity-id :match-0-attr-id]))
