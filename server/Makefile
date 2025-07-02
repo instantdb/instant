@@ -30,6 +30,12 @@ dev-down:
 	@echo "Migrating dev db up down by 1"
 	migrate -database "postgresql://localhost:5432/instant?sslmode=disable" -path resources/migrations down 1
 
+## Generates the blank up/down files for the migration
+# Update -digits to 3 when we hit migration 100
+create-migration:
+	@read -p "Enter the migration name: " name; \
+	migrate create -dir resources/migrations -ext sql -digits 2 -seq "$$name"
+
 compile-java:
 	clojure -T:build compile-java
 
