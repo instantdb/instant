@@ -30,6 +30,12 @@ dev-down:
 	@echo "Migrating dev db up down by 1"
 	migrate -database "postgresql://localhost:5432/instant?sslmode=disable" -path resources/migrations down 1
 
+## Generates the blank up/down files for the migration
+# Update -digits to 3 when we hit migration 100
+create-migration:
+	@read -p "Enter the migration name: " name; \
+	migrate create -dir resources/migrations -ext sql -digits 2 -seq "$$name"
+
 compile-java:
 	clojure -T:build compile-java
 
@@ -68,19 +74,19 @@ prod-connect:
 
 prod-version:
 	@DATABASE_URL=$$(./scripts/prod_connection_string.sh); \
-	migrate -database "$${DATABASE_URL}" -path resources/migrations version
+	migrate -database "$${DATABASE_URL}" -source github://instantdb/instant/server/resources/migrations#main version
 
 prod-up:
 	@DATABASE_URL=$$(./scripts/prod_connection_string.sh); \
 	echo "[IMPORTANT] Migrating prod up to latest -- are you sure you want to do this? [y/N]" && \
 		read ans && [ $$ans = y ] && \
-		migrate -database "$${DATABASE_URL}" -path resources/migrations up
+		migrate -database "$${DATABASE_URL}" -source github://instantdb/instant/server/resources/migrations#main up
 
 prod-down:
 	@DATABASE_URL=$$(./scripts/prod_connection_string.sh); \
 	echo "[IMPORTANT] Migrating prod db down by 1 -- are you sure you want to do this? [y/N]" && \
 		read ans && [ $$ans = y ] && \
-		migrate -database "$${DATABASE_URL}" -path resources/migrations down 1
+		migrate -database "$${DATABASE_URL}" -source github://instantdb/instant/server/resources/migrations#main down 1
 
 psql:
 	@echo "Connecting to local db..."
