@@ -2362,57 +2362,56 @@
                                (#(get % "etype"))
                                (map #(get % "label"))
                                set)))
-            tx-result (tx/transact! (aurora/conn-pool :write)
-                                    (attr-model/get-by-app-id (:id app))
-                                    (:id app)
-                                    (concat
-                                     [[:add-attr {:id id-attr-id
-                                                  :forward-identity [(random-uuid) "etype" "id"]
-                                                  :unique? true
-                                                  :index? true
-                                                  :value-type :blob
-                                                  :checked-data-type :string
-                                                  :cardinality :one}]
-                                      [:add-attr {:id label-attr-id
-                                                  :forward-identity [(random-uuid) "etype" "label"]
-                                                  :unique? true
-                                                  :index? true
-                                                  :value-type :blob
-                                                  :checked-data-type :string
-                                                  :cardinality :one}]]
-                                     (for [[t attr-id] attr-ids]
-                                       [:add-attr {:id attr-id
-                                                   :forward-identity [(random-uuid) "etype" (name t)]
-                                                   :unique? false
+            _tx-result (tx/transact! (aurora/conn-pool :write)
+                                     (attr-model/get-by-app-id (:id app))
+                                     (:id app)
+                                     (concat
+                                      [[:add-attr {:id id-attr-id
+                                                   :forward-identity [(random-uuid) "etype" "id"]
+                                                   :unique? true
                                                    :index? true
                                                    :value-type :blob
-                                                   :checked-data-type t
-                                                   :cardinality :one}])
+                                                   :checked-data-type :string
+                                                   :cardinality :one}]
+                                       [:add-attr {:id label-attr-id
+                                                   :forward-identity [(random-uuid) "etype" "label"]
+                                                   :unique? true
+                                                   :index? true
+                                                   :value-type :blob
+                                                   :checked-data-type :string
+                                                   :cardinality :one}]]
+                                      (for [[t attr-id] attr-ids]
+                                        [:add-attr {:id attr-id
+                                                    :forward-identity [(random-uuid) "etype" (name t)]
+                                                    :unique? false
+                                                    :index? true
+                                                    :value-type :blob
+                                                    :checked-data-type t
+                                                    :cardinality :one}])
 
-                                     (mapcat
-                                      (fn [i]
-                                        (let [id (random-uuid)]
-                                          [[:add-triple id id-attr-id (str id)]
-                                           [:add-triple id label-attr-id (nth labels i)]
-                                           [:add-triple id (:string attr-ids) (str i)]
-                                           [:add-triple id (:number attr-ids) i]
-                                           [:add-triple id (:date attr-ids) i]
-                                           [:add-triple id (:boolean attr-ids) (zero? (mod i 2))]]))
-                                      (range (count labels)))
-                                     ;; null
-                                     (let [id (random-uuid)]
-                                       [[:add-triple id id-attr-id (str id)]
-                                        [:add-triple id label-attr-id "null"]
-                                        [:add-triple id (:string attr-ids) nil]
-                                        [:add-triple id (:number attr-ids) nil]
-                                        [:add-triple id (:date attr-ids) nil]
-                                        [:add-triple id (:boolean attr-ids) nil]])
+                                      (mapcat
+                                       (fn [i]
+                                         (let [id (random-uuid)]
+                                           [[:add-triple id id-attr-id (str id)]
+                                            [:add-triple id label-attr-id (nth labels i)]
+                                            [:add-triple id (:string attr-ids) (str i)]
+                                            [:add-triple id (:number attr-ids) i]
+                                            [:add-triple id (:date attr-ids) i]
+                                            [:add-triple id (:boolean attr-ids) (zero? (mod i 2))]]))
+                                       (range (count labels)))
+                                      ;; null
+                                      (let [id (random-uuid)]
+                                        [[:add-triple id id-attr-id (str id)]
+                                         [:add-triple id label-attr-id "null"]
+                                         [:add-triple id (:string attr-ids) nil]
+                                         [:add-triple id (:number attr-ids) nil]
+                                         [:add-triple id (:date attr-ids) nil]
+                                         [:add-triple id (:boolean attr-ids) nil]])
 
-                                     ;; undefined
-                                     (let [id (random-uuid)]
-                                       [[:add-triple id id-attr-id (str id)]
-                                        [:add-triple id label-attr-id "undefined"]])))]
-        (tool/def-locals)
+                                      ;; undefined
+                                      (let [id (random-uuid)]
+                                        [[:add-triple id id-attr-id (str id)]
+                                         [:add-triple id label-attr-id "undefined"]])))]
 
         (testing "$isNull"
           (testing "string"
