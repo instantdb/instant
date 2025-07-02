@@ -433,12 +433,13 @@ function createRefAttr(schema, etype, label, props) {
 }
 
 // Actions that have an object, e.g. not delete
-const OBJ_ACTIONS = new Set(['update', 'merge', 'link', 'unlink']);
+const OBJ_ACTIONS = new Set(['create', 'update', 'merge', 'link', 'unlink']);
 const REF_ACTIONS = new Set(['link', 'unlink']);
-const UPDATE_ACTIONS = new Set(['update', 'merge']);
+const UPDATE_ACTIONS = new Set(['create', 'update', 'merge']);
 const SUPPORTS_LOOKUP_ACTIONS = new Set([
   'link',
   'unlink',
+  'create',
   'update',
   'merge',
   'delete',
