@@ -1,5 +1,5 @@
 -- run this concurrently first
-drop index vae_index;
+drop index if exists vae_index;
 
 -- run this concurrently first
-drop index eav_index;
+drop index if exists eav_index;
