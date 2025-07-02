@@ -55,6 +55,20 @@ Or edit your `~/.cursor/mcp.json` directly:
 }
 ```
 
+### Claude Code
+
+If you're on a paid plan, you can add the the server via the command line
+
+```text {% showCopy="true" %}
+# Set scope to user so MCP is available regardless of current workspace
+claude mcp add instant -s user -t http https://mcp.instantdb.com/mcp
+
+# Now start claude and authenticate with the mcp server
+claude
+> /mcp
+> instant
+```
+
 ### Claude
 
 If you're on a paid plan, go to Settings > Integrations. Add a custom integration and use the url:
