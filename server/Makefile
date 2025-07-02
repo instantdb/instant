@@ -68,19 +68,19 @@ prod-connect:
 
 prod-version:
 	@DATABASE_URL=$$(./scripts/prod_connection_string.sh); \
-	migrate -database "$${DATABASE_URL}" -path resources/migrations version
+	migrate -database "$${DATABASE_URL}" -source github://instantdb/instant/server/resources/migrations#main version
 
 prod-up:
 	@DATABASE_URL=$$(./scripts/prod_connection_string.sh); \
 	echo "[IMPORTANT] Migrating prod up to latest -- are you sure you want to do this? [y/N]" && \
 		read ans && [ $$ans = y ] && \
-		migrate -database "$${DATABASE_URL}" -path resources/migrations up
+		migrate -database "$${DATABASE_URL}" -source github://instantdb/instant/server/resources/migrations#main up
 
 prod-down:
 	@DATABASE_URL=$$(./scripts/prod_connection_string.sh); \
 	echo "[IMPORTANT] Migrating prod db down by 1 -- are you sure you want to do this? [y/N]" && \
 		read ans && [ $$ans = y ] && \
-		migrate -database "$${DATABASE_URL}" -path resources/migrations down 1
+		migrate -database "$${DATABASE_URL}" -source github://instantdb/instant/server/resources/migrations#main down 1
 
 psql:
 	@echo "Connecting to local db..."
