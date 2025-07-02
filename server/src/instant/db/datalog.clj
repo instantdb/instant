@@ -811,7 +811,7 @@
 
    [1 [:v :v]] => [:value :match-1-value-blob]
    [1 [:e :v]] => [:entity-id [:json_uuid_to_uuid :match-1-value-blob]]
-   [1 [:v :a]] => [:value [:to_jsonb :match-1-attr-id]]"
+   [1 [:v :e]] => [[:json_uuid_to_uuid :value] :match-1-entity-id]"
   [prefix dest-idx [origin-ctype dest-ctype]]
 
   (let [dest-col #(kw prefix dest-idx "-" %)]
@@ -820,7 +820,7 @@
       [:value (dest-col :value-blob)]
 
       (= :v origin-ctype)
-      [:value [:to_jsonb (dest-col (component-type->col-name dest-ctype))]]
+      [[:json_uuid_to_uuid :value] (dest-col (component-type->col-name dest-ctype))]
 
       (= :v dest-ctype)
       [(component-type->col-name origin-ctype) [:json_uuid_to_uuid (dest-col :value-blob)]]
