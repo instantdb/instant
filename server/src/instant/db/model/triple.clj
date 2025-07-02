@@ -167,20 +167,18 @@
                     ),
 
                     -- populate entities with attrs
-                    eid_required_attrs AS (
+                    eid_attrs AS (
                       SELECT DISTINCT
                         entity_id,
                         attrs.id AS attr_id,
                         attrs.etype,
-                        attrs.label
+                        attrs.label,
+                        attrs.is_required
                       FROM
                         eid_etypes_cte
                       JOIN attrs
                         ON (attrs.app_id = ?app-id OR attrs.app_id = ?system-catalog-app-id)
                         AND attrs.etype = eid_etypes_cte.etype
-                      WHERE
-                        attrs.is_required = TRUE
-                        OR attrs.label = 'id'
                     ),
 
                     -- select all triples related to our eids
@@ -192,17 +190,21 @@
                         triples
                       WHERE
                         app_id = ?app-id
-                        AND entity_id IN (SELECT entity_id FROM eid_etypes_cte)
+                        AND (entity_id, attr_id) IN (SELECT entity_id, attr_id FROM eid_attrs)
                         AND value <> cast('null' AS jsonb)
                     )
 
                     SELECT
                       *
                     FROM
-                      eid_required_attrs
+                      eid_attrs
                     WHERE
+                      -- limit only to required attrs
+                      (eid_attrs.is_required = TRUE OR eid_attrs.label = 'id')
+
                       -- check entity is alive
-                      entity_id IN (SELECT entity_id FROM triples_cte)
+                      AND entity_id IN (SELECT entity_id FROM triples_cte)
+
                       -- check for attrs missing from triples
                       AND (entity_id, attr_id) NOT IN (SELECT entity_id, attr_id FROM triples_cte)"
                    {"?eid+etypes"            (->json eid+etypes)
