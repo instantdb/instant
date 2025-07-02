@@ -171,9 +171,18 @@
            "store/swap-datalog-cache!"
            "store/bump-instaql-version!"
            "store/add-instaql-query!"
+           "store/mark-datalog-queries-stale!"
+           "store/remove-query!"
+           "store/assoc-session!"
+           "store/remove-session!"
+           "store/remove-session-data!"
+           "store/upsert-datalog-loader!"
            "instaql/get-eid-check-result!"
            "extract-permission-helpers"
-           "instaql/map-permissioned-node") true
+           "instaql/map-permissioned-node"
+           "datalog-query-reactive!"
+           "instaql/preload-entity-maps"
+           "datalog/send-query-nested") true
 
           ("receive-worker/handle-event"
            "receive-worker/handle-receive")
