@@ -2356,8 +2356,6 @@
             run-query (fn [q]
                         (let [ctx (make-ctx)]
                           (->> (iq/permissioned-query ctx q)
-                               (tool/inspect)
-
                                (instaql-nodes->object-tree ctx)
                                (#(get % "etype"))
                                (map #(get % "label"))
