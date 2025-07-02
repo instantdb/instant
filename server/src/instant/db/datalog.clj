@@ -1061,7 +1061,7 @@
               (if (named-variable? x)
                 (assoc acc pat-idx {:sym sym
                                     :ref-value? (and (= :v component)
-                                                     (= :eav (idx-key (:idx named-p))))})
+                                                     (= :vae (idx-key (:idx named-p))))})
                 acc)))
           {}
           [[:e 0] [:a 1] [:v 2]]))
