@@ -722,14 +722,14 @@
    {:name :ea_index
     :cols [:e :a]
     :idx-key :ea}
-   {:name :eav_index
+   {:name :eav_uuid_index
     :cols [:e :a :v]
     :idx-key :eav}
    {:name :triples_string_trgm_gist_idx
     :cols [:a :v]
     :idx-key :ave
     :data-type :string}
-   {:name :vae_index
+   {:name :vae_uuid_index
     :cols [:v :a :e]
     :idx-key :vae}
    {:name :triples_created_at_idx
