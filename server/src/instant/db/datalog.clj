@@ -555,12 +555,23 @@
 (defn- value->jsonb [x]
   [:cast (->json x) :jsonb])
 
-(defn extract-value-fn [data-type]
+(defn extract-value-fn [data-type op]
   (case data-type
-    :date :triples_extract_date_value
+    :date  :triples_extract_date_value
     :number :triples_extract_number_value
-    :string :triples_extract_string_value
+    :string (case op
+              (:like :ilike) :triples_extract_string_value
+              nil)
     :boolean :triples_extract_boolean_value))
+
+(defn data-type-comparison [data-type op col val]
+  (if-let [f (extract-value-fn data-type op)]
+    [:and
+     [op [f col] val]
+     [:=
+      :checked_data_type
+      [:cast [:inline (name data-type)] :checked_data_type]]]
+    [op col (value->jsonb val)]))
 
 (defn- not-eq-value [idx val]
   (let [[tag idx-val] idx
@@ -574,9 +585,7 @@
          [:json_null_to_null :value]
          :value)
        (value->jsonb val)]
-      [:and
-       [:= :checked_data_type [:cast [:inline (name data-type)] :checked_data_type]]
-       [:is-distinct-from [(extract-value-fn data-type) :value] val]])))
+      (data-type-comparison data-type :is-distinct-from :value val))))
 
 (defn- in-or-eq-value [idx v-set]
   (let [[tag idx-val] idx
@@ -593,9 +602,7 @@
                   (map value->jsonb v-set))
 
         (list* :or (map (fn [v]
-                          [:and
-                           [:= :checked_data_type [:cast [:inline (name data-type)] :checked_data_type]]
-                           [:= [(extract-value-fn data-type) :value] v]])
+                          (data-type-comparison data-type := :value v))
                         v-set))))))
 
 (defn- constant->where-part [idx app-id component-type [_ v]]
@@ -663,24 +670,19 @@
                                                 :eav)
                                               (if-let [data-type (:indexed-checked-type val)]
                                                 [:ave
-                                                 [:=
-                                                  :checked_data_type
-                                                  [:cast [:inline (name data-type)] :checked_data_type]]
-                                                 [:not= [(extract-value-fn data-type) :t.value] nil]]
+                                                 (data-type-comparison data-type :not= :t.value nil)]
                                                 [[:not= :t.value [:cast (->json nil) :jsonb]]]))})]]
                   :$comparator (let [{:keys [op value data-type]} val]
-                                 [[(case op
-                                     :$gt :>
-                                     :$gte :>=
-                                     :$lt :<
-                                     :$lte :<=
-                                     :$like :like
-                                     :$ilike :ilike)
-                                   [(extract-value-fn data-type)
-                                    :value]
-                                   value]
-                                  ;; Need this check so that postgres knows it can use the index
-                                  [:= :checked_data_type [:cast [:inline (name data-type)] :checked_data_type]]])
+                                 [(data-type-comparison data-type
+                                                        (case op
+                                                          :$gt :>
+                                                          :$gte :>=
+                                                          :$lt :<
+                                                          :$lte :<=
+                                                          :$like :like
+                                                          :$ilike :ilike)
+                                                        :value
+                                                        value)])
                   :$entityIdStartsWith
                   (let [prefix val]
                     [[:and
@@ -965,8 +967,18 @@
                                         (not= (:idx-key idx-config)
                                               (idx-key (:idx named-p))))
                                    (and (:data-type idx-config)
-                                        (not (= (:data-type idx-config)
-                                                (idx-data-type (:idx named-p))))))
+                                        (or (not (= (:data-type idx-config)
+                                                    (idx-data-type (:idx named-p))))
+                                            (and (= :string (:data-type idx-config))
+                                                 (not (and (= :function (-> named-p
+                                                                            :v
+                                                                            first))
+                                                           (contains? #{:$like :$ilike}
+                                                                      (-> named-p
+                                                                          :v
+                                                                          second
+                                                                          :$comparator
+                                                                          :op))))))))
                              -1
                              (+ (if (and (:idx-key idx-config)
                                          (= (:idx-key idx-config)
@@ -1295,23 +1307,29 @@
                      [:before :desc] :>
                      [:after :asc] :>
                      [:after :desc] :<)
-        order-col (if (= order-col-type :created-at-timestamp)
-                    order-col-name
-                    [(extract-value-fn order-col-type) order-col-name])
+        order-col-value-fn (when (not= order-col-type :created-at-timestamp)
+                             (extract-value-fn order-col-type comparison))
+        order-col (if order-col-value-fn
+                    [order-col-value-fn order-col-name]
+                    order-col-name)
         order-col-val [:cast
                        (cond (and (keyword? cursor-val)
-                                  (not= order-col-type :created-at-timestamp))
-                             [(extract-value-fn order-col-type) cursor-val]
+                                  (not= order-col-type :created-at-timestamp)
+                                  order-col-value-fn)
+                             [order-col-value-fn cursor-val]
 
                              (= :date order-col-type)
                              (triple-model/parse-date-value cursor-val)
+
+                             (= :string order-col-type)
+                             (->json cursor-val)
 
                              :else
                              cursor-val)
                        (case order-col-type
                          :created-at-timestamp :bigint
                          :boolean :boolean
-                         :string :text
+                         :string :jsonb
                          :number :double-precision
                          :date :timestamp-with-time-zone)]]
 
@@ -1409,9 +1427,13 @@
                              (reverse-direction direction)
                              direction)
 
+        ;; Will be nil if we're sorting by serverCreatedAt or string
+        order-col-value-fn (when-not (= order-col-type :created-at-timestamp)
+                             (extract-value-fn order-col-type :>))
+
         query (-> query
                   (update :where (fn [wheres]
-                                   (if (= order-col-type :created-at-timestamp)
+                                   (if-not order-col-value-fn
                                      wheres
                                      ;; Make sure we use the index for ordering
                                      (list :and [:= :checked_data_type
@@ -1420,15 +1442,16 @@
                   (dissoc :select)
                   (assoc :select-distinct-on (list*
                                               [:order-val :order-eid]
-                                              [(if (= order-col-type :created-at-timestamp)
-                                                 [:cast order-col-name :bigint]
-                                                 [(extract-value-fn order-col-type) order-col-name])
+                                              [(if order-col-value-fn
+                                                 [order-col-value-fn  order-col-name]
+                                                 order-col-name)
                                                :order-val]
                                               [entity-id-col :order-eid]
                                               (:select query))))
 
         order-by [[:order-val
-                   (if (= order-col-type :created-at-timestamp)
+                   (if-not order-col-value-fn
+                     ;; No nulls in this case, so no need to specify null-first/last
                      order-by-direction
                      (if (= order-by-direction :desc)
                        (kw order-by-direction :-nulls-last)
