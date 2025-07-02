@@ -670,7 +670,7 @@
                                                 :eav)
                                               (if-let [data-type (:indexed-checked-type val)]
                                                 [:ave
-                                                 (data-type-comparison data-type :not= :tvalue nil)]
+                                                 (data-type-comparison data-type :not= :t.value nil)]
                                                 [[:not= :t.value [:cast (->json nil) :jsonb]]]))})]]
                   :$comparator (let [{:keys [op value data-type]} val]
                                  [(data-type-comparison data-type
