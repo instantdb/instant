@@ -1193,10 +1193,10 @@
   [ctx o]
   (let [query-hash (forms-hash o)
         explain-fn (or (:datalog-explain-fn ctx)
-                       d/explain)]
-    (let [{:keys [patterns]} (instaql-query->patterns ctx o)]
-      (explain-fn (assoc ctx :query-hash query-hash)
-                  patterns))))
+                       d/explain)
+        {:keys [patterns]} (instaql-query->patterns ctx o)]
+    (explain-fn (assoc ctx :query-hash query-hash)
+                patterns)))
 
 ;; BYOP InstaQL
 
