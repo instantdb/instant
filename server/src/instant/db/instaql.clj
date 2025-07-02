@@ -1194,7 +1194,7 @@
   (let [query-hash (forms-hash o)
         explain-fn (or (:datalog-explain-fn ctx)
                        d/explain)]
-    (let [{:keys [patterns forms]} (instaql-query->patterns ctx o)]
+    (let [{:keys [patterns]} (instaql-query->patterns ctx o)]
       (explain-fn (assoc ctx :query-hash query-hash)
                   patterns))))
 
