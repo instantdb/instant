@@ -625,25 +625,26 @@
            checking_data_type
            indexing
            setting_unique]}]
-  (cond-> {:id id
-           :value-type (keyword value_type)
-           :cardinality (keyword cardinality)
-           :forward-identity [forward_ident etype label]
-           :unique? is_unique
-           :index? is_indexed
-           :required? (or is_required false)
-           :inferred-types (when inferred_types
-                             (friendly-inferred-types inferred_types))
-           :catalog (if (= app_id system-catalog-app-id)
-                      :system
-                      :user)}
-    on_delete (assoc :on-delete (keyword on_delete))
-    on_delete_reverse (assoc :on-delete-reverse (keyword on_delete_reverse))
-    reverse_ident (assoc :reverse-identity [reverse_ident reverse_etype reverse_label])
-    checked_data_type (assoc :checked-data-type (keyword checked_data_type))
-    checking_data_type (assoc :checking-data-type? true)
-    indexing (assoc :indexing? true)
-    setting_unique (assoc :setting-unique? true)))
+  (cond-> (transient {:id               id
+                      :value-type       (keyword value_type)
+                      :cardinality      (keyword cardinality)
+                      :forward-identity [forward_ident etype label]
+                      :unique?          is_unique
+                      :index?           is_indexed
+                      :required?        (or is_required false)
+                      :inferred-types   (when inferred_types
+                                          (friendly-inferred-types inferred_types))
+                      :catalog          (if (= app_id system-catalog-app-id)
+                                          :system
+                                          :user)})
+    on_delete          (assoc! :on-delete (keyword on_delete))
+    on_delete_reverse  (assoc! :on-delete-reverse (keyword on_delete_reverse))
+    reverse_ident      (assoc! :reverse-identity [reverse_ident reverse_etype reverse_label])
+    checked_data_type  (assoc! :checked-data-type (keyword checked_data_type))
+    checking_data_type (assoc! :checking-data-type? true)
+    indexing           (assoc! :indexing? true)
+    setting_unique     (assoc! :setting-unique? true)
+    true               persistent!))
 
 ;; Creates a wrapper over attrs. Makes them act like a regular list, but
 ;; we can also index them on demand so that our access patterns will be
@@ -721,17 +722,22 @@
   "Returns clj representation of all attrs for an app"
   [conn app-id]
   (wrap-attrs
-   (map row->attr
-        (sql/select
-         ::get-by-app-id*
-         conn
-         (hsql/format
-          {:select :*
-           :from :attrs
-           :where [:or
-                   [:= :attrs.app-id [:cast app-id :uuid]]
-                   [:= :attrs.app-id [:cast system-catalog-app-id :uuid]]]
-           :order-by :id})))))
+   (mapv row->attr
+         (sql/select
+          ::get-by-app-id*
+          conn
+          (sql/format
+           "SELECT
+              *
+            FROM
+              attrs
+            WHERE
+              app_id = CAST(?app-id AS UUID)
+              OR app_id = CAST(?system-catalog-app-id AS UUID)
+            ORDER BY
+              id ASC"
+           {"?app-id" app-id
+            "?system-catalog-app-id" system-catalog-app-id})))))
 
 (defn get-by-app-id
   ([app-id]
