@@ -33,7 +33,7 @@
            checking-data-type?]}
    v-actualized?]
   (let [ref? (= value-type :ref)
-        e-idx (if ref? :eav :ea)
+        e-idx (if ref? :vae :ea)
         v-idx (cond
                 (and index?
                      (not indexing?)

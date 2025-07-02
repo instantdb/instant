@@ -80,9 +80,9 @@
 (deftest joins
   (testing "join conditions bind symbols to the matching previous patterns"
     (is (=
-         '(([:= :entity-id :match-0-value-uuid])
+         '(([:= :entity-id [:json_uuid_to_uuid :match-0-value-blob]])
            ([:= :entity-id :match-0-attr-id]
-            [:= :attr-id :match-0-value-uuid]
+            [:= :attr-id [:json_uuid_to_uuid :match-0-value-blob]]
             [:= :attr-id :match-1-entity-id]))
          (raw-pats->join-conds '[[:eav ?a ?b ?c]
                                  [:ea ?c ?d ?e]
@@ -99,10 +99,10 @@
     (is (= '(([:= :value [:to_jsonb :match-0-attr-id]]))
            (raw-pats->join-conds '[[:av _ ?a] [:eav _ _ ?a]]))))
   (testing "join conditions matches entities to coerced values"
-    (is (= '(([:= :entity-id :match-0-value-uuid]))
+    (is (= '(([:= :entity-id [:json_uuid_to_uuid :match-0-value-blob]]))
            (raw-pats->join-conds '[[:eav _ _ ?a] [:vae ?a]]))))
   (testing "join conditions matches attrs to coerced values"
-    (is (= '(([:= :attr-id :match-0-value-uuid]))
+    (is (= '(([:= :attr-id [:json_uuid_to_uuid :match-0-value-blob]]))
            (raw-pats->join-conds '[[:eav _ _ ?a] [:av _ ?a]]))))
   (testing "join conditions matches entities to attrs"
     (is (= '(([:= :entity-id :match-0-attr-id]))
@@ -282,10 +282,10 @@
           (let [movie-title-aid (resolvers/->uuid r :movie/title)
                 movie-director-aid (resolvers/->uuid r :movie/director)
                 person-name-aid (resolvers/->uuid r :person/name)]
-            (is (= '{:topics [[:ea _ #{:movie/title} #{"Predator"}]
-                              [:eav #{"eid-predator"} #{:movie/director} _]
-                              [:ea _ #{:person/name} _]]
-
+            (is (= '{:topics
+                     [[:ea _ #{:movie/title} #{"Predator"}]
+                      [:vae #{"eid-predator"} #{:movie/director} _]
+                      [:ea _ #{:person/name} _]]
                      :symbol-values {?e #{"eid-predator"},
                                      ?director #{"eid-john-mctiernan"},
                                      ?name #{"John McTiernan"}},
@@ -296,7 +296,7 @@
 
                    (query-pretty
                     [[:ea '?e movie-title-aid "Predator"]
-                     [:eav '?e movie-director-aid '?director]
+                     [:vae '?e movie-director-aid '?director]
                      [:ea '?director person-name-aid '?name]])))))
 
         (testing "refs jump vae"
@@ -344,16 +344,16 @@
                                         [[:ea '?director person-name-aid "John McTiernan"]
                                          [:vae '?movie movie-director-aid '?director]
                                          [:ea '?movie movie-title-aid '?title]])
-                                       %
-                                   (resolvers/walk-friendly r %)
-                                   (drop-join-rows-created-at %)))
+                                     %
+                                     (resolvers/walk-friendly r %)
+                                     (drop-join-rows-created-at %)))
                       q2 (future (as-> (d/query
                                         ctx [[:ea '?e movie-title-aid "Predator"]
-                                             [:eav '?e movie-director-aid '?director]
+                                             [:vae '?e movie-director-aid '?director]
                                              [:ea '?director person-name-aid '?name]])
-                                       %
-                                   (resolvers/walk-friendly r %)
-                                   (drop-join-rows-created-at %)))]
+                                     %
+                                     (resolvers/walk-friendly r %)
+                                     (drop-join-rows-created-at %)))]
 
                   ;; Wait for queries to batch
                   (loop [i 0]
@@ -387,7 +387,7 @@
                        @q1))
                   (is (=
                        '{:topics [[:ea _ #{:movie/title} #{"Predator"}]
-                                  [:eav #{"eid-predator"} #{:movie/director} _]
+                                  [:vae #{"eid-predator"} #{:movie/director} _]
                                   [:ea _ #{:person/name} _]]
 
                          :symbol-values {?e #{"eid-predator"},

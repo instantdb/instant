@@ -187,7 +187,7 @@
 
    This checks equality strictly based on
    the set of topics and triples in the result"
-  [pretty-a pretty-b]
+  [pretty-actual pretty-expected]
   (let [{:keys [line column]} (meta &form)
         file *file*]
     `(if-let [operations# (:operations ~'*snapshot-replacements*)]
@@ -195,18 +195,18 @@
                                  {:file ~file
                                   :line ~line
                                   :column ~column}
-                                 ~pretty-a)
-       (let [pretty-a# ~pretty-a
-             pretty-b# ~pretty-b]
+                                 ~pretty-actual)
+       (let [pretty-expected# ~pretty-expected
+             pretty-actual# ~pretty-actual]
          (testing "(topics is-pretty-eq?)"
-           (is (= (set (mapcat :topics pretty-a#))
-                  (set (mapcat :topics pretty-b#)))))
+           (is (= (set (mapcat :topics pretty-expected#))
+                  (set (mapcat :topics pretty-actual#)))))
          (testing "(triples is-pretty-eq?)"
-           (is (= (set (mapcat :triples pretty-a#))
-                  (set (mapcat :triples pretty-b#)))))
+           (is (= (set (mapcat :triples pretty-expected#))
+                  (set (mapcat :triples pretty-actual#)))))
          (testing "(aggregate is-pretty-eq?)"
-           (is (= (set (remove nil? (mapcat :aggregate pretty-a#)))
-                  (set (remove nil? (mapcat :aggregate pretty-b#))))))))))
+           (is (= (set (remove nil? (mapcat :aggregate pretty-expected#)))
+                  (set (remove nil? (mapcat :aggregate pretty-actual#))))))))))
 
 (deftest validations
   (with-zeneca-app
@@ -1477,7 +1477,7 @@
                         #{:users/createdAt :users/email :users/id :users/fullName
                           :users/handle} _]
                        --
-                       [:eav #{"eid-alex"} #{:users/bookshelves} _]
+                       [:vae #{"eid-alex"} #{:users/bookshelves} _]
                        [:ea _ #{:bookshelves/name} #{"Nonfiction"}]
                        [:ave #{"eid-nonfiction"} #{:bookshelves/order} #{1}]
                        --
@@ -2517,8 +2517,8 @@
            '({:topics ([:ave _ #{:books/title} #{"The Count of Monte Cristo"}]
                        [:vae _ #{:bookshelves/books} #{"eid-the-count-of-monte-cristo"}]
                        [:vae _ #{:users/bookshelves} #{"eid-the-way-of-the-gentleman"}]
-                       [:eav #{"eid-stepan-parunashvili"} #{:users/bookshelves} _]
-                       [:eav _ #{:bookshelves/books} _]
+                       [:vae #{"eid-stepan-parunashvili"} #{:users/bookshelves} _]
+                       [:vae _ #{:bookshelves/books} _]
                        [:ave _ #{:books/title} #{"Musashi"}]
                        [:av #{"eid-stepan-parunashvili"} #{:users/email}
                         #{"stopa@instantdb.com"}]
@@ -2839,17 +2839,16 @@
                                                          {:users {:$not (resolvers/->uuid r "eid-joe-averbukh")}}]}
                                            :order {:order "desc"}
                                            :limit 1}}})
-                       '({:topics ([:eav {:$not "eid-stepan-parunashvili"} #{:users/bookshelves} _]
+                       '({:topics ([:vae {:$not "eid-stepan-parunashvili"} #{:users/bookshelves} _]
                                    [:ea _ #{:bookshelves/id} _]
                                    [:ea _ #{:users/bookshelves} _]
                                    [:vae {:$not "eid-nicole"} #{:users/bookshelves} _]
                                    [:ea _ #{:bookshelves/id} _]
                                    [:ea _ #{:users/bookshelves} _]
-                                   [:vae {:$not "eid-joe-averbukh"} #{:users/bookshelves}
-                                    #{"eid-nonfiction"}]
-                                   [:ea #{"eid-nonfiction"} #{:bookshelves/id} _]
+                                   [:vae {:$not "eid-joe-averbukh"} #{:users/bookshelves} _]
+                                   [:ea _ #{:bookshelves/id} _]
                                    [:ea _ #{:users/bookshelves} _]
-                                   [:ave #{"eid-nonfiction"} #{:bookshelves/order} _]
+                                   [:ave _ #{:bookshelves/order} _]
                                    --
                                    [:ea #{"eid-nonfiction"}
                                     #{:bookshelves/desc :bookshelves/name :bookshelves/order
@@ -3135,7 +3134,7 @@
                         #{:users/createdAt :users/email :users/id :users/fullName
                           :users/handle} _]
                        --
-                       [:eav #{"eid-alex"} #{:users/bookshelves} _]
+                       [:vae #{"eid-alex"} #{:users/bookshelves} _]
                        --
                        [:ea #{"eid-nonfiction"}
                         #{:bookshelves/desc :bookshelves/name :bookshelves/order
@@ -3205,7 +3204,7 @@
                         #{:users/createdAt :users/email :users/id :users/fullName
                           :users/handle} _]
                        --
-                       [:eav #{"eid-alex"} #{:users/bookshelves} _]
+                       [:vae #{"eid-alex"} #{:users/bookshelves} _]
                        [:ea _ #{:bookshelves/name} #{"Nonfiction"}]
                        --
                        [:ea #{"eid-nonfiction"}
@@ -3240,7 +3239,7 @@
                         #{:users/createdAt :users/email :users/id :users/fullName
                           :users/handle} _]
                        --
-                       [:eav #{"eid-alex"} #{:users/bookshelves} _]
+                       [:vae #{"eid-alex"} #{:users/bookshelves} _]
                        [:ea _ #{:bookshelves/name} #{"Fiction" "Nonfiction"}]
                        --
                        [:ea #{"eid-nonfiction"}
@@ -3275,7 +3274,7 @@
                         #{:users/createdAt :users/email :users/id :users/fullName
                           :users/handle} _]
                        --
-                       [:eav #{"eid-alex"} #{:users/bookshelves} _]
+                       [:vae #{"eid-alex"} #{:users/bookshelves} _]
                        [:ea _ #{:bookshelves/name} #{"Nonfiction"}]
                        [:ave #{"eid-nonfiction"} #{:bookshelves/order} #{1}]
                        --
@@ -3448,7 +3447,7 @@
         (testing "reverse works on link name"
           (is-pretty-eq?
            (query-pretty {:bookshelves {:$ {:where {:users (resolvers/->uuid r "eid-alex")}}}})
-           '({:topics ([:eav #{"eid-alex"} #{:users/bookshelves} _]
+           '({:topics ([:vae #{"eid-alex"} #{:users/bookshelves} _]
                        --
                        [:ea #{"eid-nonfiction"}
                         #{:bookshelves/desc :bookshelves/name :bookshelves/order
@@ -3835,8 +3834,8 @@
                                   :bookshelves.books.title "The Count of Monte Cristo"}}
                       :bookshelves {}}})]
         (is (= '[[:av _ #{:users/handle} #{"stopa" "joe"} _]
-                 [:eav _ #{:users/bookshelves} _ _]
-                 [:eav _ #{:bookshelves/books} _ _]
+                 [:vae _ #{:users/bookshelves} _ _]
+                 [:vae _ #{:bookshelves/books} _ _]
                  [:ave _ #{:books/title} #{"The Count of Monte Cristo"} _]
                  [:ea
                   _
@@ -3847,7 +3846,7 @@
                     :users/handle}
                   _
                   _]
-                 [:eav _ #{:users/bookshelves} _ _]
+                 [:vae _ #{:users/bookshelves} _ _]
                  [:ea
                   _
                   #{:bookshelves/desc
@@ -4087,7 +4086,7 @@
                          r1
                          {:$users {:$ {:where {"books.title" "Sum"}}}})
            '({:topics ([:ave _ #{:books/title} #{"Sum"}]
-                       [:eav #{"eid-sum"} #{:books/$user-creator} _]
+                       [:vae #{"eid-sum"} #{:books/$user-creator} _]
                        --
                        [:ea #{"eid-alex"} #{:$users/email :$users/id} _])
               :triples (("eid-sum" :books/$user-creator "eid-alex")
@@ -4360,12 +4359,12 @@
              --
              [:ea #{"eid-alex"} #{:users/id :users/fullName} _]
              --
-             [:eav #{"eid-alex"} #{:users/bookshelves} _]
+             [:vae #{"eid-alex"} #{:users/bookshelves} _]
              [:ea _ #{:bookshelves/name} #{"Nonfiction"}]
              --
              [:ea #{"eid-nonfiction"} #{:bookshelves/order :bookshelves/id} _]
              --
-             [:eav #{"eid-nonfiction"} #{:bookshelves/books} _]
+             [:vae #{"eid-nonfiction"} #{:bookshelves/books} _]
              [:ave _ #{:books/title} #{"Catch and Kill"}]
              --
              [:ea #{"eid-catch-and-kill"} #{:books/id :books/title} _])

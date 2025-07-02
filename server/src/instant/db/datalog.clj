@@ -523,20 +523,20 @@
   (string/replace (name x) "-" "_"))
 
 (defn- match-table-cols
-  "Every match table returns entity-id, attr-id, value-blob, value-uuid,
+  "Every match table returns entity-id, attr-id, value-blob, is-ref-val,
    and created-at columns. This is a quick helper to generate the column names"
   [table-name]
   [(kw table-name :-entity-id)
    (kw table-name :-attr-id)
    (kw table-name :-value-blob)
-   (kw table-name :-value-uuid)
+   (kw table-name :-is-ref-val)
    (kw table-name :-created-at)])
 
 (defn- match-table-select
   "This generates the select portion of the match table. "
   [table-name]
   (map vector [:entity-id :attr-id :value
-               [:case :eav [:cast [:->> :value :0] :uuid] :else :null]
+               :eav
                :created-at]
        (match-table-cols table-name)))
 
@@ -724,14 +724,14 @@
    {:name :ea_index
     :cols [:e :a]
     :idx-key :ea}
-   {:name :eav_index
+   {:name :eav_uuid_index
     :cols [:e :a :v]
     :idx-key :eav}
    {:name :triples_string_trgm_gist_idx
     :cols [:a :v]
     :idx-key :ave
     :data-type :string}
-   {:name :vae_index
+   {:name :vae_uuid_index
     :cols [:v :a :e]
     :idx-key :vae}
    {:name :triples_created_at_idx
@@ -810,7 +810,7 @@
    For example:
 
    [1 [:v :v]] => [:value :match-1-value-blob]
-   [1 [:e :v]] => [:entity-id :match-1-value-uuid]
+   [1 [:e :v]] => [:entity-id [:json_uuid_to_uuid :match-1-value-blob]]
    [1 [:v :a]] => [:value [:to_jsonb :match-1-attr-id]]"
   [prefix dest-idx [origin-ctype dest-ctype]]
 
@@ -823,7 +823,7 @@
       [:value [:to_jsonb (dest-col (component-type->col-name dest-ctype))]]
 
       (= :v dest-ctype)
-      [(component-type->col-name origin-ctype) (dest-col :value-uuid)]
+      [(component-type->col-name origin-ctype) [:json_uuid_to_uuid (dest-col :value-blob)]]
 
       :else
       [(component-type->col-name origin-ctype)
@@ -865,7 +865,7 @@
 
    The second part joins the first on
 
-   [[:= :entity-id :match-0-value-uuid]]"
+   [[:= :entity-id [:json_uuid_to_uuid :match-0-value-blob]]]"
   [prefix symbol-map named-p]
   (->> named-p
        variable-components
@@ -1073,7 +1073,7 @@
               (if (named-variable? x)
                 (assoc acc pat-idx {:sym sym
                                     :ref-value? (and (= :v component)
-                                                     (= :eav (idx-key (:idx named-p))))})
+                                                     (= :vae (idx-key (:idx named-p))))})
                 acc)))
           {}
           [[:e 0] [:a 1] [:v 2]]))
@@ -1770,20 +1770,21 @@
     (parse-uuid x)))
 
 (defn- sql-row->triple
-  "Converts the sql result, which returns value in either the
-   value-uuid or value-blob col, into our triple format.
+  "Converts the sql result into our triple format.
    Optionally parses uuids, when handling batched results that return JSON"
-  [row [e-col a-col v-blob-col v-uuid-col t-col] coerce-uuids?]
+  [row [e-col a-col v-blob-col v-is-ref-val-col t-col] coerce-uuids?]
   (if coerce-uuids?
     [(safe-parse-uuid (get row e-col))
      (safe-parse-uuid (get row a-col))
-     (or (safe-parse-uuid (get row v-uuid-col))
-         (get row v-blob-col))
+     (if (get row v-is-ref-val-col)
+       (safe-parse-uuid (get row v-blob-col))
+       (get row v-blob-col))
      (get row t-col)]
     [(get row e-col)
      (get row a-col)
-     (or (get row v-uuid-col)
-         (get row v-blob-col))
+     (if (get row v-is-ref-val-col)
+       (safe-parse-uuid (get row v-blob-col))
+       (get row v-blob-col))
      (get row t-col)]))
 
 (defn- ensure-default-symbol-values [symbol-fields symbol-values]

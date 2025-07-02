@@ -1188,6 +1188,16 @@
                                              patterns)]
         (collect-query-results ctx (:data datalog-result) forms)))))
 
+(defn explain
+  "Generates a nested datalog query, then runs explain."
+  [ctx o]
+  (let [query-hash (forms-hash o)
+        explain-fn (or (:datalog-explain-fn ctx)
+                       d/explain)
+        {:keys [patterns]} (instaql-query->patterns ctx o)]
+    (explain-fn (assoc ctx :query-hash query-hash)
+                patterns)))
+
 ;; BYOP InstaQL
 
 (defn safe-table
