@@ -308,6 +308,42 @@
                          (make-ctx)
                          [[:delete-entity book-id "book"]])))))))))))
 
+(deftest required-attrs-shared-entity
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [{attr-users-id   :users/id
+             attr-users-name :users/name
+             attr-profiles-id   :profiles/id
+             attr-profiles-name :profiles/name}
+            (test-util/make-attrs
+             app-id
+             [[:users/id :required? :index? :unique?]
+              [:users/name :required?]
+              [:profiles/id :required? :index? :unique?]
+              [:profiles/name :required?]])
+            make-ctx (fn make-ctx
+                       ([]
+                        (make-ctx {}))
+                       ([{:keys [admin?]}]
+                        {:db               {:conn-pool (aurora/conn-pool :write)}
+                         :app-id           app-id
+                         :attrs            (attr-model/get-by-app-id app-id)
+                         :datalog-query-fn d/query
+                         :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                         :current-user     nil
+                         :admin?           admin?}))
+            user-id  (suid "ffff")]
+        (permissioned-tx/transact!
+         (make-ctx)
+         [[:add-triple user-id attr-profiles-id   user-id]
+          [:add-triple user-id attr-profiles-name "profile name"]
+          [:add-triple user-id attr-users-id      user-id]
+          [:add-triple user-id attr-users-name    "user name"]])
+
+        (permissioned-tx/transact!
+         (make-ctx)
+         [[:delete-entity user-id "users"]])))))
+
 (deftest update-modes
   (with-empty-app
     (fn [{app-id :id}]
