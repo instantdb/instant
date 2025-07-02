@@ -2338,6 +2338,114 @@
                  (map (fn [x] (get x "id")) %)
                  (set %))))))))
 
+(deftest $isNull-and-$not-with-every-type
+  (with-zeneca-checked-data-app
+    (fn [app _r]
+      (let [attr-ids {:string (random-uuid)
+                      :number (random-uuid)
+                      :boolean (random-uuid)
+                      :date (random-uuid)}
+            id-attr-id (random-uuid)
+            label-attr-id (random-uuid)
+            labels ["a" "b" "c"]
+            make-ctx (fn []
+                       (let [attrs (attr-model/get-by-app-id (:id app))]
+                         {:db {:conn-pool (aurora/conn-pool :write)}
+                          :app-id (:id app)
+                          :attrs attrs}))
+            run-query (fn [q]
+                        (let [ctx (make-ctx)]
+                          (->> (iq/permissioned-query ctx q)
+                               (tool/inspect)
+
+                               (instaql-nodes->object-tree ctx)
+                               (#(get % "etype"))
+                               (map #(get % "label"))
+                               set)))
+            tx-result (tx/transact! (aurora/conn-pool :write)
+                                    (attr-model/get-by-app-id (:id app))
+                                    (:id app)
+                                    (concat
+                                     [[:add-attr {:id id-attr-id
+                                                  :forward-identity [(random-uuid) "etype" "id"]
+                                                  :unique? true
+                                                  :index? true
+                                                  :value-type :blob
+                                                  :checked-data-type :string
+                                                  :cardinality :one}]
+                                      [:add-attr {:id label-attr-id
+                                                  :forward-identity [(random-uuid) "etype" "label"]
+                                                  :unique? true
+                                                  :index? true
+                                                  :value-type :blob
+                                                  :checked-data-type :string
+                                                  :cardinality :one}]]
+                                     (for [[t attr-id] attr-ids]
+                                       [:add-attr {:id attr-id
+                                                   :forward-identity [(random-uuid) "etype" (name t)]
+                                                   :unique? false
+                                                   :index? true
+                                                   :value-type :blob
+                                                   :checked-data-type t
+                                                   :cardinality :one}])
+
+                                     (mapcat
+                                      (fn [i]
+                                        (let [id (random-uuid)]
+                                          [[:add-triple id id-attr-id (str id)]
+                                           [:add-triple id label-attr-id (nth labels i)]
+                                           [:add-triple id (:string attr-ids) (str i)]
+                                           [:add-triple id (:number attr-ids) i]
+                                           [:add-triple id (:date attr-ids) i]
+                                           [:add-triple id (:boolean attr-ids) (zero? (mod i 2))]]))
+                                      (range (count labels)))
+                                     ;; null
+                                     (let [id (random-uuid)]
+                                       [[:add-triple id id-attr-id (str id)]
+                                        [:add-triple id label-attr-id "null"]
+                                        [:add-triple id (:string attr-ids) nil]
+                                        [:add-triple id (:number attr-ids) nil]
+                                        [:add-triple id (:date attr-ids) nil]
+                                        [:add-triple id (:boolean attr-ids) nil]])
+
+                                     ;; undefined
+                                     (let [id (random-uuid)]
+                                       [[:add-triple id id-attr-id (str id)]
+                                        [:add-triple id label-attr-id "undefined"]])))]
+        (tool/def-locals)
+
+        (testing "$isNull"
+          (testing "string"
+            (is (= #{"null" "undefined"} (run-query {:etype {:$ {:where {:string {:$isNull true}}}}})))
+            (is (= #{"a" "b" "c"} (run-query {:etype {:$ {:where {:string {:$isNull false}}}}}))))
+
+          (testing "number"
+            (is (= #{"null" "undefined"} (run-query {:etype {:$ {:where {:number {:$isNull true}}}}})))
+            (is (= #{"a" "b" "c"} (run-query {:etype {:$ {:where {:number {:$isNull false}}}}}))))
+
+          (testing "date"
+            (is (= #{"null" "undefined"} (run-query {:etype {:$ {:where {:date {:$isNull true}}}}})))
+            (is (= #{"a" "b" "c"} (run-query {:etype {:$ {:where {:date {:$isNull false}}}}}))))
+
+          (testing "boolean"
+            (is (= #{"null" "undefined"} (run-query {:etype {:$ {:where {:boolean {:$isNull true}}}}})))
+            (is (= #{"a" "b" "c"} (run-query {:etype {:$ {:where {:boolean {:$isNull false}}}}})))))
+
+
+        (testing "$not"
+          (testing "string"
+            (is (= #{"null" "undefined" "a" "c"}  (run-query {:etype {:$ {:where {:string {:$not "1"}}}}}))))
+
+          (testing "number"
+            (is (= #{"null" "undefined" "a" "c"}  (run-query {:etype {:$ {:where {:number {:$not 1}}}}}))))
+
+          (testing "date"
+            (is (= #{"null" "undefined" "a" "c"}  (run-query {:etype {:$ {:where {:date {:$not 1}}}}}))))
+
+
+          (testing "boolean"
+            (is (= #{"null" "undefined" "a" "c"}  (run-query {:etype {:$ {:where {:boolean {:$not false}}}}})))))))))
+
 (deftest where-or
   (with-zeneca-app
     (fn [app r]
