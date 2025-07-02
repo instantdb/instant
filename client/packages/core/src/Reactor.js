@@ -451,12 +451,14 @@ export default class Reactor {
         break;
       case 'refresh-ok':
         const { computations, attrs } = msg;
-        this._setAttrs(attrs);
+        if (attrs) {
+          this._setAttrs(attrs);
+        }
 
         this._cleanupPendingMutationsTimeout();
 
         const mutations = this._rewriteMutationsSorted(
-          attrs,
+          this.attrs,
           this.pendingMutations.currentValue,
         );
 

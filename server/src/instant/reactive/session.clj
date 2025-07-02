@@ -85,6 +85,9 @@
                                                            "public"))
     {:attrs (attr-model/get-by-app-id (:id app))}))
 
+(def refresh-skip-attrs-min-version
+  (semver/parse "v0.20.4"))
+
 (defn- handle-init! [store sess-id event]
   (let [{:keys [refresh-token client-event-id versions]
          admin-token :__admin-token} event
@@ -104,12 +107,20 @@
                                                          :token admin-token})))
         auth        {:app    app
                      :user   user
-                     :admin? admin?}]
+                     :admin? admin?}
+        parsed-version  (some-> versions (get core-version-key) (semver/parse))
+        can-skip-attrs? (and (flags/refresh-skip-attrs? app-id)
+                             parsed-version
+                             (pos? (semver/compare-semver parsed-version refresh-skip-attrs-min-version)))]
     (tracer/add-data! {:attributes (auth-and-creator-attrs auth creator versions)})
     (apply rs/assoc-session! store sess-id
            :session/auth auth
            :session/creator creator
-           (when versions [:session/versions versions]))
+           (concat
+            (when versions
+              [:session/versions versions])
+            (when can-skip-attrs?
+              [:session/attrs-hash (hash attrs)])))
     (rs/send-event! store app-id sess-id {:op              :init-ok
                                           :session-id      sess-id
                                           :client-event-id client-event-id
@@ -214,7 +225,17 @@
                       :num-spam num-spam
                       :num-computations num-computations
                       :dropped-spam? drop-spam?
-                      :tx-latency-ms (e2e-tracer/tx-latency-ms (:tx-created-at event))}]
+                      :tx-latency-ms (e2e-tracer/tx-latency-ms (:tx-created-at event))}
+        {prev-attrs-hash :session/attrs-hash
+         version :session/versions} (rs/session store sess-id)
+        parsed-version  (some-> version (get core-version-key) (semver/parse))
+        can-skip-attrs? (and (flags/refresh-skip-attrs? app-id)
+                             parsed-version
+                             (pos? (semver/compare-semver parsed-version refresh-skip-attrs-min-version)))
+        attrs-hash      (hash attrs)
+        attrs-changed?  (not= prev-attrs-hash attrs-hash)]
+    (when (and can-skip-attrs? attrs-changed?)
+      (rs/assoc-session! store sess-id :session/attrs-hash attrs-hash))
     (e2e-tracer/invalidator-tracking-step! {:tx-id (:tx-id event)
                                             :tx-created-at (:tx-created-at event)
                                             :name "finish-refresh-queries"
@@ -224,10 +245,12 @@
                         :attributes tracer-attrs}
       (when (seq computations)
         (rs/send-event! store app-id sess-id (with-meta
-                                               {:op :refresh-ok
-                                                :processed-tx-id processed-tx-id
-                                                :attrs attrs
-                                                :computations computations}
+                                               (cond->
+                                                {:op :refresh-ok
+                                                 :processed-tx-id processed-tx-id
+                                                 :computations computations}
+                                                 (or (not can-skip-attrs?) attrs-changed?)
+                                                 (assoc :attrs attrs))
                                                {:tx-id (:tx-id event)
                                                 :tx-created-at (:tx-created-at event)
                                                 :session-id sess-id}))))))
@@ -338,7 +361,8 @@
                                           :room-id room-id
                                           :client-event-id client-event-id})))
 
-(def patch-presence-min-version (semver/parse "v0.17.5"))
+(def patch-presence-min-version
+  (semver/parse "v0.17.5"))
 
 (defn- handle-refresh-presence! [store sess-id {:keys [app-id data edits] :as event}]
   (let [version (-> (rs/session store sess-id)

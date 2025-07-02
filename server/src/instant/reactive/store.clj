@@ -42,7 +42,8 @@
    :session/auth           {}   ;; {:app app :user user :admin? admin?} (from session.clj)
    :session/creator        {}   ;; user (from session.clj)
    :session/versions       {}   ;; library versions, e.g. {"@instantdb/react": "v0.1.2"}
-   :session/datalog-loader {}}) ;; datalog-loader (from datalog.clj)
+   :session/datalog-loader {}   ;; datalog-loader (from datalog.clj)
+   :session/attrs-hash     {}}) ;; last sent attrs’ hash
 
 (def
   ^{:doc

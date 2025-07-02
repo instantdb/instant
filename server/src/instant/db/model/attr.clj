@@ -9,6 +9,7 @@
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.system-catalog :refer [system-catalog-app-id]]
+   [instant.util.coll :as coll]
    [instant.util.crypt :refer [json-null-md5]]
    [instant.util.exception :as ex]
    [instant.util.spec :as uspec]
@@ -624,131 +625,119 @@
            checking_data_type
            indexing
            setting_unique]}]
-  (cond-> {:id id
-           :value-type (keyword value_type)
-           :cardinality (keyword cardinality)
-           :forward-identity [forward_ident etype label]
-           :unique? is_unique
-           :index? is_indexed
-           :required? (or is_required false)
-           :inferred-types (when inferred_types
-                             (friendly-inferred-types inferred_types))
-           :catalog (if (= app_id system-catalog-app-id)
-                      :system
-                      :user)}
-    on_delete (assoc :on-delete (keyword on_delete))
-    on_delete_reverse (assoc :on-delete-reverse (keyword on_delete_reverse))
-    reverse_ident (assoc :reverse-identity [reverse_ident reverse_etype reverse_label])
-    checked_data_type (assoc :checked-data-type (keyword checked_data_type))
-    checking_data_type (assoc :checking-data-type? true)
-    indexing (assoc :indexing? true)
-    setting_unique (assoc :setting-unique? true)))
-
-(defn index-attrs
-  "Groups attrs by common lookup patterns so that we can efficiently look them up."
-  [attrs]
-  (reduce (fn [acc attr]
-            (cond-> acc
-              true
-              (update :by-id assoc (:id attr) attr)
-
-              true
-              (update :by-fwd-ident assoc (fwd-ident-name attr) attr)
-
-              (seq (rev-ident-name attr))
-              (update :by-rev-ident assoc (rev-ident-name attr) attr)
-
-              true
-              (update :ids-by-etype update (fwd-etype attr) (fnil conj #{}) (:id attr))
-
-              (= :one (:cardinality attr))
-              (update :ea-ids-by-etype update (fwd-etype attr) (fnil conj #{}) (:id attr))))
-          {:by-id {}
-           :by-fwd-ident {}
-           :by-rev-ident {}
-           :ids-by-etype {}
-           :ea-ids-by-etype {}}
-          attrs))
-
-(defprotocol AttrsExtension
-  (seekById [this id])
-  (seekByFwdIdentName [this fwd-ident])
-  (seekByRevIdentName [this revIdent])
-  (attrIdsForEtype [this etype])
-  (eaIdsForEtype [this etype])
-  (unwrap [this]))
+  (cond-> (transient {:id               id
+                      :value-type       (keyword value_type)
+                      :cardinality      (keyword cardinality)
+                      :forward-identity [forward_ident etype label]
+                      :unique?          is_unique
+                      :index?           is_indexed
+                      :required?        (or is_required false)
+                      :inferred-types   (when inferred_types
+                                          (friendly-inferred-types inferred_types))
+                      :catalog          (if (= app_id system-catalog-app-id)
+                                          :system
+                                          :user)})
+    on_delete          (assoc! :on-delete (keyword on_delete))
+    on_delete_reverse  (assoc! :on-delete-reverse (keyword on_delete_reverse))
+    reverse_ident      (assoc! :reverse-identity [reverse_ident reverse_etype reverse_label])
+    checked_data_type  (assoc! :checked-data-type (keyword checked_data_type))
+    checking_data_type (assoc! :checking-data-type? true)
+    indexing           (assoc! :indexing? true)
+    setting_unique     (assoc! :setting-unique? true)
+    true               persistent!))
 
 ;; Creates a wrapper over attrs. Makes them act like a regular list, but
 ;; we can also index them on demand so that our access patterns will be
 ;; efficient.
-(deftype Attrs [elements cache]
+(declare wrap-attrs)
+
+(deftype Attrs [elements
+                by-id-cache
+                by-fwd-ident-cache
+                by-rev-ident-cache
+                ids-by-etype-cache
+                ea-ids-by-etype-cache]
   clojure.lang.ISeq
   (count [_this]
     (count elements))
   (first [_this]
     (first elements))
   (next [_this]
-    (let [nxt (next elements)]
-      (if nxt
-        (Attrs. nxt (delay (index-attrs nxt)))
-        nil)))
+    (some-> elements next wrap-attrs))
   (more [_this]
-    (if-let [nxt (next elements)]
-      (Attrs. nxt (delay (index-attrs nxt)))
+    (if-some [nxt (next elements)]
+      (wrap-attrs nxt)
       clojure.lang.PersistentList/EMPTY))
   (empty [_this]
-    (Attrs. () (delay {})))
+    (wrap-attrs ()))
   (equiv [_this other]
-    (= elements other))
-  (cons [_this o]
-    (let [new-elements (cons o elements)]
-      (Attrs. new-elements (delay (index-attrs new-elements)))))
+    (if (instance? Attrs other)
+      (= elements (.-elements ^Attrs other))
+      (= elements other)))
+  (cons [_this other]
+    (wrap-attrs (cons other elements)))
   (seq [this]
     (if (empty? elements)
       nil
       this))
 
-  AttrsExtension
-  (seekById [_this id]
-    (-> @cache
-        :by-id
-        (get id)))
-  (seekByFwdIdentName [_this fwdIdent]
-    (-> @cache
-        :by-fwd-ident
-        (get fwdIdent)))
-  (seekByRevIdentName [_this revIdent]
-    (-> @cache
-        :by-rev-ident
-        (get revIdent)))
-  (attrIdsForEtype [_this etype]
-    (-> @cache
-        :ids-by-etype
-        (get etype #{})))
-  (unwrap [_this]
-    elements)
-  (eaIdsForEtype [_this etype]
-    (-> @cache
-        :ea-ids-by-etype
-        (get etype #{}))))
+  clojure.lang.IHashEq
+  (hasheq [_this]
+    (hash elements))
 
-(defn wrap-attrs [attrs]
-  (Attrs. attrs (delay (index-attrs attrs))))
+  java.lang.Object
+  (equals [_this other]
+    (and (instance? Attrs other)
+         (= elements (.-elements ^Attrs other))))
+  (hashCode [_this]
+    (hash elements)))
+
+(defn wrap-attrs ^Attrs [attrs]
+  (Attrs.
+   attrs
+   ;; by-id-cache
+   (delay
+     (coll/map-by :id attrs))
+   ;; by-fwd-ident-cache
+   (delay
+     (coll/map-by fwd-ident-name attrs))
+   ;; by-rev-ident-cache
+   (delay
+     (->> attrs
+          (filter rev-ident-name)
+          (coll/map-by rev-ident-name)))
+   ;; ids-by-etype-cache
+   (delay
+     (coll/group-by-to fwd-etype :id #{} attrs))
+   ;; ea-ids-by-etype-cache
+   (delay
+     (->> attrs
+          (filter #(= :one (:cardinality %)))
+          (coll/group-by-to fwd-etype :id #{})))))
+
+(defn unwrap [^Attrs attrs]
+  (.-elements attrs))
 
 (defn get-by-app-id*
   "Returns clj representation of all attrs for an app"
   [conn app-id]
   (wrap-attrs
-   (map row->attr
-        (sql/select
-         ::get-by-app-id*
-         conn
-         (hsql/format
-          {:select :*
-           :from :attrs
-           :where [:or
-                   [:= :attrs.app-id [:cast app-id :uuid]]
-                   [:= :attrs.app-id [:cast system-catalog-app-id :uuid]]]})))))
+   (mapv row->attr
+         (sql/select
+          ::get-by-app-id*
+          conn
+          (sql/format
+           "SELECT
+              *
+            FROM
+              attrs
+            WHERE
+              app_id = CAST(?app-id AS UUID)
+              OR app_id = CAST(?system-catalog-app-id AS UUID)
+            ORDER BY
+              id ASC"
+           {"?app-id" app-id
+            "?system-catalog-app-id" system-catalog-app-id})))))
 
 (defn get-by-app-id
   ([app-id]
@@ -769,13 +758,11 @@
                conn
                (hsql/format
                 {:select [:attrs.*
-                          [:fwd-idents.etype :fwd-etype]
-                          [:fwd-idents.label :fwd-label]
-                          [:rev-idents.etype :rev-etype]
-                          [:rev-idents.label :rev-label]]
+                          [:etype :fwd-etype]
+                          [:label :fwd-label]
+                          [:reverse_etype :rev-etype]
+                          [:reverse_label :rev-label]]
                  :from :attrs
-                 :join [[:idents :fwd-idents] [:= :attrs.forward-ident :fwd-idents.id]]
-                 :left-join [[:idents :rev-idents] [:= :attrs.reverse-ident :rev-idents.id]]
                  :where [:= :attrs.app-id [:any (with-meta (conj (set app-ids) system-catalog-app-id)
                                                   {:pgtype "uuid[]"})]]}))
          rows-by-app-id (group-by :app_id rows)
@@ -789,21 +776,20 @@
 ;; ------
 ;; seek
 
-(defn seek-by-id
-  [id ^Attrs attrs]
-  (.seekById attrs id))
+(defn seek-by-id [id ^Attrs attrs]
+  (get @(.-by-id-cache attrs) id))
 
-(defn seek-by-fwd-ident-name [n ^Attrs attrs]
-  (.seekByFwdIdentName attrs n))
+(defn seek-by-fwd-ident-name [fwd-ident ^Attrs attrs]
+  (get @(.-by-fwd-ident-cache attrs) fwd-ident))
 
-(defn seek-by-rev-ident-name [n ^Attrs attrs]
-  (.seekByRevIdentName attrs n))
+(defn seek-by-rev-ident-name [rev-ident ^Attrs attrs]
+  (get @(.-by-rev-ident-cache attrs) rev-ident))
 
 (defn attr-ids-for-etype [etype ^Attrs attrs]
-  (.attrIdsForEtype attrs etype))
+  (get @(.-ids-by-etype-cache attrs) etype #{}))
 
 (defn ea-ids-for-etype [etype ^Attrs attrs]
-  (.eaIdsForEtype attrs etype))
+  (get @(.-ea-ids-by-etype-cache attrs) etype #{}))
 
 (defn remove-hidden
   "Removes the system attrs that might be confusing for the users."
