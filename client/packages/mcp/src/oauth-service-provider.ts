@@ -108,10 +108,15 @@ export function makeApiAuth(
 
 // https://github.com/modelcontextprotocol/modelcontextprotocol/issues/653
 // Anthropic says it's fixed, but it doesn't seem like it
-function patchClientForClaude(
+function patchClientForScopes(
   client: OAuthClientInformationFull,
 ): OAuthClientInformationFull {
-  if (client.scope?.includes('claudeai')) {
+  if (
+    !client.scope ||
+    // https://github.com/modelcontextprotocol/modelcontextprotocol/issues/653
+    // Anthropic says it's fixed, but it doesn't seem like it
+    client.scope?.includes('claudeai')
+  ) {
     return { ...client, scope: 'apps-read apps-write' };
   }
   return client;
@@ -159,7 +164,7 @@ export class ServiceProvider implements OAuthServerProvider {
 
       registerClient: async (rawClient: OAuthClientInformationFull) => {
         const client = {
-          ...patchClientForClaude(rawClient),
+          ...patchClientForScopes(rawClient),
         };
 
         await this.#db.transact(
