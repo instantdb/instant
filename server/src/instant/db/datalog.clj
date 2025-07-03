@@ -2321,10 +2321,11 @@
                      (assoc query
                             :raw
                             "explain (analyze, verbose, buffers, timing, format json)"))]
-      (sql/select-string-keys ::explain
-                              (-> ctx :db :conn-pool)
-                              sql-query
-                              {:attach-warnings? true}))))
+      (when query
+        (sql/select-string-keys ::explain
+                                (-> ctx :db :conn-pool)
+                                sql-query
+                                {:attach-warnings? true})))))
 
 (defn query
   "Executes a Datalog(ish) query over the given aurora `conn`, Instant `app_id`
