@@ -68,7 +68,7 @@
   (let [named-ps (map second (d/->named-patterns raw-pats))]
     (-> (reduce (fn [{:keys [i symbol-map] :as acc} pat]
                   (-> acc
-                      (update :join-conds conj (d/join-conds :match- symbol-map pat))
+                      (update :join-conds conj (d/join-conds :match- 0 symbol-map pat))
                       (update :symbol-map (partial merge-with into) (d/symbol-map-of-pattern i pat))
                       (update :i inc)))
                 {:join-conds []
@@ -80,30 +80,21 @@
 (deftest joins
   (testing "join conditions bind symbols to the matching previous patterns"
     (is (=
-         '(([:= :entity-id [:json_uuid_to_uuid :match-0-value-blob]])
+         '(([:= :entity-id [:json_uuid_to_uuid :match-0-value]])
            ([:= :entity-id :match-0-attr-id]
-            [:= :attr-id [:json_uuid_to_uuid :match-0-value-blob]]
+            [:= :attr-id [:json_uuid_to_uuid :match-0-value]]
             [:= :attr-id :match-1-entity-id]))
-         (raw-pats->join-conds '[[:eav ?a ?b ?c]
+         (raw-pats->join-conds '[[:vae ?a ?b ?c]
                                  [:ea ?c ?d ?e]
                                  [:ea ?b ?c]]))))
   (testing "join conditions match values"
-    (is (= '(([:= :value :match-0-value-blob]))
+    (is (= '(([:= :value :match-0-value]))
            (raw-pats->join-conds
             '[[:eav _ _ ?a]
               [:av _ _ ?a]]))))
   (testing "join conditions matches values to coerced entities"
-    (is (= '(([:= :value [:to_jsonb :match-0-entity-id]]))
-           (raw-pats->join-conds '[[:ea ?a] [:eav _ _ ?a]]))))
-  (testing "join conditions matches values to coerced attrs"
-    (is (= '(([:= :value [:to_jsonb :match-0-attr-id]]))
-           (raw-pats->join-conds '[[:av _ ?a] [:eav _ _ ?a]]))))
-  (testing "join conditions matches entities to coerced values"
-    (is (= '(([:= :entity-id [:json_uuid_to_uuid :match-0-value-blob]]))
-           (raw-pats->join-conds '[[:eav _ _ ?a] [:vae ?a]]))))
-  (testing "join conditions matches attrs to coerced values"
-    (is (= '(([:= :attr-id [:json_uuid_to_uuid :match-0-value-blob]]))
-           (raw-pats->join-conds '[[:eav _ _ ?a] [:av _ ?a]]))))
+    (is (= '(([:= [:json_uuid_to_uuid :value] :match-0-entity-id]))
+           (raw-pats->join-conds '[[:ea ?a] [:vae _ _ ?a]]))))
   (testing "join conditions matches entities to attrs"
     (is (= '(([:= :entity-id :match-0-attr-id]))
            (raw-pats->join-conds '[[:av _ ?a] [:ea ?a]]))))
@@ -173,7 +164,7 @@
             movie-director-aid (resolvers/->uuid r :movie/director)
             person-name-aid (resolvers/->uuid r :person/name)
             patterns-1 [[:ea '?e movie-title-aid "Predator"]
-                        [:eav '?e movie-director-aid '?director]
+                        [:vae '?e movie-director-aid '?director]
                         [:ea '?director person-name-aid '?name]]
 
             patterns-2 [[:ea '?director person-name-aid "John McTiernan"]
