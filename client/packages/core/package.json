@@ -47,7 +47,7 @@
     "@babel/core": "^7.17.9",
     "@babel/preset-env": "^7.16.11",
     "@types/node": "^18.11.18",
-    "@types/uuid": "^8.3.4",
+    "@types/uuid": "^10.0.0",
     "@types/websocket": "^1.0.5",
     "fake-indexeddb": "^6.0.0",
     "npm-run-all": "^4.1.5",
@@ -59,6 +59,6 @@
   },
   "dependencies": {
     "mutative": "^1.0.10",
-    "uuid": "^9.0.0"
+    "uuid": "^11.1.0"
   }
 }
