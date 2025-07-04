@@ -134,8 +134,8 @@ importers:
         specifier: ^1.0.10
         version: 1.1.0
       uuid:
-        specifier: ^9.0.0
-        version: 9.0.1
+        specifier: ^11.1.0
+        version: 11.1.0
     devDependencies:
       '@arethetypeswrong/cli':
         specifier: ^0.17.4
@@ -150,8 +150,8 @@ importers:
         specifier: ^18.11.18
         version: 18.19.74
       '@types/uuid':
-        specifier: ^8.3.4
-        version: 8.3.4
+        specifier: ^10.0.0
+        version: 10.0.0
       '@types/websocket':
         specifier: ^1.0.5
         version: 1.0.10
@@ -263,8 +263,8 @@ importers:
         specifier: ^18.11.18
         version: 18.19.74
       '@types/uuid':
-        specifier: ^8.3.4
-        version: 8.3.4
+        specifier: ^10.0.0
+        version: 10.0.0
       '@types/websocket':
         specifier: ^1.0.5
         version: 1.0.10
@@ -799,8 +799,8 @@ importers:
         specifier: ^1.0.7
         version: 1.0.7(tailwindcss@3.3.2(ts-node@10.9.2(@swc/core@1.11.29)(@types/node@17.0.4)(typescript@5.5.4)))
       uuid:
-        specifier: ^8.3.2
-        version: 8.3.2
+        specifier: ^11.1.0
+        version: 11.1.0
     devDependencies:
       '@tailwindcss/forms':
         specifier: ^0.5.2
@@ -839,8 +839,8 @@ importers:
         specifier: ^5.0.4
         version: 5.0.7
       '@types/uuid':
-        specifier: ^8.3.4
-        version: 8.3.4
+        specifier: ^10.0.0
+        version: 10.0.0
       '@types/ws':
         specifier: ^8.5.3
         version: 8.5.14
@@ -2676,7 +2676,7 @@ packages:
 
   '@expo/bunyan@4.0.1':
     resolution: {integrity: sha512-+Lla7nYSiHZirgK+U/uYzsLv/X+HaJienbD5AKX1UQZHYfWaP+9uuQluRB4GrEVWF0GZ7vEVp/jzaOT9k/SQlg==}
-    engines: {node: '>=0.10.0'}
+    engines: {'0': node >=0.10.0}
 
   '@expo/cli@0.20.3':
     resolution: {integrity: sha512-+nL2f6ZPV6e4yXS0P02jChstSJePihfFluapqnRM8+4pH4wsBOL1GoOc7hVFfwsP0vRE3HDqn5EEzrO+ZaCbpQ==}
@@ -4907,8 +4907,8 @@ packages:
   '@types/unist@3.0.3':
     resolution: {integrity: sha512-ko/gIFJRv177XgZsZcBwnqJN5x/Gien8qNOn0D5bQU/zAzVf9Zt3BlcUiLqhV9y4ARk0GbT3tnUiPNgnTXzc/Q==}
 
-  '@types/uuid@8.3.4':
-    resolution: {integrity: sha512-c/I8ZRb51j+pYGAu5CrFMRxqZ2ke4y2grEBO5AUjgSkSk+qT2Ea+OdWElz/OiMf5MNpn2b17kuVBwZLQJXzihw==}
+  '@types/uuid@10.0.0':
+    resolution: {integrity: sha512-7gqG38EyHgyP1S+7+xomFtL+ZNHcKv6DwNaCZmJmo1vgMugyF3TCnXVg4t1uk89mLNwnLtnY3TpOpCOyp1/xHQ==}
 
   '@types/websocket@1.0.10':
     resolution: {integrity: sha512-svjGZvPB7EzuYS94cI7a+qhwgGU1y89wUgjT6E2wVUfmAGIvRfT7obBvRtnhXCSsoMdlG4gBFGE7MfkIXZLoww==}
@@ -17016,7 +17016,7 @@ snapshots:
 
   '@types/unist@3.0.3': {}
 
-  '@types/uuid@8.3.4': {}
+  '@types/uuid@10.0.0': {}
 
   '@types/websocket@1.0.10':
     dependencies:
