@@ -68,12 +68,13 @@ type Cursor = [string, string, any, number];
 
 type Direction = 'asc' | 'desc';
 
-type Order = { [key: string]: Direction };
+type Order<Fields extends string[]> = { [key in Fields[number]]?: Direction };
+
 
 type $Option<Fields extends string[]> = {
   $?: {
     where?: WhereClause;
-    order?: Order;
+    order?: Order<Fields>;
     limit?: number;
     last?: number;
     first?: number;
