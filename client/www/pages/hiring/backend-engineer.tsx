@@ -31,10 +31,7 @@ function HiringContent() {
           Enjoys working on hard problems (we're building a database company!)
         </li>
         <li>Wants large scope and plenty of agency</li>
-        <li>
-          Has an interest in learning or working in Clojure (we're happy to
-          induct you into the cult!)
-        </li>
+        <li>Has experience working in Clojure</li>
       </ol>
 
       <h2 id="about-us">About us</h2>

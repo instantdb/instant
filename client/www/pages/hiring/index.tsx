@@ -19,18 +19,6 @@ type JobListing = {
 
 const jobListings = [
   {
-    title: 'Typescript Engineer',
-    href: '/hiring/typescript-engineer',
-    description:
-      'Help build the best type system for our database and improve developer experience.',
-  },
-  {
-    title: 'Full-Stack Engineer',
-    href: '/hiring/full-stack-engineer',
-    description:
-      'Build frontend sync engines and UIs that developers use for hours.',
-  },
-  {
     title: 'Backend Engineer',
     href: '/hiring/backend-engineer',
     description:
