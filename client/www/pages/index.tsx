@@ -642,14 +642,6 @@ export default function Landing2024() {
         />
       </Head>
       <GlowBackground>
-        <div className="w-full bg-gray-50/80 p-1 text-center">
-          <p className="font-mono text-gray-500 text-sm font-semibold">
-            Want to work on the hardest problems in modern app development?{' '}
-            <span className="text-orange-600">
-              <TextLink href="/hiring">Come work with us!</TextLink>
-            </span>
-          </p>
-        </div>
         <MainNav />
         <LandingHero />
       </GlowBackground>
