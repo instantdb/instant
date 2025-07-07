@@ -22,7 +22,7 @@ import {
   InstantSchemaDef,
   IInstantDatabase,
 } from '@instantdb/core';
-import {
+import React, {
   KeyboardEvent,
   useCallback,
   useEffect,
@@ -30,6 +30,9 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  createContext,
+  useContext,
+  ReactNode,
 } from 'react';
 import { useQueryInternal } from './useQuery.ts';
 import { useTimeout } from './useTimeout.ts';
@@ -40,6 +43,9 @@ const defaultAuthState = {
   user: undefined,
   error: undefined,
 };
+
+// Context to provide authenticated user - exported for user's custom providers
+export const InstantAuthContext = createContext<User | null>(null);
 
 export default abstract class InstantReactAbstractDatabase<
   Schema extends InstantSchemaDef<any, any, any>,
