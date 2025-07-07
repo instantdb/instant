@@ -237,8 +237,7 @@
 ;; symbol-map
 
 (defn make-binding-path
-  "Generates the binding path for a symbol in the symbol-map:
-  "
+  "Generates the binding path for a symbol in the symbol-map."
   [pattern-idx named-p component]
   {:pattern-idx pattern-idx
    :triple-idx (case component
