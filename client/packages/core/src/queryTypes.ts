@@ -30,34 +30,66 @@ type NonEmpty<T> = {
   [K in keyof T]-?: Required<Pick<T, K>>;
 }[keyof T];
 
-type WhereArgs = {
+type BaseWhereClauseValueComplex<V> = {
   /** @deprecated use `$in` instead of `in` */
-  in?: (string | number | boolean)[];
-  $in?: (string | number | boolean)[];
-  $not?: string | number | boolean;
-  $isNull?: boolean;
-  $gt?: string | number | boolean;
-  $lt?: string | number | boolean;
-  $gte?: string | number | boolean;
-  $lte?: string | number | boolean;
-  $like?: string;
-  $ilike?: string;
+  in?: V[];
+  $in?: V[];
+  $not?: V;
+  $gt?: V;
+  $lt?: V;
+  $gte?: V;
+  $lte?: V;
 };
 
-type WhereClauseValue = string | number | boolean | NonEmpty<WhereArgs>;
+type WhereClauseValueComplex<V> = BaseWhereClauseValueComplex<V> &
+  (V extends string
+    ? {
+        $like?: string;
+        $ilike?: string;
+      }
+    : {}) &
+  (undefined extends V
+    ? {
+        $isNull?: boolean;
+      }
+    : {});
 
-type BaseWhereClause = {
-  [key: string]: WhereClauseValue;
+// Make type display better
+type WhereClauseValue<V> =
+  | (V extends string | undefined
+      ? string
+      : V extends number | undefined
+        ? number
+        : V extends boolean | undefined
+          ? boolean
+          : never)
+  | WhereClauseValueComplex<V>;
+
+type WhereClauseColumnEntries<
+  T extends {
+    [key: string]: unknown;
+  },
+> = {
+  [key in keyof T]?: WhereClauseValue<T[key]>;
 };
 
-type WhereClauseWithCombination = {
-  or?: WhereClause[] | WhereClauseValue;
-  and?: WhereClause[] | WhereClauseValue;
+type WhereClauseComboEntries<T extends Record<any, unknown>> = {
+  or?:
+    | WhereClauses<T>[]
+    | WhereClauseValue<string | number | boolean | undefined>;
+  and?:
+    | WhereClauses<T>[]
+    | WhereClauseValue<string | number | boolean | undefined>;
 };
 
-type WhereClause =
-  | WhereClauseWithCombination
-  | (WhereClauseWithCombination & BaseWhereClause);
+type WhereClauses<T extends Record<any, any>> = (
+  | WhereClauseComboEntries<T>
+  | (WhereClauseComboEntries<T> & WhereClauseColumnEntries<T>)
+) & {
+  [key: `${string}.${string}`]: WhereClauseValue<
+    string | number | boolean | undefined
+  >;
+};
 
 /**
  * A tuple representing a cursor.
@@ -97,7 +129,7 @@ type $Option<
   K extends keyof S['entities'],
 > = {
   $?: {
-    where?: WhereClause;
+    where?: WhereClauses<InstaQLEntity<S, K>>;
     order?: Order<S, K>;
     limit?: number;
     last?: number;
@@ -112,6 +144,7 @@ type $Option<
 type NamespaceVal =
   | $Option<IContainEntitiesAndLinks<any, any>, keyof EntitiesDef>
   | ($Option<IContainEntitiesAndLinks<any, any>, keyof EntitiesDef> & Subquery);
+
 type Subquery = { [namespace: string]: NamespaceVal };
 
 interface Query {

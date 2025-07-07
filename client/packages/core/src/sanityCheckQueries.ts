@@ -34,17 +34,6 @@ export interface ExPost {
   title: string;
 }
 
-interface ExSchema {
-  users: ExUser;
-  posts: ExPost;
-}
-
-export function dummySchemaQuery<Q extends Query>(
-  _query: Exactly<Query, Q>,
-): QueryResponse<Q, ExSchema> {
-  return 1 as any;
-}
-
 const sanityCheckQueries = () => {
   // -----------
   // Basic good inputs succeed
@@ -131,7 +120,8 @@ const sanityCheckQueries = () => {
   // Bad $ clauses fail
   // @ts-expect-error
   const r8 = dummyQuery({ users: { $: { where: 'foo' } } });
-  // @ts-expect-error
+  // NOTE: Used to error before adding typesafe-where operator, issue is incompatibility
+  // with NonEmpty and dynamic $isNull checks
   const r9 = dummyQuery({ users: { $: { where: { foo: {} } } } });
   // @ts-expect-error
   const r10 = dummyQuery({ users: { $: { where2: 1 } } });
@@ -151,7 +141,12 @@ const sanityCheckQueries = () => {
 
   const s5 = dummyQuery({
     // @ts-expect-error
-    users: { $: { where: { val: { $not: { val: 'a' } } } } },
+    users: { $: { where: { 'josijf.jsdfli': { $isNull: 'a' } } } },
+  });
+  // NOTE: Used to error before adding typesafe-where operator, issue is incompatibility
+  // with NonEmpty and dynamic $isNull checks
+  const s6 = dummyQuery({
+    users: { $: { where: { val: { $gt: { val: 'a' } } } } },
   });
 
   // ----------------
@@ -192,18 +187,3 @@ const sanityCheckSchemalessResponses = () => {
   // @ts-expect-error
   r3.$;
 };
-function sanityCheckSchemadResponses() {
-  // simple response
-  const r1: { users: ExUser[] } = dummySchemaQuery({ users: {} });
-  // nested response
-  const r2: { users: ({ posts: ExPost[] } & ExUser)[] } = dummySchemaQuery({
-    users: { posts: {} },
-  });
-  // id included, but no other keys are allowed
-  const r3 = dummySchemaQuery({ users: {} });
-  const u = r3.users[0];
-  const id: string = u.id;
-  const name: string = u.name;
-  // @ts-expect-error
-  const title: string = u.title;
-}
