@@ -236,6 +236,18 @@
 ;; ----------
 ;; symbol-map
 
+(defn make-binding-path
+  "Generates the binding path for a symbol in the symbol-map."
+  [pattern-idx named-p component]
+  {:pattern-idx pattern-idx
+   :triple-idx (case component
+                 :e 0
+                 :a 1
+                 :v 2)
+   :ctype component
+   :ref? (and (= :v component)
+              (= :vae (idx-key (:idx named-p))))})
+
 (defn symbol-map-of-pattern
   "Given a named pattern, returns a mapping of symbols to their
    binding paths:
@@ -245,18 +257,29 @@
 
    ;=>
 
-   {?a [[idx 0]],
-    ?b [[idx 1]],
-    ?c [[idx 2]]}"
-  [pattern-idx {:keys [e a v]}]
-  (reduce (fn [acc [x path]]
-            (if (named-variable? x)
-              (update acc (uspec/tagged-unwrap x) (fnil conj []) path)
-              acc))
+   {?a [{:pattern-idx 0
+         :triple-idx 0
+         :ctype :e
+         :ref? false}],
+    ?b [{:pattern-idx 0
+         :triple-idx 1
+         :ctype :a
+         :ref? false}],
+    ?c [{:pattern-idx 0
+         :triple-idx 2
+         :ctype :v
+         :ref? false}]}"
+  [pattern-idx named-p]
+  (reduce (fn [acc ctype]
+            (let [x (get named-p ctype)]
+              (if (named-variable? x)
+                (update acc
+                        (uspec/tagged-unwrap x)
+                        (fnil conj [])
+                        (make-binding-path pattern-idx named-p ctype))
+                acc)))
           {}
-          [[e [pattern-idx 0]]
-           [a [pattern-idx 1]]
-           [v [pattern-idx 2]]]))
+          [:e :a :v]))
 
 ;; ----
 ;; join-vals
@@ -391,7 +414,7 @@
                   (swap! checked-for-sym update sym (fnil conj #{}) pattern-idx)
                   (->> (symbol-map sym)
                        (filter
-                        (fn [[sym-idx _]]
+                        (fn [{sym-idx :pattern-idx}]
                           (cond
                             (@ok-patterns sym-idx)
                             true
@@ -523,12 +546,12 @@
   (string/replace (name x) "-" "_"))
 
 (defn- match-table-cols
-  "Every match table returns entity-id, attr-id, value-blob, is-ref-val,
+  "Every match table returns entity-id, attr-id, value, is-ref-val,
    and created-at columns. This is a quick helper to generate the column names"
   [table-name]
   [(kw table-name :-entity-id)
    (kw table-name :-attr-id)
-   (kw table-name :-value-blob)
+   (kw table-name :-value)
    (kw table-name :-is-ref-val)
    (kw table-name :-created-at)])
 
@@ -595,11 +618,16 @@
     (if (empty? v-set)
       [:= 0 1]
       (if-not data-type
-        (in-or-eq (if (= idx-val :av)
-                    ;; Make sure it uses the av_index
-                    [:json_null_to_null :value]
+        (in-or-eq (case idx-val
+                    ;; Make sure av uses the av_index
+                    :av [:json_null_to_null :value]
+                    ;; Make sure vae uses the vae_uuid_index
+                    :vae [:json_uuid_to_uuid :value]
+
                     :value)
-                  (map value->jsonb v-set))
+                  (if (= :vae idx-val)
+                    v-set
+                    (map value->jsonb v-set)))
 
         (list* :or (map (fn [v]
                           (data-type-comparison data-type := :value v))
@@ -802,6 +830,9 @@
 (def ^:private component-type->col-name
   {:e :entity-id :a :attr-id :v :value :created-at :created-at})
 
+(defn qualify-col [prefix binding-path col]
+  (kw prefix (:pattern-idx binding-path) "-" col))
+
 (defn- join-cols
   "Given the component types and the index of the dest table,
 
@@ -809,50 +840,61 @@
 
    For example:
 
-   [1 [:v :v]] => [:value :match-1-value-blob]
-   [1 [:e :v]] => [:entity-id [:json_uuid_to_uuid :match-1-value-blob]]
-   [1 [:v :a]] => [:value [:to_jsonb :match-1-attr-id]]"
-  [prefix dest-idx [origin-ctype dest-ctype]]
+   [:m {:ctype :v} {:ctype :v :pattern-idx 1}] => [:value :m-1-value]
+   [:m {:ctype :e} {:ctype v :pattern-idx 1 :ref? true}]
+     => [:entity-id [:json_uuid_to_uuid :match-1-value]]
+   [:m {:ctype v :ref? true} {:ctype :e :pattern-idx 1}]
+     => [[:json_uuid_to_uuid :value] :match-1-entity-id]"
+  ([prefix origin-binding-path dest-binding-path]
+   (join-cols prefix origin-binding-path dest-binding-path {:qualify-origin? false}))
+  ([prefix origin-binding-path dest-binding-path {:keys [qualify-origin?]}]
+   (let [origin-base-col (cond->> (component-type->col-name (:ctype origin-binding-path))
+                           qualify-origin? (qualify-col prefix origin-binding-path))
+         dest-base-col (qualify-col prefix
+                                    dest-binding-path
+                                    (component-type->col-name (:ctype dest-binding-path)))]
 
-  (let [dest-col #(kw prefix dest-idx "-" %)]
-    (cond
-      (every? #{:v} [origin-ctype dest-ctype])
-      [:value (dest-col :value-blob)]
-
-      (= :v origin-ctype)
-      [:value [:to_jsonb (dest-col (component-type->col-name dest-ctype))]]
-
-      (= :v dest-ctype)
-      [(component-type->col-name origin-ctype) [:json_uuid_to_uuid (dest-col :value-blob)]]
-
-      :else
-      [(component-type->col-name origin-ctype)
-       (dest-col (component-type->col-name dest-ctype))])))
+     [(if (:ref? origin-binding-path)
+        [:json_uuid_to_uuid origin-base-col]
+        origin-base-col)
+      (if (:ref? dest-binding-path)
+        [:json_uuid_to_uuid dest-base-col]
+        dest-base-col)])))
 
 (comment
-  (join-cols :match- 1 [:v :v]))
+  (join-cols :match-
+             {:ctype :v
+              :pattern-idx 1}
+             {:ctype :v
+              :pattern-idx 2})
+
+  (join-cols :match-
+             {:ctype :v
+              :ref? true
+              :pattern-idx 1}
+             {:ctype :e
+              :pattern-idx 2}))
 
 (defn- join-cond
   "Generates a single join condition,
    given the origin component type and the destination path"
-  [prefix origin-ctype [dest-idx dest-col-idx]]
-  (let [dest-ctype (idx->component-type dest-col-idx)
-        [origin-col dest-col] (join-cols prefix dest-idx [origin-ctype dest-ctype])]
+  [prefix origin-binding-path dest-binding-path]
+  (let [[origin-col dest-col] (join-cols prefix origin-binding-path dest-binding-path)]
     [:= origin-col dest-col]))
 
 (defn- join-cond-for-or
   "Generates a join cond for the set of paths generated by the or ctes.
    Each path in the set should be joined with OR"
-  [prefix ctype paths]
+  [prefix origin-binding-path paths]
   (list* :or
          (map (fn [paths]
                 (if (set? paths)
-                  (join-cond-for-or prefix ctype paths)
+                  (join-cond-for-or prefix origin-binding-path paths)
                   (list* :and
                          (map (fn [path]
                                 (if (set? path)
-                                  (join-cond-for-or prefix ctype path)
-                                  (join-cond prefix ctype path)))
+                                  (join-cond-for-or prefix origin-binding-path path)
+                                  (join-cond prefix origin-binding-path path)))
                               paths))))
               paths)))
 
@@ -865,34 +907,29 @@
 
    The second part joins the first on
 
-   [[:= :entity-id [:json_uuid_to_uuid :match-0-value-blob]]]"
-  [prefix symbol-map named-p]
+   [[:= :entity-id [:json_uuid_to_uuid :match-0-value]]]"
+  [prefix pattern-idx symbol-map named-p]
   (->> named-p
        variable-components
        (keep (fn [[ctype [_ sym]]]
                (when-let [paths (get symbol-map sym)]
-                 (map (fn [path]
-                        (if (set? path)
-                          (join-cond-for-or prefix ctype path)
-                          (join-cond prefix ctype path)))
-                      paths))))
+                 (let [binding-path (make-binding-path pattern-idx named-p ctype)]
+                   (map (fn [path]
+                          (if (set? path)
+                            (join-cond-for-or prefix binding-path path)
+                            (join-cond prefix binding-path path)))
+                        paths)))))
        (apply concat)))
 
 (defn- join-cond-for-or-gather
   "Generates a join condition for combining two or ctes. In contrast to join-cond,
    each column name needs to be fully qualified."
-  [prefix [origin-idx origin-col-idx] [dest-idx dest-col-idx]]
-  (let [origin-ctype (idx->component-type origin-col-idx)
-        dest-ctype (idx->component-type dest-col-idx)
-        [origin-col dest-col] (join-cols prefix dest-idx [origin-ctype dest-ctype])
-        origin-col (if (= origin-col :value)
-                     :value-blob
-                     origin-col)]
-    [:= (kw prefix origin-idx "-" origin-col) dest-col]))
-
-(defn single-path? [path]
-  (and (= 2 (count path))
-       (every? int? path)))
+  [prefix origin-binding-path dest-binding-path]
+  (let [[origin-col dest-col] (join-cols prefix
+                                         origin-binding-path
+                                         dest-binding-path
+                                         {:qualify-origin? true})]
+    [:= origin-col dest-col]))
 
 (defn- or-join-conds-for-or-gather
   "Generates join conditions for origin-paths and dest-paths.
@@ -902,8 +939,8 @@
      3. A set of paths #{path-1, path-2}, where we need to join them with OR
    Something like type path = (int, int) | Array<path> | Set<path>"
   [prefix origin-paths dest-paths]
-  (cond (and (single-path? origin-paths)
-             (single-path? dest-paths))
+  (cond (and (map? origin-paths)
+             (map? dest-paths))
         [(join-cond-for-or-gather prefix origin-paths dest-paths)]
 
         (set? origin-paths)
@@ -916,7 +953,7 @@
                               (or-join-conds-for-or-gather prefix origin-paths d))
                             dest-paths))]
 
-        (single-path? origin-paths)
+        (map? origin-paths)
         [(list* :and (mapcat (fn [d]
                                (or-join-conds-for-or-gather prefix origin-paths d))
                              dest-paths))]
@@ -998,10 +1035,11 @@
 ;; match-query
 
 (defn- joining-with
-  "Produces subsequent match tables. Each table joins
-   on the previous table unless it is the first cte or the
-   start of a new AND/OR clause.
-   additional-joins is a map from symbol to path. It allows us to connect the
+  "Produces subsequent match tables. Each table joins on the previous
+   table unless it is the first cte or the start of a new AND/OR
+   clause.
+   `additional-joins` is a map from symbol to binding-path that
+   matches the structure of the symbol-map. It allows us to connect the
    cte to the parent cte if this is a child pattern in a nested query."
   [prefix app-id additional-joins symbol-map prev-idx start-of-group? named-p {:keys [page-info]}]
   (let [cur-idx (inc prev-idx)
@@ -1011,18 +1049,20 @@
                      (kw prefix prev-idx))
         joins (if start-of-group?
                 []
-                (join-conds prefix symbol-map named-p))
+                (join-conds prefix cur-idx symbol-map named-p))
         parent-joins (->> named-p
                           variable-components
                           (keep (fn [[ctype [_ sym]]]
                                   (when-let [path (get additional-joins sym)]
-                                    (join-cond prefix ctype path)))))
+                                    (join-cond prefix
+                                               (make-binding-path cur-idx named-p ctype)
+                                               path)))))
         all-joins (into joins parent-joins)
         parent-froms (->> named-p
                           variable-components
                           (keep (fn [[_ [_ sym]]]
-                                  (when-let [path (get additional-joins sym)]
-                                    (kw prefix (first path))))))
+                                  (when-let [{:keys [pattern-idx]} (get additional-joins sym)]
+                                    (kw prefix pattern-idx)))))
         cte [cur-table
              {:select (concat (when prev-table
                                 [(kw prev-table :.*)])
@@ -1484,7 +1524,7 @@
         first-row-cte [first-row-table
                        {:select [[:order-eid :e]
                                  [(kw table :- (if (= :value order-col-name)
-                                                 :value-blob
+                                                 :value
                                                  order-col-name)) :sym]]
                         :from table
                         :limit 1}
@@ -1492,7 +1532,7 @@
         last-row-cte [last-row-table
                       {:select [[:order-eid :e]
                                 [(kw table :- (if (= :value order-col-name)
-                                                :value-blob
+                                                :value
                                                 order-col-name)) :sym]]
                        :from [[{:select [(kw table :.*)
                                          ;; trick to get the last row in the cte
@@ -1673,6 +1713,7 @@
                       (let [join-sym (get-in pattern-group [:children :join-sym])
                             join-cte [(kw prefix next-idx)
                                       (let [conds (join-conds prefix
+                                                              (dec next-idx)
                                                               symbol-map
                                                               {:e [:variable join-sym]})]
                                         (if-let [single-field (when (and (= 1 (count conds))
@@ -1693,7 +1734,9 @@
                                                                          (update :ctes conj join-cte)
                                                                          (update :next-idx inc)
                                                                          (assoc :pattern-groups []))
-                                                                     {join-sym [next-idx 0]}
+                                                                     {join-sym {:pattern-idx next-idx
+                                                                                :triple-idx 0
+                                                                                :ctype :e}}
                                                                      prefix
                                                                      app-id
                                                                      pattern-group)]
@@ -2187,7 +2230,7 @@
   [ctx conn app-id nested-named-patterns]
   (tracer/with-span! {:name "datalog/send-query-nested"}
     (let [{:keys [query children]} (nested-match-query ctx
-                                                       :match-0-
+                                                       :m-
                                                        app-id
                                                        nested-named-patterns)
           query-hash (or (:query-hash ctx)
@@ -2256,17 +2299,18 @@
   (let [nested-named-patterns (nested->named-patterns patterns)]
     (throw-invalid-nested-patterns nested-named-patterns)
     (let [{:keys [query]} (nested-match-query ctx
-                                              :match-0-
+                                              :m-
                                               (:app-id ctx)
                                               nested-named-patterns)
           sql-query (hsql/format
                      (assoc query
                             :raw
                             "explain (analyze, verbose, buffers, timing, format json)"))]
-      (sql/select-string-keys ::explain
-                              (-> ctx :db :conn-pool)
-                              sql-query
-                              {:attach-warnings? true}))))
+      (when query
+        (sql/select-string-keys ::explain
+                                (-> ctx :db :conn-pool)
+                                sql-query
+                                {:attach-warnings? true})))))
 
 (defn query
   "Executes a Datalog(ish) query over the given aurora `conn`, Instant `app_id`

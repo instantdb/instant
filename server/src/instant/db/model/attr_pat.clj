@@ -35,14 +35,18 @@
   (let [ref? (= value-type :ref)
         e-idx (if ref? :vae :ea)
         v-idx (cond
+                ref? :vae
+
                 (and index?
                      (not indexing?)
                      checked-data-type
-                     (not checking-data-type?)) {:idx-key :ave
-                                                 :data-type checked-data-type}
+                     (not checking-data-type?))
+                {:idx-key :ave
+                 :data-type checked-data-type}
+
                 (and unique? (not setting-unique?)) :av
                 (and index? (not indexing?)) :ave
-                ref? :vae
+
                 :else :ea ;; this means we are searching over an unindexed blob attr
                 )]
     (if v-actualized? v-idx e-idx)))
