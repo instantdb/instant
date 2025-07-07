@@ -22,7 +22,7 @@ import {
   InstantSchemaDef,
   IInstantDatabase,
 } from '@instantdb/core';
-import React, {
+import {
   KeyboardEvent,
   useCallback,
   useEffect,
@@ -31,8 +31,6 @@ import React, {
   useState,
   useSyncExternalStore,
   createContext,
-  useContext,
-  ReactNode,
 } from 'react';
 import { useQueryInternal } from './useQuery.ts';
 import { useTimeout } from './useTimeout.ts';

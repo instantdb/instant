@@ -11,11 +11,16 @@ import { InstantAuthContext } from './InstantReactAbstractDatabase.ts';
  *
  * @example
  * ```tsx
- * import { InstantAuthContext, useCurrentUser } from '@instantdb/react';
+ * import { init, InstantAuthContext, useCurrentUser } from '@instantdb/react';
+ * import { schema } from '../instant.schema.ts';
+ *
+ * const db = init({ appId: 'your-app-id', schema });
  *
  * function App() {
- *   const db = init({ appId: 'your-app-id' });
- *   const { user } = db.useAuth();
+ *   const { user, isLoading, error } = db.useAuth();
+ *   if (isLoading) return null; // or a loading spinner
+ *   if (error) return <div>Error: {error.message}</div>;
+ *
  *
  *   return (
  *     <InstantAuthContext.Provider value={user}>
@@ -33,12 +38,12 @@ import { InstantAuthContext } from './InstantReactAbstractDatabase.ts';
 export function useCurrentUser(): User {
   const user = useContext(InstantAuthContext);
 
-  if (user === null || user === undefined) {
+  if (user === null) {
     throw new Error(
       'useCurrentUser must be used within an InstantAuthContext.Provider with an authenticated user. ' +
         'Make sure you have wrapped your component with InstantAuthContext.Provider and passed a valid user.',
     );
   }
 
-  return user as User;
+  return user;
 }
