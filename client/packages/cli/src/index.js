@@ -929,6 +929,25 @@ function formatSamples(triples_samples) {
   });
 }
 
+function createUrl(triple, job) {
+  const urlParams = new URLSearchParams({
+    s: 'main',
+    app: job.app_id,
+    t: 'explorer',
+    ns: job.attr_name.split('.')[0],
+    where: JSON.stringify(['id', triple.entity_id]),
+  });
+  const url = new URL(instantDashOrigin);
+  url.pathname = '/dash';
+  url.search = urlParams.toString();
+  return url;
+}
+
+function padCell(value, width) {
+  const trimmed = value.length > width ? value.substring(0, width) : value;
+  return trimmed + ' '.repeat(width - trimmed.length);
+}
+
 function indexingJobCompletedMessage(job) {
   const actionMessage = indexingJobCompletedActionMessage(job);
   if (job.job_status === 'canceled') {
@@ -943,9 +962,26 @@ function indexingJobCompletedMessage(job) {
       const samples = formatSamples(job.invalid_triples_sample);
       const longestValue = samples.reduce(
         (acc, { value }) => Math.max(acc, value.length),
-        // Start with length of label
         label.length,
       );
+
+      const columns = [
+        { header: 'namespace', width: 15, getValue: () => etype },
+        {
+          header: 'id',
+          width: 37,
+          getValue: (triple) =>
+            terminalLink(triple.entity_id, createUrl(triple, job).toString(), {
+              fallback: () => triple.entity_id,
+            }),
+        },
+        {
+          header: label,
+          width: longestValue + 2,
+          getValue: (triple) => triple.value,
+        },
+        { header: 'type', width: 8, getValue: (triple) => triple.json_type },
+      ];
 
       let msg = `${chalk.red('INVALID DATA')} ${actionMessage}.\n`;
       if (job.invalid_unique_value) {
@@ -954,25 +990,16 @@ function indexingJobCompletedMessage(job) {
       if (job.error === 'triple-too-large-error') {
         msg += `  Some of the existing data is too large to index.\n`;
       }
-      msg += `  First few examples:\n`;
-      msg += `  ${chalk.bold('id')}${' '.repeat(35)}| ${chalk.bold(label)}${' '.repeat(longestValue - label.length)} | ${chalk.bold('type')}\n`;
-      msg += `  ${'-'.repeat(37)}|${'-'.repeat(longestValue + 2)}|--------\n`;
-      for (const triple of samples) {
-        const urlParams = new URLSearchParams({
-          s: 'main',
-          app: job.app_id,
-          t: 'explorer',
-          ns: etype,
-          where: JSON.stringify(['id', triple.entity_id]),
-        });
-        const url = new URL(instantDashOrigin);
-        url.pathname = '/dash';
-        url.search = urlParams.toString();
 
-        const link = terminalLink(triple.entity_id, url.toString(), {
-          fallback: () => triple.entity_id,
-        });
-        msg += `  ${link} | ${triple.value}${' '.repeat(longestValue - triple.value.length)} | ${triple.json_type}\n`;
+      msg += `  First few examples:\n`;
+      msg += `  ${columns.map((col) => chalk.bold(padCell(col.header, col.width))).join(' | ')}\n`;
+      msg += `  ${columns.map((col) => '-'.repeat(col.width)).join('-|-')}\n`;
+
+      for (const triple of samples) {
+        const cells = columns.map((col) =>
+          padCell(col.getValue(triple), col.width),
+        );
+        msg += `  ${cells.join(' | ')}\n`;
       }
       return msg;
     }
