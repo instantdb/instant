@@ -365,17 +365,17 @@ export default abstract class InstantReactAbstractDatabase<
    * }
    *
    * function MyComponent() {
-   *   const user = db.useCurrentUser(); // Never null!
+   *   const user = db.useLoggedInUser(); // Never null!
    *   return <div>Hello {user.email}</div>;
    * }
    * ```
    */
-  useCurrentUser = (): User => {
+  useLoggedInUser = (): User => {
     const user = useContext(InstantAuthContext);
 
     if (user === null || user === undefined) {
       throw new Error(
-        'useCurrentUser must be used within an InstantAuthContext.Provider with an authenticated user. ' +
+        'useLoggedInUser must be used within an InstantAuthContext.Provider with an authenticated user. ' +
           'Make sure you have wrapped your component with InstantAuthContext.Provider and passed a valid user.',
       );
     }

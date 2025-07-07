@@ -5,9 +5,9 @@ import Login from '../../components/Login';
 // Initialize the database
 const db = init(config);
 
-// Test component that uses useCurrentUser
+// Test component that uses useLoggedInUser
 function AuthenticatedApp() {
-  const user = db.useCurrentUser(); // This is guaranteed to be non-null!
+  const user = db.useLoggedInUser(); // This is guaranteed to be non-null!
   const { isLoading, error, data } = db.useQuery({ goals: { todos: {} } });
 
   if (isLoading) return <div>Loading Query...</div>;
@@ -124,7 +124,7 @@ function App() {
       <div className="max-w-4xl mx-auto p-4">
         <h1 className="text-2xl font-bold mb-4">InstantAuthContext Test</h1>
         <p className="mb-4">
-          Demonstrate how to use InstantAuthContext and useCurrentUser. Login
+          Demonstrate how to use InstantAuthContext and useLoggedInUser. Login
           below to access the authenticated app.
         </p>
         <CustomAuthProvider>
