@@ -966,7 +966,7 @@ function indexingJobCompletedMessage(job) {
       );
 
       const columns = [
-        { header: 'etype', width: 15, getValue: () => etype },
+        { header: 'namespace', width: 15, getValue: () => etype },
         {
           header: 'id',
           width: 37,
