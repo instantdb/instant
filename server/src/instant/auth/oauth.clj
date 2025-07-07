@@ -136,6 +136,11 @@
                           (= jwt-nonce nonce)
                           nil
 
+                          ;; For some reason invertase replaces nonce with SHA256 of nonce
+                          ;; https://github.com/invertase/react-native-apple-authentication/blob/cadd7cad1c8c2c59505959850affaa758328f1a3/android/src/main/java/com/RNAppleAuthentication/AppleAuthenticationAndroidModule.java#L139-L146
+                          (and jwt-nonce nonce (= jwt-nonce (-> nonce crypt-util/str->sha256 crypt-util/bytes->hex-string)))
+                          nil
+
                           (and (string/blank? jwt-nonce)
                                (not (string/blank? nonce)))
                           "The id_token is missing a nonce."
