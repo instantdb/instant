@@ -236,18 +236,11 @@
 ;; ----------
 ;; symbol-map
 
-(defn ctype-for-symbol-map [named-p component]
-  (if (and (= :v component)
-           (= :vae (idx-key (:idx named-p))))
-    :v-ref-value
-    component))
-
-(defn make-binding-path [pattern-idx named-p component]
-  {:path [pattern-idx (case component
-                        :e 0
-                        :a 1
-                        :v 2)]
-   :pattern-idx pattern-idx
+(defn make-binding-path
+  "Generates the binding path for a symbol in the symbol-map:
+  "
+  [pattern-idx named-p component]
+  {:pattern-idx pattern-idx
    :triple-idx (case component
                  :e 0
                  :a 1
@@ -256,20 +249,6 @@
    :ref? (and (= :v component)
               (= :vae (idx-key (:idx named-p))))})
 
-;; XXXX: Remove path from symbol map and make it
-;;       {:match-idx number
-;;        :triple-idx number
-;;        ;; better for not being able to represent invalid states
-;;        :ctype #{:e, :a, :v, :v-ref-value, :created-at},
-;;       Or maybe it should be:
-;;       {:match-idx int,
-;;        :triple-idx int,
-;;        :ctype #{:e, :a, :v, :created-at},
-;;        ;; Better for not introducing a new thing
-;;        ;; Go with the previous one because otherwise you have to pass two arguments
-;;        ;; But maybe we should always pass two args? or the symbol-map value at least?
-;;        ;; And if you have ctype, you don't need triple-idx
-;;        :ref? boolean}
 (defn symbol-map-of-pattern
   "Given a named pattern, returns a mapping of symbols to their
    binding paths:
@@ -279,9 +258,18 @@
 
    ;=>
 
-   {?a [[idx 0]],
-    ?b [[idx 1]],
-    ?c [[idx 2]]}"
+   {?a [{:pattern-idx 0
+         :triple-idx 0
+         :ctype :e
+         :ref? false}],
+    ?b [{:pattern-idx 0
+         :triple-idx 1
+         :ctype :a
+         :ref? false}],
+    ?c [{:pattern-idx 0
+         :triple-idx 2
+         :ctype :v
+         :ref? false}]}"
   [pattern-idx named-p]
   (reduce (fn [acc ctype]
             (let [x (get named-p ctype)]
@@ -847,6 +835,7 @@
 
 (defn qualify-col [prefix binding-path col]
   (kw prefix (:pattern-idx binding-path) "-" col))
+
 (defn- join-cols
   "Given the component types and the index of the dest table,
 
@@ -860,10 +849,6 @@
   ([prefix origin-binding-path dest-binding-path]
    (join-cols prefix origin-binding-path dest-binding-path {:qualify-origin? false}))
   ([prefix origin-binding-path dest-binding-path {:keys [qualify-origin?]}]
-   {:pre [(map? origin-binding-path)
-          (map? dest-binding-path)
-          (:pattern-idx dest-binding-path)
-          (:pattern-idx origin-binding-path)]}
    (let [origin-base-col (cond->> (component-type->col-name (:ctype origin-binding-path))
                            qualify-origin? (qualify-col prefix origin-binding-path))
          dest-base-col (qualify-col prefix
@@ -932,17 +917,19 @@
                  (let [binding-path (make-binding-path pattern-idx named-p component)]
                    (map (fn [path]
                           (if (set? path)
-                            ;; XXX: NEXT
                             (join-cond-for-or prefix binding-path path)
                             (join-cond prefix binding-path path)))
                         paths)))))
        (apply concat)))
 
-(defn- join-cond-for-or-gather ;; hhhhhhhhh
+(defn- join-cond-for-or-gather
   "Generates a join condition for combining two or ctes. In contrast to join-cond,
    each column name needs to be fully qualified."
   [prefix origin-binding-path dest-binding-path]
-  (let [[origin-col dest-col] (join-cols prefix origin-binding-path dest-binding-path {:qualify-origin? true})]
+  (let [[origin-col dest-col] (join-cols prefix
+                                         origin-binding-path
+                                         dest-binding-path
+                                         {:qualify-origin? true})]
     [:= origin-col dest-col]))
 
 (defn- or-join-conds-for-or-gather
@@ -1049,12 +1036,12 @@
 ;; match-query
 
 (defn- joining-with
-  "Produces subsequent match tables. Each table joins
-   on the previous table unless it is the first cte or the
-   start of a new AND/OR clause.
-   additional-joins is a map from symbol to path. It allows us to connect the
+  "Produces subsequent match tables. Each table joins on the previous
+   table unless it is the first cte or the start of a new AND/OR
+   clause.
+   `additional-joins` is a map from symbol to binding-path that
+   matches the structure of the symbol-map. It allows us to connect the
    cte to the parent cte if this is a child pattern in a nested query."
-  ;; XXXX additional-joins needs to fit the symbol-map format
   [prefix app-id additional-joins symbol-map prev-idx start-of-group? named-p {:keys [page-info]}]
   (let [cur-idx (inc prev-idx)
         cur-table (kw prefix cur-idx)
@@ -1063,7 +1050,6 @@
                      (kw prefix prev-idx))
         joins (if start-of-group?
                 []
-                ;; XXX: Somehow here I need to figure out what the index is
                 (join-conds prefix cur-idx symbol-map named-p))
         parent-joins (->> named-p
                           variable-components
