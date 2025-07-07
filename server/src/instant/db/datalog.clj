@@ -842,9 +842,11 @@
 
    For example:
 
-   [1 [:v :v]] => [:value :match-1-value]
-   [1 [:e :v]] => [:entity-id [:json_uuid_to_uuid :match-1-value]]
-   [1 [:v :e]] => [[:json_uuid_to_uuid :value] :match-1-entity-id]"
+   [:m {:ctype :v} {:ctype :v :pattern-idx 1}] => [:value :m-1-value]
+   [:m {:ctype :e} {:ctype v :pattern-idx 1 :ref? true}]
+     => [:entity-id [:json_uuid_to_uuid :match-1-value]]
+   [:m {:ctype v :ref? true} {:ctype :e :pattern-idx 1}]
+     => [[:json_uuid_to_uuid :value] :match-1-entity-id]"
   ([prefix origin-binding-path dest-binding-path]
    (join-cols prefix origin-binding-path dest-binding-path {:qualify-origin? false}))
   ([prefix origin-binding-path dest-binding-path {:keys [qualify-origin?]}]
@@ -911,9 +913,9 @@
   [prefix pattern-idx symbol-map named-p]
   (->> named-p
        variable-components
-       (keep (fn [[component [_ sym]]]
+       (keep (fn [[ctype [_ sym]]]
                (when-let [paths (get symbol-map sym)]
-                 (let [binding-path (make-binding-path pattern-idx named-p component)]
+                 (let [binding-path (make-binding-path pattern-idx named-p ctype)]
                    (map (fn [path]
                           (if (set? path)
                             (join-cond-for-or prefix binding-path path)
@@ -1052,17 +1054,17 @@
                 (join-conds prefix cur-idx symbol-map named-p))
         parent-joins (->> named-p
                           variable-components
-                          (keep (fn [[component [_ sym]]]
+                          (keep (fn [[ctype [_ sym]]]
                                   (when-let [path (get additional-joins sym)]
                                     (join-cond prefix
-                                               (make-binding-path cur-idx named-p component)
+                                               (make-binding-path cur-idx named-p ctype)
                                                path)))))
         all-joins (into joins parent-joins)
         parent-froms (->> named-p
                           variable-components
                           (keep (fn [[_ [_ sym]]]
-                                  (when-let [{:keys [path]} (get additional-joins sym)]
-                                    (kw prefix (first path))))))
+                                  (when-let [{:keys [pattern-idx]} (get additional-joins sym)]
+                                    (kw prefix pattern-idx)))))
         cte [cur-table
              {:select (concat (when prev-table
                                 [(kw prev-table :.*)])
@@ -1734,8 +1736,8 @@
                                                                          (update :ctes conj join-cte)
                                                                          (update :next-idx inc)
                                                                          (assoc :pattern-groups []))
-                                                                     {join-sym {:path [next-idx 0]
-                                                                                :pattern-idx next-idx
+                                                                     {join-sym {:pattern-idx next-idx
+                                                                                :triple-idx 0
                                                                                 :ctype :e}}
                                                                      prefix
                                                                      app-id
