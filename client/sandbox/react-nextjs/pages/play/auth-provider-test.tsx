@@ -1,11 +1,4 @@
-import { useState } from 'react';
-import {
-  init,
-  tx,
-  id,
-  InstantAuthContext,
-  useCurrentUser,
-} from '@instantdb/react';
+import { init, tx, id, InstantAuthContext } from '@instantdb/react';
 import config from '../../config';
 import Login from '../../components/Login';
 
@@ -14,7 +7,7 @@ const db = init(config);
 
 // Test component that uses useCurrentUser
 function AuthenticatedApp() {
-  const user = useCurrentUser(); // This is guaranteed to be non-null!
+  const user = db.useCurrentUser(); // This is guaranteed to be non-null!
   const { isLoading, error, data } = db.useQuery({ goals: { todos: {} } });
 
   if (isLoading) return <div>Loading Query...</div>;

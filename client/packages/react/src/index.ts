@@ -61,7 +61,6 @@ import InstantReactAbstractDatabase, {
 import InstantReactWebDatabase from './InstantReactWebDatabase.ts';
 import { init, init_experimental } from './init.ts';
 import { Cursors } from './Cursors.tsx';
-import { useCurrentUser } from './useCurrentUser.ts';
 
 export {
   id,
@@ -73,7 +72,6 @@ export {
   Cursors,
   i,
   InstantAuthContext,
-  useCurrentUser,
 
   // internal
   InstantReactAbstractDatabase,

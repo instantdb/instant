@@ -8,7 +8,6 @@ import {
   // react
   InstantReactAbstractDatabase,
   InstantAuthContext,
-  useCurrentUser,
 
   // types
   type BackwardsCompatibleSchema,
@@ -128,7 +127,6 @@ export {
   i,
   InstantReactNativeDatabase,
   InstantAuthContext,
-  useCurrentUser,
 
   // types
   type Config,

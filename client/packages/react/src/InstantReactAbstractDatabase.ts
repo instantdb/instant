@@ -25,6 +25,7 @@ import {
 import {
   KeyboardEvent,
   useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -337,5 +338,48 @@ export default abstract class InstantReactAbstractDatabase<
     pageInfo: PageInfoResponse<Q>;
   }> => {
     return this._core.queryOnce(query, opts);
+  };
+
+  /**
+   * Hook that returns the current authenticated user from InstantAuthContext.
+   * This hook guarantees that the user is authenticated and non-null.
+   *
+   * @throws {Error} If used outside of an InstantAuthContext.Provider with a valid user
+   * @returns {User} The authenticated user object
+   *
+   * @example
+   * ```tsx
+   * import { init, InstantAuthContext } from '@instantdb/react';
+   *
+   * const db = init({ appId: 'your-app-id' });
+   *
+   * function AuthProvider({ children }) {
+   *   const { user } = db.useAuth();
+   *   if (!user) return <Login />;
+   *
+   *   return (
+   *     <InstantAuthContext.Provider value={user}>
+   *       {children}
+   *     </InstantAuthContext.Provider>
+   *   );
+   * }
+   *
+   * function MyComponent() {
+   *   const user = db.useCurrentUser(); // Never null!
+   *   return <div>Hello {user.email}</div>;
+   * }
+   * ```
+   */
+  useCurrentUser = (): User => {
+    const user = useContext(InstantAuthContext);
+
+    if (user === null || user === undefined) {
+      throw new Error(
+        'useCurrentUser must be used within an InstantAuthContext.Provider with an authenticated user. ' +
+          'Make sure you have wrapped your component with InstantAuthContext.Provider and passed a valid user.',
+      );
+    }
+
+    return user as User;
   };
 }
