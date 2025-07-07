@@ -549,7 +549,8 @@ export function EditRowDialog({
       const val = item[attr.name];
       const t = getAppropriateFieldType(attr, val);
 
-      const defaultValue = op === 'add' ? defaultValueByType[t] : val;
+      const defaultValue =
+        op === 'add' ? (attr.isRequired ? defaultValueByType[t] : null) : val;
 
       return {
         ...acc,
@@ -579,7 +580,10 @@ export function EditRowDialog({
       // Don't set nullFields for new rows
       return {
         ...acc,
-        [attr.name]: op === 'edit' ? item[attr.name] === null : false,
+        [attr.name]:
+          op === 'edit'
+            ? item[attr.name] === null
+            : blobUpdates[attr.name].value === null,
       };
     }, {}),
   );
@@ -760,6 +764,17 @@ export function EditRowDialog({
           [id]: { action: 'link', item: linkItem },
         },
       };
+    });
+  };
+
+  const focusElementAtTabIndex = (index: number) => {
+    // Use requestAnimationFrame to wait for the next render cycle
+    // so that the input is shown to focus
+    requestAnimationFrame(() => {
+      const element = document.querySelector(`[tabindex="${index}"]`);
+      if (element && element instanceof HTMLElement) {
+        element.focus();
+      }
     });
   };
 
@@ -973,9 +988,15 @@ export function EditRowDialog({
                     )}
                   </div>
                 ) : (
-                  <div className="flex-1 rounded-sm border border-gray-200 bg-gray-50 px-3 py-1 text-gray-500 italic">
+                  <button
+                    onClick={() => {
+                      handleNullToggle(attr.name, false);
+                      focusElementAtTabIndex(tabIndex);
+                    }}
+                    className="flex-1 text-left rounded-sm border border-gray-200 bg-gray-50 px-3 py-1 text-gray-500 italic"
+                  >
                     null
-                  </div>
+                  </button>
                 )}
                 {error && shouldDisplayErrors && (
                   <span className="text-sm text-red-500 font-medium">
