@@ -830,8 +830,6 @@
 (def ^:private component-type->col-name
   {:e :entity-id :a :attr-id :v :value :created-at :created-at})
 
-(s/def ::join-col-ctype #{:e :a :v :created-at :v-ref-value})
-
 (defn qualify-col [prefix binding-path col]
   (kw prefix (:pattern-idx binding-path) "-" col))
 
