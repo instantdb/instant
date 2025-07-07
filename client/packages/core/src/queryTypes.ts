@@ -28,7 +28,12 @@ type NonEmpty<T> = {
   [K in keyof T]-?: Required<Pick<T, K>>;
 }[keyof T];
 
-type WhereArgs = {
+// type NonEmpty<T> = keyof T extends never ? never : T;
+
+// Branded Schemaless unknown
+type BSUnknown = { _unknown: '_unknown' };
+
+type AnyWhereArgs = {
   /** @deprecated use `$in` instead of `in` */
   in?: (string | number | boolean)[];
   $in?: (string | number | boolean)[];
@@ -42,20 +47,70 @@ type WhereArgs = {
   $ilike?: string;
 };
 
-type WhereClauseValue = string | number | boolean | NonEmpty<WhereArgs>;
-
-type BaseWhereClause = {
-  [key: string]: WhereClauseValue;
+type BaseWhereClauses<V> = {
+  in?: V[];
+  $in?: V[];
+  $not?: V;
+  $gt?: V;
+  $lt?: V;
+  $gte?: V;
+  $lte?: V;
 };
 
-type WhereClauseWithCombination = {
-  or?: WhereClause[] | WhereClauseValue;
-  and?: WhereClause[] | WhereClauseValue;
+type Test = NonEmpty<Expand<WhereArgs<string | undefined>>>;
+
+type WhereArgs<V> = V extends BSUnknown
+  ? AnyWhereArgs
+  : BaseWhereClauses<V> &
+      (V extends string
+        ? {
+            $like?: string;
+            $ilike?: string;
+          }
+        : {}) &
+      (undefined extends V
+        ? {
+            $isNull?: boolean;
+          }
+        : {});
+
+// Make type display better
+type WhereClauseValue<V> =
+  | (V extends BSUnknown
+      ? string | number | boolean
+      : V extends string | undefined
+        ? string
+        : V extends number | undefined
+          ? number
+          : V extends boolean | undefined
+            ? boolean
+            : any)
+  | Expand<WhereArgs<V>>;
+
+type BaseWhereClause<
+  T extends {
+    [key: string]: unknown;
+  },
+> = {
+  [key in keyof T]?: WhereClauseValue<T[key]>;
 };
 
-type WhereClause =
-  | WhereClauseWithCombination
-  | (WhereClauseWithCombination & BaseWhereClause);
+type HasNestingKeyString = `${string}.${string}`;
+
+// TODO: gradually phase out
+type FreeWhereClause<> = {
+  [key: HasNestingKeyString]: WhereClauseValue<BSUnknown>;
+};
+
+type WhereClauseWithCombination<T extends Record<any, unknown>> = {
+  // do infer here
+  or?: WhereClause<T>[] | WhereClauseValue<BSUnknown>;
+  and?: WhereClause<T>[] | WhereClauseValue<BSUnknown>;
+};
+
+type WhereClause<T extends Record<any, any>> =
+  | WhereClauseWithCombination<T>
+  | (WhereClauseWithCombination<T> & BaseWhereClause<T> & FreeWhereClause);
 
 /**
  * A tuple representing a cursor.
@@ -70,9 +125,14 @@ type Direction = 'asc' | 'desc';
 
 type Order = { [key: string]: Direction };
 
-type $Option<Fields extends string[]> = {
+type $Option<
+  Fields extends string[],
+  WhereFieldTypes extends {
+    [key: string]: any;
+  } = Record<any, BSUnknown>,
+> = {
   $?: {
-    where?: WhereClause;
+    where?: WhereClause<WhereFieldTypes>;
     order?: Order;
     limit?: number;
     last?: number;
@@ -332,10 +392,15 @@ type InstaQLQuerySubqueryParams<
         >);
 };
 
+type MakeIdOptional<T> = T extends { id: string }
+  ? Omit<T, 'id'> & { id?: string }
+  : T;
+
 type InstaQLParams<S extends IContainEntitiesAndLinks<any, any>> = {
   [K in keyof S['entities']]?:
-    | $Option<InstaQLFields<S, K>>
-    | ($Option<InstaQLFields<S, K>> & InstaQLQuerySubqueryParams<S, K>);
+    | $Option<InstaQLFields<S, K>, MakeIdOptional<InstaQLEntity<S, K>>>
+    | ($Option<InstaQLFields<S, K>, MakeIdOptional<InstaQLEntity<S, K>>> &
+        InstaQLQuerySubqueryParams<S, K>);
 };
 
 /**

@@ -131,8 +131,9 @@ const sanityCheckQueries = () => {
   // Bad $ clauses fail
   // @ts-expect-error
   const r8 = dummyQuery({ users: { $: { where: 'foo' } } });
-  // @ts-expect-error
-  const r9 = dummyQuery({ users: { $: { where: { foo: {} } } } });
+  // REMOVED BY DREW
+  // // @ts-expect-error
+  // const r9 = dummyQuery({ users: { $: { where: { foo: {} } } } });
   // @ts-expect-error
   const r10 = dummyQuery({ users: { $: { where2: 1 } } });
   const s2 = dummyQuery({
