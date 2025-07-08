@@ -707,7 +707,7 @@ export function EditRowDialog({
 
   const handleUnlinkRef = (attr: SchemaAttr, id: string) => {
     setRefUpdates((v) => {
-      const existing = item[attr.name].find((x: any) => x.id === id);
+      const existing = item[attr.name]?.find((x: any) => x.id === id);
       if (existing) {
         return {
           ...v,
