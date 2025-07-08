@@ -848,8 +848,11 @@ export function Explorer({
                       ),
                     );
                   }
-                } catch (error) {
-                  errorToast(`Failed to delete ${rowText}`);
+                } catch (error: any) {
+                  const errorMessage = error.message;
+                  errorToast(
+                    `Failed to delete ${rowText}${errorMessage ? `: ${errorMessage}` : ''}`,
+                  );
                   return;
                 }
 
