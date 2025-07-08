@@ -1,7 +1,6 @@
 // Query
 // -----
 
-import { DREWSCHEMA } from './DREWSCHEMA.js';
 import type {
   EntitiesDef,
   IContainEntitiesAndLinks,
@@ -92,52 +91,54 @@ type BaseWhereClause<
   [key in keyof T]?: WhereClauseValue<T[key]>;
 };
 
-type HasNestingKeyString = `${string}.${string}`;
-
-// TODO: gradually phase out
-type FreeWhereClause = {
-  [key: HasNestingKeyString]: WhereClauseValue<BSUnknown>;
-};
-
 // Helper type to infer the value type from a nested path
 type InferNestedValueType<
   S extends IContainEntitiesAndLinks<any, any>,
   K extends keyof S['entities'],
   Path extends string,
-> = Path extends `${infer LinkName}.${infer RestPath}`
-  ? LinkName extends keyof S['entities'][K]['links']
-    ? S['entities'][K]['links'][LinkName] extends LinkAttrDef<
-        any,
-        infer LinkedEntityName
-      >
-      ? LinkedEntityName extends keyof S['entities']
-        ? InferNestedValueType<S, LinkedEntityName, RestPath>
-        : unknown
-      : unknown
-    : unknown
-  : Path extends keyof ResolveEntityAttrs<S['entities'][K]>
-    ? ResolveEntityAttrs<S['entities'][K]>[Path]
-    : unknown;
+  Depth extends number = 3,
+> = Depth extends 0
+  ? BSUnknown
+  : Path extends `${infer LinkName}.${infer RestPath}`
+    ? LinkName extends keyof S['entities'][K]['links']
+      ? S['entities'][K]['links'][LinkName] extends LinkAttrDef<
+          any,
+          infer LinkedEntityName
+        >
+        ? LinkedEntityName extends keyof S['entities']
+          ? InferNestedValueType<
+              S,
+              LinkedEntityName,
+              RestPath,
+              [never, 0, 1, 2, 3][Depth]
+            >
+          : BSUnknown
+        : BSUnknown
+      : BSUnknown
+    : Path extends keyof ResolveEntityAttrs<S['entities'][K]>
+      ? ResolveEntityAttrs<S['entities'][K]>[Path]
+      : BSUnknown;
 
-// Typed version that validates dot notation paths
 type TypedFreeWhereClause<
   S extends IContainEntitiesAndLinks<any, any>,
   K extends keyof S['entities'],
 > = {
   [Path in InferNestedPath<S, K>]?: WhereClauseValue<
-    InferNestedValueType<S, K, Path>
+    InferNestedValueType<S, K, Path, 4>
   >;
+} & {
+  // Allow any deeply nested path with BSUnknown typing
+  [key: `${string}.${string}.${string}.${string}`]: WhereClauseValue<BSUnknown>;
 };
 
-type TestNestedPath = InferNestedPath<typeof DREWSCHEMA, 'comments'>;
-
-// Helper type to get valid nested paths for an entity
+// Helper type to get valid nested paths
 type InferNestedPath<
   S extends IContainEntitiesAndLinks<any, any>,
   K extends keyof S['entities'],
-  Depth extends number = 3,
+  Depth extends number = 4,
 > = Depth extends 0
-  ? never
+  ? // At depth 0, allow any string path for BSUnknown typing
+    `${string}.${string}`
   : // Direct attributes of the entity
     | Extract<keyof ResolveEntityAttrs<S['entities'][K]>, string>
       // Nested paths through links (link.attribute)
@@ -150,7 +151,7 @@ type InferNestedPath<
               ? `${Extract<LinkName, string>}.${InferNestedPath<
                   S,
                   LinkedEntityName,
-                  [never, 0, 1, 2][Depth]
+                  [never, 0, 1, 2, 3][Depth]
                 >}`
               : never
             : never;
@@ -164,7 +165,7 @@ type WhereClauseWithCombination<T extends Record<any, unknown>> = {
 
 type WhereClause<T extends Record<any, any>> =
   | WhereClauseWithCombination<T>
-  | (WhereClauseWithCombination<T> & BaseWhereClause<T> & FreeWhereClause);
+  | (WhereClauseWithCombination<T> & BaseWhereClause<T>);
 
 /**
  * A tuple representing a cursor.
@@ -199,7 +200,7 @@ type $Option<
 };
 
 // Typed version that supports dot notation for nested queries
-type $OptionWithDotNotation<
+type $OptionWNest<
   S extends IContainEntitiesAndLinks<any, any>,
   K extends keyof S['entities'],
   Fields extends string[],
@@ -460,7 +461,7 @@ type InstaQLQuerySubqueryParams<
   E extends keyof S['entities'],
 > = {
   [K in keyof S['entities'][E]['links']]?:
-    | $OptionWithDotNotation<
+    | $OptionWNest<
         S,
         S['entities'][E]['links'][K]['entityName'],
         InstaQLFields<S, S['entities'][E]['links'][K]['entityName']>,
@@ -468,7 +469,7 @@ type InstaQLQuerySubqueryParams<
           InstaQLEntity<S, S['entities'][E]['links'][K]['entityName']>
         >
       >
-    | ($OptionWithDotNotation<
+    | ($OptionWNest<
         S,
         S['entities'][E]['links'][K]['entityName'],
         InstaQLFields<S, S['entities'][E]['links'][K]['entityName']>,
@@ -488,13 +489,13 @@ type MakeIdOptional<T> = T extends { id: string }
 
 type InstaQLParams<S extends IContainEntitiesAndLinks<any, any>> = {
   [K in keyof S['entities']]?:
-    | $OptionWithDotNotation<
+    | $OptionWNest<
         S,
         K,
         InstaQLFields<S, K>,
         MakeIdOptional<InstaQLEntity<S, K>>
       >
-    | ($OptionWithDotNotation<
+    | ($OptionWNest<
         S,
         K,
         InstaQLFields<S, K>,
