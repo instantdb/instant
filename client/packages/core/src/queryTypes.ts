@@ -98,9 +98,14 @@ type BaseWhereClause<
 type HasNestingKeyString = `${string}.${string}`;
 
 // TODO: gradually phase out
-type FreeWhereClause<> = {
+type FreeWhereClause = {
   [key: HasNestingKeyString]: WhereClauseValue<BSUnknown>;
 };
+
+type InferNestedPath<
+  S extends IContainEntitiesAndLinks<any, any>,
+  K extends keyof S['entities'],
+> = ``;
 
 type WhereClauseWithCombination<T extends Record<any, unknown>> = {
   // do infer here
@@ -384,8 +389,18 @@ type InstaQLQuerySubqueryParams<
   E extends keyof S['entities'],
 > = {
   [K in keyof S['entities'][E]['links']]?:
-    | $Option<InstaQLFields<S, S['entities'][E]['links'][K]['entityName']>>
-    | ($Option<InstaQLFields<S, S['entities'][E]['links'][K]['entityName']>> &
+    | $Option<
+        InstaQLFields<S, S['entities'][E]['links'][K]['entityName']>,
+        MakeIdOptional<
+          InstaQLEntity<S, S['entities'][E]['links'][K]['entityName']>
+        >
+      >
+    | ($Option<
+        InstaQLFields<S, S['entities'][E]['links'][K]['entityName']>,
+        MakeIdOptional<
+          InstaQLEntity<S, S['entities'][E]['links'][K]['entityName']>
+        >
+      > &
         InstaQLQuerySubqueryParams<
           S,
           S['entities'][E]['links'][K]['entityName']
