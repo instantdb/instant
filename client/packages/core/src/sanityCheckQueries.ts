@@ -34,17 +34,6 @@ export interface ExPost {
   title: string;
 }
 
-interface ExSchema {
-  users: ExUser;
-  posts: ExPost;
-}
-
-export function dummySchemaQuery<Q extends Query>(
-  _query: Exactly<Query, Q>,
-): QueryResponse<Q, ExSchema> {
-  return 1 as any;
-}
-
 const sanityCheckQueries = () => {
   // -----------
   // Basic good inputs succeed
@@ -193,18 +182,7 @@ const sanityCheckSchemalessResponses = () => {
   // @ts-expect-error
   r3.$;
 };
+
 function sanityCheckSchemadResponses() {
-  // simple response
-  const r1: { users: ExUser[] } = dummySchemaQuery({ users: {} });
-  // nested response
-  const r2: { users: ({ posts: ExPost[] } & ExUser)[] } = dummySchemaQuery({
-    users: { posts: {} },
-  });
-  // id included, but no other keys are allowed
-  const r3 = dummySchemaQuery({ users: {} });
-  const u = r3.users[0];
-  const id: string = u.id;
-  const name: string = u.name;
-  // @ts-expect-error
-  const title: string = u.title;
+  // Checked inside ../__tests__/src/schema.test.ts
 }

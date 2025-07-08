@@ -152,4 +152,43 @@ test('runs without exception', () => {
       },
     },
   });
+
+  dummyQuery({
+    comments: {
+      $: {
+        where: {
+          'post.author.name': {
+            in: [8932],
+          },
+          'pot.ator.ame': {
+            in: ['harold'],
+          },
+        },
+      },
+    },
+  });
+
+  dummyQuery({
+    users: {
+      $: {
+        where: {
+          name: 'drew',
+        },
+      },
+    },
+  });
+
+  dummyQuery({
+    comments: {
+      $: {
+        where: {
+          and: [
+            {
+              body: '8932',
+            },
+          ],
+        },
+      },
+    },
+  });
 });
