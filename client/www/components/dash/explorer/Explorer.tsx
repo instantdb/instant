@@ -11,7 +11,6 @@ import {
 } from 'react';
 import { jsonFetch } from '@/lib/fetch';
 import config from '@/lib/config';
-import produce from 'immer';
 import clsx from 'clsx';
 import CopyToClipboard from 'react-copy-to-clipboard';
 import {
@@ -156,6 +155,14 @@ function queryToFilters({
       if (!attr || !part.value) {
         return [];
       }
+      if (
+        part.value.toLowerCase() === 'null' &&
+        part.operator === ':' &&
+        !attr.isRequired
+      ) {
+        return [[part.field, '$isNull', null]];
+      }
+
       const res: SearchFilter[] = [];
       if (attr.checkedDataType && attr.isIndex) {
         if (attr.checkedDataType === 'string') {
