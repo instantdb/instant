@@ -3,7 +3,13 @@ import { useEffect, useState } from 'react';
 import { DBAttr, SchemaNamespace } from '@/lib/types';
 import { dbAttrsToExplorerSchema } from '@/lib/schema';
 
-export type SearchFilterOp = '=' | '$ilike' | '$like' | '$gt' | '$lt';
+export type SearchFilterOp =
+  | '='
+  | '$ilike'
+  | '$like'
+  | '$gt'
+  | '$lt'
+  | '$isNull';
 export type SearchFilter = [string, SearchFilterOp, any];
 
 function makeWhere(
@@ -19,6 +25,8 @@ function makeWhere(
       switch (op) {
         case '=':
           return { [attr]: val };
+        case '$isNull':
+          return { [attr]: { [op]: true } };
         default:
           return { [attr]: { [op]: val } };
       }
