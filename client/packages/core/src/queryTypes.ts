@@ -80,7 +80,7 @@ type WhereClauseValue<V> =
           ? number
           : V extends boolean | undefined
             ? boolean
-            : any)
+            : never)
   | Expand<WhereArgs<V>>;
 
 type BaseWhereClause<
