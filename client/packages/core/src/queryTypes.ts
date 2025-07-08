@@ -119,10 +119,10 @@ type InferNestedValueType<
       ? ResolveEntityAttrs<S['entities'][K]>[Path]
       : BSUnknown;
 
-type TypedFreeWhereClause<
+type WhereClause<
   S extends IContainEntitiesAndLinks<any, any>,
   K extends keyof S['entities'],
-> = {
+> = BaseAttrWhereClause<InstaQLEntity<S, K>> & {
   [Path in InferNestedPath<S, K>]?: WhereClauseValue<
     InferNestedValueType<S, K, Path, 4>
   >;
@@ -158,12 +158,11 @@ type InferNestedPath<
         }[keyof S['entities'][K]['links']];
 
 type WhereClauseWithCombination<T extends Record<any, unknown>> = {
-  // do infer here
-  or?: WhereClause<T>[] | WhereClauseValue<BSUnknown>;
-  and?: WhereClause<T>[] | WhereClauseValue<BSUnknown>;
+  or?: BaseAttrWhereClause<T>[] | WhereClauseValue<BSUnknown>;
+  and?: BaseAttrWhereClause<T>[] | WhereClauseValue<BSUnknown>;
 };
 
-type WhereClause<T extends Record<any, any>> =
+type BaseAttrWhereClause<T extends Record<any, any>> =
   | WhereClauseWithCombination<T>
   | (WhereClauseWithCombination<T> & BaseWhereClause<T>);
 
@@ -187,7 +186,7 @@ type $Option<
   } = Record<any, BSUnknown>,
 > = {
   $?: {
-    where?: WhereClause<WhereFieldTypes>;
+    where?: BaseAttrWhereClause<WhereFieldTypes>;
     order?: Order;
     limit?: number;
     last?: number;
@@ -203,13 +202,9 @@ type $Option<
 type $OptionWNest<
   S extends IContainEntitiesAndLinks<any, any>,
   K extends keyof S['entities'],
-  Fields extends string[],
-  WhereFieldTypes extends {
-    [key: string]: any;
-  } = Record<any, BSUnknown>,
 > = {
   $?: {
-    where?: WhereClause<WhereFieldTypes> & TypedFreeWhereClause<S, K>;
+    where?: WhereClause<S, K>;
     order?: Order;
     limit?: number;
     last?: number;
@@ -217,7 +212,7 @@ type $OptionWNest<
     offset?: number;
     after?: Cursor;
     before?: Cursor;
-    fields?: Fields;
+    fields?: keyof InstaQLEntity<S, K>[];
   };
 };
 
@@ -438,7 +433,7 @@ type InstaQLResult<
         Schema,
         QueryPropName,
         Remove$NonRecursive<Query[QueryPropName]>,
-        Query[QueryPropName]['$']['fields']
+        InstaQLFields<Schema, QueryPropName>
       >[]
     : never;
 }>;
@@ -461,47 +456,18 @@ type InstaQLQuerySubqueryParams<
   E extends keyof S['entities'],
 > = {
   [K in keyof S['entities'][E]['links']]?:
-    | $OptionWNest<
-        S,
-        S['entities'][E]['links'][K]['entityName'],
-        InstaQLFields<S, S['entities'][E]['links'][K]['entityName']>,
-        MakeIdOptional<
-          InstaQLEntity<S, S['entities'][E]['links'][K]['entityName']>
-        >
-      >
-    | ($OptionWNest<
-        S,
-        S['entities'][E]['links'][K]['entityName'],
-        InstaQLFields<S, S['entities'][E]['links'][K]['entityName']>,
-        MakeIdOptional<
-          InstaQLEntity<S, S['entities'][E]['links'][K]['entityName']>
-        >
-      > &
+    | $OptionWNest<S, S['entities'][E]['links'][K]['entityName']>
+    | ($OptionWNest<S, S['entities'][E]['links'][K]['entityName']> &
         InstaQLQuerySubqueryParams<
           S,
           S['entities'][E]['links'][K]['entityName']
         >);
 };
 
-type MakeIdOptional<T> = T extends { id: string }
-  ? Omit<T, 'id'> & { id?: string }
-  : T;
-
 type InstaQLParams<S extends IContainEntitiesAndLinks<any, any>> = {
   [K in keyof S['entities']]?:
-    | $OptionWNest<
-        S,
-        K,
-        InstaQLFields<S, K>,
-        MakeIdOptional<InstaQLEntity<S, K>>
-      >
-    | ($OptionWNest<
-        S,
-        K,
-        InstaQLFields<S, K>,
-        MakeIdOptional<InstaQLEntity<S, K>>
-      > &
-        InstaQLQuerySubqueryParams<S, K>);
+    | $OptionWNest<S, K>
+    | ($OptionWNest<S, K> & InstaQLQuerySubqueryParams<S, K>);
 };
 
 /**

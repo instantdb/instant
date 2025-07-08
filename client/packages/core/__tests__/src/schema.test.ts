@@ -1,7 +1,12 @@
 import { test } from 'vitest';
 
 import { i } from '../../src';
-import type { InstaQLResult, InstaQLParams } from '../../src/queryTypes';
+import type {
+  Exactly,
+  InstaQLParams,
+  InstaQLResponse,
+  InstaQLResult,
+} from '../../src/queryTypes';
 
 test('runs without exception', () => {
   const schema = i.schema({
@@ -123,4 +128,28 @@ test('runs without exception', () => {
       },
     },
   } satisfies InstaQLParams<Schema>;
+  function dummyQuery<Q extends InstaQLParams<Schema>>(
+    _query: Exactly<InstaQLParams<Schema>, Q>,
+  ): InstaQLResponse<Schema, Q> {
+    return 1 as any;
+  }
+
+  type QueryType = InstaQLParams<Schema>;
+  const queryTypeTest: QueryType = {
+    comments: {
+      $: {
+        where: {},
+      },
+    },
+  };
+
+  const result = dummyQuery({
+    comments: {
+      $: {
+        where: {
+          body: '',
+        },
+      },
+    },
+  });
 });
