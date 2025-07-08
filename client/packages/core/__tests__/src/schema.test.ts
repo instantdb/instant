@@ -1,7 +1,7 @@
 import { test } from 'vitest';
 
 import { i } from '../../src';
-import type { InstaQLQueryResult, InstaQLResult } from '../../src/queryTypes';
+import type { InstaQLResult, InstaQLParams } from '../../src/queryTypes';
 
 test('runs without exception', () => {
   const schema = i.schema({
@@ -106,4 +106,21 @@ test('runs without exception', () => {
   type DemoQueryResult = InstaQLResult<Schema, typeof demoQuery>;
   queryResult?.users[0].friends[0]._friends[0].bio;
   queryResult?.users[0].posts[0].author?.junk;
+
+  // Test dot notation in where clauses
+  const dotNotationQuery = {
+    users: {
+      $: {
+        where: {
+          // These should be valid dot notation paths
+          'posts.title': 'Hello World',
+          'posts.author.name': 'John',
+          'posts.comments.body': 'Great post!',
+          // Direct attributes should still work
+          name: 'Alice',
+          email: 'alice@example.com',
+        },
+      },
+    },
+  } satisfies InstaQLParams<Schema>;
 });
