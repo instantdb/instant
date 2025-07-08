@@ -198,6 +198,9 @@ type $Option<
   };
 };
 
+// Helper type to check if an entity has index signature (unknown schema)
+type HasIndexSignature<T> = string extends keyof T ? true : false;
+
 // Typed version that supports dot notation for nested queries
 type $OptionWNest<
   S extends IContainEntitiesAndLinks<any, any>,
@@ -212,7 +215,9 @@ type $OptionWNest<
     offset?: number;
     after?: Cursor;
     before?: Cursor;
-    fields?: keyof InstaQLEntity<S, K>[];
+    fields?: HasIndexSignature<InstaQLEntity<S, K>> extends true
+      ? string[]
+      : keyof InstaQLEntity<S, K>[];
   };
 };
 
