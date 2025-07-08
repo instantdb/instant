@@ -457,21 +457,14 @@
               (when-not match
                 (ex/throw-validation-err! :origin origin [{:message "Unauthorized origin."}]))))
 
-        user-info (let [user-info-response (oauth/get-user-info-from-id-token
-                                            oauth-client
-                                            nonce
-                                            id-token
-                                            (when-not (:client_secret oauth-client)
-                                              {:allow-unverified-email? true
-                                               :ignore-audience? true}))]
-                    (when (= :error (:type user-info-response))
-                      (ex/throw-validation-err!
-                       :id_token
-                       id-token
-                       [(:message user-info-response)]))
-                    user-info-response)
-        email (ex/get-param! user-info [:email] email/coerce)
-        sub (:sub user-info)
+        {:keys [email sub]} (oauth/get-user-info-from-id-token
+                             oauth-client
+                             nonce
+                             id-token
+                             (when-not (:client_secret oauth-client)
+                               {:allow-unverified-email? true
+                                :ignore-audience? true}))
+        email (email/coerce email)
         social-login (upsert-oauth-link! {:email email
                                           :sub sub
                                           :app-id (:app_id client)

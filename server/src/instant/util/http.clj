@@ -114,7 +114,7 @@
       (handler request)
       (catch Exception e
         (let [instant-ex (ex/find-instant-exception e)
-              {:keys [::ex/type ::ex/message ::ex/hint ::ex/trace-id]} (ex-data instant-ex)
+              {::ex/keys [type message hint trace-id]} (ex-data instant-ex)
               bad-request (when instant-ex
                             (instant-ex->bad-request instant-ex))]
           (cond
