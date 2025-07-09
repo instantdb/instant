@@ -120,7 +120,8 @@ const sanityCheckQueries = () => {
   // Bad $ clauses fail
   // @ts-expect-error
   const r8 = dummyQuery({ users: { $: { where: 'foo' } } });
-  // REMOVED BY DREW
+  // NOTE: Used to error before adding typesafe-where operator, issue is incompatibility
+  // with NonEmpty and dynamic $isNull checks
   const r9 = dummyQuery({ users: { $: { where: { foo: {} } } } });
   // @ts-expect-error
   const r10 = dummyQuery({ users: { $: { where2: 1 } } });
@@ -138,6 +139,8 @@ const sanityCheckQueries = () => {
     users: { $: { where: { val: { $isNull: 'a' } } } },
   });
 
+  // NOTE: Used to error before adding typesafe-where operator, issue is incompatibility
+  // with NonEmpty and dynamic $isNull checks
   const s5 = dummyQuery({
     users: { $: { where: { val: { $gt: { val: 'a' } } } } },
   });
