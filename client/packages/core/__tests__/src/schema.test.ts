@@ -157,11 +157,8 @@ test('runs without exception', () => {
     comments: {
       $: {
         where: {
-          'post.author.name': {
-            in: [8932],
-          },
-          'pot.ator.ame': {
-            in: ['harold'],
+          body: {
+            $not: 8923,
           },
         },
       },

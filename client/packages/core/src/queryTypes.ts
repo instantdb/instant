@@ -123,12 +123,12 @@ type WhereClause<
   S extends IContainEntitiesAndLinks<any, any>,
   K extends keyof S['entities'],
 > = BaseAttrWhereClause<InstaQLEntity<S, K>> & {
-  [Path in InferNestedPath<S, K>]?: WhereClauseValue<
-    InferNestedValueType<S, K, Path, 4>
-  >;
-} & {
+  //   [Path in InferNestedPath<S, K>]?: WhereClauseValue<
+  //     InferNestedValueType<S, K, Path, 4>
+  //   >;
+  // } & {
   // Allow any deeply nested path with BSUnknown typing
-  [key: `${string}.${string}.${string}.${string}`]: WhereClauseValue<BSUnknown>;
+  [key: `${string}.${string}`]: WhereClauseValue<BSUnknown>;
 };
 
 // Helper type to get valid nested paths
