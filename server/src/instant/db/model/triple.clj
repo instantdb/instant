@@ -693,7 +693,6 @@
                   SELECT
                     cast(elem ->> 0 AS uuid) AS entity_id,
                     cast(elem ->> 1 AS text) AS etype,
-                    TO_JSONB(cast(elem ->> 0 AS uuid)) AS entity_id_jsonb
                   FROM
                     jsonb_array_elements(cast(?id+etypes AS jsonb)) AS elem
                 ),
@@ -714,7 +713,7 @@
                     triples.ctid
                   FROM
                     triples
-                    JOIN id_etypes ON triples.value = entity_id_jsonb
+                    JOIN id_etypes ON json_uuid_to_uuid(triples.value) = id_etypes.entity_id
                     JOIN attrs ON triples.attr_id = attrs.id
                   WHERE
                     triples.vae
