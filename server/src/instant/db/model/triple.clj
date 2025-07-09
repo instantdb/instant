@@ -692,7 +692,7 @@
                 id_etypes AS (
                   SELECT
                     cast(elem ->> 0 AS uuid) AS entity_id,
-                    cast(elem ->> 1 AS text) AS etype,
+                    cast(elem ->> 1 AS text) AS etype
                   FROM
                     jsonb_array_elements(cast(?id+etypes AS jsonb)) AS elem
                 ),
