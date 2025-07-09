@@ -17,10 +17,11 @@
              "\"2025-01-15 20:53:08\""
              "Wed Jul 09 2025"]]
     (testing (str "Date string `" s "` parses.")
-      (let [pg-date (-> (sql/select-one ::parse-date-value
+      (let [query {:select [[[:triples_extract_date_value [:cast (->json s) :jsonb]]
+                             :date]]}
+            pg-date (-> (sql/select-one ::parse-date-value
                                         (aurora/conn-pool :read)
-                                        (hsql/format {:select [[[:triples_extract_date_value [:cast (->json s) :jsonb]]
-                                                                :date]]})
+                                        (hsql/format query)
                                         {:postgres-config [{:setting "timezone"
                                                             :value "UTC"}]})
                         :date
