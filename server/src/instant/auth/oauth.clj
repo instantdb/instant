@@ -92,14 +92,14 @@
                 {:type :success :email email :sub sub}
                 (tracer/with-span! {:name "oauth/missing-user-info"
                                     :attributes {:id_token id-token}}
-                  {:type :error :message "Missing user info."}))))))))
+                  {:type :error :message "Missing user info"}))))))))
 
   (get-user-info-from-id-token [client nonce jwt {:keys [allow-unverified-email?
                                                          ignore-audience?]}]
     (when (or (string/blank? jwks-uri)
               (string/blank? issuer)
               (empty? id-token-signing-alg-values-supported))
-      (ex/throw-validation-err! :id_token jwt ["OAuth client does not support id_token."]))
+      (ex/throw-validation-err! :id_token jwt [{:message "OAuth client does not support id_token."}]))
 
     (let [verified-jwt (jwt/verify-jwt {:jwks-uri jwks-uri
                                         :jwt jwt})
@@ -143,25 +143,25 @@
 
                         (and (string/blank? jwt-nonce)
                              (not (string/blank? nonce)))
-                        "The id_token is missing a nonce"
+                        "The id_token is missing a nonce."
 
                         (and (string/blank? nonce)
                              (not (string/blank? jwt-nonce)))
-                        "The nonce parameter was not provided in the request"
+                        "The nonce parameter was not provided in the request."
 
-                        :else "The nonces do not match")
+                        :else "The nonces do not match.")
 
           error (cond
-                  nonce-error                nonce-error
-                  issuer-mismatch            (str "The id_token wasn't issued by " issuer)
-                  unsupported-alg            "The id_token used an unsupported algorithm"
-                  client-id-mismatch         "The id_token was generated for the wrong OAuth client"
+                  nonce-error                        nonce-error
+                  issuer-mismatch                    (str "The id_token wasn't issued by " issuer ".")
+                  unsupported-alg                    "The id_token used an unsupported algorithm."
+                  client-id-mismatch                 "The id_token was generated for the wrong OAuth client."
                   (and (not allow-unverified-email?)
-                       (not email-verified)) "The email address is not verified"
-                  (not email)                "The id_token had no email"
-                  (not sub)                  "The id_token had no subject")]
+                       (not email-verified))         "The email address is not verified."
+                  (not email)                        "The id_token had no email."
+                  (not sub)                          "The id_token had no subject.")]
       (when error
-        (ex/throw-validation-err! :id_token jwt [error]))
+        (ex/throw-validation-err! :id_token jwt [{:message error}]))
       {:email email
        :sub   sub})))
 

@@ -371,12 +371,11 @@
                    (return-error "Missing OAuth client."))
           oauth-client (app-oauth-client-model/->OAuthClient client)
 
-          user-info (let [user-info-response (oauth/get-user-info oauth-client code oauth-redirect-url)]
-                      (if (= :error (:type user-info-response))
-                        (return-error (:message user-info-response) :oauth-redirect oauth-redirect)
-                        user-info-response))
+          user-info (oauth/get-user-info oauth-client code oauth-redirect-url)
+          _         (when (= :error (:type user-info))
+                      (return-error (:message user-info) :oauth-redirect oauth-redirect))
 
-          email (if-let [email (email/coerce (:email user-info))]
+          email (if-some [email (email/coerce (:email user-info))]
                   email
                   (return-error "Invalid email." :oauth-redirect oauth-redirect))
           sub (:sub user-info)

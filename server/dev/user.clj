@@ -9,15 +9,18 @@
 
 (.doReset #'*warn-on-reflection* true)
 
-(clojure+.error/install!)
+(clojure+.error/install!
+ {:trace-transform
+  (fn [trace]
+    (take-while #(not (#{"Compiler" "clj-reload" "clojure-sublimed"} (:ns %))) trace))})
+
 (clojure+.hashp/install!)
 (clojure+.print/install!)
 (clojure+.test/install!)
 
 (reload/init
  {:dirs ["src" "dev" "test"]
-  :no-reload '[user]
-  :output :quieter})
+  :no-reload '[user]})
 
 (def reload
   reload/reload)

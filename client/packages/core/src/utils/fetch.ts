@@ -83,32 +83,7 @@ export class InstantAPIError extends Error {
 
   constructor(error: InstantIssue) {
     // Create a descriptive message based on the error
-    var message = `API Error (${error.status})`;
-
-    let body = error.body;
-
-    if (body?.message) {
-      message = body?.message;
-    }
-
-    if (body?.type === 'validation-failed' && body.hint?.errors) {
-      message += ': ' + body.hint.errors.join(', ');
-    } else if (
-      (body?.type === 'param-missing' || body?.type === 'param-malformed') &&
-      body.hint?.in
-    ) {
-      message += ' in ' + body.hint.in.join(', ');
-    } else if (
-      (body?.type === 'record-not-found' ||
-        body?.type === 'record-not-unique' ||
-        body?.type === 'record-expired') &&
-      body.hint?.['record-type']
-    ) {
-      message += ': ' + body.hint['record-type'];
-    } else if ((body as any)?.hint) {
-      message += ': ' + JSON.stringify((body as any).hint);
-    }
-
+    const message = error.body?.message || `API Error (${error.status})`;
     super(message);
 
     const actualProto = new.target.prototype;
