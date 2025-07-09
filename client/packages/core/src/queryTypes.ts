@@ -28,20 +28,6 @@ type NonEmpty<T> = {
   [K in keyof T]-?: Required<Pick<T, K>>;
 }[keyof T];
 
-type AnyWhereArgs = {
-  /** @deprecated use `$in` instead of `in` */
-  in?: (string | number | boolean)[];
-  $in?: (string | number | boolean)[];
-  $not?: string | number | boolean;
-  $isNull?: boolean;
-  $gt?: string | number | boolean;
-  $lt?: string | number | boolean;
-  $gte?: string | number | boolean;
-  $lte?: string | number | boolean;
-  $like?: string;
-  $ilike?: string;
-};
-
 type BaseWhereClauses<V> = {
   /** @deprecated use `$in` instead of `in` */
   in?: V[];
@@ -76,19 +62,6 @@ type WhereClauseValue<V> =
           ? boolean
           : never)
   | WhereArgs<V>;
-
-// Make type display better
-type Two<V> =
-  | (V extends { _jsdfijselifj: 'jsildjfl' }
-      ? string | number | boolean
-      : V extends string | undefined
-        ? string
-        : V extends number | undefined
-          ? number
-          : V extends boolean | undefined
-            ? boolean
-            : never)
-  | Expand<WhereArgs<V>>;
 
 type BaseWhereClause<
   T extends {
@@ -152,9 +125,6 @@ type $Option<
   };
 };
 
-// Helper type to check if an entity has index signature (unknown schema)
-type HasIndexSignature<T> = string extends keyof T ? true : false;
-
 // Typed version that supports dot notation for nested queries
 type $SchemaOption<
   S extends IContainEntitiesAndLinks<any, any>,
@@ -169,9 +139,7 @@ type $SchemaOption<
     offset?: number;
     after?: Cursor;
     before?: Cursor;
-    fields?: HasIndexSignature<InstaQLEntity<S, K>> extends true
-      ? string[]
-      : InstaQLFields<S, K>;
+    fields?: InstaQLFields<S, K>;
   };
 };
 
