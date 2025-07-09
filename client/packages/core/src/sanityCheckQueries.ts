@@ -187,7 +187,3 @@ const sanityCheckSchemalessResponses = () => {
   // @ts-expect-error
   r3.$;
 };
-
-function sanityCheckSchemadResponses() {
-  // Checked inside ../__tests__/src/schema.test.ts
-}

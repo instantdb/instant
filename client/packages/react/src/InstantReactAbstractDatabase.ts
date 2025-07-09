@@ -193,7 +193,7 @@ export default abstract class InstantReactAbstractDatabase<
    *  db.useQuery(auth.user ? { goals: {} } : null)
    */
   useQuery = <Q extends InstaQLParams<Schema>>(
-    query: Exactly<InstaQLParams<Schema>, Q>,
+    query: null | Exactly<InstaQLParams<Schema>, Q>,
     opts?: InstaQLOptions,
   ): InstaQLLifecycleState<Schema, Q> => {
     return useQueryInternal<Q, Schema>(this._core, query, opts).state;

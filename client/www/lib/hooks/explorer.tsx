@@ -75,6 +75,7 @@ export function useNamespacesQuery(
       ? {
           [selectedNs.name]: {
             $: {
+              // @ts-expect-error
               aggregate: 'count',
               ...(where ? { where: where } : {}),
             },
