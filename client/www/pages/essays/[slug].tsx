@@ -2,12 +2,12 @@ import format from 'date-fns/format';
 import parse from 'date-fns/parse';
 import Head from 'next/head';
 import { getAllSlugs, getHTMLPostBySlug } from '../../lib/posts';
-import { PageProgressBar } from '@/components/ui';
 import {
   H3,
   LandingContainer,
   LandingFooter,
   MainNav,
+  PageProgressBar,
   type Post,
 } from '@/components/marketingUi';
 import * as og from '@/lib/og';

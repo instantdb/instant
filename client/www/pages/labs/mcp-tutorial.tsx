@@ -7,6 +7,7 @@ import {
   MainNav,
   LandingFooter,
   LandingContainer,
+  PageProgressBar,
   H2,
   H3,
 } from '@/components/marketingUi';
@@ -287,6 +288,7 @@ export default function McpTutorial({ files }: MarkdownContent) {
         />
       </Head>
 
+      <PageProgressBar />
       <MainNav />
       <Section>
         <div className="max-w-4xl mx-auto">
