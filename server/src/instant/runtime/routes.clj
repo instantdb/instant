@@ -371,12 +371,11 @@
                    (return-error "Missing OAuth client."))
           oauth-client (app-oauth-client-model/->OAuthClient client)
 
-          user-info (let [user-info-response (oauth/get-user-info oauth-client code oauth-redirect-url)]
-                      (if (= :error (:type user-info-response))
-                        (return-error (:message user-info-response) :oauth-redirect oauth-redirect)
-                        user-info-response))
+          user-info (oauth/get-user-info oauth-client code oauth-redirect-url)
+          _         (when (= :error (:type user-info))
+                      (return-error (:message user-info) :oauth-redirect oauth-redirect))
 
-          email (if-let [email (email/coerce (:email user-info))]
+          email (if-some [email (email/coerce (:email user-info))]
                   email
                   (return-error "Invalid email." :oauth-redirect oauth-redirect))
           sub (:sub user-info)
@@ -457,21 +456,14 @@
               (when-not match
                 (ex/throw-validation-err! :origin origin [{:message "Unauthorized origin."}]))))
 
-        user-info (let [user-info-response (oauth/get-user-info-from-id-token
-                                            oauth-client
-                                            nonce
-                                            id-token
-                                            (when-not (:client_secret oauth-client)
-                                              {:allow-unverified-email? true
-                                               :ignore-audience? true}))]
-                    (when (= :error (:type user-info-response))
-                      (ex/throw-validation-err!
-                       :id_token
-                       id-token
-                       [(:message user-info-response)]))
-                    user-info-response)
-        email (ex/get-param! user-info [:email] email/coerce)
-        sub (:sub user-info)
+        {:keys [email sub]} (oauth/get-user-info-from-id-token
+                             oauth-client
+                             nonce
+                             id-token
+                             (when-not (:client_secret oauth-client)
+                               {:allow-unverified-email? true
+                                :ignore-audience? true}))
+        email (email/coerce email)
         social-login (upsert-oauth-link! {:email email
                                           :sub sub
                                           :app-id (:app_id client)

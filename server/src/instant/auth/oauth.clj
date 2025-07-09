@@ -92,78 +92,78 @@
                 {:type :success :email email :sub sub}
                 (tracer/with-span! {:name "oauth/missing-user-info"
                                     :attributes {:id_token id-token}}
-                  {:type :error :message "Missing user info."}))))))))
+                  {:type :error :message "Missing user info"}))))))))
 
   (get-user-info-from-id-token [client nonce jwt {:keys [allow-unverified-email?
                                                          ignore-audience?]}]
-    (if (or (string/blank? jwks-uri)
-            (string/blank? issuer)
-            (empty? id-token-signing-alg-values-supported))
-      {:type :error :message "OAuth client does not support id_token."}
+    (when (or (string/blank? jwks-uri)
+              (string/blank? issuer)
+              (empty? id-token-signing-alg-values-supported))
+      (ex/throw-validation-err! :id_token jwt [{:message "OAuth client does not support id_token."}]))
 
-      (let [verified-jwt (jwt/verify-jwt {:jwks-uri jwks-uri
-                                          :jwt jwt})
+    (let [verified-jwt (jwt/verify-jwt {:jwks-uri jwks-uri
+                                        :jwt jwt})
             ;; verify lets us know that the jwk was issued by
             ;; e.g. google but we still need to make sure it was
             ;; issued by our client and has all of the fields we need
             ;; https://developers.google.com/identity/sign-in/ios/backend-auth#verify-the-integrity-of-the-id-token
-            jwt-issuer (.getIssuer verified-jwt)
+          jwt-issuer (.getIssuer verified-jwt)
             ;; Handle Apple's issuer inconsistency: discovery endpoint and JWT tokens
             ;; use different issuer URLs (account.apple.com vs appleid.apple.com)
-            issuer-mismatch (not (or (= jwt-issuer issuer)
+          issuer-mismatch (not (or (= jwt-issuer issuer)
                                      ;; Allow both Apple issuer URLs to match each other
-                                     (and (or (= issuer "https://account.apple.com")
-                                              (= issuer "https://appleid.apple.com"))
-                                          (or (= jwt-issuer "https://account.apple.com")
-                                              (= jwt-issuer "https://appleid.apple.com")))))
-            unsupported-alg (not (contains? id-token-signing-alg-values-supported
-                                            (.getAlgorithm verified-jwt)))
-            client-id-mismatch (and (not ignore-audience?)
-                                    (not (contains? (set (.getAudience verified-jwt))
-                                                    client-id)))
-            sub (.getSubject verified-jwt)
-            email-verified (.asBoolean (.getClaim verified-jwt "email_verified"))
-            email (.asString (.getClaim verified-jwt "email"))
+                                   (and (or (= issuer "https://account.apple.com")
+                                            (= issuer "https://appleid.apple.com"))
+                                        (or (= jwt-issuer "https://account.apple.com")
+                                            (= jwt-issuer "https://appleid.apple.com")))))
+          unsupported-alg (not (contains? id-token-signing-alg-values-supported
+                                          (.getAlgorithm verified-jwt)))
+          client-id-mismatch (and (not ignore-audience?)
+                                  (not (contains? (set (.getAudience verified-jwt))
+                                                  client-id)))
+          sub (.getSubject verified-jwt)
+          email-verified (.asBoolean (.getClaim verified-jwt "email_verified"))
+          email (.asString (.getClaim verified-jwt "email"))
 
-            jwt-nonce (.asString (.getClaim verified-jwt "nonce"))
-            skip-nonce-checks? (-> client
-                                   :meta
-                                   (get "skipNonceChecks"))
-            nonce-error (cond
-                          skip-nonce-checks?
-                          nil
+          jwt-nonce (.asString (.getClaim verified-jwt "nonce"))
+          skip-nonce-checks? (-> client
+                                 :meta
+                                 (get "skipNonceChecks"))
+          nonce-error (cond
+                        skip-nonce-checks?
+                        nil
 
-                          (= jwt-nonce nonce)
-                          nil
+                        (= jwt-nonce nonce)
+                        nil
 
-                          ;; For some reason invertase replaces nonce with SHA256 of nonce
-                          ;; https://github.com/invertase/react-native-apple-authentication/blob/cadd7cad1c8c2c59505959850affaa758328f1a3/android/src/main/java/com/RNAppleAuthentication/AppleAuthenticationAndroidModule.java#L139-L146
-                          (and jwt-nonce nonce (= jwt-nonce (-> nonce crypt-util/str->sha256 crypt-util/bytes->hex-string)))
-                          nil
+                        ;; For some reason invertase replaces nonce with SHA256 of nonce
+                        ;; https://github.com/invertase/react-native-apple-authentication/blob/cadd7cad1c8c2c59505959850affaa758328f1a3/android/src/main/java/com/RNAppleAuthentication/AppleAuthenticationAndroidModule.java#L139-L146
+                        (and jwt-nonce nonce (= jwt-nonce (-> nonce crypt-util/str->sha256 crypt-util/bytes->hex-string)))
+                        nil
 
-                          (and (string/blank? jwt-nonce)
-                               (not (string/blank? nonce)))
-                          "The id_token is missing a nonce."
+                        (and (string/blank? jwt-nonce)
+                             (not (string/blank? nonce)))
+                        "The id_token is missing a nonce."
 
-                          (and (string/blank? nonce)
-                               (not (string/blank? jwt-nonce)))
-                          "The nonce parameter was not provided in the request."
+                        (and (string/blank? nonce)
+                             (not (string/blank? jwt-nonce)))
+                        "The nonce parameter was not provided in the request."
 
-                          :else "The nonces do not match.")
+                        :else "The nonces do not match.")
 
-            error (cond
-                    nonce-error nonce-error
-                    issuer-mismatch (str "The id_token wasn't issued by " issuer)
-                    unsupported-alg "The id_token used an unsupported algorithm."
-                    client-id-mismatch "The id_token was generated for the wrong OAuth client."
-                    (and (not allow-unverified-email?)
-                         (not email-verified)) "The email address is not verified."
-                    (not email) "The id_token had no email."
-                    (not sub) "The id_token had no subject."
-                    :else nil)]
-        (if error
-          {:type :error :message error}
-          {:type :success :email email :sub sub})))))
+          error (cond
+                  nonce-error                        nonce-error
+                  issuer-mismatch                    (str "The id_token wasn't issued by " issuer ".")
+                  unsupported-alg                    "The id_token used an unsupported algorithm."
+                  client-id-mismatch                 "The id_token was generated for the wrong OAuth client."
+                  (and (not allow-unverified-email?)
+                       (not email-verified))         "The email address is not verified."
+                  (not email)                        "The id_token had no email."
+                  (not sub)                          "The id_token had no subject.")]
+      (when error
+        (ex/throw-validation-err! :id_token jwt [{:message error}]))
+      {:email email
+       :sub   sub})))
 
 ;; Map of endpoint to JSON results
 ;; {"google.com/.well-known/..." {:data {...}, :date #obj[java.time.Instant...]}

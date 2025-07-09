@@ -300,7 +300,12 @@
 
 (defn throw-validation-err! [input-type input errors]
   (throw+ {::type ::validation-failed
-           ::message (format "Validation failed for %s" (name input-type))
+           ::message (str "Validation failed for "
+                          (name input-type)
+                          (when (seq errors)
+                            (str
+                             ": "
+                             (string/join ", " (keep :message errors)))))
            ::hint {:data-type input-type
                    :input input
                    :errors errors}}))

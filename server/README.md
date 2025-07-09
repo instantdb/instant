@@ -95,7 +95,15 @@ Run `./scripts/install_dev_certs.sh`
 - If asked for override, type `yes`
 - Type your macOS password if asked in a popup
 
-After that, certs from `dev-resources/certs` will be picked up by server automatically. Server https address is https://dev.instantdb.com:8889
+After that, certs from `dev-resources/certs` will be picked up by server automatically.
+
+In `src/instant/config.clj`, change `server-origin` to
+
+```
+https://dev.instantdb.com:8889
+```
+
+Server https address is https://dev.instantdb.com:8889
 
 # Config
 

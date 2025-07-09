@@ -84,9 +84,9 @@ export function AppleClient({
               </SectionHeading>
             </div>
             {open ? (
-              <ChevronDownIcon height={24} />
-            ) : (
               <ChevronUpIcon height={24} />
+            ) : (
+              <ChevronDownIcon height={24} />
             )}
           </div>
         </Collapsible.Trigger>

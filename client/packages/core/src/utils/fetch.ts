@@ -14,7 +14,7 @@ type InstantIssueBody =
   | {
       type: 'validation-failed';
       message: string;
-      hint: { 'data-type': 'string'; errors: any[] };
+      hint: { 'data-type': string; errors: any[] };
     }
   | {
       type: 'record-expired';

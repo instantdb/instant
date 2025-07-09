@@ -25,12 +25,6 @@ export const messageFromInstantError = (
       return `We couldn't find this ${friendlyName(body.hint['record-type'])}`;
     case 'record-not-unique':
       return `This ${friendlyName(body.hint['record-type'])} already exists`;
-    case 'validation-failed':
-      const error = body.hint.errors?.[0]?.message;
-      if (typeof error === 'string') {
-        return error;
-      }
-      return;
     default:
       return body.message;
   }
