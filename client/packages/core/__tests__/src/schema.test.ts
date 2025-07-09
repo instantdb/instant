@@ -21,12 +21,12 @@ test('runs without exception', () => {
         junk: i.any(),
       }),
       posts: i.entity({
-        title: i.string(),
+        title: i.string().optional(),
         body: i.string(),
       }),
       comments: i.entity({
         body: i.string(),
-        color: i.string().optional(),
+        likes: i.number(),
       }),
     },
     links: {
@@ -135,43 +135,6 @@ test('runs without exception', () => {
     return 1 as any;
   }
 
-  type QueryType = InstaQLParams<Schema>;
-  const queryTypeTest: QueryType = {
-    comments: {
-      $: {
-        where: {
-          color: {
-            $isNull: true,
-          },
-        },
-      },
-    },
-  };
-
-  const result = dummyQuery({
-    comments: {
-      $: {
-        where: {
-          color: { $isNull: true },
-        },
-      },
-    },
-  });
-
-  dummyQuery({
-    comments: {
-      $: {
-        where: {
-          and: [
-            {
-              body: '8932',
-            },
-          ],
-        },
-      },
-    },
-  });
-
   // Where clause tests
 
   // Basic filtering with different operators
@@ -207,34 +170,66 @@ test('runs without exception', () => {
     posts: {
       $: {
         where: {
+          // not yet able to infer if dot syntax is used
           'author.stuff.custom': { $gt: 89032 },
         },
       },
     },
   });
 
-  const r2238 = dummyQuery({
+  const r2b = dummyQuery({
     posts: {
       $: {
         where: {
-          or: { $isNull: false },
+          // @ts-expect-error
+          'author.stuff.custom': { doesnotexist: 932 },
         },
       },
     },
   });
 
+  // Multi queries
   const r3 = dummyQuery({
     users: {
       $: {
-        fields: ['email', 'bio'],
+        where: {
+          name: 'John',
+        },
+      },
+    },
+    comments: {
+      $: {
+        where: {
+          body: { $like: '%great%' },
+        },
       },
     },
   });
 
-  const x: string = r3.users[0].email;
+  // Can't use $like or $ilike on cols that are not strings
+  const r4b = dummyQuery({
+    comments: {
+      $: {
+        where: {
+          // @ts-expect-error
+          likes: { $like: "%can'tdothis%" },
+        },
+      },
+    },
+  });
 
-  const r3b = dummyQuery({
-    users: {
+  // Field selection
+  const r5 = dummyQuery({
+    //  ^?
+    comments: {
+      $: {
+        fields: ['body'],
+      },
+    },
+  });
+
+  const r5b = dummyQuery({
+    comments: {
       $: {
         // @ts-expect-error
         fields: ['eail', 'bo'],
@@ -242,8 +237,263 @@ test('runs without exception', () => {
     },
   });
 
-  // Complex AND/OR logic
-  dummyQuery({
+  const r5b2 = dummyQuery({
+    comments: {
+      $: {
+        fields: ['body'],
+      },
+    },
+  });
+
+  type R5b2 = typeof r5b2;
+  // @ts-expect-error Can't access fields that were not specifically picked
+  console.log(r5b2.comments[0].likes);
+
+  // Does not allow (non-dotted) fields that don't match table shape
+  const r6 = dummyQuery({
+    posts: {
+      $: {
+        where: {
+          // @ts-expect-error
+          jo8josiefo: 8932,
+        },
+      },
+    },
+  });
+
+  // Only allow $isNull for optional fields
+  const r7 = dummyQuery({
+    posts: {
+      $: {
+        where: {
+          title: { $isNull: true },
+        },
+      },
+    },
+  });
+
+  const r7b = dummyQuery({
+    posts: {
+      $: {
+        where: {
+          // @ts-expect-error Body is a required field
+          body: { $isNull: true },
+        },
+      },
+    },
+  });
+
+  // $in
+  const r8 = dummyQuery({
+    posts: {
+      $: {
+        where: {
+          title: { $in: ['1st title option', '2nd title option'] },
+        },
+      },
+    },
+  });
+  const r8b = dummyQuery({
+    posts: {
+      $: {
+        where: {
+          // @ts-expect-error invalid  to check if a string is included in an array of numbers
+          title: { $in: [123, 345, 789] },
+        },
+      },
+    },
+  });
+
+  // AND
+  const r9 = dummyQuery({
+    posts: {
+      $: {
+        where: {
+          and: [{ title: 'MyTitle' }, { body: { $like: '%hasthisinit%' } }],
+        },
+      },
+    },
+  });
+
+  const r9b = dummyQuery({
+    posts: {
+      $: {
+        where: {
+          and: [
+            // @ts-expect-error
+            { invalidKey: 'MyTitle' },
+            { body: { $like: '%hasthisinit%' } },
+          ],
+        },
+      },
+    },
+  });
+
+  // OR
+  const r10 = dummyQuery({
+    posts: {
+      $: {
+        where: {
+          or: [{ title: 'MyTitle' }, { body: { $like: '%hasthisinit%' } }],
+        },
+      },
+    },
+  });
+  const r10b = dummyQuery({
+    posts: {
+      $: {
+        where: {
+          or: [
+            // @ts-expect-error
+            { invalidKey: 'MyTitle' },
+            { body: { $like: '%hasthisinit%' } },
+          ],
+        },
+      },
+    },
+  });
+
+  // $not
+  const r11 = dummyQuery({
+    posts: {
+      $: {
+        where: {
+          body: {
+            $not: 'notthisbody',
+          },
+        },
+      },
+    },
+  });
+  const r11b = dummyQuery({
+    posts: {
+      $: {
+        where: {
+          body: {
+            // @ts-expect-error can't check if string *isn't* number (always false)
+            $not: 8932,
+          },
+        },
+      },
+    },
+  });
+
+  // nested query field selection
+  const r12 = dummyQuery({
+    //  ^? Comments only includes: body and id (id always required)
+    posts: {
+      comments: {
+        $: {
+          fields: ['body'],
+        },
+      },
+    },
+  });
+
+  // nested query where
+  const r13 = dummyQuery({
+    //  ^? Comments only includes: body and id (id always required)
+    posts: {
+      comments: {
+        $: {
+          where: {
+            body: { $like: '%helpful%' },
+          },
+        },
+      },
+    },
+  });
+
+  const r13b = dummyQuery({
+    //  ^? Comments only includes: body and id (id always required)
+    posts: {
+      comments: {
+        $: {
+          where: {
+            // @ts-expect-error nested where check can't compare string to number
+            body: 8939288,
+          },
+        },
+      },
+    },
+  });
+
+  // Relations
+  const r14 = dummyQuery({
+    users: {
+      referred: {
+        $: {
+          where: {
+            bio: 'hi',
+          },
+        },
+      },
+    },
+  });
+
+  const r14b = dummyQuery({
+    users: {
+      referred: {
+        $: {
+          where: {
+            // @ts-expect-error
+            invalidcol: 'hi',
+          },
+        },
+      },
+    },
+  });
+
+  const r14b2 = dummyQuery({
+    users: {
+      referred: {
+        $: {
+          where: {
+            // @ts-expect-error
+            invalidcol: {
+              $not: '839',
+            },
+          },
+        },
+      },
+    },
+  });
+
+  // Deep relations
+  const r15 = dummyQuery({
+    users: {
+      friends: {
+        posts: {
+          author: {
+            $: {
+              where: {
+                name: { $like: 'A%' },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+  const r15b = dummyQuery({
+    users: {
+      friends: {
+        posts: {
+          author: {
+            $: {
+              where: {
+                // @ts-expect-error
+                name: 8392,
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  // And and or
+  const r16 = dummyQuery({
     users: {
       $: {
         where: {
@@ -257,270 +507,38 @@ test('runs without exception', () => {
             },
           ],
         },
+        fields: ['name'],
       },
     },
   });
-
-  // Field selection
-  dummyQuery({
-    users: {
-      $: {
-        where: {
-          and: [{}],
-        },
-        fields: ['name', 'email'],
-      },
-    },
-  });
-
-  // Nested queries with filtering
-  const sldfjlsid = dummyQuery({
-    users: {
-      posts: {
-        $: {
-          where: {
-            title: { $like: '%tutorial%' },
-          },
-          fields: ['body'],
-        },
-        comments: {
-          $: {
-            where: {
-              body: { $like: '%great%' },
-            },
-          },
-        },
-      },
-    },
-  });
-
-  // Deep nested queries
-  dummyQuery({
-    users: {
-      friends: {
-        posts: {
-          author: {
-            $: {
-              where: {
-                name: { $like: 'A%' },
-              },
-            },
-          },
-          comments: {
-            $: {
-              // no where/fields for this one
-            },
-          },
-        },
-      },
-    },
-  });
-
-  // Self-referencing relationships
-  dummyQuery({
-    users: {
-      friends: {
-        _friends: {
-          $: {
-            where: {
-              name: { $like: 'B%' },
-            },
-          },
-        },
-      },
-    },
-  });
-
-  // Referral chain queries
-  dummyQuery({
-    users: {
-      referrer: {
-        referred: {
-          $: {
-            where: {
-              email: { $like: '%@company.com' },
-            },
-          },
-        },
-      },
-    },
-  });
-
-  // Complex nested filtering with dot notation
-  const resulsjdlf = dummyQuery({
-    users: {
-      $: {
-        where: {
-          'jsodifj.jskdlf': { $like: 'isd' },
-          'posts.title': { $like: '%important%' },
-          'posts.comments.body': { $like: '%urgent%' },
-          'friends.name': { $in: ['Alice', 'Bob'] },
-          'friends.posts.title': 'Hello World',
-        },
-      },
-    },
-  });
-
-  // Multiple entity queries
-  const multiresult = dummyQuery({
-    users: {
-      $: {
-        where: {
-          name: { $like: 'A%' },
-        },
-      },
-    },
-    posts: {
-      $: {
-        where: {
-          title: { $like: '%tutorial%' },
-        },
-      },
-    },
-    comments: {
-      $: {
-        where: {
-          body: { $like: '%helpful%' },
-        },
-      },
-    },
-  });
-
-  // Edge cases and complex combinations
-  dummyQuery({
+  const r16b = dummyQuery({
     users: {
       $: {
         where: {
           and: [
             { name: { $like: 'A%' } },
-            { email: { $not: 'somevalue' } },
             {
               or: [
-                { bio: { $like: '%developer%' } },
-                { bio: { $like: '%engineer%' } },
+                // @ts-expect-error
+                { email: { $like: 8932 } },
+                // @ts-expect-error
+                { email: { $isNull: true } },
               ],
             },
           ],
         },
-        fields: ['name', 'email', 'bio'],
-      },
-      posts: {
-        $: {
-          where: {
-            title: { $like: '%tutorial%' },
-          },
-        },
-        comments: {},
-      },
-      friends: {
-        $: {
-          where: {
-            name: { $in: ['Alice', 'Bob', 'Charlie'] },
-          },
-        },
-        posts: {},
+        fields: ['name'],
       },
     },
   });
 
-  // Test JSON field queries
-  dummyQuery({
-    users: {
-      $: {
-        where: {
-          'stuff.custom': { $like: '%test%' },
-        },
-      },
-    },
+  // Test empty queries (should still be valid)
+  const r17 = dummyQuery({
+    users: {},
   });
 
-  // Test any field queries
-  dummyQuery({
-    users: {
-      $: {
-        where: {
-          junk: { $like: '%anything%' },
-        },
-      },
-    },
-  });
-
-  // Test complex boolean logic
-  dummyQuery({
-    users: {
-      $: {
-        where: {
-          and: [
-            { name: { $like: 'A%' } },
-            { email: { $not: 'somevalue' } },
-            {
-              or: [
-                { bio: { $like: '%developer%' } },
-                { bio: { $like: '%engineer%' } },
-                { bio: { $like: '%architect%' } },
-              ],
-            },
-          ],
-        },
-      },
-    },
-  });
-
-  // Test nested boolean logic
-  dummyQuery({
-    users: {
-      $: {
-        where: {
-          and: [
-            {
-              or: [{ name: { $like: 'A%' } }, { name: { $like: 'B%' } }],
-            },
-            {
-              and: [
-                { email: { $like: '%@gmail.com' } },
-                { bio: { $not: 'somevalue' } },
-              ],
-            },
-          ],
-        },
-      },
-    },
-  });
-
-  // Test with all comparison operators
-  dummyQuery({
-    users: {
-      $: {
-        where: {
-          'posts.title': { $gt: 'A', $lt: 'Z', $gte: 'B', $lte: 'Y' },
-          'posts.body': { $like: '%content%', $ilike: '%CONTENT%' },
-          name: { $not: 'admin' },
-        },
-      },
-    },
-  });
-
-  // Test complex field selection with nested queries
-  dummyQuery({
-    users: {
-      $: {
-        fields: ['name', 'email'],
-      },
-      posts: {
-        $: {
-          fields: ['title'],
-        },
-        comments: {
-          $: {
-            fields: ['body'],
-          },
-        },
-      },
-    },
-  });
-
-  // Test mixed cardinality relationships
-  dummyQuery({
+  // Mixed cardinality relationships
+  const r18 = dummyQuery({
     users: {
       posts: {
         author: {
@@ -529,139 +547,16 @@ test('runs without exception', () => {
           },
         },
       },
+
       referrer: {
         $: {
           fields: ['name'],
         },
       },
+
       referred: {
         $: {
           fields: ['name'],
-        },
-      },
-    },
-  });
-
-  // Test empty queries (should still be valid)
-  dummyQuery({
-    users: {},
-  });
-
-  dummyQuery({
-    users: {
-      posts: {},
-    },
-  });
-
-  // Test queries with only fields
-  const jslsldjfi = dummyQuery({
-    users: {
-      $: {
-        fields: ['name', 'email'],
-      },
-    },
-  });
-
-  // Test queries with only nested queries
-  const nestedResult = dummyQuery({
-    users: {
-      $: {
-        fields: ['bio'],
-      },
-      posts: {
-        $: {
-          fields: ['title'],
-        },
-      },
-    },
-  });
-
-  // Test complex combination of all features
-  const sdijflsidf = dummyQuery({
-    users: {
-      $: {
-        where: {
-          and: [
-            { name: { $like: 'A%' } },
-            { email: { $not: 'somevalue' } },
-            {
-              or: [
-                { bio: { $like: '%developer%' } },
-                { bio: { $like: '%engineer%' } },
-              ],
-            },
-          ],
-        },
-        fields: ['name', 'email', 'bio'],
-      },
-      posts: {
-        $: {
-          where: {
-            title: { $like: '%tutorial%' },
-          },
-          fields: ['title'],
-        },
-        comments: {
-          $: {
-            where: {
-              body: { $like: '%helpful%' },
-            },
-            fields: ['body'],
-          },
-        },
-      },
-      friends: {
-        $: {
-          where: {
-            name: { $in: ['Alice', 'Bob', 'Charlie'] },
-          },
-          fields: ['name'],
-        },
-        posts: {
-          $: {
-            fields: ['title'],
-          },
-        },
-      },
-      referrer: {
-        $: {
-          fields: ['name', 'email'],
-        },
-      },
-      referred: {
-        $: {
-          fields: ['name'],
-        },
-      },
-    },
-    posts: {
-      $: {
-        where: {
-          title: { $like: '%important%' },
-        },
-        fields: ['title'],
-      },
-      author: {
-        $: {
-          fields: ['name'],
-        },
-      },
-      comments: {
-        $: {
-          fields: ['body'],
-        },
-      },
-    },
-    comments: {
-      $: {
-        where: {
-          body: { $like: '%great%' },
-        },
-        fields: ['body'],
-      },
-      post: {
-        $: {
-          fields: ['title'],
         },
       },
     },
