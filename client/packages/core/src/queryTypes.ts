@@ -143,7 +143,7 @@ type $Option<
 type HasIndexSignature<T> = string extends keyof T ? true : false;
 
 // Typed version that supports dot notation for nested queries
-type $OptionWNest<
+type $SchemaOption<
   S extends IContainEntitiesAndLinks<any, any>,
   K extends keyof S['entities'],
 > = {
@@ -165,8 +165,8 @@ type $OptionWNest<
 type Subquery = { [namespace: string]: NamespaceVal };
 
 type NamespaceVal =
-  | $OptionWNest<any, any>
-  | ($OptionWNest<any, any> & Subquery);
+  | $SchemaOption<any, any>
+  | ($SchemaOption<any, any> & Subquery);
 
 interface Query {
   [namespace: string]: NamespaceVal;
@@ -411,8 +411,8 @@ type InstaQLQuerySubqueryParams<
   E extends keyof S['entities'],
 > = {
   [K in keyof S['entities'][E]['links']]?:
-    | $OptionWNest<S, S['entities'][E]['links'][K]['entityName']>
-    | ($OptionWNest<S, S['entities'][E]['links'][K]['entityName']> &
+    | $SchemaOption<S, S['entities'][E]['links'][K]['entityName']>
+    | ($SchemaOption<S, S['entities'][E]['links'][K]['entityName']> &
         InstaQLQuerySubqueryParams<
           S,
           S['entities'][E]['links'][K]['entityName']
@@ -421,8 +421,8 @@ type InstaQLQuerySubqueryParams<
 
 type InstaQLParams<S extends IContainEntitiesAndLinks<any, any>> = {
   [K in keyof S['entities']]?:
-    | $OptionWNest<S, K>
-    | ($OptionWNest<S, K> & InstaQLQuerySubqueryParams<S, K>);
+    | $SchemaOption<S, K>
+    | ($SchemaOption<S, K> & InstaQLQuerySubqueryParams<S, K>);
 };
 
 /**
