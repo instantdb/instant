@@ -16,12 +16,31 @@ import {
   CheckCircleIcon,
 } from '@heroicons/react/24/solid';
 import copy from 'copy-to-clipboard';
+import fs from 'fs';
+import path from 'path';
 
-// Import markdown files directly
-import cursorRulesContent from './cursor-rules.md';
-import claudeMdContent from './claude.md';
-import claudeRulesContent from './claude-rules.md';
-import otherRulesContent from './other-rules.md';
+function getFiles(): Record<string, string> {
+  const markdownDir = path.join(process.cwd(), 'data', 'mcp-tutorial');
+  return fs
+    .readdirSync(markdownDir)
+    .filter((fileName) => fileName.endsWith('.md'))
+    .reduce(
+      (acc, fileName) => {
+        const name = fileName.replace(/\.md$/, '');
+        const content = fs.readFileSync(
+          path.join(markdownDir, fileName),
+          'utf8',
+        );
+        acc[name] = content;
+        return acc;
+      },
+      {} as Record<string, string>,
+    );
+}
+
+type MarkdownContent = {
+  files: Record<string, string>;
+};
 
 type ClientType = 'cursor' | 'claude-code' | 'claude-web';
 
@@ -50,6 +69,16 @@ const examplePrompts = [
       'Build a job board app where employers can post jobs and job seekers can browse and save listings. Include filtering by job type, location, and salary range, plus a simple application tracking system.\n\nKeep the code to < 1000 lines.\n\nSeed with 15-20 job listings across categories like "Engineering", "Design", "Marketing" with various companies and locations.',
   },
 ];
+
+export async function getStaticProps() {
+  const files = getFiles();
+
+  return {
+    props: {
+      files,
+    },
+  };
+}
 
 function CopyButton({
   text,
@@ -120,122 +149,130 @@ function PromptExample({ title, content }: { title: string; content: string }) {
   );
 }
 
-const clientConfigs = {
-  cursor: {
-    name: 'Cursor',
-    setupContent: (
-      <div className="space-y-4">
-        <p>Click this button to install the Instant MCP server in Cursor:</p>
-        <div className="flex">
-          <a
-            href="https://cursor.com/install-mcp?name=InstantDB&config=eyJ1cmwiOiJodHRwczovL21jcC5pbnN0YW50ZGIuY29tL21jcCJ9"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <img
-              width={150}
-              src="https://cursor.com/deeplink/mcp-install-dark.svg"
-              alt="Install MCP Server"
-              className="hover:opacity-80 transition-opacity"
-            />
-          </a>
-        </div>
-        <p>
-          Alternatively you can paste this into your `~/.cursor/mcp.json`
-          directly
-        </p>
-        <Fence code={cursorMCPConfig} copyable={true} language="json" />
-        <p>
-          You should now see the Instant MCP server in your MCP servers list. If
-          you don't you may need to restart Cursor. Once you see it, click the
-          "Needs Login" button to go through the auth flow.
-        </p>
-      </div>
-    ),
-    rulesContent: (
-      <div className="space-y-6">
-        <FileContentCard
-          title="Instant Rules for Cursor"
-          content={cursorRulesContent}
-          filename=".cursor/rules/instant.md"
-          description="Click the button below to copy the rules for Instant and paste them into .cursor/rules/instant.md in the root of your project."
-        />
-      </div>
-    ),
-  },
-  'claude-code': {
-    name: 'Claude Code',
-    setupContent: (
-      <div className="space-y-4">
-        <p>
-          If you're on a paid plan, you can add the server via the command line:
-        </p>
-        <Copyable value="claude mcp add instant -s user -t http https://mcp.instantdb.com/mcp" />
-        <p>Now you can run through the following:</p>
-        <ol className="list-decimal list-inside space-y-2">
-          <li>
-            Run <code>claude</code> in your terminal to start the Claude Code
-            CLI.
-          </li>
-          <li>
-            Run <code>/mcp</code> to see your list of MCP servers.
-          </li>
-          <li>
-            See <code>instant</code> listed there!
-          </li>
-          <li>
-            Select it and go through the auth flow to enable the Instant MCP
-            server in your claude code sessions!
-          </li>
-        </ol>
-      </div>
-    ),
-    rulesContent: (
-      <div className="flex gap-6 flex-wrap">
-        <FileContentCard
-          title="CLAUDE.md"
-          content={claudeMdContent}
-          filename="CLAUDE.md"
-          description="Click the button below to copy instructions for Claude to use Instant rules. Paste these into a file named CLAUDE.md in the root of your project."
-        />
-        <FileContentCard
-          title="Instant Rules for Claude Code"
-          content={claudeRulesContent}
-          filename="instant-rules.md"
-          description="Click the button below to copy the rules for Instant and paste them into instant-rules.md in the same directory as your CLAUDE.md"
-        />
-      </div>
-    ),
-  },
-  'claude-web': {
-    name: 'Claude Web / Desktop',
-    setupContent: (
-      <div className="space-y-4">
-        <p>
-          If you're on a paid plan, go to Settings → Integrations. Add a custom
-          integration and use the URL:
-        </p>
-        <Copyable value="https://mcp.instantdb.com/mcp" />
-        <p>
-          This should kick off the auth flow and you'll be able to use the
-          Instant MCP server in your Claude sessions!
-        </p>
-      </div>
-    ),
-    rulesContent: (
-      <div className="space-y-6">
-        <FileContentCard
-          title="Instant Rules"
-          content={otherRulesContent}
-          description="Click the button below to copy the rules for Instant and paste them into your Claude Web or Desktop session."
-        />
-      </div>
-    ),
-  },
-};
-
-export default function McpTutorial() {
+export default function McpTutorial({ files }: MarkdownContent) {
   const [selectedClient, setSelectedClient] = useState<ClientType>('cursor');
+
+  const {
+    'cursor-rules': cursorRulesContent,
+    claude: claudeMdContent,
+    'claude-rules': claudeRulesContent,
+    'other-rules': otherRulesContent,
+  } = files;
+
+  const clientConfigs = {
+    cursor: {
+      name: 'Cursor',
+      setupContent: (
+        <div className="space-y-4">
+          <p>Click this button to install the Instant MCP server in Cursor:</p>
+          <div className="flex">
+            <a
+              href="https://cursor.com/install-mcp?name=InstantDB&config=eyJ1cmwiOiJodHRwczovL21jcC5pbnN0YW50ZGIuY29tL21jcCJ9"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <img
+                width={150}
+                src="https://cursor.com/deeplink/mcp-install-dark.svg"
+                alt="Install MCP Server"
+                className="hover:opacity-80 transition-opacity"
+              />
+            </a>
+          </div>
+          <p>
+            Alternatively you can paste this into your `~/.cursor/mcp.json`
+            directly
+          </p>
+          <Fence code={cursorMCPConfig} copyable={true} language="json" />
+          <p>
+            You should now see the Instant MCP server in your MCP servers list.
+            If you don't you may need to restart Cursor. Once you see it, click
+            the "Needs Login" button to go through the auth flow.
+          </p>
+        </div>
+      ),
+      rulesContent: (
+        <div className="space-y-6">
+          <FileContentCard
+            title="Instant Rules for Cursor"
+            content={cursorRulesContent}
+            filename=".cursor/rules/instant.md"
+            description="Click the button below to copy the rules for Instant and paste them into .cursor/rules/instant.md in the root of your project."
+          />
+        </div>
+      ),
+    },
+    'claude-code': {
+      name: 'Claude Code',
+      setupContent: (
+        <div className="space-y-4">
+          <p>
+            If you're on a paid plan, you can add the server via the command
+            line:
+          </p>
+          <Copyable value="claude mcp add instant -s user -t http https://mcp.instantdb.com/mcp" />
+          <p>Now you can run through the following:</p>
+          <ol className="list-decimal list-inside space-y-2">
+            <li>
+              Run <code>claude</code> in your terminal to start the Claude Code
+              CLI.
+            </li>
+            <li>
+              Run <code>/mcp</code> to see your list of MCP servers.
+            </li>
+            <li>
+              See <code>instant</code> listed there!
+            </li>
+            <li>
+              Select it and go through the auth flow to enable the Instant MCP
+              server in your claude code sessions!
+            </li>
+          </ol>
+        </div>
+      ),
+      rulesContent: (
+        <div className="flex gap-6 flex-wrap">
+          <FileContentCard
+            title="CLAUDE.md"
+            content={claudeMdContent}
+            filename="CLAUDE.md"
+            description="Click the button below to copy instructions for Claude to use Instant rules. Paste these into a file named CLAUDE.md in the root of your project."
+          />
+          <FileContentCard
+            title="Instant Rules for Claude Code"
+            content={claudeRulesContent}
+            filename="instant-rules.md"
+            description="Click the button below to copy the rules for Instant and paste them into instant-rules.md in the same directory as your CLAUDE.md"
+          />
+        </div>
+      ),
+    },
+    'claude-web': {
+      name: 'Claude Web / Desktop',
+      setupContent: (
+        <div className="space-y-4">
+          <p>
+            If you're on a paid plan, go to Settings → Integrations. Add a
+            custom integration and use the URL:
+          </p>
+          <Copyable value="https://mcp.instantdb.com/mcp" />
+          <p>
+            This should kick off the auth flow and you'll be able to use the
+            Instant MCP server in your Claude sessions!
+          </p>
+        </div>
+      ),
+      rulesContent: (
+        <div className="space-y-6">
+          <FileContentCard
+            title="Instant Rules"
+            content={otherRulesContent}
+            description="Click the button below to copy the rules for Instant and paste them into your Claude Web or Desktop session."
+          />
+        </div>
+      ),
+    },
+  };
 
   return (
     <LandingContainer>
