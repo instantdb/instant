@@ -2,6 +2,7 @@ import format from 'date-fns/format';
 import parse from 'date-fns/parse';
 import Head from 'next/head';
 import { getAllSlugs, getHTMLPostBySlug } from '../../lib/posts';
+import { PageProgressBar } from '@/components/ui';
 import {
   H3,
   LandingContainer,
@@ -39,6 +40,7 @@ const Post = ({ post }: { post: Post }) => {
           content={authors.map((author) => author.name).join(', ')}
         />
       </Head>
+      <PageProgressBar />
       <MainNav />
       <div className="mx-auto mt-6 p-4 md:max-w-2xl">
         <div className="mb-4 space-y-2 border-b border-gray-300 py-4">
