@@ -14,7 +14,7 @@
    [instant.util.date :as date]
    [instant.util.lang :as lang])
   (:import
-   (java.time Instant Period LocalDate DayOfWeek ZonedDateTime)))
+   (java.time Instant Period LocalDate ZonedDateTime)))
 
 (defn excluded-emails []
   (let [{:keys [test team friend]} (get-emails)]
@@ -133,13 +133,7 @@
                       nine-am-pst
                       (Period/ofDays 1))]
     (->> periodic-seq
-         (filter (fn [x] (ZonedDateTime/.isAfter x now)))
-         ;; Only run on weekdays
-         (filter (fn [x]
-                   (let [day-of-week (ZonedDateTime/.getDayOfWeek x)]
-                     (and
-                      (not= day-of-week DayOfWeek/SATURDAY)
-                      (not= day-of-week DayOfWeek/SUNDAY))))))))
+         (filter (fn [x] (ZonedDateTime/.isAfter x now))))))
 
 (defn start []
   (log/info "Starting daily metrics daemon")
