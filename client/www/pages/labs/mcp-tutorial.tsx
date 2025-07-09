@@ -384,7 +384,7 @@ export default function McpTutorial({ files }: MarkdownContent) {
             </div>
             <p className="text-gray-700 mb-6">
               With the Instant MCP server installed, we can now scaffold a
-              starter app. Run the following commands in your terminal:
+              starter app. Run the following commands in your terminal
             </p>
             <Fence
               code={`# Scaffold a Next.js app
@@ -452,13 +452,15 @@ npm i @instantdb/react`}
                 4. Prompt the LLM to build us an app! (This is the fun part!)
               </H3>
             </div>
-            <p className="text-gray-700 mb-6">
-              Woohoo! Now that we've got everything set up, we can prompt the
-              LLM to build us an app! Now you get to do the fun part -- write a
-              prompt for whatever you want to build! Here are some example
-              prompts to get you started:
-            </p>
-
+            <div className="text-gray-700 space-y-3 mb-6">
+              <p>
+                Woohoo! Now that we've got everything set up, we're ready to
+                build an app! Fire up your editor (cursor, windsurf, zed, etc.)
+                or your CLI tool (cursor, gemini, etc) and type up a prompt. Hit
+                enter and watch the magic happen!
+              </p>
+              <p>Here are some example prompts for inspiration</p>
+            </div>
             <div className="space-y-6">
               {examplePrompts.map((prompt, index) => (
                 <PromptExample
