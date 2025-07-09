@@ -139,9 +139,13 @@ const sanityCheckQueries = () => {
     users: { $: { where: { val: { $isNull: 'a' } } } },
   });
 
+  const s5 = dummyQuery({
+    // @ts-expect-error
+    users: { $: { where: { 'josijf.jsdfli': { $isNull: 'a' } } } },
+  });
   // NOTE: Used to error before adding typesafe-where operator, issue is incompatibility
   // with NonEmpty and dynamic $isNull checks
-  const s5 = dummyQuery({
+  const s6 = dummyQuery({
     users: { $: { where: { val: { $gt: { val: 'a' } } } } },
   });
 

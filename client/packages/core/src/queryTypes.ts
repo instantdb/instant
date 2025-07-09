@@ -28,9 +28,6 @@ type NonEmpty<T> = {
   [K in keyof T]-?: Required<Pick<T, K>>;
 }[keyof T];
 
-// Branded Schemaless unknown
-type BSUnknown = { _unknown: '_unknown' };
-
 type AnyWhereArgs = {
   /** @deprecated use `$in` instead of `in` */
   in?: (string | number | boolean)[];
@@ -46,6 +43,7 @@ type AnyWhereArgs = {
 };
 
 type BaseWhereClauses<V> = {
+  /** @deprecated use `$in` instead of `in` */
   in?: V[];
   $in?: V[];
   $not?: V;
@@ -55,24 +53,33 @@ type BaseWhereClauses<V> = {
   $lte?: V;
 };
 
-type WhereArgs<V> = V extends BSUnknown
-  ? AnyWhereArgs
-  : BaseWhereClauses<V> &
-      (V extends string
-        ? {
-            $like?: string;
-            $ilike?: string;
-          }
-        : {}) &
-      (undefined extends V
-        ? {
-            $isNull?: boolean;
-          }
-        : {});
+type WhereArgs<V> = BaseWhereClauses<V> &
+  (V extends string
+    ? {
+        $like?: string;
+        $ilike?: string;
+      }
+    : {}) &
+  (undefined extends V
+    ? {
+        $isNull?: boolean;
+      }
+    : {});
 
 // Make type display better
 type WhereClauseValue<V> =
-  | (V extends BSUnknown
+  | (V extends string | undefined
+      ? string
+      : V extends number | undefined
+        ? number
+        : V extends boolean | undefined
+          ? boolean
+          : never)
+  | WhereArgs<V>;
+
+// Make type display better
+type Two<V> =
+  | (V extends { _jsdfijselifj: 'jsildjfl' }
       ? string | number | boolean
       : V extends string | undefined
         ? string
@@ -95,12 +102,18 @@ type WhereClause<
   S extends IContainEntitiesAndLinks<any, any>,
   K extends keyof S['entities'],
 > = BaseAttrWhereClause<InstaQLEntity<S, K>> & {
-  [key: `${string}.${string}`]: WhereClauseValue<BSUnknown>;
+  [key: `${string}.${string}`]: WhereClauseValue<
+    string | number | boolean | undefined
+  >;
 };
 
 type WhereClauseWithCombination<T extends Record<any, unknown>> = {
-  or?: BaseAttrWhereClause<T>[] | WhereClauseValue<BSUnknown>;
-  and?: BaseAttrWhereClause<T>[] | WhereClauseValue<BSUnknown>;
+  or?:
+    | BaseAttrWhereClause<T>[]
+    | WhereClauseValue<string | number | boolean | undefined>;
+  and?:
+    | BaseAttrWhereClause<T>[]
+    | WhereClauseValue<string | number | boolean | undefined>;
 };
 
 type BaseAttrWhereClause<T extends Record<any, any>> =
@@ -124,7 +137,7 @@ type $Option<
   Fields extends string[],
   WhereFieldTypes extends {
     [key: string]: any;
-  } = Record<any, BSUnknown>,
+  } = Record<any, string | number | boolean | undefined>,
 > = {
   $?: {
     where?: BaseAttrWhereClause<WhereFieldTypes>;

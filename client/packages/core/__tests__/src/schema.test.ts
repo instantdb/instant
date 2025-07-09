@@ -172,10 +172,11 @@ test('runs without exception', () => {
     },
   });
 
-  // ===== COMPREHENSIVE TEST QUERIES =====
+  // Where clause tests
 
   // Basic filtering with different operators
-  dummyQuery({
+  // strings allow matching against strings
+  const r1 = dummyQuery({
     users: {
       $: {
         where: {
@@ -187,27 +188,56 @@ test('runs without exception', () => {
     },
   });
 
-  // Numeric comparisons
-  dummyQuery({
-    posts: {
+  const r1b = dummyQuery({
+    users: {
       $: {
         where: {
-          // Using any field for numeric comparisons since we don't have numeric fields
-          // This tests the BSUnknown typing
-          'author.stuff.custom': { $gt: 'a', $lt: 'z' },
+          // @ts-expect-error
+          name: 289,
+          email: {
+            // @ts-expect-error
+            $like: 8932,
+          },
         },
       },
     },
   });
 
-  // Array operations
-  dummyQuery({
-    users: {
+  const r2 = dummyQuery({
+    posts: {
       $: {
         where: {
-          name: { $in: ['Alice', 'Bob', 'Charlie'] },
-          email: { $not: 'spam@example.com' },
+          'author.stuff.custom': { $gt: 89032 },
         },
+      },
+    },
+  });
+
+  const r2238 = dummyQuery({
+    posts: {
+      $: {
+        where: {
+          or: { $isNull: false },
+        },
+      },
+    },
+  });
+
+  const r3 = dummyQuery({
+    users: {
+      $: {
+        fields: ['email', 'bio'],
+      },
+    },
+  });
+
+  const x: string = r3.users[0].email;
+
+  const r3b = dummyQuery({
+    users: {
+      $: {
+        // @ts-expect-error
+        fields: ['eail', 'bo'],
       },
     },
   });
