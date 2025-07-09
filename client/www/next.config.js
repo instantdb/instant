@@ -4,6 +4,13 @@ const withMarkdoc = require('@markdoc/next.js');
 const nextConfig = {
   reactStrictMode: true,
   pageExtensions: ['js', 'jsx', 'ts', 'tsx', 'md'],
+  webpack: (config) => {
+    config.module.rules.push({
+      test: /\.md$/,
+      type: 'asset/source',
+    });
+    return config;
+  },
   async redirects() {
     return [
       {
