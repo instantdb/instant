@@ -154,18 +154,6 @@ test('runs without exception', () => {
   });
 
   dummyQuery({
-    comments: {
-      $: {
-        where: {
-          body: {
-            $not: 8923,
-          },
-        },
-      },
-    },
-  });
-
-  dummyQuery({
     users: {
       $: {
         where: {
@@ -184,6 +172,467 @@ test('runs without exception', () => {
               body: '8932',
             },
           ],
+        },
+      },
+    },
+  });
+
+  // ===== COMPREHENSIVE TEST QUERIES =====
+
+  // Basic filtering with different operators
+  dummyQuery({
+    users: {
+      $: {
+        where: {
+          name: 'John',
+          email: { $like: '%@gmail.com' },
+          bio: { $not: 'somevalue' },
+        },
+      },
+    },
+  });
+
+  // Numeric comparisons
+  dummyQuery({
+    posts: {
+      $: {
+        where: {
+          // Using any field for numeric comparisons since we don't have numeric fields
+          // This tests the BSUnknown typing
+          'author.stuff.custom': { $gt: 'a', $lt: 'z' },
+        },
+      },
+    },
+  });
+
+  // Array operations
+  dummyQuery({
+    users: {
+      $: {
+        where: {
+          name: { $in: ['Alice', 'Bob', 'Charlie'] },
+          email: { $not: 'spam@example.com' },
+        },
+      },
+    },
+  });
+
+  // Complex AND/OR logic
+  dummyQuery({
+    users: {
+      $: {
+        where: {
+          and: [
+            { name: { $like: 'A%' } },
+            {
+              or: [
+                { email: { $like: '%@gmail.com' } },
+                { email: { $like: '%@yahoo.com' } },
+              ],
+            },
+          ],
+        },
+      },
+    },
+  });
+
+  // Field selection
+  dummyQuery({
+    users: {
+      $: {
+        fields: ['name', 'email'],
+      },
+    },
+  });
+
+  // Nested queries with filtering
+  const sldfjlsid = dummyQuery({
+    users: {
+      posts: {
+        $: {
+          where: {
+            title: { $like: '%tutorial%' },
+          },
+          fields: ['body'],
+        },
+        comments: {
+          $: {
+            where: {
+              body: { $like: '%great%' },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  // Deep nested queries
+  dummyQuery({
+    users: {
+      friends: {
+        posts: {
+          author: {
+            $: {
+              where: {
+                name: { $like: 'A%' },
+              },
+            },
+          },
+          comments: {
+            $: {
+              // no where/fields for this one
+            },
+          },
+        },
+      },
+    },
+  });
+
+  // Self-referencing relationships
+  dummyQuery({
+    users: {
+      friends: {
+        _friends: {
+          $: {
+            where: {
+              name: { $like: 'B%' },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  // Referral chain queries
+  dummyQuery({
+    users: {
+      referrer: {
+        referred: {
+          $: {
+            where: {
+              email: { $like: '%@company.com' },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  // Complex nested filtering with dot notation
+  const resulsjdlf = dummyQuery({
+    users: {
+      $: {
+        where: {
+          'posts.title': { $like: '%important%' },
+          'posts.comments.body': { $like: '%urgent%' },
+          'friends.name': { $in: ['Alice', 'Bob'] },
+          'friends.posts.title': 'Hello World',
+        },
+      },
+    },
+  });
+
+  // Multiple entity queries
+  const multiresult = dummyQuery({
+    users: {
+      $: {
+        where: {
+          name: { $like: 'A%' },
+        },
+      },
+    },
+    posts: {
+      $: {
+        where: {
+          title: { $like: '%tutorial%' },
+        },
+      },
+    },
+    comments: {
+      $: {
+        where: {
+          body: { $like: '%helpful%' },
+        },
+      },
+    },
+  });
+
+  // Edge cases and complex combinations
+  dummyQuery({
+    users: {
+      $: {
+        where: {
+          and: [
+            { name: { $like: 'A%' } },
+            { email: { $not: 'somevalue' } },
+            {
+              or: [
+                { bio: { $like: '%developer%' } },
+                { bio: { $like: '%engineer%' } },
+              ],
+            },
+          ],
+        },
+        fields: ['name', 'email', 'bio'],
+      },
+      posts: {
+        $: {
+          where: {
+            title: { $like: '%tutorial%' },
+          },
+        },
+        comments: {},
+      },
+      friends: {
+        $: {
+          where: {
+            name: { $in: ['Alice', 'Bob', 'Charlie'] },
+          },
+        },
+        posts: {},
+      },
+    },
+  });
+
+  // Test JSON field queries
+  dummyQuery({
+    users: {
+      $: {
+        where: {
+          'stuff.custom': { $like: '%test%' },
+        },
+      },
+    },
+  });
+
+  // Test any field queries
+  dummyQuery({
+    users: {
+      $: {
+        where: {
+          junk: { $like: '%anything%' },
+        },
+      },
+    },
+  });
+
+  // Test complex boolean logic
+  dummyQuery({
+    users: {
+      $: {
+        where: {
+          and: [
+            { name: { $like: 'A%' } },
+            { email: { $not: 'somevalue' } },
+            {
+              or: [
+                { bio: { $like: '%developer%' } },
+                { bio: { $like: '%engineer%' } },
+                { bio: { $like: '%architect%' } },
+              ],
+            },
+          ],
+        },
+      },
+    },
+  });
+
+  // Test nested boolean logic
+  dummyQuery({
+    users: {
+      $: {
+        where: {
+          and: [
+            {
+              or: [{ name: { $like: 'A%' } }, { name: { $like: 'B%' } }],
+            },
+            {
+              and: [
+                { email: { $like: '%@gmail.com' } },
+                { bio: { $not: 'somevalue' } },
+              ],
+            },
+          ],
+        },
+      },
+    },
+  });
+
+  // Test with all comparison operators
+  dummyQuery({
+    users: {
+      $: {
+        where: {
+          'posts.title': { $gt: 'A', $lt: 'Z', $gte: 'B', $lte: 'Y' },
+          'posts.body': { $like: '%content%', $ilike: '%CONTENT%' },
+          name: { $not: 'admin' },
+        },
+      },
+    },
+  });
+
+  // Test complex field selection with nested queries
+  dummyQuery({
+    users: {
+      $: {
+        fields: ['name', 'email'],
+      },
+      posts: {
+        $: {
+          fields: ['title'],
+        },
+        comments: {
+          $: {
+            fields: ['body'],
+          },
+        },
+      },
+    },
+  });
+
+  // Test mixed cardinality relationships
+  dummyQuery({
+    users: {
+      posts: {
+        author: {
+          $: {
+            fields: ['name', 'email'],
+          },
+        },
+      },
+      referrer: {
+        $: {
+          fields: ['name'],
+        },
+      },
+      referred: {
+        $: {
+          fields: ['name'],
+        },
+      },
+    },
+  });
+
+  // Test empty queries (should still be valid)
+  dummyQuery({
+    users: {},
+  });
+
+  dummyQuery({
+    users: {
+      posts: {},
+    },
+  });
+
+  // Test queries with only fields
+  dummyQuery({
+    users: {
+      $: {
+        fields: ['name', 'email'],
+      },
+    },
+  });
+
+  // Test queries with only nested queries
+  const nestedResult = dummyQuery({
+    users: {
+      $: {
+        fields: ['bio'],
+      },
+      posts: {
+        $: {
+          fields: ['title'],
+        },
+      },
+    },
+  });
+
+  // Test complex combination of all features
+  dummyQuery({
+    users: {
+      $: {
+        where: {
+          and: [
+            { name: { $like: 'A%' } },
+            { email: { $not: 'somevalue' } },
+            {
+              or: [
+                { bio: { $like: '%developer%' } },
+                { bio: { $like: '%engineer%' } },
+              ],
+            },
+          ],
+        },
+        fields: ['name', 'email', 'bio'],
+      },
+      posts: {
+        $: {
+          where: {
+            title: { $like: '%tutorial%' },
+          },
+          fields: ['title'],
+        },
+        comments: {
+          $: {
+            where: {
+              body: { $like: '%helpful%' },
+            },
+            fields: ['body'],
+          },
+        },
+      },
+      friends: {
+        $: {
+          where: {
+            name: { $in: ['Alice', 'Bob', 'Charlie'] },
+          },
+          fields: ['name'],
+        },
+        posts: {
+          $: {
+            fields: ['title'],
+          },
+        },
+      },
+      referrer: {
+        $: {
+          fields: ['name', 'email'],
+        },
+      },
+      referred: {
+        $: {
+          fields: ['name'],
+        },
+      },
+    },
+    posts: {
+      $: {
+        where: {
+          title: { $like: '%important%' },
+        },
+        fields: ['title'],
+      },
+      author: {
+        $: {
+          fields: ['name'],
+        },
+      },
+      comments: {
+        $: {
+          fields: ['body'],
+        },
+      },
+    },
+    comments: {
+      $: {
+        where: {
+          body: { $like: '%great%' },
+        },
+        fields: ['body'],
+      },
+      post: {
+        $: {
+          fields: ['title'],
         },
       },
     },

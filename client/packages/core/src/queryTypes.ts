@@ -123,11 +123,6 @@ type WhereClause<
   S extends IContainEntitiesAndLinks<any, any>,
   K extends keyof S['entities'],
 > = BaseAttrWhereClause<InstaQLEntity<S, K>> & {
-  //   [Path in InferNestedPath<S, K>]?: WhereClauseValue<
-  //     InferNestedValueType<S, K, Path, 4>
-  //   >;
-  // } & {
-  // Allow any deeply nested path with BSUnknown typing
   [key: `${string}.${string}`]: WhereClauseValue<BSUnknown>;
 };
 
@@ -217,7 +212,7 @@ type $OptionWNest<
     before?: Cursor;
     fields?: HasIndexSignature<InstaQLEntity<S, K>> extends true
       ? string[]
-      : keyof InstaQLEntity<S, K>[];
+      : InstaQLFields<S, K>;
   };
 };
 
