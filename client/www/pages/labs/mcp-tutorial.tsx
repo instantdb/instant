@@ -44,6 +44,9 @@ type MarkdownContent = {
 
 type ClientType = 'cursor' | 'claude-code' | 'claude-web';
 
+const pageTitle =
+  'Whirlwind tour: Build and deploy a full-stack app with InstantDB';
+
 const cursorMCPConfig = `{
   "mcpServers": {
     "instant": {
@@ -277,10 +280,10 @@ export default function McpTutorial({ files }: MarkdownContent) {
   return (
     <LandingContainer>
       <Head>
-        <title>Vibe-coding full-stack apps with InstantDB - MCP Tutorial</title>
+        <title>{pageTitle}</title>
         <meta
           name="description"
-          content="Learn how to build full-stack apps with InstantDB using LLMs and MCP (Model Context Protocol). Get started in 5-10 minutes!"
+          content="Build full-stack apps with InstantDB in 5-10 minutes!"
         />
       </Head>
 
@@ -290,9 +293,7 @@ export default function McpTutorial({ files }: MarkdownContent) {
           {/* Hero Section */}
           <div className="mt-12 mb-8">
             <div className="mb-6">
-              <H2>
-                Whirlwind tour: Build and deploy a full-stack app with InstantDB
-              </H2>
+              <H2>{pageTitle}</H2>
             </div>
             <p className="text-lg text-gray-700 mb-8">
               👋 Hey there!
