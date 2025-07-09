@@ -529,7 +529,7 @@ class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
    *  });
    */
   subscribeQuery<Q extends InstaQLParams<Schema>>(
-    query: Exactly<InstaQLParams<Schema>, Q>,
+    query: Q,
     cb: (resp: InstaQLSubscriptionState<Schema, Q>) => void,
     opts?: InstaQLOptions,
   ) {
@@ -655,7 +655,7 @@ class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
    *  console.log(resp.data.goals)
    */
   queryOnce<Q extends InstaQLParams<Schema>>(
-    query: Exactly<InstaQLParams<Schema>, Q>,
+    query: Q,
     opts?: InstaQLOptions,
   ): Promise<{
     data: InstaQLResponse<Schema, Q>;
