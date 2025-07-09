@@ -218,7 +218,9 @@ type $OptionWNest<
 
 type Subquery = { [namespace: string]: NamespaceVal };
 
-type NamespaceVal = $Option<string[]> | ($Option<string[]> & Subquery);
+type NamespaceVal =
+  | $OptionWNest<any, any>
+  | ($OptionWNest<any, any> & Subquery);
 
 interface Query {
   [namespace: string]: NamespaceVal;
@@ -433,7 +435,14 @@ type InstaQLResult<
         Schema,
         QueryPropName,
         Remove$NonRecursive<Query[QueryPropName]>,
-        InstaQLFields<Schema, QueryPropName>
+        Query[QueryPropName] extends {
+          $: { fields: infer F; [key: string]: any };
+          [key: string]: any;
+        }
+          ? F extends InstaQLFields<Schema, QueryPropName>
+            ? F
+            : undefined
+          : undefined
       >[]
     : never;
 }>;

@@ -153,11 +153,17 @@ test('runs without exception', () => {
     },
   });
 
-  dummyQuery({
+  const lsidjf = dummyQuery({
     users: {
       $: {
         where: {
           name: 'drew',
+        },
+        fields: ['name'],
+      },
+      friends: {
+        $: {
+          fields: ['bio'],
         },
       },
     },
@@ -525,7 +531,7 @@ test('runs without exception', () => {
   });
 
   // Test queries with only fields
-  dummyQuery({
+  const jslsldjfi = dummyQuery({
     users: {
       $: {
         fields: ['name', 'email'],
@@ -548,7 +554,7 @@ test('runs without exception', () => {
   });
 
   // Test complex combination of all features
-  dummyQuery({
+  const sdijflsidf = dummyQuery({
     users: {
       $: {
         where: {
