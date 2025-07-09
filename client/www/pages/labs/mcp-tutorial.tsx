@@ -43,7 +43,7 @@ type MarkdownContent = {
   files: Record<string, string>;
 };
 
-type ClientType = 'cursor' | 'claude-code' | 'claude-web';
+type ClientType = 'cursor' | 'claude-code';
 
 const pageTitle =
   'Whirlwind tour: Build and deploy a full-stack app with InstantDB';
@@ -160,7 +160,6 @@ export default function McpTutorial({ files }: MarkdownContent) {
     'cursor-rules': cursorRulesContent,
     claude: claudeMdContent,
     'claude-rules': claudeRulesContent,
-    'other-rules': otherRulesContent,
   } = files;
 
   const clientConfigs = {
@@ -247,31 +246,6 @@ export default function McpTutorial({ files }: MarkdownContent) {
             content={claudeRulesContent}
             filename="instant-rules.md"
             description="Click the button below to copy the rules for Instant and paste them into instant-rules.md in the same directory as your CLAUDE.md"
-          />
-        </div>
-      ),
-    },
-    'claude-web': {
-      name: 'Claude Web / Desktop',
-      setupContent: (
-        <div className="space-y-4">
-          <p>
-            If you're on a paid plan, go to Settings → Integrations. Add a
-            custom integration and use the URL:
-          </p>
-          <Copyable value="https://mcp.instantdb.com/mcp" />
-          <p>
-            This should kick off the auth flow and you'll be able to use the
-            Instant MCP server in your Claude sessions!
-          </p>
-        </div>
-      ),
-      rulesContent: (
-        <div className="space-y-6">
-          <FileContentCard
-            title="Instant Rules"
-            content={otherRulesContent}
-            description="Click the button below to copy the rules for Instant and paste them into your Claude Web or Desktop session."
           />
         </div>
       ),
@@ -414,11 +388,11 @@ export default function McpTutorial({ files }: MarkdownContent) {
             </p>
             <Fence
               code={`# Scaffold a Next.js app
-pnpx create-next-app@latest vibes --yes
+npx create-next-app@latest vibes --yes
 
 # Add Instant's React SDK to the project
 cd vibes
-pnpm i @instantdb/react`}
+npm i @instantdb/react`}
               language="bash"
             />
           </div>
