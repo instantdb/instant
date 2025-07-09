@@ -351,6 +351,7 @@ test('runs without exception', () => {
     users: {
       $: {
         where: {
+          'jsodifj.jskdlf': { $like: 'isd' },
           'posts.title': { $like: '%important%' },
           'posts.comments.body': { $like: '%urgent%' },
           'friends.name': { $in: ['Alice', 'Bob'] },

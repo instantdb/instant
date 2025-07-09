@@ -63,21 +63,12 @@ type WhereClauseValue<V> =
           : never)
   | WhereClauseValueComplex<V>;
 
-type BaseWhereClause<
+type WhereClauseColumnEntries<
   T extends {
     [key: string]: unknown;
   },
 > = {
   [key in keyof T]?: WhereClauseValue<T[key]>;
-};
-
-type WhereClauseColumnEntries<
-  S extends IContainEntitiesAndLinks<any, any>,
-  K extends keyof S['entities'],
-> = WhereClauses<InstaQLEntity<S, K>> & {
-  [key: `${string}.${string}`]: WhereClauseValue<
-    string | number | boolean | undefined
-  >;
 };
 
 type WhereClauseComboEntries<T extends Record<any, unknown>> = {
@@ -89,9 +80,14 @@ type WhereClauseComboEntries<T extends Record<any, unknown>> = {
     | WhereClauseValue<string | number | boolean | undefined>;
 };
 
-type WhereClauses<T extends Record<any, any>> =
+type WhereClauses<T extends Record<any, any>> = (
   | WhereClauseComboEntries<T>
-  | (WhereClauseComboEntries<T> & BaseWhereClause<T>);
+  | (WhereClauseComboEntries<T> & WhereClauseColumnEntries<T>)
+) & {
+  [key: `${string}.${string}`]: WhereClauseValue<
+    string | number | boolean | undefined
+  >;
+};
 
 /**
  * A tuple representing a cursor.
@@ -106,13 +102,12 @@ type Direction = 'asc' | 'desc';
 
 type Order = { [key: string]: Direction };
 
-// Typed version that supports dot notation for nested queries
 type $Option<
   S extends IContainEntitiesAndLinks<any, any>,
   K extends keyof S['entities'],
 > = {
   $?: {
-    where?: WhereClauseColumnEntries<S, K>;
+    where?: WhereClauses<InstaQLEntity<S, K>>;
     order?: Order;
     limit?: number;
     last?: number;
