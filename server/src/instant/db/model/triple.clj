@@ -960,12 +960,24 @@
       (ZonedDateTime/parse DateTimeFormatter/RFC_1123_DATE_TIME)
       (.toInstant)))
 
+(def dow-mon-day-year-formatter
+  (DateTimeFormatter/ofPattern "EEE MMM dd yyyy"))
+
+(defn dow-mon-day-year-str->instant [s]
+  (-> s
+      (LocalDate/parse dow-mon-day-year-formatter)
+      (.atStartOfDay)
+      (.toInstant ZoneOffset/UTC)))
+
+
+
 (def date-parsers [zoned-date-time-str->instant
                    local-date-time-str->instant
                    local-date-str->instant
                    rfc-1123->instant
                    offio-date-str->instant
-                   zeneca-date-str->instant])
+                   zeneca-date-str->instant
+                   dow-mon-day-year-str->instant])
 
 (defn try-parse-date-string [parser s]
   (try
@@ -997,6 +1009,7 @@
         (Instant/ofEpochMilli x)))
 
 (comment
+  (parse-date-value "Wed Jul 09 2025")
   (parse-date-value "Sat, 05 Apr 2025 18:00:31 GMT")
   (parse-date-value "2025-01-01T00:00:00Z")
   (parse-date-value "2025-01-01")
