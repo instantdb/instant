@@ -91,66 +91,12 @@ type BaseWhereClause<
   [key in keyof T]?: WhereClauseValue<T[key]>;
 };
 
-// Helper type to infer the value type from a nested path
-type InferNestedValueType<
-  S extends IContainEntitiesAndLinks<any, any>,
-  K extends keyof S['entities'],
-  Path extends string,
-  Depth extends number = 3,
-> = Depth extends 0
-  ? BSUnknown
-  : Path extends `${infer LinkName}.${infer RestPath}`
-    ? LinkName extends keyof S['entities'][K]['links']
-      ? S['entities'][K]['links'][LinkName] extends LinkAttrDef<
-          any,
-          infer LinkedEntityName
-        >
-        ? LinkedEntityName extends keyof S['entities']
-          ? InferNestedValueType<
-              S,
-              LinkedEntityName,
-              RestPath,
-              [never, 0, 1, 2, 3][Depth]
-            >
-          : BSUnknown
-        : BSUnknown
-      : BSUnknown
-    : Path extends keyof ResolveEntityAttrs<S['entities'][K]>
-      ? ResolveEntityAttrs<S['entities'][K]>[Path]
-      : BSUnknown;
-
 type WhereClause<
   S extends IContainEntitiesAndLinks<any, any>,
   K extends keyof S['entities'],
 > = BaseAttrWhereClause<InstaQLEntity<S, K>> & {
   [key: `${string}.${string}`]: WhereClauseValue<BSUnknown>;
 };
-
-// Helper type to get valid nested paths
-type InferNestedPath<
-  S extends IContainEntitiesAndLinks<any, any>,
-  K extends keyof S['entities'],
-  Depth extends number = 4,
-> = Depth extends 0
-  ? // At depth 0, allow any string path for BSUnknown typing
-    `${string}.${string}`
-  : // Direct attributes of the entity
-    | Extract<keyof ResolveEntityAttrs<S['entities'][K]>, string>
-      // Nested paths through links (link.attribute)
-      | {
-          [LinkName in keyof S['entities'][K]['links']]: S['entities'][K]['links'][LinkName] extends LinkAttrDef<
-            any,
-            infer LinkedEntityName
-          >
-            ? LinkedEntityName extends keyof S['entities']
-              ? `${Extract<LinkName, string>}.${InferNestedPath<
-                  S,
-                  LinkedEntityName,
-                  [never, 0, 1, 2, 3][Depth]
-                >}`
-              : never
-            : never;
-        }[keyof S['entities'][K]['links']];
 
 type WhereClauseWithCombination<T extends Record<any, unknown>> = {
   or?: BaseAttrWhereClause<T>[] | WhereClauseValue<BSUnknown>;
