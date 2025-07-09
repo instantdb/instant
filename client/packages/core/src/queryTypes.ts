@@ -336,14 +336,7 @@ type InstaQLResult<
         Schema,
         QueryPropName,
         Remove$NonRecursive<Query[QueryPropName]>,
-        Query[QueryPropName] extends {
-          $: { fields: infer F; [key: string]: any };
-          [key: string]: any;
-        }
-          ? F extends InstaQLFields<Schema, QueryPropName>
-            ? F
-            : undefined
-          : undefined
+        Query[QueryPropName]['$']['fields']
       >[]
     : never;
 }>;
