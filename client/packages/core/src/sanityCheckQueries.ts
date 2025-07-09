@@ -5,9 +5,10 @@ import type {
   Cursor,
   Exactly,
   InstantObject,
-  Query,
-  QueryResponse,
+  InstaQLParams,
+  InstaQLResponse,
 } from './queryTypes.ts';
+import { InstantUnknownSchema } from './schemaTypes.ts';
 
 /**
  * The purpose of these sanity checks:
@@ -19,9 +20,9 @@ import type {
  *  * the api is more vebose than this
  */
 
-export function dummyQuery<Q extends Query>(
-  _query: Exactly<Query, Q>,
-): QueryResponse<Q, unknown> {
+export function dummyQuery<Q extends InstaQLParams<InstantUnknownSchema>>(
+  _query: Exactly<InstaQLParams<InstantUnknownSchema>, Q>,
+): InstaQLResponse<InstantUnknownSchema, Q> {
   return 1 as any;
 }
 
