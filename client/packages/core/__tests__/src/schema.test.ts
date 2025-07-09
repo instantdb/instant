@@ -26,6 +26,7 @@ test('runs without exception', () => {
       }),
       comments: i.entity({
         body: i.string(),
+        color: i.string().optional(),
       }),
     },
     links: {
@@ -138,7 +139,11 @@ test('runs without exception', () => {
   const queryTypeTest: QueryType = {
     comments: {
       $: {
-        where: {},
+        where: {
+          color: {
+            $isNull: true,
+          },
+        },
       },
     },
   };
@@ -147,23 +152,7 @@ test('runs without exception', () => {
     comments: {
       $: {
         where: {
-          body: '',
-        },
-      },
-    },
-  });
-
-  const lsidjf = dummyQuery({
-    users: {
-      $: {
-        where: {
-          name: 'drew',
-        },
-        fields: ['name'],
-      },
-      friends: {
-        $: {
-          fields: ['bio'],
+          color: { $isNull: true },
         },
       },
     },
@@ -246,6 +235,9 @@ test('runs without exception', () => {
   dummyQuery({
     users: {
       $: {
+        where: {
+          and: [{}],
+        },
         fields: ['name', 'email'],
       },
     },
