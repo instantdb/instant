@@ -139,7 +139,6 @@ const sanityCheckQueries = () => {
   });
 
   const s5 = dummyQuery({
-    // @ts-expect-error
     users: { $: { where: { val: { $gt: { val: 'a' } } } } },
   });
 
