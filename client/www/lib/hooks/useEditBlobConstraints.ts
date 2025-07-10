@@ -14,6 +14,8 @@ export const useEditBlobConstraints = ({
   attr,
   appId,
   isRequired,
+  isIndexed,
+  isUnique,
   checkedDataType,
   token,
 }: {
@@ -21,6 +23,8 @@ export const useEditBlobConstraints = ({
   appId: string;
   token: string;
   isRequired: boolean;
+  isIndexed: boolean;
+  isUnique: boolean;
   checkedDataType: CheckedDataType | 'any';
 }) => {
   const [pendingJobs, setPendingJobs] = useState<{
@@ -94,6 +98,30 @@ export const useEditBlobConstraints = ({
       }));
     }
 
+    // Pending index job
+    if (isIndexed === attr.isIndex) {
+      setPendingJobs((p) => ({ ...p, index: undefined }));
+    } else if (isIndexed) {
+      setPendingJobs((p) => ({ ...p, index: { jobType: 'index' } }));
+    } else if (!isIndexed) {
+      setPendingJobs((p) => ({
+        ...p,
+        index: { jobType: 'remove-index' },
+      }));
+    }
+
+    // Pending unique job
+    if (isUnique === attr.isUniq) {
+      setPendingJobs((p) => ({ ...p, unique: undefined }));
+    } else if (isUnique) {
+      setPendingJobs((p) => ({ ...p, unique: { jobType: 'unique' } }));
+    } else if (!isUnique) {
+      setPendingJobs((p) => ({
+        ...p,
+        unique: { jobType: 'remove-unique' },
+      }));
+    }
+
     // Checked data type
     if (checkedDataType === (attr.checkedDataType || 'any')) {
       setPendingJobs((p) => ({ ...p, type: undefined }));
@@ -110,7 +138,7 @@ export const useEditBlobConstraints = ({
         }));
       }
     }
-  }, [isRequired, checkedDataType, attr]);
+  }, [isRequired, isIndexed, isUnique, checkedDataType, attr]);
 
   const apply = async () => {
     Object.entries(pendingJobs).forEach(async ([jobType, pendingJob]) => {
