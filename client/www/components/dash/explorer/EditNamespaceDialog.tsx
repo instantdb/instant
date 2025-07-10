@@ -8,13 +8,19 @@ import {
   ReactNode,
   MutableRefObject,
 } from 'react';
-import { ArrowLeftIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/solid';
+import {
+  ArrowLeftIcon,
+  PlusIcon,
+  TrashIcon,
+  ArrowUturnLeftIcon,
+} from '@heroicons/react/24/solid';
 import { errorToast, successToast } from '@/lib/toast';
 import {
   ActionButton,
   ActionForm,
   Button,
   Checkbox,
+  cn,
   Content,
   InfoTip,
   Select,
@@ -34,7 +40,12 @@ import {
   SchemaAttr,
   SchemaNamespace,
 } from '@/lib/types';
-import { createJob, jobFetchLoop } from '@/lib/indexingJobs';
+import {
+  createJob,
+  jobFetchLoop,
+  jobIsCompleted,
+  jobIsErrored,
+} from '@/lib/indexingJobs';
 import { useAuthToken } from '@/lib/auth';
 import type { PushNavStack } from './Explorer';
 import { useClose } from '@headlessui/react';
@@ -1020,468 +1031,39 @@ async function updateRequired({
   }
 }
 
-function EditRequired({
-  appId,
-  attr,
-  isSystemCatalogNs,
-  pushNavStack,
-}: {
-  appId: string;
+type BlobConstraintControlComponent<V> = (props: {
+  pendingJob?: PendingJob;
+  runningJob?: InstantIndexingJob;
+  value: V;
+  setValue: (v: V) => void;
+  disabled: boolean;
   attr: SchemaAttr;
-  isSystemCatalogNs: boolean;
   pushNavStack: PushNavStack;
-}) {
-  const [requiredChecked, setRequiredChecked] = useState(
-    attr.isRequired || false,
-  );
+}) => JSX.Element;
 
-  const authToken = useAuthToken();
-  const [indexingJob, setIndexingJob] = useState<InstantIndexingJob | null>(
-    null,
-  );
-
-  const stopFetchLoop = useRef<null | (() => void)>(null);
-
-  useEffect(() => {
-    return () => stopFetchLoop.current?.();
-  }, [stopFetchLoop]);
-
-  const onRequiredChanged = async () => {
-    return updateRequired({
-      appId,
-      attr,
-      isRequired: requiredChecked,
-      authToken,
-      setIndexingJob,
-      stopFetchLoop,
-    });
-  };
-
-  const valueNotChanged = requiredChecked === attr.isRequired;
-
-  const buttonDisabled = isSystemCatalogNs || valueNotChanged;
-
+const EditCheckedDataTypeControl: BlobConstraintControlComponent<
+  CheckedDataType | 'any'
+> = ({
+  pendingJob,
+  runningJob,
+  value,
+  setValue,
+  disabled,
+  attr,
+  pushNavStack,
+}) => {
+  const notRunning = !runningJob || runningJob.job_status === 'completed';
   const closeDialog = useClose();
 
-  return (
-    <ActionForm className="flex flex-col gap-1">
-      <div className="flex gap-2">
-        <Checkbox
-          disabled={isSystemCatalogNs}
-          title={
-            isSystemCatalogNs
-              ? `Attributes in the ${attr.namespace} namespace can't be edited.`
-              : undefined
-          }
-          checked={requiredChecked || false}
-          onChange={(enabled) => setRequiredChecked(enabled)}
-          label={
-            <span>
-              <strong>Require this attribute</strong> so all entities will be
-              guaranteed to have it
-            </span>
-          }
-        />
-      </div>
-
-      <IndexingJobError
-        indexingJob={indexingJob}
-        attr={attr}
-        pushNavStack={pushNavStack}
-        onClose={closeDialog}
-      />
-
-      <ActionButton
-        type="submit"
-        label={
-          valueNotChanged
-            ? requiredChecked
-              ? 'Required'
-              : 'Optional'
-            : requiredChecked
-              ? 'Mark as required'
-              : 'Mark as optional'
-        }
-        submitLabel={jobWorkingStatus(indexingJob) || 'Updating attribute...'}
-        errorMessage="Failed to update attribute"
-        disabled={buttonDisabled}
-        title={
-          isSystemCatalogNs
-            ? `Attributes in the ${attr.namespace} namespace can't be edited.`
-            : undefined
-        }
-        onClick={onRequiredChanged}
-      />
-    </ActionForm>
-  );
-}
-
-function EditIndexed({
-  appId,
-  attr,
-  isSystemCatalogNs,
-  pushNavStack,
-}: {
-  appId: string;
-  attr: SchemaAttr;
-  isSystemCatalogNs: boolean;
-  pushNavStack: PushNavStack;
-}) {
-  const token = useAuthToken();
-  const [indexChecked, setIndexChecked] = useState(attr.isIndex);
-  const [indexingJob, setIndexingJob] = useState<InstantIndexingJob | null>(
-    null,
-  );
-
-  const stopFetchLoop = useRef<null | (() => void)>(null);
-
+  // Revert to previous value if job errored
   useEffect(() => {
-    return () => stopFetchLoop.current?.();
-  }, [stopFetchLoop]);
-  const updateIndexed = async () => {
-    if (!token || indexChecked === attr.isIndex) {
-      return;
+    if (runningJob && jobIsErrored(runningJob)) {
+      setValue(attr.checkedDataType || 'any');
     }
-    stopFetchLoop.current?.();
-    const friendlyName = `${attr.namespace}.${attr.name}`;
-    try {
-      const job = await createJob(
-        {
-          appId,
-          attrId: attr.id,
-          jobType: indexChecked ? 'index' : 'remove-index',
-        },
-        token,
-      );
-      setIndexingJob(job);
-      const fetchLoop = jobFetchLoop(appId, job.id, token);
-      stopFetchLoop.current = fetchLoop.stop;
-      const finishedJob = await fetchLoop.start((data, error) => {
-        if (error) {
-          errorToast(`Unexpected error while indexing ${friendlyName}.`);
-        }
-        if (data) {
-          setIndexingJob(data);
-        }
-      });
-      if (finishedJob) {
-        if (finishedJob.job_status === 'completed') {
-          successToast(
-            indexChecked
-              ? `Indexed ${friendlyName}.`
-              : `Removed index from ${friendlyName}.`,
-          );
-          return;
-        }
-        if (finishedJob.job_status === 'canceled') {
-          errorToast('Indexing was canceled.');
-          return;
-        }
-        if (finishedJob.job_status === 'errored') {
-          if (finishedJob.error === 'invalid-triple-error') {
-            errorToast(`Found invalid data while updating ${friendlyName}.`);
-            return;
-          }
-          errorToast(`Encountered an error while updating ${friendlyName}.`);
-        }
-      }
-    } catch (e) {
-      console.error(e);
-      errorToast(`Unexpected error while updating ${friendlyName}`);
-    }
-  };
-
-  const valueNotChanged = indexChecked === attr.isIndex;
-
-  const buttonDisabled = isSystemCatalogNs || valueNotChanged;
-
-  const closeDialog = useClose();
+  }, [runningJob]);
 
   return (
-    <ActionForm className="flex flex-col gap-1">
-      <div className="flex gap-2">
-        <Checkbox
-          disabled={isSystemCatalogNs}
-          title={
-            isSystemCatalogNs
-              ? `Attributes in the ${attr.namespace} namespace can't be edited.`
-              : undefined
-          }
-          checked={indexChecked}
-          onChange={(enabled) => setIndexChecked(enabled)}
-          label={
-            <span>
-              <strong>Index this attribute</strong> to improve lookup
-              performance of values
-            </span>
-          }
-        />
-      </div>
-
-      <IndexingJobError
-        indexingJob={indexingJob}
-        attr={attr}
-        pushNavStack={pushNavStack}
-        onClose={closeDialog}
-      />
-
-      <ActionButton
-        type="submit"
-        label={
-          valueNotChanged
-            ? indexChecked
-              ? 'Indexed'
-              : 'Not indexed'
-            : indexChecked
-              ? 'Index attribute'
-              : 'Remove index'
-        }
-        submitLabel={jobWorkingStatus(indexingJob) || 'Updating attribute...'}
-        errorMessage="Failed to update attribute"
-        disabled={buttonDisabled}
-        title={
-          isSystemCatalogNs
-            ? `Attributes in the ${attr.namespace} namespace can't be edited.`
-            : undefined
-        }
-        onClick={updateIndexed}
-      />
-    </ActionForm>
-  );
-}
-
-function EditUnique({
-  appId,
-  attr,
-  isSystemCatalogNs,
-  pushNavStack,
-}: {
-  appId: string;
-  attr: SchemaAttr;
-  isSystemCatalogNs: boolean;
-  pushNavStack: PushNavStack;
-}) {
-  const token = useAuthToken();
-  const [uniqueChecked, setUniqueChecked] = useState(attr.isUniq);
-  const [indexingJob, setIndexingJob] = useState<InstantIndexingJob | null>(
-    null,
-  );
-
-  const stopFetchLoop = useRef<null | (() => void)>(null);
-
-  useEffect(() => {
-    return () => stopFetchLoop.current?.();
-  }, [stopFetchLoop]);
-  const updateUniqueness = async () => {
-    if (!token || uniqueChecked === attr.isUniq) {
-      return;
-    }
-    stopFetchLoop.current?.();
-    const friendlyName = `${attr.namespace}.${attr.name}`;
-    try {
-      const job = await createJob(
-        {
-          appId,
-          attrId: attr.id,
-          jobType: uniqueChecked ? 'unique' : 'remove-unique',
-        },
-        token,
-      );
-      setIndexingJob(job);
-      const fetchLoop = jobFetchLoop(appId, job.id, token);
-      stopFetchLoop.current = fetchLoop.stop;
-      const finishedJob = await fetchLoop.start((data, error) => {
-        if (error) {
-          errorToast(`Unexpected error while indexing ${friendlyName}.`);
-        }
-        if (data) {
-          setIndexingJob(data);
-        }
-      });
-      if (finishedJob) {
-        if (finishedJob.job_status === 'completed') {
-          successToast(
-            uniqueChecked
-              ? `Enforced uniqueness constraint for ${friendlyName}.`
-              : `Removed uniqueness constraint from ${friendlyName}.`,
-          );
-          return;
-        }
-        if (finishedJob.job_status === 'canceled') {
-          errorToast('Indexing was canceled.');
-          return;
-        }
-        if (finishedJob.job_status === 'errored') {
-          if (finishedJob.error === 'invalid-triple-error') {
-            errorToast(`Found invalid data while updating ${friendlyName}.`);
-            return;
-          }
-          errorToast(`Encountered an error while updating ${friendlyName}.`);
-        }
-      }
-    } catch (e) {
-      console.error(e);
-      errorToast(`Unexpected error while updating ${friendlyName}`);
-    }
-  };
-
-  const valueNotChanged = uniqueChecked === attr.isUniq;
-
-  const buttonDisabled = isSystemCatalogNs || valueNotChanged;
-
-  const closeDialog = useClose();
-
-  return (
-    <ActionForm className="flex flex-col gap-1">
-      <div className="flex gap-2">
-        <Checkbox
-          disabled={isSystemCatalogNs}
-          title={
-            isSystemCatalogNs
-              ? `Attributes in the ${attr.namespace} namespace can't be edited.`
-              : undefined
-          }
-          checked={uniqueChecked}
-          onChange={(enabled) => setUniqueChecked(enabled)}
-          label={
-            <span>
-              <strong>Enforce uniqueness</strong> so no two entities can have
-              the same value for this attribute
-            </span>
-          }
-        />
-      </div>
-
-      <IndexingJobError
-        indexingJob={indexingJob}
-        attr={attr}
-        pushNavStack={pushNavStack}
-        onClose={closeDialog}
-      />
-
-      <ActionButton
-        type="submit"
-        label={
-          valueNotChanged
-            ? uniqueChecked
-              ? 'Unique'
-              : 'Not unique'
-            : uniqueChecked
-              ? 'Add uniqueness constraint'
-              : 'Remove uniqueness constraint'
-        }
-        submitLabel={jobWorkingStatus(indexingJob) || 'Updating attribute...'}
-        errorMessage="Failed to update attribute"
-        disabled={buttonDisabled}
-        title={
-          isSystemCatalogNs
-            ? `Attributes in the ${attr.namespace} namespace can't be edited.`
-            : undefined
-        }
-        onClick={updateUniqueness}
-      />
-    </ActionForm>
-  );
-}
-
-function EditCheckedDataType({
-  appId,
-  attr,
-  isSystemCatalogNs,
-  pushNavStack,
-}: {
-  appId: string;
-  attr: SchemaAttr;
-  isSystemCatalogNs: boolean;
-  pushNavStack: PushNavStack;
-}) {
-  const token = useAuthToken();
-  const [checkedDataType, setCheckedDataType] = useState<
-    CheckedDataType | 'any'
-  >(attr.checkedDataType || 'any');
-  const [indexingJob, setIndexingJob] = useState<InstantIndexingJob | null>(
-    null,
-  );
-
-  const stopFetchLoop = useRef<null | (() => void)>(null);
-
-  useEffect(() => {
-    return () => stopFetchLoop.current?.();
-  }, [stopFetchLoop]);
-  const updateCheckedType = async () => {
-    if (!token || !checkedDataType) {
-      return;
-    }
-    stopFetchLoop.current?.();
-    const friendlyName = `${attr.namespace}.${attr.name}`;
-    try {
-      const job = await createJob(
-        {
-          appId,
-          attrId: attr.id,
-          jobType:
-            checkedDataType === 'any' ? 'remove-data-type' : 'check-data-type',
-          checkedDataType: checkedDataType === 'any' ? null : checkedDataType,
-        },
-        token,
-      );
-      setIndexingJob(job);
-      const fetchLoop = jobFetchLoop(appId, job.id, token);
-      stopFetchLoop.current = fetchLoop.stop;
-      const finishedJob = await fetchLoop.start((data, error) => {
-        if (error) {
-          errorToast(`Unexpected error while updating ${friendlyName}.`);
-        }
-        if (data) {
-          setIndexingJob(data);
-        }
-      });
-      if (finishedJob) {
-        if (finishedJob.job_status === 'completed') {
-          successToast(
-            checkedDataType === 'any'
-              ? `Removed type for ${friendlyName}.`
-              : `Updated type for ${friendlyName} to ${checkedDataType}.`,
-          );
-          return;
-        }
-        if (finishedJob.job_status === 'canceled') {
-          errorToast('Attribute update was canceled.');
-          return;
-        }
-        if (finishedJob.job_status === 'errored') {
-          if (finishedJob.error === 'invalid-triple-error') {
-            errorToast(`Found invalid data while updating ${friendlyName}.`);
-            return;
-          }
-          errorToast(`Encountered an error while updating ${friendlyName}.`);
-        }
-      }
-    } catch (e) {
-      console.error(e);
-      errorToast(`Unexpected error while updating ${friendlyName}`);
-    }
-  };
-
-  const typeNotChanged =
-    checkedDataType === attr.checkedDataType ||
-    ((!checkedDataType || checkedDataType === 'any') &&
-      !attr.checkedDataType) ||
-    (checkedDataType === indexingJob?.checked_data_type &&
-      indexingJob?.job_status === 'completed');
-
-  const buttonDisabled = isSystemCatalogNs || typeNotChanged;
-
-  const buttonLabel = typeNotChanged
-    ? `Type is ${checkedDataType}`
-    : checkedDataType === 'any'
-      ? 'Remove type'
-      : `Set type to ${checkedDataType}`;
-
-  const closeDialog = useClose();
-
-  return (
-    <ActionForm className="flex flex-col gap-1">
+    <>
       <div className="flex flex-col gap-2">
         <h6 className="text-md font-bold">
           Enforce type{' '}
@@ -1493,47 +1075,16 @@ function EditCheckedDataType({
           </InfoTip>
         </h6>
       </div>
-
-      <IndexingJobError
-        indexingJob={indexingJob}
-        attr={attr}
-        pushNavStack={pushNavStack}
-        onClose={closeDialog}
-      />
-
-      <ActionButton
-        type="submit"
-        label={buttonLabel}
-        submitLabel={jobWorkingStatus(indexingJob) || 'Updating attribute...'}
-        errorMessage="Failed to update attribute"
-        disabled={buttonDisabled}
-        title={
-          isSystemCatalogNs
-            ? `Attributes in the ${attr.namespace} namespace can't be changed.`
-            : undefined
-        }
-        onClick={updateCheckedType}
-      />
-    </ActionForm>
-  );
-}
-
-type BlobConstraintControlComponent<V> = (props: {
-  pendingJob?: PendingJob;
-  runningJob?: InstantIndexingJob;
-  value: V;
-  setValue: (v: V) => void;
-  disabled: boolean;
-  attr: SchemaAttr;
-}) => JSX.Element;
-
-const EditCheckedDataTypeControl: BlobConstraintControlComponent<
-  CheckedDataType | 'any'
-> = ({ pendingJob, runningJob, value, setValue, disabled, attr }) => {
-  return (
-    <>
-      <div className="flex gap-2">
+      <div className="flex items-center gap-2">
         <Select
+          className={cn(
+            pendingJob &&
+              'border-[#606AF4] ring-1 ring-inset ring-[#606AF4] focus:ring-[#606AF4]',
+
+            runningJob &&
+              jobIsErrored(runningJob) &&
+              'border-red-500 border-2 ring-0',
+          )}
           disabled={
             disabled || (runningJob && runningJob.job_status !== 'completed')
           }
@@ -1572,7 +1123,24 @@ const EditCheckedDataTypeControl: BlobConstraintControlComponent<
             },
           ]}
         />
+        {pendingJob && notRunning && (
+          <ArrowUturnLeftIcon
+            onClick={() => {
+              setValue(attr.checkedDataType || 'any');
+            }}
+            height="1.2rem"
+            className="cursor-pointer pr-2 text-[#606AF4]"
+          />
+        )}
       </div>
+      {runningJob && jobIsErrored(runningJob) && (
+        <IndexingJobError
+          indexingJob={runningJob}
+          attr={attr}
+          pushNavStack={pushNavStack}
+          onClose={closeDialog}
+        />
+      )}
     </>
   );
 };
@@ -1583,14 +1151,88 @@ const EditRequiredControl: BlobConstraintControlComponent<boolean> = ({
   value,
   setValue,
   disabled,
+  pushNavStack,
+  attr,
+}) => {
+  const notRunning = !runningJob || runningJob.job_status === 'completed';
+  const closeDialog = useClose();
+
+  const toggle = () => {
+    if (disabled || (runningJob && !jobIsCompleted(runningJob))) {
+      return;
+    }
+    setValue(!value);
+  };
+
+  // If job is errored, revert the value
+  useEffect(() => {
+    if (runningJob && jobIsErrored(runningJob)) {
+      setValue(attr.isRequired || false);
+    }
+  }, [runningJob]);
+
+  return (
+    <>
+      <div className="flex justify-between">
+        <Checkbox
+          disabled={disabled || (runningJob && !jobIsCompleted(runningJob))}
+          title={
+            disabled
+              ? `Attributes in the ${attr.namespace} namespace can't be edited.`
+              : undefined
+          }
+          checked={value}
+          onChange={(enabled) => setValue(enabled)}
+          label={
+            <span
+              onClick={toggle}
+              className={cn(
+                disabled || (runningJob && !jobIsCompleted(runningJob))
+                  ? 'cursor-default'
+                  : 'cursor-pointer',
+                pendingJob && 'text-[#606AF4]',
+                runningJob && jobIsErrored(runningJob) && 'text-red-500',
+              )}
+            >
+              <strong>Require this attribute</strong> so all entities will be
+              guaranteed to have it
+            </span>
+          }
+        />
+        {pendingJob && notRunning && (
+          <ArrowUturnLeftIcon
+            onClick={() => {
+              setValue(!value);
+            }}
+            height="1.2rem"
+            className="cursor-pointer pr-2 text-[#606AF4]"
+          />
+        )}
+      </div>
+      {runningJob && jobIsErrored(runningJob) && (
+        <IndexingJobError
+          indexingJob={runningJob}
+          attr={attr}
+          pushNavStack={pushNavStack}
+          onClose={closeDialog}
+        />
+      )}
+    </>
+  );
+};
+
+const EditIndexedControl: BlobConstraintControlComponent<boolean> = ({
+  pendingJob,
+  runningJob,
+  value,
+  setValue,
+  disabled,
   attr,
 }) => {
   return (
-    <>
+    <div className="flex justify-between">
       <Checkbox
-        disabled={
-          disabled || (runningJob && runningJob.job_status != 'completed')
-        }
+        disabled={disabled || (runningJob && !jobIsCompleted(runningJob))}
         title={
           disabled
             ? `Attributes in the ${attr.namespace} namespace can't be edited.`
@@ -1599,18 +1241,103 @@ const EditRequiredControl: BlobConstraintControlComponent<boolean> = ({
         checked={value}
         onChange={(enabled) => setValue(enabled)}
         label={
-          <span className={pendingJob && 'text-orange-600'}>
-            <strong>Require this attribute</strong> so all entities will be
-            guaranteed to have it
+          <span
+            onClick={() => {
+              setValue(!value);
+            }}
+            className={pendingJob && 'text-[#606AF4]'}
+          >
+            <strong>Index this attribute</strong> to improve lookup performance
+            of values
           </span>
         }
       />
-      {/* {pendingJob && ( */}
-      {/*   <div> */}
-      {/*     Will mark field as{' '} */}
-      {/*     {pendingJob.jobType === 'required' ? 'required' : 'optional'}.{' '} */}
-      {/*   </div> */}
-      {/* )} */}
+      {pendingJob && (
+        <ArrowUturnLeftIcon
+          onClick={() => {
+            setValue(!value);
+          }}
+          height="1.2rem"
+          className="cursor-pointer pr-2 text-[#606AF4]"
+        />
+      )}
+    </div>
+  );
+};
+
+const EditUniqueControl: BlobConstraintControlComponent<boolean> = ({
+  pendingJob,
+  runningJob,
+  value,
+  setValue,
+  disabled,
+  pushNavStack,
+  attr,
+}) => {
+  const notRunning = !runningJob || runningJob.job_status === 'completed';
+
+  const toggle = () => {
+    if (disabled || (runningJob && jobIsErrored(runningJob))) {
+      return;
+    }
+    setValue(!value);
+  };
+
+  const closeDialog = useClose();
+
+  // If job is errored, revert the value
+  useEffect(() => {
+    if (runningJob && jobIsErrored(runningJob)) {
+      setValue(attr.isUniq);
+    }
+  }, [runningJob]);
+
+  return (
+    <>
+      <div className="flex justify-between">
+        <Checkbox
+          disabled={disabled || (runningJob && !jobIsCompleted(runningJob))}
+          title={
+            disabled
+              ? `Attributes in the ${attr.namespace} namespace can't be edited.`
+              : undefined
+          }
+          checked={value}
+          onChange={(enabled) => setValue(enabled)}
+          label={
+            <span
+              onClick={toggle}
+              className={cn(
+                disabled || (runningJob && !jobIsCompleted(runningJob))
+                  ? 'cursor-default'
+                  : 'cursor-pointer',
+                pendingJob && 'text-[#606AF4]',
+                runningJob && jobIsErrored(runningJob) && 'text-red-500',
+              )}
+            >
+              <strong>Enforce uniqueness</strong> so no two entities can have
+              the same value for this attribute
+            </span>
+          }
+        />
+        {pendingJob && notRunning && (
+          <ArrowUturnLeftIcon
+            onClick={() => {
+              setValue(!value);
+            }}
+            height="1.2rem"
+            className="cursor-pointer pr-2 text-[#606AF4]"
+          />
+        )}
+      </div>
+      {runningJob && jobIsErrored(runningJob) && (
+        <IndexingJobError
+          indexingJob={runningJob}
+          attr={attr}
+          pushNavStack={pushNavStack}
+          onClose={closeDialog}
+        />
+      )}
     </>
   );
 };
@@ -1619,6 +1346,7 @@ const EditBlobConstraints = ({
   appId,
   attr,
   isSystemCatalogNs,
+  pushNavStack,
 }: {
   appId: string;
   attr: SchemaAttr;
@@ -1629,6 +1357,10 @@ const EditBlobConstraints = ({
     attr.isRequired || false,
   );
 
+  const [indexedChecked, setIndexedChecked] = useState(attr.isIndex);
+
+  const [uniqueChecked, setUniqueChecked] = useState(attr.isUniq);
+
   const [checkedDataType, setCheckedDataType] = useState<
     CheckedDataType | 'any'
   >(attr.checkedDataType || 'any');
@@ -1638,13 +1370,16 @@ const EditBlobConstraints = ({
     return null;
   }
 
-  const { isPending, pending, apply, running } = useEditBlobConstraints({
-    attr,
-    appId,
-    token,
-    isRequired: requiredChecked,
-    checkedDataType,
-  });
+  const { isPending, pending, apply, running, progress } =
+    useEditBlobConstraints({
+      attr,
+      appId,
+      token,
+      isRequired: requiredChecked,
+      isIndexed: indexedChecked,
+      isUnique: uniqueChecked,
+      checkedDataType,
+    });
 
   return (
     <div>
@@ -1657,6 +1392,25 @@ const EditBlobConstraints = ({
           setValue={setRequiredChecked}
           disabled={isSystemCatalogNs}
           attr={attr}
+          pushNavStack={pushNavStack}
+        />
+        <EditIndexedControl
+          pendingJob={pending.index}
+          runningJob={running.index}
+          value={indexedChecked}
+          setValue={setIndexedChecked}
+          disabled={isSystemCatalogNs}
+          attr={attr}
+          pushNavStack={pushNavStack}
+        />
+        <EditUniqueControl
+          pendingJob={pending.unique}
+          runningJob={running.unique}
+          value={uniqueChecked}
+          setValue={setUniqueChecked}
+          disabled={isSystemCatalogNs}
+          attr={attr}
+          pushNavStack={pushNavStack}
         />
         <EditCheckedDataTypeControl
           pendingJob={pending.type}
@@ -1665,8 +1419,13 @@ const EditBlobConstraints = ({
           setValue={setCheckedDataType}
           disabled={isSystemCatalogNs}
           attr={attr}
+          pushNavStack={pushNavStack}
         />
-        <Button onClick={() => apply()} disabled={!isPending}>
+        <Button
+          variant={isPending ? 'primary' : 'subtle'}
+          onClick={() => apply()}
+          disabled={!isPending}
+        >
           Apply
         </Button>
       </div>
@@ -1847,21 +1606,6 @@ function EditAttrForm({
             isSystemCatalogNs={isSystemCatalogNs}
             pushNavStack={pushNavStack}
           />
-          <div className="flex flex-col gap-2">
-            <h6 className="text-md font-bold">Constraints</h6>
-            <EditIndexed
-              appId={appId}
-              attr={attr}
-              isSystemCatalogNs={isSystemCatalogNs}
-              pushNavStack={pushNavStack}
-            />
-            <EditUnique
-              appId={appId}
-              attr={attr}
-              isSystemCatalogNs={isSystemCatalogNs}
-              pushNavStack={pushNavStack}
-            />
-          </div>
 
           <ActionForm className="flex flex-col gap-1">
             <h6 className="text-md font-bold">Rename</h6>

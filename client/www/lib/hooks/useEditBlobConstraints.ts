@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { CheckedDataType, InstantIndexingJob, SchemaAttr } from '../types';
 import config from '../config';
 import { jobFetchLoop } from '../indexingJobs';
@@ -14,6 +14,8 @@ export const useEditBlobConstraints = ({
   attr,
   appId,
   isRequired,
+  isIndexed,
+  isUnique,
   checkedDataType,
   token,
 }: {
@@ -21,6 +23,8 @@ export const useEditBlobConstraints = ({
   appId: string;
   token: string;
   isRequired: boolean;
+  isIndexed: boolean;
+  isUnique: boolean;
   checkedDataType: CheckedDataType | 'any';
 }) => {
   const [pendingJobs, setPendingJobs] = useState<{
@@ -33,21 +37,36 @@ export const useEditBlobConstraints = ({
 
   const fetchLoopsRef = useRef<{ [jobType: string]: { stop: () => void } }>({});
 
+  const [progress, setProgress] = useState<{ [jobType: string]: number }>({});
+
   // Keep running jobs updated
   useEffect(() => {
-    Object.entries(runningjobs).forEach(([jobType, job]) => {
+    const jobTypes = Object.keys(runningjobs) as JobConstraintTypes[];
+
+    for (let i = 0; i < jobTypes.length; i++) {
+      const jobType = jobTypes[i];
+      const job = runningjobs[jobType];
+
       if (
         !job ||
         job.job_status === 'completed' ||
         job.job_status === 'errored'
       ) {
-        return;
+        // Clean up completed/errored jobs
+        if (fetchLoopsRef.current[jobType]) {
+          fetchLoopsRef.current[jobType].stop();
+          delete fetchLoopsRef.current[jobType];
+        }
+        continue;
       }
 
+      // Skip if already polling this job type
       if (fetchLoopsRef.current[jobType]) {
-        return;
+        console.log('Job polling already running for', jobType);
+        continue;
       }
 
+      console.log('Starting job polling', jobType);
       const fetchLoop = jobFetchLoop(appId, job.id, token);
       fetchLoopsRef.current[jobType] = fetchLoop;
 
@@ -58,30 +77,33 @@ export const useEditBlobConstraints = ({
         }
 
         if (updatedJob) {
+          // Set the progress
+          console.log('work completed', updatedJob);
+          const workEstimateTotal = updatedJob.work_estimate ?? 50000;
+          const workCompletedTotal = updatedJob.work_completed ?? 0;
+          const percent = Math.floor(
+            (workCompletedTotal / workEstimateTotal) * 100,
+          );
+          setProgress((prev) => ({ ...prev, [jobType]: percent }));
+
           setRunningJobs((prev) => ({
             ...prev,
             [jobType]: updatedJob,
           }));
-
-          if (
-            updatedJob.job_status === 'completed' ||
-            updatedJob.job_status === 'errored'
-          ) {
-            delete fetchLoopsRef.current[jobType];
-          }
         }
       });
-    });
-
-    return () => {
-      Object.values(fetchLoopsRef.current).forEach((fetchLoop) => {
-        fetchLoop.stop();
-      });
-      fetchLoopsRef.current = {};
-    };
+    }
   }, [runningjobs, appId, token]);
 
   useEffect(() => {
+    // If running jobs, don't update any pending
+    const isRunning = Object.values(runningjobs).some(
+      (job) => job.job_status !== 'completed' && job.job_status !== 'errored',
+    );
+    if (isRunning) {
+      return;
+    }
+
     // Pending requirement job
     if (isRequired === attr.isRequired) {
       setPendingJobs((p) => ({ ...p, require: undefined }));
@@ -91,6 +113,30 @@ export const useEditBlobConstraints = ({
       setPendingJobs((p) => ({
         ...p,
         require: { jobType: 'remove-required' },
+      }));
+    }
+
+    // Pending index job
+    if (isIndexed === attr.isIndex) {
+      setPendingJobs((p) => ({ ...p, index: undefined }));
+    } else if (isIndexed) {
+      setPendingJobs((p) => ({ ...p, index: { jobType: 'index' } }));
+    } else if (!isIndexed) {
+      setPendingJobs((p) => ({
+        ...p,
+        index: { jobType: 'remove-index' },
+      }));
+    }
+
+    // Pending unique job
+    if (isUnique === attr.isUniq) {
+      setPendingJobs((p) => ({ ...p, unique: undefined }));
+    } else if (isUnique) {
+      setPendingJobs((p) => ({ ...p, unique: { jobType: 'unique' } }));
+    } else if (!isUnique) {
+      setPendingJobs((p) => ({
+        ...p,
+        unique: { jobType: 'remove-unique' },
       }));
     }
 
@@ -110,7 +156,7 @@ export const useEditBlobConstraints = ({
         }));
       }
     }
-  }, [isRequired, checkedDataType, attr]);
+  }, [isRequired, isIndexed, isUnique, checkedDataType, attr, runningjobs]);
 
   const apply = async () => {
     Object.entries(pendingJobs).forEach(async ([jobType, pendingJob]) => {
@@ -133,12 +179,26 @@ export const useEditBlobConstraints = ({
       );
       const json = await res.json();
       setRunningJobs((p) => ({ ...p, [jobType]: json.job }));
+      setPendingJobs((p) => ({ ...p, [jobType]: undefined }));
     });
   };
 
+  // Get average of non-zero and non-100 loading values
+  const progressPercent = useMemo(() => {
+    return (Object.values(progress)
+      .filter((p) => p > 0 && p < 100)
+      .reduce((a, b) => a + b, 0) /
+      Object.values(progress).filter((n) => n > 0 && n < 100).length) as
+      | number
+      | null;
+  }, [progress]);
+
   return {
     isPending: Object.values(pendingJobs).filter(Boolean).length > 0,
-    isRunning: Object.values(runningjobs).filter(Boolean).length > 0,
+    progress: progressPercent,
+    isRunning: Object.values(runningjobs).some(
+      (job) => job.job_status !== 'completed',
+    ),
     pending: pendingJobs,
     running: runningjobs,
     apply,

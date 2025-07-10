@@ -1082,6 +1082,8 @@ export const InfoTip = ({ children }: PropsWithChildren) => {
   );
 };
 
+const ProgressButton = () => {};
+
 // utils
 
 export function twel<T = {}>(
