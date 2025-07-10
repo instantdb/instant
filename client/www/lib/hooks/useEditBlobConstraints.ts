@@ -175,7 +175,9 @@ export const useEditBlobConstraints = ({
 
   return {
     isPending: Object.values(pendingJobs).filter(Boolean).length > 0,
-    isRunning: Object.values(runningjobs).filter(Boolean).length > 0,
+    isRunning: Object.values(runningjobs).some(
+      (job) => job.job_status !== 'completed',
+    ),
     pending: pendingJobs,
     running: runningjobs,
     apply,
