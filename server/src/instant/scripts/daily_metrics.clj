@@ -58,7 +58,7 @@
   This is intended to run daily to speed up monthly metrics generation."
   ([] (insert-new-activity (aurora/conn-pool :write)))
   ([conn]
-   (binding [sql/*query-timeout-seconds* 180]
+   (binding [sql/*query-timeout-seconds* 360]
      (sql/do-execute! conn
                       ["WITH date_range AS (
                     SELECT
