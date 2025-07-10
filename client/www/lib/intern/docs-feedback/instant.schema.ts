@@ -1,18 +1,22 @@
 // Docs: https://www.instantdb.com/docs/modeling-data
 
-import { i, InstaQLEntity } from '@instantdb/react';
+import { i } from '@instantdb/react';
 
 const _schema = i.schema({
   entities: {
+    $files: i.entity({
+      path: i.string().unique().indexed(),
+      url: i.string(),
+    }),
+    $users: i.entity({
+      email: i.string().unique().indexed().optional(),
+    }),
     ratings: i.entity({
-      // Indexing so we can easily find all ratings for a page
-      pageId: i.string().indexed(),
-      localId: i.string(),
-      // We'll use a unique key to make sure that a user
-      // can only rate a particular page once.
+      extraComment: i.string().optional(),
       key: i.string().unique(),
+      localId: i.string(),
+      pageId: i.string().indexed(),
       wasHelpful: i.boolean(),
-      extraComment: i.string(),
     }),
   },
   links: {},
@@ -24,8 +28,5 @@ type _AppSchema = typeof _schema;
 interface AppSchema extends _AppSchema {}
 const schema: AppSchema = _schema;
 
-type Rating = InstaQLEntity<AppSchema, 'ratings'>;
-
-export type { AppSchema, Rating };
-
+export type { AppSchema };
 export default schema;
