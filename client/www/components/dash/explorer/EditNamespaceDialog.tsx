@@ -20,6 +20,7 @@ import {
   ActionForm,
   Button,
   Checkbox,
+  cn,
   Content,
   InfoTip,
   Select,
@@ -39,7 +40,12 @@ import {
   SchemaAttr,
   SchemaNamespace,
 } from '@/lib/types';
-import { createJob, jobFetchLoop } from '@/lib/indexingJobs';
+import {
+  createJob,
+  jobFetchLoop,
+  jobIsCompleted,
+  jobIsErrored,
+} from '@/lib/indexingJobs';
 import { useAuthToken } from '@/lib/auth';
 import type { PushNavStack } from './Explorer';
 import { useClose } from '@headlessui/react';
@@ -1032,12 +1038,30 @@ type BlobConstraintControlComponent<V> = (props: {
   setValue: (v: V) => void;
   disabled: boolean;
   attr: SchemaAttr;
+  pushNavStack: PushNavStack;
 }) => JSX.Element;
 
 const EditCheckedDataTypeControl: BlobConstraintControlComponent<
   CheckedDataType | 'any'
-> = ({ pendingJob, runningJob, value, setValue, disabled, attr }) => {
+> = ({
+  pendingJob,
+  runningJob,
+  value,
+  setValue,
+  disabled,
+  attr,
+  pushNavStack,
+}) => {
   const notRunning = !runningJob || runningJob.job_status === 'completed';
+  const closeDialog = useClose();
+
+  // Revert to previous value if job errored
+  useEffect(() => {
+    if (runningJob && jobIsErrored(runningJob)) {
+      setValue(attr.checkedDataType || 'any');
+    }
+  }, [runningJob]);
+
   return (
     <>
       <div className="flex flex-col gap-2">
@@ -1053,10 +1077,14 @@ const EditCheckedDataTypeControl: BlobConstraintControlComponent<
       </div>
       <div className="flex items-center gap-2">
         <Select
-          className={
+          className={cn(
             pendingJob &&
-            'border-[#606AF4] ring-1 ring-inset ring-[#606AF4] focus:ring-[#606AF4]'
-          }
+              'border-[#606AF4] ring-1 ring-inset ring-[#606AF4] focus:ring-[#606AF4]',
+
+            runningJob &&
+              jobIsErrored(runningJob) &&
+              'border-red-500 border-2 ring-0',
+          )}
           disabled={
             disabled || (runningJob && runningJob.job_status !== 'completed')
           }
@@ -1105,6 +1133,14 @@ const EditCheckedDataTypeControl: BlobConstraintControlComponent<
           />
         )}
       </div>
+      {runningJob && jobIsErrored(runningJob) && (
+        <IndexingJobError
+          indexingJob={runningJob}
+          attr={attr}
+          pushNavStack={pushNavStack}
+          onClose={closeDialog}
+        />
+      )}
     </>
   );
 };
@@ -1115,45 +1151,73 @@ const EditRequiredControl: BlobConstraintControlComponent<boolean> = ({
   value,
   setValue,
   disabled,
+  pushNavStack,
   attr,
 }) => {
   const notRunning = !runningJob || runningJob.job_status === 'completed';
+  const closeDialog = useClose();
+
+  const toggle = () => {
+    if (disabled || (runningJob && !jobIsCompleted(runningJob))) {
+      return;
+    }
+    setValue(!value);
+  };
+
+  // If job is errored, revert the value
+  useEffect(() => {
+    if (runningJob && jobIsErrored(runningJob)) {
+      setValue(attr.isRequired || false);
+    }
+  }, [runningJob]);
 
   return (
-    <div className="flex justify-between">
-      <Checkbox
-        disabled={
-          disabled || (runningJob && runningJob.job_status != 'completed')
-        }
-        title={
-          disabled
-            ? `Attributes in the ${attr.namespace} namespace can't be edited.`
-            : undefined
-        }
-        checked={value}
-        onChange={(enabled) => setValue(enabled)}
-        label={
-          <span
+    <>
+      <div className="flex justify-between">
+        <Checkbox
+          disabled={disabled || (runningJob && !jobIsCompleted(runningJob))}
+          title={
+            disabled
+              ? `Attributes in the ${attr.namespace} namespace can't be edited.`
+              : undefined
+          }
+          checked={value}
+          onChange={(enabled) => setValue(enabled)}
+          label={
+            <span
+              onClick={toggle}
+              className={cn(
+                disabled || (runningJob && !jobIsCompleted(runningJob))
+                  ? 'cursor-default'
+                  : 'cursor-pointer',
+                pendingJob && 'text-[#606AF4]',
+                runningJob && jobIsErrored(runningJob) && 'text-red-500',
+              )}
+            >
+              <strong>Require this attribute</strong> so all entities will be
+              guaranteed to have it
+            </span>
+          }
+        />
+        {pendingJob && notRunning && (
+          <ArrowUturnLeftIcon
             onClick={() => {
               setValue(!value);
             }}
-            className={pendingJob && 'text-[#606AF4]'}
-          >
-            <strong>Require this attribute</strong> so all entities will be
-            guaranteed to have it
-          </span>
-        }
-      />
-      {pendingJob && notRunning && (
-        <ArrowUturnLeftIcon
-          onClick={() => {
-            setValue(!value);
-          }}
-          height="1.2rem"
-          className="cursor-pointer pr-2 text-[#606AF4]"
+            height="1.2rem"
+            className="cursor-pointer pr-2 text-[#606AF4]"
+          />
+        )}
+      </div>
+      {runningJob && jobIsErrored(runningJob) && (
+        <IndexingJobError
+          indexingJob={runningJob}
+          attr={attr}
+          pushNavStack={pushNavStack}
+          onClose={closeDialog}
         />
       )}
-    </div>
+    </>
   );
 };
 
@@ -1165,14 +1229,10 @@ const EditIndexedControl: BlobConstraintControlComponent<boolean> = ({
   disabled,
   attr,
 }) => {
-  const notRunning = !runningJob || runningJob.job_status === 'completed';
-
   return (
     <div className="flex justify-between">
       <Checkbox
-        disabled={
-          disabled || (runningJob && runningJob.job_status != 'completed')
-        }
+        disabled={disabled || (runningJob && !jobIsCompleted(runningJob))}
         title={
           disabled
             ? `Attributes in the ${attr.namespace} namespace can't be edited.`
@@ -1192,7 +1252,7 @@ const EditIndexedControl: BlobConstraintControlComponent<boolean> = ({
           </span>
         }
       />
-      {pendingJob && notRunning && (
+      {pendingJob && (
         <ArrowUturnLeftIcon
           onClick={() => {
             setValue(!value);
@@ -1211,45 +1271,74 @@ const EditUniqueControl: BlobConstraintControlComponent<boolean> = ({
   value,
   setValue,
   disabled,
+  pushNavStack,
   attr,
 }) => {
   const notRunning = !runningJob || runningJob.job_status === 'completed';
 
+  const toggle = () => {
+    if (disabled || (runningJob && jobIsErrored(runningJob))) {
+      return;
+    }
+    setValue(!value);
+  };
+
+  const closeDialog = useClose();
+
+  // If job is errored, revert the value
+  useEffect(() => {
+    if (runningJob && jobIsErrored(runningJob)) {
+      setValue(attr.isUniq);
+    }
+  }, [runningJob]);
+
   return (
-    <div className="flex justify-between">
-      <Checkbox
-        disabled={
-          disabled || (runningJob && runningJob.job_status != 'completed')
-        }
-        title={
-          disabled
-            ? `Attributes in the ${attr.namespace} namespace can't be edited.`
-            : undefined
-        }
-        checked={value}
-        onChange={(enabled) => setValue(enabled)}
-        label={
-          <span
+    <>
+      <div className="flex justify-between">
+        <Checkbox
+          disabled={disabled || (runningJob && !jobIsCompleted(runningJob))}
+          title={
+            disabled
+              ? `Attributes in the ${attr.namespace} namespace can't be edited.`
+              : undefined
+          }
+          checked={value}
+          onChange={(enabled) => setValue(enabled)}
+          label={
+            <span
+              onClick={toggle}
+              className={cn(
+                disabled || (runningJob && !jobIsCompleted(runningJob))
+                  ? 'cursor-default'
+                  : 'cursor-pointer',
+                pendingJob && 'text-[#606AF4]',
+                runningJob && jobIsErrored(runningJob) && 'text-red-500',
+              )}
+            >
+              <strong>Enforce uniqueness</strong> so no two entities can have
+              the same value for this attribute
+            </span>
+          }
+        />
+        {pendingJob && notRunning && (
+          <ArrowUturnLeftIcon
             onClick={() => {
               setValue(!value);
             }}
-            className={pendingJob && 'text-[#606AF4]'}
-          >
-            <strong>Enforce uniqueness</strong> so no two entities can have the
-            same value for this attribute
-          </span>
-        }
-      />
-      {pendingJob && notRunning && (
-        <ArrowUturnLeftIcon
-          onClick={() => {
-            setValue(!value);
-          }}
-          height="1.2rem"
-          className="cursor-pointer pr-2 text-[#606AF4]"
+            height="1.2rem"
+            className="cursor-pointer pr-2 text-[#606AF4]"
+          />
+        )}
+      </div>
+      {runningJob && jobIsErrored(runningJob) && (
+        <IndexingJobError
+          indexingJob={runningJob}
+          attr={attr}
+          pushNavStack={pushNavStack}
+          onClose={closeDialog}
         />
       )}
-    </div>
+    </>
   );
 };
 
@@ -1257,6 +1346,7 @@ const EditBlobConstraints = ({
   appId,
   attr,
   isSystemCatalogNs,
+  pushNavStack,
 }: {
   appId: string;
   attr: SchemaAttr;
@@ -1301,6 +1391,7 @@ const EditBlobConstraints = ({
           setValue={setRequiredChecked}
           disabled={isSystemCatalogNs}
           attr={attr}
+          pushNavStack={pushNavStack}
         />
         <EditIndexedControl
           pendingJob={pending.index}
@@ -1309,6 +1400,7 @@ const EditBlobConstraints = ({
           setValue={setIndexedChecked}
           disabled={isSystemCatalogNs}
           attr={attr}
+          pushNavStack={pushNavStack}
         />
         <EditUniqueControl
           pendingJob={pending.unique}
@@ -1317,6 +1409,7 @@ const EditBlobConstraints = ({
           setValue={setUniqueChecked}
           disabled={isSystemCatalogNs}
           attr={attr}
+          pushNavStack={pushNavStack}
         />
         <EditCheckedDataTypeControl
           pendingJob={pending.type}
@@ -1325,6 +1418,7 @@ const EditBlobConstraints = ({
           setValue={setCheckedDataType}
           disabled={isSystemCatalogNs}
           attr={attr}
+          pushNavStack={pushNavStack}
         />
         <Button
           variant={isPending ? 'primary' : 'subtle'}

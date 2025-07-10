@@ -108,3 +108,11 @@ export function useJobSubscription({
 
   return { data, error };
 }
+
+export function jobIsErrored(job: InstantIndexingJob) {
+  return job.job_status === 'errored';
+}
+
+export function jobIsCompleted(job: InstantIndexingJob) {
+  return job.job_status === 'completed' || job.job_status === 'errored';
+}

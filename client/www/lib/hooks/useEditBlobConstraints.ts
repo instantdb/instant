@@ -39,19 +39,32 @@ export const useEditBlobConstraints = ({
 
   // Keep running jobs updated
   useEffect(() => {
-    Object.entries(runningjobs).forEach(([jobType, job]) => {
+    const jobTypes = Object.keys(runningjobs) as JobConstraintTypes[];
+
+    for (let i = 0; i < jobTypes.length; i++) {
+      const jobType = jobTypes[i];
+      const job = runningjobs[jobType];
+
       if (
         !job ||
         job.job_status === 'completed' ||
         job.job_status === 'errored'
       ) {
-        return;
+        // Clean up completed/errored jobs
+        if (fetchLoopsRef.current[jobType]) {
+          fetchLoopsRef.current[jobType].stop();
+          delete fetchLoopsRef.current[jobType];
+        }
+        continue;
       }
 
+      // Skip if already polling this job type
       if (fetchLoopsRef.current[jobType]) {
-        return;
+        console.log('Job polling already running for', jobType);
+        continue;
       }
 
+      console.log('Starting job polling', jobType);
       const fetchLoop = jobFetchLoop(appId, job.id, token);
       fetchLoopsRef.current[jobType] = fetchLoop;
 
@@ -66,29 +79,16 @@ export const useEditBlobConstraints = ({
             ...prev,
             [jobType]: updatedJob,
           }));
-
-          if (
-            updatedJob.job_status === 'completed' ||
-            updatedJob.job_status === 'errored'
-          ) {
-            delete fetchLoopsRef.current[jobType];
-          }
+          // Note: Cleanup is handled in the useEffect, not here
         }
       });
-    });
-
-    return () => {
-      Object.values(fetchLoopsRef.current).forEach((fetchLoop) => {
-        fetchLoop.stop();
-      });
-      fetchLoopsRef.current = {};
-    };
+    }
   }, [runningjobs, appId, token]);
 
   useEffect(() => {
     // If running jobs, don't update any pending
     const isRunning = Object.values(runningjobs).some(
-      (job) => job.job_status !== 'completed',
+      (job) => job.job_status !== 'completed' && job.job_status !== 'errored',
     );
     if (isRunning) {
       return;
