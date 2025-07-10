@@ -8,7 +8,12 @@ import {
   ReactNode,
   MutableRefObject,
 } from 'react';
-import { ArrowLeftIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/solid';
+import {
+  ArrowLeftIcon,
+  PlusIcon,
+  TrashIcon,
+  ArrowUturnLeftIcon,
+} from '@heroicons/react/24/solid';
 import { errorToast, successToast } from '@/lib/toast';
 import {
   ActionButton,
@@ -1530,10 +1535,26 @@ type BlobConstraintControlComponent<V> = (props: {
 const EditCheckedDataTypeControl: BlobConstraintControlComponent<
   CheckedDataType | 'any'
 > = ({ pendingJob, runningJob, value, setValue, disabled, attr }) => {
+  const notRunning = !runningJob || runningJob.job_status === 'completed';
   return (
     <>
-      <div className="flex gap-2">
+      <div className="flex flex-col gap-2">
+        <h6 className="text-md font-bold">
+          Enforce type{' '}
+          <InfoTip>
+            <div className="text-sm w-48">
+              Checks the type on all existing entities and enforces the type
+              when entities are created or updated.
+            </div>
+          </InfoTip>
+        </h6>
+      </div>
+      <div className="flex items-center gap-2">
         <Select
+          className={
+            pendingJob &&
+            'border-[#606AF4] ring-1 ring-inset ring-[#606AF4] focus:ring-[#606AF4]'
+          }
           disabled={
             disabled || (runningJob && runningJob.job_status !== 'completed')
           }
@@ -1572,6 +1593,15 @@ const EditCheckedDataTypeControl: BlobConstraintControlComponent<
             },
           ]}
         />
+        {pendingJob && notRunning && (
+          <ArrowUturnLeftIcon
+            onClick={() => {
+              setValue(attr.checkedDataType || 'any');
+            }}
+            height="1.2rem"
+            className="cursor-pointer pr-2 text-[#606AF4]"
+          />
+        )}
       </div>
     </>
   );
@@ -1585,8 +1615,10 @@ const EditRequiredControl: BlobConstraintControlComponent<boolean> = ({
   disabled,
   attr,
 }) => {
+  const notRunning = !runningJob || runningJob.job_status === 'completed';
+
   return (
-    <>
+    <div className="flex justify-between">
       <Checkbox
         disabled={
           disabled || (runningJob && runningJob.job_status != 'completed')
@@ -1599,19 +1631,27 @@ const EditRequiredControl: BlobConstraintControlComponent<boolean> = ({
         checked={value}
         onChange={(enabled) => setValue(enabled)}
         label={
-          <span className={pendingJob && 'text-orange-600'}>
+          <span
+            onClick={() => {
+              setValue(!value);
+            }}
+            className={pendingJob && 'text-[#606AF4]'}
+          >
             <strong>Require this attribute</strong> so all entities will be
             guaranteed to have it
           </span>
         }
       />
-      {/* {pendingJob && ( */}
-      {/*   <div> */}
-      {/*     Will mark field as{' '} */}
-      {/*     {pendingJob.jobType === 'required' ? 'required' : 'optional'}.{' '} */}
-      {/*   </div> */}
-      {/* )} */}
-    </>
+      {pendingJob && notRunning && (
+        <ArrowUturnLeftIcon
+          onClick={() => {
+            setValue(!value);
+          }}
+          height="1.2rem"
+          className="cursor-pointer pr-2 text-[#606AF4]"
+        />
+      )}
+    </div>
   );
 };
 
@@ -1666,7 +1706,11 @@ const EditBlobConstraints = ({
           disabled={isSystemCatalogNs}
           attr={attr}
         />
-        <Button onClick={() => apply()} disabled={!isPending}>
+        <Button
+          variant={isPending ? 'primary' : 'subtle'}
+          onClick={() => apply()}
+          disabled={!isPending}
+        >
           Apply
         </Button>
       </div>

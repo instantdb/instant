@@ -133,6 +133,7 @@ export const useEditBlobConstraints = ({
       );
       const json = await res.json();
       setRunningJobs((p) => ({ ...p, [jobType]: json.job }));
+      setPendingJobs((p) => ({ ...p, [jobType]: undefined }));
     });
   };
 
