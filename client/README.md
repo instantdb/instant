@@ -95,6 +95,25 @@ Based on what you change, you'll play with different examples:
 
 Check out the sandbox READMEs to see how to run them.
 
+## Internal Apps
+
+We also have a few internal pages and apps we use for things like metrics and
+feedback. For simple pages like '/overview' we just use a Next.js page. For more
+complex pages or apps we separate logic across
+
+- `www/lib` for app configuration
+- `www/components` for React components
+- `www/pages` for Next.js pages
+
+To illustrate a concrete example, providing feedback for the docs is powered by it's own Instant
+app! We also have an internal dashboard to view feedback. Some notes on how this
+is structured:
+
+- The feedback app configuration is in `www/lib/intern/feedback-app.ts`
+- The public feedback component is in `www/components/docs`
+- The internal feedback dashboard page is in `www/pages/intern/docs-feedback.tsx`
+- The internal feedback dashboard components are in `www/components/intern/docs-feedback`
+
 # Questions?
 
 If you have any questions, feel free to drop us a line on our [Discord](https://discord.com/invite/VU53p7uQcE)!

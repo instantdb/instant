@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { id } from '@instantdb/react';
-import clientDB from '@/lib/feedback/clientDB';
+import db from '@/lib/intern/docs-feedback/db';
 import { BlockHeading, Button, ToggleGroup } from '@/components/ui';
-import { Rating } from '@/lib/feedback/instant.schema';
+import { Rating } from '@/lib/intern/docs-feedback/analytics';
 
 /**
  * A handy component to collect feedback for a particular page.
@@ -13,9 +13,9 @@ import { Rating } from '@/lib/feedback/instant.schema';
  * No login required!
  */
 export default function RatingBoxContainer({ pageId }: { pageId: string }) {
-  const localId = clientDB.useLocalId('feedback');
+  const localId = db.useLocalId('feedback');
 
-  const { isLoading, error, data } = clientDB.useQuery(
+  const { isLoading, error, data } = db.useQuery(
     localId
       ? {
           ratings: {
@@ -68,8 +68,8 @@ function RatingBox({
               if (!previousRating) {
                 setShouldAutoFocus(true);
               }
-              clientDB.transact(
-                clientDB.tx.ratings[previousRating?.id ?? id()]
+              db.transact(
+                db.tx.ratings[previousRating?.id ?? id()]
                   .ruleParams({ localId })
                   .update({
                     pageId,
@@ -92,8 +92,8 @@ function RatingBox({
           <SavingTextArea
             savedValue={previousRating.extraComment || ''}
             onSave={(extraComment) => {
-              clientDB.transact(
-                clientDB.tx.ratings[previousRating.id]
+              db.transact(
+                db.tx.ratings[previousRating.id]
                   .ruleParams({ localId })
                   .update({ extraComment }),
               );

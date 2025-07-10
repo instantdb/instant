@@ -13,7 +13,7 @@ import { Select } from '@/components/ui';
 import { BareNav } from '@/components/marketingUi';
 import navigation from '@/data/docsNavigation';
 import { createdAtComparator } from '@/lib/app';
-import RatingBox from '@/lib/feedback/RatingBox';
+import RatingBox from './RatingBox';
 
 function useSelectedApp(apps = []) {
   const cacheKey = 'docs-appId';
