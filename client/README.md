@@ -109,10 +109,10 @@ To illustrate a concrete example, providing feedback for the docs is powered by 
 app! We also have an internal dashboard to view feedback. Some notes on how this
 is structured:
 
-- The feedback app configuration is in `www/lib/intern/feedback-app.ts`
-- The public feedback component is in `www/components/docs`
+- The feedback app configuration is in `www/lib/intern/docs-feedback/`
+- The public feedback component is in `www/components/docs/`
 - The internal feedback dashboard page is in `www/pages/intern/docs-feedback.tsx`
-- The internal feedback dashboard components are in `www/components/intern/docs-feedback`
+- The internal feedback dashboard components are in `www/components/intern/docs-feedback/`
 
 # Questions?
 
