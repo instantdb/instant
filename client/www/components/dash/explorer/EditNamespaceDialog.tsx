@@ -38,6 +38,10 @@ import { createJob, jobFetchLoop } from '@/lib/indexingJobs';
 import { useAuthToken } from '@/lib/auth';
 import type { PushNavStack } from './Explorer';
 import { useClose } from '@headlessui/react';
+import {
+  PendingJob,
+  useEditBlobConstraints,
+} from '@/lib/hooks/useEditBlobConstraints';
 
 export function EditNamespaceDialog({
   db,
@@ -1488,46 +1492,6 @@ function EditCheckedDataType({
             </div>
           </InfoTip>
         </h6>
-        <div className="flex gap-2">
-          <Select
-            disabled={isSystemCatalogNs}
-            title={
-              isSystemCatalogNs
-                ? `Attributes in the ${attr.namespace} namespace can't be edited.`
-                : undefined
-            }
-            value={checkedDataType || 'any'}
-            onChange={(v) => {
-              if (!v) {
-                return;
-              }
-              const { value } = v;
-              setCheckedDataType(value as CheckedDataType | 'any');
-            }}
-            options={[
-              {
-                label: 'Any (not enforced)',
-                value: 'any',
-              },
-              {
-                label: 'String',
-                value: 'string',
-              },
-              {
-                label: 'Number',
-                value: 'number',
-              },
-              {
-                label: 'Boolean',
-                value: 'boolean',
-              },
-              {
-                label: 'Date',
-                value: 'date',
-              },
-            ]}
-          />
-        </div>
       </div>
 
       <IndexingJobError
@@ -1553,6 +1517,162 @@ function EditCheckedDataType({
     </ActionForm>
   );
 }
+
+type BlobConstraintControlComponent<V> = (props: {
+  pendingJob?: PendingJob;
+  runningJob?: InstantIndexingJob;
+  value: V;
+  setValue: (v: V) => void;
+  disabled: boolean;
+  attr: SchemaAttr;
+}) => JSX.Element;
+
+const EditCheckedDataTypeControl: BlobConstraintControlComponent<
+  CheckedDataType | 'any'
+> = ({ pendingJob, runningJob, value, setValue, disabled, attr }) => {
+  return (
+    <>
+      <div className="flex gap-2">
+        <Select
+          disabled={
+            disabled || (runningJob && runningJob.job_status !== 'completed')
+          }
+          title={
+            disabled
+              ? `Attributes in the ${attr.namespace} namespace can't be edited.`
+              : undefined
+          }
+          value={value}
+          onChange={(v) => {
+            if (!v) {
+              return;
+            }
+            setValue(v.value as CheckedDataType | 'any');
+          }}
+          options={[
+            {
+              label: 'Any (not enforced)',
+              value: 'any',
+            },
+            {
+              label: 'String',
+              value: 'string',
+            },
+            {
+              label: 'Number',
+              value: 'number',
+            },
+            {
+              label: 'Boolean',
+              value: 'boolean',
+            },
+            {
+              label: 'Date',
+              value: 'date',
+            },
+          ]}
+        />
+      </div>
+    </>
+  );
+};
+
+const EditRequiredControl: BlobConstraintControlComponent<boolean> = ({
+  pendingJob,
+  runningJob,
+  value,
+  setValue,
+  disabled,
+  attr,
+}) => {
+  return (
+    <>
+      <Checkbox
+        disabled={
+          disabled || (runningJob && runningJob.job_status != 'completed')
+        }
+        title={
+          disabled
+            ? `Attributes in the ${attr.namespace} namespace can't be edited.`
+            : undefined
+        }
+        checked={value}
+        onChange={(enabled) => setValue(enabled)}
+        label={
+          <span className={pendingJob && 'text-orange-600'}>
+            <strong>Require this attribute</strong> so all entities will be
+            guaranteed to have it
+          </span>
+        }
+      />
+      {/* {pendingJob && ( */}
+      {/*   <div> */}
+      {/*     Will mark field as{' '} */}
+      {/*     {pendingJob.jobType === 'required' ? 'required' : 'optional'}.{' '} */}
+      {/*   </div> */}
+      {/* )} */}
+    </>
+  );
+};
+
+const EditBlobConstraints = ({
+  appId,
+  attr,
+  isSystemCatalogNs,
+}: {
+  appId: string;
+  attr: SchemaAttr;
+  isSystemCatalogNs: boolean;
+  pushNavStack: PushNavStack;
+}) => {
+  const [requiredChecked, setRequiredChecked] = useState(
+    attr.isRequired || false,
+  );
+
+  const [checkedDataType, setCheckedDataType] = useState<
+    CheckedDataType | 'any'
+  >(attr.checkedDataType || 'any');
+
+  const token = useAuthToken();
+  if (!token) {
+    return null;
+  }
+
+  const { isPending, pending, apply, running } = useEditBlobConstraints({
+    attr,
+    appId,
+    token,
+    isRequired: requiredChecked,
+    checkedDataType,
+  });
+
+  return (
+    <div>
+      <div className="flex flex-col gap-2">
+        <h6 className="text-md font-bold">Constraints</h6>
+        <EditRequiredControl
+          pendingJob={pending.require}
+          runningJob={running.require}
+          value={requiredChecked}
+          setValue={setRequiredChecked}
+          disabled={isSystemCatalogNs}
+          attr={attr}
+        />
+        <EditCheckedDataTypeControl
+          pendingJob={pending.type}
+          runningJob={running.type}
+          value={checkedDataType}
+          setValue={setCheckedDataType}
+          disabled={isSystemCatalogNs}
+          attr={attr}
+        />
+        <Button onClick={() => apply()} disabled={!isPending}>
+          Apply
+        </Button>
+      </div>
+    </div>
+  );
+};
 
 function EditAttrForm({
   db,
@@ -1721,14 +1841,14 @@ function EditAttrForm({
 
       {attr.type === 'blob' ? (
         <>
+          <EditBlobConstraints
+            appId={appId}
+            attr={attr}
+            isSystemCatalogNs={isSystemCatalogNs}
+            pushNavStack={pushNavStack}
+          />
           <div className="flex flex-col gap-2">
             <h6 className="text-md font-bold">Constraints</h6>
-            <EditRequired
-              appId={appId}
-              attr={attr}
-              isSystemCatalogNs={isSystemCatalogNs}
-              pushNavStack={pushNavStack}
-            />
             <EditIndexed
               appId={appId}
               attr={attr}
@@ -1743,12 +1863,6 @@ function EditAttrForm({
             />
           </div>
 
-          <EditCheckedDataType
-            appId={appId}
-            attr={attr}
-            isSystemCatalogNs={isSystemCatalogNs}
-            pushNavStack={pushNavStack}
-          />
           <ActionForm className="flex flex-col gap-1">
             <h6 className="text-md font-bold">Rename</h6>
             <Content className="text-sm">
