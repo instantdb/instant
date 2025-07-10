@@ -86,6 +86,14 @@ export const useEditBlobConstraints = ({
   }, [runningjobs, appId, token]);
 
   useEffect(() => {
+    // If running jobs, don't update any pending
+    const isRunning = Object.values(runningjobs).some(
+      (job) => job.job_status !== 'completed',
+    );
+    if (isRunning) {
+      return;
+    }
+
     // Pending requirement job
     if (isRequired === attr.isRequired) {
       setPendingJobs((p) => ({ ...p, require: undefined }));
@@ -138,7 +146,7 @@ export const useEditBlobConstraints = ({
         }));
       }
     }
-  }, [isRequired, isIndexed, isUnique, checkedDataType, attr]);
+  }, [isRequired, isIndexed, isUnique, checkedDataType, attr, runningjobs]);
 
   const apply = async () => {
     Object.entries(pendingJobs).forEach(async ([jobType, pendingJob]) => {
