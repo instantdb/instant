@@ -451,18 +451,27 @@ export default class Reactor {
         break;
       case 'refresh-ok':
         const { computations, attrs } = msg;
+        const processedTxId = msg['processed-tx-id'];
         if (attrs) {
           this._setAttrs(attrs);
         }
 
         this._cleanupPendingMutationsTimeout();
 
-        const mutations = this._rewriteMutationsSorted(
+        const rewrittenMutations = this._rewriteMutations(
           this.attrs,
           this.pendingMutations.currentValue,
+          processedTxId,
         );
 
-        const processedTxId = msg['processed-tx-id'];
+        if (rewrittenMutations !== this.pendingMutations.currentValue) {
+          // We know we've changed the mutations to fix the attr ids and removed
+          // processed attrs, so we'll persist those changes to prevent optimisticAttrs
+          // from using old attr definitions
+          this.pendingMutations.set(() => rewrittenMutations);
+        }
+
+        const mutations = sortedMutationEntries(rewrittenMutations.entries());
 
         const updates = computations.map((x) => {
           const q = x['instaql-query'];
@@ -811,7 +820,7 @@ export default class Reactor {
   // We remove `add-attr` commands for attrs that already exist.
   // We update `add-triple` and `retract-triple` commands to use the
   // server attr-ids.
-  _rewriteMutations(attrs, muts) {
+  _rewriteMutations(attrs, muts, processedTxId) {
     if (!attrs) return muts;
     const findExistingAttr = (attr) => {
       const [_, etype, label] = attr['forward-identity'];
@@ -824,7 +833,9 @@ export default class Reactor {
       return revAttr;
     };
     const mapping = { attrIdMap: {}, refSwapAttrIds: new Set() };
-    const rewriteTxSteps = (txSteps) => {
+    let mappingChanged = false;
+
+    const rewriteTxSteps = (txSteps, txId) => {
       const retTxSteps = [];
       for (const txStep of txSteps) {
         const [action] = txStep;
@@ -835,8 +846,9 @@ export default class Reactor {
         if (action === 'add-attr') {
           const [_action, attr] = txStep;
           const existing = findExistingAttr(attr);
-          if (existing) {
+          if (existing && attr.id !== existing.id) {
             mapping.attrIdMap[attr.id] = existing.id;
+            mappingChanged = true;
             continue;
           }
           if (attr['value-type'] === 'ref') {
@@ -844,22 +856,45 @@ export default class Reactor {
             if (revAttr) {
               mapping.attrIdMap[attr.id] = revAttr.id;
               mapping.refSwapAttrIds.add(attr.id);
+              mappingChanged = true;
               continue;
             }
           }
         }
 
+        if (
+          (processedTxId &&
+            txId &&
+            processedTxId >= txId &&
+            action === 'add-attr') ||
+          action === 'update-attr' ||
+          action === 'delete-attr'
+        ) {
+          mappingChanged = true;
+          // Don't add this step because we already have the newer attrs
+          continue;
+        }
         // Handles add-triple|retract-triple
         // If in mapping, we update the attr-id
-        const newTxStep = instaml.rewriteStep(mapping, txStep);
+        const newTxStep = mappingChanged
+          ? instaml.rewriteStep(mapping, txStep)
+          : txStep;
 
         retTxSteps.push(newTxStep);
       }
-      return retTxSteps;
+
+      return mappingChanged ? retTxSteps : txSteps;
     };
+
     const rewritten = new Map();
     for (const [k, mut] of muts.entries()) {
-      rewritten.set(k, { ...mut, 'tx-steps': rewriteTxSteps(mut['tx-steps']) });
+      rewritten.set(k, {
+        ...mut,
+        'tx-steps': rewriteTxSteps(mut['tx-steps'], mut['tx-id']),
+      });
+    }
+    if (!mappingChanged) {
+      return muts;
     }
     return rewritten;
   }
