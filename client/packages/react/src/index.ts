@@ -55,7 +55,9 @@ import {
   type DeleteFileResponse,
 } from '@instantdb/core';
 
-import InstantReactAbstractDatabase from './InstantReactAbstractDatabase.ts';
+import InstantReactAbstractDatabase, {
+  InstantAuthContext,
+} from './InstantReactAbstractDatabase.ts';
 import InstantReactWebDatabase from './InstantReactWebDatabase.ts';
 import { init, init_experimental } from './init.ts';
 import { Cursors } from './Cursors.tsx';
@@ -69,6 +71,7 @@ export {
   InstantReactWebDatabase,
   Cursors,
   i,
+  InstantAuthContext,
 
   // internal
   InstantReactAbstractDatabase,

@@ -25,11 +25,13 @@ import {
 import {
   KeyboardEvent,
   useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
   useState,
   useSyncExternalStore,
+  createContext,
 } from 'react';
 import { useQueryInternal } from './useQuery.ts';
 import { useTimeout } from './useTimeout.ts';
@@ -40,6 +42,9 @@ const defaultAuthState = {
   user: undefined,
   error: undefined,
 };
+
+// Context to provide authenticated user - exported for user's custom providers
+export const InstantAuthContext = createContext<User | null>(null);
 
 export default abstract class InstantReactAbstractDatabase<
   Schema extends InstantSchemaDef<any, any, any>,
@@ -333,5 +338,48 @@ export default abstract class InstantReactAbstractDatabase<
     pageInfo: PageInfoResponse<Q>;
   }> => {
     return this._core.queryOnce(query, opts);
+  };
+
+  /**
+   * Hook that returns the current authenticated user from InstantAuthContext.
+   * This hook guarantees that the user is authenticated and non-null.
+   *
+   * @throws {Error} If used outside of an InstantAuthContext.Provider with a valid user
+   * @returns {User} The authenticated user object
+   *
+   * @example
+   * ```tsx
+   * import { init, InstantAuthContext } from '@instantdb/react';
+   *
+   * const db = init({ appId: 'your-app-id' });
+   *
+   * function AuthProvider({ children }) {
+   *   const { user } = db.useAuth();
+   *   if (!user) return <Login />;
+   *
+   *   return (
+   *     <InstantAuthContext.Provider value={user}>
+   *       {children}
+   *     </InstantAuthContext.Provider>
+   *   );
+   * }
+   *
+   * function MyComponent() {
+   *   const user = db.useLoggedInUser(); // Never null!
+   *   return <div>Hello {user.email}</div>;
+   * }
+   * ```
+   */
+  useLoggedInUser = (): User => {
+    const user = useContext(InstantAuthContext);
+
+    if (user === null || user === undefined) {
+      throw new Error(
+        'useLoggedInUser must be used within an InstantAuthContext.Provider with an authenticated user. ' +
+          'Make sure you have wrapped your component with InstantAuthContext.Provider and passed a valid user.',
+      );
+    }
+
+    return user as User;
   };
 }

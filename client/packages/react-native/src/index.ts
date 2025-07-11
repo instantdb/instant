@@ -7,6 +7,7 @@ import version from './version';
 import {
   // react
   InstantReactAbstractDatabase,
+  InstantAuthContext,
 
   // types
   type BackwardsCompatibleSchema,
@@ -125,6 +126,7 @@ export {
   lookup,
   i,
   InstantReactNativeDatabase,
+  InstantAuthContext,
 
   // types
   type Config,
