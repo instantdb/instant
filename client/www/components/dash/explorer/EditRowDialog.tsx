@@ -582,7 +582,7 @@ export function EditRowDialog({
         ...acc,
         [attr.name]:
           op === 'edit'
-            ? item[attr.name] === null
+            ? item[attr.name] === null || item[attr.name] === undefined
             : blobUpdates[attr.name].value === null,
       };
     }, {}),
@@ -602,7 +602,10 @@ export function EditRowDialog({
       editableBlobAttrs.reduce((acc, attr) => {
         return {
           ...acc,
-          [attr.name]: op === 'edit' ? item[attr.name] === null : false,
+          [attr.name]:
+            op === 'edit'
+              ? item[attr.name] === null || item[attr.name] === undefined
+              : false,
         };
       }, {}),
     );
