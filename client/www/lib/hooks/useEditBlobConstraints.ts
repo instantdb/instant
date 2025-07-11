@@ -62,25 +62,21 @@ export const useEditBlobConstraints = ({
 
       // Skip if already polling this job type
       if (fetchLoopsRef.current[jobType]) {
-        console.log('Job polling already running for', jobType);
         continue;
       }
 
-      console.log('Starting job polling', jobType);
       const fetchLoop = jobFetchLoop(appId, job.id, token);
       fetchLoopsRef.current[jobType] = fetchLoop;
 
       fetchLoop.start((updatedJob, error) => {
         if (error) {
-          console.error('Job polling error:', error);
           return;
         }
 
         if (updatedJob) {
-          // Set the progress
-          console.log('work completed', updatedJob);
           const workEstimateTotal = updatedJob.work_estimate ?? 50000;
           const workCompletedTotal = updatedJob.work_completed ?? 0;
+
           const percent = Math.floor(
             (workCompletedTotal / workEstimateTotal) * 100,
           );
@@ -197,7 +193,7 @@ export const useEditBlobConstraints = ({
     isPending: Object.values(pendingJobs).filter(Boolean).length > 0,
     progress: progressPercent,
     isRunning: Object.values(runningjobs).some(
-      (job) => job.job_status !== 'completed',
+      (job) => job.job_status !== 'completed' && job.job_status !== 'errored',
     ),
     pending: pendingJobs,
     running: runningjobs,

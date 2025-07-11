@@ -1078,42 +1078,26 @@ export const InfoTip = ({ children }: PropsWithChildren) => {
 };
 
 export function ProgressButton({
-  variant = 'primary',
-  size = 'normal',
-  type = 'button',
-  onClick,
-  href,
+  percentage = 0,
+  loading,
   className,
   children,
-  disabled,
-  loading,
-  autoFocus,
-  tabIndex,
-  title,
-  percentage = 0,
+  variant,
+  ...props
 }: PropsWithChildren<{
-  variant?: 'primary' | 'secondary' | 'subtle' | 'destructive' | 'cta';
-  size?: 'mini' | 'normal' | 'large' | 'xl' | 'nano';
-  type?: 'link' | 'link-new' | 'button' | 'submit';
-  onClick?: MouseEventHandler;
-  href?: string;
-  className?: string;
-  disabled?: boolean;
-  loading?: boolean;
-  autoFocus?: boolean;
-  tabIndex?: number;
-  title?: string | undefined;
   percentage?: number;
-}>) {
-  const buttonRef = useRef<any>(null);
-
+  loading?: boolean;
+  className?: string;
+  variant?: 'primary' | 'secondary' | 'subtle' | 'destructive' | 'cta';
+}> &
+  Parameters<typeof Button>[0]) {
   const progressFillStyle = {
     width: loading ? `${Math.max(0, Math.min(100, percentage))}%` : '0%',
     transition: 'width 0.3s ease-in-out',
   };
 
   const progressFillClass = cn('absolute inset-0 transition-all', {
-    'bg-[#4543e9]': variant === 'primary',
+    'bg-[#4543e9]': variant === 'primary' || !variant,
     'bg-orange-500': variant === 'cta',
     'bg-gray-200': variant === 'secondary',
     'bg-gray-300': variant === 'subtle',
@@ -1122,13 +1106,10 @@ export function ProgressButton({
 
   return (
     <Button
-      title={title}
-      tabIndex={tabIndex}
-      ref={buttonRef}
-      disabled={loading || disabled}
-      type={type === 'submit' ? 'submit' : 'button'}
-      className={cls}
-      onClick={onClick}
+      {...props}
+      variant={variant}
+      loading={loading}
+      className={cn('relative overflow-hidden', className)}
     >
       {loading && (
         <div className={progressFillClass} style={progressFillStyle} />

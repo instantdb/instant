@@ -1371,7 +1371,7 @@ const EditBlobConstraints = ({
     return null;
   }
 
-  const { isPending, pending, apply, running, progress } =
+  const { isPending, pending, apply, isRunning, running, progress } =
     useEditBlobConstraints({
       attr,
       appId,
@@ -1425,11 +1425,11 @@ const EditBlobConstraints = ({
         <ProgressButton
           loading={!!progress}
           percentage={progress || 0}
-          variant={isPending ? 'primary' : 'subtle'}
+          variant={isPending || isRunning ? 'primary' : 'subtle'}
           onClick={() => apply()}
-          disabled={!isPending}
+          disabled={!isPending && !progress}
         >
-          Apply
+          {isRunning ? 'Updating Constraints...' : 'Update Constraints'}
         </ProgressButton>
       </div>
     </div>
