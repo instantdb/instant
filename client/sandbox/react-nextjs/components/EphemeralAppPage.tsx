@@ -6,6 +6,7 @@ import {
   InstantReactAbstractDatabase,
   InstantSchemaDef,
   LinksDef,
+  Config,
 } from '@instantdb/react';
 import { useEffect, useState } from 'react';
 import { RoomsDef, TransactionChunk } from '../../../packages/core/dist/esm';
@@ -67,6 +68,7 @@ function AppPage<
   perms,
   onCreateApp,
   Component,
+  addConfig,
 }: {
   urlAppId: string | undefined;
   schema?: InstantSchemaDef<Entities, Links, Rooms>;
@@ -82,9 +84,10 @@ function AppPage<
     db: InstantReactAbstractDatabase<InstantSchemaDef<Entities, Links, Rooms>>;
     appId: string;
   }>;
+  addConfig?: Partial<Omit<Config, 'appId' | 'schema'>>;
 }) {
   const router = useRouter();
-  const [appId, setAppId] = useState();
+  const [appId, setAppId] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
 
   const provisionApp = async () => {
@@ -109,13 +112,19 @@ function AppPage<
 
   useEffect(() => {
     if (urlAppId) {
-      verifyEphemeralApp({ appId: urlAppId }).then((res): any => {
-        if (res.app) {
-          setAppId(res.app.id);
-        } else {
-          provisionApp();
-        }
-      });
+      verifyEphemeralApp({ appId: urlAppId })
+        .then((res): any => {
+          if (res.app) {
+            setAppId(res.app.id);
+          } else {
+            provisionApp();
+          }
+        })
+        .catch(() => {
+          // If we couldn't verify, maybe we're offline - let's just trust the
+          // app ID so we can test offline
+          setAppId(urlAppId as any);
+        });
     } else {
       provisionApp();
     }
@@ -134,9 +143,8 @@ function AppPage<
     return <div>Loading...</div>;
   }
 
-  const db = init({ ...config, schema, appId });
-
-  console.log(Component);
+  const finalConfig = { ...config, ...addConfig, schema, appId };
+  const db = init(finalConfig);
 
   return <Component key={appId} db={db} appId={appId} />;
 }
@@ -150,6 +158,7 @@ function Page<
   perms,
   onCreateApp,
   Component,
+  addConfig,
 }: {
   schema?: InstantSchemaDef<Entities, Links, Rooms>;
   perms?: any;
@@ -160,6 +169,7 @@ function Page<
     db: InstantReactAbstractDatabase<InstantSchemaDef<Entities, Links, Rooms>>;
     appId: string;
   }>;
+  addConfig?: Partial<Omit<Config, 'appId' | 'schema'>>;
 }) {
   const router = useRouter();
   if (router.isReady) {
@@ -169,6 +179,7 @@ function Page<
         perms={perms}
         onCreateApp={onCreateApp}
         Component={Component}
+        addConfig={addConfig}
         urlAppId={router.query.app as string}
       />
     );

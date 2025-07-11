@@ -108,6 +108,8 @@ export type Config = {
   websocketURI?: string;
   apiURI?: string;
   devtool?: boolean | DevtoolConfig;
+  verbose?: boolean;
+  queryCacheLimit?: number;
 };
 
 export type InstantConfig<S extends InstantSchemaDef<any, any, any>> = {
@@ -117,6 +119,7 @@ export type InstantConfig<S extends InstantSchemaDef<any, any, any>> = {
   apiURI?: string;
   devtool?: boolean | DevtoolConfig;
   verbose?: boolean;
+  queryCacheLimit?: number;
 };
 
 export type ConfigWithSchema<S extends InstantGraph<any, any>> = Config & {
