@@ -35,65 +35,7 @@ export const useEditBlobConstraints = ({
     [jobType in JobConstraintTypes]?: InstantIndexingJob;
   }>({});
 
-  const fetchLoopsRef = useRef<{ [jobType: string]: { stop: () => void } }>({});
-
   const [progress, setProgress] = useState<{ [jobType: string]: number }>({});
-
-  // Keep running jobs updated
-  useEffect(() => {
-    const jobTypes = Object.keys(runningjobs) as JobConstraintTypes[];
-
-    for (let i = 0; i < jobTypes.length; i++) {
-      const jobType = jobTypes[i];
-      const job = runningjobs[jobType];
-
-      if (
-        !job ||
-        job.job_status === 'completed' ||
-        job.job_status === 'errored'
-      ) {
-        // Clean up completed/errored jobs
-        if (fetchLoopsRef.current[jobType]) {
-          fetchLoopsRef.current[jobType].stop();
-          delete fetchLoopsRef.current[jobType];
-        }
-        continue;
-      }
-
-      // Skip if already polling this job type
-      if (fetchLoopsRef.current[jobType]) {
-        console.log('Job polling already running for', jobType);
-        continue;
-      }
-
-      console.log('Starting job polling', jobType);
-      const fetchLoop = jobFetchLoop(appId, job.id, token);
-      fetchLoopsRef.current[jobType] = fetchLoop;
-
-      fetchLoop.start((updatedJob, error) => {
-        if (error) {
-          console.error('Job polling error:', error);
-          return;
-        }
-
-        if (updatedJob) {
-          // Set the progress
-          console.log('work completed', updatedJob);
-          const workEstimateTotal = updatedJob.work_estimate ?? 50000;
-          const workCompletedTotal = updatedJob.work_completed ?? 0;
-          const percent = Math.floor(
-            (workCompletedTotal / workEstimateTotal) * 100,
-          );
-          setProgress((prev) => ({ ...prev, [jobType]: percent }));
-
-          setRunningJobs((prev) => ({
-            ...prev,
-            [jobType]: updatedJob,
-          }));
-        }
-      });
-    }
-  }, [runningjobs, appId, token]);
 
   useEffect(() => {
     // If running jobs, don't update any pending
@@ -158,7 +100,14 @@ export const useEditBlobConstraints = ({
     }
   }, [isRequired, isIndexed, isUnique, checkedDataType, attr, runningjobs]);
 
+  const [isCreatingJobs, setIsCreatingJobs] = useState(false);
+
   const apply = async () => {
+    if (isCreatingJobs) return;
+
+    // Clean up previous errors
+    setRunningJobs({});
+    setIsCreatingJobs(true);
     Object.entries(pendingJobs).forEach(async ([jobType, pendingJob]) => {
       if (!pendingJob) return;
       const res = await fetch(
@@ -180,6 +129,29 @@ export const useEditBlobConstraints = ({
       const json = await res.json();
       setRunningJobs((p) => ({ ...p, [jobType]: json.job }));
       setPendingJobs((p) => ({ ...p, [jobType]: undefined }));
+      setIsCreatingJobs(false);
+      const fetchLoop = jobFetchLoop(appId, json.job.id, token);
+      await fetchLoop.start((updatedJob, error) => {
+        if (error) {
+          return;
+        }
+
+        if (updatedJob) {
+          const workEstimateTotal = updatedJob.work_estimate ?? 50000;
+          const workCompletedTotal = updatedJob.work_completed ?? 0;
+
+          const percent = Math.floor(
+            (workCompletedTotal / workEstimateTotal) * 100,
+          );
+          setProgress((prev) => ({ ...prev, [jobType]: percent }));
+
+          setRunningJobs((prev) => ({
+            ...prev,
+            [jobType]: updatedJob,
+          }));
+        }
+      });
+      fetchLoop.stop();
     });
   };
 
@@ -197,7 +169,7 @@ export const useEditBlobConstraints = ({
     isPending: Object.values(pendingJobs).filter(Boolean).length > 0,
     progress: progressPercent,
     isRunning: Object.values(runningjobs).some(
-      (job) => job.job_status !== 'completed',
+      (job) => job.job_status !== 'completed' && job.job_status !== 'errored',
     ),
     pending: pendingJobs,
     running: runningjobs,

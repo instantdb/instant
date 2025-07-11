@@ -47,6 +47,12 @@ export default function patchFirefoxClicks() {
   };
 
   const handleClick = (e: Event) => {
+    // Allows clicking labels to toggle checkbox in firefox still
+    if (e.target instanceof HTMLInputElement) {
+      if (e.target.tagName === 'INPUT' && e.target.type === 'checkbox') {
+        return;
+      }
+    }
     if (lastTarget !== e.target) {
       e.stopImmediatePropagation();
       e.preventDefault();
