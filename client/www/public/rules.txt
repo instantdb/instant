@@ -861,7 +861,7 @@ Must use `$user` prefix.
 ```typescript
 // app/page.tsx
 const docId = new URLSearchParams(window.location.search).get("docId");
-const { data } = db.useQuery({ docs: {} }, { ruleParams: { docId } });
+const { isLoading, error, data } = db.useQuery({ docs: {} }, { ruleParams: { docId } });
 
 db.transact(
   db.tx.docs[docId].ruleParams({ docId }).update({ title: 'eat' })
