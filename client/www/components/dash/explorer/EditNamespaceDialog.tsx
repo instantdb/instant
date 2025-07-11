@@ -22,6 +22,7 @@ import {
   Checkbox,
   cn,
   Content,
+  Divider,
   InfoTip,
   ProgressButton,
   Select,
@@ -1151,13 +1152,6 @@ const EditRequiredControl: BlobConstraintControlComponent<boolean> = ({
 }) => {
   const closeDialog = useClose();
 
-  const toggle = () => {
-    if (disabled || (runningJob && !jobIsCompleted(runningJob))) {
-      return;
-    }
-    setValue(!value);
-  };
-
   // If job is errored, revert the value
   useEffect(() => {
     if (runningJob && jobIsErrored(runningJob)) {
@@ -1179,7 +1173,6 @@ const EditRequiredControl: BlobConstraintControlComponent<boolean> = ({
           onChange={(enabled) => setValue(enabled)}
           label={
             <span
-              onClick={toggle}
               className={cn(
                 disabled || (runningJob && !jobIsCompleted(runningJob))
                   ? 'cursor-default'
@@ -1223,15 +1216,7 @@ const EditIndexedControl: BlobConstraintControlComponent<boolean> = ({
   attr,
   pushNavStack,
 }) => {
-  const notRunning = !runningJob || jobIsCompleted(runningJob);
   const closeDialog = useClose();
-
-  const toggle = () => {
-    if (disabled || (runningJob && !jobIsCompleted(runningJob))) {
-      return;
-    }
-    setValue(!value);
-  };
 
   // If job is errored, revert the value
   useEffect(() => {
@@ -1254,7 +1239,6 @@ const EditIndexedControl: BlobConstraintControlComponent<boolean> = ({
           onChange={(enabled) => setValue(enabled)}
           label={
             <span
-              onClick={toggle}
               className={cn(
                 disabled || (runningJob && !jobIsCompleted(runningJob))
                   ? 'cursor-default'
@@ -1298,15 +1282,6 @@ const EditUniqueControl: BlobConstraintControlComponent<boolean> = ({
   pushNavStack,
   attr,
 }) => {
-  const notRunning = !runningJob || jobIsCompleted(runningJob);
-
-  const toggle = () => {
-    if (disabled || (runningJob && !jobIsCompleted(runningJob))) {
-      return;
-    }
-    setValue(!value);
-  };
-
   const closeDialog = useClose();
 
   // If job is errored, revert the value
@@ -1330,7 +1305,6 @@ const EditUniqueControl: BlobConstraintControlComponent<boolean> = ({
           onChange={(enabled) => setValue(enabled)}
           label={
             <span
-              onClick={toggle}
               className={cn(
                 disabled || (runningJob && !jobIsCompleted(runningJob))
                   ? 'cursor-default'
@@ -1447,7 +1421,9 @@ const EditBlobConstraints = ({
         <ProgressButton
           loading={!!progress}
           percentage={progress || 0}
-          variant={isPending || isRunning ? 'primary' : 'subtle'}
+          variant={isPending || isRunning ? 'primary' : 'secondary'}
+          // Switching from primary <-> secondary changes height without this
+          className="border"
           onClick={() => apply()}
           disabled={!isPending && !progress}
         >
@@ -1631,6 +1607,8 @@ function EditAttrForm({
             isSystemCatalogNs={isSystemCatalogNs}
             pushNavStack={pushNavStack}
           />
+
+          <Divider />
 
           <ActionForm className="flex flex-col gap-1">
             <h6 className="text-md font-bold">Rename</h6>
