@@ -23,6 +23,7 @@ import {
   cn,
   Content,
   InfoTip,
+  ProgressButton,
   Select,
   TextInput,
   ToggleGroup,
@@ -1421,13 +1422,15 @@ const EditBlobConstraints = ({
           attr={attr}
           pushNavStack={pushNavStack}
         />
-        <Button
+        <ProgressButton
+          loading={!!progress}
+          percentage={progress || 0}
           variant={isPending ? 'primary' : 'subtle'}
           onClick={() => apply()}
           disabled={!isPending}
         >
           Apply
-        </Button>
+        </ProgressButton>
       </div>
     </div>
   );

@@ -1077,7 +1077,66 @@ export const InfoTip = ({ children }: PropsWithChildren) => {
   );
 };
 
-const ProgressButton = () => {};
+export function ProgressButton({
+  variant = 'primary',
+  size = 'normal',
+  type = 'button',
+  onClick,
+  href,
+  className,
+  children,
+  disabled,
+  loading,
+  autoFocus,
+  tabIndex,
+  title,
+  percentage = 0,
+}: PropsWithChildren<{
+  variant?: 'primary' | 'secondary' | 'subtle' | 'destructive' | 'cta';
+  size?: 'mini' | 'normal' | 'large' | 'xl' | 'nano';
+  type?: 'link' | 'link-new' | 'button' | 'submit';
+  onClick?: MouseEventHandler;
+  href?: string;
+  className?: string;
+  disabled?: boolean;
+  loading?: boolean;
+  autoFocus?: boolean;
+  tabIndex?: number;
+  title?: string | undefined;
+  percentage?: number;
+}>) {
+  const buttonRef = useRef<any>(null);
+
+  const progressFillStyle = {
+    width: loading ? `${Math.max(0, Math.min(100, percentage))}%` : '0%',
+    transition: 'width 0.3s ease-in-out',
+  };
+
+  const progressFillClass = cn('absolute inset-0 transition-all', {
+    'bg-[#4543e9]': variant === 'primary',
+    'bg-orange-500': variant === 'cta',
+    'bg-gray-200': variant === 'secondary',
+    'bg-gray-300': variant === 'subtle',
+    'bg-red-200': variant === 'destructive',
+  });
+
+  return (
+    <Button
+      title={title}
+      tabIndex={tabIndex}
+      ref={buttonRef}
+      disabled={loading || disabled}
+      type={type === 'submit' ? 'submit' : 'button'}
+      className={cls}
+      onClick={onClick}
+    >
+      {loading && (
+        <div className={progressFillClass} style={progressFillStyle} />
+      )}
+      <span className="relative z-10">{children}</span>
+    </Button>
+  );
+}
 
 // utils
 
