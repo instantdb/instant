@@ -1092,8 +1092,11 @@ export function ProgressButton({
 }> &
   Parameters<typeof Button>[0]) {
   const progressFillStyle = {
-    width: loading ? `${Math.max(0, Math.min(100, percentage))}%` : '0%',
-    transition: 'width 0.3s ease-in-out',
+    transform: loading
+      ? `scaleX(${Math.max(0, Math.min(100, percentage)) / 100})`
+      : 'scaleX(0)',
+    transition: 'transform 0.3s ease-in-out',
+    transformOrigin: 'left',
   };
 
   const progressFillClass = cn('absolute inset-0 transition-all', {
