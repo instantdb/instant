@@ -1053,7 +1053,7 @@ const EditCheckedDataTypeControl: BlobConstraintControlComponent<
   attr,
   pushNavStack,
 }) => {
-  const notRunning = !runningJob || runningJob.job_status === 'completed';
+  const notRunning = !runningJob || jobIsCompleted(runningJob);
   const closeDialog = useClose();
 
   // Revert to previous value if job errored
@@ -1081,14 +1081,8 @@ const EditCheckedDataTypeControl: BlobConstraintControlComponent<
           className={cn(
             pendingJob &&
               'border-[#606AF4] ring-1 ring-inset ring-[#606AF4] focus:ring-[#606AF4]',
-
-            runningJob &&
-              jobIsErrored(runningJob) &&
-              'border-red-500 border-2 ring-0',
           )}
-          disabled={
-            disabled || (runningJob && runningJob.job_status !== 'completed')
-          }
+          disabled={disabled || (runningJob && !jobIsCompleted(runningJob))}
           title={
             disabled
               ? `Attributes in the ${attr.namespace} namespace can't be edited.`
@@ -1155,7 +1149,6 @@ const EditRequiredControl: BlobConstraintControlComponent<boolean> = ({
   pushNavStack,
   attr,
 }) => {
-  const notRunning = !runningJob || runningJob.job_status === 'completed';
   const closeDialog = useClose();
 
   const toggle = () => {
@@ -1192,7 +1185,6 @@ const EditRequiredControl: BlobConstraintControlComponent<boolean> = ({
                   ? 'cursor-default'
                   : 'cursor-pointer',
                 pendingJob && 'text-[#606AF4]',
-                runningJob && jobIsErrored(runningJob) && 'text-red-500',
               )}
             >
               <strong>Require this attribute</strong> so all entities will be
@@ -1200,7 +1192,7 @@ const EditRequiredControl: BlobConstraintControlComponent<boolean> = ({
             </span>
           }
         />
-        {pendingJob && notRunning && (
+        {pendingJob && (
           <ArrowUturnLeftIcon
             onClick={() => {
               setValue(!value);
@@ -1229,40 +1221,71 @@ const EditIndexedControl: BlobConstraintControlComponent<boolean> = ({
   setValue,
   disabled,
   attr,
+  pushNavStack,
 }) => {
+  const notRunning = !runningJob || jobIsCompleted(runningJob);
+  const closeDialog = useClose();
+
+  const toggle = () => {
+    if (disabled || (runningJob && !jobIsCompleted(runningJob))) {
+      return;
+    }
+    setValue(!value);
+  };
+
+  // If job is errored, revert the value
+  useEffect(() => {
+    if (runningJob && jobIsErrored(runningJob)) {
+      setValue(attr.isIndex);
+    }
+  }, [runningJob]);
+
   return (
-    <div className="flex justify-between">
-      <Checkbox
-        disabled={disabled || (runningJob && !jobIsCompleted(runningJob))}
-        title={
-          disabled
-            ? `Attributes in the ${attr.namespace} namespace can't be edited.`
-            : undefined
-        }
-        checked={value}
-        onChange={(enabled) => setValue(enabled)}
-        label={
-          <span
+    <>
+      <div className="flex justify-between">
+        <Checkbox
+          disabled={disabled || (runningJob && !jobIsCompleted(runningJob))}
+          title={
+            disabled
+              ? `Attributes in the ${attr.namespace} namespace can't be edited.`
+              : undefined
+          }
+          checked={value}
+          onChange={(enabled) => setValue(enabled)}
+          label={
+            <span
+              onClick={toggle}
+              className={cn(
+                disabled || (runningJob && !jobIsCompleted(runningJob))
+                  ? 'cursor-default'
+                  : 'cursor-pointer',
+                pendingJob && 'text-[#606AF4]',
+              )}
+            >
+              <strong>Index this attribute</strong> to improve lookup
+              performance of values
+            </span>
+          }
+        />
+        {pendingJob && (
+          <ArrowUturnLeftIcon
             onClick={() => {
               setValue(!value);
             }}
-            className={pendingJob && 'text-[#606AF4]'}
-          >
-            <strong>Index this attribute</strong> to improve lookup performance
-            of values
-          </span>
-        }
-      />
-      {pendingJob && (
-        <ArrowUturnLeftIcon
-          onClick={() => {
-            setValue(!value);
-          }}
-          height="1.2rem"
-          className="cursor-pointer pr-2 text-[#606AF4]"
+            height="1.2rem"
+            className="cursor-pointer pr-2 text-[#606AF4]"
+          />
+        )}
+      </div>
+      {runningJob && jobIsErrored(runningJob) && (
+        <IndexingJobError
+          indexingJob={runningJob}
+          attr={attr}
+          pushNavStack={pushNavStack}
+          onClose={closeDialog}
         />
       )}
-    </div>
+    </>
   );
 };
 
@@ -1275,10 +1298,10 @@ const EditUniqueControl: BlobConstraintControlComponent<boolean> = ({
   pushNavStack,
   attr,
 }) => {
-  const notRunning = !runningJob || runningJob.job_status === 'completed';
+  const notRunning = !runningJob || jobIsCompleted(runningJob);
 
   const toggle = () => {
-    if (disabled || (runningJob && jobIsErrored(runningJob))) {
+    if (disabled || (runningJob && !jobIsCompleted(runningJob))) {
       return;
     }
     setValue(!value);
@@ -1313,7 +1336,6 @@ const EditUniqueControl: BlobConstraintControlComponent<boolean> = ({
                   ? 'cursor-default'
                   : 'cursor-pointer',
                 pendingJob && 'text-[#606AF4]',
-                runningJob && jobIsErrored(runningJob) && 'text-red-500',
               )}
             >
               <strong>Enforce uniqueness</strong> so no two entities can have
@@ -1321,7 +1343,7 @@ const EditUniqueControl: BlobConstraintControlComponent<boolean> = ({
             </span>
           }
         />
-        {pendingJob && notRunning && (
+        {pendingJob && (
           <ArrowUturnLeftIcon
             onClick={() => {
               setValue(!value);
