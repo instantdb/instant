@@ -45,7 +45,7 @@ query filter. For example, if you want to find all posts that are not linked to
 an author you can do
 
 ```javascript
-db.useQuery({
+const { isLoading, error, data } = db.useQuery({
   posts: {
     $: {
       where: {
