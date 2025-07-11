@@ -285,6 +285,11 @@
     (assert-admin-email! email)
     (response/ok {:users (dash-admin/get-recent)})))
 
+(defn admin-check-get [req]
+  (let [{:keys [email]} (req->auth-user! req)]
+    (assert-admin-email! email)
+    (response/ok {:ok true})))
+
 (defn admin-top-get [req]
   (let [{:keys [email]} (req->auth-user! req)
         n (get-in req [:params :n])
@@ -1516,6 +1521,7 @@
   (GET "/dash/admin" [] admin-get)
 
   ;; internal admin routes
+  (GET "/dash/check-admin" [] admin-check-get)
   (GET "/dash/top" [] admin-top-get)
   (GET "/dash/paid" [] admin-paid-get)
   (GET "/dash/storage" [] admin-storage-get)

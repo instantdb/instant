@@ -77,6 +77,21 @@ export function useAuthedFetch<Res = any>(path: string) {
   return useTokenFetch<Res>(path, token, clearToken);
 }
 
+export function useAdmin() {
+  const token = useAuthToken();
+  const { data, error, isLoading } = useTokenFetch<{ ok: boolean }>(
+    `${config.apiURI}/dash/check-admin`,
+    token,
+    clearToken,
+  );
+
+  return {
+    isAdmin: data?.ok === true,
+    isLoading,
+    error,
+  };
+}
+
 export function useTokenFetch<Res>(
   path: string,
   token?: string,
