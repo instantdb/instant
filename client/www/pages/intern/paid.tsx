@@ -98,6 +98,9 @@ function PaidTable({ data }: { data: any }) {
             <th className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm uppercase font-medium">
               DB size
             </th>
+            <th className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm uppercase font-medium">
+              Triple count
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -121,6 +124,11 @@ function PaidTable({ data }: { data: any }) {
               </td>
               <td className="py-2 px-4 border-b border-gray-200">
                 {humanBytes(row.usage)}
+              </td>
+              <td className="py-2 px-4 border-b border-gray-200">
+                {row.triple_count
+                  ? Intl.NumberFormat().format(row.triple_count)
+                  : null}
               </td>
             </tr>
           ))}
