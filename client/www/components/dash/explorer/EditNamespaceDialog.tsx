@@ -1370,15 +1370,16 @@ const EditBlobConstraints = ({
     return null;
   }
 
-  const { isPending, pending, apply, running } = useEditBlobConstraints({
-    attr,
-    appId,
-    token,
-    isRequired: requiredChecked,
-    isIndexed: indexedChecked,
-    isUnique: uniqueChecked,
-    checkedDataType,
-  });
+  const { isPending, pending, apply, running, progress } =
+    useEditBlobConstraints({
+      attr,
+      appId,
+      token,
+      isRequired: requiredChecked,
+      isIndexed: indexedChecked,
+      isUnique: uniqueChecked,
+      checkedDataType,
+    });
 
   return (
     <div>
