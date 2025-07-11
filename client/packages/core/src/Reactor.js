@@ -173,7 +173,6 @@ export default class Reactor {
     versions,
   ) {
     this.config = { ...defaultConfig, ...config };
-    this.queryCacheLimit = this.config.queryCacheLimit ?? 10;
 
     this._log = createLogger(
       config.verbose || flags.devBackend || flags.instantLogs,
@@ -347,13 +346,7 @@ export default class Reactor {
     // we can keep usage information about which queries are popular.
     const storageKsToAdd = Object.keys(storageSubs)
       .filter((k) => !inMemorySubs[k])
-      .sort((a, b) => {
-        // Sort by lastAccessed, newest first
-        const aTime = storageSubs[a]?.lastAccessed || 0;
-        const bTime = storageSubs[b]?.lastAccessed || 0;
-        return bTime - aTime;
-      })
-      .slice(0, this.queryCacheLimit);
+      .slice(0, 10);
 
     storageKsToAdd.forEach((k) => {
       ret[k] = storageSubs[k];
@@ -709,7 +702,6 @@ export default class Reactor {
     const eventId = uuid();
     this.querySubs.set((prev) => {
       prev[hash] = prev[hash] || { q, result: null, eventId };
-      prev[hash].lastAccessed = Date.now();
       return prev;
     });
     this._trySendAuthed(eventId, { op: 'add-query', q });
