@@ -82,7 +82,6 @@ export function useAdmin() {
   const { data, error, isLoading } = useTokenFetch<{ ok: boolean }>(
     `${config.apiURI}/dash/check-admin`,
     token,
-    clearToken,
   );
 
   return {
