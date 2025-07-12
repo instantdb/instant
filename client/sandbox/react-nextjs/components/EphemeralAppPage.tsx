@@ -57,7 +57,9 @@ async function verifyEphemeralApp({ appId }: { appId: string }) {
 
   const data = await r.json();
 
-  if (!r.ok) { throw data; }
+  if (!r.ok) {
+    throw data;
+  }
   return data;
 }
 
@@ -120,7 +122,10 @@ function AppPage<
           setAppId(res.app.id);
         })
         .catch((err) => {
-          if (err.type === 'record-not-found' || err.type === 'param-malformed') {
+          if (
+            err.type === 'record-not-found' ||
+            err.type === 'param-malformed'
+          ) {
             // App ID is not valid, provision a new one
             console.error('Error verifying ephemeral app:', err);
             console.log('Provisioning new ephemeral app');
