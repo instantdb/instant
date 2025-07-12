@@ -13,6 +13,7 @@ import {
   PlusIcon,
   TrashIcon,
 } from '@heroicons/react/24/solid';
+import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
 import {
   Combobox,
   ComboboxButton,
@@ -1081,8 +1082,11 @@ function Nav({
           items={availableTabs.map((t) => ({
             ...t,
             label: (
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
                 <span>{t.label}</span>
+                {t.id === 'docs' && (
+                  <ArrowTopRightOnSquareIcon className="h-4 w-4" />
+                )}
               </div>
             ),
           }))}
