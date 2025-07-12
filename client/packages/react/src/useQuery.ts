@@ -56,6 +56,15 @@ export function useQueryInternal<
     stateForResult(_core._reactor.getPreviousResult(query)),
   );
 
+  // Update the ref when the query changes to avoid showing stale data
+  const previousQueryHash = useRef(queryHash);
+  if (previousQueryHash.current !== queryHash) {
+    resultCacheRef.current = stateForResult(
+      _core._reactor.getPreviousResult(query),
+    );
+    previousQueryHash.current = queryHash;
+  }
+
   // Similar to `resultCacheRef`, `useSyncExternalStore` will unsubscribe
   // if `subscribe` changes, so we use `useCallback` to memoize the function.
   const subscribe = useCallback(
