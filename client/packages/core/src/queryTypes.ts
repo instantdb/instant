@@ -28,34 +28,66 @@ type NonEmpty<T> = {
   [K in keyof T]-?: Required<Pick<T, K>>;
 }[keyof T];
 
-type WhereArgs = {
+type BaseWhereClauseValueComplex<V> = {
   /** @deprecated use `$in` instead of `in` */
-  in?: (string | number | boolean)[];
-  $in?: (string | number | boolean)[];
-  $not?: string | number | boolean;
-  $isNull?: boolean;
-  $gt?: string | number | boolean;
-  $lt?: string | number | boolean;
-  $gte?: string | number | boolean;
-  $lte?: string | number | boolean;
-  $like?: string;
-  $ilike?: string;
+  in?: V[];
+  $in?: V[];
+  $not?: V;
+  $gt?: V;
+  $lt?: V;
+  $gte?: V;
+  $lte?: V;
 };
 
-type WhereClauseValue = string | number | boolean | NonEmpty<WhereArgs>;
+type WhereClauseValueComplex<V> = BaseWhereClauseValueComplex<V> &
+  (V extends string
+    ? {
+        $like?: string;
+        $ilike?: string;
+      }
+    : {}) &
+  (undefined extends V
+    ? {
+        $isNull?: boolean;
+      }
+    : {});
 
-type BaseWhereClause = {
-  [key: string]: WhereClauseValue;
+// Make type display better
+type WhereClauseValue<V> =
+  | (V extends string | undefined
+      ? string
+      : V extends number | undefined
+        ? number
+        : V extends boolean | undefined
+          ? boolean
+          : never)
+  | WhereClauseValueComplex<V>;
+
+type WhereClauseColumnEntries<
+  T extends {
+    [key: string]: unknown;
+  },
+> = {
+  [key in keyof T]?: WhereClauseValue<T[key]>;
 };
 
-type WhereClauseWithCombination = {
-  or?: WhereClause[] | WhereClauseValue;
-  and?: WhereClause[] | WhereClauseValue;
+type WhereClauseComboEntries<T extends Record<any, unknown>> = {
+  or?:
+    | WhereClauses<T>[]
+    | WhereClauseValue<string | number | boolean | undefined>;
+  and?:
+    | WhereClauses<T>[]
+    | WhereClauseValue<string | number | boolean | undefined>;
 };
 
-type WhereClause =
-  | WhereClauseWithCombination
-  | (WhereClauseWithCombination & BaseWhereClause);
+type WhereClauses<T extends Record<any, any>> = (
+  | WhereClauseComboEntries<T>
+  | (WhereClauseComboEntries<T> & WhereClauseColumnEntries<T>)
+) & {
+  [key: `${string}.${string}`]: WhereClauseValue<
+    string | number | boolean | undefined
+  >;
+};
 
 /**
  * A tuple representing a cursor.
@@ -70,9 +102,12 @@ type Direction = 'asc' | 'desc';
 
 type Order = { [key: string]: Direction };
 
-type $Option<Fields extends string[]> = {
+type $Option<
+  S extends IContainEntitiesAndLinks<any, any>,
+  K extends keyof S['entities'],
+> = {
   $?: {
-    where?: WhereClause;
+    where?: WhereClauses<InstaQLEntity<S, K>>;
     order?: Order;
     limit?: number;
     last?: number;
@@ -80,13 +115,13 @@ type $Option<Fields extends string[]> = {
     offset?: number;
     after?: Cursor;
     before?: Cursor;
-    fields?: Fields;
+    fields?: InstaQLFields<S, K>;
   };
 };
 
 type Subquery = { [namespace: string]: NamespaceVal };
 
-type NamespaceVal = $Option<string[]> | ($Option<string[]> & Subquery);
+type NamespaceVal = $Option<any, any> | ($Option<any, any> & Subquery);
 
 interface Query {
   [namespace: string]: NamespaceVal;
@@ -311,8 +346,8 @@ type InstaQLEntitySubquery<
   EntityName extends keyof Schema['entities'],
 > = {
   [QueryPropName in keyof Schema['entities'][EntityName]['links']]?:
-    | $Option<InstaQLFields<Schema, EntityName>>
-    | ($Option<InstaQLFields<Schema, EntityName>> &
+    | $Option<Schema, EntityName>
+    | ($Option<Schema, EntityName> &
         InstaQLEntitySubquery<
           Schema,
           Schema['entities'][EntityName]['links'][QueryPropName]['entityName']
@@ -324,8 +359,8 @@ type InstaQLQuerySubqueryParams<
   E extends keyof S['entities'],
 > = {
   [K in keyof S['entities'][E]['links']]?:
-    | $Option<InstaQLFields<S, S['entities'][E]['links'][K]['entityName']>>
-    | ($Option<InstaQLFields<S, S['entities'][E]['links'][K]['entityName']>> &
+    | $Option<S, S['entities'][E]['links'][K]['entityName']>
+    | ($Option<S, S['entities'][E]['links'][K]['entityName']> &
         InstaQLQuerySubqueryParams<
           S,
           S['entities'][E]['links'][K]['entityName']
@@ -334,8 +369,8 @@ type InstaQLQuerySubqueryParams<
 
 type InstaQLParams<S extends IContainEntitiesAndLinks<any, any>> = {
   [K in keyof S['entities']]?:
-    | $Option<InstaQLFields<S, K>>
-    | ($Option<InstaQLFields<S, K>> & InstaQLQuerySubqueryParams<S, K>);
+    | $Option<S, K>
+    | ($Option<S, K> & InstaQLQuerySubqueryParams<S, K>);
 };
 
 /**
