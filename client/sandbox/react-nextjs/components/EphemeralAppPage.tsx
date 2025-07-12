@@ -55,7 +55,10 @@ async function verifyEphemeralApp({ appId }: { appId: string }) {
     },
   });
 
-  return r.json();
+  const data = await r.json();
+
+  if (!r.ok) { throw data; }
+  return data;
 }
 
 function AppPage<
@@ -114,16 +117,22 @@ function AppPage<
     if (urlAppId) {
       verifyEphemeralApp({ appId: urlAppId })
         .then((res): any => {
-          if (res.app) {
-            setAppId(res.app.id);
-          } else {
-            provisionApp();
-          }
+          setAppId(res.app.id);
         })
-        .catch(() => {
-          // If we couldn't verify, maybe we're offline - let's just trust the
-          // app ID so we can test offline
-          setAppId(urlAppId as any);
+        .catch((err) => {
+          if (err.type === 'record-not-found' || err.type === 'param-malformed') {
+            // App ID is not valid, provision a new one
+            console.error('Error verifying ephemeral app:', err);
+            console.log('Provisioning new ephemeral app');
+            provisionApp();
+            return;
+          }
+          if (!err.type) {
+            // Some other error, maybe we're offline - let's just trust the
+            // app ID so we can test offline
+            setAppId(urlAppId as any);
+            return;
+          }
         });
     } else {
       provisionApp();
