@@ -66,29 +66,30 @@ function entity<Attrs extends AttrsDefs>(
 
 function string<StringEnum extends string = string>(): DataAttrDef<
   StringEnum,
-  true
+  true,
+  false
 > {
-  return new DataAttrDef('string', true);
+  return new DataAttrDef('string', true, false);
 }
 
-function number(): DataAttrDef<number, true> {
-  return new DataAttrDef('number', true);
+function number(): DataAttrDef<number, true, false> {
+  return new DataAttrDef('number', true, false);
 }
 
-function boolean(): DataAttrDef<boolean, true> {
-  return new DataAttrDef('boolean', true);
+function boolean(): DataAttrDef<boolean, true, false> {
+  return new DataAttrDef('boolean', true, false);
 }
 
-function date(): DataAttrDef<string | number, true> {
-  return new DataAttrDef('date', true);
+function date(): DataAttrDef<string | number, true, false> {
+  return new DataAttrDef('date', true, false);
 }
 
-function json<T = any>(): DataAttrDef<T, true> {
-  return new DataAttrDef('json', true);
+function json<T = any>(): DataAttrDef<T, true, false> {
+  return new DataAttrDef('json', true, false);
 }
 
-function any(): DataAttrDef<any, true> {
-  return new DataAttrDef('json', true);
+function any(): DataAttrDef<any, true, false> {
+  return new DataAttrDef('json', true, false);
 }
 
 // ==========

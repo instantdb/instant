@@ -155,7 +155,7 @@ function entityNodeToEntityDef(
     let next: CallExpression | null = property.value;
     if (label === 'path') {
     }
-    let attrDef: DataAttrDef<string, boolean> | null = null;
+    let attrDef: DataAttrDef<string, boolean, boolean> | null = null;
     while (next) {
       if (
         next.callee.type !== 'MemberExpression' ||

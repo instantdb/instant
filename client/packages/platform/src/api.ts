@@ -310,7 +310,9 @@ function attrDefForType(
 
 function apiSchemaAttrToDataAttrDef(attr: InstantDBAttr) {
   const derivedType = deriveClientType(attr);
-  let i: DataAttrDef<string, boolean> = attrDefForType(derivedType.type);
+  let i: DataAttrDef<string, boolean, boolean> = attrDefForType(
+    derivedType.type,
+  );
   if (attr['unique?']) {
     i = i.unique();
   }
@@ -327,7 +329,7 @@ function apiSchemaAttrToDataAttrDef(attr: InstantDBAttr) {
 function apiSchemaBlobToEntityDef(
   attrs: InstantAPIPlatformSchema['blobs'][string],
 ) {
-  const defs: Record<string, DataAttrDef<string, boolean>> = {};
+  const defs: Record<string, DataAttrDef<string, boolean, boolean>> = {};
   for (const [label, attr] of sortedEntries(attrs)) {
     if (label === 'id') {
       continue;

@@ -529,7 +529,7 @@ class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
    *  });
    */
   subscribeQuery<Q extends InstaQLParams<Schema>>(
-    query: Q,
+    query: Exactly<InstaQLParams<Schema>, Q>,
     cb: (resp: InstaQLSubscriptionState<Schema, Q>) => void,
     opts?: InstaQLOptions,
   ) {

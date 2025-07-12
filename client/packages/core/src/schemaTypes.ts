@@ -1,11 +1,17 @@
 import type { RoomSchemaShape } from './presence.ts';
 
-export class DataAttrDef<ValueType, IsRequired extends RequirementKind> {
+export class DataAttrDef<
+  ValueType,
+  IsRequired extends RequirementKind,
+  IsIndexed extends boolean,
+> {
   public metadata: Record<string, unknown> = {};
 
   constructor(
     public valueType: ValueTypes,
     public required: IsRequired,
+    public isIndexed: IsIndexed,
+
     public config: {
       indexed: boolean;
       unique: boolean;
@@ -19,25 +25,28 @@ export class DataAttrDef<ValueType, IsRequired extends RequirementKind> {
    * and enforced for backend
    */
   clientRequired() {
-    return new DataAttrDef<ValueType, true>(
+    return new DataAttrDef<ValueType, true, IsIndexed>(
       this.valueType,
       false as unknown as true,
+      this.isIndexed,
       this.config,
     );
   }
 
   optional() {
-    return new DataAttrDef<ValueType, false>(
+    return new DataAttrDef<ValueType, false, IsIndexed>(
       this.valueType,
       false,
+      this.isIndexed,
       this.config,
     );
   }
 
   unique() {
-    return new DataAttrDef<ValueType, IsRequired>(
+    return new DataAttrDef<ValueType, IsRequired, IsIndexed>(
       this.valueType,
       this.required,
+      this.isIndexed,
       {
         ...this.config,
         unique: true,
@@ -46,9 +55,10 @@ export class DataAttrDef<ValueType, IsRequired extends RequirementKind> {
   }
 
   indexed() {
-    return new DataAttrDef<ValueType, IsRequired>(
+    return new DataAttrDef<ValueType, IsRequired, true>(
       this.valueType,
       this.required,
+      true,
       {
         ...this.config,
         indexed: true,
@@ -93,7 +103,7 @@ export type CardinalityKind = 'one' | 'many';
 // false - optional, not required
 export type RequirementKind = true | false;
 
-export type AttrsDefs = Record<string, DataAttrDef<any, any>>;
+export type AttrsDefs = Record<string, DataAttrDef<any, any, any>>;
 
 export class EntityDef<
   Attrs extends AttrsDefs,
@@ -247,7 +257,7 @@ type LinksIndexedByEntity<
 };
 
 type RequiredKeys<Attrs extends AttrsDefs> = {
-  [K in keyof Attrs]: Attrs[K] extends DataAttrDef<any, infer R>
+  [K in keyof Attrs]: Attrs[K] extends DataAttrDef<any, infer R, any>
     ? R extends true
       ? K
       : never
@@ -255,7 +265,7 @@ type RequiredKeys<Attrs extends AttrsDefs> = {
 }[keyof Attrs];
 
 type OptionalKeys<Attrs extends AttrsDefs> = {
-  [K in keyof Attrs]: Attrs[K] extends DataAttrDef<any, infer R>
+  [K in keyof Attrs]: Attrs[K] extends DataAttrDef<any, infer R, any>
     ? R extends false
       ? K
       : never
@@ -268,11 +278,11 @@ type OptionalKeys<Attrs extends AttrsDefs> = {
  *   - Optional keys => `key?: ValueType`
  */
 type MappedAttrs<Attrs extends AttrsDefs> = {
-  [K in RequiredKeys<Attrs>]: Attrs[K] extends DataAttrDef<infer V, any>
+  [K in RequiredKeys<Attrs>]: Attrs[K] extends DataAttrDef<infer V, any, any>
     ? V
     : never;
 } & {
-  [K in OptionalKeys<Attrs>]?: Attrs[K] extends DataAttrDef<infer V, any>
+  [K in OptionalKeys<Attrs>]?: Attrs[K] extends DataAttrDef<infer V, any, any>
     ? V
     : never;
 };
@@ -403,7 +413,8 @@ type EntityDefFromRoomSlice<Shape extends { [k: string]: any }> = EntityDef<
   {
     [AttrName in keyof Shape]: DataAttrDef<
       Shape[AttrName],
-      Shape[AttrName] extends undefined ? false : true
+      Shape[AttrName] extends undefined ? false : true,
+      any
     >;
   },
   any,
@@ -425,7 +436,8 @@ type EntityDefFromShape<Shape, K extends keyof Shape> = EntityDef<
   {
     [AttrName in keyof Shape[K]]: DataAttrDef<
       Shape[K][AttrName],
-      Shape[K][AttrName] extends undefined ? false : true
+      Shape[K][AttrName] extends undefined ? false : true,
+      any
     >;
   },
   {
@@ -462,8 +474,8 @@ export type BackwardsCompatibleSchema<
 
 export type UnknownEntity = EntityDef<
   {
-    id: DataAttrDef<string, true>;
-    [AttrName: string]: DataAttrDef<any, any>;
+    id: DataAttrDef<string, true, true>;
+    [AttrName: string]: DataAttrDef<any, any, any>;
   },
   { [LinkName: string]: LinkAttrDef<'many', string> },
   void
@@ -508,6 +520,7 @@ export type CreateParams<
     Schema['entities'][EntityName]['attrs']
   >]: Schema['entities'][EntityName]['attrs'][AttrName] extends DataAttrDef<
     infer ValueType,
+    any,
     any
   >
     ? ValueType
@@ -517,7 +530,8 @@ export type CreateParams<
     Schema['entities'][EntityName]['attrs']
   >]?: Schema['entities'][EntityName]['attrs'][AttrName] extends DataAttrDef<
     infer ValueType,
-    any
+    any,
+    false
   >
     ? ValueType | null
     : never;
@@ -529,7 +543,8 @@ export type UpdateParams<
 > = {
   [AttrName in keyof Schema['entities'][EntityName]['attrs']]?: Schema['entities'][EntityName]['attrs'][AttrName] extends DataAttrDef<
     infer ValueType,
-    infer IsRequired
+    infer IsRequired,
+    any
   >
     ? IsRequired extends true
       ? ValueType

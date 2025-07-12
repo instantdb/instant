@@ -9,6 +9,8 @@ import type {
   RuleParams,
   ResolveAttrs,
   ResolveEntityAttrs,
+  DataAttrDef,
+  AttrsDefs,
 } from './schemaTypes.ts';
 
 type BuiltIn = Date | Function | Error | RegExp;
@@ -68,26 +70,49 @@ type Cursor = [string, string, any, number];
 
 type Direction = 'asc' | 'desc';
 
-type Order<Fields extends string[]> = { [key in Fields[number]]?: Direction };
+type IndexedKeys<Attrs extends AttrsDefs> = {
+  [K in keyof Attrs]: Attrs[K] extends DataAttrDef<any, any, infer IsIndexed>
+    ? IsIndexed extends true
+      ? K
+      : never
+    : never;
+}[keyof Attrs];
 
+type Order<
+  Schema extends IContainEntitiesAndLinks<any, any>,
+  EntityName extends keyof Schema['entities'],
+> =
+  IndexedKeys<Schema['entities'][EntityName]['attrs']> extends never
+    ? {
+        serverCreatedAt?: Direction;
+      }
+    : {
+        [K in IndexedKeys<Schema['entities'][EntityName]['attrs']>]?: Direction;
+      } & {
+        serverCreatedAt?: Direction;
+      };
 
-type $Option<Fields extends string[]> = {
+type $Option<
+  S extends IContainEntitiesAndLinks<any, any>,
+  K extends keyof S['entities'],
+> = {
   $?: {
     where?: WhereClause;
-    order?: Order<Fields>;
+    order?: Order<S, K>;
     limit?: number;
     last?: number;
     first?: number;
     offset?: number;
     after?: Cursor;
     before?: Cursor;
-    fields?: Fields;
+    fields?: InstaQLFields<S, K>;
   };
 };
 
+type NamespaceVal =
+  | $Option<IContainEntitiesAndLinks<any, any>, keyof EntitiesDef>
+  | ($Option<IContainEntitiesAndLinks<any, any>, keyof EntitiesDef> & Subquery);
 type Subquery = { [namespace: string]: NamespaceVal };
-
-type NamespaceVal = $Option<string[]> | ($Option<string[]> & Subquery);
 
 interface Query {
   [namespace: string]: NamespaceVal;
@@ -312,8 +337,8 @@ type InstaQLEntitySubquery<
   EntityName extends keyof Schema['entities'],
 > = {
   [QueryPropName in keyof Schema['entities'][EntityName]['links']]?:
-    | $Option<InstaQLFields<Schema, EntityName>>
-    | ($Option<InstaQLFields<Schema, EntityName>> &
+    | $Option<Schema, EntityName>
+    | ($Option<Schema, EntityName> &
         InstaQLEntitySubquery<
           Schema,
           Schema['entities'][EntityName]['links'][QueryPropName]['entityName']
@@ -325,8 +350,8 @@ type InstaQLQuerySubqueryParams<
   E extends keyof S['entities'],
 > = {
   [K in keyof S['entities'][E]['links']]?:
-    | $Option<InstaQLFields<S, S['entities'][E]['links'][K]['entityName']>>
-    | ($Option<InstaQLFields<S, S['entities'][E]['links'][K]['entityName']>> &
+    | $Option<S, S['entities'][E]['links'][K]['entityName']>
+    | ($Option<S, S['entities'][E]['links'][K]['entityName']> &
         InstaQLQuerySubqueryParams<
           S,
           S['entities'][E]['links'][K]['entityName']
@@ -335,8 +360,8 @@ type InstaQLQuerySubqueryParams<
 
 type InstaQLParams<S extends IContainEntitiesAndLinks<any, any>> = {
   [K in keyof S['entities']]?:
-    | $Option<InstaQLFields<S, K>>
-    | ($Option<InstaQLFields<S, K>> & InstaQLQuerySubqueryParams<S, K>);
+    | $Option<S, K>
+    | ($Option<S, K> & InstaQLQuerySubqueryParams<S, K>);
 };
 
 /**
