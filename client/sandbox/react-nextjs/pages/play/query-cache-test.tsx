@@ -74,7 +74,6 @@ function QueryCacheApp({
   });
 
   // Detail query - specific todo if selected
-  console.log('Selected Todo ID:', selectedTodoId);
   const { data: todoDetail, isLoading: detailLoading } = db.useQuery(
     selectedTodoId
       ? {
@@ -84,8 +83,6 @@ function QueryCacheApp({
         }
       : null,
   );
-  console.log('Todo Detail Data:', todoDetail);
-  console.log('Todo Detail Loading:', detailLoading);
 
   const generateRandomTodo = () => {
     const randomText =
