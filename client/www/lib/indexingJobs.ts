@@ -69,6 +69,7 @@ export function jobFetchLoop(appId: string, jobId: string, token: string) {
         }
         await new Promise((resolve) => setTimeout(resolve, nextWaitMs(body)));
       } catch (e) {
+        console.error('Job polling error:', e);
         errored = true;
         cb(null, e as Error);
       }
@@ -106,4 +107,12 @@ export function useJobSubscription({
   );
 
   return { data, error };
+}
+
+export function jobIsErrored(job: InstantIndexingJob) {
+  return job.job_status === 'errored';
+}
+
+export function jobIsCompleted(job: InstantIndexingJob) {
+  return job.job_status === 'completed' || job.job_status === 'errored';
 }
