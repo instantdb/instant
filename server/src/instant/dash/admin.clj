@@ -74,41 +74,59 @@
 (defn get-paid
   ([] (get-paid (aurora/conn-pool :read)))
   ([conn]
-   (let [subscriptions (get-revenue-generating-subscriptions)]
-     (sql/select conn
-                 (hsql/format
-                  {:with [[[:stripe-subs
-                            {:columns [:subscription-id
-                                       :monthly-revenue
-                                       :start-timestamp]}]
-                           {:values (map (fn [s]
-                                           [(:subscription-id s)
-                                            (:monthly-revenue s)
-                                            (:start-timestamp s)])
-                                         subscriptions)}]]
-                   :select [[:apps.title :app_title]
-                            [:i_users.email :user_email]
-                            :monthly-revenue
-                            :start-timestamp
-                            [{:select [[[:coalesce
-                                         [:*
-                                          [:sum [:pg_column_size :t]]
-                                          [:case
-                                           [:= [:pg_relation_size "triples"] 0] 1
-                                           :else [:/
-                                                  [:pg_total_relation_size "triples"]
-                                                  [:pg_relation_size "triples"]]]]
-                                         0]]]
-                              :from [[:triples :t]]
-                              :where [:= :t.app_id :apps.id]}
-                             :usage]]
-                   :from :stripe-subs
-                   :join [[:instant_subscriptions :i_subs] [:=
-                                                            :stripe-subs.subscription-id
-                                                            :i_subs.stripe-subscription-id]
-                          :apps [:= :i_subs.app_id :apps.id]
-                          [:instant_users :i_users] [:= :i_subs.user_id :i_users.id]]
-                   :order-by [[:start-timestamp :desc]]})))))
+   (let [subscriptions (get-revenue-generating-subscriptions)
+         sample-size 100000
+         query {:with [[[:stripe-subs
+                         {:columns [:subscription-id
+                                    :monthly-revenue
+                                    :start-timestamp]}]
+                        {:values (map (fn [s]
+                                        [(:subscription-id s)
+                                         (:monthly-revenue s)
+                                         (:start-timestamp s)])
+                                      subscriptions)}]]
+                :select [[:apps.title :app_title]
+                         [:i_users.email :user_email]
+                         :monthly-revenue
+                         :start-timestamp
+                         [{:select [[[:coalesce
+                                      [:*
+                                       [:sum [:pg_column_size :t]]
+                                       [:case
+                                        [:= [:pg_relation_size "triples"] 0] 1
+                                        :else [:/
+                                               [:pg_total_relation_size "triples"]
+                                               [:pg_relation_size "triples"]]]]
+                                      0]]]
+                           :from [[{:select :*
+                                    :from [[:triples :t]]
+                                    :where [:= :t.app_id :apps.id]
+                                    ;; Sort by entity-id to get a more representative sample
+                                    ;; uses the triples_pkey
+                                    :order-by :t.entity_id
+                                    :limit sample-size} :t]]}
+                          :usage-sample]
+                         [{:select [:%count.*]
+                           :from [[:triples :t]]
+                           :where [:= :t.app_id :apps.id]}
+                          :triple-count]]
+                :from :stripe-subs
+                :join [[:instant_subscriptions :i_subs] [:=
+                                                         :stripe-subs.subscription-id
+                                                         :i_subs.stripe-subscription-id]
+                       :apps [:= :i_subs.app_id :apps.id]
+                       [:instant_users :i_users] [:= :i_subs.user_id :i_users.id]]
+                :order-by [[:start-timestamp :desc]]}
+         results (time (sql/select ::get-paid
+                                   conn
+                                   (hsql/format query)))]
+     (map (fn [result]
+            (assoc result
+                   :usage
+                   (long (if (> (:triple_count result) sample-size)
+                           (* (:usage_sample result) (/ (:triple_count result) sample-size))
+                           (:usage_sample result)))))
+          results))))
 
 (def get-storage-metrics app-file-model/get-all-apps-usage)
 

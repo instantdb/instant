@@ -78,30 +78,86 @@ function humanBytes(bytes: number) {
 }
 
 function PaidTable({ data }: { data: any }) {
+  const [sortConfig, setSortConfig] = useState<{
+    key: string;
+    direction: 'asc' | 'desc';
+  } | null>(null);
+
+  const sortedData = React.useMemo(() => {
+    if (!sortConfig) return data;
+
+    return [...data].sort((a, b) => {
+      let aVal = a[sortConfig.key];
+      let bVal = b[sortConfig.key];
+
+      if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [data, sortConfig]);
+
+  const handleSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'desc';
+    if (
+      sortConfig &&
+      sortConfig.key === key &&
+      sortConfig.direction === 'desc'
+    ) {
+      direction = 'asc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortIndicator = (key: string) => {
+    if (!sortConfig || sortConfig.key !== key) return ' ↕️';
+    return sortConfig.direction === 'asc' ? ' ↑' : ' ↓';
+  };
+
   return (
     <div>
       <table className="min-w-full bg-white border border-gray-200">
         <thead>
           <tr>
-            <th className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm uppercase font-medium">
-              User email
+            <th
+              className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm uppercase font-medium cursor-pointer hover:bg-gray-100"
+              onClick={() => handleSort('user_email')}
+            >
+              User email{getSortIndicator('user_email')}
             </th>
-            <th className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm uppercase font-medium">
-              App Title
+            <th
+              className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm uppercase font-medium cursor-pointer hover:bg-gray-100"
+              onClick={() => handleSort('app_title')}
+            >
+              App Title{getSortIndicator('app_title')}
             </th>
-            <th className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm uppercase font-medium">
-              Monthly prevenue
+            <th
+              className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm uppercase font-medium cursor-pointer hover:bg-gray-100"
+              onClick={() => handleSort('monthly_revenue')}
+            >
+              Monthly prevenue{getSortIndicator('monthly_revenue')}
             </th>
-            <th className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm uppercase font-medium">
-              Subscribed since
+            <th
+              className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm uppercase font-medium cursor-pointer hover:bg-gray-100"
+              onClick={() => handleSort('start_timestamp')}
+            >
+              Subscribed since{getSortIndicator('start_timestamp')}
             </th>
-            <th className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm uppercase font-medium">
-              DB size
+            <th
+              className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm uppercase font-medium cursor-pointer hover:bg-gray-100"
+              onClick={() => handleSort('usage')}
+            >
+              DB size{getSortIndicator('usage')}
+            </th>
+            <th
+              className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm uppercase font-medium cursor-pointer hover:bg-gray-100"
+              onClick={() => handleSort('triple_count')}
+            >
+              Triple count{getSortIndicator('triple_count')}
             </th>
           </tr>
         </thead>
         <tbody>
-          {data.map((row: any) => (
+          {sortedData.map((row: any) => (
             <tr key={row.user_email + row.app_title}>
               <td className="py-2 px-4 border-b border-gray-200">
                 {row.user_email}
@@ -121,6 +177,11 @@ function PaidTable({ data }: { data: any }) {
               </td>
               <td className="py-2 px-4 border-b border-gray-200">
                 {humanBytes(row.usage)}
+              </td>
+              <td className="py-2 px-4 border-b border-gray-200">
+                {row.triple_count
+                  ? Intl.NumberFormat().format(row.triple_count)
+                  : null}
               </td>
             </tr>
           ))}
