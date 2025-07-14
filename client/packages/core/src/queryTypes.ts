@@ -11,6 +11,8 @@ import type {
   ResolveEntityAttrs,
   DataAttrDef,
   AttrsDefs,
+  EntityDef,
+  EntityDefFromSchema,
 } from './schemaTypes.ts';
 
 type BuiltIn = Date | Function | Error | RegExp;
@@ -41,54 +43,66 @@ type BaseWhereClauseValueComplex<V> = {
   $lte?: V;
 };
 
-type WhereClauseValueComplex<V> = BaseWhereClauseValueComplex<V> &
-  (V extends string
+type IsAny<T> = boolean extends (T extends never ? true : false) ? true : false;
+
+type test = NonEmpty<
+  WhereClauseValueComplex<string | number | boolean, false, true>
+>;
+
+type WhereClauseValueComplex<V, R, I> = BaseWhereClauseValueComplex<V> &
+  (IsAny<V> extends true
     ? {
-        $like?: string;
         $ilike?: string;
-      }
-    : {}) &
-  (undefined extends V
-    ? {
+        $like?: string;
         $isNull?: boolean;
       }
-    : {});
+    : (V extends string
+        ? {
+            $like?: string;
+          }
+        : {}) &
+        (R extends false
+          ? {
+              $isNull?: boolean;
+            }
+          : {}) &
+        (I extends true
+          ? {
+              $ilike?: string;
+            }
+          : {}));
 
 // Make type display better
-type WhereClauseValue<V> =
-  | (V extends string | undefined
-      ? string
-      : V extends number | undefined
-        ? number
-        : V extends boolean | undefined
-          ? boolean
-          : never)
-  | WhereClauseValueComplex<V>;
+type WhereClauseValue<
+  D extends DataAttrDef<string | number | boolean, boolean, boolean>,
+> =
+  D extends DataAttrDef<infer V, infer R, infer I>
+    ?
+        | (IsAny<V> extends true ? string | number | boolean : V)
+        | NonEmpty<WhereClauseValueComplex<V, R, I>>
+    : never;
 
 type WhereClauseColumnEntries<
   T extends {
-    [key: string]: unknown;
+    [key: string]: DataAttrDef<any, boolean, boolean>;
   },
 > = {
   [key in keyof T]?: WhereClauseValue<T[key]>;
 };
 
-type WhereClauseComboEntries<T extends Record<any, unknown>> = {
-  or?:
-    | WhereClauses<T>[]
-    | WhereClauseValue<string | number | boolean | undefined>;
-  and?:
-    | WhereClauses<T>[]
-    | WhereClauseValue<string | number | boolean | undefined>;
+type WhereClauseComboEntries<
+  T extends Record<any, DataAttrDef<any, boolean, boolean>>,
+> = {
+  or?: WhereClauses<T>[] | WhereClauseValue<DataAttrDef<any, false, true>>;
+  and?: WhereClauses<T>[] | WhereClauseValue<DataAttrDef<any, false, true>>;
 };
 
-type WhereClauses<T extends Record<any, any>> = (
+type WhereClauses<T extends Record<any, DataAttrDef<any, boolean, boolean>>> = (
   | WhereClauseComboEntries<T>
   | (WhereClauseComboEntries<T> & WhereClauseColumnEntries<T>)
 ) & {
-  [key: `${string}.${string}`]: WhereClauseValue<
-    string | number | boolean | undefined
-  >;
+  id?: string;
+  [key: `${string}.${string}`]: WhereClauseValue<DataAttrDef<any, false, true>>;
 };
 
 /**
@@ -129,7 +143,7 @@ type $Option<
   K extends keyof S['entities'],
 > = {
   $?: {
-    where?: WhereClauses<InstaQLEntity<S, K>>;
+    where?: WhereClauses<EntityDefFromSchema<S, K>>;
     order?: Order<S, K>;
     limit?: number;
     last?: number;
