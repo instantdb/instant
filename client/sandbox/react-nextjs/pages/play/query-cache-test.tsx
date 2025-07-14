@@ -333,7 +333,7 @@ export default function QueryCacheTestPage() {
           schema={schema}
           perms={perms}
           Component={QueryCacheApp}
-          addConfig={{ queryCacheLimit: cacheLimit }}
+          extraConfig={{ queryCacheLimit: cacheLimit }}
         />
       )}
       {!isHydrated && <div className="text-center py-8">Loading...</div>}

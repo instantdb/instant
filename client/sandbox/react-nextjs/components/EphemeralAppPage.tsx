@@ -73,7 +73,7 @@ function AppPage<
   perms,
   onCreateApp,
   Component,
-  addConfig,
+  extraConfig,
 }: {
   urlAppId: string | undefined;
   schema?: InstantSchemaDef<Entities, Links, Rooms>;
@@ -89,7 +89,7 @@ function AppPage<
     db: InstantReactAbstractDatabase<InstantSchemaDef<Entities, Links, Rooms>>;
     appId: string;
   }>;
-  addConfig?: Partial<Omit<Config, 'appId' | 'schema'>>;
+  extraConfig?: Partial<Omit<Config, 'appId' | 'schema'>>;
 }) {
   const router = useRouter();
   const [appId, setAppId] = useState<string | undefined>();
@@ -157,7 +157,7 @@ function AppPage<
     return <div>Loading...</div>;
   }
 
-  const finalConfig = { ...config, ...addConfig, schema, appId };
+  const finalConfig = { ...config, ...extraConfig, schema, appId };
   const db = init(finalConfig);
 
   return <Component key={appId} db={db} appId={appId} />;
@@ -172,7 +172,7 @@ function Page<
   perms,
   onCreateApp,
   Component,
-  addConfig,
+  extraConfig,
 }: {
   schema?: InstantSchemaDef<Entities, Links, Rooms>;
   perms?: any;
@@ -183,7 +183,7 @@ function Page<
     db: InstantReactAbstractDatabase<InstantSchemaDef<Entities, Links, Rooms>>;
     appId: string;
   }>;
-  addConfig?: Partial<Omit<Config, 'appId' | 'schema'>>;
+  extraConfig?: Partial<Omit<Config, 'appId' | 'schema'>>;
 }) {
   const router = useRouter();
   if (router.isReady) {
@@ -193,7 +193,7 @@ function Page<
         perms={perms}
         onCreateApp={onCreateApp}
         Component={Component}
-        addConfig={addConfig}
+        extraConfig={extraConfig}
         urlAppId={router.query.app as string}
       />
     );
