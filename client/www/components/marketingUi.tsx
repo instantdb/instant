@@ -245,9 +245,9 @@ export function PageProgressBar() {
   }, []);
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 h-1 bg-gray-200">
+    <div className="fixed top-0 left-0 right-0 z-50 h-0.5 bg-gray-200">
       <div
-        className="h-full bg-gradient-to-r from-blue-500 to-purple-600 transition-all duration-150 ease-out"
+        className="h-full bg-orange-600 transition-all duration-150 ease-out"
         style={{ width: `${progress}%` }}
       />
     </div>
@@ -265,4 +265,6 @@ export interface Post {
   date: string;
   mdHTML: string;
   authors: Author[];
+  isDraft?: boolean;
+  hero?: string;
 }
