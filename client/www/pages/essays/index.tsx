@@ -4,7 +4,6 @@ import Head from 'next/head';
 import { getAllPosts } from '../../lib/posts';
 import NextLink from 'next/link';
 import {
-  H3,
   LandingContainer,
   LandingFooter,
   MainNav,
@@ -32,22 +31,21 @@ export default function Page({ posts }: { posts: Post[] }) {
       <div className="flex min-h-screen flex-col justify-between">
         <MainNav />
         <div className="mx-auto mt-6 max-w-4xl flex-1 space-y-4 p-4">
-          {posts.map(({ title, slug, date, authors }, idx) => {
-            return (
-              <div key={slug}>
-                <div className="mb-2">
-                  <div
-                    className={`mb-4 space-y-2 py-4 ${
-                      idx !== posts.length - 1 ? 'border-b' : ''
-                    }`}
-                  >
+          {posts
+            .filter(({ isDraft }) => !isDraft)
+            .map(({ title, slug, date, authors }, idx) => {
+              return (
+                <div key={slug} className="max-w-prose">
+                  <div className={`mb-4 py-4`}>
                     <NextLink
                       href={`/essays/${slug}`}
                       className="hover:text-blue-500"
                     >
-                      <H3>{title}</H3>
+                      <h2 className="text-3xl font-medium leading-relaxed">
+                        {title}
+                      </h2>
                     </NextLink>
-                    <div className="flex justify-between text-xs font-bold uppercase text-gray-500">
+                    <div className="flex justify-between text-sm text-gray-500">
                       <span className="space-x-1">
                         {authors.map((author, idx) => (
                           <span key={author.name}>
@@ -63,9 +61,8 @@ export default function Page({ posts }: { posts: Post[] }) {
                     </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
         </div>
         <LandingFooter />
       </div>
