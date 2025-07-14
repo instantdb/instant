@@ -25,8 +25,14 @@ test('runs without exception', () => {
         body: i.string(),
       }),
       comments: i.entity({
-        body: i.string(),
+        body: i.string().indexed(),
         likes: i.number(),
+      }),
+
+      birthdays: i.entity({
+        date: i.date(),
+        message: i.string(),
+        prizes: i.json<string | number>(),
       }),
     },
     links: {
@@ -139,6 +145,17 @@ test('runs without exception', () => {
 
   // strings allow matching against strings
   const validateDummyQueries = () => {
+    // Allow for matching id
+    const r0 = dummyQuery({
+      users: {
+        $: {
+          where: {
+            id: '123',
+          },
+        },
+      },
+    });
+
     const r1 = dummyQuery({
       users: {
         $: {
@@ -557,6 +574,47 @@ test('runs without exception', () => {
         referred: {
           $: {
             fields: ['name'],
+          },
+        },
+      },
+    });
+
+    // ilike in relations
+    const r19 = dummyQuery({
+      comments: {
+        $: {
+          where: {
+            'post.body': { $ilike: 'hi' },
+          },
+        },
+      },
+    });
+
+    const r20 = dummyQuery({
+      comments: {
+        $: {
+          where: {
+            body: { $ilike: 'hi' },
+          },
+        },
+      },
+
+      posts: {
+        $: {
+          where: {
+            // @ts-expect-error String fields that aren't indexed can't use $ilike
+            body: { $ilike: 'hi' },
+          },
+        },
+      },
+    });
+
+    // Json columns
+    const r21 = dummyQuery({
+      birthdays: {
+        $: {
+          where: {
+            prizes: 'hi',
           },
         },
       },
