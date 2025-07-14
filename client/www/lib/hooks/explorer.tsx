@@ -75,6 +75,7 @@ export function useNamespacesQuery(
       ? {
           [selectedNs.name]: {
             $: {
+              // @ts-ignore: unreleased aggregate feature (only works with admin queries)
               aggregate: 'count',
               ...(where ? { where: where } : {}),
             },
