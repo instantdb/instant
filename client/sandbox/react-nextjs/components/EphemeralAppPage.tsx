@@ -6,6 +6,7 @@ import {
   InstantReactAbstractDatabase,
   InstantSchemaDef,
   LinksDef,
+  Config,
 } from '@instantdb/react';
 import { useEffect, useState } from 'react';
 import { RoomsDef, TransactionChunk } from '../../../packages/core/dist/esm';
@@ -54,7 +55,12 @@ async function verifyEphemeralApp({ appId }: { appId: string }) {
     },
   });
 
-  return r.json();
+  const data = await r.json();
+
+  if (!r.ok) {
+    throw data;
+  }
+  return data;
 }
 
 function AppPage<
@@ -67,6 +73,7 @@ function AppPage<
   perms,
   onCreateApp,
   Component,
+  extraConfig,
 }: {
   urlAppId: string | undefined;
   schema?: InstantSchemaDef<Entities, Links, Rooms>;
@@ -82,9 +89,10 @@ function AppPage<
     db: InstantReactAbstractDatabase<InstantSchemaDef<Entities, Links, Rooms>>;
     appId: string;
   }>;
+  extraConfig?: Partial<Omit<Config, 'appId' | 'schema'>>;
 }) {
   const router = useRouter();
-  const [appId, setAppId] = useState();
+  const [appId, setAppId] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
 
   const provisionApp = async () => {
@@ -109,13 +117,28 @@ function AppPage<
 
   useEffect(() => {
     if (urlAppId) {
-      verifyEphemeralApp({ appId: urlAppId }).then((res): any => {
-        if (res.app) {
+      verifyEphemeralApp({ appId: urlAppId })
+        .then((res): any => {
           setAppId(res.app.id);
-        } else {
-          provisionApp();
-        }
-      });
+        })
+        .catch((err) => {
+          if (
+            err.type === 'record-not-found' ||
+            err.type === 'param-malformed'
+          ) {
+            // App ID is not valid, provision a new one
+            console.error('Error verifying ephemeral app:', err);
+            console.log('Provisioning new ephemeral app');
+            provisionApp();
+            return;
+          }
+          if (!err.type) {
+            // Some other error, maybe we're offline - let's just trust the
+            // app ID so we can test offline
+            setAppId(urlAppId as any);
+            return;
+          }
+        });
     } else {
       provisionApp();
     }
@@ -134,9 +157,8 @@ function AppPage<
     return <div>Loading...</div>;
   }
 
-  const db = init({ ...config, schema, appId });
-
-  console.log(Component);
+  const finalConfig = { ...config, ...extraConfig, schema, appId };
+  const db = init(finalConfig);
 
   return <Component key={appId} db={db} appId={appId} />;
 }
@@ -150,6 +172,7 @@ function Page<
   perms,
   onCreateApp,
   Component,
+  extraConfig,
 }: {
   schema?: InstantSchemaDef<Entities, Links, Rooms>;
   perms?: any;
@@ -160,6 +183,7 @@ function Page<
     db: InstantReactAbstractDatabase<InstantSchemaDef<Entities, Links, Rooms>>;
     appId: string;
   }>;
+  extraConfig?: Partial<Omit<Config, 'appId' | 'schema'>>;
 }) {
   const router = useRouter();
   if (router.isReady) {
@@ -169,6 +193,7 @@ function Page<
         perms={perms}
         onCreateApp={onCreateApp}
         Component={Component}
+        extraConfig={extraConfig}
         urlAppId={router.query.app as string}
       />
     );

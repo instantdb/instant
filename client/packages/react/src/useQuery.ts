@@ -60,6 +60,11 @@ export function useQueryInternal<
   // if `subscribe` changes, so we use `useCallback` to memoize the function.
   const subscribe = useCallback(
     (cb) => {
+      // Update the ref when the query changes to avoid showing stale data
+      resultCacheRef.current = stateForResult(
+        _core._reactor.getPreviousResult(query),
+      );
+
       // Don't subscribe if query is null
       if (!query) {
         const unsubscribe = () => {};
