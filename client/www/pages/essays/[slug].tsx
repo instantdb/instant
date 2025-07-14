@@ -10,6 +10,8 @@ import {
   type Post,
 } from '@/components/marketingUi';
 import * as og from '@/lib/og';
+import { useEffect } from 'react';
+import { createRoot } from 'react-dom/client';
 
 function Prose({ html }: { html: string }) {
   return (
@@ -20,8 +22,35 @@ function Prose({ html }: { html: string }) {
   );
 }
 
+const specialComponents = {
+  customized_post: [{ id: 'customized-comp', comp: () => <div>Hello</div> }],
+} as const;
+
+function useAttachSpecialComponents({ post }: { post: Post }) {
+  const slug = post.slug;
+  useEffect(() => {
+    const specialComps =
+      specialComponents[slug as keyof typeof specialComponents];
+    if (!specialComps) {
+      return;
+    }
+    specialComps.forEach(({ id, comp }) => {
+      const el = document.getElementById(id);
+      if (!el) {
+        throw new Error(`Element with id ${id} not found`);
+      }
+      const root = createRoot(el);
+      const Comp = comp;
+      root.render(<Comp />);
+      return () => {
+        root.unmount();
+      };
+    });
+  }, [slug]);
+}
 const Post = ({ post }: { post: Post }) => {
   const { title, date, mdHTML, authors, hero } = post;
+  useAttachSpecialComponents({ post });
   return (
     <LandingContainer>
       <Head>

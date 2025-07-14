@@ -7,3 +7,5 @@ hero: /posts/customized_post/hero.png
 ---
 
 This is an example post.
+
+<div id="customized-comp"></div>
