@@ -370,7 +370,9 @@ export function Checkbox({
   );
 }
 
-export function Select({
+export function Select<
+  Value extends string | number | readonly string[] = string,
+>({
   value,
   options,
   className,
@@ -381,9 +383,9 @@ export function Select({
   title,
 }: {
   value?: string;
-  options: { label: string; value: string }[];
+  options: { label: string; value: Value }[];
   className?: string;
-  onChange: (option?: { label: string; value: string }) => void;
+  onChange: (option?: { label: string; value: Value }) => void;
   disabled?: boolean;
   emptyLabel?: string;
   tabIndex?: number;
@@ -407,7 +409,7 @@ export function Select({
     >
       {options.length ? (
         options.map((option) => (
-          <option key={option.value} value={option.value}>
+          <option key={option.label} value={option.value}>
             {option.label}
           </option>
         ))
@@ -873,6 +875,7 @@ export function CodeEditor(props: {
   path?: string;
   tabIndex?: number;
   loading?: boolean;
+  readOnly?: boolean;
 }) {
   return (
     <Editor
@@ -888,6 +891,7 @@ export function CodeEditor(props: {
         minimap: { enabled: false },
         automaticLayout: true,
         tabIndex: props.tabIndex,
+        readOnly: props.readOnly,
       }}
       onChange={(value) => {
         props.onChange(value || '');

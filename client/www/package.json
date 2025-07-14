@@ -18,6 +18,7 @@
     "@instantdb/admin": "workspace:*",
     "@instantdb/core": "workspace:*",
     "@instantdb/react": "workspace:*",
+    "@instantdb/platform": "workspace:*",
     "@markdoc/markdoc": "0.1.13",
     "@markdoc/next.js": "^0.3.7",
     "@monaco-editor/react": "^4.6.0",
