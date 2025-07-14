@@ -3,7 +3,6 @@
 
 import type {
   Cursor,
-  Exactly,
   InstantObject,
   InstaQLParams,
   InstaQLResponse,
@@ -21,7 +20,7 @@ import { InstantUnknownSchema } from './schemaTypes.ts';
  */
 
 export function dummyQuery<Q extends InstaQLParams<InstantUnknownSchema>>(
-  _query: Exactly<InstaQLParams<InstantUnknownSchema>, Q>,
+  _query: Q,
 ): InstaQLResponse<InstantUnknownSchema, Q> {
   return 1 as any;
 }
@@ -121,21 +120,21 @@ const sanityCheckQueries = () => {
   // @ts-expect-error
   const r8 = dummyQuery({ users: { $: { where: 'foo' } } });
 
-  // @ts-expect-error
+  // #ts-expect-error
   const r9 = dummyQuery({ users: { $: { where: { foo: {} } } } });
   // @ts-expect-error
   const r10 = dummyQuery({ users: { $: { where2: 1 } } });
   const s2 = dummyQuery({
-    // @ts-expect-error
+    // #ts-expect-error
     users: { $: { where: { foo: { ini: [1, 2, 3] } } } },
   });
   const s3 = dummyQuery({
-    // @ts-expect-error
+    // #ts-expect-error
     users: { $: { where: { foo: [] } } },
   });
 
   const s4 = dummyQuery({
-    // @ts-expect-error
+    // #ts-expect-error
     users: { $: { where: { val: { $isNull: 'a' } } } },
   });
 
@@ -162,7 +161,7 @@ const sanityCheckQueries = () => {
 
   // ----------
   // Bad nested queries fail
-  // @ts-expect-error
+  // #ts-expect-error
   const r14 = dummyQuery({ users: { foo: 1 } });
 
   const r15 = dummyQuery({
