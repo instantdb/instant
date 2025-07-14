@@ -120,8 +120,8 @@ const sanityCheckQueries = () => {
   // Bad $ clauses fail
   // @ts-expect-error
   const r8 = dummyQuery({ users: { $: { where: 'foo' } } });
-  // NOTE: Used to error before adding typesafe-where operator, issue is incompatibility
-  // with NonEmpty and dynamic $isNull checks
+
+  // @ts-expect-error
   const r9 = dummyQuery({ users: { $: { where: { foo: {} } } } });
   // @ts-expect-error
   const r10 = dummyQuery({ users: { $: { where2: 1 } } });
