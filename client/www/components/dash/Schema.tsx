@@ -7,7 +7,14 @@ import {
 import { Monaco } from '@monaco-editor/react';
 import { useState } from 'react';
 import { DBAttr } from '@/lib/types';
-import { CodeEditor, Content, Label, SectionHeading, Select } from '../ui';
+import {
+  CodeEditor,
+  Content,
+  Fence,
+  Label,
+  SectionHeading,
+  Select,
+} from '@/components/ui';
 
 import { attrsToSchema } from '@/lib/schema';
 
@@ -103,7 +110,16 @@ export function Schema({ db }: { db: InstantReactClient }) {
           <p>This is the schema for your app in code form.</p>
           <p>
             We recommend you use the <code>instant-cli</code> to push and pull
-            changes to your schema.
+            changes to your schema:
+          </p>
+          <p>
+            <div className="border rounded text-sm overflow-auto">
+              <Fence
+                copyable
+                code={`npx instant-cli@latest pull`}
+                language="bash"
+              />
+            </div>
           </p>
           <p>
             <a href="https://www.instantdb.com/docs/modeling-data#schema-as-code">
