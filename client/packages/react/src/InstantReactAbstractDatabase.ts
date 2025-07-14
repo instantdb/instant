@@ -21,7 +21,6 @@ import {
   RoomsOf,
   InstantSchemaDef,
   IInstantDatabase,
-  Exactly,
 } from '@instantdb/core';
 import {
   KeyboardEvent,
@@ -199,7 +198,7 @@ export default abstract class InstantReactAbstractDatabase<
    *   );
    */
   useQuery = <Q extends InstaQLParams<Schema>>(
-    query: null | Exactly<InstaQLParams<Schema>, Q>,
+    query: null | Q,
     opts?: InstaQLOptions,
   ): InstaQLLifecycleState<Schema, Q> => {
     return useQueryInternal<Q, Schema>(this._core, query, opts).state;
