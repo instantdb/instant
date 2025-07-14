@@ -253,7 +253,7 @@ export type InstantAPISchemaPushStep =
 
 function attrDefToCodeString([name, attr]: [
   string,
-  DataAttrDef<string, boolean>,
+  DataAttrDef<string, boolean, boolean>,
 ]) {
   const type =
     (attr.metadata.derivedType as any)?.type || attr.valueType || 'any';
@@ -369,7 +369,7 @@ export function generateSchemaTypescriptFile(
     ',',
   );
 
-  const inferredAttrs: DataAttrDef<string, boolean>[] = [];
+  const inferredAttrs: DataAttrDef<string, boolean, boolean>[] = [];
 
   for (const entity of Object.values(newSchema.entities)) {
     for (const attr of Object.values(entity.attrs)) {
