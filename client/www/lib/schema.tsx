@@ -204,14 +204,11 @@ function removeHidden(attrs: DBAttr[]) {
   });
 }
 
-// Helper functions
 function getFwdEtype(attr: DBAttr) {
-  // Given an attr, return its forward etype
   return attr['forward-identity'][1];
 }
 
 function getFwdLabel(attr: DBAttr) {
-  // Given an attr, return its forward label
   return attr['forward-identity'][2];
 }
 
