@@ -302,6 +302,12 @@ function Dashboard() {
 
   const dashResponse = useDashFetch();
 
+  const [agentEssayDemo, setAgentEssayDemo] = useLocalStorage<{
+    appId?: string;
+    adminToken?: string;
+    claimed?: boolean;
+  }>('agents-essay-demo', {});
+
   useEffect(() => {
     if (!token) return;
     const state = getLocal('__tutorial-interaction-state');
@@ -319,6 +325,24 @@ function Dashboard() {
       return dashResponse.mutate();
     });
   }, [token]);
+
+  // TODO: do
+  useEffect(() => {
+    if (!token) return;
+    if (agentEssayDemo.claimed) return;
+    if (!agentEssayDemo.appId || !agentEssayDemo.adminToken) return;
+
+    jsonMutate(
+      `${config.apiURI}/dash/apps/ephemeral/${agentEssayDemo.appId}/claim`,
+      {
+        token,
+        method: 'POST',
+        body: { token: agentEssayDemo.adminToken },
+      },
+    ).then(() => {
+      setAgentEssayDemo({ ...agentEssayDemo, claimed: true });
+    });
+  }, [token, agentEssayDemo]);
 
   const apps = (dashResponse.data?.apps ?? []).toSorted(createdAtComparator);
 

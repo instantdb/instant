@@ -12,6 +12,7 @@ import {
 import * as og from '@/lib/og';
 import { useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
+import AgentsEssayDemo from '@/components/essays/shouts_demo';
 
 function Prose({ html }: { html: string }) {
   return (
@@ -23,7 +24,7 @@ function Prose({ html }: { html: string }) {
 }
 
 const specialComponents = {
-  customized_post: [{ id: 'customized-comp', comp: () => <div>Hello</div> }],
+  agents: [{ id: 'shouts-demo', comp: AgentsEssayDemo }],
 } as const;
 
 function useAttachSpecialComponents({ post }: { post: Post }) {
@@ -72,7 +73,7 @@ const Post = ({ post }: { post: Post }) => {
       <MainNav />
       <div className="mt-6 p-4 space-y-4">
         <div className="mb-4 py-4 max-w-prose mx-auto">
-          <h1 className="text-4xl font-medium leading-relaxed">{title}</h1>
+          <h1 className="text-4xl font-medium mb-2">{title}</h1>
           <div className="flex justify-between text-sm text-gray-500">
             <span className="space-x-2">
               {authors.map((author, idx) => {
@@ -93,9 +94,11 @@ const Post = ({ post }: { post: Post }) => {
             {format(parse(date, 'yyyy-MM-dd', new Date()), 'MMM do, yyyy')}
           </div>
         </div>
-        <div className="max-w-2xl mx-auto">
-          {hero && <img src={hero} className="w-full rounded bg-gray-100" />}
-        </div>
+        {hero && (
+          <div className="max-w-3xl mx-auto">
+            <img src={hero} className="w-full rounded bg-gray-100" />
+          </div>
+        )}
         <Prose html={mdHTML} />
       </div>
       <LandingFooter />
