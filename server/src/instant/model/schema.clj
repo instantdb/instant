@@ -144,16 +144,18 @@
 (def $files-url-aid (system-catalog/get-attr-id "$files" "url"))
 
 (defn transform-$files-url-attr
-  "$files.url is a derived attribute that we always return from queries. 
-  It does not exist inside our database, so it's marked as optional. 
+  "$files.url is a derived attribute that we always return from queries.
+  It does not exist inside our database, so it's marked as optional.
 
-  However, to our users, it's seen as a required attribute, since we always 
+  However, to our users, it's seen as a required attribute, since we always
   provide it."
   [{:keys [id] :as a}]
   (if (= $files-url-aid id)
     (assoc a :required? true)
     a))
 
+;; Any edits to attrs->schema should be
+;; replicated in attrsToSchema at www/lib/schema.tsx
 (defn attrs->schema [attrs]
   (let [filtered-attrs (map transform-$files-url-attr (attr-model/remove-hidden attrs))
         {blobs :blob refs :ref} (group-by :value-type filtered-attrs)

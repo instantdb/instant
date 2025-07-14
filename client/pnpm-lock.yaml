@@ -684,6 +684,9 @@ importers:
       '@instantdb/core':
         specifier: workspace:*
         version: link:../packages/core
+      '@instantdb/platform':
+        specifier: workspace:*
+        version: link:../packages/platform
       '@instantdb/react':
         specifier: workspace:*
         version: link:../packages/react

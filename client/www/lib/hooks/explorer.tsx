@@ -93,7 +93,14 @@ export function useNamespacesQuery(
   };
 }
 export function useSchemaQuery(db: InstantReactWebDatabase<any>) {
-  const [namespaces, setNamespaces] = useState<SchemaNamespace[] | null>(null);
+  const [state, setState] = useState<
+    | {
+        namespaces: SchemaNamespace[];
+        attrs: Record<string, DBAttr>;
+      }
+    | { namespaces: null; attrs: null }
+  >({ namespaces: null, attrs: null });
+
   // (XXX)
   // This is a hack so we can listen to all attr changes
   //
@@ -107,10 +114,13 @@ export function useSchemaQuery(db: InstantReactWebDatabase<any>) {
 
   useEffect(() => {
     function onAttrs(_oAttrs: Record<string, DBAttr>) {
-      setNamespaces(dbAttrsToExplorerSchema(_oAttrs));
+      setState({
+        attrs: _oAttrs,
+        namespaces: dbAttrsToExplorerSchema(_oAttrs),
+      });
     }
     return db._core._reactor.subscribeAttrs(onAttrs);
   }, [db]);
 
-  return { namespaces };
+  return state;
 }
