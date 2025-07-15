@@ -42,7 +42,7 @@ function getAuthors(authorStr) {
   return authorStr.split(',').map((x) => AUTHORS[x.trim()]);
 }
 
-function getPostBySlug(slug) {
+export function getPostBySlug(slug) {
   const file = fs.readFileSync(`./_posts/${slug}.md`, 'utf-8');
   const { data, content } = matter(file);
   return {
@@ -65,14 +65,6 @@ export function getAllSlugs() {
   return dir
     .map((mdName) => removeMdExtension(mdName))
     .filter((slug) => !archivedSlugs.includes(slug));
-}
-
-export function getHTMLPostBySlug(slug) {
-  const p = getPostBySlug(slug);
-  return {
-    ..._.omit(p, 'content'),
-    mdHTML: marked(p.content),
-  };
 }
 
 export function getAllPosts() {
