@@ -1,6 +1,7 @@
 (ns instant.model.app
   (:require
    [clojure.core.cache.wrapped :as cache]
+   [clojure.set :refer [rename-keys]]
    [honey.sql :as hsql]
    [instant.db.model.attr :as attr-model]
    [instant.db.model.transaction :as transaction-model]
@@ -39,17 +40,22 @@
 (defn create!
   ([params] (create! (aurora/conn-pool :write) params))
   ([conn {:keys [id title creator-id admin-token]}]
-   (next-jdbc/with-transaction [tx-conn conn]
-     (let [app (sql/execute-one!
-                ::create!
-                tx-conn
-                (hsql/format {:insert-into :apps
-                              :values [{:id id
-                                        :title title
-                                        :creator-id creator-id}]}))
-           {:keys [token]} (app-admin-token-model/create! tx-conn {:app-id id
-                                                                   :token admin-token})]
-       (assoc app :admin-token token)))))
+   (let [query {:with [[:app_insert
+                        {:insert-into :apps
+                         :values [{:id id
+                                   :title title
+                                   :creator-id creator-id}]
+                         :returning :*}]
+                       [:token_insert
+                        {:insert-into :app_admin_tokens
+                         :values [{:app-id id
+                                   :token admin-token}]
+                         :returning :*}]]
+                :select [:app_insert.* [:token_insert.token :admin-token]]
+                :from :app_insert
+                :join [:token_insert [:= :token_insert.app_id :app_insert.id]]}
+         app-with-token (sql/execute-one! ::create! conn (hsql/format query))]
+     (rename-keys app-with-token {:admin_token :admin-token}))))
 
 (defn get-by-id* [conn id]
   (sql/select-one ::get-by-id*
