@@ -598,10 +598,10 @@ export default function McpTutorial({ files }: MarkdownContent) {
               <p>
                 Woohoo! Now that we've got everything set up, we're ready to
                 build an app! Fire up your editor (cursor, windsurf, zed, etc.)
-                or your CLI tool (cursor, gemini, etc) and type up a prompt. Hit
+                or your CLI tool (claude, gemini, etc) and type up a prompt. Hit
                 enter and watch the magic happen!
               </p>
-              <p>Here are some example prompts for inspiration</p>
+              <p>We've seen the best results with Claude Sonnet 4 and Claude Opus. Here are some example prompts for inspiration</p>
             </div>
             <div className="space-y-6">
               {examplePrompts.map((prompt, index) => (
