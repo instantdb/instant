@@ -80,7 +80,7 @@ const Post = ({ post }: { post: Post }) => {
                 const ytMatch = props.href?.match(youtubePattern);
                 if (ytMatch) {
                   return (
-                    <div className="md-video-container">
+                    <span className="md-video-container block">
                       <iframe
                         width="100%"
                         src={`https://www.youtube.com/embed/${ytMatch[1]}?${youtubeParams}`}
@@ -88,21 +88,21 @@ const Post = ({ post }: { post: Post }) => {
                         allow="autoplay; picture-in-picture"
                         allowFullScreen
                       ></iframe>
-                    </div>
+                    </span>
                   );
                 }
 
                 const muxMatch = props.href?.match(muxPattern);
                 if (muxMatch) {
                   return (
-                    <div className="md-video-container">
+                    <span className="md-video-container block">
                       <iframe
                         width="100%"
                         src={`https://stream.mux.com/${muxMatch[1]}`}
                         title="${title}"
                         allowFullScreen
                       ></iframe>
-                    </div>
+                    </span>
                   );
                 }
 
