@@ -5,13 +5,13 @@ authors: stopachka, nikitonsky
 og_image: /posts/agents/og_image.png
 ---
 
-We’re entering a new phase of software engineering. People are becoming addicted to agents. Beginners are vibe-coding apps and experts are maxing out their LLM subscriptions. This means that a lot more people are going to make a lot more apps, and for that we’re going to need new tools.
+We’re entering a new phase of software engineering. People are becoming addicted to agents. Beginners are vibe-coding apps and experts are maxing out their LLM subscriptions. This means that a lot more people are going to make a lot more apps, and for that we’re going to need new tools. So we’re launching some.
 
-So we’re launching some. Today we’re releasing an API that gives agents full-stack backends. Each backend comes with a database, a sync engine, auth tools, file storage, and an ephemeral data API.
+Today we’re releasing an API that gives you and your agents full-stack backends. Each backend comes with a database, a sync engine, auth tools, file storage, and an ephemeral data API.
 
 Agents can use these tools to ship high-level code that’s easier for them to write and for humans to review. It’s all hosted on multi-tenant infrastructure, so you can spin up millions of databases in milliseconds. We have a [demo](#exposing-the-api) at the end of this essay.
 
-Let us explain exactly why we’re launching this. We think that humans and agents can make the most progress when they have (1) built-in abstractions that (2) can be hosted efficiently and (3) expose data.
+Let us explain exactly why built this. We think that humans and agents can make the most progress when they have (1) built-in abstractions that (2) can be hosted efficiently and (3) expose data.
 
 # Built-in Abstractions
 
@@ -29,11 +29,13 @@ And agents need good abstractions even more than human programmers do.
 
 To make agents work well we need to manage their context windows. It’s very easy to break through limits. Especially when agents write code that involves multiple moving pieces.
 
-Consider what happens when an agent needs to add a feature to a traditional client-server app. They change (a) the frontend (b) the backend and (c) the database. In order to safely make these changes they have to remember more of the codebase, and they have to be exact about how everything works together.
+Consider what happens when an agent adds a feature to a traditional client-server app. They change (a) the frontend (b) the backend and (c) the database. In order to safely make these changes, they have to remember more of the codebase and be exact about how things works together.
 
-Good abstractions can combine multiple moving pieces into one piece. This is more conducive to local reasoning: the agent only has to concern themselves with a smaller interface, so they don’t have to remember so much. Agents can use less context and write higher-level code. And that’s great for humans too. After all, we have to review the agent’s work. Shorter, higher-level code is easier to understand. [^1]
+Good abstractions can combine multiple moving pieces into one piece. This is more conducive to local reasoning: the agent only has to concern themselves with a smaller interface, so they don’t have to remember so much. This means agents can use less context and write higher-level code. And that’s great for humans too. After all, we have to review the agent’s work. Shorter, higher-level code is easier to understand. [^1]
 
-And when both agents and humans make more progress, they build more apps. Which brings us to hosting. Once we build apps, how will we host them?
+And when both humans and agents make more progress, they build more apps. This brings us to hosting.
+
+Once humans and agents build apps, how will we host them?
 
 # Cost-Efficient Hosting
 
@@ -51,7 +53,7 @@ For our 20,000 small apps we would need 40,000 VMs. That’s about $95,000 a mon
 
 ## Friction
 
-We’re not suggesting that people want to make 20,000 apps. We’re pointing out an inefficiency. Running applications today comes with overhead. Particularly in RAM.
+We’re not suggesting that people want to make 20,000 apps. We’re pointing out an inefficiency. Running applications today comes with overhead, particularly in RAM.
 
 And when there’s overhead there’s friction. Today platforms freeze machines, limit how many apps you can spin up, or require credit cards. In an era where every human can create lots of apps, this feels like a bummer.
 
@@ -81,7 +83,9 @@ We can create efficient apps by choosing appropriate isolation strategies.
 
 Shared abstractions could be served from multi-tenant services on big machines. Permissions could use CEL, javascript callbacks could run on V8 Isolates, and shell commands run on Micro VMs. If we did that, 20,000 apps with 1 active user would cost about the same as 1 app with 20,000 users.
 
-Humans and agents would be able to deploy apps with little friction. Which brings us to end-users. Once humans and agents deploy apps, how will people use them?
+Humans and agents would be able to deploy apps with little friction. And that brings us to end-users.
+
+Once humans and agents deploy apps, how will people use them?
 
 # Exposed Data
 
@@ -93,19 +97,20 @@ If one agent helps build the software, why shouldn’t another agent be able to 
 
 When every user has an agent, extendable software is an advantage. It’s in the application developer’s best interest: it can turn their apps into platforms, which are stickier. And it’s in the end-user’s best interest: they can get more out of their apps.
 
-To make software extendable developers generally used APIs. But APIs have a problem: they have to be built by the developer, and thus are limited by what developers think of ahead of time.
+To make software extendable, developers generally used APIs. But APIs have a problem: application developers have to be build them first. This means users are limited by what application developers _thought_ were needed.
 
 Databases are different. When apps are written on a database-like abstraction, users are free to make arbitrary queries and transactions. The application developer doesn’t have to foresee much. End-users can read and write whatever data they need to build all sorts of custom UIs [^6].
 
-We think that database-like abstractions are going to be an advantage.
+And if that's true, database-like abstractions are going to be an advantage.
 
 # A Multi-Tenant Sync Engine
 
 So if agents and humans work best when they have (1) built-in abstractions that are (2) hosted efficiently and (3) expose data, what infrastructure works best?
 
-Agents are best at writing self-contained code. Code that they can reason about in one place, without too much extraneous state and edge cases. That’s why the traditional client-server architecture is hard for them: it involves multiple parts that all need to work in unison—a server, a client, and a database.
+Let's start by thinking through what agents are good at. Agents are good at writing self-contained code. Code that they can reason about in one place, without too much extraneous state and edge cases. This is why the traditional client-server architecture is hard for them: it involves multiple parts that all need to work in unison — a server, a client, and a database.
 
-There are several ways to build self-contained apps. It can be a local-only desktop app (but then — no internet, multiple devices, or collaboration). It can be a server-only app (then you get latency, no offline mode, hosting costs). Or it could be a client-only app that treats the backend like a remote database. In other words, a sync engine.
+There are several ways to build self-contained apps. You can build a local-only desktop app (but then — no internet, multiple devices, or collaboration). You can build a server-only app (then you get latency, no offline mode, hosting costs). Or you could build a client-only app that treats the backend like a remote database.
+In other words, a sync engine.
 
 ![](/posts/agents/sync_engine.png)
 
@@ -145,7 +150,7 @@ Let’s try them out.
 
 ---
 
-_Thanks to Joe Averbukh, Daniel Woelfel, Alex Kotliarskyi, Ian Alejandro Sinnott, Cam Glynn, Anupam Batra, Predrag Gruevski, Irakli Popkhadze, Cody Breene, and Kote Mushegiani, Nicole Garcia Fischer for reviewing drafts of this essay_
+_Thanks to Joe Averbukh, Daniel Woelfel, Alex Kotliarskyi, Ian Alejandro Sinnott, Cam Glynn, Anupam Batra, Predrag Gruevski, Irakli Popkhadze, Cody Breene, Kote Mushegiani, Nicole Garcia Fischer for reviewing drafts of this essay_
 
 [^1]: We can probably make the review experience even better. If code is high-level enough, maybe we don’t need to show it. We could build UIs around abstractions and use them to summarize changes.
 
