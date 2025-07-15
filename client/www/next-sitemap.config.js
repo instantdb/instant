@@ -8,7 +8,7 @@ module.exports = {
     const result = [];
 
     // Add static files from public folder
-    const staticFiles = ['/llms.txt', '/llms-full.txt', '/rules.txt'];
+    const staticFiles = ['/llms.txt', '/llms-full.txt'];
     for (const path of staticFiles) {
       result.push({
         loc: path,
