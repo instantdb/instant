@@ -1,10 +1,11 @@
-import { ActionButton, Button, Copyable } from '@/components/ui';
-import { getLocal, isDev } from '@/lib/config';
-import useLocalStorage from '@/lib/hooks/useLocalStorage';
+import { Button, Fence } from '@/components/ui';
+import config, { getLocal, isDev } from '@/lib/config';
 import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/solid';
 import confetti from 'canvas-confetti';
 import * as ephemeral from '@/lib/ephemeral';
 import { useState } from 'react';
+import { PlatformApi } from '@instantdb/platform';
+import { i } from '@instantdb/core';
 
 type InitState = {
   step: 'init';
@@ -14,6 +15,16 @@ type InitState = {
   askedForDemoApp: undefined;
 };
 
+type SchemaPushedState = {
+  timeTaken: number;
+  outString: string;
+};
+
+type PermsPushedState = {
+  timeTaken: number;
+  outString: string;
+};
+
 type AppCreatedState = {
   step: 'app-created';
   appId: string;
@@ -21,6 +32,8 @@ type AppCreatedState = {
   timeTaken: number;
   askedForDemoApp: boolean;
   claimed: boolean;
+  schema?: SchemaPushedState;
+  perms?: PermsPushedState;
 };
 
 type InteractionState = InitState | AppCreatedState;
@@ -47,94 +60,153 @@ export default function AgentsEssayDemoSection() {
 
   return (
     <div>
-      <h2>Create a database</h2>
+      <h1 id="habit-tracker-dinosaurs">A habit tracker with dinosaurs</h1>
       <p>
-        First things first, let's create a database. We can use the platform SDK
-        to do that. This button below is hooked up to the{' '}
-        <a
-          href="https://github.com/instantdb/instant/tree/main/client/packages/platform#createapp"
-          target="_blank"
-        >
-          createApp
-        </a>{' '}
-        endpoint:
+        We’re going to build a habit tracker with one important twist: dinosaurs
+        and aliens are going to be involved. And we'll build it right inside
+        this essay.
       </p>
-      <div className="flex justify-center">
-        <ActionButton
-          className="text-2xl px-8 py-2 rounded"
-          variant="primary"
-          label="Create a database"
-          submitLabel="Create a database"
-          errorMessage="Oops! Something went wrong.  Please try again."
-          disabled={!!state.appId}
-          onClick={async () => {
-            const start = Date.now();
-            const { app } = await ephemeral.provisionApp({
-              title: 'agents-essay-demo',
-            });
-            const end = Date.now();
+      <p>
+        If you keep pressing the buttons that follow, you’ll have an app you can
+        play with at the end.
+      </p>
+      <h2>Write your prompt</h2>
+      <p>First things first, let’s write our prompt. Here’s one:</p>
+      <blockquote>
+        Create a habit tracking app where users can create habits, mark daily
+        completions, and visualize streaks. Include features for setting habit
+        frequency (daily/weekly), viewing completion calendars, and tracking
+        overall progress percentages. Make it all dinosaur and alien themed.
+        <br />
+        <br />
+        Keep the code to {'<'} 1000 lines.
+      </blockquote>
+      <h2 id="create-a-database">Create a database</h2>
+      <p>
+        The first thing our agent would ask us is to create a new database. It
+        can use the MCP server to do that.
+      </p>
+      <p>
+        We’ve added a <code>create-app</code> tool right inside this essay.
+        Click it, and we’ll spin up a new database.
+      </p>
 
-            const appId = app.id;
-            const adminToken = app['admin-token'];
-            setState({
-              step: 'app-created',
-              appId,
-              adminToken,
-              timeTaken: end - start,
-              askedForDemoApp: false,
-              claimed: false,
-            });
-            confetti({
-              angle: randomInRange(55, 125),
-              spread: randomInRange(50, 70),
-              particleCount: randomInRange(50, 100),
-            });
-          }}
-        />
-      </div>
+      <ToolCall
+        name="create-app"
+        argsString={`{ title: 'dino-habit-tracker' }`}
+        onClick={async () => {
+          const start = Date.now();
+          const { app } = await ephemeral.provisionApp({
+            title: 'agents-essay-demo',
+          });
+          const end = Date.now();
+
+          const appId = app.id;
+          const adminToken = app['admin-token'];
+          setState({
+            step: 'app-created',
+            appId,
+            adminToken,
+            timeTaken: end - start,
+            askedForDemoApp: false,
+            claimed: false,
+          });
+          confetti({
+            angle: randomInRange(55, 125),
+            spread: randomInRange(50, 70),
+            particleCount: randomInRange(50, 100),
+          });
+        }}
+      />
       {state.appId ? (
         <AppCreatedSection state={state} setState={setState} />
       ) : (
-        <div className="relative">
-          <div
-            className="absolute inset-0 bg-white flex items-center justify-center border"
-            style={{ opacity: 0.97 }}
-          >
-            <div className="p-4">
-              <h3 className="text-gray-500 my-0">
-                Your database will appear here!
-              </h3>
-            </div>
-          </div>
-          <YouGotDBCallout
-            appId={'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'}
-            timeTaken={0}
-          />
-        </div>
+        <ToolOutputPlaceholder label="Your app will show up here" />
       )}
     </div>
   );
 }
 
-function YouGotDBCallout({
-  appId,
+function ToolOutputPlaceholder({ label }: { label: string }) {
+  return (
+    <div className="relative not-prose">
+      <div className=" absolute inset-0 bg-white/90 flex justify-center items-center">
+        <div className="font-mono text-sm font-bold text-gray-700">{label}</div>
+      </div>
+      <ToolOutput outString={` { ...  } `} timeTaken={0} />
+    </div>
+  );
+}
+
+function ToolCall({
+  name,
+  argsString,
+  disabled,
+  onClick,
+}: {
+  name: string;
+  argsString: string;
+  disabled?: boolean;
+  onClick: () => Promise<void>;
+}) {
+  const [running, setRunning] = useState(false);
+  return (
+    <div className="not-prose my-4 bg-white rounded p-4 flex items-baseline space-x-2">
+      <div className="">
+        <div className="w-2 h-2 bg-green-600 rounded-full"></div>
+      </div>
+      <div className="flex-1">
+        <div className="flex items-center space-x-2 text-sm">
+          <div className="font-mono font-bold">instant</div>
+          <div className="font-mono font-bold">-</div>
+          <div className="font-mono font-bold">{name}</div>
+        </div>
+        <div className="text-xs max-h-20 overflow-y-auto [&_pre]:!p-0">
+          <Fence code={argsString} language="javascript" />
+        </div>
+      </div>
+      <div>
+        <Button
+          variant="cta"
+          size="mini"
+          disabled={disabled || running}
+          onClick={async () => {
+            setRunning(true);
+            try {
+              await onClick();
+            } catch (e) {
+              setRunning(false);
+            }
+          }}
+        >
+          Run tool
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function ToolOutput({
+  outString,
   timeTaken,
 }: {
-  appId: string;
+  outString: string;
   timeTaken: number;
 }) {
   return (
-    <>
-      <h3 className="text-center mt-4">You've got a database!</h3>
-      <div className="not-prose">
-        <div className="py-4">
-          <Copyable label="App ID" value={appId} size="large" />
+    <div className="not-prose my-4 bg-white rounded p-4 flex items-baseline space-x-2">
+      <div className="">⎿</div>
+      <div className="flex-1">
+        <div className="text-xs [&_pre]:!p-0 max-h-20 overflow-y-auto">
+          <Fence code={outString} language="javascript" />
         </div>
       </div>
-      <div className="text-center text-lg">
-        Time taken: <strong>{timeTaken}ms</strong>
+      <div>
+        <div className="font-bold font-mono bg-gray-100 px-2">
+          {timeTaken} ms
+        </div>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -147,36 +219,80 @@ function AppCreatedSection({
 }) {
   return (
     <div>
-      <YouGotDBCallout appId={state.appId} timeTaken={state.timeTaken} />
+      <ToolOutput
+        outString={`
+{ app: {  id: '${state.appId}' } } // ...
+        `.trim()}
+        timeTaken={state.timeTaken}
+      />
+      <p className="text-sm italic px-8 not-prose">
+        Note: The database created in this essay will last about 2 weeks (since
+        there’s no sign up required). If you{' '}
+        <a href="/dash" target="_blank" className="underline">
+          sign up and claim the app
+        </a>
+        , it will last forever. No freezes.
+      </p>
       <>
         <p>
-          Perfect! Now you have a database, a sync engine and a bunch of tools
-          at your disposal. It only took {state.timeTaken} milliseconds to spin
-          up.
-        </p>
-        <p>
-          The database created in this essay will last about 2 weeks (since
-          there’s no sign up required). If you{' '}
-          <a href="/dash" target="_blank">
-            sign up and claim the app
-          </a>
-          , it will last forever. No freezes.
+          Heck yeah! Now you have your own database, a sync engine, and a whole
+          suite of tools to play with. And it only took {state.timeTaken} ms to
+          spin up.
         </p>
       </>
       <>
-        <h2>Get agents working</h2>
-        <p>Now that we have an App ID, we can put all the tools to work.</p>
+        <h2 id="schemas-and-permissions">Schemas and Permissions</h2>
         <p>
-          We can give agents{' '}
-          <a href="https://instantdb.com/docs/rules">rules</a> and an MCP
-          server. Then it can spin up a full app.
+          A good habit tracker needs to store the habits, and all the
+          completions. We also have to make sure that users can only access
+          their own habits.
         </p>
         <p>
-          Here's one where we build a "Shouts" app. Users can sign up, make
-          posts, send shouts in the void, and see who else is online
+          To do this, agents can include schemas and permissions in the
+          <code>create-app</code> tool, or call <code>schema-push</code> and{' '}
+          <code>push-perms</code> directly. Let’s do that now:
         </p>
-        <ShoutsDemoApp state={state} setState={setState} />
-        <p>
+
+        <ToolCall
+          name="schema-push"
+          argsString={entitiesArg}
+          disabled={!!state.schema}
+          onClick={async () => {
+            const api = new PlatformApi({
+              auth: { token: state.adminToken },
+              apiURI: config.apiURI,
+            });
+            const start = Date.now();
+
+            const res = await api.schemaPush(state.appId, {
+              schema: getSchema(),
+            });
+            const end = Date.now();
+            setState({
+              ...state,
+              schema: {
+                timeTaken: end - start,
+                outString: `
+{ 
+  summary: { 
+    friendlyDescription: '${res.summary.friendlyDescription}' 
+  } 
+} // ...
+`.trim(),
+              },
+            });
+          }}
+        />
+        {state.schema ? (
+          <AppSchemaSection
+            state={{ ...state, schema: state.schema! }}
+            setState={setState}
+          />
+        ) : (
+          <ToolOutputPlaceholder label="Your schema will show up here" />
+        )}
+        {/* <ShoutsDemoApp state={state} setState={setState} /> */}
+        {/* <p>
           Pretty cool! Our theory about abstractions seem to have played out
           well: agents get quite far writing self-contained code.
         </p>
@@ -197,9 +313,9 @@ function AppCreatedSection({
           offline. If your internet is slow you’ll see optimistic updates right
           away. And it’s all shared globally—everyone in the world sees the same
           thing.
-        </p>
+        </p> */}
       </>
-      <>
+      {/* <>
         <h2>Try it yourself</h2>
         <p>That's a cool app. Want to make something new with your agent?</p>
         <p>
@@ -222,8 +338,82 @@ function AppCreatedSection({
           could be a great use-case for you, too. We’d be thrilled to work with
           you directly. Simply send us an email.
         </p>
-      </>
+      </> */}
     </div>
+  );
+}
+
+function AppSchemaSection({
+  state,
+  setState,
+}: {
+  state: AppCreatedState & { schema: SchemaPushedState };
+  setState: (state: AppCreatedState) => void;
+}) {
+  return (
+    <>
+      <ToolOutput
+        outString={state.schema.outString}
+        timeTaken={state.schema.timeTaken}
+      />
+      <p>Woohoo! Now we have a schema. Let's push permissions next.</p>
+      <ToolCall
+        name="push-perms"
+        argsString={JSON.stringify(getPerms(), null, 2)}
+        disabled={!!state.perms}
+        onClick={async () => {
+          const api = new PlatformApi({
+            auth: { token: state.adminToken },
+            apiURI: config.apiURI,
+          });
+          const start = Date.now();
+          const res = await api.pushPerms(state.appId, {
+            perms: getPerms(),
+          });
+          const end = Date.now();
+          setState({
+            ...state,
+            perms: {
+              timeTaken: end - start,
+              outString: JSON.stringify(res, null, 2),
+            },
+          });
+        }}
+      />
+      {state.perms ? (
+        <AppPermsSection
+          state={{ ...state, perms: state.perms! }}
+          setState={setState}
+        />
+      ) : (
+        <ToolOutputPlaceholder label="Your perms will show up here" />
+      )}
+    </>
+  );
+}
+
+function AppPermsSection({
+  state,
+  setState,
+}: {
+  state: AppCreatedState & { perms: PermsPushedState };
+  setState: (state: AppCreatedState) => void;
+}) {
+  return (
+    <>
+      <ToolOutput
+        outString={state.perms.outString}
+        timeTaken={state.perms.timeTaken}
+      />
+      <p>Now we have a real data model!</p>
+      <h2>Let the agent build</h2>
+      <p>
+        Now our agent can build out the full app, using it's framework of
+        choice. We asked Claude to build this out with Next. Here's what it came
+        up with:
+      </p>
+      <ShoutsDemoApp state={state} setState={setState} />
+    </>
   );
 }
 
@@ -278,4 +468,140 @@ function ShoutsDemoApp({
 
 function randomInRange(min: number, max: number) {
   return Math.random() * (max - min) + min;
+}
+
+const entitiesArg = `
+{
+  "entities": {
+    "habits": {
+      "name": {
+        "type": "string",
+        "required": true
+      },
+      "emoji": {
+        "type": "string",
+        "required": true
+      },
+      "frequency": {
+        "type": "string",
+        "required": true
+      },
+      "targetCount": {
+        "type": "number",
+        "required": true
+      },
+      "createdAt": {
+        "type": "number",
+        "required": true,
+        "indexed": true
+      },
+      "species": {
+        "type": "string",
+        "required": true
+      }
+    },
+    "completions": {
+      "completedAt": {
+        "type": "number",
+        "required": true,
+        "indexed": true
+      },
+      "count": {
+        "type": "number",
+        "required": true
+      }
+    }
+  },
+  "links": {
+    "habitOwner": {
+      "from": {
+        "entity": "habits",
+        "has": "one",
+        "label": "owner",
+        "required": true
+      },
+      "to": {
+        "entity": "$users",
+        "has": "many",
+        "label": "habits"
+      }
+    },
+    "completionHabit": {
+      "from": {
+        "entity": "completions",
+        "has": "one",
+        "label": "habit",
+        "required": true
+      },
+      "to": {
+        "entity": "habits",
+        "has": "many",
+        "label": "completions"
+      }
+    }
+  }
+}
+`.trim();
+function getSchema() {
+  return i.schema({
+    entities: {
+      $files: i.entity({
+        path: i.string().unique().indexed(),
+        url: i.string(),
+      }),
+      $users: i.entity({
+        email: i.string().unique().indexed().optional(),
+      }),
+      habits: i.entity({
+        name: i.string(),
+        emoji: i.string(),
+        frequency: i.string(),
+        targetCount: i.number(),
+        createdAt: i.number().indexed(),
+        species: i.string(),
+      }),
+      completions: i.entity({
+        completedAt: i.number().indexed(),
+        count: i.number(),
+      }),
+    },
+    links: {
+      habitOwner: {
+        forward: { on: 'habits', has: 'one', label: 'owner', required: true },
+        reverse: { on: '$users', has: 'many', label: 'habits' },
+      },
+      completionHabit: {
+        forward: {
+          on: 'completions',
+          has: 'one',
+          label: 'habit',
+          required: true,
+        },
+        reverse: { on: 'habits', has: 'many', label: 'completions' },
+      },
+    },
+  });
+}
+
+function getPerms() {
+  return {
+    habits: {
+      allow: {
+        view: "auth.id in data.ref('owner.id')",
+        create: 'auth.id != null',
+        update: "auth.id in data.ref('owner.id')",
+        delete: "auth.id in data.ref('owner.id')",
+      },
+      bind: [] as string[],
+    },
+    completions: {
+      allow: {
+        view: "auth.id in data.ref('habit.owner.id')",
+        create: "auth.id in data.ref('habit.owner.id')",
+        update: "auth.id in data.ref('habit.owner.id')",
+        delete: "auth.id in data.ref('habit.owner.id')",
+      },
+      bind: [] as string[],
+    },
+  } as const;
 }

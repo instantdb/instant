@@ -549,7 +549,9 @@ export function Button({
       'text-sm px-2 py-0.5': size === 'mini',
       'text-xs px-2 py-0': size === 'nano',
       'cursor-not-allowed': disabled,
-      'cursor-wait opacity-75': loading, // Apply wait cursor and lower opacity when loading
+      'cursor-wait opacity-75': loading, // Apply wait cursor and lower opacity when loading,
+      // disabled
+      'bg-gray-200 text-gray-400': disabled,
     },
     className,
   );
