@@ -44,7 +44,7 @@ type MarkdownContent = {
   files: Record<string, string>;
 };
 
-type ClientType = 'cursor' | 'claude-code';
+type ClientType = 'cursor' | 'claude-code' | 'windsurf' | 'zed' | 'other';
 
 const pageTitle =
   'Whirlwind tour: Build and deploy a full-stack app with InstantDB';
@@ -161,6 +161,8 @@ export default function McpTutorial({ files }: MarkdownContent) {
     'cursor-rules': cursorRulesContent,
     claude: claudeMdContent,
     'claude-rules': claudeRulesContent,
+    'windsurf-rules': windsurfRulesContent,
+    'other-rules': otherRulesContent,
   } = files;
 
   const clientConfigs = {
@@ -251,6 +253,144 @@ export default function McpTutorial({ files }: MarkdownContent) {
         </div>
       ),
     },
+    windsurf: {
+      name: 'Windsurf',
+      setupContent: (
+        <div className="space-y-4">
+          <p>
+            Use the SSE endpoint for Windsurf with{' '}
+            <a
+              href="https://www.npmjs.com/package/mcp-remote"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-800 underline"
+            >
+              mcp-remote
+            </a>
+            .
+          </p>
+          <p>
+            Edit your <code>~/.codeium/windsurf/mcp_config.json</code> with the
+            relevant snippet for your OS
+          </p>
+          <div className="space-y-4">
+            <div>
+              <h4 className="font-medium mb-2">MacOS/Linux</h4>
+              <Fence
+                code={`{
+  "mcpServers": {
+    "instant": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://mcp.instantdb.com/sse"]
+    }
+  }
+}`}
+                copyable={true}
+                language="json"
+              />
+            </div>
+            <div>
+              <h4 className="font-medium mb-2">Windows</h4>
+              <Fence
+                code={`{
+  "mcpServers": {
+    "instant": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "mcp-remote", "https://mcp.instantdb.com/sse"]
+    }
+  }
+}`}
+                copyable={true}
+                language="json"
+              />
+            </div>
+            <div>
+              <h4 className="font-medium mb-2">Windows WSL</h4>
+              <Fence
+                code={`{
+  "mcpServers": {
+    "instant": {
+      "command": "wsl",
+      "args": ["npx", "-y", "mcp-remote", "https://mcp.instantdb.com/sse"]
+    }
+  }
+}`}
+                copyable={true}
+                language="json"
+              />
+            </div>
+          </div>
+        </div>
+      ),
+      rulesContent: (
+        <div className="flex gap-6 flex-wrap">
+          <FileContentCard
+            title="Instant Rules for Windsurf"
+            content={windsurfRulesContent}
+            filename=".windsurf/rules/instant.md"
+            description="Click the button below to copy the rules for Instant and paste them into .windsurf/rules/instant.md in the root of your project."
+          />
+        </div>
+      ),
+    },
+    zed: {
+      name: 'Zed',
+      setupContent: (
+        <div className="space-y-4">
+          <p>Open your Zed settings and add the following:</p>
+          <Fence
+            code={`{
+  "context_servers": {
+    "instant": {
+      "command": {
+        "path": "npx",
+        "args": ["-y", "mcp-remote", "https://mcp.instantdb.com/sse"],
+        "env": {}
+      },
+      "settings": {}
+    }
+  }
+}`}
+            copyable={true}
+            language="json"
+          />
+        </div>
+      ),
+      rulesContent: (
+        <div className="space-y-6">
+          <FileContentCard
+            title="Instant Rules for Zed"
+            content={otherRulesContent}
+            filename="AGENT.md"
+            description="Click the button below to copy the rules for Instant and paste them into AGENT.md in the root of your project."
+          />
+        </div>
+      ),
+    },
+    other: {
+      name: 'Other',
+      setupContent: (
+        <div className="space-y-4">
+          <p>
+            For other tools that support MCP servers, you can configure Instant
+            using either our streamable HTTP endpoint (recommended if your tool
+            supports it):
+          </p>
+          <Copyable value="https://mcp.instantdb.com/mcp" />
+          <p>Or our SSE endpoint:</p>
+          <Copyable value="https://mcp.instantdb.com/sse" />
+        </div>
+      ),
+      rulesContent: (
+        <div className="space-y-6">
+          <FileContentCard
+            title="Instant Rules for Other Tools"
+            content={otherRulesContent}
+            description="Click the button below to copy the rules for Instant. You can add these to your LLM tool's context or rules file."
+          />
+        </div>
+      ),
+    },
   };
 
   return (
@@ -318,8 +458,8 @@ export default function McpTutorial({ files }: MarkdownContent) {
               <H3>1. Install the Instant MCP server</H3>
             </div>
             <p className="text-gray-700 mb-6">
-              Below are instructions on how to add the remote Instant MCP server.
-              Select your preferred tool and follow the instructions.
+              Below are instructions on how to add the remote Instant MCP
+              server. Select your preferred tool and follow the instructions.
             </p>
 
             {/* Client Selector */}
@@ -359,7 +499,9 @@ export default function McpTutorial({ files }: MarkdownContent) {
             </Tab.Group>
 
             <Callout type="warning" title="Authentication Required">
-              After adding the MCP server you'll need to go through an OAuth flow to access the tools. Be sure to go through the auth flow to enable the Instant MCP server in your client!
+              After adding the MCP server you'll need to go through an OAuth
+              flow to access the tools. Be sure to go through the auth flow to
+              enable the Instant MCP server in your client!
             </Callout>
           </div>
 
@@ -457,7 +599,8 @@ npm i @instantdb/react`}
               ))}
             </div>
             <Callout type="note" title="Debugging">
-              If you run into any bugs check out the debugging section below to fix common issues.
+              If you run into any bugs check out the debugging section below to
+              fix common issues.
             </Callout>
           </div>
 

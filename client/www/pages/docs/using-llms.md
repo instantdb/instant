@@ -167,7 +167,7 @@ project in `CLAUDE.md` and [these rules](/mcp-tutorial/claude-rules.md) in `inst
 
 ### Windsurf
 
-Save [these instructions](/mcp-tutorial/claude.md) at the root of your project in `.windsurfrules.md` and [these rules](/mcp-tutorial/claude-rules.md) in `instant-rules.md`. You may need to restart Windsurf for them to take effect.
+Save [these rules](/mcp-tutorial/windsurf-rules.md) at the root of your project in `.windsurf/rules/instant.md`. You may need to restart Windsurf for them to take effect.
 
 ### Zed
 
