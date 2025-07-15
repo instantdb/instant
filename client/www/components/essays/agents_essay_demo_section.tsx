@@ -90,10 +90,18 @@ export default function AgentsEssayDemoSection() {
         We’ve added a <code>create-app</code> tool right inside this essay.
         Click it, and we’ll spin up a new database.
       </p>
-
       <ToolCall
         name="create-app"
         argsString={`{ title: 'dino-habit-tracker' }`}
+        placeholder="Your app will show up here"
+        out={
+          state.appId
+            ? {
+                str: ` { app: {  id: '${state.appId}' } } `,
+                timeTaken: state.timeTaken,
+              }
+            : undefined
+        }
         onClick={async () => {
           const start = Date.now();
           const { app } = await ephemeral.provisionApp({
@@ -120,9 +128,7 @@ export default function AgentsEssayDemoSection() {
       />
       {state.appId ? (
         <AppCreatedSection state={state} setState={setState} />
-      ) : (
-        <ToolOutputPlaceholder label="Your app will show up here" />
-      )}
+      ) : null}
     </div>
   );
 }
@@ -141,48 +147,57 @@ function ToolOutputPlaceholder({ label }: { label: string }) {
 function ToolCall({
   name,
   argsString,
-  disabled,
   onClick,
+  placeholder,
+  out,
 }: {
   name: string;
   argsString: string;
-  disabled?: boolean;
   onClick: () => Promise<void>;
+  placeholder: string;
+  out?: { str: string; timeTaken: number };
 }) {
   const [running, setRunning] = useState(false);
   return (
-    <div className="not-prose my-4 bg-white rounded p-4 flex items-baseline space-x-2">
-      <div className="">
-        <div className="w-2 h-2 bg-green-600 rounded-full"></div>
-      </div>
-      <div className="flex-1">
-        <div className="flex items-center space-x-2 text-sm">
-          <div className="font-mono font-bold">instant</div>
-          <div className="font-mono font-bold">-</div>
-          <div className="font-mono font-bold">{name}</div>
+    <>
+      <div className="not-prose my-4 bg-white rounded p-4 flex items-baseline space-x-2">
+        <div className="">
+          <div className="w-2 h-2 bg-green-600 rounded-full"></div>
         </div>
-        <div className="text-xs max-h-20 overflow-y-auto [&_pre]:!p-0">
-          <Fence code={argsString} language="javascript" />
+        <div className="flex-1">
+          <div className="flex items-center space-x-2 text-sm">
+            <div className="font-mono font-bold">instant</div>
+            <div className="font-mono font-bold">-</div>
+            <div className="font-mono font-bold">{name}</div>
+          </div>
+          <div className="text-xs max-h-20 overflow-y-auto [&_pre]:!p-0">
+            <Fence code={argsString} language="javascript" />
+          </div>
+        </div>
+        <div>
+          <Button
+            variant="cta"
+            size="mini"
+            disabled={!!out || running}
+            onClick={async () => {
+              setRunning(true);
+              try {
+                await onClick();
+              } catch (e) {
+                setRunning(false);
+              }
+            }}
+          >
+            Run tool
+          </Button>
         </div>
       </div>
-      <div>
-        <Button
-          variant="cta"
-          size="mini"
-          disabled={disabled || running}
-          onClick={async () => {
-            setRunning(true);
-            try {
-              await onClick();
-            } catch (e) {
-              setRunning(false);
-            }
-          }}
-        >
-          Run tool
-        </Button>
-      </div>
-    </div>
+      {out ? (
+        <ToolOutput outString={out.str} timeTaken={out.timeTaken} />
+      ) : (
+        <ToolOutputPlaceholder label={placeholder} />
+      )}
+    </>
   );
 }
 
@@ -219,12 +234,6 @@ function AppCreatedSection({
 }) {
   return (
     <div>
-      <ToolOutput
-        outString={`
-{ app: {  id: '${state.appId}' } } // ...
-        `.trim()}
-        timeTaken={state.timeTaken}
-      />
       <p className="text-sm italic px-8 not-prose">
         Note: The database created in this essay will last about 2 weeks (since
         there’s no sign up required). If you{' '}
@@ -256,7 +265,15 @@ function AppCreatedSection({
         <ToolCall
           name="schema-push"
           argsString={entitiesArg}
-          disabled={!!state.schema}
+          placeholder="Your schema will show up here"
+          out={
+            state.schema
+              ? {
+                  str: state.schema.outString,
+                  timeTaken: state.schema.timeTaken,
+                }
+              : undefined
+          }
           onClick={async () => {
             const api = new PlatformApi({
               auth: { token: state.adminToken },
@@ -288,57 +305,8 @@ function AppCreatedSection({
             state={{ ...state, schema: state.schema! }}
             setState={setState}
           />
-        ) : (
-          <ToolOutputPlaceholder label="Your schema will show up here" />
-        )}
-        {/* <ShoutsDemoApp state={state} setState={setState} /> */}
-        {/* <p>
-          Pretty cool! Our theory about abstractions seem to have played out
-          well: agents get quite far writing self-contained code.
-        </p>
-        <p>
-          <strong>There’s two cool things about what we just built.</strong>
-        </p>
-        <p>
-          First, your app is efficient. We didn’t have to spin up any additional
-          compute resources to get this far. The overhead of an Instant app is
-          just a few rows in a database. That makes it so your agents can build
-          apps with abandon — they (or really you) don’t worry about a giant
-          compute bill.
-        </p>
-        <p>
-          Second, your app is much more powerful than meets the eye. Every query
-          is reactive, so if you open two tabs all shouts will sync. If you
-          close your network connections, you can still make shouts while
-          offline. If your internet is slow you’ll see optimistic updates right
-          away. And it’s all shared globally—everyone in the world sees the same
-          thing.
-        </p> */}
+        ) : null}
       </>
-      {/* <>
-        <h2>Try it yourself</h2>
-        <p>That's a cool app. Want to make something new with your agent?</p>
-        <p>
-          We built a tutorial just for you. You can follow along to build out a
-          full stack app in about 5 minutes. Just Claude, Cursor, or your
-          favorite agent start cooking.
-        </p>
-        <div className="not-prose text-center">
-          <Button
-            type="link"
-            variant="cta"
-            size="large"
-            href="/labs/mcp-tutorial"
-          >
-            Build with your own agents
-          </Button>
-        </div>
-        <p>
-          And heck, if you are the founder of an app builder platform, Instant
-          could be a great use-case for you, too. We’d be thrilled to work with
-          you directly. Simply send us an email.
-        </p>
-      </> */}
     </div>
   );
 }
@@ -352,15 +320,19 @@ function AppSchemaSection({
 }) {
   return (
     <>
-      <ToolOutput
-        outString={state.schema.outString}
-        timeTaken={state.schema.timeTaken}
-      />
       <p>Woohoo! Now we have a schema. Let's push permissions next.</p>
       <ToolCall
         name="push-perms"
         argsString={JSON.stringify(getPerms(), null, 2)}
-        disabled={!!state.perms}
+        placeholder="Your perms will show up here"
+        out={
+          state.perms
+            ? {
+                str: state.perms.outString,
+                timeTaken: state.perms.timeTaken,
+              }
+            : undefined
+        }
         onClick={async () => {
           const api = new PlatformApi({
             auth: { token: state.adminToken },
@@ -385,9 +357,7 @@ function AppSchemaSection({
           state={{ ...state, perms: state.perms! }}
           setState={setState}
         />
-      ) : (
-        <ToolOutputPlaceholder label="Your perms will show up here" />
-      )}
+      ) : null}
     </>
   );
 }
@@ -401,10 +371,6 @@ function AppPermsSection({
 }) {
   return (
     <>
-      <ToolOutput
-        outString={state.perms.outString}
-        timeTaken={state.perms.timeTaken}
-      />
       <p>Now we have a real data model!</p>
       <h2>Let the agent build</h2>
       <p>
