@@ -412,51 +412,64 @@ function AppPermsSection({
         choice. We asked Claude to build this out with Next. Here's what it came
         up with:
       </p>
-      <ShoutsDemoApp state={state} setState={setState} />
+      <DemoApp state={state} setState={setState} />
+      <p>
+        Pretty cool! Our theory about abstractions seem to have played out well:
+        agents get quite far writing self-contained code.
+      </p>
+      <p>
+        <strong>There’s two cool things about what we just built.</strong>
+      </p>
+      <p>
+        First, your app is efficient. We didn’t have to spin up any additional
+        compute resources to get this far. The overhead of an Instant app is
+        just a few rows in a database. That makes it so your agents can build
+        apps with abandon — they (or really you) don’t worry about a giant
+        compute bill.
+      </p>
+      <p>
+        Second, your app is much more powerful than meets the eye. Every query
+        is reactive, so if you open two tabs all shouts will sync. If you close
+        your network connections, you can still make shouts while offline. If
+        your internet is slow you’ll see optimistic updates right away. And it’s
+        all shared globally—everyone in the world sees the same thing.
+      </p>
     </>
   );
 }
 
-function ShoutsDemoApp({
+function DemoApp({
   state,
-  setState,
 }: {
   state: AppCreatedState;
   setState: (state: AppCreatedState) => void;
 }) {
   const devBackend = getLocal('devBackend');
-  const uri = `/shouts-demo?a=${state.appId}${devBackend ? '&localBackend=1' : ''}`;
+  const uri = `/dino-habits?a=${state.appId}${devBackend ? '&localBackend=1' : ''}`;
   const fullURI = `${isDev ? 'http://localhost:3000' : 'https://instantdb.com'}${uri}`;
   return (
-    <div className="not-prose">
-      <div className="space-y-2">
-        <div className="text-right">
-          <a
-            className="font-bold bg-[#F5F4ED] p-2 hover:bg-[#F2E9E0] text-[#C96342] rounded-lg border text-xs"
-            href="#"
-          >
-            Claude Transcript
-          </a>
-        </div>
-        <div
-          className="border border-gray-200 rounded-lg p-2 flex flex-col"
-          style={{
-            minHeight: '500px',
-            maxHeight: '500px',
-          }}
-        >
-          <div>
-            <div className="text-black p-2 rounded-lg bg-gray-200 flex justify-between items-center">
-              <div className="text-xs truncate">{fullURI}</div>
-              <a href={fullURI} target="_blank">
-                <ArrowTopRightOnSquareIcon className="h-4 w-4 text-gray-500" />
-              </a>
+    <div style={{ height: '750px' }}>
+      <div className="not-prose absolute left-0 right-0 p-4">
+        <div className="max-w-4xl mx-auto">
+          <div className="space-y-2">
+            <div
+              className="border border-gray-200 rounded-lg p-2 flex flex-col"
+              style={{
+                minHeight: '750px',
+                maxHeight: '750px',
+              }}
+            >
+              <div>
+                <div className="text-black p-2 rounded-lg bg-gray-200 flex justify-between items-center">
+                  <div className="text-xs truncate">{fullURI}</div>
+                  <a href={fullURI} target="_blank">
+                    <ArrowTopRightOnSquareIcon className="h-4 w-4 text-gray-500" />
+                  </a>
+                </div>
+              </div>
+              <iframe src={uri} className="w-full h-full flex-1" />
             </div>
           </div>
-          <iframe
-            src={`/shouts-demo?a=${state.appId}&localBackend=${devBackend ? '1' : '0'}`}
-            className="w-full h-full flex-1"
-          />
         </div>
       </div>
     </div>
