@@ -582,8 +582,18 @@ export default function McpTutorial({ files }: MarkdownContent) {
             </Tab.Group>
 
             <Callout type="note" title="Verify Setup">
-              <p>You can verify you set up the rules correctly by asking your LLM "How do you make queries and transactions in InstantDB?" If everything is set up correctly, you should see a response with information about <code>db.useQuery</code> and <code>transact</code>.</p>
-              <p>If you see a response that doesn't mention these methods, double check that you added the rules correctly and try restarting your tool.</p>
+              <p>
+                You can verify you set up the rules correctly by asking your LLM
+                "How do you make queries and transactions in InstantDB?" If
+                everything is set up correctly, you should see a response with
+                information about <code>db.useQuery</code> and{' '}
+                <code>transact</code>.
+              </p>
+              <p>
+                If you see a response that doesn't mention these methods, double
+                check that you added the rules correctly and try restarting your
+                tool.
+              </p>
             </Callout>
           </div>
 
@@ -601,7 +611,15 @@ export default function McpTutorial({ files }: MarkdownContent) {
                 or your CLI tool (claude, gemini, etc) and type up a prompt. Hit
                 enter and watch the magic happen!
               </p>
-              <p>We've seen the best results with Claude Sonnet 4 and Claude Opus. Here are some example prompts for inspiration</p>
+              <p>
+                <strong>
+                  We've seen the best results with Claude Sonnet 4 and Claude
+                  Opus.
+                </strong>{' '}
+                Be sure to select either of those instead of an "auto" model if
+                you can.
+              </p>
+              <p>Here are some example prompts for inspiration</p>
             </div>
             <div className="space-y-6">
               {examplePrompts.map((prompt, index) => (
