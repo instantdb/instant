@@ -9,8 +9,45 @@ import * as og from '@/lib/og';
 
 // Helpers
 // ------------------
-const outlineStyle = (isFeatured: boolean) =>
-  isFeatured ? 'outline-orange-600/80' : 'outline-gray-600/10';
+const getVariantStyles = (variant: string) => {
+  switch (variant) {
+    case 'teams':
+      return {
+        outline: 'outline-orange-600/80',
+        outlineWidth: 'outline-2',
+        background: 'bg-white',
+        textColor: 'text-black',
+        iconColor: 'text-orange-500',
+        badge: {
+          text: 'For teams',
+          bgColor: 'bg-orange-200/20',
+          textColor: 'text-orange-600',
+        },
+      };
+    case 'platform':
+      return {
+        outline: 'outline-blue-600/60',
+        outlineWidth: 'outline-3',
+        background: 'bg-blue-50',
+        textColor: 'text-blue-900',
+        iconColor: 'text-blue-500',
+        badge: {
+          text: 'Agents',
+          bgColor: 'bg-blue-200/30',
+          textColor: 'text-blue-700',
+        },
+      };
+    default:
+      return {
+        outline: 'outline-gray-600/10',
+        outlineWidth: 'outline-2',
+        background: 'bg-white',
+        textColor: 'text-black',
+        iconColor: 'text-orange-500',
+        badge: null,
+      };
+  }
+};
 
 const opacityStyle = (isDisabled: boolean) =>
   isDisabled ? 'opacity-40' : 'opacity-100';
@@ -18,6 +55,7 @@ const opacityStyle = (isDisabled: boolean) =>
 const plans = [
   {
     name: 'Free',
+    variant: 'default',
     description: 'Generous limits to get your app off the ground',
     price: '$0',
     featuresDescription: 'Includes:',
@@ -34,7 +72,7 @@ const plans = [
   },
   {
     name: 'Pro',
-    isFeatured: true,
+    variant: 'teams',
     description: 'For production apps with the ability to scale',
     price: '$30',
     featuresDescription: 'Everything in the Free plan, plus:',
@@ -44,13 +82,14 @@ const plans = [
       '10 team members per app',
       'Daily backups for last 7 days',
     ],
+    footer: 'Storage counts towards database space.',
     cta: 'Get started',
     ctaLink: '/dash?t=billing',
   },
   {
     name: 'Enterprise',
+    variant: 'default',
     description: 'For teams building large-scale applications',
-    price: 'Custom',
     featuresDescription: 'Everything in the Pro plan, plus:',
     features: [
       'Premium Support',
@@ -63,11 +102,34 @@ const plans = [
     ctaLink:
       'mailto:founders@instantdb.com?subject=InstantDB%20Enterprise%20Plan%20Inquiry',
   },
+  {
+    name: 'Platform',
+    variant: 'platform',
+    description: 'For teams making app builders and agents.',
+    price: 'Custom',
+    featuresDescription: 'Includes:',
+    features: [
+      'On-demand database creation in <100ms',
+      'White-glove onboarding',
+      'Dedicated support',
+    ],
+    cta: 'Contact us',
+    ctaLink:
+      'mailto:founders@instantdb.com?subject=InstantDB%20Platform%20Plan%20Inquiry',
+  },
 ];
 
 // Components
 // ------------------
-function Feature({ feature }: { feature: string | string[] }) {
+function Feature({
+  feature,
+  variant,
+}: {
+  feature: string | string[];
+  variant: string;
+}) {
+  const styles = getVariantStyles(variant);
+
   return (
     <div className="flex flex-row py-2 gap-3 items-center">
       <svg
@@ -76,7 +138,7 @@ function Feature({ feature }: { feature: string | string[] }) {
         height="1em"
         viewBox="0 0 20 20"
         version="1.1"
-        className="w-5 h-5 text-orange-500 flex-none"
+        className={`w-5 h-5 ${styles.iconColor} flex-none`}
       >
         <path
           fill="currentColor"
@@ -105,43 +167,54 @@ function Plan({ plan }: { plan: any }) {
     featuresDescription,
     features,
     footer,
-    isFeatured,
+    variant,
     cta,
     ctaLink,
     ctaDisabled,
   } = plan;
+
+  const styles = getVariantStyles(variant);
+
   return (
     <div
-      className={`box-border rounded-lg bg-white outline outline-2 -outline-offset-1 ${outlineStyle(
-        isFeatured,
-      )} flex flex-col justify-between gap-4 p-6 h-full ${opacityStyle(ctaDisabled)}`}
+      className={`box-border rounded-lg ${styles.background} outline ${styles.outlineWidth} -outline-offset-1 ${styles.outline} flex flex-col justify-between gap-4 p-6 h-full ${opacityStyle(ctaDisabled)}`}
     >
       <div>
         <div className="flex items-center justify-between my-2">
-          <h5 className="font-mono text-black text-2xl font-medium tracking-tight mr-2">
+          <h5
+            className={`font-mono text-2xl font-medium tracking-tight mr-2 ${styles.textColor}`}
+          >
             {name}
           </h5>
-          {isFeatured && (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-md font-medium bg-orange-200/20 text-orange-600">
-              For teams
+          {styles.badge && (
+            <span
+              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-md font-medium ${styles.badge.bgColor} ${styles.badge.textColor}`}
+            >
+              {styles.badge.text}
             </span>
           )}
         </div>
-        <div className="text-black opacity-70">{description}</div>
-        <span className="text-black inline-flex gap-1 items-baseline my-4">
-          <h3 className="text-black text-3xl sm:text-4xl tracking-tight font-medium leading-none">
-            {price}
-          </h3>
-          {price !== 'Custom' && (
-            <span className="text-black leading-none">/month</span>
-          )}
-        </span>
-        <div className="text-black opacity-70 text-sm py-2">
+        <div className={`opacity-70 ${styles.textColor}`}>{description}</div>
+        {price && (
+          <span
+            className={`inline-flex gap-1 items-baseline my-4 ${styles.textColor}`}
+          >
+            <h3
+              className={`text-3xl sm:text-4xl tracking-tight font-medium leading-none ${styles.textColor}`}
+            >
+              {price}
+            </h3>
+            {price !== 'Custom' && (
+              <span className={`leading-none ${styles.textColor}`}>/month</span>
+            )}
+          </span>
+        )}
+        <div className={`opacity-70 text-sm py-2 ${styles.textColor}`}>
           {featuresDescription}
         </div>
         <div className="flex flex-col">
           {features.map((feature: any, idx: number) => (
-            <Feature key={idx} feature={feature} />
+            <Feature key={idx} feature={feature} variant={variant} />
           ))}
         </div>
       </div>
@@ -150,7 +223,13 @@ function Plan({ plan }: { plan: any }) {
         disabled={ctaDisabled}
         className="py-2 font-medium"
         type="link"
-        variant={name === 'Pro' ? 'cta' : 'secondary'}
+        variant={
+          variant === 'teams'
+            ? 'cta'
+            : variant === 'platform'
+              ? 'primary'
+              : 'secondary'
+        }
         href={ctaLink}
       >
         {cta}
@@ -159,7 +238,7 @@ function Plan({ plan }: { plan: any }) {
   );
 }
 
-function ThreePlanGrid() {
+function FourPlanGrid() {
   return (
     <div>
       <div className="flex flex-col flex-1 px-4 py-8 gap-12">
@@ -187,7 +266,7 @@ function ThreePlanGrid() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-9 max-w-5xl mx-auto w-full">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6 max-w-7xl mx-auto w-full">
           {plans.map((plan) => (
             <Plan key={plan.name} plan={plan} />
           ))}
@@ -214,7 +293,7 @@ export default function Page() {
         <div>
           {' '}
           <MainNav />
-          <ThreePlanGrid />
+          <FourPlanGrid />
         </div>
         <LandingFooter />
       </div>
