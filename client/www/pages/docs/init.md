@@ -23,30 +23,6 @@ function App() {
 
 With that, you can use `db` to [write data](/docs/instaml), [make queries](/docs/instaql), [handle auth](/docs/auth), and more!
 
-## Flexible Initialization
-
-Instant maintains a single connection regardless of where or how many times you
-call `init` with the same app ID. This means you can safely call `init` multiple
-times without worrying about creating multiple connections or
-performance overhead. However we do recommend the pattern of exporting a
-reference from a utility file like so:
-
-```javascript
-// util/instant.js
-import { init } from '@instantdb/react';
-
-const APP_ID = '__APP_ID__';
-export const db = init({ appId: APP_ID });
-
-// component.js
-import { db } from './util/instant';
-
-function MyComponent() {
-  // do some instant magic 🪄
-  db.useQuery({ ... });
-}
-```
-
 ## Typesafety
 
 If you're using typescript, `init` accepts a `schema` argument. Adding a schema provides auto-completion and typesafety for your queries and transactions.
@@ -78,3 +54,35 @@ const db = init({ appId: APP_ID, schema });
 ```
 
 To learn more about writing schemas, head on over to the [Modeling your data](/docs/modeling-data) section.
+
+## Flexible Initialization
+
+Instant maintains a single connection regardless of where or how many times you
+call `init` with the same app ID. This means you can safely call `init` multiple
+times without worrying about creating multiple connections or
+performance overhead. However we do recommend the pattern of exporting a
+reference from a utility file like so:
+
+<!-- prettier-ignore-start -->
+```typescript
+// lib/db.ts
+import { init } from '@instantdb/react';
+import schema from '../instant.schema';
+
+// Instant app
+const APP_ID = '__APP_ID__';
+export const db = init({ appId: APP_ID, schema });
+
+// app/page.tsx
+"use client";
+
+import { db } from '../lib/db';
+
+function App() {
+  // do some instant magic 🪄
+  db.useQuery({ todos: {} });
+}
+
+export default App;
+```
+<!-- prettier-ignore-end -->
