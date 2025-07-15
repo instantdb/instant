@@ -2,7 +2,6 @@
 title: How and where will agents ship software?
 date: '2025-07-14'
 authors: stopachka, nikitonsky
-hero: /posts/agents/hero.png
 og_image: /posts/agents/og_image.png
 ---
 

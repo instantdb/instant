@@ -1,8 +1,9 @@
 import { ActionButton, Button, Copyable } from '@/components/ui';
-import config, { getLocal, isDev } from '@/lib/config';
+import { getLocal, isDev } from '@/lib/config';
 import useLocalStorage from '@/lib/hooks/useLocalStorage';
 import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/solid';
 import confetti from 'canvas-confetti';
+import * as ephemeral from '@/lib/ephemeral';
 
 type InitState = {
   step: 'init';
@@ -23,7 +24,7 @@ type AppCreatedState = {
 
 type InteractionState = InitState | AppCreatedState;
 
-export default function AgentsEssayDemo() {
+export default function AgentsEssayDemoSection() {
   const [state, setState] = useLocalStorage<InteractionState>(
     'agents-essay-demo',
     {
@@ -59,8 +60,9 @@ export default function AgentsEssayDemo() {
           disabled={!!state.appId}
           onClick={async () => {
             const start = Date.now();
-            // TODO: we should push up shout schema and perms
-            const app = (await provisionEphemeralApp()).json.app;
+            const { app } = await ephemeral.provisionApp({
+              title: 'agents-essay-demo',
+            });
             const end = Date.now();
 
             const appId = app.id;
@@ -222,27 +224,9 @@ function ShoutsDemoApp({
     </div>
   );
 }
+
 // ----------
-// TODO: this is copied from tutorial.tsx
-
-async function provisionEphemeralApp() {
-  const r = await fetch(`${config.apiURI}/dash/apps/ephemeral`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      title: 'agents-essay-app',
-    }),
-  });
-
-  const json = await r.json();
-
-  return {
-    ok: r.ok,
-    json,
-  };
-}
+// XXX: This is copied from tutorial
 
 function randomInRange(min: number, max: number) {
   return Math.random() * (max - min) + min;

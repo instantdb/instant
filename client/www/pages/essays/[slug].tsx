@@ -11,7 +11,7 @@ import {
 } from '@/components/marketingUi';
 import * as og from '@/lib/og';
 
-import AgentsEssayDemo from '@/components/essays/shouts_demo';
+import AgentsEssayDemoSection from '@/components/essays/agents_essay_demo_section';
 
 import ReactMarkdown, { Components } from 'react-markdown';
 import { Fence } from '@/components/ui';
@@ -77,7 +77,7 @@ const Post = ({ post }: { post: Post }) => {
             remarkPlugins={[remarkGfm]}
             components={
               {
-                'agents-essay-demo': AgentsEssayDemo,
+                'agents-essay-demo-section': AgentsEssayDemoSection,
                 p: ({ children }) => (
                   <div className="text-base leading-relaxed leading-[1.75] mt-[1.25em] mb-[1.25em] prose">
                     {children}
