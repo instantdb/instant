@@ -509,17 +509,29 @@ export default function McpTutorial({ files }: MarkdownContent) {
             </div>
             <p className="text-gray-700 mb-6">
               With the Instant MCP server installed, we can now scaffold a
-              starter app. Run the following commands in your terminal
+              starter app. Run the following commands in your terminal:
             </p>
-            <Fence
-              code={`# Scaffold a Next.js app
-npx create-next-app@latest vibes --yes
 
-# Add Instant's React SDK to the project
-cd vibes
-npm i @instantdb/react`}
-              language="bash"
-            />
+            <div className="mb-6">
+              <p className="text-gray-700 mb-3">
+                First, create a new Next.js app:
+              </p>
+              <Copyable value="npx create-next-app@latest vibes --yes" />
+            </div>
+
+            <div className="mb-6">
+              <p className="text-gray-700 mb-3">
+                Then, navigate to the project:
+              </p>
+              <Copyable value="cd vibes" />
+            </div>
+
+            <div>
+              <p className="text-gray-700 mb-3">
+                Finally, add Instant's React SDK:
+              </p>
+              <Copyable value="npm i @instantdb/react" />
+            </div>
           </div>
 
           {/* Step 3: Add Rules */}
