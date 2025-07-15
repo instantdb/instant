@@ -257,22 +257,19 @@ export default function McpTutorial({ files }: MarkdownContent) {
       name: 'Windsurf',
       setupContent: (
         <div className="space-y-4">
+          <p>You can add the MCP server through the Windsurf UI:</p>
+          <ol className="list-decimal list-inside space-y-2 mb-4">
+            <li>Open Windsurf Settings.</li>
+            <li>Under Cascade, you'll find Model Context Protocol Servers.</li>
+            <li>
+              Select Add Server and paste the relevant snippet for your OS.
+            </li>
+          </ol>
           <p>
-            Use the SSE endpoint for Windsurf with{' '}
-            <a
-              href="https://www.npmjs.com/package/mcp-remote"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 hover:text-blue-800 underline"
-            >
-              mcp-remote
-            </a>
-            .
+            Alternatively you can directly edit your{' '}
+            <code>`~/.codeium/windsurf/mcp_config.json`</code>
           </p>
-          <p>
-            Edit your <code>~/.codeium/windsurf/mcp_config.json</code> with the
-            relevant snippet for your OS
-          </p>
+
           <div className="space-y-4">
             <div>
               <h4 className="font-medium mb-2">MacOS/Linux</h4>

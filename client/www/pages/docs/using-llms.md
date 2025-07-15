@@ -56,9 +56,13 @@ auth flow to enable the Instant MCP server in your claude code sessions!
 
 ### Windsurf
 
-Use the SSE endpoint for Windsurf with [`mcp-remote`](https://www.npmjs.com/package/mcp-remote).
+You can add the Instant MCP server through the Windsurf UI
 
-Edit your `~/.codeium/windsurf/mcp_config.json`:
+1. Open Windsurf Settings.
+2. Under Cascade, you'll find Model Context Protocol Servers.
+3. Select Add Server and paste the relevant snippet for your OS.
+
+Alternatively you can directly edit your `~/.codeium/windsurf/mcp_config.json`
 
 **MacOS/Linux**
 
