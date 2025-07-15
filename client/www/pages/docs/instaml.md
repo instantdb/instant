@@ -12,9 +12,9 @@ We use the `create` action to create entities:
 ```typescript
 import { init, id } from '@instantdb/react';
 
-const db = init({
-  appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
-});
+// Instant app
+const APP_ID = '__APP_ID__';
+const db = init({ appID: APP_ID });
 
 // transact! 🔥
 db.transact(db.tx.goals[id()].create({ title: 'eat' }));

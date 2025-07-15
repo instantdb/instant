@@ -12,9 +12,9 @@ One of the simplest queries you can write is to simply get all entities of a nam
 ```javascript
 import { init } from '@instantdb/react';
 
-const db = init({
-  appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
-});
+// Instant app
+const APP_ID = '__APP_ID__';
+const db = init({ appId: APP_ID });
 
 function App() {
   // Queries! 🚀

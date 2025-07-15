@@ -17,8 +17,10 @@ tweaks.
 ```javascript
 import { init, id } from '@instantdb/admin';
 
+// Instant app
+const APP_ID = '__APP_ID__';
 const db = init({
-  appId: INSTANT_APP_ID,
+  appId: APP_ID,
   adminToken: process.env.INSTANT_APP_ADMIN_TOKEN,
 });
 ```
@@ -71,8 +73,10 @@ from `@instantdb/react`. It returns a `tx-id` on success.
 import { init, id } from '@instantdb/admin';
 import schema from '../instant.schema.ts';
 
+// Instant app
+const APP_ID = '__APP_ID__';
 const db = init({
-  appId: process.env.INSTANT_APP_ID,
+  appId: APP_ID,
   adminToken: process.env.INSTANT_APP_ADMIN_TOKEN,
   schema,
 });
@@ -219,8 +223,8 @@ Here's a full example:
 import React, { useState } from 'react';
 import { init } from '@instantdb/react';
 
+// Instant app
 const APP_ID = "__APP_ID__";
-
 const db = init({ appId: APP_ID });
 
 async function customSignIn(
