@@ -8,11 +8,11 @@
 import { marked } from 'marked';
 
 const containerClass = 'md-video-container';
-const youtubePattern =
+export const youtubePattern =
   /(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
-const muxPattern = /stream\.mux\.com\/([A-Za-z0-9]+)/;
+export const muxPattern = /stream\.mux\.com\/([A-Za-z0-9]+)/;
 
-const youtubeParams = [
+export const youtubeParams = [
   'rel=0', // Don't show related videos
   'modestbranding=1', // Reduce YouTube branding
   'playsinline=1', // Play inline on mobile
