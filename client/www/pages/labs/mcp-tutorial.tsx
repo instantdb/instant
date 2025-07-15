@@ -694,6 +694,41 @@ export default function McpTutorial({ files }: MarkdownContent) {
             </p>
           </div>
 
+          {/* Share Your Creation */}
+          <div className="mb-16">
+            <div className="bg-gradient-to-br from-orange-50 to-red-50 border border-orange-200 rounded-lg p-6">
+              <div className="flex items-start gap-4">
+                <div className="text-3xl">🎉</div>
+                <div className="flex-1">
+                  <h4 className="text-lg font-semibold text-gray-800 mb-2">
+                    Show off your creation!
+                  </h4>
+                  <p className="text-gray-600 mb-4">
+                    We'd love to see what you built! Tweet us{' '}
+                    <a
+                      href="https://twitter.com/instant_db"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-orange-600 hover:text-orange-800 font-medium"
+                    >
+                      @instant_db
+                    </a>{' '}
+                    and we'll amplify your awesome creations to the community.
+                  </p>
+                  <a
+                    href="https://twitter.com/intent/tweet?text=%0A%0ABuilt%20with%20@instant_db%20%F0%9F%9A%80%20Tutorial:%20https://instantdb.com/labs/mcp-tutorial"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-orange-100 hover:bg-orange-200 text-orange-800 rounded-full text-sm font-medium transition-colors"
+                  >
+                    <span>🧡</span>
+                    <span>Share on Twitter</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Feedback Section */}
           <div className="mb-16">
             <RatingBox pageId="mcp-tutorial" />
