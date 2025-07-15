@@ -580,6 +580,11 @@ export default function McpTutorial({ files }: MarkdownContent) {
                 ))}
               </Tab.Panels>
             </Tab.Group>
+
+            <Callout type="note" title="Verify Setup">
+              <p>You can verify you set up the rules correctly by asking your LLM "How do you make queries and transactions in InstantDB?" If everything is set up correctly, you should see a response with information about <code>db.useQuery</code> and <code>transact</code>.</p>
+              <p>If you see a response that doesn't mention these methods, double check that you added the rules correctly and try restarting your tool.</p>
+            </Callout>
           </div>
 
           {/* Step 4: Build the App */}
