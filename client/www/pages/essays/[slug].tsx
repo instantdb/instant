@@ -49,7 +49,7 @@ const Post = ({ post }: { post: Post }) => {
             <span>
               {authors.map((author, idx) => {
                 return (
-                  <span>
+                  <span key={author.name}>
                     <a
                       className="hover:text-blue-500"
                       href={author.url}

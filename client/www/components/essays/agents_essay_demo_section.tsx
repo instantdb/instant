@@ -94,8 +94,47 @@ export default function AgentsEssayDemoSection() {
       </div>
       {state.appId ? (
         <AppCreatedSection state={state} setState={setState} />
-      ) : null}
+      ) : (
+        <div className="relative">
+          <div
+            className="absolute inset-0 bg-white flex items-center justify-center border"
+            style={{ opacity: 0.97 }}
+          >
+            <div className="p-4">
+              <h3 className="text-gray-500 my-0">
+                Your database will appear here!
+              </h3>
+            </div>
+          </div>
+          <YouGotDBCallout
+            appId={'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'}
+            timeTaken={0}
+          />
+        </div>
+      )}
     </div>
+  );
+}
+
+function YouGotDBCallout({
+  appId,
+  timeTaken,
+}: {
+  appId: string;
+  timeTaken: number;
+}) {
+  return (
+    <>
+      <h3 className="text-center mt-4">You've got a database!</h3>
+      <div className="not-prose">
+        <div className="py-4">
+          <Copyable label="App ID" value={appId} size="large" />
+        </div>
+      </div>
+      <div className="text-center text-lg">
+        Time taken: <strong>{timeTaken}ms</strong>
+      </div>
+    </>
   );
 }
 
@@ -108,17 +147,7 @@ function AppCreatedSection({
 }) {
   return (
     <div>
-      <>
-        <h3 className="text-center mt-4">You've got a database!</h3>
-        <div className="not-prose">
-          <div className="py-4">
-            <Copyable label="App ID" value={state.appId} size="large" />
-          </div>
-        </div>
-        <div className="text-center text-lg">
-          Time taken: <strong>{state.timeTaken}ms</strong>
-        </div>
-      </>
+      <YouGotDBCallout appId={state.appId} timeTaken={state.timeTaken} />
       <>
         <p>
           Perfect! Now you have a database, a sync engine and a bunch of tools
