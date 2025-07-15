@@ -3,41 +3,28 @@ title: Using Instant with LLMs
 description: How to use Instant with LLMs
 ---
 
-Read below to learn how to use Instant with LLMs to build full-stack apps
+You can supercharge your Instant experience by using it with LLMs. For best
+results we recommend doing two things:
 
-## Instant Context Rules
+- Use the Instant MCP server to enable LLMs to create and update your apps
+- Add rules or context to your LLM to help it understand how Instant works
 
-To make it easier to use Instant with LLMs we've put together a [rules.txt](/rules.txt)
-that you can paste or download to use as context.
-
-You can also attach `.md` to the end of any doc page url to get the raw markdown
-you can copy and paste into your LLM. For example, here's the [Getting
-Started page](/docs.md)
+To get set up quickly, check out our [whirlwind tutorial](/labs/mcp-tutorial).
+Otherwise read on for more detailed setup instructions.
 
 ## Instant MCP Server
 
-We've also built [`@instantdb/mcp`](https://github.com/instantdb/instant/tree/main/client/packages/mcp) to enable creating, managing, and updating your Instant apps.
+We built [`@instantdb/mcp`](https://github.com/instantdb/instant/tree/main/client/packages/mcp) to enable creating, managing, and updating your Instant apps.
 Combine the MCP with our rules file to build full-stack apps directly in your editor.
 
-## Remote MCP server
+The easiest way to get started is to use our hosted remote MCP server. Use the
+instructions below to add the Instant MCP server to your favorite LLM editor or tool.
 
-We host the latest version of the MCP server at [https://mcp.instantdb.com](https://mcp.instantdb.com).
-
-For modern clients that support streamable HTTP use:
-
-```text {% showCopy="true" %}
-https://mcp.instantdb.com/mcp
-```
-
-For legacy clients that require SSE use:
-
-```text {% showCopy="true" %}
-https://mcp.instantdb.com/sse
-```
-
-### Auth
+{% callout type="note" %}
 
 When you add the MCP server, you'll be sent through an OAuth flow to grant access to your Instant Account.
+
+{% /callout %}
 
 ### Cursor
 
@@ -66,14 +53,6 @@ claude mcp add instant -s user -t http https://mcp.instantdb.com/mcp
 Now you run `claude` to start Claude Code and then run `/mcp` to see your list
 of MCP servers. `instant` should be listed there. Select it and go through the
 auth flow to enable the Instant MCP server in your claude code sessions!
-
-### Claude
-
-If you're on a paid plan, go to Settings > Integrations. Add a custom integration and use the url:
-
-```text {% showCopy="true" %}
-https://mcp.instantdb.com/mcp
-```
 
 ### Windsurf
 
@@ -141,9 +120,70 @@ Open your Zed settings and add the following
 }
 ```
 
+### Other Tools
+
+For other tools that support MCP servers, you can configure Instant using either our streamable HTTP
+endpoint (recommended if your tool supports it)
+
+```text {% showCopy="true" %}
+https://mcp.instantdb.com/mcp
+```
+
+Or our SSE endpoint
+
+```text {% showCopy="true" %}
+https://mcp.instantdb.com/sse
+```
+
+## Instant Rules
+
+We've created a set of rules to help LLMs understand how Instant works. After setting up your MCP server, add these rules to your tool of choice.
+
+You can verify you set up the rules correctly by asking your LLM "How do you
+make queries and transactions in InstantDB?" If everything is set up correctly,
+you should see a response with information about `db.useQuery` and `transact`
+
+{% callout type="note" %}
+
+You can also attach `.md` to the end of any doc page url to get the raw markdown
+you can copy and paste into your LLM. This can be helpful if you're stuck on
+particular functionality. For example, here's the docs for [using cursors](/docs/presence-and-topics.md)
+
+{% /callout %}
+
+### Cursor
+
+Save [these rules](/mcp-tutorial/cursor-rules.md) at the root of your project in
+`.cursor/rules/instant.mdc` You may need to restart Cursor for them to take
+effect.
+
+When using Cursor we recommend turning off "Auto" and using at least Claude
+Sonnet 4
+
+### Claude Code
+
+Save [these instructions](/mcp-tutorial/claude.md) at the root of your
+project in `CLAUDE.md` and [these rules](/mcp-tutorial/claude-rules.md) in `instant-rules.md`. If you already had claude running, restart it for the rules to take effect.
+
+### Windsurf
+
+Save [these instructions](/mcp-tutorial/claude.md) at the root of your project in `.windsurfrules.md` and [these rules](/mcp-tutorial/claude-rules.md) in `instant-rules.md`. You may need to restart Windsurf for them to take effect.
+
+### Zed
+
+Save [these rules](/mcp-tutorial/other-rules.md) at the root of your project in `AGENT.md`. You may need to restart Zed for them to take effect.
+
+### Other Tools
+
+Use [these rules](/mcp-tutorial/other-rules.md) to give context on how to use
+Instant. If want to manually add in more documentation, you can also append
+`.md` to the end of any doc page url to get the raw markdown
+
 ## Local MCP server
 
-You can run [`@instantdb/mcp`](https://github.com/instantdb/instant/tree/main/client/packages/mcp) locally.
+We recommend using our hosted MCP server but we also support running [`@instantdb/mcp`](https://github.com/instantdb/instant/tree/main/client/packages/mcp) locally
+via `stdio`. This will avoid OAuth but requires you to manage your personal
+access token.
 
 ### Get your Personal Access Token
 
