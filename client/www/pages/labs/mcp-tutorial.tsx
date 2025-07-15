@@ -682,6 +682,16 @@ export default function McpTutorial({ files }: MarkdownContent) {
               Huzzah! You've built a full-stack app with InstantDB in just a few
               minutes!
             </p>
+            <p className="text-gray-700 mt-6">
+              If you're curious, you can go to your{' '}
+              <a
+                href="/dash"
+                className="text-blue-600 hover:text-blue-800 underline"
+              >
+                Instant dashboard
+              </a>{' '}
+              and see all the data you've created in the Explorer tab.
+            </p>
           </div>
 
           {/* Feedback Section */}
