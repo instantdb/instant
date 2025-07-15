@@ -14,6 +14,7 @@
    [instant.util.exception :as ex]
    [instant.util.e2e-tracer :as e2e-tracer]
    [instant.util.json :refer [->json]]
+   [instant.util.string :as string-util]
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid]
    [next.jdbc :as next-jdbc])
@@ -308,6 +309,28 @@
 
         nil))))
 
+(defn guess-etypes-from-lookups-for-delete-entity
+  "If we know the etype from the lookup for delete-entity, but the client
+   hasn't been updated to provide it, then we can patch the `delete-entity`
+   step to include it"
+  [tx-steps attrs]
+  (for [[op eid etype :as tx-step] tx-steps]
+    (if (triple-model/eid-lookup-ref? eid)
+      (let [[attr-id _]  eid
+            lookup-etype (attr-model/fwd-etype (attr-model/seek-by-id attr-id attrs))]
+        (when-not lookup-etype
+          (ex/throw-validation-err! :lookup eid
+                                    [{:message "Invalid lookup. Could not determine namespace from lookup attribute."
+                                      :tx-step tx-step}]))
+        (when (and etype (not= etype lookup-etype))
+          (ex/throw-validation-err! :tx-step tx-step
+                                    [{:message (string-util/multiline->single-line
+                                                "Invalid transaction. The namespace in the lookup attribute is
+                                                 different from the namespace of the attribute that is
+                                                 being set")}]))
+        [op eid lookup-etype])
+      tx-step)))
+
 (defn resolve-lookups-for-delete-entity [tx-steps conn app-id]
   (let [lookup-refs (->> tx-steps
                          (map second)
@@ -447,6 +470,32 @@
         (for [[entity_id etype] (set (concat ids+etypes ids+etypes'))]
           [:delete-entity entity_id etype])))))
 
+(defn validate-value-lookup-etypes
+  "Check that in the case of
+
+     [op eid fwd-attr [lookup-attr lookup-value]]
+
+   etype from reverse of fwd-attr matches etype from lookup-attr"
+  [grouped-tx-steps attrs]
+  (doseq [[op tx-steps] grouped-tx-steps
+          :when (#{:add-triple :deep-merge-triple :retract-triple} op)
+          [_op _eid attr-id value :as tx-step] tx-steps
+          :when (sequential? value)
+          :let [[value-lookup-attr-id _] value
+                value-lookup-etype       (attr-model/fwd-etype (attr-model/seek-by-id value-lookup-attr-id attrs))
+                rev-etype                (attr-model/rev-etype (attr-model/seek-by-id attr-id attrs))]]
+    (when-not value-lookup-etype
+      (ex/throw-validation-err! :lookup value
+                                [{:message "Invalid lookup. Could not determine namespace from lookup attribute."
+                                  :tx-step tx-step}]))
+    (when (and rev-etype (not= value-lookup-etype rev-etype))
+      (ex/throw-validation-err! :tx-step tx-step
+                                [{:message (string-util/multiline->single-line
+                                            "Invalid transaction. The namespace in the lookup attribute is
+                                             different from the namespace of the attribute that is
+                                             being set")}])))
+  grouped-tx-steps)
+
 (defn get-attr-for-exception
   "Used by exception.clj to lookup the attr by its attr id when it gets an attr id
    in a sql exception."
@@ -518,8 +567,8 @@
                                                     :name "transact"}))
           (assoc tx :results results))))))
 
-(defn preprocess-tx-steps [conn attrs app-id tx-steps]
-  (-> (group-by first tx-steps)
+(defn preprocess-tx-steps [grouped-tx-steps conn attrs app-id]
+  (-> grouped-tx-steps
       (coll/update-when :delete-entity resolve-lookups-for-delete-entity conn app-id)
       (coll/update-when :delete-entity resolve-etypes-for-delete-entity conn app-id)
       (coll/update-when :delete-entity expand-delete-entity-cascade conn app-id attrs)))
@@ -528,7 +577,8 @@
   ([conn attrs app-id tx-steps]
    (transact-without-tx-conn! conn attrs app-id tx-steps {}))
   ([conn attrs app-id tx-steps opts]
-   (let [grouped-tx-steps (preprocess-tx-steps conn attrs app-id tx-steps)]
+   (let [grouped-tx-steps (-> (group-by first tx-steps)
+                              (preprocess-tx-steps conn attrs app-id))]
      (transact-without-tx-conn-impl! conn attrs app-id grouped-tx-steps opts))))
 
 (defn transact!
