@@ -141,7 +141,7 @@ We’re releasing three things:
 
 Let’s try them out.
 
-<agents-essay-demo></agents-essay-demo>
+<agents-essay-demo-section></agents-essay-demo-section>
 
 ---
 

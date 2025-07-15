@@ -77,6 +77,8 @@ const Post = ({ post }: { post: Post }) => {
             remarkPlugins={[remarkGfm]}
             components={
               {
+                // Note if you change the custom component key, you
+                // must also change all references in the markdown files
                 'agents-essay-demo-section': AgentsEssayDemoSection,
                 p: ({ children }) => (
                   <div className="text-base leading-relaxed leading-[1.75] mt-[1.25em] mb-[1.25em] prose">
