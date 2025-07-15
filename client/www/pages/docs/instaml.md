@@ -278,24 +278,10 @@ db.tx.todos[workoutId].update({
 });
 ```
 
-As your app grows, you may want to start enforcing types. When you're ready, you can start using a [schema](/docs/modeling-data):
-
-```typescript
-import { init } from '@instantdb/react';
-
-import schema from '../instant.schema.ts';
-
-const db = init({
-  appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
-  schema,
-});
-```
-
-If your schema includes a `todos.dueDate` for example:
+As your app grows, you may want to start enforcing types. When you're ready, you can start using a [schema](/docs/modeling-data). If your schema includes a `todos.dueDate` for example:
 
 ```typescript
 // instant.schema.ts
-
 const _schema = i.schema({
   entities: {
     todos: i.entity({
