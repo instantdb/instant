@@ -3,6 +3,7 @@ title: How and where will agents ship software?
 date: '2025-07-14'
 authors: stopachka, nikitonsky
 hero: /posts/agents/hero.png
+og_image: /posts/agents/og_image.png
 ---
 
 We’re entering a new phase of software engineering. People are becoming addicted to agents. Beginners are vibe-coding apps and experts are maxing out their LLM subscriptions. This means that a lot more people are going to make a lot more apps, and for that we’re going to need new tools.
@@ -101,15 +102,11 @@ We think that database-like abstractions are going to be an advantage.
 
 # A Multi-Tenant Sync Engine
 
-So if agents and humans work best when they have (1) built-in abstractions that (2) are hosted efficiently and (3) expose data, what infrastructure works best?
+So if agents and humans work best when they have (1) built-in abstractions that are (2) hosted efficiently and (3) expose data, what infrastructure works best?
 
-Agents have a problem with the traditional client-server architecture. It involves multiple moving and constantly changing parts that all need to work in unison: a server, a client and a database.
+Agents are best at writing self-contained code. Code that they can reason about in one place, without too much extraneous state and edge cases. That’s why the traditional client-server architecture is hard for them: it involves multiple parts that all need to work in unison—a server, a client, and a database.
 
-Agents are best at writing self-contained code. Code that they can reason about in one place, without too much extraneous state and edge cases.
-
-They can do this by building a local-only desktop app (but then — no internet, multiple devices, or collaboration). They could build a server-only app (then you get latency, no offline mode, hosting costs). Or they can create a client-only app that treats the backend like a remote database. In other words, a sync engine.
-
-The last one is the future we are building Instant for.
+There are several ways to build self-contained apps. It can be a local-only desktop app (but then — no internet, multiple devices, or collaboration). It can be a server-only app (then you get latency, no offline mode, hosting costs). Or it could be a client-only app that treats the backend like a remote database. In other words, a sync engine.
 
 ![](/posts/agents/sync_engine.png)
 
@@ -118,6 +115,8 @@ Sync engines let you work with data as if it was local and not worry about fetch
 Queries and transactions are straight-forward to sandbox. You can host them on multi-tenant platforms. Which makes for efficient apps (2).
 
 And since you get a database-like abstraction, exposing data is relatively straightforward too (3).
+
+That’s the future we are building Instant for.
 
 # A Tool for Hackers
 
@@ -129,11 +128,11 @@ Hackers want good abstractions. So we built a sync engine, permissions, auth, fi
 
 Hackers also want efficient hosting. They build lots of projects, and it sucks when apps end up frozen. So we made our sync engine and database multi-tenant. This way we could offer a generous free tier.
 
-There’s still a lot to do, but real startups are using Instant today, and pushing upwards of 10,000 concurrent connections.
-
 # Exposing the API
 
-Instant is already great for hackers. Today we are making it easy for machines too.
+Instant is already great for hackers. Real startups are using Instant today, and pushing upwards of 10,000 concurrent connections.
+
+Today we are making it easy for machines too.
 
 We’re releasing three things:
 

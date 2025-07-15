@@ -50,7 +50,7 @@ function useAttachSpecialComponents({ post }: { post: Post }) {
   }, [slug]);
 }
 const Post = ({ post }: { post: Post }) => {
-  const { title, date, mdHTML, authors, hero } = post;
+  const { title, date, mdHTML, authors, hero, og_image } = post;
   useAttachSpecialComponents({ post });
   return (
     <LandingContainer>
@@ -60,7 +60,7 @@ const Post = ({ post }: { post: Post }) => {
         <meta
           key="og:image"
           property="og:image"
-          content={og.url({ title, section: 'blog' })}
+          content={og_image || hero || og.url({ title, section: 'blog' })}
         />
         <meta key="og:type" property="og:type" content="article" />
         <meta
@@ -74,8 +74,8 @@ const Post = ({ post }: { post: Post }) => {
       <div className="mt-6 p-4 space-y-4">
         <div className="mb-4 py-4 max-w-prose mx-auto">
           <h1 className="text-4xl font-medium mb-2">{title}</h1>
-          <div className="flex justify-between text-sm text-gray-500">
-            <span className="space-x-2">
+          <div className="flex text-sm text-gray-500">
+            <span>
               {authors.map((author, idx) => {
                 return (
                   <span>
@@ -91,12 +91,13 @@ const Post = ({ post }: { post: Post }) => {
                 );
               })}
             </span>
+            <span className="mx-1">·</span>
             {format(parse(date, 'yyyy-MM-dd', new Date()), 'MMM do, yyyy')}
           </div>
         </div>
         {hero && (
           <div className="max-w-3xl mx-auto">
-            <img src={hero} className="w-full rounded bg-gray-100" />
+            <img src={hero} className="w-full rounded" />
           </div>
         )}
         <Prose html={mdHTML} />

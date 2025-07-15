@@ -185,7 +185,7 @@ function ShoutsDemoApp({
   setState: (state: AppCreatedState) => void;
 }) {
   const devBackend = getLocal('devBackend');
-  const uri = `/shouts-demo?a=${state.appId}&localBackend=${devBackend ? '1' : '0'}`;
+  const uri = `/shouts-demo?a=${state.appId}${devBackend ? '&localBackend=1' : ''}`;
   const fullURI = `${isDev ? 'http://localhost:3000' : 'https://instantdb.com'}${uri}`;
   return (
     <div className="not-prose">
