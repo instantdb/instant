@@ -12,9 +12,9 @@ We use the `create` action to create entities:
 ```typescript
 import { init, id } from '@instantdb/react';
 
-const db = init({
-  appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
-});
+// Instant app
+const APP_ID = '__APP_ID__';
+const db = init({ appID: APP_ID });
 
 // transact! 🔥
 db.transact(db.tx.goals[id()].create({ title: 'eat' }));
@@ -278,24 +278,10 @@ db.tx.todos[workoutId].update({
 });
 ```
 
-As your app grows, you may want to start enforcing types. When you're ready, you can start using a [schema](/docs/modeling-data):
-
-```typescript
-import { init } from '@instantdb/react';
-
-import schema from '../instant.schema.ts';
-
-const db = init({
-  appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
-  schema,
-});
-```
-
-If your schema includes a `todos.dueDate` for example:
+As your app grows, you may want to start enforcing types. When you're ready, you can start using a [schema](/docs/modeling-data). If your schema includes a `todos.dueDate` for example:
 
 ```typescript
 // instant.schema.ts
-
 const _schema = i.schema({
   entities: {
     todos: i.entity({
@@ -402,9 +388,9 @@ db.tx.NAMESPACE_LABEL[ENTITY_IDENTIFIER].ACTION(ACTION_SPECIFIC_DATA)
 
 - `NAMESPACE_LABEL` refers to the namespace to commit (e.g. `goals`, `todos`)
 - `ENTITY_IDENTIFIER` is the id to look up in the namespace. This id must be a uuid and unique to the namespace. You can use the `id()` function to generate a uuid for convenience.
-- `ACTION` is one of `update`, `merge`, `delete`, `link`, `unlink`
+- `ACTION` is one of `create`, `update`, `merge`, `delete`, `link`, `unlink`
 - `ACTION_SPECIFIC_DATA` depends on the action
-  - `update` takes in an object of information to commit
+  - `create` and `update` take in an object of information to commit
   - `merge` takes in an object to deep merge with the existing data
   - `delete` is the only action that doesn't take in any data,
   - `link` and `unlink` takes an object of label-entity pairs to create/delete associations

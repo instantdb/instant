@@ -12,9 +12,9 @@ One of the simplest queries you can write is to simply get all entities of a nam
 ```javascript
 import { init } from '@instantdb/react';
 
-const db = init({
-  appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
-});
+// Instant app
+const APP_ID = '__APP_ID__';
+const db = init({ appId: APP_ID });
 
 function App() {
   // Queries! 🚀
@@ -1131,20 +1131,7 @@ const query = {
 const { isLoading, error, data } = db.useQuery(query);
 ```
 
-As your app grows, you may want to start enforcing types. When you're ready you can write a [schema](/docs/modeling-data):
-
-```typescript
-import { init } from '@instantdb/react';
-
-import schema from '../instant.schema.ts';
-
-const db = init({
-  appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
-  schema,
-});
-```
-
-If your schema includes `goals` and `todos` for example:
+As your app grows, you may want to start enforcing types. When you're ready you can write a [schema](/docs/modeling-data). If your schema includes `goals` and `todos` for example:
 
 ```typescript
 // instant.schema.ts
@@ -1180,8 +1167,6 @@ const schema: AppSchema = _schema;
 export type { AppSchema };
 export default schema;
 ```
-
-### Intellisense
 
 Instant will start giving you intellisense for your queries. For example, if you're querying for goals, you'll see that only `todos` can be associated:
 

@@ -173,7 +173,9 @@ via a CDN through [unpkg](https://www.unpkg.com/@instantdb/core/).
 <!-- Use Instant like normal -->
 <script>
   const { init, id } = instant;
-  const db = init({ appId: 'your-app-id' });
+  // Instant app
+  const APP_ID = '__APP_ID__';
+  const db = init({ appId: APP_ID });
 
   async function createMessage() {
     await db.transact(
@@ -194,7 +196,9 @@ Local ids are especially useful for features like "guest" mode. You need an iden
 ```js
 import { init } from '@instantdb/react';
 
-const db = init({ appId: 'your-app-id' });
+// Instant app
+const APP_ID = '__APP_ID__';
+const db = init({ appId: APP_ID });
 
 const id = await db.getLocalId('guest');
 
@@ -206,7 +210,9 @@ Or a handy hook if you're inside React:
 ```js
 import { init } from '@instantdb/react';
 
-const db = init({ appId: 'your-app-id' });
+// Instant app
+const APP_ID = '__APP_ID__';
+const db = init({ appId: APP_ID });
 
 function App() {
   const id = db.useLocalId('guest');
@@ -325,8 +331,8 @@ import React, { useState } from 'react';
 import { init } from '@instantdb/react';
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 
+// Instant app
 const APP_ID = '__APP_ID__';
-
 const db = init({ appId: APP_ID });
 
 // e.g. 89602129-cuf0j.apps.googleusercontent.com
