@@ -79,7 +79,7 @@ import { db } from '../lib/db';
 
 function App() {
   // do some instant magic 🪄
-  db.useQuery({ ... });
+  db.useQuery({ todos: {} });
 }
 
 export default App;
