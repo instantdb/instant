@@ -112,10 +112,10 @@
               (not (allow-cors-origin? request))
               (flags/toggled? :disable-preflight-caching))
         response
-        ;; If we allowed the CORs origin, add 5 minute cache control headers
+        ;; If we allowed the CORs origin, add 1 day cache control headers
         (update response :headers merge {"Vary" "origin"
-                                         "Access-Control-Max-Age" "300"
-                                         "Cache-Control" "public, max-age=300"})))))
+                                         "Access-Control-Max-Age" "86400"
+                                         "Cache-Control" "public, max-age=86400"})))))
 
 
 (defn not-found [_req]
