@@ -268,29 +268,10 @@
                   etype (if (sequential? eid)
                           (extract-lookup-etype! ctx eid aid-etype tx-step)
                           aid-etype)
-                  ;; TODO remove
-                  _ (when (nil? etype)
-                      (binding [tracer/*span* nil]
-                        (tracer/record-info!
-                         {:name "tx/missing-etype"
-                          :attributes {:app-id  (:app-id ctx)
-                                       :tx-step tx-step
-                                       :stage   "group-object-tx-steps"}})))
-                  ;; If we know the etype from the lookup for delete-entity,
-                  ;; but the client hasn't been updated to provide it, then
-                  ;; we can patch the `delete-entity` step to include it
-                  patched-step (if (and (= op :delete-entity)
-                                        (not aid-or-etype)
-                                        etype)
-                                 [op eid etype]
-                                 tx-step)
 
-                  [rev-etype rev-eid] (if (= "delete-entity" op)
+                  [rev-etype rev-eid] (if (= :delete-entity op)
                                         nil
                                         (when-let [rev-etype (extract-rev-etype ctx aid-or-etype)]
-                                          (when (sequential? value)
-                                            ;; prevent mismatched etype in the lookup
-                                            (extract-lookup-etype! ctx value rev-etype tx-step))
                                           [rev-etype (if (sequential? value)
                                                        value
                                                        (if-let [e (uuid-util/coerce value)]
@@ -303,17 +284,17 @@
               (cond-> acc
                 true (update-in [:groups {:eid eid
                                           :etype etype
-                                          :action (case (first tx-step)
+                                          :action (case op
                                                     (:add-triple :deep-merge-triple :retract-triple) :update
                                                     :delete-entity :delete
                                                     :rule-params   :rule-params)}]
                                 (fnil conj [])
-                                patched-step)
+                                tx-step)
                 rev-etype (->  (update-in [:groups {:eid rev-eid
                                                     :etype rev-etype
                                                     :action :view}]
                                           (fnil conj [])
-                                          patched-step)
+                                          tx-step)
                                (update-in [:rule-params-to-copy {:etype etype :eid eid}]
                                           (fnil conj [])
                                           {:etype rev-etype :eid rev-eid})))))
@@ -516,7 +497,10 @@
       (next-jdbc/with-transaction [tx-conn conn-pool]
         (if admin?
           (tx/transact-without-tx-conn! tx-conn attrs app-id tx-steps)
-          (let [grouped-tx-steps (tx/preprocess-tx-steps tx-conn attrs app-id tx-steps)
+          (let [grouped-tx-steps (-> (group-by first tx-steps)
+                                     (ucoll/update-when :delete-entity tx/guess-etypes-from-lookups-for-delete-entity attrs)
+                                     (tx/preprocess-tx-steps tx-conn attrs app-id)
+                                     (tx/validate-value-lookup-etypes attrs))
 
                 attr-changes     (concat
                                   (:add-attr grouped-tx-steps)
@@ -563,6 +547,7 @@
 
                 lookups->eid (lookup->eid-from-preloaded-triples preloaded-triples)
 
+                ;; { {:eid <eid>, :etype <etype>} -> params }
                 user-rule-params (reduce
                                   (fn [acc [_ eid etype params]]
                                     (let [eid (get lookups->eid eid eid)
