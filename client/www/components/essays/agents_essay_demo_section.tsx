@@ -434,6 +434,30 @@ function AppPermsSection({
         your internet is slow you’ll see optimistic updates right away. And it’s
         all shared globally—everyone in the world sees the same thing.
       </p>
+      <>
+        <h2>Try it yourself</h2>
+        <p>That's a cool app. Want to make something new with your agent?</p>
+        <p>
+          We built a tutorial just for you. You can follow along to build out a
+          full stack app in about 5 minutes. Just Claude, Cursor, or your
+          favorite agent start cooking.
+        </p>
+        <div className="not-prose text-center">
+          <Button
+            type="link"
+            variant="cta"
+            size="large"
+            href="/labs/mcp-tutorial"
+          >
+            Build with your own agents
+          </Button>
+        </div>
+        <p>
+          And heck, if you are the founder of an app builder platform, Instant
+          could be a great use-case for you, too. We’d be thrilled to work with
+          you directly. Simply send us an email.
+        </p>
+      </>
     </>
   );
 }
