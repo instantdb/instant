@@ -3,6 +3,7 @@ import Head from 'next/head';
 import { Tab } from '@headlessui/react';
 import { Fence, Copyable, SubsectionHeading } from '@/components/ui';
 import { Callout } from '@/components/docs/Callout';
+import RatingBox from '@/components/docs/RatingBox';
 import {
   Section,
   MainNav,
@@ -681,6 +682,11 @@ export default function McpTutorial({ files }: MarkdownContent) {
               Huzzah! You've built a full-stack app with InstantDB in just a few
               minutes!
             </p>
+          </div>
+
+          {/* Feedback Section */}
+          <div className="mb-16">
+            <RatingBox pageId="mcp-tutorial" />
           </div>
         </div>
       </Section>
