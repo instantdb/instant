@@ -7,6 +7,7 @@ import {
   translatePlanSteps,
 } from '@instantdb/platform';
 import version from './version.js';
+import { existsSync } from 'fs';
 import { mkdir, writeFile, readFile } from 'fs/promises';
 import path, { join } from 'path';
 import { randomUUID } from 'crypto';
@@ -840,7 +841,8 @@ async function pullSchema(appId, { pkgDir, instantModuleName }) {
     if (!shouldContinue) return { ok: true };
   }
 
-  const schemaPath = join(pkgDir, getSchemaPathToWrite(prev?.path));
+  const shortSchemaPath = getSchemaPathToWrite(prev?.path);
+  const schemaPath = join(pkgDir, shortSchemaPath);
 
   await writeTypescript(
     schemaPath,
@@ -852,7 +854,7 @@ async function pullSchema(appId, { pkgDir, instantModuleName }) {
     'utf-8',
   );
 
-  console.log('✅ Wrote schema to instant.schema.ts');
+  console.log('✅ Wrote schema to ' + shortSchemaPath);
 
   return { ok: true };
 }
@@ -876,14 +878,15 @@ async function pullPerms(appId, { pkgDir, instantModuleName }) {
     if (!shouldContinue) return { ok: true };
   }
 
-  const permsPath = join(pkgDir, getPermsPathToWrite(prev?.path));
+  const shortPermsPath = getPermsPathToWrite(prev?.path);
+  const permsPath = join(pkgDir, shortPermsPath);
   await writeTypescript(
     permsPath,
     generatePermsTypescriptFile(pullRes.data.perms || {}, instantModuleName),
     'utf-8',
   );
 
-  console.log('✅ Wrote permissions to instant.perms.ts');
+  console.log('✅ Wrote permissions to ' + shortPermsPath);
 
   return { ok: true };
 }
@@ -1520,6 +1523,9 @@ function getPermsPathToWrite(existingPath) {
   if (process.env.INSTANT_PERMS_FILE_PATH) {
     return process.env.INSTANT_PERMS_FILE_PATH;
   }
+  if (existsSync(path.join(process.cwd(), 'src'))) {
+    return path.join('src', 'instant.perms.ts');
+  }
   return 'instant.perms.ts';
 }
 
@@ -1581,6 +1587,11 @@ function getSchemaPathToWrite(existingPath) {
   if (process.env.INSTANT_SCHEMA_FILE_PATH) {
     return process.env.INSTANT_SCHEMA_FILE_PATH;
   }
+  // If there is a src folder
+  if (existsSync(path.join(process.cwd(), 'src'))) {
+    return path.join('src', 'instant.schema.ts');
+  }
+
   return 'instant.schema.ts';
 }
 
