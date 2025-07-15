@@ -21,7 +21,7 @@ import fs from 'fs';
 import path from 'path';
 
 function getFiles(): Record<string, string> {
-  const markdownDir = path.join(process.cwd(), 'data', 'mcp-tutorial');
+  const markdownDir = path.join(process.cwd(), 'public', 'mcp-tutorial');
   return fs
     .readdirSync(markdownDir)
     .filter((fileName) => fileName.endsWith('.md'))
