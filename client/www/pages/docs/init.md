@@ -63,6 +63,7 @@ times without worrying about creating multiple connections or
 performance overhead. However we do recommend the pattern of exporting a
 reference from a utility file like so:
 
+<!-- prettier-ignore-start -->
 ```typescript
 // lib/db.ts
 import { init } from '@instantdb/react';
@@ -84,3 +85,4 @@ function App() {
 
 export default App;
 ```
+<!-- prettier-ignore-end -->
