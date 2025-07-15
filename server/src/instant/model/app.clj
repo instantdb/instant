@@ -7,7 +7,6 @@
    [instant.db.model.transaction :as transaction-model]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
-   [instant.model.app-admin-token :as app-admin-token-model]
    [instant.model.instant-user :as instant-user-model]
    [instant.model.rule :as rule-model]
    [instant.system-catalog-ops :refer [query-op]]
