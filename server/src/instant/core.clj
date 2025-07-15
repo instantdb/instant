@@ -45,7 +45,7 @@
    [instant.util.tracer :as tracer]
    [instant.app-deletion-sweeper :as app-deletion-sweeper]
    [ring.middleware.cookies :refer [CookieDateTime]]
-   [ring.middleware.cors :refer [wrap-cors]]
+   [ring.middleware.cors :refer [wrap-cors preflight?]]
    [ring.middleware.json :refer [wrap-json-body wrap-json-response]]
    [ring.middleware.keyword-params :refer [wrap-keyword-params]]
    [ring.middleware.multipart-params :refer [wrap-multipart-params]]
@@ -105,6 +105,19 @@
 
     true))
 
+(defn wrap-options-cache-control [handler]
+  (fn [request]
+    (let [response (handler request)]
+      (if (or (not (preflight? request))
+              (not (allow-cors-origin? request))
+              (flags/toggled? :disable-preflight-caching))
+        response
+        ;; If we allowed the CORs origin, add 1 day cache control headers
+        (update response :headers merge {"Vary" "origin"
+                                         "Access-Control-Max-Age" "86400"
+                                         "Cache-Control" "public, max-age=86400"})))))
+
+
 (defn not-found [_req]
   (response/not-found {:message "Oops! We couldn't match this route."}))
 
@@ -138,6 +151,7 @@
               wrap-json-response
               (wrap-cors :access-control-allow-origin allow-cors-origin?
                          :access-control-allow-methods [:get :put :post :delete])
+              wrap-options-cache-control
               (http-util/tracer-wrap-span))
           (wrap-json-response not-found)))
 

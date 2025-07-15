@@ -21,6 +21,10 @@ import {
   ComboboxOption,
   ComboboxOptions,
 } from '@headlessui/react';
+import {
+  apiSchemaToInstantSchemaDef,
+  generateSchemaTypescriptFile,
+} from '@instantdb/platform';
 
 import { StyledToastContainer, errorToast, successToast } from '@/lib/toast';
 import config, { cliOauthParamName, getLocal, setLocal } from '@/lib/config';
@@ -33,9 +37,10 @@ import {
   voidTicket,
 } from '@/lib/auth';
 import { TokenContext } from '@/lib/contexts';
-import { DashResponse, InstantApp, InstantMember } from '@/lib/types';
+import { DashResponse, DBAttr, InstantApp, InstantMember } from '@/lib/types';
 
 import { Perms } from '@/components/dash/Perms';
+import { Schema } from '@/components/dash/Schema';
 import Auth from '@/components/dash/Auth';
 import { Explorer } from '@/components/dash/explorer/Explorer';
 import { Onboarding } from '@/components/dash/Onboarding';
@@ -45,6 +50,7 @@ import {
   ActionForm,
   Button,
   Checkbox,
+  CodeEditor,
   Content,
   Copyable,
   Dialog,
@@ -74,6 +80,7 @@ import { createdAtComparator } from '@/lib/app';
 import OAuthApps from '@/components/dash/OAuthApps';
 import clsx from 'clsx';
 import AuthorizedOAuthAppsScreen from '@/components/dash/AuthorizedOAuthAppsScreen';
+import { useNamespacesQuery, useSchemaQuery } from '@/lib/hooks/explorer';
 
 // (XXX): we may want to expose this underlying type
 type InstantReactClient = ReturnType<typeof init>;
@@ -85,6 +92,7 @@ const roleOrder = ['collaborator', 'admin', 'owner'] as const;
 type MainTabId =
   | 'home'
   | 'explorer'
+  | 'schema'
   | 'repl'
   | 'sandbox'
   | 'perms'
@@ -125,6 +133,7 @@ interface Tab<TabId> {
 const mainTabs: Tab<MainTabId>[] = [
   { id: 'home', title: 'Home' },
   { id: 'explorer', title: 'Explorer' },
+  { id: 'schema', title: 'Schema' },
   { id: 'perms', title: 'Permissions' },
   { id: 'auth', title: 'Auth' },
   { id: 'repl', title: 'Query Inspector' },
@@ -599,6 +608,8 @@ function Dashboard() {
                   <Home />
                 ) : tab === 'explorer' ? (
                   <ExplorerTab appId={appId} db={connection.db} />
+                ) : tab === 'schema' ? (
+                  <Schema db={connection.db} />
                 ) : tab === 'repl' ? (
                   <QueryInspector
                     className="flex-1 w-full"

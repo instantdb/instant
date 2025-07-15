@@ -142,7 +142,7 @@ We’re releasing three things:
 
 Let’s try them out.
 
-<div id="shouts-demo"></div>
+<agents-essay-demo></agents-essay-demo>
 
 ---
 

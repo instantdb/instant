@@ -742,7 +742,7 @@ class InstantAdminDatabase<Schema extends InstantSchemaDef<any, any, any>> {
    *  await db.query({ goals: { todos: {} } })
    */
   query = <Q extends InstaQLParams<Schema>>(
-    query: Exactly<InstaQLParams<Schema>, Q>,
+    query: Q,
     opts: AdminQueryOpts = {},
   ): Promise<InstaQLResponse<Schema, Q>> => {
     if (query && opts && 'ruleParams' in opts) {

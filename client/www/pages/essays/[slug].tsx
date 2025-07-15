@@ -1,7 +1,7 @@
 import format from 'date-fns/format';
 import parse from 'date-fns/parse';
 import Head from 'next/head';
-import { getAllSlugs, getHTMLPostBySlug } from '../../lib/posts';
+import { getAllSlugs, getPostBySlug } from '../../lib/posts';
 import {
   LandingContainer,
   LandingFooter,
@@ -10,48 +10,19 @@ import {
   type Post,
 } from '@/components/marketingUi';
 import * as og from '@/lib/og';
-import { useEffect } from 'react';
-import { createRoot } from 'react-dom/client';
+
 import AgentsEssayDemo from '@/components/essays/shouts_demo';
 
-function Prose({ html }: { html: string }) {
-  return (
-    <div
-      className="prose prose-headings:font-medium prose-h1:mt-8 prose-h1:mb-4 prose-h2:mt-4 prose-h2:mb-2 prose-pre:bg-gray-100 mx-auto"
-      dangerouslySetInnerHTML={{ __html: html }}
-    ></div>
-  );
-}
+import ReactMarkdown, { Components } from 'react-markdown';
+import { Fence } from '@/components/ui';
+import rehypeRaw from 'rehype-raw';
+import remarkGfm from 'remark-gfm';
+import { muxPattern, youtubeParams, youtubePattern } from '@/lib/videos';
+import { isValidElement } from 'react';
 
-const specialComponents = {
-  agents: [{ id: 'shouts-demo', comp: AgentsEssayDemo }],
-} as const;
-
-function useAttachSpecialComponents({ post }: { post: Post }) {
-  const slug = post.slug;
-  useEffect(() => {
-    const specialComps =
-      specialComponents[slug as keyof typeof specialComponents];
-    if (!specialComps) {
-      return;
-    }
-    specialComps.forEach(({ id, comp }) => {
-      const el = document.getElementById(id);
-      if (!el) {
-        throw new Error(`Element with id ${id} not found`);
-      }
-      const root = createRoot(el);
-      const Comp = comp;
-      root.render(<Comp />);
-      return () => {
-        root.unmount();
-      };
-    });
-  }, [slug]);
-}
 const Post = ({ post }: { post: Post }) => {
-  const { title, date, mdHTML, authors, hero, og_image } = post;
-  useAttachSpecialComponents({ post });
+  const { title, date, authors, hero, content, og_image } = post;
+
   return (
     <LandingContainer>
       <Head>
@@ -100,7 +71,85 @@ const Post = ({ post }: { post: Post }) => {
             <img src={hero} className="w-full rounded" />
           </div>
         )}
-        <Prose html={mdHTML} />
+        <div className="prose prose-headings:font-medium prose-h1:mt-8 prose-h1:mb-4 prose-h2:mt-4 prose-h2:mb-2 prose-pre:bg-gray-100 mx-auto">
+          <ReactMarkdown
+            rehypePlugins={[rehypeRaw]}
+            remarkPlugins={[remarkGfm]}
+            components={
+              {
+                'agents-essay-demo': AgentsEssayDemo,
+                p: ({ children }) => (
+                  <div className="text-base leading-relaxed leading-[1.75] mt-[1.25em] mb-[1.25em] prose">
+                    {children}
+                  </div>
+                ),
+                a(props) {
+                  if (props.hasOwnProperty('data-footnote-ref')) {
+                    return <a {...props}>[{props.children}]</a>;
+                  }
+                  if (props.children !== '!video') {
+                    return <a {...props} />;
+                  }
+
+                  const ytMatch = props.href?.match(youtubePattern);
+                  if (ytMatch) {
+                    return (
+                      <span className="md-video-container block">
+                        <iframe
+                          width="100%"
+                          src={`https://www.youtube.com/embed/${ytMatch[1]}?${youtubeParams}`}
+                          title="${title}"
+                          allow="autoplay; picture-in-picture"
+                          allowFullScreen
+                        ></iframe>
+                      </span>
+                    );
+                  }
+
+                  const muxMatch = props.href?.match(muxPattern);
+                  if (muxMatch) {
+                    return (
+                      <span className="md-video-container block">
+                        <iframe
+                          width="100%"
+                          src={`https://stream.mux.com/${muxMatch[1]}`}
+                          title="${title}"
+                          allowFullScreen
+                        ></iframe>
+                      </span>
+                    );
+                  }
+
+                  return <a {...props} />;
+                },
+                pre(props) {
+                  if (!isValidElement(props.children)) {
+                    return <pre {...props} />;
+                  }
+                  const language =
+                    (isValidElement(props.children) &&
+                      props.children?.props.className?.replace(
+                        'language-',
+                        '',
+                      )) ||
+                    '';
+
+                  return (
+                    <Fence
+                      code={String(props.children.props.children).replace(
+                        /\n$/,
+                        '',
+                      )}
+                      language={language}
+                    ></Fence>
+                  );
+                },
+              } as Components
+            }
+          >
+            {content}
+          </ReactMarkdown>
+        </div>
       </div>
       <LandingFooter />
     </LandingContainer>
@@ -120,7 +169,7 @@ export async function getStaticProps({
   params: { slug: string };
 }) {
   return {
-    props: { post: getHTMLPostBySlug(slug) },
+    props: { post: getPostBySlug(slug) },
   };
 }
 

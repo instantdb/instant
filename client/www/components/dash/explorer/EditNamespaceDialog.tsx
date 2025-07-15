@@ -387,7 +387,7 @@ function AddAttrForm({
           <div className="flex flex-col gap-2">
             <h6 className="text-md font-bold">Enforce type</h6>
             <div className="flex gap-2">
-              <Select
+              <Select<CheckedDataType | 'none'>
                 value={checkedDataType || 'none'}
                 onChange={(v) => {
                   if (!v) {
@@ -402,7 +402,7 @@ function AddAttrForm({
                 options={[
                   {
                     label: 'Any (not enforced)',
-                    value: '',
+                    value: 'none',
                   },
                   {
                     label: 'String',

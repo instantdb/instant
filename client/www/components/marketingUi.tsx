@@ -263,7 +263,7 @@ export interface Post {
   title: string;
   slug: string;
   date: string;
-  mdHTML: string;
+  content: string;
   authors: Author[];
   isDraft?: boolean;
   hero?: string;
