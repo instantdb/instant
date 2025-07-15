@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Head from 'next/head';
 import { Tab } from '@headlessui/react';
 import { Fence, Copyable, SubsectionHeading } from '@/components/ui';
+import { Callout } from '@/components/docs/Callout';
 import {
   Section,
   MainNav,
@@ -317,18 +318,8 @@ export default function McpTutorial({ files }: MarkdownContent) {
               <H3>1. Install the Instant MCP server</H3>
             </div>
             <p className="text-gray-700 mb-6">
-              Below are instructions on how to add the remote Instant MCP server
-              to your MCP client. If your client isn't listed here you can check
-              out our{' '}
-              <a
-                href="https://www.instantdb.com/docs/using-llms"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-600 hover:text-blue-800 underline"
-              >
-                docs
-              </a>{' '}
-              to see how to install the MCP locally.
+              Below are instructions on how to add the remote Instant MCP server.
+              Select your preferred tool and follow the instructions.
             </p>
 
             {/* Client Selector */}
@@ -367,14 +358,9 @@ export default function McpTutorial({ files }: MarkdownContent) {
               </Tab.Panels>
             </Tab.Group>
 
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mt-6">
-              <p className="text-sm text-amber-800">
-                <strong>Callout:</strong> After adding the MCP server you'll
-                need to go through an OAuth flow to access the tools. Be sure to
-                go through the auth flow to enable the Instant MCP server in
-                your client!
-              </p>
-            </div>
+            <Callout type="warning" title="Authentication Required">
+              After adding the MCP server you'll need to go through an OAuth flow to access the tools. Be sure to go through the auth flow to enable the Instant MCP server in your client!
+            </Callout>
           </div>
 
           {/* Step 2: Scaffold App */}
@@ -470,12 +456,9 @@ npm i @instantdb/react`}
                 />
               ))}
             </div>
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mt-6">
-              <p className="text-sm text-amber-800">
-                <strong>Callout:</strong> If you run into any bugs check out the
-                debugging section below to fix common issues.
-              </p>
-            </div>
+            <Callout type="note" title="Debugging">
+              If you run into any bugs check out the debugging section below to fix common issues.
+            </Callout>
           </div>
 
           {/* Step 5: Deploy */}
