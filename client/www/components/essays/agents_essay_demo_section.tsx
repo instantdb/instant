@@ -4,6 +4,7 @@ import useLocalStorage from '@/lib/hooks/useLocalStorage';
 import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/solid';
 import confetti from 'canvas-confetti';
 import * as ephemeral from '@/lib/ephemeral';
+import { useState } from 'react';
 
 type InitState = {
   step: 'init';
@@ -25,16 +26,24 @@ type AppCreatedState = {
 type InteractionState = InitState | AppCreatedState;
 
 export default function AgentsEssayDemoSection() {
-  const [state, setState] = useLocalStorage<InteractionState>(
-    'agents-essay-demo',
-    {
-      step: 'init',
-      appId: undefined,
-      adminToken: undefined,
-      timeTaken: undefined,
-      askedForDemoApp: undefined,
-    },
-  );
+  const [state, setState] = useState<InteractionState>({
+    step: 'init',
+    appId: undefined,
+    adminToken: undefined,
+    timeTaken: undefined,
+    askedForDemoApp: undefined,
+  });
+
+  // const [state, setState] = useLocalStorage<InteractionState>(
+  //   'agents-essay-demo',
+  //   {
+  //     step: 'init',
+  //     appId: undefined,
+  //     adminToken: undefined,
+  //     timeTaken: undefined,
+  //     askedForDemoApp: undefined,
+  //   },
+  // );
 
   return (
     <div>
@@ -84,97 +93,107 @@ export default function AgentsEssayDemoSection() {
         />
       </div>
       {state.appId ? (
-        <div>
-          <>
-            <h3 className="text-center mt-4">You've got a database!</h3>
-            <div className="not-prose">
-              <div className="py-4">
-                <Copyable label="App ID" value={state.appId} size="large" />
-              </div>
-            </div>
-            <div className="text-center text-lg">
-              Time taken: <strong>{state.timeTaken}ms</strong>
-            </div>
-          </>
-          <>
-            <p>
-              Perfect! Now you have a database, a sync and a bunch of tools at
-              your disposal. It only took {state.timeTaken} milliseconds to spin
-              up.
-            </p>
-            <p>
-              The database created in this essay will last about 2 weeks (since
-              there’s no sign up required). If you{' '}
-              <a href="/dash" target="_blank">
-                sign up and claim the app
-              </a>
-              , it will last forever. No freezes.
-            </p>
-          </>
-          <>
-            <h2>Get agents working</h2>
-            <p>Now that we have an App ID, we can put all the tools to work.</p>
-            <p>
-              We can give agents{' '}
-              <a href="https://instantdb.com/docs/rules">rules</a> and an MCP
-              server. Then it can spin up a full app.
-            </p>
-            <p>
-              Here's one where we build a "Shouts" app. Users can sign up, make
-              posts, send shouts in the void, and see who else is online
-            </p>
-            <ShoutsDemoApp state={state} setState={setState} />
-            <p>
-              Pretty cool! Our theory about abstractions seem to have played out
-              well: agents get quite far writing self-contained code.
-            </p>
-            <p>
-              <strong>There’s two cool things about what we just built.</strong>
-            </p>
-            <p>
-              First, your app is efficient. We didn’t have to spin up any
-              additional compute resources to get this far. The overhead of an
-              Instant app is just a few rows in a database. That makes it so
-              your agents can build apps with abandon — they (or really you)
-              don’t worry about a giant compute bill.
-            </p>
-            <p>
-              Second, your app is much more powerful than meets the eye. Every
-              query is reactive, so if you open two tabs all shouts will sync.
-              If you close your network connections, you can still make shouts
-              while offline. If your internet is slow you’ll see optimistic
-              updates right away. And it’s all shared globally—everyone in the
-              world sees the same thing.
-            </p>
-          </>
-          <>
-            <h2>Try it yourself</h2>
-            <p>
-              That's a cool app. Want to make something new with your agent?
-            </p>
-            <p>
-              We built a tutorial just for you. You can follow along to build
-              out a full stack app in about 5 minutes. Just Claude, Cursor, or
-              your favorite agent start cooking.
-            </p>
-            <div className="not-prose text-center">
-              <Button
-                type="link"
-                variant="cta"
-                size="large"
-                href="/labs/mcp-tutorial"
-              >
-                Build with your own agents
-              </Button>
-            </div>
-            <p>
-              And heck, if you are the founder of an app builder platform,
-              Instant could be a great use-case for you, too. We’d be thrilled
-              to work with you directly. Simply send us an email.
-            </p>
-          </>
-        </div>
+        <AppCreatedSection state={state} setState={setState} />
       ) : null}
+    </div>
+  );
+}
+
+function AppCreatedSection({
+  state,
+  setState,
+}: {
+  state: AppCreatedState;
+  setState: (state: AppCreatedState) => void;
+}) {
+  return (
+    <div>
+      <>
+        <h3 className="text-center mt-4">You've got a database!</h3>
+        <div className="not-prose">
+          <div className="py-4">
+            <Copyable label="App ID" value={state.appId} size="large" />
+          </div>
+        </div>
+        <div className="text-center text-lg">
+          Time taken: <strong>{state.timeTaken}ms</strong>
+        </div>
+      </>
+      <>
+        <p>
+          Perfect! Now you have a database, a sync engine and a bunch of tools
+          at your disposal. It only took {state.timeTaken} milliseconds to spin
+          up.
+        </p>
+        <p>
+          The database created in this essay will last about 2 weeks (since
+          there’s no sign up required). If you{' '}
+          <a href="/dash" target="_blank">
+            sign up and claim the app
+          </a>
+          , it will last forever. No freezes.
+        </p>
+      </>
+      <>
+        <h2>Get agents working</h2>
+        <p>Now that we have an App ID, we can put all the tools to work.</p>
+        <p>
+          We can give agents{' '}
+          <a href="https://instantdb.com/docs/rules">rules</a> and an MCP
+          server. Then it can spin up a full app.
+        </p>
+        <p>
+          Here's one where we build a "Shouts" app. Users can sign up, make
+          posts, send shouts in the void, and see who else is online
+        </p>
+        <ShoutsDemoApp state={state} setState={setState} />
+        <p>
+          Pretty cool! Our theory about abstractions seem to have played out
+          well: agents get quite far writing self-contained code.
+        </p>
+        <p>
+          <strong>There’s two cool things about what we just built.</strong>
+        </p>
+        <p>
+          First, your app is efficient. We didn’t have to spin up any additional
+          compute resources to get this far. The overhead of an Instant app is
+          just a few rows in a database. That makes it so your agents can build
+          apps with abandon — they (or really you) don’t worry about a giant
+          compute bill.
+        </p>
+        <p>
+          Second, your app is much more powerful than meets the eye. Every query
+          is reactive, so if you open two tabs all shouts will sync. If you
+          close your network connections, you can still make shouts while
+          offline. If your internet is slow you’ll see optimistic updates right
+          away. And it’s all shared globally—everyone in the world sees the same
+          thing.
+        </p>
+      </>
+      <>
+        <h2>Try it yourself</h2>
+        <p>That's a cool app. Want to make something new with your agent?</p>
+        <p>
+          We built a tutorial just for you. You can follow along to build out a
+          full stack app in about 5 minutes. Just Claude, Cursor, or your
+          favorite agent start cooking.
+        </p>
+        <div className="not-prose text-center">
+          <Button
+            type="link"
+            variant="cta"
+            size="large"
+            href="/labs/mcp-tutorial"
+          >
+            Build with your own agents
+          </Button>
+        </div>
+        <p>
+          And heck, if you are the founder of an app builder platform, Instant
+          could be a great use-case for you, too. We’d be thrilled to work with
+          you directly. Simply send us an email.
+        </p>
+      </>
     </div>
   );
 }
