@@ -642,13 +642,44 @@ export default function McpTutorial({ files }: MarkdownContent) {
               <H3>5. Deploy the app to Vercel</H3>
             </div>
             <p className="text-gray-700 mb-6">
-              Once you've got a working app, you can get it live by deploying it
-              to Vercel!
+              Once you've got a working app we can get it live by deploying to
+              Vercel! Before we deploy, let's verify there are no build errors.
+              In the terminal run:
             </p>
-            <Copyable value="pnpx vercel --prod" />
+            <div className="mb-6">
+              <p className="text-gray-700 mb-3"></p>
+              <Copyable value="npm run build" />
+            </div>
+
+            <div className="mb-6">
+              <p className="text-gray-700 mb-3">
+                If there are any build errors paste them into your agent to get
+                them fixed up. Make sure your app still works as expected after
+                your agent gets the build to pass:
+              </p>
+              <Copyable value="npm run dev" />
+            </div>
+
+            <div className="mb-6">
+              <p className="text-gray-700 mb-3">
+                If all looks well let's kick off a deploy!
+              </p>
+              <Copyable value="npx vercel --prod" />
+            </div>
+
+            <div className="mb-6">
+              <p className="text-gray-700 mb-3">
+                After vercel finishes the deploy check out your live app. If you
+                see any an error about a missing <code>app-id</code> it means
+                we'll need to add it to the vercel environment:
+              </p>
+              <Copyable value="npx vercel env add < .env.local" />
+            </div>
+
             <p className="text-gray-700 mt-6">
-              🎉 Huzzah! You've built a full-stack app with InstantDB in just a
-              few minutes!
+              Once the deploy finishes you should have a fully-working app. 🎉
+              Huzzah! You've built a full-stack app with InstantDB in just a few
+              minutes!
             </p>
           </div>
         </div>
