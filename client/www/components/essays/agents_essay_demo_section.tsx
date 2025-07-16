@@ -70,8 +70,11 @@ export default function AgentsEssayDemoSection() {
         If you keep pressing the buttons that follow, you’ll have an app you can
         play with at the end.
       </p>
-      <h2>Write your prompt</h2>
-      <p>First things first, let’s write our prompt. Here’s one:</p>
+      <h2>An example prompt</h2>
+      <p>
+        Before we continue, here's the prompt we gave Claude to generate all the
+        code that follows:
+      </p>
       <blockquote>
         Create a habit tracking app where users can create habits, mark daily
         completions, and visualize streaks. Include features for setting habit
@@ -81,6 +84,10 @@ export default function AgentsEssayDemoSection() {
         <br />
         Keep the code to {'<'} 1000 lines.
       </blockquote>
+      <p>
+        Everything that follows uses the code that Claude generated from this
+        prompt.
+      </p>
       <h2 id="create-a-database">Create a database</h2>
       <p>
         The first thing our agent would ask us is to create a new database. It
@@ -93,7 +100,7 @@ export default function AgentsEssayDemoSection() {
       <ToolCall
         name="create-app"
         argsString={`{ title: 'dino-habit-tracker' }`}
-        placeholder="Your app will show up here"
+        placeholder="Click 'Run tool' to contine the essay."
         out={
           state.appId
             ? {
@@ -246,7 +253,8 @@ function AppCreatedSection({
         <p>
           Heck yeah! Now you have your own database, a sync engine, and a whole
           suite of tools to play with. And it only took {state.timeTaken} ms to
-          spin up.
+          spin up (This includes the time it took to get the ID over to your
+          device).
         </p>
       </>
       <>

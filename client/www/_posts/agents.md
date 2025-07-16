@@ -130,17 +130,15 @@ Builders also want efficient hosting. They build lots of projects, and it sucks 
 
 # Exposing the API
 
-Instant is already great for builders. Real startups are using Instant today, and pushing upwards of 10,000 concurrent connections.
+Instant is already great for builders. Real startups use Instant, and push upwards of 10,000 concurrent connections.
 
-Today we are making it easy for machines too.
+Today we're making it even easier. We're releasing three things:
 
-We’re releasing three things:
+- <a href="https://github.com/instantdb/instant/tree/main/client/packages/platform" target="_blank">A platform SDK</a> that lets you create new apps on demand
+- <a href="https://mcp.instantdb.com/" target="_blank">A remote MCP server</a> that makes it easy to integrate Instant in your editor.
+- <a href="https://www.instantdb.com/docs/using-llms" target="_blank">A set of Agent rules</a> that teach LLMs how to use Instant
 
-- The <a href="https://github.com/instantdb/instant/tree/main/client/packages/platform" target="_blank">platform SDK</a> lets you create new apps
-- <a href="https://www.instantdb.com/docs/using-llms" target="_blank">Agent rules</a> teach LLMs how to use Instant
-- A <a href="https://mcp.instantdb.com/" target="_blank">remote MCP server</a> makes it easy to integrate Instant in your editor.
-
-Let’s try them out.
+Put this together and you get a toolkit that lets humans and agents make more progress and do it efficiently. Let's try them out.
 
 <agents-essay-demo-section></agents-essay-demo-section>
 
