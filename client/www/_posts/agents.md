@@ -137,8 +137,8 @@ Instant is already great for builders. Real startups use Instant, and push upwar
 Today we're making it even easier. We're releasing three things:
 
 - <a href="https://github.com/instantdb/instant/tree/main/client/packages/platform" target="_blank">A platform SDK</a> that lets you create new apps on demand
-- <a href="https://mcp.instantdb.com/" target="_blank">A remote MCP server</a> that makes it easy to integrate Instant in your editor.
-- <a href="https://www.instantdb.com/docs/using-llms" target="_blank">A set of Agent rules</a> that teach LLMs how to use Instant
+- <a href="https://www.instantdb.com/docs/using-llms#instant-mcp-server" target="_blank">A remote MCP server</a> that makes it easy to integrate Instant in your editor.
+- <a href="https://www.instantdb.com/docs/using-llms#instant-rules" target="_blank">A set of Agent rules</a> that teach LLMs how to use Instant
 
 Put this together and you get a toolkit that lets humans and agents make more progress and do it efficiently. Let's try them out.
 
