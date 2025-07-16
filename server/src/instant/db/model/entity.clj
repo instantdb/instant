@@ -8,12 +8,13 @@
    -> {{:eid 'eid-a' :etype \"users\"} [[e a v t] [e a v t]]}
 
   If `etype` is nil, will return all triples across all namespaces for the id."
-  [{:keys [datalog-query-fn attrs] :as ctx} eid+etypes]
-  (let [patterns (map (fn [{:keys [eid etype]}]
-                        {:patterns (if etype
-                                     [[:ea eid (attr-model/ea-ids-for-etype etype attrs)]]
-                                     [[:ea eid]])})
-                      eid+etypes)
+  [{:keys [datalog-query-fn attrs] :as ctx} grouped-changes]
+  (let [eids+etypes (distinct (map #(vector (:eid %) (:etype %)) grouped-changes))
+        patterns    (map (fn [[eid etype]]
+                           {:patterns (if etype
+                                        [[:ea eid (attr-model/ea-ids-for-etype etype attrs)]]
+                                        [[:ea eid]])})
+                         eids+etypes)
         query {:children {:pattern-groups patterns}}
         ;; you might be tempted to simplify the query to [[:ea (set eids)]]
         ;; but the eid might be a lookup ref and you won't know how to get
@@ -21,13 +22,19 @@
 
         datalog-result (datalog-query-fn ctx query)
 
-        triples (map (fn [result]
-                       (->> result
-                            :result
-                            :join-rows
-                            (mapcat identity)))
-                     (:data datalog-result))]
-    (zipmap eid+etypes triples)))
+        eid+etype->triples (zipmap
+                            eids+etypes
+                            (map (fn [result]
+                                   (->> result
+                                        :result
+                                        :join-rows
+                                        (mapcat identity)))
+                                 (:data datalog-result)))]
+    (persistent!
+     (reduce
+      (fn [acc key]
+        (assoc! acc key (get eid+etype->triples [(:eid key) (:etype key)])))
+      (transient {}) grouped-changes))))
 
 (defn get-triples
   "Returns all triples for the eid+etype.
