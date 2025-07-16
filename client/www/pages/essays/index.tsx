@@ -41,12 +41,10 @@ export default function Page({ posts }: { posts: Post[] }) {
                       href={`/essays/${slug}`}
                       className="hover:text-blue-500"
                     >
-                      <h2 className="text-3xl font-medium leading-relaxed">
-                        {title}
-                      </h2>
+                      <h2 className="text-3xl font-medium mb-2">{title}</h2>
                     </NextLink>
-                    <div className="flex justify-between text-sm text-gray-500">
-                      <span className="space-x-1">
+                    <div className="flex text-sm text-gray-500">
+                      <span>
                         {authors.map((author, idx) => (
                           <span key={author.name}>
                             {author.name}
@@ -54,6 +52,7 @@ export default function Page({ posts }: { posts: Post[] }) {
                           </span>
                         ))}
                       </span>
+                      <span className="mx-1">·</span>
                       {format(
                         parse(date, 'yyyy-MM-dd', new Date()),
                         'MMM do, yyyy',

@@ -267,4 +267,5 @@ export interface Post {
   authors: Author[];
   isDraft?: boolean;
   hero?: string;
+  og_image?: string;
 }
