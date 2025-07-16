@@ -6,6 +6,7 @@ import * as ephemeral from '@/lib/ephemeral';
 import { useState } from 'react';
 import { PlatformApi } from '@instantdb/platform';
 import { i } from '@instantdb/core';
+import useLocalStorage from '@/lib/hooks/useLocalStorage';
 
 type InitState = {
   step: 'init';
@@ -37,24 +38,16 @@ type AppCreatedState = {
 type InteractionState = InitState | AppCreatedState;
 
 export default function AgentsEssayDemoSection() {
-  const [state, setState] = useState<InteractionState>({
-    step: 'init',
-    appId: undefined,
-    adminToken: undefined,
-    timeTaken: undefined,
-    askedForDemoApp: undefined,
-  });
-
-  // const [state, setState] = useLocalStorage<InteractionState>(
-  //   'agents-essay-demo',
-  //   {
-  //     step: 'init',
-  //     appId: undefined,
-  //     adminToken: undefined,
-  //     timeTaken: undefined,
-  //     askedForDemoApp: undefined,
-  //   },
-  // );
+  const [state, setState] = useLocalStorage<InteractionState>(
+    'agents-essay-demo',
+    {
+      step: 'init',
+      appId: undefined,
+      adminToken: undefined,
+      timeTaken: undefined,
+      askedForDemoApp: undefined,
+    },
+  );
 
   return (
     <div>
