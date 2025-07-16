@@ -3,13 +3,13 @@
 import { i } from "@instantdb/core";
 
 const _schema = i.schema({
-  // We inferred 7 attributes!
+  // We inferred 8 attributes!
   // Take a look at this schema, and if everything looks good,
   // run `push schema` again to enforce the types.
   entities: {
     $files: i.entity({
-      path: i.string().unique().indexed().optional(),
-      url: i.any().optional(),
+      path: i.string().unique().indexed(),
+      url: i.string(),
     }),
     $users: i.entity({
       email: i.string().unique().indexed().optional(),
@@ -28,6 +28,10 @@ const _schema = i.schema({
     }),
     "e2e-logging": i.entity({
       "invalidator-rate": i.number(),
+    }),
+    flags: i.entity({
+      setting: i.string().unique(),
+      value: i.json(),
     }),
     "friend-emails": i.entity({
       email: i.string().unique(),
@@ -57,6 +61,12 @@ const _schema = i.schema({
     "rate-limited-apps": i.entity({
       appId: i.string().unique(),
     }),
+    "refresh-skip-attrs": i.entity({
+      "default-value": i.boolean().optional(),
+      disabled: i.boolean().optional(),
+      "disabled-apps": i.json().optional(),
+      "enabled-apps": i.any().optional(),
+    }),
     "rule-where-testing": i.entity({
       enabled: i.boolean(),
     }),
@@ -74,10 +84,6 @@ const _schema = i.schema({
       "dualWrite?": i.boolean().optional(),
       "useLocationId?": i.boolean(),
     }),
-    "log-sampled-apps": i.entity({
-      appId: i.string().unique(),
-      sampleRate: i.number(),
-    }),
     "storage-whitelist": i.entity({
       appId: i.string().unique().indexed(),
       email: i.string().optional(),
@@ -93,8 +99,8 @@ const _schema = i.schema({
       "use-vfutures": i.boolean(),
     }),
     toggles: i.entity({
-      setting: i.string(),
-      toggled: i.boolean()
+      setting: i.string().unique(),
+      toggled: i.boolean(),
     }),
     "use-patch-presence": i.entity({
       "default-value": i.boolean(),

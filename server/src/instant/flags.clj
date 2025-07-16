@@ -29,7 +29,8 @@
             :app-deletion-sweeper {}
             :rule-wheres {}
             :rule-where-testing {}
-            :toggles {}})
+            :toggles {}
+            :flags {}})
 
 (defn transform-query-result
   "Function that is called on the query result before it is stored in the
@@ -145,6 +146,10 @@
                           (assoc acc (keyword setting) toggled))
                         {}
                         (get result "toggles"))
+        flags (reduce (fn [acc {:strs [setting value]}]
+                          (assoc acc (keyword setting) value))
+                        {}
+                        (get result "flags"))
         rule-wheres (if-let [rule-where-ent (-> result
                                                 (get "rule-wheres")
                                                 first)]
@@ -178,7 +183,8 @@
      :app-deletion-sweeper app-deletion-sweeper
      :rule-wheres rule-wheres
      :rule-where-testing rule-where-testing
-     :toggles toggles}))
+     :toggles toggles
+     :flags flags}))
 
 (def queries [{:query query :transform #'transform-query-result}])
 
@@ -313,6 +319,9 @@
 
 (defn toggled? [key]
   (get-in (query-result) [:toggles key]))
+
+(defn flag [key]
+  (get-in (query-result) [:flags key]))
 
 (defn pg-hint-testing-toggles []
   (reduce-kv (fn [acc k v]
