@@ -964,7 +964,7 @@ function stepSummary(
   return {
     friendlyDescription: inProgress.length
       ? `Completing ${inProgress.length} of ${steps.length} schema operations.`
-      : `Finished ${steps.length} schema operation${
+      : `Finished ${steps.length} schema operation${steps.length === 1 ? '' : 's'}${
           errored.length
             ? `, with ${errored.length} error${errored.length > 1 ? 's' : ''}`
             : '.'
