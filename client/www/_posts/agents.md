@@ -29,7 +29,7 @@ And agents need good abstractions even more than human programmers do.
 
 To make agents work well we need to manage their context windows. It’s very easy to break through limits. Especially when agents write code that involves multiple moving pieces.
 
-Consider what happens when an agent adds a feature to a traditional client-server app. They change (a) the frontend (b) the backend and (c) the database. In order to safely make these changes, they have to remember more of the codebase and be exact about how things works together.
+Consider what happens when an agent adds a feature to a traditional client-server app. They change (a) the frontend (b) the backend and (c) the database. In order to safely make these changes, they have to remember more of the codebase and be exact about how things work together.
 
 Good abstractions can combine multiple moving pieces into one piece. This is more conducive to local reasoning. The agent only has to concern themselves with a smaller interface, so they don’t have to remember so much. They can use less context and write higher-level code. And that’s great for humans too. After all we have to review the agent’s work. Shorter, higher-level code is easier to understand. [^1]
 
