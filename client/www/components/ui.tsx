@@ -550,7 +550,6 @@ export function Button({
       'text-xs px-2 py-0': size === 'nano',
       'cursor-not-allowed': disabled,
       'cursor-wait opacity-75': loading, // Apply wait cursor and lower opacity when loading,
-      // disabled
       'bg-gray-200 text-gray-400': variant == 'cta' && disabled,
     },
     className,
