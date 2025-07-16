@@ -251,9 +251,8 @@ function AppCreatedSection({
       <>
         <h2 id="schemas-and-permissions">Schemas and Permissions</h2>
         <p>
-          A good habit tracker needs to store the habits and all the
-          completions. We also have to make sure that users can only access
-          their own habits.
+          A good habit tracker needs to store habits and completions. We also
+          want to make sure that users can only access their own habits.
         </p>
         <p>
           To do this, our agent can include schemas and permissions in the
@@ -363,7 +362,7 @@ function AppPermsSection({
       <h2>Let the agent build</h2>
       <p>
         Our agent has the backend infra it needs to build out the full app. We
-        asked Claude to build this out with Next. Here's what it came up with:
+        asked Claude to build the app with Next. Here's what it came up with:
       </p>
       <DemoApp state={state} setState={setState} />
       <p>
@@ -375,10 +374,9 @@ function AppPermsSection({
       </p>
       <p>
         First, our app is much more powerful than meets the eye. If you close
-        your network connections, you can still make use the app while offline.
-        If your internet is slow you’ll see optimistic updates right away. And
-        if you open up a new tab, it’ll sync up right away. All this is
-        built-in.
+        your network connections, you can still use the app while offline. If
+        your internet is slow you’ll see optimistic updates right away. And if
+        you open up a new tab, it’ll sync up right away. All this is built-in.
       </p>
       <p>
         Second, our app is efficient. We didn’t have to spin up any additional
@@ -406,7 +404,11 @@ function AppPermsSection({
         <p>
           And heck, if you are the founder of an app builder platform, Instant
           could be a great use-case for you, too. We’d be thrilled to work with
-          you directly. Simply send us an email.
+          you directly. Simply send us an{' '}
+          <a href="mailto:founders@instantdb.com?subject=InstantDB%20Platform%20Plan%20Inquiry">
+            email
+          </a>
+          .
         </p>
       </>
     </>

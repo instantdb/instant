@@ -106,6 +106,7 @@ So if agents and humans work best when they have (1) built-in abstractions that 
 Let's start by thinking through what agents are good at. Agents are good at writing self-contained code. Code that they can reason about in one place, without too much extraneous state and edge cases. This is why the traditional client-server architecture is hard for them: it involves multiple parts that all need to work in unison — a server, a client, and a database.
 
 There are several ways to build self-contained apps. You can build a local-only desktop app (but then — no internet, multiple devices, or collaboration). You can build a server-only app (then you get latency, no offline mode, hosting costs). Or you could build a client-only app that treats the backend like a remote database.
+
 In other words, a sync engine.
 
 ![](/posts/agents/sync_engine.png)
@@ -124,9 +125,9 @@ When we started Instant, agents were nowhere in sight. We focused on builders. T
 
 ![](/posts/agents/instant_arch.png)
 
-Builder want good abstractions. So we built a sync engine, permissions, auth, file storage, and ephemeral state (like cursors).
+Builders want good abstractions. So we built a sync engine, permissions, auth, file storage, and ephemeral state (like cursors).
 
-Builders also want efficient hosting. They build lots of projects, and it sucks when apps end up frozen. So we made our sync engine and database multi-tenant. This way we could offer a generous free tier.
+Builders also want efficient hosting. They have lots of projects, and it sucks when apps end up frozen. So we made our sync engine and database multi-tenant. This way we could offer a generous free tier.
 
 <a name="demo"></a>
 
