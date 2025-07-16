@@ -100,7 +100,6 @@ export default function AgentsEssayDemoSection() {
       <ToolCall
         name="create-app"
         argsString={`{ title: 'dino-habit-tracker' }`}
-        placeholder="Click 'Run tool' to contine the essay."
         out={
           state.appId
             ? {
@@ -140,28 +139,15 @@ export default function AgentsEssayDemoSection() {
   );
 }
 
-function ToolOutputPlaceholder({ label }: { label: string }) {
-  return (
-    <div className="relative not-prose">
-      <div className=" absolute inset-0 bg-white/90 flex justify-center items-center">
-        <div className="font-mono text-sm font-bold text-gray-700">{label}</div>
-      </div>
-      <ToolOutput outString={` { ...  } `} timeTaken={0} />
-    </div>
-  );
-}
-
 function ToolCall({
   name,
   argsString,
   onClick,
-  placeholder,
   out,
 }: {
   name: string;
   argsString: string;
   onClick: () => Promise<void>;
-  placeholder: string;
   out?: { str: string; timeTaken: number };
 }) {
   const [running, setRunning] = useState(false);
@@ -202,7 +188,23 @@ function ToolCall({
       {out ? (
         <ToolOutput outString={out.str} timeTaken={out.timeTaken} />
       ) : (
-        <ToolOutputPlaceholder label={placeholder} />
+        <div className="relative not-prose">
+          <div className="absolute inset-0 bg-white/90 flex justify-center items-center flex-col space-y-2">
+            <div className="font-mono text-sm font-bold text-gray-500">
+              Click 'Run tool' to see the result.
+            </div>
+            <p className="font-mono text-sm text-gray-500">
+              (There's more in the essay!)
+            </p>
+          </div>
+          <ToolOutput
+            outString={` 
+{ 
+  ...  
+} `.trim()}
+            timeTaken={0}
+          />
+        </div>
       )}
     </>
   );
@@ -273,7 +275,6 @@ function AppCreatedSection({
         <ToolCall
           name="schema-push"
           argsString={entitiesArg}
-          placeholder="Your schema will show up here"
           out={
             state.schema
               ? {
@@ -332,7 +333,6 @@ function AppSchemaSection({
       <ToolCall
         name="push-perms"
         argsString={JSON.stringify(getPerms(), null, 2)}
-        placeholder="Your perms will show up here"
         out={
           state.perms
             ? {
@@ -416,30 +416,21 @@ function AppPermsSection({
           full stack app in about 5 minutes. Just Claude, Cursor, or your
           favorite agent start cooking.
         </p>
-        <div className="relative">
-          <div className="absolute" style={{ left: '-10px', bottom: '-37px' }}>
+
+        <div className="relative bg-orange-100/40 p-4 rounded-xl h-40">
+          <p>
+            You can follow this tutorial to build a full-stack app in 5 minutes.
+          </p>
+          <div className="not-prose">
+            <Button type="link" variant="cta" size="large" href="/tutorial">
+              Take an MCP test-drive
+            </Button>
+          </div>
+          <div className="absolute" style={{ right: '5px', bottom: '-37px' }}>
             <img src="/posts/agents/hero.png" className="w-40"></img>
           </div>
-          <div className="relative bg-orange-100/40 p-4 rounded-xl">
-            <h3 className="mt-0 text-center">
-              Try Instant with your favorite Agent
-            </h3>
-            <p className="text-center">
-              You can follow this tutorial to build a full-stack app in 5
-              minutes
-            </p>
-            <div className="not-prose text-center">
-              <Button
-                type="link"
-                variant="cta"
-                size="large"
-                href="/labs/mcp-tutorial"
-              >
-                Build with your own agents
-              </Button>
-            </div>
-          </div>
         </div>
+        <div className="h-40"></div>
         <p>
           And heck, if you are the founder of an app builder platform, Instant
           could be a great use-case for you, too. We’d be thrilled to work with
