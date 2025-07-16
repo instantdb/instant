@@ -84,14 +84,11 @@ export default function AgentsEssayDemoSection() {
         <br />
         Keep the code to {'<'} 1000 lines.
       </blockquote>
-      <p>
-        Everything that follows uses the code that Claude generated from this
-        prompt.
-      </p>
+      <p>We're going to wire this up to a real backend step-by-step.</p>
       <h2 id="create-a-database">Create a database</h2>
       <p>
-        The first thing our agent would ask us is to create a new database. It
-        can use the MCP server to do that.
+        The first thing we'll ask our agent is to create a new database. It can
+        use the MCP server to do that.
       </p>
       <p>
         We’ve added a <code>create-app</code> tool right inside this essay.
@@ -198,9 +195,9 @@ function ToolCall({
             </p>
           </div>
           <ToolOutput
-            outString={` 
-{ 
-  ...  
+            outString={`
+{
+  ...
 } `.trim()}
             timeTaken={0}
           />
@@ -262,14 +259,14 @@ function AppCreatedSection({
       <>
         <h2 id="schemas-and-permissions">Schemas and Permissions</h2>
         <p>
-          A good habit tracker needs to store the habits, and all the
+          A good habit tracker needs to store the habits and all the
           completions. We also have to make sure that users can only access
           their own habits.
         </p>
         <p>
-          To do this, agents can include schemas and permissions in the
+          To do this, our agent can include schemas and permissions in the
           <code>create-app</code> tool, or call <code>schema-push</code> and{' '}
-          <code>push-perms</code> directly. Let’s do that now:
+          <code>push-perms</code> directly. Let’s create a schema now:
         </p>
 
         <ToolCall
@@ -299,10 +296,10 @@ function AppCreatedSection({
               schema: {
                 timeTaken: end - start,
                 outString: `
-{ 
-  summary: { 
-    friendlyDescription: '${res.summary.friendlyDescription}' 
-  } 
+{
+  summary: {
+    friendlyDescription: '${res.summary.friendlyDescription}'
+  }
 } // ...
 `.trim(),
               },
@@ -382,9 +379,8 @@ function AppPermsSection({
       <p>Now we have a real data model!</p>
       <h2>Let the agent build</h2>
       <p>
-        Now our agent can build out the full app, using it's framework of
-        choice. We asked Claude to build this out with Next. Here's what it came
-        up with:
+        Our agent has the backend infra it needs to build out the full app. We
+        asked Claude to build this out with Next. Here's what it came up with:
       </p>
       <DemoApp state={state} setState={setState} />
       <p>
@@ -395,26 +391,25 @@ function AppPermsSection({
         <strong>There’s two cool things about what we just built.</strong>
       </p>
       <p>
-        First, your app is efficient. We didn’t have to spin up any additional
+        First, our app is much more powerful than meets the eye. If you close
+        your network connections, you can still make use the app while offline.
+        If your internet is slow you’ll see optimistic updates right away. And
+        if you open up a new tab, it’ll sync up right away. All this is
+        built-in.
+      </p>
+      <p>
+        Second, our app is efficient. We didn’t have to spin up any additional
         compute resources to get this far. The overhead of an Instant app is
         just a few rows in a database. That makes it so your agents can build
         apps with abandon — they (or really you) don’t worry about a giant
         compute bill.
       </p>
-      <p>
-        Second, your app is much more powerful than meets the eye. Every query
-        is reactive, so if you open two tabs all shouts will sync. If you close
-        your network connections, you can still make shouts while offline. If
-        your internet is slow you’ll see optimistic updates right away. And it’s
-        all shared globally—everyone in the world sees the same thing.
-      </p>
       <>
         <h2>Try it yourself</h2>
-        <p>That's a cool app. Want to make something new with your agent?</p>
         <p>
-          We built a tutorial just for you. You can follow along to build out a
-          full stack app in about 5 minutes. Just Claude, Cursor, or your
-          favorite agent start cooking.
+          We've written up a guide so you do this with your own workflow. Follow
+          along to build out a full stack app in about 5 minutes. Just Claude,
+          Cursor, or your favorite agent and Instant.
         </p>
 
         <div className="relative bg-orange-100/40 p-4 rounded-xl h-40">
@@ -430,7 +425,6 @@ function AppPermsSection({
             <img src="/posts/agents/hero.png" className="w-40"></img>
           </div>
         </div>
-        <div className="h-40"></div>
         <p>
           And heck, if you are the founder of an app builder platform, Instant
           could be a great use-case for you, too. We’d be thrilled to work with
