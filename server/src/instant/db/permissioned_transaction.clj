@@ -372,39 +372,39 @@
    If the etype isn't provided for deletes, we will resolve it after we
    fetch the triples."
   [ctx groups]
-  (let [triples-by-eid+etype (if (seq groups)
-                               (entity-model/get-triples-batch ctx (keys groups))
-                               {})]
-    (reduce (fn [acc [{:keys [eid etype action] :as k} triples]]
-              (let [steps (get groups k)]
-                (if etype
-                  (assoc acc k {:triples triples
-                                :tx-steps steps})
-                  (let [etype-groups (group-by (fn [[_e a]]
-                                                 (extract-etype ctx a))
-                                               triples)]
-                    (if (empty? etype-groups)
-                      (ex/throw-validation-err!
-                       :tx-steps
-                       steps
-                       [{:message "Could not determine the namespace that the transaction belongs to."}])
-                      (reduce (fn [acc [etype triples]]
-                                (if (not etype)
-                                  (ex/throw-validation-err!
-                                   :tx-steps
-                                   steps
-                                   [{:message "Could not determine the namespace that the transaction belongs to."}])
-                                  (assoc acc
-                                         {:eid eid
-                                          :etype etype
-                                          :action action}
-                                         {:triples triples
-                                          :tx-steps steps})))
+  (if (seq groups)
+    (let [triples-by-eid+etype (entity-model/get-triples-batch ctx (keys groups))]
+      (reduce (fn [acc [{:keys [eid etype action] :as k} triples]]
+                (let [steps (get groups k)]
+                  (if etype
+                    (assoc acc k {:triples triples
+                                  :tx-steps steps})
+                    (let [etype-groups (group-by (fn [[_e a]]
+                                                   (extract-etype ctx a))
+                                                 triples)]
+                      (if (empty? etype-groups)
+                        (ex/throw-validation-err!
+                         :tx-steps
+                         steps
+                         [{:message "Could not determine the namespace that the transaction belongs to."}])
+                        (reduce (fn [acc [etype triples]]
+                                  (if (not etype)
+                                    (ex/throw-validation-err!
+                                     :tx-steps
+                                     steps
+                                     [{:message "Could not determine the namespace that the transaction belongs to."}])
+                                    (assoc acc
+                                           {:eid eid
+                                            :etype etype
+                                            :action action}
+                                           {:triples triples
+                                            :tx-steps steps})))
 
-                              acc
-                              etype-groups))))))
-            {}
-            triples-by-eid+etype)))
+                                acc
+                                etype-groups))))))
+              {}
+              triples-by-eid+etype))
+    {}))
 
 (defn validate-reserved-names!
   "Throws a validation error if the users tries to add triples to the $users table"
