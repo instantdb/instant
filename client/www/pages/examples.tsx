@@ -252,7 +252,7 @@ function Main({ files }: { files: File[] }) {
   );
 }
 
-export function Example({
+function Example({
   file,
   appId,
   onViewChange,

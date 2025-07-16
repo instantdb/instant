@@ -335,7 +335,6 @@ function Dashboard() {
     });
   }, [token]);
 
-  // TODO: do
   useEffect(() => {
     if (!token) return;
     if (agentEssayDemo.claimed) return;
