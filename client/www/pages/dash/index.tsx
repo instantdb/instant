@@ -21,10 +21,6 @@ import {
   ComboboxOption,
   ComboboxOptions,
 } from '@headlessui/react';
-import {
-  apiSchemaToInstantSchemaDef,
-  generateSchemaTypescriptFile,
-} from '@instantdb/platform';
 
 import { StyledToastContainer, errorToast, successToast } from '@/lib/toast';
 import config, { cliOauthParamName, getLocal, setLocal } from '@/lib/config';
@@ -37,7 +33,7 @@ import {
   voidTicket,
 } from '@/lib/auth';
 import { TokenContext } from '@/lib/contexts';
-import { DashResponse, DBAttr, InstantApp, InstantMember } from '@/lib/types';
+import { DashResponse, InstantApp, InstantMember } from '@/lib/types';
 
 import { Perms } from '@/components/dash/Perms';
 import { Schema } from '@/components/dash/Schema';
@@ -50,7 +46,6 @@ import {
   ActionForm,
   Button,
   Checkbox,
-  CodeEditor,
   Content,
   Copyable,
   Dialog,
@@ -613,7 +608,6 @@ function Dashboard() {
                     app={app}
                     onDelete={() => onDeleteApp(app)}
                     nav={nav}
-                    db={connection.db}
                   />
                 ) : tab === 'billing' &&
                   isMinRole('collaborator', app.user_app_role) ? (
@@ -912,27 +906,6 @@ function Home() {
           See your current app usage and manage your subscription.
         </HomeButton>
       </div>
-      <SectionHeading>Example Applications</SectionHeading>
-      <Content>
-        We've built a few example applications to help you get started. You can
-        reference these to help you build your own apps.
-      </Content>
-      <div className="grid grid-cols-2 gap-4">
-        <HomeButton
-          href="https://github.com/jsventures/instldraw"
-          title="instldraw (Web)"
-        >
-          tldraw + Instant. See how to model teams, use cursors and leverage
-          permissions.
-        </HomeButton>
-        <HomeButton
-          href="https://github.com/jsventures/stroopwafel"
-          title="Stroopwafel (React Native)"
-        >
-          Multiplayer iOS game built with Expo + Instant. See how you can use
-          Instant to build real-time games.
-        </HomeButton>
-      </div>
     </TabContent>
   );
 }
@@ -1226,13 +1199,11 @@ function Admin({
   app,
   onDelete,
   nav,
-  db,
 }: {
   dashResponse: APIResponse<DashResponse>;
   app: InstantApp;
   onDelete: () => void;
   nav: (p: { s: string; t?: string; app?: string }) => void;
-  db: InstantReactWebDatabase<any>;
 }) {
   const token = useContext(TokenContext);
   const [deleteAppOk, updateDeleteAppOk] = useState(false);
