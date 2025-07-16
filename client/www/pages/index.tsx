@@ -89,14 +89,26 @@ function LandingHero() {
         <TwoColResponsive>
           <div className="flex flex-1 flex-col gap-8">
             <H2>Write your frontend and we handle the rest</H2>
-            <p>
-              Instant is the easy to use backend for your frontend. With Instant
-              you can build delighful apps in less than 10 minutes.
-            </p>
-            <div className="flex flex-row gap-2 md:justify-start">
-              <Button type="link" variant="cta" size="large" href="/tutorial">
-                Try the demo
-              </Button>
+            <div className="mb-6 max-w-md">
+              <div className="bg-gradient-to-br from-orange-50 to-red-50 border border-orange-200 rounded-lg p-6">
+                <div className="flex items-start gap-4">
+                  <div className="flex-1">
+                    <p className="text-gray-800 mb-4">
+                      Instant is the easy to use backend for your frontend. With
+                      Instant you can build delighful apps in less than 10
+                      minutes.
+                    </p>
+                    <Button
+                      type="link"
+                      variant="cta"
+                      size="large"
+                      href="/tutorial"
+                    >
+                      Try the demo
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </div>
             <div className="flex items-center justify-start space-x-2">
               <img src="/img/yc_logo.png" className="inline h-4 w-4" />
