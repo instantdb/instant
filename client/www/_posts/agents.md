@@ -9,7 +9,7 @@ We’re entering a new phase of software engineering. People are becoming addict
 
 Today we’re releasing an API that gives you and your agents full-stack backends. Each backend comes with a database, a sync engine, auth tools, file storage, and presence.
 
-Agents can use these tools to ship high-level code that’s easier for them to write and for humans to review. It’s all hosted on multi-tenant infrastructure, so you can spin up millions of databases in milliseconds. We have a [demo](#exposing-the-api) at the end of this essay.
+Agents can use these tools to ship high-level code that’s easier for them to write and for humans to review. It’s all hosted on multi-tenant infrastructure, so you can spin up millions of databases in milliseconds. We have a [demo](#demo) at the end of this essay.
 
 Let us explain exactly why we built this. We think that humans and agents can make the most progress when they have (1) built-in abstractions that (2) can be hosted efficiently and (3) expose data.
 
@@ -127,6 +127,8 @@ When we started Instant, agents were nowhere in sight. We focused on builders. T
 Builder want good abstractions. So we built a sync engine, permissions, auth, file storage, and ephemeral state (like cursors).
 
 Builders also want efficient hosting. They build lots of projects, and it sucks when apps end up frozen. So we made our sync engine and database multi-tenant. This way we could offer a generous free tier.
+
+<a name="demo"></a>
 
 # Exposing the API
 
