@@ -16,12 +16,10 @@ type InitState = {
 };
 
 type SchemaPushedState = {
-  timeTaken: number;
   outString: string;
 };
 
 type PermsPushedState = {
-  timeTaken: number;
   outString: string;
 };
 
@@ -145,7 +143,7 @@ function ToolCall({
   name: string;
   argsString: string;
   onClick: () => Promise<void>;
-  out?: { str: string; timeTaken: number };
+  out?: { str: string; timeTaken?: number };
 }) {
   const [running, setRunning] = useState(false);
   return (
@@ -199,7 +197,6 @@ function ToolCall({
 {
   ...
 } `.trim()}
-            timeTaken={0}
           />
         </div>
       )}
@@ -212,7 +209,7 @@ function ToolOutput({
   timeTaken,
 }: {
   outString: string;
-  timeTaken: number;
+  timeTaken?: number;
 }) {
   return (
     <div className="not-prose my-4 bg-white rounded p-4 flex items-baseline space-x-2">
@@ -222,11 +219,13 @@ function ToolOutput({
           <Fence code={outString} language="javascript" />
         </div>
       </div>
-      <div>
-        <div className="font-bold font-mono bg-gray-100 px-2">
-          {timeTaken} ms
+      {Number.isFinite(timeTaken) ? (
+        <div>
+          <div className="font-bold font-mono bg-gray-100 px-2">
+            {timeTaken} ms
+          </div>
         </div>
-      </div>
+      ) : null}
     </div>
   );
 }
@@ -276,7 +275,6 @@ function AppCreatedSection({
             state.schema
               ? {
                   str: state.schema.outString,
-                  timeTaken: state.schema.timeTaken,
                 }
               : undefined
           }
@@ -285,16 +283,12 @@ function AppCreatedSection({
               auth: { token: state.adminToken },
               apiURI: config.apiURI,
             });
-            const start = Date.now();
-
             const res = await api.schemaPush(state.appId, {
               schema: getSchema(),
             });
-            const end = Date.now();
             setState({
               ...state,
               schema: {
-                timeTaken: end - start,
                 outString: `
 {
   summary: {
@@ -334,7 +328,6 @@ function AppSchemaSection({
           state.perms
             ? {
                 str: state.perms.outString,
-                timeTaken: state.perms.timeTaken,
               }
             : undefined
         }
@@ -343,15 +336,12 @@ function AppSchemaSection({
             auth: { token: state.adminToken },
             apiURI: config.apiURI,
           });
-          const start = Date.now();
           const res = await api.pushPerms(state.appId, {
             perms: getPerms(),
           });
-          const end = Date.now();
           setState({
             ...state,
             perms: {
-              timeTaken: end - start,
               outString: JSON.stringify(res, null, 2),
             },
           });
