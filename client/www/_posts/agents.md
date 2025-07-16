@@ -7,7 +7,7 @@ og_image: /posts/agents/og_image.png
 
 We’re entering a new phase of software engineering. People are becoming addicted to agents. Beginners are vibe-coding apps and experts are maxing out their LLM subscriptions. This means that a lot more people are going to make a lot more apps, and for that we’re going to need new tools. So we’re launching some.
 
-Today we’re releasing an API that gives you and your agents full-stack backends. Each backend comes with a database, a sync engine, auth tools, file storage, and an ephemeral data API.
+Today we’re releasing an API that gives you and your agents full-stack backends. Each backend comes with a database, a sync engine, auth tools, file storage, and presence.
 
 Agents can use these tools to ship high-level code that’s easier for them to write and for humans to review. It’s all hosted on multi-tenant infrastructure, so you can spin up millions of databases in milliseconds. We have a [demo](#exposing-the-api) at the end of this essay.
 
@@ -31,7 +31,7 @@ To make agents work well we need to manage their context windows. It’s very ea
 
 Consider what happens when an agent adds a feature to a traditional client-server app. They change (a) the frontend (b) the backend and (c) the database. In order to safely make these changes, they have to remember more of the codebase and be exact about how things works together.
 
-Good abstractions can combine multiple moving pieces into one piece. This is more conducive to local reasoning: the agent only has to concern themselves with a smaller interface, so they don’t have to remember so much. This means agents can use less context and write higher-level code. And that’s great for humans too. After all, we have to review the agent’s work. Shorter, higher-level code is easier to understand. [^1]
+Good abstractions can combine multiple moving pieces into one piece. This is more conducive to local reasoning. The agent only has to concern themselves with a smaller interface, so they don’t have to remember so much. They can use less context and write higher-level code. And that’s great for humans too. After all we have to review the agent’s work. Shorter, higher-level code is easier to understand. [^1]
 
 And when both humans and agents make more progress, they build more apps. This brings us to hosting.
 
@@ -97,7 +97,7 @@ If one agent helps build the software, why shouldn’t another agent be able to 
 
 When every user has an agent, extendable software is an advantage. It’s in the application developer’s best interest: it can turn their apps into platforms, which are stickier. And it’s in the end-user’s best interest: they can get more out of their apps.
 
-To make software extendable, developers generally used APIs. But APIs have a problem: application developers have to be build them first. This means users are limited by what application developers _thought_ were needed.
+To make software extendable, developers generally used APIs. But APIs have a problem: application developers have to build them first. This means users are limited by what application developers _thought_ were needed.
 
 Databases are different. When apps are written on a database-like abstraction, users are free to make arbitrary queries and transactions. The application developer doesn’t have to foresee much. End-users can read and write whatever data they need to build all sorts of custom UIs [^6].
 

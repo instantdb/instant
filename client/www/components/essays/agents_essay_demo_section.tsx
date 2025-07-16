@@ -438,8 +438,8 @@ function DemoApp({
   const uri = `/dino-habits?a=${state.appId}${devBackend ? '&localBackend=1' : ''}`;
   const fullURI = `${isDev ? 'http://localhost:3000' : 'https://instantdb.com'}${uri}`;
   return (
-    <div style={{ height: '750px' }}>
-      <div className="not-prose absolute left-0 right-0 p-4">
+    <div className="pointer-events-none" style={{ height: '750px' }}>
+      <div className="not-prose absolute left-0 right-0 p-4 pointer-events-auto">
         <div className="max-w-4xl mx-auto">
           <div className="space-y-2">
             <div
