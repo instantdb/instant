@@ -145,13 +145,13 @@ function ToolCall({
         <div className="">
           <div className="w-2 h-2 bg-green-600 rounded-full"></div>
         </div>
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <div className="flex items-center space-x-2 text-sm">
             <div className="font-mono font-bold">instant</div>
             <div className="font-mono font-bold">-</div>
             <div className="font-mono font-bold">{name}</div>
           </div>
-          <div className="text-xs max-h-20 overflow-y-auto [&_pre]:!p-0">
+          <div className="text-xs max-h-20 overflow-y-auto overflow-x-auto [&_pre]:!p-0">
             <Fence code={argsString} language="javascript" />
           </div>
         </div>
@@ -207,8 +207,8 @@ function ToolOutput({
   return (
     <div className="not-prose my-4 bg-white rounded p-4 flex items-baseline space-x-2">
       <div className="">⎿</div>
-      <div className="flex-1">
-        <div className="text-xs [&_pre]:!p-0 max-h-20 overflow-y-auto">
+      <div className="flex-1 min-w-0">
+        <div className="text-xs [&_pre]:!p-0 max-h-20 overflow-y-auto overflow-x-auto">
           <Fence code={outString} language="javascript" />
         </div>
       </div>
