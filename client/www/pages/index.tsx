@@ -141,10 +141,7 @@ function LandingProblemStatement() {
                 and also not the differentiating factor for your app — unless
                 they’re broken
               </p>
-              <p>
-                If all this work isn’t differentiating, why work on it? When a
-                good abstraction exists, it’s a waste of time to reimplement it.
-              </p>
+              <p>If all this work isn’t differentiating, why work on it?</p>
               <p>
                 <strong>
                   Instant gives you a database with queries, transactions, auth,
@@ -154,10 +151,17 @@ function LandingProblemStatement() {
               </p>
               <p>
                 Here we implement chat using three functions:{' '}
-                <code className="font-mono text-orange-600">`init`</code>,{' '}
-                <code className="font-mono text-orange-600">`useQuery`</code>,
-                and{' '}
-                <code className="font-mono text-orange-600">`transact`</code>
+                <code className="font-mono text-orange-600 text-sm">
+                  `init`
+                </code>
+                ,{' '}
+                <code className="font-mono text-orange-600 text-sm">
+                  `useQuery`
+                </code>
+                , and{' '}
+                <code className="font-mono text-orange-600 text-sm">
+                  `transact`
+                </code>
               </p>
               <p>
                 Want to try it yourself?{' '}
