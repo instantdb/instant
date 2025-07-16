@@ -28,8 +28,8 @@ const getVariantStyles = (variant: string) => {
       return {
         outline: 'outline-blue-600/60',
         outlineWidth: 'outline-3',
-        background: 'bg-blue-50',
-        textColor: 'text-blue-900',
+        background: 'bg-white',
+        textColor: 'text-black',
         iconColor: 'text-blue-500',
         badge: {
           text: 'Agents',
@@ -91,14 +91,15 @@ const plans = [
     variant: 'default',
     description: 'For teams building large-scale applications',
     featuresDescription: 'Everything in the Pro plan, plus:',
+    price: 'Custom',
     features: [
       'Premium Support',
       'Uptime SLAs',
       'Unlimited team members per app',
       'Daily backups for last 30 days',
     ],
-    ctaDisabled: true,
-    cta: 'Coming soon!',
+    ctaDisabled: false,
+    cta: 'Contact us',
     ctaLink:
       'mailto:founders@instantdb.com?subject=InstantDB%20Enterprise%20Plan%20Inquiry',
   },

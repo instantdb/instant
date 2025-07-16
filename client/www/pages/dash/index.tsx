@@ -21,10 +21,6 @@ import {
   ComboboxOption,
   ComboboxOptions,
 } from '@headlessui/react';
-import {
-  apiSchemaToInstantSchemaDef,
-  generateSchemaTypescriptFile,
-} from '@instantdb/platform';
 
 import { StyledToastContainer, errorToast, successToast } from '@/lib/toast';
 import config, { cliOauthParamName, getLocal, setLocal } from '@/lib/config';
@@ -37,7 +33,7 @@ import {
   voidTicket,
 } from '@/lib/auth';
 import { TokenContext } from '@/lib/contexts';
-import { DashResponse, DBAttr, InstantApp, InstantMember } from '@/lib/types';
+import { DashResponse, InstantApp, InstantMember } from '@/lib/types';
 
 import { Perms } from '@/components/dash/Perms';
 import { Schema } from '@/components/dash/Schema';
@@ -50,7 +46,6 @@ import {
   ActionForm,
   Button,
   Checkbox,
-  CodeEditor,
   Content,
   Copyable,
   Dialog,
@@ -613,7 +608,6 @@ function Dashboard() {
                     app={app}
                     onDelete={() => onDeleteApp(app)}
                     nav={nav}
-                    db={connection.db}
                   />
                 ) : tab === 'billing' &&
                   isMinRole('collaborator', app.user_app_role) ? (
@@ -797,22 +791,16 @@ function Home() {
     <TabContent className="text-sm md:text-base">
       <SectionHeading>Getting Started</SectionHeading>
       <Content>
-        Ready to hack? To get a real-time app in minutes, see our quick example.
-        You can also book some time with the founders to get personalized help
-        (free)
+        Welcome to Instant! Here are some resources to help you get started.
       </Content>
       <div className="grid grid-cols-2 gap-4">
-        <HomeButton href="/docs" title="Quick start">
-          Get running in less than 5 minutes!
-        </HomeButton>
         <HomeButton href="/tutorial" title="Try the Demo">
-          See the magic of Instant in your browser.
+          Follow our tutorial to build a full-stack app with Instant in less
+          than 10 minutes.
         </HomeButton>
-        <HomeButton
-          href="https://calendly.com/instantdb/talk-with-instant-founders"
-          title="Q&A with founders"
-        >
-          Have some questions? Get personalized help from the founders (free)
+        <HomeButton href="/docs" title="Read the Docs">
+          After the tutorial, jump into our docs to start learning how to use
+          Instant.
         </HomeButton>
         <HomeButton
           href="https://discord.com/invite/VU53p7uQcE"
@@ -820,124 +808,6 @@ function Home() {
         >
           Join our Discord to meet like-minded hackers, and to give us feedback
           too!
-        </HomeButton>
-      </div>
-      <SectionHeading>Manage your Data</SectionHeading>
-      <Content>
-        Use the explorer to see your data live. You can also use this to manage
-        your schema. To learn more, check out our docs on how to read, write,
-        and model data.
-      </Content>
-      <div className="grid grid-cols-2 gap-4">
-        <HomeButton href="/docs/instaml" title="Writing data">
-          Our write API is very small! Read up on how to write data to your
-          Instant apps.
-        </HomeButton>
-        <HomeButton href="/docs/instaql" title="Reading data">
-          Once you have some data, learn all the different ways you can read it!
-        </HomeButton>
-        <HomeButton href="/docs/modeling-data" title="Modeling data">
-          Learn how to define advanced relationships and leverage Instant's
-          graph capabilities.
-        </HomeButton>
-        <HomeButton href="/dash?t=explorer" title="Explorer">
-          See your live data and edit your schema.
-        </HomeButton>
-      </div>
-      <SectionHeading>Add Authentication</SectionHeading>
-      <Content>
-        Instant comes with an authentication system. You can use magic codes,
-        Google OAuth, or integrate your own custom flow. We have examples and
-        docs to help you get started.
-      </Content>
-      <div className="grid grid-cols-2 gap-4">
-        <HomeButton href="/docs/auth#magic-codes" title="Magic codes">
-          Passwords are pas·sé, Instant supports magic-code auth out of the box.
-          Read the docs to learn how to add auth into your app in just a few
-          lines of code!
-        </HomeButton>
-        <HomeButton href="/dash?t=auth" title="Manage OAuth">
-          Use the Auth tab to configure Google OAuth. More auth providers to
-          come!
-        </HomeButton>
-        <HomeButton href="/docs/backend#custom-auth" title="Custom auth">
-          Learn how to use the Admin SDK to integrate your auth with Instant.
-        </HomeButton>
-      </div>
-      <SectionHeading>Ephemeral Collaboration</SectionHeading>
-      <Content>
-        <p>
-          When you use Instant to read and write data, you get optimistic
-          updates, offline support, and real-time collaboration out of the box.
-          Every change you make is instantly synced to all connected clients.
-          This makes it easy to build collaborative apps like Figma, Notion, or
-          Linear.
-        </p>
-        <p>
-          Sometimes you want collaboration to be ephemeral. For example, sharing
-          cursors on a shared document, showing who is online, or showing who is
-          typing. We've got some examples to get you started and docs to help
-          you build your own experiences.
-        </p>
-      </Content>
-      <div className="grid grid-cols-2 gap-4">
-        <HomeButton href="/examples" title="Examples">
-          Real examples you can copy/paste into your own apps.
-        </HomeButton>
-        <HomeButton
-          href="/docs/presence-and-topics"
-          title="Presence, Cursors, and Activity"
-        >
-          Learn how to use Instant's presence system to build your own ephemeral
-          collaborative features.
-        </HomeButton>
-      </div>
-      <SectionHeading>Secure your app</SectionHeading>
-      <Content>
-        Ready to ship your app to the world? You'll likely want to add some
-        permissions to ensure only the right people see the right data.
-      </Content>
-      <div className="grid grid-cols-2 gap-4">
-        <HomeButton href="/docs/permissions" title="How to use permissions">
-          Instant uses CEL under the hood for writing permission rules. It's an
-          alternative to row-based security!
-        </HomeButton>
-        <HomeButton href="/dash?t=perms" title="Manage permissions">
-          Write permission rules to secure your app
-        </HomeButton>
-      </div>
-      <SectionHeading>Manage your app</SectionHeading>
-      <Content>
-        Want to see your usage, change your billing, or delete your app? You can
-        do that using the admin and billing tabs.
-      </Content>
-      <div className="grid grid-cols-2 gap-4">
-        <HomeButton href="/dash?t=admin" title="Admin">
-          App management and admin secrets for using Instant on the backend.
-        </HomeButton>
-        <HomeButton href="/dash?t=billing" title="Billing">
-          See your current app usage and manage your subscription.
-        </HomeButton>
-      </div>
-      <SectionHeading>Example Applications</SectionHeading>
-      <Content>
-        We've built a few example applications to help you get started. You can
-        reference these to help you build your own apps.
-      </Content>
-      <div className="grid grid-cols-2 gap-4">
-        <HomeButton
-          href="https://github.com/jsventures/instldraw"
-          title="instldraw (Web)"
-        >
-          tldraw + Instant. See how to model teams, use cursors and leverage
-          permissions.
-        </HomeButton>
-        <HomeButton
-          href="https://github.com/jsventures/stroopwafel"
-          title="Stroopwafel (React Native)"
-        >
-          Multiplayer iOS game built with Expo + Instant. See how you can use
-          Instant to build real-time games.
         </HomeButton>
       </div>
     </TabContent>
@@ -1233,13 +1103,11 @@ function Admin({
   app,
   onDelete,
   nav,
-  db,
 }: {
   dashResponse: APIResponse<DashResponse>;
   app: InstantApp;
   onDelete: () => void;
   nav: (p: { s: string; t?: string; app?: string }) => void;
-  db: InstantReactWebDatabase<any>;
 }) {
   const token = useContext(TokenContext);
   const [deleteAppOk, updateDeleteAppOk] = useState(false);

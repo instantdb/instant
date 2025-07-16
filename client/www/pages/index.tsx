@@ -88,23 +88,27 @@ function LandingHero() {
       <SectionWide>
         <TwoColResponsive>
           <div className="flex flex-1 flex-col gap-8">
-            <H2>Build live apps today</H2>
-            <p>
-              Instant is a modern Firebase. We make you productive by giving
-              your frontend a real-time database.
-            </p>
-            <div className="flex flex-row gap-2 md:justify-start">
-              <Button type="link" variant="cta" size="large" href="/dash">
-                Get Started
-              </Button>
-              <Button
-                type="link"
-                variant="secondary"
-                size="large"
-                href="/tutorial"
-              >
-                Try the demo
-              </Button>
+            <H2>Write your frontend and we handle the rest</H2>
+            <div className="mb-6 max-w-md">
+              <div className="bg-gradient-to-br from-orange-50 to-red-50 border border-orange-200 rounded-lg p-6">
+                <div className="flex items-start gap-4">
+                  <div className="flex-1">
+                    <p className="text-gray-800 mb-4">
+                      Instant is the easy to use backend for your frontend. With
+                      Instant you can build delighful apps in less than 10
+                      minutes.
+                    </p>
+                    <Button
+                      type="link"
+                      variant="cta"
+                      size="large"
+                      href="/tutorial"
+                    >
+                      Try the demo
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </div>
             <div className="flex items-center justify-start space-x-2">
               <img src="/img/yc_logo.png" className="inline h-4 w-4" />
@@ -133,32 +137,48 @@ function LandingProblemStatement() {
       <Section>
         <div className="flex flex-col gap-8">
           <div className="md:mx-auto md:max-w-md md:text-center">
-            <H3>You write your frontend, and we handle the rest</H3>
+            <H3>Instant is a batteries included client-side database</H3>
           </div>
           <TwoColResponsive>
             <div className="flex flex-1 flex-col gap-4">
               <p>
-                The best apps today have a common feature set. Every interaction
-                happens instantly, you rarely see loading screens, collaboration
-                is easy and delightful, and the app still works when offline.
+                To build an app you write two kinds of code. The business logic
+                that solves your specific problem, and the generic stuff that
+                most apps have to take care of: authenticating users, making
+                queries, running permissions, uploading files, and executing
+                transactions.
               </p>
               <p>
-                But building them is a schlep: spin up servers, auth,
-                permissions, endpoints, sockets, then shuffle data, handle
-                optimistic updates, and deal with rollbacks.
+                The generic stuff is critical to get right, full of edge cases,
+                and also not the differentiating factor for your app — unless
+                they’re broken
               </p>
+              <p>If all this work isn’t differentiating, why work on it?</p>
               <p>
                 <strong>
-                  Instant solves these problems for you by giving you a database
-                  you can subscribe to directly in the browser.
-                </strong>{' '}
-                You write relational queries in your app, and we handle the
-                rest.
+                  Instant gives you a database with queries, transactions, auth,
+                  permissions, storage, real-time and offline support. All in a
+                  simple SDK you can use directly in the browser.
+                </strong>
+              </p>
+              <p>
+                Here we implement chat using three functions:{' '}
+                <code className="font-mono text-orange-600 text-sm">
+                  `init`
+                </code>
+                ,{' '}
+                <code className="font-mono text-orange-600 text-sm">
+                  `useQuery`
+                </code>
+                , and{' '}
+                <code className="font-mono text-orange-600 text-sm">
+                  `transact`
+                </code>
               </p>
               <p>
                 Want to try it yourself?{' '}
-                <TextLink href="https://instantdb.com/docs">
-                  Build a live app in less than 5 minutes.
+                <TextLink href="/tutorial">
+                  Build a full-stack app in less than 10 minutes.
                 </TextLink>
               </p>
             </div>
@@ -174,21 +194,77 @@ function LandingProblemStatement() {
   );
 }
 
-function LandingHow() {
+function LandingCore() {
   return (
     <div className="py-16">
       <Section>
         <div className="flex flex-col gap-6">
           <div className="md:mx-auto md:max-w-md md:text-center">
-            <H3>A new kind of client-side infrastructure</H3>
+            <H3>Real-time by default</H3>
           </div>
-          <div className="md:mx-auto md:max-w-2xl md:text-center">
+          <div className="md:mx-auto md:max-w-2xl md:text-left">
             <p>
-              Instant was born when we realized that some of the hardest UI
-              problems are actually database problems in disguise. When you
-              solve problems at the database layer, your software becomes more
-              powerful and succinct. Here’s how:
+              The best apps today have a common feature set. Every interaction
+              happens instantly, you rarely see loading screens, collaboration
+              is easy and delightful, and the app still works when offline.{' '}
+              <strong>
+                When you use Instant, you get these features for free
+              </strong>
+              .
             </p>
+          </div>
+        </div>
+      </Section>
+    </div>
+  );
+}
+
+function LandingMulti() {
+  return (
+    <div className="py-16">
+      <Section>
+        <div className="flex flex-col gap-6">
+          <div className="md:mx-auto md:max-w-md md:text-center">
+            <H3>Built for humans and agents</H3>
+          </div>
+          <div className="md:mx-auto md:max-w-2xl md:text-left space-y-2">
+            <p>
+              When we started building Instant we wanted something great for
+              builders. We wanted to offer a generous free tier where projects
+              aren't limited or paused. To make this work we built Instant to be
+              multi-tenant.{' '}
+              <strong>
+                This means you can spin up a new database in less than 100ms.
+              </strong>
+            </p>
+            <p>
+              Turns out when you make something great for humans, it also works
+              great for agents. Combine a multi-tenant database with a platform
+              SDK and you have infrastructure that lets an agent have a backend
+              for every chat.
+            </p>
+            <p>
+              We wrote an essay to go deeper on what we mean. If this interests
+              you and your team we'd love to chat.
+            </p>
+          </div>
+          <div className="flex flex-row justify-center gap-4">
+            <Button
+              type="link"
+              variant="secondary"
+              size="large"
+              href="/essays/agents"
+            >
+              Read Essay on Agents
+            </Button>
+            <Button
+              type="link"
+              variant="cta"
+              size="large"
+              href="mailto:founders@instantdb.com?subject=InstantDB%20Platform%20Plan%20Inquiry"
+            >
+              Contact Us
+            </Button>
           </div>
         </div>
       </Section>
@@ -327,72 +403,6 @@ function LandingCoreFeatures() {
   );
 }
 
-function LandingRealtimeFeatures() {
-  return (
-    <div className="bg-gray-100 py-16">
-      <Section>
-        <div className="flex flex-col gap-8">
-          <div className="md:mx-auto md:max-w-md md:text-center">
-            <H3>Cursors, Typing Indicators, and Presence at your fingertips</H3>
-          </div>
-          <TwoColResponsive>
-            <div className="flex flex-1 flex-col gap-4">
-              <p>
-                Once your application becomes multiplayer, you see opportunities
-                for new experiences everywhere: who’s online, who’s typing, and
-                where are their cursors?
-              </p>
-
-              <p>
-                Instant supports these use cases —{' '}
-                <strong>you can add shared cursors in 10 lines.</strong>
-              </p>
-            </div>
-            <div className="flex flex-1 gap-2 flex-col">
-              <ExampleMultiPreview
-                appId={appId}
-                pathName="4-custom-cursors"
-                numViews={2}
-              />
-            </div>
-          </TwoColResponsive>
-        </div>
-      </Section>
-    </div>
-  );
-}
-
-function LandingScaleFeatures() {
-  return (
-    <div className="py-16">
-      <Section>
-        <div className="flex flex-col gap-6">
-          <div className="md:mx-auto md:max-w-md md:text-center">
-            <H3>Start without a backend, scale to complex use cases</H3>
-          </div>
-          <div className="flex flex-col gap-6 md:mx-auto md:max-w-2xl">
-            <p>
-              When you use Instant, you can focus on what’s important: building
-              a great UX for your users, and doing it quickly.
-            </p>
-            <p>
-              You don’t need servers, separate auth providers, custom endpoints,
-              front-end stores, or different APIs for mobile vs web. You get a
-              real-time architecture that makes your frontend smooth.
-            </p>
-            <p>
-              When time comes for custom backend logic, you can spin up a server
-              and use Instant’s admin SDK. Build your next SaaS app, React
-              Native app, web app, or collaborative app on Instant. We’ll help
-              you move fast, and scale alongside you.
-            </p>
-          </div>
-        </div>
-      </Section>
-    </div>
-  );
-}
-
 function Testimonial({
   blurb,
   person,
@@ -485,24 +495,11 @@ function LandingTeam() {
                 We're backed by YCombinator, SV Angel, and top investors like:
               </p>
               <AngelList />
-              <p>
-                Check out our essay below to learn more why we think Instant is
-                solving one of the largest problems in frontend development
-                today.
-              </p>
             </div>
           </div>
           <div className="flex flex-row justify-center gap-4">
             <Button type="link" variant="cta" size="large" href="/dash">
-              Get Started
-            </Button>
-            <Button
-              type="link"
-              variant="secondary"
-              size="large"
-              href="/essays/next_firebase"
-            >
-              Read Essay
+              Start Building
             </Button>
           </div>
         </div>
@@ -648,11 +645,12 @@ export default function Landing2024() {
       <LandingProblemStatement />
       <LandingTestimonials />
       <GlowBackground>
-        <LandingHow />
+        <LandingCore />
       </GlowBackground>
       <LandingCoreFeatures />
-      <LandingRealtimeFeatures />
-      <LandingScaleFeatures />
+      <GlowBackground>
+        <LandingMulti />
+      </GlowBackground>
       <LandingTeam />
       <LandingFooter />
     </LandingContainer>
