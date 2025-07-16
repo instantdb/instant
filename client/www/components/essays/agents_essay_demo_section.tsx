@@ -404,7 +404,7 @@ function AppPermsSection({
             href="/tutorial"
             className="w-full"
           >
-            Build an app with Instant
+            Build an app
           </Button>
         </div>
         <p>
