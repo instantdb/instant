@@ -114,6 +114,9 @@ function sortedMutationEntries(entries) {
   });
 }
 
+const UUID_REGEX =
+  /^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/;
+
 /**
  * @template {import('./presence.ts').RoomSchemaShape} [RoomSchema = {}]
  */
@@ -172,6 +175,14 @@ export default class Reactor {
     NetworkListener = WindowNetworkListener,
     versions,
   ) {
+    if (!config.appId) {
+      throw new Error('Instant must be initialized with an appId.');
+    }
+    if (!UUID_REGEX.test(config.appId)) {
+      throw new Error(
+        `Instant must be initialized with a valid appId. \`${config.appId}\` is not a valid uuid.`,
+      );
+    }
     this.config = { ...defaultConfig, ...config };
     this.queryCacheLimit = this.config.queryCacheLimit ?? 10;
 
