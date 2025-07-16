@@ -416,15 +416,29 @@ function AppPermsSection({
           full stack app in about 5 minutes. Just Claude, Cursor, or your
           favorite agent start cooking.
         </p>
-        <div className="not-prose text-center">
-          <Button
-            type="link"
-            variant="cta"
-            size="large"
-            href="/labs/mcp-tutorial"
-          >
-            Build with your own agents
-          </Button>
+        <div className="relative">
+          <div className="absolute" style={{ left: '-10px', bottom: '-37px' }}>
+            <img src="/posts/agents/hero.png" className="w-40"></img>
+          </div>
+          <div className="relative bg-orange-100/40 p-4 rounded-xl">
+            <h3 className="mt-0 text-center">
+              Try Instant with your favorite Agent
+            </h3>
+            <p className="text-center">
+              You can follow this tutorial to build a full-stack app in 5
+              minutes
+            </p>
+            <div className="not-prose text-center">
+              <Button
+                type="link"
+                variant="cta"
+                size="large"
+                href="/labs/mcp-tutorial"
+              >
+                Build with your own agents
+              </Button>
+            </div>
+          </div>
         </div>
         <p>
           And heck, if you are the founder of an app builder platform, Instant
