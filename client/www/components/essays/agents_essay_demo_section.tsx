@@ -388,25 +388,24 @@ function AppPermsSection({
         compute bill.
       </p>
       <>
-        <h2>Try it yourself</h2>
+        <h1>Try it yourself</h1>
+
         <p>
           We've written up a guide so you do this with your own workflow. Follow
-          along to build out a full stack app in about 5 minutes. Just Claude,
-          Cursor, or your favorite agent and Instant.
+          along to{' '}
+          <strong>build out a full stack app in about 5 minutes</strong>. Just
+          Claude, Cursor, or your favorite agent and Instant.
         </p>
-
-        <div className="relative bg-orange-100/40 p-4 rounded-xl h-40">
-          <p>
-            You can follow this tutorial to build a full-stack app in 5 minutes.
-          </p>
-          <div className="not-prose">
-            <Button type="link" variant="cta" size="large" href="/tutorial">
-              Take an MCP test-drive
-            </Button>
-          </div>
-          <div className="absolute" style={{ right: '5px', bottom: '-37px' }}>
-            <img src="/posts/agents/hero.png" className="w-40"></img>
-          </div>
+        <div className="not-prose">
+          <Button
+            type="link"
+            variant="cta"
+            size="large"
+            href="/tutorial"
+            className="w-full"
+          >
+            Build an app with Instant
+          </Button>
         </div>
         <p>
           And heck, if you are the founder of an app builder platform, Instant
