@@ -797,22 +797,15 @@ function Home() {
     <TabContent className="text-sm md:text-base">
       <SectionHeading>Getting Started</SectionHeading>
       <Content>
-        Ready to hack? To get a real-time app in minutes, see our quick example.
-        You can also book some time with the founders to get personalized help
-        (free)
+        Welcome to Instant! Here are some resources to help you get started.
       </Content>
       <div className="grid grid-cols-2 gap-4">
         <HomeButton href="/docs" title="Quick start">
-          Get running in less than 5 minutes!
+          Follow our quick start guide to build a real-time app in minutes.
         </HomeButton>
         <HomeButton href="/tutorial" title="Try the Demo">
-          See the magic of Instant in your browser.
-        </HomeButton>
-        <HomeButton
-          href="https://calendly.com/instantdb/talk-with-instant-founders"
-          title="Q&A with founders"
-        >
-          Have some questions? Get personalized help from the founders (free)
+          Follow a slightly longer tutorial to build a full-stack app of your
+          choice
         </HomeButton>
         <HomeButton
           href="https://discord.com/invite/VU53p7uQcE"
