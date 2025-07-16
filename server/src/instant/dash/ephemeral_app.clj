@@ -105,8 +105,9 @@
   (let [app-ids (app-model/get-app-ids-created-before {:creator-id (:id @ephemeral-creator)
                                                        :created-before created-before})]
     (tracer/add-data!
-     {:created-before created-before
-      :num-apps (count app-ids)})
+     {:attributes
+      {:created-before created-before
+       :num-apps (count app-ids)}})
     (when (seq app-ids)
       (app-model/delete-by-ids! {:creator-id (:id @ephemeral-creator)
                                  :ids app-ids}))))

@@ -268,6 +268,9 @@
                   etype (if (sequential? eid)
                           (extract-lookup-etype! ctx eid aid-etype tx-step)
                           aid-etype)
+                  _ (when (nil? etype)
+                      (tracer/add-data!
+                        {:attributes {:tx-step-without-etype tx-step}}))
                   ;; If we know the etype from the lookup for delete-entity,
                   ;; but the client hasn't been updated to provide it, then
                   ;; we can patch the `delete-entity` step to include it
