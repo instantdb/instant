@@ -80,6 +80,8 @@ const Post = ({ post }: { post: Post }) => {
                 // Note if you change the custom component key, you
                 // must also change all references in the markdown files
                 'agents-essay-demo-section': AgentsEssayDemoSection,
+
+                // make sure h1 tag has id set
                 p: ({ children }) => (
                   <div className="text-base leading-relaxed leading-[1.75] mt-[1.25em] mb-[1.25em] prose">
                     {children}

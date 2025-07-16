@@ -5,13 +5,13 @@ authors: stopachka, nikitonsky
 og_image: /posts/agents/og_image.png
 ---
 
-We’re entering a new phase of software engineering. People are becoming addicted to agents. Beginners are vibe-coding apps and experts are maxing out their LLM subscriptions. This means that a lot more people are going to make a lot more apps, and for that we’re going to need new tools. So we’re launching some.
+We’re entering a new phase of software engineering. People are becoming addicted to agents. Beginners are vibe-coding apps and experts are maxing out their LLM subscriptions. This means that a lot more people are going to make a lot more apps, and for that we’re going to need new tools.
 
 Today we’re releasing an API that gives you and your agents full-stack backends. Each backend comes with a database, a sync engine, auth tools, file storage, and presence.
 
 Agents can use these tools to ship high-level code that’s easier for them to write and for humans to review. It’s all hosted on multi-tenant infrastructure, so you can spin up millions of databases in milliseconds. We have a [demo](#exposing-the-api) at the end of this essay.
 
-Let us explain exactly why built this. We think that humans and agents can make the most progress when they have (1) built-in abstractions that (2) can be hosted efficiently and (3) expose data.
+Let us explain exactly why we built this. We think that humans and agents can make the most progress when they have (1) built-in abstractions that (2) can be hosted efficiently and (3) expose data.
 
 # Built-in Abstractions
 
@@ -33,9 +33,7 @@ Consider what happens when an agent adds a feature to a traditional client-serve
 
 Good abstractions can combine multiple moving pieces into one piece. This is more conducive to local reasoning. The agent only has to concern themselves with a smaller interface, so they don’t have to remember so much. They can use less context and write higher-level code. And that’s great for humans too. After all we have to review the agent’s work. Shorter, higher-level code is easier to understand. [^1]
 
-And when both humans and agents make more progress, they build more apps. This brings us to hosting.
-
-Once humans and agents build apps, how will we host them?
+And when both humans and agents make more progress, they build more apps. And when they build more apps, how will they host them?
 
 # Cost-Efficient Hosting
 
@@ -55,7 +53,7 @@ For our 20,000 small apps we would need 40,000 VMs. That’s about $95,000 a mon
 
 We’re not suggesting that people want to make 20,000 apps. We’re pointing out an inefficiency. Running applications today comes with overhead, particularly in RAM.
 
-And when there’s overhead there’s friction. Today platforms freeze machines, limit how many apps you can spin up, or require credit cards. In an era where every human can create lots of apps, this feels like a bummer.
+And when there’s overhead there’s friction. Today platforms freeze machines or limit how many apps you can spin up. In an era where every human can create lots of apps, this feels like a bummer.
 
 Could we do better?
 
@@ -83,9 +81,7 @@ We can create efficient apps by choosing appropriate isolation strategies.
 
 Shared abstractions could be served from multi-tenant services on big machines. Permissions could use CEL, javascript callbacks could run on V8 Isolates, and shell commands run on Micro VMs. If we did that, 20,000 apps with 1 active user would cost about the same as 1 app with 20,000 users.
 
-Humans and agents would be able to deploy apps with little friction. And that brings us to end-users.
-
-Once humans and agents deploy apps, how will people use them?
+Humans and agents would be able to deploy apps with little friction. Once these apps are deployed, how will people use them?
 
 # Exposed Data
 
@@ -122,19 +118,19 @@ And since you get a database-like abstraction, exposing data is relatively strai
 
 That’s the future we are building Instant for.
 
-# A Tool for Hackers
+# A Tool for Builders
 
-When we started Instant, agents were nowhere in sight. We focused on hackers. Turns out if you build for hackers, you end up making something good for humans and agents too.
+When we started Instant, agents were nowhere in sight. We focused on builders. Turns out if you design for builders, you end up making something good for agents too.
 
 ![](/posts/agents/instant_arch.png)
 
-Hackers want good abstractions. So we built a sync engine, permissions, auth, file storage, and ephemeral state (like cursors).
+Builder want good abstractions. So we built a sync engine, permissions, auth, file storage, and ephemeral state (like cursors).
 
-Hackers also want efficient hosting. They build lots of projects, and it sucks when apps end up frozen. So we made our sync engine and database multi-tenant. This way we could offer a generous free tier.
+Builders also want efficient hosting. They build lots of projects, and it sucks when apps end up frozen. So we made our sync engine and database multi-tenant. This way we could offer a generous free tier.
 
 # Exposing the API
 
-Instant is already great for hackers. Real startups are using Instant today, and pushing upwards of 10,000 concurrent connections.
+Instant is already great for builders. Real startups are using Instant today, and pushing upwards of 10,000 concurrent connections.
 
 Today we are making it easy for machines too.
 
