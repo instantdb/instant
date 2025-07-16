@@ -76,6 +76,9 @@ const examplePrompts = [
   },
 ];
 
+const vercelAddEnv =
+  'npx vercel env add NEXT_PUBLIC_INSTANT_APP_ID production < .env.local';
+
 export async function getStaticProps() {
   const files = getFiles();
 
@@ -212,7 +215,7 @@ function DebuggingAccordion() {
             app from vercel. In that case the fix is to add the environment
             variables to vercel:
           </p>
-          <Copyable value="npx vercel env add NEXT_PUBLIC_INSTANT_APP_ID" />
+          <Copyable value={vercelAddEnv} />
         </div>
       ),
     },
@@ -897,7 +900,7 @@ export default function McpTutorial({ files }: MarkdownContent) {
                 see any an error about a missing <code>app-id</code> it means
                 we'll need to add it to the vercel environment:
               </p>
-              <Copyable value="npx vercel env add < .env.local" />
+              <Copyable value={vercelAddEnv} />
             </div>
 
             <p className="text-gray-700 mt-6">
