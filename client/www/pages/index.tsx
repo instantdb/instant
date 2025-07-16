@@ -237,10 +237,20 @@ function LandingMulti() {
             </p>
           </div>
           <div className="flex flex-row justify-center gap-4">
-            <Button type="link" variant="secondary" size="large" href="/essays">
+            <Button
+              type="link"
+              variant="secondary"
+              size="large"
+              href="/essays/agents"
+            >
               Read Essay on Agents
             </Button>
-            <Button type="link" variant="cta" size="large" href="/pricing">
+            <Button
+              type="link"
+              variant="cta"
+              size="large"
+              href="mailto:founders@instantdb.com?subject=InstantDB%20Platform%20Plan%20Inquiry"
+            >
               Contact Us
             </Button>
           </div>
