@@ -198,6 +198,7 @@ function DebuggingAccordion() {
     {
       id: 'malformed-parameter',
       title: 'Error: Malformed parameter: ["body" "app-id"]',
+      videoUrl: 'https://youtu.be/qV3LPt9fS0w',
       content: (
         <div className="space-y-3">
           <p>
@@ -218,6 +219,7 @@ function DebuggingAccordion() {
     {
       id: 'validation-query',
       title: 'Validation failed for query',
+      videoUrl: 'https://youtu.be/8K1Uk98od_c',
       content: (
         <p>
           If you see this you'll likely see a few sentences describing the
@@ -229,6 +231,7 @@ function DebuggingAccordion() {
     {
       id: 'validation-tx',
       title: 'Validation failed for tx-steps',
+      videoUrl: 'https://youtu.be/lYElXb_KpaM',
       content: (
         <p>
           This will most likely happen when referencing an invalid id in{' '}
@@ -242,6 +245,7 @@ function DebuggingAccordion() {
     {
       id: 'permission-denied',
       title: 'Permission denied: not perms-pass?',
+      videoUrl: 'https://youtu.be/tCYKYRaxk-g',
       content: (
         <p>
           This can happen if an invalid or unexpected permission rule was
@@ -256,6 +260,7 @@ function DebuggingAccordion() {
     {
       id: 'missing-attributes',
       title: 'Missing required attributes',
+      videoUrl: 'https://youtu.be/jGvSFMhxr74',
       content: (
         <p>
           You may encounter this when you are trying to add or delete data.
@@ -334,7 +339,28 @@ function DebuggingAccordion() {
             </button>
             {isOpen && (
               <div className="px-4 pb-4 text-gray-700 border-t border-gray-100">
-                {item.content}
+                <div className="space-y-4">
+                  {item.content}
+                  {item.videoUrl && (
+                    <div className="pt-2">
+                      <a
+                        href={item.videoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" />
+                        </svg>
+                        <span>Watch debugging video</span>
+                      </a>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
