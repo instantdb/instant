@@ -1082,6 +1082,51 @@ export const InfoTip = ({ children }: PropsWithChildren) => {
   );
 };
 
+export function ProgressButton({
+  percentage = 0,
+  loading,
+  className,
+  children,
+  variant,
+  ...props
+}: PropsWithChildren<{
+  percentage?: number;
+  loading?: boolean;
+  className?: string;
+  variant?: 'primary' | 'secondary' | 'subtle' | 'destructive' | 'cta';
+}> &
+  Parameters<typeof Button>[0]) {
+  const progressFillStyle = {
+    transform: loading
+      ? `scaleX(${Math.max(0, Math.min(100, percentage)) / 100})`
+      : 'scaleX(0)',
+    transition: 'transform 0.3s ease-in-out',
+    transformOrigin: 'left',
+  };
+
+  const progressFillClass = cn('absolute inset-0 transition-all', {
+    'bg-[#4543e9]': variant === 'primary' || !variant,
+    'bg-orange-500': variant === 'cta',
+    'bg-gray-200': variant === 'secondary',
+    'bg-gray-300': variant === 'subtle',
+    'bg-red-200': variant === 'destructive',
+  });
+
+  return (
+    <Button
+      {...props}
+      variant={variant}
+      loading={loading}
+      className={cn('relative overflow-hidden', className)}
+    >
+      {loading && (
+        <div className={progressFillClass} style={progressFillStyle} />
+      )}
+      <span className="relative z-10">{children}</span>
+    </Button>
+  );
+}
+
 // utils
 
 export function twel<T = {}>(
