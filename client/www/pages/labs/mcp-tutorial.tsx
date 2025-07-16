@@ -155,6 +155,221 @@ function PromptExample({ title, content }: { title: string; content: string }) {
   );
 }
 
+function DebuggingAccordion() {
+  const [openItems, setOpenItems] = useState<Set<string>>(new Set());
+
+  const toggleItem = (id: string) => {
+    const newOpenItems = new Set(openItems);
+    if (newOpenItems.has(id)) {
+      newOpenItems.delete(id);
+    } else {
+      newOpenItems.add(id);
+    }
+    setOpenItems(newOpenItems);
+  };
+
+  const debuggingItems = [
+    {
+      id: 'general-troubleshooting',
+      title: 'General troubleshooting',
+      content: (
+        <div className="space-y-3">
+          <p>
+            If you encounter an error we should hopefully bubble up a message to
+            you that you can just copy and paste to your agent to fix. Sometimes
+            though you may see a blank screen or an unhelpful error like{' '}
+            <code>[Object object]</code>. We're working on squashing all those
+            cases!
+          </p>
+          <p>
+            In the mean time you can open your browser's devtools and look at
+            the output in the console. There should be an error logged that you
+            can expand and paste into your agent. Below are some more common
+            errors we're aware of.
+          </p>
+          <p>
+            If you encounter an issue not listed below please feel free to let
+            us know via the feedback tool at the bottom of this page or via our
+            Discord.
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: 'malformed-parameter',
+      title: 'Error: Malformed parameter: ["body" "app-id"]',
+      videoUrl: 'https://youtu.be/qV3LPt9fS0w',
+      content: (
+        <div className="space-y-3">
+          <p>
+            If you see this it means the agent likely forgot to actually create
+            the app or update the code with the app id. You should be able to
+            copy paste the error message to your agent and nudge it to actually
+            create the app for you with the Instant MCP.
+          </p>
+          <p>
+            You may also see this error only when you're looking at the deployed
+            app from vercel. In that case the fix is to add the environment
+            variables to vercel:
+          </p>
+          <Copyable value="npx vercel env add NEXT_PUBLIC_INSTANT_APP_ID" />
+        </div>
+      ),
+    },
+    {
+      id: 'validation-query',
+      title: 'Validation failed for query',
+      videoUrl: 'https://youtu.be/8K1Uk98od_c',
+      content: (
+        <p>
+          If you see this you'll likely see a few sentences describing the
+          error. You should be able to copy and paste the error message to your
+          agent and it will figure it out.
+        </p>
+      ),
+    },
+    {
+      id: 'validation-tx',
+      title: 'Validation failed for tx-steps',
+      videoUrl: 'https://youtu.be/lYElXb_KpaM',
+      content: (
+        <p>
+          This will most likely happen when referencing an invalid id in{' '}
+          <code>transact</code>. To resolve this open up your browser's dev
+          tools and copy/paste the error into your agent. Tell it you think the
+          problem is related to not using <code>id()</code> in transact. This
+          should do the trick!
+        </p>
+      ),
+    },
+    {
+      id: 'permission-denied',
+      title: 'Permission denied: not perms-pass?',
+      videoUrl: 'https://youtu.be/tCYKYRaxk-g',
+      content: (
+        <p>
+          This can happen if an invalid or unexpected permission rule was
+          pushed. The behavior will look similar to validation failure where{' '}
+          <code>transact</code> fails and rolls-back a change. To resolve this
+          open up your browser's dev tools and copy/paste the error into your
+          agent. Tell it the problem is related to permissions and have it push
+          up a fix.
+        </p>
+      ),
+    },
+    {
+      id: 'missing-attributes',
+      title: 'Missing required attributes',
+      videoUrl: 'https://youtu.be/jGvSFMhxr74',
+      content: (
+        <p>
+          You may encounter this when you are trying to add or delete data.
+          What's likely happening is some entity has a required link. To resolve
+          this open up your browser's dev tools and copy/paste the error into
+          your agent. Tell it you think the problem is related to required
+          attributes and the fix is to update schema with an onDelete cascade.
+          This should do the trick!
+        </p>
+      ),
+    },
+    {
+      id: 'dev-server',
+      title: 'Dev server not running',
+      content: (
+        <div className="space-y-3">
+          <p>
+            Sometimes agents like Cursor or Claude will say the dev server is
+            running when it's actually not. The agent may have ran the server to
+            test something but it will shut it off once it's done. Just do{' '}
+            <code>npm run dev</code> in your terminal and open up localhost.
+          </p>
+          <p>
+            Similarly sometimes the agent will run <code>npm run build</code> to
+            detect and fix any typescript issues. This may break your currently
+            running dev server. Simply restart your dev server to continue
+            along.
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: 'agent-loop',
+      title: 'Agent is in a loop with the same error',
+      content: (
+        <p>
+          Sometimes the agent gets stuck between updating schema, permissions,
+          and fixing types. Right now Instant doesn't support deleting or
+          renaming attributes via the MCP. Sometimes a simple fix is to just
+          tell the agent to create a whole new app. This will ensure the agent
+          can create an app with the latest schema and permissions in your code.
+        </p>
+      ),
+    },
+  ];
+
+  return (
+    <div className="space-y-2">
+      {debuggingItems.map((item) => {
+        const isOpen = openItems.has(item.id);
+        return (
+          <div
+            key={item.id}
+            className="border border-gray-200 rounded-lg bg-gray-50"
+          >
+            <button
+              onClick={() => toggleItem(item.id)}
+              className="w-full px-4 py-3 text-left flex items-center justify-between hover:bg-gray-100 focus:outline-none focus:bg-gray-100 transition-colors"
+            >
+              <span className="font-medium text-gray-900">{item.title}</span>
+              <svg
+                className={`w-5 h-5 text-gray-500 transition-transform ${
+                  isOpen ? 'rotate-180' : ''
+                }`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </button>
+            {isOpen && (
+              <div className="px-4 pb-4 text-gray-700 border-t border-gray-100">
+                <div className="space-y-4">
+                  {item.content}
+                  {item.videoUrl && (
+                    <div className="pt-2">
+                      <a
+                        href={item.videoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" />
+                        </svg>
+                        <span>Watch debugging video</span>
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function McpTutorial({ files }: MarkdownContent) {
   const [selectedClient, setSelectedClient] = useState<ClientType>('cursor');
 
@@ -631,6 +846,18 @@ export default function McpTutorial({ files }: MarkdownContent) {
                 />
               ))}
             </div>
+          </div>
+
+          {/* Debugging Section */}
+          <div className="mb-16">
+            <div className="mb-6">
+              <H3>Debugging Common Issues</H3>
+            </div>
+            <p className="text-gray-700 mb-6">
+              Run into an issue? Here are solutions to common problems you might
+              encounter:
+            </p>
+            <DebuggingAccordion />
           </div>
 
           {/* Step 5: Deploy */}
