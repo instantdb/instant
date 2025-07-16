@@ -115,7 +115,7 @@
         ;; If we allowed the CORs origin, add cache control headers
         (let [max-age (or (str (flags/flag :cors-max-age))
                           "600")]
-          (update response :headers merge {"Vary" "origin"
+          (update response :headers merge {"Vary" "origin, Access-Control-Allow-Headers"
                                            "Access-Control-Max-Age" max-age
                                            "Cache-Control" (str "public, max-age=" max-age)}))))))
 
