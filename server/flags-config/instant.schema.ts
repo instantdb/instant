@@ -61,7 +61,7 @@ const _schema = i.schema({
     "rate-limited-apps": i.entity({
       appId: i.string().unique(),
     }),
-    "socket-timeout-overrides": i.entity({
+    "handle-receive-timeout": i.entity({
       appId: i.string().unique(),
       timeoutMs: i.number(),
     }),
@@ -128,7 +128,7 @@ const _schema = i.schema({
 
 // This helps Typescript display nicer intellisense
 type _AppSchema = typeof _schema;
-interface AppSchema extends _AppSchema {}
+interface AppSchema extends _AppSchema { }
 const schema: AppSchema = _schema;
 
 export type { AppSchema };

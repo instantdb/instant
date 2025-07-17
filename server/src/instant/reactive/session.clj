@@ -543,8 +543,9 @@
             in-progress-stmts (sql/make-statement-tracker)
             debug-info (atom nil)
             app-id (-> session :session/auth :app :id)
-            timeout-ms (or (when app-id (flags/socket-timeout-override app-id))
-                          handle-receive-timeout-ms)
+            timeout-ms (or (when app-id
+                             (flags/handle-receive-timeout app-id))
+                           handle-receive-timeout-ms)
             event-fut (binding [sql/*in-progress-stmts* in-progress-stmts]
                         (if config/fewer-vfutures?
                           (ua/tracked-future (handle-event store
