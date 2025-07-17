@@ -648,17 +648,31 @@ async function getOrInstallInstantModuleWithErrorLogging(pkgDir) {
   });
 
   const packageManager = await detectPackageManager(pkgDir);
-  const installCommand = getInstallCommand(packageManager, moduleName);
+
+  const packagesToInstall = [moduleName];
+  if (moduleName === '@instantdb/react-native') {
+    packagesToInstall.push(
+      'react-native-get-random-values',
+      '@react-native-async-storage/async-storage',
+    );
+  }
+
+  const installCommand = getInstallCommand(
+    packageManager,
+    packagesToInstall.join(' '),
+  );
 
   const spinner = ora(
-    `Installing ${moduleName} using ${packageManager}...`,
+    `Installing ${packagesToInstall.join(', ')} using ${packageManager}...`,
   ).start();
 
   try {
     await execAsync(installCommand, pkgDir);
-    spinner.succeed(`Installed ${moduleName} using ${packageManager}.`);
+    spinner.succeed(
+      `Installed ${packagesToInstall.join(', ')} using ${packageManager}.`,
+    );
   } catch (e) {
-    spinner.fail(`Failed to install ${moduleName} using ${packageManager}.`);
+    spinner.fail(`Failed to run: ${installCommand}`);
     error(e.message);
     return;
   }
