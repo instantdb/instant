@@ -1118,13 +1118,18 @@
                                         [:= :entity-id alex-eid]]))))
 
         (testing "delete entity works"
-          (is (seq (fetch-triples app-id [[:= :entity-id stopa-eid]])))
-          (tx/transact! (aurora/conn-pool :write)
-                        (attr-model/get-by-app-id app-id)
-                        app-id
-                        [[:delete-entity [handle-attr-id "stopa"]]])
-          (is (= #{}
-                 (fetch-triples app-id [[:= :entity-id stopa-eid]]))))
+          (let [fetch-etype (fn [eid etype]
+                              (->> (fetch-triples app-id [[:= :entity-id eid]])
+                                   (filter (fn [[_e a _v]]
+                                             (= etype (namespace (resolvers/->friendly r a)))))
+                                   (set)))]
+            (is (seq (fetch-etype stopa-eid "users")))
+            (tx/transact! (aurora/conn-pool :write)
+                          (attr-model/get-by-app-id app-id)
+                          app-id
+                          [[:delete-entity [handle-attr-id "stopa"] "users"]])
+            (is (= #{}
+                   (fetch-etype stopa-eid "users")))))
 
         (testing "value lookup refs work"
           (let [feynman-isbn "9780393079814"]
@@ -1324,7 +1329,7 @@
          (aurora/conn-pool :write)
          (attr-model/get-by-app-id app-id)
          app-id
-         [[:delete-entity billy-eid]])
+         [[:delete-entity billy-eid "users"]])
 
         (is (= #{[stopa-eid fav-nickname-attr-id "Stopa"]
                  [joe-eid fav-nickname-attr-id "Joski"]
@@ -2777,25 +2782,27 @@
 (deftest inferred-types []
   (testing "inferred types update on triple save"
     (are [value inferred-types]
-         (with-empty-app
-           (fn [{app-id :id}]
-             (let [attr-id (random-uuid)
-                   target-eid (random-uuid)]
-               (try (tx/transact!
-                     (aurora/conn-pool :write)
-                     (attr-model/get-by-app-id app-id)
-                     app-id
-                     [[:add-attr
-                       {:id attr-id
-                        :forward-identity [(random-uuid) "namespace" "field"]
-                        :value-type :blob
-                        :cardinality :one
-                        :unique? false
-                        :index? false}]
-                      [:add-triple target-eid attr-id value]])
-                    (catch Exception e
-                      (is (not e))))
-               (testing (format "(%s -> %s)" value inferred-types)
+         (testing (str value "->" inferred-types)
+           (with-empty-app
+             (fn [{app-id :id}]
+               (let [attr-id (random-uuid)
+                     target-eid (random-uuid)]
+
+                 (try (tx/transact!
+                       (aurora/conn-pool :write)
+                       (attr-model/get-by-app-id app-id)
+                       app-id
+                       [[:add-attr
+                         {:id attr-id
+                          :forward-identity [(random-uuid) "namespace" "field"]
+                          :value-type :blob
+                          :cardinality :one
+                          :unique? false
+                          :index? false}]
+                        [:add-triple target-eid attr-id value]])
+                      (catch Exception e
+                        (is (not e))))
+
                  (attr-model/evict-app-id-from-cache app-id)
                  (is (= inferred-types
                         (->> (attr-model/get-by-app-id app-id)

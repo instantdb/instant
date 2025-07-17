@@ -498,9 +498,7 @@
         (if admin?
           (tx/transact-without-tx-conn! tx-conn attrs app-id tx-steps)
           (let [grouped-tx-steps (-> (group-by first tx-steps)
-                                     (ucoll/update-when :delete-entity tx/guess-etypes-from-lookups-for-delete-entity attrs)
-                                     (tx/preprocess-tx-steps tx-conn attrs app-id)
-                                     (tx/validate-value-lookup-etypes attrs))
+                                     (tx/preprocess-tx-steps tx-conn attrs app-id))
 
                 attr-changes     (concat
                                   (:add-attr grouped-tx-steps)
