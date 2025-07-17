@@ -555,6 +555,7 @@ test('recursive links w same id', () => {
           on: 'todos',
           has: 'one',
           label: 'createdBy',
+          onDelete: 'cascade',
         },
         reverse: {
           on: 'fakeUsers',

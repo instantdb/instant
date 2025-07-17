@@ -408,6 +408,8 @@ function refPropsFromSchema(schema, etype, label) {
     'reverse-identity': [uuid(), reverse.on, reverse.label],
     cardinality: forward.has === 'one' ? 'one' : 'many',
     'unique?': reverse.has === 'one',
+    'on-delete': forward.onDelete,
+    'on-delete-reverse': reverse.onDelete,
   };
 }
 
