@@ -493,125 +493,121 @@
   (tracer/with-span! {:name "permissioned-transaction/transact!"
                       :attributes {:app-id app-id}}
     (validate-reserved-names! admin? attrs tx-steps)
-    (let [{:keys [conn-pool]} db]
-      (next-jdbc/with-transaction [tx-conn conn-pool]
-        (if admin?
-          (tx/transact-without-tx-conn! tx-conn attrs app-id tx-steps)
-          (let [grouped-tx-steps (-> (group-by first tx-steps)
-                                     (tx/preprocess-tx-steps tx-conn attrs app-id))
+    (next-jdbc/with-transaction [tx-conn (:conn-pool db)]
+      (if admin?
+        (tx/transact-without-tx-conn! tx-conn attrs app-id tx-steps {})
+        (let [{:keys [grouped-tx-steps
+                      optimistic-attrs]} (tx/preprocess-tx-steps tx-steps tx-conn attrs app-id)
+              attr-changes     (concat
+                                (:add-attr grouped-tx-steps)
+                                (:delete-attr grouped-tx-steps)
+                                (:update-attr grouped-tx-steps))
 
-                attr-changes     (concat
-                                  (:add-attr grouped-tx-steps)
-                                  (:delete-attr grouped-tx-steps)
-                                  (:update-attr grouped-tx-steps))
+              object-changes   (concat
+                                (:add-triple grouped-tx-steps)
+                                (:deep-merge-triple grouped-tx-steps)
+                                (:retract-triple grouped-tx-steps)
+                                (:delete-entity grouped-tx-steps))
 
-                object-changes   (concat
-                                  (:add-triple grouped-tx-steps)
-                                  (:deep-merge-triple grouped-tx-steps)
-                                  (:retract-triple grouped-tx-steps)
-                                  (:delete-entity grouped-tx-steps))
+              ;; Use the db connection we have so that we don't cause a deadlock
+              ;; Also need to be able to read our own writes for the create checks
+              ctx (assoc ctx
+                         :db {:conn-pool tx-conn}
+                         :attrs optimistic-attrs)
 
-                optimistic-attrs (into attrs (map second) (:add-attr grouped-tx-steps))
+              {grouped-changes :groups
+               rule-params-to-copy :rule-params-to-copy}
+              (group-object-tx-steps ctx
+                                     (concat object-changes (:rule-params grouped-tx-steps)))
 
-                ;; Use the db connection we have so that we don't cause a deadlock
-                ;; Also need to be able to read our own writes for the create checks
-                ctx (assoc ctx
-                           :db {:conn-pool tx-conn}
-                           :attrs optimistic-attrs)
+              ;; If we were really smart, we would fetch the triples and the
+              ;; update-delete data-ref dependencies in one go.
+              preloaded-triples (preload-triples ctx grouped-changes)
 
-                {grouped-changes :groups
-                 rule-params-to-copy :rule-params-to-copy}
-                (group-object-tx-steps ctx
-                                       (concat object-changes (:rule-params grouped-tx-steps)))
+              check-commands
+              (io/warn-io :check-commands
+                          (concat
+                           (attr-checks ctx attr-changes)
+                           ;; Use preloaded-triples instead of object-changes.
+                           ;; It has all the same data, but the preload will also
+                           ;; resolve etypes for older version of delete-entity
+                           (object-checks ctx preloaded-triples)))
 
-                ;; If we were really smart, we would fetch the triples and the
-                ;; update-delete data-ref dependencies in one go.
-                preloaded-triples (preload-triples ctx grouped-changes)
+              {create-checks :create
+               view-checks :view
+               update-checks :update
+               delete-checks :delete}
+              (group-by :action check-commands)
 
-                check-commands
-                (io/warn-io :check-commands
-                  (concat
-                   (attr-checks ctx attr-changes)
-                   ;; Use preloaded-triples instead of object-changes.
-                   ;; It has all the same data, but the preload will also
-                   ;; resolve etypes for older version of delete-entity
-                   (object-checks ctx preloaded-triples)))
+              lookups->eid (lookup->eid-from-preloaded-triples preloaded-triples)
 
-                {create-checks :create
-                 view-checks :view
-                 update-checks :update
-                 delete-checks :delete}
-                (group-by :action check-commands)
+              ;; { {:eid <eid>, :etype <etype>} -> params }
+              user-rule-params (reduce
+                                (fn [acc [_ eid etype params]]
+                                  (let [eid (get lookups->eid eid eid)
+                                        key {:eid eid, :etype etype}]
+                                    (update acc key merge params)))
+                                {}
+                                (:rule-params grouped-tx-steps))
 
-                lookups->eid (lookup->eid-from-preloaded-triples preloaded-triples)
+              rule-params (->> rule-params-to-copy
+                               (mapcat (fn [[source dests]]
+                                         (for [dest dests] [source dest])))
+                               (reduce (fn [acc [source dest]]
+                                         (let [source (update source :eid
+                                                              (fn [eid] (get lookups->eid eid eid)))
 
-                ;; { {:eid <eid>, :etype <etype>} -> params }
-                user-rule-params (reduce
-                                  (fn [acc [_ eid etype params]]
-                                    (let [eid (get lookups->eid eid eid)
-                                          key {:eid eid, :etype etype}]
-                                      (update acc key merge params)))
-                                  {}
-                                  (:rule-params grouped-tx-steps))
+                                               dest (update dest :eid
+                                                            (fn [eid] (get lookups->eid eid eid)))]
 
-                rule-params (->> rule-params-to-copy
-                                 (mapcat (fn [[source dests]]
-                                           (for [dest dests] [source dest])))
-                                 (reduce (fn [acc [source dest]]
-                                           (let [source (update source :eid
-                                                                (fn [eid] (get lookups->eid eid eid)))
+                                           (update acc dest merge (get acc source {}))))
+                                       user-rule-params))
 
-                                                 dest (update dest :eid
-                                                              (fn [eid] (get lookups->eid eid eid)))]
+              ctx (assoc ctx :rule-params rule-params)
 
-                                             (update acc dest merge (get acc source {}))))
-                                         user-rule-params))
+              before-tx-checks-resolved
+              (mapv #(resolve-check-lookup lookups->eid %) (concat update-checks
+                                                                   delete-checks
+                                                                   view-checks))
 
-                ctx (assoc ctx :rule-params rule-params)
+              before-tx-checks-results
+              (run-check-commands! (assoc ctx
+                                          :preloaded-refs (cel/create-preloaded-refs-cache))
+                                   before-tx-checks-resolved)
 
-                before-tx-checks-resolved
-                (mapv #(resolve-check-lookup lookups->eid %) (concat update-checks
-                                                                     delete-checks
-                                                                     view-checks))
+              tx-data
+              (tx/transact-without-tx-conn-impl! tx-conn (:attrs ctx) app-id grouped-tx-steps {})
 
-                before-tx-checks-results
-                (run-check-commands! (assoc ctx
-                                            :preloaded-refs (cel/create-preloaded-refs-cache))
-                                     before-tx-checks-resolved)
+              ;; update lookups with newly created triples
+              create-lookups->eid (some->> (concat create-checks (keys rule-params))
+                                           (map :eid)
+                                           (filter sequential?)
+                                           not-empty
+                                           set
+                                           (triple-model/fetch-lookups->eid tx-conn app-id))
+              rule-params (ucoll/map-keys
+                           (fn [{:keys [eid etype]}]
+                             {:eid   (get create-lookups->eid eid eid)
+                              :etype etype})
+                           rule-params)
+              ctx (assoc ctx :rule-params rule-params)
 
-                tx-data
-                (tx/transact-without-tx-conn-impl! tx-conn (:attrs ctx) app-id grouped-tx-steps {})
-
-                ;; update lookups with newly created triples
-                create-lookups->eid (some->> (concat create-checks (keys rule-params))
-                                             (map :eid)
-                                             (filter sequential?)
-                                             not-empty
-                                             set
-                                             (triple-model/fetch-lookups->eid tx-conn app-id))
-                rule-params (ucoll/map-keys
-                             (fn [{:keys [eid etype]}]
-                               {:eid   (get create-lookups->eid eid eid)
-                                :etype etype})
-                             rule-params)
-                ctx (assoc ctx :rule-params rule-params)
-
-                after-tx-checks-resolved (mapv #(resolve-check-lookup create-lookups->eid %) create-checks)
-                after-tx-checks-results (run-check-commands!
-                                         (assoc ctx :preloaded-refs (cel/create-preloaded-refs-cache))
-                                         after-tx-checks-resolved)
-                all-check-results (concat before-tx-checks-results
-                                          after-tx-checks-results)
-                all-checks-ok? (every? (fn [r] (-> r :check-result)) all-check-results)
-                rollback? (and admin-check?
-                               (or admin-dry-run? (not all-checks-ok?)))
-                result (assoc
-                        tx-data
-                        :check-results all-check-results
-                        :all-checks-ok? all-checks-ok?
-                        :committed? (not rollback?))]
-            (when rollback? (.rollback tx-conn))
-            result))))))
+              after-tx-checks-resolved (mapv #(resolve-check-lookup create-lookups->eid %) create-checks)
+              after-tx-checks-results (run-check-commands!
+                                       (assoc ctx :preloaded-refs (cel/create-preloaded-refs-cache))
+                                       after-tx-checks-resolved)
+              all-check-results (concat before-tx-checks-results
+                                        after-tx-checks-results)
+              all-checks-ok? (every? (fn [r] (-> r :check-result)) all-check-results)
+              rollback? (and admin-check?
+                             (or admin-dry-run? (not all-checks-ok?)))
+              result (assoc
+                      tx-data
+                      :check-results all-check-results
+                      :all-checks-ok? all-checks-ok?
+                      :committed? (not rollback?))]
+          (when rollback? (.rollback tx-conn))
+          result)))))
 
 (comment
   (do
