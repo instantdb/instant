@@ -51,6 +51,7 @@ export function Sandbox({
     app.rules ? JSON.stringify(app.rules, null, 2) : '',
   );
   const [output, setOutput] = useState<any[]>([]);
+  const [showRunning, setShowRunning] = useState(false);
 
   function out(
     type: 'log' | 'error' | 'query' | 'transaction' | 'eval',
@@ -85,6 +86,8 @@ export function Sandbox({
   }, [output]);
 
   const exec = async () => {
+    const timer = setTimeout(() => setShowRunning(true), 200);
+
     if (!appendResults) {
       setOutput([]);
     } else if (output.length) {
@@ -161,22 +164,24 @@ export function Sandbox({
       } catch (error) {
         out('error', {
           message:
-            'Oops!  There was an error evaluating your code.  Please check your syntax and try again.',
+            'Oops! There was an error evaluating your code. Please check your syntax and try again.',
         });
-
         throw error;
       }
 
-      f(_console, _db, id, tx, lookup).then(
-        () => {},
-        (error: any) => {
-          out('error', {
-            message: (error as any)?.message || 'Error running code',
-          });
-        },
-      );
+      try {
+        await f(_console, _db, id, tx, lookup);
+      } catch (error: any) {
+        out('error', {
+          message: error?.message || 'Error running code',
+        });
+        throw error;
+      }
     } catch (error) {
       console.error(error);
+    } finally {
+      clearTimeout(timer);
+      setShowRunning(false);
     }
   };
 
@@ -190,8 +195,12 @@ export function Sandbox({
           <div className="py-1 px-2 bg-gray-50 border-b text-xs flex gap-2 items-center justify-between">
             <div className="flex gap-2 items-center">
               JS Sandbox
-              <Button size="nano" onClick={() => execRef.current()}>
-                Run
+              <Button
+                size="nano"
+                onClick={() => execRef.current()}
+                disabled={showRunning}
+              >
+                {showRunning ? 'Running...' : 'Run'}
               </Button>
               <div className="ml-3">
                 <Checkbox
