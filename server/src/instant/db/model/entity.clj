@@ -2,40 +2,6 @@
   (:require [instant.db.model.attr :as attr-model])
   (:import [java.util Date]))
 
-(defn get-triples-batch
-  "Takes a list of eid+etype maps and returns a map of eid+etype to triples.
-  (get-triples-batch ctx [{:eid 'eid-a' :etype \"users'}])
-   -> {{:eid 'eid-a' :etype \"users\"} [[e a v t] [e a v t]]}
-
-  If `etype` is nil, will return all triples across all namespaces for the id."
-  [{:keys [datalog-query-fn attrs] :as ctx} grouped-changes]
-  (let [eids+etypes (distinct (map #(vector (:eid %) (:etype %)) grouped-changes))
-        patterns    (map (fn [[eid etype]]
-                           {:patterns (if etype
-                                        [[:ea eid (attr-model/ea-ids-for-etype etype attrs)]]
-                                        [[:ea eid]])})
-                         eids+etypes)
-        query {:children {:pattern-groups patterns}}
-        ;; you might be tempted to simplify the query to [[:ea (set eids)]]
-        ;; but the eid might be a lookup ref and you won't know how to get
-        ;; the join rows for that lookup
-
-        datalog-result (datalog-query-fn ctx query)
-
-        eid+etype->triples (zipmap
-                            eids+etypes
-                            (map (fn [result]
-                                   (->> result
-                                        :result
-                                        :join-rows
-                                        (mapcat identity)))
-                                 (:data datalog-result)))]
-    (persistent!
-     (reduce
-      (fn [acc key]
-        (assoc! acc key (get eid+etype->triples [(:eid key) (:etype key)])))
-      (transient {}) grouped-changes))))
-
 (defn get-triples
   "Returns all triples for the eid+etype.
    If etype is nil, returns all triples across all namespaces for the eid."

@@ -363,48 +363,44 @@
 ;; Data preload
 
 (defn preload-triples
-  "Takes the grouped changes and returns a map with keys:
+  "Takes the grouped-changes and returns a map with keys:
      {:eid eid, :etype etype :action action}
    and values
-     {:triples [[eavt] [eavt]]
-      :tx-steps [step]}
+     {:triples  [[eavt] [eavt]]
+      :tx-steps [step]}"
+  [{:keys [datalog-query-fn attrs] :as ctx} grouped-changes]
+  (if (empty? grouped-changes)
+    {}
+    (let [eids+etypes (distinct
+                       (for [[key _] grouped-changes]
+                         [(:eid key) (:etype key)]))
+          patterns    (map (fn [[eid etype]]
+                             {:patterns (if etype
+                                          [[:ea eid (attr-model/ea-ids-for-etype etype attrs)]]
+                                          [[:ea eid]])})
+                           eids+etypes)
+          query {:children {:pattern-groups patterns}}
+          ;; you might be tempted to simplify the query to [[:ea (set eids)]]
+          ;; but the eid might be a lookup ref and you won't know how to get
+          ;; the join rows for that lookup
 
-   If the etype isn't provided for deletes, we will resolve it after we
-   fetch the triples."
-  [ctx groups]
-  (if (seq groups)
-    (let [triples-by-eid+etype (entity-model/get-triples-batch ctx (keys groups))]
-      (reduce (fn [acc [{:keys [eid etype action] :as k} triples]]
-                (let [steps (get groups k)]
-                  (if etype
-                    (assoc acc k {:triples triples
-                                  :tx-steps steps})
-                    (let [etype-groups (group-by (fn [[_e a]]
-                                                   (extract-etype ctx a))
-                                                 triples)]
-                      (if (empty? etype-groups)
-                        (ex/throw-validation-err!
-                         :tx-steps
-                         steps
-                         [{:message "Could not determine the namespace that the transaction belongs to."}])
-                        (reduce (fn [acc [etype triples]]
-                                  (if (not etype)
-                                    (ex/throw-validation-err!
-                                     :tx-steps
-                                     steps
-                                     [{:message "Could not determine the namespace that the transaction belongs to."}])
-                                    (assoc acc
-                                           {:eid eid
-                                            :etype etype
-                                            :action action}
-                                           {:triples triples
-                                            :tx-steps steps})))
+          datalog-result (datalog-query-fn ctx query)
 
-                                acc
-                                etype-groups))))))
-              {}
-              triples-by-eid+etype))
-    {}))
+          eid+etype->triples (zipmap
+                              eids+etypes
+                              (map (fn [result]
+                                     (->> result
+                                          :result
+                                          :join-rows
+                                          (mapcat identity)))
+                                   (:data datalog-result)))]
+      (persistent!
+       (reduce-kv
+        (fn [acc key tx-steps]
+          (assoc! acc key {:triples (get eid+etype->triples [(:eid key) (:etype key)])
+                           :tx-steps tx-steps}))
+        (transient {})
+        grouped-changes)))))
 
 (defn validate-reserved-names!
   "Throws a validation error if the users tries to add triples to the $users table"
