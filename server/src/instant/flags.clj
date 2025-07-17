@@ -30,7 +30,8 @@
             :rule-wheres {}
             :rule-where-testing {}
             :toggles {}
-            :flags {}})
+            :flags {}
+            :socket-timeout-overrides {}})
 
 (defn transform-query-result
   "Function that is called on the query result before it is stored in the
@@ -150,6 +151,10 @@
                           (assoc acc (keyword setting) value))
                         {}
                         (get result "flags"))
+        socket-timeout-overrides (reduce (fn [acc {:strs [appId timeoutMs]}]
+                                          (assoc acc (parse-uuid appId) timeoutMs))
+                                        {}
+                                        (get result "socket-timeout-overrides"))
         rule-wheres (if-let [rule-where-ent (-> result
                                                 (get "rule-wheres")
                                                 first)]
@@ -184,7 +189,8 @@
      :rule-wheres rule-wheres
      :rule-where-testing rule-where-testing
      :toggles toggles
-     :flags flags}))
+     :flags flags
+     :socket-timeout-overrides socket-timeout-overrides}))
 
 (def queries [{:query query :transform #'transform-query-result}])
 
@@ -322,6 +328,9 @@
 
 (defn flag [key]
   (get-in (query-result) [:flags key]))
+
+(defn socket-timeout-override [app-id]
+  (get-in (query-result) [:socket-timeout-overrides app-id]))
 
 (defn pg-hint-testing-toggles []
   (reduce-kv (fn [acc k v]

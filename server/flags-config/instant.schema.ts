@@ -61,6 +61,10 @@ const _schema = i.schema({
     "rate-limited-apps": i.entity({
       appId: i.string().unique(),
     }),
+    "socket-timeout-overrides": i.entity({
+      appId: i.string().unique(),
+      timeoutMs: i.number(),
+    }),
     "refresh-skip-attrs": i.entity({
       "default-value": i.boolean().optional(),
       disabled: i.boolean().optional(),
