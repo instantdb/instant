@@ -542,6 +542,10 @@
       (let [pending-handlers (:pending-handlers (:session/socket session))
             in-progress-stmts (sql/make-statement-tracker)
             debug-info (atom nil)
+            app-id (-> session :session/auth :app :id)
+            timeout-ms (or (when app-id
+                             (flags/handle-receive-timeout app-id))
+                           handle-receive-timeout-ms)
             event-fut (binding [sql/*in-progress-stmts* in-progress-stmts]
                         (if config/fewer-vfutures?
                           (ua/tracked-future (handle-event store
@@ -557,9 +561,10 @@
                              :in-progress-stmts in-progress-stmts
                              :silence-exceptions silence-exceptions}]
         (swap! pending-handlers conj pending-handler)
-        (tracer/add-data! {:attributes {:concurrent-handler-count (count @pending-handlers)}})
+        (tracer/add-data! {:attributes {:timeout-ms timeout-ms
+                                        :concurrent-handler-count (count @pending-handlers)}})
         (try
-          (let [ret (deref event-fut handle-receive-timeout-ms :timeout)]
+          (let [ret (deref event-fut timeout-ms :timeout)]
             (when (= :timeout ret)
               (let [in-progress-count (count @(:stmts in-progress-stmts))
                     _ (sql/cancel-in-progress in-progress-stmts)
@@ -570,7 +575,7 @@
                                     ;; If false, then canceling the queries let
                                     ;; the future complete before we could cancel it
                                     :future-cancel-result cancel-res}}))
-              (ex/throw-operation-timeout! :handle-receive handle-receive-timeout-ms)))
+              (ex/throw-operation-timeout! :handle-receive timeout-ms)))
 
           (catch CancellationException _e
             ;; We must have cancelled this in the on-close, so don't try to do any

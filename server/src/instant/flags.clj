@@ -30,7 +30,8 @@
             :rule-wheres {}
             :rule-where-testing {}
             :toggles {}
-            :flags {}})
+            :flags {}
+            :handle-receive-timeout {}})
 
 (defn transform-query-result
   "Function that is called on the query result before it is stored in the
@@ -147,9 +148,13 @@
                         {}
                         (get result "toggles"))
         flags (reduce (fn [acc {:strs [setting value]}]
-                          (assoc acc (keyword setting) value))
-                        {}
-                        (get result "flags"))
+                        (assoc acc (keyword setting) value))
+                      {}
+                      (get result "flags"))
+        handle-receive-timeout (reduce (fn [acc {:strs [appId timeoutMs]}]
+                                         (assoc acc (parse-uuid appId) timeoutMs))
+                                       {}
+                                       (get result "handle-receive-timeout"))
         rule-wheres (if-let [rule-where-ent (-> result
                                                 (get "rule-wheres")
                                                 first)]
@@ -184,7 +189,8 @@
      :rule-wheres rule-wheres
      :rule-where-testing rule-where-testing
      :toggles toggles
-     :flags flags}))
+     :flags flags
+     :handle-receive-timeout handle-receive-timeout}))
 
 (def queries [{:query query :transform #'transform-query-result}])
 
@@ -322,6 +328,9 @@
 
 (defn flag [key]
   (get-in (query-result) [:flags key]))
+
+(defn handle-receive-timeout [app-id]
+  (get-in (query-result) [:handle-receive-timeout app-id]))
 
 (defn pg-hint-testing-toggles []
   (reduce-kv (fn [acc k v]
