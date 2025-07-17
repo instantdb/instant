@@ -447,6 +447,11 @@ async function startSse() {
   app.use(
     pinoHttp({
       logger,
+      autoLogging: {
+        ignore(req) {
+          return req.url === '/health';
+        },
+      },
     }),
   );
   app.use(express.json());
@@ -601,7 +606,7 @@ async function startSse() {
   const host = process.env.IN_FLY ? '0.0.0.0' : 'localhost';
 
   if (process.env.IN_FLY) {
-    app.set('trust proxy', true);
+    app.set('trust proxy', 2);
   }
 
   app.listen(port, host, () => console.log(`listening on port ${port}`));

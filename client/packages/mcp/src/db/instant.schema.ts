@@ -42,12 +42,12 @@ const _schema = i.schema({
     }),
     mcpRefreshTokens: i.entity({
       scope: i.string(),
-      tokenHash: i.string(),
+      tokenHash: i.string().unique(),
     }),
     mcpTokens: i.entity({
       expiresAt: i.date(),
       scope: i.string(),
-      tokenHash: i.string(),
+      tokenHash: i.string().unique(),
     }),
     redirects: i.entity({
       authParams: i.json(),

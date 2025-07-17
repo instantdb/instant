@@ -11,7 +11,7 @@
   ],
   "scripts": {
     "test": "vitest",
-    "dev": "tsx watch --preserveWatchOutput src/index.ts | pino-pretty --colorize",
+    "dev": "tsx watch --clear-screen=false src/index.ts | pino-pretty --colorize",
     "build": "rm -rf dist && tsc",
     "prepublishOnly": "npm run build",
     "publish-package": "pnpm publish --access public --no-git-checks",
