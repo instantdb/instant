@@ -561,7 +561,8 @@
                              :in-progress-stmts in-progress-stmts
                              :silence-exceptions silence-exceptions}]
         (swap! pending-handlers conj pending-handler)
-        (tracer/add-data! {:attributes {:concurrent-handler-count (count @pending-handlers)}})
+        (tracer/add-data! {:attributes {:timeout-ms timeout-ms
+                                        :concurrent-handler-count (count @pending-handlers)}})
         (try
           (let [ret (deref event-fut timeout-ms :timeout)]
             (when (= :timeout ret)
