@@ -52,6 +52,7 @@ export function Sandbox({
   );
   const [output, setOutput] = useState<any[]>([]);
   const [showRunning, setShowRunning] = useState(false);
+  const [isExecuting, setIsExecuting] = useState(false);
 
   function out(
     type: 'log' | 'error' | 'query' | 'transaction' | 'eval',
@@ -86,6 +87,9 @@ export function Sandbox({
   }, [output]);
 
   const exec = async () => {
+    if (isExecuting) return;
+
+    setIsExecuting(true);
     const timer = setTimeout(() => setShowRunning(true), 200);
 
     if (!appendResults) {
@@ -182,6 +186,7 @@ export function Sandbox({
     } finally {
       clearTimeout(timer);
       setShowRunning(false);
+      setIsExecuting(false);
     }
   };
 
