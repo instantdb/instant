@@ -45,8 +45,8 @@
                     (:processed-tx-id msg)))
 
     (tracer/record-info! {:name "flags-impl/unexpected-op"
-                          :op (:op msg)
-                          :msg msg})))
+                          :attributes {:op (:op msg)
+                                       :msg msg}})))
 
 (defn init
   "Creates a subscription to the config app, fetching all of the data."
