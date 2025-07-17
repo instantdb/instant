@@ -37,8 +37,7 @@ const tools: ToolCard[] = [
   {
     title: 'Paid Subscriptions',
     href: '/intern/paid',
-    description:
-      'Shows data about our paid apps. (Currently this is failing to fetch, we should fix?)',
+    description: 'Shows data about our paid apps.',
     category: 'Analytics',
   },
   {
