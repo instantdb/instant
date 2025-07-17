@@ -7,12 +7,16 @@ import {
   allMapValues,
   toJSON,
   fromJSON,
+  transact,
 } from '../../src/store';
 import query from '../../src/instaql';
 import uuid from '../../src/utils/uuid';
 import { tx } from '../../src/instatx';
 import * as instaml from '../../src/instaml';
 import * as datalog from '../../src/datalog';
+import * as instatx from '../../src/instatx';
+import { i, id } from '../../src';
+import { createLinkIndex } from '../../src/utils/linkIndex';
 
 const zenecaIdToAttr = zenecaAttrs.reduce((res, x) => {
   res[x.id] = x;
@@ -528,4 +532,80 @@ test('deepMerge', () => {
     locations: ['forest', undefined, 'castle'],
   });
   checkIndexIntegrity(updatedGame);
+});
+
+test('recursive links w same id', () => {
+  const schema = i.schema({
+    entities: {
+      $files: i.entity({
+        path: i.string().unique().indexed(),
+        url: i.string(),
+      }),
+      fakeUsers: i.entity({
+        email: i.string().unique().indexed().optional(),
+      }),
+      todos: i.entity({
+        completed: i.boolean().optional(),
+        title: i.string().optional(),
+      }),
+    },
+    links: {
+      todosCreatedBy: {
+        forward: {
+          on: 'todos',
+          has: 'one',
+          label: 'createdBy',
+        },
+        reverse: {
+          on: 'fakeUsers',
+          has: 'many',
+          label: 'todos',
+        },
+      },
+    },
+  });
+  const sameId = id();
+  const ops = [
+    instatx.tx.todos[sameId].update({
+      title: 'todo',
+      completed: false,
+    }),
+    instatx.tx.fakeUsers[sameId].update({
+      email: 'test@test.com',
+    }),
+    instatx.tx.todos[sameId].link({
+      createdBy: sameId,
+    }),
+  ];
+
+  const steps = instaml.transform({ attrs: {}, schema }, ops);
+  const store = createStore({}, [], true, createLinkIndex(schema), schema);
+  const newStore = transact(store, steps);
+
+  const result = query(
+    { store: newStore, pageInfo: {}, aggregate: {} },
+    {
+      todos: {},
+      fakeUsers: {},
+    },
+  );
+
+  expect(result.data.todos.length).toBe(1);
+  expect(result.data.fakeUsers.length).toBe(1);
+
+  const removeOp = [instatx.tx.todos[sameId].delete()];
+
+  const removeSteps = instaml.transform({ attrs: store.attrs }, removeOp);
+  const postRemoveStore = transact(newStore, removeSteps);
+
+  const removeResult = query(
+    { store: postRemoveStore, pageInfo: {}, aggregate: {} },
+    {
+      todos: {},
+      fakeUsers: {},
+    },
+  );
+
+  expect(removeResult.data.todos.length).toBe(0);
+  expect(removeResult.data.fakeUsers.length).toBe(1);
 });
