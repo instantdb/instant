@@ -363,7 +363,11 @@ function deleteEntity(store, args) {
         deleteInMap(store.aev, [a, e, v]);
         deleteInMap(store.vae, [v, a, e]);
       }
-      if (attr && attr['on-delete'] === 'cascade') {
+      if (
+        attr &&
+        attr['on-delete'] === 'cascade' &&
+        attr['reverse-identity']?.[1] === etype
+      ) {
         deleteEntity(store, [e, attr['forward-identity']?.[1]]);
       }
     });
