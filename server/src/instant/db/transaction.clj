@@ -311,11 +311,12 @@
     ;; TODO remove
     (doseq [[_ _ etype :as tx-step] tx-steps
             :when (nil? etype)]
-      (tracer/record-info!
-       {:name "tx/missing-etype"
-        :attributes {:app-id  app-id
-                     :tx-step tx-step
-                     :stage   "resolve-etypes-for-delete-entity"}}))
+      (binding [tracer/*span* nil]
+        (tracer/record-info!
+         {:name "tx/missing-etype"
+          :attributes {:app-id  app-id
+                       :tx-step tx-step
+                       :stage   "resolve-etypes-for-delete-entity"}})))
     (for [[op eid etype] tx-steps
           etype'         (if etype
                            [etype]

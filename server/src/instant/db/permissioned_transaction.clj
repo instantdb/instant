@@ -270,11 +270,12 @@
                           aid-etype)
                   ;; TODO remove
                   _ (when (nil? etype)
-                      (tracer/record-info!
-                        {:name "tx/missing-etype"
-                         :attributes {:app-id  (:app-id ctx)
-                                      :tx-step tx-step
-                                      :stage   "group-object-tx-steps"}}))
+                      (binding [tracer/*span* nil]
+                        (tracer/record-info!
+                         {:name "tx/missing-etype"
+                          :attributes {:app-id  (:app-id ctx)
+                                       :tx-step tx-step
+                                       :stage   "group-object-tx-steps"}})))
                   ;; If we know the etype from the lookup for delete-entity,
                   ;; but the client hasn't been updated to provide it, then
                   ;; we can patch the `delete-entity` step to include it
