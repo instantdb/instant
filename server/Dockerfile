@@ -13,7 +13,9 @@ RUN ./linux-install.sh
 
 RUN curl -L -O https://www.yourkit.com/download/docker/YourKit-JavaProfiler-2024.9-docker.zip
 
-RUN echo 'f53ba6f7e63315471a1aa1a853f3a8111b90e6a55b21ba5c2029cc5dcb7513fa  YourKit-JavaProfiler-2024.9-docker.zip' | sha256sum -c
+# $ curl -L -s https://www.yourkit.com/download/docker/YourKit-JavaProfiler-2024.9-docker.zip | sha256sum 
+# af0e719c37963026dc3d66ef500a39c455f7fd02b812ae744eafa841e05a5b69  -
+RUN echo 'af0e719c37963026dc3d66ef500a39c455f7fd02b812ae744eafa841e05a5b69  YourKit-JavaProfiler-2024.9-docker.zip' | sha256sum -c
 
 RUN unzip YourKit-JavaProfiler-2024.9-docker.zip
 
