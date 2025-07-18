@@ -149,7 +149,6 @@ jobs:
           fi
         done
 
-
   publish-docs:
     name: Publish algolia changes
     runs-on: ubuntu-latest
@@ -211,26 +210,46 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # - uses: pnpm/action-setup@v2
-      #   with:
-      #     version: '10.2.0'
+      - uses: pnpm/action-setup@v2
+        with:
+          version: '10.2.0'
 
-      # - name: Setup Node.js environment
-      #   uses: actions/setup-node@v4
-      #   with:
-      #     node-version: 23
-      #     cache: 'pnpm'
-      #     cache-dependency-path: client/pnpm-lock.yaml
+      - name: Setup Node.js environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 23
+          cache: 'pnpm'
+          cache-dependency-path: client/pnpm-lock.yaml
 
-      # - name: Install dependencies
-      #   working-directory: client
-      #   run: pnpm i --frozen-lockfile
+      - name: Install dependencies
+        working-directory: client
+        run: pnpm i --frozen-lockfile
 
       - name: Install babashka
+        working-directory: client
         run: |
           curl -L https://github.com/babashka/babashka/releases/download/v1.12.206/babashka-1.12.206-linux-amd64.tar.gz | tar xvz
           chmod +x bb
           ./bb --version
+
+    - name: Set branch name
+      run: |
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          echo "BRANCH_NAME=${{ github.head_ref }}" >> $GITHUB_ENV
+        else
+          echo "BRANCH_NAME=${{ github.ref_name }}" >> $GITHUB_ENV
+        fi
+
+      - name: Update version.md
+        working-directory: client
+        run: |
+          bb -e '(spit "version.md"
+                       (format "%s-experimental-%s.%s"
+                               (clojure.string/trim (slurp "version.md"))
+                               (System/getenv "BRANCH_NAME")
+                               (System/getenv "GITHUB_RUN_ID")))'
+          cat version.md
+
 
 
   vercel-preview:
