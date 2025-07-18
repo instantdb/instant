@@ -406,19 +406,11 @@
                            :where [:and
                                    [:= :attr-inserts.value-type [:inline "blob"]]
                                    :attr-inserts.is-indexed]
-                           :join [[:attr-idents :ident]
-                                  [:= :attr-inserts.forward-ident :ident.id]
-
-                                  [:idents :id-ident]
-                                  [:and
-                                   [:= :id-ident.app-id app-id]
-                                   [:= :id-ident.label [:inline "id"]]
-                                   [:= :id-ident.etype :ident.etype]]
-
-                                  [:attrs :id-attr]
+                           :join [[:attrs :id-attr]
                                   [:and
                                    [:= :id-attr.app-id app-id]
-                                   [:= :id-attr.forward-ident :id-ident.id]]
+                                   [:= :id-attr.label "id"]
+                                   [:= :id-attr.etype :attr-inserts.etype]]
 
                                   [:triples :needs-null-triple]
                                   [:and
@@ -429,7 +421,6 @@
                                    [:not [:exists {:select :1
                                                    :from :triples
                                                    :where [:and
-                                                           :triples.ave
                                                            [:= :triples.app-id app-id]
                                                            [:= :triples.attr-id :attr-inserts.id]
                                                            [:= :triples.entity-id :needs-null-triple.entity-id]]}]]]]}]
