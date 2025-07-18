@@ -43,17 +43,3 @@ text-email:
 html-email:
 	echo "Generating HTML version email..."
 	pandoc -f markdown -t html www/_emails/markdown/$(slug).md -o www/_emails/html/$(slug).html
-
-feedback-app-push:
-	cd www && \
-		FEEDBACK_APP_ID=$$(grep NEXT_PUBLIC_FEEDBACK_APP_ID .env | cut -d '=' -f2) \
-		INSTANT_SCHEMA_FILE_PATH=./lib/intern/docs-feedback/instant.schema.ts \
-		INSTANT_PERMS_FILE_PATH=./lib/intern/docs-feedback/instant.perms.ts \
-		pnpm exec instant-cli push --app=$$FEEDBACK_APP_ID
-
-feedback-app-pull:
-	cd www && \
-	FEEDBACK_APP_ID=$$(grep NEXT_PUBLIC_FEEDBACK_APP_ID .env | cut -d '=' -f2) \
-	INSTANT_SCHEMA_FILE_PATH=./lib/intern/docs-feedback/instant.schema.ts \
-	INSTANT_PERMS_FILE_PATH=./lib/intern/docs-feedback/instant.perms.ts \
-	pnpm exec instant-cli pull --app=$$FEEDBACK_APP_ID
