@@ -1034,6 +1034,35 @@
 ;; ---
 ;; match-query
 
+(defn flatten-symbol-map-values [values]
+  (if (set? values)
+    (mapcat flatten-symbol-map-values values)
+    values))
+
+(defn transform-named-p-for-ref-joins
+  "If we're joining e -> e or e -> v, it's better to use the eav index
+  instead of the vae index. It would be cleaner to make this choice in
+  attr-pat.clj, but at that point we don't know what we're going to be
+  joining to since the patterns might be reordered in
+  optimize-attr-pats."
+  [symbol-map named-p]
+  (if (not= :vae (idx-key (:idx named-p)))
+    named-p
+    (let [join-ctypes (reduce (fn [acc [ctype [_ sym]]]
+                                (if-let [paths (some-> (get symbol-map sym)
+                                                       flatten-symbol-map-values)]
+                                  (into acc (map (fn [path]
+                                                   [ctype (:ctype path)])
+                                                 paths))
+                                  acc)
+                                )
+                              #{}
+                              (variable-components named-p))]
+      (if (or (= #{[:e :e]} join-ctypes)
+              (= #{[:e :v]} join-ctypes))
+        (assoc named-p :idx [:keyword :eav])
+        named-p))))
+
 (defn- joining-with
   "Produces subsequent match tables. Each table joins on the previous
    table unless it is the first cte or the start of a new AND/OR
@@ -1042,7 +1071,8 @@
    matches the structure of the symbol-map. It allows us to connect the
    cte to the parent cte if this is a child pattern in a nested query."
   [prefix app-id additional-joins symbol-map prev-idx start-of-group? named-p {:keys [page-info]}]
-  (let [cur-idx (inc prev-idx)
+  (let [named-p (transform-named-p-for-ref-joins symbol-map named-p)
+        cur-idx (inc prev-idx)
         cur-table (kw prefix cur-idx)
         triples-alias (kw :t cur-idx)
         prev-table (when-not (or start-of-group? (neg? prev-idx))
