@@ -44,7 +44,9 @@ const Post = ({ post }: { post: Post }) => {
       <MainNav />
       <div className="mt-6 p-4 space-y-4">
         <div className="mb-4 py-4 max-w-prose mx-auto">
-          <h1 className="text-4xl font-medium mb-2">{title}</h1>
+          <h1 className="text-4xl font-mono font-bold leading-snug mb-2">
+            {title}
+          </h1>
           <div className="flex text-sm text-gray-500">
             <span>
               {authors.map((author, idx) => {
@@ -71,7 +73,7 @@ const Post = ({ post }: { post: Post }) => {
             <img src={hero} className="w-full rounded" />
           </div>
         )}
-        <div className="prose prose-headings:font-medium prose-h1:mt-8 prose-h1:mb-4 prose-h2:mt-4 prose-h2:mb-2 prose-pre:bg-gray-100 mx-auto">
+        <div className="prose prose-headings:font-mono prose-headings:leading-snug prose-headings:font-bold prose-h1:mt-8 prose-h1:mb-4 prose-h2:mt-4 prose-h2:mb-2 prose-pre:bg-gray-100 mx-auto">
           <ReactMarkdown
             rehypePlugins={[rehypeRaw]}
             remarkPlugins={[remarkGfm]}
