@@ -41,6 +41,7 @@
     "build": "rm -rf dist; npm run build:tshy && npm run build:standalone && npm run check-exports",
     "build:tshy": "tshy",
     "build:standalone": "vite build",
+    "prepublishOnly": "npm run build:standalone",
     "publish-package": "pnpm publish --access public --no-git-checks"
   },
   "devDependencies": {
