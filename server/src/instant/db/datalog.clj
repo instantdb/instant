@@ -622,10 +622,11 @@
                     ;; Make sure av uses the av_index
                     :av [:json_null_to_null :value]
                     ;; Make sure vae uses the vae_uuid_index
-                    :vae [:json_uuid_to_uuid :value]
+                    (:eav :vae) [:json_uuid_to_uuid :value]
 
                     :value)
-                  (if (= :vae idx-val)
+                  (if (or (= :vae idx-val)
+                          (= :eav idx-val))
                     v-set
                     (map value->jsonb v-set)))
 
