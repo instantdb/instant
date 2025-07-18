@@ -622,6 +622,7 @@
                     ;; Make sure av uses the av_index
                     :av [:json_null_to_null :value]
                     ;; Make sure vae uses the vae_uuid_index
+                    ;; and eav uses the eav_uuid_index
                     (:eav :vae) [:json_uuid_to_uuid :value]
 
                     :value)
