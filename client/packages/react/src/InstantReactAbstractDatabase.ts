@@ -23,16 +23,13 @@ import {
   IInstantDatabase,
 } from '@instantdb/core';
 import {
-  KeyboardEvent,
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
 } from 'react';
 import { useQueryInternal } from './useQuery.ts';
-import { useTimeout } from './useTimeout.ts';
 import { InstantReactRoom, rooms } from './InstantReactRoom.ts';
 
 const defaultAuthState = {
@@ -42,24 +39,21 @@ const defaultAuthState = {
 };
 
 export default abstract class InstantReactAbstractDatabase<
-  Schema extends InstantSchemaDef<any, any, any>,
-  Rooms extends RoomSchemaShape = RoomsOf<Schema>,
-> implements IInstantDatabase<Schema>
+  Config extends InstantConfig<InstantSchemaDef<any, any, any>, boolean>,
+  Rooms extends RoomSchemaShape = RoomsOf<Config['schema']>,
+> implements IInstantDatabase<Config['schema']>
 {
-  public tx = txInit<Schema>();
+  public tx = txInit<NonNullable<Config['schema']>>();
 
   public auth: Auth;
   public storage: Storage;
-  public _core: InstantCoreDatabase<Schema>;
+  public _core: InstantCoreDatabase<Config['schema'], Config['useDateObjects']>;
 
   static Storage?: any;
   static NetworkListener?: any;
 
-  constructor(
-    config: InstantConfig<Schema>,
-    versions?: { [key: string]: string },
-  ) {
-    this._core = core_init<Schema>(
+  constructor(config: Config, versions?: { [key: string]: string }) {
+    this._core = core_init<Config['schema'], Config['useDateObjects']>(
       config,
       // @ts-expect-error because TS can't resolve subclass statics
       this.constructor.Storage,
@@ -128,7 +122,11 @@ export default abstract class InstantReactAbstractDatabase<
     type: RoomType = '_defaultRoomType' as RoomType,
     id: string = '_defaultRoomId',
   ) {
-    return new InstantReactRoom<Schema, Rooms, RoomType>(this._core, type, id);
+    return new InstantReactRoom<Config['schema'], Rooms, RoomType>(
+      this._core,
+      type,
+      id,
+    );
   }
 
   /**
@@ -197,11 +195,19 @@ export default abstract class InstantReactAbstractDatabase<
    *     auth.user ? { goals: {} } : null,
    *   );
    */
-  useQuery = <Q extends InstaQLParams<Schema>>(
+  useQuery = <Q extends InstaQLParams<Config['schema']>>(
     query: null | Q,
     opts?: InstaQLOptions,
-  ): InstaQLLifecycleState<Schema, Q> => {
-    return useQueryInternal<Q, Schema>(this._core, query, opts).state;
+  ): InstaQLLifecycleState<
+    Config['schema'],
+    Q,
+    NonNullable<Config['useDateObjects']>
+  > => {
+    return useQueryInternal<Q, Config['schema'], Config['useDateObjects']>(
+      this._core,
+      query,
+      opts,
+    ).state;
   };
 
   /**
@@ -331,11 +337,11 @@ export default abstract class InstantReactAbstractDatabase<
    *  const resp = await db.queryOnce({ goals: {} });
    *  console.log(resp.data.goals)
    */
-  queryOnce = <Q extends InstaQLParams<Schema>>(
+  queryOnce = <Q extends InstaQLParams<Config['schema']>>(
     query: Q,
     opts?: InstaQLOptions,
   ): Promise<{
-    data: InstaQLResponse<Schema, Q>;
+    data: InstaQLResponse<Config['schema'], Q, Config['useDateObjects']>;
     pageInfo: PageInfoResponse<Q>;
   }> => {
     return this._core.queryOnce(query, opts);

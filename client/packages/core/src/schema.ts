@@ -80,7 +80,7 @@ function boolean(): DataAttrDef<boolean, true, false> {
   return new DataAttrDef('boolean', true, false);
 }
 
-function date(): DataAttrDef<string | number, true, false> {
+function date(): DataAttrDef<Date, true, false> {
   return new DataAttrDef('date', true, false);
 }
 

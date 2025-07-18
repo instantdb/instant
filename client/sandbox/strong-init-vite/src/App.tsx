@@ -1,11 +1,19 @@
-import { id, init } from '@instantdb/react';
-import schema from '../instant.schema.v2';
+declare global {
+  // eslint-disable-next-line no-var
+  var dLog: (...args: unknown[]) => void;
+}
+
+globalThis.dLog = (...args: unknown[]) => {
+  console.log('drew:', ...args);
+};
+import { init, User } from '@instantdb/react';
+import schema from '../instant.schema';
+import React from 'react';
 
 const db = init({
   appId: import.meta.env.VITE_INSTANT_APP_ID,
   schema,
-  apiURI: 'http://localhost:8888',
-  websocketURI: 'ws://localhost:8888/runtime/session',
+  useDateObjects: true,
 });
 
 function App() {
