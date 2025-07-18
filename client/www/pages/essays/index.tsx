@@ -41,7 +41,7 @@ export default function Page({ posts }: { posts: Post[] }) {
                       href={`/essays/${slug}`}
                       className="hover:text-blue-500"
                     >
-                      <h2 className="text-2xl font-bold font-mono leading-normal mb-2">
+                      <h2 className="text-2xl font-bold font-mono leading-snug mb-2">
                         {title}
                       </h2>
                     </NextLink>
