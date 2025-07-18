@@ -29,8 +29,11 @@ import version from './version.js';
  */
 export function init<
   Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
->(config: InstantConfig<Schema>) {
-  return new InstantReactWebDatabase<Schema>(config, {
+  UseDates extends boolean = false,
+>(
+  config: InstantConfig<Schema, UseDates>,
+): InstantReactWebDatabase<InstantConfig<Schema, UseDates>> {
+  return new InstantReactWebDatabase<InstantConfig<Schema, UseDates>>(config, {
     '@instantdb/react': version,
   });
 }

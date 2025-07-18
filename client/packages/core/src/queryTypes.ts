@@ -147,14 +147,15 @@ type QueryResponse<
   Q,
   Schema,
   WithCardinalityInference extends boolean = false,
+  UseDates extends boolean = false,
 > =
   Schema extends InstantGraph<infer E, any>
-    ? InstaQLQueryResult<E, Q, WithCardinalityInference>
+    ? InstaQLQueryResult<E, Q, WithCardinalityInference, UseDates>
     : ResponseOf<{ [K in keyof Q]: Remove$<Q[K]> }, Schema>;
 
-type InstaQLResponse<Schema, Q> =
+type InstaQLResponse<Schema, Q, UseDates extends boolean> =
   Schema extends IContainEntitiesAndLinks<any, any>
-    ? InstaQLResult<Schema, Q>
+    ? InstaQLResult<Schema, Q, UseDates>
     : never;
 
 type PageInfoResponse<T> = {
@@ -199,6 +200,7 @@ type InstaQLEntitySubqueryResult<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   EntityName extends keyof Schema['entities'],
   Query extends InstaQLEntitySubquery<Schema, EntityName> = {},
+  UseDates extends boolean = false,
 > = {
   [QueryPropName in keyof Query]: Schema['entities'][EntityName]['links'][QueryPropName] extends LinkAttrDef<
     infer Cardinality,
@@ -211,14 +213,16 @@ type InstaQLEntitySubqueryResult<
                 Schema,
                 LinkedEntityName,
                 Remove$NonRecursive<Query[QueryPropName]>,
-                Query[QueryPropName]['$']['fields']
+                Query[QueryPropName]['$']['fields'],
+                UseDates
               >
             | undefined
         : InstaQLEntity<
             Schema,
             LinkedEntityName,
             Remove$NonRecursive<Query[QueryPropName]>,
-            Query[QueryPropName]['$']['fields']
+            Query[QueryPropName]['$']['fields'],
+            UseDates
           >[]
       : never
     : never;
@@ -231,6 +235,7 @@ type InstaQLQueryEntityLinksResult<
     [LinkAttrName in keyof Entities[EntityName]['links']]?: any;
   },
   WithCardinalityInference extends boolean,
+  UseDates extends boolean = false,
 > = {
   [QueryPropName in keyof Query]: Entities[EntityName]['links'][QueryPropName] extends LinkAttrDef<
     infer Cardinality,
@@ -244,20 +249,23 @@ type InstaQLQueryEntityLinksResult<
                   Entities,
                   LinkedEntityName,
                   Query[QueryPropName],
-                  WithCardinalityInference
+                  WithCardinalityInference,
+                  UseDates
                 >
               | undefined
           : InstaQLQueryEntityResult<
               Entities,
               LinkedEntityName,
               Query[QueryPropName],
-              WithCardinalityInference
+              WithCardinalityInference,
+              UseDates
             >[]
         : InstaQLQueryEntityResult<
             Entities,
             LinkedEntityName,
             Query[QueryPropName],
-            WithCardinalityInference
+            WithCardinalityInference,
+            UseDates
           >[]
       : never
     : never;
@@ -278,9 +286,10 @@ type InstaQLEntity<
   EntityName extends keyof Schema['entities'],
   Subquery extends InstaQLEntitySubquery<Schema, EntityName> = {},
   Fields extends InstaQLFields<Schema, EntityName> | undefined = undefined,
+  UseDates extends boolean = false,
 > = Expand<
   { id: string } & (Extract<Fields[number], string> extends undefined
-    ? ResolveEntityAttrs<Schema['entities'][EntityName]>
+    ? ResolveEntityAttrs<Schema['entities'][EntityName], UseDates>
     : DistributePick<
         ResolveEntityAttrs<Schema['entities'][EntityName]>,
         Exclude<Fields[number], 'id'>
@@ -295,7 +304,8 @@ type InstaQLQueryEntityResult<
     [QueryPropName in keyof Entities[EntityName]['links']]?: any;
   },
   WithCardinalityInference extends boolean,
-> = { id: string } & ResolveAttrs<Entities, EntityName> &
+  UseDates extends boolean,
+> = { id: string } & ResolveAttrs<Entities, EntityName, UseDates> &
   InstaQLQueryEntityLinksResult<
     Entities,
     EntityName,
@@ -307,13 +317,15 @@ type InstaQLQueryResult<
   Entities extends EntitiesDef,
   Query,
   WithCardinalityInference extends boolean,
+  UseDates extends boolean,
 > = {
   [QueryPropName in keyof Query]: QueryPropName extends keyof Entities
     ? InstaQLQueryEntityResult<
         Entities,
         QueryPropName,
         Query[QueryPropName],
-        WithCardinalityInference
+        WithCardinalityInference,
+        UseDates
       >[]
     : never;
 };
@@ -321,13 +333,15 @@ type InstaQLQueryResult<
 type InstaQLResult<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   Query extends InstaQLParams<Schema>,
+  UseDates extends boolean = false,
 > = Expand<{
   [QueryPropName in keyof Query]: QueryPropName extends keyof Schema['entities']
     ? InstaQLEntity<
         Schema,
         QueryPropName,
         Remove$NonRecursive<Query[QueryPropName]>,
-        Query[QueryPropName]['$']['fields']
+        Query[QueryPropName]['$']['fields'],
+        UseDates
       >[]
     : never;
 }>;
