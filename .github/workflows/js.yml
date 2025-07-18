@@ -253,6 +253,12 @@ jobs:
                                (System/getenv "GITHUB_RUN_ID")))'
           cat version.md
 
+      - name: Publish experimental
+        working-directory: client
+        run: make publish-experimental
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_API_KEY }}
+
 
 
   vercel-preview:
