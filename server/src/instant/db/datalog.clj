@@ -1034,10 +1034,12 @@
 ;; ---
 ;; match-query
 
-(defn flatten-symbol-map-values [values]
-  (if (set? values)
-    (mapcat flatten-symbol-map-values values)
-    values))
+(defn flatten-symbol-map-values [vs]
+  (mapcat (fn [v]
+            (if (set? v)
+              (mapcat flatten-symbol-map-values v)
+              [v]))
+          vs))
 
 (defn transform-named-p-for-ref-joins
   "If we're joining e -> e or e -> v, it's better to use the eav index
@@ -1446,13 +1448,6 @@
 
 (defn has-prev-tbl [table]
   (kw table :-has-prev))
-
-(defn flatten-symbol-map-values [vs]
-  (mapcat (fn [v]
-            (if (set? v)
-              (mapcat flatten-symbol-map-values v)
-              [v]))
-          vs))
 
 (defn add-page-info
   "Updates the cte with pagination constraints."
