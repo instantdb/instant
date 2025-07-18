@@ -524,19 +524,30 @@
                                                     :name "transact"}))
           (assoc tx :results results))))))
 
+(defn optimistic-attrs [attrs tx-steps]
+  (->> tx-steps
+       (reduce
+        (fn [acc [op value]]
+          (case op
+            :add-attr    (assoc!  acc (:id value) value)
+            :update-attr (assoc!  acc (:id value) (merge (get acc (:id value)) value))
+            :delete-attr (dissoc! acc value)
+            acc))
+        (transient (attr-model/map-by-id attrs)))
+       persistent!
+       vals
+       attr-model/wrap-attrs))
+
 (defn preprocess-tx-steps [tx-steps conn attrs app-id]
-  (let [grouped-tx-steps (group-by first tx-steps)
-        optimistic-attrs  (into attrs (map second) (:add-attr grouped-tx-steps))]
-    {:grouped-tx-steps
-      (-> grouped-tx-steps
-          (coll/update-when :delete-entity resolve-lookups-for-delete-entity conn app-id)
-          (coll/update-when :delete-entity expand-delete-entity-cascade conn app-id optimistic-attrs)
-          (validate-value-lookup-etypes optimistic-attrs))
-     :optimistic-attrs optimistic-attrs}))
+  (-> (group-by first tx-steps)
+      (coll/update-when :delete-entity resolve-lookups-for-delete-entity conn app-id)
+      (coll/update-when :delete-entity expand-delete-entity-cascade conn app-id attrs)
+      (validate-value-lookup-etypes attrs)))
 
 (defn transact-without-tx-conn! [conn attrs app-id tx-steps opts]
-  (let [{:keys [grouped-tx-steps]} (preprocess-tx-steps tx-steps conn attrs app-id)]
-    (transact-without-tx-conn-impl! conn attrs app-id grouped-tx-steps opts)))
+  (let [attrs'           (optimistic-attrs attrs tx-steps)
+        grouped-tx-steps (preprocess-tx-steps tx-steps conn attrs' app-id)]
+    (transact-without-tx-conn-impl! conn attrs' app-id grouped-tx-steps opts)))
 
 (defn transact!
   ([conn attrs app-id tx-steps]
