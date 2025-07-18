@@ -86,3 +86,22 @@ function App() {
 export default App;
 ```
 <!-- prettier-ignore-end -->
+
+## Configuration Options
+
+`init` accepts a few options. For most use cases you'll want to provide `appId`
+and `schema`. Here are all the options you can provide:
+
+- **appId** (required): Your InstantDB application ID. This identifies your app and is used to connect to the correct backend.
+
+- **schema?**: Instant schema export from your `instant.schema.ts` file. Provide this for typesafety and auto-completion in queries, transactions, and ephemeral features.
+
+- **websocketURI?**: Custom WebSocket endpoint for real-time connections. Defaults to `'wss://api.instantdb.com/runtime/session'`. Change this for connecting to development or self-hosted instances.
+
+- **apiURI?**: Custom HTTP API endpoint for auth and storage operations. Defaults to `'https://api.instantdb.com'`. Change this for connecting to development or self-hosted instances.
+
+- **devtool?**: Controls the Instant dev tool. Defaults to `true` on localhost. Set to `false` to disable, or configure with `{ position: 'bottom-right', allowedHosts: ['localhost'] }`.
+
+- **verbose?**: Enables detailed console logging for debugging. When `true`, logs WebSocket messages and internal operations. Helpful for troubleshooting connection and sync issues.
+
+- **queryCacheLimit?**: Maximum number of query subscriptions to cache for offline mode. Defaults to `10`. Cached queries provide instant data on app reload while fresh data loads in the background.
