@@ -197,7 +197,15 @@ function FeedbackItem({ feedback }: { feedback: Rating }) {
             {feedback.wasHelpful ? '👍 Helpful' : '👎 Not Helpful'}
           </span>
         </div>
-        <span className="text-xs text-gray-500">ID: {feedback.localId}</span>
+        {feedback.createdAt && (
+          <span className="text-xs text-gray-500">
+            {new Date(feedback.createdAt).toLocaleDateString('en-US', {
+              month: '2-digit',
+              day: '2-digit',
+              year: 'numeric',
+            })}
+          </span>
+        )}
       </div>
 
       {feedback.extraComment && (

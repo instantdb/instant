@@ -191,7 +191,15 @@ function CommentCard({ comment }: { comment: Rating }) {
             <div className="font-medium text-gray-900 text-sm">
               {comment.pageId}
             </div>
-            <div className="text-xs text-gray-500">ID: {comment.localId}</div>
+            {comment.createdAt && (
+              <span className="text-xs text-gray-500">
+                {new Date(comment.createdAt).toLocaleDateString('en-US', {
+                  month: '2-digit',
+                  day: '2-digit',
+                  year: 'numeric',
+                })}
+              </span>
+            )}
           </div>
         </div>
         <span
