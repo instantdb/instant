@@ -143,30 +143,7 @@
 
 
 (defn object-checks
-  "Creates check commands for each object in the transaction.
-
-   We take tx-steps like:
-   [
-     [:add-triple joe-eid :users/name \"Joe\"]
-     [:add-triple joe-eid :users/age 32]
-     [:add-triple stopa-eid :users/name \"Stopa\"]
-     [:add-triple stopa-eid :users/age 30]
-   ]
-
-   And we group them by `eid`, `etype`, and `action`.
-
-   {
-     {:eid joe-eid
-      :etype \"users\"
-      :action :update} [[:add-triple joe-eid :users/name \"Joe\"]
-                        [:add-triple joe-eid :users/age 32]]
-     {:eid stopa-eid
-      :etype \"users\"
-      :action :update} [[:add-triple stopa-eid :users/name \"Stopa\"]
-                        [:add-triple stopa-eid :users/age 30]]
-   }
-
-   With this, we can generate a grouped `check` command for each `eid+etype`."
+  "Creates check commands for each object in the transaction"
   [{:keys [attrs rules] :as ctx} preloaded-triples]
   (->>
    (for [[k v] preloaded-triples
@@ -184,7 +161,7 @@
           :eid     eid
           :program program
           :data    {:original original
-                    :updated new-data}})
+                    :updated  new-data}})
 
        :delete
        {:scope   :object
@@ -374,12 +351,11 @@
     (let [eids+etypes (distinct
                        (for [[key _] grouped-changes]
                          [(:eid key) (:etype key)]))
-          patterns    (map (fn [[eid etype]]
-                             {:patterns (if etype
-                                          [[:ea eid (attr-model/ea-ids-for-etype etype attrs)]]
-                                          [[:ea eid]])})
-                           eids+etypes)
-          query {:children {:pattern-groups patterns}}
+          query {:children
+                 {:pattern-groups
+                  (for [[eid etype] eids+etypes]
+                    {:patterns
+                     [[:ea eid (attr-model/ea-ids-for-etype etype attrs)]]})}}
           ;; you might be tempted to simplify the query to [[:ea (set eids)]]
           ;; but the eid might be a lookup ref and you won't know how to get
           ;; the join rows for that lookup
@@ -492,8 +468,8 @@
     (next-jdbc/with-transaction [tx-conn (:conn-pool db)]
       (if admin?
         (tx/transact-without-tx-conn! tx-conn attrs app-id tx-steps {})
-        (let [{:keys [grouped-tx-steps
-                      optimistic-attrs]} (tx/preprocess-tx-steps tx-steps tx-conn attrs app-id)
+        (let [optimistic-attrs (tx/optimistic-attrs attrs tx-steps)
+              grouped-tx-steps (tx/preprocess-tx-steps tx-steps tx-conn optimistic-attrs app-id)
               attr-changes     (concat
                                 (:add-attr grouped-tx-steps)
                                 (:delete-attr grouped-tx-steps)
