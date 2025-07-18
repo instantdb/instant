@@ -231,7 +231,9 @@ jobs:
         run: |
           curl -L https://github.com/babashka/babashka/releases/download/v1.12.206/babashka-1.12.206-linux-amd64.tar.gz | tar xvz
           chmod +x bb
-          ./bb --version
+          sudo mv bb /usr/local/bin/
+          bb --version
+
 
       - name: Set branch name
         run: |
