@@ -1,14 +1,9 @@
 import { useMemo } from 'react';
+import { InstaQLEntity } from '@instantdb/react';
 import db from './db';
+import schema from './instant.schema';
 
-export type Rating = {
-  id: string;
-  pageId: string;
-  wasHelpful: boolean;
-  extraComment?: string;
-  key: string;
-  localId: string;
-};
+export type Rating = InstaQLEntity<typeof schema, 'ratings', {}>;
 
 export type PageMetrics = {
   pageId: string;
