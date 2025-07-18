@@ -14,6 +14,7 @@
    [instant.util.exception :as ex]
    [instant.util.e2e-tracer :as e2e-tracer]
    [instant.util.json :refer [->json]]
+   [instant.util.string :as string-util]
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid]
    [next.jdbc :as next-jdbc])
@@ -302,27 +303,6 @@
           :when (uuid? eid')]
       [op eid' etype])))
 
-(defn resolve-etypes-for-delete-entity [tx-steps conn app-id]
-  (let [untyped-ids (->> tx-steps
-                         (keep (fn [[_ id etype]]
-                                 (when (nil? etype)
-                                   id))))
-        resolved    (resolve-etypes conn app-id untyped-ids)]
-    ;; TODO remove
-    (doseq [[_ _ etype :as tx-step] tx-steps
-            :when (nil? etype)]
-      (binding [tracer/*span* nil]
-        (tracer/record-info!
-         {:name "tx/missing-etype"
-          :attributes {:app-id  app-id
-                       :tx-step tx-step
-                       :stage   "resolve-etypes-for-delete-entity"}})))
-    (for [[op eid etype] tx-steps
-          etype'         (if etype
-                           [etype]
-                           (get resolved eid [nil]))]
-      [op eid etype'])))
-
 (defn expand-delete-entity-cascade [tx-steps conn app-id attrs]
   (let [ids+etypes (->> (map next tx-steps)
                         (filter (fn [[id etype]]
@@ -405,6 +385,32 @@
         (for [[entity_id etype] (set (concat ids+etypes ids+etypes'))]
           [:delete-entity entity_id etype])))))
 
+(defn validate-value-lookup-etypes
+  "Check that in the case of
+
+     [op eid fwd-attr [lookup-attr lookup-value]]
+
+   etype from reverse of fwd-attr matches etype from lookup-attr"
+  [grouped-tx-steps attrs]
+  (doseq [[op tx-steps] grouped-tx-steps
+          :when (#{:add-triple :deep-merge-triple :retract-triple} op)
+          [_op _eid attr-id value :as tx-step] tx-steps
+          :when (triple-model/value-lookup-ref? value)
+          :let [[value-lookup-attr-id _] value
+                value-lookup-etype       (attr-model/fwd-etype (attr-model/seek-by-id value-lookup-attr-id attrs))
+                rev-etype                (attr-model/rev-etype (attr-model/seek-by-id attr-id attrs))]]
+    (when-not value-lookup-etype
+      (ex/throw-validation-err! :lookup value
+                                [{:message "Invalid lookup. Could not determine namespace from lookup attribute."
+                                  :tx-step tx-step}]))
+    (when (and rev-etype (not= value-lookup-etype rev-etype))
+      (ex/throw-validation-err! :tx-step tx-step
+                                [{:message (string-util/multiline->single-line
+                                            "Invalid transaction. The namespace in the lookup attribute is
+                                             different from the namespace of the attribute that is
+                                             being set")}])))
+  grouped-tx-steps)
+
 (defn get-attr-for-exception
   "Used by exception.clj to lookup the attr by its attr id when it gets an attr id
    in a sql exception."
@@ -476,18 +482,30 @@
                                                     :name "transact"}))
           (assoc tx :results results))))))
 
-(defn preprocess-tx-steps [conn attrs app-id tx-steps]
+(defn optimistic-attrs [attrs tx-steps]
+  (->> tx-steps
+       (reduce
+        (fn [acc [op value]]
+          (case op
+            :add-attr    (assoc!  acc (:id value) value)
+            :update-attr (assoc!  acc (:id value) (merge (get acc (:id value)) value))
+            :delete-attr (dissoc! acc value)
+            acc))
+        (transient (attr-model/map-by-id attrs)))
+       persistent!
+       vals
+       attr-model/wrap-attrs))
+
+(defn preprocess-tx-steps [tx-steps conn attrs app-id]
   (-> (group-by first tx-steps)
       (coll/update-when :delete-entity resolve-lookups-for-delete-entity conn app-id)
-      (coll/update-when :delete-entity resolve-etypes-for-delete-entity conn app-id)
-      (coll/update-when :delete-entity expand-delete-entity-cascade conn app-id attrs)))
+      (coll/update-when :delete-entity expand-delete-entity-cascade conn app-id attrs)
+      (validate-value-lookup-etypes attrs)))
 
-(defn transact-without-tx-conn!
-  ([conn attrs app-id tx-steps]
-   (transact-without-tx-conn! conn attrs app-id tx-steps {}))
-  ([conn attrs app-id tx-steps opts]
-   (let [grouped-tx-steps (preprocess-tx-steps conn attrs app-id tx-steps)]
-     (transact-without-tx-conn-impl! conn attrs app-id grouped-tx-steps opts))))
+(defn transact-without-tx-conn! [conn attrs app-id tx-steps opts]
+  (let [attrs'           (optimistic-attrs attrs tx-steps)
+        grouped-tx-steps (preprocess-tx-steps tx-steps conn attrs' app-id)]
+    (transact-without-tx-conn-impl! conn attrs' app-id grouped-tx-steps opts)))
 
 (defn transact!
   ([conn attrs app-id tx-steps]
