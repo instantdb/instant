@@ -220,6 +220,7 @@ jobs:
           node-version: 23
           cache: 'pnpm'
           cache-dependency-path: client/pnpm-lock.yaml
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
         working-directory: client
@@ -232,19 +233,19 @@ jobs:
           chmod +x bb
           ./bb --version
 
-    - name: Set branch name
-      run: |
-        if [ "${{ github.event_name }}" = "pull_request" ]; then
-          echo "BRANCH_NAME=${{ github.head_ref }}" >> $GITHUB_ENV
-        else
-          echo "BRANCH_NAME=${{ github.ref_name }}" >> $GITHUB_ENV
-        fi
+      - name: Set branch name
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "BRANCH_NAME=${{ github.head_ref }}" >> $GITHUB_ENV
+          else
+            echo "BRANCH_NAME=${{ github.ref_name }}" >> $GITHUB_ENV
+          fi
 
       - name: Update version.md
         working-directory: client
         run: |
           bb -e '(spit "version.md"
-                       (format "%s-experimental-%s.%s"
+                       (format "%s-experimental-%s.%s\n"
                                (clojure.string/trim (slurp "version.md"))
                                (System/getenv "BRANCH_NAME")
                                (System/getenv "GITHUB_RUN_ID")))'
