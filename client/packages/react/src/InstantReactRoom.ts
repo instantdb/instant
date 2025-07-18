@@ -318,11 +318,15 @@ export class InstantReactRoom<
   RoomSchema extends RoomSchemaShape,
   RoomType extends keyof RoomSchema,
 > {
-  _core: InstantCoreDatabase<Schema>;
+  _core: InstantCoreDatabase<Schema, boolean>;
   type: RoomType;
   id: string;
 
-  constructor(_core: InstantCoreDatabase<Schema>, type: RoomType, id: string) {
+  constructor(
+    _core: InstantCoreDatabase<Schema, boolean>,
+    type: RoomType,
+    id: string,
+  ) {
     this._core = _core;
     this.type = type;
     this.id = id;

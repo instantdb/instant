@@ -115,7 +115,7 @@ export class EntityDef<
     public links: Links,
   ) {}
 
-  asType<_AsType extends Partial<MappedAttrs<Attrs>>>() {
+  asType<_AsType extends Partial<MappedAttrs<Attrs, boolean>>>() {
     return new EntityDef<Attrs, Links, _AsType>(this.attrs, this.links);
   }
 }
@@ -277,19 +277,28 @@ type OptionalKeys<Attrs extends AttrsDefs> = {
  *   - Required keys => `key: ValueType`
  *   - Optional keys => `key?: ValueType`
  */
-type MappedAttrs<Attrs extends AttrsDefs> = {
+type MappedAttrs<Attrs extends AttrsDefs, UseDates extends boolean> = {
   [K in RequiredKeys<Attrs>]: Attrs[K] extends DataAttrDef<infer V, any, any>
-    ? V
+    ? V extends Date
+      ? UseDates extends true
+        ? V
+        : string | number
+      : V
     : never;
 } & {
   [K in OptionalKeys<Attrs>]?: Attrs[K] extends DataAttrDef<infer V, any, any>
-    ? V
+    ? V extends Date
+      ? UseDates extends true
+        ? V
+        : string | number
+      : V
     : never;
 };
 
 export type ResolveEntityAttrs<
   EDef extends EntityDef<any, any, any>,
-  ResolvedAttrs = MappedAttrs<EDef['attrs']>,
+  UseDates extends boolean = false,
+  ResolvedAttrs = MappedAttrs<EDef['attrs'], UseDates>,
 > =
   EDef extends EntityDef<any, any, infer AsType>
     ? AsType extends void
@@ -300,7 +309,8 @@ export type ResolveEntityAttrs<
 export type ResolveAttrs<
   Entities extends EntitiesDef,
   EntityName extends keyof Entities,
-> = ResolveEntityAttrs<Entities[EntityName]>;
+  UseDates extends boolean,
+> = ResolveEntityAttrs<Entities[EntityName], UseDates>;
 
 export type RoomsFromDef<RDef extends RoomsDef> = {
   [RoomName in keyof RDef]: {
