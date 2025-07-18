@@ -120,6 +120,19 @@ export class EntityDef<
   }
 }
 
+export type EntityDefFromSchema<
+  S extends IContainEntitiesAndLinks<any, any>,
+  K extends keyof S['entities'],
+> = {
+  [k in keyof S['entities'][K]['attrs']]: S['entities'][K] extends EntityDef<
+    any,
+    any,
+    any
+  >
+    ? S['entities'][K]['attrs'][k]
+    : never;
+};
+
 export type EntitiesDef = Record<string, EntityDef<any, any, any>>;
 
 export type LinksDef<Entities extends EntitiesDef> = Record<
@@ -475,7 +488,7 @@ export type BackwardsCompatibleSchema<
 export type UnknownEntity = EntityDef<
   {
     id: DataAttrDef<string, true, true>;
-    [AttrName: string]: DataAttrDef<any, any, any>;
+    [AttrName: string]: DataAttrDef<any, boolean, boolean>;
   },
   { [LinkName: string]: LinkAttrDef<'many', string> },
   void
