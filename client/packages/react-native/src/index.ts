@@ -93,10 +93,16 @@ import {
  */
 function init<
   Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
->(config: InstantConfig<Schema>) {
-  return new InstantReactNativeDatabase<Schema>(config, {
-    '@instantdb/react-native': version,
-  });
+  UseDates extends boolean = false,
+>(
+  config: InstantConfig<Schema, UseDates>,
+): InstantReactNativeDatabase<InstantConfig<Schema, UseDates>> {
+  return new InstantReactNativeDatabase<InstantConfig<Schema, UseDates>>(
+    config,
+    {
+      '@instantdb/react': version,
+    },
+  );
 }
 
 /**
@@ -116,8 +122,8 @@ function init<
 const init_experimental = init;
 
 class InstantReactNativeDatabase<
-  Schema extends InstantSchemaDef<any, any, any>,
-> extends InstantReactAbstractDatabase<Schema> {
+  Config extends InstantConfig<InstantSchemaDef<any, any, any>, boolean>,
+> extends InstantReactAbstractDatabase<Config> {
   static Storage = Storage;
   static NetworkListener = NetworkListener;
 }
