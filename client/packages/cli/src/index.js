@@ -321,6 +321,11 @@ program
     '-a --app <app-id>',
     'If you have an existing app ID, we can pull schema and perms from there.',
   )
+  .option(
+    '-p --package <react|react-native|core|admin>',
+    'Which package to automatically install if there is not one installed already.',
+  )
+  .option('-t --title <title>', 'Title for the created app')
   .action(async function (opts) {
     await handlePull('all', opts);
   });
@@ -328,12 +333,17 @@ program
 program
   .command('create-app')
   .description('Generate an app ID and admin token for a new app.')
-  .action(async () => {
+  .option('-t --title', 'Title for the created app')
+  .action(async (opts) => {
     await checkVersion();
     const authToken = await readAuthTokenOrLoginWithErrorLogging();
     if (!authToken) return process.exit(1);
 
-    const result = await promptCreateApp();
+    if (program.optsWithGlobals()?.yes && !opts.title) {
+      console.error(chalk.red(`Title is required when using --yes`));
+      process.exit(1);
+    }
+    const result = await promptCreateApp(opts);
     if (!result.ok) return process.exit(1);
 
     const { appId, appTitle, appToken } = result;
@@ -387,6 +397,11 @@ program
     '--skip-check-types',
     "Don't check types on the server when pushing schema",
   )
+  .option('-t --title', 'Title for the created app')
+  .option(
+    '-p --package <react|react-native|core|admin>',
+    'Which package to automatically install if there is not one installed already.',
+  )
   .description('Push schema and perm files to production.')
   .action(async function (arg, inputOpts) {
     const ret = convertPushPullToCurrentFormat('push', arg, inputOpts);
@@ -428,6 +443,11 @@ program
   .option(
     '-a --app <app-id>',
     'App ID to push to. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .option('-t --title', 'Title for the created app')
+  .option(
+    '-p --package <react|react-native|core|admin>',
+    'Which package to automatically install if there is not one installed already.',
   )
   .description('Pull schema and perm files from production.')
   .action(async function (arg, inputOpts) {
@@ -471,7 +491,7 @@ async function checkVersion() {
 
 async function handlePush(bag, opts) {
   await checkVersion();
-  const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
+  const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging(opts);
   if (!pkgAndAuthInfo) return process.exit(1);
   const { ok, appId } = await detectOrCreateAppAndWriteToEnv(
     pkgAndAuthInfo,
@@ -557,7 +577,7 @@ async function detectOrCreateAppAndWriteToEnv(pkgAndAuthInfo, opts) {
 
 async function handlePull(bag, opts) {
   await checkVersion();
-  const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging();
+  const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging(opts);
   if (!pkgAndAuthInfo) return process.exit(1);
   const { ok, appId } = await detectOrCreateAppAndWriteToEnv(
     pkgAndAuthInfo,
@@ -621,7 +641,14 @@ async function login(options) {
   return token;
 }
 
-async function getOrInstallInstantModuleWithErrorLogging(pkgDir) {
+const packageAliasAndFullNames = {
+  react: '@instantdb/react',
+  'react-native': '@instantdb/react-native',
+  core: '@instantdb/core',
+  admin: '@instantdb/admin',
+};
+
+async function getOrInstallInstantModuleWithErrorLogging(pkgDir, opts) {
   const pkgJson = await getPackageJSONWithErrorLogging(pkgDir);
   if (!pkgJson) {
     return;
@@ -637,15 +664,27 @@ async function getOrInstallInstantModuleWithErrorLogging(pkgDir) {
   console.log(
     "Couldn't find an Instant SDK in your package.json, let's install one!",
   );
-  const moduleName = await select({
-    message: 'Which package would you like to use?',
-    choices: [
-      { name: '@instantdb/react', value: '@instantdb/react' },
-      { name: '@instantdb/react-native', value: '@instantdb/react-native' },
-      { name: '@instantdb/core', value: '@instantdb/core' },
-      { name: '@instantdb/admin', value: '@instantdb/admin' },
-    ],
-  });
+
+  let moduleName;
+  if (opts.package) {
+    moduleName = packageAliasAndFullNames[opts.package];
+  } else {
+    if (program.optsWithGlobals()?.yes) {
+      console.error(
+        '--yes was provided without a package specificaion and no Instant SDK was found',
+      );
+      process.exit(1);
+    }
+    moduleName = await select({
+      message: 'Which package would you like to use?',
+      choices: [
+        { name: '@instantdb/react', value: '@instantdb/react' },
+        { name: '@instantdb/react-native', value: '@instantdb/react-native' },
+        { name: '@instantdb/core', value: '@instantdb/core' },
+        { name: '@instantdb/admin', value: '@instantdb/admin' },
+      ],
+    });
+  }
 
   const packageManager = await detectPackageManager(pkgDir);
 
@@ -680,14 +719,20 @@ async function getOrInstallInstantModuleWithErrorLogging(pkgDir) {
   return moduleName;
 }
 
-async function promptCreateApp() {
+async function promptCreateApp(opts) {
   const id = randomUUID();
   const token = randomUUID();
-  const _title = await input({
-    message: 'What would you like to call it?',
-    default: 'My cool app',
-    required: true,
-  }).catch(() => null);
+
+  let _title;
+  if (opts?.title) {
+    _title = opts.title;
+  } else {
+    _title = await input({
+      message: 'What would you like to call it?',
+      default: 'My cool app',
+      required: true,
+    }).catch(() => null);
+  }
 
   const title = _title?.trim();
 
@@ -761,16 +806,27 @@ async function detectOrCreateAppWithErrorLogging(opts) {
     return { ok: true, appId: value, source: 'env' };
   }
 
-  const action = await select({
-    message: 'What would you like to do?',
-    choices: [
-      { name: 'Create a new app', value: 'create' },
-      { name: 'Import an existing app', value: 'import' },
-    ],
-  }).catch(() => null);
+  let action;
+  if (program.optsWithGlobals().yes) {
+    action = 'create';
+    if (!opts?.title) {
+      console.error(
+        chalk.red(`Title is required when using --yes and no app is linked`),
+      );
+      process.exit(1);
+    }
+  } else {
+    action = await select({
+      message: 'What would you like to do?',
+      choices: [
+        { name: 'Create a new app', value: 'create' },
+        { name: 'Import an existing app', value: 'import' },
+      ],
+    }).catch(() => null);
+  }
 
   if (action === 'create') {
-    return await promptCreateApp();
+    return await promptCreateApp(opts);
   }
 
   return await promptImportAppOrCreateApp();
@@ -810,13 +866,15 @@ async function getPackageJSONWithErrorLogging(pkgDir) {
   return pkgJson;
 }
 
-async function resolvePackageAndAuthInfoWithErrorLogging() {
+async function resolvePackageAndAuthInfoWithErrorLogging(opts) {
   const pkgDir = await packageDirectoryWithErrorLogging();
   if (!pkgDir) {
     return;
   }
-  const instantModuleName =
-    await getOrInstallInstantModuleWithErrorLogging(pkgDir);
+  const instantModuleName = await getOrInstallInstantModuleWithErrorLogging(
+    pkgDir,
+    opts,
+  );
   if (!instantModuleName) {
     return;
   }
