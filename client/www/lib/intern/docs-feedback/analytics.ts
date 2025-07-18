@@ -21,7 +21,11 @@ export type OverallMetrics = {
 
 export function useRatings() {
   const { data, isLoading, error } = db.useQuery({
-    ratings: {},
+    ratings: {
+      $: {
+        order: { serverCreatedAt: 'desc' },
+      },
+    },
   });
 
   const ratings = data?.ratings || [];

@@ -76,6 +76,7 @@ function RatingBox({
                     localId,
                     key: `${localId}_${pageId}`,
                     wasHelpful: 'yes' === item.id,
+                    createdAt: Date.now(),
                   }),
               );
             }}
