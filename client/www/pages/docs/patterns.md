@@ -387,6 +387,55 @@ function Login() {
 }
 ```
 
+## Managing local vs production apps
+
+You may want to have separate Instant apps for local development and production.
+The way to do this right now is to have two separate apps, one for local and one
+for production. You can then use an environment variables to switch between the two
+apps.
+
+```javascript
+// lib/db.ts
+import { init } from '@instantdb/react';
+
+// Next.js example
+const APP_ID =
+  process.env.NODE_ENV === 'production'
+    ? process.env.NEXT_PUBLIC_INSTANT_APP_ID
+    : process.env.NEXT_PUBLIC_INSTANT_APP_ID;
+
+export const db = init({ appId: APP_ID });
+```
+
+Then in your environment files:
+
+```bash
+# .env.local
+NEXT_PUBLIC_INSTANT_APP_ID=your-local-app-id
+
+# .env.production
+NEXT_PUBLIC_INSTANT_APP_ID=your-production-app-id
+```
+
+When developing new features that require schema or permission changes, you can
+follow this workflow:
+
+1. **Push schema/perms changes locally first**
+
+   ```bash
+   npx instant-cli push --app your-local-app-id
+   ```
+
+2. **Test code changes** - Verify your new code works as expected with your changes in your local environment and app.
+
+3. **Push changes to production**
+
+   ```bash
+   npx instant-cli push --app your-production-app-id
+   ```
+
+4. **Deploy code changes to prod!** - And that should be it!
+
 ## Dealing with timeouts
 
 Complicated queries or large transactions may fail due to timeouts. Right now we
