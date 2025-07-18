@@ -401,8 +401,8 @@ import { init } from '@instantdb/react';
 // Next.js example
 const APP_ID =
   process.env.NODE_ENV === 'production'
-    ? process.env.NEXT_PUBLIC_INSTANT_APP_ID_PROD
-    : process.env.NEXT_PUBLIC_INSTANT_APP_ID_LOCAL;
+    ? process.env.NEXT_PUBLIC_INSTANT_APP_ID
+    : process.env.NEXT_PUBLIC_INSTANT_APP_ID;
 
 export const db = init({ appId: APP_ID });
 ```
@@ -411,10 +411,10 @@ Then in your environment files:
 
 ```bash
 # .env.local
-NEXT_PUBLIC_INSTANT_APP_ID_LOCAL=your-local-app-id
+NEXT_PUBLIC_INSTANT_APP_ID=your-local-app-id
 
 # .env.production
-NEXT_PUBLIC_INSTANT_APP_ID_PROD=your-production-app-id
+NEXT_PUBLIC_INSTANT_APP_ID=your-production-app-id
 ```
 
 When developing new features that require schema or permission changes, you can
