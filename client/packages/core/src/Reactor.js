@@ -441,6 +441,7 @@ export default class Reactor {
           triples,
           enableCardinalityInference,
           this._linkIndex,
+          this.config.useDateObjects,
         );
         this.querySubs.set((prev) => {
           prev[hash].result = {
@@ -490,6 +491,7 @@ export default class Reactor {
             triples,
             enableCardinalityInference,
             this._linkIndex,
+            this.config.useDateObjects,
           );
           const newStore = this._applyOptimisticUpdates(
             store,
