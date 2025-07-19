@@ -234,14 +234,6 @@ jobs:
           sudo mv bb /usr/local/bin/
           bb --version
 
-          cat $NPM_CONFIG_USERCONFIG
-
-          pnpm config list
-
-          echo 'NPM CONFIG'
-          npm config list
-
-
       - name: Set branch name
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
@@ -262,7 +254,9 @@ jobs:
 
       - name: Publish experimental
         working-directory: client
-        run: make publish-experimental
+        run: |
+          pnpm config set //registry.npmjs.org/:_authToken $NPM_TOKEN
+          make publish-experimental
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_API_KEY }}
 
