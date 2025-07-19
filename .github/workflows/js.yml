@@ -236,6 +236,8 @@ jobs:
 
           cat $NPM_CONFIG_USERCONFIG
 
+          pnpm config list
+
 
       - name: Set branch name
         run: |
