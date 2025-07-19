@@ -234,6 +234,8 @@ jobs:
           sudo mv bb /usr/local/bin/
           bb --version
 
+          cat ~/.npmrc
+
 
       - name: Set branch name
         run: |
