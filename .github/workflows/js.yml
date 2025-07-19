@@ -238,6 +238,9 @@ jobs:
 
           pnpm config list
 
+          echo 'NPM CONFIG'
+          npm config list
+
 
       - name: Set branch name
         run: |
