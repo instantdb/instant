@@ -234,7 +234,7 @@ jobs:
           sudo mv bb /usr/local/bin/
           bb --version
 
-          cat ~/.npmrc
+          cat $NPM_CONFIG_USERCONFIG
 
 
       - name: Set branch name
