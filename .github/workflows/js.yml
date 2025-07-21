@@ -347,7 +347,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add .
           git commit -m "Update versions"
-          git push
+          git push HEAD:${{ github.head_ref }}
 
       - name: Debug
         if: failure()
