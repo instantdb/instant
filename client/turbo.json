@@ -4,7 +4,11 @@
     "NODE_AUTH_TOKEN",
     "NPM_CONFIG_USERCONFIG",
     "NPM_CONFIG_PROVENANCE",
-    "GITHUB_ACTIONS"
+    "GITHUB_ACTIONS",
+    "GITHUB_RUN_ID",
+    "GITHUB_RUN_ATTEMPT",
+    "GITHUB_RUN_NUMBER",
+    "GITHUB_RUN_ID"
   ],
   "tasks": {
     "build": {
