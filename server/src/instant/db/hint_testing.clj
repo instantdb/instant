@@ -78,13 +78,17 @@
                                      :patterns (pr-str patterns)}}
       (let [old (tracer/with-span! {:name "test-pg-hints-for-datalog/without-hint-plan"}
                   (try
-                    (explain-datalog ctx patterns)
+                    (let [res (explain-datalog ctx patterns)]
+                      (tracer/add-data! {:attributes res})
+                      res)
                     (catch Exception e
                       e)))
             new (tracer/with-span! {:name "test-pg-hints-for-datalog/with-hint-plan"}
                   (binding [d/*testing-pg-hints* true]
                     (try
-                      (explain-datalog ctx patterns)
+                      (let [res (explain-datalog ctx patterns)]
+                        (tracer/add-data! {:attributes res})
+                        res)
                       (catch Exception e
                         e))))]
         (tracer/add-data! {:attributes {:without.ms (:time old)
