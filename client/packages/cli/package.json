@@ -1,7 +1,7 @@
 {
   "name": "instant-cli",
   "type": "module",
-  "version": "v0.20.9-experimental.publish-on-ci.16425531016.test",
+  "version": "v0.20.9",
   "description": "Instant's CLI",
   "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/cli",
   "repository": {

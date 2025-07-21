@@ -1,6 +1,6 @@
 {
   "name": "@instantdb/admin",
-  "version": "v0.20.9-experimental.publish-on-ci.16425531016.test",
+  "version": "v0.20.9",
   "description": "Admin SDK for Instant DB",
   "type": "module",
   "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/admin",
