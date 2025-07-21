@@ -325,7 +325,7 @@ jobs:
 
       - name: Publish
         working-directory: client
-        run: make publish
+        run: make publish-ci
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_API_KEY }}
           NPM_CONFIG_PROVENANCE: true
