@@ -82,7 +82,7 @@
    original
    tx-steps))
 
-(defn object-upsert-check-program [{:keys [action program etype eid data] :as _check}
+(defn object-upsert-check-program [{:keys [scope program etype eid data] :as _check}
                                    {:keys [rule-params] :as _ctx}]
   (let [{:keys [original updated]} data
         rule-params (get rule-params {:eid eid :etype etype})]
@@ -90,13 +90,13 @@
       (not program)
       {:result true}
 
-      (= :create action)
+      (= :object/create scope)
       {:program program
        :bindings {:data updated
                   :new-data updated
                   :rule-params rule-params}}
 
-      (= :update action)
+      (= :object/update scope)
       {:program program
        :bindings {:data original
                   :new-data updated
@@ -131,15 +131,15 @@
        :bindings {:data updated}})))
 
 
-(defn check-program [{:keys [scope action] :as check} ctx]
-  (case [scope action]
-    [:object :create] (object-upsert-check-program check ctx)
-    [:object :update] (object-upsert-check-program check ctx)
-    [:object :delete] (object-delete-check-program check ctx)
-    [:object :view]   (object-view-check-program check ctx)
-    [:attr   :create] (attr-create-check-program check ctx)
-    [:attr   :delete] {:result (:admin? ctx)}
-    [:attr   :update] {:result (:admin? ctx)}))
+(defn check-program [check ctx]
+  (case (:scope check)
+    :object/create (object-upsert-check-program check ctx)
+    :object/update (object-upsert-check-program check ctx)
+    :object/delete (object-delete-check-program check ctx)
+    :object/view   (object-view-check-program check ctx)
+    :attr/create   (attr-create-check-program check ctx)
+    :attr/delete   {:result (:admin? ctx)}
+    :attr/update   {:result (:admin? ctx)}))
 
 
 (defn object-checks
@@ -155,18 +155,16 @@
        :update
        (let [program  (rule-model/get-program! rules etype (if (seq original) "update" "create"))
              new-data (apply-tx-steps attrs original tx-steps)]
-         {:scope   :object
+         {:scope   (if (seq original) :object/update :object/create)
           :etype   etype
-          :action  (if (seq original) :update :create)
           :eid     eid
           :program program
           :data    {:original original
                     :updated  new-data}})
 
        :delete
-       {:scope   :object
+       {:scope   :object/delete
         :etype   etype
-        :action  :delete
         :eid     eid
         :program (when etype
                    (rule-model/get-program! rules etype "delete"))
@@ -174,9 +172,8 @@
 
        :view
        (when (seq original)
-         {:scope   :object
+         {:scope   :object/view
           :etype   etype
-          :action  :view
           :eid     eid
           :program (rule-model/get-program! rules etype "view")
           :data    {:original original}})
@@ -284,29 +281,24 @@
        (filter (comp #{:add-attr} first))
        (map second)))
 
-(def create-check? (comp (partial = :create) :action))
-
 (defn attr-checks [ctx attr-changes]
   (for [[action args] attr-changes]
     (case action
       :add-attr
       (let [program (rule-model/get-program! (:rules ctx) "attrs" "create")
             attr    args]
-        {:scope   :attr
-         :etype   "attrs"
-         :action  :create
+        {:etype   "attrs"
+         :scope   :attr/create
          :program program
          :data    {:updated attr}})
 
       :delete-attr
-      {:scope  :attr
-       :etype  "attrs"
-       :action :delete}
+      {:etype  "attrs"
+       :scope  :attr/delete}
 
       :update-attr
-      {:scope  :attr
-       :etype  "attrs"
-       :action :update})))
+      {:etype  "attrs"
+       :scope  :attr/update})))
 
 (defn run-check-commands! [ctx checks]
   (let [{:keys [programs no-programs]}
@@ -324,13 +316,13 @@
                  :no-programs {}}
                 checks)
         program-results (cel/eval-programs! ctx programs)]
-    (reduce-kv (fn [acc {:keys [etype action] :as c} {:keys [result]}]
+    (reduce-kv (fn [acc {:keys [etype scope] :as c} {:keys [result]}]
                  (conj acc (if (:admin-check? ctx)
                              (assoc c
                                     :check-result result
                                     :check-pass? (boolean result))
                              (ex/assert-permitted! :perms-pass?
-                                                   [etype action]
+                                                   [etype scope]
                                                    result))))
                []
                (merge program-results
@@ -505,11 +497,8 @@
                            ;; resolve etypes for older version of delete-entity
                            (object-checks ctx preloaded-triples)))
 
-              {create-checks :create
-               view-checks :view
-               update-checks :update
-               delete-checks :delete}
-              (group-by :action check-commands)
+              [after-tx-checks
+               before-tx-checks] (ucoll/split-by #(#{:attr/create :object/create} (:scope %)) check-commands)
 
               lookups->eid (lookup->eid-from-preloaded-triples preloaded-triples)
 
@@ -538,9 +527,7 @@
               ctx (assoc ctx :rule-params rule-params)
 
               before-tx-checks-resolved
-              (mapv #(resolve-check-lookup lookups->eid %) (concat update-checks
-                                                                   delete-checks
-                                                                   view-checks))
+              (mapv #(resolve-check-lookup lookups->eid %) before-tx-checks)
 
               before-tx-checks-results
               (run-check-commands! (assoc ctx
@@ -551,7 +538,7 @@
               (tx/transact-without-tx-conn-impl! tx-conn (:attrs ctx) app-id grouped-tx-steps {})
 
               ;; update lookups with newly created triples
-              create-lookups->eid (some->> (concat create-checks (keys rule-params))
+              create-lookups->eid (some->> (concat after-tx-checks (keys rule-params))
                                            (map :eid)
                                            (filter sequential?)
                                            not-empty
@@ -564,7 +551,7 @@
                            rule-params)
               ctx (assoc ctx :rule-params rule-params)
 
-              after-tx-checks-resolved (mapv #(resolve-check-lookup create-lookups->eid %) create-checks)
+              after-tx-checks-resolved (mapv #(resolve-check-lookup create-lookups->eid %) after-tx-checks)
               after-tx-checks-results (run-check-commands!
                                        (assoc ctx :preloaded-refs (cel/create-preloaded-refs-cache))
                                        after-tx-checks-resolved)
