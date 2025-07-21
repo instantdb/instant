@@ -123,9 +123,12 @@ jobs:
         do
           if [[ $file == "client/version.md" ]]; then
             echo "FOUND IT!"
+
             break
           fi
         done
+
+        echo "DONE"
 
 
   detect_changes:
