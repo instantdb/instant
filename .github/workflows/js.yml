@@ -261,7 +261,10 @@ jobs:
           echo "LIST CONFIG BEFORE END"
 
           pnpm config set "//registry.npmjs.org/:_authToken" $NODE_AUTH_TOKEN
+
           pnpm config set registry "https://registry.npmjs.org/"
+          pnpm config set "@instantdb:registry" "https://registry.npmjs.org/"
+
           echo "LIST CONFIG START"
           pnpm config list
           echo "LIST CONFIG END"
