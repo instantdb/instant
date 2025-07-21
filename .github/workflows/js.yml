@@ -256,12 +256,18 @@ jobs:
       - name: Publish experimental
         working-directory: client
         run: |
-          # pnpm config set //registry.npmjs.org/:_authToken $NODE_AUTH_TOKEN
+          echo "LIST CONFIG BEFORE START"
+          pnpm config list
+          echo "LIST CONFIG BEFORE END"
+
+          pnpm config set "//registry.npmjs.org/:_authToken" $NODE_AUTH_TOKEN
+          pnpm config set registry "https://registry.npmjs.org/"
+          echo "LIST CONFIG START"
+          pnpm config list
+          echo "LIST CONFIG END"
           make publish-experimental
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_API_KEY }}
-
-
 
   vercel-preview:
     name: Deploy to vercel preview
