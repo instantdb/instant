@@ -221,6 +221,7 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: client/pnpm-lock.yaml
           registry-url: 'https://registry.npmjs.org'
+          always-auth: true
 
       - name: Install dependencies
         working-directory: client
@@ -255,7 +256,7 @@ jobs:
       - name: Publish experimental
         working-directory: client
         run: |
-          pnpm config set //registry.npmjs.org/:_authToken $NODE_AUTH_TOKEN
+          # pnpm config set //registry.npmjs.org/:_authToken $NODE_AUTH_TOKEN
           make publish-experimental
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_API_KEY }}
