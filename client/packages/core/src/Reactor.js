@@ -74,12 +74,16 @@ const ignoreLogging = {
   'patch-presence': true,
 };
 
-function querySubsFromJSON(str) {
+function querySubsFromJSON(str, useDateObjects) {
   const parsed = JSON.parse(str);
   for (const key in parsed) {
     const v = parsed[key];
     if (v?.result?.store) {
-      v.result.store = s.fromJSON(v.result.store);
+      const storeJSON = v.result.store;
+      v.result.store = s.fromJSON({
+        ...storeJSON,
+        useDateObjects: useDateObjects,
+      });
     }
   }
   return parsed;
@@ -260,7 +264,7 @@ export default class Reactor {
       {},
       this._onMergeQuerySubs,
       querySubsToJSON,
-      querySubsFromJSON,
+      (str) => querySubsFromJSON(str, this.config.useDateObjects),
     );
     this.pendingMutations = new PersistedObject(
       this._persister,

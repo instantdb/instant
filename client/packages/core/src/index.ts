@@ -234,7 +234,9 @@ function reactorKey(config: InstantConfig<any, boolean>): string {
     '_' +
     (config.apiURI || 'default_api_uri') +
     '_' +
-    (adminToken || 'client_only')
+    (adminToken || 'client_only') +
+    '_' +
+    config.useDateObjects
   );
 }
 
