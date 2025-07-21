@@ -3,6 +3,12 @@
   "version": "v0.20.9",
   "description": "Admin SDK for Instant DB",
   "type": "module",
+  "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/admin",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/instantdb/instant.git",
+    "directory": "client/packages/admin"
+  },
   "main": "./dist/commonjs/index.js",
   "types": "./dist/commonjs/index.d.ts",
   "module": "./dist/esm/index.js",

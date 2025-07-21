@@ -2,6 +2,12 @@
   "name": "@instantdb/react",
   "version": "v0.20.9",
   "description": "Instant DB for React",
+  "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/react",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/instantdb/instant.git",
+    "directory": "client/packages/react"
+  },
   "type": "module",
   "main": "./dist/commonjs/index.js",
   "types": "./dist/commonjs/index.d.ts",

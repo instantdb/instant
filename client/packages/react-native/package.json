@@ -2,6 +2,12 @@
   "name": "@instantdb/react-native",
   "version": "v0.20.9",
   "description": "Instant DB for React Native",
+  "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/react-native",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/instantdb/instant.git",
+    "directory": "client/packages/react-native"
+  },
   "main": "dist/index.js",
   "module": "dist/module/index.js",
   "types": "dist/module/index.d.ts",

@@ -3,6 +3,12 @@
   "type": "module",
   "version": "v0.20.9",
   "description": "Instant's CLI",
+  "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/cli",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/instantdb/instant.git",
+    "directory": "client/packages/cli"
+  },
   "bin": {
     "instant-cli": "bin/index.js"
   },
