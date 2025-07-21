@@ -278,7 +278,7 @@ jobs:
     ## needs: [ build, detect_changes ]
     # needs: [ detect_changes ]
     # if: github.ref != 'refs/heads/main' && needs.detect_changes.outputs.packages_did_change == 'True'
-    if: github.event_name == 'pull_request' &&
+    if: github.event_name == 'pull_request' # && needs.detect_changes.outputs.version_did_change == 'True'
     permissions:
       contents: read
       id-token: write
