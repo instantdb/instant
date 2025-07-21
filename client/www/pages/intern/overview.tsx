@@ -228,7 +228,7 @@ export function Main() {
   const totalApps = Object.keys(sessions).length;
   const subInfo = daily.data?.['subscription-info'];
   return (
-    <div className="flex flex-col font-mono min-h-0">
+    <div className="flex flex-col font-mono h-full overflow-auto">
       <div className="p-4 space-x-4 flex items-center border-b">
         <LogoIcon size="normal" />
         <h3 className="text-xl">
@@ -245,16 +245,22 @@ export function Main() {
               </h1>
               <div className="font-bold leading-none">Monthly Active Apps</div>
             </div>
-            <div className="flex space-y-4">
+            <div className="grid grid-cols-2 gap-4 mt-4">
               <div>
                 <img src={charts['rolling-monthly-active-apps']} />
               </div>
               <div>
                 <img src={charts['month-to-date-active-apps']} />
               </div>
+              <div>
+                <img src={charts['rolling-avg-signups']} />
+              </div>
+              <div>
+                <img src={charts['weekly-signups']} />
+              </div>
             </div>
           </div>
-          <div className="flex space-x-8">
+          <div className="flex space-x-8 pb-4">
             <div>
               <h3 className="font-bold" style={{ fontSize: 30 }}>
                 {latestRolling['distinct_users']}
