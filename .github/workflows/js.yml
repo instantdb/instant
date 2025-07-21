@@ -156,7 +156,7 @@ jobs:
         echo "version_did_change=False" >> $GITHUB_OUTPUT
         for file in ${changeArr[*]}
         do
-          if [[ $file =~ version.md ]]; then
+          if [[ $file == "client/version.md" ]]; then
             echo "version_did_change=True" >> $GITHUB_OUTPUT
             break
           fi
