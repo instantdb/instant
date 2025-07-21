@@ -544,7 +544,7 @@ export type CreateParams<
     any,
     false
   >
-    ? ValueType | null
+    ? (ValueType extends Date ? string | number | Date : ValueType) | null
     : never;
 };
 
@@ -558,8 +558,10 @@ export type UpdateParams<
     any
   >
     ? IsRequired extends true
-      ? ValueType
-      : ValueType | null
+      ? ValueType extends Date
+        ? string | number | Date
+        : ValueType
+      : (ValueType extends Date ? string | number | Date : ValueType) | null
     : never;
 };
 
