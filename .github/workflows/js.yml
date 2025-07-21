@@ -268,9 +268,6 @@ jobs:
           echo "LIST CONFIG START"
           pnpm config list
           echo "LIST CONFIG END"
-          echo "WHICH BEFORE"
-          which pnpm
-          echo "WHICH AFTER"
           make publish-experimental
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_API_KEY }}
