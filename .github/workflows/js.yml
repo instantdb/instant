@@ -326,7 +326,7 @@ jobs:
         working-directory: client
         run: |
           bb -e '(spit "version.md"
-                       (format "%s-experimental.%s.%s\n"
+                       (format "%s-experimental.%s.%s.test\n"
                                (clojure.string/trim (slurp "version.md"))
                                (System/getenv "BRANCH_NAME")
                                (System/getenv "GITHUB_RUN_ID")))'
