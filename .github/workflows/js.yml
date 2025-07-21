@@ -93,7 +93,7 @@ jobs:
         working-directory: client
         run: pnpm run check-format
 
-  detect_changes:
+  debug_changes:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
