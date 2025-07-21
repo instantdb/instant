@@ -1,5 +1,6 @@
 {
   "$schema": "https://turborepo.org/schema.json",
+  "globalPassThroughEnv": ["NODE_AUTH_TOKEN", "NPM_CONFIG_USERCONFIG"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
@@ -22,7 +23,6 @@
     "dev": {
       "cache": false,
       "persistent": true
-    },
-    "globalPassThroughEnv": ["NODE_AUTH_TOKEN", "NPM_CONFIG_USERCONFIG"]
+    }
   }
 }
