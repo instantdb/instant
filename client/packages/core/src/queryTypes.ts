@@ -17,7 +17,7 @@ type BuiltIn = Date | Function | Error | RegExp;
 
 type Primitive = string | number | boolean | symbol | null | undefined;
 
-type Expand<T> = T extends BuiltIn | Primitive
+export type Expand<T> = T extends BuiltIn | Primitive
   ? T
   : T extends object
     ? T extends infer O
