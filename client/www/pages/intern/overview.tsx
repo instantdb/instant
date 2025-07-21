@@ -228,7 +228,7 @@ export function Main() {
   const totalApps = Object.keys(sessions).length;
   const subInfo = daily.data?.['subscription-info'];
   return (
-    <div className="flex flex-col font-mono min-h-0">
+    <div className="flex flex-col font-mono h-full overflow-auto">
       <div className="p-4 space-x-4 flex items-center border-b">
         <LogoIcon size="normal" />
         <h3 className="text-xl">
@@ -260,7 +260,7 @@ export function Main() {
               </div>
             </div>
           </div>
-          <div className="flex space-x-8">
+          <div className="flex space-x-8 pb-4">
             <div>
               <h3 className="font-bold" style={{ fontSize: 30 }}>
                 {latestRolling['distinct_users']}
