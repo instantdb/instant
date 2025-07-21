@@ -1,6 +1,6 @@
 {
   "name": "@instantdb/react",
-  "version": "v0.20.9",
+  "version": "v0.20.10",
   "description": "Instant DB for React",
   "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/react",
   "repository": {
