@@ -2,6 +2,12 @@
   "name": "@instantdb/mcp",
   "version": "v0.20.9",
   "description": "Model Context Protocol (MCP) server for managing Instant apps, schemas, and permissions!",
+  "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/mcp",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/instantdb/instant.git",
+    "directory": "client/packages/mcp"
+  },
   "type": "module",
   "bin": {
     "instant-mcp": "./dist/index.js"

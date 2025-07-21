@@ -2,6 +2,12 @@
   "name": "@instantdb/platform",
   "version": "v0.20.9",
   "description": "Instant's platform package for managing Instant apps.",
+  "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/platform",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/instantdb/instant.git",
+    "directory": "client/packages/platform"
+  },
   "type": "module",
   "main": "./dist/commonjs/index.js",
   "types": "./dist/commonjs/index.d.ts",
