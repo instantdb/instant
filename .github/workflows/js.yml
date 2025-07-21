@@ -286,6 +286,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
 
       - uses: pnpm/action-setup@v4
         with:
@@ -347,7 +349,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add .
           git commit -m "Update versions"
-          git push HEAD:${{ github.head_ref }}
+          git push
 
       - name: Debug
         if: failure()
