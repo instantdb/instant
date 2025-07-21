@@ -57,9 +57,6 @@ export default version;
 (defn -main [& args]
   (let [tag (first args)
         version (str/trim (slurp "version.md"))]
-    (println "PNPM CONFIG FROM SCRIPT")
-    (proc/shell "pnpm" "config" "list")
-    (println "PNPM CONFIG FROM SCRIPT END")
     (if tag
       (when (not (str/includes? version tag))
         (println (format "When publishing the `%s` tag, the version must contain the tag (e.g. v0.1.2-%s.0)."

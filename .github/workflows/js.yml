@@ -206,6 +206,9 @@ jobs:
     ## needs: [ build, detect_changes ]
     needs: [ detect_changes ]
     if: github.ref != 'refs/heads/main' && needs.detect_changes.outputs.packages_did_change == 'True'
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -247,7 +250,7 @@ jobs:
         working-directory: client
         run: |
           bb -e '(spit "version.md"
-                       (format "%s-experimental-%s.%s\n"
+                       (format "%s-experimental.%s.%s\n"
                                (clojure.string/trim (slurp "version.md"))
                                (System/getenv "BRANCH_NAME")
                                (System/getenv "GITHUB_RUN_ID")))'
@@ -255,22 +258,10 @@ jobs:
 
       - name: Publish experimental
         working-directory: client
-        run: |
-          echo "LIST CONFIG BEFORE START"
-          pnpm config list
-          echo "LIST CONFIG BEFORE END"
-
-          pnpm config set "//registry.npmjs.org/:_authToken" $NODE_AUTH_TOKEN
-
-          pnpm config set registry "https://registry.npmjs.org/"
-          pnpm config set "@instantdb:registry" "https://registry.npmjs.org/"
-
-          echo "LIST CONFIG START"
-          pnpm config list
-          echo "LIST CONFIG END"
-          make publish-experimental
+        run: make publish-experimental
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_API_KEY }}
+          NPM_CONFIG_PROVENANCE: true
 
       - name: Debug
         if: failure()
