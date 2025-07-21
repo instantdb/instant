@@ -245,12 +245,18 @@ export function Main() {
               </h1>
               <div className="font-bold leading-none">Monthly Active Apps</div>
             </div>
-            <div className="flex space-y-4">
+            <div className="grid grid-cols-2 gap-4 mt-4">
               <div>
                 <img src={charts['rolling-monthly-active-apps']} />
               </div>
               <div>
                 <img src={charts['month-to-date-active-apps']} />
+              </div>
+              <div>
+                <img src={charts['rolling-avg-signups']} />
+              </div>
+              <div>
+                <img src={charts['weekly-signups']} />
               </div>
             </div>
           </div>
