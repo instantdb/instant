@@ -281,7 +281,7 @@ jobs:
     # if: github.ref != 'refs/heads/main' && needs.detect_changes.outputs.packages_did_change == 'True'
     if: github.event_name == 'pull_request' # && needs.detect_changes.outputs.version_did_change == 'True'
     permissions:
-      contents: read
+      contents: write
       id-token: write
     steps:
       - name: Checkout
