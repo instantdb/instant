@@ -82,53 +82,49 @@
    original
    tx-steps))
 
-(defn object-upsert-check-program [{:keys [scope program etype eid data] :as _check}
+(defn object-upsert-check-program [{:keys [scope program etype eid data new-data] :as _check}
                                    {:keys [rule-params] :as _ctx}]
-  (let [{:keys [original updated]} data
-        rule-params (get rule-params {:eid eid :etype etype})]
+  (let [rule-params (get rule-params {:eid eid :etype etype})]
     (cond
       (not program)
       {:result true}
 
       (= :object/create scope)
       {:program program
-       :bindings {:data updated
-                  :new-data updated
+       :bindings {:data new-data
+                  :new-data new-data
                   :rule-params rule-params}}
 
       (= :object/update scope)
       {:program program
-       :bindings {:data original
-                  :new-data updated
+       :bindings {:data data
+                  :new-data new-data
                   :rule-params rule-params}})))
 
 (defn object-delete-check-program
   [{:keys [program etype eid data] :as _check}
    {:keys [rule-params] :as _ctx}]
-  (let [{:keys [original]} data
-        rule-params (get rule-params {:eid eid :etype etype})]
+  (let [rule-params (get rule-params {:eid eid :etype etype})]
     (if-not program
       {:result true}
       {:program program
-       :bindings {:data original
+       :bindings {:data data
                   :rule-params rule-params}})))
 
 (defn object-view-check-program [{:keys [program etype eid data] :as _check}
                                  {:keys [rule-params] :as _ctx}]
-  (let [{:keys [original]} data
-        rule-params (get rule-params {:eid eid :etype etype})]
+  (let [rule-params (get rule-params {:eid eid :etype etype})]
     (if-not program
       {:result true}
       {:program program
-       :bindings {:data original
+       :bindings {:data data
                   :rule-params rule-params}})))
 
-(defn attr-create-check-program [{:keys [program data]} _ctx]
-  (let [{:keys [updated]} data]
-    (if-not program
-      {:result true}
-      {:program program
-       :bindings {:data updated}})))
+(defn attr-create-check-program [{:keys [program new-data]} _ctx]
+  (if-not program
+    {:result true}
+    {:program program
+     :bindings {:data new-data}}))
 
 
 (defn check-program [check ctx]
@@ -155,12 +151,12 @@
        :update
        (let [program  (rule-model/get-program! rules etype (if (seq original) "update" "create"))
              new-data (apply-tx-steps attrs original tx-steps)]
-         {:scope   (if (seq original) :object/update :object/create)
-          :etype   etype
-          :eid     eid
-          :program program
-          :data    {:original original
-                    :updated  new-data}})
+         {:scope    (if (seq original) :object/update :object/create)
+          :etype    etype
+          :eid      eid
+          :program  program
+          :data     original
+          :new-data new-data})
 
        :delete
        {:scope   :object/delete
@@ -168,7 +164,7 @@
         :eid     eid
         :program (when etype
                    (rule-model/get-program! rules etype "delete"))
-        :data    {:original original}}
+        :data    original}
 
        :view
        (when (seq original)
@@ -176,7 +172,7 @@
           :etype   etype
           :eid     eid
           :program (rule-model/get-program! rules etype "view")
-          :data    {:original original}})
+          :data    original})
 
        nil))
    (filterv some?)))
@@ -287,10 +283,10 @@
       :add-attr
       (let [program (rule-model/get-program! (:rules ctx) "attrs" "create")
             attr    args]
-        {:etype   "attrs"
-         :scope   :attr/create
-         :program program
-         :data    {:updated attr}})
+        {:etype    "attrs"
+         :scope    :attr/create
+         :program  program
+         :new-data attr})
 
       :delete-attr
       {:etype  "attrs"
@@ -426,7 +422,7 @@
   (let [resolved-eid (resolve-lookup lookups->eid eid)]
     (-> check
         (assoc :eid resolved-eid)
-        (ucoll/assoc-in-when [:data :updated "id"] resolved-eid))))
+        (ucoll/assoc-in-when [:new-data "id"] resolved-eid))))
 
 (defn resolve-lookups-for-create-checks [tx-conn app-id checks]
   (let [lookups (->> checks
