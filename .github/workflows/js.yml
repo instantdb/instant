@@ -255,7 +255,7 @@ jobs:
       - name: Publish experimental
         working-directory: client
         run: |
-          pnpm config set //registry.npmjs.org/:_authToken $NPM_TOKEN
+          pnpm config set //registry.npmjs.org/:_authToken $NODE_AUTH_TOKEN
           make publish-experimental
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_API_KEY }}
