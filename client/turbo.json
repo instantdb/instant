@@ -8,7 +8,8 @@
     "GITHUB_RUN_ID",
     "GITHUB_RUN_ATTEMPT",
     "GITHUB_RUN_NUMBER",
-    "GITHUB_RUN_ID"
+    "GITHUB_RUN_ID",
+    "ACTIONS_ID_TOKEN_REQUEST_TOKEN"
   ],
   "tasks": {
     "build": {
