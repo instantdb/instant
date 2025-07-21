@@ -269,6 +269,13 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_API_KEY }}
 
+      - name: Debug
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-logs
+          path: /home/runner/.npm/_logs/
+
+
   vercel-preview:
     name: Deploy to vercel preview
     runs-on: ubuntu-latest
