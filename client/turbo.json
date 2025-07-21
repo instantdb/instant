@@ -22,6 +22,7 @@
     "dev": {
       "cache": false,
       "persistent": true
-    }
+    },
+    "globalPassThroughEnv": ["NODE_AUTH_TOKEN", "NPM_CONFIG_USERCONFIG"]
   }
 }
