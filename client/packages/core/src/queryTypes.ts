@@ -291,7 +291,7 @@ type InstaQLEntity<
   { id: string } & (Extract<Fields[number], string> extends undefined
     ? ResolveEntityAttrs<Schema['entities'][EntityName], UseDates>
     : DistributePick<
-        ResolveEntityAttrs<Schema['entities'][EntityName]>,
+        ResolveEntityAttrs<Schema['entities'][EntityName], UseDates>,
         Exclude<Fields[number], 'id'>
       >) &
     InstaQLEntitySubqueryResult<Schema, EntityName, Subquery>

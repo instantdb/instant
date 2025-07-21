@@ -32,10 +32,13 @@ export function init<
   UseDates extends boolean = false,
 >(
   config: InstantConfig<Schema, UseDates>,
-): InstantReactWebDatabase<InstantConfig<Schema, UseDates>> {
-  return new InstantReactWebDatabase<InstantConfig<Schema, UseDates>>(config, {
-    '@instantdb/react': version,
-  });
+): InstantReactWebDatabase<Schema, InstantConfig<Schema, UseDates>> {
+  return new InstantReactWebDatabase<Schema, InstantConfig<Schema, UseDates>>(
+    config,
+    {
+      '@instantdb/react': version,
+    },
+  );
 }
 
 /**

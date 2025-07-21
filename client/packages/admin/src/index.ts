@@ -83,7 +83,7 @@ type Config = {
   useDateObjects?: boolean;
 };
 
-type InstantConfig<
+export type InstantConfig<
   Schema extends InstantSchemaDef<any, any, any>,
   UseDates extends boolean = false,
 > = {
@@ -240,8 +240,10 @@ function init<
   UseDates extends boolean = false,
 >(
   config: InstantConfig<Schema, UseDates>,
-): InstantAdminDatabase<InstantConfig<Schema, UseDates>> {
-  return new InstantAdminDatabase<InstantConfig<Schema, UseDates>>(config);
+): InstantAdminDatabase<Schema, InstantConfig<Schema, UseDates>> {
+  return new InstantAdminDatabase<Schema, InstantConfig<Schema, UseDates>>(
+    config,
+  );
 }
 
 /**
@@ -710,9 +712,10 @@ type AdminQueryOpts = {
  *  const db = init({ appId: "my-app-id", adminToken: "my-admin-token" })
  */
 class InstantAdminDatabase<
-  Config extends InstantConfig<InstantSchemaDef<any, any, any>, boolean>,
+  Schema extends InstantSchemaDef<any, any, any>,
+  Config extends InstantConfig<Schema, boolean> = InstantConfig<Schema, false>,
 > {
-  config: InstantConfigFilled<Config['schema'], Config['useDateObjects']>;
+  config: InstantConfigFilled<Schema, Config['useDateObjects']>;
   auth: Auth;
   storage: Storage;
   rooms: Rooms<Config['schema']>;
@@ -724,7 +727,7 @@ class InstantAdminDatabase<
     this.config = instantConfigWithDefaults(_config);
     this.auth = new Auth(this.config);
     this.storage = new Storage(this.config);
-    this.rooms = new Rooms<Config['schema']>(this.config);
+    this.rooms = new Rooms<Schema>(this.config);
   }
 
   /**
@@ -736,8 +739,8 @@ class InstantAdminDatabase<
    * @example
    *  await db.asUser({email: "stopa@instantdb.com"}).query({ goals: {} })
    */
-  asUser = (opts: ImpersonationOpts): InstantAdminDatabase<Config> => {
-    const newClient = new InstantAdminDatabase<Config>({
+  asUser = (opts: ImpersonationOpts): InstantAdminDatabase<Schema, Config> => {
+    const newClient = new InstantAdminDatabase<Schema, Config>({
       ...(this.config as Config),
     });
     newClient.impersonationOpts = opts;
@@ -762,9 +765,7 @@ class InstantAdminDatabase<
   query = <Q extends InstaQLParams<Config['schema']>>(
     query: Q,
     opts: AdminQueryOpts = {},
-  ): Promise<
-    InstaQLResponse<Config['schema'], Q, Config['useDateObjects']>
-  > => {
+  ): Promise<InstaQLResponse<Schema, Q, Config['useDateObjects']>> => {
     if (query && opts && 'ruleParams' in opts) {
       query = { $$ruleParams: opts['ruleParams'], ...query };
     }
