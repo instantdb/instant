@@ -3,7 +3,8 @@
   "globalPassThroughEnv": [
     "NODE_AUTH_TOKEN",
     "NPM_CONFIG_USERCONFIG",
-    "NPM_CONFIG_PROVENANCE"
+    "NPM_CONFIG_PROVENANCE",
+    "GITHUB_ACTIONS"
   ],
   "tasks": {
     "build": {
