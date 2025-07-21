@@ -1,6 +1,6 @@
 {
   "name": "@instantdb/react-native",
-  "version": "v0.20.9",
+  "version": "v0.20.10",
   "description": "Instant DB for React Native",
   "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/react-native",
   "repository": {
