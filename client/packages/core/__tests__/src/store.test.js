@@ -610,3 +610,73 @@ test('recursive links w same id', () => {
   expect(removeResult.data.todos.length).toBe(0);
   expect(removeResult.data.fakeUsers.length).toBe(1);
 });
+
+test('date conversion', () => {
+  expect(() => {
+    const schema = i.schema({
+      entities: {
+        todos: i.entity({
+          completed: i.boolean().optional(),
+          createdAt: i.date().optional(),
+          title: i.string().optional(),
+        }),
+      },
+    });
+    const sameId = id();
+    const ops = [
+      instatx.tx.todos[sameId].update({
+        title: 'todo',
+        completed: false,
+        createdAt: new Date(),
+      }),
+    ];
+
+    const steps = instaml.transform({ attrs: {}, schema }, ops);
+    const store = createStore({}, [], true, createLinkIndex(schema), true);
+    const newStore = transact(store, steps);
+
+    const result = query(
+      { store: newStore, pageInfo: {}, aggregate: {} },
+      {
+        todos: {},
+      },
+    );
+
+    expect(result.data.todos.length).toBe(1);
+    expect(result.data.todos[0].createdAt).toBeInstanceOf(Date);
+  }).not.toThrow();
+
+  expect(() => {
+    const schema = i.schema({
+      entities: {
+        todos: i.entity({
+          completed: i.boolean().optional(),
+          createdAt: i.date().optional(),
+          title: i.string().optional(),
+        }),
+      },
+    });
+    const sameId = id();
+    const ops = [
+      instatx.tx.todos[sameId].update({
+        title: 'todo',
+        completed: false,
+        createdAt: 99999999999999,
+      }),
+    ];
+
+    const steps = instaml.transform({ attrs: {}, schema }, ops);
+    const store = createStore({}, [], true, createLinkIndex(schema), false);
+    const newStore = transact(store, steps);
+
+    const result = query(
+      { store: newStore, pageInfo: {}, aggregate: {} },
+      {
+        todos: {},
+      },
+    );
+
+    expect(result.data.todos.length).toBe(1);
+    expect(result.data.todos[0].createdAt).toBeTypeOf('number');
+  }).not.toThrow();
+});
