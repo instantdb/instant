@@ -137,6 +137,18 @@ jobs:
             break
           fi
         done
+    - name: Detect packages changes
+      id: detect-package-change
+      run: |
+        changeArr=($(echo ${{ steps.changed-files.outputs.changed_files }}))
+        echo "packages_did_change=False" >> $GITHUB_OUTPUT
+        for file in ${changeArr[*]}
+        do
+          if [[ $file =~ (packages|workflows/js\.yml) ]]; then
+            echo "packages_did_change=True" >> $GITHUB_OUTPUT
+            break
+          fi
+        done
     - name: Detect version.md change
       id: detect-version-change
       run: |
