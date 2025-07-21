@@ -212,7 +212,8 @@
 (defn rolling-avg-signups
   "Get rolling 7-day average signup counts for the last n weeks"
   ([conn weeks]
-   (let [end-date (LocalDate/now)
+   (let [;; Exclude today since it has incomplete data
+         end-date (.minusDays (LocalDate/now) 1)
          start-date (.minusWeeks end-date weeks)
          ;; Add extra days for the rolling window
          window-start (.minusDays start-date 6)]
@@ -223,7 +224,7 @@
                       COUNT(u.id) AS signup_count
                     FROM instant_users u
                     WHERE u.created_at >= ?::date
-                      AND u.created_at < (?::date + INTERVAL '1 day')
+                      AND u.created_at <= ?::date
                       AND u.email NOT IN (SELECT unnest(?::text[]))
                     GROUP BY 1
                   ),
@@ -250,12 +251,14 @@
 (defn weekly-signups
   "Get weekly signup counts (Monday-Sunday) for the last n weeks"
   ([conn weeks]
-   (let [end-date (LocalDate/now)
-         ;; Find the most recent Monday
-         days-since-monday (- (.getValue (.getDayOfWeek end-date)) 1)
-         last-monday (if (zero? days-since-monday)
-                       end-date
-                       (.minusDays end-date days-since-monday))
+   (let [;; Exclude today since it has incomplete data
+         end-date (.minusDays (LocalDate/now) 1)
+         ;; Find the most recent Sunday (end of a complete week)
+         days-since-sunday (mod (.getValue (.getDayOfWeek end-date)) 7)
+         last-sunday (if (zero? days-since-sunday)
+                       end-date 
+                       (.minusDays end-date days-since-sunday))
+         last-monday (.minusDays last-sunday 6)
          start-date (.minusWeeks last-monday weeks)]
      (sql/select conn
                  ["SELECT
@@ -263,12 +266,12 @@
                     COUNT(u.id) AS signup_count
                   FROM instant_users u
                   WHERE u.created_at >= ?::date
-                    AND u.created_at < ?::date
+                    AND u.created_at <= ?::date
                     AND u.email NOT IN (SELECT unnest(?::text[]))
                   GROUP BY 1
                   ORDER BY 1"
                   start-date
-                  last-monday
+                  last-sunday
                   (with-meta (excluded-emails) {:pgtype "text[]"})]))))
 
 ;; ----------------- 
