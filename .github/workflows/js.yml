@@ -115,6 +115,18 @@ jobs:
         do
           echo "$file"
         done
+    - name: Detect docs changes
+      id: detect-docs-change
+      run: |
+        changeArr=($(echo ${{ steps.changed-files.outputs.changed_files }}))
+        for file in ${changeArr[*]}
+        do
+          if [[ $file == "client/version.md" ]]; then
+            echo "FOUND IT!"
+            break
+          fi
+        done
+
 
   detect_changes:
     runs-on: ubuntu-latest
