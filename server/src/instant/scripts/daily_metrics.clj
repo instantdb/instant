@@ -20,6 +20,27 @@
   (let [{:keys [test team friend]} (get-emails)]
     (vec (concat test team friend))))
 
+(defn get-daily-signups
+  "Returns the number of signups for a day"
+  ([date-str]
+   (get-daily-signups (aurora/conn-pool :read) date-str))
+  ([conn date-str]
+   (sql/select-one conn
+                   ["SELECT
+                      DATE_TRUNC('day', u.created_at) AS signup_date,
+                      COUNT(u.id) AS signup_count
+                    FROM instant_users u
+                WHERE DATE_TRUNC('day', u.created_at) = DATE(?)
+                  AND u.email NOT IN (SELECT unnest(?::text[]))
+                GROUP BY 1
+                ORDER BY 1"
+                    date-str
+                    (with-meta (excluded-emails) {:pgtype "text[]"})])))
+
+(comment
+  (tool/with-prod-conn [conn]
+    (get-daily-signups conn "2025-07-21")))
+
 (defn get-daily-actives
   "Returns the number of active devs and apps for a day"
   ([date-str]
@@ -43,15 +64,24 @@
 
 (defn send-discord!
   "Ping the discord channel with the metrics for a specific date"
-  [charts stats date-str]
+  [charts stats signups date-str]
   (let [{:keys [distinct_users distinct_apps]} stats
-        message (str "🎯 Daily metrics for " date-str
+        stats-message (str "🎯 Daily active metrics for " date-str
                      ": Active Devs: **" distinct_users
                      "**, Active Apps: **" distinct_apps
-                     "**")]
-    (discord/send-with-files! config/discord-teams-channel-id
-                              charts
-                              message)))
+                     "**")
+        signups-message (str "🎯 Num signups for " date-str
+                             ": **" (:signup_count signups) "**")
+        stats-charts (filter (comp #{"rolling-monthly-active-apps.png" "month-to-date-active-apps.png"} :name)
+                              charts)
+        signups-charts (filter (comp #{"rolling-avg-signups.png" "weekly-signups.png"} :name)
+                              charts)]
+    (discord/send-with-files! config/discord-debug-channel-id
+                              stats-charts
+                              stats-message)
+   (discord/send-with-files! config/discord-debug-channel-id
+                              signups-charts
+                              signups-message)))
 
 (defn insert-new-activity
   "Insert new transactions into the daily_app_transactions table.
@@ -106,8 +136,9 @@
      (str "daily-metrics-" date-str)
      (fn []
        (insert-new-activity)
-       (let [stats (get-daily-actives date-minus-one-str)
-             conn (aurora/conn-pool :read)
+       (let [conn (aurora/conn-pool :read)
+             stats (get-daily-actives conn date-minus-one-str)
+             signups (get-daily-signups conn "2025-07-01")
              charts (->> (metrics/overview-metrics conn)
                          :charts
                          (map (fn [[k chart]]
@@ -115,7 +146,7 @@
                                  :content-type "image/png"
                                  :content (metrics/chart->png-bytes chart
                                                                     400 400)})))]
-         (send-discord! charts stats date-minus-one-str))))))
+         (send-discord! charts stats signups date-minus-one-str))))))
 
 (comment
   (def t1 (-> (LocalDate/parse "2024-10-09")
