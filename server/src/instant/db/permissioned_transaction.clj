@@ -11,7 +11,6 @@
    [instant.jdbc.sql :as sql]
    [instant.model.rule :as rule-model]
    [instant.util.exception :as ex]
-   [instant.util.io :as io]
    [instant.util.string :as string-util]
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
@@ -81,101 +80,6 @@
            (assoc label val))))
    original
    tx-steps))
-
-(defn object-upsert-check-program [{:keys [scope program etype eid data new-data] :as _check}
-                                   {:keys [rule-params] :as _ctx}]
-  (let [rule-params (get rule-params {:eid eid :etype etype})]
-    (cond
-      (not program)
-      {:result true}
-
-      (= :object/create scope)
-      {:program program
-       :bindings {:data new-data
-                  :new-data new-data
-                  :rule-params rule-params}}
-
-      (= :object/update scope)
-      {:program program
-       :bindings {:data data
-                  :new-data new-data
-                  :rule-params rule-params}})))
-
-(defn object-delete-check-program
-  [{:keys [program etype eid data] :as _check}
-   {:keys [rule-params] :as _ctx}]
-  (let [rule-params (get rule-params {:eid eid :etype etype})]
-    (if-not program
-      {:result true}
-      {:program program
-       :bindings {:data data
-                  :rule-params rule-params}})))
-
-(defn object-view-check-program [{:keys [program etype eid data] :as _check}
-                                 {:keys [rule-params] :as _ctx}]
-  (let [rule-params (get rule-params {:eid eid :etype etype})]
-    (if-not program
-      {:result true}
-      {:program program
-       :bindings {:data data
-                  :rule-params rule-params}})))
-
-(defn attr-create-check-program [{:keys [program new-data]} _ctx]
-  (if-not program
-    {:result true}
-    {:program program
-     :bindings {:data new-data}}))
-
-
-(defn check-program [check ctx]
-  (case (:scope check)
-    :object/create (object-upsert-check-program check ctx)
-    :object/update (object-upsert-check-program check ctx)
-    :object/delete (object-delete-check-program check ctx)
-    :object/view   (object-view-check-program check ctx)
-    :attr/create   (attr-create-check-program check ctx)
-    :attr/delete   {:result (:admin? ctx)}
-    :attr/update   {:result (:admin? ctx)}))
-
-
-(defn object-checks
-  "Creates check commands for each object in the transaction"
-  [{:keys [attrs rules] :as ctx} preloaded-triples]
-  (->>
-   (for [[k v] preloaded-triples
-         :let [{:keys [eid etype action]} k
-               {:keys [triples tx-steps]} v
-               original (entity-model/triples->map ctx triples)]]
-     (case action
-       ;; update op is used both for create and for update
-       :update
-       (let [program  (rule-model/get-program! rules etype (if (seq original) "update" "create"))
-             new-data (apply-tx-steps attrs original tx-steps)]
-         {:scope    (if (seq original) :object/update :object/create)
-          :etype    etype
-          :eid      eid
-          :program  program
-          :data     original
-          :new-data new-data})
-
-       :delete
-       {:scope   :object/delete
-        :etype   etype
-        :eid     eid
-        :program (when etype
-                   (rule-model/get-program! rules etype "delete"))
-        :data    original}
-
-       :view
-       (when (seq original)
-         {:scope   :object/view
-          :etype   etype
-          :eid     eid
-          :program (rule-model/get-program! rules etype "view")
-          :data    original})
-
-       nil))
-   (filterv some?)))
 
 (defn throw-mismatched-lookup-ns! [tx-step]
   (ex/throw-validation-err!
@@ -272,57 +176,111 @@
           {:groups {} :rule-params-to-copy {}}
           tx-steps))
 
-(defn get-new-attrs [attr-changes]
-  (->> attr-changes
-       (filter (comp #{:add-attr} first))
-       (map second)))
-
-(defn attr-checks [ctx attr-changes]
-  (for [[action args] attr-changes]
-    (case action
-      :add-attr
-      (let [program (rule-model/get-program! (:rules ctx) "attrs" "create")
-            attr    args]
-        {:etype    "attrs"
-         :scope    :attr/create
-         :program  program
-         :new-data attr})
+(defn before-tx-attr-checks [ctx tx-steps]
+  (for [tx-step tx-steps]
+    (case (nth tx-step 0)
+      :update-attr
+      {:scope    :attr
+       :action   :update
+       :etype    "attrs"
+       :program  {:result (:admin? ctx)}}
 
       :delete-attr
-      {:etype  "attrs"
-       :scope  :attr/delete}
+      {:scope    :attr
+       :action   :delete
+       :etype    "attrs"
+       :program  {:result (:admin? ctx)}}
 
-      :update-attr
-      {:etype  "attrs"
-       :scope  :attr/update})))
+      nil)))
 
-(defn run-check-commands! [ctx checks]
-  (let [{:keys [programs no-programs]}
-        (reduce (fn [acc c]
-                  (let [program-or-result (check-program c ctx)]
-                    (assert (or (contains? program-or-result :result)
-                                (contains? program-or-result :program)))
-                    (if (contains? program-or-result :result)
-                      (assoc-in acc
-                                [:no-programs c] program-or-result)
-                      (assoc-in acc
-                                [:programs c]
-                                program-or-result))))
-                {:programs {}
-                 :no-programs {}}
-                checks)
-        program-results (cel/eval-programs! ctx programs)]
-    (reduce-kv (fn [acc {:keys [etype scope] :as c} {:keys [result]}]
-                 (conj acc (if (:admin-check? ctx)
-                             (assoc c
-                                    :check-result result
-                                    :check-pass? (boolean result))
-                             (ex/assert-permitted! :perms-pass?
-                                                   [etype scope]
-                                                   result))))
-               []
-               (merge program-results
-                      no-programs))))
+(defn after-tx-attr-checks [ctx tx-steps]
+  (for [tx-step tx-steps]
+    (case (nth tx-step 0)
+      :add-attr
+      {:scope    :attr
+       :action   :create
+       :etype    "attrs"
+       :program  (or (rule-model/get-program! (:rules ctx) "attrs" "create")
+                     {:result true})
+       :bindings {:data (nth tx-step 1)}}
+
+      nil)))
+
+(defn before-tx-object-checks [ctx preloaded-triples]
+  (let [{:keys [attrs rules rule-params]} ctx]
+    (for [[k v] preloaded-triples
+          :let [{:keys [eid etype action]} k
+                {:keys [triples tx-steps]} v
+                original (entity-model/triples->map ctx triples)]
+          :when (seq original)] ;; view/update/delete
+      (case action
+        :update
+        {:scope    :object
+         :action   :update
+         :etype    etype
+         :eid      eid
+         :program  (or (rule-model/get-program! rules etype "update")
+                       {:result true})
+         :bindings {:data        original
+                    :new-data    (apply-tx-steps attrs original tx-steps)
+                    :rule-params (get rule-params {:eid eid :etype etype})}}
+
+        :delete
+        {:scope    :object
+         :action   :delete
+         :etype    etype
+         :eid      eid
+         :program  (or (rule-model/get-program! rules etype "delete")
+                       {:result true})
+         :bindings {:data        original
+                    :rule-params (get rule-params {:eid eid :etype etype})}}
+
+        :view
+        {:scope    :object
+         :action   :view
+         :etype    etype
+         :eid      eid
+         :program  (or (rule-model/get-program! rules etype "view")
+                       {:result true})
+         :bindings {:data        original
+                    :rule-params (get rule-params {:eid eid :etype etype})}}
+
+        nil))))
+
+(defn after-tx-object-checks [ctx preloaded-triples]
+  (let [{:keys [attrs rules rule-params]} ctx]
+    (for [[k v] preloaded-triples
+          :let [{:keys [eid etype action]} k
+                {:keys [triples tx-steps]} v
+                original (entity-model/triples->map ctx triples)]
+          :when (empty? original)] ;; create
+      (case action
+        :update
+        (let [new-data (apply-tx-steps attrs {} tx-steps)]
+          {:scope    :object
+           :action   :create
+           :etype    etype
+           :eid      eid
+           :program  (or (rule-model/get-program! rules etype "create")
+                         {:result true})
+           :bindings {:data        new-data
+                      :new-data    new-data
+                      :rule-params (get rule-params {:eid eid :etype etype})}})
+
+        nil))))
+
+(defn run-checks! [ctx checks]
+  (for [check (cel/eval-programs! ctx checks)
+        :let [{:keys [scope etype result]} check]]
+    (if (:admin-check? ctx)
+      (-> check
+          (dissoc :result)
+          (assoc
+           :check-result result
+           :check-pass?  (boolean result)))
+      (ex/assert-permitted! :perms-pass?
+                            [etype scope]
+                            result))))
 
 ;; ------------
 ;; Data preload
@@ -418,11 +376,12 @@
    :else
    found))
 
-(defn resolve-check-lookup [lookups->eid {:keys [eid] :as check}]
-  (let [resolved-eid (resolve-lookup lookups->eid eid)]
-    (-> check
-        (assoc :eid resolved-eid)
-        (ucoll/assoc-in-when [:new-data "id"] resolved-eid))))
+(defn resolve-check-lookup [lookups->eid check]
+  (let [resolve-eid #(resolve-lookup lookups->eid %)]
+    (some-> check
+            (update :eid resolve-eid)
+            (ucoll/update-in-when [:bindings :data "id"] resolve-eid)
+            (ucoll/update-in-when [:bindings :new-data "id"] resolve-eid))))
 
 (defn resolve-lookups-for-create-checks [tx-conn app-id checks]
   (let [lookups (->> checks
@@ -458,16 +417,7 @@
         (tx/transact-without-tx-conn! tx-conn attrs app-id tx-steps {})
         (let [optimistic-attrs (tx/optimistic-attrs attrs tx-steps)
               grouped-tx-steps (tx/preprocess-tx-steps tx-steps tx-conn optimistic-attrs app-id)
-              attr-changes     (concat
-                                (:add-attr grouped-tx-steps)
-                                (:delete-attr grouped-tx-steps)
-                                (:update-attr grouped-tx-steps))
-
-              object-changes   (concat
-                                (:add-triple grouped-tx-steps)
-                                (:deep-merge-triple grouped-tx-steps)
-                                (:retract-triple grouped-tx-steps)
-                                (:delete-entity grouped-tx-steps))
+              tx-steps'        (apply concat (vals grouped-tx-steps))
 
               ;; Use the db connection we have so that we don't cause a deadlock
               ;; Also need to be able to read our own writes for the create checks
@@ -478,25 +428,22 @@
               {grouped-changes :groups
                rule-params-to-copy :rule-params-to-copy}
               (group-object-tx-steps ctx
-                                     (concat object-changes (:rule-params grouped-tx-steps)))
+                                     (concat
+                                      (:add-triple grouped-tx-steps)
+                                      (:deep-merge-triple grouped-tx-steps)
+                                      (:retract-triple grouped-tx-steps)
+                                      (:delete-entity grouped-tx-steps)
+                                      (:rule-params grouped-tx-steps)))
 
               ;; If we were really smart, we would fetch the triples and the
               ;; update-delete data-ref dependencies in one go.
               preloaded-triples (preload-triples ctx grouped-changes)
 
-              check-commands
-              (io/warn-io :check-commands
-                          (concat
-                           (attr-checks ctx attr-changes)
-                           ;; Use preloaded-triples instead of object-changes.
-                           ;; It has all the same data, but the preload will also
-                           ;; resolve etypes for older version of delete-entity
-                           (object-checks ctx preloaded-triples)))
-
-              [after-tx-checks
-               before-tx-checks] (ucoll/split-by #(#{:attr/create :object/create} (:scope %)) check-commands)
-
               lookups->eid (lookup->eid-from-preloaded-triples preloaded-triples)
+
+              preloaded-triples (into {}
+                                      (for [[k v] preloaded-triples]
+                                        [(update k :eid #(get lookups->eid % %)) v]))
 
               ;; { {:eid <eid>, :etype <etype>} -> params }
               user-rule-params (reduce
@@ -522,19 +469,24 @@
 
               ctx (assoc ctx :rule-params rule-params)
 
-              before-tx-checks-resolved
-              (mapv #(resolve-check-lookup lookups->eid %) before-tx-checks)
+              before-tx-checks (->>
+                                (concat
+                                 (before-tx-attr-checks ctx tx-steps')
+                                 (before-tx-object-checks ctx preloaded-triples))
+                                (mapv #(resolve-check-lookup lookups->eid %)))
 
-              before-tx-checks-results
-              (run-check-commands! (assoc ctx
-                                          :preloaded-refs (cel/create-preloaded-refs-cache))
-                                   before-tx-checks-resolved)
+              before-tx-checks-results (run-checks!
+                                        (assoc ctx :preloaded-refs (cel/create-preloaded-refs-cache))
+                                        before-tx-checks)
 
               tx-data
               (tx/transact-without-tx-conn-impl! tx-conn (:attrs ctx) app-id grouped-tx-steps {})
 
               ;; update lookups with newly created triples
-              create-lookups->eid (some->> (concat after-tx-checks (keys rule-params))
+              create-lookups->eid (some->> (concat
+                                            (after-tx-attr-checks ctx tx-steps')
+                                            (after-tx-object-checks ctx preloaded-triples)
+                                            (keys rule-params))
                                            (map :eid)
                                            (filter sequential?)
                                            not-empty
@@ -545,22 +497,29 @@
                              {:eid   (get create-lookups->eid eid eid)
                               :etype etype})
                            rule-params)
+
               ctx (assoc ctx :rule-params rule-params)
 
-              after-tx-checks-resolved (mapv #(resolve-check-lookup create-lookups->eid %) after-tx-checks)
-              after-tx-checks-results (run-check-commands!
+              after-tx-checks (->>
+                               (concat
+                                (after-tx-attr-checks ctx tx-steps')
+                                (after-tx-object-checks ctx preloaded-triples))
+                               (mapv #(resolve-check-lookup create-lookups->eid %)))
+
+              after-tx-checks-results (run-checks!
                                        (assoc ctx :preloaded-refs (cel/create-preloaded-refs-cache))
-                                       after-tx-checks-resolved)
-              all-check-results (concat before-tx-checks-results
-                                        after-tx-checks-results)
-              all-checks-ok? (every? (fn [r] (-> r :check-result)) all-check-results)
+                                       after-tx-checks)
+
+              check-results (concat before-tx-checks-results
+                                    after-tx-checks-results)
+              all-checks-ok? (every? (fn [r] (-> r :check-result)) check-results)
               rollback? (and admin-check?
-                             (or admin-dry-run? (not all-checks-ok?)))
-              result (assoc
-                      tx-data
-                      :check-results all-check-results
-                      :all-checks-ok? all-checks-ok?
-                      :committed? (not rollback?))]
+                             (or admin-dry-run?
+                                 (not all-checks-ok?)))
+              result (assoc tx-data
+                            :check-results  check-results
+                            :all-checks-ok? all-checks-ok?
+                            :committed?     (not rollback?))]
           (when rollback? (.rollback tx-conn))
           result)))))
 

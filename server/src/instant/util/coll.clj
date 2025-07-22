@@ -219,13 +219,16 @@
     [(persistent! f) (persistent! r)]))
 
 (defn map-by
-  "Given xs, builds a map of {(key-fn x) x}"
-  [key-fn xs]
-  (persistent!
-   (reduce
-    (fn [m x]
-      (assoc! m (key-fn x) x))
-    (transient {}) xs)))
+  "Given xs, builds a map of {(key-fn x) (val-fn x)}.
+   If omitted, val-fn is assumed to be identity"
+  ([key-fn xs]
+   (map-by key-fn identity xs))
+  ([key-fn val-fn xs]
+   (persistent!
+    (reduce
+     (fn [m x]
+       (assoc! m (key-fn x) (val-fn x)))
+     (transient {}) xs))))
 
 (defn group-by-to
   "Like group-by but applies (val-fn x) to values"
