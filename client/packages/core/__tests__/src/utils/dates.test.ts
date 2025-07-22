@@ -53,6 +53,8 @@ describe('coerceToDate', () => {
             expect(result.getUTCMinutes()).toBe(0);
             expect(result.getUTCSeconds()).toBe(0);
             break;
+          default:
+            throw new Error(`Unexpected date string: ${dateString}`);
         }
       });
     });

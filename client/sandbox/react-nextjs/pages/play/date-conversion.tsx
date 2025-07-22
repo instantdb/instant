@@ -26,7 +26,7 @@ const dateTypes = {
   jsonString: new Date().toJSON(),
   invalidJsonString: JSON.stringify(new Date()),
   invalidString: 'invalid',
-  backendCanParseOnly: '2025-01-02T00:00:00-08',
+  requiresSpecialParsing: '2025-01-02T00:00:00-08',
 };
 
 const schema = i.schema({
