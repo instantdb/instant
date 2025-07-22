@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { id, i, InstantReactAbstractDatabase, Cursor } from '@instantdb/react';
+import { id, i, InstantReactAbstractDatabase } from '@instantdb/react';
 import EphemeralAppPage from '../../components/EphemeralAppPage';
 
 const schema = i.schema({
@@ -14,8 +14,8 @@ const schema = i.schema({
 const pageSize = 5;
 
 type CursorPagination =
-  | { first: number; after?: Cursor }
-  | { last: number; before?: Cursor };
+  | { first: number; after?: [string, string, any, number] }
+  | { last: number; before?: [string, string, any, number] };
 
 function Messages({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
   const [page, setPage] = useState(1);
