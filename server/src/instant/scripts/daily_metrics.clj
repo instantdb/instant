@@ -62,30 +62,17 @@
                     date-str
                     (with-meta (excluded-emails) {:pgtype "text[]"})])))
 
-(def metric-configs
-  [{:name :stats
-    :data-fn get-daily-actives
-    :chart-names #{"rolling-monthly-active-apps.png" "month-to-date-active-apps.png"}
-    :message-fn (fn [data date-str]
-                  (let [{:keys [distinct_users distinct_apps]} data]
-                    (str "🎯 Daily active metrics for " date-str
-                         ": Active Devs: **" distinct_users
-                         "**, Active Apps: **" distinct_apps
-                         "**")))}
-   {:name :signups
-    :data-fn get-daily-signups
-    :chart-names #{"rolling-avg-signups.png" "weekly-signups.png"}
-    :message-fn (fn [data date-str]
-                  (str "🎯 Num signups for " date-str
-                       ": **" (:signup_count data) "**"))}])
-
 (defn send-metrics-to-discord!
-  "Generic function to send metrics to Discord with their relevant charts"
-  [conn all-charts metric-config date-str]
-  (let [{:keys [data-fn chart-names message-fn]} metric-config
-        data (data-fn conn date-str)
-        charts (filter (comp chart-names :name) all-charts)
-        message (message-fn data date-str)]
+  "Send daily metrics to Discord"
+  [conn charts date-str]
+  (let [stats (get-daily-actives conn date-str)
+        {:keys [distinct_users distinct_apps]} stats
+        signups (get-daily-signups conn date-str)
+        message (str "🎯 Daily active metrics for " date-str
+                     ": Active Devs: **" distinct_users
+                     "**, Active Apps: **" distinct_apps
+                     "** Num signups: **" (:signup_count signups)
+                     "**")]
     (discord/send-with-files! config/discord-teams-channel-id
                               charts
                               message)))
@@ -149,10 +136,10 @@
                          (map (fn [[k chart]]
                                 {:name (format "%s.png" (name k))
                                  :content-type "image/png"
+                                 ;; 273/173 is how discord resizes images
                                  :content (metrics/chart->png-bytes chart
-                                                                    400 400)})))]
-         (doseq [config metric-configs]
-           (send-metrics-to-discord! conn charts config date-minus-one-str)))))))
+                                                                    (* 2 273) (* 2 173))})))]
+         (send-metrics-to-discord! conn charts date-minus-one-str))))))
 
 (comment
   (def t1 (-> (LocalDate/parse "2024-10-09")
