@@ -53,25 +53,58 @@ function rfc1123ToInstant(s) {
 
 function dowMonDayYearStrToInstant(s) {
   // Format: "EEE MMM dd yyyy" (e.g., "Wed Jan 15 2025")
-  // Parse and set to start of day UTC
-  const date = new Date(s);
-  date.setUTCHours(0, 0, 0, 0);
-  return date;
+
+  //Only parse if the string is in the correct format
+  const regex = /^(\w{3}) (\w{3}) (\d{2}) (\d{4})$/;
+  const match = s.match(regex);
+
+  if (!match) {
+    throw new Error(`Unable to parse \`${s}\` as a date.`);
+  }
+
+  const date = new Date(s + ' UTC'); // Force UTC parsing
+  return new Date(
+    Date.UTC(
+      date.getUTCFullYear(),
+      date.getUTCMonth(),
+      date.getUTCDate(),
+      0,
+      0,
+      0,
+      0,
+    ),
+  );
+}
+
+function iso8601IncompleteOffsetToInstant(s) {
+  // Format: "2025-01-02T00:00:00-08" (missing minutes in timezone offset)
+  // Convert to proper ISO 8601 format by adding ":00" to the timezone offset
+  const regex = /^(.+T.+)([+-])(\d{2})$/;
+  const match = s.match(regex);
+
+  if (match) {
+    const [, dateTimePart, sign, hours] = match;
+    const correctedString = `${dateTimePart}${sign}${hours}:00`;
+    return new Date(correctedString);
+  }
+
+  return null;
 }
 
 // Array of parsers
 const dateParsers = [
-  zonedDateTimeStrToInstant,
-  localDateTimeStrToInstant,
-  localDateStrToInstant,
-  rfc1123ToInstant,
-  offioDateStrToInstant,
   zenecaDateStrToInstant,
   dowMonDayYearStrToInstant,
+  rfc1123ToInstant,
+  localDateStrToInstant,
+  localDateTimeStrToInstant,
+  zonedDateTimeStrToInstant,
+  iso8601IncompleteOffsetToInstant,
+  offioDateStrToInstant,
 ];
 
 // Try to parse with a specific parser
-function tryParseDateString(parser, s) {
+function tryParseDateString(parser, s: string) {
   try {
     const result = parser(s);
     // Check if result is valid date
