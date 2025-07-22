@@ -2140,10 +2140,18 @@
                                                                first
                                                                (get "exists")))
                               (:page-info group) (assoc-in [:page-info :has-previous-page?]
-                                                           (-> sql-res
-                                                               (get (name (has-prev-tbl table)))
-                                                               first
-                                                               (get "exists"))))
+                                                           (let [has-prev (-> sql-res
+                                                                             (get (name (has-prev-tbl table)))
+                                                                             first
+                                                                             (get "exists"))
+                                                                 offset (get-in group [:page-info :offset])
+                                                                 after-cursor (get-in group [:page-info :after])]
+                                                             ;; If the page is empty but we have an offset > 0 or an after cursor,
+                                                             ;; then there must be previous pages
+                                                             (or has-prev
+                                                                 (and (empty? rows)
+                                                                      (or (and offset (pos? offset))
+                                                                          (some? after-cursor)))))))
                      datalog-query (if join-sym
                                      (replace-join-sym-in-datalog-query join-sym
                                                                         join-val
