@@ -62,26 +62,33 @@
                     date-str
                     (with-meta (excluded-emails) {:pgtype "text[]"})])))
 
-(defn send-discord!
-  "Ping the discord channel with the metrics for a specific date"
-  [charts stats signups date-str]
-  (let [{:keys [distinct_users distinct_apps]} stats
-        stats-message (str "🎯 Daily active metrics for " date-str
-                     ": Active Devs: **" distinct_users
-                     "**, Active Apps: **" distinct_apps
-                     "**")
-        signups-message (str "🎯 Num signups for " date-str
-                             ": **" (:signup_count signups) "**")
-        stats-charts (filter (comp #{"rolling-monthly-active-apps.png" "month-to-date-active-apps.png"} :name)
-                              charts)
-        signups-charts (filter (comp #{"rolling-avg-signups.png" "weekly-signups.png"} :name)
-                              charts)]
-    (discord/send-with-files! config/discord-debug-channel-id
-                              stats-charts
-                              stats-message)
-   (discord/send-with-files! config/discord-debug-channel-id
-                              signups-charts
-                              signups-message)))
+(def metric-configs
+  [{:name :stats
+    :data-fn get-daily-actives
+    :chart-names #{"rolling-monthly-active-apps.png" "month-to-date-active-apps.png"}
+    :message-fn (fn [data date-str]
+                  (let [{:keys [distinct_users distinct_apps]} data]
+                    (str "🎯 Daily active metrics for " date-str
+                         ": Active Devs: **" distinct_users
+                         "**, Active Apps: **" distinct_apps
+                         "**")))}
+   {:name :signups
+    :data-fn get-daily-signups
+    :chart-names #{"rolling-avg-signups.png" "weekly-signups.png"}
+    :message-fn (fn [data date-str]
+                  (str "🎯 Num signups for " date-str
+                       ": **" (:signup_count data) "**"))}])
+
+(defn send-metrics-to-discord!
+  "Generic function to send metrics to Discord with their relevant charts"
+  [conn all-charts metric-config date-str]
+  (let [{:keys [data-fn chart-names message-fn]} metric-config
+        data (data-fn conn date-str)
+        charts (filter (comp chart-names :name) all-charts)
+        message (message-fn data date-str)]
+    (discord/send-with-files! config/discord-teams-channel-id
+                              charts
+                              message)))
 
 (defn insert-new-activity
   "Insert new transactions into the daily_app_transactions table.
@@ -137,8 +144,6 @@
      (fn []
        (insert-new-activity)
        (let [conn (aurora/conn-pool :read)
-             stats (get-daily-actives conn date-minus-one-str)
-             signups (get-daily-signups conn "2025-07-01")
              charts (->> (metrics/overview-metrics conn)
                          :charts
                          (map (fn [[k chart]]
@@ -146,7 +151,8 @@
                                  :content-type "image/png"
                                  :content (metrics/chart->png-bytes chart
                                                                     400 400)})))]
-         (send-discord! charts stats signups date-minus-one-str))))))
+         (doseq [config metric-configs]
+           (send-metrics-to-discord! conn charts config date-minus-one-str)))))))
 
 (comment
   (def t1 (-> (LocalDate/parse "2024-10-09")
