@@ -1,70 +1,109 @@
-export function coerceToDate(value: unknown): Date {
-  if (value instanceof Date) {
-    return value;
+// Main parse function that handles strings and numbers
+export function coerceToDate(x: unknown): Date {
+  if (x instanceof Date) {
+    return x;
   }
-
-  if (typeof value === 'string' || typeof value === 'number') {
-    let dateValue = value;
-
-    if (typeof value === 'string') {
-      dateValue = fixDateString(value);
+  if (typeof x === 'string') {
+    const result = dateStrToInstant(x) || jsonStrToInstant(x);
+    if (!result) {
+      throw new Error(`Unable to parse date string ${x}`);
     }
-
-    const date = new Date(dateValue);
-    if (isNaN(date.getTime())) {
-      if (typeof value === 'string') {
-        const alternativeDate = tryAlternativeParsing(value);
-        if (alternativeDate) {
-          return alternativeDate;
-        }
-      }
-      throw new Error(
-        `Invalid date value: ${value} (processed as: ${dateValue})`,
-      );
-    }
-    return date;
+    return result;
+  } else if (typeof x === 'number') {
+    return new Date(x);
   }
-
-  throw new Error(`Cannot coerce value to Date: ${value}`);
+  throw new Error(`Invalid date value type: ${typeof x}`);
 }
 
-function fixDateString(dateStr: string): string {
-  let fixed = dateStr.trim();
-
-  // Remove literal quote characters from the beginning and end
-  fixed = fixed.replace(/^["']|["']$/g, '');
-
-  // Fix timezone offset format: -08 -> -08:00, +05 -> +05:00
-  fixed = fixed.replace(/([+-]\d{2})(?!:)$/, '$1:00');
-
-  // Replace space between date and time with 'T' for ISO format
-  fixed = fixed.replace(/^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})/, '$1T$2');
-
-  return fixed;
+// Date parsing functions
+function zonedDateTimeStrToInstant(s) {
+  return new Date(s);
 }
 
-function tryAlternativeParsing(dateStr: string): Date | null {
-  const isoMatch = dateStr.match(
-    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{3}))?Z?$/,
-  );
-  if (isoMatch) {
-    const [, year, month, day, hour, minute, second, ms = '0'] = isoMatch;
-    const date = new Date(
-      Date.UTC(
-        parseInt(year),
-        parseInt(month) - 1, // Month is 0-indexed
-        parseInt(day),
-        parseInt(hour),
-        parseInt(minute),
-        parseInt(second),
-        parseInt(ms),
-      ),
-    );
+function localDateTimeStrToInstant(s) {
+  // Parse as UTC since there's no timezone info
+  return new Date(s + 'Z');
+}
 
-    if (!isNaN(date.getTime())) {
-      return date;
+function localDateStrToInstant(s) {
+  // Parse date and set to start of day in UTC
+  return new Date(s + 'T00:00:00Z');
+}
+
+// Custom date formatters
+function offioDateStrToInstant(s) {
+  // Format: "yyyy-MM-dd HH:mm:ss"
+  // Treat as UTC
+  const [datePart, timePart] = s.split(' ');
+  return new Date(datePart + 'T' + timePart + 'Z');
+}
+
+function zenecaDateStrToInstant(s) {
+  // Format: "yyyy-MM-dd HH:mm:ss.n"
+  // Treat as UTC
+  const [datePart, timeWithNanos] = s.split(' ');
+  // JavaScript Date can handle fractional seconds
+  return new Date(datePart + 'T' + timeWithNanos + 'Z');
+}
+
+function rfc1123ToInstant(s) {
+  // RFC 1123 format is natively supported by Date constructor
+  return new Date(s);
+}
+
+function dowMonDayYearStrToInstant(s) {
+  // Format: "EEE MMM dd yyyy" (e.g., "Wed Jan 15 2025")
+  // Parse and set to start of day UTC
+  const date = new Date(s);
+  date.setUTCHours(0, 0, 0, 0);
+  return date;
+}
+
+// Array of parsers
+const dateParsers = [
+  zonedDateTimeStrToInstant,
+  localDateTimeStrToInstant,
+  localDateStrToInstant,
+  rfc1123ToInstant,
+  offioDateStrToInstant,
+  zenecaDateStrToInstant,
+  dowMonDayYearStrToInstant,
+];
+
+// Try to parse with a specific parser
+function tryParseDateString(parser, s) {
+  try {
+    const result = parser(s);
+    // Check if result is valid date
+    if (result instanceof Date && !isNaN(result.getTime())) {
+      return result;
+    }
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Try all parsers until one succeeds
+function dateStrToInstant(s) {
+  for (const parser of dateParsers) {
+    const instant = tryParseDateString(parser, s);
+    if (instant) {
+      return instant;
     }
   }
-
   return null;
+}
+
+// Parse JSON string and then try date parsing
+function jsonStrToInstant(maybeJson: string) {
+  try {
+    const s = JSON.parse(maybeJson);
+    if (typeof s === 'string') {
+      return dateStrToInstant(s);
+    }
+    return null;
+  } catch (e) {
+    return null;
+  }
 }
