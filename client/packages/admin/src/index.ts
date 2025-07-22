@@ -41,6 +41,9 @@ import {
   type LinkAttrDef,
   type LinkDef,
   type LinksDef,
+  type RoomsOf,
+  type PresenceOf,
+  type RoomHandle,
   type ResolveAttrs,
   type ValueTypes,
   type InstantSchemaDef,
@@ -51,13 +54,13 @@ import {
   type UpdateParams,
   type LinkParams,
   type RuleParams,
+  type TopicsOf,
+  type TopicOf,
 
   // storage types
   type FileOpts,
   type UploadFileResponse,
   type DeleteFileResponse,
-  RoomsOf,
-  PresenceOf,
 } from '@instantdb/core';
 
 import version from './version.js';
@@ -929,6 +932,9 @@ export {
   type LinkDef,
   type LinksDef,
   type ResolveAttrs,
+  type RoomsOf,
+  type PresenceOf,
+  type RoomHandle,
   type ValueTypes,
   type InstantSchemaDef,
   type InstantUnknownSchema,

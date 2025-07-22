@@ -1,4 +1,5 @@
 import type { RoomSchemaShape } from './presence.ts';
+import { Expand } from './queryTypes.ts';
 
 export class DataAttrDef<
   ValueType,
@@ -304,10 +305,10 @@ export type ResolveAttrs<
 
 export type RoomsFromDef<RDef extends RoomsDef> = {
   [RoomName in keyof RDef]: {
-    presence: ResolveEntityAttrs<RDef[RoomName]['presence']>;
+    presence: Expand<ResolveEntityAttrs<RDef[RoomName]['presence']>>;
     topics: {
-      [TopicName in keyof RDef[RoomName]['topics']]: ResolveEntityAttrs<
-        RDef[RoomName]['topics'][TopicName]
+      [TopicName in keyof RDef[RoomName]['topics']]: Expand<
+        ResolveEntityAttrs<RDef[RoomName]['topics'][TopicName]>
       >;
     };
   };
