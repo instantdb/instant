@@ -20,6 +20,27 @@
   (let [{:keys [test team friend]} (get-emails)]
     (vec (concat test team friend))))
 
+(defn get-daily-signups
+  "Returns the number of signups for a day"
+  ([date-str]
+   (get-daily-signups (aurora/conn-pool :read) date-str))
+  ([conn date-str]
+   (sql/select-one conn
+                   ["SELECT
+                      DATE_TRUNC('day', u.created_at) AS signup_date,
+                      COUNT(u.id) AS signup_count
+                    FROM instant_users u
+                WHERE DATE_TRUNC('day', u.created_at) = DATE(?)
+                  AND u.email NOT IN (SELECT unnest(?::text[]))
+                GROUP BY 1
+                ORDER BY 1"
+                    date-str
+                    (with-meta (excluded-emails) {:pgtype "text[]"})])))
+
+(comment
+  (tool/with-prod-conn [conn]
+    (get-daily-signups conn "2025-07-21")))
+
 (defn get-daily-actives
   "Returns the number of active devs and apps for a day"
   ([date-str]
@@ -41,13 +62,16 @@
                     date-str
                     (with-meta (excluded-emails) {:pgtype "text[]"})])))
 
-(defn send-discord!
-  "Ping the discord channel with the metrics for a specific date"
-  [charts stats date-str]
-  (let [{:keys [distinct_users distinct_apps]} stats
-        message (str "🎯 Daily metrics for " date-str
+(defn send-metrics-to-discord!
+  "Send daily metrics to Discord"
+  [conn charts date-str]
+  (let [stats (get-daily-actives conn date-str)
+        {:keys [distinct_users distinct_apps]} stats
+        signups (get-daily-signups conn date-str)
+        message (str "🎯 Daily active metrics for " date-str
                      ": Active Devs: **" distinct_users
                      "**, Active Apps: **" distinct_apps
+                     "**, Num signups: **" (:signup_count signups)
                      "**")]
     (discord/send-with-files! config/discord-teams-channel-id
                               charts
@@ -106,16 +130,16 @@
      (str "daily-metrics-" date-str)
      (fn []
        (insert-new-activity)
-       (let [stats (get-daily-actives date-minus-one-str)
-             conn (aurora/conn-pool :read)
+       (let [conn (aurora/conn-pool :read)
              charts (->> (metrics/overview-metrics conn)
                          :charts
                          (map (fn [[k chart]]
                                 {:name (format "%s.png" (name k))
                                  :content-type "image/png"
+                                 ;; 273/173 is how discord resizes images
                                  :content (metrics/chart->png-bytes chart
-                                                                    400 400)})))]
-         (send-discord! charts stats date-minus-one-str))))))
+                                                                    (* 2 273) (* 2 173))})))]
+         (send-metrics-to-discord! conn charts date-minus-one-str))))))
 
 (comment
   (def t1 (-> (LocalDate/parse "2024-10-09")
