@@ -71,7 +71,7 @@
         message (str "🎯 Daily active metrics for " date-str
                      ": Active Devs: **" distinct_users
                      "**, Active Apps: **" distinct_apps
-                     "** Num signups: **" (:signup_count signups)
+                     "**, Num signups: **" (:signup_count signups)
                      "**")]
     (discord/send-with-files! config/discord-teams-channel-id
                               charts
