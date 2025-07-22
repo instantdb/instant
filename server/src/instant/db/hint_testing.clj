@@ -1,22 +1,15 @@
 (ns instant.db.hint-testing
   (:refer-clojure :exclude [test])
   (:require
-   [instant.util.json :refer [->json]]
    [clojure.core.async :as a]
    [clojure.core.cache.wrapped :as cache]
-   [clojure.walk :as walk]
    [instant.db.datalog :as d]
-   [instant.db.datalog :as d]
-   [instant.db.instaql :as instaql]
-   [instant.db.model.attr :as attr-model]
    [instant.flags :as flags]
-   [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
-   [instant.jdbc.sql :as sql]
-   [instant.util.instaql :refer [forms-hash instaql-nodes->object-tree]]
+   [instant.util.instaql :refer [forms-hash]]
+   [instant.util.json :refer [->json]]
    [instant.util.tracer :as tracer]
-   [lambdaisland.deep-diff2 :as ddiff]
-   [tool]))
+   [lambdaisland.deep-diff2 :as ddiff]))
 
 (def triples-alias-sorted-map
   (sorted-map-by (fn [a b]
@@ -128,7 +121,7 @@
               _ (tracer/with-span! {:name "test-pg-hint-plan/initialize"}
                   (try
                     (permissioned-query-fn ctx o)
-                    (catch Exception e
+                    (catch Exception _e
                       nil)))]
           (doseq [{:keys [ctx patterns]} @patterns-to-test]
             (test-pg-hints-for-datalog-query ctx patterns o query-hash)))))))
