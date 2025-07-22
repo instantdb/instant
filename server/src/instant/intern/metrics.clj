@@ -201,13 +201,10 @@
      conn
      {:month-date (LocalDate/parse "2025-01-01")})))
 
-(defn format-date-label [date-val]
-  (if (instance? java.time.LocalDate date-val)
-    (.format date-val (java.time.format.DateTimeFormatter/ofPattern "MMM d"))
-    (let [sql-date (if (instance? java.sql.Timestamp date-val)
-                     (.toLocalDate (.toLocalDateTime date-val))
-                     (.toLocalDate date-val))]
-      (.format sql-date (java.time.format.DateTimeFormatter/ofPattern "MMM d")))))
+(defn format-date-label [^java.sql.Date date-val]
+  (let [local-date (.toLocalDate date-val)
+        formatter (java.time.format.DateTimeFormatter/ofPattern "MMM d")]
+    (.format local-date formatter)))
 
 (defn rolling-avg-signups
   "Get rolling 7-day average signup counts for the last n weeks"
