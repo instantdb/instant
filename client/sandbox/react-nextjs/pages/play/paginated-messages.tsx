@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { id, i, InstantReactAbstractDatabase } from '@instantdb/react';
+import { id, i, InstantReactAbstractDatabase, Cursor } from '@instantdb/react';
 import EphemeralAppPage from '../../components/EphemeralAppPage';
 
 const schema = i.schema({
@@ -13,20 +13,32 @@ const schema = i.schema({
 
 const pageSize = 5;
 
+type CursorPagination =
+  | { first: number; after?: Cursor }
+  | { last: number; before?: Cursor };
+
 function Messages({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
   const [page, setPage] = useState(1);
   const [inputValue, setInputValue] = useState('');
+  const [cursors, setCursors] = useState<CursorPagination>({ first: pageSize });
+  const [useCursors, setUseCursors] = useState(false);
 
   const { isLoading, error, data, pageInfo } = db.useQuery({
     messages: {
-      $: {
-        limit: pageSize,
-        offset: pageSize * (page - 1),
-        order: { createdAt: 'asc' },
-      },
+      $: useCursors
+        ? {
+            ...cursors,
+            order: { createdAt: 'asc' },
+          }
+        : {
+            limit: pageSize,
+            offset: pageSize * (page - 1),
+            order: { createdAt: 'asc' },
+          },
     },
   });
 
+  console.log('Page info:', pageInfo);
   const { hasNextPage, hasPreviousPage } = pageInfo?.messages || {};
   const messages = data?.messages || [];
 
@@ -51,11 +63,38 @@ function Messages({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
   };
 
   const loadNextPage = () => {
-    setPage((prev) => prev + 1);
+    if (useCursors) {
+      const endCursor = pageInfo?.messages?.endCursor;
+      if (endCursor) {
+        setCursors({ after: endCursor, first: pageSize });
+      }
+    } else {
+      setPage((prev) => prev + 1);
+    }
   };
 
   const loadPreviousPage = () => {
-    setPage((prev) => Math.max(prev - 1, 1));
+    if (useCursors) {
+      const startCursor = pageInfo?.messages?.startCursor;
+      if (startCursor) {
+        setCursors({
+          before: startCursor,
+          last: pageSize,
+        });
+      } else {
+        // If there's no start cursor, we're at the beginning
+        setCursors({ first: pageSize });
+      }
+    } else {
+      setPage((prev) => Math.max(prev - 1, 1));
+    }
+  };
+
+  const togglePaginationMode = () => {
+    setUseCursors(!useCursors);
+    // Reset pagination state
+    setPage(1);
+    setCursors({ first: pageSize });
   };
 
   const deleteAll = async () => {
@@ -70,13 +109,21 @@ function Messages({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
   return (
     <div className="min-h-screen p-8 max-w-2xl mx-auto">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">Messages</h1>
-        <button
-          onClick={deleteAll}
-          className="px-4 py-2 text-red-600 hover:text-red-800 transition-colors"
-        >
-          Delete All
-        </button>
+        <h1 className="text-2xl font-bold">Paginated Messages</h1>
+        <div className="flex gap-2">
+          <button
+            onClick={togglePaginationMode}
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+          >
+            {useCursors ? 'Switch to Offset' : 'Switch to Cursor'}
+          </button>
+          <button
+            onClick={deleteAll}
+            className="px-4 py-2 text-red-600 hover:text-red-800 transition-colors"
+          >
+            Delete All
+          </button>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="mb-8">
@@ -130,7 +177,7 @@ function Messages({ db }: { db: InstantReactAbstractDatabase<typeof schema> }) {
           )}
         </div>
         <span className="text-gray-600 absolute left-1/2 transform -translate-x-1/2">
-          Page {page}
+          {useCursors ? 'Cursor-based' : `Page ${page}`}
         </span>
         <div className="flex-1 flex justify-end">
           {hasNextPage && (
