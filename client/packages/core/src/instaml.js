@@ -1,6 +1,7 @@
 import { allMapValues } from './store.js';
 import { getOps, isLookup, parseLookup } from './instatx.ts';
 import { immutableRemoveUndefined } from './utils/object.js';
+import { coerceToDate } from './utils/dates.ts';
 import uuid from './utils/uuid.ts';
 
 // Rewrites optimistic attrs with the attrs we get back from the server.
@@ -238,6 +239,11 @@ function expandCreate(ctx, step) {
     .concat(Object.entries(obj))
     .map(([identName, value]) => {
       const attr = getAttrByFwdIdentName(attrs, etype, identName);
+
+      if (attr['checked-data-type'] === 'date' && ctx.useDateObjects) {
+        value = coerceToDate(value);
+      }
+
       return ['add-triple', lookup, attr.id, value, { mode: 'create' }];
     });
   return attrTuples;
@@ -254,6 +260,11 @@ function expandUpdate(ctx, step) {
     .concat(Object.entries(obj))
     .map(([identName, value]) => {
       const attr = getAttrByFwdIdentName(attrs, etype, identName);
+
+      if (attr['checked-data-type'] === 'date' && ctx.useDateObjects) {
+        value = coerceToDate(value);
+      }
+
       return [
         'add-triple',
         lookup,

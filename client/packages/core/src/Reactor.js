@@ -1062,6 +1062,7 @@ export default class Reactor {
           stores: Object.values(this.querySubs.currentValue).map(
             (sub) => sub?.result?.store,
           ),
+          useDateObjects: this.config.useDateObjects,
         },
         chunks,
       );

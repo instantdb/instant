@@ -1,5 +1,6 @@
 import { create } from 'mutative';
 import { immutableDeepMerge } from './utils/object.js';
+import { coerceToDate } from './utils/dates.ts';
 
 function hasEA(attr) {
   return attr['cardinality'] === 'one';
@@ -51,19 +52,6 @@ function isDateAttr(attr) {
   return attr['checked-data-type'] === 'date';
 }
 
-function coerceToDate(value) {
-  if (value instanceof Date) {
-    return value;
-  }
-
-  if (typeof value === 'string' || typeof value === 'number') {
-    const date = new Date(value);
-    return isNaN(date.getTime()) ? value : date;
-  }
-
-  return value;
-}
-
 function createTripleIndexes(attrs, triples, useDateObjects) {
   const eav = new Map();
   const aev = new Map();
@@ -76,11 +64,7 @@ function createTripleIndexes(attrs, triples, useDateObjects) {
       continue;
     }
 
-    if (
-      attr['checked-data-type'] &&
-      attr['checked-data-type'] === 'date' &&
-      useDateObjects
-    ) {
+    if (attr['checked-data-type'] === 'date' && useDateObjects) {
       v = coerceToDate(v);
       triple[2] = v;
     }
@@ -287,11 +271,7 @@ function addTriple(store, rawTriple) {
     return;
   }
 
-  if (
-    attr['checked-data-type'] &&
-    attr['checked-data-type'] === 'date' &&
-    store.useDateObjects
-  ) {
+  if (attr['checked-data-type'] === 'date' && store.useDateObjects) {
     v = coerceToDate(v);
   }
 
