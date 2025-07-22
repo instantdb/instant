@@ -1,20 +1,3 @@
-// Main parse function that handles strings and numbers
-export function coerceToDate(x: unknown): Date {
-  if (x instanceof Date) {
-    return x;
-  }
-  if (typeof x === 'string') {
-    const result = dateStrToInstant(x) || jsonStrToInstant(x);
-    if (!result) {
-      throw new Error(`Unable to parse date string ${x}`);
-    }
-    return result;
-  } else if (typeof x === 'number') {
-    return new Date(x);
-  }
-  throw new Error(`Invalid date value type: ${typeof x}`);
-}
-
 // Date parsing functions
 function zonedDateTimeStrToInstant(s) {
   return new Date(s);
@@ -139,4 +122,23 @@ function jsonStrToInstant(maybeJson: string) {
   } catch (e) {
     return null;
   }
+}
+
+// Main parse function that handles strings and numbers
+export function coerceToDate(x: unknown): Date {
+  if (x instanceof Date) {
+    return x;
+  }
+  if (typeof x === 'string') {
+    const result = dateStrToInstant(x) || jsonStrToInstant(x);
+    if (!result) {
+      throw new Error(`Unable to parse \`${x}\` as a date.`);
+    }
+    return result;
+  } else if (typeof x === 'number') {
+    return new Date(x);
+  }
+  throw new Error(
+    `Invalid date value \`${x}\`. Expected a date, number, or string, got type ${typeof x}.`,
+  );
 }
