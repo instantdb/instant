@@ -119,7 +119,6 @@
                                            "Access-Control-Max-Age" max-age
                                            "Cache-Control" (str "public, max-age=" max-age)}))))))
 
-
 (defn not-found [_req]
   (response/not-found {:message "Oops! We couldn't match this route."}))
 

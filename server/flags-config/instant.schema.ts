@@ -3,7 +3,7 @@
 import { i } from "@instantdb/core";
 
 const _schema = i.schema({
-  // We inferred 8 attributes!
+  // We inferred 1 attribute!
   // Take a look at this schema, and if everything looks good,
   // run `push schema` again to enforce the types.
   entities: {
@@ -30,17 +30,22 @@ const _schema = i.schema({
       "invalidator-rate": i.number(),
     }),
     flags: i.entity({
+      description: i.string().optional(),
       setting: i.string().unique(),
       value: i.json(),
     }),
     "friend-emails": i.entity({
       email: i.string().unique(),
     }),
+    "handle-receive-timeout": i.entity({
+      appId: i.string().unique(),
+      timeoutMs: i.number(),
+    }),
     hazelcast: i.entity({
       "default-value": i.boolean().optional(),
       disabled: i.boolean().optional(),
-      "disabled-apps": i.json().optional(),
-      "enabled-apps": i.json().optional(),
+      "disabled-apps": i.any().optional(),
+      "enabled-apps": i.any().optional(),
     }),
     "log-sampled-apps": i.entity({
       appId: i.string().unique(),
@@ -61,23 +66,19 @@ const _schema = i.schema({
     "rate-limited-apps": i.entity({
       appId: i.string().unique(),
     }),
-    "handle-receive-timeout": i.entity({
-      appId: i.string().unique(),
-      timeoutMs: i.number(),
-    }),
     "refresh-skip-attrs": i.entity({
       "default-value": i.boolean().optional(),
       disabled: i.boolean().optional(),
-      "disabled-apps": i.json().optional(),
+      "disabled-apps": i.any().optional(),
       "enabled-apps": i.any().optional(),
     }),
     "rule-where-testing": i.entity({
       enabled: i.boolean(),
     }),
     "rule-wheres": i.entity({
-      "app-ids": i.json(),
-      "query-hash-blacklist": i.json(),
-      "query-hashes": i.json(),
+      "app-ids": i.any(),
+      "query-hash-blacklist": i.any(),
+      "query-hashes": i.any(),
     }),
     "storage-block-list": i.entity({
       appId: i.string().unique().indexed(),
@@ -114,8 +115,8 @@ const _schema = i.schema({
     }),
     "view-checks": i.entity({
       "default-value": i.boolean().optional(),
-      "disabled-apps": i.json().optional(),
-      "enabled-apps": i.json().optional(),
+      "disabled-apps": i.any().optional(),
+      "enabled-apps": i.any().optional(),
     }),
     "welcome-email-config": i.entity({
       "enabled?": i.boolean(),
@@ -128,7 +129,7 @@ const _schema = i.schema({
 
 // This helps Typescript display nicer intellisense
 type _AppSchema = typeof _schema;
-interface AppSchema extends _AppSchema { }
+interface AppSchema extends _AppSchema {}
 const schema: AppSchema = _schema;
 
 export type { AppSchema };
