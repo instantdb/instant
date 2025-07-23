@@ -3,13 +3,12 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { MetricsOverview } from './metrics-overview';
-import { ProblemPages } from './problem-pages';
+import { FeedbackPages } from './feedback-pages';
 import { PageDrilldown } from './page-drilldown';
-import { RecentRatings } from './recent-ratings';
-import { AdminRatingsView } from './admin-ratings-view';
+import { AdminRatingsSection } from './admin-ratings-section';
 import db from '@/lib/intern/docs-feedback/db';
 
-type View = 'overview' | 'drilldown' | 'admin';
+type View = 'overview' | 'drilldown';
 
 export function AnalyticsDashboard() {
   const router = useRouter();
@@ -43,11 +42,6 @@ export function AnalyticsDashboard() {
     updateURL('overview');
   };
 
-  const handleViewAdmin = () => {
-    setCurrentView('admin');
-    updateURL('admin');
-  };
-
   const handleSignOut = () => {
     db.auth.signOut();
   };
@@ -74,14 +68,6 @@ export function AnalyticsDashboard() {
             </p>
           </div>
           <div className="flex items-center space-x-3">
-            {currentView === 'overview' && (
-              <button
-                onClick={handleViewAdmin}
-                className="px-4 py-2 text-sm font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded-md hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
-              >
-                Admin View
-              </button>
-            )}
             <button
               onClick={handleSignOut}
               className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
@@ -95,8 +81,8 @@ export function AnalyticsDashboard() {
           {currentView === 'overview' && (
             <>
               <MetricsOverview />
-              <RecentRatings onPageClick={handlePageClick} />
-              <ProblemPages onPageClick={handlePageClick} />
+              <AdminRatingsSection />
+              <FeedbackPages onPageClick={handlePageClick} />
             </>
           )}
 
@@ -105,10 +91,6 @@ export function AnalyticsDashboard() {
               pageId={selectedPageId}
               onBack={handleBackToOverview}
             />
-          )}
-
-          {currentView === 'admin' && (
-            <AdminRatingsView onBack={handleBackToOverview} />
           )}
         </div>
       </div>

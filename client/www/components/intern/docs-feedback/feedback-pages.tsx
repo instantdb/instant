@@ -14,11 +14,11 @@ type SortField =
   | 'unhelpfulCount';
 type SortDirection = 'asc' | 'desc';
 
-interface ProblemPagesProps {
+interface FeedbackPagesProps {
   onPageClick?: (pageId: string) => void;
 }
 
-export function ProblemPages({ onPageClick }: ProblemPagesProps) {
+export function FeedbackPages({ onPageClick }: FeedbackPagesProps) {
   const { pageMetrics, isLoading, error } = usePageMetrics();
   const [sortField, setSortField] = useState<SortField>('satisfactionRate');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -76,7 +76,7 @@ export function ProblemPages({ onPageClick }: ProblemPagesProps) {
     return (
       <div className="bg-white rounded-lg shadow-md p-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">
-          Problem Pages
+          Feedback Pages
         </h2>
         <div className="animate-pulse">
           <div className="space-y-3">
@@ -93,7 +93,7 @@ export function ProblemPages({ onPageClick }: ProblemPagesProps) {
     return (
       <div className="bg-white rounded-lg shadow-md p-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">
-          Problem Pages
+          Feedback Pages
         </h2>
         <div className="text-red-600">
           Error loading page metrics: {error.message}
@@ -106,7 +106,7 @@ export function ProblemPages({ onPageClick }: ProblemPagesProps) {
     return (
       <div className="bg-white rounded-lg shadow-md p-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">
-          Problem Pages
+          Feedback Pages
         </h2>
         <div className="text-gray-500 text-center py-8">
           No feedback data available yet

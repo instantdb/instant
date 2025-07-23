@@ -163,9 +163,10 @@ export function useRecentRatings(daysAgo: number = 10): {
     return ratings.filter((rating) => {
       // Check if createdAt exists and is within the cutoff
       if (rating.createdAt) {
-        const createdAtTimestamp = typeof rating.createdAt === 'string'
-          ? new Date(rating.createdAt).getTime()
-          : rating.createdAt;
+        const createdAtTimestamp =
+          typeof rating.createdAt === 'string'
+            ? new Date(rating.createdAt).getTime()
+            : rating.createdAt;
         return createdAtTimestamp >= cutoffTimestamp;
       }
 

@@ -1,16 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Rating } from '@/lib/intern/docs-feedback/analytics';
 import db from '@/lib/intern/docs-feedback/db';
 
-interface AdminRatingsViewProps {
-  onBack: () => void;
-}
+const ITEMS_PER_PAGE = 25;
 
-const ITEMS_PER_PAGE = 50;
-
-export function AdminRatingsView({ onBack }: AdminRatingsViewProps) {
+export function AdminRatingsSection() {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedRatings, setSelectedRatings] = useState<Set<string>>(
     new Set(),
@@ -115,7 +110,7 @@ export function AdminRatingsView({ onBack }: AdminRatingsViewProps) {
   if (isLoading) {
     return (
       <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Admin View</h2>
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Ratings</h2>
         <div className="animate-pulse">
           <div className="bg-gray-200 h-96 rounded"></div>
         </div>
@@ -126,7 +121,7 @@ export function AdminRatingsView({ onBack }: AdminRatingsViewProps) {
   if (error) {
     return (
       <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Admin View</h2>
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Ratings</h2>
         <div className="text-red-600">
           Error loading ratings: {error.message}
         </div>
@@ -136,20 +131,7 @@ export function AdminRatingsView({ onBack }: AdminRatingsViewProps) {
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900">Admin View</h2>
-          <p className="text-sm text-gray-600 mt-1">
-            Manage all feedback ratings
-          </p>
-        </div>
-        <button
-          onClick={onBack}
-          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-        >
-          Back to Overview
-        </button>
-      </div>
+      <h2 className="text-xl font-semibold text-gray-900 mb-6">Ratings</h2>
 
       {/* Archive toggle and action buttons */}
       <div className="flex justify-between items-center mb-4">
