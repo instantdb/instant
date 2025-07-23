@@ -249,3 +249,8 @@
   [f init xs]
   (persistent!
    (reduce f (transient init) xs)))
+
+(defn update!
+  "update for transients"
+  [m k f & args]
+  (assoc! m k (apply f (get m k) args)))
