@@ -147,10 +147,14 @@
                           (assoc acc (keyword setting) toggled))
                         {}
                         (get result "toggles"))
-        flags (reduce (fn [acc {:strs [setting value]}]
-                        (assoc acc (keyword setting) value))
-                      {}
-                      (get result "flags"))
+        flags (->
+               (reduce (fn [acc {:strs [setting value]}]
+                         (assoc acc (keyword setting) value))
+                       {}
+                       (get result "flags"))
+               (update :tika-enabled-apps (fn [vs]
+                                            (set (map parse-uuid vs)))))
+
         handle-receive-timeout (reduce (fn [acc {:strs [appId timeoutMs]}]
                                          (assoc acc (parse-uuid appId) timeoutMs))
                                        {}
