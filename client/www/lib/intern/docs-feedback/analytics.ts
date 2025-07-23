@@ -23,6 +23,7 @@ export function useRatings() {
   const { data, isLoading, error } = db.useQuery({
     ratings: {
       $: {
+        where: { isArchived: { $not: true } },
         order: { serverCreatedAt: 'desc' },
       },
     },
