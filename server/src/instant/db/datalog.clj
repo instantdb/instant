@@ -677,7 +677,7 @@
     (uuid-util/coerce s)
     (uuid-util/coerce (str s (subs all-fs-uuid (count s))))))
 
-(defn- value-function-clauses [app-id idx [v-tag v-value]]
+(defn- value-function-clauses [app-id triples-alias idx [v-tag v-value]]
   (case v-tag
     :function (let [[func val] (first v-value)]
                 (case func
@@ -687,21 +687,22 @@
                                :in)
                              :entity-id
                              (let [reverse-ref? (and (:ref? val)
-                                                     (:reverse? val))]
+                                                     (:reverse? val))
+                                   alias (kw triples-alias :-subquery)]
                                {:select (if reverse-ref?
-                                          [[[:cast [:->> :t.value :0] :uuid]]]
-                                          :t.entity-id)
-                                :from [[:triples :t]]
+                                          [[[:cast [:->> (kw alias :.value) :0] :uuid]]]
+                                          (kw alias :.entity-id))
+                                :from [[:triples alias]]
                                 :where (list* :and
-                                              [:= :t.app-id app-id]
-                                              [:= :t.entity-id :entity-id]
-                                              [:= :t.attr-id (:attr-id val)]
+                                              [:= (kw alias :.app-id) app-id]
+                                              [:= (kw alias :.entity-id) :entity-id]
+                                              [:= (kw alias :.attr-id) (:attr-id val)]
                                               (when reverse-ref?
                                                 :eav)
                                               (if-let [data-type (:indexed-checked-type val)]
                                                 [:ave
-                                                 (data-type-comparison data-type :not= :t.value nil)]
-                                                [[:not= :t.value [:cast (->json nil) :jsonb]]]))})]]
+                                                 (data-type-comparison data-type :not= (kw alias :.value) nil)]
+                                                [[:not= (kw alias :.value) [:cast (->json nil) :jsonb]]]))})]]
                   :$comparator (let [{:keys [op value data-type]} val]
                                  [(data-type-comparison data-type
                                                         (case op
@@ -727,9 +728,9 @@
                   :$not [[:not= :entity-id val]]))
     []))
 
-(defn- function-clauses [app-id named-pattern]
+(defn- function-clauses [app-id triples-alias named-pattern]
   (concat
-   (value-function-clauses app-id (:idx named-pattern) (:v named-pattern))
+   (value-function-clauses app-id triples-alias (:idx named-pattern) (:v named-pattern))
    (entity-function-clauses (:e named-pattern))))
 
 (defn patch-values-for-av-index
@@ -808,17 +809,21 @@
     [:and [:= :app-id app-id]
           [:= :value [:cast \"25\" :jsonb]]]
   "
-  [app-id {:keys [idx] :as named-pattern} additional-clauses]
-  (list*
-   :and
-   [:= :app-id app-id]
-   [:= (idx-key idx) :true]
-   (concat (->> named-pattern
-                constant-components
-                (map (fn [[component-type v]]
-                       (constant->where-part idx app-id component-type v))))
-           (function-clauses app-id named-pattern)
-           (patch-values-for-av-index (idx-key idx) additional-clauses))))
+  [app-id triples-alias {:keys [idx] :as named-pattern} additional-clauses]
+  (let [attr-ids-where (constant->where-part idx app-id :a (:a named-pattern))
+        rest-wheres (concat (->> (dissoc named-pattern :a)
+                                 constant-components
+                                 (map (fn [[component-type v]]
+                                        (constant->where-part idx app-id component-type v))))
+                            (function-clauses app-id triples-alias named-pattern)
+                            (patch-values-for-av-index (idx-key idx) additional-clauses))]
+    (list*
+     :and
+     [:= :app-id app-id]
+     (when (seq rest-wheres)
+       [:= (idx-key idx) :true])
+     attr-ids-where
+     rest-wheres)))
 
 ;; ---
 ;; join-clause
