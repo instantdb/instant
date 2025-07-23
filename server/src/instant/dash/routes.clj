@@ -1019,16 +1019,49 @@
 ;; ---
 ;; Storage
 
+(defn get-file-extension
+  "Extracts file extension from a filename or path.
+   Returns nil if no extension found."
+  [filename]
+  (when filename
+    (let [last-dot-idx (string/last-index-of filename ".")]
+      (when (and last-dot-idx (< last-dot-idx (dec (count filename))))
+        (string/lower-case (subs filename (inc last-dot-idx)))))))
+
+(def extension->content-type
+  "Map of file extensions to their content types"
+  {"jpg"  "image/jpeg"
+   "jpeg" "image/jpeg"
+   "png"  "image/png"
+   "gif"  "image/gif"
+   "webp" "image/webp"
+   "svg"  "image/svg+xml"
+   "pdf"  "application/pdf"
+   "txt"  "text/plain"
+   "html" "text/html"
+   "css"  "text/css"
+   "js"   "application/javascript"
+   "json" "application/json"
+   "xml"  "application/xml"
+   "zip"  "application/zip"
+   "mp4"  "video/mp4"
+   "mp3"  "audio/mpeg"
+   "wav"  "audio/wav"})
+
 (defn upload-put [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         params (:headers req)
         path (ex/get-param! params ["path"] string-util/coerce-non-blank-str)
         file (ex/get-param! req [:body] identity)
+        detected-content-type (or (:content-type req)
+                                  (when-let [ext (get-file-extension path)]
+                                    (extension->content-type ext))
+                                  "application/octet-stream")
         data (storage-coordinator/upload-file!
               {:app-id app-id
                :path path
                :file file
-               :content-type (:content-type req)
+               :content-type detected-content-type
                :content-length (:content-length req)
                :skip-perms-check? true}
               file)]
