@@ -810,7 +810,9 @@
           [:= :value [:cast \"25\" :jsonb]]]
   "
   [app-id triples-alias {:keys [idx] :as named-pattern} additional-clauses]
-  (let [attr-ids-where (constant->where-part idx app-id :a (:a named-pattern))
+  (let [attr-ids-where (when-let [a (:a named-pattern)]
+                         (when (named-constant? a)
+                           (constant->where-part idx app-id :a a)))
         rest-wheres (concat (->> (dissoc named-pattern :a)
                                  constant-components
                                  (map (fn [[component-type v]]
