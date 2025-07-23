@@ -1622,7 +1622,12 @@ function NewNamespaceDialog({
         Create a new namespace
       </h5>
 
-      <TextInput label="Name" value={name} onChange={(n) => setName(n)} />
+      <TextInput
+        label="Name"
+        value={name}
+        onChange={(n) => setName(n)}
+        autoFocus
+      />
 
       <ActionButton
         type="submit"
