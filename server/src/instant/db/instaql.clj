@@ -1811,7 +1811,7 @@
 
         cleaned-page-info
         (when (get-in res [:data :datalog-result :page-info])
-          (when-let [filtered-rows (seq (filter (fn [[e a]]
+          (let [filtered-rows (seq (filter (fn [[e a]]
                                                   (let [etype (-> (attr-model/seek-by-id a attrs)
                                                                   attr-model/fwd-etype)
                                                         check (get etype+eid->check [etype e])]

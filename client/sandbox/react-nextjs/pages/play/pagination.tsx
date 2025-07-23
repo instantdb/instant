@@ -14,12 +14,9 @@ const schema = i.schema({
       string: i.string().indexed(),
       boolean: i.boolean().indexed(),
       title: i.string(),
-      sometimesNull: i.number().indexed(),
-      sometimesNullOrUndefined: i.number().indexed(),
-      sometimesNullDate: i.date().indexed(),
-    }),
-    $users: i.entity({
-      email: i.string().unique().indexed(),
+      sometimesNull: i.number().indexed().optional(),
+      sometimesNullOrUndefined: i.number().indexed().optional(),
+      sometimesNullDate: i.date().indexed().optional(),
     }),
   },
 });
