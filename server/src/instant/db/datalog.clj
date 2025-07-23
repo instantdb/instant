@@ -1110,7 +1110,7 @@
                                    (when prev-table
                                      [prev-table]))
                             parent-froms)
-              :where (where-clause app-id named-p all-joins)}
+              :where (where-clause app-id triples-alias named-p all-joins)}
              (if (or
                   ;; only use `not materialized` when we're in the middle of an ordered
                   ;; query
