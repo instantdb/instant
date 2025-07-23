@@ -7,9 +7,10 @@ import { ProblemPages } from './problem-pages';
 import { PageDrilldown } from './page-drilldown';
 import { CommentsView } from './comments-view';
 import { RecentRatings } from './recent-ratings';
+import { AdminRatingsView } from './admin-ratings-view';
 import db from '@/lib/intern/docs-feedback/db';
 
-type View = 'overview' | 'drilldown' | 'comments';
+type View = 'overview' | 'drilldown' | 'comments' | 'admin';
 
 export function AnalyticsDashboard() {
   const router = useRouter();
@@ -48,6 +49,11 @@ export function AnalyticsDashboard() {
     updateURL('comments');
   };
 
+  const handleViewAdmin = () => {
+    setCurrentView('admin');
+    updateURL('admin');
+  };
+
   const handleSignOut = () => {
     db.auth.signOut();
   };
@@ -75,12 +81,20 @@ export function AnalyticsDashboard() {
           </div>
           <div className="flex items-center space-x-3">
             {currentView === 'overview' && (
-              <button
-                onClick={handleViewComments}
-                className="px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                View All Comments
-              </button>
+              <>
+                <button
+                  onClick={handleViewComments}
+                  className="px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  View All Comments
+                </button>
+                <button
+                  onClick={handleViewAdmin}
+                  className="px-4 py-2 text-sm font-medium text-purple-700 bg-purple-50 border border-purple-200 rounded-md hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                >
+                  Admin View
+                </button>
+              </>
             )}
             <button
               onClick={handleSignOut}
@@ -109,6 +123,10 @@ export function AnalyticsDashboard() {
 
           {currentView === 'comments' && (
             <CommentsView onBack={handleBackToOverview} />
+          )}
+
+          {currentView === 'admin' && (
+            <AdminRatingsView onBack={handleBackToOverview} />
           )}
         </div>
       </div>
