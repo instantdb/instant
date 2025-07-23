@@ -534,7 +534,9 @@ export type CreateParams<
     any,
     any
   >
-    ? ValueType
+    ? ValueType extends Date
+      ? string | number | Date
+      : ValueType
     : never;
 } & {
   [AttrName in OptionalKeys<

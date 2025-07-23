@@ -718,7 +718,7 @@ class InstantAdminDatabase<
   config: InstantConfigFilled<Schema, Config['useDateObjects']>;
   auth: Auth;
   storage: Storage;
-  rooms: Rooms<Config['schema']>;
+  rooms: Rooms<Schema>;
   impersonationOpts?: ImpersonationOpts;
 
   public tx = txInit<NonNullable<Config['schema']>>();
