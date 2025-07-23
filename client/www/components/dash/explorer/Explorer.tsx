@@ -745,12 +745,13 @@ export function Explorer({
     [allItems.length, editableRowId],
   );
 
+  const numItemsSelected = Object.keys(checkedIds).length;
   const rowText =
     sanitizedNsName === '$files'
-      ? Object.keys(checkedIds).length === 1
+      ? numItemsSelected === 1
         ? 'file'
         : 'files'
-      : Object.keys(checkedIds).length === 1
+      : numItemsSelected === 1
         ? 'row'
         : 'rows';
 
@@ -822,7 +823,7 @@ export function Explorer({
             <Content>
               Deleting is an <strong>irreversible operation</strong> and will{' '}
               <strong>
-                delete {Object.keys(checkedIds).length} {rowText}{' '}
+                delete {numItemsSelected} {rowText}{' '}
               </strong>
               associated with <strong>{selectedNamespace.name}</strong>
             </Content>
@@ -1238,7 +1239,7 @@ export function Explorer({
                     className={clsx(
                       'absolute top-0 right-0 left-[48px] z-30 flex items-center gap-1.5 overflow-hidden bg-white px-4 py-2',
                       {
-                        hidden: !Object.keys(checkedIds).length,
+                        hidden: !numItemsSelected,
                       },
                     )}
                   >
@@ -1265,7 +1266,7 @@ export function Explorer({
                     <Checkbox
                       checked={
                         allItems.length > 0 &&
-                        Object.keys(checkedIds).length === allItems.length
+                        numItemsSelected === allItems.length
                       }
                       onChange={(checked) => {
                         if (checked) {
