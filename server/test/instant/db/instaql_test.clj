@@ -2454,7 +2454,6 @@
             (is (= #{"null" "undefined"} (run-query {:etype {:$ {:where {:boolean {:$isNull true}}}}})))
             (is (= #{"a" "b" "c"} (run-query {:etype {:$ {:where {:boolean {:$isNull false}}}}})))))
 
-
         (testing "$not"
           (testing "string"
             (is (= #{"null" "undefined" "a" "c"}  (run-query {:etype {:$ {:where {:string {:$not "1"}}}}}))))
@@ -2464,7 +2463,6 @@
 
           (testing "date"
             (is (= #{"null" "undefined" "a" "c"}  (run-query {:etype {:$ {:where {:date {:$not 1}}}}}))))
-
 
           (testing "boolean"
             (is (= #{"null" "undefined" "a" "c"}  (run-query {:etype {:$ {:where {:boolean {:$not false}}}}})))))))))
