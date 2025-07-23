@@ -6,6 +6,7 @@ import { MetricsOverview } from './metrics-overview';
 import { ProblemPages } from './problem-pages';
 import { PageDrilldown } from './page-drilldown';
 import { CommentsView } from './comments-view';
+import { RecentRatings } from './recent-ratings';
 import db from '@/lib/intern/docs-feedback/db';
 
 type View = 'overview' | 'drilldown' | 'comments';
@@ -94,6 +95,7 @@ export function AnalyticsDashboard() {
           {currentView === 'overview' && (
             <>
               <MetricsOverview />
+              <RecentRatings onPageClick={handlePageClick} />
               <ProblemPages onPageClick={handlePageClick} />
             </>
           )}
