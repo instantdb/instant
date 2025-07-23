@@ -694,6 +694,14 @@
                                   :datalog-result
                                   :page-info
                                   :start-cursor)
+
+                  nicole-cursor (-> (iq/query ctx {:users {:$ {:limit 1
+                                                               :where {:handle "nicolegf"}}}})
+                                    first
+                                    :data
+                                    :datalog-result
+                                    :page-info
+                                    :start-cursor)
                   get-handles (fn [pagination-params]
                                 (as-> (instaql-nodes->object-tree
                                        ctx
@@ -758,6 +766,16 @@
                                        :offset 1
                                        :order {:serverCreatedAt "asc"}})))
 
+                ;; When an offset >0 we always return true for
+                ;; has-previous-page? regardless of whether the previous
+                ;; page actually has any results. We do this to handle the
+                ;; case where someone paginated through a list but then the
+                ;; data changed and the offset no longer has any results.
+                ;; We want to indicate there may still be a previous page.
+                (is (= {:has-next-page? false
+                        :has-previous-page? true}
+                       (get-page-info {:limit 1 :offset 999})))
+
                 (is (= {:has-next-page? true
                         :has-previous-page? true}
                        (get-page-info {:last 1
@@ -774,6 +792,14 @@
                         :has-previous-page? true}
                        (get-page-info {:first 1
                                        :after alex-cursor
+                                       :order {:serverCreatedAt "asc"}})))
+
+                ;; Similar to offset > 0, when we specify an after cursor we
+                ;; always return true for has-previous-page?
+                (is (= {:has-next-page? false
+                        :has-previous-page? true}
+                       (get-page-info {:first 1
+                                       :after nicole-cursor
                                        :order {:serverCreatedAt "asc"}})))
 
                 (is (= {:has-next-page? true
