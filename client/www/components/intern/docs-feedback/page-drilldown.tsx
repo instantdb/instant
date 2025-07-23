@@ -30,7 +30,7 @@ export function PageDrilldown({ pageId, onBack }: PageDrilldownProps) {
               onClick={onBack}
               className="text-gray-600 hover:text-gray-900 font-medium"
             >
-              ← Back to Problem Pages
+              ← Back to overview
             </button>
           )}
         </div>
@@ -55,7 +55,7 @@ export function PageDrilldown({ pageId, onBack }: PageDrilldownProps) {
               onClick={onBack}
               className="text-gray-600 hover:text-gray-900 font-medium"
             >
-              ← Back to Problem Pages
+              ← Back to overview
             </button>
           )}
         </div>
@@ -86,7 +86,7 @@ export function PageDrilldown({ pageId, onBack }: PageDrilldownProps) {
             onClick={onBack}
             className="text-gray-600 hover:text-gray-900 font-medium"
           >
-            ← Back to Problem Pages
+            ← Back to overview
           </button>
         )}
       </div>

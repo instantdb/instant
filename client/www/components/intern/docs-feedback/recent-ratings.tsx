@@ -9,7 +9,9 @@ interface RecentRatingsProps {
 
 export function RecentRatings({ onPageClick }: RecentRatingsProps) {
   const { recentRatings, isLoading, error } = useRecentRatings(10);
-  const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
+  const [expandedComments, setExpandedComments] = useState<Set<string>>(
+    new Set(),
+  );
 
   const toggleComment = (commentId: string) => {
     setExpandedComments((prev) => {
@@ -121,9 +123,8 @@ function RatingCard({
   const isClickable = !!onPageClick;
   const comment = rating.extraComment || '';
   const isLongComment = comment.length > 150;
-  const displayComment = isLongComment && !isExpanded
-    ? comment.substring(0, 150) + '...'
-    : comment;
+  const displayComment =
+    isLongComment && !isExpanded ? comment.substring(0, 150) + '...' : comment;
 
   return (
     <div className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors">
@@ -131,10 +132,11 @@ function RatingCard({
         <div className="flex-1">
           <div className="flex items-center space-x-2 mb-1">
             <span
-              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${rating.wasHelpful
+              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                rating.wasHelpful
                   ? 'bg-green-100 text-green-800'
                   : 'bg-red-100 text-red-800'
-                }`}
+              }`}
             >
               {rating.wasHelpful ? '👍 Helpful' : '👎 Not Helpful'}
             </span>
@@ -154,7 +156,9 @@ function RatingCard({
 
       {comment && (
         <div className="mt-3">
-          <p className="text-gray-700 text-sm whitespace-pre-wrap">{displayComment}</p>
+          <p className="text-gray-700 text-sm whitespace-pre-wrap">
+            {displayComment}
+          </p>
           {isLongComment && (
             <button
               onClick={onToggle}
