@@ -7,6 +7,7 @@
    [software.amazon.awssdk.auth.credentials DefaultCredentialsProvider]
    [software.amazon.awssdk.services.s3 S3AsyncClient S3Client]
    [java.time Duration Instant]
+   [org.apache.tika Tika]
    [java.time.temporal ChronoUnit]))
 
 (set! *warn-on-reflection* true)
@@ -90,11 +91,17 @@
 ;; Instant <> S3 integration
 ;; ----------------------
 
-(defn upload-file-to-s3 [{:keys [app-id location-id] :as ctx} file]
+(defn upload-file-to-s3 [{:keys [app-id location-id content-type] :as ctx} file]
   (when (not (instance? java.io.InputStream file))
     (throw (Exception. "Unsupported file format")))
-  (let [ctx* (assoc ctx :object-key (->object-key app-id location-id))]
-    (s3-util/upload-stream-to-s3 (s3-async-client) bucket-name ctx* file)))
+  (let [detected-mime-type (when-not content-type (.detect (Tika.) (:path ctx)))
+        ctx* (assoc ctx
+                    :object-key (->object-key app-id location-id)
+                    :content-type (or content-type detected-mime-type))]
+    (try
+      (s3-util/upload-stream-to-s3 (s3-async-client) bucket-name ctx* file)
+      (finally
+        (.close file)))))
 
 (defn format-object [{:keys [object-metadata]}]
   (-> object-metadata
