@@ -744,6 +744,7 @@ export function Explorer({
     () => allItems.find((i) => i.id === editableRowId),
     [allItems.length, editableRowId],
   );
+
   const rowText =
     sanitizedNsName === '$files'
       ? Object.keys(checkedIds).length === 1
@@ -819,7 +820,11 @@ export function Explorer({
             <h5 className="flex text-lg font-bold">Delete {rowText}</h5>
 
             <Content>
-              Deleting is an <strong>irreversible operation</strong>.
+              Deleting is an <strong>irreversible operation</strong> and will{' '}
+              <strong>
+                delete {Object.keys(checkedIds).length} {rowText}{' '}
+              </strong>
+              associated with <strong>{selectedNamespace.name}</strong>
             </Content>
 
             <ActionButton
