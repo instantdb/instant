@@ -573,10 +573,16 @@ class Storage {
     const headers = {
       ...authorizedHeaders(this.config),
       path,
-      'content-type': metadata.contentType || 'application/octet-stream',
     };
     if (metadata.contentDisposition) {
       headers['content-disposition'] = metadata.contentDisposition;
+    }
+    if (!metadata.contentType) {
+      // headers.content-type will become "undefined" (string)
+      // if not removed from the object
+      delete headers['content-type'];
+    } else {
+      headers['content-type'] = metadata.contentType;
     }
 
     const data = await jsonFetch(`${this.config.apiURI}/admin/storage/upload`, {
@@ -646,7 +652,7 @@ class Storage {
       method: 'PUT',
       body: file,
       headers: {
-        'Content-Type': metadata.contentType || 'application/octet-stream',
+        'Content-Type': metadata.contentType,
       },
     });
 
