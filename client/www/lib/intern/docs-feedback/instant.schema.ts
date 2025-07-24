@@ -18,6 +18,7 @@ const _schema = i.schema({
       pageId: i.string().indexed(),
       wasHelpful: i.boolean(),
       createdAt: i.date().indexed().optional(),
+      isArchived: i.boolean().indexed().optional(),
     }),
   },
   links: {},

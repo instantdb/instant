@@ -23,6 +23,7 @@ export function useRatings() {
   const { data, isLoading, error } = db.useQuery({
     ratings: {
       $: {
+        where: { isArchived: { $not: true } },
         order: { serverCreatedAt: 'desc' },
       },
     },
@@ -145,4 +146,33 @@ export function useAllComments(): {
   }, [ratings]);
 
   return { comments, isLoading, error };
+}
+
+export function useRecentRatings(daysAgo: number = 10): {
+  recentRatings: Rating[];
+  isLoading: boolean;
+  error: any;
+} {
+  const { ratings, isLoading, error } = useRatings();
+
+  const recentRatings = useMemo(() => {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysAgo);
+    const cutoffTimestamp = cutoffDate.getTime();
+
+    return ratings.filter((rating) => {
+      // Check if createdAt exists and is within the cutoff
+      if (rating.createdAt) {
+        const createdAtTimestamp =
+          typeof rating.createdAt === 'string'
+            ? new Date(rating.createdAt).getTime()
+            : rating.createdAt;
+        return createdAtTimestamp >= cutoffTimestamp;
+      }
+
+      return false;
+    });
+  }, [ratings, daysAgo]);
+
+  return { recentRatings, isLoading, error };
 }
