@@ -28,7 +28,7 @@
 
 (defn mapify-tx-step
   "Converts [op e a v] into map form of {:op :eid :etype :aid :value :rev-etype}"
-  [ctx [op first second third]]
+  [ctx [op first second third fourth]]
   (case op
     (:add-attr :update-attr :delete-attr)
     {:op op
@@ -40,7 +40,8 @@
      :etype     (extract-etype ctx second)
      :aid       second
      :value     third
-     :rev-etype (extract-rev-etype ctx second)}
+     :rev-etype (extract-rev-etype ctx second)
+     :opts      fourth}
 
     :delete-entity
     {:op    op
@@ -58,13 +59,13 @@
 
 (defn vectorize-tx-step
   "Inverse of mapify-tx-step"
-  [{:keys [op eid etype aid value]}]
+  [{:keys [op eid etype aid value opts]}]
   (case op
     (:add-attr :update-attr :delete-attr)
     [op value]
 
     (:add-triple :deep-merge-triple :retract-triple)
-    [op eid aid value]
+    [op eid aid value opts]
 
     :delete-entity
     [op eid etype]
@@ -235,7 +236,7 @@
                   [{:scope    :object
                     :action   :update
                     :etype    etype
-                    :eid      eid
+                    :eid      (get entity "id")
                     :program  (or (rule-model/get-program! rules etype "update")
                                   {:result true})
                     :bindings {:data        entity
@@ -253,7 +254,7 @@
                       :bindings {:data        (get entities-map {:eid value :etype rev-etype})
                                  :rule-params rule-params}}]))
 
-                 (= :delete op)
+                 (= :delete-entity op)
                  [{:scope    :object
                    :action   :delete
                    :etype    etype
@@ -270,7 +271,7 @@
        check))))
 
 (defn after-tx-checks
-  "Checks that run after tx: create, create-attr"
+  "Checks that run after tx: create, add-attr"
   [{:keys [rules]}
    entities-map
    updated-entities-map
@@ -283,7 +284,7 @@
                entity      (get entities-map key)
                rule-params (get rule-params-map key)]
          check (cond
-                 (= :create-attr op)
+                 (= :add-attr op)
                  [{:scope    :attr
                    :action   :create
                    :etype    "attrs"
@@ -327,17 +328,18 @@
   "Runs checks, returning results (admin-check?) or throwing"
   [ctx checks]
   (let [ctx' (assoc ctx :preloaded-refs (cel/create-preloaded-refs-cache))]
-    (for [check (cel/eval-programs! ctx' checks)
-          :let [{:keys [scope etype result]} check]]
-      (if (:admin-check? ctx')
-        (-> check
-            (dissoc :result)
-            (assoc
-             :check-result result
-             :check-pass?  (boolean result)))
-        (ex/assert-permitted! :perms-pass?
-                              [etype scope]
-                              result)))))
+    (doall
+     (for [check (cel/eval-programs! ctx' checks)
+           :let [{:keys [scope etype result]} check]]
+       (if (:admin-check? ctx')
+         (-> check
+             (dissoc :result)
+             (assoc
+              :check-result result
+              :check-pass?  (boolean result)))
+         (ex/assert-permitted! :perms-pass?
+                               [etype scope]
+                               result))))))
 
 (defn validate-reserved-names!
   "Throws a validation error if the users tries to add triples to the $users table"
@@ -414,7 +416,7 @@
               entities-map     (load-entities-map ctx' tx-steps')
 
               tx-steps''       (->> tx-steps'
-                                    (resolve-lookups ctx' entities-map))
+                                    #_(resolve-lookups ctx' entities-map))
 
               updated-entities-map (update-entities-map ctx' entities-map tx-steps'')
 
