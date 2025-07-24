@@ -21,18 +21,16 @@ import {
   RoomsOf,
   InstantSchemaDef,
   IInstantDatabase,
+  Config,
 } from '@instantdb/core';
 import {
-  KeyboardEvent,
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
 } from 'react';
 import { useQueryInternal } from './useQuery.ts';
-import { useTimeout } from './useTimeout.ts';
 import { InstantReactRoom, rooms } from './InstantReactRoom.ts';
 
 const defaultAuthState = {
@@ -42,7 +40,9 @@ const defaultAuthState = {
 };
 
 export default abstract class InstantReactAbstractDatabase<
+  // need to pull this schema out to another generic for query params, not sure why
   Schema extends InstantSchemaDef<any, any, any>,
+  Config extends InstantConfig<Schema, boolean> = InstantConfig<Schema, false>,
   Rooms extends RoomSchemaShape = RoomsOf<Schema>,
 > implements IInstantDatabase<Schema>
 {
@@ -50,16 +50,13 @@ export default abstract class InstantReactAbstractDatabase<
 
   public auth: Auth;
   public storage: Storage;
-  public _core: InstantCoreDatabase<Schema>;
+  public _core: InstantCoreDatabase<Schema, Config['useDateObjects']>;
 
   static Storage?: any;
   static NetworkListener?: any;
 
-  constructor(
-    config: InstantConfig<Schema>,
-    versions?: { [key: string]: string },
-  ) {
-    this._core = core_init<Schema>(
+  constructor(config: Config, versions?: { [key: string]: string }) {
+    this._core = core_init<Schema, Config['useDateObjects']>(
       config,
       // @ts-expect-error because TS can't resolve subclass statics
       this.constructor.Storage,
@@ -200,8 +197,16 @@ export default abstract class InstantReactAbstractDatabase<
   useQuery = <Q extends InstaQLParams<Schema>>(
     query: null | Q,
     opts?: InstaQLOptions,
-  ): InstaQLLifecycleState<Schema, Q> => {
-    return useQueryInternal<Q, Schema>(this._core, query, opts).state;
+  ): InstaQLLifecycleState<
+    Schema,
+    Q,
+    NonNullable<Config['useDateObjects']>
+  > => {
+    return useQueryInternal<Q, Schema, Config['useDateObjects']>(
+      this._core,
+      query,
+      opts,
+    ).state;
   };
 
   /**
@@ -335,7 +340,7 @@ export default abstract class InstantReactAbstractDatabase<
     query: Q,
     opts?: InstaQLOptions,
   ): Promise<{
-    data: InstaQLResponse<Schema, Q>;
+    data: InstaQLResponse<Schema, Q, Config['useDateObjects']>;
     pageInfo: PageInfoResponse<Q>;
   }> => {
     return this._core.queryOnce(query, opts);

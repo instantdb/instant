@@ -111,9 +111,13 @@ export type Config = {
   devtool?: boolean | DevtoolConfig;
   verbose?: boolean;
   queryCacheLimit?: number;
+  useDateObjects?: boolean;
 };
 
-export type InstantConfig<S extends InstantSchemaDef<any, any, any>> = {
+export type InstantConfig<
+  S extends InstantSchemaDef<any, any, any>,
+  UseDates extends boolean = false,
+> = {
   appId: string;
   schema?: S;
   websocketURI?: string;
@@ -121,6 +125,7 @@ export type InstantConfig<S extends InstantSchemaDef<any, any, any>> = {
   devtool?: boolean | DevtoolConfig;
   verbose?: boolean;
   queryCacheLimit?: number;
+  useDateObjects?: UseDates;
 };
 
 export type ConfigWithSchema<S extends InstantGraph<any, any>> = Config & {
@@ -174,11 +179,11 @@ type SubscriptionState<Q, Schema, WithCardinalityInference extends boolean> =
       pageInfo: PageInfoResponse<Q>;
     };
 
-type InstaQLSubscriptionState<Schema, Q> =
+type InstaQLSubscriptionState<Schema, Q, UseDates extends boolean> =
   | { error: { message: string }; data: undefined; pageInfo: undefined }
   | {
       error: undefined;
-      data: InstaQLResponse<Schema, Q>;
+      data: InstaQLResponse<Schema, Q, UseDates>;
       pageInfo: PageInfoResponse<Q>;
     };
 
@@ -190,7 +195,11 @@ type LifecycleSubscriptionState<
   isLoading: boolean;
 };
 
-type InstaQLLifecycleState<Schema, Q> = InstaQLSubscriptionState<Schema, Q> & {
+type InstaQLLifecycleState<
+  Schema,
+  Q,
+  UseDates extends boolean = false,
+> = InstaQLSubscriptionState<Schema, Q, UseDates> & {
   isLoading: boolean;
 };
 
@@ -215,7 +224,7 @@ function initGlobalInstantCoreStore(): Record<string, any> {
   return globalThis.__instantDbStore;
 }
 
-function reactorKey(config: InstantConfig<any>): string {
+function reactorKey(config: InstantConfig<any, boolean>): string {
   // @ts-expect-error
   const adminToken = config.__adminToken;
   return (
@@ -225,7 +234,9 @@ function reactorKey(config: InstantConfig<any>): string {
     '_' +
     (config.apiURI || 'default_api_uri') +
     '_' +
-    (adminToken || 'client_only')
+    (adminToken || 'client_only') +
+    '_' +
+    config.useDateObjects
   );
 }
 
@@ -460,8 +471,10 @@ function coerceQuery(o: any) {
   return JSON.parse(JSON.stringify(o));
 }
 
-class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
-  implements IInstantDatabase<Schema>
+class InstantCoreDatabase<
+  Schema extends InstantSchemaDef<any, any, any>,
+  UseDates extends boolean,
+> implements IInstantDatabase<Schema>
 {
   public _reactor: Reactor<RoomsOf<Schema>>;
   public auth: Auth;
@@ -532,9 +545,9 @@ class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
    *    console.log(resp.data.goals)
    *  });
    */
-  subscribeQuery<Q extends InstaQLParams<Schema>>(
+  subscribeQuery<Q extends InstaQLParams<Schema>, UseDates extends boolean>(
     query: Q,
-    cb: (resp: InstaQLSubscriptionState<Schema, Q>) => void,
+    cb: (resp: InstaQLSubscriptionState<Schema, Q, UseDates>) => void,
     opts?: InstaQLOptions,
   ) {
     return this._reactor.subscribeQuery(query, cb, opts);
@@ -662,7 +675,7 @@ class InstantCoreDatabase<Schema extends InstantSchemaDef<any, any, any>>
     query: Q,
     opts?: InstaQLOptions,
   ): Promise<{
-    data: InstaQLResponse<Schema, Q>;
+    data: InstaQLResponse<Schema, Q, UseDates>;
     pageInfo: PageInfoResponse<Q>;
   }> {
     return this._reactor.queryOnce(query, opts);
@@ -683,7 +696,7 @@ function schemaHash(schema?: InstantSchemaDef<any, any, any>): string {
 }
 
 function schemaChanged(
-  existingClient: InstantCoreDatabase<any>,
+  existingClient: InstantCoreDatabase<any, boolean>,
   newSchema?: InstantSchemaDef<any, any, any>,
 ): boolean {
   return (
@@ -713,15 +726,16 @@ function schemaChanged(
  */
 function init<
   Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
+  UseDates extends boolean = false,
 >(
-  config: InstantConfig<Schema>,
+  config: InstantConfig<Schema, UseDates>,
   Storage?: any,
   NetworkListener?: any,
   versions?: { [key: string]: string },
-): InstantCoreDatabase<Schema> {
+): InstantCoreDatabase<Schema, Config['useDateObjects']> {
   const existingClient = globalInstantCoreStore[
     reactorKey(config)
-  ] as InstantCoreDatabase<any>;
+  ] as InstantCoreDatabase<any, Config['useDateObjects']>;
 
   if (existingClient) {
     if (schemaChanged(existingClient, config.schema)) {
@@ -741,7 +755,9 @@ function init<
     { ...(versions || {}), '@instantdb/core': version },
   );
 
-  const client = new InstantCoreDatabase<any>(reactor);
+  const client = new InstantCoreDatabase<any, Config['useDateObjects']>(
+    reactor,
+  );
   globalInstantCoreStore[reactorKey(config)] = client;
 
   handleDevtool(config.appId, config.devtool);

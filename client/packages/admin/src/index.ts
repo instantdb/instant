@@ -80,17 +80,24 @@ type Config = {
   appId: string;
   adminToken: string;
   apiURI?: string;
+  useDateObjects?: boolean;
 };
 
-type InstantConfig<Schema extends InstantSchemaDef<any, any, any>> = {
+export type InstantConfig<
+  Schema extends InstantSchemaDef<any, any, any>,
+  UseDates extends boolean = false,
+> = {
   appId: string;
   adminToken: string;
   apiURI?: string;
   schema?: Schema;
+  useDateObjects?: UseDates;
 };
 
-type InstantConfigFilled<Schema extends InstantSchemaDef<any, any, any>> =
-  InstantConfig<Schema> & { apiURI: string };
+type InstantConfigFilled<
+  Schema extends InstantSchemaDef<any, any, any>,
+  UseDates extends boolean,
+> = InstantConfig<Schema, UseDates> & { apiURI: string };
 
 type FilledConfig = Config & { apiURI: string };
 
@@ -109,7 +116,10 @@ function configWithDefaults(config: Config): FilledConfig {
 
 function instantConfigWithDefaults<
   Schema extends InstantSchemaDef<any, any, any>,
->(config: InstantConfig<Schema>): InstantConfigFilled<Schema> {
+  UseDates extends boolean,
+>(
+  config: InstantConfig<Schema, UseDates>,
+): InstantConfigFilled<Schema, UseDates> {
   const defaultConfig = {
     apiURI: 'https://api.instantdb.com',
   };
@@ -227,8 +237,13 @@ async function jsonFetch(
  */
 function init<
   Schema extends InstantSchemaDef<any, any, any> = InstantUnknownSchema,
->(config: InstantConfig<Schema>) {
-  return new InstantAdminDatabase<Schema>(config);
+  UseDates extends boolean = false,
+>(
+  config: InstantConfig<Schema, UseDates>,
+): InstantAdminDatabase<Schema, InstantConfig<Schema, UseDates>> {
+  return new InstantAdminDatabase<Schema, InstantConfig<Schema, UseDates>>(
+    config,
+  );
 }
 
 /**
@@ -696,16 +711,19 @@ type AdminQueryOpts = {
  * @example
  *  const db = init({ appId: "my-app-id", adminToken: "my-admin-token" })
  */
-class InstantAdminDatabase<Schema extends InstantSchemaDef<any, any, any>> {
-  config: InstantConfigFilled<Schema>;
+class InstantAdminDatabase<
+  Schema extends InstantSchemaDef<any, any, any>,
+  Config extends InstantConfig<Schema, boolean> = InstantConfig<Schema, false>,
+> {
+  config: InstantConfigFilled<Schema, Config['useDateObjects']>;
   auth: Auth;
   storage: Storage;
   rooms: Rooms<Schema>;
   impersonationOpts?: ImpersonationOpts;
 
-  public tx = txInit<Schema>();
+  public tx = txInit<NonNullable<Config['schema']>>();
 
-  constructor(_config: InstantConfig<Schema>) {
+  constructor(_config: Config) {
     this.config = instantConfigWithDefaults(_config);
     this.auth = new Auth(this.config);
     this.storage = new Storage(this.config);
@@ -721,9 +739,9 @@ class InstantAdminDatabase<Schema extends InstantSchemaDef<any, any, any>> {
    * @example
    *  await db.asUser({email: "stopa@instantdb.com"}).query({ goals: {} })
    */
-  asUser = (opts: ImpersonationOpts): InstantAdminDatabase<Schema> => {
-    const newClient = new InstantAdminDatabase<Schema>({
-      ...this.config,
+  asUser = (opts: ImpersonationOpts): InstantAdminDatabase<Schema, Config> => {
+    const newClient = new InstantAdminDatabase<Schema, Config>({
+      ...(this.config as Config),
     });
     newClient.impersonationOpts = opts;
     return newClient;
@@ -744,10 +762,10 @@ class InstantAdminDatabase<Schema extends InstantSchemaDef<any, any, any>> {
    *  // all goals, _alongside_ their todos
    *  await db.query({ goals: { todos: {} } })
    */
-  query = <Q extends InstaQLParams<Schema>>(
+  query = <Q extends InstaQLParams<Config['schema']>>(
     query: Q,
     opts: AdminQueryOpts = {},
-  ): Promise<InstaQLResponse<Schema, Q>> => {
+  ): Promise<InstaQLResponse<Schema, Q, Config['useDateObjects']>> => {
     if (query && opts && 'ruleParams' in opts) {
       query = { $$ruleParams: opts['ruleParams'], ...query };
     }
@@ -824,11 +842,11 @@ class InstantAdminDatabase<Schema extends InstantSchemaDef<any, any, any>> {
    *    { rules: { goals: { allow: { read: "auth.id != null" } } }
    *  )
    */
-  debugQuery = async <Q extends InstaQLParams<Schema>>(
+  debugQuery = async <Q extends InstaQLParams<Config['schema']>>(
     query: Q,
     opts?: { rules?: any; ruleParams?: { [key: string]: any } },
   ): Promise<{
-    result: InstaQLResponse<Schema, Q>;
+    result: InstaQLResponse<Config['schema'], Q, Config['useDateObjects']>;
     checkResults: DebugCheckResult[];
   }> => {
     if (query && opts && 'ruleParams' in opts) {

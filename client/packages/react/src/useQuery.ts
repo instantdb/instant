@@ -1,9 +1,6 @@
 import {
   weakHash,
   coerceQuery,
-  type Query,
-  type Exactly,
-  type LifecycleSubscriptionState,
   type InstaQLParams,
   type InstaQLOptions,
   type InstantGraph,
@@ -33,12 +30,13 @@ function stateForResult(result: any) {
 export function useQueryInternal<
   Q extends InstaQLParams<Schema>,
   Schema extends InstantSchemaDef<any, any, any>,
+  UseDates extends boolean,
 >(
-  _core: InstantCoreDatabase<Schema>,
+  _core: InstantCoreDatabase<Schema, UseDates>,
   _query: null | Q,
   _opts?: InstaQLOptions,
 ): {
-  state: InstaQLLifecycleState<Schema, Q>;
+  state: InstaQLLifecycleState<Schema, Q, UseDates>;
   query: any;
 } {
   if (_query && _opts && 'ruleParams' in _opts) {
@@ -52,7 +50,7 @@ export function useQueryInternal<
   // to compare the previous and next state.
   // If we don't use a ref, the state will always be considered different, so
   // the component will always re-render.
-  const resultCacheRef = useRef<InstaQLLifecycleState<Schema, Q>>(
+  const resultCacheRef = useRef<InstaQLLifecycleState<Schema, Q, UseDates>>(
     stateForResult(_core._reactor.getPreviousResult(query)),
   );
 
@@ -71,7 +69,7 @@ export function useQueryInternal<
         return unsubscribe;
       }
 
-      const unsubscribe = _core.subscribeQuery<Q>(query, (result) => {
+      const unsubscribe = _core.subscribeQuery<Q, UseDates>(query, (result) => {
         resultCacheRef.current = {
           isLoading: !Boolean(result),
           data: undefined,
@@ -89,7 +87,9 @@ export function useQueryInternal<
     [queryHash],
   );
 
-  const state = useSyncExternalStore<InstaQLLifecycleState<Schema, Q>>(
+  const state = useSyncExternalStore<
+    InstaQLLifecycleState<Schema, Q, UseDates>
+  >(
     subscribe,
     () => resultCacheRef.current,
     () => defaultState,

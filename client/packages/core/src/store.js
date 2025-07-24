@@ -1,5 +1,6 @@
 import { create } from 'mutative';
 import { immutableDeepMerge } from './utils/object.js';
+import { coerceToDate } from './utils/dates.ts';
 
 function hasEA(attr) {
   return attr['cardinality'] === 'one';
@@ -47,16 +48,25 @@ function setInMap(m, path, value) {
   setInMap(nextM, tail, value);
 }
 
-function createTripleIndexes(attrs, triples) {
+function isDateAttr(attr) {
+  return attr['checked-data-type'] === 'date';
+}
+
+function createTripleIndexes(attrs, triples, useDateObjects) {
   const eav = new Map();
   const aev = new Map();
   const vae = new Map();
   for (const triple of triples) {
-    const [eid, aid, v, t] = triple;
+    let [eid, aid, v, t] = triple;
     const attr = getAttr(attrs, aid);
     if (!attr) {
       console.warn('no such attr', eid, attrs);
       continue;
+    }
+
+    if (attr['checked-data-type'] === 'date' && useDateObjects) {
+      v = coerceToDate(v);
+      triple[2] = v;
     }
 
     if (isRef(attr)) {
@@ -102,6 +112,7 @@ export function toJSON(store) {
     triples: allMapValues(store.eav, 3),
     cardinalityInference: store.cardinalityInference,
     linkIndex: store.linkIndex,
+    useDateObjects: store.useDateObjects,
   };
 }
 
@@ -111,6 +122,7 @@ export function fromJSON(storeJSON) {
     storeJSON.triples,
     storeJSON.cardinalityInference,
     storeJSON.linkIndex,
+    storeJSON.useDateObjects,
   );
 }
 
@@ -123,8 +135,10 @@ export function createStore(
   triples,
   enableCardinalityInference,
   linkIndex,
+  useDateObjects,
 ) {
-  const store = createTripleIndexes(attrs, triples);
+  const store = createTripleIndexes(attrs, triples, useDateObjects);
+  store.useDateObjects = useDateObjects;
   store.attrs = attrs;
   store.attrIndexes = createAttrIndexes(attrs);
   store.cardinalityInference = enableCardinalityInference;
@@ -247,7 +261,7 @@ function addTriple(store, rawTriple) {
   if (!triple) {
     return;
   }
-  const [eid, aid, v] = triple;
+  let [eid, aid, v] = triple;
   const attr = getAttr(store.attrs, aid);
   if (!attr) {
     // (XXX): Due to the way we're handling attrs, it's
@@ -255,6 +269,10 @@ function addTriple(store, rawTriple) {
     // See: https://github.com/jsventures/instant-local/pull/132 for details.
     // For now, if we receive a command without an attr, we no-op.
     return;
+  }
+
+  if (attr['checked-data-type'] === 'date' && store.useDateObjects) {
+    v = coerceToDate(v);
   }
 
   const existingTriple = getInMap(store.eav, [eid, aid, v]);
@@ -386,7 +404,11 @@ function deleteEntity(store, args) {
 // * We could add an ave index for all triples, so removing the
 //   right triples is easy and fast.
 function resetIndexMap(store, newTriples) {
-  const newIndexMap = createTripleIndexes(store.attrs, newTriples);
+  const newIndexMap = createTripleIndexes(
+    store.attrs,
+    newTriples,
+    store.useDateObjects,
+  );
   Object.keys(newIndexMap).forEach((key) => {
     store[key] = newIndexMap[key];
   });
