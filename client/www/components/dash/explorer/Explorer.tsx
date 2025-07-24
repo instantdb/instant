@@ -1302,6 +1302,9 @@ export function Explorer({
                                 attr.name === 'id')),
                           'cursor-pointer': attr.sortable || attr.name === 'id',
                         },
+                        selectedNamespace.name === '$files' &&
+                          attr.name === 'url' &&
+                          'w-32',
                       )}
                       onClick={
                         attr.sortable
