@@ -26,52 +26,22 @@
 (defn extract-rev-etype [{:keys [attrs]} attr-id]
   (attr-model/rev-etype (attr-model/seek-by-id attr-id attrs)))
 
-(defn mapify-tx-step
-  "Converts [op e a v] into map form of {:op :eid :etype :aid :value :rev-etype}"
-  [ctx [op first second third fourth]]
-  (case op
-    (:add-attr :update-attr :delete-attr)
-    {:op op
-     :value first}
-
-    (:add-triple :deep-merge-triple :retract-triple)
-    {:op        op
-     :eid       first
-     :etype     (extract-etype ctx second)
-     :aid       second
-     :value     third
-     :rev-etype (extract-rev-etype ctx second)
-     :opts      fourth}
-
-    :delete-entity
-    {:op    op
-     :eid   first
-     :etype second}
-
-    :rule-params
-    {:op    op
-     :eid   first
-     :etype second
-     :value third}))
-
-(defn mapify-tx-steps [ctx tx-steps]
-  (map #(mapify-tx-step ctx %) tx-steps))
-
-(defn vectorize-tx-step
-  "Inverse of mapify-tx-step"
-  [{:keys [op eid etype aid value opts]}]
-  (case op
-    (:add-attr :update-attr :delete-attr)
-    [op value]
-
-    (:add-triple :deep-merge-triple :retract-triple)
-    [op eid aid value opts]
-
-    :delete-entity
-    [op eid etype]
-
-    :rule-params
-    [op eid etype value]))
+(defn validate-reserved-names!
+  "Throws a validation error if the users tries to add triples to the $users table"
+  [{:keys [admin?]} tx-step-maps]
+  (doseq [{:keys [op etype] :as tx-step} tx-step-maps
+          :when (#{:add-triple :deep-merge-triple :retract-triple :delete-entity} op)
+          :when (and etype
+                     (string/starts-with? etype "$")
+                     (not (and admin? (= etype "$users")))
+                     ;; checking admin? is not enough for $files so we handle
+                     ;; validations later
+                     (not (string/starts-with? etype "$files")))]
+    (ex/throw-validation-err!
+     :tx-step
+     (tx/vectorize-tx-step tx-step)
+     [{:message (format "The %s namespace is read-only. It can't be modified."
+                        etype)}])))
 
 (defn coerce-value-uuids
   "Checks that all ref values are either lookup refs or UUIDs"
@@ -82,7 +52,7 @@
         (assoc tx-step :value value-uuid)
         (ex/throw-validation-err! :eid value
                                   [{:message "Expected link value to be a uuid."
-                                    :hint {:tx-step (vectorize-tx-step tx-step)}}]))
+                                    :hint {:tx-step (tx/vectorize-tx-step tx-step)}}]))
       tx-step)))
 
 (defn validate-lookup-etypes
@@ -93,10 +63,10 @@
           :let [lookup-etype (extract-etype ctx (first eid))]]
     (when-not lookup-etype
       (ex/throw-validation-err! :lookup eid
-                                [{:tx-step (vectorize-tx-step tx-step)
+                                [{:tx-step (tx/vectorize-tx-step tx-step)
                                   :message "Invalid lookup. Could not determine namespace from lookup attribute."}]))
     (when-not (= etype lookup-etype)
-      (ex/throw-validation-err! :tx-step (vectorize-tx-step tx-step)
+      (ex/throw-validation-err! :tx-step (tx/vectorize-tx-step tx-step)
                                 [{:message (string-util/multiline->single-line
                                             "Invalid transaction. The namespace in the lookup attribute is
                                            different from the namespace of the attribute that is
@@ -344,33 +314,6 @@
               :check-result result
               :check-pass?  (boolean result))))))))
 
-(defn validate-reserved-names!
-  "Throws a validation error if the users tries to add triples to the $users table"
-  [admin? attrs tx-steps]
-  (doseq [tx-step tx-steps
-          :let [etype (case (first tx-step)
-                        (:add-triple :deep-merge-triple :retract-triple)
-                        (let [[_op _eid aid] tx-step]
-                          (-> (attr-model/seek-by-id aid attrs)
-                              attr-model/fwd-etype))
-
-                        :delete-entity
-                        (let [[_op _eid etype] tx-step]
-                          etype)
-
-                        nil)]
-          :when (and etype
-                     (string/starts-with? etype "$")
-                     (not (and admin? (= etype "$users")))
-                     ;; checking admin? is not enough for $files so we handle
-                     ;; validations later
-                     (not (string/starts-with? etype "$files")))]
-    (ex/throw-validation-err!
-     :tx-step
-     tx-step
-     [{:message (format "The %s namespace is read-only. It can't be modified."
-                        etype)}])))
-
 (defn lock-tx-on! [tx-conn big-int]
   (sql/execute! tx-conn ["SELECT pg_advisory_xact_lock(?)" big-int]))
 
@@ -391,58 +334,53 @@
   [{:keys [db app-id admin? admin-check? admin-dry-run? attrs] :as ctx} tx-step-vecs]
   (tracer/with-span! {:name "permissioned-transaction/transact!"
                       :attributes {:app-id app-id}}
-    (validate-reserved-names! admin? attrs tx-step-vecs)
     (next-jdbc/with-transaction [tx-conn (:conn-pool db)]
-      (if admin?
-        (tx/transact-without-tx-conn! tx-conn attrs app-id tx-step-vecs {})
-        (let [optimistic-attrs     (tx/optimistic-attrs attrs tx-step-vecs)
+      (let [tx-step-maps     (tx/mapify-tx-steps attrs tx-step-vecs)
+            optimistic-attrs (tx/optimistic-attrs attrs tx-step-maps)
+            tx-step-maps     (tx/preprocess-tx-steps tx-conn optimistic-attrs app-id tx-step-maps)
+            ;; Use the db connection we have so that we don't cause a deadlock
+            ;; Also need to be able to read our own writes for the create checks
+            ctx                  (assoc ctx
+                                        :db {:conn-pool tx-conn}
+                                        :attrs optimistic-attrs)]
+        (validate-reserved-names! ctx tx-step-maps)
+        (if admin?
+          (tx/transact-without-tx-conn-impl! tx-conn optimistic-attrs app-id tx-step-maps {})
+          (let [;; pre-processing tx
+                tx-step-maps         (->> tx-step-maps
+                                          (coerce-value-uuids ctx)
+                                          (validate-lookup-etypes ctx))
+                ;; TODO somehow fetch update-delete data-ref dependencies in the same go
+                entities-map         (load-entities-map ctx tx-step-maps)
+                tx-step-maps         (resolve-lookups-tx-steps ctx entities-map tx-step-maps)
+                entities-map         (resolve-lookups-entities-map ctx entities-map)
+                updated-entities-map (update-entities-map ctx entities-map tx-step-maps)
+                rule-params-map      (into {}
+                                           (for [{:keys [op eid etype value]} tx-step-maps
+                                                 :when (= :rule-params op)]
+                                             [{:eid eid :etype etype} value]))
 
-              ;; Use the db connection we have so that we don't cause a deadlock
-              ;; Also need to be able to read our own writes for the create checks
-              ctx                  (assoc ctx
-                                          :db {:conn-pool tx-conn}
-                                          :attrs optimistic-attrs)
+                ;; pre checks
+                pre-check-results    (run-checks! ctx (pre-checks ctx entities-map updated-entities-map rule-params-map tx-step-maps))
 
-              ;; pre-processing tx
-              grouped-tx-steps     (tx/preprocess-tx-steps tx-step-vecs tx-conn optimistic-attrs app-id)
-              tx-step-maps         (->> (apply concat (vals grouped-tx-steps))
-                                        (mapify-tx-steps ctx)
-                                        (coerce-value-uuids ctx)
-                                        (validate-lookup-etypes ctx))
-              ;; TODO somehow fetch update-delete data-ref dependencies in the same go
-              entities-map         (load-entities-map ctx tx-step-maps)
-              tx-step-maps         (resolve-lookups-tx-steps ctx entities-map tx-step-maps)
-              entities-map         (resolve-lookups-entities-map ctx entities-map)
-              updated-entities-map (update-entities-map ctx entities-map tx-step-maps)
-              rule-params-map      (into {}
-                                         (for [{:keys [op eid etype value]} tx-step-maps
-                                               :when (= :rule-params op)]
-                                           [{:eid eid :etype etype} value]))
+                ;; transact to DB
+                tx-data              (tx/transact-without-tx-conn-impl! tx-conn (:attrs ctx) app-id tx-step-maps {})
 
-              ;; pre checks
-              pre-check-results    (run-checks! ctx (pre-checks ctx entities-map updated-entities-map rule-params-map tx-step-maps))
+                ;; post checks
+                post-check-results   (run-checks! ctx (post-checks ctx entities-map updated-entities-map rule-params-map tx-step-maps))
 
-              ;; transact to DB
-              tx-data              (as-> tx-step-maps %
-                                     (map vectorize-tx-step %)
-                                     (group-by first %)
-                                     (tx/transact-without-tx-conn-impl! tx-conn (:attrs ctx) app-id % {}))
-
-              ;; post checks
-              post-check-results   (run-checks! ctx (post-checks ctx entities-map updated-entities-map rule-params-map tx-step-maps))
-
-              ;; finalizing
-              check-results        (concat pre-check-results post-check-results)
-              all-checks-ok?       (every? :check-result check-results)
-              rollback?            (and admin-check?
-                                        (or admin-dry-run?
-                                            (not all-checks-ok?)))]
-          (when rollback?
-            (.rollback tx-conn))
-          (assoc tx-data
-                 :check-results  check-results
-                 :all-checks-ok? all-checks-ok?
-                 :committed?     (not rollback?)))))))
+                ;; finalizing
+                check-results        (concat pre-check-results post-check-results)
+                all-checks-ok?       (every? :check-result check-results)
+                rollback?            (and admin-check?
+                                          (or admin-dry-run?
+                                              (not all-checks-ok?)))]
+            (when rollback?
+              (.rollback tx-conn))
+            (assoc tx-data
+                   :check-results  check-results
+                   :all-checks-ok? all-checks-ok?
+                   :committed?     (not rollback?))))))))
 
 (comment
   (do
