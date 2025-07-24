@@ -1626,8 +1626,8 @@ function NewNamespaceDialog({
       </h5>
 
       <TextInput
-        label="Name"
         value={name}
+        placeholder="Name your namespace"
         onChange={(n) => setName(n)}
         autoFocus
       />
