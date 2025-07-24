@@ -27,7 +27,8 @@
    an index. It's up to the caller to figure out which index to use for a pattern.
    InstaQL can do this by looking at the `attr`. To get a sense for this,
    see `instaql/best-index`"
-  (:require [clojure.spec.alpha :as s]
+  (:require [clojure.pprint]
+            [clojure.spec.alpha :as s]
             [clojure.set :as set]
             [instant.db.model.triple :as triple-model]
             [instant.flags :as flags]
@@ -949,10 +950,10 @@
     1))
 
 (defn join-cond-count [symbol-map named-p]
-  (reduce (fn [acc [ctype [_ sym]]]
+  (reduce (fn [acc [_ctype [_ sym]]]
             (if-let [paths (get symbol-map sym)]
               (+ acc (reduce (fn [acc path]
-                               (count-path path))
+                               (+ acc (count-path path)))
                              0
                              paths))
               acc))
@@ -1018,7 +1019,7 @@
 (defn test-pg-hints? []
   *testing-pg-hints*)
 
-(defn estimate-index-size [ctx symbol-map named-p component]
+(defn estimate-index-size [ctx named-p component]
   (let [filtered-p (select-keys named-p [:idx component :a])
         wheres (where-clause (:app-id ctx) :t filtered-p nil)
         count-info {:wheres wheres}]
@@ -1028,7 +1029,7 @@
         10000)
       (get-in ctx [:counts count-info]))))
 
-(defn estimate-rows [ctx symbol-map named-p]
+(defn estimate-rows [ctx named-p]
   (let [count-info {:wheres (where-clause (:app-id ctx)
                                           :t
                                           named-p
@@ -1038,12 +1039,13 @@
         (swap! (:counts ctx) conj count-info)
         10000)
       (get-in ctx [:counts count-info]))))
+
 (defn index-compare [a b]
   (cond (and (empty? (:known-remaining (:index-costs a)))
-             (not (empty? (:known-remaining (:index-costs b)))))
+             (seq (:known-remaining (:index-costs b))))
         -1
 
-        (and (not (empty? (:known-remaining (:index-costs a))))
+        (and (seq (:known-remaining (:index-costs a)))
              (empty? (:known-remaining (:index-costs b))))
         1
 
@@ -1104,27 +1106,27 @@
   "Determines the best index to use based on which components we know will be
    defined at this point in the query."
   [ctx named-p symbol-map]
-  (let [index-candidates (filter (fn [idx-config]
-                                   (and (if (:idx-key idx-config)
-                                          (and (= (:idx-key idx-config)
-                                                  (idx-key (:idx named-p))))
-                                          true)
+  (let [index-candidates
+        (remove (fn [idx-config]
+                  (or (and (:idx-key idx-config)
+                           (not= (:idx-key idx-config)
+                                 (idx-key (:idx named-p))))
 
-                                        (if (:data-type idx-config)
-                                          (and (= (:data-type idx-config)
-                                                  (idx-data-type (:idx named-p)))
-                                               (or (not= :string (:data-type idx-config))
-                                                   (and (= :function (-> named-p
-                                                                         :v
-                                                                         first))
-                                                        (contains? #{:$like :$ilike}
-                                                                   (-> named-p
-                                                                       :v
-                                                                       second
-                                                                       :$comparator
-                                                                       :op)))))
-                                          true)))
-                                 index-configs)
+                      (and (:data-type idx-config)
+                           (or (not= (:data-type idx-config)
+                                     (idx-data-type (:idx named-p)))
+                               ;; Only use the string index for `like` queries
+                               (and (= :string (:data-type idx-config))
+                                    (or (not= :function (-> named-p
+                                                            :v
+                                                            first))
+                                        (not (contains? #{:$like :$ilike}
+                                                        (-> named-p
+                                                            :v
+                                                            second
+                                                            :$comparator
+                                                            :op)))))))))
+                index-configs)
 
         known-components
         (reduce (fn [acc c]
@@ -1134,9 +1136,9 @@
                                :constant (case c
                                            :a (count value)
                                            :e (count value)
-                                           :v (estimate-index-size ctx symbol-map named-p :v))
+                                           :v (estimate-index-size ctx named-p :v))
                                :any nil
-                               :function (estimate-index-size ctx symbol-map named-p c)
+                               :function (estimate-index-size ctx named-p c)
 
                                :variable (get symbol-map value))]
 
@@ -1212,7 +1214,7 @@
         sorted-indexes (sort index-compare indexes-with-costs)
 
         best-index (first sorted-indexes)]
-     best-index))
+    best-index))
 
 (defn pattern->symbol-map-placeholder [pattern row-estimate]
   (reduce (fn [acc [ctype [_tag variable]]]
@@ -1227,7 +1229,7 @@
 (defn annotate-patterns-with-hints [ctx initial-symbol-map patterns]
   (reduce (fn [{:keys [symbol-map] :as acc} [tag pattern]]
             (case tag
-              :pattern (let [row-estimate (estimate-rows ctx symbol-map pattern)]
+              :pattern (let [row-estimate (estimate-rows ctx pattern)]
                          (-> acc
                              (update :symbol-map
                                      (fn [m]
@@ -1301,7 +1303,7 @@
 
         page-pattern-row-estimate (when page-info-pattern
                                     ;; XXX: We should do this later to get the symbol-map??
-                                    (estimate-rows ctx initial-symbol-map page-info-pattern))
+                                    (estimate-rows ctx page-info-pattern))
         {:keys [patterns symbol-map]}
         (annotate-patterns-with-hints ctx
                                       (merge (if (and page-info-pattern page-info-first?)
