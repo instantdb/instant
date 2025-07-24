@@ -20,19 +20,18 @@
     triples))
 
 (defn triples->map [{:keys [attrs include-server-created-at?] :as _ctx} triples]
-  (when (seq triples)
-    (->> triples
-     (reduce (fn [acc [_e a v t]]
-               (let [label (attr-model/fwd-label (attr-model/seek-by-id a attrs))]
-                 (cond-> acc
-                   true (assoc! label v)
+  (->> triples
+       (reduce (fn [acc [_e a v t]]
+                 (let [label (attr-model/fwd-label (attr-model/seek-by-id a attrs))]
+                   (cond-> acc
+                     true (assoc! label v)
 
-                   (and (= label "id")
-                        include-server-created-at?)
-                   (assoc! "$serverCreatedAt" (Date. (long t))))))
-             (transient {"id" (ffirst triples)}))
-     (persistent!)
-     (not-empty))))
+                     (and (= label "id")
+                          include-server-created-at?)
+                     (assoc! "$serverCreatedAt" (Date. (long t))))))
+               (transient {}))
+       (persistent!)
+       (not-empty)))
 
 (defn datalog-result->map [ctx datalog-result]
   (let [triples (->> datalog-result :join-rows (mapcat identity))]

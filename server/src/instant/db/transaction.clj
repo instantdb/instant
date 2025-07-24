@@ -530,7 +530,7 @@
         (fn [acc [op value]]
           (case op
             :add-attr    (assoc!  acc (:id value) value)
-            :update-attr (assoc!  acc (:id value) (merge (get acc (:id value)) value))
+            :update-attr (coll/update! acc (:id value) merge value)
             :delete-attr (dissoc! acc value)
             acc))
         (transient (attr-model/map-by-id attrs)))
