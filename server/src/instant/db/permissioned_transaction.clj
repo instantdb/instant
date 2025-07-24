@@ -129,9 +129,11 @@
      (for [data (:data datalog-result)
            :let [rows    (:join-rows (:result data))
                  triples (mapcat identity rows)]]
-       (entity-model/triples->map ctx triples)))))
+       (when (seq triples)
+         (-> (entity-model/triples->map ctx triples)
+             (assoc "id" (ffirst triples))))))))
 
-(defn resolve-lookups
+(defn resolve-lookups-tx-steps
   "Given known entities-map, resolves as much lookup-refs as possible"
   [_ctx entities-map tx-steps]
   (for [{:keys [eid etype value rev-etype] :as tx-step} tx-steps]
@@ -141,6 +143,16 @@
 
       (and rev-etype (lookup-ref? value))
       (update :value #(-> entities-map (get {:eid % :etype rev-etype}) (get "id") (some-> uuid-util/coerce) (or %))))))
+
+(defn resolve-lookups-entities-map
+  "Updates entities-map keys that are lookup-refs"
+  [_ctx entities-map]
+  (into {}
+        (for [[{:keys [eid etype]} entity] entities-map
+              :let [id (some-> entity (get "id") uuid-util/coerce)]]
+          (if id
+            [{:eid id :etype etype} entity]
+            [{:eid eid :etype etype} entity]))))
 
 (defn deep-merge-and-delete
   "Applies a `merge()` patch to a record. Analogous to immutableDeepMerge in JS
@@ -212,63 +224,65 @@
    updated-entities-map
    rule-params-map
    tx-steps]
-  (distinct
-   (for [{:keys [op eid etype value rev-etype]} tx-steps
-         :let [key         {:eid eid :etype etype}
-               entity      (get entities-map key)
-               rule-params (get rule-params-map key)]
-         check (cond
-                 (= :update-attr op)
-                 [{:scope    :attr
-                   :action   :update
-                   :etype    "attrs"
-                   :program  {:result admin?}}]
-
-                 (= :delete-attr op)
-                 [{:scope    :attr
-                   :action   :delete
-                   :etype    "attrs"
-                   :program  {:result admin?}}]
-
-                 (and (#{:add-triple :deep-merge-triple :retract-triple} op)
-                      entity) ;; update
-                 (concat
-                  [{:scope    :object
+  (doall
+   (distinct
+    (for [{:keys [op eid etype value rev-etype]} tx-steps
+          :let [key         {:eid eid :etype etype}
+                entity      (get entities-map key)
+                rule-params (get rule-params-map key)]
+          check (cond
+                  (= :update-attr op)
+                  [{:scope    :attr
                     :action   :update
+                    :etype    "attrs"
+                    :program  {:result admin?}}]
+
+                  (= :delete-attr op)
+                  [{:scope    :attr
+                    :action   :delete
+                    :etype    "attrs"
+                    :program  {:result admin?}}]
+
+                  (and (#{:add-triple :deep-merge-triple :retract-triple} op)
+                       entity) ;; update
+                  (concat
+                   [{:scope    :object
+                     :action   :update
+                     :etype    etype
+                     :eid      eid
+                     :program  (or (rule-model/get-program! rules etype "update")
+                                   {:result true})
+                     :bindings {:data        entity
+                                :new-data    (get updated-entities-map key)
+                                :rule-params rule-params}}]
+                   ;; updating a ref adds implicit "view" check in reverse direction
+                   ;; with rule-params from forward direction
+                   (when rev-etype
+                     (when-some [rev-entity (get entities-map {:eid value :etype rev-etype})]
+                       [{:scope    :object
+                         :action   :view
+                         :etype    rev-etype
+                         :eid      value
+                         :program  (or (rule-model/get-program! rules rev-etype "view")
+                                       {:result true})
+                         :bindings {:data        rev-entity
+                                    :rule-params rule-params}}])))
+
+                  (= :delete-entity op)
+                  [{:scope    :object
+                    :action   :delete
                     :etype    etype
-                    :eid      (get entity "id")
-                    :program  (or (rule-model/get-program! rules etype "update")
+                    :eid      eid
+                    :program  (or (rule-model/get-program! rules etype "delete")
                                   {:result true})
                     :bindings {:data        entity
-                               :new-data    (get updated-entities-map key)
                                :rule-params rule-params}}]
-                  ;; updating a ref adds implicit "view" check in reverse direction
-                  ;; with rule-params from forward direction
-                  (when rev-etype
-                    [{:scope    :object
-                      :action   :view
-                      :etype    rev-etype
-                      :eid      value
-                      :program  (or (rule-model/get-program! rules rev-etype "view")
-                                    {:result true})
-                      :bindings {:data        (get entities-map {:eid value :etype rev-etype})
-                                 :rule-params rule-params}}]))
 
-                 (= :delete-entity op)
-                 [{:scope    :object
-                   :action   :delete
-                   :etype    etype
-                   :eid      eid
-                   :program  (or (rule-model/get-program! rules etype "delete")
-                                 {:result true})
-                   :bindings {:data        entity
-                              :rule-params rule-params}}]
-
-                 :else
-                 [])]
-     (if (lookup-ref? (:eid check))
-       (ex/throw-validation-err! :lookup (:eid check) [{:message "Could not find the entity for this lookup"}])
-       check))))
+                  :else
+                  [])]
+      (if (lookup-ref? (:eid check))
+        (ex/throw-validation-err! :lookup (:eid check) [{:message "Could not find the entity for this lookup"}])
+        check)))))
 
 (defn after-tx-checks
   "Checks that run after tx: create, add-attr"
@@ -278,51 +292,53 @@
    rule-params-map
    create-lookups-map
    tx-steps]
-  (distinct
-   (for [{:keys [op eid etype value rev-etype]} tx-steps
-         :let [key         {:eid eid :etype etype}
-               entity      (get entities-map key)
-               rule-params (get rule-params-map key)]
-         check (cond
-                 (= :add-attr op)
-                 [{:scope    :attr
-                   :action   :create
-                   :etype    "attrs"
-                   :program  (or (rule-model/get-program! rules "attrs" "create")
-                                 {:result true})
-                   :bindings {:data value}}]
-
-                 (and (#{:add-triple :deep-merge-triple :retract-triple} op)
-                      (not entity)) ;; create
-                 (concat
-                  [{:scope    :object
+  (doall
+   (distinct
+    (for [{:keys [op eid etype value rev-etype]} tx-steps
+          :let [key         {:eid eid :etype etype}
+                entity      (get entities-map key)
+                rule-params (get rule-params-map key)]
+          check (cond
+                  (= :add-attr op)
+                  [{:scope    :attr
                     :action   :create
-                    :etype    etype
-                    :eid      (get create-lookups-map eid eid)
-                    :program  (or (rule-model/get-program! rules etype "create")
+                    :etype    "attrs"
+                    :program  (or (rule-model/get-program! rules "attrs" "create")
                                   {:result true})
-                    :bindings (let [updated-entity (-> (get updated-entities-map key)
-                                                       (update "id" #(get create-lookups-map % %)))]
-                                {:data        updated-entity
-                                 :new-data    updated-entity
-                                 :rule-params rule-params})}]
-                  ;; updating a ref adds implicit "view" check in reverse direction
-                  ;; with rule-params from forward direction
-                  (when rev-etype
-                    [{:scope    :object
-                      :action   :view
-                      :etype    rev-etype
-                      :eid      value
-                      :program  (or (rule-model/get-program! rules rev-etype "view")
-                                    {:result true})
-                      :bindings {:data        (get entities-map {:eid value :etype rev-etype})
-                                 :rule-params rule-params}}]))
+                    :bindings {:data value}}]
 
-                 :else
-                 [])]
-     (if (lookup-ref? (:eid check))
-       (ex/throw-validation-err! :lookup (:eid check) [{:message "Could not find the entity for this lookup"}])
-       check))))
+                  (and (#{:add-triple :deep-merge-triple :retract-triple} op)
+                       (not entity)) ;; create
+                  (concat
+                   [{:scope    :object
+                     :action   :create
+                     :etype    etype
+                     :eid      (get create-lookups-map eid eid)
+                     :program  (or (rule-model/get-program! rules etype "create")
+                                   {:result true})
+                     :bindings (let [updated-entity (-> (get updated-entities-map key)
+                                                        (update "id" #(get create-lookups-map % %)))]
+                                 {:data        updated-entity
+                                  :new-data    updated-entity
+                                  :rule-params rule-params})}]
+                   ;; updating a ref adds implicit "view" check in reverse direction
+                   ;; with rule-params from forward direction
+                   (when rev-etype
+                     (when-some [rev-entity (get entities-map {:eid value :etype rev-etype})]
+                       [{:scope    :object
+                         :action   :view
+                         :etype    rev-etype
+                         :eid      value
+                         :program  (or (rule-model/get-program! rules rev-etype "view")
+                                       {:result true})
+                         :bindings {:data        rev-entity
+                                    :rule-params rule-params}}])))
+
+                  :else
+                  [])]
+      (if (lookup-ref? (:eid check))
+        (ex/throw-validation-err! :lookup (:eid check) [{:message "Could not find the entity for this lookup"}])
+        check)))))
 
 (defn run-checks!
   "Runs checks, returning results (admin-check?) or throwing"
@@ -416,13 +432,15 @@
               entities-map     (load-entities-map ctx' tx-steps')
 
               tx-steps''       (->> tx-steps'
-                                    #_(resolve-lookups ctx' entities-map))
+                                    (resolve-lookups-tx-steps ctx' entities-map))
 
-              updated-entities-map (update-entities-map ctx' entities-map tx-steps'')
+              entities-map'    (resolve-lookups-entities-map ctx' entities-map)
+
+              updated-entities-map (update-entities-map ctx' entities-map' tx-steps'')
 
               rule-params-map      (rule-params-map ctx' tx-steps'')
 
-              before-tx-checks        (before-tx-checks ctx' entities-map updated-entities-map rule-params-map tx-steps'')
+              before-tx-checks        (before-tx-checks ctx' entities-map' updated-entities-map rule-params-map tx-steps'')
               before-tx-check-results (run-checks! ctx' before-tx-checks)
 
               tx-data              (as-> tx-steps'' %
@@ -435,8 +453,7 @@
                                         (filter lookup-ref?)
                                         (triple-model/fetch-lookups->eid tx-conn app-id))
 
-              ;; TODO apply create-lookups-map
-              after-tx-checks         (after-tx-checks ctx' entities-map updated-entities-map rule-params-map create-lookups-map tx-steps'')
+              after-tx-checks         (after-tx-checks ctx' entities-map' updated-entities-map rule-params-map create-lookups-map tx-steps'')
               after-tx-check-results  (run-checks! ctx' after-tx-checks)
 
               check-results           (concat before-tx-check-results after-tx-check-results)
