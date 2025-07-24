@@ -33,7 +33,9 @@
                     acc' (if-let [idx (get node "Index Name")]
                            (update acc alias' (fnil conj #{})
                                    {:index idx
-                                    :node  (get node "Node Type")})
+                                    :node (get node "Node Type")
+                                    :time (* (get node "Actual Loops" 1)
+                                             (get node "Actual Total Time"))})
                            acc)]
 
                 (reduce #(step %2 alias' %1) acc' (vals node)))
@@ -58,6 +60,22 @@
      :execution-time execution-time
      :planning-time planning-time
      :indexes (determine-indexes-used explain-output)}))
+
+(defn prepare-indexes-for-diff [indexes]
+  (update-vals indexes
+               (fn [vs]
+                 (map (fn [x]
+                        (dissoc x :time))
+                      vs))))
+
+(defn diff-indexes [old new]
+  (let [diff-keys (-> (ddiff/diff (prepare-indexes-for-diff old)
+                                  (prepare-indexes-for-diff new))
+                      ddiff/minimize
+                      keys)]
+    (into triples-alias-sorted-map
+          (ddiff/minimize (ddiff/diff (select-keys old diff-keys)
+                                      (select-keys new diff-keys))))))
 
 (def seen (cache/ttl-cache-factory {} :ttl (* 1000 60)))
 
@@ -94,9 +112,8 @@
                                                             (* 1000 10)))
                                         :index-diff (when (and (:indexes old)
                                                                (:indexes new))
-                                                      (->json (into triples-alias-sorted-map
-                                                                    (ddiff/minimize (ddiff/diff (:indexes old)
-                                                                                                (:indexes new))))))}})))))
+                                                      (->json (diff-indexes (:indexes old)
+                                                                            (:indexes new))))}})))))
 
 (defn test-pg-hints [ctx permissioned-query-fn o query-hash]
   (cache/lookup-or-miss seen query-hash (constantly true))
