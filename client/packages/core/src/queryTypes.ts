@@ -200,7 +200,7 @@ type QueryResponse<
     ? InstaQLQueryResult<E, Q, WithCardinalityInference, UseDates>
     : ResponseOf<{ [K in keyof Q]: Remove$<Q[K]> }, Schema>;
 
-type InstaQLResponse<Schema, Q, UseDates extends boolean> =
+type InstaQLResponse<Schema, Q, UseDates extends boolean = false> =
   Schema extends IContainEntitiesAndLinks<any, any>
     ? InstaQLResult<Schema, Q, UseDates>
     : never;
