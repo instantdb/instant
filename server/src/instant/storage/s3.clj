@@ -98,10 +98,7 @@
         ctx* (assoc ctx
                     :object-key (->object-key app-id location-id)
                     :content-type (or content-type detected-mime-type))]
-    (try
-      (s3-util/upload-stream-to-s3 (s3-async-client) bucket-name ctx* file)
-      (finally
-        (.close file)))))
+    (s3-util/upload-stream-to-s3 (s3-async-client) bucket-name ctx* file)))
 
 (defn format-object [{:keys [object-metadata]}]
   (-> object-metadata
