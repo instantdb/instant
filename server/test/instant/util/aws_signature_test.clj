@@ -240,22 +240,25 @@
                   :signing-instant example-signing-instant
                   :expires-duration (Duration/ofSeconds 400)
                   :path (storage-s3/->object-key example-app-id example-location-id)})]
+    (is (=
+         ["https://examplebucket.s3.amazonaws.com/998acba8-1d01-44f2-bea3-d683ccc493c9/1/590548c1-c4ec-4bf9-9df3-2ef603b190d2"
+          "X-Amz-Algorithm=AWS4-HMAC-SHA256"
+          "X-Amz-Credential=AKIAIOSFODNN7EXAMPLE%2F20130524%2Fus-east-1%2Fs3%2Faws4_request"
+          "X-Amz-Date=20130524T000000Z"
+          "X-Amz-Expires=400"
+          "X-Amz-Signature=8d12ac91b9d4a53c0d4cd69cf79449ae7bb4059145ef204a5c4f2cc8de8d4c9e"
+          "X-Amz-SignedHeaders=host"
+          "response-cache-control=public%2C%20max-age%3D86400%2C%20immutable"]
+         (url->pretty get-req)))
     (is (= ["https://examplebucket.s3.amazonaws.com/998acba8-1d01-44f2-bea3-d683ccc493c9/1/590548c1-c4ec-4bf9-9df3-2ef603b190d2"
-            "X-Amz-Algorithm=AWS4-HMAC-SHA256"
-            "X-Amz-Credential=AKIAIOSFODNN7EXAMPLE%2F20130524%2Fus-east-1%2Fs3%2Faws4_request"
-            "X-Amz-Date=20130524T000000Z"
-            "X-Amz-Expires=400"
-            "X-Amz-Signature=3cc677e69965c690abb6c317055b8e3db209470d501515fa9ead69d4cd077757"
-            "X-Amz-SignedHeaders=host"]
-           (url->pretty get-req)))
-    (is (= ["https://examplebucket.s3.amazonaws.com/998acba8-1d01-44f2-bea3-d683ccc493c9/1/590548c1-c4ec-4bf9-9df3-2ef603b190d2"
-            "X-Amz-Algorithm=AWS4-HMAC-SHA256"
-            "X-Amz-Credential=AKIAIOSFODNN7EXAMPLE%2F20130524%2Fus-east-1%2Fs3%2Faws4_request"
-            "X-Amz-Date=20130524T000000Z"
-            "X-Amz-Expires=400"
-            "X-Amz-Signature=c7c9312ca2ee0e59ed3c1a16f24af8e74cf8ef36d70a45dffc6efc8698ecaaaa"
-            "X-Amz-SignedHeaders=host"]
-           (url->pretty put-req)))))
+          "X-Amz-Algorithm=AWS4-HMAC-SHA256"
+          "X-Amz-Credential=AKIAIOSFODNN7EXAMPLE%2F20130524%2Fus-east-1%2Fs3%2Faws4_request"
+          "X-Amz-Date=20130524T000000Z"
+          "X-Amz-Expires=400"
+          "X-Amz-Signature=e4fbcfbb12efb100599611b64510e392570c1e69e4d24b5fb1363d02d057279f"
+          "X-Amz-SignedHeaders=host"
+          "response-cache-control=public%2C%20max-age%3D86400%2C%20immutable"]
+         (url->pretty put-req)))))
 
 (comment
   (test/run-tests *ns*))
