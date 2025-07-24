@@ -755,6 +755,10 @@
    {:name :triples_pkey
     :cols [:e :a]}
 
+   {:name :ave_index
+    :cols [:a :v]
+    :idx-key :ave}
+
    {:name :eav_uuid_index
     :cols [:e :a :v]
     :idx-key :eav}
@@ -763,10 +767,6 @@
     :cols [:a :v]
     :idx-key :ave
     :data-type :string}
-
-   {:name :ave_index
-    :cols [:a :v]
-    :idx-key :ave}
 
    {:name :vae_uuid_index
     :cols [:v :a :e]
@@ -1197,18 +1197,8 @@
                               (:cols idx-config))
                       :matching-idx-key? (= (:idx-key idx-config)
                                             (idx-key (:idx named-p)))
-                      :matching-data-type? (and (= (:data-type idx-config)
-                                                   (idx-data-type (:idx named-p)))
-                                                (or (not= :string (idx-data-type (:idx named-p)))
-                                                    (not (and (= :function (-> named-p
-                                                                               :v
-                                                                               first))
-                                                              (contains? #{:$like :$ilike}
-                                                                         (-> named-p
-                                                                             :v
-                                                                             second
-                                                                             :$comparator
-                                                                             :op))))))))
+                      :matching-data-type? (= (:data-type idx-config)
+                                              (idx-data-type (:idx named-p)))))
              index-candidates)
 
         sorted-indexes (sort index-compare indexes-with-costs)
