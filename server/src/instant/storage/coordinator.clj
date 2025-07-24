@@ -4,7 +4,10 @@
             [instant.model.rule :as rule-model]
             [instant.storage.beta :as storage-beta]
             [instant.util.exception :as ex]
+            [instant.db.model.attr :as attr-model]
+            [instant.db.datalog :as d]
             [instant.db.cel :as cel]
+            [instant.jdbc.aurora :as aurora]
             [instant.model.app-upload-url :as app-upload-url-model]
             [instant.config :as config])
   (:import
@@ -22,13 +25,15 @@
     (ex/assert-permitted!
      :has-storage-permission?
      ["$files" action]
+     ;; deny access by default if no permissions are currently set
      (if-not program
-       ;; deny access by default if no permissions are currently set
        false
-       ;; otherwise, evaluate the permissions code
-       (cel/eval-program! ctx
-                          program
-                          {:data {"path" path}})))))
+       (let [ctx* (assoc ctx
+                         :db {:conn-pool (aurora/conn-pool :read)}
+                         :attrs
+                         (attr-model/get-by-app-id app-id)
+                         :datalog-query-fn d/query)]
+         (cel/eval-program! ctx* program {:data {"path" path}}))))))
 
 (defn upload-file!
   "Uploads a file to S3 and tracks it in Instant. Returns a file id"
