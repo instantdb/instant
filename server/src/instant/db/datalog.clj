@@ -755,10 +755,6 @@
    {:name :triples_pkey
     :cols [:e :a]}
 
-   {:name :ave_index
-    :cols [:a :v]
-    :idx-key :ave}
-
    {:name :eav_uuid_index
     :cols [:e :a :v]
     :idx-key :eav}
@@ -767,6 +763,10 @@
     :cols [:a :v]
     :idx-key :ave
     :data-type :string}
+
+   {:name :ave_index
+    :cols [:a :v]
+    :idx-key :ave}
 
    {:name :vae_uuid_index
     :cols [:v :a :e]
