@@ -299,7 +299,10 @@
                                                    :service "s3"})
                "X-Amz-Date" (instant->amz-date signing-instant)
                "X-Amz-Expires" amz-expires
-               "X-Amz-SignedHeaders" "host"}
+               "X-Amz-SignedHeaders" "host"
+               ;; Cache for 24 hours, we don't allow modifications so use
+               ;; immutable to prevent revalidation.
+               "response-cache-control" "public, max-age=86400, immutable"}
         sig-request (create-sig-request {:access-key access-key
                                          :secret-key secret-key
 
