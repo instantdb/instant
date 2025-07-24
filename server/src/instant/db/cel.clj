@@ -488,8 +488,8 @@
               (instance? CelUnknownSet result)
               (let [^CelUnknownSet result result
                     missing-exprs (.unknownExprIds result)
-                  ;; We don't handle unknown vars yet, but we could
-                  ;; use this to avoid pre-fetching entity maps.
+                    ;; We don't handle unknown vars yet, but we could
+                    ;; use this to avoid pre-fetching entity maps.
                     _ (when (seq missing-exprs)
                         (throw (CelEvaluationException.
                                 "Tried to evaluate a cel program that used unknown variables")))

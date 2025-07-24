@@ -1,6 +1,8 @@
 (ns instant.db.model.entity
-  (:require [instant.db.model.attr :as attr-model])
-  (:import [java.util Date]))
+  (:require
+   [instant.db.model.attr :as attr-model])
+  (:import
+   [java.util Date]))
 
 (defn get-triples
   "Returns all triples for the eid+etype.
@@ -19,7 +21,7 @@
 
 (defn triples->map [{:keys [attrs include-server-created-at?] :as _ctx} triples]
   (when (seq triples)
-    (->>
+    (->> triples
      (reduce (fn [acc [_e a v t]]
                (let [label (attr-model/fwd-label (attr-model/seek-by-id a attrs))]
                  (cond-> acc
@@ -28,8 +30,7 @@
                    (and (= label "id")
                         include-server-created-at?)
                    (assoc! "$serverCreatedAt" (Date. (long t))))))
-             (transient {})
-             triples)
+             (transient {"id" (ffirst triples)}))
      (persistent!)
      (not-empty))))
 
