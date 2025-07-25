@@ -5,26 +5,22 @@
             [instant.model.app-user :as app-user-model]
             [instant.model.rule :as rule-model]
             [instant.db.model.attr :as attr-model]
-            [instant.db.instaql :as i]
             [instant.db.transaction :as tx]
             [instant.util.test :as test-util :refer [perm-err?]]
             [instant.jdbc.aurora :as aurora]))
 
-(defn make-ctx [app-id]
-  {:db {:conn-pool (aurora/conn-pool :read)}
-   :app-id app-id
-   :attrs (attr-model/get-by-app-id app-id)})
-
 (deftest assert-storage-permission-test
   (with-empty-app
     (fn [{app-id :id}]
-      ;; Set up attributes for $user.authorization.role
       (let [conn (aurora/conn-pool :write)
             auth-etype-attr-id (random-uuid)
             auth-role-attr-id (random-uuid)
-            user-auth-link-attr-id (random-uuid)]
-
-        ;; Create attributes
+            user-auth-link-attr-id (random-uuid)
+            rules {"$files" {"allow" {"view" "'authorized' in auth.ref('$user.authorization.role')"
+                                      "update" "'authorized' in auth.ref('$user.authorization.role')"
+                                      "create" "'authorized' in auth.ref('$user.authorization.role')"
+                                      "delete" "'authorized' in auth.ref('$user.authorization.role')"}}}]
+        ;; Set up schema
         (tx/transact! conn
                       (attr-model/get-by-app-id app-id)
                       app-id
@@ -48,7 +44,7 @@
                                    :value-type :ref
                                    :cardinality :one}]])
 
-        ;; Create users
+        ;; Create data and rules
         (let [pass-user-id (random-uuid)
               fail-user-id (random-uuid)
               pass-user (app-user-model/create! conn
@@ -61,8 +57,6 @@
                                                  :email "fail@example.com"})
               pass-auth-id (random-uuid)
               fail-auth-id (random-uuid)]
-
-          ;; Add authorization data
           (tx/transact! conn
                         (attr-model/get-by-app-id app-id)
                         app-id
@@ -75,70 +69,33 @@
                          [:add-triple pass-auth-id user-auth-link-attr-id (:id pass-user)]
                          [:add-triple fail-auth-id user-auth-link-attr-id (:id fail-user)]])
 
-          ;; Set up permissions
-          (let [rules {"$files" {"allow" {"view" "'authorized' in auth.ref('$user.authorization.role')"
-                                          "create" "'authorized' in auth.ref('$user.authorization.role')"
-                                          "delete" "'authorized' in auth.ref('$user.authorization.role')"}}}]
-            (rule-model/put! conn {:app-id app-id :code rules})
+          (rule-model/put! conn {:app-id app-id :code rules})
 
-            (testing "create permission"
-              (testing "pass@example.com should have create permission"
+          (let [actions ["view" "create" "update" "delete"]]
+            (testing "auth.ref should pass for authorized user"
+              (doseq [action actions]
                 (is (= true
                        (coordinator/assert-storage-permission!
-                        "create"
+                        action
                         {:app-id app-id
                          :path "/test/file.txt"
-                         :current-user pass-user}))))
+                         :current-user pass-user})))))
 
-              (testing "fail@example.com should not have create permission"
+            (testing "auth.ref should fail for unauthorized user"
+              (doseq [action actions]
                 (is (perm-err?
                      (coordinator/assert-storage-permission!
-                      "create"
-                      {:app-id app-id
-                       :path "/test/file.txt"
-                       :current-user fail-user})))))
-
-            (testing "delete permission"
-              (testing "pass@example.com should have delete permission"
-                (is (= true
-                       (coordinator/assert-storage-permission!
-                        "delete"
-                        {:app-id app-id
-                         :path "/test/file.txt"
-                         :current-user pass-user}))))
-
-              (testing "fail@example.com should not have delete permission"
-                (is (perm-err?
-                     (coordinator/assert-storage-permission!
-                      "delete"
-                      {:app-id app-id
-                       :path "/test/file.txt"
-                       :current-user fail-user})))))
-
-            (testing "view permission"
-              (testing "pass@example.com should have view permission"
-                (is (= true
-                       (coordinator/assert-storage-permission!
-                        "view"
-                        {:app-id app-id
-                         :path "/test/file.txt"
-                         :current-user pass-user}))))
-
-              (testing "fail@example.com should not have view permission"
-                (is (perm-err?
-                     (coordinator/assert-storage-permission!
-                      "view"
+                      action
                       {:app-id app-id
                        :path "/test/file.txt"
                        :current-user fail-user})))))
 
             (testing "no permissions set should deny by default"
               (rule-model/put! conn {:app-id app-id :code {}})
-
-              (testing "should deny create when no permissions are set"
+              (doseq [action actions]
                 (is (perm-err?
                      (coordinator/assert-storage-permission!
-                      "create"
+                      action
                       {:app-id app-id
                        :path "/test/file.txt"
                        :current-user pass-user})))))))))))
