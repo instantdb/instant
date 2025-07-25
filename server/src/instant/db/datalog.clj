@@ -1020,6 +1020,7 @@
       (list* :or ors))))
 
 (def ^:dynamic *testing-pg-hints* false)
+(def ^:dynamic *debug* false)
 
 (defn test-pg-hints? []
   *testing-pg-hints*)
@@ -1415,8 +1416,6 @@
               (= #{[:e :v]} join-ctypes))
         (assoc named-p :idx [:keyword :eav])
         named-p))))
-
-(def ^:dynamic *debug* true)
 
 (defn- joining-with
   "Produces subsequent match tables. Each table joins on the previous
