@@ -14,7 +14,7 @@ import { init, id } from '@instantdb/react';
 
 // Instant app
 const APP_ID = '__APP_ID__';
-const db = init({ appID: APP_ID });
+const db = init({ appId: APP_ID });
 
 // transact! 🔥
 db.transact(db.tx.goals[id()].create({ title: 'eat' }));
