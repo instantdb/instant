@@ -43,10 +43,11 @@ jobs:
             const changes = {
               server: file.startsWith('server/'),
               refinery: file.startsWith('server/refinery/')
+              workflowFile: file === '.github/workflows/clojure.yml'
             };
             console.log('file', file);
             console.log('changes', changes);
-            if (changes.server) {
+            if (changes.server || changes.workflowFile) {
               console.log('clj_did_change', true);
               output.clj_did_change = true;
             }
