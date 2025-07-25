@@ -106,6 +106,7 @@ jobs:
       uses: actions/github-script@v7
       with:
         script: |
+          console.log(JSON.stringify(context, null, 2))
           const base = context.payload.before || context.payload.pull_request?.base.sha;
           const head = context.payload.after || context.payload.pull_request?.head.sha;
           const owner = context.repo.owner;
