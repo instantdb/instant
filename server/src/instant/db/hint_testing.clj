@@ -12,6 +12,8 @@
    [lambdaisland.deep-diff2 :as ddiff]))
 
 (def triples-alias-sorted-map
+  "The aliases are t0, t1, t2, etc. This sorts the keys in the map
+   so that t2 is after t10."
   (sorted-map-by (fn [a b]
                    (let [a-num (some-> (re-find #"\d+" a)
                                        (Long/parseLong))
@@ -22,7 +24,11 @@
                        (compare a b)
                        res)))))
 
-(defn determine-indexes-used [plan]
+(defn determine-indexes-used
+  "Walks the explain output to find which indexes were used for each
+  alias, includes the index, node type (e.g. Index scan or Bitmap
+  index scan), and the time it took."
+  [plan]
   (letfn [(step [node alias acc]
             (cond
               (map? node)
@@ -46,7 +52,9 @@
               :else acc))]
     (step plan nil triples-alias-sorted-map)))
 
-(defn explain-datalog [ctx patterns]
+(defn explain-datalog
+  "Runs explain on the query and returns times and indexes uses."
+  [ctx patterns]
   (let [explain-output (d/explain ctx patterns)
         execution-time (-> explain-output
                            (get-in [0 "QUERY PLAN"])
@@ -61,14 +69,20 @@
      :planning-time planning-time
      :indexes (determine-indexes-used explain-output)}))
 
-(defn prepare-indexes-for-diff [indexes]
+(defn prepare-indexes-for-diff
+  "Removes time from the indexes-used for better diffing."
+  [indexes]
   (update-vals indexes
                (fn [vs]
                  (map (fn [x]
                         (dissoc x :time))
                       vs))))
 
-(defn diff-indexes [old new]
+(defn diff-indexes
+  "Returns a diff of the indexes by index and node type in ddiff format.
+   {\"t0\" #{{:+ {:index \"ea_index\"}}
+             {:- {:index \"triples_pkey\"}}}"
+  [old new]
   (let [diff-keys (-> (ddiff/diff (prepare-indexes-for-diff old)
                                   (prepare-indexes-for-diff new))
                       ddiff/minimize
@@ -77,10 +91,13 @@
           (ddiff/minimize (ddiff/diff (select-keys old diff-keys)
                                       (select-keys new diff-keys))))))
 
-(def seen (cache/ttl-cache-factory {} :ttl (* 1000 60)))
+(def seen
+  "Keeps track of the query hashes that we've already seen so that we
+   can try to get more variety in our sampling."
+  (cache/ttl-cache-factory {} :ttl (* 1000 60)))
 
 (defn test-pg-hints-for-datalog-query [ctx patterns query query-hash]
-  (binding [tracer/*span* nil] ;; new root span for each patterns
+  (binding [tracer/*span* nil] ;; new root span
     (tracer/with-span! {:name "test-pg-hints-for-datalog"
                         :attributes {:query query
                                      :query-hash query-hash
@@ -115,7 +132,11 @@
                                                       (->json (diff-indexes (:indexes old)
                                                                             (:indexes new))))}})))))
 
-(defn test-pg-hints [ctx permissioned-query-fn o query-hash]
+(defn test-pg-hints
+  "Runs the query to capture all datalog queries, then compares the
+  explain (analyze) time and indexes used for each datalog query
+  individually."
+  [ctx permissioned-query-fn o query-hash]
   (cache/lookup-or-miss seen query-hash (constantly true))
   (binding [tracer/*span* nil] ;; Create new root span
     (tracer/with-span! {:name "test-pg-hint-plan"
@@ -144,7 +165,7 @@
             (test-pg-hints-for-datalog-query ctx patterns o query-hash)))))))
 
 (defn worth-testing? [_ctx _o query-hash]
-  (and (flags/test-rule-wheres?)
+  (and (flags/toggled? :test-pg-hint-plan)
        (not (cache/lookup seen query-hash))))
 
 (defonce process-chan (atom (a/chan (a/sliding-buffer 10))))
