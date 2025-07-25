@@ -1049,7 +1049,10 @@
         10000)
       (get-in ctx [:counts count-info]))))
 
-(defn index-compare [a b]
+(defn index-compare
+  "Compares the indexes pairwise to try to pick the best one.
+   A scoring system might be better, but this is a easier to debug."
+  [a b]
   (cond (and (empty? (:known-remaining (:index-costs a)))
              (seq (:known-remaining (:index-costs b))))
         -1
@@ -1116,6 +1119,7 @@
    defined at this point in the query."
   [ctx named-p symbol-map]
   (let [index-candidates
+        ;; Filters the indexes that can't work for this CTE (e.g. ea index on a ref)
         (remove (fn [idx-config]
                   (or (and (:idx-key idx-config)
                            (not= (:idx-key idx-config)
@@ -1137,6 +1141,8 @@
                                                             :op)))))))))
                 index-configs)
 
+        ;; Gets the components that we know (either constants or defined
+        ;; in the symbol map by a previous CTE)
         known-components
         (reduce (fn [acc c]
                   (let [[tag value] (get named-p c)]
@@ -1166,6 +1172,8 @@
                 {}
                 [:e :a :v :created-at])
 
+        ;; Gets the components that we're joining on from a previous
+        ;; CTE
         join-components
         (reduce (fn [acc c]
                   (let [[tag value] (get named-p c)]
@@ -1176,6 +1184,8 @@
                 {}
                 [:e :a :v :created-at])
 
+        ;; Gets the variable components that we don't have in the
+        ;; symbol map
         needed-components (reduce (fn [acc c]
                                     (let [[tag value] (get named-p c)]
                                       (if (and (= tag :variable)
@@ -1197,8 +1207,6 @@
                                                           :col col
                                                           :type :index-lookup}))
                                   (reduced acc)))
-                              ;; XXX: What do you do if you have multiple needed-components?
-                              ;;      Maybe that's when we should bust out the bitmapindex?
                               {:known-remaining known-components
                                :join-components join-components
                                :needed-components needed-components
@@ -1227,64 +1235,68 @@
           {}
           (variable-components pattern)))
 
-(defn annotate-patterns-with-hints [ctx initial-symbol-map patterns]
-  (reduce (fn [{:keys [symbol-map] :as acc} [tag pattern]]
-            (case tag
-              :pattern (let [row-estimate (estimate-rows ctx pattern)]
-                         (-> acc
-                             (update :symbol-map
-                                     (fn [m]
-                                       (merge-with min
-                                                   m
-                                                   (pattern->symbol-map-placeholder pattern row-estimate))))
-                             (update :patterns
-                                     conj
-                                     [tag (assoc pattern
-                                                 :row-estimate row-estimate
-                                                 :symbol-map symbol-map
-                                                 :best-index
-                                                 (best-index ctx
-                                                             (assoc pattern
-                                                                    :row-estimate row-estimate)
-                                                             symbol-map)
-                                                 :best-index-if-eav (when (= :vae (idx-key (:idx pattern)))
-                                                                      (best-index ctx
-                                                                                  (assoc pattern
-                                                                                         :row-estimate row-estimate
-                                                                                         :idx [:keyword :eav])
-                                                                                  symbol-map)))])))
-              :and (let [{:keys [patterns symbol-map]}
-                         (annotate-patterns-with-hints ctx symbol-map (:and pattern))]
-                     (-> acc
-                         (assoc :symbol-map symbol-map)
-                         (update :patterns conj [:and {:and patterns}])))
-              :or (let [{:keys [patterns symbol-map]}
-                        (reduce (fn [acc group]
-                                  (let [{:keys [patterns symbol-map]}
-                                        (annotate-patterns-with-hints ctx
-                                                                      {}
-                                                                      [group])]
-                                    (-> acc
-                                        (update :patterns (partial apply conj) patterns)
-                                        ;; It would be more accurate to do a merge-with
-                                        ;; max/+ here, but we don't capture contraints
-                                        ;; on the ors from previous CTEs, so min usually
-                                        ;; produces a better plan. If we pass symbol-map
-                                        ;; to the or instead of {} (both in accumulate-ctes
-                                        ;; and annotate-patterns-with-hints), then we could
-                                        ;; switch to max or +
-                                        (update :symbol-map (partial merge-with min) symbol-map))))
-                                {:patterns []
-                                 :symbol-map symbol-map}
-                                (:patterns (:or pattern)))]
-                    (-> acc
-                        (assoc :symbol-map symbol-map)
-                        (update :patterns conj [:or {:or (assoc (:or pattern) :patterns patterns)}])))
+(defn annotate-pattern-with-hints
+  "Annotates the pattern with best-index and adds updates the symbol-map."
+  [ctx symbol-map pattern]
+  (let [row-estimate (estimate-rows ctx pattern)
+        pattern-symbol-map (pattern->symbol-map-placeholder pattern
+                                                            row-estimate)]
+    {:symbol-map (update symbol-map (partial merge-with min) pattern-symbol-map)
+     :pattern (assoc pattern
+                     :row-estimate row-estimate
+                     :symbol-map symbol-map
+                     :best-index
+                     (best-index ctx
+                                 (assoc pattern
+                                        :row-estimate row-estimate)
+                                 symbol-map)
+                     :best-index-if-eav (when (= :vae (idx-key (:idx pattern)))
+                                          (best-index ctx
+                                                      (assoc pattern
+                                                             :row-estimate row-estimate
+                                                             :idx [:keyword :eav])
+                                                      symbol-map)))}))
 
-              (update acc :patterns conj [tag pattern])))
-          {:symbol-map initial-symbol-map
-           :patterns []}
-          patterns))
+(defn annotate-patterns-with-hints [ctx initial-symbol-map patterns]
+  (reduce
+   (fn [{:keys [symbol-map] :as acc} [tag pattern]]
+     (case tag
+       :pattern (let [res (annotate-pattern-with-hints ctx symbol-map pattern)]
+                  (-> acc
+                      (assoc :symbol-map (:symbol-map res))
+                      (update :patterns conj [tag (:pattern res)])))
+       :and (let [{:keys [patterns symbol-map]}
+                  (annotate-patterns-with-hints ctx symbol-map (:and pattern))]
+              (-> acc
+                  (assoc :symbol-map symbol-map)
+                  (update :patterns conj [:and {:and patterns}])))
+       :or (let [{:keys [patterns symbol-map]}
+                 (reduce (fn [acc group]
+                           (let [{:keys [patterns symbol-map]}
+                                 (annotate-patterns-with-hints ctx
+                                                               {}
+                                                               [group])]
+                             (-> acc
+                                 (update :patterns (partial apply conj) patterns)
+                                 ;; It would be more accurate to do a merge-with
+                                 ;; max/+ here, but we don't capture contraints
+                                 ;; on the ors from previous CTEs, so min usually
+                                 ;; produces a better plan. If we pass symbol-map
+                                 ;; to the or instead of {} (both in accumulate-ctes
+                                 ;; and annotate-patterns-with-hints), then we could
+                                 ;; switch to max or +
+                                 (update :symbol-map (partial merge-with min) symbol-map))))
+                         {:patterns []
+                          :symbol-map symbol-map}
+                         (:patterns (:or pattern)))]
+             (-> acc
+                 (assoc :symbol-map symbol-map)
+                 (update :patterns conj [:or {:or (assoc (:or pattern) :patterns patterns)}])))
+
+       (update acc :patterns conj [tag pattern])))
+   {:symbol-map initial-symbol-map
+    :patterns []}
+   patterns))
 
 (defn pattern-count [patterns]
   (reduce (fn [acc [tag pattern]]
@@ -1462,7 +1474,7 @@
                             parent-froms)
               :where (where-clause {:app-id app-id
                                     :triples-alias  triples-alias
-                                    :additional-joins all-joins}
+                                    :additional-clauses all-joins}
                                    named-p)}
              (if (or
                   ;; only use `not materialized` when we're in the middle of an ordered
