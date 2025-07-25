@@ -24,7 +24,7 @@
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
    [instant.system-catalog :as system-catalog]
-   [medley.core :refer [update-existing-in dissoc-in]]
+   [medley.core :refer [update-existing-in]]
    [instant.storage.s3 :as instant-s3]
    [instant.comment :as c])
   (:import
@@ -867,7 +867,7 @@
     ;; everything. We only need to order if there is pagination.
     ;; The client is just going to get a set of triples anyway, so it can handle
     ;; ordering on the frontend.
-    (when (or limit first last offset before after order)
+    (when (or limit first last offset before after)
       (let [{:keys [k direction]} (or order default-order)
             eid-sym (attr-pat/default-level-sym etype level)
             order-sym (if (= "serverCreatedAt" k)
@@ -976,13 +976,7 @@
           form' (-> form
                     (assoc :etype next-etype)
                     (assoc :level next-level)
-                    (assoc :join-attr-pat join-attr-pat)
-                    ;; We don't support limiting on child queries, so
-                    ;; there's no reason to do the extra work to order
-                    ;; by on the postgres side for child queries. When
-                    ;; we add limits on children, we will need to
-                    ;; update this.
-                    (dissoc-in [:option-map :order]))]
+                    (assoc :join-attr-pat join-attr-pat))]
       form')))
 
 (defn find-row-by-aid [rows aid]
