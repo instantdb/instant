@@ -65,7 +65,7 @@ jobs:
   clj-check:
     runs-on: ubuntu-latest
     needs: [ detect_changes ]
-    if: needs.detect_changes.outputs.clj_did_change == 'True'
+    if: needs.detect_changes.outputs.clj_did_change == 'true'
 
     services:
       postgres:
@@ -145,7 +145,7 @@ jobs:
   clj-build-check:
     runs-on: ubuntu-latest
     needs: [ detect_changes ]
-    if: needs.detect_changes.outputs.clj_did_change
+    if: needs.detect_changes.outputs.clj_did_change == 'true'
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -182,7 +182,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     needs: [ detect_changes ]
-    if: needs.detect_changes.outputs.clj_did_change
+    if: needs.detect_changes.outputs.clj_did_change == 'true'
 
     steps:
     - name: Checkout
@@ -219,7 +219,7 @@ jobs:
 
   publish-image:
     runs-on: ubuntu-latest
-    if: (needs.detect_changes.outputs.clj_did_change && github.ref == 'refs/heads/main') || contains(github.event.head_commit.message, '[staging]')
+    if: (needs.detect_changes.outputs.clj_did_change == 'true' && github.ref == 'refs/heads/main') || contains(github.event.head_commit.message, '[staging]')
     # Start publish image if we have clj changes
     needs: [ detect_changes ]
     permissions:
@@ -290,7 +290,7 @@ jobs:
 
   publish-refinery-eb:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && needs.detect_changes.outputs.refinery_did_change
+    if: github.ref == 'refs/heads/main' && needs.detect_changes.outputs.refinery_did_change == 'true'
     needs:
       - detect_changes
     permissions:
