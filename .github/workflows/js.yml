@@ -112,9 +112,8 @@ jobs:
           console.log(JSON.stringify(context, null, 2))
           const base = context.payload.before || x.payload.pull_request.base.sha;
           const head = context.payload.after || x.payload.pull_request.head.sha;
-          console.log('REPO', JSON.stringify(context.repo, null, 2));
           const owner = context.repo.owner;
-          const repo = context.repo.name;
+          const repo = context.repo.repo;
           const { data } = await github.rest.repos.compareCommits({
             owner,
             repo,
