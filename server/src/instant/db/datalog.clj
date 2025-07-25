@@ -1241,7 +1241,7 @@
   (let [row-estimate (estimate-rows ctx pattern)
         pattern-symbol-map (pattern->symbol-map-placeholder pattern
                                                             row-estimate)]
-    {:symbol-map (update symbol-map (partial merge-with min) pattern-symbol-map)
+    {:symbol-map (merge-with min symbol-map pattern-symbol-map)
      :pattern (assoc pattern
                      :row-estimate row-estimate
                      :symbol-map symbol-map
