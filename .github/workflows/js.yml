@@ -106,7 +106,6 @@ jobs:
       uses: actions/github-script@v7
       with:
         script: |
-          console.log(JSON.stringify(context, null, 2))
           const base = context.payload.before || x.payload.pull_request.base.sha;
           const head = context.payload.after || x.payload.pull_request.head.sha;
           const owner = context.repo.owner;
@@ -119,10 +118,12 @@ jobs:
           });
           const files = data.files.map((f) => f.filename);
 
-          core.setOutput('docs_did_change', false);
-          core.setOutput('mcp_did_change', false);
-          core.setOutput('packages_did_change', false);
-          core.setOutput('version_did_change', false);
+          const output = {
+            docs_did_change: false,
+            mcp_did_change: false,
+            packages_did_change: false,
+            version_did_change: false
+          };
 
           for (const file of files) {
             const changes = {
@@ -138,7 +139,7 @@ jobs:
             console.log('changes', changes);
             if (changes.docs) {
               console.log('docs_did_change', true);
-              core.setOutput('docs_did_change', true);
+              output.docs_did_change = true;
             }
 
             if (
@@ -148,19 +149,22 @@ jobs:
               changes.workflowFile
             ) {
               console.log('mcp_did_change', true);
-              core.setOutput('mcp_did_change', true);
+              output.mcp_did_change = true;
             }
 
             if (changes.packages || changes.workflowFile) {
               console.log('packages_did_change', true);
-              core.setOutput('packages_did_change', true);
+              output.packages_did_change = true;
             }
 
             if (changes.versionMd) {
               console.log('version_did_change', true);
-              core.setOutput('version_did_change', true);
+              output.version_did_change = true;
             }
           }
+
+          console.log('output', output);
+          return output;
 
   publish-docs:
     name: Publish algolia changes
