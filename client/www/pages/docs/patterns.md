@@ -166,8 +166,9 @@ function App() {
 If you have a plain html page or avoid using a build step, you can use InstantDB
 via a CDN through [unpkg](https://www.unpkg.com/@instantdb/core/).
 
-```jsx
-<!-- Load Instant via unpkg. Consider replacing `@latest` with current version  -->
+```jsx {% showCopy=true %}
+<!-- Load Instant via unpkg -->
+<!-- Consider replacing @latest with a specific package -->
 <script src="https://www.unpkg.com/@instantdb/core@latest/dist/standalone/index.umd.cjs"></script>
 
 <!-- Use Instant like normal -->
