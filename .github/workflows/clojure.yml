@@ -42,7 +42,7 @@ jobs:
           for (const file of files) {
             const changes = {
               server: file.startsWith('server/'),
-              refinery: file.startsWith('server/refinery/')
+              refinery: file.startsWith('server/refinery/'),
               workflowFile: file === '.github/workflows/clojure.yml'
             };
             console.log('file', file);
