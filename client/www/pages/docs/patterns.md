@@ -168,7 +168,7 @@ via a CDN through [unpkg](https://www.unpkg.com/@instantdb/core/).
 
 ```jsx
 <!-- Load Instant via unpkg. Consider replacing `@latest` with current version  -->
-<script src="https://www.unpkg.com/@instantdb/core@latest/dist/standalone/index.umd.js"></script>
+<script src="https://www.unpkg.com/@instantdb/core@latest/dist/standalone/index.umd.cjs"></script>
 
 <!-- Use Instant like normal -->
 <script>
