@@ -1324,7 +1324,7 @@
                                     (estimate-rows ctx page-info-pattern))
         {:keys [patterns symbol-map]}
         (annotate-patterns-with-hints ctx
-                                      (merge (if (and page-info-pattern (tool/inspect page-info-first?))
+                                      (merge (if (and page-info-pattern page-info-first?)
                                                (pattern->symbol-map-placeholder page-info-pattern
                                                                                 page-pattern-row-estimate)
                                                {})
