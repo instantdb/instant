@@ -26,6 +26,12 @@
   (:import
    (java.util UUID)))
 
+(test/use-fixtures :each
+  (fn [f]
+    (f)
+    (binding [permissioned-tx/*new-permissioned-transact?* true]
+      (f))))
+
 (defn- fetch-triples
   ([app-id] (fetch-triples app-id []))
   ([app-id where-clause]
