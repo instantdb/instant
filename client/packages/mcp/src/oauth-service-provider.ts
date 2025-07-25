@@ -106,8 +106,6 @@ export function makeApiAuth(
   };
 }
 
-// https://github.com/modelcontextprotocol/modelcontextprotocol/issues/653
-// Anthropic says it's fixed, but it doesn't seem like it
 function patchClientForScopes(
   client: OAuthClientInformationFull,
 ): OAuthClientInformationFull {
