@@ -76,7 +76,7 @@
 (defn bitmap-scan
   "Forces bitmap scan on the table. Restricts to specified indexes if any."
   [tbl & indexes]
-  (into [:'BitMapScan tbl] indexes))
+  (into [:'BitmapScan tbl] indexes))
 
 (defn no-seq-scan
   "Forces to not do sequential scan on the table."

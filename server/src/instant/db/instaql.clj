@@ -11,7 +11,7 @@
    [instant.db.model.attr-pat :as attr-pat]
    [instant.db.model.entity :as entity-model]
    [instant.db.model.triple :as triple-model]
-   [instant.db.rule-where-testing :as rule-where-testing]
+   [instant.db.hint-testing :as hint-testing]
    [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
@@ -2099,7 +2099,7 @@
                                    :admin? admin?
                                    :query (pr-str o)}}
     (when-not (:testing-rule-wheres ctx) ;; Prevent infinite cycle
-      (rule-where-testing/queue-for-testing ctx permissioned-query o))
+      (hint-testing/queue-for-testing ctx permissioned-query o))
     (if admin?
       (query ctx (dissoc o :$$ruleParams))
       (let [ctx (assoc ctx :preloaded-refs (cel/create-preloaded-refs-cache))
