@@ -820,7 +820,11 @@
     [:and [:= :app-id app-id]
           [:= :value [:cast \"25\" :jsonb]]]
   "
-  [app-id triples-alias {:keys [idx] :as named-pattern} additional-clauses]
+  [{:keys [app-id
+           remove-unnecessary-idx-key?
+           triples-alias
+           additional-clauses]}
+   {:keys [idx] :as named-pattern}]
   (let [attr-ids-where (when-let [a (:a named-pattern)]
                          (when (named-constant? a)
                            (constant->where-part idx app-id :a a)))
@@ -833,7 +837,8 @@
     (list*
      :and
      [:= :app-id app-id]
-     (when (seq rest-wheres)
+     (when (or (seq rest-wheres)
+               (not remove-unnecessary-idx-key?))
        [:= (idx-key idx) :true])
      attr-ids-where
      rest-wheres)))
@@ -1021,7 +1026,10 @@
 
 (defn estimate-index-size [ctx named-p component]
   (let [filtered-p (select-keys named-p [:idx component :a])
-        wheres (where-clause (:app-id ctx) :t filtered-p nil)
+        wheres (where-clause {:app-id (:app-id ctx)
+                              :remove-unnecessary-idx-key? true
+                              :triples-alias :t}
+                            filtered-p)
         count-info {:wheres wheres}]
     (if (= (:phase ctx) :deps)
       (do
@@ -1030,10 +1038,10 @@
       (get-in ctx [:counts count-info]))))
 
 (defn estimate-rows [ctx named-p]
-  (let [count-info {:wheres (where-clause (:app-id ctx)
-                                          :t
-                                          named-p
-                                          nil)}]
+  (let [count-info {:wheres (where-clause {:app-id (:app-id ctx)
+                                           :triples-alias :t
+                                           :remove-unnecessary-idx-key? true}
+                                          named-p)}]
     (if (= :deps (:phase ctx))
       (do
         (swap! (:counts ctx) conj count-info)
@@ -1204,7 +1212,9 @@
         sorted-indexes (sort index-compare indexes-with-costs)
 
         best-index (first sorted-indexes)]
-    best-index))
+    (if *debug*
+      (assoc best-index :rest-indexes (rest sorted-indexes))
+      best-index)))
 
 (defn pattern->symbol-map-placeholder [pattern row-estimate]
   (reduce (fn [acc [ctype [_tag variable]]]
@@ -1289,7 +1299,7 @@
 (defn annotate-pattern-group-with-hints [ctx initial-symbol-map pattern-group]
   (let [page-info-pattern (get-in pattern-group [:page-info :named-pattern 1])
 
-        page-info-first? false ;;(= 1 (pattern-count (:patterns pattern-group)))
+        page-info-first? (= 1 (pattern-count (:patterns pattern-group)))
 
         page-pattern-row-estimate (when page-info-pattern
                                     ;; XXX: We should do this later to get the symbol-map??
@@ -1406,7 +1416,7 @@
         (assoc named-p :idx [:keyword :eav])
         named-p))))
 
-(def ^:dynamic *debug* false)
+(def ^:dynamic *debug* true)
 
 (defn- joining-with
   "Produces subsequent match tables. Each table joins on the previous
@@ -1451,7 +1461,10 @@
                                    (when prev-table
                                      [prev-table]))
                             parent-froms)
-              :where (where-clause app-id triples-alias named-p all-joins)}
+              :where (where-clause {:app-id app-id
+                                    :triples-alias  triples-alias
+                                    :additional-joins all-joins}
+                                   named-p)}
              (if (or
                   ;; only use `not materialized` when we're in the middle of an ordered
                   ;; query
