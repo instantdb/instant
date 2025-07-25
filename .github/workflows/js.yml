@@ -109,6 +109,7 @@ jobs:
       uses: actions/github-script@v7
       with:
         script: |
+          console.log('BEFORE', context.payload.before)
           console.log(JSON.stringify(context, null, 2))
           console.log(JSON.stringify(${{ toJson(github.event) }}, null, 2))
 
