@@ -16,19 +16,22 @@ jobs:
       uses: actions/github-script@v7
       with:
         script: |
-          const base =
-            context.payload.before === '0000000000000000000000000000000000000000'
-              ? context.payload.pull_request.base.sha
-              : context.payload.before || context.payload.pull_request.base.sha;
-          const head = context.payload.after || context.payload.pull_request.head.sha;
+          const base = context.payload.before || context.payload.pull_request?.base.sha;
+          const head = context.payload.after || context.payload.pull_request?.head.sha;
           const owner = context.repo.owner;
           const repo = context.repo.repo;
-          const { data } = await github.rest.repos.compareCommits({
-            owner,
-            repo,
-            base,
-            head,
-          });
+          const { data } = await (base === '0000000000000000000000000000000000000000'
+            ? github.rest.repos.getCommit({
+                owner,
+                repo,
+                ref: head,
+              })
+            : github.rest.repos.compareCommits({
+                owner,
+                repo,
+                base,
+                head,
+              }));
           const files = data.files.map((f) => f.filename);
 
           const output = {
