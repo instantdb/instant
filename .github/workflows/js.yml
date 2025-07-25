@@ -96,10 +96,10 @@ jobs:
   detect_changes:
     runs-on: ubuntu-latest
     outputs:
-      docs_did_change: ${{ steps.detect_changes.docs_did_change }}
-      mcp_did_change: ${{ steps.detect_changes.mcp_did_change }}
-      packages_did_change: ${{ steps.detect_changes.packages_did_change }}
-      version_did_change: ${{ steps.detect_changes.version_did_change }}
+      docs_did_change: ${{ steps.detect_changes.outputs.docs_did_change }}
+      mcp_did_change: ${{ steps.detect_changes.outputs.mcp_did_change }}
+      packages_did_change: ${{ steps.detect_changes.outputs.packages_did_change }}
+      version_did_change: ${{ steps.detect_changes.outputs.version_did_change }}
     steps:
     - name: Detect changes
       id: detect_changes
