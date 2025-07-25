@@ -96,16 +96,13 @@ jobs:
   detect_changes:
     runs-on: ubuntu-latest
     outputs:
-      docs_did_change: ${{ steps.detect-docs-change.outputs.docs_did_change }}
-      mcp_did_change: ${{ steps.detect-mcp-change.outputs.mcp_did_change }}
-      packages_did_change: ${{ steps.detect-package-change.outputs.packages_did_change }}
-      version_did_change: ${{ steps.detect-version-change.outputs.version_did_change }}
+      docs_did_change: ${{ steps.detect_changes.docs_did_change }}
+      mcp_did_change: ${{ steps.detect_changes.mcp_did_change }}
+      packages_did_change: ${{ steps.detect_changes.packages_did_change }}
+      version_did_change: ${{ steps.detect_changes.version_did_change }}
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: ${{ github.event_name == 'pull_request' && 2 || 0 }}
-    - name: Test changed files
+    - name: Detect changes
+      id: detect_changes
       uses: actions/github-script@v7
       with:
         script: |
@@ -122,6 +119,11 @@ jobs:
           });
           const files = data.files.map((f) => f.filename);
 
+          core.setOutput('docs_did_change', false);
+          core.setOutput('mcp_did_change', false);
+          core.setOutput('packages_did_change', false);
+          core.setOutput('version_did_change', false);
+
           for (const file of files) {
             const changes = {
               docs: /docs/.test(file),
@@ -135,86 +137,36 @@ jobs:
             console.log('file', file);
             console.log('changes', changes);
             if (changes.docs) {
+              console.log('docs_did_change', true);
               core.setOutput('docs_did_change', true);
             }
+
             if (
               changes.mcpPackages ||
               changes.mcpDockerfile ||
               changes.mcpFly ||
               changes.workflowFile
             ) {
+              console.log('mcp_did_change', true);
               core.setOutput('mcp_did_change', true);
             }
+
             if (changes.packages || changes.workflowFile) {
+              console.log('packages_did_change', true);
               core.setOutput('packages_did_change', true);
             }
 
             if (changes.versionMd) {
+              console.log('version_did_change', true);
               core.setOutput('version_did_change', true);
             }
           }
-    - name: Get changed files
-      id: changed-files
-      run: |
-        if ${{ github.event_name == 'pull_request' }}; then
-            echo "changed_files=$(git diff --name-only -r HEAD^1 HEAD | xargs)" >> $GITHUB_OUTPUT
-        else
-            echo "changed_files=$(git diff --name-only ${{ github.event.before }} ${{ github.event.after }} | xargs)" >> $GITHUB_OUTPUT
-        fi
-    - name: Detect docs changes
-      id: detect-docs-change
-      run: |
-        changeArr=($(echo ${{ steps.changed-files.outputs.changed_files }}))
-        echo "docs_did_change=False" >> $GITHUB_OUTPUT
-        for file in ${changeArr[*]}
-        do
-          if echo $file | grep -E 'docs'; then
-            echo "docs_did_change=True" >> $GITHUB_OUTPUT
-            break
-          fi
-        done
-    - name: Detect mcp changes
-      id: detect-mcp-change
-      run: |
-        changeArr=($(echo ${{ steps.changed-files.outputs.changed_files }}))
-        echo "mcp_did_change=False" >> $GITHUB_OUTPUT
-        for file in ${changeArr[*]}
-        do
-          if [[ $file =~ (packages/(mcp|core|platform|admin)|Dockerfile\.mcp|client/fly\.toml|workflows/js\.yml) ]]; then
-            echo "mcp_did_change=True" >> $GITHUB_OUTPUT
-            break
-          fi
-        done
-    - name: Detect packages changes
-      id: detect-package-change
-      run: |
-        changeArr=($(echo ${{ steps.changed-files.outputs.changed_files }}))
-        echo "packages_did_change=False" >> $GITHUB_OUTPUT
-        for file in ${changeArr[*]}
-        do
-          if [[ $file =~ (packages|workflows/js\.yml) ]]; then
-            echo "packages_did_change=True" >> $GITHUB_OUTPUT
-            break
-          fi
-        done
-    - name: Detect version.md change
-      id: detect-version-change
-      run: |
-        changeArr=($(echo ${{ steps.changed-files.outputs.changed_files }}))
-        echo "version_did_change=False" >> $GITHUB_OUTPUT
-        for file in ${changeArr[*]}
-        do
-          if [[ $file == "client/version.md" ]]; then
-            echo "version_did_change=True" >> $GITHUB_OUTPUT
-            break
-          fi
-        done
 
   publish-docs:
     name: Publish algolia changes
     runs-on: ubuntu-latest
     needs: [ build, detect_changes ]
-    if: github.ref == 'refs/heads/main' && needs.detect_changes.outputs.docs_did_change == 'True'
+    if: github.ref == 'refs/heads/main' && needs.detect_changes.outputs.docs_did_change
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -247,7 +199,7 @@ jobs:
     name: Deploy remote MCP
     runs-on: ubuntu-latest
     needs: [ build, detect_changes ]
-    if: github.ref == 'refs/heads/main' && needs.detect_changes.outputs.mcp_did_change == 'True'
+    if: github.ref == 'refs/heads/main' && needs.detect_changes.outputs.mcp_did_change
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -265,7 +217,7 @@ jobs:
     name: Publish experimental packages
     runs-on: ubuntu-latest
     needs: [ detect_changes ]
-    if: github.ref != 'refs/heads/main' && github.event_name == 'push' && needs.detect_changes.outputs.packages_did_change == 'True'
+    if: github.ref != 'refs/heads/main' && github.event_name == 'push' && needs.detect_changes.outputs.packages_did_change
     permissions:
       contents: read
       id-token: write
@@ -339,7 +291,7 @@ jobs:
     name: Publish packages
     runs-on: ubuntu-latest
     needs: [ build, detect_changes ]
-    if: github.event_name == 'pull_request' && needs.detect_changes.outputs.version_did_change == 'True'
+    if: github.event_name == 'pull_request' && needs.detect_changes.outputs.version_did_change
     permissions:
       contents: write
       id-token: write
