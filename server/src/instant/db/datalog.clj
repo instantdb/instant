@@ -1353,11 +1353,11 @@
   ([ctx nested-named-patterns]
    (let [counts-atom (atom (set {}))
          ;; Run annotate-with-hints to populate the counts atom
-         _ (with-out-str (annotate-with-hints (assoc ctx
-                                                     :phase :deps
-                                                     :counts counts-atom)
-                                              {}
-                                              nested-named-patterns))
+         _ (annotate-with-hints (assoc ctx
+                                       :phase :deps
+                                       :counts counts-atom)
+                                {}
+                                nested-named-patterns)
          count-queries @counts-atom
 
          ;; Fetch counts from the database. We should be able to store
