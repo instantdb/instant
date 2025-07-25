@@ -1222,7 +1222,10 @@
 
         best-index (first sorted-indexes)]
     (if *debug*
-      (assoc best-index :rest-indexes (rest sorted-indexes))
+      (assoc best-index
+             :rest-indexes (rest sorted-indexes)
+             :symbol-map symbol-map
+             :known-components known-components)
       best-index)))
 
 (defn pattern->symbol-map-placeholder [pattern row-estimate]
@@ -1310,16 +1313,18 @@
 (declare annotate-with-hints)
 
 (defn annotate-pattern-group-with-hints [ctx initial-symbol-map pattern-group]
-  (let [page-info-pattern (get-in pattern-group [:page-info :named-pattern 1])
+  (let [level (:level ctx 0)
+        page-info-pattern (get-in pattern-group [:page-info :named-pattern 1])
 
-        page-info-first? (= 1 (pattern-count (:patterns pattern-group)))
+        page-info-first? (and (= level 0)
+                              (= 1 (pattern-count (:patterns pattern-group))))
 
         page-pattern-row-estimate (when page-info-pattern
                                     ;; XXX: We should do this later to get the symbol-map??
                                     (estimate-rows ctx page-info-pattern))
         {:keys [patterns symbol-map]}
         (annotate-patterns-with-hints ctx
-                                      (merge (if (and page-info-pattern page-info-first?)
+                                      (merge (if (and page-info-pattern (tool/inspect page-info-first?))
                                                (pattern->symbol-map-placeholder page-info-pattern
                                                                                 page-pattern-row-estimate)
                                                {})
@@ -1330,6 +1335,7 @@
       page-info-pattern (update-in [:page-info :named-pattern 1]
                                    (fn [p]
                                      (assoc p
+                                            :page-pattern? true
                                             :best-index
                                             (best-index ctx
                                                         p
@@ -1339,7 +1345,7 @@
                                                          (when (not page-info-first?)
                                                            symbol-map))))))
       (:children pattern-group) ((fn [pg]
-                                   (annotate-with-hints ctx symbol-map pg))))))
+                                   (annotate-with-hints (assoc ctx :level (inc level)) symbol-map pg))))))
 
 (defn annotate-with-hints
   "Annotates the named-patterns with the best index to use.  It uses
