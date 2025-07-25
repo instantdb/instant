@@ -109,10 +109,49 @@ jobs:
       uses: actions/github-script@v7
       with:
         script: |
-          console.log('BEFORE', context.payload.before)
-          console.log(JSON.stringify(context, null, 2))
-          console.log(JSON.stringify(${{ toJson(github.event) }}, null, 2))
+          const base = context.payload.before || x.payload.pull_request.base.sha;
+          const head = context.payload.after || x.payload.pull_request.head.sha;
+          const owner = context.payload.repository.owner.name;
+          const repo = context.payload.repository.name;
+          const { data } = await github.rest.repos.compareCommits({
+            owner,
+            repo,
+            base,
+            head,
+          });
+          const files = data.files.map((f) => f.filename);
 
+          for (const file of files) {
+            const changes = {
+              docs: /docs/.test(file),
+              mcpPackages: /^client\/packages\/(mcp|core|platform|admin)/.test(file),
+              mcpDockerfile: file === 'client/Dockerfile.mcp',
+              mcpFly: file === 'client/fly.toml',
+              workflowFile: file === '.github/workflows/js.yml',
+              packages: file.startsWith('client/packages'),
+              versionMd: file === 'client/version.md',
+            };
+            console.log('file', file);
+            console.log('changes', changes);
+            if (changes.docs) {
+              core.setOutput('docs_did_change', true);
+            }
+            if (
+              changes.mcpPackages ||
+              changes.mcpDockerfile ||
+              changes.mcpFly ||
+              changes.workflowFile
+            ) {
+              core.setOutput('mcp_did_change', true);
+            }
+            if (changes.packages || changes.workflowFile) {
+              core.setOutput('packages_did_change', true);
+            }
+
+            if (changes.versionMd) {
+              core.setOutput('version_did_change', true);
+            }
+          }
     - name: Get changed files
       id: changed-files
       run: |
