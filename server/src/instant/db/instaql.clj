@@ -24,7 +24,7 @@
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
    [instant.system-catalog :as system-catalog]
-   [medley.core :refer [update-existing-in]]
+   [medley.core :refer [update-existing-in dissoc-in]]
    [instant.storage.s3 :as instant-s3]
    [instant.comment :as c])
   (:import
@@ -976,7 +976,13 @@
           form' (-> form
                     (assoc :etype next-etype)
                     (assoc :level next-level)
-                    (assoc :join-attr-pat join-attr-pat))]
+                    (assoc :join-attr-pat join-attr-pat)
+                    ;; We don't support limiting on child queries, so
+                    ;; there's no reason to do the extra work to order
+                    ;; by on the postgres side for child queries. When
+                    ;; we add limits on children, we will need to
+                    ;; update this.
+                    (dissoc-in [:option-map :order]))]
       form')))
 
 (defn find-row-by-aid [rows aid]
