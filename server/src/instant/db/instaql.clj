@@ -867,7 +867,8 @@
     ;; everything. We only need to order if there is pagination.
     ;; The client is just going to get a set of triples anyway, so it can handle
     ;; ordering on the frontend.
-    (when (or limit first last offset before after)
+    (when (and (= level 0)
+               (or limit first last offset before after order))
       (let [{:keys [k direction]} (or order default-order)
             eid-sym (attr-pat/default-level-sym etype level)
             order-sym (if (= "serverCreatedAt" k)
