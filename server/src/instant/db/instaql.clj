@@ -863,11 +863,7 @@
 (defn page-info-of-form [{:keys [state] :as ctx}
                          {:keys [etype level option-map] :as _form}]
   (let [{:keys [order limit first last offset before after]} option-map]
-    ;; We don't need to do extra work to order the results if we're returning
-    ;; everything. We only need to order if there is pagination.
-    ;; The client is just going to get a set of triples anyway, so it can handle
-    ;; ordering on the frontend.
-    (when (and (= level 0)
+    (when (and (= level 0) ;; Don't bother ordering child forms since you can't paginate them
                (or limit first last offset before after order))
       (let [{:keys [k direction]} (or order default-order)
             eid-sym (attr-pat/default-level-sym etype level)
