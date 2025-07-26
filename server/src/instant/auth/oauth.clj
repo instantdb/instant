@@ -5,6 +5,7 @@
    [clojure.core.cache.wrapped :as cache]
    [clojure.string :as string]
    [instant.auth.jwt :as jwt]
+   [instant.config :as config]
    [instant.util.crypt :as crypt-util]
    [instant.util.exception :as ex]
    [instant.util.lang :as lang]
@@ -18,6 +19,7 @@
    (java.util Base64)))
 
 (def allowed-extra-params [:hd])
+
 
 (defprotocol OAuthClient
   (create-authorization-url [this state redirect-url extra-params])
@@ -37,7 +39,7 @@
                                meta]
   OAuthClient
   (create-authorization-url [_ state redirect-url extra-params]
-    (let [base-params {:scope "email"
+    (let [base-params {:scope config/oauth-default-scope
                        :response_type "code"
                        :response_mode "form_post"
                        :state state
