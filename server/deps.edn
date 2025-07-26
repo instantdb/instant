@@ -67,6 +67,8 @@
         com.fasterxml.jackson.core/jackson-databind {:mvn/version "2.12.7.2"}
 
         lambdaisland/uri {:mvn/version "1.19.155"}
+        lambdaisland/deep-diff2 {:mvn/version "2.12.219"}
+
         com.auth0/java-jwt {:mvn/version "4.4.0"}
         com.auth0/jwks-rsa {:mvn/version "0.22.1"}
         com.stripe/stripe-java {:mvn/version "25.1.0"}

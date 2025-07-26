@@ -27,7 +27,8 @@
    an index. It's up to the caller to figure out which index to use for a pattern.
    InstaQL can do this by looking at the `attr`. To get a sense for this,
    see `instaql/best-index`"
-  (:require [clojure.spec.alpha :as s]
+  (:require [clojure.pprint]
+            [clojure.spec.alpha :as s]
             [clojure.set :as set]
             [instant.db.model.triple :as triple-model]
             [instant.flags :as flags]
@@ -677,7 +678,7 @@
     (uuid-util/coerce s)
     (uuid-util/coerce (str s (subs all-fs-uuid (count s))))))
 
-(defn- value-function-clauses [app-id idx [v-tag v-value]]
+(defn- value-function-clauses [app-id triples-alias idx [v-tag v-value]]
   (case v-tag
     :function (let [[func val] (first v-value)]
                 (case func
@@ -687,21 +688,22 @@
                                :in)
                              :entity-id
                              (let [reverse-ref? (and (:ref? val)
-                                                     (:reverse? val))]
+                                                     (:reverse? val))
+                                   alias (kw triples-alias :-subquery)]
                                {:select (if reverse-ref?
-                                          [[[:cast [:->> :t.value :0] :uuid]]]
-                                          :t.entity-id)
-                                :from [[:triples :t]]
+                                          [[[:cast [:->> (kw alias :.value) :0] :uuid]]]
+                                          (kw alias :.entity-id))
+                                :from [[:triples alias]]
                                 :where (list* :and
-                                              [:= :t.app-id app-id]
-                                              [:= :t.entity-id :entity-id]
-                                              [:= :t.attr-id (:attr-id val)]
+                                              [:= (kw alias :.app-id) app-id]
+                                              [:= (kw alias :.entity-id) :entity-id]
+                                              [:= (kw alias :.attr-id) (:attr-id val)]
                                               (when reverse-ref?
                                                 :eav)
                                               (if-let [data-type (:indexed-checked-type val)]
                                                 [:ave
-                                                 (data-type-comparison data-type :not= :t.value nil)]
-                                                [[:not= :t.value [:cast (->json nil) :jsonb]]]))})]]
+                                                 (data-type-comparison data-type :not= (kw alias :.value) nil)]
+                                                [[:not= (kw alias :.value) [:cast (->json nil) :jsonb]]]))})]]
                   :$comparator (let [{:keys [op value data-type]} val]
                                  [(data-type-comparison data-type
                                                         (case op
@@ -727,9 +729,9 @@
                   :$not [[:not= :entity-id val]]))
     []))
 
-(defn- function-clauses [app-id named-pattern]
+(defn- function-clauses [app-id triples-alias named-pattern]
   (concat
-   (value-function-clauses app-id (:idx named-pattern) (:v named-pattern))
+   (value-function-clauses app-id triples-alias (:idx named-pattern) (:v named-pattern))
    (entity-function-clauses (:e named-pattern))))
 
 (defn patch-values-for-av-index
@@ -746,37 +748,47 @@
          clauses)))
 
 (def index-configs
-  [{:name :triples_pkey
+  [{:name :ea_index
+    :cols [:e :a]
+    :idx-key :ea}
+
+   {:name :triples_pkey
     :cols [:e :a]}
+
    {:name :ave_index
     :cols [:a :v]
     :idx-key :ave}
-   {:name :ea_index
-    :cols [:e :a]
-    :idx-key :ea}
+
    {:name :eav_uuid_index
     :cols [:e :a :v]
     :idx-key :eav}
+
    {:name :triples_string_trgm_gist_idx
     :cols [:a :v]
     :idx-key :ave
     :data-type :string}
+
    {:name :vae_uuid_index
     :cols [:v :a :e]
     :idx-key :vae}
+
    {:name :triples_created_at_idx
     :cols [:a :created-at]}
+
    {:name :av_index
     :cols [:a :v :e]
     :idx-key :av}
+
    {:name :triples_number_type_idx
     :cols [:a :v]
     :idx-key :ave
     :data-type :number}
+
    {:name :triples_boolean_type_idx
     :cols [:a :v]
     :idx-key :ave
     :data-type :boolean}
+
    {:name :triples_date_type_idx
     :cols [:a :v]
     :idx-key :ave
@@ -808,17 +820,28 @@
     [:and [:= :app-id app-id]
           [:= :value [:cast \"25\" :jsonb]]]
   "
-  [app-id {:keys [idx] :as named-pattern} additional-clauses]
-  (list*
-   :and
-   [:= :app-id app-id]
-   [:= (idx-key idx) :true]
-   (concat (->> named-pattern
-                constant-components
-                (map (fn [[component-type v]]
-                       (constant->where-part idx app-id component-type v))))
-           (function-clauses app-id named-pattern)
-           (patch-values-for-av-index (idx-key idx) additional-clauses))))
+  [{:keys [app-id
+           remove-unnecessary-idx-key?
+           triples-alias
+           additional-clauses]}
+   {:keys [idx] :as named-pattern}]
+  (let [attr-ids-where (when-let [a (:a named-pattern)]
+                         (when (named-constant? a)
+                           (constant->where-part idx app-id :a a)))
+        rest-wheres (concat (->> (dissoc named-pattern :a)
+                                 constant-components
+                                 (map (fn [[component-type v]]
+                                        (constant->where-part idx app-id component-type v))))
+                            (function-clauses app-id triples-alias named-pattern)
+                            (patch-values-for-av-index (idx-key idx) additional-clauses))]
+    (list*
+     :and
+     [:= :app-id app-id]
+     (when (or (seq rest-wheres)
+               (not remove-unnecessary-idx-key?))
+       [:= (idx-key idx) :true])
+     attr-ids-where
+     rest-wheres)))
 
 ;; ---
 ;; join-clause
@@ -923,6 +946,25 @@
                         paths)))))
        (apply concat)))
 
+(defn count-path [path]
+  (if (set? path)
+    (reduce (fn [acc path]
+              (+ acc (count-path path)))
+            0
+            path)
+    1))
+
+(defn join-cond-count [symbol-map named-p]
+  (reduce (fn [acc [_ctype [_ sym]]]
+            (if-let [paths (get symbol-map sym)]
+              (+ acc (reduce (fn [acc path]
+                               (+ acc (count-path path)))
+                             0
+                             paths))
+              acc))
+          0
+          (variable-components named-p)))
+
 (defn- join-cond-for-or-gather
   "Generates a join condition for combining two or ctes. In contrast to join-cond,
    each column name needs to be fully qualified."
@@ -978,60 +1020,388 @@
       (list* :or ors))))
 
 (def ^:dynamic *testing-pg-hints* false)
+(def ^:dynamic *debug* false)
 
 (defn test-pg-hints? []
   *testing-pg-hints*)
 
+(defn estimate-index-size [ctx named-p component]
+  (let [filtered-p (select-keys named-p [:idx component :a])
+        wheres (where-clause {:app-id (:app-id ctx)
+                              :remove-unnecessary-idx-key? true
+                              :triples-alias :t}
+                            filtered-p)
+        count-info {:wheres wheres}]
+    (if (= (:phase ctx) :deps)
+      (do
+        (swap! (:counts ctx) conj count-info)
+        10000)
+      (get-in ctx [:counts count-info]))))
+
+(defn estimate-rows [ctx named-p]
+  (let [count-info {:wheres (where-clause {:app-id (:app-id ctx)
+                                           :triples-alias :t
+                                           :remove-unnecessary-idx-key? true}
+                                          named-p)}]
+    (if (= :deps (:phase ctx))
+      (do
+        (swap! (:counts ctx) conj count-info)
+        10000)
+      (get-in ctx [:counts count-info]))))
+
+(defn index-compare
+  "Compares the indexes pairwise to try to pick the best one.
+   A scoring system might be better, but this is a easier to debug."
+  [a b]
+  (cond (and (empty? (:known-remaining (:index-costs a)))
+             (seq (:known-remaining (:index-costs b))))
+        -1
+
+        (and (seq (:known-remaining (:index-costs a)))
+             (empty? (:known-remaining (:index-costs b))))
+        1
+
+        (> (count (:path (:index-costs a)))
+           (count (:path (:index-costs b))))
+        -1
+
+        (> (count (:path (:index-costs b)))
+           (count (:path (:index-costs a))))
+        1
+
+        (and (< 0 (count (:path (:index-costs a))))
+             (< 0 (count (:path (:index-costs b))))
+             (< (/ (reduce + (map :cost (:path (:index-costs a))))
+                   (count (:path (:index-costs a))))
+                (/ (reduce + (map :cost (:path (:index-costs b))))
+                   (count (:path (:index-costs b))))))
+        -1
+
+        (and (< 0 (count (:path (:index-costs b))))
+             (< 0 (count (:path (:index-costs a))))
+             (< (/ (reduce + (map :cost (:path (:index-costs b))))
+                   (count (:path (:index-costs b))))
+                (/ (reduce + (map :cost (:path (:index-costs a))))
+                   (count (:path (:index-costs a))))))
+        1
+
+        ;; Prefer to put join conds in the index
+        (and (= (:known-remaining (:index-costs b))
+                (:join-components (:index-costs b)))
+             (not= (:known-remaining (:index-costs a))
+                   (:join-components (:index-costs a))))
+        -1
+
+        (and (= (:known-remaining (:index-costs a))
+                (:join-components (:index-costs a)))
+             (not= (:known-remaining (:index-costs b))
+                   (:join-components (:index-costs b))))
+        1
+
+        (and (:matching-idx-key? a)
+             (not (:matching-idx-key? b)))
+        -1
+
+        (and (not (:matching-idx-key? a))
+             (:matching-idx-key? b))
+        1
+
+        (and (:matching-data-type? a)
+             (not (:matching-data-type? b)))
+        -1
+
+        (and (not (:matching-data-type? a))
+             (:matching-data-type? b))
+        1
+
+        :else 0))
+
 (defn best-index
   "Determines the best index to use based on which components we know will be
    defined at this point in the query."
-  [named-p symbol-map]
-  (let [components [:e :a :v]
+  [ctx named-p symbol-map]
+  (let [index-candidates
+        ;; Filters the indexes that can't work for this CTE (e.g. ea index on a ref)
+        (remove (fn [idx-config]
+                  (or (and (:idx-key idx-config)
+                           (not= (:idx-key idx-config)
+                                 (idx-key (:idx named-p))))
 
+                      (and (:data-type idx-config)
+                           (or (not= (:data-type idx-config)
+                                     (idx-data-type (:idx named-p)))
+                               ;; Only use the string index for `like` queries
+                               (and (= :string (:data-type idx-config))
+                                    (or (not= :function (-> named-p
+                                                            :v
+                                                            first))
+                                        (not (contains? #{:$like :$ilike}
+                                                        (-> named-p
+                                                            :v
+                                                            second
+                                                            :$comparator
+                                                            :op)))))))))
+                index-configs)
+
+        ;; Gets the components that we know (either constants or defined
+        ;; in the symbol map by a previous CTE)
         known-components
-        (set (filter (fn [c]
-                       (let [[tag value] (get named-p c)]
-                         (case tag
-                           :constant true
-                           :any false
-                           :function true
-                           :variable (contains? symbol-map value))))
-                     components))
+        (reduce (fn [acc c]
+                  (let [[tag value] (get named-p c)]
+                    (if-let [estimate
+                             (case tag
+                               :constant (case c
+                                           :a (count value)
+                                           :e (count value)
+                                           :v (estimate-index-size ctx named-p :v))
+                               :any nil
+                               :function (estimate-index-size ctx named-p c)
 
-        ;; it may be a good idea to give something a better score if it's a
-        ;; constant rather than in the symbol-map
-        scored-indexes
-        (map (fn [{:keys [cols] :as idx-config}]
-               (let [score (if (or (and (:idx-key idx-config)
-                                        (not= (:idx-key idx-config)
-                                              (idx-key (:idx named-p))))
-                                   (and (:data-type idx-config)
-                                        (or (not (= (:data-type idx-config)
-                                                    (idx-data-type (:idx named-p))))
-                                            (and (= :string (:data-type idx-config))
-                                                 (not (and (= :function (-> named-p
-                                                                            :v
-                                                                            first))
-                                                           (contains? #{:$like :$ilike}
-                                                                      (-> named-p
-                                                                          :v
-                                                                          second
-                                                                          :$comparator
-                                                                          :op))))))))
-                             -1
-                             (+ (if (and (:idx-key idx-config)
-                                         (= (:idx-key idx-config)
-                                            (idx-key (:idx named-p))))
-                                  0.5
-                                  0)
-                                (count (take-while (fn [col]
-                                                     (contains? known-components col))
-                                                   cols))))]
-                 (assoc idx-config :score score)))
-             index-configs)
+                               :variable (get symbol-map value))]
 
-        best-index (last (sort-by :score scored-indexes))]
-    best-index))
+                      (assoc acc
+                             ;; $isNull gets turned into a subquery that returns entity_ids,
+                             ;; and then we check in the cte if entity_id in (subquery).
+                             ;; So when we determine the index to use for the CTE, we shouldn't be
+                             ;; looking at the :v--that happens in the subquery.
+                             (if (and (= :v c)
+                                      (= :function tag)
+                                      (contains? #{:$isNull} (-> value keys first)))
+                               :e
+                               c)
+                             estimate)
+                      acc)))
+                {}
+                [:e :a :v :created-at])
+
+        ;; Gets the components that we're joining on from a previous
+        ;; CTE
+        join-components
+        (reduce (fn [acc c]
+                  (let [[tag value] (get named-p c)]
+                    (if (and (= :variable tag)
+                             (get symbol-map value))
+                      (assoc acc c (get symbol-map value))
+                      acc)))
+                {}
+                [:e :a :v :created-at])
+
+        ;; Gets the variable components that we don't have in the
+        ;; symbol map
+        needed-components (reduce (fn [acc c]
+                                    (let [[tag value] (get named-p c)]
+                                      (if (and (= tag :variable)
+                                               (not (contains? symbol-map value)))
+                                        (conj acc c)
+                                        acc)))
+                                  #{}
+                                  [:e :a :v :created-at])
+
+        indexes-with-costs
+        (map (fn [idx-config]
+               (assoc idx-config
+                      :index-costs
+                      (reduce (fn [acc col]
+                                (if-let [cost (get (:known-remaining acc) col)]
+                                  (-> acc
+                                      (update :known-remaining dissoc col)
+                                      (update :path conj {:cost cost
+                                                          :col col
+                                                          :type :index-lookup}))
+                                  (reduced acc)))
+                              {:known-remaining known-components
+                               :join-components join-components
+                               :needed-components needed-components
+                               :path []}
+                              (:cols idx-config))
+                      :matching-idx-key? (= (:idx-key idx-config)
+                                            (idx-key (:idx named-p)))
+                      :matching-data-type? (= (:data-type idx-config)
+                                              (idx-data-type (:idx named-p)))))
+             index-candidates)
+
+        sorted-indexes (sort index-compare indexes-with-costs)
+
+        best-index (first sorted-indexes)]
+    (if *debug*
+      (assoc best-index
+             :rest-indexes (rest sorted-indexes)
+             :symbol-map symbol-map
+             :known-components known-components)
+      best-index)))
+
+(defn pattern->symbol-map-placeholder [pattern row-estimate]
+  (reduce (fn [acc [ctype [_tag variable]]]
+            (case ctype
+              ;; This will be wrong for v, but it's the best we
+              ;; have at this point
+              (:e :v) (assoc acc variable row-estimate)
+              acc))
+          {}
+          (variable-components pattern)))
+
+(defn annotate-pattern-with-hints
+  "Annotates the pattern with best-index and adds updates the symbol-map."
+  [ctx symbol-map pattern]
+  (let [row-estimate (estimate-rows ctx pattern)
+        pattern-symbol-map (pattern->symbol-map-placeholder pattern
+                                                            row-estimate)]
+    {:symbol-map (merge-with min symbol-map pattern-symbol-map)
+     :pattern (assoc pattern
+                     :row-estimate row-estimate
+                     :symbol-map symbol-map
+                     :best-index
+                     (best-index ctx
+                                 (assoc pattern
+                                        :row-estimate row-estimate)
+                                 symbol-map)
+                     :best-index-if-eav (when (= :vae (idx-key (:idx pattern)))
+                                          (best-index ctx
+                                                      (assoc pattern
+                                                             :row-estimate row-estimate
+                                                             :idx [:keyword :eav])
+                                                      symbol-map)))}))
+
+(defn annotate-patterns-with-hints [ctx initial-symbol-map patterns]
+  (reduce
+   (fn [{:keys [symbol-map] :as acc} [tag pattern]]
+     (case tag
+       :pattern (let [res (annotate-pattern-with-hints ctx symbol-map pattern)]
+                  (-> acc
+                      (assoc :symbol-map (:symbol-map res))
+                      (update :patterns conj [tag (:pattern res)])))
+       :and (let [{:keys [patterns symbol-map]}
+                  (annotate-patterns-with-hints ctx symbol-map (:and pattern))]
+              (-> acc
+                  (assoc :symbol-map symbol-map)
+                  (update :patterns conj [:and {:and patterns}])))
+       :or (let [{:keys [patterns symbol-map]}
+                 (reduce (fn [acc group]
+                           (let [{:keys [patterns symbol-map]}
+                                 (annotate-patterns-with-hints ctx
+                                                               {}
+                                                               [group])]
+                             (-> acc
+                                 (update :patterns (partial apply conj) patterns)
+                                 ;; It would be more accurate to do a merge-with
+                                 ;; max/+ here, but we don't capture contraints
+                                 ;; on the ors from previous CTEs, so min usually
+                                 ;; produces a better plan. If we pass symbol-map
+                                 ;; to the or instead of {} (both in accumulate-ctes
+                                 ;; and annotate-patterns-with-hints), then we could
+                                 ;; switch to max or +
+                                 (update :symbol-map (partial merge-with min) symbol-map))))
+                         {:patterns []
+                          :symbol-map symbol-map}
+                         (:patterns (:or pattern)))]
+             (-> acc
+                 (assoc :symbol-map symbol-map)
+                 (update :patterns conj [:or {:or (assoc (:or pattern) :patterns patterns)}])))
+
+       (update acc :patterns conj [tag pattern])))
+   {:symbol-map initial-symbol-map
+    :patterns []}
+   patterns))
+
+(defn pattern-count [patterns]
+  (reduce (fn [acc [tag pattern]]
+            (+ acc (case tag
+                     :pattern 1
+                     :or (pattern-count (:patterns (:or pattern)))
+                     :and (pattern-count (:and pattern)))))
+          0
+          patterns))
+
+(declare annotate-with-hints)
+
+(defn annotate-pattern-group-with-hints [ctx initial-symbol-map pattern-group]
+  (let [level (:level ctx 0)
+        page-info-pattern (get-in pattern-group [:page-info :named-pattern 1])
+
+        page-info-first? (and (= level 0)
+                              (= 1 (pattern-count (:patterns pattern-group))))
+
+        page-pattern-row-estimate (when page-info-pattern
+                                    ;; XXX: We should do this later to get the symbol-map??
+                                    (estimate-rows ctx page-info-pattern))
+        {:keys [patterns symbol-map]}
+        (annotate-patterns-with-hints ctx
+                                      (merge (if (and page-info-pattern page-info-first?)
+                                               (pattern->symbol-map-placeholder page-info-pattern
+                                                                                page-pattern-row-estimate)
+                                               {})
+                                             initial-symbol-map)
+                                      (:patterns pattern-group))]
+    (cond-> pattern-group
+      true (assoc :patterns patterns)
+      page-info-pattern (update-in [:page-info :named-pattern 1]
+                                   (fn [p]
+                                     (assoc p
+                                            :page-pattern? true
+                                            :best-index
+                                            (best-index ctx
+                                                        p
+                                                        (merge
+                                                         {(get-in pattern-group [:page-info :order-sym])
+                                                          page-pattern-row-estimate}
+                                                         (when (not page-info-first?)
+                                                           symbol-map))))))
+      (:children pattern-group) ((fn [pg]
+                                   (annotate-with-hints (assoc ctx :level (inc level)) symbol-map pg))))))
+
+(defn annotate-with-hints
+  "Annotates the named-patterns with the best index to use.  It uses
+  counts to choose better indexes than Postgres would choose on its
+  own.
+
+  Runs in two passes: In the first pass, we track the count queries
+  that we need to make so that we can fetch all of the counts in a
+  single go. Then we a second pass with the counts and it determines
+  the best index."
+  ([ctx nested-named-patterns]
+   (let [counts-atom (atom (set {}))
+         ;; Run annotate-with-hints to populate the counts atom
+         _ (annotate-with-hints (assoc ctx
+                                       :phase :deps
+                                       :counts counts-atom)
+                                {}
+                                nested-named-patterns)
+         count-queries @counts-atom
+
+         ;; Fetch counts from the database. We should be able to store
+         ;; a sketch that lets us do counts without talking to the db
+         query (when (seq count-queries)
+                 {:union-all (map-indexed (fn [i {:keys [wheres]}]
+                                            {:select [[i :i]
+                                                      [{:select [:%count.*]
+                                                        :from {:select :*
+                                                               :from :triples
+                                                               :where wheres
+                                                               :limit 10000}}
+                                                       :count]]})
+                                          count-queries)})
+         query-result (when query
+                        (sql/select ::resolve-counts
+                                    (:conn-pool (:db ctx))
+                                    (hsql/format query)))
+         resolved-counts (zipmap count-queries
+                                 (map :count query-result))]
+     ;; Run again with resolved counts
+     (annotate-with-hints (assoc ctx
+                                 :phase :choose
+                                 :counts resolved-counts)
+                          {}
+                          nested-named-patterns)))
+  ([ctx symbol-map nested-named-patterns]
+   (update-in nested-named-patterns
+              [:children :pattern-groups]
+              (fn [groups]
+                (mapv (fn [pattern-group]
+                        (annotate-pattern-group-with-hints ctx
+                                                           (when-let [join-sym (get-in nested-named-patterns [:children :join-sym])]
+                                                             {join-sym (get symbol-map join-sym 0)})
+                                                           pattern-group))
+                      groups)))))
 
 ;; ---
 ;; match-query
@@ -1100,12 +1470,20 @@
         cte [cur-table
              {:select (concat (when prev-table
                                 [(kw prev-table :.*)])
-                              (match-table-select cur-table))
+                              (match-table-select cur-table)
+                              (when *debug*
+                                [[(with-out-str (clojure.pprint/pprint named-p))
+                                  :named-p]
+                                 [(with-out-str (clojure.pprint/pprint symbol-map))
+                                  :symbol-map]]))
               :from (concat (list* [:triples triples-alias]
                                    (when prev-table
                                      [prev-table]))
                             parent-froms)
-              :where (where-clause app-id named-p all-joins)}
+              :where (where-clause {:app-id app-id
+                                    :triples-alias  triples-alias
+                                    :additional-clauses all-joins}
+                                   named-p)}
              (if (or
                   ;; only use `not materialized` when we're in the middle of an ordered
                   ;; query
@@ -1123,10 +1501,24 @@
                :materialized
                :not-materialized)]]
     {:cte cte
-     :pg-hints (if (test-pg-hints?)
-                 (let [best-idx (best-index named-p (merge symbol-map
-                                                           additional-joins))]
-                   [(pg-hint/index-scan triples-alias (:name best-idx))])
+     :pg-hints (if-let [best-idx (:best-index named-p)]
+                 (let [hint-fn (if (<= 2 (join-cond-count symbol-map named-p))
+                                 ;; This isn't a great hueristic--it
+                                 ;; catches too many cases where an index
+                                 ;; scan would be better. But it's usually
+                                 ;; much slower to use an index scan when
+                                 ;; you need a bitmap scan (unless you're
+                                 ;; sorting)
+                                 pg-hint/bitmap-scan
+                                 pg-hint/index-scan)
+                       idx (if (= (idx-key (:idx named-p))
+                                  :eav)
+                             (:name (:best-index-if-eav named-p))
+                             ;;:eav_uuid_index
+                             (:name best-idx))]
+                   (if idx
+                     [(hint-fn triples-alias idx)]
+                     []))
                  [])}))
 
 (defn symbol-fields-of-pattern
@@ -1665,7 +2057,7 @@
                           {:select [[[:exists has-previous-query]]]}
                           :not-materialized])
              :pg-hints (into (:pg-hints (:query match-query))
-                               pg-hints)
+                             pg-hints)
              :select (kw last-row-table :.*)
              :from last-table-name}
      :symbol-map symbol-map
@@ -2277,7 +2669,6 @@
                           [:qid
                            {:select [[[:inline app-id]]
                                      [[:inline query-hash]]]}]))
-
           sql-query (hsql/format query)
           postgres-config (flags/query-flags query-hash)
           sql-res (when query ;; we may not have a query if everything is missing attrs
@@ -2322,7 +2713,9 @@
            batch-data))))
 
 (defn query-nested [{:keys [app-id db] :as ctx} nested-patterns]
-  (let [nested-named-patterns (nested->named-patterns nested-patterns)]
+  (let [nested-named-patterns (cond->> nested-patterns
+                                true nested->named-patterns
+                                (test-pg-hints?) (annotate-with-hints ctx))]
     (throw-invalid-nested-patterns nested-named-patterns)
     (send-query-nested ctx (:conn-pool db) app-id nested-named-patterns)))
 
@@ -2331,16 +2724,20 @@
    the postgres query. Useful for testing and debugging."
   [ctx patterns]
   (assert (map? patterns) "explain only works with nested patterns.")
-  (let [nested-named-patterns (nested->named-patterns patterns)]
+  (let [nested-named-patterns (cond->> patterns
+                                true nested->named-patterns
+                                (test-pg-hints?) (annotate-with-hints ctx))]
     (throw-invalid-nested-patterns nested-named-patterns)
     (let [{:keys [query]} (nested-match-query ctx
                                               :m-
                                               (:app-id ctx)
                                               nested-named-patterns)
+
           sql-query (hsql/format
-                     (assoc query
-                            :raw
-                            "explain (analyze, verbose, buffers, timing, format json)"))]
+                     (cond-> query
+                       true (assoc :raw
+                                   "explain (analyze, verbose, buffers, timing, format json)")
+                       (not (test-pg-hints?)) (dissoc :pg-hints)))]
       (when query
         (sql/select-string-keys ::explain
                                 (-> ctx :db :conn-pool)
