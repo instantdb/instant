@@ -449,7 +449,6 @@
                        [op new-book-id attr-book-desc  (str "book desc " (rand)) {:mode :update}]
                        [op [attr-book-title "book 3"] attr-book-desc (str "book 3 desc " (rand)) {:mode :update}]])))))))))))
 
-
 (deftest attrs-update
   (with-empty-app
     (fn [{app-id :id}]
@@ -2233,12 +2232,18 @@
     (is (= '{:expected coll?, :in [0]}
            (validation-err [1]))))
   (testing "bad triples"
-    (is (= '{:expected vector?, :in [0 1]}
-           (validation-err
-            [[:add-triple :eid-not-uuid (UUID/randomUUID) "value"]])))
     (is (= '{:expected :instant.db.model.triple/value, :in [0]}
            (validation-err
             [[:add-triple (UUID/randomUUID) (UUID/randomUUID)]]))))
+  (testing "non-UUID entity IDs"
+    (doseq [[op entity-id value] [[:add-triple :eid-not-uuid (random-uuid) "value"]
+                                  [:deep-merge-triple :eid-not-uuid {:foo "bar"}]
+                                  [:retract-triple :eid-not-uuid (random-uuid) "value"]
+                                  [:delete-entity :eid-not-uuid "namespace"]]]
+      (is (= {:message (format "Invalid entity ID '%s'. Entity IDs must be UUIDs. Use id() or lookup() to generate a valid UUID." entity-id)
+              :in [0 1]}
+             (validation-err
+              [[op entity-id (UUID/randomUUID) value]])))))
   (testing "bad attrs"
     (is (= '{:expected instant.db.model.attr/value-type, :in [0 1]}
            (validation-err
