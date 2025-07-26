@@ -1070,6 +1070,7 @@
         1
 
         (and (< 0 (count (:path (:index-costs a))))
+             (< 0 (count (:path (:index-costs b))))
              (< (/ (reduce + (map :cost (:path (:index-costs a))))
                    (count (:path (:index-costs a))))
                 (/ (reduce + (map :cost (:path (:index-costs b))))
@@ -1077,6 +1078,7 @@
         -1
 
         (and (< 0 (count (:path (:index-costs b))))
+             (< 0 (count (:path (:index-costs a))))
              (< (/ (reduce + (map :cost (:path (:index-costs b))))
                    (count (:path (:index-costs b))))
                 (/ (reduce + (map :cost (:path (:index-costs a))))
