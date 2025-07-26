@@ -105,9 +105,25 @@
    (range)
    tx-steps))
 
+(defn check-for-invalid-entity-ids! [tx-steps]
+  (doseq [[idx tx-step] (map-indexed vector tx-steps)
+          :when (and (coll? tx-step)
+                     (>= (count tx-step) 2))]
+    (let [[op e] tx-step]
+      (when (and (contains? #{:add-triple :deep-merge-triple :retract-triple :delete-entity} op)
+                 (not (uuid? e))
+                 (not (triple-model/eid-lookup-ref? e)))
+        (ex/throw-validation-err!
+         :tx-steps
+         tx-steps
+         [{:message (format "Invalid entity ID '%s'. Entity IDs must be UUIDs. Use id() or lookup() to generate a valid UUID." e)
+           :in [idx 1]}])))))
+
 (defn validate! [tx-steps]
   (let [valid? (s/valid? ::tx-steps tx-steps)]
     (when-not valid?
+      (check-for-invalid-entity-ids! tx-steps)
+      ;; Fall back to generic spec error
       (ex/throw-validation-err!
        :tx-steps
        tx-steps
