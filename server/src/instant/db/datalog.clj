@@ -567,19 +567,13 @@
 ;; -----
 ;; where
 
-(defn- in-or-eq
-  "If the set has only one element,
-   return an = clause. Otherwise, return an :in clause."
-  [k v-set]
-  (case (count v-set)
-    0 [:= 0 1]
-    1 [:= k (first v-set)]
-    [:in k v-set]))
-
 (defn- value->jsonb [x]
   [:cast (->json x) :jsonb])
 
-(defn- in-any [col vs pgtype]
+(defn- in-any
+  "If the set has only one element,
+   return an = clause. Otherwise, return an `= ANY(vs)` clause."
+  [col vs pgtype]
   (case (count vs)
     0 [:= 0 1]
     1 [:= col [:cast
