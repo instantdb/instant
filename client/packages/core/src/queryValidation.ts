@@ -1,8 +1,4 @@
-import { InstantUnknownSchema } from './schemaTypes.ts';
-
-type QueryValidationError = {
-  message: string;
-};
+import { IContainEntitiesAndLinks } from './schemaTypes.ts';
 
 type QueryValidationResult =
   | {
@@ -19,9 +15,28 @@ const error = (message: string) =>
     status: 'error',
   }) satisfies QueryValidationResult;
 
+const validateEntityInQuery = (
+  queryPart: Record<string, unknown>,
+  entityName: string,
+  schema: IContainEntitiesAndLinks<any, any>,
+): QueryValidationResult => {
+  for (const key of Object.keys(queryPart)) {
+    if (key !== '$') {
+      if (key in schema.entities[entityName].links) {
+      } else {
+        return error(`Link ${key} does not exist`);
+      }
+    }
+  }
+
+  return {
+    status: 'success',
+  };
+};
+
 export const validateQuery = (
   q: unknown,
-  schema?: InstantUnknownSchema,
+  schema?: IContainEntitiesAndLinks<any, any>,
 ): QueryValidationResult => {
   console.log('Testing query', q);
 
@@ -39,6 +54,15 @@ export const validateQuery = (
       if (!schema.entities[topLevelKey]) {
         return error(`Entity ${topLevelKey} does not exist`);
       }
+    }
+
+    const innerResult = validateEntityInQuery(
+      q[topLevelKey],
+      topLevelKey,
+      schema,
+    );
+    if (innerResult.status !== 'success') {
+      return innerResult;
     }
   }
 
