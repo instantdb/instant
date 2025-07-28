@@ -14,9 +14,9 @@ import { BareNav } from '@/components/marketingUi';
 import navigation from '@/data/docsNavigation';
 import { createdAtComparator } from '@/lib/app';
 import RatingBox from './RatingBox';
+import { getLocallySavedApp, setLocallySavedApp } from '@/lib/locallySavedApp';
 
 function useSelectedApp(apps = []) {
-  const cacheKey = 'docs-appId';
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [selectedAppData, setSelectedAppData] = useState(null);
@@ -24,7 +24,7 @@ function useSelectedApp(apps = []) {
   useEffect(() => {
     if (!router.isReady) return;
 
-    const cachedAppData = getLocal(cacheKey);
+    const cachedAppData = getLocallySavedApp();
     const { app: queryAppId, ...remainingQueryParams } = router.query;
 
     const fromParams = queryAppId && apps.find((a) => a.id === queryAppId);
@@ -38,7 +38,7 @@ function useSelectedApp(apps = []) {
         title: fromParams.title,
       };
       setSelectedAppData(data);
-      setLocal(cacheKey, data);
+      setLocallySavedApp(data);
       // Removes query param after caching
       router.replace(
         {
@@ -66,7 +66,7 @@ function useSelectedApp(apps = []) {
       const data = { id: app.id, title: app.title };
 
       setSelectedAppData(data);
-      setLocal(cacheKey, data);
+      setLocallySavedApp(data);
     },
     [apps.length],
   );
