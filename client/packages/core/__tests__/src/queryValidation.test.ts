@@ -234,4 +234,287 @@ test('all valid dollar sign keys', () => {
   });
 });
 
-test('comparison', () => {});
+test('where clause type validation', () => {
+  // Valid string values
+  beValid({
+    users: {
+      $: {
+        where: {
+          name: 'John',
+          email: 'john@example.com',
+        },
+      },
+    },
+  });
+
+  // Invalid string values
+  beWrong({
+    users: {
+      $: {
+        where: {
+          name: 123,
+        },
+      },
+    },
+  });
+
+  beWrong({
+    users: {
+      $: {
+        where: {
+          email: true,
+        },
+      },
+    },
+  });
+
+  // Valid any type (junk field)
+  beValid({
+    users: {
+      $: {
+        where: {
+          junk: 'string',
+        },
+      },
+    },
+  });
+
+  beValid({
+    users: {
+      $: {
+        where: {
+          junk: 123,
+        },
+      },
+    },
+  });
+
+  beValid({
+    users: {
+      $: {
+        where: {
+          junk: { complex: 'object' },
+        },
+      },
+    },
+  });
+});
+
+test('where clause operators', () => {
+  // Valid $in operator
+  beValid({
+    users: {
+      $: {
+        where: {
+          name: { $in: ['John', 'Jane'] },
+        },
+      },
+    },
+  });
+
+  // Invalid $in operator - not an array
+  beWrong({
+    users: {
+      $: {
+        where: {
+          name: { $in: 'John' },
+        },
+      },
+    },
+  });
+
+  // Invalid $in operator - wrong type in array
+  beWrong({
+    users: {
+      $: {
+        where: {
+          name: { $in: ['John', 123] },
+        },
+      },
+    },
+  });
+
+  // Valid comparison operators
+  beValid({
+    posts: {
+      $: {
+        where: {
+          title: { $not: 'Draft' },
+        },
+      },
+    },
+  });
+
+  // Valid $like operator on string
+  beValid({
+    users: {
+      $: {
+        where: {
+          name: { $like: '%John%' },
+        },
+      },
+    },
+  });
+
+  // Invalid $like operator on non-string
+  beWrong({
+    posts: {
+      $: {
+        where: {
+          title: { $like: 123 },
+        },
+      },
+    },
+  });
+
+  // Valid $isNull on optional field
+  beValid({
+    users: {
+      $: {
+        where: {
+          bio: { $isNull: true },
+        },
+      },
+    },
+  });
+
+  // Invalid $isNull on required field
+  beWrong({
+    users: {
+      $: {
+        where: {
+          name: { $isNull: true },
+        },
+      },
+    },
+  });
+
+  // Valid $isNull: false on required field
+  beValid({
+    users: {
+      $: {
+        where: {
+          name: { $isNull: false },
+        },
+      },
+    },
+  });
+
+  // Invalid $isNull value type
+  beWrong({
+    users: {
+      $: {
+        where: {
+          bio: { $isNull: 'true' },
+        },
+      },
+    },
+  });
+});
+
+test('where clause unknown operators', () => {
+  beWrong({
+    users: {
+      $: {
+        where: {
+          name: { $unknownOperator: 'value' },
+        },
+      },
+    },
+  });
+});
+
+test('where clause unknown attributes', () => {
+  beWrong({
+    users: {
+      $: {
+        where: {
+          unknownAttribute: 'value',
+        },
+      },
+    },
+  });
+});
+
+test('where clause id validation', () => {
+  // Valid id
+  beValid({
+    users: {
+      $: {
+        where: {
+          id: 'user-123',
+        },
+      },
+    },
+  });
+
+  // Invalid id type
+  beWrong({
+    users: {
+      $: {
+        where: {
+          id: 123,
+        },
+      },
+    },
+  });
+
+  // Valid id with operators
+  beValid({
+    users: {
+      $: {
+        where: {
+          id: { $in: ['user-1', 'user-2'] },
+        },
+      },
+    },
+  });
+});
+
+test('where clause logical operators', () => {
+  // Valid or clause
+  beValid({
+    users: {
+      $: {
+        where: {
+          or: [{ name: 'John' }, { email: 'jane@example.com' }],
+        },
+      },
+    },
+  });
+
+  // Valid and clause
+  beValid({
+    users: {
+      $: {
+        where: {
+          and: [{ name: 'John' }, { bio: { $isNull: false } }],
+        },
+      },
+    },
+  });
+
+  // Invalid nested clause
+  beWrong({
+    users: {
+      $: {
+        where: {
+          or: [{ name: 123 }],
+        },
+      },
+    },
+  });
+});
+
+test('where clause dot notation (should be skipped)', () => {
+  // Dot notation should be allowed without validation for now
+  beValid({
+    users: {
+      $: {
+        where: {
+          'posts.title': 'Some Title',
+        },
+      },
+    },
+  });
+});
