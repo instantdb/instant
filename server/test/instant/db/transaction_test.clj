@@ -1842,6 +1842,50 @@
               (is (not (perm-err? (permissioned-tx/transact! (make-ctx) [[:rule-params lookup "users" {"handle" "stopa"}]
                                                                          [op lookup full-name-attr-id "Stepashka"]])))))))))))
 
+(deftest delete-without-etype-perms-rule-params
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [id (suid "abcd")
+
+            {attr-users-id      :users/id
+             attr-users-handle  :users/handle
+             attr-profiles-id   :profiles/id
+             attr-profiles-name :profiles/name}
+            (test-util/make-attrs
+             app-id
+             [[:users/id :required? :index? :unique?]
+              [:users/handle :required? :index? :unique?]
+              [:profiles/id :required? :index? :unique?]
+              [:profiles/name :required? :index? :unique?]])
+
+            make-ctx
+            (fn [] {:db {:conn-pool (aurora/conn-pool :write)}
+                    :app-id app-id
+                    :attrs (attr-model/get-by-app-id app-id)
+                    :datalog-query-fn d/query
+                    :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                    :current-user nil})]
+
+        (rule-model/put!
+         (aurora/conn-pool :write)
+         {:app-id app-id :code {:users    {:allow {:delete "data.handle == ruleParams.handle"}}
+                                :profiles {:allow {:delete "true"}}}})
+
+        (doseq [[title lookup] [["eid" id]
+                                ["lookup ref" [attr-users-handle "user"]]]]
+          (testing title
+            (permissioned-tx/transact!
+             (make-ctx)
+             [[:add-triple id attr-users-id id]
+              [:add-triple id attr-users-handle "user"]
+              [:add-triple id attr-profiles-id id]
+              [:add-triple id attr-profiles-name "profile"]])
+            (is (perm-err? (permissioned-tx/transact! (make-ctx) [[:delete-entity lookup]])))
+            (is (perm-err? (permissioned-tx/transact! (make-ctx) [[:rule-params lookup "users" {"handle" "not user"}]
+                                                                  [:delete-entity lookup]])))
+            (is (not (perm-err? (permissioned-tx/transact! (make-ctx) [[:rule-params lookup "users" {"handle" "user"}]
+                                                                       [:delete-entity lookup]]))))))))))
+
 (deftest delete-perms-rule-params
   (doseq [[title get-lookup] [["with eid" (fn [r] (resolvers/->uuid r "eid-stepan-parunashvili"))]
                               ["with lookup ref" (fn [r] [(resolvers/->uuid r :users/email) "stopa@instantdb.com"])]]]

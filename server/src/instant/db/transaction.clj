@@ -352,25 +352,37 @@
        [{:message "update or merge is only allowed on `path` for $files in transact."}]))))
 
 (defn resolve-lookups-for-delete-entity [conn app-id tx-step-maps]
-  (let [lookup-refs (->> tx-step-maps
-                         (filter #(= :delete-entity (:op %)))
-                         (map :eid)
-                         (filter triple-model/eid-lookup-ref?))
-        resolved    (resolve-lookups conn app-id lookup-refs)]
-    (for [{:keys [op eid] :as tx-step} tx-step-maps
-          :let [tx-step (if (= :delete-entity op)
-                          (let [eid' (get resolved eid eid)]
-                            (when (uuid? eid')
-                              (assoc tx-step :eid eid')))
-                          tx-step)]
-          :when tx-step]
-      tx-step)))
+  (let [[lookup-ref-deletes rest] (coll/split-by
+                                   #(and (= :delete-entity (:op %))
+                                         (triple-model/eid-lookup-ref? (:eid %)))
+                                   tx-step-maps)
+        lookup-refs               (map :eid lookup-ref-deletes)
+        resolved                  (resolve-lookups conn app-id lookup-refs)]
+    (concat
+     rest
+     (for [{:keys [eid] :as tx-step} lookup-ref-deletes
+           :let [eid' (get resolved eid)]
+           :when (uuid? eid')]
+       (assoc tx-step :eid eid')))))
+
+(defn resolve-etypes-for-delete-entity [conn app-id tx-step-maps]
+  (let [[untyped-deletes rest] (coll/split-by
+                                #(and (= :delete-entity (:op %))
+                                      (nil? (:etype %)))
+                                tx-step-maps)
+        untyped-ids (map :eid untyped-deletes)
+        resolved    (resolve-etypes conn app-id untyped-ids)]
+    (concat
+     rest
+     (for [{:keys [eid] :as tx-step} untyped-deletes
+           etype                     (get resolved eid [nil])]
+       (assoc tx-step :etype etype)))))
 
 (defn expand-delete-entity-cascade [conn app-id attrs tx-step-maps]
   (let [ids+etypes (for [{:keys [op eid etype]} tx-step-maps
                          :when  (and (= :delete-entity op)
-                                     (uuid? eid)       ;; TODO safe to remove?
-                                     (some? etype))]   ;; TODO safe to remove?
+                                     (uuid? eid)
+                                     (some? etype))]
                      [eid etype])]
     (if (empty? ids+etypes)
       tx-step-maps
@@ -596,6 +608,7 @@
 (defn preprocess-tx-steps [conn attrs app-id tx-step-maps]
   (->> tx-step-maps
        (resolve-lookups-for-delete-entity conn app-id)
+       (resolve-etypes-for-delete-entity conn app-id)
        (expand-delete-entity-cascade conn app-id attrs)
        (validate-value-lookup-etypes attrs)))
 
