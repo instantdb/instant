@@ -577,11 +577,12 @@ class Storage {
     if (metadata.contentDisposition) {
       headers['content-disposition'] = metadata.contentDisposition;
     }
-    if (!metadata.contentType) {
-      // headers.content-type will become "undefined" (string)
-      // if not removed from the object
-      delete headers['content-type'];
-    } else {
+
+    // headers.content-type will become "undefined" (string)
+    // if not removed from the object
+    delete headers['content-type'];
+
+    if (metadata.contentType) {
       headers['content-type'] = metadata.contentType;
     }
 
