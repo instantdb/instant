@@ -398,7 +398,7 @@ const {
         todos: {
           $: {
             where: {
-              userId: user.id,
+              'owner.id': user.id,
             },
           },
         },
