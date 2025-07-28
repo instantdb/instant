@@ -21,7 +21,6 @@
    (java.time Instant LocalDate LocalDateTime)
    (java.util UUID)
    (javax.sql DataSource)
-   (org.postgresql.jdbc PgArray)
    (org.postgresql.util PGobject PSQLException)))
 
 (set! *warn-on-reflection* true)
@@ -60,7 +59,7 @@
         "bit" (Long/parseLong value 2)
         value))))
 
-(defn <-pgarray [^PgArray a]
+(defn <-array [^Array a]
   (let [type (.getBaseTypeName a)
         vs (.getArray a)]
     (case type
@@ -87,9 +86,9 @@
 
 
 (extend-protocol rs/ReadableColumn
-  PgArray
-  (read-column-by-label [^PgArray v _] (<-pgarray v))
-  (read-column-by-index [^PgArray v _2 _3] (<-pgarray v))
+  Array
+  (read-column-by-label [^Array v _] (<-array v))
+  (read-column-by-index [^Array v _2 _3] (<-array v))
 
   PGobject
   (read-column-by-label [^PGobject v _] (<-pgobject v))

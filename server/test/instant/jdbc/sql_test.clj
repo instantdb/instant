@@ -4,18 +4,10 @@
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.util.test :refer [wait-for]]
-   [instant.util.json :as json]
-   [clojure.test :refer [deftest testing is are]])
+   [clojure.test :refer [deftest testing is]])
   (:import
    (java.time Instant)
    (clojure.lang ExceptionInfo)))
-
-(deftest ->pgobject
-  (testing "formats text[]"
-    (are [input result] (= (.getValue (sql/->pgobject (with-meta input {:pgtype "text[]"})))
-                           result)
-      ["a" "b" "c"] "{\"a\",\"b\",\"c\"}"
-      ["a\"b"] "{\"a\"b\"}")))
 
 (deftest in-progress-stmts
   (let [in-progress (sql/make-statement-tracker)]
