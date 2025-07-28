@@ -124,7 +124,7 @@ const init_experimental = init;
 
 class InstantReactNativeDatabase<
   Schema extends InstantSchemaDef<any, any, any>,
-  Config extends InstantConfig<Schema, boolean>,
+  Config extends InstantConfig<Schema, boolean> = InstantConfig<Schema, false>,
 > extends InstantReactAbstractDatabase<Schema, Config> {
   static Storage = Storage;
   static NetworkListener = NetworkListener;
