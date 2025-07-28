@@ -1,4 +1,4 @@
-import { init, InstantReactWebDatabase } from '@instantdb/react';
+import { init } from '@instantdb/react';
 import { useContext, useEffect, useRef, useState } from 'react';
 import { v4 } from 'uuid';
 import produce from 'immer';
@@ -76,6 +76,7 @@ import OAuthApps from '@/components/dash/OAuthApps';
 import clsx from 'clsx';
 import AuthorizedOAuthAppsScreen from '@/components/dash/AuthorizedOAuthAppsScreen';
 import { useNamespacesQuery, useSchemaQuery } from '@/lib/hooks/explorer';
+import { getLocallySavedApp, setLocallySavedApp } from '@/lib/locallySavedApp';
 
 // (XXX): we may want to expose this underlying type
 type InstantReactClient = ReturnType<typeof init>;
@@ -373,10 +374,11 @@ function Dashboard() {
     const firstApp = apps?.[0];
     if (!firstApp) return;
 
-    const _lastAppId = getLocal('dash_app_id');
-    const lastAppId = Boolean(apps.find((a) => a.id === _lastAppId))
-      ? _lastAppId
-      : null;
+    const lastApp = getLocallySavedApp();
+    const lastAppId =
+      lastApp && Boolean(apps.find((a) => a.id === lastApp.id))
+        ? lastApp.id
+        : null;
 
     const defaultAppId = lastAppId ?? firstApp.id;
     if (!defaultAppId) return;
@@ -389,7 +391,7 @@ function Dashboard() {
       },
     });
 
-    setLocal('dash_app_id', defaultAppId);
+    setLocallySavedApp({ id: defaultAppId });
   }, [dashResponse.data]);
 
   useEffect(() => {
@@ -411,7 +413,7 @@ function Dashboard() {
   }, [app?.id, app?.admin_token]);
 
   function nav(q: { s: string; app?: string; t?: string }, cb?: () => void) {
-    if (q.app) setLocal('dash_app_id', q.app);
+    if (q.app) setLocallySavedApp({ id: q.app });
 
     router
       .push({
