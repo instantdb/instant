@@ -83,11 +83,11 @@ This step is not needed for Expo.
 - Select _Add Apple Client_
 - Select unique _clientName_ (`apple` by default, will be used in `db.auth` calls)
 - Fill in _Services ID_ from Step 2
-<!-- prettier-ignore -->{% conditional param="method" value="web-redirect" %}
+  {% conditional param="method" value="web-redirect" %}
 - Fill in _Team ID_ from [Membership details](https://developer.apple.com/account#MembershipDetailsCard)
 - Fill in _Key ID_ from Step 3.5
 - Fill in _Private Key_ by copying file content from Step 3.5
-<!-- prettier-ignore -->{% /conditional %}
+  {% /conditional %}
 - Click `Add Apple Client`
 
 {% conditional param="method" value="web-redirect" %}
