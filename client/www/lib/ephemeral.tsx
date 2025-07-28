@@ -5,7 +5,10 @@ export async function provisionApp({
   title,
 }: {
   title: string;
-}): Promise<{ app: { id: string; 'admin-token': string } }> {
+}): Promise<{
+  app: { id: string; 'admin-token': string };
+  expires_ms: number;
+}> {
   return await jsonFetch(`${config.apiURI}/dash/apps/ephemeral`, {
     method: 'POST',
     headers: {
