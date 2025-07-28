@@ -21,6 +21,11 @@ const testSchema = i.schema({
     comments: i.entity({
       body: i.string(),
     }),
+
+    unlinkedWithAnything: i.entity({
+      animal: i.string(),
+      count: i.string(),
+    }),
   },
   links: {
     usersPosts: {
@@ -125,4 +130,32 @@ test('top level entitiy names', () => {
     },
     null,
   );
+});
+
+test('links', () => {
+  beValid({
+    posts: {
+      comments: {},
+    },
+  });
+
+  beWrong({
+    posts: {
+      doesNotExist: {},
+    },
+  });
+
+  beWrong({
+    posts: {
+      unlinkedWithAnything: {},
+    },
+  });
+
+  beValid({
+    posts: {
+      comments: {
+        posts: {},
+      },
+    },
+  });
 });
