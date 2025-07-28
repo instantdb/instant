@@ -114,7 +114,7 @@ export default function AgentsEssayDemoSection() {
         onClick={async () => {
           const start = Date.now();
           const res = await ephemeral.provisionApp({
-            title: 'agents-essay-demo',
+            title: 'dino-habit-tracker',
           });
 
           const { app, expires_ms } = res;
