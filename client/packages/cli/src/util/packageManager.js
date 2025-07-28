@@ -11,6 +11,7 @@ async function detectPackageManager(destPath) {
     'package-lock.json': 'npm',
     'pnpm-lock.yaml': 'pnpm',
     'bun.lockb': 'bun',
+    'bun.lock': 'bun',
   };
 
   for (const dir of traverseUpDirectories(destPath)) {
