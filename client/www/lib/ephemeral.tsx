@@ -1,11 +1,7 @@
 import config from '@/lib/config';
 import { jsonFetch } from '@/lib/fetch';
 
-export async function provisionApp({
-  title,
-}: {
-  title: string;
-}): Promise<{
+export async function provisionApp({ title }: { title: string }): Promise<{
   app: { id: string; 'admin-token': string };
   expires_ms: number;
 }> {
