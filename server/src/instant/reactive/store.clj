@@ -109,17 +109,19 @@
     (tracer/with-span! {:name span-name}
       (let [t1 (System/nanoTime)]
         (try
-          (locking conn
-            (let [t2  (System/nanoTime)
-                  ret (d/transact! conn tx-data)
-                  t3  (System/nanoTime)]
-              (tracer/add-data! {:attributes {:changed-datoms-count (count (:tx-data ret))
-                                              :span-time-ms         (-> t1 (- t0) (/ 1000000) double)
-                                              :lock-time-ms         (-> t2 (- t1) (/ 1000000) double)
-                                              :tx-time-ms           (-> t3 (- t2) (/ 1000000) double)
-                                              :db-before-size       (count (:db-before ret))
-                                              :db-after-size        (count (:db-after ret))}})
-              ret))
+          (let [{:keys [ret t2 t3]}
+                (locking conn
+                  (let [t2  (System/nanoTime)
+                        ret (d/transact! conn tx-data)
+                        t3  (System/nanoTime)]
+                    {:ret ret :t2 t2 :t3 t3}))]
+            (tracer/add-data! {:attributes {:changed-datoms-count (count (:tx-data ret))
+                                            :span-time-ms         (-> t1 (- t0) (/ 1000000) double)
+                                            :lock-time-ms         (-> t2 (- t1) (/ 1000000) double)
+                                            :tx-time-ms           (-> t3 (- t2) (/ 1000000) double)
+                                            :db-before-size       (count (:db-before ret))
+                                            :db-after-size        (count (:db-after ret))}})
+            ret)
           (catch clojure.lang.ExceptionInfo e
             (translate-datascript-exceptions e)))))))
 
