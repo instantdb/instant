@@ -4,9 +4,11 @@
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.util.test :refer [wait-for]]
+   [instant.util.json :as json]
    [clojure.test :refer [deftest testing is are]])
   (:import
-   [clojure.lang ExceptionInfo]))
+   (java.time Instant)
+   (clojure.lang ExceptionInfo)))
 
 (deftest ->pgobject
   (testing "formats text[]"
@@ -43,6 +45,54 @@
                         #"read-only-sql-transaction"
                         (sql/execute! (aurora/conn-pool :read)
                                       ["insert into config (k, v) values ('a', '\"b\"'::jsonb)"]))))
+
+(deftest coercion
+  (testing "text[]"
+    (is (= {:v ["hello" "world"]}
+           (sql/select-one (aurora/conn-pool :read)
+                           ["select ? as v" (with-meta ["hello" "world"] {:pgtype "text[]"})]))))
+
+  (testing "uuid[]"
+    (let [ids [#uuid "c94c255f-9f2f-4484-9868-54a41786b613"
+               #uuid "6454f319-e532-4955-b93a-654e6baedde7"]]
+      (is (= {:v ids}
+             (sql/select-one (aurora/conn-pool :read)
+                             ["select ? as v" (with-meta ids {:pgtype "uuid[]"})])))))
+
+  (testing "jsonb[]"
+    (let [vs [{"a" 1} nil [{"b" 2}]]]
+      (is (= {:v vs}
+             (sql/select-one (aurora/conn-pool :read)
+                             ["select ? as v" (with-meta vs {:pgtype "jsonb[]"})])))))
+
+  (testing "jsonb[]"
+    (let [vs [{"a" 1} nil [{"b" 2}]]]
+      (is (= {:v vs}
+             (sql/select-one (aurora/conn-pool :read)
+                             ["select ? as v" (with-meta vs {:pgtype "jsonb[]"})])))))
+
+  (testing "timestamptz[]"
+    (let [vs [(Instant/now)
+              (Instant/now)]
+          vs-res (:v (sql/select-one (aurora/conn-pool :read)
+                                     ["select ? as v" (with-meta vs {:pgtype "timestamptz[]"})]))]
+      (is (= 2 (count vs-res)))
+      (is (= (first vs)
+             (.toInstant (first vs-res))))
+      (is (= (second vs)
+             (.toInstant (second vs-res))))))
+
+  (testing "float8[]"
+    (let [vs [1.0 0.5 -10.0]]
+      (is (= {:v vs}
+             (sql/select-one (aurora/conn-pool :read)
+                             ["select ? as v" (with-meta vs {:pgtype "float8[]"})])))))
+
+  (testing "boolean[]"
+    (let [vs [true false true]]
+      (is (= {:v vs}
+             (sql/select-one (aurora/conn-pool :read)
+                             ["select ? as v" (with-meta vs {:pgtype "boolean[]"})]))))))
 
 (deftest elementset-test
   (let [xs [1 2 3]
