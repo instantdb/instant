@@ -23,7 +23,7 @@ import {
 } from '@headlessui/react';
 
 import { StyledToastContainer, errorToast, successToast } from '@/lib/toast';
-import config, { cliOauthParamName, getLocal, setLocal } from '@/lib/config';
+import config, { cliOauthParamName } from '@/lib/config';
 import { jsonFetch, jsonMutate } from '@/lib/fetch';
 import {
   APIResponse,
@@ -312,24 +312,6 @@ function Dashboard() {
     adminToken?: string;
     claimed?: boolean;
   }>('agents-essay-demo', {});
-
-  useEffect(() => {
-    if (!token) return;
-    const state = getLocal('__tutorial-interaction-state');
-    const tutorialAppId = state?.appId;
-    const tutorialToken = state?.t;
-
-    if (!tutorialAppId || !tutorialToken) return;
-
-    jsonMutate(`${config.apiURI}/dash/apps/ephemeral/${tutorialAppId}/claim`, {
-      token,
-      method: 'POST',
-      body: { token: tutorialToken },
-    }).then(() => {
-      localStorage.removeItem('__tutorial-interaction-state');
-      return dashResponse.mutate();
-    });
-  }, [token]);
 
   useEffect(() => {
     if (!token) return;
