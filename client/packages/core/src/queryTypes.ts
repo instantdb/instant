@@ -45,10 +45,6 @@ type BaseWhereClauseValueComplex<V> = {
 
 type IsAny<T> = boolean extends (T extends never ? true : false) ? true : false;
 
-type test = NonEmpty<
-  WhereClauseValueComplex<string | number | boolean, false, true>
->;
-
 type WhereClauseValueComplex<V, R, I> = BaseWhereClauseValueComplex<V> &
   (IsAny<V> extends true
     ? {
@@ -101,7 +97,7 @@ type WhereClauses<T extends Record<any, DataAttrDef<any, boolean, boolean>>> = (
   | WhereClauseComboEntries<T>
   | (WhereClauseComboEntries<T> & WhereClauseColumnEntries<T>)
 ) & {
-  id?: string;
+  id?: WhereClauseValue<DataAttrDef<string, false, true>>;
   [key: `${string}.${string}`]: WhereClauseValue<DataAttrDef<any, false, true>>;
 };
 
