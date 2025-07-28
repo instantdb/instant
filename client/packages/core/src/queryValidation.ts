@@ -1,19 +1,11 @@
 import { IContainEntitiesAndLinks } from './schemaTypes.ts';
 
-type QueryValidationResult =
-  | {
-      status: 'success';
-    }
-  | {
-      status: 'error';
-      message: string;
-    };
-
-const error = (message: string) =>
-  ({
-    message,
-    status: 'error',
-  }) satisfies QueryValidationResult;
+class QueryValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'QueryValidationError';
+  }
+}
 
 const dollarSignKeys = [
   'where',
@@ -27,36 +19,35 @@ const dollarSignKeys = [
   'fields',
 ];
 
-const validateDollarObject = (
-  dollarObj: Record<string, unknown>,
-): QueryValidationResult => {
+const validateDollarObject = (dollarObj: Record<string, unknown>): void => {
   for (const key of Object.keys(dollarObj)) {
     if (!dollarSignKeys.includes(key)) {
-      return error(
-        `Invalid $ key: ${key}. Valid keys are: ${dollarSignKeys.join(', ')}`,
+      throw new QueryValidationError(
+        `Invalid query parameter '${key}' in $ object. Valid parameters are: ${dollarSignKeys.join(', ')}. Found: ${key}`,
       );
     }
   }
-
-  return {
-    status: 'success',
-  };
 };
 
 const validateEntityInQuery = (
   queryPart: Record<string, unknown>,
   entityName: string,
   schema: IContainEntitiesAndLinks<any, any>,
-): QueryValidationResult => {
+): void => {
   if (!queryPart || typeof queryPart !== 'object') {
-    return error('Query part must be an object');
+    throw new QueryValidationError(
+      `Query part for entity '${entityName}' must be an object, but received: ${typeof queryPart}`,
+    );
   }
 
   for (const key of Object.keys(queryPart)) {
     if (key !== '$') {
       // Validate link exists
       if (schema && !(key in schema.entities[entityName].links)) {
-        return error(`Link ${key} does not exist on entity ${entityName}`);
+        const availableLinks = Object.keys(schema.entities[entityName].links);
+        throw new QueryValidationError(
+          `Link '${key}' does not exist on entity '${entityName}'. Available links: ${availableLinks.length > 0 ? availableLinks.join(', ') : 'none'}`,
+        );
       }
 
       // Recursively validate nested query
@@ -65,70 +56,60 @@ const validateEntityInQuery = (
         const linkedEntityName =
           schema?.entities[entityName].links[key]?.entityName;
         if (linkedEntityName) {
-          const nestedResult = validateEntityInQuery(
+          validateEntityInQuery(
             nestedQuery as Record<string, unknown>,
             linkedEntityName,
             schema,
           );
-          if (nestedResult.status !== 'success') {
-            return nestedResult;
-          }
         }
       }
     } else {
       // Validate $ object
       const dollarObj = queryPart[key];
       if (typeof dollarObj !== 'object' || dollarObj === null) {
-        return error('$ must be an object');
+        throw new QueryValidationError(
+          `Query parameter '$' must be an object in entity '${entityName}', but received: ${typeof dollarObj}`,
+        );
       }
 
-      const dollarResult = validateDollarObject(
-        dollarObj as Record<string, unknown>,
-      );
-      if (dollarResult.status !== 'success') {
-        return dollarResult;
-      }
+      validateDollarObject(dollarObj as Record<string, unknown>);
     }
   }
-
-  return {
-    status: 'success',
-  };
 };
 
 export const validateQuery = (
   q: unknown,
   schema?: IContainEntitiesAndLinks<any, any>,
-): QueryValidationResult => {
+): void => {
   if (typeof q !== 'object' || q === null) {
-    return error('Query must be an object');
+    throw new QueryValidationError(
+      `Query must be an object, but received: ${typeof q}${q === null ? ' (null)' : ''}`,
+    );
   }
 
   const queryObj = q as Record<string, unknown>;
 
   for (const topLevelKey of Object.keys(queryObj)) {
     if (typeof topLevelKey !== 'string') {
-      return error('Query keys must be strings');
+      throw new QueryValidationError(
+        `Query keys must be strings, but found key of type: ${typeof topLevelKey}`,
+      );
     }
 
     // Check if the key is top level entity
     if (schema) {
       if (!schema.entities[topLevelKey]) {
-        return error(`Entity ${topLevelKey} does not exist`);
+        const availableEntities = Object.keys(schema.entities);
+        throw new QueryValidationError(
+          `Entity '${topLevelKey}' does not exist in schema. Available entities: ${availableEntities.length > 0 ? availableEntities.join(', ') : 'none'}`,
+        );
       }
     }
 
-    const innerResult = validateEntityInQuery(
+    validateEntityInQuery(
       queryObj[topLevelKey] as Record<string, unknown>,
       topLevelKey,
       schema,
     );
-    if (innerResult.status !== 'success') {
-      return innerResult;
-    }
   }
-
-  return {
-    status: 'success',
-  };
 };

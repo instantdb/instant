@@ -83,24 +83,17 @@ const beValid = (
   q: unknown,
   schema: InstantSchemaDef<any, any, any> | null = testSchema,
 ) => {
-  const result = validateQuery(q, schema ?? undefined);
-  expect(
-    result,
-    `Query: ${JSON.stringify(q)}, returned ${result}, should be valid`,
-  ).toStrictEqual({
-    status: 'success',
-  });
+  expect(() => validateQuery(q, schema ?? undefined)).not.toThrow();
+  if (schema) {
+    expect(() => validateQuery(q, undefined)).not.toThrow();
+  }
 };
 
 const beWrong = (
   q: unknown,
   schema: InstantSchemaDef<any, any, any> | null = testSchema,
 ) => {
-  const result = validateQuery(q, schema ?? undefined);
-  expect(
-    result.status,
-    `Expected query to be invalid: ${JSON.stringify(q)}`,
-  ).toBe('error');
+  expect(() => validateQuery(q, schema ?? undefined)).toThrow();
 };
 
 test('validates top level types', () => {
@@ -202,4 +195,43 @@ test('all valid dollar sign keys', () => {
       },
     },
   });
+
+  beWrong({
+    posts: {
+      $: {
+        notARealFilter: 10,
+      },
+    },
+  });
+
+  beWrong({
+    posts: {
+      notARealFilter: 10,
+      $: {},
+    },
+  });
+
+  beValid({
+    posts: {
+      comments: {
+        $: {
+          where: {
+            body: 'test',
+          },
+        },
+      },
+    },
+  });
+
+  beWrong({
+    posts: {
+      comments: {
+        $: {
+          notARealFilter: 'hi',
+        },
+      },
+    },
+  });
 });
+
+test('comparison', () => {});
