@@ -79,7 +79,12 @@ const beValid = (
   schema: InstantSchemaDef<any, any, any> = testSchema,
 ) => {
   const result = validateQuery(q, schema);
-  expect(result.status).toBe('success');
+  expect(
+    result,
+    `Query: ${JSON.stringify(q)}, returned ${result}, should be valid`,
+  ).toStrictEqual({
+    status: 'success',
+  });
 };
 
 const beWrong = (
@@ -87,10 +92,30 @@ const beWrong = (
   schema: InstantSchemaDef<any, any, any> = testSchema,
 ) => {
   const result = validateQuery(q, schema);
-  expect(result.status).toBe('error');
+  expect(
+    result.status,
+    `Expected query to be invalid: ${JSON.stringify(q)}`,
+  ).toBe('error');
 };
 
 test('validates top level types', () => {
   beValid({});
   beWrong('Testing');
+  beWrong(8392);
+});
+
+test('top level entitiy names', () => {
+  beValid({
+    posts: {},
+  });
+
+  beWrong({
+    users: {},
+    notInSchema: {},
+  });
+
+  beValid({
+    users: {},
+    posts: {},
+  });
 });

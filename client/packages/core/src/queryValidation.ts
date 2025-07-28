@@ -10,31 +10,38 @@ type QueryValidationResult =
     }
   | {
       status: 'error';
-      errors: QueryValidationError[];
+      message: string;
     };
+
+const error = (message: string) =>
+  ({
+    message,
+    status: 'error',
+  }) satisfies QueryValidationResult;
 
 export const validateQuery = (
   q: unknown,
   schema: InstantUnknownSchema,
 ): QueryValidationResult => {
-  const errors: QueryValidationError[] = [];
+  console.log('Testing query', q);
 
   if (typeof q !== 'object') {
     return {
       status: 'error',
-      errors: [
-        {
-          message: 'Query must be an object',
-        },
-      ],
+      message: 'Query must be an object',
     };
   }
 
-  for (const topLevelKey in Object.keys(q)) {
-    if (typeof q[topLevelKey] !== 'string') {
-      errors.push({
-        message: `Query key must be a string`,
-      });
+  for (const topLevelKey of Object.keys(q)) {
+    if (typeof topLevelKey !== 'string') {
+      return error('Query must be a string');
+    }
+
+    // Check if the key is top level entity
+    if (schema) {
+      if (!schema.entities[topLevelKey]) {
+        return error(`Entity ${topLevelKey} does not exist`);
+      }
     }
   }
 
