@@ -76,9 +76,9 @@ const testSchema = i.schema({
 
 const beValid = (
   q: unknown,
-  schema: InstantSchemaDef<any, any, any> = testSchema,
+  schema: InstantSchemaDef<any, any, any> | null = testSchema,
 ) => {
-  const result = validateQuery(q, schema);
+  const result = validateQuery(q, schema ?? undefined);
   expect(
     result,
     `Query: ${JSON.stringify(q)}, returned ${result}, should be valid`,
@@ -89,9 +89,9 @@ const beValid = (
 
 const beWrong = (
   q: unknown,
-  schema: InstantSchemaDef<any, any, any> = testSchema,
+  schema: InstantSchemaDef<any, any, any> | null = testSchema,
 ) => {
-  const result = validateQuery(q, schema);
+  const result = validateQuery(q, schema ?? undefined);
   expect(
     result.status,
     `Expected query to be invalid: ${JSON.stringify(q)}`,
@@ -118,4 +118,11 @@ test('top level entitiy names', () => {
     users: {},
     posts: {},
   });
+
+  beValid(
+    {
+      somethingsuperRandomButNoSchema: {},
+    },
+    null,
+  );
 });

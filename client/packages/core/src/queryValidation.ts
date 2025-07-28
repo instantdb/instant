@@ -21,15 +21,12 @@ const error = (message: string) =>
 
 export const validateQuery = (
   q: unknown,
-  schema: InstantUnknownSchema,
+  schema?: InstantUnknownSchema,
 ): QueryValidationResult => {
   console.log('Testing query', q);
 
   if (typeof q !== 'object') {
-    return {
-      status: 'error',
-      message: 'Query must be an object',
-    };
+    return error('Query must be an object');
   }
 
   for (const topLevelKey of Object.keys(q)) {
