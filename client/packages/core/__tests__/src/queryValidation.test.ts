@@ -153,8 +153,52 @@ test('links', () => {
 
   beValid({
     posts: {
-      comments: {
-        posts: {},
+      comments: {},
+    },
+  });
+});
+
+test('dollar sign object', () => {
+  beWrong({
+    posts: {
+      $where: {
+        title: 'Drew',
+      },
+    },
+  });
+  beValid({
+    posts: {
+      $: {
+        where: {
+          title: 'Drew',
+        },
+      },
+    },
+  });
+  beWrong({
+    posts: {
+      $: {
+        badKey: {
+          title: 'Drew',
+        },
+      },
+    },
+  });
+});
+
+test('all valid dollar sign keys', () => {
+  beValid({
+    posts: {
+      $: {
+        where: { title: 'test' },
+        order: { title: 'asc' },
+        limit: 10,
+        last: 5,
+        first: 3,
+        offset: 2,
+        after: ['cursor', 'data', 'value', 1],
+        before: ['cursor', 'data', 'value', 2],
+        fields: ['title', 'body'],
       },
     },
   });
