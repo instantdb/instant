@@ -450,6 +450,7 @@ export {
   InstaQLParams,
   InstaQLOptions,
   InstaQLQueryEntityResult,
+  InstaQLEntitySubquery,
   InstaQLEntity,
   InstaQLResult,
   InstaQLFields,
