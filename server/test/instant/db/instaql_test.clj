@@ -2841,6 +2841,79 @@
             (testing "uses index"
               (is (= "triples_boolean_type_idx" (run-explain :boolean true))))))))))
 
+(deftest in-with-types
+  (with-zeneca-checked-data-app
+    (fn [app _r]
+      (let [attr-ids {:string (random-uuid)
+                      :number (random-uuid)
+                      :boolean (random-uuid)
+                      :date (random-uuid)}
+            label-attr-id (random-uuid)
+            labels ["a" "b" "c" "d" "e"]
+            make-ctx (fn []
+                       (let [attrs (attr-model/get-by-app-id (:id app))]
+                         {:db {:conn-pool (aurora/conn-pool :write)}
+                          :app-id (:id app)
+                          :attrs attrs}))
+            run-query (fn [return-field q]
+                        (let [ctx (make-ctx)]
+                          (->> (iq/permissioned-query ctx q)
+                               (instaql-nodes->object-tree ctx)
+                               (#(get % "etype"))
+                               (map #(get % (name return-field)))
+                               set)))]
+        (tx/transact! (aurora/conn-pool :write)
+                      (attr-model/get-by-app-id (:id app))
+                      (:id app)
+                      (concat
+                       [[:add-attr {:id (random-uuid)
+                                    :forward-identity [(random-uuid) "etype" "id"]
+                                    :unique? true
+                                    :index? true
+                                    :value-type :blob
+                                    :checked-data-type :string
+                                    :cardinality :one}]
+                        [:add-attr {:id label-attr-id
+                                    :forward-identity [(random-uuid) "etype" "label"]
+                                    :unique? true
+                                    :index? true
+                                    :value-type :blob
+                                    :checked-data-type :string
+                                    :cardinality :one}]]
+                       (for [[t attr-id] attr-ids]
+                         [:add-attr {:id attr-id
+                                     :forward-identity [(random-uuid) "etype" (name t)]
+                                     :unique? false
+                                     :index? true
+                                     :value-type :blob
+                                     :checked-data-type t
+                                     :cardinality :one}])
+
+                       (mapcat
+                        (fn [i]
+                          (let [id (random-uuid)]
+                            [[:add-triple id label-attr-id (nth labels i)]
+                             [:add-triple id (:string attr-ids) (str i)]
+                             [:add-triple id (:number attr-ids) i]
+                             [:add-triple id (:date attr-ids) i]
+                             [:add-triple id (:boolean attr-ids) (zero? (mod i 2))]]))
+                        (range (count labels)))))
+        (testing "string"
+          (is (= #{"3" "4"}  (run-query :string {:etype {:$ {:where {:string {:$in ["3" "4"]}}}}})))
+          (is (= #{"2"} (run-query :string {:etype {:$ {:where {:string "2"}}}}))))
+
+        (testing "number"
+          (is (= #{3 4} (run-query :number {:etype {:$ {:where {:number {:$in [3 4]}}}}})))
+          (is (= #{2} (run-query :number {:etype {:$ {:where {:number 2}}}}))))
+
+        (testing "date"
+          (is (= #{3 4} (run-query :date {:etype {:$ {:where {:date {:$in [3 4]}}}}})))
+          (is (= #{2} (run-query :date {:etype {:$ {:where {:date 2}}}}))))
+
+        (testing "boolean"
+          (is (= #{true false} (run-query :boolean {:etype {:$ {:where {:boolean {:$in [true false]}}}}})))
+          (is (= #{false} (run-query :boolean {:etype {:$ {:where {:boolean false}}}}))))))))
+
 (deftest $not-with-refs
   (with-zeneca-checked-data-app
     (fn [app r]
