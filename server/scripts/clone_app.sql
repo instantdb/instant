@@ -42,7 +42,8 @@ INSERT INTO attrs (
     forward_ident, reverse_ident,
     inferred_types, on_delete,
     checked_data_type, checking_data_type,
-    indexing, setting_unique, on_delete_reverse, is_required
+    indexing, setting_unique, on_delete_reverse, is_required,
+    etype, label, reverse_etype, reverse_label
 )
 SELECT
     am.new_id,
@@ -52,7 +53,8 @@ SELECT
     im_rev.new_id,
     a.inferred_types, a.on_delete,
     a.checked_data_type, a.checking_data_type,
-    a.indexing, a.setting_unique, a.on_delete_reverse, a.is_required
+    a.indexing, a.setting_unique, a.on_delete_reverse, a.is_required,
+    a.etype, a.label, a.reverse_etype, a.reverse_label
 FROM   attrs a
 JOIN   attr_map  am       ON am.old_id = a.id
 JOIN   ident_map im_fwd   ON im_fwd.old_id = a.forward_ident
