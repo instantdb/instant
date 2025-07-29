@@ -10,7 +10,7 @@
    [java.time Duration Instant]
    [org.apache.tika Tika]
    [org.apache.tika.io TikaInputStream]
-   [java.io InputStream BufferedInputStream]
+   [java.io InputStream]
    [java.time.temporal ChronoUnit]))
 
 (set! *warn-on-reflection* true)
