@@ -10,6 +10,7 @@
    [java.time Duration Instant]
    [org.apache.tika Tika]
    [org.apache.tika.io TikaInputStream]
+   [java.io InputStream BufferedInputStream]
    [java.time.temporal ChronoUnit]))
 
 (set! *warn-on-reflection* true)
@@ -93,32 +94,29 @@
 ;; Instant <> S3 integration
 ;; ----------------------
 
-(defn upload-file-to-s3 [{:keys [app-id location-id content-type] :as ctx} file]
-  (when (not (instance? java.io.InputStream file))
+(def tika (Tika.))
+
+(defn deduce-content-type [{:keys [content-type app-id]} file]
+  (cond
+    content-type
+    content-type
+
+    (contains? (flags/flag :tika-enabled-apps) app-id)
+    (let [tika-stream (TikaInputStream/get file)
+          content-type (.detect tika ^TikaInputStream tika-stream)]
+      content-type)
+
+    :else nil))
+
+(defn upload-file-to-s3 [{:keys [app-id location-id] :as ctx} _file]
+  (when (not (instance? InputStream _file))
     (throw (Exception. "Unsupported file format")))
-  (if content-type
-    ;; Content-type provided
-    (let [ctx* (assoc ctx
-                      :object-key (->object-key app-id location-id)
-                      :content-type content-type)]
-      (s3-util/upload-stream-to-s3 (s3-async-client) bucket-name ctx* file))
-    ;; No content-type
-    (if (contains? (flags/flag :tika-enabled-apps) app-id)
-      (let [tika-stream (TikaInputStream/get file)
-            tika (Tika.)
-            mime-type (.detect tika ^TikaInputStream tika-stream)
-            ctx* (assoc ctx
-                        :object-key (->object-key app-id location-id)
-                        :content-type mime-type)]
-        (try
-          (s3-util/upload-stream-to-s3 (s3-async-client) bucket-name ctx* tika-stream)
-          (finally
-            (.close tika-stream))))
-      (let [detected-mime-type (.detect (Tika.) ^String (:path ctx))
-            ctx* (assoc ctx
-                        :object-key (->object-key app-id location-id)
-                        :content-type detected-mime-type)]
-        (s3-util/upload-stream-to-s3 (s3-async-client) bucket-name ctx* file)))))
+  (let [file (BufferedInputStream. _file)
+        content-type (deduce-content-type ctx file)
+        ctx* (cond-> ctx
+               true (assoc :object-key (->object-key app-id location-id))
+               content-type (assoc :content-type content-type))]
+    (s3-util/upload-stream-to-s3 (s3-async-client) bucket-name ctx* file)))
 
 (defn format-object [{:keys [object-metadata]}]
   (-> object-metadata
