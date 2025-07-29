@@ -4,20 +4,21 @@ import _ from 'lodash';
 import * as ReactDOMServer from 'react-dom/server';
 import { marked } from 'marked';
 import { Fence } from '../components/ui';
-import footnotes from './footnotes';
+import footnotesExtension from '@/lib/footnotes';
 
 function removeMdExtension(str) {
   return str.replace(/\.md$/, '');
 }
 
+// Configure marked with extensions
+marked.use(footnotesExtension);
 marked.use({
   renderer: {
-    code(code, language) {
+    code(token) {
       return ReactDOMServer.renderToString(
-        <Fence code={code} language={language}></Fence>,
+        <Fence code={token.text} language={token.lang || ''}></Fence>,
       );
     },
-    ...footnotes,
   },
 });
 

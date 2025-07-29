@@ -15,8 +15,10 @@ import { fileURLToPath } from 'url';
 import format from 'date-fns/format';
 import parse from 'date-fns/parse';
 import { marked } from 'marked';
-import { getAllPosts, getPostBySlug } from '../lib/posts';
-import type { Post } from '../lib/posts';
+import { getAllPosts, getPostBySlug } from '@/lib/posts';
+import type { Post } from '@/lib/posts';
+import footnotesExtension from '@/lib/footnotes';
+import videosExtension from '@/lib/videos';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -42,10 +44,17 @@ function formatDateToRFC822(dateString: string): string {
   );
 }
 
+// (TODO): It would be really nice to support code highlighting too
+// but I had build issues with including JSX / the Fence component.
+marked.use(footnotesExtension);
+marked.use(videosExtension);
+
 function generateRssFeed(posts: Omit<Post, 'content'>[]): string {
   const siteUrl = 'https://instantdb.com';
   const feedUrl = `${siteUrl}/essays`;
 
+  // Use the most recent post date as lastBuildDate
+  // This ensures the date only changes when there's actually new content
   const latestPost = posts[0];
   const lastBuildDate = latestPost
     ? formatDateToRFC822(latestPost.date)
