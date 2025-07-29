@@ -73,14 +73,18 @@
       (is (= 2 (count vs-res)))
       (is (= (-> vs
                  ^Instant first
-                 (.truncatedTo ChronoUnit/MICROS)
-                 (Timestamp/from))
-             (first vs-res)))
+                 (.truncatedTo ChronoUnit/MICROS))
+             (-> vs-res
+                 ^Timestamp first
+                 (.toInstant)
+                 (.truncatedTo ChronoUnit/MICROS))))
       (is (= (-> vs
                  ^Instant second
-                 (.truncatedTo ChronoUnit/MICROS)
-                 (Timestamp/from))
-             (second vs-res)))))
+                 (.truncatedTo ChronoUnit/MICROS))
+             (-> vs-res
+                 ^Timestamp second
+                 (.toInstant)
+                 (.truncatedTo ChronoUnit/MICROS))))))
 
   (testing "float8[]"
     (let [vs [1.0 0.5 -10.0]]
