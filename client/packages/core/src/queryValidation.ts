@@ -1,6 +1,6 @@
 import { IContainEntitiesAndLinks, DataAttrDef } from './schemaTypes.ts';
 
-class QueryValidationError extends Error {
+export class QueryValidationError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'QueryValidationError';
@@ -17,6 +17,7 @@ const dollarSignKeys = [
   'after',
   'before',
   'fields',
+  'aggregate',
 ];
 
 const getAttrType = (attrDef: DataAttrDef<any, any, any>): string => {
@@ -354,6 +355,10 @@ export const validateQuery = (
       throw new QueryValidationError(
         `Query keys must be strings, but found key of type: ${typeof topLevelKey}`,
       );
+    }
+
+    if (topLevelKey === '$$ruleParams') {
+      continue;
     }
 
     // Check if the key is top level entity
