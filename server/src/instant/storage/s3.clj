@@ -96,26 +96,30 @@
 
 (def ^Tika tika (Tika.))
 
-(defn deduce-content-type [{:keys [content-type app-id]} file]
-  (cond
-    content-type
-    [content-type file]
+(defn requires-tika? [{:keys [content-type app-id]}]
+  (and
+   (not content-type)
+   (contains? (flags/flag :tika-enabled-apps) app-id)))
 
-    (contains? (flags/flag :tika-enabled-apps) app-id)
-    (let [tika-stream (TikaInputStream/get ^InputStream file)
-          content-type (.detect tika ^TikaInputStream tika-stream)]
-      [content-type tika-stream])
+(defn deduce-content-type [{:keys [content-type] :as ctx} file]
+  (if (requires-tika? ctx)
+    (.detect tika ^TikaInputStream file)
+    content-type))
 
-    :else [nil file]))
+(defn get-file-stream [ctx file]
+  (if (requires-tika? ctx)
+    (TikaInputStream/get ^InputStream file)
+    file))
 
 (defn upload-file-to-s3 [{:keys [app-id location-id] :as ctx} _file]
   (when (not (instance? InputStream _file))
     (throw (Exception. "Unsupported file format")))
-  (let [[content-type file] (deduce-content-type ctx _file)
-        ctx* (cond-> ctx
-               true (assoc :object-key (->object-key app-id location-id))
-               content-type (assoc :content-type content-type))]
-    (s3-util/upload-stream-to-s3 (s3-async-client) bucket-name ctx* file)))
+  (with-open [file ^InputStream (get-file-stream ctx _file)]
+    (let [content-type (deduce-content-type ctx file)
+          ctx* (cond-> ctx
+                 true (assoc :object-key (->object-key app-id location-id))
+                 content-type (assoc :content-type content-type))]
+      (s3-util/upload-stream-to-s3 (s3-async-client) bucket-name ctx* file))))
 
 (defn format-object [{:keys [object-metadata]}]
   (-> object-metadata
