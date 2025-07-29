@@ -19,34 +19,10 @@
    (com.zaxxer.hikari HikariDataSource)
    (java.sql Array Connection PreparedStatement ResultSet ResultSetMetaData)
    (java.time Instant LocalDate LocalDateTime)
-   (java.util UUID)
    (javax.sql DataSource)
    (org.postgresql.util PGobject PSQLException)))
 
 (set! *warn-on-reflection* true)
-
-(defn ->pg-text-array
-  "Formats as text[] in pg, i.e. {item-1, item-2, item3}"
-  [col]
-  (clojure.core/format
-   "{%s}"
-   (string/join
-    ","
-    (map (fn [s] (clojure.core/format "\"%s\""
-                                      ;; Escape quotes (but don't double esc)
-                                      (string/replace s #"(?<!\\)\"" "\\\"")))
-         col))))
-
-(defn ->pg-uuid-array
-  "Formats as uuid[] in pg, i.e. {item-1, item-2, item3}"
-  [uuids]
-  (let [s (StringBuilder. "{")]
-    (doseq [^UUID uuid uuids]
-      (when (not= 1 (.length s))
-        (.append s \,))
-      (.append s (.toString uuid)))
-    (.append s "}")
-    (.toString s)))
 
 (defn <-pgobject
   "Transform PGobject containing `json` or `jsonb` value to Clojure data"
