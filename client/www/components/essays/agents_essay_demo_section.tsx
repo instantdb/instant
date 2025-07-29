@@ -3,10 +3,11 @@ import config, { getLocal, isDev } from '@/lib/config';
 import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/solid';
 import confetti from 'canvas-confetti';
 import * as ephemeral from '@/lib/ephemeral';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { PlatformApi } from '@instantdb/platform';
 import { i } from '@instantdb/core';
 import useLocalStorage from '@/lib/hooks/useLocalStorage';
+import differenceInDays from 'date-fns/differenceInDays';
 
 type InitState = {
   step: 'init';
@@ -14,6 +15,7 @@ type InitState = {
   adminToken: undefined;
   timeTaken: undefined;
   askedForDemoApp: undefined;
+  expiresMs: undefined;
 };
 
 type SchemaPushedState = {
@@ -31,6 +33,7 @@ type AppCreatedState = {
   timeTaken: number;
   askedForDemoApp: boolean;
   claimed: boolean;
+  expiresMs: number;
   schema?: SchemaPushedState;
   perms?: PermsPushedState;
 };
@@ -38,16 +41,28 @@ type AppCreatedState = {
 type InteractionState = InitState | AppCreatedState;
 
 export default function AgentsEssayDemoSection() {
+  const init = {
+    step: 'init',
+    appId: undefined,
+    adminToken: undefined,
+    timeTaken: undefined,
+    askedForDemoApp: undefined,
+    expiresMs: undefined,
+  } as const;
   const [state, setState] = useLocalStorage<InteractionState>(
     'agents-essay-demo',
-    {
-      step: 'init',
-      appId: undefined,
-      adminToken: undefined,
-      timeTaken: undefined,
-      askedForDemoApp: undefined,
-    },
+    init,
   );
+  useEffect(() => {
+    if (state.step !== 'app-created') return;
+    if (state.claimed) return;
+    if (
+      !state.expiresMs ||
+      differenceInDays(new Date(state.expiresMs), new Date()) < 2
+    ) {
+      setState(init);
+    }
+  }, [state.expiresMs]);
 
   return (
     <div>
@@ -98,9 +113,11 @@ export default function AgentsEssayDemoSection() {
         }
         onClick={async () => {
           const start = Date.now();
-          const { app } = await ephemeral.provisionApp({
-            title: 'agents-essay-demo',
+          const res = await ephemeral.provisionApp({
+            title: 'dino-habit-tracker',
           });
+
+          const { app, expires_ms } = res;
           const end = Date.now();
 
           const appId = app.id;
@@ -112,6 +129,7 @@ export default function AgentsEssayDemoSection() {
             timeTaken: end - start,
             askedForDemoApp: false,
             claimed: false,
+            expiresMs: expires_ms,
           });
           confetti({
             angle: randomInRange(55, 125),
