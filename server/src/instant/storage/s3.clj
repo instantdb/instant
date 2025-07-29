@@ -94,25 +94,24 @@
 ;; Instant <> S3 integration
 ;; ----------------------
 
-(def tika (Tika.))
+(def ^Tika tika (Tika.))
 
 (defn deduce-content-type [{:keys [content-type app-id]} file]
   (cond
     content-type
-    content-type
+    [content-type file]
 
     (contains? (flags/flag :tika-enabled-apps) app-id)
-    (let [tika-stream (TikaInputStream/get file)
+    (let [tika-stream (TikaInputStream/get ^InputStream file)
           content-type (.detect tika ^TikaInputStream tika-stream)]
-      content-type)
+      [content-type tika-stream])
 
-    :else nil))
+    :else [nil file]))
 
 (defn upload-file-to-s3 [{:keys [app-id location-id] :as ctx} _file]
   (when (not (instance? InputStream _file))
     (throw (Exception. "Unsupported file format")))
-  (let [file (BufferedInputStream. _file)
-        content-type (deduce-content-type ctx file)
+  (let [[content-type file] (deduce-content-type ctx _file)
         ctx* (cond-> ctx
                true (assoc :object-key (->object-key app-id location-id))
                content-type (assoc :content-type content-type))]
