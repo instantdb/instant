@@ -62,6 +62,7 @@ import {
   type FileOpts,
   type UploadFileResponse,
   type DeleteFileResponse,
+  validateQuery,
 } from '@instantdb/core';
 
 import version from './version.js';
@@ -779,6 +780,9 @@ class InstantAdminDatabase<
     if (query && opts && 'ruleParams' in opts) {
       query = { $$ruleParams: opts['ruleParams'], ...query };
     }
+
+    validateQuery(query, this.config.schema);
+
     const fetchOpts = opts.fetchOpts || {};
     const fetchOptsHeaders = fetchOpts['headers'] || {};
     return jsonFetch(`${this.config.apiURI}/admin/query`, {

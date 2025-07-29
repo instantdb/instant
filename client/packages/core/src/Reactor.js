@@ -23,6 +23,7 @@ import { createLinkIndex } from './utils/linkIndex.ts';
 import version from './version.ts';
 import { create } from 'mutative';
 import createLogger from './utils/log.ts';
+import { validateQuery } from './queryValidation.ts';
 
 /** @typedef {import('./utils/log.ts').Logger} Logger */
 
@@ -734,6 +735,7 @@ export default class Reactor {
    *  Returns an unsubscribe function
    */
   subscribeQuery(q, cb, opts) {
+    validateQuery(q, this.config.schema);
     if (opts && 'ruleParams' in opts) {
       q = { $$ruleParams: opts['ruleParams'], ...q };
     }
@@ -756,6 +758,8 @@ export default class Reactor {
   }
 
   queryOnce(q, opts) {
+    validateQuery(q, this.config.schema);
+
     if (opts && 'ruleParams' in opts) {
       q = { $$ruleParams: opts['ruleParams'], ...q };
     }
