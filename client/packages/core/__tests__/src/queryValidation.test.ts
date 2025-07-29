@@ -312,12 +312,34 @@ test('where clause operators', () => {
     },
   });
 
+  // Valid 'in' operator (without $)
+  beValid({
+    users: {
+      $: {
+        where: {
+          name: { in: ['John', 'Jane'] },
+        },
+      },
+    },
+  });
+
   // Invalid $in operator - not an array
   beWrong({
     users: {
       $: {
         where: {
           name: { $in: 'John' },
+        },
+      },
+    },
+  });
+
+  // Invalid 'in' operator - not an array
+  beWrong({
+    users: {
+      $: {
+        where: {
+          name: { in: 'John' },
         },
       },
     },
@@ -334,12 +356,64 @@ test('where clause operators', () => {
     },
   });
 
+  // Invalid 'in' operator - wrong type in array
+  beWrong({
+    users: {
+      $: {
+        where: {
+          name: { in: ['John', 123] },
+        },
+      },
+    },
+  });
+
   // Valid comparison operators
   beValid({
     posts: {
       $: {
         where: {
           title: { $not: 'Draft' },
+        },
+      },
+    },
+  });
+
+  // Valid $gt, $lt, $gte, $lte operators (would need indexed fields in real usage)
+  beValid({
+    posts: {
+      $: {
+        where: {
+          title: { $gt: 'A' },
+        },
+      },
+    },
+  });
+
+  beValid({
+    posts: {
+      $: {
+        where: {
+          title: { $lt: 'Z' },
+        },
+      },
+    },
+  });
+
+  beValid({
+    posts: {
+      $: {
+        where: {
+          title: { $gte: 'A' },
+        },
+      },
+    },
+  });
+
+  beValid({
+    posts: {
+      $: {
+        where: {
+          title: { $lte: 'Z' },
         },
       },
     },
@@ -362,6 +436,28 @@ test('where clause operators', () => {
       $: {
         where: {
           title: { $like: 123 },
+        },
+      },
+    },
+  });
+
+  // Valid $ilike operator on string
+  beValid({
+    users: {
+      $: {
+        where: {
+          name: { $ilike: '%john%' },
+        },
+      },
+    },
+  });
+
+  // Invalid $ilike operator on non-string
+  beWrong({
+    posts: {
+      $: {
+        where: {
+          title: { $ilike: 123 },
         },
       },
     },
@@ -551,6 +647,17 @@ test('where clause dot notation validation', () => {
     },
   });
 
+  // Valid dot notation with $ilike operator
+  beValid({
+    users: {
+      $: {
+        where: {
+          'posts.title': { $ilike: '%TUTORIAL%' },
+        },
+      },
+    },
+  });
+
   // Valid dot notation - self-referential link (users.friends.name)
   beValid({
     users: {
@@ -612,6 +719,17 @@ test('where clause dot notation validation', () => {
       $: {
         where: {
           'author.name': { $like: 123 },
+        },
+      },
+    },
+  });
+
+  // Invalid dot notation - using $ilike with wrong type
+  beWrong({
+    posts: {
+      $: {
+        where: {
+          'author.name': { $ilike: 123 },
         },
       },
     },
