@@ -1,13 +1,12 @@
 import format from 'date-fns/format';
 import parse from 'date-fns/parse';
 import Head from 'next/head';
-import { getAllPosts } from '../../lib/posts';
+import { getAllPosts, type Post } from '../../lib/posts';
 import NextLink from 'next/link';
 import {
   LandingContainer,
   LandingFooter,
   MainNav,
-  Post,
 } from '@/components/marketingUi';
 import * as og from '@/lib/og';
 
