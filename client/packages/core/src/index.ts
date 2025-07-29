@@ -14,6 +14,7 @@ import WindowNetworkListener from './WindowNetworkListener.js';
 import { i } from './schema.js';
 import { createDevtool } from './devtool.js';
 import version from './version.ts';
+import { validateQuery, QueryValidationError } from './queryValidation.ts';
 
 import type {
   PresenceOpts,
@@ -816,6 +817,8 @@ export {
   tx,
   txInit,
   lookup,
+  validateQuery,
+  QueryValidationError,
 
   // error
   InstantAPIError,
