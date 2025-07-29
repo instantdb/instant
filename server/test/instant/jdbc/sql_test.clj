@@ -7,6 +7,7 @@
    [clojure.test :refer [deftest testing is]])
   (:import
    (java.time Instant)
+   (java.time.temporal ChronoUnit)
    (java.sql Timestamp)
    (clojure.lang ExceptionInfo)))
 
@@ -70,9 +71,15 @@
           vs-res (:v (sql/select-one (aurora/conn-pool :read)
                                      ["select ? as v" (with-meta vs {:pgtype "timestamptz[]"})]))]
       (is (= 2 (count vs-res)))
-      (is (= (Timestamp/from ^Instant (first vs))
+      (is (= (-> vs
+                 ^Instant first
+                 (.truncatedTo ChronoUnit/MICROS)
+                 (Timestamp/from))
              (first vs-res)))
-      (is (= (Timestamp/from ^Instant (second vs))
+      (is (= (-> vs
+                 ^Instant second
+                 (.truncatedTo ChronoUnit/MICROS)
+                 (Timestamp/from))
              (second vs-res)))))
 
   (testing "float8[]"
