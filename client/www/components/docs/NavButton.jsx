@@ -18,6 +18,13 @@
  * {% conditional param="choice" value="bar" %}
  *   Content for Bar
  * {% /conditional %}
+ *
+ * {% conditional param="choice" value="bar" %}
+ *   Content for bar
+ *   {% else %}
+ *     Content for not bar
+ *   {% /else %}
+ * {% /conditional %}
  */
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -100,7 +107,7 @@ export function NavButton({
   return <div>{href ? <Link href={href}>{Component}</Link> : Component}</div>;
 }
 
-export function ConditionalContent({ param, value, children }) {
+export function ConditionalContent({ param, value, children, elseChildren }) {
   const selected = Array.isArray(value)
     ? value.some((v) => isSelected(param, v))
     : isSelected(param, value);
@@ -109,5 +116,8 @@ export function ConditionalContent({ param, value, children }) {
     return <>{children}</>;
   }
 
+  if (elseChildren) {
+    return <>{elseChildren}</>;
+  }
   return null;
 }
