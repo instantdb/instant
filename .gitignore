@@ -19,6 +19,9 @@ client/www/public/sitemap.xml
 client/www/public/llms.txt
 client/www/public/llms-full.txt
 
+# rss
+client/www/public/rss.xml
+
 # static docs
 client/www/public/docs
 client/www/public/docs*

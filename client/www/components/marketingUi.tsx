@@ -253,19 +253,3 @@ export function PageProgressBar() {
     </div>
   );
 }
-
-export interface Author {
-  name: string;
-  url: string;
-}
-
-export interface Post {
-  title: string;
-  slug: string;
-  date: string;
-  content: string;
-  authors: Author[];
-  isDraft?: boolean;
-  hero?: string;
-  og_image?: string;
-}
