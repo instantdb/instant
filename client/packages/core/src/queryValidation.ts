@@ -137,6 +137,76 @@ const validateWhereClauseValue = (
   }
 };
 
+const validateDotNotationAttribute = (
+  dotPath: string,
+  value: unknown,
+  startEntityName: string,
+  schema: IContainEntitiesAndLinks<any, any>,
+): void => {
+  const pathParts = dotPath.split('.');
+  if (pathParts.length < 2) {
+    throw new QueryValidationError(
+      `Invalid dot notation path '${dotPath}'. Must contain at least one dot.`,
+    );
+  }
+
+  let currentEntityName = startEntityName;
+
+  // Traverse all path parts except the last one (which should be an attribute)
+  for (let i = 0; i < pathParts.length - 1; i++) {
+    const linkName = pathParts[i];
+    const currentEntity = schema.entities[currentEntityName];
+
+    if (!currentEntity) {
+      throw new QueryValidationError(
+        `Entity '${currentEntityName}' does not exist in schema while traversing dot notation path '${dotPath}'.`,
+      );
+    }
+
+    const link = currentEntity.links[linkName];
+    if (!link) {
+      const availableLinks = Object.keys(currentEntity.links);
+      throw new QueryValidationError(
+        `Link '${linkName}' does not exist on entity '${currentEntityName}' in dot notation path '${dotPath}'. Available links: ${availableLinks.length > 0 ? availableLinks.join(', ') : 'none'}`,
+      );
+    }
+
+    currentEntityName = link.entityName;
+  }
+
+  // Validate the final attribute
+  const finalAttrName = pathParts[pathParts.length - 1];
+  const finalEntity = schema.entities[currentEntityName];
+
+  if (!finalEntity) {
+    throw new QueryValidationError(
+      `Target entity '${currentEntityName}' does not exist in schema for dot notation path '${dotPath}'.`,
+    );
+  }
+
+  // Handle 'id' field specially - every entity has an id field
+  if (finalAttrName === 'id') {
+    validateWhereClauseValue(
+      value,
+      dotPath,
+      new DataAttrDef('string', false, true),
+      startEntityName,
+    );
+    return;
+  }
+
+  const attrDef = finalEntity.attrs[finalAttrName];
+  if (!attrDef) {
+    const availableAttrs = Object.keys(finalEntity.attrs);
+    throw new QueryValidationError(
+      `Attribute '${finalAttrName}' does not exist on entity '${currentEntityName}' in dot notation path '${dotPath}'. Available attributes: ${availableAttrs.length > 0 ? availableAttrs.join(', ') + ', id' : 'id'}`,
+    );
+  }
+
+  // Validate the value against the attribute type
+  validateWhereClauseValue(value, dotPath, attrDef, startEntityName);
+};
+
 const validateWhereClause = (
   whereClause: Record<string, unknown>,
   entityName: string,
@@ -169,6 +239,7 @@ const validateWhereClause = (
     }
 
     if (key.includes('.')) {
+      validateDotNotationAttribute(key, value, entityName, schema);
       continue;
     }
 

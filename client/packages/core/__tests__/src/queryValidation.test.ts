@@ -506,13 +506,167 @@ test('where clause logical operators', () => {
   });
 });
 
-test('where clause dot notation (should be skipped)', () => {
-  // Dot notation should be allowed without validation for now
+test('where clause dot notation validation', () => {
+  // Valid dot notation - users.posts.title
   beValid({
     users: {
       $: {
         where: {
           'posts.title': 'Some Title',
+        },
+      },
+    },
+  });
+
+  // Valid dot notation - posts.author.name
+  beValid({
+    posts: {
+      $: {
+        where: {
+          'author.name': 'John Doe',
+        },
+      },
+    },
+  });
+
+  // Valid dot notation - users.posts.comments.body
+  beValid({
+    users: {
+      $: {
+        where: {
+          'posts.comments.body': 'Great comment!',
+        },
+      },
+    },
+  });
+
+  // Valid dot notation with operators
+  beValid({
+    users: {
+      $: {
+        where: {
+          'posts.title': { $like: '%tutorial%' },
+        },
+      },
+    },
+  });
+
+  // Valid dot notation - self-referential link (users.friends.name)
+  beValid({
+    users: {
+      $: {
+        where: {
+          'friends.name': 'Friend Name',
+        },
+      },
+    },
+  });
+
+  // Invalid dot notation - nonexistent link
+  beWrong({
+    users: {
+      $: {
+        where: {
+          'invalidLink.title': 'value',
+        },
+      },
+    },
+  });
+
+  // Invalid dot notation - nonexistent attribute
+  beWrong({
+    users: {
+      $: {
+        where: {
+          'posts.nonexistent': 'value',
+        },
+      },
+    },
+  });
+
+  // Invalid dot notation - no link between entities
+  beWrong({
+    users: {
+      $: {
+        where: {
+          'unlinkedWithAnything.animal': 'cat',
+        },
+      },
+    },
+  });
+
+  // Invalid dot notation - wrong type
+  beWrong({
+    users: {
+      $: {
+        where: {
+          'posts.title': 123,
+        },
+      },
+    },
+  });
+
+  // Invalid dot notation - using string operator on non-string
+  beWrong({
+    posts: {
+      $: {
+        where: {
+          'author.name': { $like: 123 },
+        },
+      },
+    },
+  });
+
+  // Valid dot notation with $in operator
+  beValid({
+    users: {
+      $: {
+        where: {
+          'posts.title': { $in: ['Title 1', 'Title 2'] },
+        },
+      },
+    },
+  });
+
+  // Invalid dot notation with $in operator - wrong type in array
+  beWrong({
+    users: {
+      $: {
+        where: {
+          'posts.title': { $in: ['Title 1', 123] },
+        },
+      },
+    },
+  });
+
+  // Valid dot notation with id field
+  beValid({
+    users: {
+      $: {
+        where: {
+          'posts.id': 'post-123',
+        },
+      },
+    },
+  });
+
+  // Valid dot notation with optional field and $isNull
+  beValid({
+    posts: {
+      $: {
+        where: {
+          'author.bio': { $isNull: true },
+        },
+      },
+    },
+  });
+
+  // Invalid dot notation with $isNull on required field
+  beWrong({
+    posts: {
+      $: {
+        where: {
+          'author.name': { $isNull: true },
         },
       },
     },
