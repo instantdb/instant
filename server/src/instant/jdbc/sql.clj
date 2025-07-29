@@ -19,48 +19,10 @@
    (com.zaxxer.hikari HikariDataSource)
    (java.sql Array Connection PreparedStatement ResultSet ResultSetMetaData)
    (java.time Instant LocalDate LocalDateTime)
-   (java.util UUID)
    (javax.sql DataSource)
    (org.postgresql.util PGobject PSQLException)))
 
 (set! *warn-on-reflection* true)
-
-(defn ->pg-text-array
-  "Formats as text[] in pg, i.e. {item-1, item-2, item3}"
-  [col]
-  (clojure.core/format
-   "{%s}"
-   (string/join
-    ","
-    (map (fn [s] (clojure.core/format "\"%s\""
-                                      ;; Escape quotes (but don't double esc)
-                                      (string/replace s #"(?<!\\)\"" "\\\"")))
-         col))))
-
-(defn ->pg-uuid-array
-  "Formats as uuid[] in pg, i.e. {item-1, item-2, item3}"
-  [uuids]
-  (let [s (StringBuilder. "{")]
-    (doseq [^UUID uuid uuids]
-      (when (not= 1 (.length s))
-        (.append s \,))
-      (.append s (.toString uuid)))
-    (.append s "}")
-    (.toString s)))
-
-(defn ->pgobject
-  "Transforms Clojure data to a PGobject that contains the data as
-  JSON. PGObject type defaults to `jsonb` but can be changed via
-  metadata key `:pgtype`"
-  ^PGobject [x]
-  (let [pgtype (or (:pgtype (meta x)) "jsonb")
-        value (case pgtype
-                "text[]" (->pg-text-array x)
-                "uuid[]" (->pg-uuid-array x)
-                (->json x))]
-    (doto (PGobject.)
-      (.setType pgtype)
-      (.setValue value))))
 
 (defn <-pgobject
   "Transform PGobject containing `json` or `jsonb` value to Clojure data"
@@ -73,10 +35,36 @@
         "bit" (Long/parseLong value 2)
         value))))
 
+(defn <-array [^Array a]
+  (let [type (.getBaseTypeName a)
+        vs (.getArray a)]
+    (case type
+      ("json" "jsonb") (mapv <-json vs)
+      (vec vs))))
+
+(defn- create-pg-array [^PreparedStatement s pgtype clazz vs]
+  (.createArrayOf (.getConnection s) pgtype (into-array clazz vs)))
+
+(defn set-param
+  "Transform PGobject containing `json` or `jsonb` value to Clojure data"
+  [^PreparedStatement s i v]
+  (let [pgtype (or (:pgtype (meta v)) "jsonb")]
+    (case pgtype
+      "text[]" (.setArray s i (create-pg-array s "text" String v))
+      "uuid[]" (.setArray s i (create-pg-array s "uuid" String (map str v)))
+      "jsonb[]" (.setArray s i (create-pg-array s "jsonb" String (map ->json v)))
+      "timestamptz[]" (.setArray s i (create-pg-array s "timestamptz" Instant v))
+      "float8[]" (.setArray s i (create-pg-array s "float8" Number v))
+      "boolean[]" (.setArray s i (create-pg-array s "boolean" Boolean v))
+      (.setObject s i (doto (PGobject.)
+                        (.setType pgtype)
+                        (.setValue (->json v)))))))
+
+
 (extend-protocol rs/ReadableColumn
   Array
-  (read-column-by-label [^Array v _] (vec (.getArray v)))
-  (read-column-by-index [^Array v _2 _3] (vec (.getArray v)))
+  (read-column-by-label [^Array v _] (<-array v))
+  (read-column-by-index [^Array v _2 _3] (<-array v))
 
   PGobject
   (read-column-by-label [^PGobject v _] (<-pgobject v))
@@ -97,19 +85,19 @@
 
   IPersistentMap
   (set-parameter [m ^PreparedStatement s i]
-    (.setObject s i (->pgobject m)))
+    (set-param s i m))
 
   IPersistentList
   (set-parameter [l ^PreparedStatement s i]
-    (.setObject s i (->pgobject l)))
+    (set-param s i l))
 
   IPersistentVector
   (set-parameter [v ^PreparedStatement s i]
-    (.setObject s i (->pgobject v)))
+    (set-param s i v))
 
   IPersistentSet
   (set-parameter [v ^PreparedStatement s i]
-    (.setObject s i (->pgobject v))))
+    (set-param s i v)))
 
 (defn get-unqualified-string-column-names
   "Given `ResultSetMetaData`, return a vector of unqualified column names."

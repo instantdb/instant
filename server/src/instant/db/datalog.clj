@@ -567,17 +567,22 @@
 ;; -----
 ;; where
 
-(defn- in-or-eq
-  "If the set has only one element,
-   return an = clause. Otherwise, return an :in clause."
-  [k v-set]
-  (case (count v-set)
-    0 [:= 0 1]
-    1 [:= k (first v-set)]
-    [:in k v-set]))
-
 (defn- value->jsonb [x]
   [:cast (->json x) :jsonb])
+
+(defn- in-any
+  "If the set has only one element,
+   return an = clause. Otherwise, return an `= ANY(vs)` clause."
+  [col vs pgtype]
+  (case (count vs)
+    0 [:= 0 1]
+    1 [:= col [:cast
+               (case pgtype
+                 :jsonb (->json (first vs))
+                 (first vs))
+               pgtype]]
+    [:= col [:any (with-meta (set vs)
+                    {:pgtype (str (name pgtype) "[]")})]]))
 
 (defn extract-value-fn [data-type op]
   (case data-type
@@ -588,14 +593,25 @@
               nil)
     :boolean :triples_extract_boolean_value))
 
+(def data-type->pg-type {:date :timestamptz
+                         :number :float8
+                         :string :text
+                         :boolean :boolean})
+
 (defn data-type-comparison [data-type op col val]
   (if-let [f (extract-value-fn data-type op)]
     [:and
-     [op [f col] val]
+     (if (and (= op :=)
+              (set? val))
+       (in-any [f col] val (data-type->pg-type data-type))
+       [op [f col] val])
      [:=
       :checked_data_type
       [:cast [:inline (name data-type)] :checked_data_type]]]
-    [op col (value->jsonb val)]))
+    (if (and (= op :=)
+             (set? val))
+      (in-any col val :jsonb)
+      [op col (value->jsonb val)])))
 
 (defn- not-eq-value [idx val]
   (let [[tag idx-val] idx
@@ -619,30 +635,26 @@
     (if (empty? v-set)
       [:= 0 1]
       (if-not data-type
-        (in-or-eq (case idx-val
+        (let [col (case idx-val
                     ;; Make sure av uses the av_index
                     :av [:json_null_to_null :value]
                     ;; Make sure vae uses the vae_uuid_index
                     ;; and eav uses the eav_uuid_index
                     (:eav :vae) [:json_uuid_to_uuid :value]
 
-                    :value)
-                  (if (or (= :vae idx-val)
-                          (= :eav idx-val))
-                    v-set
-                    (map value->jsonb v-set)))
-
-        (list* :or (map (fn [v]
-                          (data-type-comparison data-type := :value v))
-                        v-set))))))
+                    :value)]
+          (if (or (= :vae idx-val)
+                  (= :eav idx-val))
+            (in-any col v-set (if (every? uuid? v-set)
+                                :uuid
+                                :jsonb))
+            (in-any col v-set :jsonb)))
+        (data-type-comparison data-type := :value v-set)))))
 
 (defn- constant->where-part [idx app-id component-type [_ v]]
   (condp = component-type
     :e (if (every? uuid? v)
-         (case (count v)
-           0 [:= 0 1]
-           1 [:= :entity-id (first v)]
-           [:= :entity-id [:any (with-meta v {:pgtype "uuid[]"})]])
+         (in-any :entity-id v :uuid)
          (list* :or
                 (for [lookup v]
                   (if (uuid? lookup)
