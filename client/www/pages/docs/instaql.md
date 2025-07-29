@@ -299,7 +299,7 @@ const query = {
     todos: {
       $: {
         where: {
-          'todos.title': 'Go on a run',
+          title: 'Go on a run',
         },
       },
     },
