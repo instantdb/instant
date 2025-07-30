@@ -1059,55 +1059,79 @@
       (do
         (swap! (:counts ctx) conj count-info)
         10000)
-      (get-in ctx [:counts count-info]))))
+      (let [res (get-in ctx [:counts count-info])]
+        (assert res)
+        res))))
+
+(defn path-cost-with-joins
+  "Tries to estimate the work we'll be doing for an individual index.
+  Is correlated with the cost of a nested loop, it does not take into
+  account different join strategies or join orders."
+  [index]
+  (let [costs (:index-costs index)
+        path-cost (/ (reduce + (map :cost (:path costs)))
+                     (max (count (:path costs)) 1))
+        join-cost (reduce + 0 (vals (:join-remaining costs)))
+        filter-cost (reduce + 0 (vals (select-keys (:known-remaining costs)
+                                                   (:filter-components costs))))]
+    (* 1.0 (* (+ path-cost
+                 (* 2 filter-cost))
+              (max 1 join-cost)))))
 
 (defn index-compare
   "Compares the indexes pairwise to try to pick the best one.
    A scoring system might be better, but this is a easier to debug."
   [a b]
-  (cond (and (empty? (:known-remaining (:index-costs a)))
-             (seq (:known-remaining (:index-costs b))))
+  (let [a-costs (:index-costs a)
+        b-costs (:index-costs b)
+        cost-compare (compare (:path-cost-with-joins a)
+                              (:path-cost-with-joins b))]
+    (if-not (zero? cost-compare)
+      cost-compare
+      (cond
+        (and (empty? (:known-remaining a-costs))
+             (seq (:known-remaining b-costs)))
         -1
 
-        (and (seq (:known-remaining (:index-costs a)))
-             (empty? (:known-remaining (:index-costs b))))
+        (and (seq (:known-remaining a-costs))
+             (empty? (:known-remaining b-costs)))
         1
 
-        (> (count (:path (:index-costs a)))
-           (count (:path (:index-costs b))))
+        (> (count (:path a-costs))
+           (count (:path b-costs)))
         -1
 
-        (> (count (:path (:index-costs b)))
-           (count (:path (:index-costs a))))
+        (> (count (:path b-costs))
+           (count (:path a-costs)))
         1
 
-        (and (< 0 (count (:path (:index-costs a))))
-             (< 0 (count (:path (:index-costs b))))
-             (< (/ (reduce + (map :cost (:path (:index-costs a))))
-                   (count (:path (:index-costs a))))
-                (/ (reduce + (map :cost (:path (:index-costs b))))
-                   (count (:path (:index-costs b))))))
+        (and (< 0 (count (:path a-costs)))
+             (< 0 (count (:path b-costs)))
+             (< (/ (reduce + (map :cost (:path a-costs)))
+                   (count (:path a-costs)))
+                (/ (reduce + (map :cost (:path b-costs)))
+                   (count (:path b-costs)))))
         -1
 
-        (and (< 0 (count (:path (:index-costs b))))
-             (< 0 (count (:path (:index-costs a))))
-             (< (/ (reduce + (map :cost (:path (:index-costs b))))
-                   (count (:path (:index-costs b))))
-                (/ (reduce + (map :cost (:path (:index-costs a))))
-                   (count (:path (:index-costs a))))))
+        (and (< 0 (count (:path b-costs)))
+             (< 0 (count (:path a-costs)))
+             (< (/ (reduce + (map :cost (:path b-costs)))
+                   (count (:path b-costs)))
+                (/ (reduce + (map :cost (:path a-costs)))
+                   (count (:path a-costs)))))
         1
 
         ;; Prefer to put join conds in the index
-        (and (= (:known-remaining (:index-costs b))
-                (:join-components (:index-costs b)))
-             (not= (:known-remaining (:index-costs a))
-                   (:join-components (:index-costs a))))
+        (and (= (:known-remaining b-costs)
+                (:join-components b-costs))
+             (not= (:known-remaining a-costs)
+                   (:join-components a-costs)))
         -1
 
-        (and (= (:known-remaining (:index-costs a))
-                (:join-components (:index-costs a)))
-             (not= (:known-remaining (:index-costs b))
-                   (:join-components (:index-costs b))))
+        (and (= (:known-remaining a-costs)
+                (:join-components a-costs))
+             (not= (:known-remaining b-costs)
+                   (:join-components b-costs)))
         1
 
         (and (:matching-idx-key? a)
@@ -1126,7 +1150,7 @@
              (:matching-data-type? b))
         1
 
-        :else 0))
+        :else 0))))
 
 (defn best-index
   "Determines the best index to use based on which components we know will be
@@ -1209,27 +1233,48 @@
                                   #{}
                                   [:e :a :v :created-at])
 
+        filter-components (reduce (fn [acc c]
+                                    (let [[tag value] (get named-p c)]
+                                      (if-let [comp (case tag
+                                                      (:any :variable) nil
+                                                      :constant c
+                                                      :function (if (and (= :v c)
+                                                                         (contains? #{:$isNull} (-> value keys first)))
+                                                                  :e
+                                                                  c))]
+                                        (conj acc comp)
+                                        acc)))
+                                  #{}
+                                  [:e :a :v :created-at])
+
         indexes-with-costs
         (map (fn [idx-config]
-               (assoc idx-config
-                      :index-costs
-                      (reduce (fn [acc col]
-                                (if-let [cost (get (:known-remaining acc) col)]
-                                  (-> acc
-                                      (update :known-remaining dissoc col)
-                                      (update :path conj {:cost cost
-                                                          :col col
-                                                          :type :index-lookup}))
-                                  (reduced acc)))
-                              {:known-remaining known-components
-                               :join-components join-components
-                               :needed-components needed-components
-                               :path []}
-                              (:cols idx-config))
-                      :matching-idx-key? (= (:idx-key idx-config)
-                                            (idx-key (:idx named-p)))
-                      :matching-data-type? (= (:data-type idx-config)
-                                              (idx-data-type (:idx named-p)))))
+               (let [costs (reduce (fn [acc col]
+                                     (if-let [cost (get (:known-remaining acc) col)]
+                                       (-> acc
+                                           (update :known-remaining dissoc col)
+                                           (update :join-remaining dissoc col)
+                                           (update :filter-remaining disj col)
+                                           (update :path conj {:cost cost
+                                                               :col col
+                                                               :type :index-lookup}))
+                                       (reduced acc)))
+                                   {:known-remaining known-components
+                                    :known-components known-components
+                                    :join-components join-components
+                                    :join-remaining join-components
+                                    :needed-components needed-components
+                                    :filter-components filter-components
+                                    :filter-remaining filter-components
+                                    :path []}
+                                   (:cols idx-config))
+                     cfg (assoc idx-config
+                                :index-costs costs
+                                :matching-idx-key? (= (:idx-key idx-config)
+                                                      (idx-key (:idx named-p)))
+                                :matching-data-type? (= (:data-type idx-config)
+                                                        (idx-data-type (:idx named-p))))]
+                 (assoc cfg :path-cost-with-joins (path-cost-with-joins cfg))))
              index-candidates)
 
         sorted-indexes (sort index-compare indexes-with-costs)
@@ -1324,14 +1369,24 @@
           0
           patterns))
 
+(defn first-pattern [patterns]
+  (let [[tag pattern] (first patterns)]
+    (case tag
+      :pattern pattern
+      :or (first-pattern (:patterns (:or pattern)))
+      :and (first-pattern (:and pattern)))))
+
 (declare annotate-with-hints)
 
 (defn annotate-pattern-group-with-hints [ctx initial-symbol-map pattern-group]
   (let [level (:level ctx 0)
         page-info-pattern (get-in pattern-group [:page-info :named-pattern 1])
 
-        page-info-first? (and (= level 0)
-                              (= 1 (pattern-count (:patterns pattern-group))))
+        page-info-first? (and page-info-pattern
+                              (= level 0)
+                              (= 1 (pattern-count (:patterns pattern-group)))
+                              (> (estimate-rows ctx (first-pattern (:patterns pattern-group)))
+                                 5000))
 
         page-pattern-row-estimate (when page-info-pattern
                                     ;; XXX: We should do this later to get the symbol-map??
@@ -1353,11 +1408,8 @@
                                             :best-index
                                             (best-index ctx
                                                         p
-                                                        (merge
-                                                         {(get-in pattern-group [:page-info :order-sym])
-                                                          page-pattern-row-estimate}
-                                                         (when (not page-info-first?)
-                                                           symbol-map))))))
+                                                        (when (not page-info-first?)
+                                                          symbol-map)))))
       (:children pattern-group) ((fn [pg]
                                    (annotate-with-hints (assoc ctx :level (inc level)) symbol-map pg))))))
 
@@ -1445,7 +1497,10 @@
                               #{}
                               (variable-components named-p))]
       (if (or (= #{[:e :e]} join-ctypes)
-              (= #{[:e :v]} join-ctypes))
+              (= #{[:e :v]} join-ctypes)
+              (and (empty? join-ctypes)
+                   (named-constant? (:e named-p))
+                   (not (named-constant? (:v named-p)))))
         (assoc named-p :idx [:keyword :eav])
         named-p))))
 
@@ -1508,7 +1563,8 @@
                   ;; skip indexed with constant value because it's likely
                   ;; to return a small set of elements and we'll spend forever
                   ;; looping through the sorted elements
-                  (and (= :ave (idx-key (:idx named-p)))
+                  (and (not (:best-index named-p))
+                       (= :ave (idx-key (:idx named-p)))
                        (named-constant? (:v named-p))))
                :materialized
                :not-materialized)]]
