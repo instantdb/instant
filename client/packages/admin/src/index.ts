@@ -825,6 +825,7 @@ class InstantAdminDatabase<
   transact = (
     inputChunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
   ) => {
+    console.log('input chunks', JSON.stringify(inputChunks));
     return jsonFetch(`${this.config.apiURI}/admin/transact`, {
       method: 'POST',
       headers: authorizedHeaders(this.config, this.impersonationOpts),
