@@ -740,6 +740,7 @@
             WHERE
               app_id = CAST(?app-id AS UUID)
               OR app_id = CAST(?system-catalog-app-id AS UUID)
+              AND deletion_marked_at IS NULL
             ORDER BY
               id ASC"
            {"?app-id" app-id
@@ -769,8 +770,10 @@
                           [:reverse_etype :rev-etype]
                           [:reverse_label :rev-label]]
                  :from :attrs
-                 :where [:= :attrs.app-id [:any (with-meta (conj (set app-ids) system-catalog-app-id)
-                                                  {:pgtype "uuid[]"})]]}))
+                 :where [:and
+                         [:= :attrs.app-id [:any (with-meta (conj (set app-ids) system-catalog-app-id)
+                                                   {:pgtype "uuid[]"})]]
+                         [:= :deletion_marked_at nil]]}))
          rows-by-app-id (group-by :app_id rows)
          system-catalog-attrs (map row->attr (get rows-by-app-id system-catalog-app-id))]
      (reduce (fn [acc app-id]
