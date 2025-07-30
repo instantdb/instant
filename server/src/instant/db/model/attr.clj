@@ -577,7 +577,21 @@
                   {:select :id :from :ident-updates}]}]])
        :select :%count.* :from :union-ids}))))
 
-(defn delete-multi!
+(defn soft-delete-multi!
+  "Soft-deletes a batch of attrs for an app."
+  [conn app-id ids]
+  (with-cache-invalidation app-id
+    (sql/do-execute!
+     ::soft-delete-multi!
+     conn
+     (hsql/format
+      {:update :attrs
+       :set {:deletion-marked-at [:now]}
+       :where [[:and
+                [:= :app-id app-id]
+                [:in :id ids]]]}))))
+
+(defn hard-delete-multi!
   "Deletes a batch of attrs for an app. We
    rely on CASCADE DELETE to remove associated
    idents and triples"
