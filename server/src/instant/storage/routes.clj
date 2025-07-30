@@ -22,7 +22,7 @@
     {:app-id app-id
      :current-user current-user
      :path (ex/get-some-param! params [[:path] [:filename]] string-util/coerce-non-blank-str)
-     :content-type (ex/get-optional-param! params [:content-type] string-util/coerce-non-blank-str)
+     :content-type (string-util/coerce-non-blank-str (:content-type params))
      :content-length content-length
      :content-disposition (ex/get-optional-param! params [:content-disposition] string-util/coerce-non-blank-str)}))
 
