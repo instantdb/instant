@@ -47,6 +47,7 @@ import {
   type ConfigWithSchema,
   type InstaQLEntity,
   type InstaQLResult,
+  type InstaQLEntitySubquery,
   type RoomsOf,
   type PresenceOf,
   type TopicsOf,
@@ -123,7 +124,7 @@ const init_experimental = init;
 
 class InstantReactNativeDatabase<
   Schema extends InstantSchemaDef<any, any, any>,
-  Config extends InstantConfig<Schema, boolean>,
+  Config extends InstantConfig<Schema, boolean> = InstantConfig<Schema, false>,
 > extends InstantReactAbstractDatabase<Schema, Config> {
   static Storage = Storage;
   static NetworkListener = NetworkListener;
@@ -174,6 +175,7 @@ export {
   type ValueTypes,
   type InstaQLEntity,
   type InstaQLResult,
+  type InstaQLEntitySubquery,
   type InstantSchemaDef,
   type InstantUnknownSchema,
   type BackwardsCompatibleSchema,

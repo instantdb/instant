@@ -50,6 +50,7 @@ import {
   type InstantUnknownSchema,
   type InstaQLEntity,
   type InstaQLResult,
+  type InstaQLEntitySubquery,
   type InstantRules,
   type UpdateParams,
   type LinkParams,
@@ -728,7 +729,7 @@ class InstantAdminDatabase<
   rooms: Rooms<Schema>;
   impersonationOpts?: ImpersonationOpts;
 
-  public tx = txInit<NonNullable<Config['schema']>>();
+  public tx = txInit<NonNullable<Schema>>();
 
   constructor(_config: Config) {
     this.config = instantConfigWithDefaults(_config);
@@ -769,7 +770,7 @@ class InstantAdminDatabase<
    *  // all goals, _alongside_ their todos
    *  await db.query({ goals: { todos: {} } })
    */
-  query = <Q extends InstaQLParams<Config['schema']>>(
+  query = <Q extends InstaQLParams<Schema>>(
     query: Q,
     opts: AdminQueryOpts = {},
   ): Promise<InstaQLResponse<Schema, Q, Config['useDateObjects']>> => {
@@ -849,11 +850,11 @@ class InstantAdminDatabase<
    *    { rules: { goals: { allow: { read: "auth.id != null" } } }
    *  )
    */
-  debugQuery = async <Q extends InstaQLParams<Config['schema']>>(
+  debugQuery = async <Q extends InstaQLParams<Schema>>(
     query: Q,
     opts?: { rules?: any; ruleParams?: { [key: string]: any } },
   ): Promise<{
-    result: InstaQLResponse<Config['schema'], Q, Config['useDateObjects']>;
+    result: InstaQLResponse<Schema, Q, Config['useDateObjects']>;
     checkResults: DebugCheckResult[];
   }> => {
     if (query && opts && 'ruleParams' in opts) {
@@ -965,6 +966,7 @@ export {
   type InstantUnknownSchema,
   type InstaQLEntity,
   type InstaQLResult,
+  type InstaQLEntitySubquery,
   type InstantRules,
   type UpdateParams,
   type LinkParams,

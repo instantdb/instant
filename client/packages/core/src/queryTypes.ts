@@ -11,6 +11,8 @@ import type {
   ResolveEntityAttrs,
   DataAttrDef,
   AttrsDefs,
+  EntityDef,
+  EntityDefFromSchema,
 } from './schemaTypes.ts';
 
 type BuiltIn = Date | Function | Error | RegExp;
@@ -30,34 +32,74 @@ type NonEmpty<T> = {
   [K in keyof T]-?: Required<Pick<T, K>>;
 }[keyof T];
 
-type WhereArgs = {
+type BaseWhereClauseValueComplex<V> = {
   /** @deprecated use `$in` instead of `in` */
-  in?: (string | number | boolean)[];
-  $in?: (string | number | boolean)[];
-  $not?: string | number | boolean;
-  $isNull?: boolean;
-  $gt?: string | number | boolean;
-  $lt?: string | number | boolean;
-  $gte?: string | number | boolean;
-  $lte?: string | number | boolean;
-  $like?: string;
-  $ilike?: string;
+  in?: V[];
+  $in?: V[];
+  $not?: V;
+  $gt?: V;
+  $lt?: V;
+  $gte?: V;
+  $lte?: V;
 };
 
-type WhereClauseValue = string | number | boolean | NonEmpty<WhereArgs>;
+type IsAny<T> = boolean extends (T extends never ? true : false) ? true : false;
 
-type BaseWhereClause = {
-  [key: string]: WhereClauseValue;
+type WhereClauseValueComplex<V, R, I> = BaseWhereClauseValueComplex<V> &
+  (IsAny<V> extends true
+    ? {
+        $ilike?: string;
+        $like?: string;
+        $isNull?: boolean;
+      }
+    : (V extends string
+        ? {
+            $like?: string;
+          }
+        : {}) &
+        (R extends false
+          ? {
+              $isNull?: boolean;
+            }
+          : {}) &
+        (I extends true
+          ? {
+              $ilike?: string;
+            }
+          : {}));
+
+// Make type display better
+type WhereClauseValue<
+  D extends DataAttrDef<string | number | boolean, boolean, boolean>,
+> =
+  D extends DataAttrDef<infer V, infer R, infer I>
+    ?
+        | (IsAny<V> extends true ? string | number | boolean : V)
+        | NonEmpty<WhereClauseValueComplex<V, R, I>>
+    : never;
+
+type WhereClauseColumnEntries<
+  T extends {
+    [key: string]: DataAttrDef<any, boolean, boolean>;
+  },
+> = {
+  [key in keyof T]?: WhereClauseValue<T[key]>;
 };
 
-type WhereClauseWithCombination = {
-  or?: WhereClause[] | WhereClauseValue;
-  and?: WhereClause[] | WhereClauseValue;
+type WhereClauseComboEntries<
+  T extends Record<any, DataAttrDef<any, boolean, boolean>>,
+> = {
+  or?: WhereClauses<T>[] | WhereClauseValue<DataAttrDef<any, false, true>>;
+  and?: WhereClauses<T>[] | WhereClauseValue<DataAttrDef<any, false, true>>;
 };
 
-type WhereClause =
-  | WhereClauseWithCombination
-  | (WhereClauseWithCombination & BaseWhereClause);
+type WhereClauses<T extends Record<any, DataAttrDef<any, boolean, boolean>>> = (
+  | WhereClauseComboEntries<T>
+  | (WhereClauseComboEntries<T> & WhereClauseColumnEntries<T>)
+) & {
+  id?: WhereClauseValue<DataAttrDef<string, false, true>>;
+  [key: `${string}.${string}`]: WhereClauseValue<DataAttrDef<any, false, true>>;
+};
 
 /**
  * A tuple representing a cursor.
@@ -97,7 +139,7 @@ type $Option<
   K extends keyof S['entities'],
 > = {
   $?: {
-    where?: WhereClause;
+    where?: WhereClauses<EntityDefFromSchema<S, K>>;
     order?: Order<S, K>;
     limit?: number;
     last?: number;
@@ -112,6 +154,7 @@ type $Option<
 type NamespaceVal =
   | $Option<IContainEntitiesAndLinks<any, any>, keyof EntitiesDef>
   | ($Option<IContainEntitiesAndLinks<any, any>, keyof EntitiesDef> & Subquery);
+
 type Subquery = { [namespace: string]: NamespaceVal };
 
 interface Query {
@@ -153,7 +196,7 @@ type QueryResponse<
     ? InstaQLQueryResult<E, Q, WithCardinalityInference, UseDates>
     : ResponseOf<{ [K in keyof Q]: Remove$<Q[K]> }, Schema>;
 
-type InstaQLResponse<Schema, Q, UseDates extends boolean> =
+type InstaQLResponse<Schema, Q, UseDates extends boolean = false> =
   Schema extends IContainEntitiesAndLinks<any, any>
     ? InstaQLResult<Schema, Q, UseDates>
     : never;
@@ -407,6 +450,7 @@ export {
   InstaQLParams,
   InstaQLOptions,
   InstaQLQueryEntityResult,
+  InstaQLEntitySubquery,
   InstaQLEntity,
   InstaQLResult,
   InstaQLFields,

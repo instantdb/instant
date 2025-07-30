@@ -1,6 +1,6 @@
 {
   "name": "@instantdb/core",
-  "version": "v0.20.13",
+  "version": "v0.20.14",
   "description": "Instant's core local abstraction",
   "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/core",
   "repository": {

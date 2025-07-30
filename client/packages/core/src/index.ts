@@ -38,6 +38,7 @@ import type {
   InstaQLOptions,
   InstaQLQueryParams,
   InstaQLEntity,
+  InstaQLEntitySubquery,
   InstaQLResult,
   InstaQLFields,
 } from './queryTypes.ts';
@@ -889,6 +890,7 @@ export {
   type TopicOf,
   type InstaQLEntity,
   type InstaQLResult,
+  type InstaQLEntitySubquery,
   type InstantSchemaDef,
   type InstantUnknownSchema,
   type IInstantDatabase,
