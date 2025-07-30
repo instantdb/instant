@@ -77,6 +77,7 @@
         com.stripe/stripe-java {:mvn/version "25.1.0"}
         inflections/inflections {:mvn/version "0.14.1" :exclusions [noencore/noencore]}
         noencore/noencore {:mvn/version "0.3.8"}
+        org.apache.tika/tika-core {:mvn/version "3.2.1"}
 
         datascript/datascript {:git/url "https://github.com/tonsky/datascript.git"
                                :sha "d270292ddaee0a9052e73502247798baae31a77f"
