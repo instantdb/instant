@@ -1064,9 +1064,9 @@
         res))))
 
 (defn path-cost-with-joins
-  "Tries to estimate the work we'll be doing for an individual index.
-  Is correlated with the cost of a nested loop, it does not take into
-  account different join strategies or join orders."
+  "Tries to estimate the work we'll be doing for an individual index,
+  taking into account joins. It should correlate with the cost of a
+  nested loop."
   [index]
   (let [costs (:index-costs index)
         path-cost (/ (reduce + (map :cost (:path costs)))
@@ -1389,7 +1389,6 @@
                                  5000))
 
         page-pattern-row-estimate (when page-info-pattern
-                                    ;; XXX: We should do this later to get the symbol-map??
                                     (estimate-rows ctx page-info-pattern))
         {:keys [patterns symbol-map]}
         (annotate-patterns-with-hints ctx
