@@ -738,8 +738,7 @@
             FROM
               attrs
             WHERE
-              app_id = CAST(?app-id AS UUID)
-              OR app_id = CAST(?system-catalog-app-id AS UUID)
+              (app_id = CAST(?app-id AS UUID) OR app_id = CAST(?system-catalog-app-id AS UUID))
               AND deletion_marked_at IS NULL
             ORDER BY
               id ASC"
