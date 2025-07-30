@@ -1024,7 +1024,7 @@
         params (:headers req)
         path (ex/get-param! params ["path"] string-util/coerce-non-blank-str)
         file (ex/get-param! req [:body] identity)
-        content-type (string-util/coerce-non-blank-str (:content-type req))
+        content-type (storage-coordinator/coerce-content-type (:content-type req))
         data (storage-coordinator/upload-file!
               {:app-id app-id
                :path path

@@ -433,7 +433,7 @@
         params (:headers req)
         path (ex/get-param! params ["path"] string-util/coerce-non-blank-str)
         file (ex/get-param! req [:body] identity)
-        content-type (string-util/coerce-non-blank-str (get params "content-type"))
+        content-type (storage-coordinator/coerce-content-type (get params "content-type"))
         content-disposition (ex/get-optional-param! params ["content-disposition"] string-util/coerce-non-blank-str)
         data (storage-coordinator/upload-file! {:app-id app-id
                                                 :path path
