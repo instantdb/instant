@@ -173,14 +173,15 @@
        res#)))
 
 ;; -----------------
-;; delete-by-app-id!
+;; hard-delete-by-app-id!
 
-(defn delete-by-app-id!
-  "Deletes all attrs for an app. Note: This will also delete all triples for an app"
+(defn hard-delete-by-app-id!
+  "Hard-deletes all attrs for an app. 
+   Note: This will also delete all triples for an app"
   [conn app-id]
   (with-cache-invalidation app-id
     (sql/do-execute!
-     ::delete-by-app-id!
+     ::hard-delete-by-app-id!
      conn
      ["DELETE FROM attrs WHERE attrs.app_id = ?::uuid" app-id])))
 
