@@ -773,7 +773,9 @@ class InstantAdminDatabase<
   query = <Q extends InstaQLParams<Schema>>(
     query: Q,
     opts: AdminQueryOpts = {},
-  ): Promise<InstaQLResponse<Schema, Q, Config['useDateObjects']>> => {
+  ): Promise<
+    InstaQLResponse<Schema, Q, NonNullable<Config['useDateObjects']>>
+  > => {
     if (query && opts && 'ruleParams' in opts) {
       query = { $$ruleParams: opts['ruleParams'], ...query };
     }
