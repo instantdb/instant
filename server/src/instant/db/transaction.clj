@@ -358,64 +358,89 @@
                  (mapv #(vector (:id %) (-> % :forward-identity second) (-> % :reverse-identity second))))
 
             query+args
-            (hsql/format
-             {:with-recursive
-              [;; endids
-               [[:entids {:columns [:entity_id :etype]}]
-                {:union [{:values ids+etypes}
-                         ;; can’t reference entids twice, but can bind it to entids_inner and then it’s okay
-                         {:select :*
-                          :from [[{:with
-                                   [[[:entids_inner]
-                                     {:select :* :from :entids}]]
-                                   :union
-                                   [;; follow forward refs → entid
-                                    {:from   :entids_inner
-                                     :join   [:refs_forward [:and
-                                                           ;; TODO entity_id/value_ref join instead
-                                                             [:= [:to_jsonb :entids_inner.entity_id] :refs_forward.value]
-                                                             [:= :entids_inner.etype :refs_forward.reverse_etype]]]
-                                     :select [:refs_forward.entity_id :refs_forward.forward_etype]}
-                                  ;; follow entid → reverse refs
-                                    {:from   :entids_inner
-                                     :join   [:refs_reverse [:and
-                                                             [:= :entids_inner.entity_id :refs_reverse.entity_id]
-                                                             [:= :entids_inner.etype :refs_reverse.forward_etype]]]
-                                   ;; TODO value -> value_ref
-                                     :select [[[:cast [:->> :refs_reverse.value :0] :uuid]] :refs_reverse.reverse_etype]}]}
-                                  ;; :alias required for postgres 13
-                                  :alias]]}]}]
+            (sql/format
+             "WITH RECURSIVE entids (entity_id, etype) AS (
+                SELECT
+                  cast(elem ->> 0 AS uuid),
+                  cast(elem ->> 1 AS text)
+                FROM
+                  jsonb_array_elements(cast(?ids+etypes AS jsonb)) AS elem
 
-               ;; attrs_forward
-               [[:attrs_forward {:columns [:id :forward_etype :reverse_etype]}]
-                (if (empty? attrs+etypes)
-                  {:select [[[:cast nil :uuid]] nil nil] :where false}
-                  {:values attrs+etypes})]
+                UNION
 
-               ;; refs_forward
-               [:refs_forward {:select [:triples.entity_id :triples.value :attrs_forward.forward_etype :attrs_forward.reverse_etype]
-                               :from   :triples
-                               :join   [:attrs_forward [:= :triples.attr_id :attrs_forward.id]]
-                               :where  [:and
-                                        :triples.vae
-                                        [:= :triples.app_id app-id]]}]
+                SELECT
+                  *
+                FROM (
+                  -- can’t reference entids twice, but can bind it to entids_inner and then it’s okay
+                  WITH entids_inner AS (
+                    SELECT
+                      entity_id,
+                      to_jsonb(entity_id) AS entity_id_jsonb,
+                      etype
+                    FROM
+                      entids
+                  )
 
-               ;; attrs_reverse
-               [[:attrs_reverse {:columns [:id :forward_etype :reverse_etype]}]
-                (if (empty? reverse-attrs+etypes)
-                  {:select [[[:cast nil :uuid]] nil nil] :where false}
-                  {:values reverse-attrs+etypes})]
+                  -- follow forward refs → entid
+                  SELECT
+                    triples.entity_id AS entity_id,
+                    attrs_forward.forward_etype AS etype
+                  FROM
+                    entids_inner
+                  JOIN triples
+                    ON triples.app_id = ?app-id
+                  JOIN attrs_forward
+                    ON triples.attr_id = attrs_forward.id
+                  WHERE
+                    triples.vae
+                    AND entids_inner.entity_id_jsonb = triples.value
+                    AND entids_inner.etype = attrs_forward.reverse_etype
 
-               ;; refs_reverse
-               [:refs_reverse {:select [:triples.entity_id :triples.value :attrs_reverse.forward_etype :attrs_reverse.reverse_etype]
-                               :from   :triples
-                               :join   [:attrs_reverse [:= :triples.attr_id :attrs_reverse.id]]
-                               :where  [:and
-                                        :triples.vae
-                                        [:= :triples.app_id app-id]]}]]
-              ;; final select
-              :from   :entids
-              :select :*})
+                  UNION
+
+                  -- follow entid → reverse refs
+                  SELECT
+                    (triples.value ->> 0)::uuid AS entity_id,
+                    attrs_reverse.reverse_etype AS etype
+                  FROM
+                    entids_inner
+                  JOIN triples
+                    ON triples.app_id = ?app-id
+                    AND entids_inner.entity_id = triples.entity_id
+                  JOIN attrs_reverse
+                    ON triples.attr_id = attrs_reverse.id
+                  WHERE
+                    triples.eav
+                    AND entids_inner.etype = attrs_reverse.forward_etype
+                )
+              ),
+
+              attrs_forward (id, forward_etype, reverse_etype) AS (
+                SELECT
+                  cast(elem ->> 0 AS uuid),
+                  cast(elem ->> 1 AS text),
+                  cast(elem ->> 2 AS text)
+                FROM
+                  jsonb_array_elements(cast(?attrs+etypes AS jsonb)) AS elem
+              ),
+
+              attrs_reverse (id, forward_etype, reverse_etype) AS (
+                SELECT
+                  cast(elem ->> 0 AS uuid),
+                  cast(elem ->> 1 AS text),
+                  cast(elem ->> 2 AS text)
+                FROM
+                  jsonb_array_elements(cast(?reverse-attrs+etypes AS jsonb)) AS elem
+              )
+
+              SELECT
+                entity_id, etype
+              FROM
+                entids"
+             {"?app-id"               app-id
+              "?ids+etypes"           (->json ids+etypes)
+              "?attrs+etypes"         (->json attrs+etypes)
+              "?reverse-attrs+etypes" (->json reverse-attrs+etypes)})
             res         (sql/execute! conn query+args)
             ids+etypes' (map (juxt :entity_id :etype) res)]
         (for [[entity_id etype] (set (concat ids+etypes ids+etypes'))]
