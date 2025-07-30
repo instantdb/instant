@@ -239,7 +239,7 @@ const _schema = i.schema({
 
 Since we're going to use post slugs in URLs, we'll want to make sure that no two posts can have the same slug. If we mark `slug` as `unique`, _Instant will guarantee this constraint for us_.
 
-Plus unique attributes come with their own special index. This means that if you use a unique attribute inside a query, we can fetch the object quickly:
+Unique attributes will also speed up queries that filter by that attribute.
 
 ```typescript
 const query = {
@@ -256,18 +256,14 @@ const query = {
 
 ### Indexing attributes
 
-Speaking of fast queries, let's take a look at one:
+You can also use index attributes to speed up querying. An additional
+benefit is that indexed attributes can be use with comparison operators for
+where queries like `$gt`, `$lt`, `$gte`, and `$lte` and can be used in `order`
+clauses.
 
-What if we wanted to query for a post that was published at a particular date? Here's a query to get posts that were published during SpaceX's chopstick launch:
+Suppose we wanted to query for products less than $100 and order by price.
 
-```typescript
-const rocketChopsticks = '2024-10-13T00:00:00Z';
-const query = { posts: { $: { where: { createdAt: rocketChopsticks } } } };
-```
-
-This would work, but the more posts we create, the slower the query would get. We'd have to scan every post and compare the `createdAt` date.
-
-To make this query faster, we can index `createdAt`:
+First we make sure that the `price` attribute is indexed:
 
 ```typescript
 // instant.schema.ts
@@ -275,15 +271,33 @@ To make this query faster, we can index `createdAt`:
 const _schema = i.schema({
   entities: {
     // ...
-    posts: i.entity({
-      createdAt: i.date().indexed(), // 🔥,
+    products: i.entity({
+      price: i.number().indexed(), // 🔥,
       // ...
     }),
   },
 });
 ```
 
-As it says on the tin, this command tells Instant to index the `createdAt` field, which lets us quickly look up entities by this attribute.
+And now we can use `$lt` and `order` in our query:
+
+```typescript
+const query = {
+  products: {
+    $: {
+      where: {
+        price: { $lt: 100 },
+      },
+      order: {
+        price: 'desc',
+      },
+    },
+  },
+};
+```
+
+Even if you're not using comparison operatiors or order clauses, indexing
+attributes can still speed up queries that filter by that attribute.
 
 ## 3) Links
 
