@@ -14,8 +14,7 @@
    [instant.util.exception :as ex]
    [instant.util.spec :as uspec]
    [instant.util.string :as string-util]
-   [instant.util.uuid :as uuid]
-   [next.jdbc :as next-jdbc]))
+   [instant.util.uuid :as uuid]))
 
 (set! *warn-on-reflection* true)
 
@@ -580,13 +579,18 @@
        :select :%count.* :from :union-ids}))))
 
 (defn restore-multi!
-  "Restores soft-deleted attrs for an app by removing everything after $.
-   
-   Note: 
-     When we restore attrs, we mark them as not unique, not indexed. 
-     The triples table may still include some triples that are branded 
-     with the ave and av flags. This has no real effect on functionality;
-     the main cost is storage space. So for now we keep those triples as they are."
+  "Restores soft-deleted attrs
+
+   1. When we restore an attr, we always make sure to mark 
+      it as not unique, not indexed, and not required.
+      This way we don't impact existing transactions 
+      
+      This does mean that we may have triples that still live on 
+      ave, av, indexes. This isn't too bad; it doesn't affect functionality, 
+      but it does have some storage overhead. 
+
+   2. We restore the etype and labels. We previously 
+      branded them as deleted, to avoid uniqueness violations."
   [conn app-id ids]
   (with-cache-invalidation app-id
     (sql/do-execute!
@@ -599,6 +603,7 @@
           deletion_marked_at = null,
           is_unique = false,
           is_indexed = false,
+          is_required = false,
           etype = substring(etype from position('$' in etype) + 1),
           label = substring(label from position('$' in etype) + 1),
           reverse_etype = case 
@@ -648,7 +653,14 @@
        "?attr-ids" (vec ids)}))))
 
 (defn soft-delete-multi!
-  "Soft-deletes a batch of attrs for an app."
+  "Soft-deletes attrs 
+   1. We always mark soft-deleted attrs as not unique, 
+      not indexed, and not required.
+      
+      This way we don't impact existing transactions. 
+
+   2. We brand etype and labels with a `{attr_id}_deleted$` prefix.
+      This way we avoid future uniqueness violations."
   [conn app-id ids]
   (with-cache-invalidation app-id
     (sql/do-execute!
