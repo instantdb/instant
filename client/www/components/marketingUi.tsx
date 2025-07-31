@@ -203,9 +203,6 @@ export function LandingFooter() {
               <div>Engineered in San Francisco</div>
             </div>
             <div className="flex flex-wrap gap-x-4 gap-y-2">
-              <NavLink href="/examples">Examples</NavLink>
-              <NavLink href="/essays">Essays</NavLink>
-              <NavLink href="/docs">Docs</NavLink>
               <NavLink href="/hiring">Hiring</NavLink>
               <NavLink href="https://discord.com/invite/VU53p7uQcE">
                 Discord
@@ -215,10 +212,6 @@ export function LandingFooter() {
               </NavLink>
               <NavLink href="/privacy">Privacy Policy</NavLink>
               <NavLink href="/terms">Terms</NavLink>
-              <NavLink href="/dash">Login</NavLink>
-              <div className="text-orange-500">
-                <NavLink href="/dash">Signup</NavLink>
-              </div>
             </div>
           </div>
         </div>
