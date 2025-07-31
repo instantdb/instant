@@ -130,7 +130,6 @@
       {:program program
        :bindings {:data updated}})))
 
-
 (defn check-program [{:keys [scope action] :as check} ctx]
   (case [scope action]
     [:object :create] (object-upsert-check-program check ctx)
@@ -139,8 +138,8 @@
     [:object :view]   (object-view-check-program check ctx)
     [:attr   :create] (attr-create-check-program check ctx)
     [:attr   :delete] {:result (:admin? ctx)}
-    [:attr   :update] {:result (:admin? ctx)}))
-
+    [:attr   :update] {:result (:admin? ctx)}
+    [:attr   :restore] {:result (:admin? ctx)}))
 
 (defn object-checks
   "Creates check commands for each object in the transaction.
@@ -345,6 +344,11 @@
        :etype  "attrs"
        :action :delete}
 
+      :restore-attr
+      {:scope :attr
+       :etype "attrs"
+       :action :restore}
+
       :update-attr
       {:scope  :attr
        :etype  "attrs"
@@ -521,7 +525,8 @@
                 attr-changes     (concat
                                   (:add-attr grouped-tx-steps)
                                   (:delete-attr grouped-tx-steps)
-                                  (:update-attr grouped-tx-steps))
+                                  (:update-attr grouped-tx-steps)
+                                  (:restore-attr grouped-tx-steps))
 
                 object-changes   (concat
                                   (:add-triple grouped-tx-steps)
@@ -548,17 +553,18 @@
 
                 check-commands
                 (io/warn-io :check-commands
-                  (concat
-                   (attr-checks ctx attr-changes)
+                            (concat
+                             (attr-checks ctx attr-changes)
                    ;; Use preloaded-triples instead of object-changes.
                    ;; It has all the same data, but the preload will also
                    ;; resolve etypes for older version of delete-entity
-                   (object-checks ctx preloaded-triples)))
+                             (object-checks ctx preloaded-triples)))
 
                 {create-checks :create
                  view-checks :view
                  update-checks :update
-                 delete-checks :delete}
+                 delete-checks :delete
+                 restore-checks :restore}
                 (group-by :action check-commands)
 
                 lookups->eid (lookup->eid-from-preloaded-triples preloaded-triples)
@@ -588,6 +594,7 @@
 
                 before-tx-checks-resolved
                 (mapv #(resolve-check-lookup lookups->eid %) (concat update-checks
+                                                                     restore-checks
                                                                      delete-checks
                                                                      view-checks))
 
@@ -654,3 +661,34 @@
                 (attr-model/get-by-app-id colors-app-id)
                 colors-app-id
                 tx-steps))
+
+(comment
+  (do
+    (def app-id #uuid "6384b04c-e790-48a2-86b1-fc6ee294adb7")
+    (def attr-id-to-delete #uuid "d57f071f-737d-4d12-baaf-298ee202d24d")
+
+    ;; Soft-delete an attr
+    (def delete-tx-steps [[:delete-attr attr-id-to-delete]])
+
+    ;; Restore a soft-deleted attr
+    (def restore-tx-steps [[:restore-attr attr-id-to-delete]]))
+
+  ;; Execute soft-delete
+  (transact! {:db {:conn-pool (aurora/conn-pool :write)}
+              :app-id app-id
+              :attrs  (attr-model/get-by-app-id app-id)
+              :admin? true
+              :rules (rule-model/get-by-app-id {:app-id app-id})
+              :datalog-query-fn d/query}
+             delete-tx-steps)
+
+  (transact! {:db {:conn-pool (aurora/conn-pool :write)}
+              :app-id app-id
+              :attrs (attr-model/get-by-app-id app-id)
+              :rules (rule-model/get-by-app-id {:app-id app-id})
+              :datalog-query-fn d/query
+              :admin? true}
+             restore-tx-steps))
+
+
+

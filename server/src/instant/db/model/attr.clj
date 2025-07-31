@@ -579,18 +579,18 @@
                   {:select :id :from :ident-updates}]}]])
        :select :%count.* :from :union-ids}))))
 
-(defn restore-attr!
-  "Restores a soft-deleted attr for an app. 
+(defn restore-attr-multi!
+  "Restores soft-deleted attrs for an app. 
    
    Note: 
-     When we restore an attr, we mark it as not unique, not indexed. 
+     When we restore attrs, we mark them as not unique, not indexed. 
      The triples table may still include some triples that are branded 
      with the ave and av flags. This has no real effect on functionality;
      the main cost is storage space. So for now we keep those triples as they are."
-  [conn app-id id]
+  [conn app-id ids]
   (with-cache-invalidation app-id
     (sql/do-execute!
-     ::restore-attr!
+     ::restore-attr-multi!
      conn
      (hsql/format
       {:update :attrs
@@ -599,7 +599,7 @@
              :is-indexed false}
        :where [[:and
                 [:= :app-id app-id]
-                [:= :id id]
+                [:in :id ids]
                 [:not= :deletion-marked-at nil]]]}))))
 
 (defn soft-delete-multi!
@@ -615,21 +615,6 @@
        :where [[:and
                 [:= :app-id app-id]
                 [:in :id ids]]]}))))
-
-(comment
-  (def app-id    #uuid "6384b04c-e790-48a2-86b1-fc6ee294adb7")
-  (next.jdbc/with-transaction [conn (aurora/conn-pool :write)]
-    (instant.db.model.transaction/create! conn {:app-id app-id})
-    (soft-delete-multi!
-     conn
-     app-id
-     #{#uuid "d57f071f-737d-4d12-baaf-298ee202d24d"}))
-  (next.jdbc/with-transaction [conn (aurora/conn-pool :write)]
-    (instant.db.model.transaction/create! conn {:app-id app-id})
-    (restore-attr!
-     conn
-     app-id
-     #uuid "d57f071f-737d-4d12-baaf-298ee202d24d")))
 
 (defn hard-delete-multi!
   "Deletes a batch of attrs for an app. We
