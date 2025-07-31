@@ -98,7 +98,8 @@
                     [:or
                      [:and
                       [:= :id a]
-                      [:= :value-type [:inline "ref"]]]
+                      [:= :value-type [:inline "ref"]]
+                      [:= :deletion-marked-at nil]]
                      [:exists {:select :*
                                :from :idents
                                :where [:and
@@ -967,8 +968,6 @@
       (LocalDate/parse dow-mon-day-year-formatter)
       (.atStartOfDay)
       (.toInstant ZoneOffset/UTC)))
-
-
 
 (def date-parsers [zoned-date-time-str->instant
                    local-date-time-str->instant
