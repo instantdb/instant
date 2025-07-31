@@ -89,9 +89,7 @@ function json<T = any>(): DataAttrDef<T, true, false> {
 }
 
 function any(): DataAttrDef<any, true, false> {
-  const def = new DataAttrDef('json', true, false);
-  def.metadata.isAnyType = true;
-  return def;
+  return new DataAttrDef('json', true, false);
 }
 
 // ==========

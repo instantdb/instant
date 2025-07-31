@@ -8,99 +8,119 @@ export class TransactionValidationError extends Error {
   }
 }
 
+const formatAvailableOptions = (items: string[]) =>
+  items.length > 0 ? items.join(', ') : 'none';
+
+const createEntityNotFoundError = (
+  entityName: string,
+  availableEntities: string[],
+) =>
+  new TransactionValidationError(
+    `Entity '${entityName}' does not exist in schema. Available entities: ${formatAvailableOptions(availableEntities)}`,
+  );
+
+const TYPE_VALIDATORS = {
+  string: (value: unknown) => typeof value === 'string',
+  number: (value: unknown) => typeof value === 'number' && !isNaN(value),
+  boolean: (value: unknown) => typeof value === 'boolean',
+  date: (value: unknown) =>
+    value instanceof Date ||
+    typeof value === 'string' ||
+    typeof value === 'number',
+  json: () => true,
+} as const;
+
 const isValidValueForAttr = (
   value: unknown,
   attrDef: DataAttrDef<any, any, any>,
 ): boolean => {
   if (value === null || value === undefined) return true;
-
-  switch (attrDef.valueType) {
-    case 'string':
-      return typeof value === 'string';
-    case 'number':
-      return typeof value === 'number' && !isNaN(value);
-    case 'boolean':
-      return typeof value === 'boolean';
-    case 'date':
-      return (
-        value instanceof Date ||
-        typeof value === 'string' ||
-        typeof value === 'number'
-      );
-    case 'json':
-      return true;
-    default:
-      return attrDef.valueType satisfies never; // proves exaustive switch
-  }
+  return TYPE_VALIDATORS[attrDef.valueType]?.(value) ?? false;
 };
 
-const validateOpArgs = (
-  action: string,
+const validateEntityExists = (
   entityName: string,
-  args: any,
-  schema?: IContainEntitiesAndLinks<any, any>,
-): void => {
-  if (!schema) return;
-
+  schema: IContainEntitiesAndLinks<any, any>,
+) => {
   const entityDef = schema.entities[entityName];
   if (!entityDef) {
-    const availableEntities = Object.keys(schema.entities);
+    throw createEntityNotFoundError(entityName, Object.keys(schema.entities));
+  }
+  return entityDef;
+};
+
+const validateDataOperation = (
+  entityName: string,
+  data: any,
+  schema: IContainEntitiesAndLinks<any, any>,
+) => {
+  const entityDef = validateEntityExists(entityName, schema);
+
+  if (typeof data !== 'object' || data === null) {
     throw new TransactionValidationError(
-      `Entity '${entityName}' does not exist in schema. Available entities: ${availableEntities.length > 0 ? availableEntities.join(', ') : 'none'}`,
+      `Arguments for data operation on entity '${entityName}' must be an object, but received: ${typeof data}`,
     );
   }
 
-  if (action === 'create' || action === 'update' || action === 'merge') {
-    if (typeof args !== 'object' || args === null) {
+  for (const [attrName, value] of Object.entries(data)) {
+    if (attrName === 'id') continue; // id is handled specially
+
+    const attrDef = entityDef.attrs[attrName];
+    if (!attrDef) {
+      const availableAttrs = Object.keys(entityDef.attrs);
       throw new TransactionValidationError(
-        `Arguments for ${action} operation on entity '${entityName}' must be an object, but received: ${typeof args}`,
+        `Attribute '${attrName}' does not exist on entity '${entityName}'. Available attributes: ${formatAvailableOptions(availableAttrs)}`,
       );
     }
 
-    for (const [attrName, value] of Object.entries(args)) {
-      if (attrName === 'id') continue; // id is handled specially
-
-      const attrDef = entityDef.attrs[attrName];
-      if (!attrDef) {
-        const availableAttrs = Object.keys(entityDef.attrs);
-        throw new TransactionValidationError(
-          `Attribute '${attrName}' does not exist on entity '${entityName}'. Available attributes: ${availableAttrs.length > 0 ? availableAttrs.join(', ') : 'none'}`,
-        );
-      }
-
-      // Basic type validation
-      if (!isValidValueForAttr(value, attrDef)) {
-        throw new TransactionValidationError(
-          `Invalid value for attribute '${attrName}' in entity '${entityName}'. Expected ${attrDef.valueType}, but received: ${typeof value}`,
-        );
-      }
-    }
-  }
-
-  if (action === 'link' || action === 'unlink') {
-    if (typeof args !== 'object' || args === null) {
+    if (!isValidValueForAttr(value, attrDef)) {
       throw new TransactionValidationError(
-        `Arguments for ${action} operation on entity '${entityName}' must be an object, but received: ${typeof args}`,
+        `Invalid value for attribute '${attrName}' in entity '${entityName}'. Expected ${attrDef.valueType}, but received: ${typeof value}`,
       );
-    }
-
-    for (const [linkName, linkValue] of Object.entries(args)) {
-      const link = entityDef.links[linkName];
-      if (!link) {
-        const availableLinks = Object.keys(entityDef.links);
-        throw new TransactionValidationError(
-          `Link '${linkName}' does not exist on entity '${entityName}'. Available links: ${availableLinks.length > 0 ? availableLinks.join(', ') : 'none'}`,
-        );
-      }
     }
   }
 };
+
+const validateLinkOperation = (
+  entityName: string,
+  links: any,
+  schema: IContainEntitiesAndLinks<any, any>,
+) => {
+  const entityDef = validateEntityExists(entityName, schema);
+
+  if (typeof links !== 'object' || links === null) {
+    throw new TransactionValidationError(
+      `Arguments for link operation on entity '${entityName}' must be an object, but received: ${typeof links}`,
+    );
+  }
+
+  for (const [linkName] of Object.entries(links)) {
+    const link = entityDef.links[linkName];
+    if (!link) {
+      const availableLinks = Object.keys(entityDef.links);
+      throw new TransactionValidationError(
+        `Link '${linkName}' does not exist on entity '${entityName}'. Available links: ${formatAvailableOptions(availableLinks)}`,
+      );
+    }
+  }
+};
+
+const VALIDATION_STRATEGIES = {
+  create: validateDataOperation,
+  update: validateDataOperation,
+  merge: validateDataOperation,
+  link: validateLinkOperation,
+  unlink: validateLinkOperation,
+  delete: () => {},
+} as const;
 
 const validateOp = (
   op: Op,
   schema?: IContainEntitiesAndLinks<any, any>,
 ): void => {
-  const [action, entityName, _id, args, _opts] = op;
+  if (!schema) return;
+
+  const [action, entityName, _id, args] = op;
 
   if (typeof entityName !== 'string') {
     throw new TransactionValidationError(
@@ -108,14 +128,18 @@ const validateOp = (
     );
   }
 
-  validateOpArgs(action, entityName, args, schema);
+  const validator =
+    VALIDATION_STRATEGIES[action as keyof typeof VALIDATION_STRATEGIES];
+  if (validator && args !== undefined) {
+    validator(entityName, args, schema);
+  }
 };
 
 export const validateTransactions = (
   inputChunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
   schema?: IContainEntitiesAndLinks<any, any>,
 ): void => {
-  let chunks = Array.isArray(inputChunks) ? inputChunks : [inputChunks];
+  const chunks = Array.isArray(inputChunks) ? inputChunks : [inputChunks];
 
   for (const txStep of chunks) {
     if (!txStep || typeof txStep !== 'object') {
