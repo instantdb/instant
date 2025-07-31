@@ -523,9 +523,8 @@
       (next-jdbc/with-transaction [tx-conn conn-pool]
         (if admin?
           (tx/transact-without-tx-conn! tx-conn attrs app-id tx-steps {})
-          (let [tx-step-maps     (tx/mapify-tx-steps attrs tx-steps)
-                optimistic-attrs (tx/optimistic-attrs attrs tx-step-maps)
-                tx-step-maps     (tx/preprocess-tx-steps tx-conn optimistic-attrs app-id tx-step-maps)
+          (let [optimistic-attrs (tx/optimistic-attrs attrs tx-steps)
+                tx-step-maps     (tx/preprocess-tx-steps tx-conn optimistic-attrs app-id tx-steps)
 
                 grouped-tx-steps (->> tx-step-maps
                                       (map tx/vectorize-tx-step)

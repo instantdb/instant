@@ -591,32 +591,32 @@
                                                     :name "transact"}))
           (assoc tx :results results))))))
 
-(defn optimistic-attrs [attrs tx-step-maps]
-  (->> tx-step-maps
+(defn optimistic-attrs [attrs tx-step-vecs]
+  (->> tx-step-vecs
        (reduce
-        (fn [acc {:keys [op aid value]}]
+        (fn [acc [op value]]
           (case op
             :add-attr    (assoc! acc (:id value) value)
             :update-attr (coll/update! acc (:id value) merge value)
-            :delete-attr (dissoc! acc aid)
+            :delete-attr (dissoc! acc value)
             acc))
         (transient (attr-model/map-by-id attrs)))
        persistent!
        vals
        attr-model/wrap-attrs))
 
-(defn preprocess-tx-steps [conn attrs app-id tx-step-maps]
-  (->> tx-step-maps
+(defn preprocess-tx-steps [conn attrs app-id tx-step-vecs]
+  (->> tx-step-vecs
+       (mapify-tx-steps attrs)
        (resolve-lookups-for-delete-entity conn app-id)
        (resolve-etypes-for-delete-entity conn app-id)
        (expand-delete-entity-cascade conn app-id attrs)
        (validate-value-lookup-etypes attrs)))
 
 (defn transact-without-tx-conn! [conn attrs app-id tx-step-vecs opts]
-  (let [tx-step-maps  (mapify-tx-steps attrs tx-step-vecs)
-        attrs'        (optimistic-attrs attrs tx-step-maps)
-        tx-step-maps' (preprocess-tx-steps conn attrs' app-id tx-step-maps)]
-    (transact-without-tx-conn-impl! conn attrs' app-id tx-step-maps' opts)))
+  (let [attrs'        (optimistic-attrs attrs tx-step-vecs)
+        tx-step-maps  (preprocess-tx-steps conn attrs' app-id tx-step-vecs)]
+    (transact-without-tx-conn-impl! conn attrs' app-id tx-step-maps opts)))
 
 (defn transact!
   ([conn attrs app-id tx-steps]

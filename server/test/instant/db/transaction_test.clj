@@ -28,9 +28,11 @@
 
 (test/use-fixtures :each
   (fn [f]
-    (f)
+    (testing "permissioned-transacttion"
+      (f))
     (binding [permissioned-tx/*new-permissioned-transact?* true]
-      (f))))
+      (testing "permissioned-transacttion-new"
+        (f)))))
 
 (defn- fetch-triples
   ([app-id] (fetch-triples app-id []))
@@ -349,6 +351,58 @@
         (permissioned-tx/transact!
          (make-ctx)
          [[:delete-entity user-id "users"]])))))
+
+(deftest add-attr-lookup-ref
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [make-ctx (fn make-ctx
+                       ([]
+                        (make-ctx {}))
+                       ([{:keys [admin?]}]
+                        {:db               {:conn-pool (aurora/conn-pool :write)}
+                         :app-id           app-id
+                         :attrs            (attr-model/get-by-app-id app-id)
+                         :datalog-query-fn d/query
+                         :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                         :current-user     nil
+                         :admin?           admin?}))
+            id-attr-id    (suid "0000")
+            email-attr-id (suid "1111")
+            name-attr-id  (suid "2222")]
+        (testing "add-attr and use it as lookup ref in the same tx"
+          (is (not (validation-err?
+                    (permissioned-tx/transact!
+                     (make-ctx)
+                     [[:add-attr {:id               id-attr-id
+                                  :forward-identity [(random-uuid) "users" "id"]
+                                  :value-type       :blob
+                                  :cardinality      :one
+                                  :unique?          true
+                                  :index?           true
+                                  :required?        true}]
+                      [:add-attr {:id               email-attr-id
+                                  :forward-identity [(random-uuid) "users" "email"]
+                                  :value-type       :blob
+                                  :cardinality      :one
+                                  :unique?          true
+                                  :index?           true
+                                  :required?        true}]
+                      [:add-attr {:id               name-attr-id
+                                  :forward-identity [(random-uuid) "users" "name"]
+                                  :value-type       :blob
+                                  :cardinality      :one
+                                  :unique?          false
+                                  :index?           false
+                                  :required?        false}]
+                      [:add-triple [email-attr-id "niki@email"] id-attr-id [email-attr-id "niki@email"]]
+                      [:add-triple [email-attr-id "niki@email"] name-attr-id "Niki"]]))))
+          (let [[{[user-id _ _] :triple}] (triple-model/fetch (aurora/conn-pool :read) app-id [[:= :attr-id id-attr-id]])]
+            (is (= #{[user-id id-attr-id    (str user-id)]
+                     [user-id email-attr-id "niki@email"]
+                     [user-id name-attr-id  "Niki"]}
+                   (->> (triple-model/fetch (aurora/conn-pool :read) app-id [[:= :entity-id #p user-id]])
+                        (map :triple)
+                        set)))))))))
 
 (deftest update-modes
   (with-empty-app
