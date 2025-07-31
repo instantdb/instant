@@ -33,7 +33,14 @@ import {
   voidTicket,
 } from '@/lib/auth';
 import { TokenContext } from '@/lib/contexts';
-import { DashResponse, InstantApp, InstantMember } from '@/lib/types';
+import {
+  DashResponse,
+  InstantApp,
+  InstantMember,
+  SchemaNamespace,
+  DBAttr,
+} from '@/lib/types';
+import { dbAttrsToExplorerSchema } from '@/lib/schema';
 
 import { Perms } from '@/components/dash/Perms';
 import { Schema } from '@/components/dash/Schema';
@@ -69,7 +76,7 @@ import { Sandbox } from '@/components/dash/Sandbox';
 import PersonalAccessTokensScreen from '@/components/dash/PersonalAccessTokensScreen';
 import { useForm } from '@/lib/hooks/useForm';
 import useLocalStorage from '@/lib/hooks/useLocalStorage';
-import { useDashFetch } from '@/lib/hooks/useDashFetch';
+import { useDashFetch, CachedAPIResponse } from '@/lib/hooks/useDashFetch';
 import { asClientOnlyPage, useReadyRouter } from '@/components/clientOnlyPage';
 import { createdAtComparator } from '@/lib/app';
 import OAuthApps from '@/components/dash/OAuthApps';
@@ -582,45 +589,16 @@ function Dashboard() {
             </div>
             <div className="flex flex-1 flex-col overflow-hidden">
               <div className="flex flex-col flex-1 overflow-y-scroll">
-                {tab === 'home' ? (
-                  <Home />
-                ) : tab === 'explorer' ? (
-                  <ExplorerTab appId={appId} db={connection.db} />
-                ) : tab === 'schema' ? (
-                  <Schema db={connection.db} />
-                ) : tab === 'repl' ? (
-                  <QueryInspector
-                    className="flex-1 w-full"
+                {connection ? (
+                  <DashboardContent
+                    connection={connection}
+                    app={app}
                     appId={appId}
-                    db={connection.db}
-                  />
-                ) : tab === 'sandbox' ? (
-                  <Sandbox key={appId} app={app} db={connection.db} />
-                ) : tab === 'perms' ? (
-                  <Perms
-                    app={app}
-                    dashResponse={dashResponse}
-                    db={connection.db}
-                  />
-                ) : tab === 'auth' ? (
-                  <AppAuth
-                    app={app}
-                    key={app.id}
+                    tab={tab}
                     dashResponse={dashResponse}
                     nav={nav}
+                    onDeleteApp={onDeleteApp}
                   />
-                ) : tab === 'admin' && isMinRole('admin', app.user_app_role) ? (
-                  <Admin
-                    dashResponse={dashResponse}
-                    app={app}
-                    onDelete={() => onDeleteApp(app)}
-                    nav={nav}
-                  />
-                ) : tab === 'billing' &&
-                  isMinRole('collaborator', app.user_app_role) ? (
-                  <Billing appId={appId} />
-                ) : tab === 'oauth-apps' ? (
-                  <OAuthApps appId={appId} />
                 ) : null}
               </div>
             </div>
@@ -821,11 +799,95 @@ function Home() {
   );
 }
 
-function ExplorerTab({ db, appId }: { db: InstantReactClient; appId: string }) {
+// Dashboard content component that manages schema subscription
+function DashboardContent({
+  connection,
+  app,
+  appId,
+  tab,
+  dashResponse,
+  nav,
+  onDeleteApp,
+}: {
+  connection: { db: InstantReactClient };
+  app: InstantApp;
+  appId: string;
+  tab: string;
+  dashResponse: CachedAPIResponse<DashResponse>;
+  nav: (q: { s: string; app?: string; t?: string }, cb?: () => void) => void;
+  onDeleteApp: (app: InstantApp) => void;
+}) {
+  // Subscribe to schema changes at the dashboard level
+  const schemaData = useSchemaQuery(connection.db);
+
+  return (
+    <>
+      {tab === 'home' ? (
+        <Home />
+      ) : tab === 'explorer' ? (
+        <ExplorerTab
+          appId={appId}
+          db={connection.db}
+          namespaces={schemaData.namespaces}
+        />
+      ) : tab === 'schema' ? (
+        <Schema
+          db={connection.db}
+          namespaces={schemaData.namespaces}
+          attrs={schemaData.attrs}
+        />
+      ) : tab === 'repl' ? (
+        <QueryInspector
+          className="flex-1 w-full"
+          appId={appId}
+          db={connection.db}
+          namespaces={schemaData.namespaces}
+        />
+      ) : tab === 'sandbox' ? (
+        <Sandbox key={appId} app={app} db={connection.db} />
+      ) : tab === 'perms' ? (
+        <Perms
+          app={app}
+          dashResponse={dashResponse}
+          db={connection.db}
+          namespaces={schemaData.namespaces}
+        />
+      ) : tab === 'auth' ? (
+        <AppAuth app={app} key={app.id} dashResponse={dashResponse} nav={nav} />
+      ) : tab === 'admin' && isMinRole('admin', app.user_app_role) ? (
+        <Admin
+          dashResponse={dashResponse}
+          app={app}
+          onDelete={() => onDeleteApp(app)}
+          nav={nav}
+        />
+      ) : tab === 'billing' && isMinRole('collaborator', app.user_app_role) ? (
+        <Billing appId={appId} />
+      ) : tab === 'oauth-apps' ? (
+        <OAuthApps appId={appId} />
+      ) : null}
+    </>
+  );
+}
+
+function ExplorerTab({
+  db,
+  appId,
+  namespaces,
+}: {
+  db: InstantReactClient;
+  appId: string;
+  namespaces: SchemaNamespace[] | null;
+}) {
   return (
     <div className="flex-1 overflow-hidden flex flex-col">
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Explorer db={db} appId={appId} key={db._core._reactor.config.appId} />
+        <Explorer
+          db={db}
+          appId={appId}
+          namespaces={namespaces}
+          key={db._core._reactor.config.appId}
+        />
       </div>
     </div>
   );
