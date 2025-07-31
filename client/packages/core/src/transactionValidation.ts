@@ -12,8 +12,6 @@ const isValidValueForAttr = (
   value: unknown,
   attrDef: DataAttrDef<any, any, any>,
 ): boolean => {
-  const isAnyType = attrDef.metadata.isAnyType === true;
-  if (isAnyType) return true;
   if (value === null || value === undefined) return true;
 
   switch (attrDef.valueType) {
@@ -30,7 +28,7 @@ const isValidValueForAttr = (
         typeof value === 'number'
       );
     case 'json':
-      return typeof value === 'object' && value !== null;
+      return true;
     default:
       return attrDef.valueType satisfies never; // proves exaustive switch
   }
