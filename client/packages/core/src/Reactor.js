@@ -736,7 +736,9 @@ export default class Reactor {
    *  Returns an unsubscribe function
    */
   subscribeQuery(q, cb, opts) {
-    validateQuery(q, this.config.schema);
+    if (!this.config.disableValidation) {
+      validateQuery(q, this.config.schema);
+    }
     if (opts && 'ruleParams' in opts) {
       q = { $$ruleParams: opts['ruleParams'], ...q };
     }
@@ -759,7 +761,9 @@ export default class Reactor {
   }
 
   queryOnce(q, opts) {
-    validateQuery(q, this.config.schema);
+    if (!this.config.disableValidation) {
+      validateQuery(q, this.config.schema);
+    }
 
     if (opts && 'ruleParams' in opts) {
       q = { $$ruleParams: opts['ruleParams'], ...q };
@@ -1060,7 +1064,9 @@ export default class Reactor {
   /** Applies transactions locally and sends transact message to server */
   pushTx = (chunks) => {
     // Throws if transactions are invalid
-    validateTransactions(chunks, this.config.schema);
+    if (!this.config.disableValidation) {
+      validateTransactions(chunks, this.config.schema);
+    }
     try {
       const txSteps = instaml.transform(
         {

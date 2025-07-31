@@ -84,6 +84,7 @@ type Config = {
   adminToken: string;
   apiURI?: string;
   useDateObjects?: boolean;
+  disableValidation?: boolean;
 };
 
 export type InstantConfig<
@@ -95,6 +96,7 @@ export type InstantConfig<
   apiURI?: string;
   schema?: Schema;
   useDateObjects?: UseDates;
+  disableValidation?: boolean;
 };
 
 type InstantConfigFilled<
@@ -782,7 +784,9 @@ class InstantAdminDatabase<
       query = { $$ruleParams: opts['ruleParams'], ...query };
     }
 
-    validateQuery(query, this.config.schema);
+    if (!this.config.disableValidation) {
+      validateQuery(query, this.config.schema);
+    }
 
     const fetchOpts = opts.fetchOpts || {};
     const fetchOptsHeaders = fetchOpts['headers'] || {};
@@ -826,7 +830,9 @@ class InstantAdminDatabase<
   transact = (
     inputChunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
   ) => {
-    validateTransactions(inputChunks, this.config.schema);
+    if (!this.config.disableValidation) {
+      validateTransactions(inputChunks, this.config.schema);
+    }
     return jsonFetch(`${this.config.apiURI}/admin/transact`, {
       method: 'POST',
       headers: authorizedHeaders(this.config, this.impersonationOpts),

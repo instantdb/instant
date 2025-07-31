@@ -118,6 +118,7 @@ export type Config = {
   verbose?: boolean;
   queryCacheLimit?: number;
   useDateObjects?: boolean;
+  disableValidation?: boolean;
 };
 
 export type InstantConfig<
@@ -132,6 +133,7 @@ export type InstantConfig<
   verbose?: boolean;
   queryCacheLimit?: number;
   useDateObjects?: UseDates;
+  disableValidation?: boolean;
 };
 
 export type ConfigWithSchema<S extends InstantGraph<any, any>> = Config & {
