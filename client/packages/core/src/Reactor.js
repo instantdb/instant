@@ -312,7 +312,12 @@ export default class Reactor {
     if (ok) {
       dfd.resolve({ status, eventId });
     } else {
-      dfd.reject({ status, eventId, ...errDetails });
+      dfd.reject(
+        new Error(
+          'Transaction failed on the server: ' +
+            JSON.stringify({ status, eventId, ...errDetails }),
+        ),
+      );
     }
   }
 
