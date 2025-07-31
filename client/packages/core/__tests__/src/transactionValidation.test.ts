@@ -1,5 +1,5 @@
 import { i } from '../../src/schema';
-import { validateTransaction } from '../../src/transactionValidation.ts';
+import { validateTransactions } from '../../src/transactionValidation.ts';
 import { tx } from '../../src/instatx.ts';
 import id from '../../src/utils/uuid.ts';
 import { expect, test } from 'vitest';
@@ -70,9 +70,9 @@ const beValid = (
   chunk: any,
   schema: InstantSchemaDef<any, any, any> | null = testSchema,
 ) => {
-  expect(() => validateTransaction(chunk, schema ?? undefined)).not.toThrow();
+  expect(() => validateTransactions(chunk, schema ?? undefined)).not.toThrow();
   if (schema) {
-    expect(() => validateTransaction(chunk, undefined)).not.toThrow();
+    expect(() => validateTransactions(chunk, undefined)).not.toThrow();
   }
 };
 
@@ -80,7 +80,7 @@ const beWrong = (
   chunk: any,
   schema: InstantSchemaDef<any, any, any> | null = testSchema,
 ) => {
-  expect(() => validateTransaction(chunk, schema ?? undefined)).toThrow();
+  expect(() => validateTransactions(chunk, schema ?? undefined)).toThrow();
 };
 
 test('validates basic transaction chunk', () => {

@@ -63,6 +63,7 @@ import {
   type UploadFileResponse,
   type DeleteFileResponse,
   validateQuery,
+  validateTransactions,
 } from '@instantdb/core';
 
 import version from './version.js';
@@ -825,7 +826,7 @@ class InstantAdminDatabase<
   transact = (
     inputChunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
   ) => {
-    console.log('input chunks', JSON.stringify(inputChunks));
+    validateTransactions(inputChunks, this.config.schema);
     return jsonFetch(`${this.config.apiURI}/admin/transact`, {
       method: 'POST',
       headers: authorizedHeaders(this.config, this.impersonationOpts),
