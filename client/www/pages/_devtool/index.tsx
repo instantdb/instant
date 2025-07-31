@@ -2,6 +2,7 @@ import { TokenContext } from '@/lib/contexts';
 import { successToast } from '@/lib/toast';
 import { DashResponse, InstantApp } from '@/lib/types';
 import config from '@/lib/config';
+import { useSchemaQuery } from '@/lib/hooks/explorer';
 import { jsonFetch } from '@/lib/fetch';
 import { APIResponse, signOut, useAuthToken, useTokenFetch } from '@/lib/auth';
 import { Sandbox } from '@/components/dash/Sandbox';
@@ -337,30 +338,13 @@ function DevtoolWithData({
           }}
         />
         <div className="flex w-full flex-1 overflow-auto">
-          {tab === 'explorer' ? (
-            <Explorer db={connection.db} appId={appId} />
-          ) : tab === 'sandbox' ? (
-            <div className="min-w-[960px] w-full">
-              <Sandbox app={app} db={connection.db} />
-            </div>
-          ) : tab === 'admin' ? (
-            <div className="min-w-[960px] w-full p-4">
-              <Admin dashResponse={dashResponse} app={app} />
-            </div>
-          ) : tab === 'help' ? (
-            <div className="min-w-[960px] w-full p-4 space-y-4">
-              <Help />
-              <Button
-                size="mini"
-                variant="secondary"
-                onClick={() => {
-                  signOut();
-                }}
-              >
-                Sign out
-              </Button>
-            </div>
-          ) : null}
+          <DevtoolContent
+            connection={connection}
+            app={app}
+            appId={appId}
+            tab={tab}
+            dashResponse={dashResponse}
+          />
         </div>
       </div>
     </DevtoolWindow>
@@ -424,6 +408,56 @@ function AppIdLabel({ appId }: { appId: string }) {
         {appId}
       </code>
     </div>
+  );
+}
+
+// Component that manages schema subscription for devtool
+function DevtoolContent({
+  connection,
+  app,
+  appId,
+  tab,
+  dashResponse,
+}: {
+  connection: { state: 'ready'; db: InstantReactClient };
+  app: InstantApp;
+  appId: string;
+  tab: string;
+  dashResponse: APIResponse<DashResponse>;
+}) {
+  const schemaData = useSchemaQuery(connection.db);
+
+  return (
+    <>
+      {tab === 'explorer' ? (
+        <Explorer
+          db={connection.db}
+          appId={appId}
+          namespaces={schemaData.namespaces}
+        />
+      ) : tab === 'sandbox' ? (
+        <div className="min-w-[960px] w-full">
+          <Sandbox app={app} db={connection.db} />
+        </div>
+      ) : tab === 'admin' ? (
+        <div className="min-w-[960px] w-full p-4">
+          <Admin dashResponse={dashResponse} app={app} />
+        </div>
+      ) : tab === 'help' ? (
+        <div className="min-w-[960px] w-full p-4 space-y-4">
+          <Help />
+          <Button
+            size="mini"
+            variant="secondary"
+            onClick={() => {
+              signOut();
+            }}
+          >
+            Sign out
+          </Button>
+        </div>
+      ) : null}
+    </>
   );
 }
 

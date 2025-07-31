@@ -5,9 +5,9 @@ import { StarIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { ArrowRightIcon } from '@heroicons/react/24/solid';
 
 import { Button, CodeEditor, cn } from '@/components/ui';
-import { useSchemaQuery } from '@/lib/hooks/explorer';
 import { errorToast, infoToast } from '@/lib/toast';
 import { InstantReactWebDatabase } from '@instantdb/react';
+import { SchemaNamespace } from '@/lib/types';
 
 const SAVED_QUERIES_CACHE_KEY = '__instant:explorer-saved-queries';
 const QUERY_HISTORY_CACHE_KEY = '__instant:explorer-query-history';
@@ -58,17 +58,18 @@ export function QueryInspector({
   className,
   appId,
   db,
+  namespaces,
 }: {
   className?: string;
   appId: string;
   db: InstantReactWebDatabase<any>;
+  namespaces: SchemaNamespace[] | null;
 }) {
   const cache = new QueryInspectorCache(appId);
   const [query, setQuery] = useState<Record<string, any>>({});
   const [draft, setQueryDraft] = useState('{}');
   const [history, setQueryHistory] = useState<CachedQueryItem[]>([]);
   const [saved, setSavedQueries] = useState<CachedQueryItem[]>([]);
-  const { namespaces } = useSchemaQuery(db);
   const { data, isLoading, error } = db.useQuery(query);
 
   useEffect(() => {

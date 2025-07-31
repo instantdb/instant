@@ -1,4 +1,3 @@
-import { useSchemaQuery } from '@/lib/hooks/explorer';
 import { init } from '@instantdb/react';
 import {
   apiSchemaToInstantSchemaDef,
@@ -6,7 +5,7 @@ import {
 } from '@instantdb/platform';
 import { Monaco } from '@monaco-editor/react';
 import { useState } from 'react';
-import { DBAttr } from '@/lib/types';
+import { DBAttr, SchemaNamespace } from '@/lib/types';
 import {
   CodeEditor,
   Content,
@@ -88,9 +87,15 @@ function attrsToTsFile(attrs: Record<string, DBAttr>, pkg: Pkg) {
   return generateSchemaTypescriptFile(schema, schema, pkg);
 }
 
-export function Schema({ db }: { db: InstantReactClient }) {
-  const { attrs } = useSchemaQuery(db);
-
+export function Schema({
+  db,
+  namespaces,
+  attrs,
+}: {
+  db: InstantReactClient;
+  namespaces: SchemaNamespace[] | null;
+  attrs: Record<string, DBAttr> | null;
+}) {
   const [pkg, setPkg] = useState<
     | '@instantdb/core'
     | '@instantdb/admin'
