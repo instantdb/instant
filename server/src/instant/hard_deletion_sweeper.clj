@@ -60,7 +60,6 @@
       (catch Throwable e
         (tracer/add-exception! e {:escaping? false})))))
 
-(def maximum-marked-date (date-util/pst-now))
 (defn handle-sweep [_]
   (tracer/with-span! {:name "hard-deletion-sweeper/sweep"}
     (when-not (flags/hard-deletion-sweeper-disabled?)
