@@ -3539,7 +3539,6 @@
                app-id
                [[:posts/title]])]
           (testing "We can create new attrs with the same label as deleted ones"
-
             (permissioned-tx/transact!
              (make-ctx)
              [[:add-triple p1 new-attr-posts-title "p1"]
@@ -3565,17 +3564,20 @@
              (make-ctx {:admin? true})
              [[:delete-attr new-attr-posts-title]]))
 
-          (tx/transact!
-           (aurora/conn-pool :write)
-           (attr-model/get-by-app-id app-id)
-           app-id
+          (permissioned-tx/transact!
+           (make-ctx)
            [[:delete-entity pd]])
 
-          (tx/transact!
-           (aurora/conn-pool :write)
-           (attr-model/get-by-app-id app-id)
-           app-id
+          (permissioned-tx/transact!
+           (make-ctx {:admin? true})
            [[:restore-attr attr-posts-slug]])
+
+          (testing "only admins can restore attrs"
+            (is
+             (perm-err?
+              (permissioned-tx/transact!
+               (make-ctx)
+               [[:restore-attr attr-posts-title]]))))
 
           (testing "Restored attrs restore triples"
             (let [result (instaql-nodes->object-tree
@@ -3597,7 +3599,7 @@
               (is {:unique? false :required? false :index? false}
                   (select-keys slug-attr [:unique? :required? :index?]))))
 
-          (testing "hard-deletes"
+          (testing "hard-deletes work"
             (let [get-hard-deleted
                   (fn [date] (->>  (attr-model/get-for-hard-delete (aurora/conn-pool :read)
                                                                    {:maximum-deletion-marked-at date})
