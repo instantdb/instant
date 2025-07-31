@@ -12,20 +12,35 @@ x- `delete-multi!` (line 590): `{:delete-from :attrs ...}`
 
 **SELECT queries:**
 - `validate-add-required!` (line 275): `SELECT * FROM attrs JOIN triples ...`
+
+Not needed, as this is about creating a new attr 
+
 - `insert-multi!` (line 360): Subquery checking existing attrs `{:select :1 :from :attrs ...}`
-- `delete-attr-usage` (line 476): `JOIN attrs ON attrs_cte.id = attrs.id`
+
+Not needed, as here id would have to be the same 
+
+
+- `validate-update-required` (line 476): `JOIN attrs ON attrs_cte.id = attrs.id`
+
+This is not needed, as this about existing attrs. 
+
 - `delete-attr-usage` (line 500): Subquery `SELECT attrs.id FROM attrs WHERE ...`
 
-x- `get-by-app-id*` (line 721): Complex query with CTEs selecting from attrs
-x- `get-by-app-ids` (line 756): `{:select [:attrs.* ...] :from :attrs ...}`
+
+
+x - `get-by-app-id*` (line 721): Complex query with CTEs selecting from attrs
+x - `get-by-app-ids` (line 756): `{:select [:attrs.* ...] :from :attrs ...}`
 
 ### 2. src/instant/db/model/triple.clj
 
 **JOIN queries:**
-- `value-lookupable-sql` (line 93): `[:exists {:select :* :from :attrs ...}]`
+x- `value-lookupable-sql` (line 93): `[:exists {:select :* :from :attrs ...}]`
+
 - `create-lookup-triple-tx-steps` (line 179): `JOIN attrs ON ...` (in CTE)
 - `delete-entity-multi!` (line 706): `JOIN attrs ON triples.attr_id = attrs.id`
 - `delete-entity-multi!` (line 717): `JOIN attrs ON triples.attr_id = attrs.id` (reverse attrs)
+
+we _want_ these to always check, because when entities delete the triples should delete too.
 
 ### 3. src/instant/db/indexing_jobs.clj
 

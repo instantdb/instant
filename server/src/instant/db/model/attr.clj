@@ -912,8 +912,8 @@
              {}
              app-ids))))
 
-(defn get-attrs-to-hard-delete
-  ([params] (get-attrs-to-hard-delete (aurora/conn-pool :read) params))
+(defn get-for-hard-delete
+  ([params] (get-for-hard-delete (aurora/conn-pool :read) params))
   ([conn {:keys [maximum-deletion-marked-at]}]
    (sql/select ::get-attrs-to-hard-delete
                conn
@@ -921,6 +921,18 @@
                  from attrs a 
                  where a.deletion_marked_at is not null and a.deletion_marked_at <= ?"
                 maximum-deletion-marked-at])))
+
+(defn get-for-app-include-soft-deleted
+  ([app-id] (get-for-app-include-soft-deleted
+             (aurora/conn-pool :read) app-id))
+  ([conn app-id]
+   (wrap-attrs
+    (mapv row->attr
+          (sql/select
+           ::get-hard-deleted-attrs-for-app
+           conn
+           ["SELECT * FROM attrs WHERE app_id = ?" app-id])))))
+
 ;; ------
 ;; seek
 

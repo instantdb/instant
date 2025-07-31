@@ -66,8 +66,8 @@
       (let [maximum-marked-date (-> (date-util/pst-now)
                                     (.minus (Duration/ofDays grace-period-days)))
 
-            attrs-to-delete (attr-model/get-attrs-to-hard-delete {:maximum-deletion-marked-at
-                                                                  (.toInstant maximum-marked-date)})
+            attrs-to-delete (attr-model/get-for-hard-delete {:maximum-deletion-marked-at
+                                                             (.toInstant maximum-marked-date)})
             apps-to-delete (app-model/get-apps-to-hard-delete {:maximum-deletion-marked-at
                                                                (.toInstant maximum-marked-date)})]
         (tracer/add-data! {:attributes {:attrs-count (count attrs-to-delete)

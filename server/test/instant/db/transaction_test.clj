@@ -22,7 +22,8 @@
    [instant.model.rule :as rule-model]
    [instant.util.instaql :refer [instaql-nodes->object-tree]]
    [instant.util.exception :as ex]
-   [instant.util.test :as test-util :refer [suid validation-err? perm-err?]])
+   [instant.util.test :as test-util :refer [suid validation-err? perm-err?]]
+   [instant.util.date :as date-util])
   (:import
    (java.util UUID)))
 
@@ -3456,6 +3457,167 @@
                               txes))]
         (is (= ::ex/parameter-limit-exceeded
                (::ex/type instant-ex-data)))))))
+
+(deftest soft-delete-obj-attrs
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [{attr-posts-id          :posts/id
+             attr-posts-title       :posts/title
+             attr-posts-slug        :posts/slug
+             attr-posts-description :posts/description}
+            (test-util/make-attrs
+             app-id
+             [[:posts/id :required? :unique? :index?]
+              [:posts/title :required?]
+              [:posts/slug :required? :unique?]
+              [:posts/description]])
+            p1       (random-uuid)
+            p2       (random-uuid)
+            pd       (random-uuid)
+            make-ctx (fn make-ctx
+                       ([]
+                        (make-ctx {}))
+                       ([{:keys [admin?]}]
+                        {:db               {:conn-pool (aurora/conn-pool :write)}
+                         :app-id           app-id
+                         :attrs            (attr-model/get-by-app-id app-id)
+                         :datalog-query-fn d/query
+                         :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                         :current-user     nil
+                         :admin?           admin?}))]
+
+        (permissioned-tx/transact!
+         (make-ctx)
+         [[:add-triple p1 attr-posts-id          (str p1)]
+          [:add-triple p1 attr-posts-title       "First Post"]
+          [:add-triple p1 attr-posts-slug        "first-post"]
+          [:add-triple p1 attr-posts-description "This is the first post"]
+          [:add-triple pd attr-posts-id (str pd)]
+          [:add-triple pd attr-posts-title "I will delete this post"]
+          [:add-triple pd attr-posts-slug "delete-me"]
+          [:add-triple pd attr-posts-description "I will delete this post later"]])
+
+        (testing "We get back posts"
+          (let [result (instaql-nodes->object-tree
+                        (make-ctx)
+                        (iq/query (make-ctx)
+                                  {:posts {}}))]
+            (is (= #{{"slug" "first-post",
+                      "title" "First Post",
+                      "description" "This is the first post",
+                      "id" (str p1)}
+                     {"description" "I will delete this post later",
+                      "slug" "delete-me",
+                      "id" (str pd)
+                      "title" "I will delete this post"}}
+                   (set (get result "posts"))))))
+
+        (permissioned-tx/transact!
+         (make-ctx {:admin? true})
+         [[:delete-attr attr-posts-title]
+          [:delete-attr attr-posts-slug]])
+
+        (testing "Soft deletes remove columns from query results"
+          (let [result (instaql-nodes->object-tree
+                        (make-ctx)
+                        (iq/query (make-ctx)
+                                  {:posts {}}))]
+            (is (= #{{"description" "This is the first post",
+                      "id" (str p1)}
+                     {"id" (str pd)
+                      "description" "I will delete this post later"}}
+                   (set (get result "posts"))))))
+
+        (testing "We can create new objects without uniqueness errors"
+          (permissioned-tx/transact!
+           (make-ctx)
+           [[:add-triple p2 attr-posts-id (str p2)]
+            [:add-triple p2 attr-posts-description "No title needed"]]))
+
+        (let [{new-attr-posts-title :posts/title}
+              (test-util/make-attrs
+               app-id
+               [[:posts/title]])]
+          (testing "We can create new attrs with the same label as deleted ones"
+
+            (permissioned-tx/transact!
+             (make-ctx)
+             [[:add-triple p1 new-attr-posts-title "p1"]
+              [:add-triple p2 new-attr-posts-title "p2"]
+              [:add-triple pd new-attr-posts-title "pd"]])
+            (let [result (instaql-nodes->object-tree
+                          (make-ctx)
+                          (iq/query (make-ctx)
+                                    {:posts {}}))]
+
+              (is (= #{{"title" "p1",
+                        "description" "This is the first post",
+                        "id" (str p1)}
+                       {"title" "pd",
+                        "description" "I will delete this post later",
+                        "id" (str pd)}
+                       {"title" "p2",
+                        "id" (str p2)
+                        "description" "No title needed"}}
+                     (set (get result "posts")))))
+
+            (permissioned-tx/transact!
+             (make-ctx {:admin? true})
+             [[:delete-attr new-attr-posts-title]]))
+
+          (tx/transact!
+           (aurora/conn-pool :write)
+           (attr-model/get-by-app-id app-id)
+           app-id
+           [[:delete-entity pd]])
+
+          (tx/transact!
+           (aurora/conn-pool :write)
+           (attr-model/get-by-app-id app-id)
+           app-id
+           [[:restore-attr attr-posts-slug]])
+
+          (testing "Restored attrs restore triples"
+            (let [result (instaql-nodes->object-tree
+                          (make-ctx)
+                          (iq/query (make-ctx)
+                                    {:posts {}}))]
+
+              (is (= #{{"description" "No title needed",
+                        "id" (str p2)}
+                       {"slug" "first-post",
+                        "description" "This is the first post",
+                        "id" (str p1)}}
+                     (set (get result "posts"))))
+              result))
+
+          (testing "Restored attrs do not have uniqueness or index constraints"
+            (let [attrs (attr-model/get-by-app-id app-id)
+                  slug-attr (attr-model/seek-by-id  attr-posts-slug attrs)]
+              (is {:unique? false :required? false :index? false}
+                  (select-keys slug-attr [:unique? :required? :index?]))))
+
+          (testing "hard-deletes"
+            (let [get-hard-deleted
+                  (fn [date] (->>  (attr-model/get-for-hard-delete (aurora/conn-pool :read)
+                                                                   {:maximum-deletion-marked-at date})
+                                   (filter (fn [{:keys [app_id]}]
+                                             (= app_id app-id)))))]
+
+              (is (empty? (get-hard-deleted (-> (date-util/pst-now)
+                                                (.minusDays 1)
+                                                (.toInstant)))))
+
+              (is (= #{new-attr-posts-title attr-posts-title}
+                     (set  (map :id (get-hard-deleted (-> (date-util/pst-now)
+                                                          (.toInstant)))))))
+              (attr-model/hard-delete-multi!
+               (aurora/conn-pool :write)
+               app-id
+               #{new-attr-posts-title attr-posts-title})
+
+              (is (empty? (get-hard-deleted (-> (date-util/pst-now)
+                                                (.toInstant))))))))))))
 
 (comment
   (test/run-tests *ns*))
