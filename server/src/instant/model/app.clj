@@ -324,8 +324,8 @@
      (sql/execute-one! ::delete-by-id!
                        conn ["UPDATE apps SET deletion_marked_at = NOW() WHERE id = ?::uuid" id]))))
 
-(defn get-apps-to-delete
-  ([params] (get-apps-to-delete (aurora/conn-pool :read) params))
+(defn get-apps-to-hard-delete
+  ([params] (get-apps-to-hard-delete (aurora/conn-pool :read) params))
   ([conn {:keys [maximum-deletion-marked-at]}]
    (sql/select ::get-apps-to-delete
                conn

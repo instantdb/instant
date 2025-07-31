@@ -296,10 +296,10 @@
                                      [:e2e-logging :invalidator-every-n])
                              10000)))))
 
-(defn app-deletion-sweeper-disabled? []
+(defn hard-deletion-sweeper-disabled? []
   (-> (query-result)
-      :app-deletion-sweeper
-      :disabled?))
+      :flags
+      :hard-deletion-sweeper-disabled?))
 
 (defn use-vfutures? []
   (-> (query-result)

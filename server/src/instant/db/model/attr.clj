@@ -671,6 +671,9 @@
             then id::text || '_deleted$' || reverse_label 
             else null 
           end
+          is_indexed = false, 
+          is_required = false, 
+          is_unique = false
         where 
           app_id = ?app-id 
           and id in (
@@ -721,6 +724,7 @@
        :where [[:and
                 [:= :app-id app-id]
                 [:in :id ids]]]}))))
+
 ;; -------
 ;; app-attrs
 
@@ -896,6 +900,15 @@
              {}
              app-ids))))
 
+(defn get-attrs-to-hard-delete
+  ([params] (get-attrs-to-hard-delete (aurora/conn-pool :read) params))
+  ([conn {:keys [maximum-deletion-marked-at]}]
+   (sql/select ::get-attrs-to-hard-delete
+               conn
+               ["select a.* 
+                 from attrs a 
+                 where a.deletion_marked_at is not null and a.deletion_marked_at <= ?"
+                maximum-deletion-marked-at])))
 ;; ------
 ;; seek
 
