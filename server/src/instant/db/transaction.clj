@@ -359,61 +359,7 @@
 
             query+args
             (sql/format
-             "WITH RECURSIVE entids (entity_id, etype) AS (
-                SELECT
-                  cast(elem ->> 0 AS uuid),
-                  cast(elem ->> 1 AS text)
-                FROM
-                  jsonb_array_elements(cast(?ids+etypes AS jsonb)) AS elem
-
-                UNION
-
-                SELECT
-                  *
-                FROM (
-                  -- can’t reference entids twice, but can bind it to entids_inner and then it’s okay
-                  WITH entids_inner AS (
-                    SELECT
-                      entity_id,
-                      to_jsonb(entity_id) AS entity_id_jsonb,
-                      etype
-                    FROM
-                      entids
-                  )
-
-                  -- follow forward refs → entid
-                  SELECT
-                    triples.entity_id AS entity_id,
-                    attrs_forward.forward_etype AS etype
-                  FROM
-                    entids_inner
-                  JOIN triples
-                    ON triples.app_id = ?app-id
-                  JOIN attrs_forward
-                    ON triples.attr_id = attrs_forward.id
-                  WHERE
-                    triples.vae
-                    AND entids_inner.entity_id_jsonb = triples.value
-                    AND entids_inner.etype = attrs_forward.reverse_etype
-
-                  UNION
-
-                  -- follow entid → reverse refs
-                  SELECT
-                    (triples.value ->> 0)::uuid AS entity_id,
-                    attrs_reverse.reverse_etype AS etype
-                  FROM
-                    entids_inner
-                  JOIN triples
-                    ON triples.app_id = ?app-id
-                    AND entids_inner.entity_id = triples.entity_id
-                  JOIN attrs_reverse
-                    ON triples.attr_id = attrs_reverse.id
-                  WHERE
-                    triples.eav
-                    AND entids_inner.etype = attrs_reverse.forward_etype
-                )
-              ),
+             "WITH RECURSIVE
 
               attrs_forward (id, forward_etype, reverse_etype) AS (
                 SELECT
@@ -431,6 +377,61 @@
                   cast(elem ->> 2 AS text)
                 FROM
                   jsonb_array_elements(cast(?reverse-attrs+etypes AS jsonb)) AS elem
+              ),
+
+              entids (entity_id, etype) AS (
+                SELECT
+                  cast(elem ->> 0 AS uuid),
+                  cast(elem ->> 1 AS text)
+                FROM
+                  jsonb_array_elements(cast(?ids+etypes AS jsonb)) AS elem
+
+                UNION
+
+                SELECT
+                  *
+                FROM (
+                  -- can’t reference entids twice, but can bind it to entids_inner and then it’s okay
+                  WITH entids_inner AS (
+                    SELECT
+                      entity_id,
+                      etype
+                    FROM
+                      entids
+                  )
+
+                  -- follow forward refs → entid
+                  SELECT
+                    triples.entity_id AS entity_id,
+                    attrs_forward.forward_etype AS etype
+                  FROM
+                    entids_inner
+                  JOIN triples
+                    ON triples.app_id = ?app-id
+                  JOIN attrs_forward
+                    ON triples.attr_id = attrs_forward.id
+                  WHERE
+                    triples.vae
+                    AND entids_inner.entity_id = json_uuid_to_uuid(triples.value)
+                    AND entids_inner.etype = attrs_forward.reverse_etype
+
+                  UNION
+
+                  -- follow entid → reverse refs
+                  SELECT
+                    json_uuid_to_uuid(triples.value) AS entity_id,
+                    attrs_reverse.reverse_etype AS etype
+                  FROM
+                    entids_inner
+                  JOIN triples
+                    ON triples.app_id = ?app-id
+                    AND entids_inner.entity_id = triples.entity_id
+                  JOIN attrs_reverse
+                    ON triples.attr_id = attrs_reverse.id
+                  WHERE
+                    triples.eav
+                    AND entids_inner.etype = attrs_reverse.forward_etype
+                )
               )
 
               SELECT
