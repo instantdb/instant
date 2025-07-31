@@ -60,7 +60,7 @@ const validateWhereClauseValue = (
   entityName: string,
 ): void => {
   const expectedType = getAttrType(attrDef);
-  const isAnyType = attrDef.metadata.isAnyType === true;
+  const isAnyType = attrDef.valueType === 'json';
 
   if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
     // For any type, allow complex objects without treating them as operators
