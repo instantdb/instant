@@ -827,8 +827,13 @@
           {:select
            [:triples.*]
            :from :triples
+           :join [[:attrs :a] [:and
+                               [:= :a.app-id :triples.app-id]
+                               [:= :a.id :triples.attr_id]]]
            :where
-           (concat [:and [:= :app-id app-id]] stmts)})))))
+           (concat [:and
+                    [:= :triples.app-id app-id]
+                    [:= :a.deletion-marked-at nil]] stmts)})))))
 
 ;; Migration for inferred types
 ;; ----------------------------
