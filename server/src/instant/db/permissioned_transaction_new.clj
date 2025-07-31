@@ -211,8 +211,8 @@
                    :bindings {:data        entity
                               :new-data    (get updated-entities-map key)
                               :rule-params rule-params}}]
-                   ;; updating a ref adds implicit "view" check in reverse direction
-                   ;; with rule-params from forward direction
+                 ;; updating a ref adds implicit "view" check in reverse direction
+                 ;; with rule-params from forward direction
                  (when rev-etype
                    (when-some [rev-entity (get entities-map {:eid value :etype rev-etype})]
                      [{:scope    :object
@@ -333,16 +333,16 @@
    `auth.id in data.ref('creator.id')`"
   [{:keys [db app-id admin? admin-check? admin-dry-run? attrs] :as ctx} tx-step-vecs]
   (tracer/with-span! {:name "permissioned-transaction/transact!"
-                      :attributes {:app-id app-id}}
+                      :attributes {:app-id app-id
+                                   :transact-version "2"}}
     (next-jdbc/with-transaction [tx-conn (:conn-pool db)]
-      (let [tx-step-maps     (tx/mapify-tx-steps attrs tx-step-vecs)
-            optimistic-attrs (tx/optimistic-attrs attrs tx-step-maps)
-            tx-step-maps     (tx/preprocess-tx-steps tx-conn optimistic-attrs app-id tx-step-maps)
+      (let [optimistic-attrs (tx/optimistic-attrs attrs tx-step-vecs)
+            tx-step-maps     (tx/preprocess-tx-steps tx-conn optimistic-attrs app-id tx-step-vecs)
             ;; Use the db connection we have so that we don't cause a deadlock
             ;; Also need to be able to read our own writes for the create checks
-            ctx                  (assoc ctx
-                                        :db {:conn-pool tx-conn}
-                                        :attrs optimistic-attrs)]
+            ctx              (assoc ctx
+                                    :db {:conn-pool tx-conn}
+                                    :attrs optimistic-attrs)]
         (validate-reserved-names! ctx tx-step-maps)
         (if admin?
           (tx/transact-without-tx-conn-impl! tx-conn optimistic-attrs app-id tx-step-maps {})
