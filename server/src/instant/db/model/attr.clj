@@ -579,8 +579,8 @@
                   {:select :id :from :ident-updates}]}]])
        :select :%count.* :from :union-ids}))))
 
-(defn restore-attr-multi!
-  "Restores soft-deleted attrs for an app. 
+(defn restore-multi!
+  "Restores soft-deleted attrs for an app by removing everything after $.
    
    Note: 
      When we restore attrs, we mark them as not unique, not indexed. 
@@ -590,17 +590,62 @@
   [conn app-id ids]
   (with-cache-invalidation app-id
     (sql/do-execute!
-     ::restore-attr-multi!
+     ::restore-multi!
      conn
-     (hsql/format
-      {:update :attrs
-       :set {:deletion-marked-at nil
-             :is-unique false
-             :is-indexed false}
-       :where [[:and
-                [:= :app-id app-id]
-                [:in :id ids]
-                [:not= :deletion-marked-at nil]]]}))))
+     (sql/format
+      "with restored_attrs as (
+        update attrs
+        set 
+          deletion_marked_at = null,
+          is_unique = false,
+          is_indexed = false,
+          etype = substring(etype from position('$' in etype) + 1),
+          label = substring(label from position('$' in etype) + 1),
+          reverse_etype = case 
+            when reverse_etype is not null 
+            then substring(reverse_etype from position('$' in etype) + 1)
+            else null 
+          end,
+          reverse_label = case 
+            when reverse_label is not null 
+            then substring(reverse_label from position('$' in etype) + 1)
+            else null 
+          end
+        where 
+          app_id = ?app-id 
+          and id in (
+            select jsonb_array_elements_text(?attr-ids)::uuid
+          )
+          and deletion_marked_at is not null
+        returning *
+      ), restored_forward_idents as ( 
+        update idents fw 
+        set 
+          etype = a.etype, 
+          label = a.label
+        from restored_attrs a 
+        where 
+          fw.app_id = ?app-id and 
+          fw.id = a.forward_ident
+        returning *    
+      ), restored_rev_idents as ( 
+       update idents rv 
+       set 
+         etype = a.reverse_etype, 
+         label = a.reverse_label
+       from restored_attrs a
+       where 
+         rv.app_id = ?app-id and 
+         rv.id = a.reverse_ident
+       returning * 
+      ) 
+      select count(*) from restored_attrs 
+      union all 
+      select count(*) from restored_forward_idents 
+      union all 
+      select count(*) from restored_rev_idents"
+      {"?app-id" app-id
+       "?attr-ids" (vec ids)}))))
 
 (defn soft-delete-multi!
   "Soft-deletes a batch of attrs for an app."
@@ -609,12 +654,58 @@
     (sql/do-execute!
      ::soft-delete-multi!
      conn
-     (hsql/format
-      {:update :attrs
-       :set {:deletion-marked-at [:now]}
-       :where [[:and
-                [:= :app-id app-id]
-                [:in :id ids]]]}))))
+     (sql/format
+      "with soft_deleted_attrs as (
+        update attrs
+        set 
+          deletion_marked_at = now(),
+          etype = id::text || '_deleted$' || etype,
+          label = id::text || '_deleted$' || label,
+          reverse_etype = case 
+            when reverse_etype is not null 
+            then id::text || '_deleted$' || reverse_etype
+            else null 
+          end,
+          reverse_label = case 
+            when reverse_label is not null 
+            then id::text || '_deleted$' || reverse_label 
+            else null 
+          end
+        where 
+          app_id = ?app-id 
+          and id in (
+            select jsonb_array_elements_text(?attr-ids)::uuid
+          )
+          and deletion_marked_at is null
+        returning *
+      ), changed_forward_idents as ( 
+        update idents fw 
+        set 
+          etype = a.etype, 
+          label = a.label
+        from soft_deleted_attrs a 
+        where 
+          fw.app_id = ?app-id and 
+          fw.id = a.forward_ident
+        returning *    
+      ), changed_rev_idents as ( 
+       update idents rv 
+       set 
+         etype = a.reverse_etype, 
+         label = a.reverse_label
+       from soft_deleted_attrs a
+       where 
+         rv.app_id = ?app-id and 
+         rv.id = a.reverse_ident
+       returning * 
+      ) 
+      select count(*) from soft_deleted_attrs 
+      union all 
+      select count(*) from changed_forward_idents 
+      union all 
+      select count(*) from changed_rev_idents"
+      {"?app-id" app-id
+       "?attr-ids" (vec ids)}))))
 
 (defn hard-delete-multi!
   "Deletes a batch of attrs for an app. We

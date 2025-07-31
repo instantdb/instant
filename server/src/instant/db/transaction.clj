@@ -489,7 +489,7 @@
                             (attr-model/soft-delete-multi! conn app-id (map second tx-steps))
 
                             :restore-attr
-                            (attr-model/restore-attr-multi! conn app-id (map second tx-steps))
+                            (attr-model/restore-multi! conn app-id (map second tx-steps))
 
                             :update-attr
                             (attr-model/update-multi! conn app-id (map second tx-steps))
