@@ -1,6 +1,6 @@
 import { i } from '../../src/schema';
 import { validateTransactions } from '../../src/transactionValidation.ts';
-import { tx } from '../../src/instatx.ts';
+import { tx as originalTx, TxChunk } from '../../src/instatx.ts';
 import id from '../../src/utils/uuid.ts';
 import { expect, test } from 'vitest';
 import { InstantSchemaDef } from '../../src';
@@ -11,8 +11,8 @@ const testSchema = i.schema({
       name: i.string(),
       email: i.string().indexed().unique(),
       bio: i.string().optional(),
-      stuff: i.json<{ custom: string }>(),
-      junk: i.any(),
+      stuff: i.json<{ custom: string }>().optional(),
+      junk: i.any().optional(),
     }),
     posts: i.entity({
       title: i.string(),
@@ -83,6 +83,8 @@ const beWrong = (
   expect(() => validateTransactions(chunk, schema ?? undefined)).toThrow();
 };
 
+const tx = originalTx as unknown as TxChunk<typeof testSchema>;
+
 test('validates basic transaction chunk', () => {
   const userId = id();
   const validChunk = tx.users[userId].create({
@@ -129,6 +131,7 @@ test('validates create operations', () => {
   );
 
   // Invalid create - wrong type
+  // @ts-expect-error
   beWrong(tx.users[userId].create({ name: 123, email: 'john@example.com' }));
 
   // Invalid create - unknown attribute
@@ -136,6 +139,7 @@ test('validates create operations', () => {
     tx.users[userId].create({
       name: 'John',
       email: 'john@example.com',
+      // @ts-expect-error
       unknownField: 'value',
     }),
   );
@@ -157,9 +161,11 @@ test('validates update operations', () => {
   beValid(tx.users[userId].update({ name: 'Jane', bio: 'Updated bio' }));
 
   // Invalid update - wrong type
+  // @ts-expect-error
   beWrong(tx.users[userId].update({ name: 123 }));
 
   // Invalid update - unknown attribute
+  // @ts-expect-error
   beWrong(tx.users[userId].update({ unknownField: 'value' }));
 });
 
@@ -191,6 +197,7 @@ test('validates link operations', () => {
   beValid(tx.users[userId].link({ posts: [postId, id()] }));
 
   // Invalid link - unknown link
+  // @ts-expect-error
   beWrong(tx.users[userId].link({ unknownLink: postId }));
 
   // Invalid link - non-object args
@@ -211,6 +218,7 @@ test('validates unlink operations', () => {
   beValid(tx.users[userId].unlink({ posts: [postId, id()] }));
 
   // Invalid unlink - unknown link
+  // @ts-expect-error
   beWrong(tx.users[userId].unlink({ unknownLink: postId }));
 });
 
@@ -240,9 +248,11 @@ test('validates attribute types', () => {
   beValid(tx.users[userId].create({ name: 'John', email: 'john@example.com' }));
 
   // Invalid string - number
+  // @ts-expect-error
   beWrong(tx.users[userId].create({ name: 123, email: 'john@example.com' }));
 
   // Invalid string - boolean
+  // @ts-expect-error
   beWrong(tx.users[userId].create({ name: true, email: 'john@example.com' }));
 
   // Valid any type
@@ -250,7 +260,7 @@ test('validates attribute types', () => {
     tx.users[userId].create({
       name: 'John',
       email: 'john@example.com',
-      junk: 'string',
+      junk: 'this is the junk type',
     }),
   );
   beValid(
@@ -343,13 +353,17 @@ test('validates link relationships', () => {
   beValid(tx.users[userId].link({ friends: id() }));
 
   // Invalid link - no relationship exists
+  // @ts-expect-error
   beWrong(tx.users[userId].link({ unlinkedWithAnything: id() }));
 });
 
 test('validates without schema', () => {
   const userId = id();
   // Should not throw without schema
-  beValid(tx.randomEntity[userId].create({ anyField: 'anyValue' }), null);
-  beValid(tx.randomEntity[userId].update({ anyField: 123 }), null);
-  beValid(tx.randomEntity[userId].link({ anyLink: id() }), null);
+  beValid(
+    originalTx.randomEntity[userId].create({ anyField: 'anyValue' }),
+    null,
+  );
+  beValid(originalTx.randomEntity[userId].update({ anyField: 123 }), null);
+  beValid(originalTx.randomEntity[userId].link({ anyLink: id() }), null);
 });
