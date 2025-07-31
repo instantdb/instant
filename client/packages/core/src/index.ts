@@ -15,6 +15,10 @@ import { i } from './schema.js';
 import { createDevtool } from './devtool.js';
 import version from './version.ts';
 import { validateQuery, QueryValidationError } from './queryValidation.ts';
+import {
+  validateTransactions,
+  TransactionValidationError,
+} from './transactionValidation.ts';
 
 import type {
   PresenceOpts,
@@ -819,6 +823,8 @@ export {
   lookup,
   validateQuery,
   QueryValidationError,
+  validateTransactions,
+  TransactionValidationError,
 
   // error
   InstantAPIError,

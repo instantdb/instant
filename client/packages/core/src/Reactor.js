@@ -24,6 +24,7 @@ import version from './version.ts';
 import { create } from 'mutative';
 import createLogger from './utils/log.ts';
 import { validateQuery } from './queryValidation.ts';
+import { validateTransactions } from './transactionValidation.ts';
 
 /** @typedef {import('./utils/log.ts').Logger} Logger */
 
@@ -1058,6 +1059,8 @@ export default class Reactor {
 
   /** Applies transactions locally and sends transact message to server */
   pushTx = (chunks) => {
+    // Throws if transactions are invalid
+    validateTransactions(chunks, this.config.schema);
     try {
       const txSteps = instaml.transform(
         {

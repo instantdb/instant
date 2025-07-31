@@ -113,7 +113,7 @@ const validateOp = (
   validateOpArgs(action, entityName, args, schema);
 };
 
-export const validateTransaction = (
+export const validateTransactions = (
   inputChunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
   schema?: IContainEntitiesAndLinks<any, any>,
 ): void => {
