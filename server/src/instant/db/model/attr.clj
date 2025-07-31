@@ -922,17 +922,6 @@
                  where a.deletion_marked_at is not null and a.deletion_marked_at <= ?"
                 maximum-deletion-marked-at])))
 
-(defn get-for-app-include-soft-deleted
-  ([app-id] (get-for-app-include-soft-deleted
-             (aurora/conn-pool :read) app-id))
-  ([conn app-id]
-   (wrap-attrs
-    (mapv row->attr
-          (sql/select
-           ::get-hard-deleted-attrs-for-app
-           conn
-           ["SELECT * FROM attrs WHERE app_id = ?" app-id])))))
-
 ;; ------
 ;; seek
 
