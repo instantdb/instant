@@ -682,7 +682,7 @@
             when reverse_label is not null 
             then id::text || '_deleted$' || reverse_label 
             else null 
-          end
+          end,
           is_indexed = false, 
           is_required = false, 
           is_unique = false

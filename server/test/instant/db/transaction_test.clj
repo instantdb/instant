@@ -2317,11 +2317,11 @@
       (let [alex-eid (resolvers/->uuid r "eid-alex")
             bookshelf-aid (resolvers/->uuid r :users/bookshelves)
             ex (test-util/instant-ex-data
-                 (tx/transact!
-                  (aurora/conn-pool :write)
-                  (attr-model/get-by-app-id (:id app))
-                  (:id app)
-                  [[:add-triple alex-eid bookshelf-aid ""]]))]
+                (tx/transact!
+                 (aurora/conn-pool :write)
+                 (attr-model/get-by-app-id (:id app))
+                 (:id app)
+                 [[:add-triple alex-eid bookshelf-aid ""]]))]
         (is ex)
         (is (= ::ex/validation-failed
                (::ex/type ex)))
@@ -2371,10 +2371,10 @@
                                                    :attr-id (str email-attr-id)
                                                    :entity-id (str eid)}}
                    (dissoc (test-util/instant-ex-data
-                             (tx/transact! (aurora/conn-pool :write)
-                                           (attr-model/get-by-app-id app-id)
-                                           app-id
-                                           [[:add-triple eid email-attr-id 10]]))
+                            (tx/transact! (aurora/conn-pool :write)
+                                          (attr-model/get-by-app-id app-id)
+                                          app-id
+                                          [[:add-triple eid email-attr-id 10]]))
                            ::ex/trace-id)))))))))
 
 (deftest rejects-large-values-for-indexed-data
@@ -2419,10 +2419,10 @@
                                                    :entity-id (str eid)
                                                    :value-too-large? true}}
                    (dissoc (test-util/instant-ex-data
-                             (tx/transact! (aurora/conn-pool :write)
-                                           (attr-model/get-by-app-id app-id)
-                                           app-id
-                                           [[:add-triple eid email-attr-id (apply str (repeat 1000000 "a"))]]))
+                            (tx/transact! (aurora/conn-pool :write)
+                                          (attr-model/get-by-app-id app-id)
+                                          app-id
+                                          [[:add-triple eid email-attr-id (apply str (repeat 1000000 "a"))]]))
                            ::ex/trace-id)))))
         (testing "returns a friendly error message for unique data"
           (let [eid (random-uuid)]
@@ -2439,10 +2439,10 @@
                                              :value-too-large? true}}
                    (dissoc
                     (test-util/instant-ex-data
-                      (tx/transact! (aurora/conn-pool :write)
-                                    (attr-model/get-by-app-id app-id)
-                                    app-id
-                                    [[:add-triple eid unique-attr-id (apply str (repeat 1000000 "a"))]]))
+                     (tx/transact! (aurora/conn-pool :write)
+                                   (attr-model/get-by-app-id app-id)
+                                   app-id
+                                   [[:add-triple eid unique-attr-id (apply str (repeat 1000000 "a"))]]))
                     ::ex/trace-id)))))))))
 
 (deftest deep-merge-existing-object
@@ -3449,11 +3449,11 @@
                    [:add-triple id (resolvers/->uuid r :users/id) (str id)])
 
             instant-ex-data (test-util/instant-ex-data
-                              (tx/transact!
-                               (aurora/conn-pool :write)
-                               (attr-model/get-by-app-id (:id app))
-                               (:id app)
-                               txes))]
+                             (tx/transact!
+                              (aurora/conn-pool :write)
+                              (attr-model/get-by-app-id (:id app))
+                              (:id app)
+                              txes))]
         (is (= ::ex/parameter-limit-exceeded
                (::ex/type instant-ex-data)))))))
 
