@@ -34,6 +34,9 @@ export default function Page() {
       <Link className="text-lg" href="/play/colors-schema">
         Colors (with schema)
       </Link>
+      <Link className="text-lg" href="/play/auth-hooks">
+        useUser and {'<SignedIn>'}
+      </Link>
     </View>
   );
 }

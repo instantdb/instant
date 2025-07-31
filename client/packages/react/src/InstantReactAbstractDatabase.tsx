@@ -7,8 +7,6 @@ import {
   type User,
   type ConnectionStatus,
   type TransactionChunk,
-  type PresenceOpts,
-  type PresenceResponse,
   type RoomSchemaShape,
   type InstaQLParams,
   type InstaQLOptions,
@@ -21,9 +19,9 @@ import {
   RoomsOf,
   InstantSchemaDef,
   IInstantDatabase,
-  Config,
 } from '@instantdb/core';
 import {
+  ReactNode,
   useCallback,
   useEffect,
   useRef,
@@ -261,6 +259,14 @@ export default abstract class InstantReactAbstractDatabase<
     return state;
   };
 
+  useUser = () => {
+    const { user } = this.useAuth();
+    if (!user) {
+      throw new Error('useUser must be used within an auth-protected route');
+    }
+    return user;
+  };
+
   /**
    * One time query for the logged in state. This is useful
    * for scenarios where you want to know the current auth
@@ -344,5 +350,23 @@ export default abstract class InstantReactAbstractDatabase<
     pageInfo: PageInfoResponse<Q>;
   }> => {
     return this._core.queryOnce(query, opts);
+  };
+
+  SignedIn = ({ children }: { children: ReactNode }) => {
+    const auth = this.useAuth();
+    if (auth.user) {
+      return <>{children}</>;
+    } else {
+      return <></>;
+    }
+  };
+
+  SignedOut = ({ children }: { children: ReactNode }) => {
+    const auth = this.useAuth();
+    if (!auth.isLoading && !auth.user && !auth.error) {
+      return <>{children}</>;
+    } else {
+      return <></>;
+    }
   };
 }
