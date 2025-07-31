@@ -1,4 +1,4 @@
-(ns instant.app-deletion-sweeper
+(ns instant.hard-deletion-sweeper
   (:require
    [chime.core :as chime-core]
    [instant.flags :as flags]
