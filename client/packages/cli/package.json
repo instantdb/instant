@@ -1,7 +1,7 @@
 {
   "name": "instant-cli",
   "type": "module",
-  "version": "v0.20.15",
+  "version": "v0.20.16",
   "description": "Instant's CLI",
   "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/cli",
   "repository": {

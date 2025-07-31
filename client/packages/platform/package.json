@@ -1,6 +1,6 @@
 {
   "name": "@instantdb/platform",
-  "version": "v0.20.15",
+  "version": "v0.20.16",
   "description": "Instant's platform package for managing Instant apps.",
   "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/platform",
   "repository": {
