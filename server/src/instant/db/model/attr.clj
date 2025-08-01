@@ -601,6 +601,7 @@
         update attrs
         set 
           deletion_marked_at = null,
+          metadata = metadata - 'soft_delete_snapshot',
           is_indexed = false,
           is_required = false,
           etype = substring(etype from position('$' in etype) + 1),
@@ -674,6 +675,12 @@
           is_required = false, 
           etype = id::text || '_deleted$' || etype,
           label = id::text || '_deleted$' || label,
+          metadata = coalesce(metadata, '{}'::jsonb) || jsonb_build_object(
+            'soft_delete_snapshot', jsonb_build_object(
+              'is_indexed', is_indexed,
+              'is_required', is_required
+            )
+          ),
           reverse_etype = case 
             when reverse_etype is not null 
             then id::text || '_deleted$' || reverse_etype
