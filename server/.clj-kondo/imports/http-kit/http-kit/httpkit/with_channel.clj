@@ -1,5 +1,6 @@
 (ns httpkit.with-channel
-  (:require [clj-kondo.hooks-api :as api]))
+  (:require
+   [clj-kondo.hooks-api :as api]))
 
 (defn with-channel [{node :node}]
   (let [[request channel & body] (rest (:children node))]

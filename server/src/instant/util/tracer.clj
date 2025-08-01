@@ -1,6 +1,5 @@
 (ns instant.util.tracer
   "Span lib for integrating with Honeycomb"
-  (:gen-class)
   (:require
    [clojure.main :as main]
    [clojure.test :as test]
@@ -16,7 +15,8 @@
    (io.opentelemetry.sdk.resources Resource)
    (io.opentelemetry.sdk.trace SdkTracer SdkTracerProvider)
    (io.opentelemetry.sdk.trace.export BatchSpanProcessor SimpleSpanProcessor)
-   (java.util.concurrent TimeUnit)))
+   (java.util.concurrent TimeUnit))
+  (:gen-class))
 
 (def ^:dynamic *span* nil)
 
@@ -109,10 +109,10 @@
     (-> (get-tracer)
         (.spanBuilder (name span-name))
         (cond->
-            *span* (.setParent (-> (Context/current)
-                                   (.with *span*)))
-            :always (.setAllAttributes (attr/->attributes attributes'))
-            (not *span*) .setNoParent)
+          *span* (.setParent (-> (Context/current)
+                                 (.with *span*)))
+          :always (.setAllAttributes (attr/->attributes attributes'))
+          (not *span*) .setNoParent)
         .startSpan)))
 
 (def ^:private keyword->StatusCode

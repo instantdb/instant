@@ -1,14 +1,16 @@
 (ns tasks
-  (:require [tool]
-            [clojure.java.io :as io]
-            [clojure.java.process :as process]
-            [instant.util.crypt :as crypt-util]
-            [instant.config-edn :as config-edn]
-            [instant.config :as config]
-            [lambdaisland.uri :as uri]
-            [next.jdbc.connection :refer [jdbc-url]])
-  (:import (java.io BufferedReader InputStreamReader)
-           (sun.misc Signal SignalHandler)))
+  (:require
+   [clojure.java.io :as io]
+   [clojure.java.process :as process]
+   [instant.config :as config]
+   [instant.config-edn :as config-edn]
+   [instant.util.crypt :as crypt-util]
+   [lambdaisland.uri :as uri]
+   [next.jdbc.connection :refer [jdbc-url]]
+   [tool])
+  (:import
+   (java.io BufferedReader InputStreamReader)
+   (sun.misc Signal SignalHandler)))
 
 (defn read-input ^String []
   (let [reader (BufferedReader. (InputStreamReader. System/in))]
@@ -36,9 +38,9 @@
         config (config-edn/read-config env)
         hybrid (crypt-util/get-hybrid-encrypt-primitive (:hybrid-keyset config))
         ciphertext (crypt-util/hybrid-encrypt
-                    hybrid
-                    {:plaintext secret
-                     :associated-data config-edn/associated-data})
+                     hybrid
+                     {:plaintext secret
+                      :associated-data config-edn/associated-data})
         cipherhex (crypt-util/bytes->hex-string ciphertext)]
 
     (println-err "Your encrypted secret (also copied to your clipboard):")
@@ -68,8 +70,8 @@
     (println "Writing config file to server/resources/config/override.edn")
     (spit "resources/config/override.edn"
           (pr-str
-           {:aead-keyset {:encrypted? false
-                          :json (crypt-util/generate-unencrypted-aead-keyset)}}))))
+            {:aead-keyset {:encrypted? false
+                           :json (crypt-util/generate-unencrypted-aead-keyset)}}))))
 
 (defn migrate-database []
   (config/init)

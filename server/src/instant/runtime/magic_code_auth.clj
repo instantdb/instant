@@ -1,17 +1,17 @@
 (ns instant.runtime.magic-code-auth
   (:require
-   [instant.postmark :as postmark]
    [clojure.string :as string]
-   [instant.model.app :as app-model]
-   [instant.model.app-user :as app-user-model]
-   [next.jdbc :as next-jdbc]
    [instant.db.model.transaction :as transaction-model]
-   [instant.model.app-user-magic-code :as app-user-magic-code-model]
-   [instant.model.app-email-template :as app-email-template-model]
-   [instant.util.tracer :as tracer]
-   [instant.model.instant-user :as instant-user-model]
    [instant.jdbc.aurora :as aurora]
-   [instant.model.app-user-refresh-token :as app-user-refresh-token-model]))
+   [instant.model.app :as app-model]
+   [instant.model.app-email-template :as app-email-template-model]
+   [instant.model.app-user :as app-user-model]
+   [instant.model.app-user-magic-code :as app-user-magic-code-model]
+   [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
+   [instant.model.instant-user :as instant-user-model]
+   [instant.postmark :as postmark]
+   [instant.util.tracer :as tracer]
+   [next.jdbc :as next-jdbc]))
 
 (def postmark-unconfirmed-sender-body-error-code 400)
 
@@ -50,10 +50,10 @@
 
 (defn template-replace [template params]
   (reduce
-   (fn [acc [k v]]
-     (string/replace acc (str "{" (name k) "}") v))
-   template
-   params))
+    (fn [acc [k v]]
+      (string/replace acc (str "{" (name k) "}") v))
+    template
+    params))
 
 (comment
   (template-replace "Hello {name}, your code is {code}" {:name "Stepan" :code "123"}))
@@ -68,10 +68,10 @@
                                     (transaction-model/create! conn {:app-id app-id})
                                     app-user)))
         magic-code (app-user-magic-code-model/create!
-                    {:app-id app-id
-                     :id (random-uuid)
-                     :code (app-user-magic-code-model/rand-code)
-                     :user-id user-id})]
+                     {:app-id app-id
+                      :id (random-uuid)
+                      :code (app-user-magic-code-model/rand-code)
+                      :user-id user-id})]
 
     {:user u
      :created-user? (not existing-u)
@@ -81,8 +81,8 @@
   (let [app (app-model/get-by-id! {:id app-id})
         {:keys [user magic-code] :as create-res} (create! req)
         template (app-email-template-model/get-by-app-id-and-email-type
-                  {:app-id app-id
-                   :email-type "magic-code"})
+                   {:app-id app-id
+                    :email-type "magic-code"})
         template-params {:user_email (:email user)
                          :code (:code magic-code)
                          :app_title (:title app)}
@@ -115,7 +115,7 @@
 
 (comment
   (def instant-user (instant-user-model/get-by-email
-                     {:email "stopa@instantdb.com"}))
+                      {:email "stopa@instantdb.com"}))
   (def app (first (app-model/get-all-for-user {:user-id (:id instant-user)})))
   (def runtime-user (app-user-model/get-by-email {:app-id (:id app)
                                                   :email "stopa@instantdb.com"}))
@@ -124,9 +124,9 @@
 
 (defn verify! [{:keys [app-id email code]}]
   (let [m (app-user-magic-code-model/consume!
-           {:app-id app-id
-            :code code
-            :email email})
+            {:app-id app-id
+             :code code
+             :email email})
         {user-id :user_id} m
         {refresh-token-id :id} (app-user-refresh-token-model/create! {:app-id app-id
                                                                       :id (random-uuid)
@@ -136,7 +136,7 @@
 
 (comment
   (def instant-user (instant-user-model/get-by-email
-                     {:email "stopa@instantdb.com"}))
+                      {:email "stopa@instantdb.com"}))
   (def app (first (app-model/get-all-for-user {:user-id (:id instant-user)})))
   (def runtime-user (app-user-model/get-by-email {:app-id (:id app)
                                                   :email "stopa@instantdb.com"}))
@@ -146,4 +146,3 @@
   (verify! {:app-id (:id app) :email "stopa@instantdb.com" :code "0"})
 
   (verify! {:app-id (:id app) :email "stopa@instantdb.com" :code (:code m)}))
-

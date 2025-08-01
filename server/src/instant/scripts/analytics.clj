@@ -10,7 +10,7 @@
    [instant.util.date :as date]
    [instant.util.lang :as lang])
   (:import
-   (java.time LocalDate Period Instant ZonedDateTime)))
+   (java.time Instant LocalDate Period ZonedDateTime)))
 
 (defn get-num-users
   "Total number of users, -2 for stopa, joe, and testuser"
@@ -26,22 +26,22 @@
 
 (defn get-num-apps []
   (:count (sql/select-one
-           (aurora/conn-pool :read)
-           ["select count(*)
+            (aurora/conn-pool :read)
+            ["select count(*)
               from apps a join instant_users u on a.creator_id = u.id
               where u.email not in ('joe@instantdb.com', 'stopa@instantdb.com', 'testuser@instantdb.com')"])))
 
 (defn get-num-apps-yday []
   (:count (sql/select-one
-           (aurora/conn-pool :read)
-           ["select count(*) from apps a join instant_users u on a.creator_id = u.id
+            (aurora/conn-pool :read)
+            ["select count(*) from apps a join instant_users u on a.creator_id = u.id
               where u.email not in ('joe@instantdb.com', 'stopa@instantdb.com', 'testuser@instantdb.com')
               and a.created_at::date >= current_date - 1;"])))
 
 (defn get-email-app-creators-yday []
   (sql/select
-   (aurora/conn-pool :read)
-   ["SELECT distinct(u.email) from apps a join instant_users u on a.creator_id = u.id
+    (aurora/conn-pool :read)
+    ["SELECT distinct(u.email) from apps a join instant_users u on a.creator_id = u.id
       where a.created_at::date >= current_date - 1;"]))
 
 (defn excluded-emails []
@@ -50,8 +50,8 @@
 
 (defn top-recent-users []
   (sql/select
-   (aurora/conn-pool :read)
-   ["WITH app_counts AS (
+    (aurora/conn-pool :read)
+    ["WITH app_counts AS (
      SELECT app_id, COUNT(*) as app_count
        FROM triples t
        WHERE to_timestamp(created_at / 1000)::date >= NOW() - INTERVAL '14 days'
@@ -64,12 +64,12 @@
      JOIN app_counts ac ON a.id = ac.app_id
      JOIN instant_users iu ON a.creator_id = iu.id
      ORDER BY ac.app_count DESC;"
-    (with-meta (excluded-emails) {:pgtype "text[]"})]))
+     (with-meta (excluded-emails) {:pgtype "text[]"})]))
 
 (defn get-num-triples []
   (:count
-   (sql/select-one (aurora/conn-pool :read)
-                   ["WITH filtered_users AS (
+    (sql/select-one (aurora/conn-pool :read)
+                    ["WITH filtered_users AS (
                        SELECT id FROM instant_users
                        WHERE email NOT IN ('joe@instantdb.com', 'stopa@instantdb.com', 'testuser@instantdb.com')
                      ) SELECT COUNT(*) from triples t
@@ -111,38 +111,38 @@
 
 (defn top-table []
   (str
-   "<table style='text-align:left'>"
-   "<thead>"
-   "<tr>"
-   "<th style='width:120px;'>email</th>"
-   "<th style='width:120px;'>app</th>"
-   "<th style='width:50px'>num-triples</th>"
-   "</tr>"
-   "</thead>"
-   "<tbody>"
-   (apply str (map (fn [{:keys [email title n]}]
-                     (str "<tr>"
-                          "<td style='width:120px;'>" email "</td>"
-                          "<td style='width:120px;'>" title "</td>"
-                          "<td style='width:100px'>" n "</td>"
-                          "</tr>")) (take 10 (top-recent-users))))
-   "</tbody>"
-   "</table>"))
+    "<table style='text-align:left'>"
+    "<thead>"
+    "<tr>"
+    "<th style='width:120px;'>email</th>"
+    "<th style='width:120px;'>app</th>"
+    "<th style='width:50px'>num-triples</th>"
+    "</tr>"
+    "</thead>"
+    "<tbody>"
+    (apply str (map (fn [{:keys [email title n]}]
+                      (str "<tr>"
+                           "<td style='width:120px;'>" email "</td>"
+                           "<td style='width:120px;'>" title "</td>"
+                           "<td style='width:100px'>" n "</td>"
+                           "</tr>")) (take 10 (top-recent-users))))
+    "</tbody>"
+    "</table>"))
 
 (comment
   (top-table))
 
 (defn html-body [{:keys [num-triples num-users new-users num-apps new-apps new-emails]}]
   (str
-   "<h2>Analytics for: " (date/numeric-date-str (LocalDate/now)) "</h2>"
-   (metric-row "num-triples" num-triples)
-   (metric-row "num-users" num-users)
-   (metric-row "new-users" new-users)
-   (metric-row "num-apps" num-apps)
-   (metric-row "new-apps" new-apps)
-   "<h3>Transactors Leaderboard</h3>" (top-table)
-   "<h3>Users who made new apps</h3>"
-   (apply str (map email-row new-emails))))
+    "<h2>Analytics for: " (date/numeric-date-str (LocalDate/now)) "</h2>"
+    (metric-row "num-triples" num-triples)
+    (metric-row "num-users" num-users)
+    (metric-row "new-users" new-users)
+    (metric-row "num-apps" num-apps)
+    (metric-row "new-apps" new-apps)
+    "<h3>Transactors Leaderboard</h3>" (top-table)
+    "<h3>Users who made new apps</h3>"
+    (apply str (map email-row new-emails))))
 
 (comment
   (html-body (build-data)))
@@ -160,8 +160,8 @@
                     (.withHour 4)
                     (.withMinute 0))
         periodic-seq (chime-core/periodic-seq
-                      four-am
-                      (Period/ofDays 1))]
+                       four-am
+                       (Period/ofDays 1))]
 
     (->> periodic-seq
          (filter (fn [x] (ZonedDateTime/.isAfter x now))))))
@@ -169,10 +169,10 @@
 (defn handle-email [_]
   (let [date-str (date/numeric-date-str (LocalDate/now))]
     (grab/run-once!
-     (str "analytics-" date-str)
-     (fn []
-       (log/infof "Sending analytics email %s" date-str)
-       (postmark/send! (prepare-email))))))
+      (str "analytics-" date-str)
+      (fn []
+        (log/infof "Sending analytics email %s" date-str)
+        (postmark/send! (prepare-email))))))
 
 (comment
   (chime-core/chime-at [(Instant/now)] handle-email))

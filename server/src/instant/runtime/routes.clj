@@ -1,36 +1,38 @@
 (ns instant.runtime.routes
-  (:require [clojure.string :as string]
-            [compojure.core :as compojure :refer [defroutes GET POST]]
-            [datascript.core :refer [squuid]]
-            [hiccup2.core :as h]
-            [instant.auth.oauth :as oauth]
-            [instant.config :as config]
-            [instant.model.app :as app-model]
-            [instant.model.app-authorized-redirect-origin :as app-authorized-redirect-origin-model]
-            [instant.model.app-oauth-client :as app-oauth-client-model]
-            [instant.model.app-oauth-code :as app-oauth-code-model]
-            [instant.model.app-oauth-redirect :as app-oauth-redirect-model]
-            [instant.model.app-user :as app-user-model]
-            [instant.model.app-user-magic-code :as app-user-magic-code-model]
-            [instant.model.app-user-oauth-link :as app-user-oauth-link-model]
-            [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
-            [instant.model.instant-user :as instant-user-model]
-            [instant.runtime.magic-code-auth :as magic-code-auth]
-            [instant.reactive.receive-queue :as receive-queue]
-            [instant.reactive.session :as session]
-            [instant.reactive.store :as rs]
-            [instant.util.coll :as ucoll]
-            [instant.util.crypt :as crypt-util]
-            [instant.util.email :as email]
-            [instant.util.exception :as ex]
-            [instant.util.string :as string-util]
-            [instant.util.tracer :as tracer]
-            [instant.util.url :as url]
-            [instant.util.uuid :as uuid-util]
-            [lambdaisland.uri :as uri]
-            [ring.middleware.cookies :refer [wrap-cookies]]
-            [ring.util.http-response :as response])
-  (:import (java.util UUID)))
+  (:require
+   [clojure.string :as string]
+   [compojure.core :as compojure :refer [GET POST defroutes]]
+   [datascript.core :refer [squuid]]
+   [hiccup2.core :as h]
+   [instant.auth.oauth :as oauth]
+   [instant.config :as config]
+   [instant.model.app :as app-model]
+   [instant.model.app-authorized-redirect-origin :as app-authorized-redirect-origin-model]
+   [instant.model.app-oauth-client :as app-oauth-client-model]
+   [instant.model.app-oauth-code :as app-oauth-code-model]
+   [instant.model.app-oauth-redirect :as app-oauth-redirect-model]
+   [instant.model.app-user :as app-user-model]
+   [instant.model.app-user-magic-code :as app-user-magic-code-model]
+   [instant.model.app-user-oauth-link :as app-user-oauth-link-model]
+   [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
+   [instant.model.instant-user :as instant-user-model]
+   [instant.reactive.receive-queue :as receive-queue]
+   [instant.reactive.session :as session]
+   [instant.reactive.store :as rs]
+   [instant.runtime.magic-code-auth :as magic-code-auth]
+   [instant.util.coll :as ucoll]
+   [instant.util.crypt :as crypt-util]
+   [instant.util.email :as email]
+   [instant.util.exception :as ex]
+   [instant.util.string :as string-util]
+   [instant.util.tracer :as tracer]
+   [instant.util.url :as url]
+   [instant.util.uuid :as uuid-util]
+   [lambdaisland.uri :as uri]
+   [ring.middleware.cookies :refer [wrap-cookies]]
+   [ring.util.http-response :as response])
+  (:import
+   (java.util UUID)))
 
 ;; ----
 ;; ws
@@ -51,7 +53,7 @@
 
 (comment
   (def instant-user (instant-user-model/get-by-email
-                     {:email "stopa@instantdb.com"}))
+                      {:email "stopa@instantdb.com"}))
   (def app (first (app-model/get-all-for-user {:user-id (:id instant-user)})))
   (def runtime-user (app-user-model/get-by-email {:app-id (:id app)
                                                   :email "stopa@instantdb.com"}))
@@ -71,14 +73,14 @@
 
 (comment
   (def instant-user (instant-user-model/get-by-email
-                     {:email "stopa@instantdb.com"}))
+                      {:email "stopa@instantdb.com"}))
   (def app (first (app-model/get-all-for-user {:user-id (:id instant-user)})))
   (def runtime-user (app-user-model/get-by-email {:app-id (:id app)
                                                   :email "stopa@instantdb.com"}))
 
   (def m (app-user-magic-code-model/create!
-          {:id (random-uuid) :user-id (:id runtime-user) :code (app-user-magic-code-model/rand-code)
-           :app-id (:id app)}))
+           {:id (random-uuid) :user-id (:id runtime-user) :code (app-user-magic-code-model/rand-code)
+            :app-id (:id app)}))
   (verify-magic-code-post {:body {:email "stopainstantdb.com" :code (:code m)}})
   (verify-magic-code-post {:body {:email "stopa@instantdb.com" :code (:code m)}})
   (verify-magic-code-post {:body {:email "stopa@instantdb.com" :code "0" :app-id (:id app)}})
@@ -91,7 +93,7 @@
   (let [refresh-token (ex/get-param! req [:body :refresh-token] uuid-util/coerce)
         app-id (ex/get-param! req [:body :app-id] uuid-util/coerce)
         user (app-user-model/get-by-refresh-token!
-              {:app-id app-id :refresh-token refresh-token})]
+               {:app-id app-id :refresh-token refresh-token})]
     (response/ok {:user (assoc user :refresh_token refresh-token)})))
 
 (defn signout-post [req]
@@ -148,15 +150,15 @@
                                     :when value]
                                 [param value]))
         authorized-origins (app-authorized-redirect-origin-model/get-all-for-app
-                            {:app-id (:app_id client)})
+                             {:app-id (:app_id client)})
         matched-origin (app-authorized-redirect-origin-model/find-match
-                        authorized-origins
-                        redirect-uri)
+                         authorized-origins
+                         redirect-uri)
         _ (when-not matched-origin
             (ex/throw-validation-err!
-             :redirect-uri
-             redirect-uri
-             [{:message "Invalid redirect_uri. If you're the developer, make sure to add your website to the list of approved domains from the Dashboard."}]))
+              :redirect-uri
+              redirect-uri
+              [{:message "Invalid redirect_uri. If you're the developer, make sure to add your website to the list of approved domains from the Dashboard."}]))
 
         app-redirect-url
         (if state
@@ -171,10 +173,10 @@
         state-with-app-id (format "%s%s" app-id state)
 
         redirect-url (oauth/create-authorization-url
-                      oauth-client
-                      state-with-app-id
-                      oauth-redirect-url
-                      extra-params)]
+                       oauth-client
+                       state-with-app-id
+                       oauth-redirect-url
+                       extra-params)]
     (app-oauth-redirect-model/create! {:app-id app-id
                                        :state state
                                        :cookie cookie-uuid
@@ -194,10 +196,10 @@
 
 (defn upsert-oauth-link! [{:keys [email sub app-id provider-id]}]
   (let [users (app-user-model/get-by-email-or-oauth-link-qualified
-               {:email email
-                :app-id app-id
-                :sub sub
-                :provider-id provider-id})]
+                {:email email
+                 :app-id app-id
+                 :sub sub
+                 :provider-id provider-id})]
     (cond
       (< 1 (count users))
       (let [err (format "Got multiple app users for email=%s, sub=%s, provider-id=%s."
@@ -205,12 +207,12 @@
                         sub
                         provider-id)]
         (tracer/record-exception-span!
-         (Exception. err)
-         {:name "oauth/upsert-oauth-link!"
-          :escaping? false
-          :attributes {:email email
-                       :sub sub
-                       :user-ids (pr-str (map :app_user/id users))}})
+          (Exception. err)
+          {:name "oauth/upsert-oauth-link!"
+           :escaping? false
+           :attributes {:email email
+                        :sub sub
+                        :user-ids (pr-str (map :app_user/id users))}})
         nil)
 
       (= 1 (count users))
@@ -243,9 +245,9 @@
 
       (= 0 (count users))
       (let [user (app-user-model/create!
-                  {:id (random-uuid)
-                   :app-id app-id
-                   :email email})]
+                   {:id (random-uuid)
+                    :app-id app-id
+                    :email email})]
         (app-user-oauth-link-model/create! {:id (random-uuid)
                                             :app-id app-id
                                             :provider-id provider-id
@@ -387,11 +389,11 @@
 
           code (random-uuid)
           _oauth-code (app-oauth-code-model/create!
-                       {:code code
-                        :user-id (:user_id social-login)
-                        :app-id (:app_id social-login)
-                        :code-challenge-method (:code_challenge_method oauth-redirect)
-                        :code-challenge (:code_challenge oauth-redirect)})
+                        {:code code
+                         :user-id (:user_id social-login)
+                         :app-id (:app_id social-login)
+                         :code-challenge-method (:code_challenge_method oauth-redirect)
+                         :code-challenge (:code_challenge oauth-redirect)})
           redirect-url (url/add-query-params (:redirect_url oauth-redirect)
                                              {:code code :_instant_oauth_redirect "true"})]
       (if (string/starts-with? (str (:scheme (uri/parse redirect-url))) "http")
@@ -424,9 +426,9 @@
 
         _ (when-let [origin (get-in req [:headers "origin"])]
             (let [authorized-origins (app-authorized-redirect-origin-model/get-all-for-app
-                                      {:app-id app-id})]
+                                       {:app-id app-id})]
               (when-not (app-authorized-redirect-origin-model/find-match
-                         authorized-origins origin)
+                          authorized-origins origin)
                 (ex/throw-validation-err! :origin origin [{:message "Unauthorized origin."}]))))
 
         {user-id :user_id app-id :app_id} oauth-code
@@ -450,19 +452,19 @@
         _ (when-let [origin (and (:client_secret client)
                                  (get-in req [:headers "origin"]))]
             (let [authorized-origins (app-authorized-redirect-origin-model/get-all-for-app
-                                      {:app-id app-id})
+                                       {:app-id app-id})
                   match (app-authorized-redirect-origin-model/find-match
-                         authorized-origins origin)]
+                          authorized-origins origin)]
               (when-not match
                 (ex/throw-validation-err! :origin origin [{:message "Unauthorized origin."}]))))
 
         {:keys [email sub]} (oauth/get-user-info-from-id-token
-                             oauth-client
-                             nonce
-                             id-token
-                             (when-not (:client_secret oauth-client)
-                               {:allow-unverified-email? true
-                                :ignore-audience? true}))
+                              oauth-client
+                              nonce
+                              id-token
+                              (when-not (:client_secret oauth-client)
+                                {:allow-unverified-email? true
+                                 :ignore-audience? true}))
         email (email/coerce email)
         social-login (upsert-oauth-link! {:email email
                                           :sub sub

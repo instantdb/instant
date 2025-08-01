@@ -1,7 +1,7 @@
 (ns instant.util.test
   (:require
-   [clojure.set :as set]
    [clojure+.walk :as walk]
+   [clojure.set :as set]
    [instant.db.datalog :as d]
    [instant.db.instaql :as iq]
    [instant.db.model.attr :as attr-model]
@@ -24,15 +24,15 @@
 (defn pretty-perm-q [{:keys [app-id current-user]} q]
   (let [attrs (attr-model/get-by-app-id app-id)]
     (walk/keywordize-keys
-     (instaql-nodes->object-tree
-      {:attrs attrs}
-      (iq/permissioned-query
-       {:db {:conn-pool (aurora/conn-pool :read)}
-        :app-id app-id
-        :attrs attrs
-        :datalog-query-fn d/query
-        :current-user current-user}
-       q)))))
+      (instaql-nodes->object-tree
+        {:attrs attrs}
+        (iq/permissioned-query
+          {:db {:conn-pool (aurora/conn-pool :read)}
+           :app-id app-id
+           :attrs attrs
+           :datalog-query-fn d/query
+           :current-user current-user}
+          q)))))
 
 (defn wait-for [wait-fn wait-ms]
   (let [start (Instant/now)]
@@ -89,24 +89,24 @@
                     :let [[id & rest] attr
                           [fwd rvr]   (if (vector? id) id [id nil])]]
                 (reduce
-                 (fn [m k]
-                   (case k
-                     :many              (assoc m :cardinality :many)
-                     :unique?           (assoc m :unique? true)
-                     :index?            (assoc m :index? true)
-                     :required?         (assoc m :required? true)
-                     :on-delete         (assoc m :on-delete :cascade)
-                     :on-delete-reverse (assoc m :on-delete-reverse :cascade)))
-                 {:id               (random-uuid)
-                  :forward-identity [(random-uuid) (namespace fwd) (name fwd)]
-                  :reverse-identity (when rvr
-                                      [(random-uuid) (namespace rvr) (name rvr)])
-                  :value-type       (if rvr :ref :blob)
-                  :cardinality      :one
-                  :unique?          false
-                  :index?           false
-                  :required?        false}
-                 rest))]
+                  (fn [m k]
+                    (case k
+                      :many              (assoc m :cardinality :many)
+                      :unique?           (assoc m :unique? true)
+                      :index?            (assoc m :index? true)
+                      :required?         (assoc m :required? true)
+                      :on-delete         (assoc m :on-delete :cascade)
+                      :on-delete-reverse (assoc m :on-delete-reverse :cascade)))
+                  {:id               (random-uuid)
+                   :forward-identity [(random-uuid) (namespace fwd) (name fwd)]
+                   :reverse-identity (when rvr
+                                       [(random-uuid) (namespace rvr) (name rvr)])
+                   :value-type       (if rvr :ref :blob)
+                   :cardinality      :one
+                   :unique?          false
+                   :index?           false
+                   :required?        false}
+                  rest))]
     (attr-model/insert-multi! (aurora/conn-pool :write) app-id attrs {})
     (into {}
           (for [attr attrs
@@ -125,34 +125,34 @@
          :book/author (suid \"a\")}])"
   [app-id attr->id entities]
   (tx/transact!
-   (aurora/conn-pool :write)
-   (attr-model/get-by-app-id app-id)
-   app-id
-   (for [entity entities
-         :let   [id (:db/id entity)]
-         [a v]  (dissoc entity :db/id)
-         :let   [attr (attr->id a)]
-         v      (if (sequential? v) v [v])]
-     [:add-triple id attr v])))
+    (aurora/conn-pool :write)
+    (attr-model/get-by-app-id app-id)
+    app-id
+    (for [entity entities
+          :let   [id (:db/id entity)]
+          [a v]  (dissoc entity :db/id)
+          :let   [attr (attr->id a)]
+          v      (if (sequential? v) v [v])]
+      [:add-triple id attr v])))
 
 (defn find-entities-by-ids
   "Finds entities by ids. Converts attr-ids to attribute keywords, adds :db/id"
   [app-id attr->id ids]
   (let [id->attr (set/map-invert attr->id)
         id->entities (reduce
-                      (fn [m {:keys [triple]}]
-                        (let [[e aid v] triple
-                              a (id->attr aid)]
-                          (update m e assoc a v)))
-                      {}
-                      (triple-model/fetch
-                       (aurora/conn-pool :read)
-                       app-id
-                       [[:in :entity-id ids]]))]
+                       (fn [m {:keys [triple]}]
+                         (let [[e aid v] triple
+                               a (id->attr aid)]
+                           (update m e assoc a v)))
+                       {}
+                       (triple-model/fetch
+                         (aurora/conn-pool :read)
+                         app-id
+                         [[:in :entity-id ids]]))]
     (reduce-kv
-     (fn [acc id entity]
-       (conj acc (assoc entity :db/id id)))
-     #{} id->entities)))
+      (fn [acc id entity]
+        (conj acc (assoc entity :db/id id)))
+      #{} id->entities)))
 
 (defn find-entids-by-ids
   "Finds entities by ids. Converts attr-ids to attribute keywords, adds :db/id"

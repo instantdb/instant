@@ -117,9 +117,9 @@
 
 (defn main-loop []
   (sun.misc.Signal/handle
-   (sun.misc.Signal. "INT")
-   (reify sun.misc.SignalHandler (handle [_ _]
-                                   (System/exit 1))))
+    (sun.misc.Signal. "INT")
+    (reify sun.misc.SignalHandler (handle [_ _]
+                                    (System/exit 1))))
 
   (println "Fetching application versions...")
   (let [current-version-future (future (get-current-version))

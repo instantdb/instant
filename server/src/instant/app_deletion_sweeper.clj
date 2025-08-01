@@ -22,8 +22,8 @@
                    (.withHour 10)
                    (.withMinute 0))
         periodic-seq (chime-core/periodic-seq
-                      ten-am
-                      (Period/ofDays 1))]
+                       ten-am
+                       (Period/ofDays 1))]
 
     (->> periodic-seq
          (filter (fn [x] (ZonedDateTime/.isAfter x now))))))
@@ -42,7 +42,7 @@
     (try
       (binding [sql/*query-timeout-seconds* delete-timeout-seconds]
         (app-model/delete-immediately-by-id!
-         {:id id}))
+          {:id id}))
       (catch Throwable e
         (tracer/add-exception! e {:escaping? false})))))
 
@@ -57,8 +57,8 @@
         (tracer/add-data! {:attributes {:count (count apps-to-delete)}})
         (doseq [{:keys [id] :as app} apps-to-delete]
           (grab/run-once!
-           (format "delete-app-%s-%s" id (date-util/numeric-date-str maximum-marked-date))
-           (fn [] (straight-jacket-delete-app! app))))))))
+            (format "delete-app-%s-%s" id (date-util/numeric-date-str maximum-marked-date))
+            (fn [] (straight-jacket-delete-app! app))))))))
 
 (defn start []
   (tracer/record-info! {:name "app-deletion-sweeper/schedule"})
@@ -78,4 +78,3 @@
 (defn restart []
   (stop)
   (start))
-

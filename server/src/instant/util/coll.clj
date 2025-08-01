@@ -1,5 +1,6 @@
 (ns instant.util.coll
-  (:require [medley.core :as medley]))
+  (:require
+   [medley.core :as medley]))
 
 (defn split-last [coll]
   (list (butlast coll)
@@ -59,10 +60,10 @@
 
 (comment
   (def x (indexes
-          [{:id 1 :ident [:users :post]}
-           {:id 1 :ident [:users :name]}]
-          [:id :id]
-          [:ident :ident]))
+           [{:id 1 :ident [:users :post]}
+            {:id 1 :ident [:users :name]}]
+           [:id :id]
+           [:ident :ident]))
   (by-index x :id 1)
   (by-index x :ident [:users :post]))
 
@@ -131,7 +132,7 @@
                      (name ns-prefix)
 
                      :else (throw (IllegalArgumentException.
-                                   "ns-prefix must be a string or keyword")))
+                                    "ns-prefix must be a string or keyword")))
         ns-keys (filter #(= (namespace %) ns-str) (keys m))
         remove-ns (fn [[k v]] [(keyword (name k)) v])]
     (into (with-meta {} (meta m))
@@ -141,9 +142,8 @@
   (select-keys-no-ns {:a/b 1 :c/d 2 :e/f 3} "a")
   ;; => {:b 1}
 
-  (select-keys-no-ns {:a/b 1 :c/d 2 :e/f 3} :a)
+  (select-keys-no-ns {:a/b 1 :c/d 2 :e/f 3} :a))
   ;; => {:b 1}
-  )
 
 (defn split-map-by-namespace
   "Splits a map into multiple maps by the namespace of each key.
@@ -185,21 +185,21 @@
   "Apply `f` to keys of `m`"
   [f m]
   (persistent!
-   (reduce-kv
-    (fn [m k v]
-      (assoc! m (f k) v))
-    (transient (empty m)) m)))
+    (reduce-kv
+      (fn [m k v]
+        (assoc! m (f k) v))
+      (transient (empty m)) m)))
 
 (defn filter-keys
   "Only keep keys in `m` that return truthy for `(pred key)`"
   [pred m]
   (persistent!
-   (reduce-kv
-    (fn [m key _]
-      (if (pred key)
-        m
-        (dissoc! m key)))
-    (transient m) m)))
+    (reduce-kv
+      (fn [m key _]
+        (if (pred key)
+          m
+          (dissoc! m key)))
+      (transient m) m)))
 
 (defn every?-var-args [pred & colls]
   (if (= 1 (count colls))
@@ -211,21 +211,21 @@
   "Returns [(filter pred xs) (remove pred xs)]"
   [pred xs]
   (let [[f r] (reduce
-               (fn [[f r] x]
-                 (if (pred x)
-                   [(conj! f x) r]
-                   [f (conj! r x)]))
-               [(transient []) (transient [])] xs)]
+                (fn [[f r] x]
+                  (if (pred x)
+                    [(conj! f x) r]
+                    [f (conj! r x)]))
+                [(transient []) (transient [])] xs)]
     [(persistent! f) (persistent! r)]))
 
 (defn map-by
   "Given xs, builds a map of {(key-fn x) x}"
   [key-fn xs]
   (persistent!
-   (reduce
-    (fn [m x]
-      (assoc! m (key-fn x) x))
-    (transient {}) xs)))
+    (reduce
+      (fn [m x]
+        (assoc! m (key-fn x) x))
+      (transient {}) xs)))
 
 (defn group-by-to
   "Like group-by but applies (val-fn x) to values"
@@ -233,16 +233,16 @@
    (group-by-to key-fn val-fn [] xs))
   ([key-fn val-fn container xs]
    (persistent!
-    (reduce
-     (fn [m x]
-       (let [k (key-fn x)
-             v (val-fn x)
-             old-v (get m k container)]
-         (assoc! m k (conj old-v v))))
-     (transient {}) xs))))
+     (reduce
+       (fn [m x]
+         (let [k (key-fn x)
+               v (val-fn x)
+               old-v (get m k container)]
+           (assoc! m k (conj old-v v))))
+       (transient {}) xs))))
 
 (defn reduce-tr
   "Like reduce but makes acc transient/persistent automatically"
   [f init xs]
   (persistent!
-   (reduce f (transient init) xs)))
+    (reduce f (transient init) xs)))

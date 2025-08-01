@@ -1,6 +1,7 @@
 (ns instant.util.hazelcast-test
-  (:require [instant.util.hazelcast :as h]
-            [clojure.test :refer [deftest is testing]]))
+  (:require
+   [clojure.test :refer [deftest is testing]]
+   [instant.util.hazelcast :as h]))
 
 (deftest room-key-roundtrips
   (let [start (h/->RoomKeyV1 (random-uuid) "room-id")

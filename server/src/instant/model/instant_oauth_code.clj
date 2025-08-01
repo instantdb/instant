@@ -1,8 +1,9 @@
 (ns instant.model.instant-oauth-code
-  (:require [instant.jdbc.aurora :as aurora]
-            [instant.jdbc.sql :as sql]
-            [instant.util.crypt :as crypt-util]
-            [instant.util.exception :as ex])
+  (:require
+   [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
+   [instant.util.crypt :as crypt-util]
+   [instant.util.exception :as ex])
   (:import
    (java.time Instant)
    (java.time.temporal ChronoUnit)
@@ -35,4 +36,3 @@
 
 ;; Don't add more get functions. We use lookup by code because we can lookup a hashed version
 ;; of the code in the db to prevent timing attacks.
-

@@ -30,24 +30,24 @@
   ([conn {:keys [app-id code]}]
    (with-cache-invalidation app-id
      (sql/execute-one!
-      ::put!
-      conn
-      ["INSERT INTO rules (app_id, code) VALUES (?::uuid, ?::jsonb)
+       ::put!
+       conn
+       ["INSERT INTO rules (app_id, code) VALUES (?::uuid, ?::jsonb)
           ON CONFLICT (app_id) DO UPDATE SET code = excluded.code"
-       app-id (->json code)]))))
+        app-id (->json code)]))))
 
 (defn merge!
   ([params] (merge! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id code]}]
    (with-cache-invalidation app-id
      (sql/execute-one!
-      ::merge!
-      conn
-      (hsql/format {:insert-into :rules
-                    :values [{:app-id app-id
-                              :code [:cast (->json code) :jsonb]}]
-                    :on-conflict :app-id
-                    :do-update-set {:code [:|| :rules.code :excluded.code]}})))))
+       ::merge!
+       conn
+       (hsql/format {:insert-into :rules
+                     :values [{:app-id app-id
+                               :code [:cast (->json code) :jsonb]}]
+                     :on-conflict :app-id
+                     :do-update-set {:code [:|| :rules.code :excluded.code]}})))))
 
 (defn get-by-app-id* [conn app-id]
   (sql/select-one ::get-by-app-id*
@@ -84,9 +84,9 @@
   ([conn {:keys [app-id]}]
    (with-cache-invalidation app-id
      (sql/do-execute!
-      ::delete-by-app-id!
-      conn
-      ["DELETE FROM rules WHERE app_id = ?::uuid" app-id]))))
+       ::delete-by-app-id!
+       conn
+       ["DELETE FROM rules WHERE app_id = ?::uuid" app-id]))))
 
 (defn bind-usages [compiler bind-keys expr]
   (clojure.set/intersection bind-keys
@@ -118,10 +118,10 @@
 
 (defn get-expr [rule etype action]
   (or
-   (get-in rule [etype "allow" action])
-   (get-in rule [etype "allow" "$default"])
-   (get-in rule ["$default" "allow" action])
-   (get-in rule ["$default" "allow" "$default"])))
+    (get-in rule [etype "allow" action])
+    (get-in rule [etype "allow" "$default"])
+    (get-in rule ["$default" "allow" action])
+    (get-in rule ["$default" "allow" "$default"])))
 
 (defn patch-code
   "Don't break if the perm check is a simple boolean"
@@ -177,28 +177,28 @@
 
 (defn get-program!* [rules etype action]
   (or
-   (when-let [expr (get-expr (:code rules) etype action)]
-     (try
-       (let [code (with-binds (:code rules) etype action (patch-code expr))
-             compiler (cel/action->compiler action)
-             ast (cel/->ast compiler code)]
-         {:etype etype
-          :action action
-          :code code
-          :display-code expr
-          :cel-ast ast
-          :cel-program (cel/->program ast)
-          :ref-uses (cel/collect-ref-uses ast)
-          :where-clauses-program (when (= action "view")
-                                   (cel/where-clauses-program code))})
-       (catch CelValidationException e
-         (ex/throw-validation-err!
-          :permission
-          [etype action]
-          (->> (.getErrors e)
-               (map (fn [^CelIssue cel-issue]
-                      {:message (.getMessage cel-issue)})))))))
-   (default-program etype action)))
+    (when-let [expr (get-expr (:code rules) etype action)]
+      (try
+        (let [code (with-binds (:code rules) etype action (patch-code expr))
+              compiler (cel/action->compiler action)
+              ast (cel/->ast compiler code)]
+          {:etype etype
+           :action action
+           :code code
+           :display-code expr
+           :cel-ast ast
+           :cel-program (cel/->program ast)
+           :ref-uses (cel/collect-ref-uses ast)
+           :where-clauses-program (when (= action "view")
+                                    (cel/where-clauses-program code))})
+        (catch CelValidationException e
+          (ex/throw-validation-err!
+            :permission
+            [etype action]
+            (->> (.getErrors e)
+                 (map (fn [^CelIssue cel-issue]
+                        {:message (.getMessage cel-issue)})))))))
+    (default-program etype action)))
 
 (defn get-program! [rules etype action]
   (cache/lookup-or-miss program-cache [rules etype action] (fn [[rules etype action]]

@@ -2,8 +2,9 @@
   "A provider is an issuer of unique issuer of subject ids (sub).
   An app might have a provider named google that has multiple OAuth
   clients, e.g. one for web and one for native."
-  (:require [instant.jdbc.aurora :as aurora]
-            [instant.system-catalog-ops :refer [query-op update-op]])
+  (:require
+   [instant.jdbc.aurora :as aurora]
+   [instant.system-catalog-ops :refer [query-op update-op]])
   (:import
    (java.util UUID)))
 
@@ -13,14 +14,14 @@
   ([params] (create! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id provider-name]}]
    (update-op
-    conn
-    {:app-id app-id
-     :etype etype}
-    (fn [{:keys [transact! get-entity resolve-id]}]
-      (let [entity-id (random-uuid)]
-        (transact! [[:add-triple entity-id (resolve-id :id) entity-id]
-                    [:add-triple entity-id (resolve-id :name) provider-name]])
-        (get-entity entity-id))))))
+     conn
+     {:app-id app-id
+      :etype etype}
+     (fn [{:keys [transact! get-entity resolve-id]}]
+       (let [entity-id (random-uuid)]
+         (transact! [[:add-triple entity-id (resolve-id :id) entity-id]
+                     [:add-triple entity-id (resolve-id :name) provider-name]])
+         (get-entity entity-id))))))
 
 (defn get-by-provider-name
   ([params] (get-by-provider-name (aurora/conn-pool :read) params))

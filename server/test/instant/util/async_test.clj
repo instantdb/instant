@@ -1,6 +1,7 @@
 (ns instant.util.async-test
-  (:require [instant.util.async :refer [vfuture vfut-bg tracked-future severed-vfuture]]
-            [clojure.test :refer [is deftest testing]]))
+  (:require
+   [clojure.test :refer [deftest is testing]]
+   [instant.util.async :refer [severed-vfuture tracked-future vfut-bg vfuture]]))
 
 (deftest vfuture-works
   (is (= 1 @(vfuture 1))))

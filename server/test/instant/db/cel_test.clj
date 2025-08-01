@@ -1,15 +1,17 @@
 (ns instant.db.cel-test
-  (:require [clojure.test :as test :refer [deftest is testing]]
-            [instant.db.model.attr :as attr-model]
-            [instant.fixtures :refer [with-zeneca-app]]
-            [instant.jdbc.aurora :as aurora]
-            [instant.model.app-user :as app-user-model]
-            [instant.db.cel :as cel]
-            [instant.db.datalog :as d]
-            [instant.db.transaction :as tx])
-  (:import (dev.cel.parser CelStandardMacro)
-           (dev.cel.common CelValidationException)
-           (java.util Map)))
+  (:require
+   [clojure.test :as test :refer [deftest is testing]]
+   [instant.db.cel :as cel]
+   [instant.db.datalog :as d]
+   [instant.db.model.attr :as attr-model]
+   [instant.db.transaction :as tx]
+   [instant.fixtures :refer [with-zeneca-app]]
+   [instant.jdbc.aurora :as aurora]
+   [instant.model.app-user :as app-user-model])
+  (:import
+   (dev.cel.common CelValidationException)
+   (dev.cel.parser CelStandardMacro)
+   (java.util Map)))
 
 (deftest test-standard-macros
   (testing "STANDARD_MACROS set contains expected macros"
@@ -47,25 +49,24 @@
 
 (deftest view-delete-does-not-allow-newData
   (is
-   (thrown-with-msg?
-    CelValidationException
-    #"(?i)undeclared reference to 'newData'"
-    (cel/rule->program :view "newData.isFavorite")))
+    (thrown-with-msg?
+      CelValidationException
+      #"(?i)undeclared reference to 'newData'"
+      (cel/rule->program :view "newData.isFavorite")))
   (is
-   (thrown-with-msg?
-    CelValidationException
-    #"(?i)undeclared reference to 'newData'"
-    (cel/rule->program :delete "newData.isFavorite"))))
+    (thrown-with-msg?
+      CelValidationException
+      #"(?i)undeclared reference to 'newData'"
+      (cel/rule->program :delete "newData.isFavorite"))))
 
 (deftest unknown-results-throw
   (let [program (cel/rule->program :write "newData.isFavorite")
-        bindings {} ;; note! new-data is not provided. This will cause CEL to return
-                    ;; a CelUnknownSet
-        ]
+        bindings {}] ;; note! new-data is not provided. This will cause CEL to return
+                     ;; a CelUnknownSet
     (is (thrown-with-msg?
-         Throwable
-         #"Could not evaluate permission rule"
-         (cel/eval-program! {} {:cel-program program} bindings)))))
+          Throwable
+          #"Could not evaluate permission rule"
+          (cel/eval-program! {} {:cel-program program} bindings)))))
 
 (defn dummy-attrs [specs]
   (attr-model/wrap-attrs (mapv (fn [{:keys [etype
@@ -90,15 +91,15 @@
                     :preloaded-refs (cel/create-preloaded-refs-cache)})
         get-where-clauses (fn [fields code]
                             (let [res (cel/get-all-where-clauses
-                                       (make-ctx (map (fn [field]
-                                                        (if (string? field)
-                                                          {:etype "etype"
-                                                           :field field}
-                                                          field))
-                                                      fields))
-                                       {}
-                                       [{:etype "etype"
-                                         :where-clauses-program (cel/where-clauses-program code)}])
+                                        (make-ctx (map (fn [field]
+                                                         (if (string? field)
+                                                           {:etype "etype"
+                                                            :field field}
+                                                           field))
+                                                       fields))
+                                        {}
+                                        [{:etype "etype"
+                                          :where-clauses-program (cel/where-clauses-program code)}])
                                   res (get res "etype")]
                               (when-let [t (:thrown res)]
                                 (throw t))
@@ -166,13 +167,13 @@
                                 {"undeleted" false}]}]}]
         (is (= result
                (get-where-clauses
-                fields
-                "cel.bind(isDeleted, data.deleted_at == null || (data.deleted_at != null && !data.undeleted), !(!isDeleted))")))
+                 fields
+                 "cel.bind(isDeleted, data.deleted_at == null || (data.deleted_at != null && !data.undeleted), !(!isDeleted))")))
 
         (is (= result
                (get-where-clauses
-                fields
-                "cel.bind(isDeleted, data.deleted_at == null || (data.deleted_at != null && !data.undeleted), isDeleted)")))))
+                 fields
+                 "cel.bind(isDeleted, data.deleted_at == null || (data.deleted_at != null && !data.undeleted), isDeleted)")))))
 
     (is (= {:or [{"owner" {:$isNull true}} {"owner" {:$isNull true}}]}
            (get-where-clauses [{:etype "etype"
@@ -217,15 +218,15 @@
                     :preloaded-refs (cel/create-preloaded-refs-cache)})
         get-where-clauses (fn [fields code]
                             (let [res (cel/get-all-where-clauses
-                                       (make-ctx (map (fn [field]
-                                                        (if (string? field)
-                                                          {:etype "etype"
-                                                           :field field}
-                                                          field))
-                                                      fields))
-                                       {}
-                                       [{:etype "etype"
-                                         :where-clauses-program (cel/where-clauses-program code)}])
+                                        (make-ctx (map (fn [field]
+                                                         (if (string? field)
+                                                           {:etype "etype"
+                                                            :field field}
+                                                           field))
+                                                       fields))
+                                        {}
+                                        [{:etype "etype"
+                                          :where-clauses-program (cel/where-clauses-program code)}])
                                   res (get res "etype")]
                               (when-let [t (:thrown res)]
                                 (throw t))
@@ -264,16 +265,16 @@
                     :preloaded-refs (cel/create-preloaded-refs-cache)})
         get-where-clauses (fn [fields code]
                             (let [res (cel/get-all-where-clauses
-                                       (make-ctx (map (fn [field]
-                                                        (if (string? field)
-                                                          {:etype "etype"
-                                                           :field field}
-                                                          field))
-                                                      fields))
-                                       {}
-                                       [{:etype "etype"
-                                         :action "view"
-                                         :where-clauses-program (cel/where-clauses-program code)}])
+                                        (make-ctx (map (fn [field]
+                                                         (if (string? field)
+                                                           {:etype "etype"
+                                                            :field field}
+                                                           field))
+                                                       fields))
+                                        {}
+                                        [{:etype "etype"
+                                          :action "view"
+                                          :where-clauses-program (cel/where-clauses-program code)}])
                                   _ (def -res1 res)
                                   res (get res "etype")]
                               (when-let [t (:thrown res)]
@@ -281,8 +282,8 @@
                                            t)))
                               res))]
 
-    (doseq [[bad-code msg] [ ;; Can't handle size, but maybe we could do something to check empty
-                            ["size(data) == 0",
+    (doseq [[bad-code msg] [;; Can't handle size, but maybe we could do something to check empty
+                            ["size(data) == 0"
                              #"size"]
 
                             ["size(data.ref('owner.id')) == 1"
@@ -351,13 +352,13 @@
                   "null"]]
       (testing (str "`" code "` short-circuits")
         (is (true? (:short-circuit?
-                    (get-where-clauses [{:etype "etype"
-                                         :field "adminUserIds"}
-                                        {:etype "etype"
-                                         :field "ownerId"}
-                                        {:etype "etype"
-                                         :field "adminUserIds"}]
-                                       code))))))))
+                     (get-where-clauses [{:etype "etype"
+                                          :field "adminUserIds"}
+                                         {:etype "etype"
+                                          :field "ownerId"}
+                                         {:etype "etype"
+                                          :field "adminUserIds"}]
+                                        code))))))))
 
 (deftest where-clauses-with-auth-ref
   (with-zeneca-app
@@ -393,27 +394,27 @@
                        [:add-triple profile-id link-attr-id (str (:id user))]])
         (is (= {"id" (str profile-id)}
                (->
-                (cel/get-all-where-clauses (assoc (make-ctx)
-                                                  :current-user user)
-                                           {}
-                                           [{:etype "profile"
-                                             :action "view"
-                                             :where-clauses-program (cel/where-clauses-program
-                                                                     "data.id == (auth.ref('$user.profile.id'))[0]")}])
-                (get "profile")
-                :where-clauses)))
+                 (cel/get-all-where-clauses (assoc (make-ctx)
+                                                   :current-user user)
+                                            {}
+                                            [{:etype "profile"
+                                              :action "view"
+                                              :where-clauses-program (cel/where-clauses-program
+                                                                       "data.id == (auth.ref('$user.profile.id'))[0]")}])
+                 (get "profile")
+                 :where-clauses)))
 
         (is (= {"id" (str (:id user))}
                (->
-                (cel/get-all-where-clauses (assoc (make-ctx)
-                                                  :current-user user)
-                                           {}
-                                           [{:etype "profile"
-                                             :action "view"
-                                             :where-clauses-program (cel/where-clauses-program
-                                                                     "data.id == auth.id")}])
-                (get "profile")
-                :where-clauses)))))))
+                 (cel/get-all-where-clauses (assoc (make-ctx)
+                                                   :current-user user)
+                                            {}
+                                            [{:etype "profile"
+                                              :action "view"
+                                              :where-clauses-program (cel/where-clauses-program
+                                                                       "data.id == auth.id")}])
+                 (get "profile")
+                 :where-clauses)))))))
 
 (deftest advance-program-works
   (with-zeneca-app
@@ -440,11 +441,11 @@
                       :path-str "id"}}))))
         (testing "returns result once missing refs are in cache"
           (let [prefetched (cel/prefetch-missing-ref-datas
-                            (make-ctx)
-                            (cel/missing-ref-datas
-                             (cel/advance-program! (make-ctx)
-                                                   program
-                                                   {})))
+                             (make-ctx)
+                             (cel/missing-ref-datas
+                               (cel/advance-program! (make-ctx)
+                                                     program
+                                                     {})))
                 preloaded-refs (cel/create-preloaded-refs-cache)
                 _ (Map/.putAll preloaded-refs prefetched)
                 result (cel/advance-program! (assoc (make-ctx)

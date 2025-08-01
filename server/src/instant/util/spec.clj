@@ -1,6 +1,7 @@
 (ns instant.util.spec
-  (:require [clojure.spec.alpha :as s]
-            [clojure.string :as string]))
+  (:require
+   [clojure.spec.alpha :as s]
+   [clojure.string :as string]))
 
 (s/def ::non-blank-string
   (s/and string? (complement string/blank?)))
@@ -20,4 +21,3 @@
   "Unwraps a tagged tuple: [:foo v] => v"
   [x]
   (and (coll? x) (second x)))
-

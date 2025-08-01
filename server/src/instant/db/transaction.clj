@@ -11,8 +11,8 @@
    [instant.jdbc.sql :as sql]
    [instant.system-catalog :refer [system-catalog-app-id]]
    [instant.util.coll :as coll]
-   [instant.util.exception :as ex]
    [instant.util.e2e-tracer :as e2e-tracer]
+   [instant.util.exception :as ex]
    [instant.util.json :refer [->json]]
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid]
@@ -25,7 +25,7 @@
 
 (s/def ::opts
   (s/nilable
-   (s/keys :opt-un [::mode])))
+    (s/keys :opt-un [::mode])))
 
 (s/def ::add-triple-step
   (s/cat :op #{:add-triple} :triple ::triple-model/triple :opts (s/? ::opts)))
@@ -68,9 +68,9 @@
 (defn- assert-coll! [{:keys [in root]} x]
   (when-not (coll? x)
     (ex/throw-validation-err!
-     :tx-steps
-     root
-     [{:expected 'coll? :in in}]))
+      :tx-steps
+      root
+      [{:expected 'coll? :in in}]))
   x)
 
 (defn coerce-attr-args [[action args :as tx-step]]
@@ -94,25 +94,25 @@
   [tx-steps]
   (assert-coll! {:in [] :root tx-steps} tx-steps)
   (mapv
-   (fn [idx tx-step]
-     (assert-coll! {:in [idx] :root tx-steps} tx-step)
-     (let [action-idx 0]
-       (-> tx-step
-           (update action-idx keyword)
-           coerce-attr-args
-           coerce-opts
-           uuid/walk-uuids)))
-   (range)
-   tx-steps))
+    (fn [idx tx-step]
+      (assert-coll! {:in [idx] :root tx-steps} tx-step)
+      (let [action-idx 0]
+        (-> tx-step
+            (update action-idx keyword)
+            coerce-attr-args
+            coerce-opts
+            uuid/walk-uuids)))
+    (range)
+    tx-steps))
 
 (defn validate! [tx-steps]
   (let [valid? (s/valid? ::tx-steps tx-steps)]
     (when-not valid?
       (ex/throw-validation-err!
-       :tx-steps
-       tx-steps
-       (ex/explain->validation-errors
-        (s/explain-data ::tx-steps tx-steps))))))
+        :tx-steps
+        tx-steps
+        (ex/explain->validation-errors
+          (s/explain-data ::tx-steps tx-steps))))))
 
 ;; ----
 ;; transact
@@ -125,17 +125,17 @@
           :let     [etype (attr-model/fwd-etype attr)]]
     (when (and etype (string/starts-with? etype "$"))
       (ex/throw-validation-err!
-       :tx-steps
-       op
-       [{:message (format "You can't create or modify attributes in the %s namespace." etype)}]))))
+        :tx-steps
+        op
+        [{:message (format "You can't create or modify attributes in the %s namespace." etype)}]))))
 
 (defn prevent-system-catalog-updates! [app-id opts]
   (when (and (= app-id system-catalog-app-id)
              (not (:allow-system-catalog-updates? opts)))
     (ex/throw-validation-err!
-     :app
-     app-id
-     [{:message (format "You can't make updates to this app.")}])))
+      :app
+      app-id
+      [{:message (format "You can't make updates to this app.")}])))
 
 (defn resolve-lookups
   "Given [[attr-id value] [attr-id value] ...],
@@ -163,10 +163,10 @@
 
 (comment
   (resolve-lookups
-   (aurora/conn-pool :read)
-   #uuid "92cb730c-8b4f-46ef-9925-4fab953694c6"
-   [[#uuid "20b65ea3-faad-4e80-863e-87468ff7792f" "joe@instantdb.com"]
-    [#uuid "6a089759-2a2f-4898-9bb8-a7bc9f6f791a" "stopa"]]))
+    (aurora/conn-pool :read)
+    #uuid "92cb730c-8b4f-46ef-9925-4fab953694c6"
+    [[#uuid "20b65ea3-faad-4e80-863e-87468ff7792f" "joe@instantdb.com"]
+     [#uuid "6a089759-2a2f-4898-9bb8-a7bc9f6f791a" "stopa"]]))
 
 (defn resolve-etypes
   "Given [id id id], returns map of {id [etype etype ...], ...}"
@@ -185,16 +185,16 @@
 
 (comment
   (resolve-etypes
-   (aurora/conn-pool :read)
-   #uuid "0e563ace-d25f-44f6-ae00-4e6b9b6d1b2e"
-   [#uuid "4d39508b-9ee2-48a3-b70d-8192d9c5a059"
-    #uuid "005a8767-c0e7-4158-bb9a-62ce1a5858ed"
-    #uuid "005b08a1-4046-4fba-b1d1-a78b0628901c"]))
+    (aurora/conn-pool :read)
+    #uuid "0e563ace-d25f-44f6-ae00-4e6b9b6d1b2e"
+    [#uuid "4d39508b-9ee2-48a3-b70d-8192d9c5a059"
+     #uuid "005a8767-c0e7-4158-bb9a-62ce1a5858ed"
+     #uuid "005b08a1-4046-4fba-b1d1-a78b0628901c"]))
 
 (defn validate-mode [conn app-id grouped-tx-steps]
   (let [tx-steps     (concat
-                      (:add-triple grouped-tx-steps)
-                      (:deep-merge-triple grouped-tx-steps))
+                       (:add-triple grouped-tx-steps)
+                       (:deep-merge-triple grouped-tx-steps))
         create-steps (filter (fn [[_ _ _ _ opts]]
                                (= :create (:mode opts))) tx-steps)
         update-steps (filter (fn [[_ _ _ _ opts]]
@@ -248,23 +248,23 @@
                                    [(or id [attr_id value]) entity_id]))
                             (into {}))]
 
-        ;; check create over existing entities
+          ;; check create over existing entities
           (when-some [existing (->> create-steps
                                     (filter (fn [[_ e _ _ _]] (resolved e)))
                                     not-empty)]
             (ex/throw-validation-err!
-             :tx-step
-             existing
-             [{:message (str "Creating entities that exist: " (string/join ", " (map (fn [[_ e _ _ _]] e) existing)))}]))
+              :tx-step
+              existing
+              [{:message (str "Creating entities that exist: " (string/join ", " (map (fn [[_ e _ _ _]] e) existing)))}]))
 
-        ;; check update over missing entities
+          ;; check update over missing entities
           (when-some [missing (->> update-steps
                                    (filter (fn [[_ e _ _ _]] (nil? (resolved e))))
                                    not-empty)]
             (ex/throw-validation-err!
-             :tx-step
-             missing
-             [{:message (str "Updating entities that don't exist: " (string/join ", " (map (fn [[_ e _ _ _]] e) missing)))}])))))))
+              :tx-step
+              missing
+              [{:message (str "Updating entities that don't exist: " (string/join ", " (map (fn [[_ e _ _ _]] e) missing)))}])))))))
 
 (defn prevent-$files-add-retract! [attrs op tx-steps]
   (doseq [t tx-steps
@@ -276,9 +276,9 @@
                      (or (not (contains? #{"id" "path"} label))
                          (and (= label "id") (not= eid v))))]
     (ex/throw-validation-err!
-     :tx-step
-     [op t]
-     [{:message "update or merge is only allowed on `path` for $files in transact."}])))
+      :tx-step
+      [op t]
+      [{:message "update or merge is only allowed on `path` for $files in transact."}])))
 
 (defn prevent-$files-updates
   "Files support delete, link/unlink, but not update or merge"
@@ -313,10 +313,10 @@
             :when (nil? etype)]
       (binding [tracer/*span* nil]
         (tracer/record-info!
-         {:name "tx/missing-etype"
-          :attributes {:app-id  app-id
-                       :tx-step tx-step
-                       :stage   "resolve-etypes-for-delete-entity"}})))
+          {:name "tx/missing-etype"
+           :attributes {:app-id  app-id
+                        :tx-step tx-step
+                        :stage   "resolve-etypes-for-delete-entity"}})))
     (for [[op eid etype] tx-steps
           etype'         (if etype
                            [etype]
@@ -343,63 +343,63 @@
 
             query+args
             (hsql/format
-             {:with-recursive
-              [;; endids
-               [[:entids {:columns [:entity_id :etype]}]
-                {:union [{:values ids+etypes}
-                         ;; can’t reference entids twice, but can bind it to entids_inner and then it’s okay
-                         {:select :*
-                          :from [[{:with
-                                   [[[:entids_inner]
-                                     {:select :* :from :entids}]]
-                                   :union
-                                   [;; follow forward refs → entid
-                                    {:from   :entids_inner
-                                     :join   [:refs_forward [:and
-                                                           ;; TODO entity_id/value_ref join instead
-                                                             [:= [:to_jsonb :entids_inner.entity_id] :refs_forward.value]
-                                                             [:= :entids_inner.etype :refs_forward.reverse_etype]]]
-                                     :select [:refs_forward.entity_id :refs_forward.forward_etype]}
-                                  ;; follow entid → reverse refs
-                                    {:from   :entids_inner
-                                     :join   [:refs_reverse [:and
-                                                             [:= :entids_inner.entity_id :refs_reverse.entity_id]
-                                                             [:= :entids_inner.etype :refs_reverse.forward_etype]]]
-                                   ;; TODO value -> value_ref
-                                     :select [[[:cast [:->> :refs_reverse.value :0] :uuid]] :refs_reverse.reverse_etype]}]}
-                                  ;; :alias required for postgres 13
-                                  :alias]]}]}]
+              {:with-recursive
+               [;; endids
+                [[:entids {:columns [:entity_id :etype]}]
+                 {:union [{:values ids+etypes}
+                          ;; can’t reference entids twice, but can bind it to entids_inner and then it’s okay
+                          {:select :*
+                           :from [[{:with
+                                    [[[:entids_inner]
+                                      {:select :* :from :entids}]]
+                                    :union
+                                    [;; follow forward refs → entid
+                                     {:from   :entids_inner
+                                      :join   [:refs_forward [:and
+                                                              ;; TODO entity_id/value_ref join instead
+                                                              [:= [:to_jsonb :entids_inner.entity_id] :refs_forward.value]
+                                                              [:= :entids_inner.etype :refs_forward.reverse_etype]]]
+                                      :select [:refs_forward.entity_id :refs_forward.forward_etype]}
+                                     ;; follow entid → reverse refs
+                                     {:from   :entids_inner
+                                      :join   [:refs_reverse [:and
+                                                              [:= :entids_inner.entity_id :refs_reverse.entity_id]
+                                                              [:= :entids_inner.etype :refs_reverse.forward_etype]]]
+                                      ;; TODO value -> value_ref
+                                      :select [[[:cast [:->> :refs_reverse.value :0] :uuid]] :refs_reverse.reverse_etype]}]}
+                                   ;; :alias required for postgres 13
+                                   :alias]]}]}]
 
-               ;; attrs_forward
-               [[:attrs_forward {:columns [:id :forward_etype :reverse_etype]}]
-                (if (empty? attrs+etypes)
-                  {:select [[[:cast nil :uuid]] nil nil] :where false}
-                  {:values attrs+etypes})]
+                ;; attrs_forward
+                [[:attrs_forward {:columns [:id :forward_etype :reverse_etype]}]
+                 (if (empty? attrs+etypes)
+                   {:select [[[:cast nil :uuid]] nil nil] :where false}
+                   {:values attrs+etypes})]
 
-               ;; refs_forward
-               [:refs_forward {:select [:triples.entity_id :triples.value :attrs_forward.forward_etype :attrs_forward.reverse_etype]
-                               :from   :triples
-                               :join   [:attrs_forward [:= :triples.attr_id :attrs_forward.id]]
-                               :where  [:and
-                                        :triples.vae
-                                        [:= :triples.app_id app-id]]}]
+                ;; refs_forward
+                [:refs_forward {:select [:triples.entity_id :triples.value :attrs_forward.forward_etype :attrs_forward.reverse_etype]
+                                :from   :triples
+                                :join   [:attrs_forward [:= :triples.attr_id :attrs_forward.id]]
+                                :where  [:and
+                                         :triples.vae
+                                         [:= :triples.app_id app-id]]}]
 
-               ;; attrs_reverse
-               [[:attrs_reverse {:columns [:id :forward_etype :reverse_etype]}]
-                (if (empty? reverse-attrs+etypes)
-                  {:select [[[:cast nil :uuid]] nil nil] :where false}
-                  {:values reverse-attrs+etypes})]
+                ;; attrs_reverse
+                [[:attrs_reverse {:columns [:id :forward_etype :reverse_etype]}]
+                 (if (empty? reverse-attrs+etypes)
+                   {:select [[[:cast nil :uuid]] nil nil] :where false}
+                   {:values reverse-attrs+etypes})]
 
-               ;; refs_reverse
-               [:refs_reverse {:select [:triples.entity_id :triples.value :attrs_reverse.forward_etype :attrs_reverse.reverse_etype]
-                               :from   :triples
-                               :join   [:attrs_reverse [:= :triples.attr_id :attrs_reverse.id]]
-                               :where  [:and
-                                        :triples.vae
-                                        [:= :triples.app_id app-id]]}]]
-              ;; final select
-              :from   :entids
-              :select :*})
+                ;; refs_reverse
+                [:refs_reverse {:select [:triples.entity_id :triples.value :attrs_reverse.forward_etype :attrs_reverse.reverse_etype]
+                                :from   :triples
+                                :join   [:attrs_reverse [:= :triples.attr_id :attrs_reverse.id]]
+                                :where  [:and
+                                         :triples.vae
+                                         [:= :triples.app_id app-id]]}]]
+               ;; final select
+               :from   :entids
+               :select :*})
             res         (sql/execute! conn query+args)
             ids+etypes' (map (juxt :entity_id :etype) res)]
         (for [[entity_id etype] (set (concat ids+etypes ids+etypes'))]
@@ -423,47 +423,47 @@
         (validate-mode conn app-id grouped-tx-steps)
         (let [results
               (reduce-kv
-               (fn [acc op tx-steps]
-                 (when (#{:add-attr :update-attr} op)
-                   (prevent-system-catalog-attrs-updates! op tx-steps))
-                 (cond
-                   (empty? tx-steps)
-                   acc
+                (fn [acc op tx-steps]
+                  (when (#{:add-attr :update-attr} op)
+                    (prevent-system-catalog-attrs-updates! op tx-steps))
+                  (cond
+                    (empty? tx-steps)
+                    acc
 
-                   (= :rule-params op)
-                   acc
+                    (= :rule-params op)
+                    acc
 
-                   :else
-                   (assoc acc op
-                          (case op
-                            :add-attr
-                            (attr-model/insert-multi! conn app-id (map second tx-steps))
+                    :else
+                    (assoc acc op
+                           (case op
+                             :add-attr
+                             (attr-model/insert-multi! conn app-id (map second tx-steps))
 
-                            :delete-attr
-                            (attr-model/delete-multi! conn app-id (map second tx-steps))
+                             :delete-attr
+                             (attr-model/delete-multi! conn app-id (map second tx-steps))
 
-                            :update-attr
-                            (attr-model/update-multi! conn app-id (map second tx-steps))
+                             :update-attr
+                             (attr-model/update-multi! conn app-id (map second tx-steps))
 
-                            :delete-entity
-                            (triple-model/delete-entity-multi! conn app-id (map next tx-steps))
+                             :delete-entity
+                             (triple-model/delete-entity-multi! conn app-id (map next tx-steps))
 
-                            :add-triple
-                            (triple-model/insert-multi! conn attrs app-id (map next tx-steps))
+                             :add-triple
+                             (triple-model/insert-multi! conn attrs app-id (map next tx-steps))
 
-                            :deep-merge-triple
-                            (triple-model/deep-merge-multi! conn attrs app-id (map next tx-steps))
+                             :deep-merge-triple
+                             (triple-model/deep-merge-multi! conn attrs app-id (map next tx-steps))
 
-                            :retract-triple
-                            (triple-model/delete-multi! conn app-id (map next tx-steps))))))
-               {}
-               grouped-tx-steps)
+                             :retract-triple
+                             (triple-model/delete-multi! conn app-id (map next tx-steps))))))
+                {}
+                grouped-tx-steps)
               eid+attr-ids (distinct
-                            (concat
-                             (:delete-entity results)
-                             (:add-triple results)
-                             (:deep-merge-triple results)
-                             (:retract-triple results)))
+                             (concat
+                               (:delete-entity results)
+                               (:add-triple results)
+                               (:deep-merge-triple results)
+                               (:retract-triple results)))
               _  (triple-model/validate-required! conn attrs app-id eid+attr-ids)
               updated-attrs (-> grouped-tx-steps :update-attr (->> (map second)))
               _  (attr-model/validate-update-required! conn app-id updated-attrs)

@@ -1,6 +1,7 @@
 (ns instant.util.pg-hint-plan
   (:refer-clojure :exclude [memoize])
-  (:require [honey.sql :as hsql]))
+  (:require
+   [honey.sql :as hsql]))
 
 ;; Expects a list of hints, e.g.
 ;; {:select :*
@@ -20,36 +21,35 @@
                (next more))))))
 
 (honey.sql/register-clause!
- :pg-hints
- (fn [_clause exps]
-   (if-not (seq exps)
-     []
-     (let [s (StringBuilder.)]
-       (.append s "/*+\n")
-       (doseq [[op & args] exps]
-         (.append s (hsql/sql-kw op))
-         (.append s \()
-         (case op
-           :'Rows (do (add-args! s (butlast args))
-                      (.append s " #")
-                      (assert (number? (last args)))
-                      (.append s (last args)))
+  :pg-hints
+  (fn [_clause exps]
+    (if-not (seq exps)
+      []
+      (let [s (StringBuilder.)]
+        (.append s "/*+\n")
+        (doseq [[op & args] exps]
+          (.append s (hsql/sql-kw op))
+          (.append s \()
+          (case op
+            :'Rows (do (add-args! s (butlast args))
+                       (.append s " #")
+                       (assert (number? (last args)))
+                       (.append s (last args)))
 
+            :'Parallel (do (add-args! s (take 1 args))
+                           (.append s " ")
+                           (assert (number? (second args)))
+                           (.append s (second args))
+                           (.append s " ")
+                           (.append s (case (last args)
+                                        :soft "soft"
+                                        :hard "hard")))
 
-           :'Parallel (do (add-args! s (take 1 args))
-                          (.append s " ")
-                          (assert (number? (second args)))
-                          (.append s (second args))
-                          (.append s " ")
-                          (.append s (case (last args)
-                                       :soft "soft"
-                                       :hard "hard")))
-
-           (add-args! s args))
-         (.append s ")\n"))
-       (.append s "*/")
-       [(.toString s)])))
- :raw)
+            (add-args! s args))
+          (.append s ")\n"))
+        (.append s "*/")
+        [(.toString s)])))
+  :raw)
 
 ;; Scan method
 (defn seq-scan

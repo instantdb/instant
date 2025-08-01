@@ -2,8 +2,8 @@
   "A handy lib that makes sure some function only runs _once_,
   across processes and time."
   (:require
-   [instant.jdbc.sql :as sql]
-   [instant.jdbc.aurora :as aurora])
+   [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql])
   (:import
    (java.time LocalDate)))
 
@@ -13,8 +13,8 @@
    will return an empty seq."
   [conn k]
   (boolean
-   (seq
-    (sql/execute! conn ["INSERT INTO grabs (id)
+    (seq
+      (sql/execute! conn ["INSERT INTO grabs (id)
                        VALUES (?)
                        ON CONFLICT (id)
                        DO NOTHING RETURNING id" k]))))

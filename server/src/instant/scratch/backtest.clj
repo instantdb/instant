@@ -6,20 +6,20 @@
    2. We run these queries again, comparing our original `query` function with the new one. 
    3. We try to find discrepencies or degredations."
   (:require
-   [instant.config :as config]
-   [instant.util.json :refer [<-json]]
-   [clojure.java.io :as io]
-   [instant.util.uuid :as uuid-util]
-   [instant.util.exception :as ex]
    [clojure.edn :as edn]
-   [instant.db.instaql :as iq]
+   [clojure.java.io :as io]
    [clojure.java.shell :as shell]
+   [clojure.pprint :as pprint]
    [clojure.string :as string]
-   [instant.jdbc.sql :as sql]
+   [instant.config :as config]
+   [instant.db.instaql :as iq]
    [instant.db.model.attr :as attr-model]
-   [instant.util.instaql :as iq-util]
+   [instant.jdbc.sql :as sql]
    [instant.scratch.backtest-vars :as backtest-vars]
-   [clojure.pprint :as pprint]))
+   [instant.util.exception :as ex]
+   [instant.util.instaql :as iq-util]
+   [instant.util.json :refer [<-json]]
+   [instant.util.uuid :as uuid-util]))
 
 (defn honeycomb-row->input! [[idx row]]
   (let [app-id (ex/get-param! row ["app_id"] uuid-util/coerce)
@@ -91,13 +91,13 @@
     (map-indexed vector (<-json (slurp (io/resource "honeycomb-export.json")))))
 
   (def inputs (keep
-               (fn [[idx :as entry]]
-                 (try
-                   (honeycomb-row->input! entry)
-                   (catch clojure.lang.ExceptionInfo e
-                     (println (format "Failed to parse row = %s ex-data = %s"
-                                      idx (pr-str (ex-data e)))))))
-               honeycomb-data))
+                (fn [[idx :as entry]]
+                  (try
+                    (honeycomb-row->input! entry)
+                    (catch clojure.lang.ExceptionInfo e
+                      (println (format "Failed to parse row = %s ex-data = %s"
+                                       idx (pr-str (ex-data e)))))))
+                honeycomb-data))
 
   (ex-data (ex/find-instant-exception *e))
 
@@ -111,12 +111,12 @@
              (mapv (partial compare! prod-conn))))))
 
   (tool/copy
-   (with-out-str (pprint/pprint
-                  (map (fn [x]
-                         (-> x
-                             (select-keys [:improvement :same? :same-same?])
-                             (assoc :new-result-error? (-> x :new-result-error boolean))
-                             (assoc :old-result-error? (-> x :old-result-error boolean)))) runs))))
+    (with-out-str (pprint/pprint
+                    (map (fn [x]
+                           (-> x
+                               (select-keys [:improvement :same? :same-same?])
+                               (assoc :new-result-error? (-> x :new-result-error boolean))
+                               (assoc :old-result-error? (-> x :old-result-error boolean)))) runs))))
 
   (defn avg [coll]
     (/ (reduce + coll) (count coll)))
@@ -160,9 +160,6 @@
                                                    :maximumPoolSize 1))]
 
         (compare!
-         prod-conn
-         {:app-id nil
-          :query  nil})))))
-
-
-
+          prod-conn
+          {:app-id nil
+           :query  nil})))))

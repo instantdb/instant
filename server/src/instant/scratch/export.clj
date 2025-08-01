@@ -1,10 +1,11 @@
 (ns instant.scratch.export
-  (:require [honey.sql :as hsql]
-            [instant.jdbc.sql :as sql]
-            [instant.util.json :as json]
-            [next.jdbc :as next-jdbc]
-            [instant.model.instant-user :as instant-user-model]
-            [instant.jdbc.aurora :as aurora]))
+  (:require
+   [honey.sql :as hsql]
+   [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
+   [instant.model.instant-user :as instant-user-model]
+   [instant.util.json :as json]
+   [next.jdbc :as next-jdbc]))
 
 (defn export-app [conn app-id]
   {:app (sql/select-one conn (hsql/format {:select :*
@@ -81,5 +82,3 @@
   (binding [sql/*query-timeout-seconds* 300]
     (import! {:local-user-email "stopa@instantdb.com"
               :prod-app-id nil})))
-
-

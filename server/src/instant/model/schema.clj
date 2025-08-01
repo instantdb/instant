@@ -1,14 +1,16 @@
 (ns instant.model.schema
-  (:require [instant.db.model.attr :as attr-model]
-            [instant.util.coll :as coll]
-            [instant.jdbc.aurora :as aurora]
-            [instant.db.datalog :as d]
-            [instant.db.indexing-jobs :as indexing-jobs]
-            [instant.model.rule :as rule-model]
-            [instant.db.permissioned-transaction :as permissioned-tx]
-            [instant.util.exception :as ex]
-            [instant.system-catalog :as system-catalog])
-  (:import (java.util UUID)))
+  (:require
+   [instant.db.datalog :as d]
+   [instant.db.indexing-jobs :as indexing-jobs]
+   [instant.db.model.attr :as attr-model]
+   [instant.db.permissioned-transaction :as permissioned-tx]
+   [instant.jdbc.aurora :as aurora]
+   [instant.model.rule :as rule-model]
+   [instant.system-catalog :as system-catalog]
+   [instant.util.coll :as coll]
+   [instant.util.exception :as ex])
+  (:import
+   (java.util UUID)))
 
 (defn map-map [f m]
   (into {} (map (fn [[k v]] [k (f [k v])]) m)))
@@ -58,37 +60,37 @@
 
                             :else
                             (concat
-                             (when (and attr-changed? (not background-updates?))
-                               [[:update-attr
-                                 {:value-type :blob
-                                  :cardinality :one
-                                  :id (:id current-attr)
-                                  :forward-identity (:forward-identity current-attr)
-                                  :unique? (:unique? new-attr)
-                                  :index? (:index? new-attr)
-                                  :required? (:required? new-attr)}]])
-                             (when (and changed-index? background-updates?)
-                               [[(if (:index? new-attr) :index :remove-index)
-                                 {:attr-id (:id current-attr)
-                                  :forward-identity (:forward-identity current-attr)}]])
-                             (when (and changed-unique? background-updates?)
-                               [[(if (:unique? new-attr) :unique :remove-unique)
-                                 {:attr-id (:id current-attr)
-                                  :forward-identity (:forward-identity current-attr)}]])
-                             (when (and changed-required? background-updates?)
-                               [[(if (:required? new-attr) :required :remove-required)
-                                 {:attr-id (:id current-attr)
-                                  :forward-identity (:forward-identity current-attr)}]])
-                             (when (and changed-type?
-                                        (not (= :system (:catalog current-attr))))
-                               (if-let [new-data-type (:checked-data-type new-attr)]
-                                 [[:check-data-type
-                                   {:attr-id (:id current-attr)
-                                    :checked-data-type (name new-data-type)
-                                    :forward-identity (:forward-identity current-attr)}]]
-                                 [[:remove-data-type
-                                   {:attr-id (:id current-attr)
-                                    :forward-identity (:forward-identity current-attr)}]]))))]
+                              (when (and attr-changed? (not background-updates?))
+                                [[:update-attr
+                                  {:value-type :blob
+                                   :cardinality :one
+                                   :id (:id current-attr)
+                                   :forward-identity (:forward-identity current-attr)
+                                   :unique? (:unique? new-attr)
+                                   :index? (:index? new-attr)
+                                   :required? (:required? new-attr)}]])
+                              (when (and changed-index? background-updates?)
+                                [[(if (:index? new-attr) :index :remove-index)
+                                  {:attr-id (:id current-attr)
+                                   :forward-identity (:forward-identity current-attr)}]])
+                              (when (and changed-unique? background-updates?)
+                                [[(if (:unique? new-attr) :unique :remove-unique)
+                                  {:attr-id (:id current-attr)
+                                   :forward-identity (:forward-identity current-attr)}]])
+                              (when (and changed-required? background-updates?)
+                                [[(if (:required? new-attr) :required :remove-required)
+                                  {:attr-id (:id current-attr)
+                                   :forward-identity (:forward-identity current-attr)}]])
+                              (when (and changed-type?
+                                         (not (= :system (:catalog current-attr))))
+                                (if-let [new-data-type (:checked-data-type new-attr)]
+                                  [[:check-data-type
+                                    {:attr-id (:id current-attr)
+                                     :checked-data-type (name new-data-type)
+                                     :forward-identity (:forward-identity current-attr)}]]
+                                  [[:remove-data-type
+                                    {:attr-id (:id current-attr)
+                                     :forward-identity (:forward-identity current-attr)}]]))))]
                    op)
         ref-ops (for [[link-desc new-attr] new-refs
                       :let [[from-ns from-attr to-ns to-attr] link-desc
@@ -96,10 +98,10 @@
                             new-attr?          (not current-attr)
                             changed-required?  (not= (get new-attr :required?) (get current-attr :required?))
                             changed-updatable? (or
-                                                (not= (get new-attr :cardinality)       (get current-attr :cardinality))
-                                                (not= (get new-attr :unique?)           (get current-attr :unique?))
-                                                (not= (get new-attr :on-delete)         (get current-attr :on-delete))
-                                                (not= (get new-attr :on-delete-reverse) (get current-attr :on-delete-reverse)))]
+                                                 (not= (get new-attr :cardinality)       (get current-attr :cardinality))
+                                                 (not= (get new-attr :unique?)           (get current-attr :unique?))
+                                                 (not= (get new-attr :on-delete)         (get current-attr :on-delete))
+                                                 (not= (get new-attr :on-delete-reverse) (get current-attr :on-delete-reverse)))]
                       op (cond
                            new-attr?
                            [[:add-attr
@@ -120,22 +122,22 @@
 
                            :else
                            (concat
-                            (when (and changed-required? background-updates?)
-                              [[(if (:required? new-attr) :required :remove-required)
-                                {:attr-id          (:id current-attr)
-                                 :forward-identity (:forward-identity current-attr)}]])
-                            (when (or changed-updatable? (not background-updates?))
-                              [[:update-attr
-                                {:value-type        :ref
-                                 :id                (:id current-attr)
-                                 :forward-identity  (:forward-identity current-attr)
-                                 :reverse-identity  (:reverse-identity current-attr)
-                                 :cardinality       (:cardinality new-attr)
-                                 :unique?           (:unique? new-attr)
-                                 :index?            (:index? new-attr)
-                                 :required?         (:required? new-attr)
-                                 :on-delete         (:on-delete new-attr)
-                                 :on-delete-reverse (:on-delete-reverse new-attr)}]])))]
+                             (when (and changed-required? background-updates?)
+                               [[(if (:required? new-attr) :required :remove-required)
+                                 {:attr-id          (:id current-attr)
+                                  :forward-identity (:forward-identity current-attr)}]])
+                             (when (or changed-updatable? (not background-updates?))
+                               [[:update-attr
+                                 {:value-type        :ref
+                                  :id                (:id current-attr)
+                                  :forward-identity  (:forward-identity current-attr)
+                                  :reverse-identity  (:reverse-identity current-attr)
+                                  :cardinality       (:cardinality new-attr)
+                                  :unique?           (:unique? new-attr)
+                                  :index?            (:index? new-attr)
+                                  :required?         (:required? new-attr)
+                                  :on-delete         (:on-delete new-attr)
+                                  :on-delete-reverse (:on-delete-reverse new-attr)}]])))]
                   op)]
     (->> (concat eid-ops blob-ops ref-ops)
          (filter some?)
@@ -269,135 +271,135 @@
 
         errors
         (concat
-         (for [[op attr] steps
-               :when (= :add-attr op)
-               :let [fwd-name (attr-model/fwd-ident-name attr)
-                     rev-name (attr-model/rev-ident-name attr)
-                     current-rev-name (get current-links-mapping-rev fwd-name)
-                     message
-                     (cond
-                       ;; link-backwards-conflict?
-                       (and (not (and (nil? rev-name)
-                                      (nil? current-rev-name)))
-                            (= rev-name current-rev-name))
-                       (backwards-link-message fwd-name)
+          (for [[op attr] steps
+                :when (= :add-attr op)
+                :let [fwd-name (attr-model/fwd-ident-name attr)
+                      rev-name (attr-model/rev-ident-name attr)
+                      current-rev-name (get current-links-mapping-rev fwd-name)
+                      message
+                      (cond
+                        ;; link-backwards-conflict?
+                        (and (not (and (nil? rev-name)
+                                       (nil? current-rev-name)))
+                             (= rev-name current-rev-name))
+                        (backwards-link-message fwd-name)
 
-                       ;; link-fwd-exists?
-                       (or (contains? current-links-mapping-fwd fwd-name)
-                           (contains? current-links-mapping-rev fwd-name))
-                       (dup-message fwd-name)
+                        ;; link-fwd-exists?
+                        (or (contains? current-links-mapping-fwd fwd-name)
+                            (contains? current-links-mapping-rev fwd-name))
+                        (dup-message fwd-name)
 
-                       ;; link-rev-exists?
-                       (or (contains? current-links-mapping-fwd rev-name)
-                           (contains? current-links-mapping-rev rev-name))
-                       (dup-message rev-name)
+                        ;; link-rev-exists?
+                        (or (contains? current-links-mapping-fwd rev-name)
+                            (contains? current-links-mapping-rev rev-name))
+                        (dup-message rev-name)
 
-                       ;; blob-exists?
-                       (contains? current-blob-idents fwd-name)
-                       (dup-message fwd-name))]
-               :when message]
-           {:in [:schema]
-            :message message})
-         (for [[op attr] steps
-               :when (#{:add-attr :update-attr} op)
-               :let [fwd-name (attr-model/fwd-ident-name attr)
-                     rev-name (attr-model/rev-ident-name attr)
-                     message
-                     (cond
-                       ;; cascade on :cardinality :many
-                       (and
-                        (= :ref (:value-type attr))
-                        (= :many (:cardinality attr))
-                        (= :cascade (:on-delete attr)))
-                       (cascade-message fwd-name)
+                        ;; blob-exists?
+                        (contains? current-blob-idents fwd-name)
+                        (dup-message fwd-name))]
+                :when message]
+            {:in [:schema]
+             :message message})
+          (for [[op attr] steps
+                :when (#{:add-attr :update-attr} op)
+                :let [fwd-name (attr-model/fwd-ident-name attr)
+                      rev-name (attr-model/rev-ident-name attr)
+                      message
+                      (cond
+                        ;; cascade on :cardinality :many
+                        (and
+                          (= :ref (:value-type attr))
+                          (= :many (:cardinality attr))
+                          (= :cascade (:on-delete attr)))
+                        (cascade-message fwd-name)
 
-                       (and
-                        (= :ref (:value-type attr))
-                        (not (:unique? attr))
-                        (= :cascade (:on-delete-reverse attr)))
-                       (cascade-message rev-name))]
-               :when message]
-           {:in [:schema]
-            :message message}))]
+                        (and
+                          (= :ref (:value-type attr))
+                          (not (:unique? attr))
+                          (= :cascade (:on-delete-reverse attr)))
+                        (cascade-message rev-name))]
+                :when message]
+            {:in [:schema]
+             :message message}))]
     errors))
 
 (comment
-  (def current-attrs [{:value-type :blob,
-                       :id "",
+  (def current-attrs [{:value-type :blob
+                       :id ""
                        :forward-identity
-                       ["" "posts" "name"],
-                       :cardinality :one,
-                       :unique? false,
+                       ["" "posts" "name"]
+                       :cardinality :one
+                       :unique? false
                        :index? false}
-                      {:value-type :ref,
-                       :id "",
+                      {:value-type :ref
+                       :id ""
                        :forward-identity
-                       ["" "posts" "tags"],
+                       ["" "posts" "tags"]
                        :reverse-identity
-                       ["" "tags" "posts"],
-                       :cardinality :many,
-                       :unique? false,
+                       ["" "tags" "posts"]
+                       :cardinality :many
+                       :unique? false
                        :index? false}])
   (def steps [[:add-attr
-               {:value-type :ref,
-                :id "",
+               {:value-type :ref
+                :id ""
                 :forward-identity
-                ["" "tags" "posts"],
+                ["" "tags" "posts"]
                 :reverse-identity
-                ["" "posts" "tags"],
-                :cardinality :many,
-                :unique? false,
+                ["" "posts" "tags"]
+                :cardinality :many
+                :unique? false
                 :index? false}]
               ;; backwards link
               [:add-attr
-               {:value-type :ref,
-                :id "",
+               {:value-type :ref
+                :id ""
                 :forward-identity
-                ["" "posts" "tags"],
+                ["" "posts" "tags"]
                 :reverse-identity
-                ["" "tags" "posts"],
-                :cardinality :many,
-                :unique? false,
+                ["" "tags" "posts"]
+                :cardinality :many
+                :unique? false
                 :index? false}]
               ;; dup rev ident 1
               [:add-attr
-               {:value-type :ref,
-                :id "",
+               {:value-type :ref
+                :id ""
                 :forward-identity
-                ["" "posts" "tags2"],
+                ["" "posts" "tags2"]
                 :reverse-identity
-                ["" "tags" "posts"],
-                :cardinality :many,
-                :unique? false,
+                ["" "tags" "posts"]
+                :cardinality :many
+                :unique? false
                 :index? false}]
               ;; dup rev ident 2
               [:add-attr
-               {:value-type :ref,
-                :id "",
+               {:value-type :ref
+                :id ""
                 :forward-identity
-                ["" "tags" "posts2"],
+                ["" "tags" "posts2"]
                 :reverse-identity
-                ["" "posts" "tags"],
-                :cardinality :many,
-                :unique? false,
+                ["" "posts" "tags"]
+                :cardinality :many
+                :unique? false
                 :index? false}]
               ;; dup blob
               [:add-attr
-               {:value-type :blob,
-                :id "",
+               {:value-type :blob
+                :id ""
                 :forward-identity
-                ["" "posts" "name"],
-                :cardinality :one,
-                :unique? false,
+                ["" "posts" "name"]
+                :cardinality :one
+                :unique? false
                 :index? false}]
               ;; this one's ok
               [:add-attr
-               {:value-type :blob,
-                :id "",
+               {:value-type :blob
+                :id ""
                 :forward-identity
-                ["" "posts" "content"],
-                :cardinality :one,
-                :unique? false,
+                ["" "posts" "content"]
+                :cardinality :one
+                :unique? false
                 :index? false}]])
   (plan-errors current-attrs steps))
 
@@ -420,26 +422,26 @@
      :steps steps}))
 
 (comment
-  (attr-ident-names {:id "",
-                     :value-type :blob,
-                     :cardinality :one,
-                     :forward-identity ["" "tags" "x"],
-                     :unique? false,
-                     :index? false,
+  (attr-ident-names {:id ""
+                     :value-type :blob
+                     :cardinality :one
+                     :forward-identity ["" "tags" "x"]
+                     :unique? false
+                     :index? false
                      :inferred-types nil})
   (schemas->ops
-   true
-   {:refs {}
-    :blobs {:ns {:a {:unique? "one"}}}}
-   {:refs {["comments" "post" "posts" "x"] {:unique? true :cardinality "one"}
-           ["comments" "post" "posts" "comments"] {:unique? true :cardinality "one"}}
-    :blobs {:ns {:a {:cardinality "many"} :b {:cardinality  "many"}}}})
+    true
+    {:refs {}
+     :blobs {:ns {:a {:unique? "one"}}}}
+    {:refs {["comments" "post" "posts" "x"] {:unique? true :cardinality "one"}
+            ["comments" "post" "posts" "comments"] {:unique? true :cardinality "one"}}
+     :blobs {:ns {:a {:cardinality "many"} :b {:cardinality  "many"}}}})
   (schemas->ops
-   true
-   {:refs {}
-    :blobs {:ns {:a {:unique? "one"}}}}
-   {:refs {["comments" "post" "posts" "comments"] {:unique? true :cardinality "one"}}
-    :blobs {:ns {:a {:cardinality "many"} :b {:cardinality  "many"}}}}))
+    true
+    {:refs {}
+     :blobs {:ns {:a {:unique? "one"}}}}
+    {:refs {["comments" "post" "posts" "comments"] {:unique? true :cardinality "one"}}
+     :blobs {:ns {:a {:cardinality "many"} :b {:cardinality  "many"}}}}))
 
 (defn create-indexing-jobs [app-id steps]
   (let [group-id (random-uuid)
@@ -448,11 +450,11 @@
                   (if-not (contains? indexing-jobs/jobs (name action))
                     (update acc :steps conj step)
                     (let [job (indexing-jobs/create-job!
-                               {:app-id            app-id
-                                :group-id          group-id
-                                :attr-id           attr-id
-                                :job-type          (name action)
-                                :checked-data-type checked-data-type})]
+                                {:app-id            app-id
+                                 :group-id          group-id
+                                 :attr-id           attr-id
+                                 :job-type          (name action)
+                                 :checked-data-type checked-data-type})]
                       (indexing-jobs/enqueue-job job)
                       (indexing-jobs/job->client-format job)
                       (-> acc

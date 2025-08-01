@@ -1,15 +1,11 @@
 (ns instant.util.aws
-  (:require [clj-http.client :as clj-http]
-            [instant.util.coll :as ucoll])
+  (:require
+   [clj-http.client :as clj-http]
+   [instant.util.coll :as ucoll])
   (:import
    (java.time Instant)
    (software.amazon.awssdk.services.ec2 Ec2Client)
-   (software.amazon.awssdk.services.ec2.model DescribeInstancesRequest
-                                              DescribeInstancesResponse
-                                              Filter
-                                              Instance
-                                              Reservation
-                                              Tag)))
+   (software.amazon.awssdk.services.ec2.model DescribeInstancesRequest DescribeInstancesResponse Filter Instance Reservation Tag)))
 
 (set! *warn-on-reflection* true)
 
@@ -18,12 +14,12 @@
 (defn get-instance-id ^String []
   (let [token (-> (clj-http/put
 
-                   "http://169.254.169.254/latest/api/token"
-                   {:headers {"X-aws-ec2-metadata-token-ttl-seconds" "21600"}})
+                    "http://169.254.169.254/latest/api/token"
+                    {:headers {"X-aws-ec2-metadata-token-ttl-seconds" "21600"}})
                   :body)]
     (-> (clj-http.client/get
-         "http://169.254.169.254/latest/meta-data/instance-id"
-         {:headers {"X-aws-ec2-metadata-token" token}})
+          "http://169.254.169.254/latest/meta-data/instance-id"
+          {:headers {"X-aws-ec2-metadata-token" token}})
         :body)))
 
 (defn get-tag
@@ -40,7 +36,7 @@
     (some->> resp
              (.reservations)
              first
-             (#(.instances ^Reservation % ))
+             (#(.instances ^Reservation %))
              first
              (#(.tags ^Instance %))
              (filter (fn [^Tag t]
@@ -56,12 +52,12 @@
    https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instancedata-data-retrieval.html"
   []
   (let [token (-> (clj-http/put
-                   "http://169.254.169.254/latest/api/token"
-                   {:headers {"X-aws-ec2-metadata-token-ttl-seconds" "21600"}})
+                    "http://169.254.169.254/latest/api/token"
+                    {:headers {"X-aws-ec2-metadata-token-ttl-seconds" "21600"}})
                   :body)]
     (-> (clj-http.client/get
-         "http://169.254.169.254/latest/meta-data/local-ipv4"
-         {:headers {"X-aws-ec2-metadata-token" token}})
+          "http://169.254.169.254/latest/meta-data/local-ipv4"
+          {:headers {"X-aws-ec2-metadata-token" token}})
         :body)))
 
 (defn oldest-instance-timestamp

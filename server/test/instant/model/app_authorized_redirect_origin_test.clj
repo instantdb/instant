@@ -1,6 +1,7 @@
 (ns instant.model.app-authorized-redirect-origin-test
-  (:require [instant.model.app-authorized-redirect-origin :as sut]
-            [clojure.test :as test :refer [deftest are testing]]))
+  (:require
+   [clojure.test :as test :refer [are deftest testing]]
+   [instant.model.app-authorized-redirect-origin :as sut]))
 
 (deftest find-match
   (testing "find-match"

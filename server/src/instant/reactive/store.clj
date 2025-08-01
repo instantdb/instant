@@ -24,11 +24,11 @@
    [instant.util.exception :as ex]
    [instant.util.tracer :as tracer])
   (:import
+   (io.undertow.websockets.spi WebSocketHttpExchange)
    (java.lang InterruptedException)
    (java.time Instant)
    (java.util Map)
-   (java.util.concurrent ConcurrentHashMap CancellationException)
-   (io.undertow.websockets.spi WebSocketHttpExchange)))
+   (java.util.concurrent CancellationException ConcurrentHashMap)))
 
 (set! *warn-on-reflection* true)
 
@@ -161,7 +161,7 @@
 (defn num-sessions [store]
   (let [db @(:sessions store)]
     (count
-     (d/datoms db :aevt :session/id))))
+      (d/datoms db :aevt :session/id))))
 
 ;; --------
 ;; sessions
@@ -226,9 +226,9 @@
   [db session-id instaql-query]
   (if-some [query-eid (d/entid db [:instaql-query/session-id+query [session-id instaql-query]])]
     (concat
-     (for [datom (d/datoms db :avet :subscription/instaql-query query-eid)]
-       [:db/retractEntity (:e datom)])
-     [[:db/retractEntity query-eid]])
+      (for [datom (d/datoms db :avet :subscription/instaql-query query-eid)]
+        [:db/retractEntity (:e datom)])
+      [[:db/retractEntity query-eid]])
     []))
 
 ;; TODO: We could do this in the background by listening to transactions
@@ -292,9 +292,9 @@
 (defn session-instaql-queries [store app-id sess-id]
   (let [db @(app-conn store app-id)]
     (set
-     (for [datom (d/datoms db :avet :instaql-query/session-id sess-id)
-           :let  [ent (d/entity db (:e datom))]]
-       (:instaql-query/query ent)))))
+      (for [datom (d/datoms db :avet :instaql-query/session-id sess-id)
+            :let  [ent (d/entity db (:e datom))]]
+        (:instaql-query/query ent)))))
 
 (defn- remove-session-queries-tx-data
   "Should be used in a db.fn/call. Returns transactions.
@@ -325,7 +325,6 @@
                       [:db.fn/call remove-session-subscriptions-tx-data sess-id]
                       [:db.fn/call clean-stale-datalog-tx-data]])
           (Map/.remove (:conns store) app-id))))))
-
 
 ;; ------
 ;; datalog cache
@@ -384,28 +383,28 @@
                                ;; Don't let our statements get canceled
                                sql/*in-progress-stmts* stmt-tracker]
                        (ua/vfuture
-                        (try
-                          (deliver result-promise
-                                   {:ok true
-                                    :result (datalog-query-fn ctx
-                                                              datalog-query)})
-                          (catch Throwable t
-                            (deliver result-promise
-                                     {:ok false
-                                      :result t}))
-                          (finally
+                         (try
+                           (deliver result-promise
+                                    {:ok true
+                                     :result (datalog-query-fn ctx
+                                                               datalog-query)})
+                           (catch Throwable t
+                             (deliver result-promise
+                                      {:ok false
+                                       :result t}))
+                           (finally
                              ;; noop if we already delivered
-                            (deliver result-promise
-                                     {:ok false
-                                      :result
-                                      (Exception. "Did not deliver promise!")})
-                            (deliver (:cancel-signal @result-delay)
-                                     false)))))
+                             (deliver result-promise
+                                      {:ok false
+                                       :result
+                                       (Exception. "Did not deliver promise!")})
+                             (deliver (:cancel-signal @result-delay)
+                                      false)))))
             _cancel-fut (binding [ua/*child-vfutures* nil]
                           (ua/vfuture
-                           (when @(:cancel-signal @result-delay)
-                             (sql/cancel-in-progress stmt-tracker)
-                             (future-cancel work-fut))))]))
+                            (when @(:cancel-signal @result-delay)
+                              (sql/cancel-in-progress stmt-tracker)
+                              (future-cancel work-fut))))]))
     (try
       (if (realized? (:promise @result-delay))
         ;; The work is already done, so we don't need to listen for cancellation
@@ -432,7 +431,6 @@
       (finally
         (swap! result-delay update :watchers disj watcher-id)))))
 
-
 ;; --------------
 ;; datalog loader
 
@@ -450,7 +448,6 @@
                        [[:db.fn/call upsert-datalog-loader-tx-data sess-id make-loader-fn]])]
         (:session/datalog-loader (d/entity db-after [:session/id sess-id]))))))
 
-
 ;; ------
 ;; subscriptions
 
@@ -465,20 +462,20 @@
                          existing-datalog-query (d/entity db lookup-ref)
                          datalog-query-eid      (or (:db/id existing-datalog-query) -1)]
                      (concat
-                      (if existing-datalog-query
-                        (when-not (:datalog-query/topics existing-datalog-query)
-                          [{:db/id                datalog-query-eid
-                            :datalog-query/topics coarse-topics}])
-                        [{:db/id                datalog-query-eid
-                          :datalog-query/app-id app-id
-                          :datalog-query/query  datalog-query
-                          :datalog-query/topics coarse-topics}])
-                      (when-some [query-eid (d/entid db [:instaql-query/session-id+query [session-id instaql-query]])]
-                        [{:subscription/app-id        app-id
-                          :subscription/session-id    session-id
-                          :subscription/v             v
-                          :subscription/instaql-query query-eid
-                          :subscription/datalog-query datalog-query-eid}]))))]])))
+                       (if existing-datalog-query
+                         (when-not (:datalog-query/topics existing-datalog-query)
+                           [{:db/id                datalog-query-eid
+                             :datalog-query/topics coarse-topics}])
+                         [{:db/id                datalog-query-eid
+                           :datalog-query/app-id app-id
+                           :datalog-query/query  datalog-query
+                           :datalog-query/topics coarse-topics}])
+                       (when-some [query-eid (d/entid db [:instaql-query/session-id+query [session-id instaql-query]])]
+                         [{:subscription/app-id        app-id
+                           :subscription/session-id    session-id
+                           :subscription/v             v
+                           :subscription/instaql-query query-eid
+                           :subscription/datalog-query datalog-query-eid}]))))]])))
 
 (defn record-datalog-query-finish! [store
                                     ctx
@@ -489,16 +486,15 @@
         conn       (app-conn store app-id)
         lookup-ref [:datalog-query/app-id+query [app-id datalog-query]]]
     (transact!
-     "store/record-datalog-query-finish!"
-     conn
-     [[:db.fn/call
-       (fn [db]
-         (if-some [existing (d/entity db lookup-ref)]
-           [[:db/add (:db/id existing) :datalog-query/topics topics]]
-           [{:datalog-query/app-id app-id
-             :datalog-query/query datalog-query
-             :datalog-query/topics topics}]))]])))
-
+      "store/record-datalog-query-finish!"
+      conn
+      [[:db.fn/call
+        (fn [db]
+          (if-some [existing (d/entity db lookup-ref)]
+            [[:db/add (:db/id existing) :datalog-query/topics topics]]
+            [{:datalog-query/app-id app-id
+              :datalog-query/query datalog-query
+              :datalog-query/topics topics}]))]])))
 
 ;; ------
 ;; invalidation
@@ -632,19 +628,19 @@
   [[iv-idx iv-e iv-a iv-v]
    [dq-idx dq-e dq-a dq-v]]
   (and
-   (match-topic-part? iv-idx dq-idx)
-   (match-topic-part? iv-e   dq-e)
-   (match-topic-part? iv-a   dq-a)
-   (match-topic-part? iv-v   dq-v)))
+    (match-topic-part? iv-idx dq-idx)
+    (match-topic-part? iv-e   dq-e)
+    (match-topic-part? iv-a   dq-a)
+    (match-topic-part? iv-v   dq-v)))
 
 (defn matching-topic-intersection? [iv-topics dq-topics]
   (ucoll/seek
-   (fn [iv-topic]
-     (ucoll/seek
-      (fn [dq-topic]
-        (match-topic? iv-topic dq-topic))
-      dq-topics))
-   iv-topics))
+    (fn [iv-topic]
+      (ucoll/seek
+        (fn [dq-topic]
+          (match-topic? iv-topic dq-topic))
+        dq-topics))
+    iv-topics))
 
 (defn- mark-instaql-queries-stale-tx-data
   "Should be used in a db.fn/call. Returns transactions.
@@ -676,13 +672,13 @@
    3. Updates store's latest processed tx-id for the app-id"
   [conn app-id tx-id datalog-query-eids]
   (transact!
-   "store/mark-datalog-queries-stale!"
-   conn
-   (concat
-    [[:db.fn/call set-tx-id app-id tx-id]
-     [:db.fn/call mark-instaql-queries-stale-tx-data datalog-query-eids]]
-    (for [e datalog-query-eids]
-      [:db.fn/retractEntity e]))))
+    "store/mark-datalog-queries-stale!"
+    conn
+    (concat
+      [[:db.fn/call set-tx-id app-id tx-id]
+       [:db.fn/call mark-instaql-queries-stale-tx-data datalog-query-eids]]
+      (for [e datalog-query-eids]
+        [:db.fn/retractEntity e]))))
 
 (defn- get-datalog-queries-for-topics [db app-id iv-topics]
   (for [datom (d/datoms db :avet :datalog-query/app-id app-id)
@@ -731,18 +727,18 @@
     (catch Exception e
       (tracer/with-span! {:name "rs/try-send-event-swallowed-err"}
         (tracer/record-exception-span!
-         e
-         {:name "rs/try-send-event-err"
-          :attributes {:event (str event)
-                       :escaping? false}})))))
+          e
+          {:name "rs/try-send-event-err"
+           :attributes {:event (str event)
+                        :escaping? false}})))))
 
 ;; -----
 ;; start
 
 (defn init []
   (->ReactiveStore
-   (d/create-conn sessions-schema)
-   (ConcurrentHashMap.)))
+    (d/create-conn sessions-schema)
+    (ConcurrentHashMap.)))
 
 (defn start []
   (tracer/record-info! {:name "store/start"})
@@ -789,91 +785,91 @@
               (assoc-session! test-store sid :session/socket {})))
       (println "register instaql-queries")
       (time
-       (doseq [sid session-ids
-               q instaql-queries]
-         (bump-instaql-version! test-store app-id sid q :join-rows)))
+        (doseq [sid session-ids
+                q instaql-queries]
+          (bump-instaql-version! test-store app-id sid q :join-rows)))
 
       (println "record-datalog-query-start")
       (time
-       (doseq [sid session-ids
-               q instaql-queries]
-         (record-datalog-query-start! test-store
-                                      {:session-id sid
-                                       :instaql-query q
-                                       :app-id app-id
-                                       :v 1}
-                                      [[:ea (-> q :users :$ :where :id)]]
-                                      dummy-coarse-topics)))
-
-      (println "record-datalog-query-finish")
-      (time
-       (doseq [sid session-ids
-               q instaql-queries]
-         (record-datalog-query-finish! test-store
+        (doseq [sid session-ids
+                q instaql-queries]
+          (record-datalog-query-start! test-store
                                        {:session-id sid
                                         :instaql-query q
                                         :app-id app-id
                                         :v 1}
                                        [[:ea (-> q :users :$ :where :id)]]
-                                       {:topics dummy-coarse-topics})))
-
-      (println "add-instaql-query")
-      (time
-       (doseq [sid session-ids
-               q instaql-queries]
-         (add-instaql-query! test-store
-                             {:session-id sid
-                              :instaql-query q
-                              :v 1}
-                             (get hashes q))))
-
-      (println "mark-stale")
-      (time
-       (mark-stale-topics! test-store app-id 1 dummy-coarse-topics))
-
-      (println "get-stale")
-      (time
-       (doseq [sid session-ids]
-         (get-stale-instaql-queries @test-store app-id sid)))
-
-      (println "register instaql-queries")
-      (time
-       (doseq [sid session-ids
-               q instaql-queries]
-         (bump-instaql-version! test-store app-id sid q :join-rows)))
-
-      (println "record-datalog-query-start")
-      (time
-       (doseq [sid session-ids
-               q instaql-queries]
-         (record-datalog-query-start! test-store
-                                      {:session-id sid
-                                       :instaql-query q
-                                       :app-id app-id
-                                       :v 2}
-                                      [[:ea (-> q :users :$ :where :id)]]
-                                      dummy-coarse-topics)))
+                                       dummy-coarse-topics)))
 
       (println "record-datalog-query-finish")
       (time
-       (doseq [sid session-ids
-               q instaql-queries]
-         (record-datalog-query-finish! test-store
+        (doseq [sid session-ids
+                q instaql-queries]
+          (record-datalog-query-finish! test-store
+                                        {:session-id sid
+                                         :instaql-query q
+                                         :app-id app-id
+                                         :v 1}
+                                        [[:ea (-> q :users :$ :where :id)]]
+                                        {:topics dummy-coarse-topics})))
+
+      (println "add-instaql-query")
+      (time
+        (doseq [sid session-ids
+                q instaql-queries]
+          (add-instaql-query! test-store
+                              {:session-id sid
+                               :instaql-query q
+                               :v 1}
+                              (get hashes q))))
+
+      (println "mark-stale")
+      (time
+        (mark-stale-topics! test-store app-id 1 dummy-coarse-topics))
+
+      (println "get-stale")
+      (time
+        (doseq [sid session-ids]
+          (get-stale-instaql-queries @test-store app-id sid)))
+
+      (println "register instaql-queries")
+      (time
+        (doseq [sid session-ids
+                q instaql-queries]
+          (bump-instaql-version! test-store app-id sid q :join-rows)))
+
+      (println "record-datalog-query-start")
+      (time
+        (doseq [sid session-ids
+                q instaql-queries]
+          (record-datalog-query-start! test-store
                                        {:session-id sid
                                         :instaql-query q
                                         :app-id app-id
                                         :v 2}
                                        [[:ea (-> q :users :$ :where :id)]]
-                                       {:topics dummy-coarse-topics})))
+                                       dummy-coarse-topics)))
+
+      (println "record-datalog-query-finish")
+      (time
+        (doseq [sid session-ids
+                q instaql-queries]
+          (record-datalog-query-finish! test-store
+                                        {:session-id sid
+                                         :instaql-query q
+                                         :app-id app-id
+                                         :v 2}
+                                        [[:ea (-> q :users :$ :where :id)]]
+                                        {:topics dummy-coarse-topics})))
 
       (println "add-instaql-query")
       (time
-       (doseq [sid session-ids
-               q instaql-queries]
-         (add-instaql-query! test-store
-                             {:session-id sid
-                              :instaql-query q
-                              :v 2}
-                             (get hashes q))))
+        (doseq [sid session-ids
+                q instaql-queries]
+          (add-instaql-query! test-store
+                              {:session-id sid
+                               :instaql-query q
+                               :v 2}
+                              (get hashes q))))
 
       nil)))

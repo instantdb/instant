@@ -31,8 +31,8 @@
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.util.async :as ua]
-   [instant.util.lang :as lang]
    [instant.util.json :refer [<-json]]
+   [instant.util.lang :as lang]
    [instant.util.tracer :as tracer]
    [lambdaisland.uri :as uri]
    [next.jdbc.connection :refer [jdbc-url]])
@@ -132,13 +132,13 @@
 
 (defn get-replication-latency-bytes [conn slot-name]
   (->
-   (sql/select-one
-    conn
-    ["select pg_wal_lsn_diff(pg_current_wal_lsn(), confirmed_flush_lsn) as latency
+    (sql/select-one
+      conn
+      ["select pg_wal_lsn_diff(pg_current_wal_lsn(), confirmed_flush_lsn) as latency
         from pg_replication_slots
        where slot_name = ?"
-     slot-name])
-   :latency))
+       slot-name])
+    :latency))
 
 (defn drop-logical-replication-slot [conn slot-name]
   (sql/execute! conn
@@ -179,7 +179,7 @@
    This returns the latest LSN processed by PG."
   [conn]
   (:pg_current_wal_lsn
-   (sql/select-one conn ["SELECT * FROM pg_current_wal_lsn();"])))
+    (sql/select-one conn ["SELECT * FROM pg_current_wal_lsn();"])))
 
 (comment
   (get-current-wal-lsn (aurora/conn-pool :read)))
@@ -339,12 +339,12 @@
 
 (defn alert-discord [slot-name]
   (discord/send-error-async!
-   (str (:instateam discord/mention-constants)
-        " The wal handler threw an exception. Check if it restart automatically."
-        " If it didn't, redeploy the server.\n\nIf you're quick enough you can "
-        "peek at the transaction that caused the error:\n\n"
-        (format "```\nselect data from pg_logical_slot_peek_changes('%s', null, null, 'format-version', '2', 'include-lsn', 'true');```"
-                slot-name))))
+    (str (:instateam discord/mention-constants)
+         " The wal handler threw an exception. Check if it restart automatically."
+         " If it didn't, redeploy the server.\n\nIf you're quick enough you can "
+         "peek at the transaction that caused the error:\n\n"
+         (format "```\nselect data from pg_logical_slot_peek_changes('%s', null, null, 'format-version', '2', 'include-lsn', 'true');```"
+                 slot-name))))
 
 (defn get-reconnect-conn*
   "Tries to create a new connection and restart the replication stream"
@@ -455,41 +455,41 @@
 (defn start []
   (def cleanup-slots-schedule
     (chime-core/chime-at
-     (chime-core/periodic-seq (Instant/now) (Duration/ofHours 1))
-     (fn [_time]
-       ;; First, get any slots that are inactive, then drop them if they're
-       ;; still inactive in 5 minutes. This will prevent dropping slots that
-       ;; are still being set up.
-       (try
-         (let [conn-pool      (aurora/conn-pool :read)
-               inactive-slots (get-inactive-replication-slots conn-pool)]
-           (when (seq inactive-slots)
-             (def cleanup-slots-impl-schedule
-               (chime-core/chime-at
-                [(.plusSeconds (Instant/now) 300)]
-                (fn [_time]
-                  (cleanup-slots-impl inactive-slots))))))
-         (catch Exception e
-           (tracer/record-exception-span! e {:name "wal/cleanup-error"
-                                             :escaping? false}))))))
+      (chime-core/periodic-seq (Instant/now) (Duration/ofHours 1))
+      (fn [_time]
+        ;; First, get any slots that are inactive, then drop them if they're
+        ;; still inactive in 5 minutes. This will prevent dropping slots that
+        ;; are still being set up.
+        (try
+          (let [conn-pool      (aurora/conn-pool :read)
+                inactive-slots (get-inactive-replication-slots conn-pool)]
+            (when (seq inactive-slots)
+              (def cleanup-slots-impl-schedule
+                (chime-core/chime-at
+                  [(.plusSeconds (Instant/now) 300)]
+                  (fn [_time]
+                    (cleanup-slots-impl inactive-slots))))))
+          (catch Exception e
+            (tracer/record-exception-span! e {:name "wal/cleanup-error"
+                                              :escaping? false}))))))
 
   (let [replication-latency-bytes (atom 0)]
     (def latency-schedule
       (chime-core/chime-at
-       (rest (chime-core/periodic-seq (Instant/now) (Duration/ofMinutes 1)))
-       (fn [_time]
-         (try
-           (let [latency (get-replication-latency-bytes (aurora/conn-pool :read) @config/process-id)]
-             (reset! replication-latency-bytes latency))
-           (catch Exception e
-             (tracer/record-exception-span! e {:name "wal/check-latency-error"
-                                               :escaping? false}))))))
+        (rest (chime-core/periodic-seq (Instant/now) (Duration/ofMinutes 1)))
+        (fn [_time]
+          (try
+            (let [latency (get-replication-latency-bytes (aurora/conn-pool :read) @config/process-id)]
+              (reset! replication-latency-bytes latency))
+            (catch Exception e
+              (tracer/record-exception-span! e {:name "wal/check-latency-error"
+                                                :escaping? false}))))))
 
     (def cleanup-gauge
       (gauges/add-gauge-metrics-fn
-       (fn [_]
-         [{:path "instant.jdb.wal.replication-latency-bytes"
-           :value @replication-latency-bytes}])))))
+        (fn [_]
+          [{:path "instant.jdb.wal.replication-latency-bytes"
+            :value @replication-latency-bytes}])))))
 
 (defn stop []
   (lang/close cleanup-slots-schedule)

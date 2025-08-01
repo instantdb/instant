@@ -1,8 +1,9 @@
 (ns instant.model.app-admin-token
-  (:require [instant.jdbc.aurora :as aurora]
-            [instant.jdbc.sql :as sql]
-            [next.jdbc :as next-jdbc]
-            [instant.util.exception :as ex]))
+  (:require
+   [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
+   [instant.util.exception :as ex]
+   [next.jdbc :as next-jdbc]))
 
 (defn fetch
   ([params] (fetch (aurora/conn-pool :read) params))
@@ -42,4 +43,3 @@
   (delete-by-app-id! {:app-id colors-app-id})
   (recreate! {:token token :app-id colors-app-id})
   (fetch {:token token :app-id colors-app-id}))
-

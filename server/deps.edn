@@ -74,10 +74,9 @@
         noencore/noencore {:mvn/version "0.3.8"}
 
         datascript/datascript {:git/url "https://github.com/tonsky/datascript.git"
-                               :sha "d270292ddaee0a9052e73502247798baae31a77f"
+                               :sha "d270292ddaee0a9052e73502247798baae31a77f"}
                                ;; Need https://github.com/tonsky/datascript/issues/470
                                ;; :mvn/version "1.6.5"
-                               }
         hiccup/hiccup {:mvn/version "2.0.0-RC3"}
 
         djblue/portal {:mvn/version "0.58.5"}

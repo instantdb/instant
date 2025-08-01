@@ -1,8 +1,9 @@
 (ns instant.honeycomb-api
-  (:require [instant.config :as config]
-            [instant.discord :as discord]
-            [ring.util.http-response :as response]
-            [clojure.string :as string]))
+  (:require
+   [clojure.string :as string]
+   [instant.config :as config]
+   [instant.discord :as discord]
+   [ring.util.http-response :as response]))
 
 (def honeycomb-status-triggered "TRIGGERED")
 
@@ -36,18 +37,18 @@
             :result_groups_triggered
             [{:Group
               {:exception.message
-               "[instant-exception] Record not found: app-user-magic-code",
-               :name "instant-ex/bad-request"},
+               "[instant-exception] Record not found: app-user-magic-code"
+               :name "instant-ex/bad-request"}
               :Result 2}
              {:Group
               {:exception.message
-               "[instant-exception] Socket error for session: d5521f04-0969-4b74-9d8c-b5987bed2a0b",
-               :name "rs/try-send-event-err"},
+               "[instant-exception] Socket error for session: d5521f04-0969-4b74-9d8c-b5987bed2a0b"
+               :name "rs/try-send-event-err"}
               :Result 720}
              {:Group
               {:exception.message
-               "[instant-exception] Socket error for session: d5521f04-0969-4b74-9d8c-b5987bed2a0b",
-               :name "exception"},
+               "[instant-exception] Socket error for session: d5521f04-0969-4b74-9d8c-b5987bed2a0b"
+               :name "exception"}
               :Result 720}]}})
   (tool/copy (req->discord-message ex-trigger))
   (webhook ex-trigger))

@@ -29,12 +29,12 @@
     (discord/send! config/discord-signups-channel-id
                    (str (:instateam discord/mention-constants) " " message))
     (postmark/send!
-     {:from "Instant Assistant <hello@pm.instantdb.com>"
-      :to "founders@instantdb.com"
-      :subject message
-      :html
-      (str
-       "<div>
+      {:from "Instant Assistant <hello@pm.instantdb.com>"
+       :to "founders@instantdb.com"
+       :subject message
+       :html
+       (str
+         "<div>
              <p>Hey hey! We just got a new paying customer!</p>
              <p>Email: " email "</p>
              <p>Woohoo! Send them a ping as a token of appreciation!</p>
@@ -50,12 +50,12 @@
     (discord/send! config/discord-signups-channel-id
                    (str (:instateam discord/mention-constants) " " message))
     (postmark/send!
-     {:from "Instant Assistant <hello@pm.instantdb.com>"
-      :to "founders@instantdb.com"
-      :subject message
-      :html
-      (str
-       "<div>
+      {:from "Instant Assistant <hello@pm.instantdb.com>"
+       :to "founders@instantdb.com"
+       :subject message
+       :html
+       (str
+         "<div>
              <p>Looks like one of our customers churned!</p>
              <p>Email: " email "</p>
              <p>Maybe we should send them a ping to learn why they churned?</p>
@@ -109,9 +109,9 @@
   (let [sig (get headers "stripe-signature")
         body-str (body-string req)
         ^Event event (Webhook/constructEvent
-                      body-str
-                      sig
-                      (config/stripe-webhook-secret))]
+                       body-str
+                       sig
+                       (config/stripe-webhook-secret))]
     (when-not event
       (ex/throw-validation-err! :stripe-webhook-body
                                 {:sig sig
@@ -179,5 +179,5 @@
   (if-let [stripe-secret (config/stripe-secret)]
     (set! (. Stripe -apiKey) stripe-secret)
     (tracer/record-info!
-     {:name "missing-stripe-secret"
-      :attributes {:msg "There is no stripe-secret in config, Stripe will be disabled."}})))
+      {:name "missing-stripe-secret"
+       :attributes {:msg "There is no stripe-secret in config, Stripe will be disabled."}})))

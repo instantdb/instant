@@ -1,12 +1,12 @@
 (ns instant.util.uuid
   (:refer-clojure :exclude [parse-uuid])
-  (:import
-   (java.util UUID)
-   (java.security MessageDigest)
-   (java.nio ByteBuffer))
   (:require
-   [clojure.string :as string]
-   [clojure+.walk :as walk]))
+   [clojure+.walk :as walk]
+   [clojure.string :as string])
+  (:import
+   (java.nio ByteBuffer)
+   (java.security MessageDigest)
+   (java.util UUID)))
 
 (defn parse-uuid [s]
   (when (and (string? s) (= 36 (.length ^String s)))

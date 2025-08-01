@@ -1,17 +1,17 @@
 (ns instant.data.bootstrap
   (:refer-clojure :exclude [namespace])
   (:require
-   [honey.sql :as hsql]
-   [instant.db.transaction :as tx]
-   [instant.jdbc.aurora :as aurora]
-   [instant.jdbc.sql :as sql]
    [clojure.java.io :as io]
    [clojure.string :as string]
-   [instant.util.json :refer [<-json ->json]]
-   [instant.model.app-user :as app-user-model]
+   [honey.sql :as hsql]
    [instant.db.model.attr :as attr-model]
    [instant.db.model.entity :as entity-model]
    [instant.db.model.triple :as triple-model]
+   [instant.db.transaction :as tx]
+   [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
+   [instant.model.app-user :as app-user-model]
+   [instant.util.json :refer [->json <-json]]
    [instant.util.spec :as uspec])
   (:import
    (java.util UUID)))
@@ -51,54 +51,54 @@
                      v])))
         attrs-to-insert
         (->>
-         attr->uuid
-         (map (fn [[a uuid]]
-                (let [ref? (string/starts-with? a "ref$")
-                      [nsp idn] (if ref?
-                                  (drop 1 (string/split a #"\$"))
-                                  (string/split a #"/"))]
+          attr->uuid
+          (map (fn [[a uuid]]
+                 (let [ref? (string/starts-with? a "ref$")
+                       [nsp idn] (if ref?
+                                   (drop 1 (string/split a #"\$"))
+                                   (string/split a #"/"))]
 
-                  [:add-attr
-                   (cond
-                     ref?
-                     {:id uuid
-                      :forward-identity [(java.util.UUID/randomUUID) nsp idn]
-                      :reverse-identity [(java.util.UUID/randomUUID) idn nsp]
-                      :cardinality :many
-                      :value-type :ref
-                      :unique? false
-                      :index? false}
-                     (= "id" idn)
-                     {:id uuid
-                      :forward-identity [(java.util.UUID/randomUUID) nsp "id"]
-                      :cardinality :one
-                      :value-type :blob
-                      :unique? true
-                      :index? false}
-                     :else
-                     (merge
+                   [:add-attr
+                    (cond
+                      ref?
                       {:id uuid
                        :forward-identity [(java.util.UUID/randomUUID) nsp idn]
+                       :reverse-identity [(java.util.UUID/randomUUID) idn nsp]
+                       :cardinality :many
+                       :value-type :ref
+                       :unique? false
+                       :index? false}
+                      (= "id" idn)
+                      {:id uuid
+                       :forward-identity [(java.util.UUID/randomUUID) nsp "id"]
                        :cardinality :one
                        :value-type :blob
-                       :unique? (if-not indexed-data?
-                                  false
-                                  (boolean (#{"email" "handle" "isbn13"} idn)))
-                       :index? (if-not indexed-data?
-                                 false
-                                 (boolean (#{"email" "handle" "title" "order"} idn)))}
-                      (when-let [data-type (when checked-data?
-                                             (case idn
-                                               ("email"
-                                                "handle"
-                                                "isbn13"
-                                                "title"
-                                                "fullName"
-                                                "description") "string"
-                                               ("order") "number"
-                                               ("createdAt") "date"
-                                               nil))]
-                        {:checked-data-type data-type})))]))))
+                       :unique? true
+                       :index? false}
+                      :else
+                      (merge
+                        {:id uuid
+                         :forward-identity [(java.util.UUID/randomUUID) nsp idn]
+                         :cardinality :one
+                         :value-type :blob
+                         :unique? (if-not indexed-data?
+                                    false
+                                    (boolean (#{"email" "handle" "isbn13"} idn)))
+                         :index? (if-not indexed-data?
+                                   false
+                                   (boolean (#{"email" "handle" "title" "order"} idn)))}
+                        (when-let [data-type (when checked-data?
+                                               (case idn
+                                                 ("email"
+                                                   "handle"
+                                                   "isbn13"
+                                                   "title"
+                                                   "fullName"
+                                                   "description") "string"
+                                                 ("order") "number"
+                                                 ("createdAt") "date"
+                                                 nil))]
+                          {:checked-data-type data-type})))]))))
 
         triples-to-insert
         (map (fn [[e a v]]
@@ -106,8 +106,8 @@
              triples-with-attr-ids)
         txes (concat attrs-to-insert triples-to-insert)]
     (uspec/conform-throwing
-     ::tx/tx-steps
-     txes)
+      ::tx/tx-steps
+      txes)
 
     txes))
 
@@ -128,18 +128,18 @@
    (let [txes (extract-zeneca-txes {:checked-data? checked-data?
                                     :indexed-data? indexed-data?})
          _ (tx/transact!
-            conn
-            (attr-model/get-by-app-id app-id)
-            app-id
-            txes)
+             conn
+             (attr-model/get-by-app-id app-id)
+             app-id
+             txes)
          triples (triple-model/fetch
-                  conn
-                  app-id)
+                   conn
+                   app-id)
          attrs (attr-model/get-by-app-id conn app-id)
          users (for [[_ group] (group-by first (map :triple triples))
                      :when (= (attr-model/fwd-etype
-                               (attr-model/seek-by-id (second (first group))
-                                                      attrs))
+                                (attr-model/seek-by-id (second (first group))
+                                                       attrs))
                               "users")
                      :let [{:strs [email id]}
                            (entity-model/triples->map {:attrs attrs} group)]]
@@ -155,7 +155,7 @@
      ;; the tests rely on it.
      (doseq [{[e a v] :triple} created-at-triples
              :let [etype (attr-model/fwd-etype
-                          (attr-model/seek-by-id a attrs))
+                           (attr-model/seek-by-id a attrs))
                    id-attr (attr-model/seek-by-fwd-ident-name [etype "id"] attrs)]]
        (sql/execute! conn (hsql/format {:update :triples
                                         :set {:created-at (.toEpochMilli (triple-model/parse-date-value v))}
@@ -290,32 +290,32 @@
 
         attrs-to-insert
         (->>
-         attr->uuid
-         (map (fn [[a uuid]]
-                (let [ref? (#{"movie/director" "movie/cast" "movie/sequel"} a)
-                      trivia? (= "trivia" a)
-                      [etype label] (if trivia?
-                                      ["movie" "trivia"]
-                                      (string/split a #"/"))]
+          attr->uuid
+          (map (fn [[a uuid]]
+                 (let [ref? (#{"movie/director" "movie/cast" "movie/sequel"} a)
+                       trivia? (= "trivia" a)
+                       [etype label] (if trivia?
+                                       ["movie" "trivia"]
+                                       (string/split a #"/"))]
 
-                  [:add-attr
-                   (cond
-                     ref?
-                     {:id uuid
-                      :forward-identity [(UUID/randomUUID) etype label]
-                      :reverse-identity [(UUID/randomUUID) label etype]
-                      :cardinality :many
-                      :value-type :ref
-                      :unique? false
-                      :index? false}
+                   [:add-attr
+                    (cond
+                      ref?
+                      {:id uuid
+                       :forward-identity [(UUID/randomUUID) etype label]
+                       :reverse-identity [(UUID/randomUUID) label etype]
+                       :cardinality :many
+                       :value-type :ref
+                       :unique? false
+                       :index? false}
 
-                     :else
-                     {:id uuid
-                      :forward-identity [(UUID/randomUUID) etype label]
-                      :cardinality :one
-                      :value-type :blob
-                      :unique? false
-                      :index? false})]))))
+                      :else
+                      {:id uuid
+                       :forward-identity [(UUID/randomUUID) etype label]
+                       :cardinality :one
+                       :value-type :blob
+                       :unique? false
+                       :index? false})]))))
 
         triples-to-insert
         (map (fn [[e a v]]
@@ -331,6 +331,5 @@
                   tx-steps)
 
     (count (triple-model/fetch
-            (aurora/conn-pool :read)
-            app-id))))
-
+             (aurora/conn-pool :read)
+             app-id))))

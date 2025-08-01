@@ -1,7 +1,8 @@
 (ns instant.util.cache
-  (:require [clojure.data.priority-map :as priority-map]
-            [clojure.core.cache :as cache :refer [defcache CacheProtocol]]
-            [instant.util.coll :refer [disj-in]]))
+  (:require
+   [clojure.core.cache :as cache :refer [CacheProtocol defcache]]
+   [clojure.data.priority-map :as priority-map]
+   [instant.util.coll :refer [disj-in]]))
 
 (defn- build-leastness-queue
   [base start-at]

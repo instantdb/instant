@@ -129,9 +129,9 @@
       (testing "non-existent app"
         (is (= 400
                (:status (blocking-send-msg
-                         :error
-                         socket
-                         {:op :init :app-id non-existent-app-id})))))
+                          :error
+                          socket
+                          {:op :init :app-id non-existent-app-id})))))
       (testing "existing app"
         (let [{op :op event-auth :auth} (blocking-send-msg :init-ok socket {:op :init :app-id zeneca-app-id})
               store-auth (-> (rs/session store id) :session/auth)]
@@ -156,41 +156,41 @@
                          ("eid-robocop" :movie/title "RoboCop")
                          ("eid-predator" :movie/year 1987)
                          ("eid-predator" :movie/title "Predator")
-                         ("eid-lethal-weapon" :movie/year 1987)}}}},
+                         ("eid-lethal-weapon" :movie/year 1987)}}}}
                    :child-nodes ()})
    :store-resp '[{:data {:k "movie"
-                         :datalog-query [[:ea ?movie-0 :movie/year 1987]],
+                         :datalog-query [[:ea ?movie-0 :movie/year 1987]]
                          :datalog-result
-                         {:topics [[:ea _ #{:movie/year} #{1987}]],
-                          :symbol-values {?movie-0 #{"eid-lethal-weapon" "eid-robocop" "eid-predator"}},
+                         {:topics [[:ea _ #{:movie/year} #{1987}]]
+                          :symbol-values {?movie-0 #{"eid-lethal-weapon" "eid-robocop" "eid-predator"}}
                           :join-rows
                           #{[["eid-lethal-weapon" :movie/year 1987]]
                             [["eid-predator" :movie/year 1987]]
-                            [["eid-robocop" :movie/year 1987]]}}},
+                            [["eid-robocop" :movie/year 1987]]}}}
                   :child-nodes
-                  [{:data {:datalog-query [[:ea "eid-robocop"]],
+                  [{:data {:datalog-query [[:ea "eid-robocop"]]
                            :datalog-result
-                           {:topics [[:ea #{"eid-robocop"} _ _]],
+                           {:topics [[:ea #{"eid-robocop"} _ _]]
                             :symbol-values {}
                             :join-rows
                             #{[["eid-robocop" :movie/title "RoboCop"]]
-                              [["eid-robocop" :movie/year 1987]]}}},
+                              [["eid-robocop" :movie/year 1987]]}}}
                     :child-nodes []}
-                   {:data {:datalog-query [[:ea "eid-predator"]],
+                   {:data {:datalog-query [[:ea "eid-predator"]]
                            :datalog-result
-                           {:topics [[:ea #{"eid-predator"} _ _]],
-                            :symbol-values {},
+                           {:topics [[:ea #{"eid-predator"} _ _]]
+                            :symbol-values {}
                             :join-rows
                             #{[["eid-predator" :movie/year 1987]]
-                              [["eid-predator" :movie/title "Predator"]]}}},
+                              [["eid-predator" :movie/title "Predator"]]}}}
                     :child-nodes []}
-                   {:data {:datalog-query [[:ea "eid-lethal-weapon"]],
+                   {:data {:datalog-query [[:ea "eid-lethal-weapon"]]
                            :datalog-result
-                           {:topics [[:ea #{"eid-lethal-weapon"} _ _]],
-                            :symbol-values {},
+                           {:topics [[:ea #{"eid-lethal-weapon"} _ _]]
+                            :symbol-values {}
                             :join-rows
                             #{[["eid-lethal-weapon" :movie/year 1987]]
-                              [["eid-lethal-weapon" :movie/title "Lethal Weapon"]]}}},
+                              [["eid-lethal-weapon" :movie/title "Lethal Weapon"]]}}}
                     :child-nodes []}]}]})
 
 (def ^:private query-robocop
@@ -200,22 +200,22 @@
                     {:join-rows
                      #{#{("eid-robocop" :movie/id "eid-robocop")
                          ("eid-robocop" :movie/year 1987)
-                         ("eid-robocop" :movie/title "RoboCop")}}}},
+                         ("eid-robocop" :movie/title "RoboCop")}}}}
                    :child-nodes ()})
-   :store-resp '[{:data {:k "movie",
-                         :datalog-query [[:ea ?movie-0 :movie/title "RoboCop"]],
+   :store-resp '[{:data {:k "movie"
+                         :datalog-query [[:ea ?movie-0 :movie/title "RoboCop"]]
                          :datalog-result
-                         {:topics [[:ea _ #{:movie/title} #{"RoboCop"}]],
-                          :symbol-values {?movie-0 #{"eid-robocop"}},
-                          :join-rows #{[["eid-robocop" :movie/title "RoboCop"]]}}},
+                         {:topics [[:ea _ #{:movie/title} #{"RoboCop"}]]
+                          :symbol-values {?movie-0 #{"eid-robocop"}}
+                          :join-rows #{[["eid-robocop" :movie/title "RoboCop"]]}}}
                   :child-nodes
-                  [{:data {:datalog-query [[:ea "eid-robocop"]],
+                  [{:data {:datalog-query [[:ea "eid-robocop"]]
                            :datalog-result
-                           {:topics [[:ea #{"eid-robocop"} _ _]],
-                            :symbol-values {},
+                           {:topics [[:ea #{"eid-robocop"} _ _]]
+                            :symbol-values {}
                             :join-rows
                             #{[["eid-robocop" :movie/title "RoboCop"]]
-                              [["eid-robocop" :movie/year 1987]]}}},
+                              [["eid-robocop" :movie/year 1987]]}}}
                     :child-nodes []}]}]})
 
 (defn- pretty-subs [subscriptions]
@@ -251,8 +251,8 @@
     (fn [_store {:keys [socket]}]
       (is (= 400
              (:status (blocking-send-msg
-                       :error
-                       socket {:op :add-query :q (:kw-q query-1987)})))))))
+                        :error
+                        socket {:op :add-query :q (:kw-q query-1987)})))))))
 
 (deftest add-malformed-query-rejected
   (with-session
@@ -310,7 +310,7 @@
 (deftest add-query-sets-store
   (with-session
     (fn [store {:keys [socket movies-app-id movies-resolver]
-                     {:keys [id]} :socket}]
+                {:keys [id]} :socket}]
       (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
       (blocking-send-msg :add-query-ok
                          socket
@@ -324,21 +324,21 @@
       (testing "datalog-cache is set"
         (is (= '#{{:children
                    {:pattern-groups
-                    [{:patterns [[:ea ?movie-0 :movie/year 1987]],
+                    [{:patterns [[:ea ?movie-0 :movie/year 1987]]
                       :children
                       {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/id
                                                                     :movie/year
                                                                     :movie/trivia
-                                                                    :movie/title}]]}],
+                                                                    :movie/title}]]}]
                        :join-sym ?movie-0}}]}}
                   {:children
                    {:pattern-groups
-                    [{:patterns [[:ea ?movie-0 :movie/title "RoboCop"]],
+                    [{:patterns [[:ea ?movie-0 :movie/title "RoboCop"]]
                       :children
                       {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/id
                                                                     :movie/year
                                                                     :movie/trivia
-                                                                    :movie/title}]]}],
+                                                                    :movie/title}]]}]
                        :join-sym ?movie-0}}]}}}
                (->> (get-datalog-cache-for-app store movies-app-id)
                     (resolvers/walk-friendly movies-resolver)
@@ -349,22 +349,22 @@
         (is (= '{{:movie {:$ {:where {:year 1987}}}}
                  #{{:children
                     {:pattern-groups
-                     [{:patterns [[:ea ?movie-0 :movie/year 1987]],
+                     [{:patterns [[:ea ?movie-0 :movie/year 1987]]
                        :children
                        {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/id
                                                                      :movie/year
                                                                      :movie/trivia
-                                                                     :movie/title}]]}],
-                        :join-sym ?movie-0}}]}}},
+                                                                     :movie/title}]]}]
+                        :join-sym ?movie-0}}]}}}
                  {:movie {:$ {:where {:title "RoboCop"}}}}
                  #{{:children
                     {:pattern-groups
-                     [{:patterns [[:ea ?movie-0 :movie/title "RoboCop"]],
+                     [{:patterns [[:ea ?movie-0 :movie/title "RoboCop"]]
                        :children
                        {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/id
                                                                      :movie/year
                                                                      :movie/trivia
-                                                                     :movie/title}]]}],
+                                                                     :movie/title}]]}]
                         :join-sym ?movie-0}}]}}}}
                (->> (get-subscriptions-for-app-id store movies-app-id)
                     (resolvers/walk-friendly movies-resolver)
@@ -381,7 +381,7 @@
     (fn [_store {:keys [socket movies-app-id]}]
       (blocking-send-msg :init-ok socket {:op :init :app-id movies-app-id})
       (blocking-send-msg :add-query-ok socket {:op :add-query :q (:kw-q query-robocop)})
-      (is (= {:op :add-query-exists,
+      (is (= {:op :add-query-exists
               :q (:kw-q query-robocop)}
              (blocking-send-msg :add-query-exists socket {:op :add-query
                                                           :q (:kw-q query-robocop)}))))))
@@ -395,7 +395,7 @@
                          {:op :add-query
                           :q (:kw-q query-1987)})
 
-      (is (= {:op :remove-query-ok,
+      (is (= {:op :remove-query-ok
               :q (:kw-q query-1987)}
              (blocking-send-msg :remove-query-ok
                                 socket {:op :remove-query
@@ -417,7 +417,7 @@
                           :q (:kw-q query-robocop)})
 
       ;; okay, let's delete the first query
-      (is (= {:op :remove-query-ok,
+      (is (= {:op :remove-query-ok
               :q (:kw-q query-1987)}
              (blocking-send-msg :remove-query-ok
                                 socket
@@ -427,12 +427,12 @@
       (testing "stray datalog queries are removed"
         (is (= '#{{:children
                    {:pattern-groups
-                    [{:patterns [[:ea ?movie-0 :movie/title "RoboCop"]],
+                    [{:patterns [[:ea ?movie-0 :movie/title "RoboCop"]]
                       :children
                       {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/id
                                                                     :movie/year
                                                                     :movie/trivia
-                                                                    :movie/title}]]}],
+                                                                    :movie/title}]]}]
                        :join-sym ?movie-0}}]}}}
                (->> (get-datalog-cache-for-app store movies-app-id)
                     (resolvers/walk-friendly movies-resolver)
@@ -443,12 +443,12 @@
         (is (= '{{:movie {:$ {:where {:title "RoboCop"}}}}
                  #{{:children
                     {:pattern-groups
-                     [{:patterns [[:ea ?movie-0 :movie/title "RoboCop"]],
+                     [{:patterns [[:ea ?movie-0 :movie/title "RoboCop"]]
                        :children
                        {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/id
                                                                      :movie/year
                                                                      :movie/trivia
-                                                                     :movie/title}]]}],
+                                                                     :movie/title}]]}]
                         :join-sym ?movie-0}}]}}}}
                (some->> (get-subscriptions-for-app-id store movies-app-id)
                         seq
@@ -456,7 +456,7 @@
                         pretty-subs))))
 
       ;; okay, now for the second query
-      (is (= {:op :remove-query-ok,
+      (is (= {:op :remove-query-ok
               :q (:kw-q query-robocop)}
              (blocking-send-msg :remove-query-ok
                                 socket
@@ -486,21 +486,21 @@
                                  app-id
                                  5
                                  [(d/pat->coarse-topic
-                                   [:ea
-                                    (resolvers/->uuid r "eid-predator")])])
+                                    [:ea
+                                     (resolvers/->uuid r "eid-predator")])])
 
-            ;; Now we have a stale query
+          ;; Now we have a stale query
           (is (= [(:kw-q query-1987)]
                  (map :instaql-query/query (rs/get-stale-instaql-queries store app-id sess-id))))
 
-            ;; We also removed datalog queries from cache
+          ;; We also removed datalog queries from cache
           (is (= '#{}
                  (->> (get-datalog-cache-for-app store app-id)
                       (resolvers/walk-friendly r)
                       keys
                       set)))
 
-            ;; we also recorded the tx-id that was processed
+          ;; we also recorded the tx-id that was processed
           (is (= 5 (rs/get-processed-tx-id store app-id))))))))
 
 (deftest refresh-skip-attrs
@@ -526,8 +526,8 @@
                                  app-id
                                  0
                                  [(d/pat->coarse-topic
-                                   [:ea
-                                    (resolvers/->uuid r "eid-predator")])])
+                                    [:ea
+                                     (resolvers/->uuid r "eid-predator")])])
           (ds/transact! (rs/app-conn store app-id)
                         [[:db/retract [:instaql-query/session-id+query [sess-id (:kw-q query-1987)]] :instaql-query/hash]])
 
@@ -555,8 +555,8 @@
                                  app-id
                                  0
                                  [(d/pat->coarse-topic
-                                   [:ea
-                                    (resolvers/->uuid r "eid-predator")])])
+                                    [:ea
+                                     (resolvers/->uuid r "eid-predator")])])
           (ds/transact! (rs/app-conn store app-id)
                         [[:db/retract [:instaql-query/session-id+query [sess-id (:kw-q query-1987)]] :instaql-query/hash]])
 
@@ -566,7 +566,6 @@
             (let [ret (read-msg socket)]
               (is (= :refresh-ok (:op ret)))
               (is (contains? ret :attrs)))))))))
-
 
 (deftest refresh-populates-cache
   (with-movies-app
@@ -582,8 +581,8 @@
                                  app-id
                                  0
                                  [(d/pat->coarse-topic
-                                   [:ea
-                                    (resolvers/->uuid r "eid-predator")])])
+                                    [:ea
+                                     (resolvers/->uuid r "eid-predator")])])
 
           (testing "send refresh"
             ;; clear the query hash so that the refresh will trigger a send
@@ -598,12 +597,12 @@
             ;; Datalog cache now has more things
             (is (= '#{{:children
                        {:pattern-groups
-                        [{:patterns [[:ea ?movie-0 :movie/year 1987]],
+                        [{:patterns [[:ea ?movie-0 :movie/year 1987]]
                           :children
                           {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/year
                                                                         :movie/id
                                                                         :movie/trivia
-                                                                        :movie/title}]]}],
+                                                                        :movie/title}]]}]
                            :join-sym ?movie-0}}]}}}
                    (->> (get-datalog-cache-for-app store app-id)
                         (resolvers/walk-friendly r)
@@ -629,12 +628,12 @@
             (is (empty? (rs/get-stale-instaql-queries store app-id sess-id)))
             (is (= '#{{:children
                        {:pattern-groups
-                        [{:patterns [[:vae ?movie-0 :movie/director "eid-john-mctiernan"]],
+                        [{:patterns [[:vae ?movie-0 :movie/director "eid-john-mctiernan"]]
                           :children
                           {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/year
                                                                         :movie/id
                                                                         :movie/trivia
-                                                                        :movie/title}]]}],
+                                                                        :movie/title}]]}]
                            :join-sym ?movie-0}}]}}}
                    (->> (get-datalog-cache-for-app store app-id)
                         (resolvers/walk-friendly r)
@@ -644,12 +643,12 @@
                      #{{:children
                         {:pattern-groups
                          [{:patterns
-                           [[:vae ?movie-0 :movie/director "eid-john-mctiernan"]],
+                           [[:vae ?movie-0 :movie/director "eid-john-mctiernan"]]
                            :children
                            {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/year
                                                                          :movie/id
                                                                          :movie/trivia
-                                                                         :movie/title}]]}],
+                                                                         :movie/title}]]}]
                             :join-sym ?movie-0}}]}}}}
                    (->> (get-subscriptions-for-app-id store app-id)
                         (resolvers/walk-friendly r)
@@ -673,7 +672,7 @@
                                    app-id
                                    0
                                    [(d/pat->coarse-topic
-                                     [:vae '_ '_ john-uuid])])
+                                      [:vae '_ '_ john-uuid])])
 
             ;; send refresh
             (blocking-send-msg :refresh-ok socket {:session-id (:id socket)
@@ -683,12 +682,12 @@
             (is (empty? (rs/get-stale-instaql-queries store app-id sess-id)))
             (is (= '#{{:children
                        {:pattern-groups
-                        [{:patterns [[:vae ?movie-0 :movie/director "eid-john-mctiernan"]],
+                        [{:patterns [[:vae ?movie-0 :movie/director "eid-john-mctiernan"]]
                           :children
                           {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/year
                                                                         :movie/id
                                                                         :movie/trivia
-                                                                        :movie/title}]]}],
+                                                                        :movie/title}]]}]
                            :join-sym ?movie-0}}]}}}
                    (->> (get-datalog-cache-for-app store app-id)
                         (resolvers/walk-friendly r)
@@ -698,12 +697,12 @@
                      #{{:children
                         {:pattern-groups
                          [{:patterns
-                           [[:vae ?movie-0 :movie/director "eid-john-mctiernan"]],
+                           [[:vae ?movie-0 :movie/director "eid-john-mctiernan"]]
                            :children
                            {:pattern-groups [{:patterns [[:ea ?movie-0 #{:movie/year
                                                                          :movie/id
                                                                          :movie/trivia
-                                                                         :movie/title}]]}],
+                                                                         :movie/title}]]}]
                             :join-sym ?movie-0}}]}}}}
                    (->> (get-subscriptions-for-app-id store app-id)
                         (resolvers/walk-friendly r)
@@ -714,8 +713,8 @@
     (fn [_store {:keys [socket]}]
       (is (= 400
              (:status (blocking-send-msg
-                       :error
-                       socket {:op :transact :tx-steps []})))))))
+                        :error
+                        socket {:op :transact :tx-steps []})))))))
 
 (deftest transact-rejects-malformed
   (with-empty-app
@@ -725,9 +724,9 @@
           (blocking-send-msg :init-ok socket {:op :init :app-id app-id})
           (is (= 400
                  (:status (blocking-send-msg
-                           :error
-                           socket {:op :transact
-                                   :tx-steps [["moop" 1 2 3]]})))))))))
+                            :error
+                            socket {:op :transact
+                                    :tx-steps [["moop" 1 2 3]]})))))))))
 
 (deftest transact-works
   (with-movies-app
@@ -739,10 +738,10 @@
                 name-attr-id (resolvers/->uuid r :movie/title)]
             (is (= :transact-ok
                    (:op (blocking-send-msg
-                         :transact-ok
-                         socket {:op :transact
-                                 :tx-steps
-                                 [["add-triple" robocop-eid name-attr-id "RoboDrizzle"]]}))))
+                          :transact-ok
+                          socket {:op :transact
+                                  :tx-steps
+                                  [["add-triple" robocop-eid name-attr-id "RoboDrizzle"]]}))))
             (let [resp (blocking-send-msg :add-query-ok
                                           socket {:op :add-query
                                                   :q (:kw-q query-1987)})]

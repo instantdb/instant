@@ -1,12 +1,12 @@
 (ns instant.session-counter
   (:require
-   [instant.util.json :refer [<-json]]
    [clojure.tools.logging :as log]
-   [instant.util.tracer :as tracer]
+   [instant.lib.ring.websocket :as ws]
    [instant.reactive.store :as rs]
-   [instant.util.delay :as delay]
    [instant.util.async :as ua]
-   [instant.lib.ring.websocket :as ws])
+   [instant.util.delay :as delay]
+   [instant.util.json :refer [<-json]]
+   [instant.util.tracer :as tracer])
   (:import
    (java.util UUID)
    (java.util.concurrent ScheduledFuture)))
@@ -54,8 +54,8 @@
                                {:ws-count (count ws-channels)
                                 :report-count (count report)}})
             (ua/pmap
-             (fn [ws-conn] (send-report! report ws-conn))
-             ws-channels))
+              (fn [ws-conn] (send-report! report ws-conn))
+              ws-channels))
           (catch Throwable e
             (tracer/add-exception! e {:escaping? false})))))))
 
@@ -94,10 +94,8 @@
                     java.net.SocketException nil
                     java.io.IOException nil
                     (tracer/record-exception-span!
-                     throwable {:name "session-counter/on-error"
-                                :attributes {:ws-id ws-id}
-                                :escaping? false})))
+                      throwable {:name "session-counter/on-error"
+                                 :attributes {:ws-id ws-id}
+                                 :escaping? false})))
       :on-close (fn [_]
                   (remove-websocket-listener! ws-id))}}))
-
-

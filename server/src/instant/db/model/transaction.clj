@@ -1,7 +1,7 @@
 (ns instant.db.model.transaction
   (:require
-   [instant.jdbc.sql :as sql]
-   [instant.jdbc.aurora :as aurora]))
+   [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]))
 
 (defn create!
   ([params] (create! (aurora/conn-pool :write) params))

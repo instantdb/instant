@@ -3,8 +3,8 @@
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.instant-user :as instant-user-model]
-   [instant.util.string :refer [rand-num-str]]
-   [instant.util.exception :as ex])
+   [instant.util.exception :as ex]
+   [instant.util.string :refer [rand-num-str]])
   (:import
    (java.time Instant)
    (java.time.temporal ChronoUnit)

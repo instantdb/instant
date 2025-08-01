@@ -1,13 +1,14 @@
 (ns instant.storage.routes
-  (:require [compojure.core :refer [defroutes POST GET DELETE PUT] :as compojure]
-            [ring.util.http-response :as response]
-            [instant.util.exception :as ex]
-            [instant.util.uuid :as uuid-util]
-            [instant.util.string :as string-util]
-            [instant.util.http :as http-util]
-            [instant.model.app-user :as app-user-model]
-            [instant.storage.coordinator :as storage-coordinator]
-            [clojure.walk :as w]))
+  (:require
+   [clojure.walk :as w]
+   [compojure.core :as compojure :refer [DELETE GET POST PUT defroutes]]
+   [instant.model.app-user :as app-user-model]
+   [instant.storage.coordinator :as storage-coordinator]
+   [instant.util.exception :as ex]
+   [instant.util.http :as http-util]
+   [instant.util.string :as string-util]
+   [instant.util.uuid :as uuid-util]
+   [ring.util.http-response :as response]))
 
 (defn req->content-length! [{:keys [content-length] :as _req}]
   content-length)
@@ -16,8 +17,8 @@
   (let [app-id (ex/get-param! params [:app_id] uuid-util/coerce)
         refresh-token (http-util/req->bearer-token req)
         current-user (app-user-model/get-by-refresh-token
-                      {:app-id app-id
-                       :refresh-token refresh-token})
+                       {:app-id app-id
+                        :refresh-token refresh-token})
         content-length (req->content-length! req)]
     {:app-id app-id
      :current-user current-user
@@ -58,7 +59,7 @@
                          "application/octet-stream")
         content-length (req->content-length! req)
         data (storage-coordinator/consume-upload-url!
-              {:upload-id upload-id :content-type content-type :content-length content-length} file)]
+               {:upload-id upload-id :content-type content-type :content-length content-length} file)]
     (response/ok {:data data})))
 
 (defn signed-download-url-get [req]

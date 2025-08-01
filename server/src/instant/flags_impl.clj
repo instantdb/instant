@@ -1,19 +1,20 @@
 ;; Namespace that implements flags, kept separate from the flags
 ;; ns so that there are no cyclic depdencies
 (ns instant.flags-impl
-  (:require [instant.config :as config]
-            [instant.db.datalog :as datalog]
-            [instant.db.instaql :as instaql]
-            [instant.db.model.attr :as attr-model]
-            [instant.db.transaction :as tx]
-            [instant.jdbc.aurora :as aurora]
-            [instant.model.app :as app-model]
-            [instant.reactive.receive-queue :as receive-queue]
-            [instant.reactive.session :as session]
-            [instant.reactive.store :as store]
-            [instant.util.instaql :refer [instaql-nodes->object-tree]]
-            [instant.util.json :refer [->json]]
-            [instant.util.tracer :as tracer]))
+  (:require
+   [instant.config :as config]
+   [instant.db.datalog :as datalog]
+   [instant.db.instaql :as instaql]
+   [instant.db.model.attr :as attr-model]
+   [instant.db.transaction :as tx]
+   [instant.jdbc.aurora :as aurora]
+   [instant.model.app :as app-model]
+   [instant.reactive.receive-queue :as receive-queue]
+   [instant.reactive.session :as session]
+   [instant.reactive.store :as store]
+   [instant.util.instaql :refer [instaql-nodes->object-tree]]
+   [instant.util.json :refer [->json]]
+   [instant.util.tracer :as tracer]))
 
 (defn swap-result!
   "Updates the results atom, but only if we have a newer tx-id."
@@ -104,8 +105,8 @@
           app-id-attr-id (resolve-attr-id attrs
                                           :app-users-to-triples-migration/appId)
           machine-attr-id (resolve-attr-id
-                           attrs
-                           :app-users-to-triples-migration/processId)]
+                            attrs
+                            :app-users-to-triples-migration/processId)]
       (tx/transact! (aurora/conn-pool :write)
                     attrs
                     config-app-id
@@ -119,8 +120,8 @@
           app-id-attr-id (resolve-attr-id attrs
                                           :app-users-to-triples-migration/appId)
           machine-attr-id (resolve-attr-id
-                           attrs
-                           :app-users-to-triples-migration/processId)
+                            attrs
+                            :app-users-to-triples-migration/processId)
           ctx {:attrs attrs
                :db {:conn-pool (aurora/conn-pool :read)}
                :app-id config-app-id}

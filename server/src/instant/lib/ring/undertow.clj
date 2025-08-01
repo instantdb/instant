@@ -4,18 +4,16 @@
    We needed to enhance websocket support, so wrote a custom
    instant.lib.ring.websocket namespace"
   (:require
+   [instant.lib.ring.websocket :as ws]
    [ring.adapter.undertow.request :refer [build-exchange-map]]
    [ring.adapter.undertow.response :refer [set-exchange-response]]
-   [ring.adapter.undertow.ssl :refer [keystore->ssl-context]]
-   [instant.lib.ring.websocket :as ws])
+   [ring.adapter.undertow.ssl :refer [keystore->ssl-context]])
   (:import
-   [io.undertow Undertow Undertow$Builder UndertowOptions]
-   [org.xnio Options SslClientAuthMode]
-   [io.undertow.server HttpHandler]
-   [io.undertow.server.handlers BlockingHandler]
-   [io.undertow.server.session SessionAttachmentHandler
-    SessionCookieConfig
-    SessionManager InMemorySessionManager]))
+   (io.undertow Undertow Undertow$Builder UndertowOptions)
+   (io.undertow.server HttpHandler)
+   (io.undertow.server.handlers BlockingHandler)
+   (io.undertow.server.session InMemorySessionManager SessionAttachmentHandler SessionCookieConfig SessionManager)
+   (org.xnio Options SslClientAuthMode)))
 
 #_(set! *warn-on-reflection* true)
 
@@ -53,12 +51,12 @@
                    ^Runnable
                    (fn []
                      (handler
-                      (build-exchange-map exchange)
-                      (fn [response-map]
-                        (handle-request websocket? exchange response-map))
-                      (fn [^Throwable exception]
-                        (set-exchange-response exchange {:status 500
-                                                         :body   (.getMessage exception)})))))))))
+                       (build-exchange-map exchange)
+                       (fn [response-map]
+                         (handle-request websocket? exchange response-map))
+                       (fn [^Throwable exception]
+                         (set-exchange-response exchange {:status 500
+                                                          :body   (.getMessage exception)})))))))))
 
 #_{:clj-kondo/ignore [:unused-binding]}
 (defn ^:no-doc handler!

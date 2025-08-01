@@ -1,8 +1,8 @@
 (ns instant.util.string
-  (:import
-   (java.util.zip CRC32))
   (:require
-   [clojure.string :as string]))
+   [clojure.string :as string])
+  (:import
+   (java.util.zip CRC32)))
 
 (defn safe-name [x]
   (condp = (type x)
@@ -26,7 +26,7 @@
 
 (defn safe-trim [s]
   (when (string? s)
-       (string/trim s)))
+    (string/trim s)))
 
 (defn coerce-non-blank-str [s]
   (cond

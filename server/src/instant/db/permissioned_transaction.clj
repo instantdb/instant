@@ -1,23 +1,23 @@
 (ns instant.db.permissioned-transaction
   (:require
-   [clojure.string :as string]
    [clojure+.core :as clojure+]
+   [clojure.string :as string]
    [instant.db.cel :as cel]
    [instant.db.datalog :as d]
    [instant.db.model.attr :as attr-model]
    [instant.db.model.entity :as entity-model]
+   [instant.db.model.triple :as triple-model]
    [instant.db.transaction :as tx]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.rule :as rule-model]
+   [instant.util.coll :as ucoll]
    [instant.util.exception :as ex]
    [instant.util.io :as io]
    [instant.util.string :as string-util]
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
-   [next.jdbc :as next-jdbc]
-   [instant.util.coll :as ucoll]
-   [instant.db.model.triple :as triple-model]))
+   [next.jdbc :as next-jdbc]))
 
 (defn extract-etype [{:keys [attrs]} attr-id]
   (attr-model/fwd-etype (attr-model/seek-by-id attr-id attrs)))
@@ -34,18 +34,18 @@
 (defn deep-merge-and-delete [orig updates]
   (if (and (map? orig) (map? updates))
     (reduce-kv
-     (fn [accum key updated-value]
-       (cond
-         (and (map? (get accum key)) (map? updated-value))
-         (assoc accum key (deep-merge-and-delete (get accum key) updated-value))
+      (fn [accum key updated-value]
+        (cond
+          (and (map? (get accum key)) (map? updated-value))
+          (assoc accum key (deep-merge-and-delete (get accum key) updated-value))
 
-         (nil? updated-value)
-         (dissoc accum key)
+          (nil? updated-value)
+          (dissoc accum key)
 
-         :else
-         (assoc accum key updated-value)))
-     orig
-     updates)
+          :else
+          (assoc accum key updated-value)))
+      orig
+      updates)
     updates))
 
 (comment
@@ -69,18 +69,18 @@
 
 (defn apply-tx-steps [attrs original tx-steps]
   (reduce
-   (fn [acc [action _e a v :as tx-step]]
-     (let [label (-> (attr-model/seek-by-id a attrs) :forward-identity
-                     last)
-           val (case action
-                 :deep-merge-triple (deep-merge-and-delete (get acc label) v)
-                 :add-triple v
-                 :retract-triple nil)]
-       (-> acc
-           (apply-lookup-value attrs tx-step)
-           (assoc label val))))
-   original
-   tx-steps))
+    (fn [acc [action _e a v :as tx-step]]
+      (let [label (-> (attr-model/seek-by-id a attrs) :forward-identity
+                      last)
+            val (case action
+                  :deep-merge-triple (deep-merge-and-delete (get acc label) v)
+                  :add-triple v
+                  :retract-triple nil)]
+        (-> acc
+            (apply-lookup-value attrs tx-step)
+            (assoc label val))))
+    original
+    tx-steps))
 
 (defn object-upsert-check-program [{:keys [action program etype eid data] :as _check}
                                    {:keys [rule-params] :as _ctx}]
@@ -130,7 +130,6 @@
       {:program program
        :bindings {:data updated}})))
 
-
 (defn check-program [{:keys [scope action] :as check} ctx]
   (case [scope action]
     [:object :create] (object-upsert-check-program check ctx)
@@ -140,7 +139,6 @@
     [:attr   :create] (attr-create-check-program check ctx)
     [:attr   :delete] {:result (:admin? ctx)}
     [:attr   :update] {:result (:admin? ctx)}))
-
 
 (defn object-checks
   "Creates check commands for each object in the transaction.
@@ -169,60 +167,60 @@
    With this, we can generate a grouped `check` command for each `eid+etype`."
   [{:keys [attrs rules] :as ctx} preloaded-triples]
   (->>
-   (for [[k v] preloaded-triples
-         :let [{:keys [eid etype action]} k
-               {:keys [triples tx-steps]} v
-               original (entity-model/triples->map ctx triples)]]
-     (case action
-       ;; update op is used both for create and for update
-       :update
-       (let [program  (rule-model/get-program! rules etype (if (seq original) "update" "create"))
-             new-data (apply-tx-steps attrs original tx-steps)]
-         {:scope   :object
-          :etype   etype
-          :action  (if (seq original) :update :create)
-          :eid     eid
-          :program program
-          :data    {:original original
-                    :updated new-data}})
+    (for [[k v] preloaded-triples
+          :let [{:keys [eid etype action]} k
+                {:keys [triples tx-steps]} v
+                original (entity-model/triples->map ctx triples)]]
+      (case action
+        ;; update op is used both for create and for update
+        :update
+        (let [program  (rule-model/get-program! rules etype (if (seq original) "update" "create"))
+              new-data (apply-tx-steps attrs original tx-steps)]
+          {:scope   :object
+           :etype   etype
+           :action  (if (seq original) :update :create)
+           :eid     eid
+           :program program
+           :data    {:original original
+                     :updated new-data}})
 
-       :delete
-       {:scope   :object
-        :etype   etype
-        :action  :delete
-        :eid     eid
-        :program (when etype
-                   (rule-model/get-program! rules etype "delete"))
-        :data    {:original original}}
+        :delete
+        {:scope   :object
+         :etype   etype
+         :action  :delete
+         :eid     eid
+         :program (when etype
+                    (rule-model/get-program! rules etype "delete"))
+         :data    {:original original}}
 
-       :view
-       (when (seq original)
-         {:scope   :object
-          :etype   etype
-          :action  :view
-          :eid     eid
-          :program (rule-model/get-program! rules etype "view")
-          :data    {:original original}})
+        :view
+        (when (seq original)
+          {:scope   :object
+           :etype   etype
+           :action  :view
+           :eid     eid
+           :program (rule-model/get-program! rules etype "view")
+           :data    {:original original}})
 
-       nil))
-   (filterv some?)))
+        nil))
+    (filterv some?)))
 
 (defn throw-mismatched-lookup-ns! [tx-step]
   (ex/throw-validation-err!
-   :tx-step
-   tx-step
-   [{:message (string-util/multiline->single-line
-               "Invalid transaction. The namespace in the lookup attribute is
+    :tx-step
+    tx-step
+    [{:message (string-util/multiline->single-line
+                 "Invalid transaction. The namespace in the lookup attribute is
                 different from the namespace of the attribute that is
                 being set")}]))
 
 (defn throw-unknown-lookup! [eid tx-step]
   (ex/throw-validation-err!
-   :lookup
-   eid
-   [{:message
-     "Invalid lookup. Could not determine namespace from lookup attribute."
-     :tx-step tx-step}]))
+    :lookup
+    eid
+    [{:message
+      "Invalid lookup. Could not determine namespace from lookup attribute."
+      :tx-step tx-step}]))
 
 (defn extract-lookup-etype! [ctx eid aid-etype tx-step]
   ;; If it's a lookup ref, use the lookup attr
@@ -272,10 +270,10 @@
                   _ (when (nil? etype)
                       (binding [tracer/*span* nil]
                         (tracer/record-info!
-                         {:name "tx/missing-etype"
-                          :attributes {:app-id  (:app-id ctx)
-                                       :tx-step tx-step
-                                       :stage   "group-object-tx-steps"}})))
+                          {:name "tx/missing-etype"
+                           :attributes {:app-id  (:app-id ctx)
+                                        :tx-step tx-step
+                                        :stage   "group-object-tx-steps"}})))
                   ;; If we know the etype from the lookup for delete-entity,
                   ;; but the client hasn't been updated to provide it, then
                   ;; we can patch the `delete-entity` step to include it
@@ -296,10 +294,10 @@
                                                        (if-let [e (uuid-util/coerce value)]
                                                          e
                                                          (ex/throw-validation-err!
-                                                          :eid
-                                                          value
-                                                          [{:message "Expected link value to be a uuid."
-                                                            :hint {:tx-step tx-step}}])))]))]
+                                                           :eid
+                                                           value
+                                                           [{:message "Expected link value to be a uuid."
+                                                             :hint {:tx-step tx-step}}])))]))]
               (cond-> acc
                 true (update-in [:groups {:eid eid
                                           :etype etype
@@ -404,15 +402,15 @@
                                                triples)]
                     (if (empty? etype-groups)
                       (ex/throw-validation-err!
-                       :tx-steps
-                       steps
-                       [{:message "Could not determine the namespace that the transaction belongs to."}])
+                        :tx-steps
+                        steps
+                        [{:message "Could not determine the namespace that the transaction belongs to."}])
                       (reduce (fn [acc [etype triples]]
                                 (if (not etype)
                                   (ex/throw-validation-err!
-                                   :tx-steps
-                                   steps
-                                   [{:message "Could not determine the namespace that the transaction belongs to."}])
+                                    :tx-steps
+                                    steps
+                                    [{:message "Could not determine the namespace that the transaction belongs to."}])
                                   (assoc acc
                                          {:eid eid
                                           :etype etype
@@ -447,35 +445,35 @@
                      ;; validations later
                      (not (string/starts-with? etype "$files")))]
     (ex/throw-validation-err!
-     :tx-step
-     tx-step
-     [{:message (format "The %s namespace is read-only. It can't be modified."
-                        etype)}])))
+      :tx-step
+      tx-step
+      [{:message (format "The %s namespace is read-only. It can't be modified."
+                         etype)}])))
 
 (defn lock-tx-on! [tx-conn big-int]
   (sql/execute! tx-conn ["SELECT pg_advisory_xact_lock(?)" big-int]))
 
 (defn lookup->eid-from-preloaded-triples [preloaded-triples]
   (reduce
-   (fn [acc [{:keys [eid]} {:keys [triples]}]]
-     (if (and (vector? eid) (seq triples))
-       (assoc acc eid (ffirst triples))
-       acc))
-   {}
-   preloaded-triples))
+    (fn [acc [{:keys [eid]} {:keys [triples]}]]
+      (if (and (vector? eid) (seq triples))
+        (assoc acc eid (ffirst triples))
+        acc))
+    {}
+    preloaded-triples))
 
 (defn resolve-lookup [lookups->eid eid]
   (clojure+/cond+
-   (not (sequential? eid))
-   eid
+    (not (sequential? eid))
+    eid
 
-   :let [found (lookups->eid eid)]
+    :let [found (lookups->eid eid)]
 
-   (nil? found)
-   (ex/throw-validation-err! :lookup eid [{:message "Could not find the entity for this lookup"}])
+    (nil? found)
+    (ex/throw-validation-err! :lookup eid [{:message "Could not find the entity for this lookup"}])
 
-   :else
-   found))
+    :else
+    found))
 
 (defn resolve-check-lookup [lookups->eid {:keys [eid] :as check}]
   (let [resolved-eid (resolve-lookup lookups->eid eid)]
@@ -519,15 +517,15 @@
           (let [grouped-tx-steps (tx/preprocess-tx-steps tx-conn attrs app-id tx-steps)
 
                 attr-changes     (concat
-                                  (:add-attr grouped-tx-steps)
-                                  (:delete-attr grouped-tx-steps)
-                                  (:update-attr grouped-tx-steps))
+                                   (:add-attr grouped-tx-steps)
+                                   (:delete-attr grouped-tx-steps)
+                                   (:update-attr grouped-tx-steps))
 
                 object-changes   (concat
-                                  (:add-triple grouped-tx-steps)
-                                  (:deep-merge-triple grouped-tx-steps)
-                                  (:retract-triple grouped-tx-steps)
-                                  (:delete-entity grouped-tx-steps))
+                                   (:add-triple grouped-tx-steps)
+                                   (:deep-merge-triple grouped-tx-steps)
+                                   (:retract-triple grouped-tx-steps)
+                                   (:delete-entity grouped-tx-steps))
 
                 optimistic-attrs (into attrs (map second) (:add-attr grouped-tx-steps))
 
@@ -549,11 +547,11 @@
                 check-commands
                 (io/warn-io :check-commands
                   (concat
-                   (attr-checks ctx attr-changes)
-                   ;; Use preloaded-triples instead of object-changes.
-                   ;; It has all the same data, but the preload will also
-                   ;; resolve etypes for older version of delete-entity
-                   (object-checks ctx preloaded-triples)))
+                    (attr-checks ctx attr-changes)
+                    ;; Use preloaded-triples instead of object-changes.
+                    ;; It has all the same data, but the preload will also
+                    ;; resolve etypes for older version of delete-entity
+                    (object-checks ctx preloaded-triples)))
 
                 {create-checks :create
                  view-checks :view
@@ -564,12 +562,12 @@
                 lookups->eid (lookup->eid-from-preloaded-triples preloaded-triples)
 
                 user-rule-params (reduce
-                                  (fn [acc [_ eid etype params]]
-                                    (let [eid (get lookups->eid eid eid)
-                                          key {:eid eid, :etype etype}]
-                                      (update acc key merge params)))
-                                  {}
-                                  (:rule-params grouped-tx-steps))
+                                   (fn [acc [_ eid etype params]]
+                                     (let [eid (get lookups->eid eid eid)
+                                           key {:eid eid, :etype etype}]
+                                       (update acc key merge params)))
+                                   {}
+                                   (:rule-params grouped-tx-steps))
 
                 rule-params (->> rule-params-to-copy
                                  (mapcat (fn [[source dests]]
@@ -607,26 +605,26 @@
                                              set
                                              (triple-model/fetch-lookups->eid tx-conn app-id))
                 rule-params (ucoll/map-keys
-                             (fn [{:keys [eid etype]}]
-                               {:eid   (get create-lookups->eid eid eid)
-                                :etype etype})
-                             rule-params)
+                              (fn [{:keys [eid etype]}]
+                                {:eid   (get create-lookups->eid eid eid)
+                                 :etype etype})
+                              rule-params)
                 ctx (assoc ctx :rule-params rule-params)
 
                 after-tx-checks-resolved (mapv #(resolve-check-lookup create-lookups->eid %) create-checks)
                 after-tx-checks-results (run-check-commands!
-                                         (assoc ctx :preloaded-refs (cel/create-preloaded-refs-cache))
-                                         after-tx-checks-resolved)
+                                          (assoc ctx :preloaded-refs (cel/create-preloaded-refs-cache))
+                                          after-tx-checks-resolved)
                 all-check-results (concat before-tx-checks-results
                                           after-tx-checks-results)
                 all-checks-ok? (every? (fn [r] (-> r :check-result)) all-check-results)
                 rollback? (and admin-check?
                                (or admin-dry-run? (not all-checks-ok?)))
                 result (assoc
-                        tx-data
-                        :check-results all-check-results
-                        :all-checks-ok? all-checks-ok?
-                        :committed? (not rollback?))]
+                         tx-data
+                         :check-results all-check-results
+                         :all-checks-ok? all-checks-ok?
+                         :committed? (not rollback?))]
             (when rollback? (.rollback tx-conn))
             result))))))
 

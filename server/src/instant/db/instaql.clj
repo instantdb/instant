@@ -4,6 +4,7 @@
    [clojure.spec.alpha :as s]
    [clojure.string :as string]
    [honey.sql :as hsql]
+   [instant.comment :as c]
    [instant.data.resolvers :as resolvers]
    [instant.db.cel :as cel]
    [instant.db.datalog :as d]
@@ -16,17 +17,16 @@
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.rule :as rule-model]
+   [instant.storage.s3 :as instant-s3]
+   [instant.system-catalog :as system-catalog]
    [instant.util.coll :as ucoll]
    [instant.util.exception :as ex]
-   [instant.util.io :as io]
    [instant.util.instaql :refer [forms-hash]]
+   [instant.util.io :as io]
    [instant.util.json :refer [->json]]
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
-   [instant.system-catalog :as system-catalog]
-   [medley.core :refer [update-existing-in]]
-   [instant.storage.s3 :as instant-s3]
-   [instant.comment :as c])
+   [medley.core :refer [update-existing-in]])
   (:import
    (java.util UUID)))
 
@@ -67,10 +67,10 @@
           (keys m)))
 
 (s/def ::where-args-map (s/and
-                         (s/keys :opt-un [::in ::$in ::$not ::$isNull
-                                          ::$gt ::$gte ::$lt ::$lte ::$like ::$ilike
-                                          ::$entityIdStartsWith])
-                         where-value-valid-keys?))
+                          (s/keys :opt-un [::in ::$in ::$not ::$isNull
+                                           ::$gt ::$gte ::$lt ::$lte ::$like ::$ilike
+                                           ::$entityIdStartsWith])
+                          where-value-valid-keys?))
 
 (s/def ::where-v
   (s/with-gen
@@ -199,12 +199,12 @@
 
 (defn link-etype [attrs etype link-attr-name]
   (or (when-let [attr (attr-model/seek-by-fwd-ident-name
-                       [etype link-attr-name]
-                       attrs)]
+                        [etype link-attr-name]
+                        attrs)]
         (attr-model/rev-etype attr))
       (when-let [attr (attr-model/seek-by-rev-ident-name
-                       [etype link-attr-name]
-                       attrs)]
+                        [etype link-attr-name]
+                        attrs)]
         (attr-model/fwd-etype attr))))
 
 (defn indexed-attr?
@@ -224,63 +224,63 @@
   "Splits keys into segments."
   [state attrs [k v :as c]]
   (collapse-coerced-conds
-   (cond (or-where-cond? c)
-         (let [conds (->> v
-                          combine-or-where-conds
-                          (map (fn [conds]
-                                 {:and
-                                  (mapcat (partial coerce-where-cond state attrs)
-                                          conds)})))]
-           (if-not (zero? (count conds))
-             [{:or conds}]
+    (cond (or-where-cond? c)
+          (let [conds (->> v
+                           combine-or-where-conds
+                           (map (fn [conds]
+                                  {:and
+                                   (mapcat (partial coerce-where-cond state attrs)
+                                           conds)})))]
+            (if-not (zero? (count conds))
+              [{:or conds}]
 
-             (ex/throw-validation-err!
-              :query
-              (:root state)
-              [{:expected 'non-empty-list?
-                :in (conj (:in state) :or)
-                :message "The list of `or` conditions can't be empty."}])))
+              (ex/throw-validation-err!
+                :query
+                (:root state)
+                [{:expected 'non-empty-list?
+                  :in (conj (:in state) :or)
+                  :message "The list of `or` conditions can't be empty."}])))
 
-         (and-where-cond? c)
-         (let [conds (mapcat (fn [conds]
-                               (mapcat (partial coerce-where-cond state attrs)
-                                       conds))
-                             v)]
-           (if-not (zero? (count conds))
-             [{:and conds}]
+          (and-where-cond? c)
+          (let [conds (mapcat (fn [conds]
+                                (mapcat (partial coerce-where-cond state attrs)
+                                        conds))
+                              v)]
+            (if-not (zero? (count conds))
+              [{:and conds}]
 
-             (ex/throw-validation-err!
-              :query
-              (:root state)
-              [{:expected 'non-empty-list?
-                :in (conj (:in state) :and)
-                :message "The list of `and` conditions can't be empty."}])))
+              (ex/throw-validation-err!
+                :query
+                (:root state)
+                [{:expected 'non-empty-list?
+                  :in (conj (:in state) :and)
+                  :message "The list of `and` conditions can't be empty."}])))
 
-         (and (map? v) (contains? v :$not))
-         ;; If the where cond has `not`, then the check will only include
-         ;; entities where the entity has a triple with the attr. If the
-         ;; attr is missing, then we won't find it. We add an extra
-         ;; `isNull` check to ensure that we find the entity.
-         (let [path (string/split (name k) #"\.")
-               is-null-paths (cond-> (mapv (fn [p]
-                                             [p {:$isNull true}])
-                                           (grow-paths path))
-                               (indexed-attr? attrs (:etype state) path) drop-last)]
-           [{:or (concat [[path v]]
-                         is-null-paths)}])
+          (and (map? v) (contains? v :$not))
+          ;; If the where cond has `not`, then the check will only include
+          ;; entities where the entity has a triple with the attr. If the
+          ;; attr is missing, then we won't find it. We add an extra
+          ;; `isNull` check to ensure that we find the entity.
+          (let [path (string/split (name k) #"\.")
+                is-null-paths (cond-> (mapv (fn [p]
+                                              [p {:$isNull true}])
+                                            (grow-paths path))
+                                (indexed-attr? attrs (:etype state) path) drop-last)]
+            [{:or (concat [[path v]]
+                          is-null-paths)}])
 
-         (and (map? v) (contains? v :$isNull) (= true (:$isNull v)))
-         ;; If the where cond has `$isNull=true`, then we need it to
-         ;; match if any of the intermediate paths are null
-         (let [path (string/split (name k) #"\.")
-               conds (mapv (fn [p]
-                             [p {:$isNull true}])
-                           (grow-paths path))]
-           (if (= 1 (count conds))
-             [{:and conds}]
-             [{:or conds}]))
+          (and (map? v) (contains? v :$isNull) (= true (:$isNull v)))
+          ;; If the where cond has `$isNull=true`, then we need it to
+          ;; match if any of the intermediate paths are null
+          (let [path (string/split (name k) #"\.")
+                conds (mapv (fn [p]
+                              [p {:$isNull true}])
+                            (grow-paths path))]
+            (if (= 1 (count conds))
+              [{:and conds}]
+              [{:or conds}]))
 
-         :else [[(string/split (name k) #"\.") v]])))
+          :else [[(string/split (name k) #"\.") v]])))
 
 (defn coerce-order [state order-map]
   (case (count order-map)
@@ -293,36 +293,36 @@
                           ("desc" :desc) :desc
                           ("asc" :asc) :asc)})
           (ex/throw-validation-err!
-           :query
-           (:root state)
-           [{:expected 'valid-direction?
-             :in (conj (:in state) k)
-             :message (format "We only support \"asc\" or \"desc\" in the `order` clause. Got %s."
-                              (->json direction))}])))
+            :query
+            (:root state)
+            [{:expected 'valid-direction?
+              :in (conj (:in state) k)
+              :message (format "We only support \"asc\" or \"desc\" in the `order` clause. Got %s."
+                               (->json direction))}])))
     (ex/throw-validation-err!
-     :query
-     (:root state)
-     [{:expected 'single-key?
-       :in (:in state)
-       :message (format "We only support a single key in the `order` clause. Got %s."
-                        (string/join "," (map name (keys order-map))))}])))
+      :query
+      (:root state)
+      [{:expected 'single-key?
+        :in (:in state)
+        :message (format "We only support a single key in the `order` clause. Got %s."
+                         (string/join "," (map name (keys order-map))))}])))
 
 (defn- assert-map! [{:keys [in root]} x]
   (when-not (map? x)
     (ex/throw-validation-err!
-     :query
-     root
-     [{:expected 'map? :in in}]))
+      :query
+      root
+      [{:expected 'map? :in in}]))
   x)
 
 (defn- assert-cursor! [{:keys [in root]} x]
   (let [err (fn [msg]
               (ex/throw-validation-err!
-               :query
-               root
-               [{:expected 'join-row?
-                 :in in
-                 :message msg}]))]
+                :query
+                root
+                [{:expected 'join-row?
+                  :in in
+                  :message msg}]))]
     (when (not (sequential? x))
       (err (format "Expected a join row for the cursor, got %s."
                    (->json x))))
@@ -347,56 +347,56 @@
   (if (and (int? limit) (pos? limit))
     limit
     (ex/throw-validation-err!
-     :query
-     (:root state)
-     [{:expected 'supported-options?
-       :in (conj (:in state) :limit)
-       :message (format "The limit field must be a positive integer. Got %s."
-                        (->json limit))}])))
+      :query
+      (:root state)
+      [{:expected 'supported-options?
+        :in (conj (:in state) :limit)
+        :message (format "The limit field must be a positive integer. Got %s."
+                         (->json limit))}])))
 
 (defn- coerce-first! [state limit]
   (if (and (int? limit) (pos? limit))
     limit
     (ex/throw-validation-err!
-     :query
-     (:root state)
-     [{:expected 'supported-options?
-       :in (conj (:in state) :first)
-       :message (format "The first field must be a positive integer. Got %s."
-                        (->json first))}])))
+      :query
+      (:root state)
+      [{:expected 'supported-options?
+        :in (conj (:in state) :first)
+        :message (format "The first field must be a positive integer. Got %s."
+                         (->json first))}])))
 
 (defn- coerce-last! [state limit]
   (if (and (int? limit) (pos? limit))
     limit
     (ex/throw-validation-err!
-     :query
-     (:root state)
-     [{:expected 'supported-options?
-       :in (conj (:in state) :last)
-       :message (format "The last field must be a positive integer. Got %s."
-                        (->json limit))}])))
+      :query
+      (:root state)
+      [{:expected 'supported-options?
+        :in (conj (:in state) :last)
+        :message (format "The last field must be a positive integer. Got %s."
+                         (->json limit))}])))
 
 (defn- coerce-offset! [state offset]
   (if (and (int? offset) (not (neg? offset)))
     offset
     (ex/throw-validation-err!
-     :query
-     (:root state)
-     [{:expected 'supported-options?
-       :in (conj (:in state) :offset)
-       :message (format "The offset field must be a non-negative integer. Got %s."
-                        (->json offset))}])))
+      :query
+      (:root state)
+      [{:expected 'supported-options?
+        :in (conj (:in state) :offset)
+        :message (format "The offset field must be a non-negative integer. Got %s."
+                         (->json offset))}])))
 
 (defn- coerce-aggregate! [state aggregate]
   (if (#{"count" :count} aggregate)
     :count
     (ex/throw-validation-err!
-     :query
-     (:root state)
-     [{:expected 'supported-options?
-       :in (conj (:in state) :aggregate)
-       :message (format "The aggregate field only accepts \"count\", got %s."
-                        (->json aggregate))}])))
+      :query
+      (:root state)
+      [{:expected 'supported-options?
+        :in (conj (:in state) :aggregate)
+        :message (format "The aggregate field only accepts \"count\", got %s."
+                         (->json aggregate))}])))
 
 (defn- coerce-option-map!
   "Coerce the where conditions into paths and values."
@@ -436,31 +436,31 @@
 
     (when (seq x)
       (ex/throw-validation-err!
-       :query
-       (:root state)
-       [{:expected 'supported-options?
-         :in (:in state)
-         :message "We only support `where`, `order`, `limit`, `offset`, `before`, and `after` clauses."}]))
+        :query
+        (:root state)
+        [{:expected 'supported-options?
+          :in (:in state)
+          :message "We only support `where`, `order`, `limit`, `offset`, `before`, and `after` clauses."}]))
 
     (when (and (< 0 (:level state))
                (or limit offset after before))
       (ex/throw-validation-err!
-       :query
-       (:root state)
-       [{:expected 'supported-options?
-         :in (:in state)
-         :message "We currently only support `limit`, `offset`, `before`, and `after` clauses on the top-level field."}]))
+        :query
+        (:root state)
+        [{:expected 'supported-options?
+          :in (:in state)
+          :message "We currently only support `limit`, `offset`, `before`, and `after` clauses on the top-level field."}]))
 
     (let [limit-opts (filter identity [(when limit "`limit`")
                                        (when first "`first`")
                                        (when last "`last`")])]
       (when (< 1 (count limit-opts))
         (ex/throw-validation-err!
-         :query
-         (:root state)
-         [{:expected 'supported-options?
-           :in (:in state)
-           :message (format "Only provide one of %s." (string/join " or " limit-opts))}])))
+          :query
+          (:root state)
+          [{:expected 'supported-options?
+            :in (:in state)
+            :message (format "Only provide one of %s." (string/join " or " limit-opts))}])))
 
     (cond-> x
       (seq where-conds) (assoc :where-conds where-conds)
@@ -502,59 +502,58 @@
         conformed (s/conform ::forms coerced)]
     (when (s/invalid? conformed)
       (ex/throw-validation-err!
-       :coerced-query
-       coerced
-       (ex/explain->validation-errors
-        (s/explain-data ::forms coerced))))
+        :coerced-query
+        coerced
+        (ex/explain->validation-errors
+          (s/explain-data ::forms coerced))))
     conformed))
 
 (comment
   (coerce-option-map!
-   {:in []
-    :level 0}
-   (attr-model/wrap-attrs [])
-   {:where {:bookshelves.books.title "The Count of Monte Cristo"
-            :email {:in ["test@example.com"]}
-            :or [{:email "test"}
-                 {:or [{:a "b"}]}]
-            :and [{:email "test"}
-                  {:handle "test"}]}})
+    {:in []
+     :level 0}
+    (attr-model/wrap-attrs [])
+    {:where {:bookshelves.books.title "The Count of Monte Cristo"
+             :email {:in ["test@example.com"]}
+             :or [{:email "test"}
+                  {:or [{:a "b"}]}]
+             :and [{:email "test"}
+                   {:handle "test"}]}})
   (coerce-forms!
-   {:in []}
-   (attr-model/wrap-attrs [])
-   {:users {:$ {:where {:bookshelves.books.title "The Count of Monte Cristo"
-                                        ;:email "test@example.com"
-                        }}
-            :books {}}})
+    {:in []}
+    (attr-model/wrap-attrs [])
+    {:users {:$ {:where {:bookshelves.books.title "The Count of Monte Cristo"}}
+             ; :email "test@example.com"
+             :books {}}})
 
   (coerce-forms!
-   {:in []}
-   (attr-model/wrap-attrs [])
-   {:users {:$ {:where {:bookshelves.books.title "The Count of Monte Cristo"}
-                :order {:serverCreatedAt "desc"}}
-            :books {}}})
+    {:in []}
+    (attr-model/wrap-attrs [])
+    {:users {:$ {:where {:bookshelves.books.title "The Count of Monte Cristo"}
+                 :order {:serverCreatedAt "desc"}}
+             :books {}}})
 
   (->forms!
-   (attr-model/wrap-attrs [])
-   {:users {:$ {:where {:bookshelves.books.title "The Count of Monte Cristo"
-                        :email "test@example.com"}}
-            :books {}}
-    :bookshelves {}})
+    (attr-model/wrap-attrs [])
+    {:users {:$ {:where {:bookshelves.books.title "The Count of Monte Cristo"
+                         :email "test@example.com"}}
+             :books {}}
+     :bookshelves {}})
 
   (->forms!
-   (attr-model/wrap-attrs [])
-   {:users {:$ {:where {:handle {:in ["stopa", "joe"]}
-                        :or [{:email "test"}
-                             {:or [{:a "b"}]}]
-                        :and [{:email "test"}
-                              {:handle "test"}]}}
-            :books {}}})
+    (attr-model/wrap-attrs [])
+    {:users {:$ {:where {:handle {:in ["stopa", "joe"]}
+                         :or [{:email "test"}
+                              {:or [{:a "b"}]}]
+                         :and [{:email "test"}
+                               {:handle "test"}]}}
+             :books {}}})
 
   (->forms!
-   (attr-model/wrap-attrs [])
-   {:users {:$ {:where {:and [{:or [{:handle "somebody"}
-                                    {:handle "joe"}
-                                    {:handle "nobody"}]}]}}}}))
+    (attr-model/wrap-attrs [])
+    {:users {:$ {:where {:and [{:or [{:handle "somebody"}
+                                     {:handle "joe"}
+                                     {:handle "nobody"}]}]}}}}))
 
 ;; ------
 ;; Node
@@ -577,8 +576,8 @@
   "Given a node, return the tree as a sequence in dfs order."
   [node]
   (lazy-seq
-   (cons (:data node)
-         (mapcat data-seq (:child-nodes node)))))
+    (cons (:data node)
+          (mapcat data-seq (:child-nodes node)))))
 
 ;; ----
 ;; ->where-cond-attr-pats
@@ -627,9 +626,9 @@
                     value-attr (or fwd-attr
                                    rev-attr)]
                 (ex/assert-record!
-                 id-attr :attr {:args [last-etype "id"]})
+                  id-attr :attr {:args [last-etype "id"]})
                 (ex/assert-record!
-                 value-attr :attr {:args [last-etype value-label]})
+                  value-attr :attr {:args [last-etype value-label]})
 
                 [[(level-sym last-etype last-level)
                   (:id id-attr)
@@ -744,30 +743,10 @@
           ret
           (update ret :pats optimize-attr-pats)))
       :or (-> (reduce
-               (fn [acc [i cond]]
-                 (let [join-sym (level-sym
-                                 (:etype form)
-                                 (:level form))
-                       level-sym (level-sym-gen level-sym join-sym i)]
-                   (as-> (where-cond->patterns (assoc ctx :level-sym level-sym)
-                                               form
-                                               cond) %
-                     (update % :pats (fn [pats] [{:and pats}]))
-                     (merge-with into acc %))))
-               {:pats []
-                :referenced-etypes #{}}
-               (map-indexed vector (:or where-cond)))
-              (update :pats (fn [pats]
-                              [{:or {:patterns pats
-                                     :join-sym (attr-pat/default-level-sym
-                                                (:etype form)
-                                                (:level form))}}])))
-
-      :and (-> (reduce
                 (fn [acc [i cond]]
                   (let [join-sym (level-sym
-                                  (:etype form)
-                                  (:level form))
+                                   (:etype form)
+                                   (:level form))
                         level-sym (level-sym-gen level-sym join-sym i)]
                     (as-> (where-cond->patterns (assoc ctx :level-sym level-sym)
                                                 form
@@ -776,7 +755,27 @@
                       (merge-with into acc %))))
                 {:pats []
                  :referenced-etypes #{}}
-                (map-indexed vector (:and where-cond)))
+                (map-indexed vector (:or where-cond)))
+              (update :pats (fn [pats]
+                              [{:or {:patterns pats
+                                     :join-sym (attr-pat/default-level-sym
+                                                 (:etype form)
+                                                 (:level form))}}])))
+
+      :and (-> (reduce
+                 (fn [acc [i cond]]
+                   (let [join-sym (level-sym
+                                    (:etype form)
+                                    (:level form))
+                         level-sym (level-sym-gen level-sym join-sym i)]
+                     (as-> (where-cond->patterns (assoc ctx :level-sym level-sym)
+                                                 form
+                                                 cond) %
+                       (update % :pats (fn [pats] [{:and pats}]))
+                       (merge-with into acc %))))
+                 {:pats []
+                  :referenced-etypes #{}}
+                 (map-indexed vector (:and where-cond)))
                (update :pats (fn [pats]
                                [{:and pats}]))))))
 
@@ -879,15 +878,15 @@
 
         (when (not order-attr)
           (ex/throw-validation-err!
-           :query
-           (:root state)
-           [{:expected 'supported-order?
-             :in (apply conj (:in (:state ctx)) [:$ :order])
-             :message (format "There is no `%s` attribute for %s."
-                              (if (= "serverCreatedAt" k)
-                                "id"
-                                k)
-                              etype)}]))
+            :query
+            (:root state)
+            [{:expected 'supported-order?
+              :in (apply conj (:in (:state ctx)) [:$ :order])
+              :message (format "There is no `%s` attribute for %s."
+                               (if (= "serverCreatedAt" k)
+                                 "id"
+                                 k)
+                               etype)}]))
 
         (when (not= "serverCreatedAt" k)
           (let [errors (keep identity
@@ -909,33 +908,33 @@
                                         (name (:cardinality order-attr))))])]
             (when (seq errors)
               (ex/throw-validation-err!
-               :query
-               (:root state)
-               (map (fn [message]
-                      {:expected 'supported-order?
-                       :in (apply conj (:in (:state ctx)) [:$ :order])
-                       :message message})
-                    errors)))))
+                :query
+                (:root state)
+                (map (fn [message]
+                       {:expected 'supported-order?
+                        :in (apply conj (:in (:state ctx)) [:$ :order])
+                        :message message})
+                     errors)))))
 
         (when (and before
                    (not= (:id order-attr) (second before)))
           (ex/throw-validation-err!
-           :query
-           (:root state)
-           [{:expected 'valid-cursor?
-             :in (apply conj (:in (:state ctx)) [:$ :before])
-             :message (format "Invalid before cursor. %s"
-                              (wrong-attribute-msg ctx order-attr (second before)))}]))
+            :query
+            (:root state)
+            [{:expected 'valid-cursor?
+              :in (apply conj (:in (:state ctx)) [:$ :before])
+              :message (format "Invalid before cursor. %s"
+                               (wrong-attribute-msg ctx order-attr (second before)))}]))
 
         (when (and after
                    (not= (:id order-attr) (second after)))
           (ex/throw-validation-err!
-           :query
-           (:root state)
-           [{:expected 'valid-cursor?
-             :in (apply conj (:in (:state ctx)) [:$ :after])
-             :message (format "Invalid after cursor. %s"
-                              (wrong-attribute-msg ctx order-attr (second after)))}]))
+            :query
+            (:root state)
+            [{:expected 'valid-cursor?
+              :in (apply conj (:in (:state ctx)) [:$ :after])
+              :message (format "Invalid after cursor. %s"
+                               (wrong-attribute-msg ctx order-attr (second after)))}]))
 
         {:limit (or limit first last)
          :last? (not (nil? last))
@@ -972,7 +971,7 @@
           (attr-pat/->guarded-ref-attr-pat ctx etype level k)
 
           join-attr-pat (attr-pat/replace-in-attr-pat
-                         attr-pat (attr-pat/default-level-sym etype level) eid)
+                          attr-pat (attr-pat/default-level-sym etype level) eid)
           form' (-> form
                     (assoc :etype next-etype)
                     (assoc :level next-level)
@@ -1026,23 +1025,23 @@
   (mapv (fn [form child]
           (let [nodes (map (fn [child]
                              (add-children
-                              (make-node {:etype (:etype form)
-                                          :datalog-query (:datalog-query (first child))
-                                          :datalog-result (let [result (:result (first child))]
-                                                            (if (= (:etype form) "$files")
-                                                              (transform-$files-result ctx form result)
-                                                              result))})
+                               (make-node {:etype (:etype form)
+                                           :datalog-query (:datalog-query (first child))
+                                           :datalog-result (let [result (:result (first child))]
+                                                             (if (= (:etype form) "$files")
+                                                               (transform-$files-result ctx form result)
+                                                               result))})
 
-                              (collect-query-results ctx (first (:children (first child)))
-                                                     (:child-forms form))))
+                               (collect-query-results ctx (first (:children (first child)))
+                                                      (:child-forms form))))
                            (:children child))]
             (add-children
-             (make-node {:k (:k form)
-                         :etype (:etype form)
-                         :option-map (:option-map form)
-                         :datalog-query (:datalog-query child)
-                         :datalog-result (:result child)})
-             nodes)))
+              (make-node {:k (:k form)
+                          :etype (:etype form)
+                          :option-map (:option-map form)
+                          :datalog-query (:datalog-query child)
+                          :datalog-result (:result child)})
+              nodes)))
         forms datalog-result))
 
 (defn- replace-sym-placeholders
@@ -1080,8 +1079,8 @@
   (if fields
     (let [attr-ids (reduce (fn [acc field]
                              (let [attr (attr-model/seek-by-fwd-ident-name
-                                         [etype field]
-                                         attrs)]
+                                          [etype field]
+                                          attrs)]
                                (if (= :one (:cardinality attr))
                                  (conj acc (:id attr))
                                  acc)))
@@ -1117,24 +1116,24 @@
         fields (get-in form [:option-map :fields])
         attr-ids (etype-attr-ids ctx etype fields)
         child-patterns (collect-query-one
-                        (mapv (partial query-one ctx)
-                              (form->child-forms ctx form sym-placeholder)))
+                         (mapv (partial query-one ctx)
+                               (form->child-forms ctx form sym-placeholder)))
         child-forms (:forms child-patterns)]
     (when (and aggregate (not (:admin? ctx)))
       (ex/throw-validation-err!
-       :query
-       (:root (:state ctx))
-       [{:expected 'admin?
-         :in (apply conj (:in (:state ctx)) [:$ :aggregate])
-         :message "Aggregates are currently only available for admin queries."}]))
+        :query
+        (:root (:state ctx))
+        [{:expected 'admin?
+          :in (apply conj (:in (:state ctx)) [:$ :aggregate])
+          :message "Aggregates are currently only available for admin queries."}]))
 
     (when (and aggregate (seq child-forms))
       (ex/throw-validation-err!
-       :query
-       (:root (:state ctx))
-       [{:expected 'valid-query?
-         :in (apply conj (:in (:state ctx)) [:$ :aggregate])
-         :message "You can not combine aggregates with child queries at this time."}]))
+        :query
+        (:root (:state ctx))
+        [{:expected 'valid-query?
+          :in (apply conj (:in (:state ctx)) [:$ :aggregate])
+          :message "You can not combine aggregates with child queries at this time."}]))
 
     {:form (assoc form :child-forms child-forms)
      :referenced-etypes (set/union #{etype}
@@ -1142,21 +1141,21 @@
                                    where-etypes)
      :pattern-group
      (merge
-      {:patterns (replace-sym-placeholders (map-invert (:sym-placeholders ctx))
-                                           patterns)
-       :children {:pattern-groups
-                  [(merge {:patterns [[:ea sym attr-ids]]}
-                          (when (seq child-forms)
-                            {:children {:pattern-groups (:pattern-groups child-patterns)
-                                        :join-sym sym}}))]
-                  :join-sym sym}}
-      (when missing-attr?
-        {:missing-attr? missing-attr?})
-      (when page-info
-        {:page-info page-info})
-      (when aggregate
-        {:aggregate aggregate
-         :children nil}))}))
+       {:patterns (replace-sym-placeholders (map-invert (:sym-placeholders ctx))
+                                            patterns)
+        :children {:pattern-groups
+                   [(merge {:patterns [[:ea sym attr-ids]]}
+                           (when (seq child-forms)
+                             {:children {:pattern-groups (:pattern-groups child-patterns)
+                                         :join-sym sym}}))]
+                   :join-sym sym}}
+       (when missing-attr?
+         {:missing-attr? missing-attr?})
+       (when page-info
+         {:page-info page-info})
+       (when aggregate
+         {:aggregate aggregate
+          :children nil}))}))
 
 (defn instaql-query->patterns [ctx o]
   (let [forms* (->> (->forms! (:attrs ctx) o)
@@ -1167,8 +1166,8 @@
                 referenced-etypes
                 forms]}
         (collect-query-one
-         (map (partial query-one (assoc ctx :state {:root o :in []}))
-              forms*))]
+          (map (partial query-one (assoc ctx :state {:root o :in []}))
+               forms*))]
     {:patterns {:children {:pattern-groups pattern-groups}}
      :forms forms
      :referenced-etypes referenced-etypes}))
@@ -1206,11 +1205,11 @@
   (if (contains? table-info table-name)
     (keyword table-name)
     (ex/throw-validation-err!
-     :query
-     (:root state)
-     [{:expected 'valid-table
-       :in (:in state)
-       :message (str table-name " is not a recognized table.")}])))
+      :query
+      (:root state)
+      [{:expected 'valid-table
+        :in (:in state)
+        :message (str table-name " is not a recognized table.")}])))
 
 (defn select-fields
   "Generates list of select fields for a table."
@@ -1218,11 +1217,11 @@
   (if (contains? table-info table-name)
     (keys (get-in table-info [table-name :fields]))
     (ex/throw-validation-err!
-     :query
-     (:root state)
-     [{:expected 'valid-table
-       :in (:in state)
-       :message (str table-name " is not a recognized table.")}])))
+      :query
+      (:root state)
+      [{:expected 'valid-table
+        :in (:in state)
+        :message (str table-name " is not a recognized table.")}])))
 
 (defn safe-field
   "Ensures that we only allow known fields to prevent sql injection."
@@ -1232,17 +1231,17 @@
       (if (contains? fields (keyword field-name))
         (keyword field-name)
         (ex/throw-validation-err!
-         :query
-         (:root state)
-         [{:expected 'valid-table
-           :in (:in state)
-           :message (str field-name " is not a recognized field on " table-name ".")}])))
+          :query
+          (:root state)
+          [{:expected 'valid-table
+            :in (:in state)
+            :message (str field-name " is not a recognized field on " table-name ".")}])))
     (ex/throw-validation-err!
-     :query
-     (:root state)
-     [{:expected 'valid-table
-       :in (:in state)
-       :message (str table-name " is not a recognized table.")}])))
+      :query
+      (:root state)
+      [{:expected 'valid-table
+        :in (:in state)
+        :message (str table-name " is not a recognized table.")}])))
 
 (defn t-field
   "Gets the field we'll use to populate the `t` field in the triple."
@@ -1258,11 +1257,11 @@
     (if (:indexed? field-info)
       field
       (ex/throw-validation-err!
-       :query
-       (:root state)
-       [{:expected 'indexed-field?
-         :in (:in state)
-         :message (str field-name " on " table-name " needs an index to be used for ordering")}]))))
+        :query
+        (:root state)
+        [{:expected 'indexed-field?
+          :in (:in state)
+          :message (str field-name " on " table-name " needs an index to be used for ordering")}]))))
 
 (declare where-conds->sql)
 
@@ -1336,21 +1335,21 @@
 
             [_ relations]
             (reduce
-             (fn [[previous-table relations] relation-field]
-               (if-let [relation (get-in table-info [previous-table
-                                                     :relations
-                                                     relation-field])]
-                 [(name (:other-table relation)) (conj relations relation)]
-                 (ex/throw-validation-err!
-                  :query
-                  (:root state)
-                  [{:expected 'not-implemented
-                    :in (:in state)
-                    :message (str relation-field
-                                  " is not a recognized relation on "
-                                  previous-table)}])))
-             [table-name []]
-             relations-fields)
+              (fn [[previous-table relations] relation-field]
+                (if-let [relation (get-in table-info [previous-table
+                                                      :relations
+                                                      relation-field])]
+                  [(name (:other-table relation)) (conj relations relation)]
+                  (ex/throw-validation-err!
+                    :query
+                    (:root state)
+                    [{:expected 'not-implemented
+                      :in (:in state)
+                      :message (str relation-field
+                                    " is not a recognized relation on "
+                                    previous-table)}])))
+              [table-name []]
+              relations-fields)
             field (safe-field state
                               table-info
                               (name (:other-table (last relations)))
@@ -1428,11 +1427,11 @@
       {:sql-conds [:and sql-conds]
        :topics topics})
     (ex/throw-validation-err!
-     :query
-     (:root state)
-     [{:expected 'valid-table
-       :in (:in state)
-       :message (str table-name " is not a recognized table.")}])))
+      :query
+      (:root state)
+      [{:expected 'valid-table
+        :in (:in state)
+        :message (str table-name " is not a recognized table.")}])))
 
 (defn needs-page-info? [form]
   (let [{:keys [offset limit before after first last]} (:option-map form)]
@@ -1471,11 +1470,11 @@
             direction (:direction (order-of-form state table-info form))]
         (when (not field)
           (ex/throw-validation-err!
-           :query
-           (:root state)
-           [{:expected 'valid-cursor?
-             :in (:in state)
-             :message "Unable to determine field in cursor."}]))
+            :query
+            (:root state)
+            [{:expected 'valid-cursor?
+              :in (:in state)
+              :message "Unable to determine field in cursor."}]))
         ;; TODO(byop): Secondary sorting field
         [[:cond {:path [(name field)]
                  :v [:args-map (if before
@@ -1500,37 +1499,37 @@
                 [:json_build_object (name aggregate) [aggregate :t]]]]]
 
              [[[(list*
-                 :json_build_object
-                 "rows"
-                 [:json_agg
-                  (list*
-                   :json_build_object
-                   "row" [:row_to_json :t]
-                   (concat
-                    (when-let [t-field (t-field table-info (:etype form))]
-                      ["t" [:cast [:* [:extract [:epoch-from t-field]] 1000] :bigint]])
-                    (when (seq (:child-forms form))
-                      ["children" children-sql-query])))]
+                  :json_build_object
+                  "rows"
+                  [:json_agg
+                   (list*
+                     :json_build_object
+                     "row" [:row_to_json :t]
+                     (concat
+                       (when-let [t-field (t-field table-info (:etype form))]
+                         ["t" [:cast [:* [:extract [:epoch-from t-field]] 1000] :bigint]])
+                       (when (seq (:child-forms form))
+                         ["children" children-sql-query])))]
 
-                 (when-let [{:keys [field reversed?]}
-                            (order-of-form state table-info form)]
-                   ["page-info" [:json_build_object
-                                 "sort-field" (name field)
-                                 "reversed" reversed?]]))]]])
+                  (when-let [{:keys [field reversed?]}
+                             (order-of-form state table-info form)]
+                    ["page-info" [:json_build_object
+                                  "sort-field" (name field)
+                                  "reversed" reversed?]]))]]])
 
    :from [[(merge
-            {:select (select-fields state table-info (:etype form))
-             :from (safe-table state table-info (:etype form))}
-            (when-let [limit (limit-of-form form)]
-              {:limit limit})
-            (when-let [offset (get-in form [:option-map :offset])]
-              {:offset offset})
-            (when-let [{:keys [field direction]}
-                       (order-of-form state table-info form)]
-              ;; TODO(byop): Add in secondary ordering field if ordering field isn't unique
-              {:order-by [[field direction]]})
-            (when sql-conds
-              {:where sql-conds}))
+             {:select (select-fields state table-info (:etype form))
+              :from (safe-table state table-info (:etype form))}
+             (when-let [limit (limit-of-form form)]
+               {:limit limit})
+             (when-let [offset (get-in form [:option-map :offset])]
+               {:offset offset})
+             (when-let [{:keys [field direction]}
+                        (order-of-form state table-info form)]
+               ;; TODO(byop): Add in secondary ordering field if ordering field isn't unique
+               {:order-by [[field direction]]})
+             (when sql-conds
+               {:where sql-conds}))
            :t]]})
 
 (defn forms->sql-query [ctx table-info forms]
@@ -1551,28 +1550,28 @@
 
                         _ (when (and aggregate (not (:admin? ctx)))
                             (ex/throw-validation-err!
-                             :query
-                             (:root (:state ctx))
-                             [{:expected 'admin?
-                               :in (apply conj (:in (:state ctx)) [:$ :aggregate])
-                               :message "Aggregates are currently only available for admin queries."}]))
+                              :query
+                              (:root (:state ctx))
+                              [{:expected 'admin?
+                                :in (apply conj (:in (:state ctx)) [:$ :aggregate])
+                                :message "Aggregates are currently only available for admin queries."}]))
 
                         {children-sql-query :sql-query children-topics :topics}
                         (when (and (not aggregate)
                                    (seq (:child-forms form)))
                           (forms->sql-query
-                           ctx
-                           table-info
-                           (map (fn [child-form]
-                                  (-> child-form
-                                      (assoc :etype (:k child-form))
-                                      (update-in [:option-map :where-conds]
-                                                 (fn [conds]
-                                                   (conj conds
-                                                         (relation-conds table-info
-                                                                         form
-                                                                         child-form))))))
-                                (:child-forms form))))
+                            ctx
+                            table-info
+                            (map (fn [child-form]
+                                   (-> child-form
+                                       (assoc :etype (:k child-form))
+                                       (update-in [:option-map :where-conds]
+                                                  (fn [conds]
+                                                    (conj conds
+                                                          (relation-conds table-info
+                                                                          form
+                                                                          child-form))))))
+                                 (:child-forms form))))
 
                         query
                         [:json_build_object
@@ -1625,14 +1624,14 @@
     (map (fn [{:strs [t row children]}]
            (let [id (get row id-field)]
              (concat
-              (for [[k v] row]
-                (let [a (get-in table-info [etype :fields (keyword k) :attr-id])
-                      join-row [id a v]]
-                  (if t
-                    (conj join-row t)
-                    join-row)))
-              (mapcat (partial relation-join-rows table-info etype id)
-                      children))))
+               (for [[k v] row]
+                 (let [a (get-in table-info [etype :fields (keyword k) :attr-id])
+                       join-row [id a v]]
+                   (if t
+                     (conj join-row t)
+                     join-row)))
+               (mapcat (partial relation-join-rows table-info etype id)
+                       children))))
          rows)))
 
 (defn rows->topics [table-info etype rows]
@@ -1649,13 +1648,13 @@
         relations (get-in table-info [etype :relations])
         relation-topics
         (mapcat
-         (fn [{:strs [children]}]
-           (map (fn [child]
-                  (let [relation (get relations (get child "k"))]
-                    ;; TODO(byop): narrow these down to relevant topics for this relation
-                    [:ea '_ #{(:attr-id relation)} '_]))
-                children))
-         rows)]
+          (fn [{:strs [children]}]
+            (map (fn [child]
+                   (let [relation (get relations (get child "k"))]
+                     ;; TODO(byop): narrow these down to relevant topics for this relation
+                     [:ea '_ #{(:attr-id relation)} '_]))
+                 children))
+          rows)]
     (concat catch-all
             entity-topics
             relation-topics)))
@@ -1685,23 +1684,23 @@
            {:k k
             :datalog-result
             (merge
-             {:join-rows (set (rows->join-rows table-info etype (get data "rows")))
-              :topics (rows->topics table-info etype (get data "rows"))}
-             (when-let [aggregate (get data "aggregate")]
-               {:aggregate aggregate})
-             (when-let [page-info (data->page-info table-info etype data)]
-               {:page-info page-info}))}
+              {:join-rows (set (rows->join-rows table-info etype (get data "rows")))
+               :topics (rows->topics table-info etype (get data "rows"))}
+              (when-let [aggregate (get data "aggregate")]
+                {:aggregate aggregate})
+              (when-let [page-info (data->page-info table-info etype data)]
+                {:page-info page-info}))}
            :child-nodes (if-let [children (seq (map #(get % "children")
                                                     (get data "rows")))]
                           (query-results->rows table-info
                                                (reduce
-                                                ;; We get a list of children per row. This collects the
-                                                ;; children for all of the rows together
-                                                (fn [acc children]
-                                                  (map (fn [x y]
-                                                         (update-in x ["data" "rows"] concat (get-in y ["data" "rows"])))
-                                                       acc children))
-                                                children))
+                                                 ;; We get a list of children per row. This collects the
+                                                 ;; children for all of the rows together
+                                                 (fn [acc children]
+                                                   (map (fn [x y]
+                                                          (update-in x ["data" "rows"] concat (get-in y ["data" "rows"])))
+                                                        acc children))
+                                                 children))
                           [])})
         results))
 
@@ -1722,8 +1721,8 @@
         _ (when-let [record-coarse-topics (:record-datalog-query-start! ctx)]
             (record-coarse-topics topics-id topics))
         sql-result (sql/select-string-keys
-                    (:conn-pool (:db ctx))
-                    (hsql/format sql-query :quoted true))
+                     (:conn-pool (:db ctx))
+                     (hsql/format sql-query :quoted true))
 
         result (query-results->rows table-info
                                     (-> sql-result
@@ -1745,29 +1744,29 @@
    etype to program."
   [acc {:keys [attrs rules rule-wheres]} data]
   (reduce
-   (fn [acc join-rows]
-     (reduce
-      (fn [acc [e a]]
-        (let [etype (-> (attr-model/seek-by-id a attrs)
-                        attr-model/fwd-etype)
-              rule-where (get rule-wheres (:etype data))
-              checked-by-rule-where? (and rule-where
-                                          (= etype (:etype data))
-                                          (not (:short-circuit? rule-where)))]
+    (fn [acc join-rows]
+      (reduce
+        (fn [acc [e a]]
+          (let [etype (-> (attr-model/seek-by-id a attrs)
+                          attr-model/fwd-etype)
+                rule-where (get rule-wheres (:etype data))
+                checked-by-rule-where? (and rule-where
+                                            (= etype (:etype data))
+                                            (not (:short-circuit? rule-where)))]
 
-          (cond-> acc
-            checked-by-rule-where? (update-in [:etype->eids+program etype :checked-eids]
-                                              (fnil conj #{}) e)
-            true (update-in [:etype->eids+program etype :eids]
-                            (fnil conj #{}) e)
-            true (update-in [:etype->eids+program etype :program]
-                            (fn [p]
-                              (or p
-                                  (rule-model/get-program! rules etype "view")))))))
-      acc
-      join-rows))
-   acc
-   (get-in data [:datalog-result :join-rows])))
+            (cond-> acc
+              checked-by-rule-where? (update-in [:etype->eids+program etype :checked-eids]
+                                                (fnil conj #{}) e)
+              true (update-in [:etype->eids+program etype :eids]
+                              (fnil conj #{}) e)
+              true (update-in [:etype->eids+program etype :program]
+                              (fn [p]
+                                (or p
+                                    (rule-model/get-program! rules etype "view")))))))
+        acc
+        join-rows))
+    acc
+    (get-in data [:datalog-result :join-rows])))
 
 (defn extract-permission-helpers*
   ([acc ctx instaql-res]
@@ -1841,8 +1840,8 @@
                     (->> child-nodes
                          (map (partial permissioned-node ctx etype+eid->check))
                          (filter
-                          (fn [node]
-                            (seq (-> node :data :datalog-result :join-rows))))
+                           (fn [node]
+                             (seq (-> node :data :datalog-result :join-rows))))
                          vec)))))))
 
 (defn entity-map [{:keys [datalog-query-fn attrs] :as ctx}
@@ -1986,27 +1985,27 @@
               (cel/get-all-where-clauses ctx rule-params programs))
             rule-wheres
             (reduce-kv
-             (fn [acc etype result]
-               (try
-                 (when-let [t (:thrown result)]
-                   (throw t))
-                 (when (seq (:where-clauses result))
-                   ;; Ensures we got valid where clauses back
-                   (rule-wheres->where-conds (:attrs ctx)
-                                             etype
-                                             (:where-clauses result)))
-                 (assoc acc etype {:short-circuit? (:short-circuit? result)
-                                   :where-clauses (:where-clauses result)})
-                 (catch Exception e
-                   (tracer/with-span!
-                       {:name "instaql/rule-where-exception"
-                        :attributes {:code (:code (rule-model/get-program! rules
-                                                                           etype
-                                                                           "view"))
-                                     :error e}}
-                     acc))))
-             {}
-             program-results)]
+              (fn [acc etype result]
+                (try
+                  (when-let [t (:thrown result)]
+                    (throw t))
+                  (when (seq (:where-clauses result))
+                    ;; Ensures we got valid where clauses back
+                    (rule-wheres->where-conds (:attrs ctx)
+                                              etype
+                                              (:where-clauses result)))
+                  (assoc acc etype {:short-circuit? (:short-circuit? result)
+                                    :where-clauses (:where-clauses result)})
+                  (catch Exception e
+                    (tracer/with-span!
+                      {:name "instaql/rule-where-exception"
+                       :attributes {:code (:code (rule-model/get-program! rules
+                                                                          etype
+                                                                          "view"))
+                                    :error e}}
+                      acc))))
+              {}
+              program-results)]
         (tracer/add-data! {:attributes {:rule-wheres rule-wheres}})
         rule-wheres))))
 
@@ -2038,12 +2037,12 @@
                (if (or (or-where-cond? [k v])
                        (and-where-cond? [k v]))
                  (assoc new-where k (concat (map
-                                             (fn [where]
-                                               (extend-where-with-rule-refs etype
-                                                                            ctx
-                                                                            rule-wheres
-                                                                            where))
-                                             v)
+                                              (fn [where]
+                                                (extend-where-with-rule-refs etype
+                                                                             ctx
+                                                                             rule-wheres
+                                                                             where))
+                                              v)
                                             ;; We may have added our own ands/or
                                             ;; in add-rule-wheres-to-query
                                             (get new-where k)))
@@ -2144,19 +2143,19 @@
                                     res)
         etype+eid->check (get-etype+eid-check-result! ctx perm-helpers rule-params)
         check-results (map
-                       (fn [[[etype id] {:keys [result program]}]]
-                         {:id id
-                          :entity etype
-                          :record (entity-map ctx
-                                              (:query-cache perm-helpers)
-                                              etype
-                                              id)
-                          :program (select-keys program [:code
-                                                         :display-code
-                                                         :etype
-                                                         :action])
-                          :check result})
-                       etype+eid->check)
+                        (fn [[[etype id] {:keys [result program]}]]
+                          {:id id
+                           :entity etype
+                           :record (entity-map ctx
+                                               (:query-cache perm-helpers)
+                                               etype
+                                               id)
+                           :program (select-keys program [:code
+                                                          :display-code
+                                                          :etype
+                                                          :action])
+                           :check result})
+                        etype+eid->check)
         nodes (mapv (partial permissioned-node ctx etype+eid->check) res)]
     {:nodes nodes :check-results check-results :rule-wheres rule-wheres}))
 
@@ -2173,8 +2172,8 @@
             :datalog-query-fn #'d/query
             :attrs attrs})
   (resolvers/walk-friendly
-   r
-   (permissioned-query ctx {:bookshelves {}}))
+    r
+    (permissioned-query ctx {:bookshelves {}}))
   (resolvers/walk-friendly
-   r
-   (permissioned-query ctx {:users {}})))
+    r
+    (permissioned-query ctx {:users {}})))

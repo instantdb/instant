@@ -1,6 +1,7 @@
 (ns hiccup.hooks
-  (:require [clj-kondo.hooks-api :as api]
-            [clojure.set :as set]))
+  (:require
+   [clj-kondo.hooks-api :as api]
+   [clojure.set :as set]))
 
 ;; See https://github.com/clj-kondo/clj-kondo/blob/master/doc/hooks.md
 
@@ -21,9 +22,9 @@
 
 (defn- dummy-arity [arg-count]
   (api/list-node
-   (list
-    (api/vector-node
-     (vec (repeat arg-count (api/token-node '_)))))))
+    (list
+      (api/vector-node
+        (vec (repeat arg-count (api/token-node '_)))))))
 
 (defn defelem [{:keys [node]}]
   (let [[_ & rest] (:children node)
@@ -33,6 +34,6 @@
         dummy-arities (for [n dummy-arg-counts] (dummy-arity n))]
     {:node
      (api/list-node
-      (list*
-       (api/token-node 'clojure.core/defn)
-       (concat fhead arities dummy-arities)))}))
+       (list*
+         (api/token-node 'clojure.core/defn)
+         (concat fhead arities dummy-arities)))}))

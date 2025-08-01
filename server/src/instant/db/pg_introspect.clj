@@ -1,9 +1,11 @@
 (ns instant.db.pg-introspect
-  (:require [clojure.string :as string]
-            [honey.sql :as hsql]
-            [instant.jdbc.sql :as sql]
-            [instant.db.model.attr :as attr-model])
-  (:import [java.util UUID]))
+  (:require
+   [clojure.string :as string]
+   [honey.sql :as hsql]
+   [instant.db.model.attr :as attr-model]
+   [instant.jdbc.sql :as sql])
+  (:import
+   (java.util UUID)))
 
 (def att-select
   [:*
@@ -16,15 +18,15 @@
               :where [:and
                       [:= :indrelid :att.attrelid]
                       ;; n.b. int2vectors are 0-indexed
-                      [:= :att.attnum [:raw "indkey[0]"]]]
-              }] :indexed]
+                      [:= :att.attnum [:raw "indkey[0]"]]]}]
+     :indexed]
    [[:exists {:select :*
               :from :pg_catalog.pg_constraint
               :where [:and
                       [:= :conrelid :att.attrelid]
                       [:= :att.attnum [:raw "conkey[0]"]]
-                      [:= :contype [:inline "u"]]]
-              }] :unique]])
+                      [:= :contype [:inline "u"]]]}]
+     :unique]])
 
 (defn introspection-query [namespace]
   {:with [[:namespace {:select :*
@@ -196,11 +198,11 @@
 (defn tables->attrs [tables]
   (mapcat (fn [{:strs [attributes foreign_keys] :as table}]
             (concat
-             (map (partial attribute->attr table)
-                  attributes)
-             ;; TODO(byop): Handle duplicates
-             (map (partial foreign-key->attr table)
-                  (filter foreign-key-filter foreign_keys))))
+              (map (partial attribute->attr table)
+                   attributes)
+              ;; TODO(byop): Handle duplicates
+              (map (partial foreign-key->attr table)
+                   (filter foreign-key-filter foreign_keys))))
           tables))
 
 (defn table->fields [table]
@@ -300,13 +302,13 @@
    It must be a date that starts with created."
   [table]
   (when-let [attr (first
-                   (filter (fn [attr]
-                             (and (string/starts-with?
-                                   (string/lower-case (get attr "attname"))
-                                   "created")
-                                  (contains? date-types
-                                             (get attr "typename"))))
-                           (get table "attributes")))]
+                    (filter (fn [attr]
+                              (and (string/starts-with?
+                                     (string/lower-case (get attr "attname"))
+                                     "created")
+                                   (contains? date-types
+                                              (get attr "typename"))))
+                            (get table "attributes")))]
     (keyword (get attr "attname"))))
 
 (defn table->table-info [table]

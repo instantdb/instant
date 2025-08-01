@@ -37,20 +37,20 @@
                             new-attrs)]
        (when (seq json-ids)
          (sql/execute!
-          (aurora/conn-pool :write)
-          (hsql/format {:update :attrs
-                        :where [:in :id json-ids]
-                        :set {:inferred-types [:cast
-                                               (attr-model/binary-inferred-types
-                                                #{:json})
-                                               [:bit :32]]}})))
+           (aurora/conn-pool :write)
+           (hsql/format {:update :attrs
+                         :where [:in :id json-ids]
+                         :set {:inferred-types [:cast
+                                                (attr-model/binary-inferred-types
+                                                  #{:json})
+                                                [:bit :32]]}})))
        (when (seq string-ids)
          (sql/execute!
-          (aurora/conn-pool :write)
-          (hsql/format {:update :attrs
-                        :where [:in :id string-ids]
-                        :set {:inferred-types [:cast
-                                               (attr-model/binary-inferred-types
-                                                #{:string})
-                                               [:bit :32]]}})))
+           (aurora/conn-pool :write)
+           (hsql/format {:update :attrs
+                         :where [:in :id string-ids]
+                         :set {:inferred-types [:cast
+                                                (attr-model/binary-inferred-types
+                                                  #{:string})
+                                                [:bit :32]]}})))
        (tracer/add-data! {:attributes {:created-count (count ids)}})))))

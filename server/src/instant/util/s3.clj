@@ -4,23 +4,10 @@
    [instant.util.aws-signature :as aws-sig]
    [instant.util.tracer :as tracer])
   (:import
-   (java.time Instant Duration)
-   (software.amazon.awssdk.core.async AsyncRequestBody
-                                      BlockingInputStreamAsyncRequestBody)
-   (software.amazon.awssdk.services.s3 S3AsyncClient
-                                       S3Client)
-   (software.amazon.awssdk.services.s3.model CopyObjectRequest
-                                             CopyObjectResponse
-                                             Delete
-                                             DeleteObjectRequest
-                                             DeleteObjectsRequest
-                                             HeadObjectRequest
-                                             HeadObjectResponse
-                                             ListObjectsV2Request
-                                             ListObjectsV2Response
-                                             ObjectIdentifier
-                                             PutObjectRequest
-                                             S3Object)))
+   (java.time Duration Instant)
+   (software.amazon.awssdk.core.async AsyncRequestBody BlockingInputStreamAsyncRequestBody)
+   (software.amazon.awssdk.services.s3 S3AsyncClient S3Client)
+   (software.amazon.awssdk.services.s3.model CopyObjectRequest CopyObjectResponse Delete DeleteObjectRequest DeleteObjectsRequest HeadObjectRequest HeadObjectResponse ListObjectsV2Request ListObjectsV2Response ObjectIdentifier PutObjectRequest S3Object)))
 
 (set! *warn-on-reflection* true)
 
@@ -153,7 +140,7 @@
 
 (defn delete-objects-paginated
   [^S3Client s3-client bucket-name object-keys]
-   ;; Limited to 1000 keys per request
+  ;; Limited to 1000 keys per request
   (let [chunks (partition-all 1000 object-keys)]
     (->> chunks
          (mapcat #(delete-objects s3-client bucket-name (vec %))))))
@@ -167,14 +154,14 @@
   (assert (= :get method)
           "get presigned urls are only implemented for :get requests")
   (aws-sig/presign-s3-url
-   {:access-key access-key
-    :secret-key secret-key
-    :region region
-    :method method
-    :bucket bucket-name
-    :signing-instant signing-instant
-    :expires-duration duration
-    :path key}))
+    {:access-key access-key
+     :secret-key secret-key
+     :region region
+     :method method
+     :bucket bucket-name
+     :signing-instant signing-instant
+     :expires-duration duration
+     :path key}))
 
 (defn generate-presigned-url-put
   [{:keys [access-key secret-key region] :as _signer-creds}
@@ -182,14 +169,14 @@
   (assert (= :put method)
           "put presigned urls are only implemented for :put requests")
   (aws-sig/presign-s3-url
-   {:access-key access-key
-    :secret-key secret-key
-    :region region
-    :method method
-    :bucket bucket-name
-    :signing-instant signing-instant
-    :expires-duration duration
-    :path key}))
+    {:access-key access-key
+     :secret-key secret-key
+     :region region
+     :method method
+     :bucket bucket-name
+     :signing-instant signing-instant
+     :expires-duration duration
+     :path key}))
 
 (defn generate-presigned-url
   [signer-creds {:keys [method] :as opts}]
@@ -201,12 +188,12 @@
 (defn- make-s3-put-opts
   [bucket-name {:keys [object-key content-type content-disposition content-length]} file-opts]
   (merge
-   {:bucket-name bucket-name
-    :key object-key
-    :metadata {:content-type (or content-type default-content-type)
-               :content-disposition (or content-disposition default-content-disposition)
-               :content-length content-length}}
-   file-opts))
+    {:bucket-name bucket-name
+     :key object-key
+     :metadata {:content-type (or content-type default-content-type)
+                :content-disposition (or content-disposition default-content-disposition)
+                :content-length content-length}}
+    file-opts))
 
 (defn upload-stream-to-s3
   [^S3AsyncClient async-client bucket-name ctx stream]

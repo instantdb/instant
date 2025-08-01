@@ -209,48 +209,48 @@
   (when (and (= "idents" (:table pg-data))
              (= "app_ident_uq" (:constraint pg-data)))
     (safely-extract-data
-     (fn [pg-data]
-       (let [details (parse-unique-detail (:detail pg-data))
-             etype (get details "etype")
-             label (get details "label")]
-         (when (and etype label)
-           {:message (format "`%s` already exists on `%s`"
-                             label
-                             etype)
-            :hint {:etype etype
-                   :label label}})))
-     pg-data
-     "ex/extract-duplicate-ident-data")))
+      (fn [pg-data]
+        (let [details (parse-unique-detail (:detail pg-data))
+              etype (get details "etype")
+              label (get details "label")]
+          (when (and etype label)
+            {:message (format "`%s` already exists on `%s`"
+                              label
+                              etype)
+             :hint {:etype etype
+                    :label label}})))
+      pg-data
+      "ex/extract-duplicate-ident-data")))
 
 (defn extract-unique-triple-data [pg-data]
   (when (and (= "triples" (:table pg-data))
              (= "av_index" (:constraint pg-data)))
     (safely-extract-data
-     (fn [pg-data]
-       (let [details (parse-unique-detail (:detail pg-data))
-             value   (get details "json_null_to_null(value)")
-             app-id  (uuid-util/coerce (get details "app_id"))
-             attr-id (uuid-util/coerce (get details "attr_id"))
-             {:keys [etype label]} (get-attr-details app-id attr-id)]
-         (cond (and etype label value)
-               {:message (format "`%s` is a unique attribute on `%s` and an entity already exists with `%s.%s` = %s"
-                                 label
-                                 etype
-                                 etype
-                                 label
-                                 value)
-                :hint {:attr-id attr-id
-                       :etype etype
-                       :label label
-                       :value value}}
+      (fn [pg-data]
+        (let [details (parse-unique-detail (:detail pg-data))
+              value   (get details "json_null_to_null(value)")
+              app-id  (uuid-util/coerce (get details "app_id"))
+              attr-id (uuid-util/coerce (get details "attr_id"))
+              {:keys [etype label]} (get-attr-details app-id attr-id)]
+          (cond (and etype label value)
+                {:message (format "`%s` is a unique attribute on `%s` and an entity already exists with `%s.%s` = %s"
+                                  label
+                                  etype
+                                  etype
+                                  label
+                                  value)
+                 :hint {:attr-id attr-id
+                        :etype etype
+                        :label label
+                        :value value}}
 
-               attr-id
-               {:hint {:attr-id attr-id
-                       :value value}}
+                attr-id
+                {:hint {:attr-id attr-id
+                        :value value}}
 
-               :else nil)))
-     pg-data
-     "ex/extract-unique-triple-data")))
+                :else nil)))
+      pg-data
+      "ex/extract-unique-triple-data")))
 
 (defn build-not-unqiue-hint [pg-data]
   (or (extract-duplicate-ident-data pg-data)
@@ -304,8 +304,8 @@
                           (name input-type)
                           (when (seq errors)
                             (str
-                             ": "
-                             (string/join ", " (keep :message errors)))))
+                              ": "
+                              (string/join ", " (keep :message errors)))))
            ::hint {:data-type input-type
                    :input input
                    :errors errors}}))
@@ -403,8 +403,8 @@
   (->> explain
        ::s/problems
        (sort-by
-        (fn [{:keys [in path]}]
-          [(count path) (count in) (last in)]))
+         (fn [{:keys [in path]}]
+           [(count path) (count in) (last in)]))
        last))
 
 (defn- ns-to-remove? [x]
@@ -415,12 +415,12 @@
    we walk it and remove the `namespace` part for common symbols and keywords"
   [pred]
   (w/postwalk
-   (fn [x]
-     (cond
-       (and (symbol? x) (ns-to-remove? x)) (symbol (name x))
-       (and (keyword? x) (ns-to-remove? x)) (keyword (name x))
-       :else x))
-   pred))
+    (fn [x]
+      (cond
+        (and (symbol? x) (ns-to-remove? x)) (symbol (name x))
+        (and (keyword? x) (ns-to-remove? x)) (keyword (name x))
+        :else x))
+    pred))
 
 (defn explain->validation-errors [explain]
   (let [problem (best-problem explain)

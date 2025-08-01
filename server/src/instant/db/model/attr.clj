@@ -112,9 +112,9 @@
 
 (s/def ::attr-update
   (s/keys
-   :req-un [::id]
-   :opt-un
-   [::forward-identity ::reverse-identity ::unique? ::index? ::cardinality]))
+    :req-un [::id]
+    :opt-un
+    [::forward-identity ::reverse-identity ::unique? ::index? ::cardinality]))
 
 ;; ---
 ;; ident
@@ -180,9 +180,9 @@
   [conn app-id]
   (with-cache-invalidation app-id
     (sql/do-execute!
-     ::delete-by-app-id!
-     conn
-     ["DELETE FROM attrs WHERE attrs.app_id = ?::uuid" app-id])))
+      ::delete-by-app-id!
+      conn
+      ["DELETE FROM attrs WHERE attrs.app_id = ?::uuid" app-id])))
 
 ;; ------
 ;; insert-multi!
@@ -261,10 +261,10 @@
     (when-let [fwd-etype (-> attr :forward-identity second)]
       (when (string/starts-with? fwd-etype "$")
         (ex/throw-validation-err!
-         :attributes
-         attr
-         [{:message (string-util/multiline->single-line
-                     "Namespaces are not allowed to start with a `$`.
+          :attributes
+          attr
+          [{:message (string-util/multiline->single-line
+                       "Namespaces are not allowed to start with a `$`.
                       Those are reserved for system namespaces.")}])))))
 
 (defn validate-add-required! [conn app-id attrs]
@@ -281,9 +281,9 @@
                  res   (sql/execute! conn (sql/format query {"?etype" etype, "?app-id" app-id}))]
           :when (seq res)]
     (ex/throw-validation-err!
-     :attributes
-     attr
-     [{:message (str "Can't create attribute `" label "` as required because `" etype "` already have entities")}])))
+      :attributes
+      attr
+      [{:message (str "Can't create attribute `" label "` as required because `" etype "` already have entities")}])))
 
 (defn insert-multi!
   "Attr data is expressed as one object in clj but is persisted across two tables
@@ -510,72 +510,72 @@
       (doseq [{:keys [id etype label attr_count etype_count]} res
               :when (not= attr_count etype_count)]
         (ex/throw-validation-err!
-         :attributes
-         {:id id}
-         [{:message (str "Can't update attribute `" label "` to required because `" etype "` already have entities without it")}])))))
+          :attributes
+          {:id id}
+          [{:message (str "Can't update attribute `" label "` to required because `" etype "` already have entities without it")}])))))
 
 (defn update-multi!
   [conn app-id updates]
   (validate-reserved-names! updates)
   (with-cache-invalidation app-id
     (sql/do-execute!
-     ::update-multi!
-     conn
-     (hsql/format
-      {:with (concat
-              [[[:attr-values
-                 {:columns attr-table-cols}]
-                {:values (attr-table-values app-id updates)}]
-               [:attr-updates
-                {:update :attrs
-                 :set {:etype             (not-null-or :attr-values.etype :attrs.etype)
-                       :label             (not-null-or :attr-values.label :attrs.label)
-                       :reverse-etype     (not-null-or :attr-values.reverse-etype :attrs.reverse-etype)
-                       :reverse-label     (not-null-or :attr-values.reverse-label :attrs.reverse-label)
-                       :value-type        (not-null-or :attr-values.value-type :attrs.value-type)
-                       :cardinality       (not-null-or :attr-values.cardinality :attrs.cardinality)
-                       :is-unique         (not-null-or :attr-values.is-unique :attrs.is-unique)
-                       :is-indexed        (not-null-or :attr-values.is-indexed :attrs.is-indexed)
-                       :is-required       (not-null-or :attr-values.is-required :attrs.is-required)
-                       :on-delete         :attr-values.on-delete
-                       :on-delete-reverse :attr-values.on-delete-reverse}
-                 :from [:attr-values]
-                 :where [:and
-                         [:= :attrs.id :attr-values.id]
-                         [:= :attrs.app-id :attr-values.app-id]]
-                 :returning [:attrs.*]}]
-               [:triple-updates
-                {:update :triples
-                 :set {:ea  [:case [:= :a.cardinality [:inline "one"]] true :else false]
-                       :eav [:case [:= :a.value-type [:inline "ref"]] true :else false]
-                       :av :a.is-unique
-                       :ave :a.is-indexed}
-                 :from [[:attr-updates :a]]
-                 :where [:and
-                         [:= :triples.app-id :a.app-id]
-                         [:= :triples.attr-id :a.id]]
-                 :returning :triples.entity_id}]]
-              (if-some [ident-table-vals (seq (ident-table-values app-id updates))]
-                [[[:ident-values
-                   {:columns ident-table-cols}]
-                  {:values ident-table-vals}]
-                 [:ident-updates
-                  {:update :idents,
-                   :set {:etype :ident-values.etype, :label :ident-values.label},
-                   :from [:ident-values]
-                   :where [:and
-                           [:= :idents.id :ident-values.id]
-                           [:= :idents.app-id :ident-values.app-id]
-                           [:= :idents.attr-id :ident-values.attr-id]]
-                   :returning :idents.id}]]
-                [[:ident-updates
-                  {:select [[[:cast nil :uuid] :id]]}]])
-              [[:union-ids
-                {:union-all
-                 [{:select :entity_id :from :triple-updates}
-                  {:select :id :from :attr-updates}
-                  {:select :id :from :ident-updates}]}]])
-       :select :%count.* :from :union-ids}))))
+      ::update-multi!
+      conn
+      (hsql/format
+        {:with (concat
+                 [[[:attr-values
+                    {:columns attr-table-cols}]
+                   {:values (attr-table-values app-id updates)}]
+                  [:attr-updates
+                   {:update :attrs
+                    :set {:etype             (not-null-or :attr-values.etype :attrs.etype)
+                          :label             (not-null-or :attr-values.label :attrs.label)
+                          :reverse-etype     (not-null-or :attr-values.reverse-etype :attrs.reverse-etype)
+                          :reverse-label     (not-null-or :attr-values.reverse-label :attrs.reverse-label)
+                          :value-type        (not-null-or :attr-values.value-type :attrs.value-type)
+                          :cardinality       (not-null-or :attr-values.cardinality :attrs.cardinality)
+                          :is-unique         (not-null-or :attr-values.is-unique :attrs.is-unique)
+                          :is-indexed        (not-null-or :attr-values.is-indexed :attrs.is-indexed)
+                          :is-required       (not-null-or :attr-values.is-required :attrs.is-required)
+                          :on-delete         :attr-values.on-delete
+                          :on-delete-reverse :attr-values.on-delete-reverse}
+                    :from [:attr-values]
+                    :where [:and
+                            [:= :attrs.id :attr-values.id]
+                            [:= :attrs.app-id :attr-values.app-id]]
+                    :returning [:attrs.*]}]
+                  [:triple-updates
+                   {:update :triples
+                    :set {:ea  [:case [:= :a.cardinality [:inline "one"]] true :else false]
+                          :eav [:case [:= :a.value-type [:inline "ref"]] true :else false]
+                          :av :a.is-unique
+                          :ave :a.is-indexed}
+                    :from [[:attr-updates :a]]
+                    :where [:and
+                            [:= :triples.app-id :a.app-id]
+                            [:= :triples.attr-id :a.id]]
+                    :returning :triples.entity_id}]]
+                 (if-some [ident-table-vals (seq (ident-table-values app-id updates))]
+                   [[[:ident-values
+                      {:columns ident-table-cols}]
+                     {:values ident-table-vals}]
+                    [:ident-updates
+                     {:update :idents
+                      :set {:etype :ident-values.etype, :label :ident-values.label}
+                      :from [:ident-values]
+                      :where [:and
+                              [:= :idents.id :ident-values.id]
+                              [:= :idents.app-id :ident-values.app-id]
+                              [:= :idents.attr-id :ident-values.attr-id]]
+                      :returning :idents.id}]]
+                   [[:ident-updates
+                     {:select [[[:cast nil :uuid] :id]]}]])
+                 [[:union-ids
+                   {:union-all
+                    [{:select :entity_id :from :triple-updates}
+                     {:select :id :from :attr-updates}
+                     {:select :id :from :ident-updates}]}]])
+         :select :%count.* :from :union-ids}))))
 
 (defn delete-multi!
   "Deletes a batch of attrs for an app. We
@@ -584,13 +584,13 @@
   [conn app-id ids]
   (with-cache-invalidation app-id
     (sql/do-execute!
-     ::delte-multi!
-     conn
-     (hsql/format
-      {:delete-from :attrs
-       :where [[:and
-                [:= :app-id app-id]
-                [:in :id ids]]]}))))
+      ::delte-multi!
+      conn
+      (hsql/format
+        {:delete-from :attrs
+         :where [[:and
+                  [:= :app-id app-id]
+                  [:in :id ids]]]}))))
 ;; -------
 ;; app-attrs
 
@@ -685,26 +685,26 @@
 
 (defn wrap-attrs ^Attrs [attrs]
   (Attrs.
-   attrs
-   ;; by-id-cache
-   (delay
-     (coll/map-by :id attrs))
-   ;; by-fwd-ident-cache
-   (delay
-     (coll/map-by fwd-ident-name attrs))
-   ;; by-rev-ident-cache
-   (delay
-     (->> attrs
-          (filter rev-ident-name)
-          (coll/map-by rev-ident-name)))
-   ;; ids-by-etype-cache
-   (delay
-     (coll/group-by-to fwd-etype :id #{} attrs))
-   ;; ea-ids-by-etype-cache
-   (delay
-     (->> attrs
-          (filter #(= :one (:cardinality %)))
-          (coll/group-by-to fwd-etype :id #{})))))
+    attrs
+    ;; by-id-cache
+    (delay
+      (coll/map-by :id attrs))
+    ;; by-fwd-ident-cache
+    (delay
+      (coll/map-by fwd-ident-name attrs))
+    ;; by-rev-ident-cache
+    (delay
+      (->> attrs
+           (filter rev-ident-name)
+           (coll/map-by rev-ident-name)))
+    ;; ids-by-etype-cache
+    (delay
+      (coll/group-by-to fwd-etype :id #{} attrs))
+    ;; ea-ids-by-etype-cache
+    (delay
+      (->> attrs
+           (filter #(= :one (:cardinality %)))
+           (coll/group-by-to fwd-etype :id #{})))))
 
 (defn unwrap [^Attrs attrs]
   (.-elements attrs))
@@ -713,12 +713,12 @@
   "Returns clj representation of all attrs for an app"
   [conn app-id]
   (wrap-attrs
-   (mapv row->attr
-         (sql/select
-          ::get-by-app-id*
-          conn
-          (sql/format
-           "SELECT
+    (mapv row->attr
+          (sql/select
+            ::get-by-app-id*
+            conn
+            (sql/format
+              "SELECT
               *
             FROM
               attrs
@@ -727,8 +727,8 @@
               OR app_id = CAST(?system-catalog-app-id AS UUID)
             ORDER BY
               id ASC"
-           {"?app-id" app-id
-            "?system-catalog-app-id" system-catalog-app-id})))))
+              {"?app-id" app-id
+               "?system-catalog-app-id" system-catalog-app-id})))))
 
 (defn get-by-app-id
   ([app-id]
@@ -745,17 +745,17 @@
    (get-by-app-ids (aurora/conn-pool :read) app-ids))
   ([conn app-ids]
    (let [rows (sql/select
-               ::get-by-app-ids
-               conn
-               (hsql/format
-                {:select [:attrs.*
-                          [:etype :fwd-etype]
-                          [:label :fwd-label]
-                          [:reverse_etype :rev-etype]
-                          [:reverse_label :rev-label]]
-                 :from :attrs
-                 :where [:= :attrs.app-id [:any (with-meta (conj (set app-ids) system-catalog-app-id)
-                                                  {:pgtype "uuid[]"})]]}))
+                ::get-by-app-ids
+                conn
+                (hsql/format
+                  {:select [:attrs.*
+                            [:etype :fwd-etype]
+                            [:label :fwd-label]
+                            [:reverse_etype :rev-etype]
+                            [:reverse_label :rev-label]]
+                   :from :attrs
+                   :where [:= :attrs.app-id [:any (with-meta (conj (set app-ids) system-catalog-app-id)
+                                                    {:pgtype "uuid[]"})]]}))
          rows-by-app-id (group-by :app_id rows)
          system-catalog-attrs (map row->attr (get rows-by-app-id system-catalog-app-id))]
      (reduce (fn [acc app-id]
@@ -787,11 +787,11 @@
   [^Attrs attrs]
   (remove (fn [a]
             (or
-             (and (= :system (:catalog a))
-                  (not (#{"$users" "$files"} (fwd-etype a))))
-             (and (= "$files" (fwd-etype a))
-                  (#{"content-type" "content-disposition" "size"
-                     "location-id" "key-version"} (fwd-label a)))))
+              (and (= :system (:catalog a))
+                   (not (#{"$users" "$files"} (fwd-etype a))))
+              (and (= "$files" (fwd-etype a))
+                   (#{"content-type" "content-disposition" "size"
+                      "location-id" "key-version"} (fwd-label a)))))
           attrs))
 
 (defn resolve-attr-id [attrs etype label]

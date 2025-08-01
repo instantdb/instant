@@ -1,13 +1,14 @@
 (ns instant.storage.sweeper-test
-  (:require [clojure.test :as test :refer [deftest testing is use-fixtures]]
-            [instant.model.app-file :as app-file]
-            [instant.storage.sweeper :as sweeper]
-            [instant.jdbc.aurora :as aurora]
-            [instant.jdbc.sql :as sql]
-            [instant.fixtures :refer [with-empty-app]]
-            [honey.sql :as hsql]
-            [instant.util.s3 :as s3-util]
-            [instant.storage.s3 :as s3-storage]))
+  (:require
+   [clojure.test :as test :refer [deftest is testing use-fixtures]]
+   [honey.sql :as hsql]
+   [instant.fixtures :refer [with-empty-app]]
+   [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
+   [instant.model.app-file :as app-file]
+   [instant.storage.s3 :as s3-storage]
+   [instant.storage.sweeper :as sweeper]
+   [instant.util.s3 :as s3-util]))
 
 (defn with-s3-mock [f]
   (with-redefs [s3-util/delete-objects (constantly nil)
@@ -21,17 +22,17 @@
   (sql/execute! ::delete-files
                 conn
                 (hsql/format
-                 {:delete-from :app-files-to-sweep
-                  :where [:= :app-id app-id]
-                  :returning [:id]})))
+                  {:delete-from :app-files-to-sweep
+                   :where [:= :app-id app-id]
+                   :returning [:id]})))
 
 (defn count-files-to-sweep [conn app-id]
   (-> (sql/select-one ::count-files
                       conn
                       (hsql/format
-                       {:select [[[:count :*] :count]]
-                        :from :app-files-to-sweep
-                        :where [:= :app-id app-id]}))
+                        {:select [[[:count :*] :count]]
+                         :from :app-files-to-sweep
+                         :where [:= :app-id app-id]}))
       :count))
 
 (deftest test-sweeper-basic-operations

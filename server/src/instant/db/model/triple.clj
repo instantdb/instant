@@ -14,9 +14,9 @@
    [instant.util.string :refer [multiline->single-line]]
    [instant.util.tracer :as tracer])
   (:import
-   (java.util UUID)
-   (java.time Instant LocalDate LocalDateTime ZonedDateTime ZoneOffset)
-   (java.time.format DateTimeFormatter)))
+   (java.time Instant LocalDate LocalDateTime ZoneOffset ZonedDateTime)
+   (java.time.format DateTimeFormatter)
+   (java.util UUID)))
 
 ;; (XXX): Currently we allow value to be nil
 ;; In the future, we may want to _retract_ the triple if the value is nil
@@ -49,19 +49,19 @@
     {}
     (let [lookups-set (set lookups)
           triples (sql/execute!
-                   ::fetch-lookups->eid
-                   conn
-                   (hsql/format
-                    {:select :*
-                     :from :triples
-                     :where [:and
-                             [:= :app-id app-id]
-                             :av
-                             (list* :or
-                                    (map
-                                     (fn [[a v]]
-                                       [:and [:= :attr-id a] [:= [:json_null_to_null :value] [:cast (->json v) :jsonb]]])
-                                     lookups-set))]}))
+                    ::fetch-lookups->eid
+                    conn
+                    (hsql/format
+                      {:select :*
+                       :from :triples
+                       :where [:and
+                               [:= :app-id app-id]
+                               :av
+                               (list* :or
+                                      (map
+                                        (fn [[a v]]
+                                          [:and [:= :attr-id a] [:= [:json_null_to_null :value] [:cast (->json v) :jsonb]]])
+                                        lookups-set))]}))
 
           lookups->eid (->> triples
                             (map (fn [{:keys [entity_id attr_id value]}]
@@ -148,17 +148,17 @@
   [conn attrs app-id eid+attr-ids]
   (let [attrs                (into {} (map #(vector (:id %) %)) attrs)
         etypes-with-required (set
-                              (for [[_ attr] attrs
-                                    :when (:required? attr)]
-                                (-> attr :forward-identity second)))
+                               (for [[_ attr] attrs
+                                     :when (:required? attr)]
+                                 (-> attr :forward-identity second)))
         eid+etypes           (distinct
-                              (for [{:keys [entity_id attr_id]} eid+attr-ids
-                                    :let [etype (-> attrs (get attr_id) :forward-identity second)]
-                                    :when (etypes-with-required etype)]
-                                [entity_id etype]))]
+                               (for [{:keys [entity_id attr_id]} eid+attr-ids
+                                     :let [etype (-> attrs (get attr_id) :forward-identity second)]
+                                     :when (etypes-with-required etype)]
+                                 [entity_id etype]))]
     (when (seq eid+etypes)
       (let [query (sql/format
-                   "WITH eid_etypes_cte AS (
+                    "WITH eid_etypes_cte AS (
                       SELECT
                         cast(elem ->> 0 AS uuid) AS entity_id,
                         cast(elem ->> 1 AS text) AS etype
@@ -207,48 +207,48 @@
 
                       -- check for attrs missing from triples
                       AND (entity_id, attr_id) NOT IN (SELECT entity_id, attr_id FROM triples_cte)"
-                   {"?eid+etypes"            (->json eid+etypes)
-                    "?app-id"                app-id
-                    "?system-catalog-app-id" system-catalog-app-id})
+                    {"?eid+etypes"            (->json eid+etypes)
+                     "?app-id"                app-id
+                     "?system-catalog-app-id" system-catalog-app-id})
             res (sql/execute! ::validate-required! conn query)]
         (when (seq res)
           (ex/throw+
-           {::ex/type    ::ex/validation-failed
-            ::ex/message (str/join ". "
-                                   (for [[[etype label] records] (group-by (juxt :etype :label) res)]
-                                     (if (= 1 (count records))
-                                       (str "Missing required attribute `" etype "/" label "`: " (:entity_id (first records)))
-                                       (str "Missing required attributes `" etype "/" label "`: "
-                                            (str/join ", " (map :entity_id records))))))
+            {::ex/type    ::ex/validation-failed
+             ::ex/message (str/join ". "
+                                    (for [[[etype label] records] (group-by (juxt :etype :label) res)]
+                                      (if (= 1 (count records))
+                                        (str "Missing required attribute `" etype "/" label "`: " (:entity_id (first records)))
+                                        (str "Missing required attributes `" etype "/" label "`: "
+                                             (str/join ", " (map :entity_id records))))))
 
-            ::ex/hint    {:records res}}))))))
+             ::ex/hint    {:records res}}))))))
 
 (defn deep-merge-multi!  [conn _attrs app-id triples]
   (let [input-triples-values
         (->> triples
              (group-by (juxt first second))
              (map-indexed
-              (fn [idx [[entity-id attr-id] patches]]
-                [idx
-                 app-id
-                 (if-not (eid-lookup-ref? entity-id)
-                   entity-id
-                   {:select :entity-id
-                    :from :lookup-ref-lookups
-                    :where [:and
-                            [:= :app-id app-id]
-                            [:= :attr-id (first entity-id)]
-                            [:= :value [:cast (->json (second entity-id)) :jsonb]]]
-                    :limit 1})
-                 attr-id
-                 (->json (mapv (fn [a] (nth a 2)) patches))])))
+               (fn [idx [[entity-id attr-id] patches]]
+                 [idx
+                  app-id
+                  (if-not (eid-lookup-ref? entity-id)
+                    entity-id
+                    {:select :entity-id
+                     :from :lookup-ref-lookups
+                     :where [:and
+                             [:= :app-id app-id]
+                             [:= :attr-id (first entity-id)]
+                             [:= :value [:cast (->json (second entity-id)) :jsonb]]]
+                     :limit 1})
+                  attr-id
+                  (->json (mapv (fn [a] (nth a 2)) patches))])))
 
         lookup-refs (distinct
-                     (keep
-                      (fn [[e]]
-                        (when (eid-lookup-ref? e)
-                          e))
-                      triples))
+                      (keep
+                        (fn [[e]]
+                          (when (eid-lookup-ref? e)
+                            e))
+                        triples))
 
         input-lookup-refs
         (map (fn [[a v]]
@@ -348,20 +348,20 @@
          :returning [:entity-id :attr-id]}
 
         q {:with (concat
-                  (when (seq lookup-refs)
-                    [[['input-lookup-refs {:columns ['app-id 'attr-id 'value]}]
-                      {:values input-lookup-refs}]
-                     ['enhanced-lookup-refs enhanced-lookup-refs]
-                     ['lookup-ref-inserts lookup-ref-inserts]
-                     ['lookup-ref-lookups lookup-ref-lookups]])
-                  [[['input-triples {:columns ['idx 'app-id 'entity-id 'attr-id 'value]}]
-                    {:values input-triples-values}
-                    :materialized]
-                   ['applied-triples applied-triples]
-                   [:enhanced-triples enhanced-triples]
-                   [:ea-index-inserts ea-index-inserts]]
-                  (when-let [attr-inferred-types (insert-attr-inferred-types-cte app-id triples)]
-                    [[:attr-inferred-types attr-inferred-types]]))
+                   (when (seq lookup-refs)
+                     [[['input-lookup-refs {:columns ['app-id 'attr-id 'value]}]
+                       {:values input-lookup-refs}]
+                      ['enhanced-lookup-refs enhanced-lookup-refs]
+                      ['lookup-ref-inserts lookup-ref-inserts]
+                      ['lookup-ref-lookups lookup-ref-lookups]])
+                   [[['input-triples {:columns ['idx 'app-id 'entity-id 'attr-id 'value]}]
+                     {:values input-triples-values}
+                     :materialized]
+                    ['applied-triples applied-triples]
+                    [:enhanced-triples enhanced-triples]
+                    [:ea-index-inserts ea-index-inserts]]
+                   (when-let [attr-inferred-types (insert-attr-inferred-types-cte app-id triples)]
+                     [[:attr-inferred-types attr-inferred-types]]))
            :select ['entity-id 'attr-id]
            :from :ea-index-inserts}]
     (sql/execute! ::deep-merge-mult! conn (hsql/format q))))
@@ -389,10 +389,10 @@
   [conn _attrs app-id triples]
   (let [lookup-refs
         (distinct
-         (keep (fn [[e]]
-                 (when (eid-lookup-ref? e)
-                   e))
-               triples))
+          (keep (fn [[e]]
+                  (when (eid-lookup-ref? e)
+                    e))
+                triples))
 
         input-lookup-refs
         (map (fn [[a v]]
@@ -597,29 +597,29 @@
          ;; for the attr if this transaction is
          ;; inserting a value for the attr
          :where (list*
-                 :and
-                 [:not
-                  [:exists
-                   {:select :*
-                    :from :ea-index-inserts
-                    :where [:and
-                            [:= :ea-index-inserts.entity-id :new-entities.entity-id]
-                            [:= :ea-index-inserts.attr-id :needs-null-attr.id]]}]]
-                 [:not
-                  [:exists
-                   {:select :*
-                    :from :remaining-inserts
-                    :where [:and
-                            [:= :remaining-inserts.entity-id :new-entities.entity-id]
-                            [:= :remaining-inserts.attr-id :needs-null-attr.id]]}]]
-                 (when (seq lookup-refs)
-                   [[:not
-                     [:exists
-                      {:select :*
-                       :from :lookup-ref-inserts
-                       :where [:and
-                               [:= :lookup-ref-inserts.entity-id :new-entities.entity-id]
-                               [:= :lookup-ref-inserts.attr-id :needs-null-attr.id]]}]]]))}
+                  :and
+                  [:not
+                   [:exists
+                    {:select :*
+                     :from :ea-index-inserts
+                     :where [:and
+                             [:= :ea-index-inserts.entity-id :new-entities.entity-id]
+                             [:= :ea-index-inserts.attr-id :needs-null-attr.id]]}]]
+                  [:not
+                   [:exists
+                    {:select :*
+                     :from :remaining-inserts
+                     :where [:and
+                             [:= :remaining-inserts.entity-id :new-entities.entity-id]
+                             [:= :remaining-inserts.attr-id :needs-null-attr.id]]}]]
+                  (when (seq lookup-refs)
+                    [[:not
+                      [:exists
+                       {:select :*
+                        :from :lookup-ref-inserts
+                        :where [:and
+                                [:= :lookup-ref-inserts.entity-id :new-entities.entity-id]
+                                [:= :lookup-ref-inserts.attr-id :needs-null-attr.id]]}]]]))}
 
         indexed-null-inserts
         {:insert-into [[:triples triple-cols]
@@ -636,22 +636,22 @@
           {:select [:entity-id :attr-id] :from :indexed-null-inserts}]}
 
         query {:with (concat
-                      (when (seq lookup-refs)
-                        [[['input-lookup-refs {:columns ['app-id 'attr-id 'value]}] {:values input-lookup-refs}]
-                         ['enhanced-lookup-refs enhanced-lookup-refs]
-                         ['lookup-ref-inserts   lookup-ref-inserts]
-                         ['lookup-ref-lookups   lookup-ref-lookups]])
-                      [[['input-triples {:columns ['idx 'app-id 'entity-id 'attr-id 'value]}] {:values input-triples}]
-                       ['enhanced-triples     enhanced-triples]
-                       ['ea-triples-distinct  ea-triples-distinct]
-                       ['remaining-triples    remaining-triples]
-                       ['ea-index-inserts     ea-index-inserts]
-                       ['remaining-inserts    remaining-inserts]
-                       ['indexed-null-triples indexed-null-triples]
-                       ['indexed-null-inserts indexed-null-inserts]]
-                      (when-some [attr-inferred-types (insert-attr-inferred-types-cte app-id triples)]
-                        [['attr-inferred-types attr-inferred-types]])
-                      [['all-inserts all-inserts]])
+                       (when (seq lookup-refs)
+                         [[['input-lookup-refs {:columns ['app-id 'attr-id 'value]}] {:values input-lookup-refs}]
+                          ['enhanced-lookup-refs enhanced-lookup-refs]
+                          ['lookup-ref-inserts   lookup-ref-inserts]
+                          ['lookup-ref-lookups   lookup-ref-lookups]])
+                       [[['input-triples {:columns ['idx 'app-id 'entity-id 'attr-id 'value]}] {:values input-triples}]
+                        ['enhanced-triples     enhanced-triples]
+                        ['ea-triples-distinct  ea-triples-distinct]
+                        ['remaining-triples    remaining-triples]
+                        ['ea-index-inserts     ea-index-inserts]
+                        ['remaining-inserts    remaining-inserts]
+                        ['indexed-null-triples indexed-null-triples]
+                        ['indexed-null-inserts indexed-null-inserts]]
+                       (when-some [attr-inferred-types (insert-attr-inferred-types-cte app-id triples)]
+                         [['attr-inferred-types attr-inferred-types]])
+                       [['all-inserts all-inserts]])
 
                :from 'all-inserts
                :select ['entity-id 'attr-id]}]
@@ -669,10 +669,10 @@
             ;; to upgrade postgres to version 17
             ;; https://www.postgresql.org/docs/current/sql-merge.html
             (ex/throw-validation-err!
-             :lookup
-             lookup-refs
-             [{:message (multiline->single-line
-                         "Updates with lookups can only update
+              :lookup
+              lookup-refs
+              [{:message (multiline->single-line
+                           "Updates with lookups can only update
                              the lookup attribute if an entity with
                              the unique attribute value already exists.")}])
             (throw e)))))))
@@ -687,7 +687,7 @@
       [_ _ id]"
   [conn app-id id+etypes]
   (let [query (sql/format
-               "WITH
+                "WITH
 
                 id_etypes AS (
                   SELECT
@@ -734,8 +734,8 @@
                   attr_id,
                   value,
                   created_at"
-               {"?id+etypes" (->json id+etypes)
-                "?app-id" app-id})]
+                {"?id+etypes" (->json id+etypes)
+                 "?app-id" app-id})]
 
     (sql/execute! ::delete-entity-multi! conn query)))
 
@@ -750,30 +750,30 @@
   [conn app-id triples]
   (let [input-triples
         (mapv
-         (fn [[e a v]]
-           (let [e' (if (eid-lookup-ref? e)
-                      {:select :entity-id
-                       :from :triples
-                       :where [:and
-                               [:= :app-id app-id]
-                               [:= :attr-id (first e)]
-                               [:= :value [:cast (->json (second e)) :jsonb]]]}
-                      e)
-                 v' (if-not (value-lookup-ref? v)
-                      (->json v)
-                      [[[:case (value-lookupable-sql app-id a)
-                         {:select [[[:cast [:to_jsonb :entity-id] :text]]]
-                          :from [[{:select :entity-id
-                                   :from :triples
-                                   :where [:and
-                                           [:= :app-id app-id]
-                                           [:= :attr-id (first v)]
-                                           [:= :value [:cast (->json (second v)) :jsonb]]]}
-                                  :lookups]]
-                          :limit 1}
-                         :else (->json v)]]])]
-             [app-id e' a v']))
-         triples)
+          (fn [[e a v]]
+            (let [e' (if (eid-lookup-ref? e)
+                       {:select :entity-id
+                        :from :triples
+                        :where [:and
+                                [:= :app-id app-id]
+                                [:= :attr-id (first e)]
+                                [:= :value [:cast (->json (second e)) :jsonb]]]}
+                       e)
+                  v' (if-not (value-lookup-ref? v)
+                       (->json v)
+                       [[[:case (value-lookupable-sql app-id a)
+                          {:select [[[:cast [:to_jsonb :entity-id] :text]]]
+                           :from [[{:select :entity-id
+                                    :from :triples
+                                    :where [:and
+                                            [:= :app-id app-id]
+                                            [:= :attr-id (first v)]
+                                            [:= :value [:cast (->json (second v)) :jsonb]]]}
+                                   :lookups]]
+                           :limit 1}
+                          :else (->json v)]]])]
+              [app-id e' a v']))
+          triples)
 
         enhanced-triples
         {:select [:app-id
@@ -820,14 +820,14 @@
   ([conn app-id stmts]
    (map row->enhanced-triple
         (sql/select
-         ::fetch
-         conn
-         (hsql/format
-          {:select
-           [:triples.*]
-           :from :triples
-           :where
-           (concat [:and [:= :app-id app-id]] stmts)})))))
+          ::fetch
+          conn
+          (hsql/format
+            {:select
+             [:triples.*]
+             :from :triples
+             :where
+             (concat [:and [:= :app-id app-id]] stmts)})))))
 
 ;; Migration for inferred types
 ;; ----------------------------
@@ -851,17 +851,17 @@
       (when (seq values)
         (let [res (sql/do-execute! conn-pool
                                    (hsql/format
-                                    {:update :attrs
-                                     :set {:inferred-types [:|
-                                                            [:coalesce
-                                                             :attrs.inferred_types
-                                                             [:cast :0 [:bit :32]]]
-                                                            :updates.typ]}
-                                     :from [[{:values values}
-                                             [:updates {:columns [:app-id :id :typ]}]]]
-                                     :where [:and
-                                             [:= :attrs.id :updates.id]
-                                             [:= :attrs.app_id :updates.app-id]]}))]
+                                     {:update :attrs
+                                      :set {:inferred-types [:|
+                                                             [:coalesce
+                                                              :attrs.inferred_types
+                                                              [:cast :0 [:bit :32]]]
+                                                             :updates.typ]}
+                                      :from [[{:values values}
+                                              [:updates {:columns [:app-id :id :typ]}]]]
+                                      :where [:and
+                                              [:= :attrs.id :updates.id]
+                                              [:= :attrs.app_id :updates.app-id]]}))]
           (tracer/add-data! {:attributes {:update-count (-> res first :next.jdbc/update-count)}}))))))
 
 (defn populate-inferred-types [conn-pool]
@@ -880,33 +880,33 @@
                                 :attributes {:count @row-count
                                              :loops i}})
           (let [rows (sql/select-string-keys
-                      conn-pool
-                      (hsql/format (merge {:select [:app_id
-                                                    :entity_id
-                                                    :attr_id
-                                                    :value_md5
-                                                    :value]
-                                           :from :triples
-                                           :limit limit
-                                           :order-by [[:app_id :asc]
-                                                      [:entity_id :asc]
-                                                      [:attr_id :asc]
-                                                      [:value_md5 :asc]]}
-                                          (when app_id
-                                            {:where [:or
-                                                     [:and
-                                                      [:= :app_id [:cast app_id :uuid]]
-                                                      [:= :entity_id [:cast entity_id :uuid]]
-                                                      [:= :attr_id [:cast attr_id :uuid]]
-                                                      [:> :value_md5 [:cast value_md5 :text]]]
-                                                     [:and
-                                                      [:= :app_id [:cast app_id :uuid]]
-                                                      [:= :entity_id [:cast entity_id :uuid]]
-                                                      [:> :attr_id [:cast attr_id :uuid]]]
-                                                     [:and
-                                                      [:= :app_id [:cast app_id :uuid]]
-                                                      [:> :entity_id [:cast entity_id :uuid]]]
-                                                     [:> :app_id [:cast app_id :uuid]]]}))))]
+                       conn-pool
+                       (hsql/format (merge {:select [:app_id
+                                                     :entity_id
+                                                     :attr_id
+                                                     :value_md5
+                                                     :value]
+                                            :from :triples
+                                            :limit limit
+                                            :order-by [[:app_id :asc]
+                                                       [:entity_id :asc]
+                                                       [:attr_id :asc]
+                                                       [:value_md5 :asc]]}
+                                           (when app_id
+                                             {:where [:or
+                                                      [:and
+                                                       [:= :app_id [:cast app_id :uuid]]
+                                                       [:= :entity_id [:cast entity_id :uuid]]
+                                                       [:= :attr_id [:cast attr_id :uuid]]
+                                                       [:> :value_md5 [:cast value_md5 :text]]]
+                                                      [:and
+                                                       [:= :app_id [:cast app_id :uuid]]
+                                                       [:= :entity_id [:cast entity_id :uuid]]
+                                                       [:> :attr_id [:cast attr_id :uuid]]]
+                                                      [:and
+                                                       [:= :app_id [:cast app_id :uuid]]
+                                                       [:> :entity_id [:cast entity_id :uuid]]]
+                                                      [:> :app_id [:cast app_id :uuid]]]}))))]
             (swap! row-count + (count rows))
             (update-attr-inferred-types conn-pool rows)
             (let [last-row (last rows)
@@ -967,8 +967,6 @@
       (LocalDate/parse dow-mon-day-year-formatter)
       (.atStartOfDay)
       (.toInstant ZoneOffset/UTC)))
-
-
 
 (def date-parsers [zoned-date-time-str->instant
                    local-date-time-str->instant

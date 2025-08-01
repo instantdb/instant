@@ -1,5 +1,6 @@
 (ns build
-  (:require [clojure.tools.build.api :as b]))
+  (:require
+   [clojure.tools.build.api :as b]))
 
 (def class-dir "target/classes")
 (def uber-file "target/instant-standalone.jar")
@@ -16,17 +17,17 @@
 (defn dev [_]
   (compile-java nil)
   (b/process
-   (b/java-command {:basis (b/create-basis {:project "deps.edn"
-                                            :aliases [:dev]})
-                    :main 'clojure.main
-                    :main-args ["-m" "instant.core"]})))
+    (b/java-command {:basis (b/create-basis {:project "deps.edn"
+                                             :aliases [:dev]})
+                     :main 'clojure.main
+                     :main-args ["-m" "instant.core"]})))
 
 (defn run [_]
   (compile-java nil)
   (b/process
-   (b/java-command {:basis (b/create-basis {:project "deps.edn"})
-                    :main 'clojure.main
-                    :main-args ["-m" "instant.core"]})))
+    (b/java-command {:basis (b/create-basis {:project "deps.edn"})
+                     :main 'clojure.main
+                     :main-args ["-m" "instant.core"]})))
 
 (defn clean [_]
   (b/delete {:path "target"}))

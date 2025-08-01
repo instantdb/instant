@@ -1,22 +1,23 @@
 (ns instant.superadmin.routes
-  (:require [clojure.walk :as w]
-            [compojure.core :as compojure :refer [defroutes DELETE GET POST]]
-            [instant.db.model.attr :as attr-model]
-            [instant.model.app :as app-model]
-            [instant.model.app-member-invites :as instant-app-member-invites-model]
-            [instant.model.instant-personal-access-token :as instant-personal-access-token-model]
-            [instant.model.instant-user :as instant-user-model]
-            [instant.model.oauth-app :as oauth-app-model]
-            [instant.model.rule :as rule-model]
-            [instant.model.schema :as schema-model]
-            [instant.postmark :as postmark]
-            [instant.util.email :as email]
-            [instant.util.exception :as ex]
-            [instant.util.http :as http-util]
-            [instant.util.string :as string-util]
-            [instant.util.token :as token-util]
-            [instant.util.uuid :as uuid-util]
-            [ring.util.http-response :as response])
+  (:require
+   [clojure.walk :as w]
+   [compojure.core :as compojure :refer [DELETE GET POST defroutes]]
+   [instant.db.model.attr :as attr-model]
+   [instant.model.app :as app-model]
+   [instant.model.app-member-invites :as instant-app-member-invites-model]
+   [instant.model.instant-personal-access-token :as instant-personal-access-token-model]
+   [instant.model.instant-user :as instant-user-model]
+   [instant.model.oauth-app :as oauth-app-model]
+   [instant.model.rule :as rule-model]
+   [instant.model.schema :as schema-model]
+   [instant.postmark :as postmark]
+   [instant.util.email :as email]
+   [instant.util.exception :as ex]
+   [instant.util.http :as http-util]
+   [instant.util.string :as string-util]
+   [instant.util.token :as token-util]
+   [instant.util.uuid :as uuid-util]
+   [ring.util.http-response :as response])
   (:import
    (java.util UUID)))
 
@@ -29,7 +30,7 @@
     (if (token-util/is-platform-access-token? token)
       (let [access-token-record
             (oauth-app-model/access-token-by-token-value!
-             {:access-token (token-util/platform-access-token-value token)})
+              {:access-token (token-util/platform-access-token-value token)})
             scope-str (case scope
                         :apps/read oauth-app-model/apps-read-scope
                         :apps/write oauth-app-model/apps-write-scope
@@ -49,7 +50,7 @@
                                     ;; Backwards compatibility for tokens generated before 5/16/2025
                                     (token-util/->PersonalAccessToken (str token)))]
         (instant-user-model/get-by-personal-access-token!
-         {:personal-access-token personal-access-token})))))
+          {:personal-access-token personal-access-token})))))
 
 (defn req->superadmin-user-and-app! [scope req]
   (let [{user-id :id :as user} (req->superadmin-user! scope req)
@@ -63,10 +64,9 @@
     (if (or (token-util/is-platform-access-token? token)
             (token-util/is-personal-access-token? token)
             (instant-user-model/get-by-personal-access-token
-             {:personal-access-token
-              (token-util/->PersonalAccessToken (str token))}))
+              {:personal-access-token
+               (token-util/->PersonalAccessToken (str token))}))
       (:app (req->superadmin-user-and-app! scope req))
-
 
       (if-let [app (app-model/get-by-admin-token {:token token})]
         app
@@ -91,14 +91,14 @@
                              (let [attrs-by-app (attr-model/get-by-app-ids (map :id apps))]
                                (map (fn [app]
                                       (assoc app :schema (schema-model/attrs->schema
-                                                          (get attrs-by-app (:id app)))))
+                                                           (get attrs-by-app (:id app)))))
                                     apps))))
 
                    (contains? includes "perms")
                    (update :apps
                            (fn [apps]
                              (let [rules-by-app (rule-model/get-by-app-ids
-                                                 {:app-ids (map :id apps)})]
+                                                  {:app-ids (map :id apps)})]
                                (map (fn [app]
                                       (assoc app :perms (get-in rules-by-app
                                                                 [(:id app) :code])))
@@ -111,7 +111,7 @@
         rules-code (get-in req [:body :perms])
         _ (when rules-code
             (ex/assert-valid! :perms rules-code (rule-model/validation-errors
-                                                 rules-code)))
+                                                  rules-code)))
         app (app-model/create! {:id (random-uuid)
                                 :title title
                                 :creator-id user-id
@@ -130,7 +130,7 @@
     (response/ok {:app (assoc app
                               :perms (:code perms)
                               :schema (schema-model/attrs->schema
-                                       (attr-model/get-by-app-id (:id app))))})))
+                                        (attr-model/get-by-app-id (:id app))))})))
 
 (defn app-details-get [req]
   (let [app (req->superadmin-app! :apps/read req)]
@@ -157,7 +157,7 @@
      :subject (str "[Instant] You've been asked to take ownership of " (:title app))
      :html
      (postmark/standard-body
-      "<p><strong>Hey there!</strong></p>
+       "<p><strong>Hey there!</strong></p>
        <p>
          " (:email inviter-user) " invited you to become the new owner of " (:title app) ".
        </p>
@@ -175,22 +175,22 @@
         {app-id :id} app
         {user-id :id} user
         {invite-id :id} (instant-app-member-invites-model/create!
-                         {:app-id app-id
-                          :inviter-id user-id
-                          :email invitee-email
-                          :role "creator"})]
+                          {:app-id app-id
+                           :inviter-id user-id
+                           :email invitee-email
+                           :role "creator"})]
     (postmark/send!
-     (transfer-app-invite-email user app invitee-email))
+      (transfer-app-invite-email user app invitee-email))
     (response/ok {:id invite-id})))
 
 (defn app-transfer-revoke-post [req]
   (let [{{user-id :id} :user {app-id :id} :app} (req->superadmin-user-and-app! :apps/transfer req)
         dest-email (ex/get-param! req [:body :dest_email] email/coerce)
         rejected-count (count (instant-app-member-invites-model/reject-by-email-and-role
-                               {:inviter-id user-id
-                                :app-id app-id
-                                :invitee-email dest-email
-                                :role "creator"}))]
+                                {:inviter-id user-id
+                                 :app-id app-id
+                                 :invitee-email dest-email
+                                 :role "creator"}))]
 
     (response/ok {:count rejected-count})))
 

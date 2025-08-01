@@ -193,42 +193,42 @@
   (next-jdbc/with-transaction [tx-conn conn-pool]
     (let [attrs (attr-model/get-by-app-id tx-conn app-id)]
       (op
-       {:resolve-id
-        (fn [label] (attr-model/resolve-attr-id attrs etype label))
+        {:resolve-id
+         (fn [label] (attr-model/resolve-attr-id attrs etype label))
 
-        :transact!
-        (fn
-          ([tx-steps]
-           (tx/transact-without-tx-conn! tx-conn attrs app-id tx-steps {}))
-          ([tx-steps opts]
-           (tx/transact-without-tx-conn! tx-conn attrs app-id tx-steps opts)))
+         :transact!
+         (fn
+           ([tx-steps]
+            (tx/transact-without-tx-conn! tx-conn attrs app-id tx-steps {}))
+           ([tx-steps opts]
+            (tx/transact-without-tx-conn! tx-conn attrs app-id tx-steps opts)))
 
-        :delete-entity!
-        (fn
-          ([lookup]
-           (delete-entity! tx-conn attrs app-id etype lookup {}))
-          ([lookup opts]
-           (delete-entity! tx-conn attrs app-id etype lookup opts)))
+         :delete-entity!
+         (fn
+           ([lookup]
+            (delete-entity! tx-conn attrs app-id etype lookup {}))
+           ([lookup opts]
+            (delete-entity! tx-conn attrs app-id etype lookup opts)))
 
-        :delete-entities!
-        (fn
-          ([lookups]
-           (delete-entities! tx-conn attrs app-id etype lookups {}))
-          ([lookups opts]
-           (delete-entities! tx-conn attrs app-id etype lookups opts)))
+         :delete-entities!
+         (fn
+           ([lookups]
+            (delete-entities! tx-conn attrs app-id etype lookups {}))
+           ([lookups opts]
+            (delete-entities! tx-conn attrs app-id etype lookups opts)))
 
-        :get-entity
-        (fn [eid] (get-entity tx-conn app-id attrs etype eid))
+         :get-entity
+         (fn [eid] (get-entity tx-conn app-id attrs etype eid))
 
-        :get-entities
-        (fn [eids] (get-entities tx-conn app-id attrs etype eids))
+         :get-entities
+         (fn [eids] (get-entities tx-conn app-id attrs etype eids))
 
-        :get-entity-where
-        (fn [where] (get-entity-where tx-conn app-id attrs etype where))
+         :get-entity-where
+         (fn [where] (get-entity-where tx-conn app-id attrs etype where))
 
-        :get-entities-where
-        (fn [where]
-          (get-entities-where tx-conn app-id attrs etype where))}))))
+         :get-entities-where
+         (fn [where]
+           (get-entities-where tx-conn app-id attrs etype where))}))))
 
 (defn query-op [conn-pool
                 {:keys [app-id

@@ -4,18 +4,18 @@
    [clojure.core.async :as a]
    [clojure.string :as string]
    [honey.sql :as hsql]
+   [instant.config :as config]
    [instant.db.model.attr :as attr-model]
    [instant.db.model.transaction :as transaction-model]
    [instant.db.model.triple :as triple-model]
    [instant.discord :as discord]
-   [instant.config :as config]
    [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
    [instant.system-catalog :as system-catalog]
    [instant.util.async :as ua]
    [instant.util.crypt :refer [json-null-md5]]
    [instant.util.exception :as ex]
    [instant.util.tracer :as tracer]
-   [instant.jdbc.sql :as sql]
    [next.jdbc :as next-jdbc])
   (:import
    (clojure.lang ExceptionInfo)
@@ -247,11 +247,11 @@
   ([conn job-id]
    (sql/execute-one! ::grab-job!
                      conn (hsql/format
-                           {:update :indexing-jobs
-                            :where (job-available-wheres
-                                    [:= :id job-id])
-                            :set {:worker-id @config/process-id
-                                  :job-status "processing"}}))))
+                            {:update :indexing-jobs
+                             :where (job-available-wheres
+                                      [:= :id job-id])
+                             :set {:worker-id @config/process-id
+                                   :job-status "processing"}}))))
 
 (defn job-update-wheres
   "Where clauses that prevent us from updating a job we don't own."
@@ -298,20 +298,20 @@
                        [:= :app-id (:app_id job)]
                        [:= :attr-id (:attr_id job)]]
         estimate (-> (sql/select-one
-                      ::get-work-estimate!
-                      conn
-                      (hsql/format {:select :%count.*
-                                    :from :triples
-                                    :where (if (= "index" (:job_type job))
-                                             [:or
-                                              default-where
-                                              (missing-null-triple-wheres conn :estimate job)]
-                                             default-where)}))
+                       ::get-work-estimate!
+                       conn
+                       (hsql/format {:select :%count.*
+                                     :from :triples
+                                     :where (if (= "index" (:job_type job))
+                                              [:or
+                                               default-where
+                                               (missing-null-triple-wheres conn :estimate job)]
+                                              default-where)}))
                      :count)]
     (sql/execute-one! ::estimate-work-estimate!
                       conn (hsql/format {:update :indexing-jobs
                                          :where (job-update-wheres
-                                                 [:= :id (:id job)])
+                                                  [:= :id (:id job)])
                                          :set {:work-estimate estimate}}))))
 
 (defn add-work-completed! [conn completed-count job]
@@ -319,7 +319,7 @@
     (sql/execute-one! ::add-work-completed!
                       conn (hsql/format {:update :indexing-jobs
                                          :where (job-update-wheres
-                                                 [:= :id (:id job)])
+                                                  [:= :id (:id job)])
                                          :set {:work-completed
                                                [:+
                                                 [:coalesce :work-completed 0]
@@ -332,7 +332,7 @@
      (sql/execute-one! ::release-job!
                        conn (hsql/format {:update :indexing-jobs
                                           :where (job-update-wheres
-                                                  [:= :id (:id job)])
+                                                   [:= :id (:id job)])
                                           :set {:worker-id nil}})))))
 
 (defn mark-job-completed!
@@ -343,7 +343,7 @@
      (sql/execute-one! ::mark-job-completed!
                        conn (hsql/format {:update :indexing-jobs
                                           :where (job-update-wheres
-                                                  [:= :id (:id job)])
+                                                   [:= :id (:id job)])
                                           :set {:job-status "completed"
                                                 :done-at :%now}})))))
 
@@ -356,7 +356,7 @@
      (sql/execute-one! ::set-next-stage!
                        conn (hsql/format {:update :indexing-jobs
                                           :where (job-update-wheres
-                                                  [:= :id (:id job)])
+                                                   [:= :id (:id job)])
                                           :set {:job-stage stage}})))))
 
 (defn mark-error!
@@ -368,7 +368,7 @@
      (sql/execute-one! ::mark-error!
                        conn (hsql/format {:update :indexing-jobs
                                           :where (job-update-wheres
-                                                  [:= :id (:id job)])
+                                                   [:= :id (:id job)])
                                           :set (merge {:job-status "errored"}
                                                       props)})))))
 
@@ -412,39 +412,38 @@
   (attr-model/with-cache-invalidation app-id
     (next-jdbc/with-transaction [conn conn]
       (let [res (sql/execute-one!
-                 ::update-attr!
-                 conn
-                 (hsql/format
-                  {:update :attrs
-                   :where (list* :and
-                                 [:= :app-id app-id]
-                                 [:= :id attr-id]
-                                 where)
-                   :set set}))]
+                  ::update-attr!
+                  conn
+                  (hsql/format
+                    {:update :attrs
+                     :where (list* :and
+                                   [:= :app-id app-id]
+                                   [:= :id attr-id]
+                                   where)
+                     :set set}))]
         (transaction-model/create! conn {:app-id app-id})
         (when-not res
           [::error invalid-attr-state-error])))))
-
 
 ;; "check-data-type" ----------------------------------------------------------
 
 (defn check-data-type--validate [conn job]
   (let [{:keys [app_id attr_id checked_data_type]} job
         has-invalid-row? (->> (hsql/format
-                               {:select [[[:exists {:select :*
-                                                    :from :triples
-                                                    :limit 1
-                                                    :where [:and
-                                                            [:= :app-id app_id]
-                                                            [:= :attr-id attr_id]
-                                                            [:or
-                                                             [:not=
-                                                              :checked-data-type
-                                                              [:cast checked_data_type :checked_data_type]]
-                                                             [:= :checked-data-type nil]]
-                                                            [:not [:triples_valid_value
-                                                                   [:cast checked_data_type :checked_data_type]
-                                                                   :value]]]}]]]})
+                                {:select [[[:exists {:select :*
+                                                     :from :triples
+                                                     :limit 1
+                                                     :where [:and
+                                                             [:= :app-id app_id]
+                                                             [:= :attr-id attr_id]
+                                                             [:or
+                                                              [:not=
+                                                               :checked-data-type
+                                                               [:cast checked_data_type :checked_data_type]]
+                                                              [:= :checked-data-type nil]]
+                                                             [:not [:triples_valid_value
+                                                                    [:cast checked_data_type :checked_data_type]
+                                                                    :value]]]}]]]})
                               (sql/select-one ::has-invalid-row? conn)
                               :exists)]
     (when has-invalid-row?
@@ -503,7 +502,6 @@
    {:stage "update-triples",    :fn #'check-data-type--update-triples}
    {:stage "update-attr-done",  :fn #'check-data-type--update-attr-done}])
 
-
 ;; "remove-data-type" ---------------------------------------------------------
 
 (defn remove-data-type--update-attr-start [conn job]
@@ -548,7 +546,6 @@
    {:stage "estimate-work",     :fn #'update-work-estimate!}
    {:stage "update-triples",    :fn #'remove-data-type--update-triples}
    {:stage "update-attr-done",  :fn #'remove-data-type--update-attr-done}])
-
 
 ;; "index" --------------------------------------------------------------------
 
@@ -658,7 +655,6 @@
    {:stage "insert-nulls",      :fn #'index--insert-nulls}
    {:stage "update-attr-done",  :fn #'index--update-attr-done}])
 
-
 ;; "remove-index" -------------------------------------------------------------
 
 (defn remove-index--update-attr-start [conn job]
@@ -701,7 +697,6 @@
    {:stage "estimate-work",     :fn #'update-work-estimate!}
    {:stage "update-triples",    :fn #'remove-index--update-triples}
    {:stage "update-attr-done",  :fn #'remove-index--update-attr-done}])
-
 
 ;; "unique" -------------------------------------------------------------------
 
@@ -763,7 +758,6 @@
    {:stage "update-triples",    :fn #'unique--update-triples}
    {:stage "update-attr-done",  :fn #'unique--update-attr-done}])
 
-
 ;; "remove-unique" ------------------------------------------------------------
 
 (defn remove-unique--update-attr-start [conn job]
@@ -802,11 +796,10 @@
                       :set {:setting-unique false}}))
 
 (def remove-unique--stages
-   [{:stage "update-attr-start", :fn #'remove-unique--update-attr-start}
-    {:stage "estimate-work",     :fn #'update-work-estimate!}
-    {:stage "update-triples",    :fn #'remove-unique--update-triples}
-    {:stage "update-attr-done",  :fn #'remove-unique--update-attr-done}])
-
+  [{:stage "update-attr-start", :fn #'remove-unique--update-attr-start}
+   {:stage "estimate-work",     :fn #'update-work-estimate!}
+   {:stage "update-triples",    :fn #'remove-unique--update-triples}
+   {:stage "update-attr-done",  :fn #'remove-unique--update-attr-done}])
 
 ;; "required" -----------------------------------------------------------------
 
@@ -873,7 +866,6 @@
    {:stage "update-attr", :fn #'required--update-attr}
    {:stage "revalidate",  :fn #'required--validate}])
 
-
 ;; "remove-required" ----------------------------------------------------------
 
 (defn remove-required--update-attr [conn job]
@@ -883,7 +875,6 @@
 
 (def remove-required--stages
   [{:stage "update-attr", :fn #'remove-required--update-attr}])
-
 
 ;; ----------------------------------------------------------------------------
 
@@ -961,7 +952,7 @@
                         (aurora/conn-pool :write)
                         (hsql/format {:update :indexing-jobs
                                       :where (job-update-wheres
-                                              [:= :id job-id])
+                                               [:= :id job-id])
                                       :set {:job-status "errored"
                                             :error unexpected-error
                                             :error-detail (.getMessage t)}})))))
@@ -1006,10 +997,10 @@
        (when (seq jobs)
          (if (= :prod (config/get-env))
            (discord/send-error-async!
-            (str (:dww discord/mention-constants)
-                 " Indexing jobs are stuck! First 5 are "
-                 (string/join "," (map (fn [{:keys [id]}]
-                                         (format "\"%s\"" id)) jobs))))
+             (str (:dww discord/mention-constants)
+                  " Indexing jobs are stuck! First 5 are "
+                  (string/join "," (map (fn [{:keys [id]}]
+                                          (format "\"%s\"" id)) jobs))))
            (tracer/record-info! {:name "indexing-jobs/found-stuck-jobs!"
                                  :attributes {:job-ids (map :id jobs)}})))
 
@@ -1029,14 +1020,14 @@
                              :process (ua/vfut-bg (start-process job-queue-chan))}))))
 
     (def schedule (chime-core/chime-at
-                   (chime-core/periodic-seq (Instant/now)
-                                            (Duration/ofMinutes
-                                             (if (= :prod (config/get-env))
-                                               1
-                                               10)))
-                   (fn [_time]
-                     (grab-forgotten-jobs!)
-                     (warn-stuck-jobs!))))))
+                    (chime-core/periodic-seq (Instant/now)
+                                             (Duration/ofMinutes
+                                               (if (= :prod (config/get-env))
+                                                 1
+                                                 10)))
+                    (fn [_time]
+                      (grab-forgotten-jobs!)
+                      (warn-stuck-jobs!))))))
 
 (defn stop []
   (when (bound? #'schedule)

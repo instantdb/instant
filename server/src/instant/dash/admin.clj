@@ -1,12 +1,12 @@
 (ns instant.dash.admin
   (:require
+   [clojure.core :as c]
    [honey.sql :as hsql]
+   [instant.flags :refer [get-emails]]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
-   [clojure.core :as c]
-   [instant.flags :refer [get-emails]]
-   [instant.stripe :as stripe]
-   [instant.model.app-file :as app-file-model]))
+   [instant.model.app-file :as app-file-model]
+   [instant.stripe :as stripe]))
 
 (defn excluded-emails []
   (let [{:keys [test team friend]} (get-emails)]

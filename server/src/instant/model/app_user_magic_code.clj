@@ -22,17 +22,17 @@
   ([params] (create! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id id code user-id]}]
    (update-op
-    conn
-    {:app-id app-id
-     :etype etype}
-    (fn [{:keys [resolve-id transact! get-entity]}]
-      (transact! [[:add-triple id (resolve-id :id) id]
-                  [:add-triple id (resolve-id :codeHash) (-> code
-                                                             crypt-util/str->sha256
-                                                             crypt-util/bytes->hex-string)]
-                  [:add-triple id (resolve-id :$user) user-id]])
-      (assoc (get-entity id)
-             :code code)))))
+     conn
+     {:app-id app-id
+      :etype etype}
+     (fn [{:keys [resolve-id transact! get-entity]}]
+       (transact! [[:add-triple id (resolve-id :id) id]
+                   [:add-triple id (resolve-id :codeHash) (-> code
+                                                              crypt-util/str->sha256
+                                                              crypt-util/bytes->hex-string)]
+                   [:add-triple id (resolve-id :$user) user-id]])
+       (assoc (get-entity id)
+              :code code)))))
 
 (defn expired?
   ([magic-code] (expired? (Instant/now) magic-code))
@@ -43,25 +43,25 @@
   ([params] (consume! (aurora/conn-pool :write) params))
   ([conn {:keys [email code app-id] :as params}]
    (update-op
-    conn
-    {:app-id app-id
-     :etype etype}
-    (fn [{:keys [get-entity-where delete-entity!]}]
-      (let [code-hash (-> code
-                          crypt-util/str->sha256
-                          crypt-util/bytes->hex-string)
-            {code-id :id} (get-entity-where {:codeHash code-hash
-                                             :$user.email email})]
-        (ex/assert-record! code-id :app-user-magic-code {:args [params]})
-        (let [code (delete-entity! code-id)]
-          (ex/assert-record! code :app-user-magic-code {:args [params]})
-          (when (expired? code)
-            (ex/throw-expiration-err! :app-user-magic-code {:args [params]}))
-          code))))))
+     conn
+     {:app-id app-id
+      :etype etype}
+     (fn [{:keys [get-entity-where delete-entity!]}]
+       (let [code-hash (-> code
+                           crypt-util/str->sha256
+                           crypt-util/bytes->hex-string)
+             {code-id :id} (get-entity-where {:codeHash code-hash
+                                              :$user.email email})]
+         (ex/assert-record! code-id :app-user-magic-code {:args [params]})
+         (let [code (delete-entity! code-id)]
+           (ex/assert-record! code :app-user-magic-code {:args [params]})
+           (when (expired? code)
+             (ex/throw-expiration-err! :app-user-magic-code {:args [params]}))
+           code))))))
 
 (comment
   (def instant-user (instant-user-model/get-by-email
-                     {:email "stopa@instantdb.com"}))
+                      {:email "stopa@instantdb.com"}))
   (def app (first (app-model/get-all-for-user {:user-id (:id instant-user)})))
   (def runtime-user (app-user-model/get-by-email {:app-id (:id app)
                                                   :email "stopa@instantdb.com"}))

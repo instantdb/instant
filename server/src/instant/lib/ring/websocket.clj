@@ -8,36 +8,27 @@
     3. Supports a thread-safe `send-json!`
     4. Removed the `send` functions that would swallow errors."
   (:refer-clojure :exclude [send])
-  (:require [ring.adapter.undertow.headers :refer [set-headers]]
-            [instant.util.json :refer [->json]]
-            [instant.util.e2e-tracer :as e2e-tracer]
-            [instant.util.tracer :as tracer]
-            [instant.util.delay :as delay])
+  (:require
+   [instant.util.delay :as delay]
+   [instant.util.e2e-tracer :as e2e-tracer]
+   [instant.util.json :refer [->json]]
+   [instant.util.tracer :as tracer]
+   [ring.adapter.undertow.headers :refer [set-headers]])
   (:import
-   [io.undertow.server HttpServerExchange]
-   [io.undertow.websockets
-    WebSocketConnectionCallback
-    WebSocketProtocolHandshakeHandler]
-   [io.undertow.websockets.core
-    AbstractReceiveListener
-    BufferedBinaryMessage
-    BufferedTextMessage
-    CloseMessage
-    StreamSourceFrameChannel WebSocketChannel
-    WebSockets
-    WebSocketCallback]
-   [io.undertow.websockets.spi WebSocketHttpExchange]
-   [org.xnio ChannelListener]
-   [ring.adapter.undertow Util]
-   [clojure.lang IPersistentMap]
-   [io.undertow.websockets.extensions PerMessageDeflateHandshake]
-   [java.util.concurrent ScheduledFuture]
-   [java.util.concurrent.locks ReentrantLock]
-   [java.util.concurrent.atomic AtomicLong]
-   [java.io IOException]
-   [java.nio ByteBuffer]
-   [java.nio.channels ClosedChannelException]
-   [org.xnio IoUtils]))
+   (clojure.lang IPersistentMap)
+   (io.undertow.server HttpServerExchange)
+   (io.undertow.websockets WebSocketConnectionCallback WebSocketProtocolHandshakeHandler)
+   (io.undertow.websockets.core AbstractReceiveListener BufferedBinaryMessage BufferedTextMessage CloseMessage StreamSourceFrameChannel WebSocketCallback WebSocketChannel WebSockets)
+   (io.undertow.websockets.extensions PerMessageDeflateHandshake)
+   (io.undertow.websockets.spi WebSocketHttpExchange)
+   (java.io IOException)
+   (java.nio ByteBuffer)
+   (java.nio.channels ClosedChannelException)
+   (java.util.concurrent ScheduledFuture)
+   (java.util.concurrent.atomic AtomicLong)
+   (java.util.concurrent.locks ReentrantLock)
+   (org.xnio ChannelListener IoUtils)
+   (ring.adapter.undertow Util)))
 
 (defn ws-listener
   "Creates an `AbstractReceiveListener`. This relays calls to
@@ -83,8 +74,8 @@
   [^WebSocketChannel channel]
   (try
     (WebSockets/sendPingBlocking
-     (ByteBuffer/allocate 0)
-     channel)
+      (ByteBuffer/allocate 0)
+      channel)
     (catch ClosedChannelException _)
     (catch IOException e
       (when-not (= (.getMessage e) "UT002002: Channel is closed")
@@ -162,25 +153,25 @@
 
     (reify WebSocketConnectionCallback
       (^void onConnect [_ ^WebSocketHttpExchange exchange ^WebSocketChannel channel]
-       (let [^ScheduledFuture ping-job (delay/repeat-fn
-                                        ping-pool
-                                        ping-interval-ms
-                                        (fn []
-                                          (straight-jacket-run-ping-job channel
-                                                                        atomic-last-received-at
-                                                                        atomic-last-ping-at
-                                                                        idle-timeout-ms)))
+        (let [^ScheduledFuture ping-job (delay/repeat-fn
+                                          ping-pool
+                                          ping-interval-ms
+                                          (fn []
+                                            (straight-jacket-run-ping-job channel
+                                                                          atomic-last-received-at
+                                                                          atomic-last-ping-at
+                                                                          idle-timeout-ms)))
 
-             close-task (reify ChannelListener
-                          (handleEvent [_this channel]
-                            (.cancel ping-job false)
-                            (on-close (channel-wrapper channel))))]
-         (.set atomic-last-received-at (System/currentTimeMillis))
-         (on-open {:exchange exchange
-                   :channel (channel-wrapper channel)})
-         (.addCloseTask channel close-task)
-         (.set (.getReceiveSetter channel) listener)
-         (.resumeReceives channel))))))
+              close-task (reify ChannelListener
+                           (handleEvent [_this channel]
+                             (.cancel ping-job false)
+                             (on-close (channel-wrapper channel))))]
+          (.set atomic-last-received-at (System/currentTimeMillis))
+          (on-open {:exchange exchange
+                    :channel (channel-wrapper channel)})
+          (.addCloseTask channel close-task)
+          (.set (.getReceiveSetter channel) listener)
+          (.resumeReceives channel))))))
 
 (defn ws-request [^HttpServerExchange exchange ^IPersistentMap headers ^WebSocketConnectionCallback callback]
   (let [handler (->  (WebSocketProtocolHandshakeHandler. callback)
@@ -205,13 +196,13 @@
         (try
           (.lock send-lock)
           (WebSockets/sendText
-           ^String obj-json
-           ^WebSocketChannel undertow-websocket
-           (proxy [WebSocketCallback] []
-             (complete [ws-conn context]
-               (deliver p nil))
-             (onError [ws-conn context throwable]
-               (deliver p throwable))))
+            ^String obj-json
+            ^WebSocketChannel undertow-websocket
+            (proxy [WebSocketCallback] []
+              (complete [ws-conn context]
+                (deliver p nil))
+              (onError [ws-conn context throwable]
+                (deliver p throwable))))
           (finally
             (.unlock send-lock)))
         (let [ret @p]
@@ -220,9 +211,9 @@
               (when-let [latency-ms (e2e-tracer/tx-latency-ms tx-created-at)]
                 (tracer/add-data! {:attributes {:tx-latency-ms latency-ms}}))
               (e2e-tracer/invalidator-tracking-step!
-               {:tx-id tx-id
-                :tx-created-at tx-created-at
-                :name "send-json-delivered"
-                :attributes {:session-id (-> obj meta :session-id)}})))
+                {:tx-id tx-id
+                 :tx-created-at tx-created-at
+                 :name "send-json-delivered"
+                 :attributes {:session-id (-> obj meta :session-id)}})))
           (when (instance? Throwable ret)
             (throw ret)))))))

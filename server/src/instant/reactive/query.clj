@@ -6,14 +6,14 @@
   queries. See go-datalog-query-reactive! for more details. We also cache datalog
   query results for perf."
   (:require
+   [instant.comment :as c]
    [instant.db.datalog :as d]
    [instant.db.instaql :as iq]
    [instant.db.model.attr :as attr-model]
    [instant.jdbc.aurora :as aurora]
    [instant.reactive.store :as rs]
    [instant.util.instaql :refer [instaql-nodes->object-tree]]
-   [instant.util.tracer :as tracer]
-   [instant.comment :as c]))
+   [instant.util.tracer :as tracer]))
 
 (defn- datalog-query-cached!
   "Returns the result of a datalog query. Leverages atom and
@@ -28,7 +28,7 @@
             :app-id z-id})
   (def instaql-query '[[:ea ?e ?a "joe"]])
   (time
-   (datalog-query-cached! rs/store ctx instaql-query)))
+    (datalog-query-cached! rs/store ctx instaql-query)))
 
 (defn- datalog-query-reactive!
   "When a datalog query is in-flight we may miss an update. To mitigate this

@@ -1,17 +1,18 @@
 (ns instant.model.oauth-app
-  (:require [clojure.string :as string]
-            [honey.sql :as hsql]
-            [instant.jdbc.aurora :as aurora]
-            [instant.jdbc.sql :as sql]
-            [instant.util.coll :as ucoll]
-            [instant.util.crypt :as crypt-util]
-            [instant.util.exception :as ex]
-            [instant.util.token :refer [generate-platform-refresh-token
-                                        generate-platform-access-token]]
-            [next.jdbc :as next-jdbc])
-  (:import (java.nio ByteBuffer)
-           (java.nio.charset StandardCharsets)
-           (java.util Base64 Date)))
+  (:require
+   [clojure.string :as string]
+   [honey.sql :as hsql]
+   [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
+   [instant.util.coll :as ucoll]
+   [instant.util.crypt :as crypt-util]
+   [instant.util.exception :as ex]
+   [instant.util.token :refer [generate-platform-access-token generate-platform-refresh-token]]
+   [next.jdbc :as next-jdbc])
+  (:import
+   (java.nio ByteBuffer)
+   (java.nio.charset StandardCharsets)
+   (java.util Base64 Date)))
 
 (set! *warn-on-reflection* true)
 
@@ -228,9 +229,9 @@
                          conn
                          (hsql/format q))
          (ex/assert-record!
-          :oauth-app
-          {:args [{:app-id app-id
-                   :oauth-app-id oauth-app-id-unverified}]})))))
+           :oauth-app
+           {:args [{:app-id app-id
+                    :oauth-app-id oauth-app-id-unverified}]})))))
 
 (defn get-oauth-app-by-client-id-and-app-id!
   ([params]
@@ -603,7 +604,7 @@
                                   conn
                                   (hsql/format q))]
      (if (or (not grant-token)
-               (not= grant-token (:grant_token record)))
+           (not= grant-token (:grant_token record)))
        ;; Invalid grant-token
        (ex/assert-record! nil
                           :oauth-app-redirect

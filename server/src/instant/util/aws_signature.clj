@@ -16,7 +16,7 @@
    [instant.util.crypt :as crypt-util])
   (:import
    (java.net URLEncoder)
-   (java.time ZonedDateTime ZoneId Instant Duration)
+   (java.time Duration Instant ZoneId ZonedDateTime)
    (java.time.format DateTimeFormatter)))
 
 (set! *warn-on-reflection* true)
@@ -199,13 +199,13 @@
    HashedCanonicalRequest"
   [{:keys [signing-instant] :as sig-request}]
   (str
-   sig-algorithm \newline
-   (instant->amz-date signing-instant) \newline
-   (->credential-scope-str sig-request) \newline
-   (-> (->canonical-request-str sig-request)
-       crypt-util/str->utf-8-bytes
-       crypt-util/bytes->sha256
-       crypt-util/bytes->hex-string)))
+    sig-algorithm \newline
+    (instant->amz-date signing-instant) \newline
+    (->credential-scope-str sig-request) \newline
+    (-> (->canonical-request-str sig-request)
+        crypt-util/str->utf-8-bytes
+        crypt-util/bytes->sha256
+        crypt-util/bytes->hex-string)))
 
 ;; ---------------- 
 ;; SigningKey 
@@ -219,7 +219,7 @@
   (let [start-key (crypt-util/str->utf-8-bytes (str "AWS4" secret-key))
         date-key (crypt-util/hmac-256 start-key
                                       (crypt-util/str->utf-8-bytes
-                                       (instant->amz-short-date signing-instant)))
+                                        (instant->amz-short-date signing-instant)))
 
         date-region-key (crypt-util/hmac-256 date-key (crypt-util/str->utf-8-bytes region))
         date-region-service-key (crypt-util/hmac-256 date-region-key (crypt-util/str->utf-8-bytes service))
@@ -315,4 +315,3 @@
         signature (->signature sig-request)
         all-query-params (assoc query "X-Amz-Signature" signature)]
     (str "https://" host path-with-slash "?" (->canonical-query-str all-query-params))))
-

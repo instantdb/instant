@@ -1,12 +1,13 @@
 (ns instant.config
-  (:require [clojure.string :as string]
-            [clojure.tools.logging :as log]
-            [instant.config-edn :as config-edn]
-            [instant.util.crypt :as crypt-util]
-            [instant.util.aws :as aws-util]
-            [instant.aurora-config :as aurora-config]
-            [lambdaisland.uri :as uri]
-            [lambdaisland.uri.normalize :as normalize])
+  (:require
+   [clojure.string :as string]
+   [clojure.tools.logging :as log]
+   [instant.aurora-config :as aurora-config]
+   [instant.config-edn :as config-edn]
+   [instant.util.aws :as aws-util]
+   [instant.util.crypt :as crypt-util]
+   [lambdaisland.uri :as uri]
+   [lambdaisland.uri.normalize :as normalize])
   (:import
    (java.net InetAddress)))
 
@@ -42,12 +43,12 @@
 (defonce process-id
   (delay
     (string/replace
-     (string/join "_"
-                  [(name (get-env))
-                   (or @instance-id
-                       (crypt-util/random-hex 8))
-                   (crypt-util/random-hex 8)])
-     #"-" "_")))
+      (string/join "_"
+                   [(name (get-env))
+                    (or @instance-id
+                        (crypt-util/random-hex 8))
+                    (crypt-util/random-hex 8)])
+      #"-" "_")))
 
 (def config-map
   (delay (do

@@ -1,5 +1,6 @@
 (ns instant.util.io
-  (:require [instant.util.tracer :as tracer]))
+  (:require
+   [instant.util.tracer :as tracer]))
 
 (def ^:dynamic *tracking-io* nil)
 (def ^:dynamic *tap-io* nil)

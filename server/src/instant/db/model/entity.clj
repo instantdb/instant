@@ -1,6 +1,8 @@
 (ns instant.db.model.entity
-  (:require [instant.db.model.attr :as attr-model])
-  (:import [java.util Date]))
+  (:require
+   [instant.db.model.attr :as attr-model])
+  (:import
+   (java.util Date)))
 
 (defn get-triples-batch
   "Takes a list of eid+etype maps and returns a map of eid+etype to triples.

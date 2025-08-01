@@ -1,12 +1,13 @@
 (ns instant.storage.coordinator
-  (:require [instant.storage.s3 :as instant-s3]
-            [instant.model.app-file :as app-file-model]
-            [instant.model.rule :as rule-model]
-            [instant.storage.beta :as storage-beta]
-            [instant.util.exception :as ex]
-            [instant.db.cel :as cel]
-            [instant.model.app-upload-url :as app-upload-url-model]
-            [instant.config :as config])
+  (:require
+   [instant.config :as config]
+   [instant.db.cel :as cel]
+   [instant.model.app-file :as app-file-model]
+   [instant.model.app-upload-url :as app-upload-url-model]
+   [instant.model.rule :as rule-model]
+   [instant.storage.beta :as storage-beta]
+   [instant.storage.s3 :as instant-s3]
+   [instant.util.exception :as ex])
   (:import
    (java.time Instant)
    (java.util Date)))
@@ -20,15 +21,15 @@
                 (rule-model/get-by-app-id {:app-id app-id}))
         program (rule-model/get-program! rules "$files" action)]
     (ex/assert-permitted!
-     :has-storage-permission?
-     ["$files" action]
-     (if-not program
-       ;; deny access by default if no permissions are currently set
-       false
-       ;; otherwise, evaluate the permissions code
-       (cel/eval-program! ctx
-                          program
-                          {:data {"path" path}})))))
+      :has-storage-permission?
+      ["$files" action]
+      (if-not program
+        ;; deny access by default if no permissions are currently set
+        false
+        ;; otherwise, evaluate the permissions code
+        (cel/eval-program! ctx
+                           program
+                           {:data {"path" path}})))))
 
 (defn upload-file!
   "Uploads a file to S3 and tracks it in Instant. Returns a file id"
@@ -41,10 +42,10 @@
   (let [location-id (str (random-uuid))]
     (instant-s3/upload-file-to-s3 (assoc ctx :location-id location-id) file)
     (app-file-model/create!
-     {:app-id app-id
-      :path path
-      :location-id location-id
-      :metadata (instant-s3/get-object-metadata app-id location-id)})))
+      {:app-id app-id
+       :path path
+       :location-id location-id
+       :metadata (instant-s3/get-object-metadata app-id location-id)})))
 
 (defn delete-files!
   "Deletes multiple files from both Instant and S3."
@@ -89,15 +90,15 @@
     (when (or (not expired-at)
               (.isBefore (Date/.toInstant expired-at) (Instant/now)))
       (throw (ex/throw-validation-err!
-              :app-upload-url
-              upload-id
-              "The upload URL is expired or invalid.")))
+               :app-upload-url
+               upload-id
+               "The upload URL is expired or invalid.")))
     (upload-file!
-     {:app-id app-id
-      :path path
-      :content-type content-type
-      :content-length content-length
-      :skip-perms-check? true} file)))
+      {:app-id app-id
+       :path path
+       :content-type content-type
+       :content-length content-length
+       :skip-perms-check? true} file)))
 
 (defn create-download-url
   "Returns a temporary url for downloading a file from Instant"

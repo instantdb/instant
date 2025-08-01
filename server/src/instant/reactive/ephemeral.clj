@@ -14,15 +14,13 @@
    [instant.util.tracer :as tracer]
    [medley.core :as medley])
   (:import
+   (com.hazelcast.cluster Cluster Member)
    (com.hazelcast.config Config)
    (com.hazelcast.core Hazelcast HazelcastInstance)
-   (com.hazelcast.cluster Cluster Member)
    (com.hazelcast.map IMap)
    (com.hazelcast.map.impl DataAwareEntryEvent)
-   (com.hazelcast.map.listener EntryAddedListener
-                               EntryRemovedListener
-                               EntryUpdatedListener)
-   (com.hazelcast.topic ITopic MessageListener Message)
+   (com.hazelcast.map.listener EntryAddedListener EntryRemovedListener EntryUpdatedListener)
+   (com.hazelcast.topic ITopic Message MessageListener)
    (java.time Duration Instant)
    (java.util Map$Entry)
    (java.util.concurrent Future)))
@@ -168,7 +166,7 @@
             last-data (.getOldValue event)
             edits     (when last-data
                         (editscript/get-edits
-                         (editscript/diff last-data room-data {:algo :a-star :str-diff :none})))]
+                          (editscript/diff last-data room-data {:algo :a-star :str-diff :none})))]
         (doseq [[sess-id _] room-data
                 :let [q (-> (rs/session store sess-id) :session/socket :receive-q)]
                 :when q
@@ -213,14 +211,14 @@
   [app-id room-id sess-id]
   (let [room-key (hazelcast/room-key app-id room-id)]
     (swap!
-     room-maps
-     (fn [m]
-       (-> m
-           (update-in [:sessions sess-id] (fnil conj #{}) room-id)
-           ;; Keep track of which sessions are interested in the room
-           ;; so we can close our channel when the last session leaves
-           (update-in [:rooms room-key :session-ids]
-                      (fnil conj #{}) sess-id))))))
+      room-maps
+      (fn [m]
+        (-> m
+            (update-in [:sessions sess-id] (fnil conj #{}) room-id)
+            ;; Keep track of which sessions are interested in the room
+            ;; so we can close our channel when the last session leaves
+            (update-in [:rooms room-key :session-ids]
+                       (fnil conj #{}) sess-id))))))
 
 (defn remove-session! [app-id room-id sess-id]
   (let [room-key (hazelcast/room-key app-id room-id)]
@@ -242,18 +240,18 @@
                            HazelcastInstance/.getCluster
                            Cluster/.getMembers
                            (->>
-                            (map #(Member/.getAttribute % "instance-id"))
-                            (into #{})))]
+                             (map #(Member/.getAttribute % "instance-id"))
+                             (into #{})))]
       (doseq [^Map$Entry entry (IMap/.entrySet (:hz-rooms-map @hz))
               :let [{:keys [app-id room-id]} (.getKey entry)
                     v (.getValue entry)]
               :when (and app-id room-id)
               [sess-id {:keys [instance-id]}] v
               :when (or
-                     (nil? instance-id)
-                     (not (contains? instance-ids instance-id))
-                     (and (= instance-id (:instance-id @hz))
-                          (nil? (rs/session rs/store sess-id))))]
+                      (nil? instance-id)
+                      (not (contains? instance-ids instance-id))
+                      (and (= instance-id (:instance-id @hz))
+                           (nil? (rs/session rs/store sess-id))))]
         (tracer/with-span! {:name "clean-orphan-session"
                             :attributes {:app-id      app-id
                                          :room-id     room-id
@@ -331,8 +329,8 @@
       (init-hz (config/get-env) rs/store {})))
   (def clean-orphan-sessions-schedule
     (chime-core/chime-at
-     (chime-core/periodic-seq (.plusMillis (Instant/now) 60000) (Duration/ofMinutes 1))
-     clean-orphan-sessions))
+      (chime-core/periodic-seq (.plusMillis (Instant/now) 60000) (Duration/ofMinutes 1))
+      clean-orphan-sessions))
   (let [^Future f (future @hz)]
     (.get f (* 60 1000) java.util.concurrent.TimeUnit/MILLISECONDS)))
 

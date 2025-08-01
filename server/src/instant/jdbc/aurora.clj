@@ -10,9 +10,7 @@
   (:import
    (com.zaxxer.hikari HikariConfig HikariDataSource)
    (com.zaxxer.hikari.pool HikariPool)
-   (java.sql Connection
-             SQLException
-             SQLFeatureNotSupportedException)
+   (java.sql Connection SQLException SQLFeatureNotSupportedException)
    (java.util WeakHashMap)
    (java.util.function BiConsumer)
    (javax.sql DataSource)
@@ -270,11 +268,11 @@
                                                (.setDataSource ds)))]
                  (filter-closed-connections-wrapper shutdown pool))
                (HikariDataSource.
-                (doto hikari-config
-                  (.setUsername (:user config))
-                  (.setPassword (:password config))
-                  (.setJdbcUrl (connection/jdbc-url (dissoc config
-                                                            :user :password))))))]
+                 (doto hikari-config
+                   (.setUsername (:user config))
+                   (.setPassword (:password config))
+                   (.setJdbcUrl (connection/jdbc-url (dissoc config
+                                                             :user :password))))))]
     ;; Check that the pool is working
     (.close (next-jdbc/get-connection pool))
     pool))

@@ -24,15 +24,14 @@
     And now go through the comment block at the bottom of this file to send
     out the newsletter. Huzzah!
   "
-
   (:require
-   [instant.config :as config]
    [clj-http.client :as clj-http]
    [clojure.java.io :as io]
    [clojure.string :as str]
+   [clojure.tools.logging :as log]
+   [instant.config :as config]
    [instant.util.json :refer [->json]]
-   [instant.util.tracer :as tracer]
-   [clojure.tools.logging :as log]))
+   [instant.util.tracer :as tracer]))
 
 (def base-path (io/file (.getParent (io/file *file*)) "../../../../"))
 (def emails-path "server/resources/emails/emails.txt")
@@ -96,20 +95,20 @@
       (tracer/with-span! {:name "postmark/send-disabled"
                           :attributes body}
         (tracer/record-info!
-         {:name "postmark-disabled"
-          :attributes
-          {:msg
-           "Postmark is disabled, add postmark-token to config to enable"}}))
+          {:name "postmark-disabled"
+           :attributes
+           {:msg
+            "Postmark is disabled, add postmark-token to config to enable"}}))
       (tracer/with-span! {:name "postmark/send"
                           :attributes body}
         (try
           (clj-http/post
-           "https://api.postmarkapp.com/email/withTemplate"
-           {:coerce :always
-            :as :json
-            :headers {"X-Postmark-Server-Token" (config/postmark-token)
-                      "Content-Type" "application/json"}
-            :body (->json body)})
+            "https://api.postmarkapp.com/email/withTemplate"
+            {:coerce :always
+             :as :json
+             :headers {"X-Postmark-Server-Token" (config/postmark-token)
+                       "Content-Type" "application/json"}
+             :body (->json body)})
           (catch Exception e
             (handle-email-error! e to)))))))
 

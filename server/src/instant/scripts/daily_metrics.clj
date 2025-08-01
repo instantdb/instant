@@ -14,7 +14,7 @@
    [instant.util.date :as date]
    [instant.util.lang :as lang])
   (:import
-   (java.time Instant Period LocalDate ZonedDateTime)))
+   (java.time Instant LocalDate Period ZonedDateTime)))
 
 (defn excluded-emails []
   (let [{:keys [test team friend]} (get-emails)]
@@ -127,19 +127,19 @@
         ;; have the full day's data yet
         date-minus-one-str (date-fn date-minus-one)]
     (grab/run-once!
-     (str "daily-metrics-" date-str)
-     (fn []
-       (insert-new-activity)
-       (let [conn (aurora/conn-pool :read)
-             charts (->> (metrics/overview-metrics conn)
-                         :charts
-                         (map (fn [[k chart]]
-                                {:name (format "%s.png" (name k))
-                                 :content-type "image/png"
-                                 ;; 273/173 is how discord resizes images
-                                 :content (metrics/chart->png-bytes chart
-                                                                    (* 2 273) (* 2 173))})))]
-         (send-metrics-to-discord! conn charts date-minus-one-str))))))
+      (str "daily-metrics-" date-str)
+      (fn []
+        (insert-new-activity)
+        (let [conn (aurora/conn-pool :read)
+              charts (->> (metrics/overview-metrics conn)
+                          :charts
+                          (map (fn [[k chart]]
+                                 {:name (format "%s.png" (name k))
+                                  :content-type "image/png"
+                                  ;; 273/173 is how discord resizes images
+                                  :content (metrics/chart->png-bytes chart
+                                                                     (* 2 273) (* 2 173))})))]
+          (send-metrics-to-discord! conn charts date-minus-one-str))))))
 
 (comment
   (def t1 (-> (LocalDate/parse "2024-10-09")
@@ -154,8 +154,8 @@
                         (.withHour 9)
                         (.withMinute 0))
         periodic-seq (chime-core/periodic-seq
-                      nine-am-pst
-                      (Period/ofDays 1))]
+                       nine-am-pst
+                       (Period/ofDays 1))]
     (->> periodic-seq
          (filter (fn [x] (ZonedDateTime/.isAfter x now))))))
 

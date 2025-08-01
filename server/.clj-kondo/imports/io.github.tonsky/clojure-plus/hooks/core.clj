@@ -1,5 +1,6 @@
-(ns ^:no-doc hooks.core
+(ns hooks.core
   "A clj-kondo hook to allow linting of `if+` macro."
+  {:no-doc true}
   (:require
    [clj-kondo.hooks-api :as api]))
 

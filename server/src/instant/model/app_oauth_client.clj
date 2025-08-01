@@ -28,14 +28,14 @@
                      :issuer
                      string?)
          (ex/throw-validation-err!
-          :discovery-endpoint
-          discovery-endpoint
-          [{:message "Could not validate discovery endpoint."}]))
+           :discovery-endpoint
+           discovery-endpoint
+           [{:message "Could not validate discovery endpoint."}]))
        (catch Exception _e
          (ex/throw-validation-err!
-          :discovery-endpoint
-          discovery-endpoint
-          [{:message "Could not validate discovery endpoint."}]))))
+           :discovery-endpoint
+           discovery-endpoint
+           [{:message "Could not validate discovery endpoint."}]))))
    (let [id (UUID/randomUUID)
 
          enc-client-secret
@@ -43,22 +43,22 @@
            (crypt-util/aead-encrypt {:plaintext (String/.getBytes client-secret)
                                      :associated-data (uuid-util/->bytes id)}))]
      (update-op
-      conn
-      {:app-id app-id
-       :etype etype}
-      (fn [{:keys [transact! resolve-id get-entity]}]
-        (transact! [[:add-triple id (resolve-id :id) id]
-                    [:add-triple id (resolve-id :$oauthProvider) provider-id]
-                    [:add-triple id (resolve-id :name) client-name]
-                    [:add-triple id (resolve-id :clientId) client-id]
-                    [:add-triple
-                     id
-                     (resolve-id :encryptedClientSecret)
-                     (when enc-client-secret
-                       (crypt-util/bytes->hex-string enc-client-secret))]
-                    [:add-triple id (resolve-id :discoveryEndpoint) discovery-endpoint]
-                    [:add-triple id (resolve-id :meta) meta]])
-        (get-entity id))))))
+       conn
+       {:app-id app-id
+        :etype etype}
+       (fn [{:keys [transact! resolve-id get-entity]}]
+         (transact! [[:add-triple id (resolve-id :id) id]
+                     [:add-triple id (resolve-id :$oauthProvider) provider-id]
+                     [:add-triple id (resolve-id :name) client-name]
+                     [:add-triple id (resolve-id :clientId) client-id]
+                     [:add-triple
+                      id
+                      (resolve-id :encryptedClientSecret)
+                      (when enc-client-secret
+                        (crypt-util/bytes->hex-string enc-client-secret))]
+                     [:add-triple id (resolve-id :discoveryEndpoint) discovery-endpoint]
+                     [:add-triple id (resolve-id :meta) meta]])
+         (get-entity id))))))
 
 (defn get-by-id
   ([params] (get-by-id (aurora/conn-pool :read) params))
@@ -104,19 +104,19 @@
 (defn ->OAuthClient [oauth-client]
   (if-let [discovery-endpoint (:discovery_endpoint oauth-client)]
     (oauth/generic-oauth-client-from-discovery-url
-     {:app-id (:app_id oauth-client)
-      :provider-id (:provider_id oauth-client)
-      :client-id (:client_id oauth-client)
-      :client-secret (when (:client_secret oauth-client)
-                       (decrypted-client-secret oauth-client))
-      :discovery-endpoint discovery-endpoint
-      :meta (:meta oauth-client)})
+      {:app-id (:app_id oauth-client)
+       :provider-id (:provider_id oauth-client)
+       :client-id (:client_id oauth-client)
+       :client-secret (when (:client_secret oauth-client)
+                        (decrypted-client-secret oauth-client))
+       :discovery-endpoint discovery-endpoint
+       :meta (:meta oauth-client)})
     (oauth/map->GenericOAuthClient
-     {:app-id (:app_id oauth-client)
-      :provider-id (:provider_id oauth-client)
-      :client-id (:client_id oauth-client)
-      :client-secret (when (:client_secret oauth-client)
-                       (decrypted-client-secret oauth-client))
-      :authorization-endpoint (:authorization_endpoint oauth-client)
-      :token-endpoint (:token_endpoint oauth-client)
-      :meta (:meta oauth-client)})))
+      {:app-id (:app_id oauth-client)
+       :provider-id (:provider_id oauth-client)
+       :client-id (:client_id oauth-client)
+       :client-secret (when (:client_secret oauth-client)
+                        (decrypted-client-secret oauth-client))
+       :authorization-endpoint (:authorization_endpoint oauth-client)
+       :token-endpoint (:token_endpoint oauth-client)
+       :meta (:meta oauth-client)})))

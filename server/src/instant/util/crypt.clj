@@ -1,23 +1,16 @@
 (ns instant.util.crypt
-  (:require [instant.util.uuid :as uuid-util])
+  (:require
+   [instant.util.uuid :as uuid-util])
   (:import
+   (com.google.crypto.tink Aead CleartextKeysetHandle HybridDecrypt HybridEncrypt InsecureSecretKeyAccess JsonKeysetReader KeysetHandle TinkJsonProtoKeysetFormat)
+   (com.google.crypto.tink.aead AeadConfig AeadWrapper$WrappedAead PredefinedAeadParameters)
+   (com.google.crypto.tink.hybrid HybridConfig HybridDecryptWrapper$WrappedHybridDecrypt HybridEncryptWrapper$WrappedHybridEncrypt)
+   (com.google.crypto.tink.integration.awskms AwsKmsClient)
+   (com.google.crypto.tink.subtle Random)
    (java.security MessageDigest)
    (java.util UUID)
    (javax.crypto Mac)
    (javax.crypto.spec SecretKeySpec)
-   (com.google.crypto.tink Aead JsonKeysetReader TinkJsonProtoKeysetFormat
-                           CleartextKeysetHandle HybridEncrypt HybridDecrypt
-                           KeysetHandle
-                           ;; Only used for bootstrapping for OSS
-                           InsecureSecretKeyAccess)
-   (com.google.crypto.tink.aead AeadConfig
-                                PredefinedAeadParameters
-                                AeadWrapper$WrappedAead)
-   (com.google.crypto.tink.hybrid HybridConfig
-                                  HybridDecryptWrapper$WrappedHybridDecrypt
-                                  HybridEncryptWrapper$WrappedHybridEncrypt)
-   (com.google.crypto.tink.integration.awskms AwsKmsClient)
-   (com.google.crypto.tink.subtle Random)
    (org.apache.commons.codec.binary Hex)))
 
 (defn uuid->sha256
@@ -99,9 +92,9 @@
 (defn aead-decrypt
   "Decrypts ciphertext encrypted with aead-encrypt"
   (^bytes [input]
-   (aead-decrypt (assert-default-aead) input))
+    (aead-decrypt (assert-default-aead) input))
   (^bytes [^AeadWrapper$WrappedAead aead {:keys [^bytes ciphertext ^bytes associated-data] :as _input}]
-   (.decrypt aead ciphertext associated-data)))
+    (.decrypt aead ciphertext associated-data)))
 
 (defn hybrid-encrypt
   "Encrypts plaintext with associated data:

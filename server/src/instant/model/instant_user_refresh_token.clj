@@ -1,7 +1,8 @@
 (ns instant.model.instant-user-refresh-token
-  (:require [instant.jdbc.aurora :as aurora]
-            [instant.jdbc.sql :as sql]
-            [instant.model.instant-user :as instant-user-model])
+  (:require
+   [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
+   [instant.model.instant-user :as instant-user-model])
   (:import
    (java.util UUID)))
 
@@ -23,4 +24,3 @@
   (def u (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
   (def r (create! {:id (UUID/randomUUID) :user-id (:id u)}))
   (delete-by-id! {:id (:id r)}))
-

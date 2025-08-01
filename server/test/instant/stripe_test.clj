@@ -8,9 +8,9 @@
    [instant.stripe :as stripe]))
 
 (defn event-data [{:keys [app-id user-id customer]}]
-  {:object {:customer customer,
-            :subscription "sub_1P70xAL5BwOwpxgUX9Vepd6n",
-            :metadata {:app-id app-id,
+  {:object {:customer customer
+            :subscription "sub_1P70xAL5BwOwpxgUX9Vepd6n"
+            :metadata {:app-id app-id
                        :user-id user-id}}})
 
 (defn with-stripe-customer [f]

@@ -4,11 +4,7 @@
    [instant.util.json :refer [<-json]])
   (:import
    (software.amazon.awssdk.services.rds RdsClient)
-   (software.amazon.awssdk.services.rds.model DBCluster
-                                              DBClusterMember
-                                              DBInstance
-                                              DescribeDbClustersRequest
-                                              DescribeDbInstancesRequest)
+   (software.amazon.awssdk.services.rds.model DBCluster DBClusterMember DBInstance DescribeDbClustersRequest DescribeDbInstancesRequest)
    (software.amazon.awssdk.services.secretsmanager SecretsManagerClient)
    (software.amazon.awssdk.services.secretsmanager.model GetSecretValueRequest)))
 

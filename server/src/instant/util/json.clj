@@ -1,11 +1,13 @@
 (ns instant.util.json
-  (:require [cheshire.core :as cheshire]
-            [cheshire.generate :refer [add-encoder encode-nil encode-str]])
-  (:import (com.google.protobuf NullValue)
-           (dev.cel.expr Value)
-           (com.fasterxml.jackson.core JsonGenerator)
-           (com.google.protobuf.util JsonFormat)
-           (java.time Instant)))
+  (:require
+   [cheshire.core :as cheshire]
+   [cheshire.generate :refer [add-encoder encode-nil encode-str]])
+  (:import
+   (com.fasterxml.jackson.core JsonGenerator)
+   (com.google.protobuf NullValue)
+   (com.google.protobuf.util JsonFormat)
+   (dev.cel.expr Value)
+   (java.time Instant)))
 
 ;; Encode NullValue as nil
 (add-encoder NullValue encode-nil)

@@ -4,8 +4,8 @@
    [instant.util.exception :as ex]
    [instant.util.token :as token-util]
    [instant.util.tracer :as tracer]
-   [ring.util.http-response :as response]
-   [ring.middleware.cors :as cors]))
+   [ring.middleware.cors :as cors]
+   [ring.util.http-response :as response]))
 
 (defn coerce-bearer-token [bearer-token]
   (some-> bearer-token
@@ -18,7 +18,6 @@
   (ex/get-param! req
                  [:headers "authorization"]
                  coerce-bearer-token))
-
 
 (defn req->bearer-token [req]
   (if-let [header (get-in req [:headers "authorization"])]
@@ -138,13 +137,13 @@
 
             instant-ex (do (tracer/add-exception! instant-ex {:escaping? false})
                            (response/internal-server-error
-                            (cond-> {:type (keyword (name type))
-                                     :message message
-                                     :hint (assoc hint :debug-uri (tracer/span-uri))}
-                              trace-id (assoc :trace-id trace-id))))
+                             (cond-> {:type (keyword (name type))
+                                      :message message
+                                      :hint (assoc hint :debug-uri (tracer/span-uri))}
+                               trace-id (assoc :trace-id trace-id))))
             :else (do  (tracer/add-exception! e {:escaping? false})
                        (response/internal-server-error
-                        (cond-> {:type :unknown
-                                 :message "Something went wrong. Please ping `debug-uri` in #bug-and-questions, and we'll take a look. Sorry about this!"
-                                 :hint {:debug-uri (tracer/span-uri)}}
-                          trace-id (assoc :trace-id trace-id))))))))))
+                         (cond-> {:type :unknown
+                                  :message "Something went wrong. Please ping `debug-uri` in #bug-and-questions, and we'll take a look. Sorry about this!"
+                                  :hint {:debug-uri (tracer/span-uri)}}
+                           trace-id (assoc :trace-id trace-id))))))))))

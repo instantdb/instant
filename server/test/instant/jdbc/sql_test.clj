@@ -1,12 +1,12 @@
 (ns instant.jdbc.sql-test
   (:require
+   [clojure.test :refer [are deftest is testing]]
    [honey.sql :as hsql]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
-   [instant.util.test :refer [wait-for]]
-   [clojure.test :refer [deftest testing is are]])
+   [instant.util.test :refer [wait-for]])
   (:import
-   [clojure.lang ExceptionInfo]))
+   (clojure.lang ExceptionInfo)))
 
 (deftest ->pgobject
   (testing "formats text[]"
@@ -50,14 +50,14 @@
         expected [{:id 1} {:id 2} {:id 3}]]
     (is (= expected
            (sql/do-execute!
-            (aurora/conn-pool :read)
-            (hsql/format
-             (sql/elementset xs column)))))
+             (aurora/conn-pool :read)
+             (hsql/format
+               (sql/elementset xs column)))))
     (is (= []
            (sql/do-execute!
-            (aurora/conn-pool :read)
-            (hsql/format
-             (sql/elementset [] column)))))))
+             (aurora/conn-pool :read)
+             (hsql/format
+               (sql/elementset [] column)))))))
 
 (deftest tupleset-test
   (let [ts [[1 "Ivan" 85]
@@ -71,14 +71,14 @@
                   {:id 3, :full_name "Petr", :score 68}]]
     (is (= expected
            (sql/do-execute!
-            (aurora/conn-pool :read)
-            (hsql/format
-             (sql/tupleset ts columns)))))
+             (aurora/conn-pool :read)
+             (hsql/format
+               (sql/tupleset ts columns)))))
     (is (= []
            (sql/do-execute!
-            (aurora/conn-pool :read)
-            (hsql/format
-             (sql/tupleset [] columns)))))))
+             (aurora/conn-pool :read)
+             (hsql/format
+               (sql/tupleset [] columns)))))))
 
 (deftest recordset-test
   (let [rs [{:id 1, :name "Ivan", :score 85}
@@ -92,14 +92,14 @@
                   {:id 3, :full_name "Petr", :score 68}]]
     (is (= expected
            (sql/do-execute!
-            (aurora/conn-pool :read)
-            (hsql/format
-             (sql/recordset rs columns)))))
+             (aurora/conn-pool :read)
+             (hsql/format
+               (sql/recordset rs columns)))))
     (is (= []
            (sql/do-execute!
-            (aurora/conn-pool :read)
-            (hsql/format
-             (sql/recordset [] columns)))))))
+             (aurora/conn-pool :read)
+             (hsql/format
+               (sql/recordset [] columns)))))))
 
 (deftest format-test
   (testing "static"

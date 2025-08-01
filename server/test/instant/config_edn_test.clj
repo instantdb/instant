@@ -1,6 +1,7 @@
 (ns instant.config-edn-test
-  (:require [instant.config-edn :as config-edn]
-            [clojure.test :refer [deftest testing is]]))
+  (:require
+   [clojure.test :refer [deftest is testing]]
+   [instant.config-edn :as config-edn]))
 
 (deftest config-smoketest
   (testing "dev config"

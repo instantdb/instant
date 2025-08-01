@@ -1,14 +1,15 @@
 (ns instant.model.instant-user
-  (:require [clojure.core.cache.wrapped :as cache]
-            [instant.jdbc.aurora :as aurora]
-            [instant.jdbc.sql :as sql]
-            [instant.util.cache :refer [multi-evict-lru-cache-factory]]
-            [instant.util.crypt :as crypt-util]
-            [instant.util.exception :as ex]
-            [instant.util.token :as token-util])
+  (:require
+   [clojure.core.cache.wrapped :as cache]
+   [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
+   [instant.util.cache :refer [multi-evict-lru-cache-factory]]
+   [instant.util.crypt :as crypt-util]
+   [instant.util.exception :as ex]
+   [instant.util.token :as token-util])
   (:import
-   (java.util UUID)
-   (instant.util.token PersonalAccessToken)))
+   (instant.util.token PersonalAccessToken)
+   (java.util UUID)))
 
 ;; We lookup the user by the app-id, but the multi-evict
 ;; cache will let us evict by both the app-id and the user-id
@@ -89,13 +90,13 @@
   ([params] (get-by-refresh-token (aurora/conn-pool :read) params))
   ([conn {:keys [refresh-token]}]
    (sql/select-one
-    ::get-by-refresh-token
-    conn
-    ["SELECT instant_users.*
+     ::get-by-refresh-token
+     conn
+     ["SELECT instant_users.*
      FROM instant_users
      JOIN instant_user_refresh_tokens ON instant_users.id = instant_user_refresh_tokens.user_id
      WHERE instant_user_refresh_tokens.id = ?::uuid"
-     refresh-token])))
+      refresh-token])))
 
 (defn get-by-refresh-token! [params]
   (ex/assert-record! (get-by-refresh-token params) :instant-user {}))
@@ -104,14 +105,14 @@
   ([params] (get-by-personal-access-token (aurora/conn-pool :read) params))
   ([conn {:keys [^PersonalAccessToken personal-access-token]}]
    (sql/select-one
-    ::get-by-personal-access-token
-    conn
-    ["SELECT instant_users.*
+     ::get-by-personal-access-token
+     conn
+     ["SELECT instant_users.*
       FROM instant_users
       JOIN instant_personal_access_tokens
       ON instant_users.id = instant_personal_access_tokens.user_id
       WHERE instant_personal_access_tokens.lookup_key = ?::bytea"
-     (crypt-util/str->sha256 (token-util/personal-access-token-value personal-access-token))])))
+      (crypt-util/str->sha256 (token-util/personal-access-token-value personal-access-token))])))
 
 (defn get-by-personal-access-token! [params]
   (ex/assert-record! (get-by-personal-access-token params) :instant-user {}))

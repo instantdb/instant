@@ -5,6 +5,7 @@
    [datascript.core :as ds]
    [instant.config :as config]
    [instant.db.model.attr :as attr-model]
+   [instant.db.model.triple :as triple-model]
    [instant.db.pg-introspect :as pg-introspect]
    [instant.grouped-queue :as grouped-queue]
    [instant.jdbc.aurora :as aurora]
@@ -15,10 +16,9 @@
    [instant.reactive.receive-queue :as receive-queue]
    [instant.reactive.store :as rs]
    [instant.util.async :as ua]
-   [instant.util.json :refer [<-json]]
    [instant.util.e2e-tracer :as e2e-tracer]
-   [instant.util.tracer :as tracer]
-   [instant.db.model.triple :as triple-model])
+   [instant.util.json :refer [<-json]]
+   [instant.util.tracer :as tracer])
   (:import
    (java.sql Timestamp)
    (java.time Instant)
@@ -337,15 +337,15 @@
 
 (defn- store-snapshot [store app-id]
   (rs/->ReactiveStore
-   (ds/conn-from-db @(:sessions store))
-   (^[Map] ConcurrentHashMap/new
-    (if-let [conn (some-> store
-                          :conns
-                          (Map/.get app-id)
-                          deref
-                          ds/conn-from-db)]
-      {app-id conn}
-      {}))))
+    (ds/conn-from-db @(:sessions store))
+    (^[Map] ConcurrentHashMap/new
+      (if-let [conn (some-> store
+                            :conns
+                            (Map/.get app-id)
+                            deref
+                            ds/conn-from-db)]
+        {app-id conn}
+        {}))))
 
 (defn wal-latency-ms [{:keys [tx-created-at]}]
   (when tx-created-at
@@ -383,15 +383,15 @@
   (tracer/record-info! {:name "invalidation-worker/start"})
   (let [queue
         (grouped-queue/start
-         {:group-key-fn :app-id
-          :combine-fn   combine-wal-records
-          :process-fn   (fn [_key wal-record]
-                         (process-wal-record process-id
-                                             store
-                                             (::grouped-queue/combined wal-record 1)
-                                             wal-record))
-          :metrics-path "instant.reactive.invalidator.q"
-          :max-workers  8})]
+          {:group-key-fn :app-id
+           :combine-fn   combine-wal-records
+           :process-fn   (fn [_key wal-record]
+                           (process-wal-record process-id
+                                               store
+                                               (::grouped-queue/combined wal-record 1)
+                                               wal-record))
+           :metrics-path "instant.reactive.invalidator.q"
+           :max-workers  8})]
     (a/go
       (loop []
         (when-some [wal-record (a/<! wal-chan)]
@@ -486,7 +486,7 @@
                                                              (config/get-aurora-config)))
                                       :slot-name process-id})]
      (ua/fut-bg
-      (wal/start-worker wal-opts))
+       (wal/start-worker wal-opts))
 
      @(:started-promise wal-opts)
 
@@ -495,7 +495,7 @@
 
      (when byop-chan
        (ua/fut-bg
-        (start-byop-worker rs/store byop-chan)))
+         (start-byop-worker rs/store byop-chan)))
 
      wal-opts)))
 

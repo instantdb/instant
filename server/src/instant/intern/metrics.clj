@@ -15,27 +15,27 @@
   We use a similar definition for active apps (at least 1 tx in the time period).
   "
   (:require
-   [instant.jdbc.sql :as sql]
-   [instant.jdbc.aurora :as aurora]
-   [instant.flags :refer [get-emails]]
-   [incanter.core :as i]
-   [incanter.charts :as charts]
-   [instant.util.exception :as ex]
    [clojure.java.shell :as shell]
    [honey.sql :as hsql]
-   [instant.util.date :as date])
+   [incanter.charts :as charts]
+   [incanter.core :as i]
+   [instant.flags :refer [get-emails]]
+   [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
+   [instant.util.date :as date]
+   [instant.util.exception :as ex])
   (:import
-   [org.jfree.chart JFreeChart]
-   [org.jfree.chart.axis CategoryAxis CategoryLabelPositions NumberAxis]
-   [org.jfree.chart.labels StandardCategoryItemLabelGenerator]
-   [org.jfree.chart.plot CategoryPlot]
-   [org.jfree.chart.renderer.category BarRenderer]
-   [org.jfree.chart.ui RectangleInsets]
-   [java.io File ByteArrayOutputStream]
-   [java.awt Color]
-   [javax.imageio ImageIO]
-   [java.util Base64]
-   [java.time LocalDate]))
+   (java.awt Color)
+   (java.io ByteArrayOutputStream File)
+   (java.time LocalDate)
+   (java.util Base64)
+   (javax.imageio ImageIO)
+   (org.jfree.chart JFreeChart)
+   (org.jfree.chart.axis CategoryAxis CategoryLabelPositions NumberAxis)
+   (org.jfree.chart.labels StandardCategoryItemLabelGenerator)
+   (org.jfree.chart.plot CategoryPlot)
+   (org.jfree.chart.renderer.category BarRenderer)
+   (org.jfree.chart.ui RectangleInsets)))
 
 ;; ---------- 
 ;; Queries 
@@ -46,8 +46,8 @@
 
 (defn get-latest-daily-tx-date ^LocalDate [conn]
   (java.sql.Date/.toLocalDate
-   (:date
-    (sql/select-one conn ["SELECT MAX(date) AS date FROM daily_app_transactions"]))))
+    (:date
+      (sql/select-one conn ["SELECT MAX(date) AS date FROM daily_app_transactions"]))))
 
 (comment
   (tool/with-prod-conn [conn]
@@ -181,8 +181,8 @@
 (defn monthly-active-summary
   [conn {:keys [target-month]}]
   (first
-   (sql/select conn
-               ["SELECT
+    (sql/select conn
+                ["SELECT
                   DATE_TRUNC('month', dat.date) AS analysis_date,
                   COUNT(DISTINCT u.id) AS distinct_users,
                   COUNT(DISTINCT a.id) AS distinct_apps
@@ -192,14 +192,14 @@
                 WHERE dat.is_active AND u.email NOT IN (SELECT unnest(?::text[]))
                       AND DATE_TRUNC('month', ?::date) = DATE_TRUNC('month', dat.date) 
                 GROUP BY 1"
-                (with-meta (excluded-emails) {:pgtype "text[]"})
-                target-month])))
+                 (with-meta (excluded-emails) {:pgtype "text[]"})
+                 target-month])))
 
 (comment
   (tool/with-prod-conn [conn]
     (monthly-active-summary
-     conn
-     {:month-date (LocalDate/parse "2025-01-01")})))
+      conn
+      {:month-date (LocalDate/parse "2025-01-01")})))
 
 (defn format-date-label [^java.sql.Date date-val]
   (let [local-date (.toLocalDate date-val)
@@ -253,7 +253,7 @@
          ;; Find the most recent Sunday (end of a complete week)
          days-since-sunday (mod (.getValue (.getDayOfWeek end-date)) 7)
          last-sunday (if (zero? days-since-sunday)
-                       end-date 
+                       end-date
                        (.minusDays end-date days-since-sunday))
          last-monday (.minusDays last-sunday 6)
          start-date (.minusWeeks last-monday weeks)]
@@ -325,8 +325,8 @@
     (.setDefaultItemLabelsVisible renderer true)
     (.setDefaultPositiveItemLabelPosition renderer
                                           (org.jfree.chart.labels.ItemLabelPosition.
-                                           org.jfree.chart.labels.ItemLabelAnchor/OUTSIDE12
-                                           org.jfree.chart.ui.TextAnchor/BOTTOM_CENTER))
+                                            org.jfree.chart.labels.ItemLabelAnchor/OUTSIDE12
+                                            org.jfree.chart.ui.TextAnchor/BOTTOM_CENTER))
 
     ;; Set bar background to white and border to black
     (.setRenderer plot renderer)
@@ -409,9 +409,9 @@
         n (count x-values)
         baseline (first y-values)
         goal-values (map-indexed
-                     (fn [i _]
-                       (+ baseline (* (- end-goal baseline) (/ i (dec n)))))
-                     x-values)]
+                      (fn [i _]
+                        (+ baseline (* (- end-goal baseline) (/ i (dec n)))))
+                      x-values)]
     (charts/add-categories chart x-values goal-values :series-label "Goal")
     chart))
 
@@ -420,21 +420,21 @@
 
 (defn generate-rolling-signups-chart [conn]
   (let [signup-data (rolling-avg-signups conn 12)
-        formatted-data (map #(assoc % :formatted_date (format-date-label (:analysis_date %))) 
-                           signup-data)]
+        formatted-data (map #(assoc % :formatted_date (format-date-label (:analysis_date %)))
+                         signup-data)]
     (generate-line-chart formatted-data
-                        :formatted_date
-                        :rolling_avg
-                        "7-Day Rolling Average Signups")))
+      :formatted_date
+      :rolling_avg
+      "7-Day Rolling Average Signups")))
 
 (defn generate-weekly-signups-chart [conn]
   (let [signup-data (weekly-signups conn 12)
-        formatted-data (map #(assoc % :formatted_week (format-date-label (:week_start %))) 
-                           signup-data)]
+        formatted-data (map #(assoc % :formatted_week (format-date-label (:week_start %)))
+                         signup-data)]
     (generate-bar-chart formatted-data
-                       :formatted_week
-                       :signup_count
-                       "Weekly Signups")))
+      :formatted_week
+      :signup_count
+      "Weekly Signups")))
 
 (comment
   (tool/with-prod-conn [conn]
@@ -443,7 +443,6 @@
       (save-chart-into-file! rolling-avg-chart "resources/metrics/rolling-signups.png")
       (save-chart-into-file! weekly-chart "resources/metrics/weekly-signups.png")
       (shell/sh "open" "resources/metrics"))))
-
 
 ;; ---------------- 
 ;; Overview Metrics 
@@ -483,7 +482,6 @@
                                                        target-date)
 
                                        cleanup-line-chart!)
-        
         rolling-avg-signups-chart (generate-rolling-signups-chart conn)
         weekly-signups-chart (generate-weekly-signups-chart conn)]
     {:date (date/numeric-date-str target-date)

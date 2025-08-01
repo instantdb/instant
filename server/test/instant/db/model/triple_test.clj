@@ -1,11 +1,13 @@
 (ns instant.db.model.triple-test
-  (:require [instant.db.model.triple :as triple]
-            [instant.jdbc.aurora :as aurora]
-            [instant.jdbc.sql :as sql]
-            [instant.util.json :refer [->json]]
-            [honey.sql :as hsql]
-            [clojure.test :refer [is deftest testing]])
-  (:import [java.util Date]))
+  (:require
+   [clojure.test :refer [deftest is testing]]
+   [honey.sql :as hsql]
+   [instant.db.model.triple :as triple]
+   [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
+   [instant.util.json :refer [->json]])
+  (:import
+   (java.util Date)))
 
 (deftest parse-date-value-works-for-valid-dates
   (doseq [s ["Sat, 05 Apr 2025 18:00:31 GMT"

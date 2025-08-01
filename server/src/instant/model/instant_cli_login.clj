@@ -1,8 +1,9 @@
 (ns instant.model.instant-cli-login
-  (:require [instant.jdbc.aurora :as aurora]
-            [instant.jdbc.sql :as sql]
-            [instant.util.crypt :as crypt-util]
-            [instant.util.exception :as ex])
+  (:require
+   [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
+   [instant.util.crypt :as crypt-util]
+   [instant.util.exception :as ex])
   (:import
    (java.time Instant)
    (java.time.temporal ChronoUnit)
@@ -12,26 +13,26 @@
   ([params] (create! (aurora/conn-pool :write) params))
   ([conn {:keys [ticket secret]}]
    (sql/execute-one!
-    conn
-    ["INSERT INTO
+     conn
+     ["INSERT INTO
         instant_cli_logins
         (id, secret)
       VALUES
         (?, ?)"
-     ticket (crypt-util/uuid->sha256 secret)])))
+      ticket (crypt-util/uuid->sha256 secret)])))
 
 (defn claim!
   ([params] (claim! (aurora/conn-pool :write) params))
   ([conn {:keys [ticket user-id]}]
    (sql/execute-one!
-    conn
-    ["UPDATE
+     conn
+     ["UPDATE
         instant_cli_logins
       SET
         user_id = ?::uuid
       WHERE
         id = ?"
-     user-id ticket])))
+      user-id ticket])))
 
 (defn expired?
   ([magic-code] (expired? (Instant/now) magic-code))
@@ -63,8 +64,8 @@
                                                                :message "Waiting for a user to accept this request"}]))
 
          claimed (sql/execute-one!
-                  conn
-                  ["UPDATE 
+                   conn
+                   ["UPDATE 
                      instant_cli_logins 
                     SET 
                       used = true 
@@ -73,7 +74,7 @@
                       user_id IS NOT NULL AND 
                       used = false 
                     RETURNING *"
-                   (crypt-util/uuid->sha256 secret)])
+                    (crypt-util/uuid->sha256 secret)])
 
          _ (when-not claimed
              (ex/throw-validation-err! :instant-cli-login
@@ -86,11 +87,11 @@
   ([params] (void! (aurora/conn-pool :write) params))
   ([conn {:keys [ticket]}]
    (sql/execute-one!
-    conn
-    ["UPDATE
+     conn
+     ["UPDATE
         instant_cli_logins
       SET
         used = true
       WHERE
         id = ?::uuid"
-     ticket])))
+      ticket])))

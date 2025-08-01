@@ -1,7 +1,8 @@
 (ns instant.util.token
-  (:require [clojure.string :as string]
-            [instant.util.crypt :as crypt-util]
-            [instant.util.uuid :as uuid-util]))
+  (:require
+   [clojure.string :as string]
+   [instant.util.crypt :as crypt-util]
+   [instant.util.uuid :as uuid-util]))
 
 (def platform-refresh-token-prefix "prt_")
 (def platform-access-token-prefix "pat_")

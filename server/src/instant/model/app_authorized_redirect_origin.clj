@@ -5,9 +5,9 @@
    [clojure.string :as string]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
+   [instant.util.exception :as ex]
    [instant.util.tracer :as tracer]
-   [lambdaisland.uri :as uri]
-   [instant.util.exception :as ex])
+   [lambdaisland.uri :as uri])
   (:import
    (java.util UUID)))
 
@@ -16,19 +16,19 @@
   ([conn {:keys [app-id service params]}]
    (let [id (UUID/randomUUID)]
      (sql/execute-one!
-      conn
-      ["INSERT INTO app_authorized_redirect_origins
+       conn
+       ["INSERT INTO app_authorized_redirect_origins
        (id, app_id, service, params)
        VALUES (?::uuid, ?::uuid, ?, ?::text[])"
-       id app-id service (with-meta params {:pgtype "text[]"})]))))
+        id app-id service (with-meta params {:pgtype "text[]"})]))))
 
 (defn delete-by-id!
   ([params] (delete-by-id! (aurora/conn-pool :write) params))
   ([conn {:keys [id app-id]}]
    (sql/execute-one!
-    conn
-    ["DELETE FROM app_authorized_redirect_origins WHERE id = ?::uuid AND app_id = ?::uuid"
-     id app-id])))
+     conn
+     ["DELETE FROM app_authorized_redirect_origins WHERE id = ?::uuid AND app_id = ?::uuid"
+      id app-id])))
 
 (defn delete-by-id-ensure!
   [& args]
@@ -39,8 +39,8 @@
   ([params] (get-all-for-app (aurora/conn-pool :read) params))
   ([conn {:keys [app-id]}]
    (sql/select
-    conn
-    ["SELECT * FROM app_authorized_redirect_origins WHERE app_id = ?::uuid" app-id])))
+     conn
+     ["SELECT * FROM app_authorized_redirect_origins WHERE app_id = ?::uuid" app-id])))
 
 (def reserved-uri-schemes (edn/read-string (slurp (io/resource "uri-schemes.edn"))))
 

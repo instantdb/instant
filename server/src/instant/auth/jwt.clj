@@ -68,8 +68,8 @@
           (cache/evict keys-cache jwks-uri)
           (find-key {:jwks-uri jwks-uri :key-id key-id :no-recur true}))
         (throw (SigningKeyNotFoundException.
-                (str "No key found in " jwks-uri " with kid " key-id)
-                nil))))))
+                 (str "No key found in " jwks-uri " with kid " key-id)
+                 nil))))))
 
 (defn- refresh-cached-keys [jwks-uri]
   (let [data (get-keys jwks-uri)]
@@ -85,16 +85,16 @@
                                    (find-key {:jwks-uri jwks-uri :key-id kid})
                                    (catch Exception e
                                      (throw (SigningKeyNotFoundException.
-                                             (str "Error searching " jwks-uri " for kid " kid)
-                                             e))))]
+                                              (str "Error searching " jwks-uri " for kid " kid)
+                                              e))))]
                            (Jwk/.getPublicKey k)))
         algorithm (case alg
                     "RS256" (Algorithm/RSA256
-                             (proxy [RSAKeyProvider] []
-                               (getPublicKeyById [kid] (get-public-key kid))))
+                              (proxy [RSAKeyProvider] []
+                                (getPublicKeyById [kid] (get-public-key kid))))
                     "ES256" (Algorithm/ECDSA256
-                             (proxy [ECDSAKeyProvider] []
-                               (getPublicKeyById [kid] (get-public-key kid))))
+                              (proxy [ECDSAKeyProvider] []
+                                (getPublicKeyById [kid] (get-public-key kid))))
                     (ex/throw-oauth-err! (str "Unsupported signing algorithm " alg)))]
     (.build (JWT/require algorithm))))
 
@@ -150,17 +150,17 @@
   (tracer/record-info! {:name "jwk/start-cert-refresh"})
   (def schedule
     (chime-core/chime-at
-     (-> (chime-core/periodic-seq (Instant/now) (Duration/ofHours 1))
-         rest)
-     (fn [_time]
-       (for [[endpoint {:keys [expires]}] @keys-cache
-             :when (> 65 (.toMinutes (Duration/between (Instant/now) expires)))]
-         (tracer/with-span! {:name "jwk/updating-certs"
-                             :endpoint endpoint}
-           (try
-             (refresh-cached-keys endpoint)
-             (catch Exception e
-               (tracer/record-exception-span! e {:name "jwk/update-certs-error"})))))))))
+      (-> (chime-core/periodic-seq (Instant/now) (Duration/ofHours 1))
+          rest)
+      (fn [_time]
+        (for [[endpoint {:keys [expires]}] @keys-cache
+              :when (> 65 (.toMinutes (Duration/between (Instant/now) expires)))]
+          (tracer/with-span! {:name "jwk/updating-certs"
+                              :endpoint endpoint}
+            (try
+              (refresh-cached-keys endpoint)
+              (catch Exception e
+                (tracer/record-exception-span! e {:name "jwk/update-certs-error"})))))))))
 
 (defn stop []
   (lang/close schedule))

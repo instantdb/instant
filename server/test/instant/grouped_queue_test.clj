@@ -1,6 +1,6 @@
 (ns instant.grouped-queue-test
   (:require
-   [clojure.test :refer [deftest testing is]]
+   [clojure.test :refer [deftest is testing]]
    [instant.grouped-queue :as grouped-queue])
   (:import
    (java.util.concurrent CountDownLatch Executors)
@@ -37,11 +37,11 @@
                     {:group group :id id})
             output (atom [])
             q (grouped-queue/start
-               (merge
-                {:group-key-fn :group
-                 :process-fn (fn [_group item]
-                               (swap! output conj item))}
-                opts))]
+                (merge
+                  {:group-key-fn :group
+                   :process-fn (fn [_group item]
+                                 (swap! output conj item))}
+                  opts))]
         (try
           (doseq [item input]
             (grouped-queue/put! q item))
@@ -62,14 +62,14 @@
                     {:group group :id id})
             output (atom [])
             q (grouped-queue/start
-               (merge
-                {:group-key-fn :group
-                 :combine-fn   (fn [item1 item2]
-                                 (when (= (:id item2) (inc (:id item1)))
-                                   item2))
-                 :process-fn   (fn [_group item]
-                                 (swap! output conj item))}
-                opts))]
+                (merge
+                  {:group-key-fn :group
+                   :combine-fn   (fn [item1 item2]
+                                   (when (= (:id item2) (inc (:id item1)))
+                                     item2))
+                   :process-fn   (fn [_group item]
+                                   (swap! output conj item))}
+                  opts))]
         (try
           (doseq [item input]
             (grouped-queue/put! q item))
@@ -90,18 +90,18 @@
                 {:group group :id id})
         latch (CountDownLatch. 500)
         q     (grouped-queue/start
-               {:group-key-fn :group
-                :max-workers  10
-                :process-fn   (fn [_group _item]
-                                (Thread/sleep 10)
-                                (.countDown latch))})
+                {:group-key-fn :group
+                 :max-workers  10
+                 :process-fn   (fn [_group _item]
+                                 (Thread/sleep 10)
+                                 (.countDown latch))})
         t0    (System/currentTimeMillis)]
     (try
       (doseq [item input]
         (grouped-queue/put! q item))
       (testing "put! is not blocked by execution"
         (is (< (- (System/currentTimeMillis) t0) 250)))
-    ;; give threads a chance to start
+      ;; give threads a chance to start
       (Thread/sleep (- 500 (- (System/currentTimeMillis) t0)))
       (testing "More than 1 thread spawned, but no more than 1 per group"
         (is (<= 2 (grouped-queue/num-workers q) 5)))
@@ -116,17 +116,17 @@
         processed (atom [])
         stopped (promise)
         q (grouped-queue/start
-           {:group-key-fn :group
-            :max-workers  1
-            :process-fn   (fn [_group items]
-                          (if (< 3 (count (swap! processed conj items)))
-                            (do
-                              (deliver stopped true)
-                              (grouped-queue/stop @q-promise))
-                            (do
-                              (grouped-queue/put! @q-promise {:group 2})
-                              (grouped-queue/put! @q-promise {:group 1}))))
-            :error-fn     (fn [_])})]
+            {:group-key-fn :group
+             :max-workers  1
+             :process-fn   (fn [_group items]
+                             (if (< 3 (count (swap! processed conj items)))
+                               (do
+                                 (deliver stopped true)
+                                 (grouped-queue/stop @q-promise))
+                               (do
+                                 (grouped-queue/put! @q-promise {:group 2})
+                                 (grouped-queue/put! @q-promise {:group 1}))))
+             :error-fn     (fn [_])})]
     (deliver q-promise q)
 
     (grouped-queue/put! q {:group 1})

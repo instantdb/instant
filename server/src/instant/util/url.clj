@@ -1,6 +1,7 @@
 (ns instant.util.url
-  (:require [clojure.string :as string]
-            [lambdaisland.uri :as uri]))
+  (:require
+   [clojure.string :as string]
+   [lambdaisland.uri :as uri]))
 
 (defn add-query-params [url-string params]
   (let [url (uri/uri url-string)]

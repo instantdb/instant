@@ -15,17 +15,17 @@
    There's also a `transform` function, which walks any data structure,
    and replaces uuids with their friendly names."
   (:require
+   [clojure.set :as clojure-set]
+   [clojure.string :as string]
+   [clojure.walk :as w]
    [honey.sql :as hsql]
+   [instant.comment :as c]
+   [instant.db.datalog :as d]
    [instant.db.model.attr :as attr-model]
    [instant.db.pg-introspect :as pg-introspect]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
-   [instant.db.datalog :as d]
-   [instant.util.uuid :as uuid-util]
-   [clojure.string :as string]
-   [clojure.set :as clojure-set]
-   [clojure.walk :as w]
-   [instant.comment :as c]))
+   [instant.util.uuid :as uuid-util]))
 
 ;; --------
 ;; resolver
@@ -62,15 +62,15 @@
 
         ident-attr-ids (->> eid-fwd-idents
                             (keep
-                             (fn [ident-name]
-                               (attr-model/seek-by-fwd-ident-name ident-name attrs)))
+                              (fn [ident-name]
+                                (attr-model/seek-by-fwd-ident-name ident-name attrs)))
                             (map :id)
                             set)
 
         {eid-join-rows :join-rows} (d/query
-                                    {:db db
-                                     :app-id app-id}
-                                    [[:ea '?e ident-attr-ids]])
+                                     {:db db
+                                      :app-id app-id}
+                                     [[:ea '?e ident-attr-ids]])
         eid->friendly-name (->> eid-join-rows
                                 (map first)
                                 (map (fn [[e _ v]]
@@ -115,27 +115,27 @@
 (defn make-movies-resolver
   [app-id]
   (make-resolver
-   {:conn-pool (aurora/conn-pool :read)}
-   app-id
-   [["movie" "title"]
-    ["person" "name"]]))
+    {:conn-pool (aurora/conn-pool :read)}
+    app-id
+    [["movie" "title"]
+     ["person" "name"]]))
 
 (defn make-zeneca-resolver
   [app-id]
   (make-resolver
-   {:conn-pool (aurora/conn-pool :read)}
-   app-id
-   [["users" "fullName"]
-    ["books" "title"]
-    ["bookshelves" "name"]]))
+    {:conn-pool (aurora/conn-pool :read)}
+    app-id
+    [["users" "fullName"]
+     ["books" "title"]
+     ["bookshelves" "name"]]))
 
 (defn make-zeneca-byop-resolver [conn namespace]
   (make-byop-resolver
-   {:conn-pool conn}
-   namespace
-   [["users" "fullName"]
-    ["books" "title"]
-    ["bookshelves" "name"]]))
+    {:conn-pool conn}
+    namespace
+    [["users" "fullName"]
+     ["books" "title"]
+     ["bookshelves" "name"]]))
 
 (defn ->uuid
   ([r x] (->uuid r x nil))
@@ -173,8 +173,8 @@
   (def z-id (:id z))
   (def r (make-zeneca-resolver z-id))
   (walk-friendly
-   r
-   (d/query
-    {:db {:conn-pool (aurora/conn-pool :read)}
-     :app-id z-id}
-    [[:ea (->uuid r "eid-stepan-parunashvili")]])))
+    r
+    (d/query
+      {:db {:conn-pool (aurora/conn-pool :read)}
+       :app-id z-id}
+      [[:ea (->uuid r "eid-stepan-parunashvili")]])))

@@ -29,10 +29,10 @@
 (defn create!
   [{:keys [title]}]
   (app-model/create!
-   {:id (UUID/randomUUID)
-    :title title
-    :creator-id (:id @ephemeral-creator)
-    :admin-token (UUID/randomUUID)}))
+    {:id (UUID/randomUUID)
+     :title title
+     :creator-id (:id @ephemeral-creator)
+     :admin-token (UUID/randomUUID)}))
 
 (def expiration-days 14)
 
@@ -52,7 +52,7 @@
         rules-code (get-in req [:body :rules :code])
         _ (when rules-code
             (ex/assert-valid! :rule rules-code (rule-model/validation-errors
-                                                rules-code)))
+                                                 rules-code)))
         app (create! {:title title})]
     (when rules-code
       (rule-model/put! {:app-id (:id app)
@@ -73,9 +73,9 @@
   (let [app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)
         {app-creator-id :creator_id :as app} (app-model/get-by-id! {:id app-id})]
     (ex/assert-permitted!
-     :ephemeral-app?
-     app-id
-     (= (:id @ephemeral-creator) app-creator-id))
+      :ephemeral-app?
+      app-id
+      (= (:id @ephemeral-creator) app-creator-id))
     (response/ok {:app app
                   :expires_ms (app-expires-ms app)})))
 
@@ -92,8 +92,8 @@
                     (.withHour 5)
                     (.withMinute 0))
         periodic-seq (chime-core/periodic-seq
-                      five-am
-                      (Period/ofDays 1))]
+                       five-am
+                       (Period/ofDays 1))]
 
     (->> periodic-seq
          (filter (fn [x] (ZonedDateTime/.isAfter x now))))))
@@ -105,9 +105,9 @@
   (let [app-ids (app-model/get-app-ids-created-before {:creator-id (:id @ephemeral-creator)
                                                        :created-before created-before})]
     (tracer/add-data!
-     {:attributes
-      {:created-before created-before
-       :num-apps (count app-ids)}})
+      {:attributes
+       {:created-before created-before
+        :num-apps (count app-ids)}})
     (when (seq app-ids)
       (app-model/delete-by-ids! {:creator-id (:id @ephemeral-creator)
                                  :ids app-ids}))))
@@ -115,10 +115,10 @@
 (defn handle-sweep [_]
   (tracer/with-span! {:name "ephemeral-app-sweeper/sweep"}
     (sweep-for-apps-created-before
-     (-> (date/est-now)
-         ;; give 1 extra day as a grace period
-         (.minusDays (inc expiration-days))
-         (.toInstant)))))
+      (-> (date/est-now)
+          ;; give 1 extra day as a grace period
+          (.minusDays (inc expiration-days))
+          (.toInstant)))))
 
 (defn start []
   (tracer/record-info! {:name "ephemeral-app-sweeper/schedule"})

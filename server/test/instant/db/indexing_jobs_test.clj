@@ -1,20 +1,18 @@
 (ns instant.db.indexing-jobs-test
-  (:require [honey.sql :as hsql]
-            [instant.config :as config]
-            [instant.data.resolvers :as resolvers]
-            [instant.db.indexing-jobs :as jobs]
-            [instant.db.model.attr :as attr-model]
-            [instant.db.model.triple :as triple-model]
-            [instant.db.transaction :as tx]
-            [instant.fixtures :refer [with-empty-app
-                                      with-zeneca-app
-                                      with-zeneca-app-no-indexing
-                                      with-indexing-job-queue]]
-            [instant.jdbc.aurora :as aurora]
-            [instant.jdbc.sql :as sql]
-            [instant.util.json :refer [->json]]
-            [instant.util.test :refer [wait-for]]
-            [clojure.test :refer [deftest testing is]]))
+  (:require
+   [clojure.test :refer [deftest is testing]]
+   [honey.sql :as hsql]
+   [instant.config :as config]
+   [instant.data.resolvers :as resolvers]
+   [instant.db.indexing-jobs :as jobs]
+   [instant.db.model.attr :as attr-model]
+   [instant.db.model.triple :as triple-model]
+   [instant.db.transaction :as tx]
+   [instant.fixtures :refer [with-empty-app with-indexing-job-queue with-zeneca-app with-zeneca-app-no-indexing]]
+   [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
+   [instant.util.json :refer [->json]]
+   [instant.util.test :refer [wait-for]]))
 
 (def wait-timeout (if (= :test (config/get-env))
                     5000
@@ -32,22 +30,22 @@
     (with-zeneca-app-no-indexing
       (fn [app r]
         (let [title-job (jobs/create-job!
-                         {:app-id (:id app)
-                          :attr-id (resolvers/->uuid r :books/title)
-                          :job-type "check-data-type"
-                          :checked-data-type "string"})
+                          {:app-id (:id app)
+                           :attr-id (resolvers/->uuid r :books/title)
+                           :job-type "check-data-type"
+                           :checked-data-type "string"})
 
               order-job (jobs/create-job!
-                         {:app-id (:id app)
-                          :attr-id (resolvers/->uuid r :bookshelves/order)
-                          :job-type "check-data-type"
-                          :checked-data-type "number"})
+                          {:app-id (:id app)
+                           :attr-id (resolvers/->uuid r :bookshelves/order)
+                           :job-type "check-data-type"
+                           :checked-data-type "number"})
 
               created-at-job (jobs/create-job!
-                              {:app-id (:id app)
-                               :attr-id (resolvers/->uuid r :users/createdAt)
-                               :job-type "check-data-type"
-                               :checked-data-type "date"})
+                               {:app-id (:id app)
+                                :attr-id (resolvers/->uuid r :users/createdAt)
+                                :job-type "check-data-type"
+                                :checked-data-type "date"})
 
               _ (jobs/enqueue-job job-queue title-job)
               _ (jobs/enqueue-job job-queue order-job)
@@ -108,10 +106,10 @@
     (with-zeneca-app-no-indexing
       (fn [app r]
         (let [handle-job (jobs/create-job!
-                          {:app-id (:id app)
-                           :attr-id (resolvers/->uuid r :users/handle)
-                           :job-type "check-data-type"
-                           :checked-data-type "number"})
+                           {:app-id (:id app)
+                            :attr-id (resolvers/->uuid r :users/handle)
+                            :job-type "check-data-type"
+                            :checked-data-type "number"})
 
               _ (jobs/enqueue-job job-queue handle-job)
               _ (wait-for (fn []
@@ -142,10 +140,10 @@
     (with-zeneca-app-no-indexing
       (fn [app r]
         (let [title-job (jobs/create-job!
-                         {:app-id (:id app)
-                          :attr-id (resolvers/->uuid r :books/title)
-                          :job-type "check-data-type"
-                          :checked-data-type "string"})
+                          {:app-id (:id app)
+                           :attr-id (resolvers/->uuid r :books/title)
+                           :job-type "check-data-type"
+                           :checked-data-type "string"})
 
               _ (jobs/enqueue-job job-queue title-job)
               _ (wait-for (fn []
@@ -167,9 +165,9 @@
                                  (attr-model/seek-by-id attrs)
                                  :checked-data-type)))))
           (let [remove-type-job (jobs/create-job!
-                                 {:app-id (:id app)
-                                  :attr-id (resolvers/->uuid r :books/title)
-                                  :job-type "remove-data-type"})
+                                  {:app-id (:id app)
+                                   :attr-id (resolvers/->uuid r :books/title)
+                                   :job-type "remove-data-type"})
                 _ (jobs/enqueue-job job-queue remove-type-job)
                 _ (wait-for (fn []
                               (every? (fn [{:keys [id]}]
@@ -194,9 +192,9 @@
     (with-zeneca-app-no-indexing
       (fn [app r]
         (let [title-job (jobs/create-job!
-                         {:app-id (:id app)
-                          :attr-id (resolvers/->uuid r :books/title)
-                          :job-type "index"})
+                          {:app-id (:id app)
+                           :attr-id (resolvers/->uuid r :books/title)
+                           :job-type "index"})
 
               _ (jobs/enqueue-job job-queue title-job)
               _ (wait-for (fn []
@@ -224,9 +222,9 @@
                            :indexing)))))
           (testing "remove-index"
             (let [remove-index-job (jobs/create-job!
-                                    {:app-id (:id app)
-                                     :attr-id (resolvers/->uuid r :books/title)
-                                     :job-type "remove-index"})
+                                     {:app-id (:id app)
+                                      :attr-id (resolvers/->uuid r :books/title)
+                                      :job-type "remove-index"})
                   _ (jobs/enqueue-job job-queue remove-index-job)
                   _ (wait-for (fn []
                                 (every? (fn [{:keys [id]}]
@@ -261,22 +259,22 @@
                                                          [[:= :attr-id (resolvers/->uuid r :books/title)]])
                 _ (sql/execute! (aurora/conn-pool :write)
                                 (hsql/format
-                                 {:delete-from :triples
-                                  :where [:and
-                                          [:= :app-id (:id app)]
-                                          (list* :or
-                                                 (map (fn [{:keys [triple md5]}]
-                                                        (let [[entity-id attr-id value] triple]
-                                                          [:and
-                                                           [:= :entity_id entity-id]
-                                                           [:= :attr-id attr-id]
-                                                           [:= :value [:cast (->json value) :jsonb]]
-                                                           [:= :value-md5 md5]]))
-                                                      (take triples-to-delete-count title-triples-before)))]}))
+                                  {:delete-from :triples
+                                   :where [:and
+                                           [:= :app-id (:id app)]
+                                           (list* :or
+                                                  (map (fn [{:keys [triple md5]}]
+                                                         (let [[entity-id attr-id value] triple]
+                                                           [:and
+                                                            [:= :entity_id entity-id]
+                                                            [:= :attr-id attr-id]
+                                                            [:= :value [:cast (->json value) :jsonb]]
+                                                            [:= :value-md5 md5]]))
+                                                       (take triples-to-delete-count title-triples-before)))]}))
                 title-job (jobs/create-job!
-                           {:app-id (:id app)
-                            :attr-id (resolvers/->uuid r :books/title)
-                            :job-type "index"})
+                            {:app-id (:id app)
+                             :attr-id (resolvers/->uuid r :books/title)
+                             :job-type "index"})
 
                 _ (jobs/enqueue-job job-queue title-job)
                 _ (wait-for (fn []
@@ -321,22 +319,22 @@
                                                    [[:= :attr-id (resolvers/->uuid r :users/bookshelves)]])
                 _ (sql/execute! (aurora/conn-pool :write)
                                 (hsql/format
-                                 {:delete-from :triples
-                                  :where [:and
-                                          [:= :app-id (:id app)]
-                                          (list* :or
-                                                 (map (fn [{:keys [triple md5]}]
-                                                        (let [[entity-id attr-id value] triple]
-                                                          [:and
-                                                           [:= :entity_id entity-id]
-                                                           [:= :attr-id attr-id]
-                                                           [:= :value [:cast (->json value) :jsonb]]
-                                                           [:= :value-md5 md5]]))
-                                                      (take triples-to-delete-count triples-before)))]}))
+                                  {:delete-from :triples
+                                   :where [:and
+                                           [:= :app-id (:id app)]
+                                           (list* :or
+                                                  (map (fn [{:keys [triple md5]}]
+                                                         (let [[entity-id attr-id value] triple]
+                                                           [:and
+                                                            [:= :entity_id entity-id]
+                                                            [:= :attr-id attr-id]
+                                                            [:= :value [:cast (->json value) :jsonb]]
+                                                            [:= :value-md5 md5]]))
+                                                       (take triples-to-delete-count triples-before)))]}))
                 job (jobs/create-job!
-                     {:app-id (:id app)
-                      :attr-id (resolvers/->uuid r :users/bookshelves)
-                      :job-type "index"})
+                      {:app-id (:id app)
+                       :attr-id (resolvers/->uuid r :users/bookshelves)
+                       :job-type "index"})
 
                 _ (jobs/enqueue-job job-queue job)
                 _ (wait-for (fn []
@@ -393,9 +391,9 @@
                                 (for [i (range 1002)]
                                   [:add-triple (random-uuid) attr-id (format "%s-%s" x i)])))
               job (jobs/create-job!
-                   {:app-id (:id app)
-                    :attr-id attr-id
-                    :job-type "unique"})
+                    {:app-id (:id app)
+                     :attr-id attr-id
+                     :job-type "unique"})
 
               _ (jobs/enqueue-job job-queue job)
               _ (wait-for (fn []
@@ -420,9 +418,9 @@
                            :setting-unique?)))))
           (testing "remove-unique"
             (let [remove-unique-job (jobs/create-job!
-                                     {:app-id (:id app)
-                                      :attr-id attr-id
-                                      :job-type "remove-unique"})
+                                      {:app-id (:id app)
+                                       :attr-id attr-id
+                                       :job-type "remove-unique"})
                   _ (jobs/enqueue-job job-queue remove-unique-job)
                   _ (wait-for (fn []
                                 (every? (fn [{:keys [id]}]
@@ -471,9 +469,9 @@
                               [[:add-triple (random-uuid) attr-id "a"]
                                [:add-triple (random-uuid) attr-id "a"]])
               job (jobs/create-job!
-                   {:app-id (:id app)
-                    :attr-id attr-id
-                    :job-type "unique"})
+                    {:app-id (:id app)
+                     :attr-id attr-id
+                     :job-type "unique"})
 
               _ (jobs/enqueue-job job-queue job)
               _ (wait-for (fn []
@@ -537,13 +535,13 @@
                               (:id app)
                               [[:add-triple bad-id attr-id (apply str (repeatedly 1024 random-uuid))]])
               unique-job (jobs/create-job!
+                           {:app-id (:id app)
+                            :attr-id attr-id
+                            :job-type "unique"})
+              index-job (jobs/create-job!
                           {:app-id (:id app)
                            :attr-id attr-id
-                           :job-type "unique"})
-              index-job (jobs/create-job!
-                         {:app-id (:id app)
-                          :attr-id attr-id
-                          :job-type "index"})
+                           :job-type "index"})
 
               _ (jobs/enqueue-job job-queue unique-job)
               _ (jobs/enqueue-job job-queue index-job)
@@ -586,9 +584,9 @@
     (with-zeneca-app
       (fn [app r]
         (let [title-job (jobs/create-job!
-                         {:app-id (:id app)
-                          :attr-id (resolvers/->uuid r :books/title)
-                          :job-type "required"})
+                          {:app-id (:id app)
+                           :attr-id (resolvers/->uuid r :books/title)
+                           :job-type "required"})
 
               _ (jobs/enqueue-job job-queue title-job)
               _ (wait-for (fn []
@@ -603,9 +601,9 @@
                   :required?)))
         (testing "remove-required-works"
           (let [title-job (jobs/create-job!
-                           {:app-id (:id app)
-                            :attr-id (resolvers/->uuid r :books/title)
-                            :job-type "remove-required"})
+                            {:app-id (:id app)
+                             :attr-id (resolvers/->uuid r :books/title)
+                             :job-type "remove-required"})
 
                 _ (jobs/enqueue-job job-queue title-job)
                 _ (wait-for (fn []
@@ -619,7 +617,6 @@
                          (attr-model/seek-by-id attrs)
                          :required?)))))))))
 
-
 (deftest required-works-with-errors
   (with-indexing-job-queue job-queue
     (with-zeneca-app
@@ -631,22 +628,22 @@
                                                        [[:= :attr-id (resolvers/->uuid r :books/title)]])
               _ (sql/execute! (aurora/conn-pool :write)
                               (hsql/format
-                               {:delete-from :triples
-                                :where [:and
-                                        [:= :app-id (:id app)]
-                                        (list* :or
-                                               (map (fn [{:keys [triple md5]}]
-                                                      (let [[entity-id attr-id value] triple]
-                                                        [:and
-                                                         [:= :entity_id entity-id]
-                                                         [:= :attr-id attr-id]
-                                                         [:= :value [:cast (->json value) :jsonb]]
-                                                         [:= :value-md5 md5]]))
-                                                    (take triples-to-delete-count title-triples-before)))]}))
+                                {:delete-from :triples
+                                 :where [:and
+                                         [:= :app-id (:id app)]
+                                         (list* :or
+                                                (map (fn [{:keys [triple md5]}]
+                                                       (let [[entity-id attr-id value] triple]
+                                                         [:and
+                                                          [:= :entity_id entity-id]
+                                                          [:= :attr-id attr-id]
+                                                          [:= :value [:cast (->json value) :jsonb]]
+                                                          [:= :value-md5 md5]]))
+                                                     (take triples-to-delete-count title-triples-before)))]}))
               title-job (jobs/create-job!
-                         {:app-id (:id app)
-                          :attr-id (resolvers/->uuid r :books/title)
-                          :job-type "required"})
+                          {:app-id (:id app)
+                           :attr-id (resolvers/->uuid r :books/title)
+                           :job-type "required"})
 
               _ (jobs/enqueue-job job-queue title-job)
               _ (wait-for (fn []
@@ -683,23 +680,23 @@
                                                        [[:= :attr-id (resolvers/->uuid r :books/title)]])
               _ (sql/execute! (aurora/conn-pool :write)
                               (hsql/format
-                               {:update :triples
-                                :set {:value [:cast "null" :jsonb]}
-                                :where [:and
-                                        [:= :app-id (:id app)]
-                                        (list* :or
-                                               (map (fn [{:keys [triple md5]}]
-                                                      (let [[entity-id attr-id value] triple]
-                                                        [:and
-                                                         [:= :entity_id entity-id]
-                                                         [:= :attr-id attr-id]
-                                                         [:= :value [:cast (->json value) :jsonb]]
-                                                         [:= :value-md5 md5]]))
-                                                    (take triples-to-delete-count title-triples-before)))]}))
+                                {:update :triples
+                                 :set {:value [:cast "null" :jsonb]}
+                                 :where [:and
+                                         [:= :app-id (:id app)]
+                                         (list* :or
+                                                (map (fn [{:keys [triple md5]}]
+                                                       (let [[entity-id attr-id value] triple]
+                                                         [:and
+                                                          [:= :entity_id entity-id]
+                                                          [:= :attr-id attr-id]
+                                                          [:= :value [:cast (->json value) :jsonb]]
+                                                          [:= :value-md5 md5]]))
+                                                     (take triples-to-delete-count title-triples-before)))]}))
               title-job (jobs/create-job!
-                         {:app-id (:id app)
-                          :attr-id (resolvers/->uuid r :books/title)
-                          :job-type "required"})
+                          {:app-id (:id app)
+                           :attr-id (resolvers/->uuid r :books/title)
+                           :job-type "required"})
 
               _ (jobs/enqueue-job job-queue title-job)
               _ (wait-for (fn []

@@ -1,15 +1,15 @@
 (ns instant.scripts.welcome-email
   "Send welcome emails to our users"
   (:require
-   [instant.util.date :as date]
-   [instant.postmark :as postmark]
    [chime.core :as chime-core]
    [clojure.string :as string]
    [clojure.tools.logging :as log]
+   [instant.flags :as flags]
    [instant.grab :as grab]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
-   [instant.flags :as flags]
+   [instant.postmark :as postmark]
+   [instant.util.date :as date]
    [instant.util.tracer :as tracer])
   (:import
    (java.lang AutoCloseable)
@@ -78,34 +78,34 @@ Were you thinking of using Instant for your company? How's your experience been 
                      date/numeric-date-str)]
     (when enabled?
       (grab/run-once!
-       (str "welcome-email-" date-str)
-       (fn []
-         (tracer/with-span! {:name "welcome-email/send-emails"}
-           (let [emails (map :email (find-welcome-users))
-                 business-emails (remove personal-email? emails)
-                 personal-emails (filter personal-email? emails)
-                 shuffled (cond->> (shuffle personal-emails)
-                            limit (take limit))
-                 all-emails (concat shuffled business-emails)]
-             (tracer/add-data! {:attributes {:personal-emails shuffled
-                                             :business-emails business-emails
-                                             :limit limit
-                                             :num-emails (count all-emails)}})
-             (doseq [to all-emails]
-               (let [[html text] (if (personal-email? to)
-                                   [html-body-personal text-body-personal]
-                                   [html-body-business text-body-business])]
-                 (try
-                   (postmark/send! {:from "founders@pm.instantdb.com"
-                                    :to to
-                                    :reply-to "founders@instantdb.com"
-                                    :subject "Welcome to Instant!"
-                                    :html html
-                                    :text text})
-                   (catch Exception e
-                     (tracer/add-exception! e {:escaping? false})
-                     ;; send next email
-                     nil)))))))))))
+        (str "welcome-email-" date-str)
+        (fn []
+          (tracer/with-span! {:name "welcome-email/send-emails"}
+            (let [emails (map :email (find-welcome-users))
+                  business-emails (remove personal-email? emails)
+                  personal-emails (filter personal-email? emails)
+                  shuffled (cond->> (shuffle personal-emails)
+                             limit (take limit))
+                  all-emails (concat shuffled business-emails)]
+              (tracer/add-data! {:attributes {:personal-emails shuffled
+                                              :business-emails business-emails
+                                              :limit limit
+                                              :num-emails (count all-emails)}})
+              (doseq [to all-emails]
+                (let [[html text] (if (personal-email? to)
+                                    [html-body-personal text-body-personal]
+                                    [html-body-business text-body-business])]
+                  (try
+                    (postmark/send! {:from "founders@pm.instantdb.com"
+                                     :to to
+                                     :reply-to "founders@instantdb.com"
+                                     :subject "Welcome to Instant!"
+                                     :html html
+                                     :text text})
+                    (catch Exception e
+                      (tracer/add-exception! e {:escaping? false})
+                      ;; send next email
+                      nil)))))))))))
 
 (defn period []
   (let [now (date/pst-now)
@@ -113,8 +113,8 @@ Were you thinking of using Instant for your company? How's your experience been 
                         (.withHour 8) ;; send at 8am pst
                         (.withMinute 0))
         periodic-seq (chime-core/periodic-seq
-                      send-at-pst
-                      (Period/ofDays 1))]
+                       send-at-pst
+                       (Period/ofDays 1))]
     (->> periodic-seq
          (filter (fn [^ZonedDateTime x] (.isAfter x now))))))
 
@@ -126,9 +126,9 @@ Were you thinking of using Instant for your company? How's your experience been 
                     (if curr-schedule
                       curr-schedule
                       (chime-core/chime-at
-                       (period)
-                       (fn [_time]
-                         (send-welcome-email!)))))))
+                        (period)
+                        (fn [_time]
+                          (send-welcome-email!)))))))
 
 (defn stop []
   (when-let [curr-schedule @schedule]

@@ -34,78 +34,78 @@
         solo-executor clojure.lang.Agent/soloExecutor
         pooled-executor clojure.lang.Agent/pooledExecutor
         metrics (flatten
-                 [{:path "jvm.gauges.calculated.ms"
-                   :value (System/currentTimeMillis)}
-                  {:path "jvm.memory.total.init"
-                   :value (+ (-> memory .getHeapMemoryUsage .getInit)
-                             (-> memory .getNonHeapMemoryUsage .getInit))}
-                  {:path "jvm.memory.total.used"
-                   :value (+ (-> memory .getHeapMemoryUsage .getUsed)
-                             (-> memory .getNonHeapMemoryUsage .getUsed))}
-                  {:path "jvm.memory.total.max"
-                   :value (+ (-> memory .getHeapMemoryUsage .getMax)
-                             (-> memory .getNonHeapMemoryUsage .getMax))}
-                  {:path "jvm.memory.total.committed"
-                   :value (+ (-> memory .getHeapMemoryUsage .getCommitted)
-                             (-> memory .getNonHeapMemoryUsage .getCommitted))}
-                  {:path "jvm.memory.heap.init"
-                   :value (-> memory .getHeapMemoryUsage .getInit)}
-                  {:path "jvm.memory.heap.used"
-                   :value (-> memory .getHeapMemoryUsage .getUsed)}
-                  {:path "jvm.memory.heap.max"
-                   :value (-> memory .getHeapMemoryUsage .getMax)}
-                  {:path "jvm.memory.heap.committed"
-                   :value (-> memory .getHeapMemoryUsage .getCommitted)}
-                  {:path "jvm.memory.non-heap.init"
-                   :value (-> memory .getNonHeapMemoryUsage .getInit)}
-                  {:path "jvm.memory.non-heap.used"
-                   :value (-> memory .getNonHeapMemoryUsage .getUsed)}
-                  {:path "jvm.memory.non-heap.max"
-                   :value (-> memory .getNonHeapMemoryUsage .getMax)}
-                  {:path "jvm.memory.non-heap.committed"
-                   :value (-> memory .getNonHeapMemoryUsage .getCommitted)}
-                  (for [^GarbageCollectorMXBean gc gcs]
-                    [{:path (str "jvm.gc." (-> gc .getName str/lower-case) ".count")
-                      :value (-> gc .getCollectionCount)}
-                     {:path (str "jvm.gc." (-> gc .getName str/lower-case) ".time")
-                      :value (-> gc .getCollectionTime)}])
-                  {:path "jvm.thread.count"
-                   :value (-> thread .getThreadCount)}
-                  {:path "jvm.thread.daemon.count"
-                   :value (-> thread .getDaemonThreadCount)}
-                  (let [thread-groups (group-by (fn [^ThreadInfo thread-info]
-                                                  (when thread-info
-                                                    (.getThreadState thread-info)))
-                                                (.getThreadInfo thread
-                                                                (.getAllThreadIds thread)))]
-                    (for [thread-state (Thread$State/values)]
-                      {:path (str "jvm.thread." (-> thread-state str str/lower-case) ".count")
-                       :value (count (get thread-groups thread-state))}))
-                  (for [[^ThreadPoolExecutor executor description]
-                        [[solo-executor "agent-pool.send-off"]
-                         [pooled-executor "agent-pool.send"]]]
-                    [{:path (str "jvm." description ".queue-depth")
-                      :value (-> executor .getQueue .size)}
-                     {:path (str "jvm." description ".active")
-                      :value (.getActiveCount executor)}
-                     {:path (str "jvm." description ".tasks")
-                      :value (.getTaskCount executor)}
-                     {:path (str "jvm." description ".completed-tasks")
-                      :value (.getCompletedTaskCount executor)}
-                     {:path (str "jvm." description ".size")
-                      :value (.getPoolSize executor)}
-                     {:path (str "jvm." description ".core-size")
-                      :value (.getCorePoolSize executor)}
-                     {:path (str "jvm." description ".largest-size")
-                      :value (.getLargestPoolSize executor)}
-                     {:path (str "jvm." description ".maximum-size")
-                      :value (.getMaximumPoolSize executor)}])
-                  (for [[_k metric-fn] @gauge-metric-fns]
-                    (try
-                      (metric-fn)
-                      (catch Throwable t
-                        [{:path "instant.gauges.metric-fn-error"
-                          :value (.getMessage t)}])))])]
+                  [{:path "jvm.gauges.calculated.ms"
+                    :value (System/currentTimeMillis)}
+                   {:path "jvm.memory.total.init"
+                    :value (+ (-> memory .getHeapMemoryUsage .getInit)
+                              (-> memory .getNonHeapMemoryUsage .getInit))}
+                   {:path "jvm.memory.total.used"
+                    :value (+ (-> memory .getHeapMemoryUsage .getUsed)
+                              (-> memory .getNonHeapMemoryUsage .getUsed))}
+                   {:path "jvm.memory.total.max"
+                    :value (+ (-> memory .getHeapMemoryUsage .getMax)
+                              (-> memory .getNonHeapMemoryUsage .getMax))}
+                   {:path "jvm.memory.total.committed"
+                    :value (+ (-> memory .getHeapMemoryUsage .getCommitted)
+                              (-> memory .getNonHeapMemoryUsage .getCommitted))}
+                   {:path "jvm.memory.heap.init"
+                    :value (-> memory .getHeapMemoryUsage .getInit)}
+                   {:path "jvm.memory.heap.used"
+                    :value (-> memory .getHeapMemoryUsage .getUsed)}
+                   {:path "jvm.memory.heap.max"
+                    :value (-> memory .getHeapMemoryUsage .getMax)}
+                   {:path "jvm.memory.heap.committed"
+                    :value (-> memory .getHeapMemoryUsage .getCommitted)}
+                   {:path "jvm.memory.non-heap.init"
+                    :value (-> memory .getNonHeapMemoryUsage .getInit)}
+                   {:path "jvm.memory.non-heap.used"
+                    :value (-> memory .getNonHeapMemoryUsage .getUsed)}
+                   {:path "jvm.memory.non-heap.max"
+                    :value (-> memory .getNonHeapMemoryUsage .getMax)}
+                   {:path "jvm.memory.non-heap.committed"
+                    :value (-> memory .getNonHeapMemoryUsage .getCommitted)}
+                   (for [^GarbageCollectorMXBean gc gcs]
+                     [{:path (str "jvm.gc." (-> gc .getName str/lower-case) ".count")
+                       :value (-> gc .getCollectionCount)}
+                      {:path (str "jvm.gc." (-> gc .getName str/lower-case) ".time")
+                       :value (-> gc .getCollectionTime)}])
+                   {:path "jvm.thread.count"
+                    :value (-> thread .getThreadCount)}
+                   {:path "jvm.thread.daemon.count"
+                    :value (-> thread .getDaemonThreadCount)}
+                   (let [thread-groups (group-by (fn [^ThreadInfo thread-info]
+                                                   (when thread-info
+                                                     (.getThreadState thread-info)))
+                                                 (.getThreadInfo thread
+                                                                 (.getAllThreadIds thread)))]
+                     (for [thread-state (Thread$State/values)]
+                       {:path (str "jvm.thread." (-> thread-state str str/lower-case) ".count")
+                        :value (count (get thread-groups thread-state))}))
+                   (for [[^ThreadPoolExecutor executor description]
+                         [[solo-executor "agent-pool.send-off"]
+                          [pooled-executor "agent-pool.send"]]]
+                     [{:path (str "jvm." description ".queue-depth")
+                       :value (-> executor .getQueue .size)}
+                      {:path (str "jvm." description ".active")
+                       :value (.getActiveCount executor)}
+                      {:path (str "jvm." description ".tasks")
+                       :value (.getTaskCount executor)}
+                      {:path (str "jvm." description ".completed-tasks")
+                       :value (.getCompletedTaskCount executor)}
+                      {:path (str "jvm." description ".size")
+                       :value (.getPoolSize executor)}
+                      {:path (str "jvm." description ".core-size")
+                       :value (.getCorePoolSize executor)}
+                      {:path (str "jvm." description ".largest-size")
+                       :value (.getLargestPoolSize executor)}
+                      {:path (str "jvm." description ".maximum-size")
+                       :value (.getMaximumPoolSize executor)}])
+                   (for [[_k metric-fn] @gauge-metric-fns]
+                     (try
+                       (metric-fn)
+                       (catch Throwable t
+                         [{:path "instant.gauges.metric-fn-error"
+                           :value (.getMessage t)}])))])]
     (into {} (keep (juxt :path :value) metrics))))
 
 (comment
@@ -128,25 +128,25 @@
       (when (= (.getType notification)
                GarbageCollectionNotificationInfo/GARBAGE_COLLECTION_NOTIFICATION)
         (let [gc-info (GarbageCollectionNotificationInfo/from
-                       ^CompositeData (.getUserData notification))]
+                        ^CompositeData (.getUserData notification))]
           (tracer/record-info!
-           {:name "gc"
-            :attributes {:gc-name (.getGcName gc-info)
-                         :action (.getGcAction gc-info)
-                         :cause (.getGcCause gc-info)
-                         :duration-ms (.getDuration (.getGcInfo gc-info))}})
+            {:name "gc"
+             :attributes {:gc-name (.getGcName gc-info)
+                          :action (.getGcAction gc-info)
+                          :cause (.getGcCause gc-info)
+                          :duration-ms (.getDuration (.getGcInfo gc-info))}})
           (straight-jacket-record-gauges))))))
 
 (defn add-gc-listeners []
   (let [cleanup-fns
         (doall
-         (for [gc-bean (ManagementFactory/getGarbageCollectorMXBeans)
-               :when (instance? NotificationEmitter gc-bean)]
-           (let [emitter ^NotificationEmitter gc-bean
-                 listener (make-gc-listener)]
-             (.addNotificationListener emitter listener nil nil)
-             (fn []
-               (.removeNotificationListener emitter listener)))))]
+          (for [gc-bean (ManagementFactory/getGarbageCollectorMXBeans)
+                :when (instance? NotificationEmitter gc-bean)]
+            (let [emitter ^NotificationEmitter gc-bean
+                  listener (make-gc-listener)]
+              (.addNotificationListener emitter listener nil nil)
+              (fn []
+                (.removeNotificationListener emitter listener)))))]
     (fn []
       (doseq [f cleanup-fns]
         (f)))))

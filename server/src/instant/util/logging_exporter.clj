@@ -11,9 +11,7 @@
    (io.opentelemetry.api.common AttributeKey)
    (io.opentelemetry.api.trace Span SpanId)
    (io.opentelemetry.sdk.common CompletableResultCode)
-   (io.opentelemetry.sdk.trace.data SpanData
-                                    EventData
-                                    ExceptionEventData)
+   (io.opentelemetry.sdk.trace.data EventData ExceptionEventData SpanData)
    (io.opentelemetry.sdk.trace.export SpanExporter)
    (java.util.concurrent TimeUnit)
    (java.util.concurrent.atomic AtomicBoolean)))
@@ -25,14 +23,14 @@
 
 (def colors
   "All ansi color codes that look good against black"
-  [9, 10, 11, 12, 13, 14, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43,
-   44, 45, 46, 47, 48, 49, 50, 51, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83,
-   84, 85, 86, 87, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112,
-   113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135,
-   136, 137, 138, 139, 140, 141, 142, 143, 144, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158,
-   59, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181,
-   182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204,
-   205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227,
+  [9, 10, 11, 12, 13, 14, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43
+   44, 45, 46, 47, 48, 49, 50, 51, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83
+   84, 85, 86, 87, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112
+   113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135
+   136, 137, 138, 139, 140, 141, 142, 143, 144, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158
+   59, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181
+   182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204
+   205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227
    228, 229, 230, 231])
 
 (defn- error-color [s]
@@ -57,19 +55,19 @@
 (defn exclude? [k]
   (case k
     ("SampleRate"
-     "thread.name"
-     "thread.id"
-     "code.lineno"
-     "code.namespace"
-     "code.filepath"
-     "host.name"
-     "detailed_query"
-     "detailed_patterns"
-     "detailed_tx_steps"
-     "process_id"
-     "instance_id"
-     "query"
-     "fewer_vfutures") true
+      "thread.name"
+      "thread.id"
+      "code.lineno"
+      "code.namespace"
+      "code.filepath"
+      "host.name"
+      "detailed_query"
+      "detailed_patterns"
+      "detailed_tx_steps"
+      "process_id"
+      "instance_id"
+      "query"
+      "fewer_vfutures") true
     false))
 
 (defn format-attr-value
@@ -93,25 +91,25 @@
 
 (defn add-span-tracker-to-exception [^Span span ^Throwable t]
   (when-not (ucoll/exists?
-             (fn [s] (instance? SpanTrackException s))
-             (.getSuppressed t))
+              (fn [s] (instance? SpanTrackException s))
+              (.getSuppressed t))
     (.addSuppressed t (SpanTrackException. (-> span
                                                (.getSpanContext)
                                                (.getSpanId))))))
 
 (defn exception-belongs-to-span? [^Throwable t ^SpanId spanId]
   (ucoll/exists?
-   (fn [t]
-     (and (instance? SpanTrackException t)
-          (= spanId (.getMessage ^SpanTrackException t))))
-   (some-> t .getSuppressed)))
+    (fn [t]
+      (and (instance? SpanTrackException t)
+           (= spanId (.getMessage ^SpanTrackException t))))
+    (some-> t .getSuppressed)))
 
 (defn exception-belongs-to-child-span? [^Throwable t ^SpanId spanId]
   (ucoll/exists?
-   (fn [t]
-     (and (instance? SpanTrackException t)
-          (not= spanId (.getMessage ^SpanTrackException t))))
-   (some-> t .getSuppressed)))
+    (fn [t]
+      (and (instance? SpanTrackException t)
+           (not= spanId (.getMessage ^SpanTrackException t))))
+    (some-> t .getSuppressed)))
 
 (defn attr-str [^SpanData span]
   (let [sb (StringBuilder.)]
@@ -162,36 +160,36 @@
       (let [n (.getName span)]
         (case n
           ("aurora/get-connection"
-           "gc"
-           "gauges"
-           "ws/send-json!"
-           "handle-refresh/send-event!"
-           "store/record-datalog-query-finish!"
-           "store/record-datalog-query-start!"
-           "store/swap-datalog-cache!"
-           "store/bump-instaql-version!"
-           "store/add-instaql-query!"
-           "store/mark-datalog-queries-stale!"
-           "store/remove-query!"
-           "store/assoc-session!"
-           "store/remove-session!"
-           "store/remove-session-data!"
-           "store/upsert-datalog-loader!"
-           "instaql/get-eid-check-result!"
-           "extract-permission-helpers"
-           "instaql/map-permissioned-node"
-           "datalog-query-reactive!"
-           "instaql/preload-entity-maps"
-           "datalog/send-query-nested") true
+            "gc"
+            "gauges"
+            "ws/send-json!"
+            "handle-refresh/send-event!"
+            "store/record-datalog-query-finish!"
+            "store/record-datalog-query-start!"
+            "store/swap-datalog-cache!"
+            "store/bump-instaql-version!"
+            "store/add-instaql-query!"
+            "store/mark-datalog-queries-stale!"
+            "store/remove-query!"
+            "store/assoc-session!"
+            "store/remove-session!"
+            "store/remove-session-data!"
+            "store/upsert-datalog-loader!"
+            "instaql/get-eid-check-result!"
+            "extract-permission-helpers"
+            "instaql/map-permissioned-node"
+            "datalog-query-reactive!"
+            "instaql/preload-entity-maps"
+            "datalog/send-query-nested") true
 
           ("receive-worker/handle-event"
-           "receive-worker/handle-receive")
+            "receive-worker/handle-receive")
           (case (-> (.getAttributes span)
                     (.get op-attr-key))
             (":set-presence"
-             ":refresh-presence"
-             ":server-broadcast"
-             ":client-broadcast") true
+              ":refresh-presence"
+              ":server-broadcast"
+              ":client-broadcast") true
 
             false)
 
@@ -200,7 +198,7 @@
       (let [n (.getName span)]
         (case n
           ("gc"
-           "gauges") true
+            "gauges") true
 
           (string/starts-with? n "e2e"))))))
 

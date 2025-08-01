@@ -1,6 +1,7 @@
 (ns instant.util.semver-test
-  (:require [instant.util.semver :as semver]
-            [clojure.test :refer [deftest is]]))
+  (:require
+   [clojure.test :refer [deftest is]]
+   [instant.util.semver :as semver]))
 
 (deftest semver-parse
   (is (= {:major 1 :minor 10 :patch 1000 :dev? true}

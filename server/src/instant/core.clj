@@ -1,11 +1,10 @@
 (ns instant.core
-  (:gen-class)
   (:require
-   [tool]
    [clojure.java.io :as io]
    [clojure.tools.logging :as log]
-   [compojure.core :refer [defroutes GET POST routes wrap-routes]]
+   [compojure.core :refer [GET POST defroutes routes wrap-routes]]
    [instant.admin.routes :as admin-routes]
+   [instant.app-deletion-sweeper :as app-deletion-sweeper]
    [instant.auth.jwt :as jwt]
    [instant.auth.oauth :as oauth]
    [instant.config :as config]
@@ -13,7 +12,6 @@
    [instant.dash.routes :as dash-routes]
    [instant.db.indexing-jobs :as indexing-jobs]
    [instant.db.rule-where-testing :as rule-where-testing]
-   [instant.storage.sweeper :as storage-sweeper]
    [instant.flags :as flags]
    [instant.flags-impl :as flags-impl]
    [instant.gauges :as gauges]
@@ -35,6 +33,7 @@
    [instant.scripts.welcome-email :as welcome-email]
    [instant.session-counter :as session-counter]
    [instant.storage.routes :as storage-routes]
+   [instant.storage.sweeper :as storage-sweeper]
    [instant.stripe :as stripe]
    [instant.superadmin.routes :as superadmin-routes]
    [instant.system-catalog-migration :refer [ensure-attrs-on-system-catalog-app]]
@@ -43,19 +42,20 @@
    [instant.util.http :as http-util]
    [instant.util.lang :as lang]
    [instant.util.tracer :as tracer]
-   [instant.app-deletion-sweeper :as app-deletion-sweeper]
    [ring.middleware.cookies :refer [CookieDateTime]]
-   [ring.middleware.cors :refer [wrap-cors preflight?]]
+   [ring.middleware.cors :refer [preflight? wrap-cors]]
    [ring.middleware.json :refer [wrap-json-body wrap-json-response]]
    [ring.middleware.keyword-params :refer [wrap-keyword-params]]
    [ring.middleware.multipart-params :refer [wrap-multipart-params]]
    [ring.middleware.params :refer [wrap-params]]
-   [ring.util.http-response :as response])
+   [ring.util.http-response :as response]
+   [tool])
   (:import
    (clojure.lang IFn)
-   (io.undertow Undertow UndertowOptions Undertow$Builder Undertow$ListenerInfo)
+   (io.undertow Undertow Undertow$Builder Undertow$ListenerInfo UndertowOptions)
    (java.text SimpleDateFormat)
-   (java.util Locale TimeZone)))
+   (java.util Locale TimeZone))
+  (:gen-class))
 
 ;; --------
 ;; Middleware
@@ -99,7 +99,7 @@
 (defn allow-cors-origin? [req]
   (case (:uri req)
     ("/platform/oauth/start"
-     "/platform/oauth/grant") false
+      "/platform/oauth/grant") false
     "/platform/oauth/claim" (= (req-origin req)
                                (config/dashboard-origin))
 
@@ -118,7 +118,6 @@
           (update response :headers merge {"Vary" "origin, Access-Control-Request-Headers"
                                            "Access-Control-Max-Age" max-age
                                            "Cache-Control" (str "public, max-age=" max-age)}))))))
-
 
 (defn not-found [_req]
   (response/not-found {:message "Oops! We couldn't match this route."}))
@@ -167,35 +166,35 @@
   (tracer/record-info! {:name "server/start" :attributes {:port (config/get-server-port)}})
   (lang/set-var! server
                  (undertow-adapter/run-undertow
-                  (handler)
-                  (merge
-                   {:host "0.0.0.0"
-                    :port (config/get-server-port)
-                    :configurator (fn [^Undertow$Builder builder]
-                                    (.setServerOption builder UndertowOptions/ENABLE_STATISTICS true))}
-                   (when (.exists (io/file "dev-resources/certs/dev.jks"))
-                     {:ssl-port 8889
-                      :keystore "dev-resources/certs/dev.jks"
-                      :key-password "changeit"}))))
+                   (handler)
+                   (merge
+                     {:host "0.0.0.0"
+                      :port (config/get-server-port)
+                      :configurator (fn [^Undertow$Builder builder]
+                                      (.setServerOption builder UndertowOptions/ENABLE_STATISTICS true))}
+                     (when (.exists (io/file "dev-resources/certs/dev.jks"))
+                       {:ssl-port 8889
+                        :keystore "dev-resources/certs/dev.jks"
+                        :key-password "changeit"}))))
   (lang/set-var! stop-gauge
                  (gauges/add-gauge-metrics-fn
-                  (fn [_]
-                    (let [^Undertow server server
-                          ^Undertow$ListenerInfo listener (some-> server
-                                                                  (.getListenerInfo)
-                                                                  first)]
-                      (when-let [stats (some-> listener
-                                               (.getConnectorStatistics))]
-                        [{:path "instant.server.active-connections"
-                          :value (.getActiveConnections stats)}
-                         {:path "instant.server.active-requests"
-                          :value (.getActiveRequests stats)}
-                         {:path "instant.server.max-active-connections"
-                          :value (.getMaxActiveConnections stats)}
-                         {:path "instant.server.max-active-requests"
-                          :value (.getMaxActiveRequests stats)}
-                         {:path "instant.server.max-processing-time"
-                          :value (.getMaxProcessingTime stats)}]))))))
+                   (fn [_]
+                     (let [^Undertow server server
+                           ^Undertow$ListenerInfo listener (some-> server
+                                                                   (.getListenerInfo)
+                                                                   first)]
+                       (when-let [stats (some-> listener
+                                                (.getConnectorStatistics))]
+                         [{:path "instant.server.active-connections"
+                           :value (.getActiveConnections stats)}
+                          {:path "instant.server.active-requests"
+                           :value (.getActiveRequests stats)}
+                          {:path "instant.server.max-active-connections"
+                           :value (.getMaxActiveConnections stats)}
+                          {:path "instant.server.max-active-requests"
+                           :value (.getMaxActiveRequests stats)}
+                          {:path "instant.server.max-processing-time"
+                           :value (.getMaxProcessingTime stats)}]))))))
 
 (defn stop []
   (lang/clear-var! server Undertow/.stop)
@@ -211,23 +210,23 @@
     (tracer/with-span! {:name "stop-server"}
       (stop))
     @(ua/all-of
-      (future
-        (tracer/with-span! {:name "stop-invalidator"}
-          (inv/stop-global)))
-      (future
-        (tracer/with-span! {:name "stop-ephemeral"}
-          (eph/stop)))
-      (future
-        (tracer/with-span! {:name "stop-indexing-jobs"}
-          (indexing-jobs/stop)))))
+       (future
+         (tracer/with-span! {:name "stop-invalidator"}
+           (inv/stop-global)))
+       (future
+         (tracer/with-span! {:name "stop-ephemeral"}
+           (eph/stop)))
+       (future
+         (tracer/with-span! {:name "stop-indexing-jobs"}
+           (indexing-jobs/stop)))))
   (tracer/shutdown))
 
 (defn add-shutdown-hook []
   (.addShutdownHook
-   (Runtime/getRuntime)
-   (Thread.
-    (fn []
-      (@(resolve 'instant.core/shutdown-hook))))))
+    (Runtime/getRuntime)
+    (Thread.
+      (fn []
+        (@(resolve 'instant.core/shutdown-hook))))))
 
 (defmacro with-log-init [operation & body]
   `(do
@@ -247,7 +246,7 @@
 
     (with-log-init :uncaught-exception-handler
       (Thread/setDefaultUncaughtExceptionHandler
-       (ua/logging-uncaught-exception-handler)))
+        (ua/logging-uncaught-exception-handler)))
 
     (with-log-init :gauges
       (gauges/start))

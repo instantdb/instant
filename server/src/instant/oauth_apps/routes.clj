@@ -1,24 +1,25 @@
 (ns instant.oauth-apps.routes
-  (:require [clojure.string :as string]
-            [compojure.core :as compojure :refer [defroutes GET POST]]
-            [hiccup2.core :as h]
-            [instant.auth.oauth :refer [verify-pkce!]]
-            [instant.config :as config]
-            [instant.dash.routes :refer [get-member-role req->auth-user!]]
-            [instant.model.app :as app-model]
-            [instant.model.oauth-app :as oauth-app-model]
-            [instant.runtime.routes :refer [format-cookie parse-cookie]]
-            [instant.util.coll :as ucoll]
-            [instant.util.crypt :as crypt-util]
-            [instant.util.exception :as ex]
-            [instant.util.string :as string-util]
-            [instant.util.token :as token-util]
-            [instant.util.tracer :as tracer]
-            [instant.util.url :as url]
-            [instant.util.uuid :as uuid-util]
-            [lambdaisland.uri :as uri]
-            [ring.middleware.cookies :refer [wrap-cookies]]
-            [ring.util.http-response :as response]))
+  (:require
+   [clojure.string :as string]
+   [compojure.core :as compojure :refer [GET POST defroutes]]
+   [hiccup2.core :as h]
+   [instant.auth.oauth :refer [verify-pkce!]]
+   [instant.config :as config]
+   [instant.dash.routes :refer [get-member-role req->auth-user!]]
+   [instant.model.app :as app-model]
+   [instant.model.oauth-app :as oauth-app-model]
+   [instant.runtime.routes :refer [format-cookie parse-cookie]]
+   [instant.util.coll :as ucoll]
+   [instant.util.crypt :as crypt-util]
+   [instant.util.exception :as ex]
+   [instant.util.string :as string-util]
+   [instant.util.token :as token-util]
+   [instant.util.tracer :as tracer]
+   [instant.util.url :as url]
+   [instant.util.uuid :as uuid-util]
+   [lambdaisland.uri :as uri]
+   [ring.middleware.cookies :refer [wrap-cookies]]
+   [ring.util.http-response :as response]))
 
 (def cookie-name "__session")
 
@@ -154,30 +155,30 @@
                                             :oauth-app-app-id (:app_id oauth-app)}})
 
           _ (ex/assert-valid!
-             :scope
-             scope-input
-             (when (:is_public oauth-app)
-               (let [granted-scopes (set (:granted_scopes oauth-app))
-                     invalid-scopes (filter (fn [scope]
-                                              (not (contains? granted-scopes
-                                                              scope)))
-                                            requested-scopes)]
-                 (when (seq invalid-scopes)
-                   [(format "this OAuth app has not been granted the %s scopes"
-                            (string-util/join-in-sentence invalid-scopes))]))))
+              :scope
+              scope-input
+              (when (:is_public oauth-app)
+                (let [granted-scopes (set (:granted_scopes oauth-app))
+                      invalid-scopes (filter (fn [scope]
+                                               (not (contains? granted-scopes
+                                                               scope)))
+                                             requested-scopes)]
+                  (when (seq invalid-scopes)
+                    [(format "this OAuth app has not been granted the %s scopes"
+                             (string-util/join-in-sentence invalid-scopes))]))))
 
           _ (ex/assert-valid! :redirect_uri
                               redirect-uri
                               (when-not (ucoll/exists?
-                                         (fn [u] (= redirect-uri u))
-                                         (:authorized_redirect_urls oauth-client))
+                                          (fn [u] (= redirect-uri u))
+                                          (:authorized_redirect_urls oauth-client))
                                 ["The redirect_uri does not appear in the set of authorized redirect uri for the OAuth client."]))
 
           _ (ex/assert-valid! :redirect_uri
                               redirect-uri
                               (url/redirect-url-validation-errors
-                               redirect-uri
-                               :allow-localhost? (not (:is_public oauth-app))))
+                                redirect-uri
+                                :allow-localhost? (not (:is_public oauth-app))))
 
           cookie (random-uuid)
           cookie-expires (java.util.Date. (+ (.getTime (java.util.Date.))
@@ -303,7 +304,7 @@
             (response/found (url/add-query-params (:redirect_uri redirect)
                                                   {:error (case (-> e ex-data ::ex/type)
                                                             (::ex/param-missing
-                                                             ::ex/param-malformed) "invalid_request"
+                                                              ::ex/param-malformed) "invalid_request"
                                                             "server_error")
                                                    :error_description msg
                                                    :state (:state redirect)}))
@@ -322,7 +323,7 @@
                                    [:params :grant_token]
                                    uuid-util/coerce)
         redirect (oauth-app-model/deny-redirect! {:redirect-id redirect-id
-                                                 :grant-token grant-token})
+                                                  :grant-token grant-token})
 
         cookie-param (get-in req [:cookies cookie-name :value])
 
@@ -409,7 +410,6 @@
                         ::ex/message "Invalid redirect_uri parameter"
                         ::ex/hint {:input redirect-uri}}))
 
-
         {:keys [access-token refresh-token]}
         (oauth-app-model/create-tokens-for-code {:client-id (:client_id code-record)
                                                  :user-id (:user_id code-record)
@@ -432,15 +432,15 @@
                                      [:refresh_token]
                                      string-util/coerce-non-blank-str)
         refresh-token-record (oauth-app-model/refresh-token-by-token-value!
-                              {:refresh-token refresh-token
-                               :client-id (:client_id oauth-client)})
+                               {:refresh-token refresh-token
+                                :client-id (:client_id oauth-client)})
 
         access-token
         (oauth-app-model/create-access-token
-         {:client-id (:client_id oauth-client)
-          :user-id (:user_id refresh-token-record)
-          :scopes (:scopes refresh-token-record)
-          :refresh-token-lookup-key (:lookup_key refresh-token-record)})]
+          {:client-id (:client_id oauth-client)
+           :user-id (:user_id refresh-token-record)
+           :scopes (:scopes refresh-token-record)
+           :refresh-token-lookup-key (:lookup_key refresh-token-record)})]
     (response/ok {:access_token (:token-value access-token)
                   :expires_in (-> access-token
                                   :record
@@ -483,8 +483,8 @@
                     ::ex/message "Unrecognized `grant_type` parameter only `authorization_code` is allowed for the PKCE flow."
                     ::ex/hint {:input grant-type}}))
       (let [oauth-client (oauth-app-model/get-client-by-client-id-and-secret!
-                          {:client-id client-id
-                           :client-secret client-secret})]
+                           {:client-id client-id
+                            :client-secret client-secret})]
         (case grant-type
           "authorization_code"
           (complete-access-token-request oauth-client params)
@@ -507,7 +507,7 @@
                                 [{:message "The access_token is not a valid platform OAuth access token."}]))
 
     (let [record (oauth-app-model/access-token-by-token-value!
-                  {:access-token (token-util/platform-access-token-value token)})]
+                   {:access-token (token-util/platform-access-token-value token)})]
       (response/ok {:expires_in (oauth-app-model/access-token-expires-in record)
                     :token_type "Bearer"
                     :scopes (->> record

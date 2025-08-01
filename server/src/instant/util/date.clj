@@ -1,6 +1,6 @@
 (ns instant.util.date
   (:import
-   (java.time ZoneId ZonedDateTime ZoneRegion LocalDate)
+   (java.time LocalDate ZoneId ZoneRegion ZonedDateTime)
    (java.time.format DateTimeFormatter)
    (java.time.temporal TemporalAdjusters)))
 

@@ -127,16 +127,16 @@
   ([params] (get-app-ids-created-before (aurora/conn-pool :read) params))
   ([conn {:keys [creator-id created-before]}]
    (map :id (sql/select
-             ::get-app-ids-created-before
-             conn
-             ["SELECT
+              ::get-app-ids-created-before
+              conn
+              ["SELECT
                 a.id
                 FROM apps a
                 WHERE
                   a.creator_id = ?::uuid AND
                   a.created_at < ? AND 
                   a.deletion_marked_at IS NULL"
-              creator-id created-before]))))
+               creator-id created-before]))))
 
 (defn get-with-creator-by-ids
   ([params] (get-with-creator-by-ids (aurora/conn-pool :read) params))
@@ -267,14 +267,14 @@
   ([params] (get-dash-auth-data (aurora/conn-pool :read) params))
   ([conn {:keys [app-id]}]
    (query-op
-    conn
-    {:app-id app-id}
-    (fn [{:keys [admin-query]}]
-      (let [redirect-origins
-            (-> (sql/select-one
-                 ::get-dash-auth-data
-                 conn
-                 ["SELECT json_build_object(
+     conn
+     {:app-id app-id}
+     (fn [{:keys [admin-query]}]
+       (let [redirect-origins
+             (-> (sql/select-one
+                   ::get-dash-auth-data
+                   conn
+                   ["SELECT json_build_object(
                       'authorized_redirect_origins', (
                         SELECT json_agg(json_build_object(
                           'id', ro.id,
@@ -290,32 +290,32 @@
                     ) AS data
                     FROM apps a
                     WHERE a.id = ?::uuid AND a.deletion_marked_at IS NULL"
-                  app-id])
-                (get-in [:data "authorized_redirect_origins"]))
+                    app-id])
+                 (get-in [:data "authorized_redirect_origins"]))
 
-            {:strs [$oauthProviders
-                    $oauthClients]}
-            (admin-query {:$oauthProviders {}
-                          :$oauthClients {}})
+             {:strs [$oauthProviders
+                     $oauthClients]}
+             (admin-query {:$oauthProviders {}
+                           :$oauthClients {}})
 
-            providers (map (fn [provider]
-                             {"id" (get provider "id")
-                              "provider_name" (get provider "name")
-                              "created_at" (get provider "$serverCreatedAt")})
-                           $oauthProviders)
+             providers (map (fn [provider]
+                              {"id" (get provider "id")
+                               "provider_name" (get provider "name")
+                               "created_at" (get provider "$serverCreatedAt")})
+                            $oauthProviders)
 
-            clients (map (fn [client]
-                           {"id" (get client "id")
-                            "client_name" (get client "name")
-                            "client_id" (get client "clientId")
-                            "provider_id" (get client "$oauthProvider")
-                            "meta" (get client "meta")
-                            "discovery_endpoint" (get client "discovery_endpoint")
-                            "created_at" (get client "$serverCreatedAt")})
-                         $oauthClients)]
-        {:data {"oauth_service_providers" providers
-                "oauth_clients" clients
-                "authorized_redirect_origins" redirect-origins}})))))
+             clients (map (fn [client]
+                            {"id" (get client "id")
+                             "client_name" (get client "name")
+                             "client_id" (get client "clientId")
+                             "provider_id" (get client "$oauthProvider")
+                             "meta" (get client "meta")
+                             "discovery_endpoint" (get client "discovery_endpoint")
+                             "created_at" (get client "$serverCreatedAt")})
+                          $oauthClients)]
+         {:data {"oauth_service_providers" providers
+                 "oauth_clients" clients
+                 "authorized_redirect_origins" redirect-origins}})))))
 
 (defn mark-for-deletion!
   ([params] (mark-for-deletion! (aurora/conn-pool :write) params))
@@ -377,9 +377,9 @@
      (sql/execute-one! ::delete-by-ids!
                        conn
                        (hsql/format
-                        {:delete-from [:apps]
-                         :where [:and [:= :creator-id [:cast creator-id :uuid]]
-                                 [:in :id (mapv (fn [x] [:cast x :uuid]) ids)]]})))))
+                         {:delete-from [:apps]
+                          :where [:and [:= :creator-id [:cast creator-id :uuid]]
+                                  [:in :id (mapv (fn [x] [:cast x :uuid]) ids)]]})))))
 
 (comment
   (def u (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
@@ -406,9 +406,9 @@
   ([params] (app-usage (aurora/conn-pool :read) params))
   ([conn {:keys [app-id]}]
    (sql/select-one
-    ::app-usage
-    conn
-    ["SELECT
+     ::app-usage
+     conn
+     ["SELECT
      (sum(pg_column_size(t)) *
         CASE
             WHEN pg_relation_size('triples') = 0 THEN 1

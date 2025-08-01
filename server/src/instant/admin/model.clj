@@ -16,17 +16,17 @@
 
    This namespace transforms the user-facing `steps` to the internal `tx-steps`."
   (:require
-   [instant.db.model.attr :as attr-model]
-   [instant.db.model.triple :as triple-model]
-   [clojure.walk :as w]
    [clojure.spec.alpha :as s]
    [clojure.string :as string]
-   [instant.util.exception :as ex]
+   [clojure.walk :as w]
+   [instant.db.model.attr :as attr-model]
+   [instant.db.model.triple :as triple-model]
    [instant.db.transaction :as tx]
+   [instant.util.exception :as ex]
    [instant.util.json :refer [->json <-json]])
   (:import
-   (java.util UUID)
-   (com.fasterxml.jackson.core JsonParseException)))
+   (com.fasterxml.jackson.core JsonParseException)
+   (java.util UUID)))
 
 (defn lookup? [eid]
   (and (string? eid)
@@ -38,11 +38,11 @@
       [eid (<-json (string/join "__" json-parts))]
       (catch JsonParseException _e
         (ex/throw-validation-err!
-         :lookup
-         k
-         [{:message "lookup value is invalid"
-           :hint {:attribute eid
-                  :value (string/join "__" json-parts)}}])))))
+          :lookup
+          k
+          [{:message "lookup value is invalid"
+            :hint {:attribute eid
+                   :value (string/join "__" json-parts)}}])))))
 
 (defn explode-lookup [eid]
   (if (sequential? eid)
@@ -50,9 +50,9 @@
     (if (= 1 (count eid))
       (first eid)
       (ex/throw-validation-err!
-       :lookup
-       eid
-       [{:message "lookup must be an object with a single unique attr and value."}]))))
+        :lookup
+        eid
+        [{:message "lookup must be an object with a single unique attr and value."}]))))
 
 (defn eid->lookup-pair
   "Extract the [label, value] from a lookup, returns nil if eid isn't a lookup"
@@ -73,9 +73,9 @@
         [fwdName idIdent & more] (string/split ident-name #"\.")]
     (when (or (seq more) (not= idIdent "id"))
       (ex/throw-validation-err!
-       :lookup
-       lookup
-       [{:message (str ident-name " is not a valid lookup attribute.")}]))
+        :lookup
+        lookup
+        [{:message (str ident-name " is not a valid lookup attribute.")}]))
     fwdName))
 
 (defn extract-lookup [attrs etype eid]
@@ -86,9 +86,9 @@
           attr (attr-model/seek-by-fwd-ident-name [etype label] attrs)]
       (when (not (:unique? attr))
         (ex/throw-validation-err!
-         :lookup
-         eid
-         [{:message (str ident-name " is not a unique attribute on " etype)}]))
+          :lookup
+          eid
+          [{:message (str ident-name " is not a unique attribute on " etype)}]))
       [(:id attr) value])
     eid))
 
@@ -229,10 +229,10 @@
       "add-attr" (expand-add-attr attrs args)
       "delete-attr" (expand-delete-attr attrs args)
       (ex/throw-validation-err!
-       :action
-       action
-       [{:message (str "Unsupported action " action)
-         :hint {:value action}}]))))
+        :action
+        action
+        [{:message (str "Unsupported action " action)
+          :hint {:value action}}]))))
 
 (defn create-object-attr
   ([etype label] (create-object-attr etype label nil))
@@ -377,15 +377,15 @@
         _ (when (and throw-on-missing-attrs? (seq add-attr-tx-steps))
             (let [ident-names (->> add-attr-tx-steps
                                    (map (comp
-                                         #(string/join "." %1)
-                                         attr-model/ident-name
-                                         :forward-identity
-                                         second)))]
+                                          #(string/join "." %1)
+                                          attr-model/ident-name
+                                          :forward-identity
+                                          second)))]
               (ex/throw-validation-err!
-               :steps
-               steps
-               [{:message "Attributes are missing in your schema"
-                 :hint {:attributes ident-names}}])))
+                :steps
+                steps
+                [{:message "Attributes are missing in your schema"
+                  :hint {:attributes ident-names}}])))
         tx-steps (mapcat (fn [step] (to-tx-steps attrs step)) steps)]
     (concat add-attr-tx-steps tx-steps)))
 
@@ -404,7 +404,7 @@
 
 (s/def ::update-opts
   (s/nilable
-   (s/keys :opt-un [::upsert])))
+    (s/keys :opt-un [::upsert])))
 
 (s/def ::create-op
   (s/cat :op #{"create"} :args (s/cat :etype string? :eid ::lookup :args map?)))
@@ -444,16 +444,16 @@
   (s/cat :op #{"delete-attr"} :eid coercible-uuid?))
 
 (s/def ::op (s/or
-             :create ::create-op
-             :update ::update-op
-             :merge ::merge-op
-             :link ::link-op
-             :unlink ::unlink-op
-             :delete ::delete-op
-             :rule-params ::rule-params-op
-             :add-attr ::add-attr-op
-             :update-attr ::update-attr-op
-             :delete-attr ::delete-attr-op))
+              :create ::create-op
+              :update ::update-op
+              :merge ::merge-op
+              :link ::link-op
+              :unlink ::unlink-op
+              :delete ::delete-op
+              :rule-params ::rule-params-op
+              :add-attr ::add-attr-op
+              :update-attr ::update-attr-op
+              :delete-attr ::delete-attr-op))
 
 (s/def ::ops (s/coll-of ::op))
 
@@ -466,10 +466,10 @@
         valid? (s/valid? ::ops coerced-admin-steps)
         _ (when-not valid?
             (ex/throw-validation-err!
-             :steps
-             steps
-             (ex/explain->validation-errors
-              (s/explain-data ::ops steps))))
+              :steps
+              steps
+              (ex/explain->validation-errors
+                (s/explain-data ::ops steps))))
         tx-steps (transform ctx coerced-admin-steps)
         coerced (tx/coerce! tx-steps)
         _ (tx/validate! coerced)]

@@ -27,22 +27,24 @@
    an index. It's up to the caller to figure out which index to use for a pattern.
    InstaQL can do this by looking at the `attr`. To get a sense for this,
    see `instaql/best-index`"
-  (:require [clojure.spec.alpha :as s]
-            [clojure.set :as set]
-            [instant.db.model.triple :as triple-model]
-            [instant.flags :as flags]
-            [instant.util.spec :as uspec]
-            [instant.util.tracer :as tracer]
-            [instant.util.coll :as coll]
-            [clojure.string :as string]
-            [honey.sql :as hsql]
-            [instant.jdbc.sql :as sql]
-            [instant.util.json :refer [->json]]
-            [instant.util.pg-hint-plan :as pg-hint]
-            [instant.util.string :refer [safe-name]]
-            [instant.util.uuid :as uuid-util])
-  (:import (javax.sql DataSource)
-           (java.util UUID)))
+  (:require
+   [clojure.set :as set]
+   [clojure.spec.alpha :as s]
+   [clojure.string :as string]
+   [honey.sql :as hsql]
+   [instant.db.model.triple :as triple-model]
+   [instant.flags :as flags]
+   [instant.jdbc.sql :as sql]
+   [instant.util.coll :as coll]
+   [instant.util.json :refer [->json]]
+   [instant.util.pg-hint-plan :as pg-hint]
+   [instant.util.spec :as uspec]
+   [instant.util.string :refer [safe-name]]
+   [instant.util.tracer :as tracer]
+   [instant.util.uuid :as uuid-util])
+  (:import
+   (java.util UUID)
+   (javax.sql DataSource)))
 
 ;; ---
 ;; Pattern
@@ -125,25 +127,25 @@
    [?e ?a #{25}]"
   [[idx & cs :as _triple]]
   (list*
-   idx
-   (map-indexed
-    (fn [i c]
-      (if (or
-           (and (= i 0)
-                (map? c)
-                (contains? c :$not))
-           ;; Don't override function clauses
-           (and (= i 2)
-                (map? c)
-                (or (contains? c :$not)
-                    (contains? c :$isNull)
-                    (contains? c :$comparator)
-                    (contains? c :$entityIdStartsWith)))
-           (symbol? c)
-           (set? c))
-        c
-        #{c}))
-    cs)))
+    idx
+    (map-indexed
+      (fn [i c]
+        (if (or
+              (and (= i 0)
+                   (map? c)
+                   (contains? c :$not))
+              ;; Don't override function clauses
+              (and (= i 2)
+                   (map? c)
+                   (or (contains? c :$not)
+                       (contains? c :$isNull)
+                       (contains? c :$comparator)
+                       (contains? c :$entityIdStartsWith)))
+              (symbol? c)
+              (set? c))
+          c
+          #{c}))
+      cs)))
 
 (defn coerce-pattern
   "1. pads patterns to 5 elements
@@ -296,8 +298,8 @@
 
 (defn pat-part->coarse-topic-part [pat-part]
   (if
-   (symbol? pat-part) '_
-   pat-part))
+    (symbol? pat-part) '_
+    pat-part))
 
 (defn pat->coarse-topic [pat]
   (->> pat
@@ -410,28 +412,28 @@
       ;; Check if a variable appears in at least one pattern with a constant component
       (if (->> variables
                (filter
-                (fn [[_ sym]]
-                  (swap! checked-for-sym update sym (fnil conj #{}) pattern-idx)
-                  (->> (symbol-map sym)
-                       (filter
-                        (fn [{sym-idx :pattern-idx}]
-                          (cond
-                            (@ok-patterns sym-idx)
-                            true
+                 (fn [[_ sym]]
+                   (swap! checked-for-sym update sym (fnil conj #{}) pattern-idx)
+                   (->> (symbol-map sym)
+                        (filter
+                          (fn [{sym-idx :pattern-idx}]
+                            (cond
+                              (@ok-patterns sym-idx)
+                              true
 
-                            (get-in @checked-for-sym [sym sym-idx])
-                            false
+                              (get-in @checked-for-sym [sym sym-idx])
+                              false
 
-                            :else
-                            (do
-                              (swap! checked-for-sym update sym conj sym-idx)
-                              (not (invalid-pattern? ok-patterns
-                                                     checked-for-sym
-                                                     symbol-map
-                                                     named-ps
-                                                     (nth named-ps sym-idx)
-                                                     sym-idx))))))
-                       seq)))
+                              :else
+                              (do
+                                (swap! checked-for-sym update sym conj sym-idx)
+                                (not (invalid-pattern? ok-patterns
+                                                       checked-for-sym
+                                                       symbol-map
+                                                       named-ps
+                                                       (nth named-ps sym-idx)
+                                                       sym-idx))))))
+                        seq)))
                seq)
         (do
           (swap! ok-patterns conj pattern-idx)
@@ -729,8 +731,8 @@
 
 (defn- function-clauses [app-id named-pattern]
   (concat
-   (value-function-clauses app-id (:idx named-pattern) (:v named-pattern))
-   (entity-function-clauses (:e named-pattern))))
+    (value-function-clauses app-id (:idx named-pattern) (:v named-pattern))
+    (entity-function-clauses (:e named-pattern))))
 
 (defn patch-values-for-av-index
   "Make sure we wrap :value in [:json_null_to_null :value] when using :av
@@ -810,15 +812,15 @@
   "
   [app-id {:keys [idx] :as named-pattern} additional-clauses]
   (list*
-   :and
-   [:= :app-id app-id]
-   [:= (idx-key idx) :true]
-   (concat (->> named-pattern
-                constant-components
-                (map (fn [[component-type v]]
-                       (constant->where-part idx app-id component-type v))))
-           (function-clauses app-id named-pattern)
-           (patch-values-for-av-index (idx-key idx) additional-clauses))))
+    :and
+    [:= :app-id app-id]
+    [:= (idx-key idx) :true]
+    (concat (->> named-pattern
+                 constant-components
+                 (map (fn [[component-type v]]
+                        (constant->where-part idx app-id component-type v))))
+            (function-clauses app-id named-pattern)
+            (patch-values-for-av-index (idx-key idx) additional-clauses))))
 
 ;; ---
 ;; join-clause
@@ -1058,10 +1060,9 @@
                                   (into acc (map (fn [path]
                                                    [ctype (:ctype path)])
                                                  paths))
-                                  acc)
-                                )
-                              #{}
-                              (variable-components named-p))]
+                                  acc))
+                        #{}
+                        (variable-components named-p))]
       (if (or (= #{[:e :e]} join-ctypes)
               (= #{[:e :v]} join-ctypes))
         (assoc named-p :idx [:keyword :eav])
@@ -1107,19 +1108,19 @@
                             parent-froms)
               :where (where-clause app-id named-p all-joins)}
              (if (or
-                  ;; only use `not materialized` when we're in the middle of an ordered
-                  ;; query
-                  (not page-info)
+                   ;; only use `not materialized` when we're in the middle of an ordered
+                   ;; query
+                   (not page-info)
 
-                  ;; skip isNull because it's unlikely to generate a good plan
-                  (and (uspec/tagged-as? :function (:v named-p))
-                       (:$isNull (uspec/tagged-unwrap (:v named-p))))
+                   ;; skip isNull because it's unlikely to generate a good plan
+                   (and (uspec/tagged-as? :function (:v named-p))
+                        (:$isNull (uspec/tagged-unwrap (:v named-p))))
 
-                  ;; skip indexed with constant value because it's likely
-                  ;; to return a small set of elements and we'll spend forever
-                  ;; looping through the sorted elements
-                  (and (= :ave (idx-key (:idx named-p)))
-                       (named-constant? (:v named-p))))
+                   ;; skip indexed with constant value because it's likely
+                   ;; to return a small set of elements and we'll spend forever
+                   ;; looping through the sorted elements
+                   (and (= :ave (idx-key (:idx named-p)))
+                        (named-constant? (:v named-p))))
                :materialized
                :not-materialized)]]
     {:cte cte
@@ -1185,42 +1186,42 @@
                      (kw prefix prev-idx))]
     [tbl-name
      (merge
-      {:select (concat
-                (when-not (neg? prev-idx)
+       {:select (concat
+                  (when-not (neg? prev-idx)
+                    ;; Include the previous cte if we're not the first
+                    [(kw prev-table ".*")])
+                  (for [i join-idxes]
+                    (kw prefix i ".*"))
+                  [[(list* :coalesce
+                           (for [i join-idxes]
+                             (kw prefix i :. (kw prefix i :-entity-id))))
+                    (kw prefix idx :-entity-id)]])
+        :from (concat
+                (when prev-table
                   ;; Include the previous cte if we're not the first
-                  [(kw prev-table ".*")])
-                (for [i join-idxes]
-                  (kw prefix i ".*"))
-                [[(list* :coalesce
-                         (for [i join-idxes]
-                           (kw prefix i :. (kw prefix i :-entity-id))))
-                  (kw prefix idx :-entity-id)]])
-       :from (concat
-              (when prev-table
-                ;; Include the previous cte if we're not the first
-                [prev-table])
-              [(kw prefix (first join-idxes))])}
-      (if-not prev-table
-        (merge {:from (kw prefix (first join-idxes))}
-               (when full-join-idxes
-                 {:full-join (mapcat (fn [i]
-                                       ;; Ensures everything is included
-                                       [(kw prefix i) [:= :0 :1]])
-                                     full-join-idxes)}))
-        {:from prev-table
-         :left-join (mapcat
-                     (fn [[cte-idx or-symbol-map]]
-                       [(kw prefix cte-idx) (join-conds-for-or-gather prefix
-                                                                      symbol-map
-                                                                      [or-symbol-map]
-                                                                      join-sym)])
-                     group-symbol-maps)})
-      (when prev-table
-        (when-let [wheres (join-conds-for-or-gather prefix
-                                                    symbol-map
-                                                    (vals group-symbol-maps)
-                                                    join-sym)]
-          {:where wheres})))
+                  [prev-table])
+                [(kw prefix (first join-idxes))])}
+       (if-not prev-table
+         (merge {:from (kw prefix (first join-idxes))}
+                (when full-join-idxes
+                  {:full-join (mapcat (fn [i]
+                                        ;; Ensures everything is included
+                                        [(kw prefix i) [:= :0 :1]])
+                                      full-join-idxes)}))
+         {:from prev-table
+          :left-join (mapcat
+                       (fn [[cte-idx or-symbol-map]]
+                         [(kw prefix cte-idx) (join-conds-for-or-gather prefix
+                                                                        symbol-map
+                                                                        [or-symbol-map]
+                                                                        join-sym)])
+                       group-symbol-maps)})
+       (when prev-table
+         (when-let [wheres (join-conds-for-or-gather prefix
+                                                     symbol-map
+                                                     (vals group-symbol-maps)
+                                                     join-sym)]
+           {:where wheres})))
      :not-materialized]))
 
 (defn accumulate-ctes
@@ -1508,13 +1509,13 @@
                                            wheres))))
                   (dissoc :select)
                   (assoc :select-distinct-on (list*
-                                              [:order-val :order-eid]
-                                              [(if order-col-value-fn
-                                                 [order-col-value-fn  order-col-name]
-                                                 order-col-name)
-                                               :order-val]
-                                              [entity-id-col :order-eid]
-                                              (:select query))))
+                                               [:order-val :order-eid]
+                                               [(if order-col-value-fn
+                                                  [order-col-value-fn  order-col-name]
+                                                  order-col-name)
+                                                :order-val]
+                                               [entity-id-col :order-eid]
+                                               (:select query))))
 
         order-by [[:order-val
                    (if-not order-col-value-fn
@@ -1665,7 +1666,7 @@
                           {:select [[[:exists has-previous-query]]]}
                           :not-materialized])
              :pg-hints (into (:pg-hints (:query match-query))
-                               pg-hints)
+                         pg-hints)
              :select (kw last-row-table :.*)
              :from last-table-name}
      :symbol-map symbol-map
@@ -1690,94 +1691,94 @@
      (accumulate-nested-match-query acc {} prefix app-id nested-named-patterns)))
   ([acc additional-joins prefix app-id nested-named-patterns]
    (let [res (reduce
-              (fn [acc pattern-group]
-                (if (:missing-attr? pattern-group)
-                  (-> acc
-                      (update :pattern-groups
-                              (fnil conj [])
-                              {:missing-attr? true
-                               :patterns (:patterns pattern-group)
-                               :datalog-query (:datalog-query pattern-group)}))
-                  (let [page-info (:page-info pattern-group)
-                        {:keys [next-idx query symbol-map pattern-metas]}
-                        (cond-> (match-query {:next-idx (:next-idx acc)}
-                                             prefix
-                                             app-id
-                                             additional-joins
-                                             (:patterns pattern-group)
-                                             {:page-info page-info})
-                          page-info (add-page-info prefix
-                                                   app-id
-                                                   additional-joins
-                                                   page-info))
+               (fn [acc pattern-group]
+                 (if (:missing-attr? pattern-group)
+                   (-> acc
+                       (update :pattern-groups
+                               (fnil conj [])
+                               {:missing-attr? true
+                                :patterns (:patterns pattern-group)
+                                :datalog-query (:datalog-query pattern-group)}))
+                   (let [page-info (:page-info pattern-group)
+                         {:keys [next-idx query symbol-map pattern-metas]}
+                         (cond-> (match-query {:next-idx (:next-idx acc)}
+                                              prefix
+                                              app-id
+                                              additional-joins
+                                              (:patterns pattern-group)
+                                              {:page-info page-info})
+                           page-info (add-page-info prefix
+                                                    app-id
+                                                    additional-joins
+                                                    page-info))
 
-                        ctes (:with query)
-                        pg-hints (:pg-hints query)
+                         ctes (:with query)
+                         pg-hints (:pg-hints query)
 
-                        next-acc (cond-> acc
-                                   true (assoc :next-idx next-idx)
-                                   true (update :ctes into ctes)
-                                   true (update :pg-hints into pg-hints)
-                                   true (update :result-tables
-                                                conj
-                                                {:table (:from query)
-                                                 :aggregate (:aggregate pattern-group)})
+                         next-acc (cond-> acc
+                                    true (assoc :next-idx next-idx)
+                                    true (update :ctes into ctes)
+                                    true (update :pg-hints into pg-hints)
+                                    true (update :result-tables
+                                                 conj
+                                                 {:table (:from query)
+                                                  :aggregate (:aggregate pattern-group)})
 
-                                   (:page-info pattern-group)
-                                   (update :result-tables
-                                           conj
-                                           {:table (has-next-tbl (:from query))}
-                                           {:table (has-prev-tbl (:from query))}))]
-                    (if-not (:children pattern-group)
-                      (-> next-acc
-                          (update :pattern-groups
-                                  (fnil conj [])
-                                  {:pattern-metas pattern-metas
-                                   :page-info (:page-info pattern-group)
-                                   :aggregate (:aggregate pattern-group)
-                                   :datalog-query (:datalog-query pattern-group)
-                                   :table (:from query)}))
-                      (let [join-sym (get-in pattern-group [:children :join-sym])
-                            join-cte [(kw prefix next-idx)
-                                      (let [conds (join-conds prefix
-                                                              (dec next-idx)
-                                                              symbol-map
-                                                              {:e [:variable join-sym]})]
-                                        (if-let [single-field (when (and (= 1 (count conds))
-                                                                         (= [:= :entity-id]
-                                                                            (take 2 (first conds))))
-                                                                (last (first conds)))]
-                                          ;; If we're only joining on a single col, we can just grab
-                                          ;; that col directly from the CTE
-                                          {:select [[[:distinct single-field] (kw prefix next-idx :-entity-id)]]
-                                           :from (kw prefix (dec next-idx))}
-                                          {:select [[[:distinct :entity-id] (kw prefix next-idx :-entity-id)]]
-                                           :from [:triples (kw prefix (dec next-idx))]
-                                           :where (list* :and
-                                                         [:= :app-id app-id]
-                                                         conds)}))
-                                      :materialized]
-                            child-res (accumulate-nested-match-query (-> next-acc
-                                                                         (update :ctes conj join-cte)
-                                                                         (update :next-idx inc)
-                                                                         (assoc :pattern-groups []))
-                                                                     {join-sym {:pattern-idx next-idx
-                                                                                :triple-idx 0
-                                                                                :ctype :e}}
-                                                                     prefix
-                                                                     app-id
-                                                                     pattern-group)]
-                        (-> child-res
-                            (assoc :pattern-groups ((fnil conj [])
-                                                    (:pattern-groups acc)
-                                                    {:pattern-metas pattern-metas
-                                                     :table (:from query)
-                                                     :page-info (:page-info pattern-group)
-                                                     :datalog-query (:datalog-query pattern-group)
-                                                     :children {:pattern-groups (:pattern-groups child-res)
-                                                                :join-sym join-sym}}))))))))
-              acc
-              (get-in nested-named-patterns [:children :pattern-groups]))]
+                                    (:page-info pattern-group)
+                                    (update :result-tables
+                                            conj
+                                            {:table (has-next-tbl (:from query))}
+                                            {:table (has-prev-tbl (:from query))}))]
+                     (if-not (:children pattern-group)
+                       (-> next-acc
+                           (update :pattern-groups
+                                   (fnil conj [])
+                                   {:pattern-metas pattern-metas
+                                    :page-info (:page-info pattern-group)
+                                    :aggregate (:aggregate pattern-group)
+                                    :datalog-query (:datalog-query pattern-group)
+                                    :table (:from query)}))
+                       (let [join-sym (get-in pattern-group [:children :join-sym])
+                             join-cte [(kw prefix next-idx)
+                                       (let [conds (join-conds prefix
+                                                               (dec next-idx)
+                                                               symbol-map
+                                                               {:e [:variable join-sym]})]
+                                         (if-let [single-field (when (and (= 1 (count conds))
+                                                                          (= [:= :entity-id]
+                                                                             (take 2 (first conds))))
+                                                                 (last (first conds)))]
+                                           ;; If we're only joining on a single col, we can just grab
+                                           ;; that col directly from the CTE
+                                           {:select [[[:distinct single-field] (kw prefix next-idx :-entity-id)]]
+                                            :from (kw prefix (dec next-idx))}
+                                           {:select [[[:distinct :entity-id] (kw prefix next-idx :-entity-id)]]
+                                            :from [:triples (kw prefix (dec next-idx))]
+                                            :where (list* :and
+                                                          [:= :app-id app-id]
+                                                          conds)}))
+                                       :materialized]
+                             child-res (accumulate-nested-match-query (-> next-acc
+                                                                          (update :ctes conj join-cte)
+                                                                          (update :next-idx inc)
+                                                                          (assoc :pattern-groups []))
+                                                                      {join-sym {:pattern-idx next-idx
+                                                                                 :triple-idx 0
+                                                                                 :ctype :e}}
+                                                                      prefix
+                                                                      app-id
+                                                                      pattern-group)]
+                         (-> child-res
+                             (assoc :pattern-groups ((fnil conj [])
+                                                     (:pattern-groups acc)
+                                                     {:pattern-metas pattern-metas
+                                                      :table (:from query)
+                                                      :page-info (:page-info pattern-group)
+                                                      :datalog-query (:datalog-query pattern-group)
+                                                      :children {:pattern-groups (:pattern-groups child-res)
+                                                                 :join-sym join-sym}}))))))))
+               acc
+               (get-in nested-named-patterns [:children :pattern-groups]))]
      (-> res
          (assoc :children {:pattern-groups (:pattern-groups res)
                            :join-sym (get-in nested-named-patterns [:children :join-sym])})))))
@@ -1813,18 +1814,18 @@
                                  (mapv (fn [tables]
                                          (into [:json_build_object]
                                                (mapcat
-                                                (fn [{:keys [table aggregate]}]
-                                                  [[:inline (name table)]
-                                                   (case aggregate
-                                                     :count [:coalesce {:select [[[:count :*]]]
-                                                                        :from table}
-                                                             [:inline "0"]]
+                                                 (fn [{:keys [table aggregate]}]
+                                                   [[:inline (name table)]
+                                                    (case aggregate
+                                                      :count [:coalesce {:select [[[:count :*]]]
+                                                                         :from table}
+                                                              [:inline "0"]]
 
-                                                     [:coalesce
-                                                      {:select [[[:json_agg [:row_to_json table]]]]
-                                                       :from table}
-                                                      [:cast [:inline "[]"] :json]])])
-                                                tables)))
+                                                      [:coalesce
+                                                       {:select [[[:json_agg [:row_to_json table]]]]
+                                                        :from table}
+                                                       [:cast [:inline "[]"] :json]])])
+                                                 tables)))
                                        ;; Split into groups of 50 to work around
                                        ;; 100 arg limitation to json_build_object
                                        ;; Now we can do (* 50 50) ctes
@@ -1871,8 +1872,8 @@
   (reduce (fn [symbol-values [tag pattern]]
             (case tag
               :pattern (ensure-default-symbol-values
-                        (symbol-fields-of-pattern pattern)
-                        symbol-values)
+                         (symbol-fields-of-pattern pattern)
+                         symbol-values)
               :or (merge symbol-values
                          (empty-symbol-values (:patterns (:or pattern))))
               :and (merge symbol-values
@@ -1892,111 +1893,111 @@
    Optionally parses uuids, when handling batched results that return JSON."
   [acc sql-res pattern-metas coerce-uuids?]
   (reduce
-   (fn [acc pattern-meta]
-     (if-let [ors (:or pattern-meta)]
-       ;; Handling a group of patterns, one group for each OR clause
-       (let [{:keys [symbol-values symbol-values-for-topics]} acc
-             {:keys [acc group-acc]}
-             (reduce (fn [{:keys [acc group-acc]} pattern-metas]
-                       (let [res (accumulate-results
-                                  (assoc acc
-                                         :symbol-values symbol-values
-                                         :symbol-values-for-topics symbol-values-for-topics)
-                                  sql-res
-                                  pattern-metas
-                                  coerce-uuids?)]
-                         {:acc res
-                          :group-acc (-> group-acc
-                                         (update :symbol-values
-                                                 conj
-                                                 (:symbol-values res))
-                                         (update :symbol-values-for-topics
-                                                 conj
-                                                 (:symbol-values-for-topics res)))}))
-                     {:acc acc
-                      ;; collects the symbol-values for all of the OR
-                      ;; clauses so that we can collect them at the end
-                      :group-acc {:symbol-values []
-                                  :symbol-values-for-topics []}}
-                     ors)]
-         (-> acc
-             (update :symbol-values #(apply merge-with into % (:symbol-values group-acc)))
-             (update :symbol-values-for-topics #(apply merge-with into % (:symbol-values-for-topics group-acc)))))
+    (fn [acc pattern-meta]
+      (if-let [ors (:or pattern-meta)]
+        ;; Handling a group of patterns, one group for each OR clause
+        (let [{:keys [symbol-values symbol-values-for-topics]} acc
+              {:keys [acc group-acc]}
+              (reduce (fn [{:keys [acc group-acc]} pattern-metas]
+                        (let [res (accumulate-results
+                                    (assoc acc
+                                           :symbol-values symbol-values
+                                           :symbol-values-for-topics symbol-values-for-topics)
+                                    sql-res
+                                    pattern-metas
+                                    coerce-uuids?)]
+                          {:acc res
+                           :group-acc (-> group-acc
+                                          (update :symbol-values
+                                                  conj
+                                                  (:symbol-values res))
+                                          (update :symbol-values-for-topics
+                                                  conj
+                                                  (:symbol-values-for-topics res)))}))
+                      {:acc acc
+                       ;; collects the symbol-values for all of the OR
+                       ;; clauses so that we can collect them at the end
+                       :group-acc {:symbol-values []
+                                   :symbol-values-for-topics []}}
+                      ors)]
+          (-> acc
+              (update :symbol-values #(apply merge-with into % (:symbol-values group-acc)))
+              (update :symbol-values-for-topics #(apply merge-with into % (:symbol-values-for-topics group-acc)))))
 
-       ;; Handling an individual pattern
-       (let [{:keys [cte-cols symbol-fields pattern page-info]} pattern-meta
-             {:keys [symbol-values symbol-values-for-topics]} acc
-             topics (named-pattern->topics pattern symbol-values-for-topics)
-             {:keys [join-rows page-info-rows symbol-values symbol-values-for-topics]}
-             (reduce (fn [acc row]
-                       (let [join-row (sql-row->triple row cte-cols coerce-uuids?)
-                             page-info-row (when page-info
-                                             (if-not (nil? (first join-row))
-                                               join-row
-                                               ;; We've probably encountered a page row
-                                               ;; where the entity is missing a value.
-                                               ;; We'll have to create a fake row with [e a nil t]
-                                               (let [{:keys [eid-col created-col]} page-info]
-                                                 [(get row eid-col)
-                                                  (:attr-id page-info)
-                                                  nil
-                                                  (get row created-col)])))]
+        ;; Handling an individual pattern
+        (let [{:keys [cte-cols symbol-fields pattern page-info]} pattern-meta
+              {:keys [symbol-values symbol-values-for-topics]} acc
+              topics (named-pattern->topics pattern symbol-values-for-topics)
+              {:keys [join-rows page-info-rows symbol-values symbol-values-for-topics]}
+              (reduce (fn [acc row]
+                        (let [join-row (sql-row->triple row cte-cols coerce-uuids?)
+                              page-info-row (when page-info
+                                              (if-not (nil? (first join-row))
+                                                join-row
+                                                ;; We've probably encountered a page row
+                                                ;; where the entity is missing a value.
+                                                ;; We'll have to create a fake row with [e a nil t]
+                                                (let [{:keys [eid-col created-col]} page-info]
+                                                  [(get row eid-col)
+                                                   (:attr-id page-info)
+                                                   nil
+                                                   (get row created-col)])))]
 
-                         (cond-> acc
-                           true (update :join-rows conj join-row)
-                           page-info-row (update :page-info-rows conj page-info-row)
-                           true (update :symbol-values
-                                        (fn [symbol-values]
-                                          (reduce
-                                           (fn [acc [pat-idx {:keys [sym]}]]
-                                             (if-let [v (nth join-row pat-idx)]
-                                               (update acc sym (fnil conj #{}) v)
-                                               acc))
-                                           symbol-values
-                                           symbol-fields)))
-                           true (update :symbol-values-for-topics
-                                        (fn [symbol-values]
-                                          (reduce
-                                           (fn [acc [pat-idx {:keys [sym ref-value?]}]]
-                                             (if-let [v (when-not ref-value?
-                                                          (nth join-row pat-idx))]
-                                               (update acc sym (fnil conj #{}) v)
-                                               acc))
-                                           symbol-values
-                                           symbol-fields))))))
-                     {:join-rows []
-                      :page-info-rows []
-                      :symbol-values symbol-values
-                      :symbol-values-for-topics symbol-values-for-topics}
-                     sql-res)]
-         (-> (if page-info
-               (let [rows (if (:last? page-info)
-                            ;; We switched the order so we could get items
-                            ;; at the end of the list.
-                            ;; Switch back the order of the results so that
-                            ;; they're in the order the user requested.
-                            (reverse page-info-rows)
-                            page-info-rows)]
-                 (assoc acc
-                        :page-info {:start-cursor (first rows)
-                                    :end-cursor (last rows)}
-                        :page-info-rows rows))
-               acc)
-             (update :join-rows
-                     (fn [rows]
-                       (mapv (fn [row join-row]
-                               ;; One of the patterns in an OR clause may return a
-                               ;; nil result, so we filter them out here.
-                               (if (nil? (first join-row))
-                                 row
-                                 (conj row join-row)))
-                             rows join-rows)))
-             (assoc :symbol-values symbol-values)
-             (assoc :symbol-values-for-topics symbol-values-for-topics)
-             (update :symbol-values (partial ensure-default-symbol-values symbol-fields))
-             (update :topics into topics)))))
-   acc
-   pattern-metas))
+                          (cond-> acc
+                            true (update :join-rows conj join-row)
+                            page-info-row (update :page-info-rows conj page-info-row)
+                            true (update :symbol-values
+                                         (fn [symbol-values]
+                                           (reduce
+                                             (fn [acc [pat-idx {:keys [sym]}]]
+                                               (if-let [v (nth join-row pat-idx)]
+                                                 (update acc sym (fnil conj #{}) v)
+                                                 acc))
+                                             symbol-values
+                                             symbol-fields)))
+                            true (update :symbol-values-for-topics
+                                         (fn [symbol-values]
+                                           (reduce
+                                             (fn [acc [pat-idx {:keys [sym ref-value?]}]]
+                                               (if-let [v (when-not ref-value?
+                                                            (nth join-row pat-idx))]
+                                                 (update acc sym (fnil conj #{}) v)
+                                                 acc))
+                                             symbol-values
+                                             symbol-fields))))))
+                      {:join-rows []
+                       :page-info-rows []
+                       :symbol-values symbol-values
+                       :symbol-values-for-topics symbol-values-for-topics}
+                      sql-res)]
+          (-> (if page-info
+                (let [rows (if (:last? page-info)
+                             ;; We switched the order so we could get items
+                             ;; at the end of the list.
+                             ;; Switch back the order of the results so that
+                             ;; they're in the order the user requested.
+                             (reverse page-info-rows)
+                             page-info-rows)]
+                  (assoc acc
+                         :page-info {:start-cursor (first rows)
+                                     :end-cursor (last rows)}
+                         :page-info-rows rows))
+                acc)
+              (update :join-rows
+                      (fn [rows]
+                        (mapv (fn [row join-row]
+                                ;; One of the patterns in an OR clause may return a
+                                ;; nil result, so we filter them out here.
+                                (if (nil? (first join-row))
+                                  row
+                                  (conj row join-row)))
+                              rows join-rows)))
+              (assoc :symbol-values symbol-values)
+              (assoc :symbol-values-for-topics symbol-values-for-topics)
+              (update :symbol-values (partial ensure-default-symbol-values symbol-fields))
+              (update :topics into topics)))))
+    acc
+    pattern-metas))
 
 (defn- sql-result->result
   "Takes the sql result and the metadata from `match-query` to
@@ -2298,15 +2299,14 @@
   (tracer/with-span! {:name "datalog/send-query-batch"
                       :attributes {:batch-size (count args-col)}}
     (let [batch-data (map-indexed
-                      (fn [i [app-id named-patterns]]
-                        (match-query (kw "match-" i "-") app-id named-patterns {}))
-                      args-col)
+                       (fn [i [app-id named-patterns]]
+                         (match-query (kw "match-" i "-") app-id named-patterns {}))
+                       args-col)
           hsql-query (batch-queries (map :query batch-data))
           sql-query (hsql/format hsql-query)
           sql-res (-> (sql/select-arrays ::send-query-batch conn sql-query)
                       second ;; remove header row
-                      first ;; all results are in one json blob in first result
-                      )]
+                      first)] ;; all results are in one json blob in first result
       (map (fn [{:keys [query pattern-metas]}]
              (sql-result->result (get sql-res (name (:from query)))
                                  pattern-metas
@@ -2330,9 +2330,9 @@
                                               (:app-id ctx)
                                               nested-named-patterns)
           sql-query (hsql/format
-                     (assoc query
-                            :raw
-                            "explain (analyze, verbose, buffers, timing, format json)"))]
+                      (assoc query
+                             :raw
+                             "explain (analyze, verbose, buffers, timing, format json)"))]
       (when query
         (sql/select-string-keys ::explain
                                 (-> ctx :db :conn-pool)

@@ -1,13 +1,14 @@
 (ns instant.db.rule-where-testing
-  (:require [clojure.core.async :as a]
-            [clojure.core.cache.wrapped :as cache]
-            [instant.db.datalog :as d]
-            [instant.flags :as flags]
-            [instant.jdbc.sql :as sql]
-            ;; [instant.model.rule :as rule-model]
-            ;; [instant.util.coll :as ucoll]
-            [instant.util.tracer :as tracer]
-            [instant.util.instaql :refer [instaql-nodes->object-tree forms-hash]]))
+  (:require
+   [clojure.core.async :as a]
+   [clojure.core.cache.wrapped :as cache]
+   [instant.db.datalog :as d]
+   [instant.flags :as flags]
+   [instant.jdbc.sql :as sql]
+   [instant.util.instaql :refer [forms-hash instaql-nodes->object-tree]]
+   ;; [instant.model.rule :as rule-model]
+   ;; [instant.util.coll :as ucoll]
+   [instant.util.tracer :as tracer]))
 
 ;; DWW: Temporarily hijacking this ns to test out pg_hint_plan
 ;;      Add a new row to `toggles` in the instant-config app with
@@ -42,14 +43,14 @@
               (future
                 (tracer/with-span! {:name "test-pg-hint-plan/without-hint-plan"}
                   (binding [d/*testing-pg-hints* false]
-                    (run-test ctx ;;(assoc ctx :use-rule-wheres? false)
+                    (run-test ctx ;; (assoc ctx :use-rule-wheres? false)
                               permissioned-query-fn o))))
 
               with-rule-wheres-fut
               (future
                 (tracer/with-span! {:name "test-pg-hint-plan/with-hint-plan"}
                   (binding [d/*testing-pg-hints* true]
-                    (run-test ctx ;;(assoc ctx :use-rule-wheres? true)
+                    (run-test ctx ;; (assoc ctx :use-rule-wheres? true)
                               permissioned-query-fn o))))
 
               without-rule-wheres @without-rule-wheres-fut
@@ -75,12 +76,12 @@
           attrs)))))
 
 #_(defn worth-testing? [ctx o]
-  (and (flags/test-rule-wheres?)
-       (let [rules (rule-model/get-by-app-id {:app-id (:app-id ctx)})]
-         (and rules
-              (ucoll/exists? (fn [field]
-                               (rule-model/get-program! rules (name field) "view"))
-                             (keys o))))))
+    (and (flags/test-rule-wheres?)
+         (let [rules (rule-model/get-by-app-id {:app-id (:app-id ctx)})]
+           (and rules
+                (ucoll/exists? (fn [field]
+                                 (rule-model/get-program! rules (name field) "view"))
+                               (keys o))))))
 
 (defn worth-testing? [_ctx _o query-hash]
   (and (flags/test-rule-wheres?)

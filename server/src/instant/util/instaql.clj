@@ -1,21 +1,22 @@
 (ns instant.util.instaql
-  (:require [clojure.walk :as walk]
-            [instant.db.model.attr :as attr-model]
-            [instant.db.model.attr-pat :as attr-pat]
-            [instant.db.model.entity :as entity-model]
-            [instant.util.uuid :as uuid-util]
-            [instant.db.model.triple :as triple-model]
-            [medley.core :refer [update-existing-in]]))
+  (:require
+   [clojure.walk :as walk]
+   [instant.db.model.attr :as attr-model]
+   [instant.db.model.attr-pat :as attr-pat]
+   [instant.db.model.entity :as entity-model]
+   [instant.db.model.triple :as triple-model]
+   [instant.util.uuid :as uuid-util]
+   [medley.core :refer [update-existing-in]]))
 
 (declare instaql-ref-nodes->object-tree)
 
 (defn enrich-node [ctx parent-etype node]
   (let [label (-> node :data :k)
         pat (attr-pat/->guarded-ref-attr-pat
-             ctx
-             parent-etype
-             0
-             label)
+              ctx
+              parent-etype
+              0
+              label)
         [next-etype _ _ attr forward?] pat
         enriched-node (update node
                               :data
@@ -70,7 +71,7 @@
         transform-sort-value (value-transformer-for-sort ctx etype sort-field)
         ents-by-sort-keys (reduce (fn [acc ent]
                                     (let [sort-key {:field (transform-sort-value
-                                                            (get ent sort-field))
+                                                             (get ent sort-field))
                                                     :id (or (get ent "id")
                                                             ;; Sometimes tests don't
                                                             ;; set id fields
@@ -85,16 +86,16 @@
 
 (defn instaql-ref-nodes->object-tree [ctx nodes]
   (reduce
-   (fn [acc node]
-     (let [{:keys [child-nodes data]} node
-           {:keys [option-map]} data
-           _entries (map (partial obj-node ctx (-> data :etype)) child-nodes)
-           entries (sort-entries ctx (:etype data) option-map _entries)
-           singular? (and (:inference? ctx) (singular-entry? data))
-           entry-or-entries (if singular? (first entries) entries)]
-       (assoc acc (:k data) entry-or-entries)))
-   {}
-   nodes))
+    (fn [acc node]
+      (let [{:keys [child-nodes data]} node
+            {:keys [option-map]} data
+            _entries (map (partial obj-node ctx (-> data :etype)) child-nodes)
+            entries (sort-entries ctx (:etype data) option-map _entries)
+            singular? (and (:inference? ctx) (singular-entry? data))
+            entry-or-entries (if singular? (first entries) entries)]
+        (assoc acc (:k data) entry-or-entries)))
+    {}
+    nodes))
 
 (defn instaql-nodes->object-tree [ctx nodes]
   (let [enriched-nodes

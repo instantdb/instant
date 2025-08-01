@@ -1,10 +1,12 @@
 (ns instant.config-edn
-  (:require [clojure.edn :as edn]
-            [clojure.java.io :as io]
-            [clojure.spec.alpha :as s]
-            [clojure.walk :as w]
-            [clojure.tools.logging :as log])
-  (:import (org.apache.commons.codec.binary Hex)))
+  (:require
+   [clojure.edn :as edn]
+   [clojure.java.io :as io]
+   [clojure.spec.alpha :as s]
+   [clojure.tools.logging :as log]
+   [clojure.walk :as w])
+  (:import
+   (org.apache.commons.codec.binary Hex)))
 
 (defn hex-encoded? [^String s]
   (try
@@ -96,8 +98,8 @@
 
 (defn valid-config? [prod? config-edn]
   (or
-   (s/valid? (config-spec prod?) config-edn)
-   (s/explain (config-spec prod?) config-edn)))
+    (s/valid? (config-spec prod?) config-edn)
+    (s/explain (config-spec prod?) config-edn)))
 
 (defn read-config [env]
   (let [override (when (= :dev env)
@@ -135,15 +137,15 @@
                                   {:ciphertext (Hex/decodeHex ^String hex-string)
                                    :associated-data associated-data}))]
     (w/postwalk
-     (fn [x]
-       (if-not (and (vector? x)
-                    (keyword? (first x))
-                    (= (namespace (first x))
-                       (namespace ::test)))
-         x
-         (case (first x)
-           ::plain (obfuscate (second x))
-           ::encoded (-> ^bytes (decrypt (-> x second :enc))
-                         (String.)
-                         obfuscate))))
-     (s/conform ::config config-edn))))
+      (fn [x]
+        (if-not (and (vector? x)
+                     (keyword? (first x))
+                     (= (namespace (first x))
+                        (namespace ::test)))
+          x
+          (case (first x)
+            ::plain (obfuscate (second x))
+            ::encoded (-> ^bytes (decrypt (-> x second :enc))
+                          (String.)
+                          obfuscate))))
+      (s/conform ::config config-edn))))

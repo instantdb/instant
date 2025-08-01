@@ -29,10 +29,10 @@
    [instant.reactive.store :as rs]
    [instant.util.async :as ua]
    [instant.util.delay :as delay]
+   [instant.util.e2e-tracer :as e2e-tracer]
    [instant.util.exception :as ex]
    [instant.util.json :refer [<-json]]
    [instant.util.semver :as semver]
-   [instant.util.e2e-tracer :as e2e-tracer]
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
    [lambdaisland.uri :as uri])
@@ -99,12 +99,12 @@
         {:keys [attrs]} (get-attrs app)
         user        (when refresh-token
                       (app-user-model/get-by-refresh-token!
-                       {:app-id app-id :refresh-token refresh-token}))
+                        {:app-id app-id :refresh-token refresh-token}))
         creator     (instant-user-model/get-by-app-id {:app-id app-id})
         admin?      (and admin-token
                          (boolean
-                          (app-admin-token-model/fetch! {:app-id app-id
-                                                         :token admin-token})))
+                           (app-admin-token-model/fetch! {:app-id app-id
+                                                          :token admin-token})))
         auth        {:app    app
                      :user   user
                      :admin? admin?}
@@ -117,10 +117,10 @@
            :session/auth auth
            :session/creator creator
            (concat
-            (when versions
-              [:session/versions versions])
-            (when can-skip-attrs?
-              [:session/attrs-hash (hash attrs)])))
+             (when versions
+               [:session/versions versions])
+             (when can-skip-attrs?
+               [:session/attrs-hash (hash attrs)])))
     (rs/send-event! store app-id sess-id {:op              :init-ok
                                           :session-id      sess-id
                                           :client-event-id client-event-id
@@ -246,9 +246,9 @@
       (when (seq computations)
         (rs/send-event! store app-id sess-id (with-meta
                                                (cond->
-                                                {:op :refresh-ok
-                                                 :processed-tx-id processed-tx-id
-                                                 :computations computations}
+                                                 {:op :refresh-ok
+                                                  :processed-tx-id processed-tx-id
+                                                  :computations computations}
                                                  (or (not can-skip-attrs?) attrs-changed?)
                                                  (assoc :attrs attrs))
                                                {:tx-id (:tx-id event)
@@ -266,14 +266,14 @@
         _ (tx/validate! coerced)
         {tx-id :id}
         (permissioned-tx/transact!
-         {:db {:conn-pool (aurora/conn-pool :write)}
-          :rules (rule-model/get-by-app-id {:app-id app-id})
-          :app-id app-id
-          :current-user (:user auth)
-          :admin? (:admin? auth)
-          :datalog-query-fn d/query
-          :attrs (attr-model/get-by-app-id app-id)}
-         coerced)]
+          {:db {:conn-pool (aurora/conn-pool :write)}
+           :rules (rule-model/get-by-app-id {:app-id app-id})
+           :app-id app-id
+           :current-user (:user auth)
+           :admin? (:admin? auth)
+           :datalog-query-fn d/query
+           :attrs (attr-model/get-by-app-id app-id)}
+          coerced)]
     (rs/send-event! store app-id sess-id
                     {:op :transact-ok
                      :tx-id tx-id
@@ -312,12 +312,12 @@
            ws-ping-latency-ms] :as _event}]
   (let [{:session/keys [auth creator versions]} (rs/session store session-id)]
     (merge
-     {:op op
-      :client-event-id client-event-id
-      :session-id session-id
-      :total-delay-ms total-delay-ms
-      :ws-ping-latency-ms ws-ping-latency-ms}
-     (auth-and-creator-attrs auth creator versions))))
+      {:op op
+       :client-event-id client-event-id
+       :session-id session-id
+       :total-delay-ms total-delay-ms
+       :ws-ping-latency-ms ws-ping-latency-ms}
+      (auth-and-creator-attrs auth creator versions))))
 
 (defn validate-room-id [event]
   (ex/get-param! event [:room-id] (fn [s]
@@ -346,9 +346,9 @@
 (defn assert-in-room! [app-id room-id sess-id]
   (when-not (eph/in-room? app-id room-id sess-id)
     (ex/throw-validation-err!
-     :room
-     {:app-id app-id :room-id room-id :session-id sess-id}
-     [{:message "You have not entered this room yet."}])))
+      :room
+      {:app-id app-id :room-id room-id :session-id sess-id}
+      [{:message "You have not entered this room yet."}])))
 
 (defn- handle-set-presence!
   [store sess-id {:keys [client-event-id data] :as event}]
@@ -464,19 +464,19 @@
       (tracer/add-data! {:attributes {:error-on-error true}})
       (case type
         (::ex/record-not-found
-         ::ex/record-expired
-         ::ex/record-not-unique
-         ::ex/record-foreign-key-invalid
-         ::ex/record-check-violation
-         ::ex/sql-raise
+          ::ex/record-expired
+          ::ex/record-not-unique
+          ::ex/record-foreign-key-invalid
+          ::ex/record-check-violation
+          ::ex/sql-raise
 
-         ::ex/permission-denied
-         ::ex/permission-evaluation-failed
+          ::ex/permission-denied
+          ::ex/permission-evaluation-failed
 
-         ::ex/param-missing
-         ::ex/param-malformed
+          ::ex/param-missing
+          ::ex/param-malformed
 
-         ::ex/validation-failed)
+          ::ex/validation-failed)
         (receive-queue/put! q
                             {:op :error
                              :app-id app-id
@@ -490,8 +490,8 @@
                              :session-id sess-id})
 
         (::ex/session-missing
-         ::ex/socket-missing
-         ::ex/socket-error)
+          ::ex/socket-missing
+          ::ex/socket-error)
         (tracer/record-exception-span! instant-ex
                                        {:name "receive-worker/socket-unreachable"})
 
@@ -737,9 +737,9 @@
 
 (defmethod combine [:refresh :refresh] [event1 event2]
   (e2e-tracer/invalidator-tracking-step!
-   {:name          "skipped-refresh"
-    :tx-id         (:tx-id event1)
-    :tx-created-at (:tx-created-at event1)})
+    {:name          "skipped-refresh"
+     :tx-id         (:tx-id event1)
+     :tx-created-at (:tx-created-at event1)})
   event2)
 
 (defmethod combine [:refresh-presence :refresh-presence] [event1 event2]
@@ -753,12 +753,12 @@
 
 (defn start []
   (receive-queue/start
-   (grouped-queue/start
-    {:group-key-fn #'group-key
-     :combine-fn   #'combine
-     :process-fn   #'process
-     :max-workers  num-receive-workers
-     :metrics-path "instant.reactive.session.receive-q"})))
+    (grouped-queue/start
+      {:group-key-fn #'group-key
+       :combine-fn   #'combine
+       :process-fn   #'process
+       :max-workers  num-receive-workers
+       :metrics-path "instant.reactive.session.receive-q"})))
 
 (defn stop []
   (receive-queue/stop))

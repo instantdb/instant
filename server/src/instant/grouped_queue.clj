@@ -6,7 +6,7 @@
    [instant.util.tracer :as tracer])
   (:import
    (java.util Map Queue)
-   (java.util.concurrent ConcurrentHashMap ConcurrentLinkedQueue Executor Executors ExecutorService TimeUnit)
+   (java.util.concurrent ConcurrentHashMap ConcurrentLinkedQueue Executor ExecutorService Executors TimeUnit)
    (java.util.concurrent.atomic AtomicInteger)))
 
 (defn- execute [{:keys [executor error-fn]} ^Runnable task]
@@ -23,14 +23,14 @@
   [group combine-fn]
   (loop [item1 (Queue/.poll group)]
     (clojure+/cond+
-     (nil? item1) nil
-     :let [item2 (Queue/.peek group)]
-     (nil? item2) item1
-     :let [item12 (combine-fn item1 item2)]
-     (nil? item12) item1
-     :else (do
-             (Queue/.remove group) ;; remove item2
-             (recur (assoc item12 ::combined (inc (::combined item1 1))))))))
+      (nil? item1) nil
+      :let [item2 (Queue/.peek group)]
+      (nil? item2) item1
+      :let [item12 (combine-fn item1 item2)]
+      (nil? item12) item1
+      :else (do
+              (Queue/.remove group) ;; remove item2
+              (recur (assoc item12 ::combined (inc (::combined item1 1))))))))
 
 (declare process)
 
@@ -147,18 +147,18 @@
                        (Executors/newVirtualThreadPerTaskExecutor))
         cleanup-fn   (when metrics-path
                        (gauges/add-gauge-metrics-fn
-                        (fn [_]
-                          [{:path  (str metrics-path ".size")
-                            :value (AtomicInteger/.get num-items)}
-                           (when-some [t (longest-wait-time groups)]
-                             {:path  (str metrics-path ".longest-waiting-ms")
-                              :value t})
-                           {:path (str metrics-path ".worker-count")
-                            :value (AtomicInteger/.get num-workers)}
-                           #_{:path (str metrics-path ".pool-size")
-                              :value (ThreadPoolExecutor/.getPoolSize executor)}
-                           {:path (str metrics-path ".num-puts")
-                            :value (AtomicInteger/.getAndSet num-puts 0)}])))
+                         (fn [_]
+                           [{:path  (str metrics-path ".size")
+                             :value (AtomicInteger/.get num-items)}
+                            (when-some [t (longest-wait-time groups)]
+                              {:path  (str metrics-path ".longest-waiting-ms")
+                               :value t})
+                            {:path (str metrics-path ".worker-count")
+                             :value (AtomicInteger/.get num-workers)}
+                            #_{:path (str metrics-path ".pool-size")
+                               :value (ThreadPoolExecutor/.getPoolSize executor)}
+                            {:path (str metrics-path ".num-puts")
+                             :value (AtomicInteger/.getAndSet num-puts 0)}])))
         shutdown-fn  (fn [{:keys [timeout-ms]
                            :or {timeout-ms 1000}}]
                        (when cleanup-fn

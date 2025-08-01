@@ -1,7 +1,7 @@
 (ns instant.reactive.invalidator-test
   (:require
    [clojure.string :as string]
-   [clojure.test :as test :refer [deftest testing is]]
+   [clojure.test :as test :refer [deftest is testing]]
    [instant.data.resolvers :as resolvers]
    [instant.db.model.attr :as attr-model]
    [instant.db.transaction :as tx]
@@ -32,258 +32,258 @@
 
 (def create-triple-changes
   (->wal2jsonv2
-   '({:kind "insert",
-      :schema "public",
-      :table "triples",
-      :columnnames
-      ["app_id"
-       "entity_id"
-       "attr_id"
-       "value"
-       "value_md5"
-       "ea"
-       "eav"
-       "av"
-       "ave"
-       "vae"],
-      :columntypes
-      ["uuid"
-       "uuid"
-       "uuid"
-       "jsonb"
-       "text"
-       "boolean"
-       "boolean"
-       "boolean"
-       "boolean"
-       "boolean"],
-      :columnvalues
-      ["7e2d83a2-5018-44b2-84d0-0ebf7134da6d"
-       "7c6b379b-d841-46e1-8970-2da7e0cbc490"
-       "a2f7b8b7-5c6f-4b8c-a7aa-2ba400336acb"
-       "\"New Movie\""
-       "01a892b6f33fa54aa3e8056d49b790db"
-       true
-       false
-       false
-       false
-       false]}
-     {:kind "insert",
-      :schema "public",
-      :table "triples",
-      :columnnames
-      ["app_id"
-       "entity_id"
-       "attr_id"
-       "value"
-       "value_md5"
-       "ea"
-       "eav"
-       "av"
-       "ave"
-       "vae"],
-      :columntypes
-      ["uuid"
-       "uuid"
-       "uuid"
-       "jsonb"
-       "text"
-       "boolean"
-       "boolean"
-       "boolean"
-       "boolean"
-       "boolean"],
-      :columnvalues
-      ["7e2d83a2-5018-44b2-84d0-0ebf7134da6d"
-       "7c6b379b-d841-46e1-8970-2da7e0cbc490"
-       "6a631008-d315-4bbd-8665-c92aed9abc9c"
-       "1987"
-       "d68a18275455ae3eaa2c291eebb46e6d"
-       true
-       false
-       false
-       false
-       false]})))
-
-(def update-triple-changes
-  (->wal2jsonv2
-   '({:kind "update",
-      :schema "public",
-      :table "triples",
-      :columnnames
-      ["app_id"
-       "entity_id"
-       "attr_id"
-       "value"
-       "value_md5"
-       "ea"
-       "eav"
-       "av"
-       "ave"
-       "vae"],
-      :columntypes
-      ["uuid"
-       "uuid"
-       "uuid"
-       "jsonb"
-       "text"
-       "boolean"
-       "boolean"
-       "boolean"
-       "boolean"
-       "boolean"],
-      :columnvalues
-      ["7e2d83a2-5018-44b2-84d0-0ebf7134da6d"
-       "7c6b379b-d841-46e1-8970-2da7e0cbc490"
-       "a2f7b8b7-5c6f-4b8c-a7aa-2ba400336acb"
-       "\"Updated Movie3\""
-       "26833117de9ecb130a208c6da76eb18b"
-       true
-       false
-       false
-       false
-       false],
-      :oldkeys
-      {:keynames ["app_id" "entity_id" "attr_id" "value_md5"],
-       :keytypes ["uuid" "uuid" "uuid" "text"],
-       :keyvalues
+    '({:kind "insert"
+       :schema "public"
+       :table "triples"
+       :columnnames
+       ["app_id"
+        "entity_id"
+        "attr_id"
+        "value"
+        "value_md5"
+        "ea"
+        "eav"
+        "av"
+        "ave"
+        "vae"]
+       :columntypes
+       ["uuid"
+        "uuid"
+        "uuid"
+        "jsonb"
+        "text"
+        "boolean"
+        "boolean"
+        "boolean"
+        "boolean"
+        "boolean"]
+       :columnvalues
        ["7e2d83a2-5018-44b2-84d0-0ebf7134da6d"
         "7c6b379b-d841-46e1-8970-2da7e0cbc490"
         "a2f7b8b7-5c6f-4b8c-a7aa-2ba400336acb"
-        "01a892b6f33fa54aa3e8056d49b790db"]}})))
-
-(def delete-triple-changes
-  (->wal2jsonv2
-   '({:kind "delete",
-      :schema "public",
-      :table "triples",
-      :oldkeys
-      {:keynames ["app_id" "entity_id" "attr_id" "value_md5"],
-       :keytypes ["uuid" "uuid" "uuid" "text"],
-       :keyvalues
+        "\"New Movie\""
+        "01a892b6f33fa54aa3e8056d49b790db"
+        true
+        false
+        false
+        false
+        false]}
+      {:kind "insert"
+       :schema "public"
+       :table "triples"
+       :columnnames
+       ["app_id"
+        "entity_id"
+        "attr_id"
+        "value"
+        "value_md5"
+        "ea"
+        "eav"
+        "av"
+        "ave"
+        "vae"]
+       :columntypes
+       ["uuid"
+        "uuid"
+        "uuid"
+        "jsonb"
+        "text"
+        "boolean"
+        "boolean"
+        "boolean"
+        "boolean"
+        "boolean"]
+       :columnvalues
        ["7e2d83a2-5018-44b2-84d0-0ebf7134da6d"
         "7c6b379b-d841-46e1-8970-2da7e0cbc490"
         "6a631008-d315-4bbd-8665-c92aed9abc9c"
-        "d68a18275455ae3eaa2c291eebb46e6d"]}}
-     {:kind "delete",
-      :schema "public",
-      :table "triples",
-      :oldkeys
-      {:keynames ["app_id" "entity_id" "attr_id" "value_md5"],
-       :keytypes ["uuid" "uuid" "uuid" "text"],
-       :keyvalues
+        "1987"
+        "d68a18275455ae3eaa2c291eebb46e6d"
+        true
+        false
+        false
+        false
+        false]})))
+
+(def update-triple-changes
+  (->wal2jsonv2
+    '({:kind "update"
+       :schema "public"
+       :table "triples"
+       :columnnames
+       ["app_id"
+        "entity_id"
+        "attr_id"
+        "value"
+        "value_md5"
+        "ea"
+        "eav"
+        "av"
+        "ave"
+        "vae"]
+       :columntypes
+       ["uuid"
+        "uuid"
+        "uuid"
+        "jsonb"
+        "text"
+        "boolean"
+        "boolean"
+        "boolean"
+        "boolean"
+        "boolean"]
+       :columnvalues
        ["7e2d83a2-5018-44b2-84d0-0ebf7134da6d"
         "7c6b379b-d841-46e1-8970-2da7e0cbc490"
         "a2f7b8b7-5c6f-4b8c-a7aa-2ba400336acb"
-        "26833117de9ecb130a208c6da76eb18b"]}})))
+        "\"Updated Movie3\""
+        "26833117de9ecb130a208c6da76eb18b"
+        true
+        false
+        false
+        false
+        false]
+       :oldkeys
+       {:keynames ["app_id" "entity_id" "attr_id" "value_md5"]
+        :keytypes ["uuid" "uuid" "uuid" "text"]
+        :keyvalues
+        ["7e2d83a2-5018-44b2-84d0-0ebf7134da6d"
+         "7c6b379b-d841-46e1-8970-2da7e0cbc490"
+         "a2f7b8b7-5c6f-4b8c-a7aa-2ba400336acb"
+         "01a892b6f33fa54aa3e8056d49b790db"]}})))
+
+(def delete-triple-changes
+  (->wal2jsonv2
+    '({:kind "delete"
+       :schema "public"
+       :table "triples"
+       :oldkeys
+       {:keynames ["app_id" "entity_id" "attr_id" "value_md5"]
+        :keytypes ["uuid" "uuid" "uuid" "text"]
+        :keyvalues
+        ["7e2d83a2-5018-44b2-84d0-0ebf7134da6d"
+         "7c6b379b-d841-46e1-8970-2da7e0cbc490"
+         "6a631008-d315-4bbd-8665-c92aed9abc9c"
+         "d68a18275455ae3eaa2c291eebb46e6d"]}}
+      {:kind "delete"
+       :schema "public"
+       :table "triples"
+       :oldkeys
+       {:keynames ["app_id" "entity_id" "attr_id" "value_md5"]
+        :keytypes ["uuid" "uuid" "uuid" "text"]
+        :keyvalues
+        ["7e2d83a2-5018-44b2-84d0-0ebf7134da6d"
+         "7c6b379b-d841-46e1-8970-2da7e0cbc490"
+         "a2f7b8b7-5c6f-4b8c-a7aa-2ba400336acb"
+         "26833117de9ecb130a208c6da76eb18b"]}})))
 
 (def create-ident-changes
   (->wal2jsonv2
-   '({:kind "insert",
-      :schema "public",
-      :table "idents",
-      :columnnames ["id" "app_id" "attr_id" "etype" "label"],
-      :columntypes ["uuid" "uuid" "uuid" "text" "text"],
-      :columnvalues
-      ["d3a14b35-7e3c-4a5d-ae45-bacba24bedc4"
-       "935132de-8426-4972-ac65-ff5b4b79c504"
-       "ea72edf9-036a-413b-9c72-2bf92ec137d3"
-       "counters"
-       "id"]})))
+    '({:kind "insert"
+       :schema "public"
+       :table "idents"
+       :columnnames ["id" "app_id" "attr_id" "etype" "label"]
+       :columntypes ["uuid" "uuid" "uuid" "text" "text"]
+       :columnvalues
+       ["d3a14b35-7e3c-4a5d-ae45-bacba24bedc4"
+        "935132de-8426-4972-ac65-ff5b4b79c504"
+        "ea72edf9-036a-413b-9c72-2bf92ec137d3"
+        "counters"
+        "id"]})))
 
 (def create-attr-changes
   (->wal2jsonv2
-   '({:kind "insert",
-      :schema "public",
-      :table "attrs",
-      :columnnames
-      ["id"
-       "app_id"
-       "value_type"
-       "cardinality"
-       "is_unique"
-       "is_indexed"
-       "forward_ident"
-       "reverse_ident"],
-      :columntypes
-      ["uuid" "uuid" "text" "text" "boolean" "boolean" "uuid" "uuid"],
-      :columnvalues
-      ["ea72edf9-036a-413b-9c72-2bf92ec137d3"
-       "935132de-8426-4972-ac65-ff5b4b79c504"
-       "blob"
-       "one"
-       false
-       false
-       "d3a14b35-7e3c-4a5d-ae45-bacba24bedc4"
-       nil]})))
+    '({:kind "insert"
+       :schema "public"
+       :table "attrs"
+       :columnnames
+       ["id"
+        "app_id"
+        "value_type"
+        "cardinality"
+        "is_unique"
+        "is_indexed"
+        "forward_ident"
+        "reverse_ident"]
+       :columntypes
+       ["uuid" "uuid" "text" "text" "boolean" "boolean" "uuid" "uuid"]
+       :columnvalues
+       ["ea72edf9-036a-413b-9c72-2bf92ec137d3"
+        "935132de-8426-4972-ac65-ff5b4b79c504"
+        "blob"
+        "one"
+        false
+        false
+        "d3a14b35-7e3c-4a5d-ae45-bacba24bedc4"
+        nil]})))
 
 (def update-attr-changes
   (->wal2jsonv2
-   '({:kind "update",
-      :schema "public",
-      :table "attrs",
-      :columnnames
-      ["id"
-       "app_id"
-       "value_type"
-       "cardinality"
-       "is_unique"
-       "is_indexed"
-       "forward_ident"
-       "reverse_ident"],
-      :columntypes
-      ["uuid" "uuid" "text" "text" "boolean" "boolean" "uuid" "uuid"],
-      :columnvalues
-      ["a684c2ba-27af-4d54-8c02-68832b4566f0"
-       "935132de-8426-4972-ac65-ff5b4b79c504"
-       "blob"
-       "one"
-       false
-       true
-       "2a6cc86d-2814-4dd7-b3b3-3029bdd335af"
-       nil],
-      :oldkeys
-      {:keynames ["id"],
-       :keytypes ["uuid"],
-       :keyvalues ["a684c2ba-27af-4d54-8c02-68832b4566f0"]}})))
+    '({:kind "update"
+       :schema "public"
+       :table "attrs"
+       :columnnames
+       ["id"
+        "app_id"
+        "value_type"
+        "cardinality"
+        "is_unique"
+        "is_indexed"
+        "forward_ident"
+        "reverse_ident"]
+       :columntypes
+       ["uuid" "uuid" "text" "text" "boolean" "boolean" "uuid" "uuid"]
+       :columnvalues
+       ["a684c2ba-27af-4d54-8c02-68832b4566f0"
+        "935132de-8426-4972-ac65-ff5b4b79c504"
+        "blob"
+        "one"
+        false
+        true
+        "2a6cc86d-2814-4dd7-b3b3-3029bdd335af"
+        nil]
+       :oldkeys
+       {:keynames ["id"]
+        :keytypes ["uuid"]
+        :keyvalues ["a684c2ba-27af-4d54-8c02-68832b4566f0"]}})))
 
 (def update-ident-changes
   (->wal2jsonv2
-   '({:kind "update",
-      :schema "public",
-      :table "idents",
-      :columnnames ["id" "app_id" "attr_id" "etype" "label"],
-      :columntypes ["uuid" "uuid" "uuid" "text" "text"],
-      :columnvalues
-      ["2a6cc86d-2814-4dd7-b3b3-3029bdd335af"
-       "935132de-8426-4972-ac65-ff5b4b79c504"
-       "a684c2ba-27af-4d54-8c02-68832b4566f0"
-       "counters"
-       "floopy"],
-      :oldkeys
-      {:keynames ["id"],
-       :keytypes ["uuid"],
-       :keyvalues ["2a6cc86d-2814-4dd7-b3b3-3029bdd335af"]}})))
+    '({:kind "update"
+       :schema "public"
+       :table "idents"
+       :columnnames ["id" "app_id" "attr_id" "etype" "label"]
+       :columntypes ["uuid" "uuid" "uuid" "text" "text"]
+       :columnvalues
+       ["2a6cc86d-2814-4dd7-b3b3-3029bdd335af"
+        "935132de-8426-4972-ac65-ff5b4b79c504"
+        "a684c2ba-27af-4d54-8c02-68832b4566f0"
+        "counters"
+        "floopy"]
+       :oldkeys
+       {:keynames ["id"]
+        :keytypes ["uuid"]
+        :keyvalues ["2a6cc86d-2814-4dd7-b3b3-3029bdd335af"]}})))
 
 (def delete-ident-changes
   (->wal2jsonv2
-   '({:kind "delete",
-      :schema "public",
-      :table "idents",
-      :oldkeys
-      {:keynames ["id"],
-       :keytypes ["uuid"],
-       :keyvalues ["3d9fe1e5-f7cc-4c44-a4f2-0088fe28b119"]}})))
+    '({:kind "delete"
+       :schema "public"
+       :table "idents"
+       :oldkeys
+       {:keynames ["id"]
+        :keytypes ["uuid"]
+        :keyvalues ["3d9fe1e5-f7cc-4c44-a4f2-0088fe28b119"]}})))
 
 (def delete-attr-changes
   (->wal2jsonv2
-   '({:kind "delete",
-      :schema "public",
-      :table "attrs",
-      :oldkeys
-      {:keynames ["id"],
-       :keytypes ["uuid"],
-       :keyvalues ["48c22b06-ecc8-4459-a3b4-3c0b640780b5"]}})))
+    '({:kind "delete"
+       :schema "public"
+       :table "attrs"
+       :oldkeys
+       {:keynames ["id"]
+        :keytypes ["uuid"]
+        :keyvalues ["48c22b06-ecc8-4459-a3b4-3c0b640780b5"]}})))
 
 (deftest changes-produce-correct-topics
   (testing "insert triples"
@@ -423,40 +423,40 @@
                                        xform-change
                                        (dissoc "created_at")))
                                  (:triple-changes rec)))
-                       #{{"eav" false,
-                          "av" true,
-                          "ave" true,
-                          "value_md5" "057a88732b390295a8623cfd3cb799d9",
+                       #{{"eav" false
+                          "av" true
+                          "ave" true
+                          "value_md5" "057a88732b390295a8623cfd3cb799d9"
                           "entity_id" (str uid)
                           "attr_id" (str (resolvers/->uuid r :users/handle))
-                          "ea" true,
-                          "value" "\"dww\"",
-                          "vae" false,
+                          "ea" true
+                          "value" "\"dww\""
+                          "vae" false
                           "app_id" (str (:id app))
                           "checked_data_type" nil}
-                         {"eav" false,
-                          "av" true,
-                          "ave" false,
+                         {"eav" false
+                          "av" true
+                          "ave" false
                           "value_md5" (->md5 (->json (str uid)))
                           "entity_id" (str uid)
                           "attr_id" (str (resolvers/->uuid r :users/id))
-                          "ea" true,
+                          "ea" true
                           "value" (->json (str uid))
-                          "vae" false,
+                          "vae" false
                           "app_id" (str (:id app))
                           "checked_data_type" nil}
                          ;; null that is automatically inserted for the
                          ;; indexed blob attr
-                         {"eav" false,
-                          "av" true,
-                          "ave" true,
-                          "value_md5" "37a6259cc0c1dae299a7866489dff0bd",
+                         {"eav" false
+                          "av" true
+                          "ave" true
+                          "value_md5" "37a6259cc0c1dae299a7866489dff0bd"
                           "entity_id" (str uid)
                           "attr_id" (str (resolvers/->uuid r :users/email))
-                          "ea" true,
-                          "value" "null",
-                          "checked_data_type" nil,
-                          "vae" false,
+                          "ea" true
+                          "value" "null"
+                          "checked_data_type" nil
+                          "vae" false
                           "app_id" (str (:id app))}})))
 
               (finally

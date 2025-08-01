@@ -1,8 +1,8 @@
 (ns instant.machine-summaries
   (:require
-   [instant.util.hazelcast :as hz]
    [instant.reactive.ephemeral :as eph]
-   [instant.reactive.store :as rs])
+   [instant.reactive.store :as rs]
+   [instant.util.hazelcast :as hz])
   (:import
    (com.hazelcast.cluster Member)
    (com.hazelcast.core HazelcastInstance IExecutorService)))

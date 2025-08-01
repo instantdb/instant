@@ -1,13 +1,13 @@
 (ns instant.postmark
   (:require
-   [instant.config :as config]
    [clj-http.client :as clj-http]
+   [clojure.string :as string]
+   [instant.config :as config]
+   [instant.util.email :as email]
+   [instant.util.exception :as ex]
    [instant.util.json :refer [->json]]
    [instant.util.tracer :as tracer]
-   [instant.util.exception :as ex]
-   [instant.util.email :as email]
-   [medley.core :as medley]
-   [clojure.string :as string]))
+   [medley.core :as medley]))
 
 ;; ------------
 ;; Error codes
@@ -48,26 +48,26 @@
       (tracer/with-span! {:name "postmark/send-disabled"
                           :attributes body}
         (tracer/record-info!
-         {:name "postmark-disabled"
-          :attributes
-          {:msg
-           "Postmark is disabled, add postmark-token to config to enable"}}))
+          {:name "postmark-disabled"
+           :attributes
+           {:msg
+            "Postmark is disabled, add postmark-token to config to enable"}}))
       (tracer/with-span! {:name "postmark/send"
                           :attributes body}
         (try
           (clj-http/post
-           "https://api.postmarkapp.com/email"
-           {:coerce :always
-            :as :json
-            :headers {"X-Postmark-Server-Token" (config/postmark-token)
-                      "Content-Type" "application/json"}
-            :body (->json body)})
+            "https://api.postmarkapp.com/email"
+            {:coerce :always
+             :as :json
+             :headers {"X-Postmark-Server-Token" (config/postmark-token)
+                       "Content-Type" "application/json"}
+             :body (->json body)})
           (catch Exception e
             (if (inactive-recipient? e)
               (ex/throw-validation-err!
-               :email
-               to
-               [{:message "This email address has been marked inactive."}])
+                :email
+                to
+                [{:message "This email address has been marked inactive."}])
               (throw e))))))))
 
 (comment
@@ -116,50 +116,50 @@
 ;; https://postmarkapp.com/developer/api/signatures-api#create-signature
 (defn add-sender! [{:keys [email name]}]
   (clj-http/post
-   "https://api.postmarkapp.com/senders"
-   {:coerce :always
-    :as :json
-    :headers (postmark-admin-request-headers)
-    :body (->json {:FromEmail email
-                   :ReplyToEmail email
-                   :Name name
-                   :ConfirmationPersonalNote postmark-user-note})}))
+    "https://api.postmarkapp.com/senders"
+    {:coerce :always
+     :as :json
+     :headers (postmark-admin-request-headers)
+     :body (->json {:FromEmail email
+                    :ReplyToEmail email
+                    :Name name
+                    :ConfirmationPersonalNote postmark-user-note})}))
 
 ;; https://postmarkapp.com/developer/api/signatures-api#edit-signature
 (defn edit-sender! [{:keys [id name]}]
   (clj-http/put
-   (str "https://api.postmarkapp.com/senders/" id)
-   {:coerce :always
-    :as :json
-    :headers (postmark-admin-request-headers)
-    :body (->json {:Name name
-                   :ConfirmationPersonalNote postmark-user-note})}))
+    (str "https://api.postmarkapp.com/senders/" id)
+    {:coerce :always
+     :as :json
+     :headers (postmark-admin-request-headers)
+     :body (->json {:Name name
+                    :ConfirmationPersonalNote postmark-user-note})}))
 
 ;; https://postmarkapp.com/developer/api/signatures-api#delete-signature
 (defn delete-sender! [{:keys [id]}]
   (clj-http/delete
-   (str "https://api.postmarkapp.com/senders/" id)
-   {:coerce :always
-    :as :json
-    :headers (postmark-admin-request-headers)}))
+    (str "https://api.postmarkapp.com/senders/" id)
+    {:coerce :always
+     :as :json
+     :headers (postmark-admin-request-headers)}))
 
 ;; https://postmarkapp.com/developer/api/signatures-api#sender-signature
 (defn get-sender! [{:keys [id]}]
   (clj-http/get
-   (str "https://api.postmarkapp.com/senders/" id)
-   {:coerce :always
-    :as :json
-    :headers (postmark-admin-request-headers)}))
+    (str "https://api.postmarkapp.com/senders/" id)
+    {:coerce :always
+     :as :json
+     :headers (postmark-admin-request-headers)}))
 
 ;; https://postmarkapp.com/developer/api/signatures-api#list-sender-signatures
 (defn list-senders! [count offset]
   (clj-http/get
-   "https://api.postmarkapp.com/senders/"
-   {:coerce :always
-    :as :json
-    :query-params {:count count
-                   :offset offset}
-    :headers (postmark-admin-request-headers)}))
+    "https://api.postmarkapp.com/senders/"
+    {:coerce :always
+     :as :json
+     :query-params {:count count
+                    :offset offset}
+     :headers (postmark-admin-request-headers)}))
 
 (comment
   (def r (list-senders! 50 0))

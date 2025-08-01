@@ -1,19 +1,18 @@
 (ns instant.storage.sweeper
   (:require
    [chime.core :as chime-core]
+   [clojure.tools.logging :as log]
+   [honey.sql :as hsql]
+   [instant.config :as config]
+   [instant.discord :as discord]
+   [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
    [instant.storage.s3 :as instant-s3]
    [instant.util.s3 :as s3-util]
-   [instant.util.tracer :as tracer]
-   [clojure.tools.logging :as log]
-   [instant.jdbc.aurora :as aurora]
-   [honey.sql :as hsql]
-   [instant.jdbc.sql :as sql]
-   [instant.config :as config]
-   [instant.discord :as discord])
-
+   [instant.util.tracer :as tracer])
   (:import
-   (java.time Duration Instant)
    (java.lang AutoCloseable)
+   (java.time Duration Instant)
    (java.time.temporal ChronoUnit)))
 
 (def max-loops 10) ;; max loops per sweep job
@@ -46,23 +45,23 @@
    (sql/execute! ::claim-files!
                  conn
                  (hsql/format
-                  {:with [[:to-update
-                           {:select [:id]
-                            :from :app-files-to-sweep
-                            :where (if app-id
-                                     [:and
-                                      [:= :app-id app-id]
-                                      (files-available-wheres)]
-                                     (files-available-wheres))
-                            :order-by :created-at
-                            :for "UPDATE SKIP LOCKED"
-                            :limit limit}]]
-                   :update :app-files-to-sweep
-                   :set {:process-id @config/process-id
-                         :updated-at :%now}
-                   :where [:in :id {:select [:id]
-                                    :from :to-update}]
-                   :returning [:*]}))))
+                   {:with [[:to-update
+                            {:select [:id]
+                             :from :app-files-to-sweep
+                             :where (if app-id
+                                      [:and
+                                       [:= :app-id app-id]
+                                       (files-available-wheres)]
+                                      (files-available-wheres))
+                             :order-by :created-at
+                             :for "UPDATE SKIP LOCKED"
+                             :limit limit}]]
+                    :update :app-files-to-sweep
+                    :set {:process-id @config/process-id
+                          :updated-at :%now}
+                    :where [:in :id {:select [:id]
+                                     :from :to-update}]
+                    :returning [:*]}))))
 
 (defn delete-files!
   ([params]
@@ -71,9 +70,9 @@
    (sql/execute! ::delete-files!
                  conn
                  (hsql/format
-                  {:delete-from :app-files-to-sweep
-                   :where [:in :id ids]
-                   :returning [:id]}))))
+                   {:delete-from :app-files-to-sweep
+                    :where [:in :id ids]
+                    :returning [:id]}))))
 
 (defn process-sweep!
   ([params]
@@ -91,16 +90,16 @@
   [{:keys [current-loop max-loops start-ms app-id limit]}]
   (when (= :prod (config/get-env))
     (discord/send-error-async!
-     (str (:nezaj discord/mention-constants)
-          " Storage sweeper processed more than "
-          max-loops
-          " loops in one job, it may be backed up!")))
+      (str (:nezaj discord/mention-constants)
+           " Storage sweeper processed more than "
+           max-loops
+           " loops in one job, it may be backed up!")))
   (tracer/record-info!
-   {:name "storage-sweeper/warn-too-many-loops!"
-    :attributes (span-attrs {:current-loop current-loop
-                             :start-ms start-ms
-                             :limit limit
-                             :app-id app-id})})
+    {:name "storage-sweeper/warn-too-many-loops!"
+     :attributes (span-attrs {:current-loop current-loop
+                              :start-ms start-ms
+                              :limit limit
+                              :app-id app-id})})
   {:warn true})
 
 (defn handle-sweep!
@@ -117,19 +116,19 @@
                                                         :limit limit}))]
              (if (or (< n-deleted limit) (zero? n-deleted))
                (tracer/record-info!
-                {:name "storage-sweeper/finsh-sweep!"
-                 :attributes (span-attrs {:loops current-loop
-                                          :max-loops max-loops
-                                          :start-ms start-ms
-                                          :limit limit
-                                          :app-id app-id})})
+                 {:name "storage-sweeper/finsh-sweep!"
+                  :attributes (span-attrs {:loops current-loop
+                                           :max-loops max-loops
+                                           :start-ms start-ms
+                                           :limit limit
+                                           :app-id app-id})})
 
                (recur (inc current-loop))))
            (warn-too-many-loops!
-            {:current-loop current-loop
-             :max-loops max-loops
-             :start-ms start-ms
-             :app-id app-id})))))))
+             {:current-loop current-loop
+              :max-loops max-loops
+              :start-ms start-ms
+              :app-id app-id})))))))
 
 (defonce schedule (atom nil))
 
@@ -139,11 +138,11 @@
                     (if curr-schedule
                       curr-schedule
                       (chime-core/chime-at
-                       (chime-core/periodic-seq
-                        (Instant/now)
-                        (Duration/ofMinutes 60))
-                       (fn [_time]
-                         (handle-sweep! {:max-loops 10})))))))
+                        (chime-core/periodic-seq
+                          (Instant/now)
+                          (Duration/ofMinutes 60))
+                        (fn [_time]
+                          (handle-sweep! {:max-loops 10})))))))
 
 (defn stop []
   (when-let [curr-schedule @schedule]

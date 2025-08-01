@@ -1,8 +1,9 @@
 (ns instant.system-catalog
-  (:require [clojure.set :refer [map-invert]]
-            [clojure.string :as string])
+  (:require
+   [clojure.set :refer [map-invert]]
+   [clojure.string :as string])
   (:import
-   [java.util UUID]))
+   (java.util UUID)))
 
 ;; ---------
 ;; Constants
@@ -22,10 +23,10 @@
 (def char->bitstring
   (into {}
         (map-indexed
-         (fn [i c]
-           ;; 26 chars, so 5 bits to fit them all
-           [c (format "%05d" (Integer/parseInt (Integer/toBinaryString i)))])
-         name-chars)))
+          (fn [i c]
+            ;; 26 chars, so 5 bits to fit them all
+            [c (format "%05d" (Integer/parseInt (Integer/toBinaryString i)))])
+          name-chars)))
 
 (def bitstring->char (map-invert char->bitstring))
 
@@ -82,9 +83,9 @@
   (let [base (apply str (map (fn [c] (char->bitstring c)) input))
         padded (apply str base (repeat (- 64 (count base)) "1"))]
     (.getLong (java.nio.ByteBuffer/wrap
-               (byte-array (map (fn [x]
-                                  (unchecked-byte (Integer/parseInt (apply str x) 2)))
-                                (partition 8 padded)))))))
+                (byte-array (map (fn [x]
+                                   (unchecked-byte (Integer/parseInt (apply str x) 2)))
+                                 (partition 8 padded)))))))
 
 (def type-shortcodes {:attr "at"
                       :ident "id"})

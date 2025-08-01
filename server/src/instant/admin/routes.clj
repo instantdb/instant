@@ -1,6 +1,8 @@
 (ns instant.admin.routes
   (:require
-   [compojure.core :as compojure :refer [defroutes DELETE GET POST PUT]]
+   [clojure.string :as string]
+   [clojure.walk :as w]
+   [compojure.core :as compojure :refer [DELETE GET POST PUT defroutes]]
    [instant.admin.model :as admin-model]
    [instant.db.datalog :as d]
    [instant.db.instaql :as iq]
@@ -13,6 +15,11 @@
    [instant.model.app-user :as app-user-model]
    [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
    [instant.model.rule :as rule-model]
+   [instant.model.schema :as schema-model]
+   [instant.reactive.ephemeral :as eph]
+   [instant.runtime.magic-code-auth :as magic-code-auth]
+   [instant.storage.coordinator :as storage-coordinator]
+   [instant.storage.s3 :as instant-s3]
    [instant.superadmin.routes :refer [req->superadmin-user!]]
    [instant.util.email :as email]
    [instant.util.exception :as ex]
@@ -22,15 +29,8 @@
    [instant.util.string :as string-util]
    [instant.util.token :as token-util]
    [instant.util.uuid :as uuid-util]
-   [ring.util.http-response :as response]
-   [instant.model.schema :as schema-model]
-   [clojure.string :as string]
-   [instant.storage.coordinator :as storage-coordinator]
-   [instant.storage.s3 :as instant-s3]
-   [clojure.walk :as w]
-   [instant.reactive.ephemeral :as eph]
    [medley.core :as medley]
-   [instant.runtime.magic-code-auth :as magic-code-auth])
+   [ring.util.http-response :as response])
   (:import
    (java.util UUID)))
 
@@ -65,12 +65,12 @@
                 as-token
                 {:admin? false
                  :current-user (app-user-model/get-by-refresh-token!
-                                {:app-id app-id :refresh-token as-token})}
+                                 {:app-id app-id :refresh-token as-token})}
 
                 as-email
                 {:admin? false
                  :current-user (app-user-model/get-by-email!
-                                {:app-id app-id :email as-email})}
+                                 {:app-id app-id :email as-email})}
 
                 as-guest
                 {:admin? false :current-user nil}
@@ -94,8 +94,8 @@
               :data/read)
   (def refresh-token
     (app-user-refresh-token-model/create!
-     {:id (UUID/randomUUID)
-      :user-id (:id (app-user-model/get-by-email {:app-id counters-app-id :email "stopa@instantdb.com"}))}))
+      {:id (UUID/randomUUID)
+       :user-id (:id (app-user-model/get-by-email {:app-id counters-app-id :email "stopa@instantdb.com"}))}))
 
   (get-perms! {:headers {"app-id" (str counters-app-id)
                          "authorization" (format "Bearer %s" admin-token)
@@ -174,8 +174,8 @@
 (defn transact-post [req]
   (let [steps (ex/get-param! req [:body :steps] #(when (coll? %) %))
         throw-on-missing-attrs? (ex/get-optional-param!
-                                 req
-                                 [:body :throw-on-missing-attrs?] boolean)
+                                  req
+                                  [:body :throw-on-missing-attrs?] boolean)
         {:keys [app-id] :as perms} (get-perms! req :data/write)
         attrs (attr-model/get-by-app-id app-id)
         ctx (merge {:db {:conn-pool (aurora/conn-pool :write)}
@@ -202,8 +202,8 @@
         dry-run (not commit-tx)
         steps (ex/get-param! req [:body :steps] #(when (coll? %) %))
         throw-on-missing-attrs? (ex/get-optional-param!
-                                 req
-                                 [:body :throw-on-missing-attrs?] boolean)
+                                  req
+                                  [:body :throw-on-missing-attrs?] boolean)
         attrs (attr-model/get-by-app-id app-id)
         rules (if rules-override
                 {:app_id app-id :code rules-override}
@@ -260,15 +260,15 @@
                                           :email email})
 
             (app-user-model/create!
-             {:id (UUID/randomUUID)
-              :app-id app-id
-              :email email}))
+              {:id (UUID/randomUUID)
+               :app-id app-id
+               :email email}))
 
         {refresh-token-id :id}
         (app-user-refresh-token-model/create!
-         {:app-id app-id
-          :id (UUID/randomUUID)
-          :user-id user-id})]
+          {:app-id app-id
+           :id (UUID/randomUUID)
+           :user-id user-id})]
     (response/ok {:user (assoc user :refresh_token refresh-token-id)})))
 
 (defn sign-out-post [{:keys [body] :as req}]
@@ -277,26 +277,26 @@
     (cond
       id
       (app-user-refresh-token-model/delete-by-user-id!
-       {:app-id app-id
-        :user-id (ex/get-param! req [:body :id] uuid-util/coerce)})
+        {:app-id app-id
+         :user-id (ex/get-param! req [:body :id] uuid-util/coerce)})
 
       email
       (let [{:keys [id]} (app-user-model/get-by-email!
-                          {:app-id app-id
-                           :email (ex/get-param! req [:body :email] email/coerce)})]
+                           {:app-id app-id
+                            :email (ex/get-param! req [:body :email] email/coerce)})]
 
         (app-user-refresh-token-model/delete-by-user-id! {:app-id app-id
                                                           :user-id id}))
       refresh_token
       (app-user-refresh-token-model/delete-by-id!
-       {:app-id app-id
-        :id (ex/get-param! req [:body :refresh_token] uuid-util/coerce)})
+        {:app-id app-id
+         :id (ex/get-param! req [:body :refresh_token] uuid-util/coerce)})
 
       :else
       (ex/throw-validation-err!
-       :body
-       body
-       [{:message "Please provide an `id`, `email`, or `refresh_token`"}]))
+        :body
+        body
+        [{:message "Please provide an `id`, `email`, or `refresh_token`"}]))
     (response/ok {:ok true})))
 
 (defn req->app-user! [{:keys [params] :as req} oauth-scope]
@@ -305,24 +305,24 @@
     (cond
       email
       (app-user-model/get-by-email
-       {:app-id app-id
-        :email (ex/get-param! req [:params :email] email/coerce)})
+        {:app-id app-id
+         :email (ex/get-param! req [:params :email] email/coerce)})
 
       refresh_token
       (app-user-model/get-by-refresh-token
-       {:app-id app-id
-        :refresh-token (ex/get-param! req [:params :refresh_token] uuid-util/coerce)})
+        {:app-id app-id
+         :refresh-token (ex/get-param! req [:params :refresh_token] uuid-util/coerce)})
 
       id
       (app-user-model/get-by-id
-       {:app-id app-id
-        :id (ex/get-param! req [:params :id] uuid-util/coerce)})
+        {:app-id app-id
+         :id (ex/get-param! req [:params :id] uuid-util/coerce)})
 
       :else
       (ex/throw-validation-err!
-       :params
-       params
-       [{:message "Please provide a user id, email, or refresh_token"}]))))
+        :params
+        params
+        [{:message "Please provide a user id, email, or refresh_token"}]))))
 
 (defn app-users-get [req]
   (let [user (req->app-user! req :data/read)]
@@ -368,8 +368,8 @@
                                      :app-id counters-app-id
                                      :email email}))
   (def refresh-token (app-user-refresh-token-model/create!
-                      {:id (UUID/randomUUID)
-                       :user-id (:id user)}))
+                       {:id (UUID/randomUUID)
+                        :user-id (:id user)}))
 
   ;; GET /admin/users
   (tool/copy (tool/req->curl {:method :get
@@ -557,11 +557,11 @@
                    (app-user-model/get-by-ids {:app-id app-id :ids user-ids}))
 
         enhanced-room-data (medley/map-vals
-                            (fn [sess]
-                              (medley/update-existing
-                               sess :user (fn [{:keys [id]}]
-                                            (get id->user id))))
-                            room-data)]
+                             (fn [sess]
+                               (medley/update-existing
+                                 sess :user (fn [{:keys [id]}]
+                                              (get id->user id))))
+                             room-data)]
     (response/ok {:sessions enhanced-room-data})))
 
 (defroutes routes

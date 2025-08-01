@@ -1,6 +1,7 @@
 (ns instant.util.e2e-tracer
-  (:require [instant.util.tracer :as tracer]
-            [instant.flags :as flags])
+  (:require
+   [instant.flags :as flags]
+   [instant.util.tracer :as tracer])
   (:import
    (io.opentelemetry.api.trace SpanContext)
    (io.opentelemetry.sdk.trace SdkSpan)
@@ -69,13 +70,13 @@
   (when (flags/e2e-should-honeycomb-publish? tx-id)
     (binding [tracer/*span* (make-invalidator-tracking-span tx-id nil)]
       (tracer/record-info!
-       (-> span-opts
-           (update :name (fn [s] (format "e2e/invalidator/%s" s)))
-           (update :attributes (fn [a]
-                                 (merge a
-                                        {:tx-id tx-id
-                                         ;; encourage honeycomb not
-                                         ;; to skip this span
-                                         :entropy tx-id}
-                                        (when-let [latency-ms (tx-latency-ms tx-created-at)]
-                                          {:tx-latency-ms latency-ms})))))))))
+        (-> span-opts
+            (update :name (fn [s] (format "e2e/invalidator/%s" s)))
+            (update :attributes (fn [a]
+                                  (merge a
+                                         {:tx-id tx-id
+                                          ;; encourage honeycomb not
+                                          ;; to skip this span
+                                          :entropy tx-id}
+                                         (when-let [latency-ms (tx-latency-ms tx-created-at)]
+                                           {:tx-latency-ms latency-ms})))))))))

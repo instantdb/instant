@@ -8,10 +8,10 @@
      (tool/copy)
      (tool/hsql-pretty ...) and more!"
   (:require
+   [clj-async-profiler.core :as prof]
    [clojure.string :as str]
    [honey.sql :as hsql]
-   [portal.api :as p]
-   [clj-async-profiler.core :as prof])
+   [portal.api :as p])
   (:import
    (com.github.vertical_blank.sqlformatter SqlFormatter)
    (com.zaxxer.hikari HikariDataSource)
@@ -88,23 +88,22 @@
 
 (comment
   (hsql-pretty
-   {:with [[:foo {:select :* :from :foo}]
-           [:bar {:select :* :from :bar}]]
-    :select :* :from :bar}))
-
+    {:with [[:foo {:select :* :from :foo}]
+            [:bar {:select :* :from :bar}]]
+     :select :* :from :bar}))
 
 ;; Copied from sql.clj
 (defn ->pg-text-array
   "Formats as text[] in pg, i.e. {item-1, item-2, item3}"
   [col]
   (format
-   "{%s}"
-   (str/join
-    ","
-    (map (fn [s] (format "\"%s\""
-                         ;; Escape quotes (but don't double esc)
-                         (str/replace s #"(?<!\\)\"" "\\\"")))
-         col))))
+    "{%s}"
+    (str/join
+      ","
+      (map (fn [s] (format "\"%s\""
+                           ;; Escape quotes (but don't double esc)
+                           (str/replace s #"(?<!\\)\"" "\\\"")))
+           col))))
 
 ;; Copied from sql.clj
 (defn ->pg-uuid-array
@@ -137,13 +136,13 @@
                                                     (-> v
                                                         meta
                                                         :pgtype)) (format "'%s'"
-                                                    (->pg-uuid-array v))
+                                                                    (->pg-uuid-array v))
 
                                                  (= "text[]"
                                                     (-> v
                                                         meta
                                                         :pgtype)) (format "'%s'"
-                                                    (->pg-text-array v))
+                                                                    (->pg-text-array v))
                                                  (and (set? v)
                                                       (every? uuid? v)) (format "'%s'" (->pg-uuid-array v))
                                                  :else (format "'%s'" v))

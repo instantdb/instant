@@ -1,26 +1,27 @@
 (ns instant.fixtures
-  (:require [clojure.core.async :as a]
-            [clojure.test :refer [report]]
-            [instant.config :as config]
-            [instant.data.bootstrap :as bootstrap]
-            [instant.data.constants :refer [test-user-id]]
-            [instant.data.resolvers :as resolvers]
-            [instant.db.indexing-jobs :as indexing-jobs]
-            [instant.model.app :as app-model]
-            [instant.model.app-member-invites :as instant-app-member-invites]
-            [instant.model.app-members :as instant-app-members]
-            [instant.model.instant-stripe-customer :as instant-stripe-customer-model]
-            [instant.model.instant-subscription :as instant-subscription-model]
-            [instant.model.instant-user-refresh-token :as instant-user-refresh-token-model]
-            [instant.stripe :refer [PRO_SUBSCRIPTION_TYPE]]
-            [instant.model.instant-user :as instant-user-model]
-            [instant.db.pg-introspect :as pg-introspect]
-            [instant.jdbc.sql :as sql]
-            [instant.jdbc.aurora :as aurora]
-            [instant.util.coll :as ucoll]
-            [instant.util.io :as io-util]
-            [lambdaisland.uri :as uri]
-            [next.jdbc.connection :as connection])
+  (:require
+   [clojure.core.async :as a]
+   [clojure.test :refer [report]]
+   [instant.config :as config]
+   [instant.data.bootstrap :as bootstrap]
+   [instant.data.constants :refer [test-user-id]]
+   [instant.data.resolvers :as resolvers]
+   [instant.db.indexing-jobs :as indexing-jobs]
+   [instant.db.pg-introspect :as pg-introspect]
+   [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
+   [instant.model.app :as app-model]
+   [instant.model.app-member-invites :as instant-app-member-invites]
+   [instant.model.app-members :as instant-app-members]
+   [instant.model.instant-stripe-customer :as instant-stripe-customer-model]
+   [instant.model.instant-subscription :as instant-subscription-model]
+   [instant.model.instant-user :as instant-user-model]
+   [instant.model.instant-user-refresh-token :as instant-user-refresh-token-model]
+   [instant.stripe :refer [PRO_SUBSCRIPTION_TYPE]]
+   [instant.util.coll :as ucoll]
+   [instant.util.io :as io-util]
+   [lambdaisland.uri :as uri]
+   [next.jdbc.connection :as connection])
   (:import
    (java.io File)
    (java.util UUID)))
@@ -122,8 +123,8 @@
     (try
       (sql/execute! (aurora/conn-pool :write) [(format "create schema \"%s\"" schema)])
       (app-model/set-connection-string!
-       {:app-id id
-        :connection-string connection-string})
+        {:app-id id
+         :connection-string connection-string})
       (with-open [conn (sql/start-pool {:jdbcUrl connection-string
                                         :currentSchema schema
                                         :maximumPoolSize 1})]
@@ -149,19 +150,19 @@
 (defn with-pro-app [owner f]
   (let [app-id (UUID/randomUUID)
         app (app-model/create!
-             {:title "test team app"
-              :creator-id (:id owner)
-              :id app-id
-              :admin-token (UUID/randomUUID)})
+              {:title "test team app"
+               :creator-id (:id owner)
+               :id app-id
+               :admin-token (UUID/randomUUID)})
         stripe-customer (instant-stripe-customer-model/get-or-create! {:user owner})
         owner-req (mock-app-req app owner)
         _ (instant-subscription-model/create!
-           {:user-id (:id owner)
-            :app-id app-id
-            :subscription-type-id 2 ;; Pro
-            :stripe-customer-id (:id stripe-customer)
-            :stripe-subscription-id (str "fake_sub_" (UUID/randomUUID))
-            :stripe-event-id (str "fake_evt_" (UUID/randomUUID))})]
+            {:user-id (:id owner)
+             :app-id app-id
+             :subscription-type-id 2 ;; Pro
+             :stripe-customer-id (:id stripe-customer)
+             :stripe-subscription-id (str "fake_sub_" (UUID/randomUUID))
+             :stripe-event-id (str "fake_evt_" (UUID/randomUUID))})]
     (try
       (f {:app app
           :owner owner
@@ -172,29 +173,29 @@
 (defn with-team-app [owner invitee role f]
   (let [app-id (UUID/randomUUID)
         app (app-model/create!
-             {:title "test team app"
-              :creator-id (:id owner)
-              :id app-id
-              :admin-token (UUID/randomUUID)})
+              {:title "test team app"
+               :creator-id (:id owner)
+               :id app-id
+               :admin-token (UUID/randomUUID)})
         invite (instant-app-member-invites/create!
-                {:app-id app-id
-                 :inviter-id (:creator_id app)
-                 :role role
-                 :email (:email invitee)})
+                 {:app-id app-id
+                  :inviter-id (:creator_id app)
+                  :role role
+                  :email (:email invitee)})
         member (instant-app-members/create!
-                {:app-id app-id
-                 :user-id (:id invitee)
-                 :role role})
+                 {:app-id app-id
+                  :user-id (:id invitee)
+                  :role role})
         owner-req (mock-app-req app owner)
         invitee-req (mock-app-req app invitee)
         stripe-customer (instant-stripe-customer-model/get-or-create! {:user owner})
         _ (instant-subscription-model/create!
-           {:user-id (:id owner)
-            :app-id app-id
-            :subscription-type-id PRO_SUBSCRIPTION_TYPE
-            :stripe-customer-id (:id stripe-customer)
-            :stripe-subscription-id (str "fake_sub_" (UUID/randomUUID))
-            :stripe-event-id (str "fake_evt_" (UUID/randomUUID))})
+            {:user-id (:id owner)
+             :app-id app-id
+             :subscription-type-id PRO_SUBSCRIPTION_TYPE
+             :stripe-customer-id (:id stripe-customer)
+             :stripe-subscription-id (str "fake_sub_" (UUID/randomUUID))
+             :stripe-event-id (str "fake_evt_" (UUID/randomUUID))})
         _ (instant-app-member-invites/accept-by-id! {:id (:id invite)})]
     (try
       (f {:app app

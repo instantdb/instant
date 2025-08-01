@@ -29,10 +29,10 @@
 
 (defn -main+ [_]
   (setup-teardown
-   (fn []
-     (clojure+.error/install!)
-     (clojure+.print/install!)
-     (clojure+.test/install!)
-     (reload/init {:dirs ["src" "test"], :output :quieter})
-     (reload/reload {:only #"instant\..*-test"})
-     (clojure+.test/run))))
+    (fn []
+      (clojure+.error/install!)
+      (clojure+.print/install!)
+      (clojure+.test/install!)
+      (reload/init {:dirs ["src" "test"], :output :quieter})
+      (reload/reload {:only #"instant\..*-test"})
+      (clojure+.test/run))))

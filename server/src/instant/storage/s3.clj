@@ -1,13 +1,14 @@
 (ns instant.storage.s3
-  (:require [clojure.string :as string]
-            [instant.config :as config]
-            [instant.util.s3 :as s3-util]
-            [instant.util.date :as date-util])
+  (:require
+   [clojure.string :as string]
+   [instant.config :as config]
+   [instant.util.date :as date-util]
+   [instant.util.s3 :as s3-util])
   (:import
-   [software.amazon.awssdk.auth.credentials DefaultCredentialsProvider]
-   [software.amazon.awssdk.services.s3 S3AsyncClient S3Client]
-   [java.time Duration Instant]
-   [java.time.temporal ChronoUnit]))
+   (java.time Duration Instant)
+   (java.time.temporal ChronoUnit)
+   (software.amazon.awssdk.auth.credentials DefaultCredentialsProvider)
+   (software.amazon.awssdk.services.s3 S3AsyncClient S3Client)))
 
 (set! *warn-on-reflection* true)
 
@@ -115,13 +116,13 @@
   ([bucket-name app-id location-id {:keys [content-type content-disposition]}]
    (let [object-key (->object-key app-id location-id)]
      (s3-util/update-object-metadata
-      (s3-client)
-      {:source-bucket-name bucket-name
-       :destination-bucket-name bucket-name
-       :source-key object-key
-       :destination-key object-key
-       :content-type content-type
-       :content-disposition content-disposition}))))
+       (s3-client)
+       {:source-bucket-name bucket-name
+        :destination-bucket-name bucket-name
+        :source-key object-key
+        :destination-key object-key
+        :content-type content-type
+        :content-disposition content-disposition}))))
 
 (defn delete-file! [app-id location-id]
   (when location-id
@@ -129,8 +130,8 @@
 
 (defn bulk-delete-files! [app-id location-ids]
   (let [location-keys (mapv
-                       (fn [location-id] (->object-key app-id location-id))
-                       location-ids)]
+                        (fn [location-id] (->object-key app-id location-id))
+                        location-ids)]
     (s3-util/delete-objects-paginated (s3-client) bucket-name location-keys)))
 
 (defn bucketed-signing-instant
@@ -151,12 +152,12 @@
         duration (Duration/ofDays 7)
         object-key (->object-key app-id location-id)]
     (str (s3-util/generate-presigned-url
-          (presign-creds)
-          {:method :get
-           :bucket-name bucket-name
-           :key object-key
-           :duration duration
-           :signing-instant signing-instant}))))
+           (presign-creds)
+           {:method :get
+            :bucket-name bucket-name
+            :key object-key
+            :duration duration
+            :signing-instant signing-instant}))))
 
 (defn create-signed-download-url! [app-id location-id]
   (when location-id

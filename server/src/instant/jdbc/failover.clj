@@ -123,7 +123,7 @@
 ;;     t.table_schema = 'public'
 ;;     AND t.table_type = 'BASE TABLE';
 
-(def tbl-configs [{:tbl :apps,
+(def tbl-configs [{:tbl :apps
                    :primary-key [:id]}
                   {:tbl :indexing_jobs
                    :primary-key [:id]}
@@ -213,20 +213,20 @@
       value)))
 
 (def row-builder (rs/as-maps-adapter
-                  rs/as-unqualified-maps
-                  bytes-column-reader))
+                   rs/as-unqualified-maps
+                   bytes-column-reader))
 
 (defn find-missing-rows [replica-conn batch {:keys [tbl primary-key]}]
   (let [q (hsql/format
-           {:select :*
-            :from tbl
-            :where (list* :or
-                          (map (fn [row]
-                                 (list* :and
-                                        (map (fn [[k v]]
-                                               [:= k v])
-                                             (select-keys row primary-key))))
-                               batch))})
+            {:select :*
+             :from tbl
+             :where (list* :or
+                           (map (fn [row]
+                                  (list* :and
+                                         (map (fn [[k v]]
+                                                [:= k v])
+                                              (select-keys row primary-key))))
+                                batch))})
         replica-rows (sql/select ::fetch-by-id replica-conn q {:builder-fn row-builder})]
     (apply disj (set batch) replica-rows)))
 
@@ -237,12 +237,12 @@
   (println (format "Rechecking missing from %s (%d rows)" tbl (count rows)))
   (reduce (fn [acc row]
             (let [q (hsql/format
-                     {:select :*
-                      :from tbl
-                      :where (list* :and
-                                    (map (fn [[k v]]
-                                           [:= k v])
-                                         (select-keys row primary-key)))})
+                      {:select :*
+                       :from tbl
+                       :where (list* :and
+                                     (map (fn [[k v]]
+                                            [:= k v])
+                                          (select-keys row primary-key)))})
                   primary-row (sql/select-one ::fetch-by-id primary-conn q {:builder-fn row-builder})]
               (if (not= primary-row row)
                 (do
@@ -270,9 +270,9 @@
                                 {:invalid []
                                  :batch []}
                                 (with-open [conn (next-jdbc/get-connection
-                                                  primary-conn
-                                                  ;; required to make postgres stream results
-                                                  {:auto-commit false})]
+                                                   primary-conn
+                                                   ;; required to make postgres stream results
+                                                   {:auto-commit false})]
                                   (next-jdbc/plan conn
                                                   (hsql/format {:select :*
                                                                 :from tbl})

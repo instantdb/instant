@@ -2,6 +2,8 @@
   (:require
    [clojure.set :as clojure-set]
    [clojure.string :as clojure-string]
+   [instant.comment :as c]
+   [instant.data.resolvers :as resolvers]
    [instant.db.dataloader :as dataloader]
    [instant.db.datalog :as d]
    [instant.db.model.attr :as attr-model]
@@ -10,58 +12,24 @@
    [instant.util.coll :as ucoll]
    [instant.util.exception :as ex]
    [instant.util.io :as io]
-   [instant.util.tracer :as tracer]
-   [instant.comment :as c]
-   [instant.data.resolvers :as resolvers])
+   [instant.util.tracer :as tracer])
   (:import
    (com.google.common.collect ImmutableList ImmutableSet)
    (com.google.protobuf NullValue)
-   (dev.cel.common CelAbstractSyntaxTree
-                   CelFunctionDecl
-                   CelOptions
-                   CelOverloadDecl)
-   (dev.cel.common.ast CelExpr
-                       CelExpr$CelCall
-                       CelExpr$CelComprehension
-                       CelExpr$ExprKind$Kind
-                       Expression$Map$Entry)
-   (dev.cel.common.navigation CelNavigableAst
-                              CelNavigableExpr)
-   (dev.cel.common.types CelType
-                         ListType
-                         MapType
-                         SimpleType
-                         OpaqueType
-                         TypeParamType)
-   (dev.cel.compiler CelCompiler
-                     CelCompilerFactory
-                     CelCompilerLibrary
-                     CelCompilerBuilder)
+   (dev.cel.common CelAbstractSyntaxTree CelFunctionDecl CelOptions CelOverloadDecl)
+   (dev.cel.common.ast CelExpr CelExpr$CelCall CelExpr$CelComprehension CelExpr$ExprKind$Kind Expression$Map$Entry)
+   (dev.cel.common.navigation CelNavigableAst CelNavigableExpr)
+   (dev.cel.common.types CelType ListType MapType OpaqueType SimpleType TypeParamType)
+   (dev.cel.compiler CelCompiler CelCompilerBuilder CelCompilerFactory CelCompilerLibrary)
    (dev.cel.extensions CelExtensions)
-   (dev.cel.parser CelStandardMacro
-                   CelUnparserFactory
-                   CelUnparser
-                   Operator)
-   (dev.cel.runtime CelAttribute
-                    CelEvaluationException
-                    CelFunctionOverload
-                    CelRuntime
-                    CelRuntime$CelFunctionBinding
-                    CelRuntime$Program
-                    CelRuntimeLegacyImpl$Builder
-                    CelRuntimeFactory
-                    CelStandardFunctions
-                    CelStandardFunctions$StandardFunction
-                    CelUnknownSet
-                    CelVariableResolver
-                    UnknownContext)
-   (dev.cel.validator CelAstValidator
-                      CelValidatorFactory)
+   (dev.cel.parser CelStandardMacro CelUnparser CelUnparserFactory Operator)
+   (dev.cel.runtime CelAttribute CelEvaluationException CelFunctionOverload CelRuntime CelRuntime$CelFunctionBinding CelRuntime$Program CelRuntimeFactory CelRuntimeLegacyImpl$Builder CelStandardFunctions CelStandardFunctions$StandardFunction CelUnknownSet CelVariableResolver UnknownContext)
+   (dev.cel.validator CelAstValidator CelValidatorFactory)
    (instant.db.model.attr Attrs)
    (java.text SimpleDateFormat)
    (java.util ArrayList Date HashMap Map Optional SimpleTimeZone)
-   (java.util.concurrent.atomic AtomicInteger)
-   (java.util.concurrent ConcurrentHashMap)))
+   (java.util.concurrent ConcurrentHashMap)
+   (java.util.concurrent.atomic AtomicInteger)))
 
 (set! *warn-on-reflection* true)
 
@@ -106,11 +74,11 @@
 
 (defn- find-val-path [query]
   (first
-   (for [[i pattern] (map-indexed vector query)
-         :let [pos (ucoll/index-of value-sym pattern)]
-         :when pos]
-     ;; `dec` because these patterns include the `index`, but join-rows don't.
-     [i (dec pos)])))
+    (for [[i pattern] (map-indexed vector query)
+          :let [pos (ucoll/index-of value-sym pattern)]
+          :when pos]
+      ;; `dec` because these patterns include the `index`, but join-rows don't.
+      [i (dec pos)])))
 
 (defn- get-ref-many
   [{:keys [datalog-query-fn] :as ctx} {:keys [etype eids path-str]}]
@@ -125,10 +93,10 @@
         (datalog-query-fn ctx pats)
         grouped-join-rows (group-by #(get-in % group-by-path) join-rows)
         results (map
-                 (fn [eid]
-                   (let [rows (grouped-join-rows eid)]
-                     (map #(get-in % val-path) rows)))
-                 eids)]
+                  (fn [eid]
+                    (let [rows (grouped-join-rows eid)]
+                      (map #(get-in % val-path) rows)))
+                  eids)]
     results))
 
 (defonce loader-state (atom {}))
@@ -144,11 +112,11 @@
   [app-id etype path-str])
 
 (def get-ref (dataloader/create-loader
-              {:state loader-state
-               :key-fn get-ref-key-fn
-               :batch-fn get-ref-batch-fn
-               :delay-ms 5
-               :timeout-ms 5000}))
+               {:state loader-state
+                :key-fn get-ref-key-fn
+                :batch-fn get-ref-batch-fn
+                :delay-ms 5
+                :timeout-ms 5000}))
 (comment
   (def z (c/zeneca-app!))
   (def z-id (:id z))
@@ -214,9 +182,9 @@
 
 (defn get-cel-value [m k]
   (stringify
-   (if (contains? m k)
-     (get m k)
-     (get m (keyword k)))))
+    (if (contains? m k)
+      (get m k)
+      (get m (keyword k)))))
 
 (definterface IRef
   (ref [path-str]))
@@ -288,25 +256,25 @@
        (fn [[^Boolean x ^String y]] ...)"
   [global-or-member ^String function-name decls]
   {:decl (CelFunctionDecl/newFunctionDeclaration
-          function-name
-          (ucoll/array-of CelOverloadDecl
-                          (mapv (fn [decl]
-                                  (let [args (ucoll/array-of CelType (:cel-args decl))]
-                                    (case global-or-member
-                                      :global (CelOverloadDecl/newGlobalOverload
-                                               ^String (:overload-id decl)
-                                               ^CelType (:cel-return-type decl)
-                                               args)
-                                      :member (CelOverloadDecl/newMemberOverload
-                                               ^String (:overload-id decl)
-                                               ^CelType (:cel-return-type decl)
-                                               args))))
-                                decls)))
+           function-name
+           (ucoll/array-of CelOverloadDecl
+                           (mapv (fn [decl]
+                                   (let [args (ucoll/array-of CelType (:cel-args decl))]
+                                     (case global-or-member
+                                       :global (CelOverloadDecl/newGlobalOverload
+                                                 ^String (:overload-id decl)
+                                                 ^CelType (:cel-return-type decl)
+                                                 args)
+                                       :member (CelOverloadDecl/newMemberOverload
+                                                 ^String (:overload-id decl)
+                                                 ^CelType (:cel-return-type decl)
+                                                 args))))
+                                 decls)))
    :runtimes (mapv (fn [decl]
                      (CelRuntime$CelFunctionBinding/from
-                      ^String (:overload-id decl)
-                      ^java.lang.Iterable (:java-args decl)
-                      ^CelFunctionOverload (:impl decl)))
+                       ^String (:overload-id decl)
+                       ^java.lang.Iterable (:java-args decl)
+                       ^CelFunctionOverload (:impl decl)))
                    decls)})
 
 (defn global-overload [^String function-name decls]
@@ -395,8 +363,8 @@
   (set (keep (fn [^CelNavigableExpr n]
                (when (= CelExpr$ExprKind$Kind/IDENT (.getKind n))
                  (.name
-                  (.ident
-                   (get-expr n)))))
+                   (.ident
+                     (get-expr n)))))
              (-> (.parse compiler expr-str)
                  (.getAst)
                  (CelNavigableAst/fromAst)
@@ -433,14 +401,14 @@
 
         (instance? CelUnknownSet result)
         (throw (CelEvaluationException.
-                "Tried to evaluate a cel program that used unknown variables"))
+                 "Tried to evaluate a cel program that used unknown variables"))
 
         :else
         result))
 
     (catch CelEvaluationException e
       (ex/throw-permission-evaluation-failed!
-       etype action e (:show-cel-errors? ctx)))))
+        etype action e (:show-cel-errors? ctx)))))
 
 (deftype MissingRefData [ref-datas])
 
@@ -463,9 +431,9 @@
                          (find [_this var-name]
                            (case var-name
                              "auth" (Optional/of
-                                     (AuthCelMap. ctx (CelMap. (:current-user ctx))))
+                                      (AuthCelMap. ctx (CelMap. (:current-user ctx))))
                              "data" (Optional/of
-                                     (DataCelMap. ctx etype (CelMap. data)))
+                                      (DataCelMap. ctx etype (CelMap. data)))
                              "ruleParams" (Optional/of (CelMap. rule-params))
                              "newData" (if new-data
                                          (Optional/of (CelMap. new-data))
@@ -490,7 +458,7 @@
                   ;; use this to avoid pre-fetching entity maps.
                   _ (when (seq missing-exprs)
                       (throw (CelEvaluationException.
-                              "Tried to evaluate a cel program that used unknown variables")))
+                               "Tried to evaluate a cel program that used unknown variables")))
                   ^ImmutableSet missing-ref-attrs (.attributes result)
 
                   missing-refs
@@ -498,21 +466,21 @@
                             (if-let [ref-data (.get missing-data-refs ref-attr)]
                               (conj acc ref-data)
                               (throw (CelEvaluationException.
-                                      (str "Tried to evaluate a cel program that used unknown variables. "
-                                           "Missing attribute is not in missing-ref-attrs.")))))
+                                       (str "Tried to evaluate a cel program that used unknown variables. "
+                                            "Missing attribute is not in missing-ref-attrs.")))))
                           #{}
                           missing-ref-attrs)]
               (if (seq missing-refs)
                 (MissingRefData. missing-refs)
                 (throw (CelEvaluationException.
-                        (str "Tried to evaluate a cel program that used unknown variables. "
-                             "Eval returned unknown, but there are no unknown refs.")))))
+                         (str "Tried to evaluate a cel program that used unknown variables. "
+                              "Eval returned unknown, but there are no unknown refs.")))))
 
             :else
             result))
     (catch CelEvaluationException e
       (ex/throw-permission-evaluation-failed!
-       etype action e (:show-cel-errors? ctx)))))
+        etype action e (:show-cel-errors? ctx)))))
 
 (declare prefetch-missing-ref-datas)
 
@@ -563,7 +531,6 @@
          (recur results
                 ctx
                 rerun-programs))))))
-
 
 ;; cel -> instaql where clauses
 ;; ----------------------------
@@ -754,26 +721,26 @@
 
 (def or-overloads
   (global-overload
-   (.getFunction Operator/LOGICAL_OR)
-   (for [arg-1 [:datakey :whereclause :bool]
-         arg-2 [:datakey :whereclause :bool]
-         :let [args [arg-1 arg-2]]]
-     {:overload-id (str "_or_" (clojure-string/join "_"
-                                                    (map type->name args)))
-      :cel-args (map type->cel args)
-      :cel-return-type (case args
-                         ([:whereclause :whereclause]
-                          [:datakey :datakey]
-                          [:datakey :whereclause]
-                          [:whereclause :datakey]) whereclause-cel-type
-                         ([:whereclause :bool]
-                          [:bool :whereclause]
-                          [:datakey :bool]
-                          [:bool :datakey]) SimpleType/DYN
-                         [:bool :bool] SimpleType/BOOL
-                         SimpleType/DYN)
-      :java-args (map type->java args)
-      :impl (get-or-overload-fn args)})))
+    (.getFunction Operator/LOGICAL_OR)
+    (for [arg-1 [:datakey :whereclause :bool]
+          arg-2 [:datakey :whereclause :bool]
+          :let [args [arg-1 arg-2]]]
+      {:overload-id (str "_or_" (clojure-string/join "_"
+                                                     (map type->name args)))
+       :cel-args (map type->cel args)
+       :cel-return-type (case args
+                          ([:whereclause :whereclause]
+                           [:datakey :datakey]
+                           [:datakey :whereclause]
+                           [:whereclause :datakey]) whereclause-cel-type
+                          ([:whereclause :bool]
+                           [:bool :whereclause]
+                           [:datakey :bool]
+                           [:bool :datakey]) SimpleType/DYN
+                          [:bool :bool] SimpleType/BOOL
+                          SimpleType/DYN)
+       :java-args (map type->java args)
+       :impl (get-or-overload-fn args)})))
 
 ;; Overloads for `AND`
 ;; We overload the existing AND function to handle our custom types
@@ -831,26 +798,26 @@
 
 (def and-overloads
   (global-overload
-   (.getFunction Operator/LOGICAL_AND)
-   (for [arg-1 [:datakey :whereclause :bool]
-         arg-2 [:datakey :whereclause :bool]
-         :let [args [arg-1 arg-2]]]
-     {:overload-id (str "_and_" (clojure-string/join "_"
-                                                     (map type->name args)))
-      :cel-args (map type->cel args)
-      :cel-return-type (case args
-                         ([:whereclause :whereclause]
-                          [:datakey :datakey]
-                          [:datakey :whereclause]
-                          [:whereclause :datakey]) whereclause-cel-type
-                         ([:whereclause :bool]
-                          [:bool :whereclause]
-                          [:datakey :bool]
-                          [:bool :datakey]) SimpleType/DYN
-                         [:bool :bool] SimpleType/BOOL
-                         SimpleType/DYN)
-      :java-args (map type->java args)
-      :impl (get-and-overload-fn args)})))
+    (.getFunction Operator/LOGICAL_AND)
+    (for [arg-1 [:datakey :whereclause :bool]
+          arg-2 [:datakey :whereclause :bool]
+          :let [args [arg-1 arg-2]]]
+      {:overload-id (str "_and_" (clojure-string/join "_"
+                                                      (map type->name args)))
+       :cel-args (map type->cel args)
+       :cel-return-type (case args
+                          ([:whereclause :whereclause]
+                           [:datakey :datakey]
+                           [:datakey :whereclause]
+                           [:whereclause :datakey]) whereclause-cel-type
+                          ([:whereclause :bool]
+                           [:bool :whereclause]
+                           [:datakey :bool]
+                           [:bool :datakey]) SimpleType/DYN
+                          [:bool :bool] SimpleType/BOOL
+                          SimpleType/DYN)
+       :java-args (map type->java args)
+       :impl (get-and-overload-fn args)})))
 
 ;; Overloads for `==`, `!=`, and `in`
 ;; We replace the existing functions because adding overloads
@@ -887,149 +854,149 @@
 
 (def eq-overloads
   (global-overload
-   (.getFunction Operator/EQUALS)
-   [{:overload-id "_eq_dynamic"
-     :cel-args [SimpleType/DYN SimpleType/DYN]
-     :cel-return-type SimpleType/DYN
-     :java-args [Object Object]
-     :impl (fn [[x y]]
-             (cond (and (instance? DataKey x)
-                        ;; Can't have someone doing data.a == data.b
-                        (not (instance? DataKey y)))
-                   (WhereClause. {(.data_key ^DataKey x) (where-eq-value y)})
+    (.getFunction Operator/EQUALS)
+    [{:overload-id "_eq_dynamic"
+      :cel-args [SimpleType/DYN SimpleType/DYN]
+      :cel-return-type SimpleType/DYN
+      :java-args [Object Object]
+      :impl (fn [[x y]]
+              (cond (and (instance? DataKey x)
+                         ;; Can't have someone doing data.a == data.b
+                         (not (instance? DataKey y)))
+                    (WhereClause. {(.data_key ^DataKey x) (where-eq-value y)})
 
-                   (and (instance? DataKey y)
-                        (not (instance? DataKey x)))
-                   (WhereClause. {(.data_key ^DataKey y) (where-eq-value x)})
+                    (and (instance? DataKey y)
+                         (not (instance? DataKey x)))
+                    (WhereClause. {(.data_key ^DataKey y) (where-eq-value x)})
 
-                   (and (instance? DataKey y)
-                        (instance? DataKey x))
-                   (throw (ex-info "Can't represent data.key1 == data.key2" {:x x :y y}))
+                    (and (instance? DataKey y)
+                         (instance? DataKey x))
+                    (throw (ex-info "Can't represent data.key1 == data.key2" {:x x :y y}))
 
-                   (and (instance? RefPath x)
-                        (= [] y)
-                        (empty-list-comparable x))
-                   (WhereClause. {(empty-list-comparable x) {:$isNull true}})
+                    (and (instance? RefPath x)
+                         (= [] y)
+                         (empty-list-comparable x))
+                    (WhereClause. {(empty-list-comparable x) {:$isNull true}})
 
-                   (and (instance? RefPath y)
-                        (= [] x)
-                        (empty-list-comparable y))
-                   (WhereClause. {(empty-list-comparable y) {:$isNull true}})
+                    (and (instance? RefPath y)
+                         (= [] x)
+                         (empty-list-comparable y))
+                    (WhereClause. {(empty-list-comparable y) {:$isNull true}})
 
-                   (and (instance? RefPathSize x)
-                        (= 0 y))
-                   (WhereClause. {(.empty_list_comparable ^RefPathSize x) {:$isNull true}})
+                    (and (instance? RefPathSize x)
+                         (= 0 y))
+                    (WhereClause. {(.empty_list_comparable ^RefPathSize x) {:$isNull true}})
 
-                   (and (instance? RefPathSize y)
-                        (= 0 x))
-                   (WhereClause. {(.empty_list_comparable ^RefPathSize y) {:$isNull true}})
+                    (and (instance? RefPathSize y)
+                         (= 0 x))
+                    (WhereClause. {(.empty_list_comparable ^RefPathSize y) {:$isNull true}})
 
-                   (custom-type? x)
-                   (throw (ex-info "Can't compare on our custom types" {:x x :y y}))
+                    (custom-type? x)
+                    (throw (ex-info "Can't compare on our custom types" {:x x :y y}))
 
-                   (custom-type? y)
-                   (throw (ex-info "Can't compare on our custom types" {:x x :y y}))
+                    (custom-type? y)
+                    (throw (ex-info "Can't compare on our custom types" {:x x :y y}))
 
-                   :else
-                   (= x y)))}]))
+                    :else
+                    (= x y)))}]))
 
 (def neq-overloads
   (global-overload
-   (.getFunction Operator/NOT_EQUALS)
-   [{:overload-id "_neq_dynamic"
-     :cel-args [SimpleType/DYN SimpleType/DYN]
-     :cel-return-type SimpleType/DYN
-     :java-args [Object Object]
-     :impl (fn [[x y]]
-             (cond (and (instance? DataKey x)
-                        ;; Can't have someone doing data.a == data.b
-                        (not (instance? DataKey y)))
-                   (WhereClause. {(.data_key ^DataKey x) (where-neq-value y)})
+    (.getFunction Operator/NOT_EQUALS)
+    [{:overload-id "_neq_dynamic"
+      :cel-args [SimpleType/DYN SimpleType/DYN]
+      :cel-return-type SimpleType/DYN
+      :java-args [Object Object]
+      :impl (fn [[x y]]
+              (cond (and (instance? DataKey x)
+                         ;; Can't have someone doing data.a == data.b
+                         (not (instance? DataKey y)))
+                    (WhereClause. {(.data_key ^DataKey x) (where-neq-value y)})
 
-                   (and (instance? DataKey y)
-                        (not (instance? DataKey x)))
-                   (WhereClause. {(.data_key ^DataKey y) (where-neq-value x)})
+                    (and (instance? DataKey y)
+                         (not (instance? DataKey x)))
+                    (WhereClause. {(.data_key ^DataKey y) (where-neq-value x)})
 
-                   (and (instance? DataKey y)
-                        (instance? DataKey x))
-                   (throw (ex-info "Can't represent data.key1 != data.key2" {:x x :y y}))
+                    (and (instance? DataKey y)
+                         (instance? DataKey x))
+                    (throw (ex-info "Can't represent data.key1 != data.key2" {:x x :y y}))
 
-                   (and (instance? RefPath x)
-                        (= [] y)
-                        (empty-list-comparable x))
-                   (WhereClause. {(empty-list-comparable x) {:$isNull false}})
+                    (and (instance? RefPath x)
+                         (= [] y)
+                         (empty-list-comparable x))
+                    (WhereClause. {(empty-list-comparable x) {:$isNull false}})
 
-                   (and (instance? RefPath y)
-                        (= [] x)
-                        (empty-list-comparable y))
-                   (WhereClause. {(empty-list-comparable y) {:$isNull false}})
+                    (and (instance? RefPath y)
+                         (= [] x)
+                         (empty-list-comparable y))
+                    (WhereClause. {(empty-list-comparable y) {:$isNull false}})
 
-                   (and (instance? RefPathSize x)
-                        (= 0 y))
-                   (WhereClause. {(.empty_list_comparable ^RefPathSize x) {:$isNull false}})
+                    (and (instance? RefPathSize x)
+                         (= 0 y))
+                    (WhereClause. {(.empty_list_comparable ^RefPathSize x) {:$isNull false}})
 
-                   (and (instance? RefPathSize y)
-                        (= 0 x))
-                   (WhereClause. {(.empty_list_comparable ^RefPathSize y) {:$isNull false}})
+                    (and (instance? RefPathSize y)
+                         (= 0 x))
+                    (WhereClause. {(.empty_list_comparable ^RefPathSize y) {:$isNull false}})
 
-                   (custom-type? x)
-                   (throw (ex-info "Can't compare on our custom types" {:x x :y y}))
+                    (custom-type? x)
+                    (throw (ex-info "Can't compare on our custom types" {:x x :y y}))
 
-                   (custom-type? y)
-                   (throw (ex-info "Can't compare on our custom types" {:x x :y y}))
+                    (custom-type? y)
+                    (throw (ex-info "Can't compare on our custom types" {:x x :y y}))
 
-                   :else
-                   (not= x y)))}]))
+                    :else
+                    (not= x y)))}]))
 
 (def in-overloads
   (global-overload
-   (.getFunction Operator/IN)
-   [{:overload-id "_in_dynamic"
-     :cel-args [SimpleType/DYN SimpleType/DYN]
-     :cel-return-type SimpleType/DYN
-     :java-args [Object Object]
-     :impl (fn [[x y]]
-             (cond (instance? DataKey x)
-                   (if (and (or (instance? ArrayList y)
-                                (sequential? y))
-                            (every? where-value-valid? y))
-                     (WhereClause. {(.data_key ^DataKey x) {:$in (set y)}})
-                     (throw (ex-info "invalid inputs for in" {:x x :y y})))
+    (.getFunction Operator/IN)
+    [{:overload-id "_in_dynamic"
+      :cel-args [SimpleType/DYN SimpleType/DYN]
+      :cel-return-type SimpleType/DYN
+      :java-args [Object Object]
+      :impl (fn [[x y]]
+              (cond (instance? DataKey x)
+                    (if (and (or (instance? ArrayList y)
+                                 (sequential? y))
+                             (every? where-value-valid? y))
+                      (WhereClause. {(.data_key ^DataKey x) {:$in (set y)}})
+                      (throw (ex-info "invalid inputs for in" {:x x :y y})))
 
-                   (instance? RefPath y)
-                   (cond (where-value-valid? x)
-                         (WhereClause. {(.path_str ^RefPath y) x})
+                    (instance? RefPath y)
+                    (cond (where-value-valid? x)
+                          (WhereClause. {(.path_str ^RefPath y) x})
 
-                         ;; We know that data.ref('x') will return a list of non-empty
-                         ;; elements, so null in data.ref('x') is always false
-                         (= NullValue/NULL_VALUE x)
-                         false
+                          ;; We know that data.ref('x') will return a list of non-empty
+                          ;; elements, so null in data.ref('x') is always false
+                          (= NullValue/NULL_VALUE x)
+                          false
 
-                         :else (throw (ex-info "invalid inputs for in" {:x x :y y})))
+                          :else (throw (ex-info "invalid inputs for in" {:x x :y y})))
 
-                   ;; Hard to know what to do here. Since we set `containsKey` to true
-                   ;; in CelMap, this will always return true for the rules.
-                   ;; If we didn't do that, then it would return true unless the key
-                   ;; was missing from the map (even null returns true). We don't have
-                   ;; an instaql query for that.
-                   (instance? CheckedDataMap y)
-                   (throw (ex-info "can't call in on data" {:x x :y y}))
+                    ;; Hard to know what to do here. Since we set `containsKey` to true
+                    ;; in CelMap, this will always return true for the rules.
+                    ;; If we didn't do that, then it would return true unless the key
+                    ;; was missing from the map (even null returns true). We don't have
+                    ;; an instaql query for that.
+                    (instance? CheckedDataMap y)
+                    (throw (ex-info "can't call in on data" {:x x :y y}))
 
-                   (or (custom-type? x)
-                       (and (or (instance? ArrayList y)
-                                (sequential? y))
-                            (ucoll/exists? custom-type? y)))
-                   (throw (ex-info "invalid inputs for in" {:x x :y y}))
+                    (or (custom-type? x)
+                        (and (or (instance? ArrayList y)
+                                 (sequential? y))
+                             (ucoll/exists? custom-type? y)))
+                    (throw (ex-info "invalid inputs for in" {:x x :y y}))
 
-                   (or (instance? ArrayList y)
-                       (sequential? y))
-                   (ucoll/exists? (fn [item]
-                                    (= x item))
-                                  y)
+                    (or (instance? ArrayList y)
+                        (sequential? y))
+                    (ucoll/exists? (fn [item]
+                                     (= x item))
+                                   y)
 
-                   (or (instance? Map y)
-                       (associative? y))
-                   (contains? y x)))}]))
+                    (or (instance? Map y)
+                        (associative? y))
+                    (contains? y x)))}]))
 
 ;; Overloads for `NOT`
 
@@ -1062,100 +1029,100 @@
 
 (def not-overloads
   (global-overload
-   (.getFunction Operator/LOGICAL_NOT)
-   [{:overload-id "_not_datakey"
-     :cel-args [datakey-cel-type]
-     :cel-return-type whereclause-cel-type
-     :java-args [DataKey]
-     :impl (fn [[^DataKey x]]
-             (WhereClause. {(.data_key x) false}))}
-    {:overload-id "_not_whereclause"
-     :cel-args [whereclause-cel-type]
-     :cel-return-type whereclause-cel-type
-     :java-args [WhereClause]
-     :impl (fn [[^WhereClause x]]
-             (WhereClause. (negate-where-clauses (.where_clause x))))}]))
+    (.getFunction Operator/LOGICAL_NOT)
+    [{:overload-id "_not_datakey"
+      :cel-args [datakey-cel-type]
+      :cel-return-type whereclause-cel-type
+      :java-args [DataKey]
+      :impl (fn [[^DataKey x]]
+              (WhereClause. {(.data_key x) false}))}
+     {:overload-id "_not_whereclause"
+      :cel-args [whereclause-cel-type]
+      :cel-return-type whereclause-cel-type
+      :java-args [WhereClause]
+      :impl (fn [[^WhereClause x]]
+              (WhereClause. (negate-where-clauses (.where_clause x))))}]))
 
 ;; Overloads for `startsWith`, `endsWith`, and `contains`
 
 (def starts-with-overload
   (member-overload
-   "startsWith"
-   [{:overload-id "_datakey_starts_with"
-     :cel-args [datakey-cel-type SimpleType/STRING]
-     :cel-return-type whereclause-cel-type
-     :java-args [DataKey String]
-     :impl (fn [[^DataKey x ^String y]]
-             (let [attr (.instant_attr x)]
-               (if (and (= :string (:checked-data-type attr))
-                        (:index? attr))
-                 (WhereClause. {(.data_key x) {:$like (str y "%")}})
-                 (throw (ex-info "Invalid attr" {:x x})))))}]))
+    "startsWith"
+    [{:overload-id "_datakey_starts_with"
+      :cel-args [datakey-cel-type SimpleType/STRING]
+      :cel-return-type whereclause-cel-type
+      :java-args [DataKey String]
+      :impl (fn [[^DataKey x ^String y]]
+              (let [attr (.instant_attr x)]
+                (if (and (= :string (:checked-data-type attr))
+                         (:index? attr))
+                  (WhereClause. {(.data_key x) {:$like (str y "%")}})
+                  (throw (ex-info "Invalid attr" {:x x})))))}]))
 
 (def ends-with-overload
   (member-overload
-   "endsWith"
-   [{:overload-id "_datakey_ends_with"
-     :cel-args [datakey-cel-type SimpleType/STRING]
-     :cel-return-type whereclause-cel-type
-     :java-args [DataKey String]
-     :impl (fn [[^DataKey x ^String y]]
-             (let [attr (.instant_attr x)]
-               (if (and (= :string (:checked-data-type attr))
-                        (:index? attr))
-                 (WhereClause. {(.data_key x) {:$like (str "%" y)}})
-                 (throw (ex-info "Invalid attr" {:x x})))))}]))
+    "endsWith"
+    [{:overload-id "_datakey_ends_with"
+      :cel-args [datakey-cel-type SimpleType/STRING]
+      :cel-return-type whereclause-cel-type
+      :java-args [DataKey String]
+      :impl (fn [[^DataKey x ^String y]]
+              (let [attr (.instant_attr x)]
+                (if (and (= :string (:checked-data-type attr))
+                         (:index? attr))
+                  (WhereClause. {(.data_key x) {:$like (str "%" y)}})
+                  (throw (ex-info "Invalid attr" {:x x})))))}]))
 
 (def contains-overload
   (member-overload
-   "contains"
-   [{:overload-id "_datakey_contains"
-     :cel-args [datakey-cel-type SimpleType/STRING]
-     :cel-return-type whereclause-cel-type
-     :java-args [DataKey String]
-     :impl (fn [[^DataKey x ^String y]]
-             (let [attr (.instant_attr x)]
-               (if (and (= :string (:checked-data-type attr))
-                        (:index? attr))
-                 (WhereClause. {(.data_key x) {:$like (str "%" y "%s")}})
-                 (throw (ex-info "Invalid attr" {:x x})))))}]))
+    "contains"
+    [{:overload-id "_datakey_contains"
+      :cel-args [datakey-cel-type SimpleType/STRING]
+      :cel-return-type whereclause-cel-type
+      :java-args [DataKey String]
+      :impl (fn [[^DataKey x ^String y]]
+              (let [attr (.instant_attr x)]
+                (if (and (= :string (:checked-data-type attr))
+                         (:index? attr))
+                  (WhereClause. {(.data_key x) {:$like (str "%" y "%s")}})
+                  (throw (ex-info "Invalid attr" {:x x})))))}]))
 
 ;; Overloads for `type` to prevent `type(data.key)` from succeeding
 
 (def type-overload
   (global-overload
-   "type"
-   [{:overload-id "_type_datakey_override"
-     :cel-args [datakey-cel-type]
-     :cel-return-type SimpleType/DYN
-     :java-args [DataKey]
-     :impl (fn [[^DataKey x]]
-             (throw (ex-info "Can't call type on a DataKey" {:x x})))}
-    {:overload-id "_type_refpath_override"
-     :cel-args [refpath-cel-type]
-     :cel-return-type SimpleType/DYN
-     :java-args [RefPath]
-     :impl (fn [[^RefPath x]]
-             (throw (ex-info "Can't call type on a RefPath" {:x x})))}
-    {:overload-id "_type_whereclause_override"
-     :cel-args [whereclause-cel-type]
-     :cel-return-type SimpleType/DYN
-     :java-args [WhereClause]
-     :impl (fn [[^WhereClause x]]
-             (throw (ex-info "Can't call type on a WhereClause" {:x x})))}]))
+    "type"
+    [{:overload-id "_type_datakey_override"
+      :cel-args [datakey-cel-type]
+      :cel-return-type SimpleType/DYN
+      :java-args [DataKey]
+      :impl (fn [[^DataKey x]]
+              (throw (ex-info "Can't call type on a DataKey" {:x x})))}
+     {:overload-id "_type_refpath_override"
+      :cel-args [refpath-cel-type]
+      :cel-return-type SimpleType/DYN
+      :java-args [RefPath]
+      :impl (fn [[^RefPath x]]
+              (throw (ex-info "Can't call type on a RefPath" {:x x})))}
+     {:overload-id "_type_whereclause_override"
+      :cel-args [whereclause-cel-type]
+      :cel-return-type SimpleType/DYN
+      :java-args [WhereClause]
+      :impl (fn [[^WhereClause x]]
+              (throw (ex-info "Can't call type on a WhereClause" {:x x})))}]))
 
 (def size-overload
   (global-overload
-   "size"
-   [{:overload-id "_size_refpath_size"
-     :cel-args [refpath-cel-type]
-     :cel-return-type refpath-size-cel-type
-     :java-args [RefPath]
-     :impl (fn [[^RefPath x]]
-             (if-let [comparable (empty-list-comparable x)]
-               (RefPathSize. x comparable)
-               (throw (ex-info "Can't use size with a refpath that isn't empty list comparable"
-                               {:refpath x}))))}]))
+    "size"
+    [{:overload-id "_size_refpath_size"
+      :cel-args [refpath-cel-type]
+      :cel-return-type refpath-size-cel-type
+      :java-args [RefPath]
+      :impl (fn [[^RefPath x]]
+              (if-let [comparable (empty-list-comparable x)]
+                (RefPathSize. x comparable)
+                (throw (ex-info "Can't use size with a refpath that isn't empty list comparable"
+                                {:refpath x}))))}]))
 
 ;; Overload for data.ref
 
@@ -1274,45 +1241,45 @@
                 (instance? ConcurrentHashMap (:preloaded-refs ctx))))
    (let [{:keys [results missing-refs rerun-programs]}
          (reduce
-          (fn [acc {:keys [where-clauses-program etype] :as program}]
-            (assert where-clauses-program)
-            (try
-              (when (instance? Exception where-clauses-program)
-                (throw where-clauses-program))
-              (let [result
-                    (io/warn-io :cel/advance-program!
-                      (advance-program!
-                       ctx
-                       {:cel-program where-clauses-program
-                        :etype etype
-                        :action "view"}
-                       {:resolver (reify CelVariableResolver
-                                    (find [_this var-name]
-                                      (case var-name
-                                        "auth"
-                                        (Optional/of
-                                         (AuthCelMap. ctx (CelMap. (:current-user ctx))))
-                                        "data"
-                                        (Optional/of
-                                         (CheckedDataMap. (:attrs ctx) etype))
-                                        "ruleParams"
-                                        (Optional/of (CelMap. rule-params))
+           (fn [acc {:keys [where-clauses-program etype] :as program}]
+             (assert where-clauses-program)
+             (try
+               (when (instance? Exception where-clauses-program)
+                 (throw where-clauses-program))
+               (let [result
+                     (io/warn-io :cel/advance-program!
+                       (advance-program!
+                         ctx
+                         {:cel-program where-clauses-program
+                          :etype etype
+                          :action "view"}
+                         {:resolver (reify CelVariableResolver
+                                      (find [_this var-name]
+                                        (case var-name
+                                          "auth"
+                                          (Optional/of
+                                            (AuthCelMap. ctx (CelMap. (:current-user ctx))))
+                                          "data"
+                                          (Optional/of
+                                            (CheckedDataMap. (:attrs ctx) etype))
+                                          "ruleParams"
+                                          (Optional/of (CelMap. rule-params))
 
-                                        (Optional/empty))))}))]
-                (if (is-missing-ref-data? result)
-                  (-> acc
-                      (update :missing-refs into (missing-ref-datas result))
-                      (update :rerun-programs conj program))
-                  (-> acc
-                      (assoc-in [:results etype]
-                                (format-evaluation-result result)))))
+                                          (Optional/empty))))}))]
+                 (if (is-missing-ref-data? result)
+                   (-> acc
+                       (update :missing-refs into (missing-ref-datas result))
+                       (update :rerun-programs conj program))
+                   (-> acc
+                       (assoc-in [:results etype]
+                                 (format-evaluation-result result)))))
 
-              (catch Throwable t
-                (assoc-in acc [:results etype] {:thrown t}))))
-          {:results results
-           :missing-refs #{}
-           :rerun-programs []}
-          programs)]
+               (catch Throwable t
+                 (assoc-in acc [:results etype] {:thrown t}))))
+           {:results results
+            :missing-refs #{}
+            :rerun-programs []}
+           programs)]
      (when (seq missing-refs)
        (assert (seq rerun-programs)))
      (when (seq rerun-programs)

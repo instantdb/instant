@@ -10,14 +10,14 @@
   ([params] (create! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id inviter-id email role]}]
    (sql/execute-one!
-    conn
-    ["INSERT INTO app_member_invites
+     conn
+     ["INSERT INTO app_member_invites
       (id, app_id, inviter_id, invitee_email, invitee_role, status, sent_at)
       VALUES
       (?::uuid, ?::uuid, ?::uuid, ?, ?, 'pending', NOW())
       ON CONFLICT (app_id, invitee_email)
       DO UPDATE SET status = 'pending', sent_at = NOW(), invitee_role = ?"
-     (UUID/randomUUID) app-id inviter-id email role role])))
+      (UUID/randomUUID) app-id inviter-id email role role])))
 
 (defn get-by-id
   ([params] (get-by-id (aurora/conn-pool :read) params))
@@ -32,9 +32,9 @@
   ([params] (get-by-id! (aurora/conn-pool :read) params))
   ([conn params]
    (ex/assert-record!
-    (get-by-id conn params)
-    :app-member-invite
-    {:args [params]})))
+     (get-by-id conn params)
+     :app-member-invite
+     {:args [params]})))
 
 (defn get-pending-for-invitee
   ([params] (get-pending-for-invitee (aurora/conn-pool :read) params))
@@ -58,15 +58,15 @@
   ([params] (accept-by-id! (aurora/conn-pool :write) params))
   ([conn {:keys [id] :as params}]
    (ex/assert-record!
-    (sql/execute-one! conn
-                      ["UPDATE app_member_invites
+     (sql/execute-one! conn
+                       ["UPDATE app_member_invites
                        SET status = 'accepted'
                        WHERE id = ?::uuid
                        AND status = 'pending'
                        AND sent_at >= NOW() - INTERVAL '3 days'"
-                       id])
-    :app-member-invite
-    {:args [params]})))
+                        id])
+     :app-member-invite
+     {:args [params]})))
 
 (defn reject-by-id
   ([params] (reject-by-id (aurora/conn-pool :write) params))

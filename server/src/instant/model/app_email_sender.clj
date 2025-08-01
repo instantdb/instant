@@ -1,9 +1,11 @@
 (ns instant.model.app-email-sender
-  (:require [instant.jdbc.aurora :as aurora]
-            [instant.jdbc.sql :as sql]
-            [instant.postmark :as postmark]
-            [instant.util.exception :as ex])
-  (:import (java.util UUID)))
+  (:require
+   [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
+   [instant.postmark :as postmark]
+   [instant.util.exception :as ex])
+  (:import
+   (java.util UUID)))
 
 (defn get-by-email
   ([params] (get-by-email (aurora/conn-pool :read) params))
@@ -18,8 +20,8 @@
   ([params] (put! (aurora/conn-pool :write) params))
   ([conn {:keys [email name user-id postmark-id]}]
    (sql/execute-one!
-    conn
-    ["INSERT INTO
+     conn
+     ["INSERT INTO
         app_email_senders
         (id, email, name, user_id, postmark_id)
       VALUES
@@ -27,7 +29,7 @@
       ON CONFLICT (email)
       DO UPDATE SET
         name = EXCLUDED.name"
-     (UUID/randomUUID) email name user-id postmark-id])))
+      (UUID/randomUUID) email name user-id postmark-id])))
 
 ;; https://postmarkapp.com/developer/api/overview#error-codes
 

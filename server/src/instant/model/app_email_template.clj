@@ -9,8 +9,8 @@
   ([params] (put! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id sender-id email-type subject name body]}]
    (sql/execute-one!
-    conn
-    ["INSERT INTO
+     conn
+     ["INSERT INTO
         app_email_templates
         (id, app_id, sender_id, email_type, subject, name, body)
       VALUES
@@ -22,7 +22,7 @@
         name = EXCLUDED.name,
         body = EXCLUDED.body
       RETURNING id"
-     (UUID/randomUUID) app-id sender-id email-type subject name body])))
+      (UUID/randomUUID) app-id sender-id email-type subject name body])))
 
 (defn get-by-app-id-and-email-type
   ([params] (get-by-app-id-and-email-type (aurora/conn-pool :read) params))

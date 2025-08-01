@@ -1,19 +1,21 @@
 (ns instant.admin.routes-test
-  (:require [clojure.test :as test :refer [deftest is testing]]
-            [instant.fixtures :refer [with-empty-app with-zeneca-app with-movies-app]]
-            [instant.data.constants :as constants]
-            [instant.data.resolvers :as resolvers]
-            [instant.admin.routes :as admin-routes]
-            [instant.model.app :as app-model]
-            [instant.db.model.attr :as attr-model]
-            [instant.jdbc.aurora :as aurora]
-            [instant.util.exception :as ex]
-            [instant.admin.model :as admin-model]
-            [instant.util.http :as http-util]
-            [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
-            [instant.model.app-user :as app-user-model]
-            [instant.reactive.ephemeral :as eph])
-  (:import [java.util UUID]))
+  (:require
+   [clojure.test :as test :refer [deftest is testing]]
+   [instant.admin.model :as admin-model]
+   [instant.admin.routes :as admin-routes]
+   [instant.data.constants :as constants]
+   [instant.data.resolvers :as resolvers]
+   [instant.db.model.attr :as attr-model]
+   [instant.fixtures :refer [with-empty-app with-movies-app with-zeneca-app]]
+   [instant.jdbc.aurora :as aurora]
+   [instant.model.app :as app-model]
+   [instant.model.app-user :as app-user-model]
+   [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
+   [instant.reactive.ephemeral :as eph]
+   [instant.util.exception :as ex]
+   [instant.util.http :as http-util])
+  (:import
+   (java.util UUID)))
 
 (defn query-post [& args]
   (apply (http-util/wrap-errors admin-routes/query-post) args))
@@ -46,42 +48,42 @@
         (fn [{app-id :id admin-token :admin-token :as _app} r]
           (testing "no app-id fails"
             (let [ret (query-post
-                       {:body {:query {:users {}}}
-                        :headers {"app-id" nil
-                                  "authorization" (str "Bearer " admin-token)}})]
+                        {:body {:query {:users {}}}
+                         :headers {"app-id" nil
+                                   "authorization" (str "Bearer " admin-token)}})]
               (is (= 400 (:status ret)))
               (is (= :param-missing (-> ret :body :type)))))
           (testing "no token fails"
             (let [ret (query-post
-                       {:body {:query {:users {}}}
-                        :headers {"app-id" (str app-id)
-                                  "authorization" nil}})]
+                        {:body {:query {:users {}}}
+                         :headers {"app-id" (str app-id)
+                                   "authorization" nil}})]
               (is (= 400 (:status ret)))
               (is (= :param-missing (-> ret :body :type)))))
           (testing "wrong combo fails"
             (let [ret (query-post
-                       {:body {:query {:users {}}}
-                        :headers {"app-id" (str movies-app-id)
-                                  "authorization" (str "Bearer " admin-token)}})]
+                        {:body {:query {:users {}}}
+                         :headers {"app-id" (str movies-app-id)
+                                   "authorization" (str "Bearer " admin-token)}})]
               (is (= 400 (:status ret)))
               (is (= :record-not-found (-> ret :body :type)))))
           (testing "correct combo succeeds"
             (let [ret (query-post
-                       {:body {:query {:users {}}}
-                        :headers {"app-id" (str app-id)
-                                  "authorization" (str "Bearer " admin-token)}})]
+                        {:body {:query {:users {}}}
+                         :headers {"app-id" (str app-id)
+                                   "authorization" (str "Bearer " admin-token)}})]
               (is (= 200 (:status ret)))
               (is
-               #{"alex" "stopa" "joe" "nicolegf"}
-               (set (map #(get % "handle")
-                         (-> ret
-                             :body
-                             (get "users")))))))
+                #{"alex" "stopa" "joe" "nicolegf"}
+                (set (map #(get % "handle")
+                          (-> ret
+                              :body
+                              (get "users")))))))
           (testing "a tree is returned"
             (let [ret (query-post
-                       {:body {:query {:users {:bookshelves {}}}}
-                        :headers {"app-id" (str app-id)
-                                  "authorization" (str "Bearer " admin-token)}})]
+                        {:body {:query {:users {:bookshelves {}}}}
+                         :headers {"app-id" (str app-id)
+                                   "authorization" (str "Bearer " admin-token)}})]
               (is (= 200 (:status ret)))
               (is (->> (-> ret
                            :body
@@ -90,16 +92,16 @@
                        (every? seq)))))
           (testing "invalid queries return an error"
             (let [ret (query-post
-                       {:body {:query {:users {:bookshelves []}}}
-                        :headers {"app-id" (str app-id)
-                                  "authorization" (str "Bearer " admin-token)}})]
+                        {:body {:query {:users {:bookshelves []}}}
+                         :headers {"app-id" (str app-id)
+                                   "authorization" (str "Bearer " admin-token)}})]
               (is (= 400 (:status ret)))
               (is (= :validation-failed (-> ret :body :type)))))
           (testing "fields"
             (let [ret (query-post
-                       {:body {:query {:users {:$ {:fields ["handle"]}}}}
-                        :headers {"app-id" (str app-id)
-                                  "authorization" (str "Bearer " admin-token)}})]
+                        {:body {:query {:users {:$ {:fields ["handle"]}}}}
+                         :headers {"app-id" (str app-id)
+                                   "authorization" (str "Bearer " admin-token)}})]
               (is (= 200 (:status ret)))
               (is (= {"users" [{"id" (str (resolvers/->uuid r "eid-stepan-parunashvili"))
                                 "handle" "stopa"}
@@ -131,76 +133,76 @@
                         {"title" "moop"}]]]
             (testing "no app-id fails"
               (let [ret (transact-post
-                         {:body {:steps steps}
-                          :headers {"app-id" nil
-                                    "authorization" (str "Bearer " admin-token)}})]
+                          {:body {:steps steps}
+                           :headers {"app-id" nil
+                                     "authorization" (str "Bearer " admin-token)}})]
                 (is (= 400 (:status ret)))
                 (is (= :param-missing (-> ret :body :type)))))
             (testing "no token fails"
               (let [ret (transact-post
-                         {:body {:steps steps}
-                          :headers {"app-id" (str app-id)
-                                    "authorization" nil}})]
+                          {:body {:steps steps}
+                           :headers {"app-id" (str app-id)
+                                     "authorization" nil}})]
                 (is (= 400 (:status ret)))
                 (is (= :param-missing (-> ret :body :type)))))
             (testing "wrong combo fails"
               (let [ret (transact-post
-                         {:body {:steps steps}
-                          :headers {"app-id" (str movies-app-id)
-                                    "authorization" (str "Bearer " app-id)}})]
+                          {:body {:steps steps}
+                           :headers {"app-id" (str movies-app-id)
+                                     "authorization" (str "Bearer " app-id)}})]
                 (is (= 400 (:status ret)))
                 (is (= :record-not-found (-> ret :body :type)))))
             (testing "correct combo succeeds"
               (let [ret (transact-post
-                         {:body {:steps steps}
-                          :headers {"app-id" (str app-id)
-                                    "authorization" (str "Bearer " admin-token)}})]
+                          {:body {:steps steps}
+                           :headers {"app-id" (str app-id)
+                                     "authorization" (str "Bearer " admin-token)}})]
                 (is (= 200 (:status ret)))
                 (is (number? (-> ret :body :tx-id)))))
             (with-zeneca-app
               (fn [{app-id :id admin-token :admin-token} _r]
                 (testing "invalid transaction return an error"
                   (let [ret (transact-post
-                             {:body {:steps (-> steps
-                                                (assoc-in [0 0] "updatez"))}
-                              :headers {"app-id" (str app-id)
-                                        "authorization" (str "Bearer " admin-token)}})]
+                              {:body {:steps (-> steps
+                                                 (assoc-in [0 0] "updatez"))}
+                               :headers {"app-id" (str app-id)
+                                         "authorization" (str "Bearer " admin-token)}})]
                     (is (= 400 (:status ret)))
                     (is (= :validation-failed (-> ret :body :type)))))))
             (testing "add-attr works"
               (let [ret (transact-post
-                         {:body {:steps [["add-attr"
-                                          {:id (UUID/randomUUID)
-                                           :forward-identity [(UUID/randomUUID) "floopy" "flip"]
-                                           :value-type "blob"
-                                           :cardinality "one"
-                                           :unique? false
-                                           :index? false}]]}
-                          :headers {"app-id" (str app-id)
-                                    "authorization" (str "Bearer " admin-token)}})]
+                          {:body {:steps [["add-attr"
+                                           {:id (UUID/randomUUID)
+                                            :forward-identity [(UUID/randomUUID) "floopy" "flip"]
+                                            :value-type "blob"
+                                            :cardinality "one"
+                                            :unique? false
+                                            :index? false}]]}
+                           :headers {"app-id" (str app-id)
+                                     "authorization" (str "Bearer " admin-token)}})]
                 (is (= 200 (:status ret)))
                 (is (number? (-> ret :body :tx-id)))
                 (is (seq (attr-model/seek-by-fwd-ident-name ["floopy" "flip"]
                                                             (attr-model/get-by-app-id
-                                                             app-id))))))
+                                                              app-id))))))
             (testing "delete-attr works"
               (let [eid (UUID/randomUUID)
                     ret (transact-post
-                         {:body {:steps [["add-attr"
-                                          {:id eid
-                                           :forward-identity [(UUID/randomUUID) "floopy" "flop"]
-                                           :value-type "blob"
-                                           :cardinality "one"
-                                           :unique? false
-                                           :index? false}]
-                                         ["delete-attr" eid]]}
-                          :headers {"app-id" (str app-id)
-                                    "authorization" (str "Bearer " admin-token)}})]
+                          {:body {:steps [["add-attr"
+                                           {:id eid
+                                            :forward-identity [(UUID/randomUUID) "floopy" "flop"]
+                                            :value-type "blob"
+                                            :cardinality "one"
+                                            :unique? false
+                                            :index? false}]
+                                          ["delete-attr" eid]]}
+                           :headers {"app-id" (str app-id)
+                                     "authorization" (str "Bearer " admin-token)}})]
                 (is (= 200 (:status ret)))
                 (is (number? (-> ret :body :tx-id)))
                 (is (nil? (attr-model/seek-by-fwd-ident-name ["floopy" "flop"]
                                                              (attr-model/get-by-app-id
-                                                              app-id))))))))))))
+                                                               app-id))))))))))))
 
 (deftest strong-init-and-inference
   (with-empty-app
@@ -227,17 +229,17 @@
                           goal-id
                           {"owner" user-id}]]
             _add-links-ret (transact-post
-                            {:body {:steps add-links}
-                             :headers {"app-id" (str app-id)
-                                       "authorization" (str "Bearer " admin-token)}})
+                             {:body {:steps add-links}
+                              :headers {"app-id" (str app-id)
+                                        "authorization" (str "Bearer " admin-token)}})
             _add-objects-ret (transact-post
-                              {:body {:steps add-objects}
-                               :headers {"app-id" (str app-id)
-                                         "authorization" (str "Bearer " admin-token)}})]
+                               {:body {:steps add-objects}
+                                :headers {"app-id" (str app-id)
+                                          "authorization" (str "Bearer " admin-token)}})]
         (let [q (query-post
-                 {:body {:query {:goals {:owner {}}}}
-                  :headers {"app-id" (str app-id)
-                            "authorization" (str "Bearer " admin-token)}})
+                  {:body {:query {:goals {:owner {}}}}
+                   :headers {"app-id" (str app-id)
+                             "authorization" (str "Bearer " admin-token)}})
               goal (-> q :body (get "goals") first)
               owner-part (get goal "owner")]
 
@@ -247,10 +249,10 @@
 
         (testing "cardinality inference works"
           (let [q (query-post
-                   {:body {:query {:goals {:owner {}}}
-                           :inference? true}
-                    :headers {"app-id" (str app-id)
-                              "authorization" (str "Bearer " admin-token)}})
+                    {:body {:query {:goals {:owner {}}}
+                            :inference? true}
+                     :headers {"app-id" (str app-id)
+                               "authorization" (str "Bearer " admin-token)}})
                 goal (-> q :body (get "goals") first)
                 owner (get goal "owner")]
             (is (= "get fit" (get goal "title")))
@@ -258,12 +260,12 @@
 
         (testing "throw-missing-attrs works"
           (let [{:keys [status body]} (transact-post
-                                       {:body {:steps [["update" "goals"
-                                                        goal-id
-                                                        {"myFavoriteColor" "purple"}]]
-                                               :throw-on-missing-attrs? true}
-                                        :headers {"app-id" (str app-id)
-                                                  "authorization" (str "Bearer " admin-token)}})]
+                                        {:body {:steps [["update" "goals"
+                                                         goal-id
+                                                         {"myFavoriteColor" "purple"}]]
+                                                :throw-on-missing-attrs? true}
+                                         :headers {"app-id" (str app-id)
+                                                   "authorization" (str "Bearer " admin-token)}})]
 
             (is (= 400 status))
             (is (= #{"goals.myFavoriteColor"}
@@ -281,9 +283,9 @@
       (fn [{app-id :id admin-token :admin-token :as _app}]
         (testing "can create refresh token"
           (let [ret (refresh-tokens-post
-                     {:body {:email email}
-                      :headers {"app-id" app-id
-                                "authorization" (str "Bearer " admin-token)}})]
+                      {:body {:email email}
+                       :headers {"app-id" app-id
+                                 "authorization" (str "Bearer " admin-token)}})]
 
             (is (= 200 (:status ret)))
             (is (= email (-> ret :body :user :email)))
@@ -299,9 +301,9 @@
                                        :email email})
 
             make-token #(-> (refresh-tokens-post
-                             {:body {:email email}
-                              :headers {"app-id" app-id
-                                        "authorization" (str "Bearer " admin-token)}})
+                              {:body {:email email}
+                               :headers {"app-id" app-id
+                                         "authorization" (str "Bearer " admin-token)}})
                             :body
                             :user
                             :refresh_token)
@@ -309,9 +311,9 @@
             get-token #(app-user-refresh-token-model/get-by-id {:id %
                                                                 :app-id app-id})
             sign-out #(sign-out-post
-                       {:body %
-                        :headers {"app-id" app-id
-                                  "authorization" (str "Bearer " admin-token)}})]
+                        {:body %
+                         :headers {"app-id" app-id
+                                   "authorization" (str "Bearer " admin-token)}})]
         (testing "sign out by email deletes all tokens"
           (let [tok1 (make-token)
                 tok2 (make-token)
@@ -347,9 +349,9 @@
       (fn [{app-id :id admin-token :admin-token :as _app}]
         (testing "responds with nil if no user exists"
           (let [get-user-ret (app-users-get
-                              {:params {:email email}
-                               :headers {"app-id" app-id
-                                         "authorization" (str "Bearer " admin-token)}})]
+                               {:params {:email email}
+                                :headers {"app-id" app-id
+                                          "authorization" (str "Bearer " admin-token)}})]
 
             ;; user is nil
             (is (= 200 (:status get-user-ret)))
@@ -357,9 +359,9 @@
 
         (testing "user can be retrieved by email"
           (let [refresh-ret (refresh-tokens-post
-                             {:body {:email email}
-                              :headers {"app-id" app-id
-                                        "authorization" (str "Bearer " admin-token)}})
+                              {:body {:email email}
+                               :headers {"app-id" app-id
+                                         "authorization" (str "Bearer " admin-token)}})
                 user (-> refresh-ret :body :user)]
 
             ;; user is created
@@ -369,9 +371,9 @@
 
             ;; retrieve user by email
             (let [get-user-ret (app-users-get
-                                {:params {:email email}
-                                 :headers {"app-id" app-id
-                                           "authorization" (str "Bearer " admin-token)}})]
+                                 {:params {:email email}
+                                  :headers {"app-id" app-id
+                                            "authorization" (str "Bearer " admin-token)}})]
 
               ;; user is found
               (is (= 200 (:status get-user-ret)))
@@ -379,9 +381,9 @@
 
         (testing "user can be retrieved by id"
           (let [refresh-ret (refresh-tokens-post
-                             {:body {:email email}
-                              :headers {"app-id" app-id
-                                        "authorization" (str "Bearer " admin-token)}})
+                              {:body {:email email}
+                               :headers {"app-id" app-id
+                                         "authorization" (str "Bearer " admin-token)}})
                 user (-> refresh-ret :body :user)
                 user-id (:id user)]
 
@@ -392,9 +394,9 @@
 
             ;; retrieve user by id
             (let [get-user-ret (app-users-get
-                                {:params {:id user-id}
-                                 :headers {"app-id" app-id
-                                           "authorization" (str "Bearer " admin-token)}})]
+                                 {:params {:id user-id}
+                                  :headers {"app-id" app-id
+                                            "authorization" (str "Bearer " admin-token)}})]
 
               ;; user is found
               (is (= 200 (:status get-user-ret)))
@@ -402,9 +404,9 @@
 
         (testing "user can be retrieved by refresh token"
           (let [refresh-ret (refresh-tokens-post
-                             {:body {:email email}
-                              :headers {"app-id" app-id
-                                        "authorization" (str "Bearer " admin-token)}})
+                              {:body {:email email}
+                               :headers {"app-id" app-id
+                                         "authorization" (str "Bearer " admin-token)}})
                 token (-> refresh-ret :body :user :refresh_token)]
 
             ;; user is created
@@ -413,9 +415,9 @@
 
             ;; retrieve user by refresh token
             (let [get-user-ret (app-users-get
-                                {:params {:refresh_token token}
-                                 :headers {"app-id" app-id
-                                           "authorization" (str "Bearer " admin-token)}})]
+                                 {:params {:refresh_token token}
+                                  :headers {"app-id" app-id
+                                            "authorization" (str "Bearer " admin-token)}})]
 
               ;; user is found
               (is (= 200 (:status get-user-ret)))
@@ -427,9 +429,9 @@
       (fn [{app-id :id admin-token :admin-token :as _app}]
         (testing "responds with nil if no user exists"
           (let [delete-user-ret (app-users-delete
-                                 {:params {:email email}
-                                  :headers {"app-id" app-id
-                                            "authorization" (str "Bearer " admin-token)}})]
+                                  {:params {:email email}
+                                   :headers {"app-id" app-id
+                                             "authorization" (str "Bearer " admin-token)}})]
 
             ;; user is nil
             (is (= 200 (:status delete-user-ret)))
@@ -437,9 +439,9 @@
 
         (testing "user can be deleted by email"
           (let [refresh-ret (refresh-tokens-post
-                             {:body {:email email}
-                              :headers {"app-id" app-id
-                                        "authorization" (str "Bearer " admin-token)}})
+                              {:body {:email email}
+                               :headers {"app-id" app-id
+                                         "authorization" (str "Bearer " admin-token)}})
                 user (-> refresh-ret :body :user)]
 
             ;; user is created
@@ -449,9 +451,9 @@
 
             ;; delete user by email
             (let [delete-user-ret (app-users-delete
-                                   {:params {:email email}
-                                    :headers {"app-id" app-id
-                                              "authorization" (str "Bearer " admin-token)}})]
+                                    {:params {:email email}
+                                     :headers {"app-id" app-id
+                                               "authorization" (str "Bearer " admin-token)}})]
 
               ;; user is deleted
               (is (= 200 (:status delete-user-ret)))
@@ -459,9 +461,9 @@
 
         (testing "user can be deleted by id"
           (let [refresh-ret (refresh-tokens-post
-                             {:body {:email email}
-                              :headers {"app-id" app-id
-                                        "authorization" (str "Bearer " admin-token)}})
+                              {:body {:email email}
+                               :headers {"app-id" app-id
+                                         "authorization" (str "Bearer " admin-token)}})
                 user (-> refresh-ret :body :user)
                 user-id (:id user)]
 
@@ -472,9 +474,9 @@
 
             ;; delete user by id
             (let [delete-user-ret (app-users-delete
-                                   {:params {:id user-id}
-                                    :headers {"app-id" app-id
-                                              "authorization" (str "Bearer " admin-token)}})]
+                                    {:params {:id user-id}
+                                     :headers {"app-id" app-id
+                                               "authorization" (str "Bearer " admin-token)}})]
 
               ;; user is deleted
               (is (= 200 (:status delete-user-ret)))
@@ -482,20 +484,20 @@
 
         (testing "user can be deleted by refresh token"
           (let [refresh-ret (refresh-tokens-post
-                             {:body {:email email}
-                              :headers {"app-id" app-id
-                                        "authorization" (str "Bearer " admin-token)}})
+                              {:body {:email email}
+                               :headers {"app-id" app-id
+                                         "authorization" (str "Bearer " admin-token)}})
                 token (-> refresh-ret :body :user :refresh_token)]
 
             ;; user is created
             (is (= 200 (:status refresh-ret)))
             (is (some? token))
 
-;; delete user by refresh token
+            ;; delete user by refresh token
             (let [delete-user-ret (app-users-delete
-                                   {:params {:refresh_token token}
-                                    :headers {"app-id" app-id
-                                              "authorization" (str "Bearer " admin-token)}})]
+                                    {:params {:refresh_token token}
+                                     :headers {"app-id" app-id
+                                               "authorization" (str "Bearer " admin-token)}})]
 
               ;; user is deleted
               (is (= 200 (:status delete-user-ret)))
@@ -508,16 +510,16 @@
             id-to-ignore (UUID/randomUUID)
             update-step ["update" "items" expected-id {"id" id-to-ignore "name" "book"}]
             update-tx (transact-post
-                       {:body {:steps [update-step]}
-                        :headers {"app-id" (str app-id)
-                                  "authorization" (str "Bearer " admin-token)}})
+                        {:body {:steps [update-step]}
+                         :headers {"app-id" (str app-id)
+                                   "authorization" (str "Bearer " admin-token)}})
 
             _ (is (= 200 (:status update-tx)))
 
             items-query (query-post
-                         {:body {:query {:items {}}}
-                          :headers {"app-id" (str app-id)
-                                    "authorization" (str "Bearer " admin-token)}})
+                          {:body {:query {:items {}}}
+                           :headers {"app-id" (str app-id)
+                                     "authorization" (str "Bearer " admin-token)}})
             actual-items (-> (items-query :body) (get "items"))]
         (is (= 1 (count actual-items)))
         (is (= expected-id (-> (first actual-items) (get "id") UUID/fromString)))))))
@@ -536,20 +538,20 @@
             bookshelf1-update-step ["update" "bookshelves" bookshelf-id-1 {"name" "my books 1"}]
             bookshelf2-update-step ["update" "bookshelves" bookshelf-id-2 {"name" "my books 2"}]
             first-tx (transact-post
-                      {:body {:steps [user-update-step
-                                      link-step
-                                      bookshelf1-update-step
-                                      bookshelf2-update-step]}
-                       :headers {"app-id" (str app-id)
-                                 "authorization" (str "Bearer " admin-token)}})
+                       {:body {:steps [user-update-step
+                                       link-step
+                                       bookshelf1-update-step
+                                       bookshelf2-update-step]}
+                        :headers {"app-id" (str app-id)
+                                  "authorization" (str "Bearer " admin-token)}})
 
             _ (is (= 200 (:status first-tx)))
 
             ;; get bookshelves 
             first-query (query-post
-                         {:body {:query {:users {:bookshelves {}}}}
-                          :headers {"app-id" (str app-id)
-                                    "authorization" (str "Bearer " admin-token)}})
+                          {:body {:query {:users {:bookshelves {}}}}
+                           :headers {"app-id" (str app-id)
+                                     "authorization" (str "Bearer " admin-token)}})
             actual-bookshelves (->>  (-> first-query
                                          :body
                                          (get "users"))
@@ -563,18 +565,18 @@
             unlink-step ["unlink" "users" user-id {"bookshelves" [bookshelf-id-1 bookshelf-id-2]}]
             link-step-2 ["link" "users" user-id {"bookshelves" [bookshelf-id-3]}]
             second-tx (transact-post
-                       {:body {:steps [bookshelf3-update-step
-                                       unlink-step
-                                       link-step-2]}
-                        :headers {"app-id" (str app-id)
-                                  "authorization" (str "Bearer " admin-token)}})
+                        {:body {:steps [bookshelf3-update-step
+                                        unlink-step
+                                        link-step-2]}
+                         :headers {"app-id" (str app-id)
+                                   "authorization" (str "Bearer " admin-token)}})
 
             _ (is (= 200 (:status second-tx)))
             ;; get bookshelves 
             second-query (query-post
-                          {:body {:query {:users {:bookshelves {}}}}
-                           :headers {"app-id" (str app-id)
-                                     "authorization" (str "Bearer " admin-token)}})
+                           {:body {:query {:users {:bookshelves {}}}}
+                            :headers {"app-id" (str app-id)
+                                      "authorization" (str "Bearer " admin-token)}})
             actual-bookshelves (->>  (-> second-query
                                          :body
                                          (get "users"))
@@ -588,14 +590,14 @@
     (fn [{app-id :id admin-token :admin-token} _r]
       (testing "update"
         (transact-post
-         {:body {:steps [["update" "users" ["handle" "stopa"] {"handle" "stopa2"}]]}
-          :headers {"app-id" (str app-id)
-                    "authorization" (str "Bearer " admin-token)}})
+          {:body {:steps [["update" "users" ["handle" "stopa"] {"handle" "stopa2"}]]}
+           :headers {"app-id" (str app-id)
+                     "authorization" (str "Bearer " admin-token)}})
         (is (= "stopa2"
                (-> (query-post
-                    {:body {:query {:users {:$ {:where {:handle "stopa2"}}}}}
-                     :headers {"app-id" (str app-id)
-                               "authorization" (str "Bearer " admin-token)}})
+                     {:body {:query {:users {:$ {:where {:handle "stopa2"}}}}}
+                      :headers {"app-id" (str app-id)
+                                "authorization" (str "Bearer " admin-token)}})
                    :body
                    (get "users")
                    first
@@ -603,69 +605,69 @@
       (testing "delete"
         (is (= "joe"
                (-> (query-post
-                    {:body {:query {:users {:$ {:where {:handle "joe"}}}}}
-                     :headers {"app-id" (str app-id)
-                               "authorization" (str "Bearer " admin-token)}})
+                     {:body {:query {:users {:$ {:where {:handle "joe"}}}}}
+                      :headers {"app-id" (str app-id)
+                                "authorization" (str "Bearer " admin-token)}})
                    :body
                    (get "users")
                    first
                    (get "handle"))))
         (transact-post
-         {:body {:steps [["delete" "users" ["handle" "joe"]]]}
-          :headers {"app-id" (str app-id)
-                    "authorization" (str "Bearer " admin-token)}})
+          {:body {:steps [["delete" "users" ["handle" "joe"]]]}
+           :headers {"app-id" (str app-id)
+                     "authorization" (str "Bearer " admin-token)}})
         (is (= nil
                (-> (query-post
-                    {:body {:query {:users {:$ {:where {:handle "joe"}}}}}
-                     :headers {"app-id" (str app-id)
-                               "authorization" (str "Bearer " admin-token)}})
+                     {:body {:query {:users {:$ {:where {:handle "joe"}}}}}
+                      :headers {"app-id" (str app-id)
+                                "authorization" (str "Bearer " admin-token)}})
                    :body
                    (get "users")
                    first))))
 
       (testing "linking"
         (let [bookshelves-before (-> (query-post
-                                      {:body {:query {:users {:$ {:where {:handle "alex"}}
-                                                              :bookshelves {}}}}
-                                       :headers {"app-id" (str app-id)
-                                                 "authorization" (str "Bearer " admin-token)}})
+                                       {:body {:query {:users {:$ {:where {:handle "alex"}}
+                                                               :bookshelves {}}}}
+                                        :headers {"app-id" (str app-id)
+                                                  "authorization" (str "Bearer " admin-token)}})
                                      :body
                                      (get "users")
                                      first
                                      (get "bookshelves"))
               _unlink-transact (transact-post
-                                {:body {:steps [["unlink"
-                                                 "users"
-                                                 ["handle" "alex"]
-                                                 {"bookshelves" (-> bookshelves-before
-                                                                    first
-                                                                    (get "id"))}]]}
-                                 :headers {"app-id" (str app-id)
-                                           "authorization" (str "Bearer " admin-token)}})
+                                 {:body {:steps [["unlink"
+                                                  "users"
+                                                  ["handle" "alex"]
+                                                  {"bookshelves" (-> bookshelves-before
+                                                                     first
+                                                                     (get "id"))}]]}
+                                  :headers {"app-id" (str app-id)
+                                            "authorization" (str "Bearer " admin-token)}})
               bookshelves-after (-> (query-post
-                                     {:body {:query {:users {:$ {:where {:handle "alex"}}
-                                                             :bookshelves {}}}}
-                                      :headers {"app-id" (str app-id)
-                                                "authorization" (str "Bearer " admin-token)}})
+                                      {:body {:query {:users {:$ {:where {:handle "alex"}}
+                                                              :bookshelves {}}}}
+                                       :headers {"app-id" (str app-id)
+                                                 "authorization" (str "Bearer " admin-token)}})
                                     :body
                                     (get "users")
                                     first
                                     (get "bookshelves"))
 
               _relink-transact (transact-post
-                                {:body {:steps [["link"
-                                                 "users"
-                                                 ["handle" "alex"]
-                                                 {"bookshelves" (-> bookshelves-before
-                                                                    first
-                                                                    (get "id"))}]]}
-                                 :headers {"app-id" (str app-id)
-                                           "authorization" (str "Bearer " admin-token)}})
+                                 {:body {:steps [["link"
+                                                  "users"
+                                                  ["handle" "alex"]
+                                                  {"bookshelves" (-> bookshelves-before
+                                                                     first
+                                                                     (get "id"))}]]}
+                                  :headers {"app-id" (str app-id)
+                                            "authorization" (str "Bearer " admin-token)}})
               bookshelves-after-relink (-> (query-post
-                                            {:body {:query {:users {:$ {:where {:handle "alex"}}
-                                                                    :bookshelves {}}}}
-                                             :headers {"app-id" (str app-id)
-                                                       "authorization" (str "Bearer " admin-token)}})
+                                             {:body {:query {:users {:$ {:where {:handle "alex"}}
+                                                                     :bookshelves {}}}}
+                                              :headers {"app-id" (str app-id)
+                                                        "authorization" (str "Bearer " admin-token)}})
                                            :body
                                            (get "users")
                                            first
@@ -681,22 +683,22 @@
     (fn [{app-id :id admin-token :admin-token} _r]
       (let [bookshelf-id (random-uuid)]
         (transact-post
-         {:body {:steps [["update" "bookshelves" bookshelf-id {"name" "bobby's bookshelf"
-                                                               "slug" "bobbys_bookshelf"}]]}
-          :headers {"app-id" (str app-id)
-                    "authorization" (str "Bearer " admin-token)}})
+          {:body {:steps [["update" "bookshelves" bookshelf-id {"name" "bobby's bookshelf"
+                                                                "slug" "bobbys_bookshelf"}]]}
+           :headers {"app-id" (str app-id)
+                     "authorization" (str "Bearer " admin-token)}})
 
         (testing "link"
           (let [new-handle "bobby_newuser"]
             (transact-post
-             {:body {:steps [["link" "users" ["handle" new-handle]
-                              {"bookshelves" bookshelf-id}]]}
-              :headers {"app-id" (str app-id)
-                        "authorization" (str "Bearer " admin-token)}})
+              {:body {:steps [["link" "users" ["handle" new-handle]
+                               {"bookshelves" bookshelf-id}]]}
+               :headers {"app-id" (str app-id)
+                         "authorization" (str "Bearer " admin-token)}})
             (let [users (-> (query-post
-                             {:body {:query {:users {}}}
-                              :headers {"app-id" (str app-id)
-                                        "authorization" (str "Bearer " admin-token)}})
+                              {:body {:query {:users {}}}
+                               :headers {"app-id" (str app-id)
+                                         "authorization" (str "Bearer " admin-token)}})
                             :body
                             (get "users"))
                   handles (->> users
@@ -707,14 +709,14 @@
         (testing "unlink"
           (let [new-handle "tommy_newuser"]
             (transact-post
-             {:body {:steps [["unlink" "users" ["handle" new-handle]
-                              {"bookshelves" bookshelf-id}]]}
-              :headers {"app-id" (str app-id)
-                        "authorization" (str "Bearer " admin-token)}})
+              {:body {:steps [["unlink" "users" ["handle" new-handle]
+                               {"bookshelves" bookshelf-id}]]}
+               :headers {"app-id" (str app-id)
+                         "authorization" (str "Bearer " admin-token)}})
             (let [users (-> (query-post
-                             {:body {:query {:users {}}}
-                              :headers {"app-id" (str app-id)
-                                        "authorization" (str "Bearer " admin-token)}})
+                              {:body {:query {:users {}}}
+                               :headers {"app-id" (str app-id)
+                                         "authorization" (str "Bearer " admin-token)}})
                             :body
                             (get "users"))
                   handles (->> users
@@ -731,9 +733,9 @@
         ;; https://www.postgresql.org/docs/current/sql-merge.html
         (is (= "Updates with lookups can only update the lookup attribute if an entity with the unique attribute value already exists."
                (-> (transact-post
-                    {:body {:steps [["update" "users" ["handle" "stopa"] {"handle" "stopa2"}]]}
-                     :headers {"app-id" (str app-id)
-                               "authorization" (str "Bearer " admin-token)}})
+                     {:body {:steps [["update" "users" ["handle" "stopa"] {"handle" "stopa2"}]]}
+                      :headers {"app-id" (str app-id)
+                                "authorization" (str "Bearer " admin-token)}})
                    :body
                    :hint
                    :errors
@@ -741,39 +743,39 @@
                    :message))))
       (testing "update"
         (is (transact-ok?
-             (transact-post
-              {:body {:steps [["update" "users" ["handle" "stopa"] {"name" "Stepan"}]]}
-               :headers {"app-id" (str app-id)
-                         "authorization" (str "Bearer " admin-token)}})))
+              (transact-post
+                {:body {:steps [["update" "users" ["handle" "stopa"] {"name" "Stepan"}]]}
+                 :headers {"app-id" (str app-id)
+                           "authorization" (str "Bearer " admin-token)}})))
         (is (= "Stepan"
                (-> (query-post
-                    {:body {:query {:users {:$ {:where {:handle "stopa"}}}}}
-                     :headers {"app-id" (str app-id)
-                               "authorization" (str "Bearer " admin-token)}})
+                     {:body {:query {:users {:$ {:where {:handle "stopa"}}}}}
+                      :headers {"app-id" (str app-id)
+                                "authorization" (str "Bearer " admin-token)}})
                    :body
                    (get "users")
                    first
                    (get "name")))))
       (testing "create link attrs"
         (let [stopa-id (-> (query-post
-                            {:body {:query {:users {:$ {:where {:handle "stopa"}}}}}
-                             :headers {"app-id" (str app-id)
-                                       "authorization" (str "Bearer " admin-token)}})
+                             {:body {:query {:users {:$ {:where {:handle "stopa"}}}}}
+                              :headers {"app-id" (str app-id)
+                                        "authorization" (str "Bearer " admin-token)}})
                            :body
                            (get "users")
                            first
                            (get "id"))]
           (is (transact-ok?
-               (transact-post
-                {:body {:steps [["update" "user_prefs" ["users.id" stopa-id] {"pref_b" "pref_b_value"}]]}
-                 :headers {"app-id" (str app-id)
-                           "authorization" (str "Bearer " admin-token)}}))))
+                (transact-post
+                  {:body {:steps [["update" "user_prefs" ["users.id" stopa-id] {"pref_b" "pref_b_value"}]]}
+                   :headers {"app-id" (str app-id)
+                             "authorization" (str "Bearer " admin-token)}}))))
         (is (= "pref_b_value"
                (-> (query-post
-                    {:body {:query {:users {:$ {:where {:handle "stopa"}}
-                                            :user_prefs {}}}}
-                     :headers {"app-id" (str app-id)
-                               "authorization" (str "Bearer " admin-token)}})
+                     {:body {:query {:users {:$ {:where {:handle "stopa"}}
+                                             :user_prefs {}}}}
+                      :headers {"app-id" (str app-id)
+                                "authorization" (str "Bearer " admin-token)}})
                    :body
                    (get "users")
                    first
@@ -786,17 +788,17 @@
     (fn [{app-id :id admin-token :admin-token}]
       (testing "update"
         (is (transact-ok?
-             (transact-post
-              {:body {:steps [["update" "users" ["handle" "stopa"] {"name" "Stepan"}]
-                              ["update" "tasks" ["slug" "task-a"] {}]
-                              ["link" "users" ["handle" "stopa"] {"tasks" {"slug" "task-a"}}]]}
-               :headers {"app-id" (str app-id)
-                         "authorization" (str "Bearer " admin-token)}})))
+              (transact-post
+                {:body {:steps [["update" "users" ["handle" "stopa"] {"name" "Stepan"}]
+                                ["update" "tasks" ["slug" "task-a"] {}]
+                                ["link" "users" ["handle" "stopa"] {"tasks" {"slug" "task-a"}}]]}
+                 :headers {"app-id" (str app-id)
+                           "authorization" (str "Bearer " admin-token)}})))
         (let [query-result (-> (query-post
-                                {:body {:query {:users {:$ {:where {:handle "stopa"}}
-                                                        :tasks {}}}}
-                                 :headers {"app-id" (str app-id)
-                                           "authorization" (str "Bearer " admin-token)}})
+                                 {:body {:query {:users {:$ {:where {:handle "stopa"}}
+                                                         :tasks {}}}}
+                                  :headers {"app-id" (str app-id)
+                                            "authorization" (str "Bearer " admin-token)}})
                                :body)
               user (-> query-result
                        (get "users")
@@ -831,11 +833,11 @@
                                   :unique? true
                                   :index? false}])
       (is (transact-ok?
-           (transact-post
-            {:body {:steps [["update" "posts" ["slug" "new-post"] {}]
-                            ["link" "posts" ["slug" "new-post"] {"child" {"slug" "new-post"}}]]}
-             :headers {"app-id" (str app-id)
-                       "authorization" (str "Bearer " admin-token)}}))))))
+            (transact-post
+              {:body {:steps [["update" "posts" ["slug" "new-post"] {}]
+                              ["link" "posts" ["slug" "new-post"] {"child" {"slug" "new-post"}}]]}
+               :headers {"app-id" (str app-id)
+                         "authorization" (str "Bearer " admin-token)}}))))))
 
 (defn tx-validation-err [attrs steps]
   (try
@@ -849,32 +851,32 @@
       (let [attrs (attr-model/get-by-app-id (:id app))]
         (is (= '{:expected string?, :in [0 1]}
                (tx-validation-err
-                attrs [["update" 1 (UUID/randomUUID) {"title" "moop"}]])))
+                 attrs [["update" 1 (UUID/randomUUID) {"title" "moop"}]])))
         (is (= '{:expected map?, :in [0 3]}
                (tx-validation-err
-                attrs [["update" "goals" (UUID/randomUUID) 2]])))
+                 attrs [["update" "goals" (UUID/randomUUID) 2]])))
         (is (= '{:expected map?, :in [0 1]}
                (tx-validation-err
-                attrs [["add-attr" "goals" (UUID/randomUUID) 2]])))
+                 attrs [["add-attr" "goals" (UUID/randomUUID) 2]])))
         (is (= {:message "title is not a unique attribute on books"}
                (tx-validation-err
-                attrs [["update" "books" ["title" "test"] {"title" "test"}]])))
+                 attrs [["update" "books" ["title" "test"] {"title" "test"}]])))
         (is (= {:message "test.isbn is not a valid lookup attribute."}
                (tx-validation-err
-                attrs [["update" "books" ["test.isbn" "asdf"] {"title" "test"}]])))
+                 attrs [["update" "books" ["test.isbn" "asdf"] {"title" "test"}]])))
         (is (= {:message "lookup value is invalid", :hint {:attribute "linkOn"
                                                            :value "undefined"}}
                (tx-validation-err
-                attrs [["link"
-                        "spans"
-                        "6fd7b6eb-6fa2-4943-b5a3-2d73c8bd6904"
-                        {:parentSpan "lookup__linkOn__undefined"}]])))
+                 attrs [["link"
+                         "spans"
+                         "6fd7b6eb-6fa2-4943-b5a3-2d73c8bd6904"
+                         {:parentSpan "lookup__linkOn__undefined"}]])))
         (is (= {:message "test.isbn is not a unique attribute on books"}
                (tx-validation-err
-                (conj attrs {:id (random-uuid)
-                             :forward-identity [(random-uuid) "books" "test.isbn"]
-                             :unique? false})
-                [["update" "books" ["test.isbn" "asdf"] {"title" "test"}]])))))))
+                 (conj attrs {:id (random-uuid)
+                              :forward-identity [(random-uuid) "books" "test.isbn"]
+                              :unique? false})
+                 [["update" "books" ["test.isbn" "asdf"] {"title" "test"}]])))))))
 
 (deftest presence-get-test
   (with-empty-app
@@ -887,27 +889,27 @@
              louis-created-at :created_at}
             (app-user-model/create! {:id (random-uuid) :app-id app-id :email "lous_reasoner@instantdb.com"})]
         (with-redefs
-         [eph/get-room-data
-          (fn [app-id room-id]
-            (when (and (= app-id app-id) (= room-id "room-1"))
-              {anon-sess-id {:data {:color "red"}
-                             :peer-id anon-sess-id
-                             :user nil}
-               louis-sess-id {:data {:color "blue"}
-                              :peer-id louis-sess-id :user {:id louis-id}}}))]
+          [eph/get-room-data
+           (fn [app-id room-id]
+             (when (and (= app-id app-id) (= room-id "room-1"))
+               {anon-sess-id {:data {:color "red"}
+                              :peer-id anon-sess-id
+                              :user nil}
+                louis-sess-id {:data {:color "blue"}
+                               :peer-id louis-sess-id :user {:id louis-id}}}))]
           (let [{:keys [status body]} (presence-get
-                                       {:params {:room-type "_defaultRoomType" :room-id room-id}
-                                        :headers {"app-id" app-id
-                                                  "authorization" (str "Bearer " admin-token)}})]
+                                        {:params {:room-type "_defaultRoomType" :room-id room-id}
+                                         :headers {"app-id" app-id
+                                                   "authorization" (str "Bearer " admin-token)}})]
 
             (is (= 200 status))
             (is (= {:sessions
                     {anon-sess-id
-                     {:data {:color "red"},
+                     {:data {:color "red"}
                       :peer-id anon-sess-id
-                      :user nil},
+                      :user nil}
                      louis-sess-id
-                     {:data {:color "blue"},
+                     {:data {:color "blue"}
                       :peer-id louis-sess-id
                       :user
                       {:app_id app-id

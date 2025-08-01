@@ -1,5 +1,6 @@
 (ns instant.util.semver
-  (:require [clojure.string :as string]))
+  (:require
+   [clojure.string :as string]))
 
 (def semver-re #"^[v]{0,1}(\d+)\.(\d+)\.(\d+)(-dev)?$")
 

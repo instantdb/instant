@@ -29,13 +29,13 @@
   "Formats as text[] in pg, i.e. {item-1, item-2, item3}"
   [col]
   (clojure.core/format
-   "{%s}"
-   (string/join
-    ","
-    (map (fn [s] (clojure.core/format "\"%s\""
-                                      ;; Escape quotes (but don't double esc)
-                                      (string/replace s #"(?<!\\)\"" "\\\"")))
-         col))))
+    "{%s}"
+    (string/join
+      ","
+      (map (fn [s] (clojure.core/format "\"%s\""
+                                        ;; Escape quotes (but don't double esc)
+                                        (string/replace s #"(?<!\\)\"" "\\\"")))
+           col))))
 
 (defn ->pg-uuid-array
   "Formats as uuid[] in pg, i.e. {item-1, item-2, item3}"
@@ -225,8 +225,8 @@
 
 (defn format-get [params name]
   (or
-   (get params name)
-   (throw (ex-info (str "Missing parameter: " name) {:params params}))))
+    (get params name)
+    (throw (ex-info (str "Missing parameter: " name) {:params params}))))
 
 (defmacro format
   "Given SQL string with named placeholders (\"?symbol\") and map of values,
@@ -386,28 +386,28 @@
   (when (seq postgres-config)
     (cond (not created-connection?)
           (tracer/record-exception-span!
-           (Exception. "Tried to provide postgres-config for a connection we didn't create")
-           {:name "sql/apply-postgres-config-error"
-            :attributes (postgres-config-span-attrs postgres-config)})
+            (Exception. "Tried to provide postgres-config for a connection we didn't create")
+            {:name "sql/apply-postgres-config-error"
+             :attributes (postgres-config-span-attrs postgres-config)})
 
           (.getAutoCommit c)
           (tracer/record-exception-span!
-           (Exception. "Tried to provide postgres-config for a connection with auto-commit = on")
-           {:name "sql/apply-postgres-config-error"
-            :attributes (postgres-config-span-attrs postgres-config)})
+            (Exception. "Tried to provide postgres-config for a connection with auto-commit = on")
+            {:name "sql/apply-postgres-config-error"
+             :attributes (postgres-config-span-attrs postgres-config)})
 
           :else
           (try
             (tracer/with-span! {:name "sql/apply-postgres-config"
                                 :attributes (postgres-config-span-attrs postgres-config)}
               (next-jdbc/execute!
-               c
-               (hsql/format {:with [[[:t {:columns [:setting :value]}]
-                                     {:values (map (fn [{:keys [setting value]}]
-                                                     [setting value])
-                                                   postgres-config)}]]
-                             :select [[[:set_config :t.setting :t.value true]]]
-                             :from :t})))
+                c
+                (hsql/format {:with [[[:t {:columns [:setting :value]}]
+                                      {:values (map (fn [{:keys [setting value]}]
+                                                      [setting value])
+                                                    postgres-config)}]]
+                              :select [[[:set_config :t.setting :t.value true]]]
+                              :from :t})))
             (catch Exception _ nil)))))
 
 (defn annotate-update-count [^PreparedStatement ps]

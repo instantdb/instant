@@ -3,8 +3,8 @@
    [clj-http.client :as clj-http]
    [clojure.data.json :as json]
    [instant.config :as config]
-   [instant.util.tracer :as tracer]
-   [instant.postmark :as postmark]))
+   [instant.postmark :as postmark]
+   [instant.util.tracer :as tracer]))
 
 (defn send! [{:keys [from to cc bcc subject html reply-to]}]
   (let [body {:personalizations [{:to
@@ -20,18 +20,18 @@
       (tracer/with-span! {:name "sendgrid/send-disabled"
                           :attributes body}
         (tracer/record-info!
-         {:name "sendgrid-disabled"
-          :attributes
-          {:msg
-           "Sendgrid is disabled, add sendgrid-token to config to enable"}}))
+          {:name "sendgrid-disabled"
+           :attributes
+           {:msg
+            "Sendgrid is disabled, add sendgrid-token to config to enable"}}))
       (tracer/with-span!
         {:name "sendgrid/send"
          :attributes {:body body}}
         (clj-http/post
-         "https://api.sendgrid.com/v3/mail/send"
-         {:headers {"Authorization" (str "Bearer " (config/sendgrid-token))
-                    "Content-Type" "application/json"}
-          :body (json/write-str body)})))))
+          "https://api.sendgrid.com/v3/mail/send"
+          {:headers {"Authorization" (str "Bearer " (config/sendgrid-token))
+                     "Content-Type" "application/json"}
+           :body (json/write-str body)})))))
 
 (comment
   (send! {:from {:email "verify@auth-sg.instantdb.com"}

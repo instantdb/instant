@@ -1,33 +1,35 @@
 (ns instant.health
-  (:require [compojure.core :refer [defroutes GET] :as compojure]
-            [instant.config :as config]
-            [instant.util.tracer :as tracer]
-            [instant.jdbc.aurora :as aurora]
-            [instant.jdbc.sql :as sql]
-            [instant.util.json :refer [->json]]
-            [honey.sql :as hsql]
-            [ring.util.http-response :as response])
-  (:import [java.time Instant]))
+  (:require
+   [compojure.core :as compojure :refer [GET defroutes]]
+   [honey.sql :as hsql]
+   [instant.config :as config]
+   [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
+   [instant.util.json :refer [->json]]
+   [instant.util.tracer :as tracer]
+   [ring.util.http-response :as response])
+  (:import
+   (java.time Instant)))
 
 (def send-agent (agent nil))
 
 (defn mark-wal-unhealthy []
   (sql/execute!
-   (aurora/conn-pool :write)
-   (hsql/format
-    {:insert-into :config
-     :values [{:k "wal-errors"
-               :v [:cast (->json {@config/process-id (str (Instant/now))}) :json]}]
-     :on-conflict :k
-     :do-update-set {:v [:|| [:cast :config.v :jsonb] [:cast :excluded.v :jsonb]]}})))
+    (aurora/conn-pool :write)
+    (hsql/format
+      {:insert-into :config
+       :values [{:k "wal-errors"
+                 :v [:cast (->json {@config/process-id (str (Instant/now))}) :json]}]
+       :on-conflict :k
+       :do-update-set {:v [:|| [:cast :config.v :jsonb] [:cast :excluded.v :jsonb]]}})))
 
 (defn mark-wal-healthy []
   (sql/execute!
-   (aurora/conn-pool :write)
-   (hsql/format
-    {:update :config
-     :set {:v [:- [:cast :v :jsonb] [:cast @config/process-id :text]]}
-     :where [:= :k "wal-errors"]})))
+    (aurora/conn-pool :write)
+    (hsql/format
+      {:update :config
+       :set {:v [:- [:cast :v :jsonb] [:cast @config/process-id :text]]}
+       :where [:= :k "wal-errors"]})))
 
 (defn mark-wal-unhealthy-async []
   (send-off send-agent (fn [_]

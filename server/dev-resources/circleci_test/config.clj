@@ -1,9 +1,9 @@
 (require
- '[circleci.test.report :as report]
- '[circleci.test.report.junit :as junit]
- '[clojure.java.io :as io]
- '[clojure.test :as test]
- '[instant.test-core :as test-core])
+  '[circleci.test.report :as report]
+  '[circleci.test.report.junit :as junit]
+  '[clojure.java.io :as io]
+  '[clojure.test :as test]
+  '[instant.test-core :as test-core])
 
 (defn list-files-recursively [dir]
   (let [files (file-seq (io/file dir))]
