@@ -582,12 +582,11 @@
   "Restores soft-deleted attrs
 
    1. When we restore an attr, we always make sure to mark 
-      it as not unique, not indexed, and not required.
+      it as not indexed, and not required.
       This way we don't impact existing transactions 
       
       This does mean that we may have triples that still live on 
-      ave, av, indexes. This isn't too bad; it doesn't affect functionality, 
-      but it does have some storage overhead. 
+      ave. It doesn't affect functionality but it does have some storage overhead. 
 
    2. We restore the etype and labels. We previously 
       branded them as deleted, to avoid uniqueness violations."
@@ -601,9 +600,9 @@
         update attrs
         set 
           deletion_marked_at = null,
-          metadata = metadata - 'soft_delete_snapshot',
           is_indexed = false,
           is_required = false,
+          metadata = metadata - 'soft_delete_snapshot',
           etype = substring(etype from position('$' in etype) + 1),
           label = substring(label from position('$' in etype) + 1),
           reverse_etype = case 
@@ -618,9 +617,7 @@
           end
         where 
           app_id = ?app-id 
-          and id in (
-            select jsonb_array_elements_text(?attr-ids)::uuid
-          )
+          and id = any(?attr-ids)
           and deletion_marked_at is not null
         returning *
       ), restored_forward_idents as ( 
@@ -650,12 +647,11 @@
       union all 
       select count(*) from restored_rev_idents"
       {"?app-id" app-id
-       "?attr-ids" (vec ids)}))))
+       "?attr-ids" (with-meta (vec ids) {:pgtype "uuid[]"})}))))
 
 (defn soft-delete-multi!
   "Soft-deletes attrs 
-   1. We always mark soft-deleted attrs as not unique, 
-      not indexed, and not required.
+   1. We always mark soft-deleted attrs as not indexed, and not required.
       
       This way we don't impact existing transactions. 
 
@@ -693,9 +689,7 @@
           end
         where 
           app_id = ?app-id 
-          and id in (
-            select jsonb_array_elements_text(?attr-ids)::uuid
-          )
+          and id = any(?attr-ids) 
           and deletion_marked_at is null
         returning *
       ), changed_forward_idents as ( 
@@ -725,7 +719,7 @@
       union all 
       select count(*) from changed_rev_idents"
       {"?app-id" app-id
-       "?attr-ids" (vec ids)}))))
+       "?attr-ids" (with-meta (vec ids) {:pgtype "uuid[]"})}))))
 
 (defn hard-delete-multi!
   "Deletes a batch of attrs for an app. We
