@@ -1,5 +1,6 @@
 import { TransactionChunk, Op } from './instatx.ts';
 import { IContainEntitiesAndLinks, DataAttrDef } from './schemaTypes.ts';
+import { validate as validateUuid } from 'uuid';
 
 export class TransactionValidationError extends Error {
   constructor(message: string) {
@@ -121,6 +122,16 @@ const validateOp = (
   if (!schema) return;
 
   const [action, entityName, _id, args] = op;
+
+  // _id should be a uuid
+  if (!Array.isArray(_id)) {
+    const isUuid = validateUuid(_id);
+    if (!isUuid) {
+      throw new TransactionValidationError(
+        `Invalid id for entity '${entityName}'. Expected a UUID, but received: ${_id}`,
+      );
+    }
+  }
 
   if (typeof entityName !== 'string') {
     throw new TransactionValidationError(

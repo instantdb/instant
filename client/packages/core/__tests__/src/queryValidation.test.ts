@@ -15,7 +15,7 @@ const testSchema = i.schema({
       junk: i.any(),
     }),
     posts: i.entity({
-      title: i.string(),
+      title: i.string().indexed(),
       body: i.string(),
     }),
     comments: i.entity({
@@ -100,6 +100,7 @@ test('validates top level types', () => {
   beValid({});
   beWrong('Testing');
   beWrong(8392);
+  beWrong([]);
 });
 
 test('top level entitiy names', () => {
@@ -123,6 +124,8 @@ test('top level entitiy names', () => {
     },
     null,
   );
+
+  beWrong({ posts: [] });
 });
 
 test('links', () => {
@@ -442,7 +445,7 @@ test('where clause operators', () => {
   });
 
   // Valid $ilike operator on string
-  beValid({
+  beWrong({
     users: {
       $: {
         where: {
@@ -788,5 +791,10 @@ test('where clause dot notation validation', () => {
         },
       },
     },
+  });
+
+  // Don't need final attributes
+  beValid({
+    comments: { $: { where: { post: 'hi' } } },
   });
 });

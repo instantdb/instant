@@ -227,15 +227,15 @@ test('validates entity existence', () => {
 
   // Invalid entity
   beWrong({
-    __ops: [['create', 'unknownEntity', unknownId, { field: 'value' }]],
-    __etype: 'unknownEntity',
+    __ops: [['create', 'unknownNamespace', unknownId, { field: 'value' }]],
+    __etype: 'unknownNamespace',
   });
 
   // Valid without schema
   beValid(
     {
-      __ops: [['create', 'unknownEntity', unknownId, { field: 'value' }]],
-      __etype: 'unknownEntity',
+      __ops: [['create', 'unknownNamespace', unknownId, { field: 'value' }]],
+      __etype: 'unknownNamespace',
     },
     null,
   );
@@ -366,4 +366,19 @@ test('validates without schema', () => {
   );
   beValid(originalTx.randomEntity[userId].update({ anyField: 123 }), null);
   beValid(originalTx.randomEntity[userId].link({ anyLink: id() }), null);
+});
+
+test('validates UUID format for entity IDs', () => {
+  // Valid UUID should pass
+  const validUuid = id();
+  beValid(
+    tx.users[validUuid].create({ name: 'John', email: 'john@example.com' }),
+  );
+
+  beWrong(
+    tx.users['not a valid uuid'].create({
+      name: 'John',
+      email: 'john@example.com',
+    }),
+  );
 });
