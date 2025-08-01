@@ -128,7 +128,7 @@ function Main({ user }: { user: { id: string; email: string } }) {
       </button>
       <button
         className="px-4 py-2 bg-red-500 text-white rounded border-2 my-2"
-        onClick={(e) => {
+        onClick={() => {
           const goalIds = data.goals.map((g) => g.id);
           const todoIds = data.goals
             .map((g) => g.todos.map((t) => t.id))
@@ -144,7 +144,7 @@ function Main({ user }: { user: { id: string; email: string } }) {
 
       <button
         className="px-4 py-2 rounded border-2 my-2"
-        onClick={(e) => {
+        onClick={() => {
           auth.signOut();
         }}
       >

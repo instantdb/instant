@@ -1,15 +1,47 @@
 import React from 'react';
 import { View, Text, Button, ScrollView } from 'react-native';
-import { init, tx, id } from '@instantdb/react-native';
+import {
+  i,
+  init,
+  tx,
+  id,
+  InstantReactNativeDatabase,
+  User,
+} from '@instantdb/react-native';
 import {
   makeRedirectUri,
   useAuthRequest,
   useAutoDiscovery,
 } from 'expo-auth-session';
-
 import config from '../config';
 
-const db = init(config);
+const schema = i.schema({
+  entities: {
+    goals: i.entity({
+      title: i.string(),
+      creatorId: i.string(),
+    }),
+    todos: i.entity({
+      title: i.string(),
+      creatorId: i.string(),
+    }),
+  },
+  links: {
+    goalTodos: {
+      forward: { on: 'goals', has: 'many', label: 'todos' },
+      reverse: { on: 'todos', has: 'one', label: 'goal' },
+    },
+  },
+});
+
+type Schema = typeof schema;
+
+const db = init({ ...config, schema });
+
+interface DemoDataProps {
+  user: User;
+  db: InstantReactNativeDatabase<Schema>;
+}
 
 function App() {
   const { isLoading, user, error } = db.useAuth();
@@ -60,18 +92,17 @@ function Login() {
                   codeVerifier: request.codeVerifier,
                 })
                 .catch((e) => alert(e.body?.message || 'Something went wrong'));
-            } else {
             }
           } catch (e) {
             console.error(e);
           }
         }}
-      ></Button>
+      />
     </View>
   );
 }
 
-function DemoData({ user, db }) {
+function DemoData({ user, db }: DemoDataProps) {
   const { useQuery, transact, auth } = db;
   const { isLoading, error, data } = useQuery({ goals: { todos: {} } });
   if (isLoading) return <Text>Loading...</Text>;
