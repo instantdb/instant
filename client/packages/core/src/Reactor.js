@@ -23,6 +23,8 @@ import { createLinkIndex } from './utils/linkIndex.ts';
 import version from './version.js';
 import { create } from 'mutative';
 import createLogger from './utils/log.ts';
+import { InstantError } from './InstantError.ts';
+import { InstantAPIError } from './utils/fetch.ts';
 
 /** @typedef {import('./utils/log.ts').Logger} Logger */
 
@@ -292,17 +294,17 @@ export default class Reactor {
 
   /**
    * @param {'enqueued' | 'pending' | 'synced' | 'timeout' |  'error' } status
-   * @param string eventId
-   * @param {{message?: string, hint?: string, error?: Error}} [errDetails]
+   * @param {string} eventId
+   * @param {{message?: string, type?: string, status?: number, hint?: unknown}} [errorMsg]
    */
-  _finishTransaction(status, eventId, errDetails) {
+  _finishTransaction(status, eventId, errorMsg) {
     const dfd = this.mutationDeferredStore.get(eventId);
     this.mutationDeferredStore.delete(eventId);
     const ok = status !== 'error' && status !== 'timeout';
 
     if (!dfd && !ok) {
       // console.erroring here, as there are no listeners to let know
-      console.error('Mutation failed', { status, eventId, ...errDetails });
+      console.error('Mutation failed', { status, eventId, ...errorMsg });
     }
     if (!dfd) {
       return;
@@ -310,22 +312,19 @@ export default class Reactor {
     if (ok) {
       dfd.resolve({ status, eventId });
     } else {
-      dfd.reject(
-        new Error(
-          'Transaction failed on the server: ' +
-            errDetails.message +
-            '\n' +
-            JSON.stringify(
-              {
-                status,
-                eventId,
-                hint: errDetails.hint,
-              },
-              null,
-              2,
-            ),
-        ),
-      );
+      // Check if error comes from server or client
+      if (errorMsg.type) {
+        const { status, ...body } = errorMsg;
+        dfd.reject(
+          new InstantAPIError({
+            // @ts-expect-error body.type is not constant typed
+            body,
+            status,
+          }),
+        );
+      } else {
+        dfd.reject(new InstantError(errorMsg.message, errorMsg.hint));
+      }
     }
   }
 
@@ -622,9 +621,9 @@ export default class Reactor {
   /**
    * @param {'timeout' | 'error'} status
    * @param {string} eventId
-   * @param {{message?: string, hint?: string, error?: Error}} errDetails
+   * @param {{message: string, type?: string, status?: number, hint?: unknown}} errorMsg
    */
-  _handleMutationError(status, eventId, errDetails) {
+  _handleMutationError(status, eventId, errorMsg) {
     const mut = this.pendingMutations.currentValue.get(eventId);
 
     if (mut && (status !== 'timeout' || !mut['tx-id'])) {
@@ -632,14 +631,19 @@ export default class Reactor {
         prev.delete(eventId);
         return prev;
       });
+      const errDetails = {
+        message: errorMsg.message,
+        hint: errorMsg.hint,
+      };
       this.notifyAll();
       this.notifyAttrsSubs();
       this.notifyMutationErrorSubs(errDetails);
-      this._finishTransaction(status, eventId, errDetails);
+      this._finishTransaction(status, eventId, errorMsg);
     }
   }
 
   _handleReceiveError(msg) {
+    console.log('error', msg);
     const eventId = msg['client-event-id'];
     const prevMutation = this.pendingMutations.currentValue.get(eventId);
     const errorMessage = {
@@ -651,12 +655,7 @@ export default class Reactor {
     }
 
     if (prevMutation) {
-      // This must be a transaction error
-      const errDetails = {
-        message: msg.message,
-        hint: msg.hint,
-      };
-      this._handleMutationError('error', eventId, errDetails);
+      this._handleMutationError('error', eventId, msg);
       return;
     }
 
@@ -1133,7 +1132,6 @@ export default class Reactor {
   _sendMutation(eventId, mutation) {
     if (mutation.error) {
       this._handleMutationError('error', eventId, {
-        error: mutation.error,
         message: mutation.error.message,
       });
       return;
@@ -1593,7 +1591,7 @@ export default class Reactor {
   async getAuth() {
     const { user, error } = await this.getCurrentUser();
     if (error) {
-      throw new Error('Could not get current user: ' + error.message);
+      throw new InstantError('Could not get current user: ' + error.message);
     }
     return user;
   }
