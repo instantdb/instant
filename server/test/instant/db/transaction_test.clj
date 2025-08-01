@@ -1375,6 +1375,42 @@
         (is (= #{[ex-board board-id-attr-id (str ex-board)]}
                (fetch-triples app-id)))))))
 
+(deftest delete-before-an-update
+  (testing "deltes happen before updates"
+    (with-empty-app
+      (fn [{app-id :id}]
+        (let [id-aid (random-uuid)
+              field-aid (random-uuid)
+              id (random-uuid)]
+          (tx/transact!
+           (aurora/conn-pool :write)
+           (attr-model/get-by-app-id app-id)
+           app-id
+           [[:add-attr {:id id-aid
+                        :forward-identity [(random-uuid) "ns" "id"]
+                        :value-type :blob
+                        :cardinality :one
+                        :unique? true
+                        :index? false}]
+            [:add-attr {:id field-aid
+                        :forward-identity [(random-uuid) "ns" "field"]
+                        :value-type :blob
+                        :cardinality :one
+                        :unique? false
+                        :index? false}]])
+
+          (tx/transact!
+           (aurora/conn-pool :write)
+           (attr-model/get-by-app-id app-id)
+           app-id
+           [[:delete-entity id "ns"]
+            [:add-triple id id-aid id]
+            [:add-triple id field-aid "value"]])
+
+          (is (= #{[id id-aid (str id)]
+                   [id field-aid "value"]}
+                 (fetch-triples app-id))))))))
+
 (comment
   (def app-id #uuid "2f23dfa2-c921-4988-9243-adf602339bab")
   (def app
