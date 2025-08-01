@@ -1375,30 +1375,41 @@
         (is (= #{[ex-board board-id-attr-id (str ex-board)]}
                (fetch-triples app-id)))))))
 
-(deftest delete-before-an-update
-  (testing "deltes happen before updates"
-    (with-empty-app
-      (fn [{app-id :id}]
-        (let [id-aid (random-uuid)
-              field-aid (random-uuid)
-              id (random-uuid)]
+(deftest delete-with-updates
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [id-aid (random-uuid)
+            field-aid (random-uuid)
+            id (random-uuid)]
+        (tx/transact!
+         (aurora/conn-pool :write)
+         (attr-model/get-by-app-id app-id)
+         app-id
+         [[:add-attr {:id id-aid
+                      :forward-identity [(random-uuid) "ns" "id"]
+                      :value-type :blob
+                      :cardinality :one
+                      :unique? true
+                      :index? false}]
+          [:add-attr {:id field-aid
+                      :forward-identity [(random-uuid) "ns" "field"]
+                      :value-type :blob
+                      :cardinality :one
+                      :unique? false
+                      :index? false}]])
+
+        (testing "delete happens last"
           (tx/transact!
            (aurora/conn-pool :write)
            (attr-model/get-by-app-id app-id)
            app-id
-           [[:add-attr {:id id-aid
-                        :forward-identity [(random-uuid) "ns" "id"]
-                        :value-type :blob
-                        :cardinality :one
-                        :unique? true
-                        :index? false}]
-            [:add-attr {:id field-aid
-                        :forward-identity [(random-uuid) "ns" "field"]
-                        :value-type :blob
-                        :cardinality :one
-                        :unique? false
-                        :index? false}]])
+           [[:add-triple id id-aid id]
+            [:add-triple id field-aid "value"]
+            [:delete-entity id "ns"]])
+          (is (= #{}
+                 (fetch-triples app-id))))
 
+        (testing "delete happens first"
           (tx/transact!
            (aurora/conn-pool :write)
            (attr-model/get-by-app-id app-id)
@@ -1406,6 +1417,23 @@
            [[:delete-entity id "ns"]
             [:add-triple id id-aid id]
             [:add-triple id field-aid "value"]])
+
+          (is (= #{[id id-aid (str id)]
+                   [id field-aid "value"]}
+                 (fetch-triples app-id))))
+
+        ;; This is just recording the current behavior. If this
+        ;; test is failing, it might mean that transact was improved
+        ;; to run all operations in the order they were received.
+        (testing "mixed deletes have undesirable behavior"
+          (tx/transact!
+           (aurora/conn-pool :write)
+           (attr-model/get-by-app-id app-id)
+           app-id
+           [[:delete-entity id "ns"]
+            [:add-triple id id-aid id]
+            [:add-triple id field-aid "value"]
+            [:delete-entity id "ns"]])
 
           (is (= #{[id id-aid (str id)]
                    [id field-aid "value"]}
