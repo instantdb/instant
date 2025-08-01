@@ -3,8 +3,8 @@
    [clojure.pprint]
    [honey.sql :as hsql]
    [instant.config :as config]
-   [instant.jdbc.sql :as sql]
-   [instant.db.model.triple :as triple])
+   [instant.db.model.triple :as triple]
+   [instant.jdbc.sql :as sql])
   (:import
    (java.nio ByteBuffer)
    (net.openhft.hashing LongHashFunction)))
@@ -76,15 +76,15 @@
      ;; Only track counts for the items that you can query for
      (let [seed (hash-val 0 -1 data-type v)
            bins (persistent!
-                 (reduce (fn [bins i]
-                           (let [hash (hash-val seed i data-type v)
-                                 bin-idx (int (+ (Long/remainderUnsigned hash
-                                                                         (:width sketch))
-                                                 (* i (:width sketch))))]
-                             (assoc! bins bin-idx (+ (get bins bin-idx)
-                                                     n))))
-                         (transient (:bins sketch))
-                         (range (:depth sketch))))]
+                  (reduce (fn [bins i]
+                            (let [hash (hash-val seed i data-type v)
+                                  bin-idx (int (+ (Long/remainderUnsigned hash
+                                                                          (:width sketch))
+                                                  (* i (:width sketch))))]
+                              (assoc! bins bin-idx (+ (get bins bin-idx)
+                                                      n))))
+                          (transient (:bins sketch))
+                          (range (:depth sketch))))]
        (-> sketch
            (update :total + n)
            (assoc :bins bins)))
@@ -93,34 +93,33 @@
          (update sketch :total + n)
          (update sketch :total-not-binned + n)))))
 
-
 (defn add-batch
   "Expects items to be a map of {:value, :checked-data-type} => n, will add all
    items to the sketch in a single batch."
   ([^Sketch sketch items]
    (let [{:keys [bins item-count not-binned-count]}
          (persistent!
-          (reduce-kv (fn [acc {:keys [value checked-data-type]} n]
-                       (if-let [[data-type v] (data-type-for-hash checked-data-type value)]
-                         (let [seed (hash-val 0 -1 data-type v)
-                               bins (reduce (fn [bins i]
-                                              (let [hash (hash-val seed i data-type v)
-                                                    bin-idx (int (+ (Long/remainderUnsigned hash
-                                                                                            (:width sketch))
-                                                                    (* i (:width sketch))))]
-                                                (assoc! bins bin-idx (+ n (get bins bin-idx)))))
-                                            (:bins acc)
-                                            (range (:depth sketch)))]
-                           (-> acc
-                               (assoc! :bins bins)
-                               (assoc! :item-count (+ (:item-count acc) n))))
-                         (-> acc
-                             (assoc! :item-count (+ (:item-count acc) n))
-                             (assoc! :not-binned-count (+ (:not-binned-count acc) n)))))
-                     (transient {:bins (transient (:bins sketch))
-                                 :item-count 0
-                                 :not-binned-count 0})
-                     items))]
+           (reduce-kv (fn [acc {:keys [value checked-data-type]} n]
+                        (if-let [[data-type v] (data-type-for-hash checked-data-type value)]
+                          (let [seed (hash-val 0 -1 data-type v)
+                                bins (reduce (fn [bins i]
+                                               (let [hash (hash-val seed i data-type v)
+                                                     bin-idx (int (+ (Long/remainderUnsigned hash
+                                                                                             (:width sketch))
+                                                                     (* i (:width sketch))))]
+                                                 (assoc! bins bin-idx (+ n (get bins bin-idx)))))
+                                             (:bins acc)
+                                             (range (:depth sketch)))]
+                            (-> acc
+                                (assoc! :bins bins)
+                                (assoc! :item-count (+ (:item-count acc) n))))
+                          (-> acc
+                              (assoc! :item-count (+ (:item-count acc) n))
+                              (assoc! :not-binned-count (+ (:not-binned-count acc) n)))))
+                      (transient {:bins (transient (:bins sketch))
+                                  :item-count 0
+                                  :not-binned-count 0})
+                      items))]
      (-> sketch
          (update :total + item-count)
          (update :total-not-binned + not-binned-count)
@@ -241,18 +240,18 @@
 (def wal-aggregator-status-id :1)
 
 (defn save-sketches! [conn {:keys [sketches
-                                   ;;previous-lsn ;; XXX: need to keep track of last lsn so that we are sure we don't overwrite
+                                   previous-lsn ;; XXX: need to keep track of last lsn so that we are sure we don't overwrite
                                    lsn]}]
   (let [q {:with [[[:data
                     {:columns [:id :total :total-not-binned :max-lsn :bins]}]
                    {:values (map-indexed
-                             (fn [i {:keys [id sketch] :as record}]
-                               [id
-                                (:total sketch)
-                                (:total-not-binned sketch)
-                                (:max-lsn record)
-                                (keyword (str "?bins-" i))])
-                             sketches)}]
+                              (fn [i {:keys [id sketch] :as record}]
+                                [id
+                                 (:total sketch)
+                                 (:total-not-binned sketch)
+                                 (:max-lsn record)
+                                 (keyword (str "?bins-" i))])
+                              sketches)}]
                   [:update-sketches
                    {:update :attr_sketches
                     :from :data
@@ -267,7 +266,7 @@
                           :process-id @config/process-id}
                     :where [:and
                             ;; XXX
-                            ;; [:= :max-lsn last-lsn]
+                            [:= :lsn previous-lsn]
                             [:= :id wal-aggregator-status-id]]
                     :returning :*}]]
            ;; XXX: Need to throw if this is null

@@ -205,7 +205,7 @@
                     (.logical)
                     (.withSlotOption "include-lsn" true)
                     (.withSlotOption "format-version" version)
-                    (.withStartPosition (LogSequenceNumber/valueOf start-lsn))
+                    (.withStartPosition start-lsn)
                     (.withSlotName slot-name)
                     (.withStatusInterval 1 TimeUnit/SECONDS))]
     (.start ^ChainedLogicalStreamBuilder builder)))
