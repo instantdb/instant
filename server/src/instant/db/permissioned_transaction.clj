@@ -553,12 +553,12 @@
 
                 check-commands
                 (io/warn-io :check-commands
-                            (concat
-                             (attr-checks ctx attr-changes)
+                  (concat
+                   (attr-checks ctx attr-changes)
                    ;; Use preloaded-triples instead of object-changes.
                    ;; It has all the same data, but the preload will also
                    ;; resolve etypes for older version of delete-entity
-                             (object-checks ctx preloaded-triples)))
+                   (object-checks ctx preloaded-triples)))
 
                 {create-checks :create
                  view-checks :view
