@@ -818,7 +818,8 @@
   "Fetches triples from postgres by app-id and optional sql statements and
    returns them as clj representations"
   ([conn app-id] (fetch conn app-id []))
-  ([conn app-id stmts]
+  ([conn app-id stmts] (fetch conn app-id stmts {}))
+  ([conn app-id stmts {:keys [include-soft-deleted?]}]
    (map row->enhanced-triple
         (sql/select
          ::fetch
@@ -832,8 +833,10 @@
                                [:= :a.id :triples.attr_id]]]
            :where
            (concat [:and
-                    [:= :triples.app-id app-id]
-                    [:= :a.deletion-marked-at nil]] stmts)})))))
+                    [:= :triples.app-id app-id]]
+                   (when-not include-soft-deleted?
+                     [[:= :a.deletion-marked-at nil]])
+                   stmts)})))))
 
 ;; Migration for inferred types
 ;; ----------------------------

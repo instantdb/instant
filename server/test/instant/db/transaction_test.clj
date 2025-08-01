@@ -29,12 +29,14 @@
 
 (defn- fetch-triples
   ([app-id] (fetch-triples app-id []))
-  ([app-id where-clause]
+  ([app-id where-clause] (fetch-triples app-id where-clause {}))
+  ([app-id where-clause opts]
    (set (map :triple
              (triple-model/fetch
               (aurora/conn-pool :read)
               app-id
-              where-clause)))))
+              where-clause
+              opts)))))
 
 (deftest attrs-create-delete
   (doseq [{:keys [test tx-fn]} [{:test "tx/transact!"
@@ -3620,6 +3622,103 @@
 
               (is (empty? (get-hard-deleted (-> (date-util/pst-now)
                                                 (.toInstant))))))))))))
+
+(deftest soft-delete-refs
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [{attr-posts-id       :posts/id
+             attr-posts-title    :posts/title
+             attr-comments-id    :comments/id
+             attr-comments-text  :comments/text
+             attr-comments-post  :comments/post}
+            (test-util/make-attrs
+             app-id
+             [[:posts/id :required? :unique? :index?]
+              [:posts/title :required?]
+              [:comments/id :required? :unique? :index?]
+              [:comments/text :required?]
+              [[:comments/post :posts/comments] :many]])
+            p1       (random-uuid)
+            c1       (random-uuid)
+            c2       (random-uuid)
+            make-ctx (fn make-ctx
+                       ([]
+                        (make-ctx {}))
+                       ([{:keys [admin?]}]
+                        {:db               {:conn-pool (aurora/conn-pool :write)}
+                         :app-id           app-id
+                         :attrs            (attr-model/get-by-app-id app-id)
+                         :datalog-query-fn d/query
+                         :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                         :current-user     nil
+                         :admin?           admin?}))]
+
+        ;; Create 1 post and 2 comments
+        (permissioned-tx/transact!
+         (make-ctx)
+         [[:add-triple p1 attr-posts-id    (str p1)]
+          [:add-triple p1 attr-posts-title "Test Post"]
+          [:add-triple c1 attr-comments-id   (str c1)]
+          [:add-triple c1 attr-comments-text "First comment"]
+          [:add-triple c1 attr-comments-post p1]
+          [:add-triple c2 attr-comments-id   (str c2)]
+          [:add-triple c2 attr-comments-text "Second comment"]
+          [:add-triple c2 attr-comments-post p1]])
+
+        (testing "We get 1 post with 2 comments"
+          (let [result (instaql-nodes->object-tree
+                        (make-ctx)
+                        (iq/query (make-ctx)
+                                  {:posts {:comments {}}}))]
+            (is (= #{"Test Post"}
+                   (set (map #(get % "title") (get result "posts")))))
+
+            (is (= #{"First comment"
+                     "Second comment"}
+                   (set (map #(get % "text") (-> result (get "posts") first (get "comments"))))))))
+
+        (permissioned-tx/transact!
+         (make-ctx {:admin? true})
+         [[:delete-attr attr-comments-post]])
+
+        (testing "After deleting link attr, post has no comments"
+          (let [result (instaql-nodes->object-tree
+                        (make-ctx)
+                        (iq/query (make-ctx)
+                                  {:posts {:comments {}}}))]
+            (is (= #{"Test Post"}
+                   (set (map #(get % "title") (get result "posts")))))
+            (is (empty? (-> result (get "posts") first (get "comments"))))))
+
+        (testing "But we still have two soft-deleted triples"
+          (is (empty?
+               (fetch-triples app-id [[:= :attr-id attr-comments-post]])))
+          (is (= 2
+                 (count  (fetch-triples app-id [[:= :attr-id attr-comments-post]]
+                                        {:include-soft-deleted? true})))))
+
+        (permissioned-tx/transact!
+         (make-ctx)
+         [[:delete-entity c1]])
+
+        (permissioned-tx/transact!
+         (make-ctx {:admin? true})
+         [[:restore-attr attr-comments-post]])
+
+        (testing "After restore, we get 1 post with 1 comment (since we deleted c1)"
+          (let [result (instaql-nodes->object-tree
+                        (make-ctx)
+                        (iq/query (make-ctx)
+                                  {:posts {:comments {}}}))]
+            (is (= #{"Test Post"}
+                   (set (map #(get % "title") (get result "posts")))))
+
+            (is (= #{"Second comment"}
+                   (set (map #(get % "text") (-> result (get "posts") first (get "comments"))))))
+
+            (is (= 1 (count (fetch-triples app-id [[:= :attr-id attr-comments-post]]))))
+            (is (= 1 (count (fetch-triples app-id [[:= :attr-id attr-comments-post]]
+                                           {:include-soft-deleted? true}))))))))))
 
 (comment
   (test/run-tests *ns*))
