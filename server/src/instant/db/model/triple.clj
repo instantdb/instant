@@ -318,7 +318,7 @@
          [[:at.idx :idx]
           [:at.app_id :app-id]
           [:at.entity-id :entity-id]
-          [:at.attr-id :attr-id]
+          [:a.id :attr-id]
           [[:cast :at.value :jsonb] :value]
           [[:md5 [:cast :at.value :text]] :value-md5]
           [[:case [:= :a.cardinality [:inline "one"]] true :else false]
@@ -337,7 +337,8 @@
                                   [:or
                                    [:= :a.app-id :at.app-id]
                                    [:= :a.app-id system-catalog-app-id]]
-                                  [:= :a.id :at.attr-id]]]}
+                                  [:= :a.id :at.attr-id]
+                                  [:= :a.deletion-marked-at nil]]]}
 
         ea-index-inserts
         {:insert-into [[[:triples :t] triple-cols]
@@ -505,7 +506,7 @@
          [[:it.idx :idx]
           [[:cast :it.app_id :uuid] :app-id]
           [[:cast :it.entity-id :uuid] :entity-id]
-          [[:cast :it.attr-id :uuid] :attr-id]
+          [[:cast :a.id :uuid] :attr-id]
           [[:cast :it.value :jsonb] :value]
           [[:md5 :it.value] :value-md5]
           [[:case [:= :a.cardinality [:inline "one"]] true :else false] :ea]
@@ -519,7 +520,8 @@
                                   [:or
                                    [:= :a.app-id [:cast :it.app-id :uuid]]
                                    [:= :a.app-id system-catalog-app-id]]
-                                  [:= :a.id [:cast :it.attr-id :uuid]]]]}
+                                  [:= :a.id [:cast :it.attr-id :uuid]]
+                                  [:= nil :a.deletion-marked-at]]]}
 
         ea-triples-distinct
         {:select-distinct-on [[:entity-id :attr-id] :*]

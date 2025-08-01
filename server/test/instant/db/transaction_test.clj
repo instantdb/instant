@@ -3460,6 +3460,73 @@
         (is (= ::ex/parameter-limit-exceeded
                (::ex/type instant-ex-data)))))))
 
+;; TODO: I was here
+#_(deftest transact-play
+    (with-empty-app
+      (fn [{app-id :id}]
+        (let [{attr-posts-id          :posts/id
+               attr-posts-title       :posts/title
+               attr-posts-slug        :posts/slug
+               attr-posts-description :posts/description}
+              (test-util/make-attrs
+               app-id
+               [[:posts/id :required? :unique? :index?]
+                [:posts/title :required?]
+                [:posts/slug :required? :unique?]
+                [:posts/description]])
+              p1       (random-uuid)
+              p2       (random-uuid)
+              pd       (random-uuid)
+              make-ctx (fn make-ctx
+                         ([]
+                          (make-ctx {}))
+                         ([{:keys [admin?]}]
+                          {:db               {:conn-pool (aurora/conn-pool :write)}
+                           :app-id           app-id
+                           :attrs            (attr-model/get-by-app-id app-id)
+                           :datalog-query-fn d/query
+                           :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                           :current-user     nil
+                           :admin?           admin?}))]
+
+          (permissioned-tx/transact!
+           (make-ctx)
+           [[:add-triple p1 attr-posts-id          (str p1)]
+            [:add-triple p1 attr-posts-title       "First Post"]
+            [:add-triple p1 attr-posts-slug        "first-post"]
+            [:add-triple p1 attr-posts-description "This is the first post"]
+            [:add-triple pd attr-posts-id (str pd)]
+            [:add-triple pd attr-posts-title "I will delete this post"]
+            [:add-triple pd attr-posts-slug "delete-me"]
+            [:add-triple pd attr-posts-description "I will delete this post later"]])
+
+          (permissioned-tx/transact!
+           (make-ctx {:admin? true})
+           [[:delete-attr attr-posts-title]
+            [:delete-attr attr-posts-slug]])
+
+          (testing "We can't create new triples for deleted attrs"
+            (is (= ::ex/sql-exception
+                   (::ex/type (test-util/instant-ex-data
+                               (tx/transact!
+                                (aurora/conn-pool :write)
+                                (attr-model/get-by-app-id app-id)
+                                app-id
+                                [[:add-triple p1 attr-posts-title "This will fail"]])))))
+
+            (tx/transact!
+             (aurora/conn-pool :write)
+             (attr-model/get-by-app-id app-id)
+             app-id
+             [[:deep-merge-triple p1 attr-posts-title "This will fail"]])
+            #_(is (= ::ex/sql-exception
+                     (::ex/type (test-util/instant-ex-data
+                                 (tx/transact!
+                                  (aurora/conn-pool :write)
+                                  (attr-model/get-by-app-id app-id)
+                                  app-id
+                                  [[:deep-merge-triple p1 attr-posts-title "This will fail"]]))))))))))
+
 (deftest soft-delete-obj-attrs
   (with-empty-app
     (fn [{app-id :id}]
@@ -3529,6 +3596,13 @@
                      {"id" (str pd)
                       "description" "I will delete this post later"}}
                    (set (get result "posts"))))))
+
+        (testing "We can't create new triples for deleted attrs"
+          (tx/transact!
+           (aurora/conn-pool :write)
+           (attr-model/get-by-app-id app-id)
+           app-id
+           [[:add-triple p1 attr-posts-title "This will fail"]]))
 
         (testing "We can create new objects without uniqueness errors"
           (permissioned-tx/transact!
