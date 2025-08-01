@@ -66,7 +66,7 @@ import InstantReactWebDatabase from './InstantReactWebDatabase.ts';
 import { init, init_experimental } from './init.ts';
 import { Cursors } from './Cursors.tsx';
 import { InstantProvider } from './InstantProvider.tsx';
-import { useDb, useQuery } from './topLevelHooks.ts';
+import { useDb, useQuery, useUser } from './topLevelHooks.ts';
 
 export {
   id,
@@ -80,6 +80,7 @@ export {
   InstantProvider,
   useDb,
   useQuery,
+  useUser,
 
   // internal
   InstantReactAbstractDatabase,

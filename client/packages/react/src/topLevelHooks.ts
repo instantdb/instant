@@ -21,3 +21,16 @@ export const useQuery = <Q extends InstaQLParams<RegisteredSchema>>(
     Q
   >;
 };
+
+export const useUser = () => {
+  const db = useDb();
+
+  const rootAuth = db.useAuth();
+
+  console.log('root-auth-progress', rootAuth);
+
+  if (!rootAuth.user) {
+    // throw new Error('useUser must be used within an auth-protected route');
+  }
+  return rootAuth.user;
+};

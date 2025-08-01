@@ -23,6 +23,7 @@ import {
   IInstantDatabase,
 } from '@instantdb/core';
 import {
+  ReactNode,
   useCallback,
   useEffect,
   useRef,
