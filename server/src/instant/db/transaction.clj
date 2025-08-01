@@ -591,6 +591,19 @@
                                                     :name "transact"}))
           (assoc tx :results results))))))
 
+(defn tx-steps-order
+  "For backwards compatibility, we group steps by op but execute groups
+   in order they first appeared in tx-steps"
+  [tx-step-vecs]
+  (distinct (map first tx-step-vecs)))
+
+(defn reorder-tx-steps
+  [ops-order tx-step-maps]
+  (for [op ops-order
+        tx-step-map tx-step-maps
+        :when (= op (:op tx-step-map))]
+    tx-step-map))
+
 (defn optimistic-attrs [attrs tx-step-vecs]
   (->> tx-step-vecs
        (reduce
@@ -614,8 +627,11 @@
        (validate-value-lookup-etypes attrs)))
 
 (defn transact-without-tx-conn! [conn attrs app-id tx-step-vecs opts]
-  (let [attrs'        (optimistic-attrs attrs tx-step-vecs)
-        tx-step-maps  (preprocess-tx-steps conn attrs' app-id tx-step-vecs)]
+  (let [ops-order     (tx-steps-order tx-step-vecs)
+        attrs'        (optimistic-attrs attrs tx-step-vecs)
+        tx-step-maps  (->> tx-step-vecs
+                           (preprocess-tx-steps conn attrs' app-id)
+                           (reorder-tx-steps ops-order))]
     (transact-without-tx-conn-impl! conn attrs' app-id tx-step-maps opts)))
 
 (defn transact!

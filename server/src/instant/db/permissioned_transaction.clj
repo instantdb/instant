@@ -517,14 +517,18 @@
    `auth.id in data.ref('creator.id')`"
   [{:keys [db app-id admin? admin-check? admin-dry-run? attrs] :as ctx} tx-steps]
   (tracer/with-span! {:name "permissioned-transaction/transact!"
-                      :attributes {:app-id app-id}}
+                      :attributes {:app-id app-id
+                                   :transact-version "1"}}
     (validate-reserved-names! admin? attrs tx-steps)
     (let [{:keys [conn-pool]} db]
       (next-jdbc/with-transaction [tx-conn conn-pool]
         (if admin?
           (tx/transact-without-tx-conn! tx-conn attrs app-id tx-steps {})
-          (let [optimistic-attrs (tx/optimistic-attrs attrs tx-steps)
-                tx-step-maps     (tx/preprocess-tx-steps tx-conn optimistic-attrs app-id tx-steps)
+          (let [ops-order        (tx/tx-steps-order tx-steps)
+                optimistic-attrs (tx/optimistic-attrs attrs tx-steps)
+                tx-step-maps     (->> tx-steps
+                                      (tx/preprocess-tx-steps tx-conn optimistic-attrs app-id)
+                                      (tx/reorder-tx-steps ops-order))
 
                 grouped-tx-steps (->> tx-step-maps
                                       (map tx/vectorize-tx-step)
