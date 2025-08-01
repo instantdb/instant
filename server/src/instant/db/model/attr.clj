@@ -601,7 +601,6 @@
         update attrs
         set 
           deletion_marked_at = null,
-          is_unique = false,
           is_indexed = false,
           is_required = false,
           etype = substring(etype from position('$' in etype) + 1),
@@ -671,6 +670,8 @@
         update attrs
         set 
           deletion_marked_at = now(),
+          is_indexed = false, 
+          is_required = false, 
           etype = id::text || '_deleted$' || etype,
           label = id::text || '_deleted$' || label,
           reverse_etype = case 
@@ -682,10 +683,7 @@
             when reverse_label is not null 
             then id::text || '_deleted$' || reverse_label 
             else null 
-          end,
-          is_indexed = false, 
-          is_required = false, 
-          is_unique = false
+          end
         where 
           app_id = ?app-id 
           and id in (
