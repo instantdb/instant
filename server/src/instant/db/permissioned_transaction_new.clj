@@ -336,7 +336,8 @@
                       :attributes {:app-id app-id
                                    :transact-version "2"}}
     (next-jdbc/with-transaction [tx-conn (:conn-pool db)]
-      (let [optimistic-attrs (tx/optimistic-attrs attrs tx-step-vecs)
+      (let [ops-order        (tx/tx-steps-order tx-step-vecs)
+            optimistic-attrs (tx/optimistic-attrs attrs tx-step-vecs)
             tx-step-maps     (tx/preprocess-tx-steps tx-conn optimistic-attrs app-id tx-step-vecs)
             ;; Use the db connection we have so that we don't cause a deadlock
             ;; Also need to be able to read our own writes for the create checks
@@ -345,7 +346,7 @@
                                     :attrs optimistic-attrs)]
         (validate-reserved-names! ctx tx-step-maps)
         (if admin?
-          (tx/transact-without-tx-conn-impl! tx-conn optimistic-attrs app-id tx-step-maps {})
+          (tx/transact-without-tx-conn-impl! tx-conn optimistic-attrs app-id (tx/reorder-tx-steps ops-order tx-step-maps) {})
           (let [;; pre-processing tx
                 tx-step-maps         (->> tx-step-maps
                                           (coerce-value-uuids ctx)
@@ -364,6 +365,7 @@
                 pre-check-results    (run-checks! ctx (pre-checks ctx entities-map updated-entities-map rule-params-map tx-step-maps))
 
                 ;; transact to DB
+                tx-step-maps         (tx/reorder-tx-steps ops-order tx-step-maps)
                 tx-data              (tx/transact-without-tx-conn-impl! tx-conn (:attrs ctx) app-id tx-step-maps {})
 
                 ;; post checks
