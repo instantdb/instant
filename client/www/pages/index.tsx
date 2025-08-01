@@ -104,7 +104,7 @@ function LandingHero() {
                       size="large"
                       href="/tutorial"
                     >
-                      Try the demo
+                      Try the tutorial
                     </Button>
                   </div>
                 </div>
