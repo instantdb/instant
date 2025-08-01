@@ -662,33 +662,3 @@
                 colors-app-id
                 tx-steps))
 
-(comment
-  (do
-    (def app-id #uuid "6384b04c-e790-48a2-86b1-fc6ee294adb7")
-    (def attr-id-to-delete #uuid "d57f071f-737d-4d12-baaf-298ee202d24d")
-
-    ;; Soft-delete an attr
-    (def delete-tx-steps [[:delete-attr attr-id-to-delete]])
-
-    ;; Restore a soft-deleted attr
-    (def restore-tx-steps [[:restore-attr attr-id-to-delete]]))
-
-  ;; Execute soft-delete
-  (transact! {:db {:conn-pool (aurora/conn-pool :write)}
-              :app-id app-id
-              :attrs  (attr-model/get-by-app-id app-id)
-              :admin? true
-              :rules (rule-model/get-by-app-id {:app-id app-id})
-              :datalog-query-fn d/query}
-             delete-tx-steps)
-
-  (transact! {:db {:conn-pool (aurora/conn-pool :write)}
-              :app-id app-id
-              :attrs (attr-model/get-by-app-id app-id)
-              :rules (rule-model/get-by-app-id {:app-id app-id})
-              :datalog-query-fn d/query
-              :admin? true}
-             restore-tx-steps))
-
-
-
