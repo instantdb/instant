@@ -1,8 +1,13 @@
-import { IContainEntitiesAndLinks, DataAttrDef } from './schemaTypes.ts';
+import {
+  IContainEntitiesAndLinks,
+  DataAttrDef,
+  ValueTypes,
+} from './schemaTypes.ts';
 
 export class QueryValidationError extends Error {
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, path?: string) {
+    const fullMessage = path ? `At path '${path}': ${message}` : message;
+    super(fullMessage);
     this.name = 'QueryValidationError';
   }
 }
@@ -20,18 +25,17 @@ const dollarSignKeys = [
   'aggregate',
 ];
 
-const getAttrType = (attrDef: DataAttrDef<any, any, any>): string => {
-  if (attrDef.valueType === 'string') return 'string';
-  if (attrDef.valueType === 'number') return 'number';
-  if (attrDef.valueType === 'boolean') return 'boolean';
-  if (attrDef.valueType === 'date') return 'date';
-  if (attrDef.valueType === 'json') return 'object';
-  return 'unknown';
+type PossibleAttrTypes = ValueTypes | 'unknown';
+
+const getAttrType = (
+  attrDef: DataAttrDef<any, any, any>,
+): PossibleAttrTypes => {
+  return attrDef.valueType || 'unknown';
 };
 
 const isValidValueForType = (
   value: unknown,
-  expectedType: string,
+  expectedType: PossibleAttrTypes,
   isAnyType: boolean = false,
 ): boolean => {
   if (isAnyType) return true;
@@ -46,10 +50,73 @@ const isValidValueForType = (
       return typeof value === 'boolean';
     case 'date':
       return value instanceof Date || typeof value === 'string';
-    case 'object':
-      return typeof value === 'object' && value !== null;
     default:
       return true;
+  }
+};
+
+const validateOperator = (
+  op: string,
+  opValue: unknown,
+  expectedType: PossibleAttrTypes,
+  attrName: string,
+  entityName: string,
+  attrDef: DataAttrDef<any, any, any>,
+  assertValidValue: (
+    op: string,
+    expectedType: PossibleAttrTypes,
+    opValue: unknown,
+  ) => void,
+  path: string,
+) => {
+  switch (op) {
+    case 'in':
+    case '$in':
+      if (!Array.isArray(opValue)) {
+        throw new QueryValidationError(
+          `Operator '${op}' for attribute '${attrName}' in entity '${entityName}' must be an array, but received: ${typeof opValue}`,
+          path,
+        );
+      }
+      for (const item of opValue) {
+        assertValidValue(op, expectedType, item);
+      }
+      break;
+    case '$not':
+    case '$gt':
+    case '$lt':
+    case '$gte':
+    case '$lte':
+      assertValidValue(op, expectedType, opValue);
+      break;
+    case '$like':
+    case '$ilike':
+      assertValidValue(op, 'string', opValue);
+
+      if (op === '$ilike') {
+        if (!attrDef.isIndexed) {
+          throw new QueryValidationError(
+            `Operator '${op}' can only be used with indexed attributes, but '${attrName}' in entity '${entityName}' is not indexed`,
+            path,
+          );
+        }
+      }
+
+      break;
+    case '$isNull':
+      assertValidValue(op, 'boolean', opValue);
+      if (attrDef.required && opValue === true) {
+        throw new QueryValidationError(
+          `Cannot use '$isNull: true' on required attribute '${attrName}' in entity '${entityName}'`,
+          path,
+        );
+      }
+      break;
+    default:
+      throw new QueryValidationError(
+        `Unknown operator '${op}' for attribute '${attrName}' in entity '${entityName}'`,
+        path,
+      );
   }
 };
 
@@ -58,11 +125,14 @@ const validateWhereClauseValue = (
   attrName: string,
   attrDef: DataAttrDef<any, any, any>,
   entityName: string,
+  path: string,
 ): void => {
   const expectedType = getAttrType(attrDef);
   const isAnyType = attrDef.valueType === 'json';
 
-  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+  const isComplexObject =
+    typeof value === 'object' && value !== null && !Array.isArray(value);
+  if (isComplexObject) {
     // For any type, allow complex objects without treating them as operators
     if (isAnyType) {
       return; // Any type accepts any value, including complex objects
@@ -70,69 +140,36 @@ const validateWhereClauseValue = (
 
     const operators = value as Record<string, unknown>;
 
-    for (const [op, opValue] of Object.entries(operators)) {
-      switch (op) {
-        case 'in':
-        case '$in':
-          if (!Array.isArray(opValue)) {
-            throw new QueryValidationError(
-              `Operator '${op}' for attribute '${attrName}' in entity '${entityName}' must be an array, but received: ${typeof opValue}`,
-            );
-          }
-          for (const item of opValue) {
-            if (!isValidValueForType(item, expectedType, isAnyType)) {
-              throw new QueryValidationError(
-                `Invalid value in '${op}' array for attribute '${attrName}' in entity '${entityName}'. Expected ${expectedType}, but received: ${typeof item}`,
-              );
-            }
-          }
-          break;
-        case '$not':
-        case '$gt':
-        case '$lt':
-        case '$gte':
-        case '$lte':
-          if (!isValidValueForType(opValue, expectedType, isAnyType)) {
-            throw new QueryValidationError(
-              `Invalid value for operator '${op}' on attribute '${attrName}' in entity '${entityName}'. Expected ${expectedType}, but received: ${typeof opValue}`,
-            );
-          }
-          break;
-        case '$like':
-        case '$ilike':
-          if (expectedType !== 'string' && !isAnyType) {
-            throw new QueryValidationError(
-              `Operator '${op}' can only be used with string attributes, but '${attrName}' in entity '${entityName}' is of type ${expectedType}`,
-            );
-          }
-          if (typeof opValue !== 'string') {
-            throw new QueryValidationError(
-              `Operator '${op}' for attribute '${attrName}' in entity '${entityName}' must be a string, but received: ${typeof opValue}`,
-            );
-          }
-          break;
-        case '$isNull':
-          if (typeof opValue !== 'boolean') {
-            throw new QueryValidationError(
-              `Operator '$isNull' for attribute '${attrName}' in entity '${entityName}' must be a boolean, but received: ${typeof opValue}`,
-            );
-          }
-          if (attrDef.required && opValue === true) {
-            throw new QueryValidationError(
-              `Cannot use '$isNull: true' on required attribute '${attrName}' in entity '${entityName}'`,
-            );
-          }
-          break;
-        default:
-          throw new QueryValidationError(
-            `Unknown operator '${op}' for attribute '${attrName}' in entity '${entityName}'`,
-          );
+    const assertValidValue = (
+      op: string,
+      expectedType: PossibleAttrTypes,
+      opValue: unknown,
+    ) => {
+      if (!isValidValueForType(opValue, expectedType, isAnyType)) {
+        throw new QueryValidationError(
+          `Invalid value for operator '${op}' on attribute '${attrName}' in entity '${entityName}'. Expected ${expectedType}, but received: ${typeof opValue}`,
+          path,
+        );
       }
+    };
+
+    for (const [op, opValue] of Object.entries(operators)) {
+      validateOperator(
+        op,
+        opValue,
+        expectedType,
+        attrName,
+        entityName,
+        attrDef,
+        assertValidValue,
+        `${path}.${op}`,
+      );
     }
   } else {
     if (!isValidValueForType(value, expectedType, isAnyType)) {
       throw new QueryValidationError(
         `Invalid value for attribute '${attrName}' in entity '${entityName}'. Expected ${expectedType}, but received: ${typeof value}`,
+        path,
       );
     }
   }
@@ -143,11 +180,13 @@ const validateDotNotationAttribute = (
   value: unknown,
   startEntityName: string,
   schema: IContainEntitiesAndLinks<any, any>,
+  path: string,
 ): void => {
   const pathParts = dotPath.split('.');
   if (pathParts.length < 2) {
     throw new QueryValidationError(
       `Invalid dot notation path '${dotPath}'. Must contain at least one dot.`,
+      path,
     );
   }
 
@@ -161,6 +200,7 @@ const validateDotNotationAttribute = (
     if (!currentEntity) {
       throw new QueryValidationError(
         `Entity '${currentEntityName}' does not exist in schema while traversing dot notation path '${dotPath}'.`,
+        path,
       );
     }
 
@@ -169,6 +209,7 @@ const validateDotNotationAttribute = (
       const availableLinks = Object.keys(currentEntity.links);
       throw new QueryValidationError(
         `Link '${linkName}' does not exist on entity '${currentEntityName}' in dot notation path '${dotPath}'. Available links: ${availableLinks.length > 0 ? availableLinks.join(', ') : 'none'}`,
+        path,
       );
     }
 
@@ -182,6 +223,7 @@ const validateDotNotationAttribute = (
   if (!finalEntity) {
     throw new QueryValidationError(
       `Target entity '${currentEntityName}' does not exist in schema for dot notation path '${dotPath}'.`,
+      path,
     );
   }
 
@@ -192,6 +234,7 @@ const validateDotNotationAttribute = (
       dotPath,
       new DataAttrDef('string', false, true),
       startEntityName,
+      path,
     );
     return;
   }
@@ -201,17 +244,19 @@ const validateDotNotationAttribute = (
     const availableAttrs = Object.keys(finalEntity.attrs);
     throw new QueryValidationError(
       `Attribute '${finalAttrName}' does not exist on entity '${currentEntityName}' in dot notation path '${dotPath}'. Available attributes: ${availableAttrs.length > 0 ? availableAttrs.join(', ') + ', id' : 'id'}`,
+      path,
     );
   }
 
   // Validate the value against the attribute type
-  validateWhereClauseValue(value, dotPath, attrDef, startEntityName);
+  validateWhereClauseValue(value, dotPath, attrDef, startEntityName, path);
 };
 
 const validateWhereClause = (
   whereClause: Record<string, unknown>,
   entityName: string,
   schema: IContainEntitiesAndLinks<any, any>,
+  path: string,
 ): void => {
   for (const [key, value] of Object.entries(whereClause)) {
     if (key === 'or' || key === 'and') {
@@ -222,6 +267,7 @@ const validateWhereClause = (
               clause as Record<string, unknown>,
               entityName,
               schema,
+              `${path}.${key}[${clause}]`,
             );
           }
         }
@@ -235,12 +281,19 @@ const validateWhereClause = (
         'id',
         new DataAttrDef('string', false, true),
         entityName,
+        `${path}.id`,
       );
       continue;
     }
 
     if (key.includes('.')) {
-      validateDotNotationAttribute(key, value, entityName, schema);
+      validateDotNotationAttribute(
+        key,
+        value,
+        entityName,
+        schema,
+        `${path}.${key}`,
+      );
       continue;
     }
 
@@ -248,14 +301,37 @@ const validateWhereClause = (
     if (!entityDef) continue;
 
     const attrDef = entityDef.attrs[key];
-    if (!attrDef) {
+    const linkDef = entityDef.links[key];
+
+    if (!attrDef && !linkDef) {
       const availableAttrs = Object.keys(entityDef.attrs);
+      const availableLinks = Object.keys(entityDef.links);
       throw new QueryValidationError(
-        `Attribute '${key}' does not exist on entity '${entityName}'. Available attributes: ${availableAttrs.length > 0 ? availableAttrs.join(', ') : 'none'}`,
+        `Attribute or link '${key}' does not exist on entity '${entityName}'. Available attributes: ${availableAttrs.length > 0 ? availableAttrs.join(', ') : 'none'}. Available links: ${availableLinks.length > 0 ? availableLinks.join(', ') : 'none'}`,
+        `${path}.${key}`,
       );
     }
 
-    validateWhereClauseValue(value, key, attrDef, entityName);
+    if (attrDef) {
+      validateWhereClauseValue(
+        value,
+        key,
+        attrDef,
+        entityName,
+        `${path}.${key}`,
+      );
+    } else if (linkDef) {
+      // For links, we expect the value to be a string (ID of the linked entity)
+      // Create a synthetic string attribute definition for validation
+      const syntheticAttrDef = new DataAttrDef('string', false, true);
+      validateWhereClauseValue(
+        value,
+        key,
+        syntheticAttrDef,
+        entityName,
+        `${path}.${key}`,
+      );
+    }
   }
 };
 
@@ -263,11 +339,13 @@ const validateDollarObject = (
   dollarObj: Record<string, unknown>,
   entityName: string,
   schema?: IContainEntitiesAndLinks<any, any>,
+  path?: string,
 ): void => {
   for (const key of Object.keys(dollarObj)) {
     if (!dollarSignKeys.includes(key)) {
       throw new QueryValidationError(
         `Invalid query parameter '${key}' in $ object. Valid parameters are: ${dollarSignKeys.join(', ')}. Found: ${key}`,
+        path,
       );
     }
   }
@@ -276,12 +354,14 @@ const validateDollarObject = (
     if (typeof dollarObj.where !== 'object' || dollarObj.where === null) {
       throw new QueryValidationError(
         `'where' clause must be an object in entity '${entityName}', but received: ${typeof dollarObj.where}`,
+        path ? `${path}.where` : undefined,
       );
     }
     validateWhereClause(
       dollarObj.where as Record<string, unknown>,
       entityName,
       schema,
+      path ? `${path}.where` : 'where',
     );
   }
 };
@@ -290,10 +370,12 @@ const validateEntityInQuery = (
   queryPart: Record<string, unknown>,
   entityName: string,
   schema: IContainEntitiesAndLinks<any, any>,
+  path: string,
 ): void => {
   if (!queryPart || typeof queryPart !== 'object') {
     throw new QueryValidationError(
       `Query part for entity '${entityName}' must be an object, but received: ${typeof queryPart}`,
+      path,
     );
   }
 
@@ -304,6 +386,7 @@ const validateEntityInQuery = (
         const availableLinks = Object.keys(schema.entities[entityName].links);
         throw new QueryValidationError(
           `Link '${key}' does not exist on entity '${entityName}'. Available links: ${availableLinks.length > 0 ? availableLinks.join(', ') : 'none'}`,
+          `${path}.${key}`,
         );
       }
 
@@ -317,6 +400,7 @@ const validateEntityInQuery = (
             nestedQuery as Record<string, unknown>,
             linkedEntityName,
             schema,
+            `${path}.${key}`,
           );
         }
       }
@@ -326,6 +410,7 @@ const validateEntityInQuery = (
       if (typeof dollarObj !== 'object' || dollarObj === null) {
         throw new QueryValidationError(
           `Query parameter '$' must be an object in entity '${entityName}', but received: ${typeof dollarObj}`,
+          `${path}.$`,
         );
       }
 
@@ -333,6 +418,7 @@ const validateEntityInQuery = (
         dollarObj as Record<string, unknown>,
         entityName,
         schema,
+        `${path}.$`,
       );
     }
   }
@@ -348,12 +434,26 @@ export const validateQuery = (
     );
   }
 
+  if (Array.isArray(q)) {
+    throw new QueryValidationError(
+      `Query must be an object, but received: ${typeof q}`,
+    );
+  }
+
   const queryObj = q as Record<string, unknown>;
 
   for (const topLevelKey of Object.keys(queryObj)) {
+    if (Array.isArray(q[topLevelKey])) {
+      throw new QueryValidationError(
+        `Query keys must be strings, but found key of type: ${typeof topLevelKey}`,
+        topLevelKey,
+      );
+    }
+
     if (typeof topLevelKey !== 'string') {
       throw new QueryValidationError(
         `Query keys must be strings, but found key of type: ${typeof topLevelKey}`,
+        topLevelKey,
       );
     }
 
@@ -367,6 +467,7 @@ export const validateQuery = (
         const availableEntities = Object.keys(schema.entities);
         throw new QueryValidationError(
           `Entity '${topLevelKey}' does not exist in schema. Available entities: ${availableEntities.length > 0 ? availableEntities.join(', ') : 'none'}`,
+          topLevelKey,
         );
       }
     }
@@ -375,6 +476,7 @@ export const validateQuery = (
       queryObj[topLevelKey] as Record<string, unknown>,
       topLevelKey,
       schema,
+      topLevelKey,
     );
   }
 };
