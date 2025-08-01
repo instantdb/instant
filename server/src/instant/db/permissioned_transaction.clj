@@ -661,4 +661,3 @@
                 (attr-model/get-by-app-id colors-app-id)
                 colors-app-id
                 tx-steps))
-
