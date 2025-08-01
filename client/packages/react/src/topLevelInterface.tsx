@@ -1,4 +1,4 @@
-import { useContext } from 'react';
+import { ReactNode, useContext } from 'react';
 import { InstantReactWebDatabase, InstaQLParams } from './index.ts';
 import { InstaQLLifecycleState, InstaQLOptions } from '@instantdb/core';
 import { InstantContext, RegisteredSchema } from './InstantProvider.tsx';
@@ -27,10 +27,20 @@ export const useUser = () => {
 
   const rootAuth = db.useAuth();
 
-  console.log('root-auth-progress', rootAuth);
-
   if (!rootAuth.user) {
-    // throw new Error('useUser must be used within an auth-protected route');
+    throw new Error('useUser must be used within an auth-protected route');
   }
   return rootAuth.user;
+};
+
+export const SignedIn = ({ children }: { children: ReactNode }) => {
+  const db = useDb();
+  const { SignedIn } = db;
+  return <SignedIn>{children}</SignedIn>;
+};
+
+export const SignedOut = ({ children }: { children: ReactNode }) => {
+  const db = useDb();
+  const { SignedOut } = db;
+  return <SignedOut>{children}</SignedOut>;
 };

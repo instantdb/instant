@@ -345,4 +345,22 @@ export default abstract class InstantReactAbstractDatabase<
   }> => {
     return this._core.queryOnce(query, opts);
   };
+
+  SignedIn = ({ children }: { children: ReactNode }) => {
+    const auth = this.useAuth();
+    if (auth.user) {
+      return <>{children}</>;
+    } else {
+      return <></>;
+    }
+  };
+
+  SignedOut = ({ children }: { children: ReactNode }) => {
+    const auth = this.useAuth();
+    if (!auth.isLoading && !auth.user && !auth.error) {
+      return <>{children}</>;
+    } else {
+      return <></>;
+    }
+  };
 }
