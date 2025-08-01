@@ -44,16 +44,6 @@ export default function TabsLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="play/litoe"
-        options={{
-          tabBarLabel: 'Litoe',
-          title: 'Litoe',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="games" color={color} size={size} />
-          ),
-        }}
-      />
     </Tabs>
   );
 }
