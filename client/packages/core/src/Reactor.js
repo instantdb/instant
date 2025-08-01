@@ -315,7 +315,17 @@ export default class Reactor {
       dfd.reject(
         new Error(
           'Transaction failed on the server: ' +
-            JSON.stringify({ status, eventId, ...errDetails }),
+            errDetails.message +
+            '\n' +
+            JSON.stringify(
+              {
+                status,
+                eventId,
+                hint: errDetails.hint,
+              },
+              null,
+              2,
+            ),
         ),
       );
     }
@@ -1596,7 +1606,7 @@ export default class Reactor {
   async getAuth() {
     const { user, error } = await this.getCurrentUser();
     if (error) {
-      throw error;
+      throw new Error('Could not get current user: ' + error.message);
     }
     return user;
   }
