@@ -66,7 +66,7 @@ import InstantReactWebDatabase from './InstantReactWebDatabase.ts';
 import { init, init_experimental } from './init.ts';
 import { Cursors } from './Cursors.tsx';
 import { InstantProvider } from './InstantProvider.tsx';
-import { IContainEntitiesAndLinks } from '../../core/dist/esm/schemaTypes.js';
+import { useDb, useQuery } from './topLevelHooks.ts';
 
 export {
   id,
@@ -78,6 +78,8 @@ export {
   Cursors,
   i,
   InstantProvider,
+  useDb,
+  useQuery,
 
   // internal
   InstantReactAbstractDatabase,
@@ -139,6 +141,4 @@ export {
   type DeleteFileResponse,
 };
 
-export interface Register {
-  db: InstantReactWebDatabase<InstantSchemaDef<any, any, any>>;
-}
+export interface Register {}

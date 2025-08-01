@@ -1,15 +1,25 @@
 import { createContext, ReactNode, useRef } from 'react';
-import { Register } from './index.ts';
+import {
+  InstantReactWebDatabase,
+  InstantSchemaDef,
+  Register,
+} from './index.ts';
+
+export type RegisteredSchema = Register extends { schema: infer Schema }
+  ? Schema extends InstantSchemaDef<any, any, any>
+    ? Schema
+    : InstantSchemaDef<any, any, any>
+  : InstantSchemaDef<any, any, any>;
 
 type InstantContext = {
-  db: Register['db'];
+  db: InstantReactWebDatabase<RegisteredSchema>;
 };
 
-const InstantContext = createContext<InstantContext>(null);
+export const InstantContext = createContext<InstantContext>(null);
 
 export const InstantProvider = (props: {
   children: ReactNode;
-  db: Register['db'];
+  db: InstantReactWebDatabase<RegisteredSchema>;
 }) => {
   const db = useRef(props.db);
 
@@ -18,10 +28,8 @@ export const InstantProvider = (props: {
   }
 
   return (
-    <>
-      <InstantContext.Provider value={{ db: db.current }}>
-        {props.children}
-      </InstantContext.Provider>
-    </>
+    <InstantContext.Provider value={{ db: db.current }}>
+      {props.children}
+    </InstantContext.Provider>
   );
 };

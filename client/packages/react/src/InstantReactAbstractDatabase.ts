@@ -21,7 +21,6 @@ import {
   RoomsOf,
   InstantSchemaDef,
   IInstantDatabase,
-  Config,
 } from '@instantdb/core';
 import {
   useCallback,
