@@ -19,6 +19,9 @@ export default function Page() {
   }
   return (
     <View className="h-full m-4 mt-8">
+      <Link className="text-lg" href="/play/ephemeral-demo">
+        Ephemeral Demo
+      </Link>
       <Link className="text-lg" href="/play/authhello">
         Auth Hello
       </Link>
