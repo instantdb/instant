@@ -1,4 +1,4 @@
-import { Linking, StyleSheet, Text, View } from 'react-native';
+import { View, Text } from 'react-native';
 import { Link } from 'expo-router';
 import config from './config';
 
