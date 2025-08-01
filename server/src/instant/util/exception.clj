@@ -480,9 +480,18 @@
 
 (defn translate-and-throw-psql-exception!
   [^PSQLException e]
-  (let [{:keys [server-message condition table] :as data} (pgerrors/extract-data e)
-        hint (select-keys data [:table :condition :constraint])]
+  (let [{:keys [server-message condition table column] :as data} (pgerrors/extract-data e)
+        hint (select-keys data [:table :condition :constraint :column])]
     (case condition
+      :not-null-violation
+      (if (and (= table "triples") (= column "attr_id"))
+        (throw+ {::type ::record-foreign-key-invalid
+                 ::message (format "Foreign Key Invalid: %s" column)
+                 ::hint hint
+                 ::pg-error-data data}
+                e)
+        (default-psql-throw! e data hint))
+
       :unique-violation
       (throw-record-not-unique! (kw-table-name table) data e)
 

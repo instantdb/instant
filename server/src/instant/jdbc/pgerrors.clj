@@ -357,4 +357,5 @@
        :table (.getTable server-err)
        :constraint (.getConstraint server-err)
        :server-message (.getMessage server-err)
-       :detail (.getDetail server-err)))))
+       :detail (.getDetail server-err)
+       :column (.getColumn server-err)))))
