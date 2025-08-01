@@ -117,6 +117,7 @@
         restoration? (and (get-column identity "deletion_marked_at")
                           (nil? (get-column columns "deletion_marked_at")))]
 
+    (tool/def-locals!)
     (cond-> topics
       ;; Queries specifically request object attributes. 
       ;; If we are restoring an attr, all queries that require 
