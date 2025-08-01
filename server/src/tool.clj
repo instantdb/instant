@@ -310,7 +310,7 @@
        result#)))
 
 (defmacro profile [options? & body]
-  `(prof/profile ~options? ~body))
+  `(prof/profile ~options? ~@body))
 
 (def prof-serve-ui prof/serve-ui)
 

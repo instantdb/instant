@@ -152,11 +152,14 @@
   [conn]
   (sql/select conn ["SELECT * FROM pg_replication_slots;"]))
 
-(defn get-inactive-replication-slots [conn]
+(defn get-inactive-replication-slots
+  "Gets inactive slots for the invalidator."
+  [conn]
   (sql/select conn ["select slot_name
                        from pg_replication_slots
                       where active = false
-                        and plugin = 'wal2json'"]))
+                        and plugin = 'wal2json'
+                        and slot_name like 'invalidator%'"]))
 
 (defn cleanup-inactive-replication-slots [conn slot-names]
   (sql/select conn ["select slot_name, pg_drop_replication_slot(slot_name)
@@ -305,17 +308,21 @@
                                     close-signal-chan :closed)]
             (when (and (= put-result :put)
                        (not (.isClosed stream)))
+              ;; XXX: This needs to be handled by the caller so that we can delay
+              ;;      applying the lsns
               (.setAppliedLSN stream last-receive-lsn)
               (.setFlushedLSN stream last-receive-lsn)
               (recur (.read stream) produce-start-state))))))))
 
 (defn make-wal-opts [{:keys [wal-chan close-signal-chan
-                             ex-handler get-conn-config slot-name]}]
+                             ex-handler get-conn-config
+                             slot-name slot-type]}]
   {:to wal-chan
    :close-signal-chan close-signal-chan
    :ex-handler ex-handler
    :get-conn-config get-conn-config
-   :slot-name slot-name
+   :slot-name (str (name slot-type) "_" slot-name)
+   :slot-type slot-type
    :shutdown-fn (atom nil)
    :started-promise (promise)})
 
@@ -387,7 +394,7 @@
    Note: Blocks the calling thread. Call with fut-bg.
 
    Use `shutdown!` to stop the stream and clean up."
-  [{:keys [get-conn-config slot-name to ex-handler close-signal-chan started-promise]
+  [{:keys [get-conn-config slot-name slot-type to ex-handler close-signal-chan started-promise]
     :as wal-opts}]
   (let [replication-conn (get-pg-replication-conn (get-conn-config))
         {:keys [lsn]} (create-logical-replication-slot! replication-conn
@@ -403,7 +410,9 @@
       (set-shutdown-fn wal-opts (fn []
                                   (reset! shutdown? true)
                                   (close-nicely stream)
-                                  (drop-logical-replication-slot replication-conn slot-name)
+                                  (case slot-type
+                                    :invalidator (drop-logical-replication-slot replication-conn slot-name)
+                                    :aggregator nil)
                                   (close-nicely replication-conn)
                                   (health/mark-wal-healthy-async)))
       (let [produce-error (try

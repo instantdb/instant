@@ -484,7 +484,8 @@
                                                              ;; invalidator when failing over to a
                                                              ;; new blue/green deployment
                                                              (config/get-aurora-config)))
-                                      :slot-name process-id})]
+                                      :slot-name process-id
+                                      :slot-type :invalidator})]
      (ua/fut-bg
       (wal/start-worker wal-opts))
 

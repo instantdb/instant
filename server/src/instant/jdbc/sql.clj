@@ -20,7 +20,8 @@
    (java.sql Array Connection PreparedStatement ResultSet ResultSetMetaData)
    (java.time Instant LocalDate LocalDateTime)
    (javax.sql DataSource)
-   (org.postgresql.util PGobject PSQLException)))
+   (org.postgresql.util PGobject PSQLException)
+   (org.postgresql.replication LogSequenceNumber)))
 
 (set! *warn-on-reflection* true)
 
@@ -33,6 +34,7 @@
       (case type
         ("json" "jsonb") (<-json value)
         "bit" (Long/parseLong value 2)
+        "pg_lsn" (LogSequenceNumber/valueOf value)
         value))))
 
 (defn <-array [^Array a]
@@ -56,6 +58,7 @@
       "timestamptz[]" (.setArray s i (create-pg-array s "timestamptz" Instant v))
       "float8[]" (.setArray s i (create-pg-array s "float8" Number v))
       "boolean[]" (.setArray s i (create-pg-array s "boolean" Boolean v))
+      "bigint[]" (.setArray s i (create-pg-array s "bigint" Long v))
       (.setObject s i (doto (PGobject.)
                         (.setType pgtype)
                         (.setValue (->json v)))))))
@@ -82,6 +85,12 @@
   LocalDateTime
   (set-parameter [^java.time.LocalDateTime v ^PreparedStatement ps ^long i]
     (.setTimestamp ps i (java.sql.Timestamp/valueOf v)))
+
+  LogSequenceNumber
+  (set-parameter [^LogSequenceNumber v ^PreparedStatement ps ^long i]
+    (.setObject ps i (doto (PGobject.)
+                       (.setType "pg_lsn")
+                       (.setValue (.asString v)))))
 
   IPersistentMap
   (set-parameter [m ^PreparedStatement s i]
@@ -271,7 +280,9 @@
   (let [pool-stats (if (instance? HikariDataSource conn)
                      (span-attrs-from-conn-pool conn)
                      *conn-pool-span-stats*)]
-    (merge {:detailed-query (pr-str query)}
+    (merge {:detailed-query (pr-str (if (:skip-log-params additional-opts)
+                                      (take 1 query)
+                                      query))}
            pool-stats
            (postgres-config-span-attrs (:postgres-config additional-opts))
            (when tag
@@ -424,7 +435,9 @@
               (let [postgres-config# (:postgres-config ~'additional-opts)
                     create-connection?# (not (instance? Connection ~'conn))
                     opts# (merge ~opts
-                                 (dissoc ~'additional-opts :postgres-config)
+                                 (dissoc ~'additional-opts
+                                         :postgres-config
+                                         :skip-log-params)
                                  {:timeout *query-timeout-seconds*})
                     ^Connection c# (if create-connection?#
                                      (next-jdbc/get-connection ~'conn)

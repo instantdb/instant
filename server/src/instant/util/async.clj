@@ -263,3 +263,39 @@
   (future
     (doseq [f futures]
       (deref f))))
+(defn chunked-chan
+  "Takes a `flush-ms` and a `max-items`. Returns an `in` and `out` chan.
+   Expects an array on every put to `in`, which it will add to its
+   internal buffer. It will flush to `out` when the number of items in
+   its internal buffer exceeds `max-items` or when it has not flushed
+   for more than `flush-ms` (and its buffer is not empty)."
+  [{:keys [flush-ms
+           max-items]}]
+  (let [in (a/chan)
+        out (a/chan)
+        l (a/go-loop [items []
+                      timeout-ch nil]
+            (let [[vs ch] (a/alts! (remove nil? [in timeout-ch]))
+                  timeout? (= ch timeout-ch)]
+              (cond timeout?
+                    (do
+                      (a/>! out items)
+                      (recur [] nil))
+
+                    (nil? vs)
+                    (do
+                      (when (seq items)
+                        (a/>! out items))
+                      (a/close! out))
+
+                    :else
+                    (let [items' (apply conj items vs)]
+                      (if (>= (count items') max-items)
+                        (do
+                          (a/>! out items')
+                          (recur [] nil))
+                        (recur items' (or timeout-ch
+                                          (a/timeout flush-ms))))))))]
+    {:in in
+     :out out
+     :loop l}))

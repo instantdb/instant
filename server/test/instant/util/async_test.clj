@@ -1,6 +1,7 @@
 (ns instant.util.async-test
-  (:require [instant.util.async :refer [vfuture vfut-bg tracked-future severed-vfuture]]
-            [clojure.test :refer [is deftest testing]]))
+  (:require [clojure.core.async :as a]
+            [clojure.test :refer [is deftest testing]]
+            [instant.util.async :refer [vfuture vfut-bg tracked-future severed-vfuture chunked-chan]]))
 
 (deftest vfuture-works
   (is (= 1 @(vfuture 1))))
@@ -135,3 +136,70 @@
     (Thread/sleep 50)
     (is (= @signal :works!))
     (is (thrown? java.util.concurrent.CancellationException @v))))
+
+(deftest chuncked-chan
+  (testing "chunked-chan delivers results after max-items"
+    (let [{:keys [in out]} (chunked-chan {:flush-ms 100000
+                                          :max-items 4})]
+      (a/put! in [1 2])
+      (a/put! in [3 4])
+      (a/put! in [5 6])
+
+      (is (= [1 2 3 4] (deref (future (a/<!! out))
+                              100
+                              :timeout)))
+      (a/close! in)))
+  (testing "chunked-chan delivers results after timeout"
+    (let [{:keys [in out]} (chunked-chan {:flush-ms 100
+                                          :max-items 1000})]
+      (a/put! in [1 2])
+      (a/put! in [3 4])
+      (a/put! in [5 6])
+
+      (is (= [1 2 3 4 5 6]
+             (deref (future (a/<!! out))
+                    200
+                    :timeout)))
+      (a/close! in)))
+
+  (testing "chunked-chan blocks if the buffer is full and nobody took"
+    (let [{:keys [in]} (chunked-chan {:flush-ms 100
+                                          :max-items 4})]
+      (is (= true (deref (future (a/>!! in [1 2]))
+                         100
+                         :timeout)))
+      (is (= true (deref (future (a/>!! in [3 4]))
+                         100
+                         :timeout)))
+      (is (= :timeout (deref (future (a/>!! in [5 6]))
+                             100
+                             :timeout)))
+      (a/close! in)))
+
+  (testing "smoke test"
+    (let [{:keys [in out]} (chunked-chan {:flush-ms 100
+                                          :max-items 4})
+          put1 (future (a/>!! in [1 2]))
+          put2 (future (a/>!! in [3 4]))
+          put3 (future (a/>!! in [5 6]))
+          put4 (future (a/>!! in [7 8]))
+          _put5 (future (a/>!! in [9 10]))]
+
+      (is (= true (deref put1 10 :timeout)))
+      (is (= true (deref put2 10 :timeout)))
+      (is (= [1 2 3 4] (deref (future (a/<!! out))
+                              10
+                              :timeout)))
+
+      (is (= true (deref put3 10 :timeout)))
+      (is (= true (deref put4 10 :timeout)))
+
+      (is (= [5 6 7 8] (deref (future (a/<!! out))
+                              10
+                              :timeout)))
+
+      (is (= [9 10] (deref (future (a/<!! out))
+                           1000
+                           :timeout)))
+
+      (a/close! in))))
