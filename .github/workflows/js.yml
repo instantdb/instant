@@ -273,14 +273,19 @@ jobs:
           SAFE_BRANCH_NAME=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9-]/-/g')
           echo "BRANCH_NAME=$SAFE_BRANCH_NAME" >> $GITHUB_ENV
 
-      - name: Update version.md
-        working-directory: client
+      - name: Update version file
+        working-directory: client/packages/version/src
         run: |
-          bb -e '(spit "version.md"
-                       (format "%s-experimental.%s.%s\n"
-                               (clojure.string/trim (slurp "version.md"))
-                               (System/getenv "BRANCH_NAME")
-                               (System/getenv "GITHUB_RUN_ID")))'
+          bb -e '(let [file "index.ts"
+                       version-js (slurp file)
+                       version (->> version-js
+                                    (re-find #"const version = \'(v\d+\.\d+\.\d+)\'")
+                                    last)
+                       new-version (format "%s-experimental.%s.%s"
+                                           version
+                                           (System/getenv "BRANCH_NAME")
+                                           (System/getenv "GITHUB_RUN_ID"))]
+                   (spit file (clojure.string/replace version-js version new-version)))'
           cat version.md
           env
 
@@ -509,4 +514,3 @@ jobs:
       run: vercel build --target=staging --token=${{ secrets.VERCEL_TOKEN }}
     - name: Deploy Project Artifacts to Vercel
       run: vercel deploy --prebuilt --target=staging --token=${{ secrets.VERCEL_TOKEN }}
-
