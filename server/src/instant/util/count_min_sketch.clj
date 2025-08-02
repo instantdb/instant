@@ -268,11 +268,15 @@
                             ;; XXX
                             [:= :lsn previous-lsn]
                             [:= :id wal-aggregator-status-id]]
-                    :returning :*}]]
-           ;; XXX: Need to throw if this is null
-           ;; [:raise_exception_message [:inline "lsn is not what we expected, did someone else steal our slot?"]]
+                    :returning :*}]
+                  [:check-empty
+                   {:select [[[:case [[:exists {:select :1 :from :update-wal-aggregator-status}]]
+                               true
+                               :else [:raise_exception_message [:inline "lsn is not what we expected, another machine may have stolen the replication slot"]]]
+                              :ok]]}]]
            :select :*
-           :from :update-wal-aggregator-status}
+           :from :update-wal-aggregator-status
+           :where [:= true {:select :ok :from :check-empty}]}
         params (reduce-kv (fn [params i {:keys [sketch]}]
                             (assoc params
                                    (keyword (str "bins-" i))
@@ -283,4 +287,4 @@
     (sql/execute-one! ::save-sketches!
                       conn
                       (time (hsql/format q {:params params}))
-                      {:skip-log-params true})))
+                      {:skip-log-params (tool/inspect (not= :dev (config/get-env)))})))

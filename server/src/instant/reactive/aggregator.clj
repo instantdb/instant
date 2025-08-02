@@ -3,10 +3,11 @@
    [clojure.core.async :as a]
    [instant.config :as config]
    [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
    [instant.jdbc.wal :as wal]
+   [instant.util.async :as ua]
    ;; XXX: Should move this out of util
    [instant.util.count-min-sketch :as cms]
-   [instant.util.async :as ua]
    [instant.util.json :refer [<-json]]
    [instant.util.tracer :as tracer])
   (:import
@@ -16,7 +17,7 @@
 
 (declare aggregator-q)
 
-;; ------
+;; -------------
 ;; wal record xf
 
 (defn get-triples-data [columns]
@@ -65,10 +66,11 @@
   []
   (keep #'transform-wal-record))
 
-;; ------
-;; invalidator
+;; ----------
+;; aggregator
 
-(defn max-lsn [^LogSequenceNumber a ^LogSequenceNumber b]
+(defn max-lsn ^LogSequenceNumber
+  [^LogSequenceNumber a ^LogSequenceNumber b]
   (cond (not a)
         b
 
@@ -104,14 +106,14 @@
       (tracer/add-data! {:attributes {:max-lsn max-lsn}})
       ;; XXX: Get sketches all in one go
       (let [sketches (reduce-kv
-                      (fn [acc k {:keys [records max-lsn]}]
-                        ;; TODO: Handle case where attr is deleted in the interim
-                        (let [record (cms/find-or-create-sketch! conn k)]
-                          (conj acc (-> record
-                                        (update :sketch cms/add-batch records)
-                                        (assoc :max-lsn max-lsn)))))
-                      []
-                      changes)]
+                       (fn [acc k {:keys [records max-lsn]}]
+                         ;; TODO: Handle case where attr is deleted in the interim
+                         (let [record (cms/find-or-create-sketch! conn k)]
+                           (conj acc (-> record
+                                         (update :sketch cms/add-batch records)
+                                         (assoc :max-lsn max-lsn)))))
+                       []
+                       changes)]
         (cms/save-sketches! conn {:sketches sketches
                                   ;; :previous-lsn ??
                                   :lsn max-lsn})))))
@@ -141,7 +143,7 @@
           (recur lsn))))
     (tracer/record-info! {:name "aggregator-worker/shutdown"})))
 
-;; ------
+;; -------------
 ;; orchestration
 
 (defn wal-ex-handler [e]

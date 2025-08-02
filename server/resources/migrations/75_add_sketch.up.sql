@@ -6,6 +6,8 @@ create table attr_sketches (
   depth integer not null,
   total bigint not null,
   total_not_binned bigint not null,
+  -- maybe we should make bins nullable so that we can avoid storing
+  -- zeroes
   bins bigint[] not null,
   max_lsn pg_lsn,
   created_at timestamp with time zone not null default now(),
@@ -16,8 +18,6 @@ create table attr_sketches (
 -- unique constraint creates index we can use for cascade deletes on app
 -- add index for cascade deletes on attr
 create index on attr_sketches (attr_id);
-
-
 
 create trigger update_updated_at_trigger
 before update on attr_sketches

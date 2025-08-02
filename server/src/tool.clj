@@ -17,7 +17,8 @@
    (com.github.vertical_blank.sqlformatter SqlFormatter)
    (com.zaxxer.hikari HikariDataSource)
    (java.time Instant)
-   (java.util UUID)))
+   (java.util UUID)
+   (org.postgresql.replication LogSequenceNumber)))
 
 (defmacro def-locals*
   [prefix]
@@ -152,41 +153,45 @@
   (let [idx (atom 0)]
     (-> q
         (clojure.string/replace #"\?"
-                                (fn [_] (let [i @idx
-                                              v (nth params i)]
-                                          (swap! idx inc)
-                                          (str (cond
-                                                 (int? v) (format "%s" v)
-                                                 (string? v) (format "'%s'" (-> ^String v
-                                                                                (.replace "'" "''")))
+                                (fn [_]
+                                  (let [i @idx
+                                        v (nth params i)]
+                                    (swap! idx inc)
+                                    (str (cond
+                                           (int? v) (format "%s" v)
+                                           (string? v) (format "'%s'" (-> ^String v
+                                                                          (.replace "'" "''")))
 
-                                                 (= "text[]" (-> v meta :pgtype))
-                                                 (format "'%s'" (->pg-text-array v))
+                                           (= "text[]" (-> v meta :pgtype))
+                                           (format "'%s'" (->pg-text-array v))
 
-                                                 (= "jsonb[]" (-> v meta :pgtype))
-                                                 (->pg-json-array v)
+                                           (= "jsonb[]" (-> v meta :pgtype))
+                                           (->pg-json-array v)
 
-                                                 (or (= "uuid[]" (-> v meta :pgtype))
-                                                     (= "boolean[]" (-> v meta :pgtype))
-                                                     (= "float8[]" (-> v meta :pgtype))
-                                                     (= "timestamptz[]" (-> v meta :pgtype))
-                                                     (and (set? v)
-                                                          (or (every? uuid? v)
-                                                              (every? boolean? v)
-                                                              (every? number? v)
-                                                              (every? (fn [x] (instance? Instant x)) v))))
-                                                 (format "'%s'" (->pg-stringable-array v))
+                                           (or (= "uuid[]" (-> v meta :pgtype))
+                                               (= "boolean[]" (-> v meta :pgtype))
+                                               (= "float8[]" (-> v meta :pgtype))
+                                               (= "timestamptz[]" (-> v meta :pgtype))
+                                               (and (or (set? v)
+                                                        (vector? v))
+                                                    (or (every? uuid? v)
+                                                        (every? boolean? v)
+                                                        (every? number? v)
+                                                        (every? (fn [x] (instance? Instant x)) v))))
+                                           (format "'%s'::%s"
+                                                   (->pg-stringable-array v)
+                                                   (-> v meta :pgtype))
 
+                                           ;; Fallback to JSON
+                                           (set? v)
+                                           (->pg-json-array v)
 
-                                                 ;; Fallback to JSON
-                                                 (set? v)
-                                                 (->pg-json-array v)
-
-
-                                                 :else (format "'%s'" v))
-                                               (if (uuid? v)
-                                                 "::uuid"
-                                                 "")))))
+                                           (instance? LogSequenceNumber v)
+                                           (format "'%s'::pg_lsn" (LogSequenceNumber/.asString v))
+                                           :else (format "'%s'" v))
+                                         (if (uuid? v)
+                                           "::uuid"
+                                           "")))))
         ^String sql-pretty
         ;; Fix a bug with the pretty printer where the || operator gets a space
         (.replace "| |" "||"))))
