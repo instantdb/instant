@@ -58,11 +58,6 @@ restart:
 	@echo "Restarting beanstalk..."
 	aws elasticbeanstalk restart-app-server --environment-name Instant-prod-env
 
-dev-with-prod-db:
-	@DATABASE_URL=$$(./scripts/prod_connection_string.sh); \
-	echo "[IMPORTANT] Booting up backend w/ prod db..." && \
-	DATABASE_URL="$${DATABASE_URL}" clj -T:build dev
-
 prod-ssh:
 	./scripts/prod_ssh.sh
 
