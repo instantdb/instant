@@ -279,7 +279,7 @@ jobs:
           bb -e '(let [file "index.ts"
                        version-js (slurp file)
                        version (->> version-js
-                                    (re-find #"const version = \'(v\d+\.\d+\.\d+)\'")
+                                    (re-find #"const version = '"'"'(v\d+\.\d+\.\d+)'"'"'")
                                     last)
                        new-version (format "%s-experimental.%s.%s"
                                            version
