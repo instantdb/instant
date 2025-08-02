@@ -37,10 +37,6 @@
     }
   },
   "scripts": {
-    "test": "vitest",
-    "bench": "vitest bench",
-    "test:ci": "vitest run",
-    "bench:ci": "vitest bench --run",
     "check": "tsc --noEmit",
     "check-exports": "attw --pack .",
     "dev": "tshy --watch",

@@ -39,7 +39,7 @@
 
 (defn get-version []
   (let [version (->> (slurp "packages/version/src/index.ts")
-                     (re-find #"const version = \"(v\d+\.\d+\.\d+)\"")
+                     (re-find #"const version = '(v\d+\.\d+\.\d+)'")
                      last)]
     (assert version "Could not version in packages/version/src/index.ts file")
     version))
