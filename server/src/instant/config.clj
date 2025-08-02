@@ -157,12 +157,16 @@
                                                       @process-id)))))
 
 (defn dashboard-origin
+  "Return the base URL for the Instant dashboard. The value normally depends on
+  the current environment but can be overridden with the `DASHBOARD_ORIGIN`
+  environment variable."
   ([] (dashboard-origin {:env (get-env)}))
   ([{:keys [env]}]
-   (case env
-     :prod "https://www.instantdb.com"
-     :staging "https://staging.instantdb.com"
-     "http://localhost:3000")))
+   (or (System/getenv "DASHBOARD_ORIGIN")
+       (case env
+         :prod "https://www.instantdb.com"
+         :staging "https://staging.instantdb.com"
+         "http://localhost:3000"))))
 
 ;; ---
 ;; Stripe
@@ -202,10 +206,15 @@
 (defn get-google-oauth-client []
   (-> @config-map :google-oauth-client))
 
-(def server-origin (case (get-env)
-                     :prod "https://api.instantdb.com"
-                     :staging "https://api-staging.instantdb.com"
-                     "http://localhost:8888"))
+(def server-origin
+  (or (System/getenv "SERVER_ORIGIN")
+      (case (get-env)
+        :prod "https://api.instantdb.com"
+        :staging "https://api-staging.instantdb.com"
+        "http://localhost:8888")))
+
+(def oauth-default-scope
+  (or (System/getenv "OAUTH_DEFAULT_SCOPE") "email"))
 
 (def s3-bucket-name
   (case (get-env)
