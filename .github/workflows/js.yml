@@ -286,8 +286,7 @@ jobs:
                                            (System/getenv "BRANCH_NAME")
                                            (System/getenv "GITHUB_RUN_ID"))]
                    (spit file (clojure.string/replace version-js version new-version)))'
-          cat version.md
-          env
+          cat index.ts
 
       - name: Publish experimental
         working-directory: client
