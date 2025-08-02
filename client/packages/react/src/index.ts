@@ -61,10 +61,18 @@ import {
   type DeleteFileResponse,
 } from '@instantdb/core';
 
-import InstantReactAbstractDatabase from './InstantReactAbstractDatabase.ts';
+import InstantReactAbstractDatabase from './InstantReactAbstractDatabase.tsx';
 import InstantReactWebDatabase from './InstantReactWebDatabase.ts';
 import { init, init_experimental } from './init.ts';
 import { Cursors } from './Cursors.tsx';
+import { InstantProvider } from './InstantProvider.tsx';
+import {
+  useDb,
+  useQuery,
+  useUser,
+  SignedIn,
+  SignedOut,
+} from './topLevelInterface.tsx';
 
 export {
   id,
@@ -75,6 +83,12 @@ export {
   InstantReactWebDatabase,
   Cursors,
   i,
+  InstantProvider,
+  useDb,
+  useQuery,
+  useUser,
+  SignedIn,
+  SignedOut,
 
   // internal
   InstantReactAbstractDatabase,
@@ -135,3 +149,5 @@ export {
   type UploadFileResponse,
   type DeleteFileResponse,
 };
+
+export interface Register {}

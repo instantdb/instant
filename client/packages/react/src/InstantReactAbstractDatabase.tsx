@@ -21,9 +21,9 @@ import {
   RoomsOf,
   InstantSchemaDef,
   IInstantDatabase,
-  Config,
 } from '@instantdb/core';
 import {
+  ReactNode,
   useCallback,
   useEffect,
   useRef,
@@ -344,5 +344,23 @@ export default abstract class InstantReactAbstractDatabase<
     pageInfo: PageInfoResponse<Q>;
   }> => {
     return this._core.queryOnce(query, opts);
+  };
+
+  SignedIn = ({ children }: { children: ReactNode }) => {
+    const auth = this.useAuth();
+    if (auth.user) {
+      return <>{children}</>;
+    } else {
+      return <></>;
+    }
+  };
+
+  SignedOut = ({ children }: { children: ReactNode }) => {
+    const auth = this.useAuth();
+    if (!auth.isLoading && !auth.user && !auth.error) {
+      return <>{children}</>;
+    } else {
+      return <></>;
+    }
   };
 }
