@@ -1,7 +1,7 @@
 {
   "name": "instant-cli",
   "type": "module",
-  "version": "v0.20.16",
+  "version": "0.0.0",
   "description": "Instant's CLI",
   "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/cli",
   "repository": {
@@ -16,6 +16,7 @@
     "@inquirer/core": "9.0.10",
     "@inquirer/prompts": "5.3.8",
     "@instantdb/platform": "workspace:*",
+    "@instantdb/version": "workspace:*",
     "ansi-escapes": "4.3.2",
     "chalk": "^5.3.0",
     "commander": "^12.1.0",
