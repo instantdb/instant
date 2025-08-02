@@ -173,14 +173,15 @@
        res#)))
 
 ;; -----------------
-;; delete-by-app-id!
+;; hard-delete-by-app-id!
 
-(defn delete-by-app-id!
-  "Deletes all attrs for an app. Note: This will also delete all triples for an app"
+(defn hard-delete-by-app-id!
+  "Hard-deletes all attrs for an app. 
+   Note: This will also delete all triples for an app"
   [conn app-id]
   (with-cache-invalidation app-id
     (sql/do-execute!
-     ::delete-by-app-id!
+     ::hard-delete-by-app-id!
      conn
      ["DELETE FROM attrs WHERE attrs.app_id = ?::uuid" app-id])))
 
@@ -577,7 +578,150 @@
                   {:select :id :from :ident-updates}]}]])
        :select :%count.* :from :union-ids}))))
 
-(defn delete-multi!
+(defn restore-multi!
+  "Restores soft-deleted attrs
+
+   1. When we restore an attr, we always make sure to mark 
+      it as not indexed, and not required.
+      This way we don't impact existing transactions 
+      
+      This does mean that we may have triples that still live on 
+      ave. It doesn't affect functionality but it does have some storage overhead. 
+
+   2. We restore the etype and labels. We previously 
+      branded them as deleted, to avoid uniqueness violations."
+  [conn app-id ids]
+  (with-cache-invalidation app-id
+    (sql/do-execute!
+     ::restore-multi!
+     conn
+     (sql/format
+      "with restored_attrs as (
+        update attrs
+        set 
+          deletion_marked_at = null,
+          is_indexed = false,
+          is_required = false,
+          metadata = metadata - 'soft_delete_snapshot',
+          etype = substring(etype from position('$' in etype) + 1),
+          label = substring(label from position('$' in etype) + 1),
+          reverse_etype = case 
+            when reverse_etype is not null 
+            then substring(reverse_etype from position('$' in etype) + 1)
+            else null 
+          end,
+          reverse_label = case 
+            when reverse_label is not null 
+            then substring(reverse_label from position('$' in etype) + 1)
+            else null 
+          end
+        where 
+          app_id = ?app-id 
+          and id = any(?attr-ids)
+          and deletion_marked_at is not null
+        returning *
+      ), restored_forward_idents as ( 
+        update idents fw 
+        set 
+          etype = a.etype, 
+          label = a.label
+        from restored_attrs a 
+        where 
+          fw.app_id = ?app-id and 
+          fw.id = a.forward_ident
+        returning *    
+      ), restored_rev_idents as ( 
+       update idents rv 
+       set 
+         etype = a.reverse_etype, 
+         label = a.reverse_label
+       from restored_attrs a
+       where 
+         rv.app_id = ?app-id and 
+         rv.id = a.reverse_ident
+       returning * 
+      ) 
+      select count(*) from restored_attrs 
+      union all 
+      select count(*) from restored_forward_idents 
+      union all 
+      select count(*) from restored_rev_idents"
+      {"?app-id" app-id
+       "?attr-ids" (with-meta (vec ids) {:pgtype "uuid[]"})}))))
+
+(defn soft-delete-multi!
+  "Soft-deletes attrs 
+   1. We always mark soft-deleted attrs as not indexed, and not required.
+      
+      This way we don't impact existing transactions. 
+
+   2. We brand etype and labels with a `{attr_id}_deleted$` prefix.
+      This way we avoid future uniqueness violations."
+  [conn app-id ids]
+  (with-cache-invalidation app-id
+    (sql/do-execute!
+     ::soft-delete-multi!
+     conn
+     (sql/format
+      "with soft_deleted_attrs as (
+        update attrs
+        set 
+          deletion_marked_at = now(),
+          is_indexed = false, 
+          is_required = false, 
+          etype = id::text || '_deleted$' || etype,
+          label = id::text || '_deleted$' || label,
+          metadata = coalesce(metadata, '{}'::jsonb) || jsonb_build_object(
+            'soft_delete_snapshot', jsonb_build_object(
+              'is_indexed', is_indexed,
+              'is_required', is_required
+            )
+          ),
+          reverse_etype = case 
+            when reverse_etype is not null 
+            then id::text || '_deleted$' || reverse_etype
+            else null 
+          end,
+          reverse_label = case 
+            when reverse_label is not null 
+            then id::text || '_deleted$' || reverse_label 
+            else null 
+          end
+        where 
+          app_id = ?app-id 
+          and id = any(?attr-ids) 
+          and deletion_marked_at is null
+        returning *
+      ), changed_forward_idents as ( 
+        update idents fw 
+        set 
+          etype = a.etype, 
+          label = a.label
+        from soft_deleted_attrs a 
+        where 
+          fw.app_id = ?app-id and 
+          fw.id = a.forward_ident
+        returning *    
+      ), changed_rev_idents as ( 
+       update idents rv 
+       set 
+         etype = a.reverse_etype, 
+         label = a.reverse_label
+       from soft_deleted_attrs a
+       where 
+         rv.app_id = ?app-id and 
+         rv.id = a.reverse_ident
+       returning * 
+      ) 
+      select count(*) from soft_deleted_attrs 
+      union all 
+      select count(*) from changed_forward_idents 
+      union all 
+      select count(*) from changed_rev_idents"
+      {"?app-id" app-id
+       "?attr-ids" (with-meta (vec ids) {:pgtype "uuid[]"})}))))
+
+(defn hard-delete-multi!
   "Deletes a batch of attrs for an app. We
    rely on CASCADE DELETE to remove associated
    idents and triples"
@@ -591,6 +735,7 @@
        :where [[:and
                 [:= :app-id app-id]
                 [:in :id ids]]]}))))
+
 ;; -------
 ;; app-attrs
 
@@ -723,8 +868,8 @@
             FROM
               attrs
             WHERE
-              app_id = CAST(?app-id AS UUID)
-              OR app_id = CAST(?system-catalog-app-id AS UUID)
+              (app_id = CAST(?app-id AS UUID) OR app_id = CAST(?system-catalog-app-id AS UUID))
+              AND deletion_marked_at IS NULL
             ORDER BY
               id ASC"
            {"?app-id" app-id
@@ -754,8 +899,10 @@
                           [:reverse_etype :rev-etype]
                           [:reverse_label :rev-label]]
                  :from :attrs
-                 :where [:= :attrs.app-id [:any (with-meta (conj (set app-ids) system-catalog-app-id)
-                                                  {:pgtype "uuid[]"})]]}))
+                 :where [:and
+                         [:= :attrs.app-id [:any (with-meta (conj (set app-ids) system-catalog-app-id)
+                                                   {:pgtype "uuid[]"})]]
+                         [:= :deletion_marked_at nil]]}))
          rows-by-app-id (group-by :app_id rows)
          system-catalog-attrs (map row->attr (get rows-by-app-id system-catalog-app-id))]
      (reduce (fn [acc app-id]
@@ -763,6 +910,16 @@
                                                      system-catalog-attrs))))
              {}
              app-ids))))
+
+(defn get-for-hard-delete
+  ([params] (get-for-hard-delete (aurora/conn-pool :read) params))
+  ([conn {:keys [maximum-deletion-marked-at]}]
+   (sql/select ::get-attrs-to-hard-delete
+               conn
+               ["select a.* 
+                 from attrs a 
+                 where a.deletion_marked_at is not null and a.deletion_marked_at <= ?"
+                maximum-deletion-marked-at])))
 
 ;; ------
 ;; seek

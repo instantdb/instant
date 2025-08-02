@@ -67,7 +67,6 @@
               (token-util/->PersonalAccessToken (str token))}))
       (:app (req->superadmin-user-and-app! scope req))
 
-
       (if-let [app (app-model/get-by-admin-token {:token token})]
         app
         (ex/throw+ {::ex/type ::ex/record-not-found
@@ -245,11 +244,12 @@
   (def token (instant-personal-access-token-model/create! {:id (UUID/randomUUID)
                                                            :user-id (:id user)
                                                            :name "Test Token"}))
-  (def headers {"authorization" (str "Bearer " (:id token))})
+  (def headers {"authorization" (str "Bearer " (:token token))})
   (def app-response (apps-create-post {:headers headers :body {:title "Demo App"}}))
   (def app-id (-> app-response :body :app :id))
 
-  (apps-list-get {:headers headers})
+  (apps-list-get {:headers headers
+                  :params {:include "schema,perms"}})
   (app-details-get {:headers headers :params {:app_id app-id}})
   (app-update-post {:headers headers :params {:app_id app-id} :body {:title "Updated Demo App"}})
   (app-transfer-send-invite-post {:headers headers

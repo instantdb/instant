@@ -48,6 +48,9 @@
 (s/def ::delete-attr-step
   (s/cat :op #{:delete-attr} :attr-id ::attr-model/id))
 
+(s/def ::restore-attr-step
+  (s/cat :op #{:restore-attr} :attr-id ::attr-model/id))
+
 (s/def ::update-attr-step
   (s/cat :op #{:update-attr} :update ::attr-model/attr-update))
 
@@ -58,7 +61,8 @@
                        :retract-triple ::retract-triple-step
                        :add-attr ::add-attr-step
                        :update-attr ::update-attr-step
-                       :delete-attr ::delete-attr-step))
+                       :delete-attr ::delete-attr-step
+                       :restore-attr ::restore-attr-step))
 
 (s/def ::tx-steps (s/coll-of ::tx-step))
 
@@ -482,7 +486,10 @@
                             (attr-model/insert-multi! conn app-id (map second tx-steps))
 
                             :delete-attr
-                            (attr-model/delete-multi! conn app-id (map second tx-steps))
+                            (attr-model/soft-delete-multi! conn app-id (map second tx-steps))
+
+                            :restore-attr
+                            (attr-model/restore-multi! conn app-id (map second tx-steps))
 
                             :update-attr
                             (attr-model/update-multi! conn app-id (map second tx-steps))

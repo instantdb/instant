@@ -13,7 +13,6 @@ pom.xml.asc
 .hg/
 .DS_Store
 node_modules
-.lsp
 .elasticbeanstealk/app_versions
 .idea 
 server.iml

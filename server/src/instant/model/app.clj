@@ -324,8 +324,8 @@
      (sql/execute-one! ::delete-by-id!
                        conn ["UPDATE apps SET deletion_marked_at = NOW() WHERE id = ?::uuid" id]))))
 
-(defn get-apps-to-delete
-  ([params] (get-apps-to-delete (aurora/conn-pool :read) params))
+(defn get-apps-to-hard-delete
+  ([params] (get-apps-to-hard-delete (aurora/conn-pool :read) params))
   ([conn {:keys [maximum-deletion-marked-at]}]
    (sql/select ::get-apps-to-delete
                conn
@@ -363,7 +363,7 @@
   ([params] (clear-by-id! (aurora/conn-pool :write) params))
   ([conn {:keys [id]}]
    (next-jdbc/with-transaction [tx-conn conn]
-     (attr-model/delete-by-app-id! tx-conn id)
+     (attr-model/hard-delete-by-app-id! tx-conn id)
      (rule-model/delete-by-app-id! tx-conn {:app-id id})
      (transaction-model/create! tx-conn {:app-id id}))))
 
