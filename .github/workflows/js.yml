@@ -140,7 +140,7 @@ jobs:
               mcpFly: file === 'client/fly.toml',
               workflowFile: file === '.github/workflows/js.yml',
               packages: file.startsWith('client/packages'),
-              version: file === 'client/packages/version/src/index.ts',
+              version: file === 'client/packages/version/src/version.ts',
             };
             console.log('file', file);
             console.log('changes', changes);
@@ -276,7 +276,7 @@ jobs:
       - name: Update version file
         working-directory: client/packages/version/src
         run: |
-          bb -e '(let [file "index.ts"
+          bb -e '(let [file "version.ts"
                        version-js (slurp file)
                        version (->> version-js
                                     (re-find #"const version = '"'"'(v\d+\.\d+\.\d+)'"'"'")
@@ -286,7 +286,7 @@ jobs:
                                            (System/getenv "BRANCH_NAME")
                                            (System/getenv "GITHUB_RUN_ID"))]
                    (spit file (clojure.string/replace version-js version new-version)))'
-          cat index.ts
+          cat version.ts
 
       - name: Publish experimental
         working-directory: client

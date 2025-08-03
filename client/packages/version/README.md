@@ -33,4 +33,4 @@ If you have any questions, feel free to drop us a line on our [Discord](https://
 
 # Development
 
-To deploy a new version of instant, update the version directly in `src/index.ts`. When your code is merged into main, CI will publish the package to npm.
+To deploy a new version of instant, update the version directly in `src/version.ts`. When your code is merged into main, CI will publish the package to npm.

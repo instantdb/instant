@@ -38,10 +38,11 @@
     (proc/shell "pnpm" "publish-packages")))
 
 (defn get-version []
-  (let [version (->> (slurp "packages/version/src/index.ts")
+  (let [file "packages/version/src/version.ts"
+        version (->> (slurp file)
                      (re-find #"const version = '(v\d+\.\d+\.\d+[^']*)'")
                      last)]
-    (assert version "Could not version in packages/version/src/index.ts file")
+    (assert version (format "Could not version in %s file" file))
     version))
 
 (defn -main [& args]
