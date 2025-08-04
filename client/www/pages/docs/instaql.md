@@ -570,7 +570,7 @@ You can also order by any attribute that is indexed and has a checked type.
 Add indexes and checked types to your attributes from the [Explorer on the Instant dashboard](/dash?t=explorer) or from the [cli with Schema-as-code](/docs/schema).
 {% /callout %}
 
-```javascript
+```typescript
 // Get the todos that are due next
 const query = {
   todos: {
@@ -581,6 +581,34 @@ const query = {
       },
       order: {
         dueDate: 'asc',
+      },
+    },
+  },
+};
+```
+
+Order is not supported on nested attributes. So if todos had an owner you could
+not order todos by "owner.name". This behavior is different from `where`,
+which supports filtering on nested attributes.
+
+```typescript
+// ❌ Order does not support nested attributes
+const query = {
+  todos: {
+    $: {
+      order: {
+        'owner.name': 'asc', // Cannot order by nested attributes
+      },
+    },
+  },
+};
+
+// ✅ Where does support filtering on nested attributes
+const query = {
+  todos: {
+    $: {
+      where: {
+        'owner.name': 'alyssa.p.hacker@instantdb.com',
       },
     },
   },
