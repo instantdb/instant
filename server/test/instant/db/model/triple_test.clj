@@ -15,7 +15,8 @@
              "\"2025-01-02T00:00:00-08\""
              "2025-01-15 20:53:08"
              "\"2025-01-15 20:53:08\""
-             "Wed Jul 09 2025"]]
+             "Wed Jul 09 2025"
+             "8/4/2025, 11:02:31 PM"]]
     (testing (str "Date string `" s "` parses.")
       (let [query {:select [[[:triples_extract_date_value [:cast (->json s) :jsonb]]
                              :date]]}
@@ -28,7 +29,8 @@
                         (Date/.toInstant))]
 
         (is (= pg-date
-               (triple/parse-date-value s)))))))
+               (triple/parse-date-value s))
+            (format "parse-date-value for `%s` should return `%s`" s pg-date))))))
 
 (deftest parse-date-value-throws-for-invalid-dates
   (doseq [s ["2025-01-0"

@@ -74,10 +74,38 @@ function iso8601IncompleteOffsetToInstant(s) {
   return null;
 }
 
+function usDateTimeStrToInstant(s) {
+  // Format: "M/d/yyyy, h:mm:ss a" (e.g., "8/4/2025, 11:02:31 PM")
+  const [datePart, timePart] = s.split(', ');
+  const [month, day, year] = datePart.split('/').map(Number);
+
+  // Parse time with AM/PM
+  const timeMatch = timePart.match(/(\d{1,2}):(\d{2}):(\d{2}) (AM|PM)/);
+  if (!timeMatch) {
+    throw new Error(`Unable to parse time from: ${s}`);
+  }
+
+  let [, hours, minutes, seconds, ampm] = timeMatch;
+  hours = Number(hours);
+  minutes = Number(minutes);
+  seconds = Number(seconds);
+
+  // Convert 12-hour to 24-hour format
+  if (ampm === 'PM' && hours !== 12) {
+    hours += 12;
+  } else if (ampm === 'AM' && hours === 12) {
+    hours = 0;
+  }
+
+  // Create date in UTC
+  return new Date(Date.UTC(year, month - 1, day, hours, minutes, seconds));
+}
+
 // Array of parsers
 const dateParsers = [
   zenecaDateStrToInstant,
   dowMonDayYearStrToInstant,
+  usDateTimeStrToInstant,
   rfc1123ToInstant,
   localDateStrToInstant,
   localDateTimeStrToInstant,

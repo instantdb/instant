@@ -968,15 +968,24 @@
       (.atStartOfDay)
       (.toInstant ZoneOffset/UTC)))
 
+(def us-datetime-formatter
+  (DateTimeFormatter/ofPattern "M/d/yyyy, h:mm:ss a"))
 
+(defn us-datetime-str->instant [s]
+  (-> s
+      (LocalDateTime/parse us-datetime-formatter)
+      (.toInstant ZoneOffset/UTC)))
 
+;; If you update anything here, be sure to also update the client:
+;; client/packages/core/src/utils/dates.ts
 (def date-parsers [zoned-date-time-str->instant
                    local-date-time-str->instant
                    local-date-str->instant
                    rfc-1123->instant
                    offio-date-str->instant
                    zeneca-date-str->instant
-                   dow-mon-day-year-str->instant])
+                   dow-mon-day-year-str->instant
+                   us-datetime-str->instant])
 
 (defn try-parse-date-string [parser s]
   (try
@@ -1016,6 +1025,7 @@
   (parse-date-value "\"2025-01-02T00:00:00-08\"")
   (parse-date-value "2025-01-15 20:53:08")
   (parse-date-value "\"2025-01-15 20:53:08\"")
+  (parse-date-value "8/4/2025, 11:02:31 PM")
 
   ;; These should throw an exception
   (parse-date-value "2025-01-0")
