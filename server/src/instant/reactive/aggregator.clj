@@ -3,7 +3,6 @@
    [clojure.core.async :as a]
    [instant.config :as config]
    [instant.jdbc.aurora :as aurora]
-   [instant.jdbc.sql :as sql]
    [instant.jdbc.wal :as wal]
    [instant.util.async :as ua]
    [instant.db.attr-sketch :as cms]
@@ -104,7 +103,7 @@
       (assert max-lsn "max-lsn was nil, we can't apply changes")
       (tracer/add-data! {:attributes {:max-lsn max-lsn}})
       ;; XXX: Get sketches all in one go
-      (let [sketches (cms/find-or-create-sketches! (keys changes))
+      (let [sketches (cms/find-or-create-sketches! conn (keys changes))
             sketches (reduce-kv
                       (fn [acc k {:keys [records max-lsn]}]
                         ;; TODO: Handle case where attr is deleted in the interim
