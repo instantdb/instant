@@ -27,9 +27,9 @@
   ([{:keys [confidence error-rate]
      :or {confidence 0.998
           error-rate 0.001}}]
-   (let [width (Math/ceil (/ 2 error-rate))
-         depth (Math/ceil (/ (* -1 (Math/log (- 1 confidence)))
-                             ln2))]
+   (let [width (int (Math/ceil (/ 2 error-rate)))
+         depth (int (Math/ceil (/ (* -1 (Math/log (- 1 confidence)))
+                                  ln2)))]
      (map->Sketch {:width width
                    :depth depth
                    :bins (vec (repeat (* width depth) 0))
@@ -201,6 +201,58 @@
 ;; to that one is the one that updates the counts
 ;;
 
+(defn- find-sketch-rows
+  "Takes a set of {:app-id :attr-id} maps and returns a list of sketch
+   db records."
+  [conn keys]
+  (let [q (hsql/format {:select :*
+                        :from :attr-sketches
+                        :where [:in
+                                [:composite :app-id :attr-id]
+                                {:select [[[:unnest :?app-ids] :app-id]
+                                          [[:unnest :?attr-ids] :attr-id]]}]}
+                       {:params {:app-ids (with-meta (mapv :app-id keys)
+                                            {:pgtype "uuid[]"})
+                                 :attr-ids (with-meta (mapv :attr-id keys)
+                                             {:pgtype "uuid[]"})}})]
+    (sql/select ::find-sketches conn q)))
+
+(defn- create-sketch-rows!
+  "Takes a set of {:app-id :attr-id} maps and returns a list of sketch
+   db records."
+  [conn keys]
+  (let [sketch (make-sketch)
+        params (assoc (select-keys sketch
+                                   [:width
+                                    :depth
+                                    :total
+                                    :total-not-binned])
+                      :bins (with-meta (:bins sketch)
+                              {:pgtype "bigint[]"})
+                      :app-ids (with-meta (mapv :app-id keys)
+                                 {:pgtype "uuid[]"})
+                      :attr-ids (with-meta (mapv :attr-id keys)
+                                  {:pgtype "uuid[]"}))
+        cols [:id :app-id :attr-id :width :depth :total :total-not-binned :bins]
+        q (hsql/format {:with [[:data {:select [[:%gen_random_uuid :id]
+                                                [[:unnest :?app-ids] :app-id]
+                                                [[:unnest :?attr-ids] :attr-id]
+                                                [:?width :width]
+                                                [:?depth :depth]
+                                                [:?total :total]
+                                                [:?total-not-binned :total-not-binned]
+                                                [:?bins :bins]]}]]
+                        :insert-into [[:attr-sketches (conj cols)]
+                                      {:select cols
+                                       :from :data}]
+                        :returning :*}
+                       {:params params})]
+    (sql/execute! ::create-sketches
+                  conn
+                  q
+                  ;; Don't send the bins to honeycomb
+                  {:skip-log-params (not= :dev (config/get-env))})))
+
 (defn record->Sketch [record]
   {:sketch (map->Sketch {:width (:width record)
                          :depth (:depth record)
@@ -212,35 +264,34 @@
    :attr-id (:attr_id record)
    :max-lsn (:max_lsn record)})
 
-(defn find-or-create-sketch! [conn {:keys [app-id attr-id]}]
-  (if-let [existing (sql/select-one ::find-sketch
-                                    conn
-                                    (hsql/format {:select :*
-                                                  :from :attr-sketches
-                                                  :where [:and
-                                                          [:= :app-id app-id]
-                                                          [:= :attr-id attr-id]]}))]
-    (record->Sketch existing)
-    (let [sketch (make-sketch)
-          new (sql/execute-one! ::create-sketch
-                                conn
-                                (hsql/format {:insert-into :attr-sketches
-                                              :values [{:id (random-uuid)
-                                                        :app-id app-id
-                                                        :attr-id attr-id
-                                                        :width (:width sketch)
-                                                        :depth (:depth sketch)
-                                                        :total (:total sketch)
-                                                        :total-not-binned (:total-not-binned sketch)
-                                                        :bins :?bins}]}
-                                             {:params {:bins (with-meta (:bins sketch)
-                                                               {:pgtype "bigint[]"})}}))]
-      (record->Sketch new))))
+(defn find-or-create-sketches!
+  "Takes a set of {:app-id :attr-id} maps and returns a map of
+   {:app-id :attr-id} to sketch record."
+  [conn keys]
+  (let [existing (find-sketch-rows conn keys)
+        {:keys [results missing-keys]}
+        (reduce (fn [acc res]
+                  (let [result (record->Sketch res)
+                        k (select-keys result [:app-id :attr-id])]
+                    (-> acc
+                        (assoc-in [:results k] result)
+                        (update :missing-keys disj k))))
+                {:results {}
+                 :missing-keys (set keys)}
+                existing)]
+    (if-not (seq missing-keys)
+      results
+      (reduce (fn [acc res]
+                (let [result (record->Sketch res)
+                      k (select-keys result [:app-id :attr-id])]
+                  (assoc acc k result)))
+              results
+              (create-sketch-rows! conn missing-keys)))))
 
 (def wal-aggregator-status-id :1)
 
 (defn save-sketches! [conn {:keys [sketches
-                                   previous-lsn ;; XXX: need to keep track of last lsn so that we are sure we don't overwrite
+                                   previous-lsn
                                    lsn]}]
   (let [q {:with [[[:data
                     {:columns [:id :total :total-not-binned :max-lsn :bins]}]
@@ -265,7 +316,6 @@
                     :set {:lsn lsn
                           :process-id @config/process-id}
                     :where [:and
-                            ;; XXX
                             [:= :lsn previous-lsn]
                             [:= :id wal-aggregator-status-id]]
                     :returning :*}]
@@ -286,5 +336,6 @@
                           sketches)]
     (sql/execute-one! ::save-sketches!
                       conn
-                      (time (hsql/format q {:params params}))
-                      {:skip-log-params (tool/inspect (not= :dev (config/get-env)))})))
+                      (hsql/format q {:params params})
+                      ;; Don't send the bins to honeycomb
+                      {:skip-log-params (not= :dev (config/get-env))})))
