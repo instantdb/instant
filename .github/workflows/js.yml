@@ -348,15 +348,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_API_KEY }}
           NPM_CONFIG_PROVENANCE: true
-
-      - name: Commit package changes
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .
-          git commit -m "Update versions"
-          git push
-
+          
       - name: Debug
         if: failure()
         uses: actions/upload-artifact@v4
