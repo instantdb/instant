@@ -75,6 +75,9 @@ USER mcp
 COPY --from=build --chown=mcp:nodejs /app/packages/mcp/package.json packages/mcp/package.json
 COPY --from=build --chown=mcp:nodejs /app/packages/mcp/dist packages/mcp/dist
 
+COPY --from=build --chown=mcp:nodejs /app/packages/version/package.json packages/version/package.json
+COPY --from=build --chown=mcp:nodejs /app/packages/version/dist packages/version/dist
+
 COPY --from=build --chown=mcp:nodejs /app/packages/core/package.json packages/core/package.json
 COPY --from=build --chown=mcp:nodejs /app/packages/core/dist packages/core/dist
 
