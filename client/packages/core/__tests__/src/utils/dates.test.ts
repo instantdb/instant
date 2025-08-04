@@ -12,6 +12,7 @@ describe('coerceToDate', () => {
       '2025-01-15 20:53:08',
       '"2025-01-15 20:53:08"',
       'Wed Jul 09 2025',
+      '8/4/2025, 11:02:31 PM',
     ];
 
     validDateStrings.forEach((dateString) => {
@@ -52,6 +53,9 @@ describe('coerceToDate', () => {
             expect(result.getUTCHours()).toBe(0);
             expect(result.getUTCMinutes()).toBe(0);
             expect(result.getUTCSeconds()).toBe(0);
+            break;
+          case '8/4/2025, 11:02:31 PM':
+            expect(result.toISOString()).toBe('2025-08-04T23:02:31.000Z');
             break;
           default:
             throw new Error(`Unexpected date string: ${dateString}`);
