@@ -68,6 +68,7 @@
                                    [[attr_id value] entity_id]))
                             (into {}))]
       lookups->eid)))
+
 ;; ---
 ;; insert-multi!
 
@@ -261,7 +262,19 @@
         {:select
          [[[:cast :ilr.app_id :uuid] :app-id]
           [[:gen_random_uuid] :entity-id]
-          [[:cast :ilr.attr-id :uuid] :attr-id]
+          [[:case [:not= nil :a.id]
+            :a.id
+            :else
+            [:cast
+             [:cast
+              [:raise_exception_message
+               [:||
+                [:inline "We could not find an attribute with id = '"]
+                :ilr.attr-id
+                [:inline "'"]]]
+              :text]
+             :uuid]]
+           :attr-id]
           [[:cast :ilr.value :jsonb] :value]
           [[:md5 :ilr.value] :value-md5]
           [[:case [:= :a.cardinality [:inline "one"]] true :else false]
@@ -279,7 +292,8 @@
                                   [:or
                                    [:= :a.app-id [:cast :ilr.app-id :uuid]]
                                    [:= :a.app-id system-catalog-app-id]]
-                                  [:= :a.id [:cast :ilr.attr-id :uuid]]]]}
+                                  [:= :a.id [:cast :ilr.attr-id :uuid]]
+                                  [:= nil :a.deletion-marked-at]]]}
 
         ;; insert lookup refs
         lookup-ref-inserts
@@ -318,7 +332,19 @@
          [[:at.idx :idx]
           [:at.app_id :app-id]
           [:at.entity-id :entity-id]
-          [:a.id :attr-id]
+          [[:case [:not= nil :a.id]
+            :a.id
+            :else
+            [:cast
+             [:cast
+              [:raise_exception_message
+               [:||
+                [:inline "We could not find an attribute with id = '"]
+                :at.attr-id
+                [:inline "'"]]]
+              :text]
+             :uuid]]
+           :attr-id]
           [[:cast :at.value :jsonb] :value]
           [[:md5 [:cast :at.value :text]] :value-md5]
           [[:case [:= :a.cardinality [:inline "one"]] true :else false]
@@ -406,7 +432,19 @@
         {:select
          [[[:cast :ilr.app_id :uuid] :app-id]
           [[:gen_random_uuid] :entity-id]
-          [[:cast :ilr.attr-id :uuid] :attr-id]
+          [[:case [:not= nil :a.id]
+            :a.id
+            :else
+            [:cast
+             [:cast
+              [:raise_exception_message
+               [:||
+                [:inline "We could not find an attribute with id = '"]
+                :ilr.attr-id
+                [:inline "'"]]]
+              :text]
+             :uuid]]
+           :attr-id]
           [[:cast :ilr.value :jsonb] :value]
           [[:md5 :ilr.value] :value-md5]
           [[:case [:= :a.cardinality [:inline "one"]] true :else false] :ea]
@@ -421,7 +459,8 @@
                                   [:or
                                    [:= :a.app-id [:cast :ilr.app-id :uuid]]
                                    [:= :a.app-id system-catalog-app-id]]
-                                  [:= :a.id [:cast :ilr.attr-id :uuid]]]]}
+                                  [:= :a.id [:cast :ilr.attr-id :uuid]]
+                                  [:= nil :a.deletion-marked-at]]]}
 
         ;; insert lookup refs
         lookup-ref-inserts
@@ -506,7 +545,19 @@
          [[:it.idx :idx]
           [[:cast :it.app_id :uuid] :app-id]
           [[:cast :it.entity-id :uuid] :entity-id]
-          [[:cast :a.id :uuid] :attr-id]
+          [[:case [:not= nil :a.id]
+            :a.id
+            :else
+            [:cast
+             [:cast
+              [:raise_exception_message
+               [:||
+                [:inline "We could not find an attribute with id = '"]
+                :it.attr-id
+                [:inline "'"]]]
+              :text]
+             :uuid]]
+           :attr-id]
           [[:cast :it.value :jsonb] :value]
           [[:md5 :it.value] :value-md5]
           [[:case [:= :a.cardinality [:inline "one"]] true :else false] :ea]

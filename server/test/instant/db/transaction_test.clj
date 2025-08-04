@@ -3531,22 +3531,44 @@
                    (set (get result "posts"))))))
 
         (testing "We can't create new triples for deleted attrs"
-          (is (= ::ex/record-foreign-key-invalid
-                 (::ex/type (test-util/instant-ex-data
-                             (tx/transact!
-                              (aurora/conn-pool :write)
-                              (attr-model/get-by-app-id app-id)
-                              app-id
-                              [[:add-triple p1 attr-posts-title "This will fail"]])))))
-
-          (is (= ::ex/record-foreign-key-invalid
-                 (::ex/type (test-util/instant-ex-data
-                             (tx/transact!
-                              (aurora/conn-pool :write)
-                              (attr-model/get-by-app-id app-id)
-                              app-id
-                              [[:deep-merge-triple p1 attr-posts-title "This will fail"]]))))))
-
+          (is (= ::ex/sql-raise
+                 (::ex/type
+                  (test-util/instant-ex-data
+                   (tx/transact!
+                    (aurora/conn-pool :write)
+                    (attr-model/get-by-app-id app-id)
+                    app-id
+                    [[:add-triple p1 attr-posts-title "This will fail"]])))))
+          (is (= ::ex/sql-raise
+                 (::ex/type
+                  (test-util/instant-ex-data
+                   (tx/transact!
+                    (aurora/conn-pool :write)
+                    (attr-model/get-by-app-id app-id)
+                    app-id
+                    [[:deep-merge-triple p1 attr-posts-title "This will fail"]])))))
+          (is (= ::ex/sql-raise
+                 (::ex/type
+                  (test-util/instant-ex-data
+                   (tx/transact!
+                    (aurora/conn-pool :write)
+                    (attr-model/get-by-app-id app-id)
+                    app-id
+                    [[:add-triple
+                      [attr-posts-slug "new-slug"]
+                      attr-posts-id
+                      [attr-posts-slug "new-slug"]]])))))
+          (is (= ::ex/sql-raise
+                 (::ex/type
+                  (test-util/instant-ex-data
+                   (tx/transact!
+                    (aurora/conn-pool :write)
+                    (attr-model/get-by-app-id app-id)
+                    app-id
+                    [[:deep-merge-triple
+                      [attr-posts-slug "new-slug"]
+                      attr-posts-id
+                      [attr-posts-slug "new-slug"]]]))))))
         (testing "We can create new objects without uniqueness errors"
           (permissioned-tx/transact!
            (make-ctx)
