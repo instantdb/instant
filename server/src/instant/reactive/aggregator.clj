@@ -6,8 +6,7 @@
    [instant.jdbc.sql :as sql]
    [instant.jdbc.wal :as wal]
    [instant.util.async :as ua]
-   ;; XXX: Should move this out of util
-   [instant.util.count-min-sketch :as cms]
+   [instant.db.attr-sketch :as cms]
    [instant.util.json :refer [<-json]]
    [instant.util.tracer :as tracer])
   (:import
@@ -105,15 +104,16 @@
       (assert max-lsn "max-lsn was nil, we can't apply changes")
       (tracer/add-data! {:attributes {:max-lsn max-lsn}})
       ;; XXX: Get sketches all in one go
-      (let [sketches (reduce-kv
-                       (fn [acc k {:keys [records max-lsn]}]
-                         ;; TODO: Handle case where attr is deleted in the interim
-                         (let [record (cms/find-or-create-sketch! conn k)]
-                           (conj acc (-> record
-                                         (update :sketch cms/add-batch records)
-                                         (assoc :max-lsn max-lsn)))))
-                       []
-                       changes)]
+      (let [sketches (cms/find-or-create-sketches! (keys changes))
+            sketches (reduce-kv
+                      (fn [acc k {:keys [records max-lsn]}]
+                        ;; TODO: Handle case where attr is deleted in the interim
+                        (let [sketch (get sketches k)]
+                          (conj acc (-> sketch
+                                        (update :sketch cms/add-batch records)
+                                        (assoc :max-lsn max-lsn)))))
+                      []
+                      changes)]
         (cms/save-sketches! conn {:sketches sketches
                                   ;; :previous-lsn ??
                                   :lsn max-lsn})))))

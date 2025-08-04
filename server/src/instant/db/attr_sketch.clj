@@ -1,4 +1,4 @@
-(ns instant.util.count-min-sketch
+(ns instant.db.attr-sketch
   (:require
    [clojure.pprint]
    [honey.sql :as hsql]
@@ -17,8 +17,10 @@
                    total
                    total-not-binned])
 
+;; Update printer so that it doesn't print a ton of zeroes
 (defmethod clojure.pprint/simple-dispatch Sketch [x]
-  (#'clojure.pprint/pprint-map (into {} (assoc x :bins '<bins>))))
+  (let [bin-display (symbol (format "<bins %d>" (count (:bins x))))]
+    (#'clojure.pprint/pprint-map (into {} (assoc x :bins bin-display)))))
 
 (def ln2 (Math/log 2))
 
@@ -339,3 +341,130 @@
                       (hsql/format q {:params params})
                       ;; Don't send the bins to honeycomb
                       {:skip-log-params (not= :dev (config/get-env))})))
+
+;; Experiment with dynamic sketches:
+;; We could keep sketches smaller by adding an additional sketch
+;; once you reach a certain number of items in the sketch.
+;; you just have to keep track of a `height` or something and
+;; then you can break the bins into smaller sketches.
+;; That way we could keep the sketches small initially, but still support
+;; attrs with a ton of triples.
+;; When you want to check a count, you just sum the counts for all of
+;; the sketches.
+;; And instead of a confidence and error rate, you give a max-deviation?
+;; There's something else there so that the error doesn't accumulate as
+;; the sketch increases in size.
+
+;; Need to keep track of layer totals so that we know when to split again.
+;; If we do a bunch of deletes after doing a bunch of adds, how do we know
+;; whether our second layer is full?
+;; Maybe you handle deletes separately? If you have a delete, then you have
+;; to check if it's in a lower sketch and then you can remove it from that
+;; lower sketch first?
+
+(defrecord Sketch3D [width
+                     depth
+                     height
+                     bins
+                     total
+                     total-not-binned])
+
+(defmethod clojure.pprint/simple-dispatch Sketch3D [x]
+  (#'clojure.pprint/pprint-map (into {} (assoc x :bins '<bins>))))
+
+(defn make-3d-sketch
+  ([] (make-3d-sketch {}))
+  ([{:keys [confidence error-rate]
+     :or {confidence 0.99
+          error-rate 0.01}}]
+   (let [width (Math/ceil (/ 2 error-rate))
+         depth (Math/ceil (/ (* -1 (Math/log (- 1 confidence)))
+                             ln2))]
+     (map->Sketch {:width (int width)
+                   :depth (int depth)
+                   :height 1
+                   :bins (vec (repeat (* width depth) 0))
+                   :total 0
+                   :total-not-binned 0}))))
+
+(defn add-3d
+  [^Sketch3D sketch checked-data-type v_]
+  (if-let [[data-type v] (data-type-for-hash checked-data-type v_)]
+    ;; Only track counts for the items that you can query for
+    (if (< (* 250000
+              (:height sketch)
+              (:height sketch))
+           (inc (- (:total sketch)
+                   (:total-not-binned sketch))))
+      (do
+        (println (format "increasing size max-size=%s next-size=%s"
+                         (* 250000
+                            (:height sketch)
+                            (:height sketch))
+                         (inc (- (:total sketch)
+                                 (:total-not-binned sketch)))))
+        (recur (-> sketch
+                   (update :height inc)
+                   (update :bins (fn [bins]
+                                   (apply conj bins (repeat (* (:width sketch)
+                                                               (:depth sketch)
+                                                               (inc (:height sketch))
+                                                               (inc (:height sketch)))
+                                                            0)))))
+               checked-data-type
+               v_))
+      (let [seed (hash-val 0 -1 data-type v)
+            ;; XXX: bin-offset might be the wrong way to do it?
+            bin-offset (int (reduce (fn [acc x]
+                                      (+ acc (* (:width sketch) (:depth sketch) x x)))
+                                    0
+                                    (range (:height sketch))))
+            width (* (:width sketch) (:height sketch))
+            depth (* (:depth sketch) (:height sketch))
+            _ (tool/def-locals)
+            bins (persistent!
+                  (reduce (fn [bins i]
+                            (let [hash (hash-val seed i data-type v)
+                                  bin-idx (+ bin-offset
+                                             (int (+ (Long/remainderUnsigned hash
+                                                                             width)
+                                                     (* i width))))]
+                              (assoc! bins bin-idx (+ (get bins bin-idx)
+                                                      1))))
+                          (transient (:bins sketch))
+                          (range depth)))]
+        (-> sketch
+            (update :total + 1)
+            (assoc :bins bins))))
+    ;; Track totals even if you can't query for the item
+    (-> sketch
+        (update sketch :total + 1)
+        (update sketch :total-not-binned + 1))))
+
+(defn check-3d [^Sketch3D sketch checked-data-type val_]
+  (let [[data-type val] (data-type-for-hash checked-data-type val_)
+        _ (assert data-type (format "Unknown data for sketch %s" val))
+        seed (hash-val 0 -1 data-type val)]
+    (reduce (fn [acc h]
+              (let [height (inc h)
+                    bin-offset (tool/inspect (int (reduce (fn [acc x]
+                                                            (+ acc (* (:width sketch) (:depth sketch) x x)))
+                                                          0
+                                                          (range height))))
+                    width (* (:width sketch) height)
+                    depth (* (:depth sketch) height)]
+                (+ acc
+                   (reduce (fn [m i]
+                             (let [hash (hash-val seed i data-type val)
+                                   bin-idx (+ bin-offset
+                                              (int (+ (Long/remainderUnsigned hash
+                                                                              width)
+                                                      (* i width))))
+                                   bin-val (nth (:bins sketch) bin-idx)]
+                               (if m
+                                 (min bin-val m)
+                                 bin-val)))
+                           nil
+                           (range depth)))))
+            0
+            (range (:height sketch)))))
