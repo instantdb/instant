@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { PlatformApi } from '@instantdb/platform';
 import { zodToSchema } from './schema.ts';
 import { parseArgs } from 'node:util';
-import version from './version.js';
+import version from './version.ts';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 
 import { mcpAuthRouter } from '@modelcontextprotocol/sdk/server/auth/router.js';

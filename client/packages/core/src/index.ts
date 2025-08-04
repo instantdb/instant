@@ -13,7 +13,7 @@ import IndexedDBStorage from './IndexedDBStorage.js';
 import WindowNetworkListener from './WindowNetworkListener.js';
 import { i } from './schema.js';
 import { createDevtool } from './devtool.js';
-import version from './version.js';
+import version from './version.ts';
 
 import type {
   PresenceOpts,

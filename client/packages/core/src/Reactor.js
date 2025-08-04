@@ -20,7 +20,7 @@ import {
   insertInMutative,
 } from './utils/object.js';
 import { createLinkIndex } from './utils/linkIndex.ts';
-import version from './version.js';
+import version from './version.ts';
 import { create } from 'mutative';
 import createLogger from './utils/log.ts';
 

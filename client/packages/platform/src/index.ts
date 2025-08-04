@@ -16,7 +16,7 @@ import {
 } from './api.ts';
 import { schemaTypescriptFileToInstantSchema } from './typescript-schema.ts';
 
-import version from './version.js';
+import version from './version.ts';
 import { ProgressPromise } from './ProgressPromise.ts';
 import { i, type InstantRules } from '@instantdb/core';
 import { exchangeCodeForToken, exchangeRefreshToken } from './serverOAuth.ts';

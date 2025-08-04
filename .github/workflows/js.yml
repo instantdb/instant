@@ -140,7 +140,7 @@ jobs:
               mcpFly: file === 'client/fly.toml',
               workflowFile: file === '.github/workflows/js.yml',
               packages: file.startsWith('client/packages'),
-              versionMd: file === 'client/version.md',
+              version: file === 'client/packages/version/src/version.ts',
             };
             console.log('file', file);
             console.log('changes', changes);
@@ -164,7 +164,7 @@ jobs:
               output.packages_did_change = true;
             }
 
-            if (changes.versionMd) {
+            if (changes.version) {
               console.log('version_did_change', true);
               output.version_did_change = true;
             }
@@ -273,16 +273,20 @@ jobs:
           SAFE_BRANCH_NAME=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9-]/-/g')
           echo "BRANCH_NAME=$SAFE_BRANCH_NAME" >> $GITHUB_ENV
 
-      - name: Update version.md
-        working-directory: client
+      - name: Update version file
+        working-directory: client/packages/version/src
         run: |
-          bb -e '(spit "version.md"
-                       (format "%s-experimental.%s.%s\n"
-                               (clojure.string/trim (slurp "version.md"))
-                               (System/getenv "BRANCH_NAME")
-                               (System/getenv "GITHUB_RUN_ID")))'
-          cat version.md
-          env
+          bb -e '(let [file "version.ts"
+                       version-js (slurp file)
+                       version (->> version-js
+                                    (re-find #"const version = '"'"'(v\d+\.\d+\.\d+)'"'"'")
+                                    last)
+                       new-version (format "%s-experimental.%s.%s"
+                                           version
+                                           (System/getenv "BRANCH_NAME")
+                                           (System/getenv "GITHUB_RUN_ID"))]
+                   (spit file (clojure.string/replace version-js version new-version)))'
+          cat version.ts
 
       - name: Publish experimental
         working-directory: client
@@ -302,7 +306,7 @@ jobs:
     name: Publish packages
     runs-on: ubuntu-latest
     needs: [ build, detect_changes ]
-    if: github.event_name == 'pull_request' && needs.detect_changes.outputs.version_did_change == 'true'
+    if: github.ref == 'refs/heads/main' && needs.detect_changes.outputs.version_did_change == 'true'
     permissions:
       contents: write
       id-token: write
@@ -344,15 +348,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_API_KEY }}
           NPM_CONFIG_PROVENANCE: true
-
-      - name: Commit package changes
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .
-          git commit -m "Update versions"
-          git push
-
+          
       - name: Debug
         if: failure()
         uses: actions/upload-artifact@v4
@@ -509,4 +505,3 @@ jobs:
       run: vercel build --target=staging --token=${{ secrets.VERCEL_TOKEN }}
     - name: Deploy Project Artifacts to Vercel
       run: vercel deploy --prebuilt --target=staging --token=${{ secrets.VERCEL_TOKEN }}
-

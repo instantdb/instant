@@ -1,6 +1,6 @@
 {
   "name": "@instantdb/platform",
-  "version": "v0.20.16",
+  "version": "0.0.0",
   "description": "Instant's platform package for managing Instant apps.",
   "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/platform",
   "repository": {
@@ -65,6 +65,7 @@
   "dependencies": {
     "@babel/parser": "^8.0.0-beta.0",
     "@babel/types": "^8.0.0-beta.0",
-    "@instantdb/core": "workspace:*"
+    "@instantdb/core": "workspace:*",
+    "@instantdb/version": "workspace:*"
   }
 }
