@@ -370,6 +370,20 @@ test('where clause operators', () => {
     },
   });
 
+  // Any 'in' field is valid without schema
+  beValid(
+    {
+      users: {
+        $: {
+          where: {
+            name: { in: ['John', 123] },
+          },
+        },
+      },
+    },
+    null,
+  );
+
   // Valid comparison operators
   beValid({
     posts: {
