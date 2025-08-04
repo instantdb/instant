@@ -62,13 +62,22 @@ const validateOperator = (
   attrName: string,
   entityName: string,
   attrDef: DataAttrDef<any, any, any>,
-  assertValidValue: (
+  path: string,
+) => {
+  const isAnyType = attrDef.valueType === 'json';
+  const assertValidValue = (
     op: string,
     expectedType: PossibleAttrTypes,
     opValue: unknown,
-  ) => void,
-  path: string,
-) => {
+  ) => {
+    if (!isValidValueForType(opValue, expectedType, isAnyType)) {
+      throw new QueryValidationError(
+        `Invalid value for operator '${op}' on attribute '${attrName}' in entity '${entityName}'. Expected ${expectedType}, but received: ${typeof opValue}`,
+        path,
+      );
+    }
+  };
+
   switch (op) {
     case 'in':
     case '$in':
@@ -140,19 +149,6 @@ const validateWhereClauseValue = (
 
     const operators = value as Record<string, unknown>;
 
-    const assertValidValue = (
-      op: string,
-      expectedType: PossibleAttrTypes,
-      opValue: unknown,
-    ) => {
-      if (!isValidValueForType(opValue, expectedType, isAnyType)) {
-        throw new QueryValidationError(
-          `Invalid value for operator '${op}' on attribute '${attrName}' in entity '${entityName}'. Expected ${expectedType}, but received: ${typeof opValue}`,
-          path,
-        );
-      }
-    };
-
     for (const [op, opValue] of Object.entries(operators)) {
       validateOperator(
         op,
@@ -161,7 +157,6 @@ const validateWhereClauseValue = (
         attrName,
         entityName,
         attrDef,
-        assertValidValue,
         `${path}.${op}`,
       );
     }

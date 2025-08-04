@@ -67,17 +67,12 @@ const validateDataOperation = (
     if (attrName === 'id') continue; // id is handled specially
 
     const attrDef = entityDef.attrs[attrName];
-    if (!attrDef) {
-      const availableAttrs = Object.keys(entityDef.attrs);
-      throw new TransactionValidationError(
-        `Attribute '${attrName}' does not exist on entity '${entityName}'. Available attributes: ${formatAvailableOptions(availableAttrs)}`,
-      );
-    }
-
-    if (!isValidValueForAttr(value, attrDef)) {
-      throw new TransactionValidationError(
-        `Invalid value for attribute '${attrName}' in entity '${entityName}'. Expected ${attrDef.valueType}, but received: ${typeof value}`,
-      );
+    if (attrDef) {
+      if (!isValidValueForAttr(value, attrDef)) {
+        throw new TransactionValidationError(
+          `Invalid value for attribute '${attrName}' in entity '${entityName}'. Expected ${attrDef.valueType}, but received: ${typeof value}`,
+        );
+      }
     }
   }
 };

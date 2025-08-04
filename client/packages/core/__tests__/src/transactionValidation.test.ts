@@ -134,8 +134,8 @@ test('validates create operations', () => {
   // @ts-expect-error
   beWrong(tx.users[userId].create({ name: 123, email: 'john@example.com' }));
 
-  // Invalid create - unknown attribute
-  beWrong(
+  // Valid create - creates unknown attributes
+  beValid(
     tx.users[userId].create({
       name: 'John',
       email: 'john@example.com',
@@ -166,7 +166,7 @@ test('validates update operations', () => {
 
   // Invalid update - unknown attribute
   // @ts-expect-error
-  beWrong(tx.users[userId].update({ unknownField: 'value' }));
+  beValid(tx.users[userId].update({ unknownField: 'value' }));
 });
 
 test('validates merge operations', () => {
