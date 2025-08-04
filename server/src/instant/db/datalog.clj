@@ -1074,9 +1074,10 @@
         join-cost (reduce + 0 (vals (:join-remaining costs)))
         filter-cost (reduce + 0 (vals (select-keys (:known-remaining costs)
                                                    (:filter-components costs))))]
-    (* 1.0 (* (+ path-cost
-                 (* 2 filter-cost))
-              (max 1 join-cost)))))
+    (* 1.0
+       (+ path-cost
+          (* 2 filter-cost))
+       (max 1 join-cost))))
 
 (defn index-compare
   "Compares the indexes pairwise to try to pick the best one.
