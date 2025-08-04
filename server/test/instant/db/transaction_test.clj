@@ -2304,8 +2304,8 @@
                        :unique? true
                        :index? true}]
                      [:add-triple stopa-eid email-attr-id "test@instantdb.com"]]))))))
-        (testing "invalid foreign key for attrs triggers foreign key violation"
-          (is (= ::ex/record-foreign-key-invalid
+        (testing "invalid foreign key for attrs triggers sql raise"
+          (is (= ::ex/sql-raise
                  (->  (test-util/instant-ex-data
                        (tx/transact!
                         (aurora/conn-pool :write)
