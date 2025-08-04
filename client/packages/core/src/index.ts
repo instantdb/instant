@@ -46,6 +46,7 @@ import type {
   InstaQLEntitySubquery,
   InstaQLResult,
   InstaQLFields,
+  ValidQuery,
 } from './queryTypes.ts';
 import type {
   AuthState,
@@ -683,7 +684,7 @@ class InstantCoreDatabase<
    *  const resp = await db.queryOnce({ goals: {} });
    *  console.log(resp.data.goals)
    */
-  queryOnce<Q extends InstaQLParams<Schema>>(
+  queryOnce<Q extends ValidQuery<Q, Schema>>(
     query: Q,
     opts?: InstaQLOptions,
   ): Promise<{
@@ -877,6 +878,7 @@ export {
 
   // new query types
   type InstaQLParams,
+  type ValidQuery,
   type InstaQLOptions,
   type InstaQLQueryParams,
   type InstantQuery,

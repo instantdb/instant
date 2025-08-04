@@ -20,6 +20,7 @@ import {
   InstantSchemaDef,
   IInstantDatabase,
   InstantError,
+  ValidQuery,
 } from '@instantdb/core';
 import {
   ReactNode,
@@ -193,7 +194,7 @@ export default abstract class InstantReactAbstractDatabase<
    *     auth.user ? { goals: {} } : null,
    *   );
    */
-  useQuery = <Q extends InstaQLParams<Schema>>(
+  useQuery = <Q extends ValidQuery<Q, Schema>>(
     query: null | Q,
     opts?: InstaQLOptions,
   ): InstaQLLifecycleState<
@@ -364,7 +365,7 @@ export default abstract class InstantReactAbstractDatabase<
    *  const resp = await db.queryOnce({ goals: {} });
    *  console.log(resp.data.goals)
    */
-  queryOnce = <Q extends InstaQLParams<Schema>>(
+  queryOnce = <Q extends ValidQuery<Q, Schema>>(
     query: Q,
     opts?: InstaQLOptions,
   ): Promise<{

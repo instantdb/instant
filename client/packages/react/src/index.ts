@@ -19,6 +19,7 @@ import {
   type Config,
   type InstaQLParams,
   type ConnectionStatus,
+  type ValidQuery,
 
   // schema types
   type AttrsDefs,
@@ -94,6 +95,7 @@ export {
   type InstantSchemaDatabase,
   type IInstantDatabase,
   type InstaQLParams,
+  type ValidQuery,
   type InstaQLFields,
 
   // schema types
