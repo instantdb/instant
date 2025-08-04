@@ -66,3 +66,21 @@
     (is (= 10 (cms/check sketch :string "hi")))
 
     (is (= 10 (cms/check sketch nil "hi")))))
+
+(deftest the-sketch-hash-is-stable
+  (let [sketch (-> (cms/make-sketch {:confidence 0.8
+                                     :error-rate 0.1})
+                   (cms/add nil 1)
+                   (cms/add nil "1")
+                   (cms/add :date 0)
+                   (cms/add nil true)
+                   (cms/add nil #uuid "c8ae4358-8da2-49c4-b93d-0f294e817383")
+                   (cms/add nil (int 2))
+                   (cms/add nil 1.8)
+                   (cms/add nil {:json :value}))]
+    (is (= 8 (:total sketch)))
+    (is (= 1 (:total-not-binned sketch)))
+    (is (= [0 1 1 0 0 0 0 0 2 0 0 0 0 0 0 1 0 1 0 1
+            1 0 1 0 0 1 0 1 0 1 0 0 1 0 0 1 0 0 0 0
+            0 0 0 1 2 0 0 0 0 0 0 0 1 1 0 0 0 0 1 1]
+           (:bins sketch)))))

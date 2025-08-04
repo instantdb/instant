@@ -39,15 +39,18 @@
   (case checked-data-type
     :number (condp instance? x
               java.lang.Long [:long x]
-              java.lang.Integer [:integer x]
+              java.lang.Integer [:long (long x)]
               java.lang.Double [:double x])
-    :string [:string x]
-    :boolean [:boolean x]
+    :string (do (assert (string? x))
+                [:string x])
+    :boolean (do (assert (boolean? x))
+                 [:boolean x])
     :date [:long (.toEpochMilli (triple/parse-date-value x))]
 
     (condp instance? x
       java.lang.Long [:long x]
-      java.lang.Integer [:integer x]
+      java.lang.Integer [:long (long x)]
+      java.lang.Double [:double x]
       java.lang.String [:string x]
       java.lang.Boolean [:boolean x]
       ;; Use string as the universal format for uuids for the purpose of
@@ -60,7 +63,6 @@
   (let [xx (LongHashFunction/xx3 (+ seed hash-idx))]
     (case data-type
       :long (.hashLong xx val)
-      :integer (.hashInt xx val)
       :double (.hashBytes xx (.. (ByteBuffer/allocate 8)
                                  (putDouble val)
                                  (array)))
