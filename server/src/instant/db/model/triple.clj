@@ -225,6 +225,20 @@
 
             ::ex/hint    {:records res}}))))))
 
+(defn- hsql-attr-id-or-raise [input-id attr-id]
+  [:case [:not= nil attr-id]
+   attr-id
+   :else
+   [:cast
+    [:cast
+     [:raise_exception_message
+      [:||
+       [:inline "We could not find an attribute with id = '"]
+       input-id
+       [:inline "'"]]]
+     :text]
+    :uuid]])
+
 (defn deep-merge-multi!  [conn _attrs app-id triples]
   (let [input-triples-values
         (->> triples
@@ -262,18 +276,7 @@
         {:select
          [[[:cast :ilr.app_id :uuid] :app-id]
           [[:gen_random_uuid] :entity-id]
-          [[:case [:not= nil :a.id]
-            :a.id
-            :else
-            [:cast
-             [:cast
-              [:raise_exception_message
-               [:||
-                [:inline "We could not find an attribute with id = '"]
-                :ilr.attr-id
-                [:inline "'"]]]
-              :text]
-             :uuid]]
+          [(hsql-attr-id-or-raise :ilr.attr-id :a.id)
            :attr-id]
           [[:cast :ilr.value :jsonb] :value]
           [[:md5 :ilr.value] :value-md5]
@@ -332,18 +335,7 @@
          [[:at.idx :idx]
           [:at.app_id :app-id]
           [:at.entity-id :entity-id]
-          [[:case [:not= nil :a.id]
-            :a.id
-            :else
-            [:cast
-             [:cast
-              [:raise_exception_message
-               [:||
-                [:inline "We could not find an attribute with id = '"]
-                :at.attr-id
-                [:inline "'"]]]
-              :text]
-             :uuid]]
+          [(hsql-attr-id-or-raise :at.attr-id :a.id)
            :attr-id]
           [[:cast :at.value :jsonb] :value]
           [[:md5 [:cast :at.value :text]] :value-md5]
@@ -432,18 +424,7 @@
         {:select
          [[[:cast :ilr.app_id :uuid] :app-id]
           [[:gen_random_uuid] :entity-id]
-          [[:case [:not= nil :a.id]
-            :a.id
-            :else
-            [:cast
-             [:cast
-              [:raise_exception_message
-               [:||
-                [:inline "We could not find an attribute with id = '"]
-                :ilr.attr-id
-                [:inline "'"]]]
-              :text]
-             :uuid]]
+          [(hsql-attr-id-or-raise :ilr.attr-id :a.id)
            :attr-id]
           [[:cast :ilr.value :jsonb] :value]
           [[:md5 :ilr.value] :value-md5]
@@ -545,18 +526,7 @@
          [[:it.idx :idx]
           [[:cast :it.app_id :uuid] :app-id]
           [[:cast :it.entity-id :uuid] :entity-id]
-          [[:case [:not= nil :a.id]
-            :a.id
-            :else
-            [:cast
-             [:cast
-              [:raise_exception_message
-               [:||
-                [:inline "We could not find an attribute with id = '"]
-                :it.attr-id
-                [:inline "'"]]]
-              :text]
-             :uuid]]
+          [(hsql-attr-id-or-raise :it.attr-id :a.id)
            :attr-id]
           [[:cast :it.value :jsonb] :value]
           [[:md5 :it.value] :value-md5]
