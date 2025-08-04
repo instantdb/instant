@@ -381,7 +381,7 @@ test('where clause operators', () => {
     },
   });
 
-  // Valid $gt, $lt, $gte, $lte operators (would need indexed fields in real usage)
+  // Valid $gt, $lt, $gte, $lte operators
   beValid({
     posts: {
       $: {
