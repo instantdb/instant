@@ -1,6 +1,6 @@
 import { TransactionChunk, Op } from './instatx.ts';
 import { IContainEntitiesAndLinks, DataAttrDef } from './schemaTypes.ts';
-import { validate as validateUuid } from 'uuid';
+import { validate as validateUUID } from 'uuid';
 
 export class TransactionValidationError extends Error {
   constructor(message: string) {
@@ -90,13 +90,34 @@ const validateLinkOperation = (
     );
   }
 
-  for (const [linkName] of Object.entries(links)) {
+  for (const [linkName, linkValue] of Object.entries(links)) {
     const link = entityDef.links[linkName];
     if (!link) {
       const availableLinks = Object.keys(entityDef.links);
       throw new TransactionValidationError(
         `Link '${linkName}' does not exist on entity '${entityName}'. Available links: ${formatAvailableOptions(availableLinks)}`,
       );
+    }
+
+    // Validate UUID format for link values
+    if (linkValue !== null && linkValue !== undefined) {
+      if (Array.isArray(linkValue)) {
+        // Handle array of UUIDs
+        for (const uuid of linkValue) {
+          if (!validateUUID(uuid)) {
+            throw new TransactionValidationError(
+              `Invalid UUID in link '${linkName}' for entity '${entityName}'. Expected a UUID, but received: ${uuid}`,
+            );
+          }
+        }
+      } else {
+        // Handle single UUID
+        if (!validateUUID(linkValue)) {
+          throw new TransactionValidationError(
+            `Invalid UUID in link '${linkName}' for entity '${entityName}'. Expected a UUID, but received: ${linkValue}`,
+          );
+        }
+      }
     }
   }
 };
@@ -120,7 +141,7 @@ const validateOp = (
 
   // _id should be a uuid
   if (!Array.isArray(_id)) {
-    const isUuid = validateUuid(_id);
+    const isUuid = validateUUID(_id);
     if (!isUuid) {
       throw new TransactionValidationError(
         `Invalid id for entity '${entityName}'. Expected a UUID, but received: ${_id}`,

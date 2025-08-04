@@ -1,7 +1,7 @@
 import { i } from '../../src/schema';
 import { validateQuery } from '../../src/queryValidation.ts';
 import { expect, test } from 'vitest';
-import { InstantSchemaDef } from '../../src';
+import { id, InstantSchemaDef } from '../../src';
 
 const testSchema = i.schema({
   entities: {
@@ -779,7 +779,7 @@ test('where clause dot notation validation', () => {
     users: {
       $: {
         where: {
-          'posts.id': 'post-123',
+          'posts.id': id(),
         },
       },
     },
@@ -809,6 +809,18 @@ test('where clause dot notation validation', () => {
 
   // Don't need final attributes
   beValid({
-    comments: { $: { where: { post: 'hi' } } },
+    comments: { $: { where: { post: id() } } },
+  });
+
+  beWrong({
+    comments: { $: { where: { post: 'not-a-uuid' } } },
+  });
+
+  beValid({
+    users: { $: { where: { 'posts.comments': id() } } },
+  });
+
+  beWrong({
+    users: { $: { where: { 'posts.comments': 'not-a-uuid' } } },
   });
 });

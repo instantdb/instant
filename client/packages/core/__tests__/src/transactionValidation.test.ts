@@ -381,4 +381,8 @@ test('validates UUID format for entity IDs', () => {
       email: 'john@example.com',
     }),
   );
+
+  // Test for links
+  beValid(tx.users[validUuid].link({ posts: id() }));
+  beWrong(tx.users[validUuid].link({ posts: 'not-a-uuid' }));
 });

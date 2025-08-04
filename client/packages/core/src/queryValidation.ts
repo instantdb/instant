@@ -4,6 +4,8 @@ import {
   ValueTypes,
 } from './schemaTypes.ts';
 
+import { validate as validateUUID } from 'uuid';
+
 export class QueryValidationError extends Error {
   constructor(message: string, path?: string) {
     const fullMessage = path ? `At path '${path}': ${message}` : message;
@@ -224,6 +226,12 @@ const validateDotNotationAttribute = (
 
   // Handle 'id' field specially - every entity has an id field
   if (finalAttrName === 'id') {
+    if (!validateUUID(value)) {
+      throw new QueryValidationError(
+        `Invalid value for id field in entity '${currentEntityName}'. Expected a UUID, but received: ${value}`,
+        path,
+      );
+    }
     validateWhereClauseValue(
       value,
       dotPath,
@@ -235,6 +243,25 @@ const validateDotNotationAttribute = (
   }
 
   const attrDef = finalEntity.attrs[finalAttrName];
+
+  if (Object.keys(finalEntity.links).includes(finalAttrName)) {
+    if (!validateUUID(value)) {
+      throw new QueryValidationError(
+        `Invalid value for link '${finalAttrName}' in entity '${currentEntityName}'. Expected a UUID, but received: ${value}`,
+        path,
+      );
+    }
+
+    validateWhereClauseValue(
+      value,
+      dotPath,
+      new DataAttrDef('string', false, true),
+      startEntityName,
+      path,
+    );
+    return;
+  }
+
   if (!attrDef) {
     const availableAttrs = Object.keys(finalEntity.attrs);
     throw new QueryValidationError(
@@ -318,6 +345,12 @@ const validateWhereClause = (
     } else if (linkDef) {
       // For links, we expect the value to be a string (ID of the linked entity)
       // Create a synthetic string attribute definition for validation
+      if (!validateUUID(value)) {
+        throw new QueryValidationError(
+          `Invalid value for link '${key}' in entity '${entityName}'. Expected a UUID, but received: ${value}`,
+          `${path}.${key}`,
+        );
+      }
       const syntheticAttrDef = new DataAttrDef('string', false, true);
       validateWhereClauseValue(
         value,
