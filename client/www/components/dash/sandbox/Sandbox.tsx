@@ -84,6 +84,9 @@ export function Sandbox({
   }, []);
 
   const exec = async () => {
+    // Reset the selected output.
+    setSelectedOutputIndex(null);
+
     if (isExecuting) return;
 
     setIsExecuting(true);
@@ -375,7 +378,7 @@ export function Sandbox({
             />
           </div>
         </div>
-        {selectedOutputIndex !== null ? (
+        {selectedOutputIndex !== null && output[selectedOutputIndex] ? (
           <OutputDetail
             output={output[selectedOutputIndex]}
             defaultCollapsed={defaultCollapsed}
