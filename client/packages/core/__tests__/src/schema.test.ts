@@ -5,6 +5,7 @@ import type {
   InstaQLParams,
   InstaQLResponse,
   InstaQLResult,
+  ValidQuery,
 } from '../../src/queryTypes';
 
 test('runs without exception', () => {
@@ -122,7 +123,7 @@ test('runs without exception', () => {
   // after removing the Exactly type so that when these errors are ready to be checked again
   // search and replace can be used
 
-  function dummyQuery<Q extends InstaQLParams<Schema>>(
+  function dummyQuery<Q extends ValidQuery<Q, Schema>>(
     _query: Q,
   ): InstaQLResponse<Schema, Q> {
     return 1 as any;
@@ -175,10 +176,10 @@ test('runs without exception', () => {
       users: {
         $: {
           where: {
-            // #ts-expect-error
+            // @ts-expect-error
             name: 289,
             email: {
-              // #ts-expect-error
+              // @ts-expect-error
               $like: 8932,
             },
           },
@@ -189,6 +190,7 @@ test('runs without exception', () => {
     const r2 = dummyQuery({
       posts: {
         $: {
+          // @ts-expect-error valid
           where: {
             // not yet able to infer if dot syntax is used
             'author.stuff.custom': { $gt: 89032 },
@@ -200,8 +202,8 @@ test('runs without exception', () => {
     const r2b = dummyQuery({
       posts: {
         $: {
+          // @ts-expect-error
           where: {
-            // @ts-expect-error
             'author.stuff.custom': { doesnotexist: 932 },
           },
         },
@@ -220,7 +222,8 @@ test('runs without exception', () => {
       comments: {
         $: {
           where: {
-            body: { $like: '%great%' },
+            // @ts-expect-error
+            body: { gt: true },
           },
         },
       },
@@ -231,8 +234,8 @@ test('runs without exception', () => {
       comments: {
         $: {
           where: {
-            // #ts-expect-error
-            likes: { $like: "%can'tdothis%" },
+            // @ts-expect-error
+            likes: { $like: true },
           },
         },
       },
@@ -240,7 +243,6 @@ test('runs without exception', () => {
 
     // Field selection
     const r5 = dummyQuery({
-      //  ^?
       comments: {
         $: {
           fields: ['body'],
@@ -273,8 +275,8 @@ test('runs without exception', () => {
     const r6 = dummyQuery({
       posts: {
         $: {
+          // @ts-expect-error
           where: {
-            // #ts-expect-error
             jo8josiefo: 8932,
           },
         },
@@ -296,7 +298,7 @@ test('runs without exception', () => {
       posts: {
         $: {
           where: {
-            // #ts-expect-error Body is a required field
+            // @ts-expect-error Body is a required field
             body: { $isNull: true },
           },
         },
@@ -317,6 +319,7 @@ test('runs without exception', () => {
       posts: {
         $: {
           where: {
+            // @ts-expect-error
             title: { $in: [123, 345, 789] },
           },
         },
@@ -339,8 +342,9 @@ test('runs without exception', () => {
         $: {
           where: {
             and: [
-              // #ts-expect-error
+              // @ts-expect-error
               { invalidKey: 'MyTitle' },
+              // @ts-expect-error
               { body: { $like: '%hasthisinit%' } },
             ],
           },
@@ -363,7 +367,9 @@ test('runs without exception', () => {
         $: {
           where: {
             or: [
+              // @ts-expect-error
               { invalidKey: 'MyTitle' },
+              // @ts-expect-error because of first error
               { body: { $like: '%hasthisinit%' } },
             ],
           },
@@ -388,7 +394,7 @@ test('runs without exception', () => {
         $: {
           where: {
             body: {
-              // #ts-expect-error can't check if string *isn't* number (always false)
+              // @ts-expect-error can't check if string *isn't* number (always false)
               $not: 8932,
             },
           },
@@ -428,7 +434,7 @@ test('runs without exception', () => {
         comments: {
           $: {
             where: {
-              // #ts-expect-error nested where check can't compare string to number
+              // @ts-expect-error nested where check can't compare string to number
               body: 8939288,
             },
           },
@@ -453,8 +459,8 @@ test('runs without exception', () => {
       users: {
         referred: {
           $: {
+            // @ts-expect-error
             where: {
-              // #ts-expect-error
               invalidcol: 'hi',
             },
           },
@@ -466,8 +472,8 @@ test('runs without exception', () => {
       users: {
         referred: {
           $: {
+            // @ts-expect-error
             where: {
-              // #ts-expect-error
               invalidcol: {
                 $not: '839',
               },
@@ -500,7 +506,7 @@ test('runs without exception', () => {
             author: {
               $: {
                 where: {
-                  // #ts-expect-error
+                  // @ts-expect-error
                   name: 8392,
                 },
               },
@@ -537,9 +543,9 @@ test('runs without exception', () => {
               { name: { $like: 'A%' } },
               {
                 or: [
-                  // #ts-expect-error
+                  // @ts-expect-error
                   { email: { $like: 8932 } },
-                  // #ts-expect-error
+                  // @ts-expect-error
                   { email: { $isNull: true } },
                 ],
               },
@@ -585,6 +591,7 @@ test('runs without exception', () => {
       comments: {
         $: {
           where: {
+            // @ts-expect-error
             'post.body': { $ilike: 'hi' },
           },
         },
@@ -603,7 +610,7 @@ test('runs without exception', () => {
       posts: {
         $: {
           where: {
-            // #ts-expect-error String fields that aren't indexed can't use $ilike
+            // @ts-expect-error String fields that aren't indexed can't use $ilike
             body: { $ilike: 'hi' },
           },
         },
