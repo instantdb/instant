@@ -68,6 +68,7 @@
                                    [[attr_id value] entity_id]))
                             (into {}))]
       lookups->eid)))
+
 ;; ---
 ;; insert-multi!
 
@@ -98,7 +99,8 @@
                     [:or
                      [:and
                       [:= :id a]
-                      [:= :value-type [:inline "ref"]]]
+                      [:= :value-type [:inline "ref"]]
+                      [:= :deletion-marked-at nil]]
                      [:exists {:select :*
                                :from :idents
                                :where [:and
@@ -223,6 +225,20 @@
 
             ::ex/hint    {:records res}}))))))
 
+(defn- hsql-attr-id-or-raise [input-id attr-id]
+  [:case [:not= nil attr-id]
+   attr-id
+   :else
+   [:cast
+    [:cast
+     [:raise_exception_message
+      [:||
+       [:inline "We could not find an attribute with id = '"]
+       input-id
+       [:inline "'"]]]
+     :text]
+    :uuid]])
+
 (defn deep-merge-multi!  [conn _attrs app-id triples]
   (let [input-triples-values
         (->> triples
@@ -260,7 +276,8 @@
         {:select
          [[[:cast :ilr.app_id :uuid] :app-id]
           [[:gen_random_uuid] :entity-id]
-          [[:cast :ilr.attr-id :uuid] :attr-id]
+          [(hsql-attr-id-or-raise :ilr.attr-id :a.id)
+           :attr-id]
           [[:cast :ilr.value :jsonb] :value]
           [[:md5 :ilr.value] :value-md5]
           [[:case [:= :a.cardinality [:inline "one"]] true :else false]
@@ -278,7 +295,8 @@
                                   [:or
                                    [:= :a.app-id [:cast :ilr.app-id :uuid]]
                                    [:= :a.app-id system-catalog-app-id]]
-                                  [:= :a.id [:cast :ilr.attr-id :uuid]]]]}
+                                  [:= :a.id [:cast :ilr.attr-id :uuid]]
+                                  [:= nil :a.deletion-marked-at]]]}
 
         ;; insert lookup refs
         lookup-ref-inserts
@@ -317,7 +335,8 @@
          [[:at.idx :idx]
           [:at.app_id :app-id]
           [:at.entity-id :entity-id]
-          [:at.attr-id :attr-id]
+          [(hsql-attr-id-or-raise :at.attr-id :a.id)
+           :attr-id]
           [[:cast :at.value :jsonb] :value]
           [[:md5 [:cast :at.value :text]] :value-md5]
           [[:case [:= :a.cardinality [:inline "one"]] true :else false]
@@ -336,7 +355,8 @@
                                   [:or
                                    [:= :a.app-id :at.app-id]
                                    [:= :a.app-id system-catalog-app-id]]
-                                  [:= :a.id :at.attr-id]]]}
+                                  [:= :a.id :at.attr-id]
+                                  [:= :a.deletion-marked-at nil]]]}
 
         ea-index-inserts
         {:insert-into [[[:triples :t] triple-cols]
@@ -404,7 +424,8 @@
         {:select
          [[[:cast :ilr.app_id :uuid] :app-id]
           [[:gen_random_uuid] :entity-id]
-          [[:cast :ilr.attr-id :uuid] :attr-id]
+          [(hsql-attr-id-or-raise :ilr.attr-id :a.id)
+           :attr-id]
           [[:cast :ilr.value :jsonb] :value]
           [[:md5 :ilr.value] :value-md5]
           [[:case [:= :a.cardinality [:inline "one"]] true :else false] :ea]
@@ -419,7 +440,8 @@
                                   [:or
                                    [:= :a.app-id [:cast :ilr.app-id :uuid]]
                                    [:= :a.app-id system-catalog-app-id]]
-                                  [:= :a.id [:cast :ilr.attr-id :uuid]]]]}
+                                  [:= :a.id [:cast :ilr.attr-id :uuid]]
+                                  [:= nil :a.deletion-marked-at]]]}
 
         ;; insert lookup refs
         lookup-ref-inserts
@@ -504,7 +526,8 @@
          [[:it.idx :idx]
           [[:cast :it.app_id :uuid] :app-id]
           [[:cast :it.entity-id :uuid] :entity-id]
-          [[:cast :it.attr-id :uuid] :attr-id]
+          [(hsql-attr-id-or-raise :it.attr-id :a.id)
+           :attr-id]
           [[:cast :it.value :jsonb] :value]
           [[:md5 :it.value] :value-md5]
           [[:case [:= :a.cardinality [:inline "one"]] true :else false] :ea]
@@ -518,7 +541,8 @@
                                   [:or
                                    [:= :a.app-id [:cast :it.app-id :uuid]]
                                    [:= :a.app-id system-catalog-app-id]]
-                                  [:= :a.id [:cast :it.attr-id :uuid]]]]}
+                                  [:= :a.id [:cast :it.attr-id :uuid]]
+                                  [:= nil :a.deletion-marked-at]]]}
 
         ea-triples-distinct
         {:select-distinct-on [[:entity-id :attr-id] :*]
@@ -817,7 +841,8 @@
   "Fetches triples from postgres by app-id and optional sql statements and
    returns them as clj representations"
   ([conn app-id] (fetch conn app-id []))
-  ([conn app-id stmts]
+  ([conn app-id stmts] (fetch conn app-id stmts {}))
+  ([conn app-id stmts {:keys [include-soft-deleted?]}]
    (map row->enhanced-triple
         (sql/select
          ::fetch
@@ -826,8 +851,15 @@
           {:select
            [:triples.*]
            :from :triples
+           :join [[:attrs :a] [:and
+                               [:= :a.app-id :triples.app-id]
+                               [:= :a.id :triples.attr_id]]]
            :where
-           (concat [:and [:= :app-id app-id]] stmts)})))))
+           (concat [:and
+                    [:= :triples.app-id app-id]]
+                   (when-not include-soft-deleted?
+                     [[:= :a.deletion-marked-at nil]])
+                   stmts)})))))
 
 ;; Migration for inferred types
 ;; ----------------------------

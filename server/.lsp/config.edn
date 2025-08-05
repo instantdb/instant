@@ -1,0 +1,1 @@
+{:cljfmt {:indents {#re "io/warn-io" [[:block 1]]}}}

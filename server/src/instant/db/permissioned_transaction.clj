@@ -130,7 +130,6 @@
       {:program program
        :bindings {:data updated}})))
 
-
 (defn check-program [{:keys [scope action] :as check} ctx]
   (case [scope action]
     [:object :create] (object-upsert-check-program check ctx)
@@ -139,8 +138,8 @@
     [:object :view]   (object-view-check-program check ctx)
     [:attr   :create] (attr-create-check-program check ctx)
     [:attr   :delete] {:result (:admin? ctx)}
-    [:attr   :update] {:result (:admin? ctx)}))
-
+    [:attr   :update] {:result (:admin? ctx)}
+    [:attr   :restore] {:result (:admin? ctx)}))
 
 (defn object-checks
   "Creates check commands for each object in the transaction.
@@ -345,6 +344,11 @@
        :etype  "attrs"
        :action :delete}
 
+      :restore-attr
+      {:scope :attr
+       :etype "attrs"
+       :action :restore}
+
       :update-attr
       {:scope  :attr
        :etype  "attrs"
@@ -521,7 +525,8 @@
                 attr-changes     (concat
                                   (:add-attr grouped-tx-steps)
                                   (:delete-attr grouped-tx-steps)
-                                  (:update-attr grouped-tx-steps))
+                                  (:update-attr grouped-tx-steps)
+                                  (:restore-attr grouped-tx-steps))
 
                 object-changes   (concat
                                   (:add-triple grouped-tx-steps)
@@ -558,7 +563,8 @@
                 {create-checks :create
                  view-checks :view
                  update-checks :update
-                 delete-checks :delete}
+                 delete-checks :delete
+                 restore-checks :restore}
                 (group-by :action check-commands)
 
                 lookups->eid (lookup->eid-from-preloaded-triples preloaded-triples)
@@ -588,6 +594,7 @@
 
                 before-tx-checks-resolved
                 (mapv #(resolve-check-lookup lookups->eid %) (concat update-checks
+                                                                     restore-checks
                                                                      delete-checks
                                                                      view-checks))
 
