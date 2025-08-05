@@ -80,7 +80,7 @@
                    (cms/add nil {:json :value}))]
     (is (= 8 (:total sketch)))
     (is (= 1 (:total-not-binned sketch)))
-    (is (= [0 1 1 0 0 0 0 0 2 0 0 0 0 0 0 1 0 1 0 1
-            1 0 1 0 0 1 0 1 0 1 0 0 1 0 0 1 0 0 0 0
-            0 0 0 1 2 0 0 0 0 0 0 0 1 1 0 0 0 0 1 1]
-           (:bins sketch)))))
+    (is (= [[0 1 0 0 0 0 0 0 2 0 0 0 0 0 0 1 0 1 1 1]
+            [1 0 1 0 0 1 0 1 0 0 0 0 1 0 0 1 0 0 1 0]
+            [0 0 0 1 1 0 0 0 0 1 0 0 1 1 0 0 0 0 1 1]]
+           (mapv vec (partition-all (:width sketch) (:bins sketch)))))))

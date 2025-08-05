@@ -63,9 +63,7 @@
   (let [xx (LongHashFunction/xx3 (+ seed hash-idx))]
     (case data-type
       :long (.hashLong xx val)
-      :double (.hashBytes xx (.. (ByteBuffer/allocate 8)
-                                 (putDouble val)
-                                 (array)))
+      :double (.hashLong xx (Double/doubleToLongBits val))
       :string (.hashChars xx ^String val)
       :boolean (.hashBoolean xx val))))
 
