@@ -37,8 +37,8 @@
                    (cms/add nil 1)
                    (cms/add nil {:json :data}))]
     (is (= 2 (:total sketch)))
-    (is (thrown-with-msg? AssertionError
-                          #"Unknown data"
+    (is (thrown-with-msg? Exception
+                          #"Invalid input"
                           (cms/check sketch nil {:json :data})))
     (is (= 1 (:total-not-binned sketch)))))
 

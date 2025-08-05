@@ -126,7 +126,12 @@
 
 (defn check [^Sketch sketch checked-data-type val_]
   (let [[data-type val] (data-type-for-hash checked-data-type val_)
-        _ (assert data-type (format "Unknown data for sketch %s" val))
+        _ (when-not data-type
+            (throw (ex-info (format
+                              "Invalid input to sketch. Can't determine data type for value `%s`."
+                              val_)
+                            {:input {:checked-data-type checked-data-type
+                                     :value val_}})))
         seed (hash-val 0 -1 data-type val)]
     (reduce (fn [m i]
               (let [hash (hash-val seed i data-type val)
