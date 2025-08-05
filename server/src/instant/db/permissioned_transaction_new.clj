@@ -7,9 +7,9 @@
    [instant.db.model.entity :as entity-model]
    [instant.db.transaction :as tx]
    [instant.jdbc.aurora :as aurora]
-   [instant.jdbc.sql :as sql]
    [instant.model.rule :as rule-model]
    [instant.util.exception :as ex]
+   [instant.util.io :as io]
    [instant.util.string :as string-util]
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
@@ -84,24 +84,25 @@
                                         [[eid etype]
                                          [value rev-etype]]
                                         [[eid etype]])]
-                      {:eid eid :etype etype})
-        query {:children
-               {:pattern-groups
-                (for [{:keys [eid etype]} eids+etypes]
-                  {:patterns
-                   [[:ea eid (attr-model/ea-ids-for-etype etype attrs)]]})}}
-        ;; you might be tempted to simplify the query to [[:ea (set eids)]]
-        ;; but the eid might be a lookup ref and you won't know how to get
-        ;; the join rows for that lookup
-        datalog-result (datalog-query-fn ctx query)]
-    (zipmap
-     eids+etypes
-     (for [data (:data datalog-result)
-           :let [rows    (:join-rows (:result data))
-                 triples (mapcat identity rows)]]
-       (when (seq triples)
-         (-> (entity-model/triples->map ctx triples)
-             (assoc "id" (ffirst triples))))))))
+                      {:eid eid :etype etype})]
+    (when (seq eids+etypes)
+      (let [query {:children
+                   {:pattern-groups
+                    (for [{:keys [eid etype]} eids+etypes]
+                      {:patterns
+                       [[:ea eid (attr-model/ea-ids-for-etype etype attrs)]]})}}
+            ;; you might be tempted to simplify the query to [[:ea (set eids)]]
+            ;; but the eid might be a lookup ref and you won't know how to get
+            ;; the join rows for that lookup
+            datalog-result (datalog-query-fn ctx query)]
+        (zipmap
+         eids+etypes
+         (for [data (:data datalog-result)
+               :let [rows    (:join-rows (:result data))
+                     triples (mapcat identity rows)]]
+           (when (seq triples)
+             (-> (entity-model/triples->map ctx triples)
+                 (assoc "id" (ffirst triples))))))))))
 
 (defn resolve-lookups-tx-steps
   "Given known entities-map, resolves as much lookup-refs as possible"
@@ -109,17 +110,28 @@
   (for [{:keys [eid etype value rev-etype] :as tx-step} tx-steps]
     (cond-> tx-step
       (lookup-ref? eid)
-      (update :eid #(-> entities-map (get {:eid % :etype etype}) (get "id") (some-> uuid-util/coerce) (or %)))
+      (update :eid #(-> entities-map
+                        (get {:eid % :etype etype})
+                        (get "id")
+                        (some-> uuid-util/coerce)
+                        (or %)))
 
       (and rev-etype (lookup-ref? value))
-      (update :value #(-> entities-map (get {:eid % :etype rev-etype}) (get "id") (some-> uuid-util/coerce) (or %))))))
+      (update :value #(-> entities-map
+                          (get {:eid % :etype rev-etype})
+                          (get "id")
+                          (some-> uuid-util/coerce)
+                          (or %))))))
 
 (defn resolve-lookups-entities-map
   "Updates entities-map keys that are lookup-refs"
   [_ctx entities-map]
   (into {}
         (for [[{:keys [eid etype]} entity] entities-map
-              :let [id (or (some-> entity (get "id") uuid-util/coerce) eid)]]
+              :let [id (or (some-> entity
+                                   (get "id")
+                                   uuid-util/coerce)
+                           eid)]]
           [{:eid id :etype etype} entity])))
 
 (defn deep-merge-and-delete
@@ -130,7 +142,8 @@
     (reduce-kv
      (fn [accum key updated-value]
        (cond
-         (and (map? (get accum key)) (map? updated-value))
+         (and (map? (get accum key))
+              (map? updated-value))
          (assoc accum key (deep-merge-and-delete (get accum key) updated-value))
 
          (nil? updated-value)
@@ -154,12 +167,17 @@
             acc'  (if (and (lookup-ref? eid)
                            (#{:add-triple :deep-merge-triple} op))
                     (let [[lookup-aid lookup-value] eid
-                          lookup-label (-> lookup-aid (attr-model/seek-by-id attrs)
-                                           :forward-identity last)]
+                          lookup-label (-> lookup-aid
+                                           (attr-model/seek-by-id attrs)
+                                           :forward-identity
+                                           last)]
                       (ucoll/update! acc key assoc lookup-label lookup-value))
                     acc)
             ;; apply tx-step
-            label (some-> aid (attr-model/seek-by-id attrs) :forward-identity last)
+            label (some-> aid
+                          (attr-model/seek-by-id attrs)
+                          :forward-identity
+                          last)
             acc'' (case op
                     :add-triple
                     (ucoll/update! acc' key assoc label value)
@@ -240,58 +258,55 @@
 
 (defn post-checks
   "Checks that run after tx: create, add-attr"
-  [{:keys [db app-id rules]}
+  [{:keys [rules]}
    entities-map
    updated-entities-map
    rule-params-map
+   create-lookups-map
    tx-steps]
-  (let [create-lookups-map (->> tx-steps
-                                (map :eid)
-                                (filter lookup-ref?)
-                                (triple-model/fetch-lookups->eid (:conn-pool db) app-id))]
-    (for [{:keys [op eid etype value rev-etype]} tx-steps
-          :let [key         {:eid eid :etype etype}
-                entity      (get entities-map key)
-                rule-params (get rule-params-map key)]
-          check (cond
-                  (= :add-attr op)
-                  [{:scope    :attr
-                    :action   :create
-                    :etype    "attrs"
-                    :program  (or (rule-model/get-program! rules "attrs" "create")
-                                  {:result true})
-                    :bindings {:data value}}]
+  (for [{:keys [op eid etype value rev-etype]} tx-steps
+        :let [key         {:eid eid :etype etype}
+              entity      (get entities-map key)
+              rule-params (get rule-params-map key)]
+        check (cond
+                (= :add-attr op)
+                [{:scope    :attr
+                  :action   :create
+                  :etype    "attrs"
+                  :program  (or (rule-model/get-program! rules "attrs" "create")
+                                {:result true})
+                  :bindings {:data value}}]
 
-                  (and (#{:add-triple :deep-merge-triple :retract-triple} op)
-                       (not entity)) ;; create
-                  (concat
-                   [{:scope    :object
-                     :action   :create
-                     :etype    etype
-                     :eid      (get create-lookups-map eid eid)
-                     :program  (or (rule-model/get-program! rules etype "create")
-                                   {:result true})
-                     :bindings (let [updated-entity (-> (get updated-entities-map key)
-                                                        (update "id" #(get create-lookups-map % %)))]
-                                 {:data        updated-entity
-                                  :new-data    updated-entity
-                                  :rule-params rule-params})}]
+                (and (#{:add-triple :deep-merge-triple :retract-triple} op)
+                     (not entity)) ;; create
+                (concat
+                 [{:scope    :object
+                   :action   :create
+                   :etype    etype
+                   :eid      (get create-lookups-map eid eid)
+                   :program  (or (rule-model/get-program! rules etype "create")
+                                 {:result true})
+                   :bindings (let [updated-entity (-> (get updated-entities-map key)
+                                                      (update "id" #(get create-lookups-map % %)))]
+                               {:data        updated-entity
+                                :new-data    updated-entity
+                                :rule-params rule-params})}]
                    ;; updating a ref adds implicit "view" check in reverse direction
                    ;; with rule-params from forward direction
-                   (when rev-etype
-                     (when-some [rev-entity (get entities-map {:eid value :etype rev-etype})]
-                       [{:scope    :object
-                         :action   :view
-                         :etype    rev-etype
-                         :eid      value
-                         :program  (or (rule-model/get-program! rules rev-etype "view")
-                                       {:result true})
-                         :bindings {:data        rev-entity
-                                    :rule-params rule-params}}])))
+                 (when rev-etype
+                   (when-some [rev-entity (get entities-map {:eid value :etype rev-etype})]
+                     [{:scope    :object
+                       :action   :view
+                       :etype    rev-etype
+                       :eid      value
+                       :program  (or (rule-model/get-program! rules rev-etype "view")
+                                     {:result true})
+                       :bindings {:data        rev-entity
+                                  :rule-params rule-params}}])))
 
-                  :else
-                  [])]
-      check)))
+                :else
+                [])]
+    check))
 
 (defn run-checks!
   "Runs checks, returning results (admin-check?) or throwing"
@@ -314,9 +329,6 @@
               :check-result result
               :check-pass?  (boolean result))))))))
 
-(defn lock-tx-on! [tx-conn big-int]
-  (sql/execute! tx-conn ["SELECT pg_advisory_xact_lock(?)" big-int]))
-
 (defn transact!
   "Runs transactions alongside permission checks. The overall flow looks like this:
 
@@ -336,53 +348,78 @@
                       :attributes {:app-id app-id
                                    :transact-version "2"}}
     (next-jdbc/with-transaction [tx-conn (:conn-pool db)]
-      (let [ops-order        (tx/tx-steps-order tx-step-vecs)
-            optimistic-attrs (tx/optimistic-attrs attrs tx-step-vecs)
-            tx-step-maps     (tx/preprocess-tx-steps tx-conn optimistic-attrs app-id tx-step-vecs)
-            ;; Use the db connection we have so that we don't cause a deadlock
-            ;; Also need to be able to read our own writes for the create checks
-            ctx              (assoc ctx
-                                    :db {:conn-pool tx-conn}
-                                    :attrs optimistic-attrs)]
-        (validate-reserved-names! ctx tx-step-maps)
-        (if admin?
-          (tx/transact-without-tx-conn-impl! tx-conn optimistic-attrs app-id (tx/reorder-tx-steps ops-order tx-step-maps) {})
-          (let [;; pre-processing tx
-                tx-step-maps         (->> tx-step-maps
-                                          (coerce-value-uuids ctx)
-                                          (validate-lookup-etypes ctx))
-                ;; TODO somehow fetch update-delete data-ref dependencies in the same go
-                entities-map         (load-entities-map ctx tx-step-maps)
-                tx-step-maps         (resolve-lookups-tx-steps ctx entities-map tx-step-maps)
-                entities-map         (resolve-lookups-entities-map ctx entities-map)
-                updated-entities-map (update-entities-map ctx entities-map tx-step-maps)
-                rule-params-map      (into {}
-                                           (for [{:keys [op eid etype value]} tx-step-maps
-                                                 :when (= :rule-params op)]
-                                             [{:eid eid :etype etype} value]))
+      (io/warn-io :permissioned-transact!
+        (let [ops-order        (tx/tx-steps-order tx-step-vecs)
+              optimistic-attrs (tx/optimistic-attrs attrs tx-step-vecs)
+              tx-step-maps     (io/expect-io
+                                 (tx/preprocess-tx-steps tx-conn optimistic-attrs app-id tx-step-vecs))
+              ;; Use the db connection we have so that we don't cause a deadlock
+              ;; Also need to be able to read our own writes for the create checks
+              ctx              (assoc ctx
+                                      :db {:conn-pool tx-conn}
+                                      :attrs optimistic-attrs)]
+          (validate-reserved-names! ctx tx-step-maps)
+          (if admin?
+            (let [tx-steps (tx/reorder-tx-steps ops-order tx-step-maps)]
+              (io/expect-io
+                (tx/transact-without-tx-conn-impl! tx-conn optimistic-attrs app-id tx-steps {})))
+            (let [;; pre-processing tx
+                  tx-step-maps         (->> tx-step-maps
+                                            (coerce-value-uuids ctx)
+                                            (validate-lookup-etypes ctx))
+                  ;; TODO somehow fetch update-delete data-ref dependencies in the same go
+                  entities-map         (io/expect-io
+                                         (load-entities-map ctx tx-step-maps))
+                  tx-step-maps         (resolve-lookups-tx-steps ctx entities-map tx-step-maps)
+                  entities-map         (resolve-lookups-entities-map ctx entities-map)
+                  updated-entities-map (update-entities-map ctx entities-map tx-step-maps)
+                  rule-params-map      (into {}
+                                             (for [{:keys [op eid etype value]} tx-step-maps
+                                                   :when (= :rule-params op)]
+                                               [{:eid eid :etype etype} value]))
 
-                ;; pre checks
-                pre-check-results    (run-checks! ctx (pre-checks ctx entities-map updated-entities-map rule-params-map tx-step-maps))
+                  ;; pre checks
+                  pre-checks           (pre-checks ctx
+                                                   entities-map
+                                                   updated-entities-map
+                                                   rule-params-map
+                                                   tx-step-maps)
+                  pre-check-results    (io/expect-io
+                                         (run-checks! ctx pre-checks))
 
-                ;; transact to DB
-                tx-step-maps         (tx/reorder-tx-steps ops-order tx-step-maps)
-                tx-data              (tx/transact-without-tx-conn-impl! tx-conn (:attrs ctx) app-id tx-step-maps {})
+                  ;; transact to DB
+                  tx-step-maps         (tx/reorder-tx-steps ops-order tx-step-maps)
+                  tx-data              (io/expect-io
+                                         (tx/transact-without-tx-conn-impl! tx-conn (:attrs ctx) app-id tx-step-maps {}))
 
-                ;; post checks
-                post-check-results   (run-checks! ctx (post-checks ctx entities-map updated-entities-map rule-params-map tx-step-maps))
+                  ;; post checks
+                  create-lookups-map   (io/expect-io
+                                         (->> tx-step-maps
+                                              (map :eid)
+                                              (filter lookup-ref?)
+                                              (triple-model/fetch-lookups->eid tx-conn app-id)))
+                  post-checks          (post-checks ctx
+                                                    entities-map
+                                                    updated-entities-map
+                                                    rule-params-map
+                                                    create-lookups-map
+                                                    tx-step-maps)
+                  post-check-results   (io/expect-io
+                                         (run-checks! ctx post-checks))
 
-                ;; finalizing
-                check-results        (concat pre-check-results post-check-results)
-                all-checks-ok?       (every? :check-result check-results)
-                rollback?            (and admin-check?
-                                          (or admin-dry-run?
-                                              (not all-checks-ok?)))]
-            (when rollback?
-              (.rollback tx-conn))
-            (assoc tx-data
-                   :check-results  check-results
-                   :all-checks-ok? all-checks-ok?
-                   :committed?     (not rollback?))))))))
+                  ;; finalizing
+                  check-results        (concat pre-check-results post-check-results)
+                  all-checks-ok?       (every? :check-result check-results)
+                  rollback?            (and admin-check?
+                                            (or admin-dry-run?
+                                                (not all-checks-ok?)))]
+              (when rollback?
+                (io/expect-io
+                  (.rollback tx-conn)))
+              (assoc tx-data
+                     :check-results  check-results
+                     :all-checks-ok? all-checks-ok?
+                     :committed?     (not rollback?)))))))))
 
 (comment
   (do

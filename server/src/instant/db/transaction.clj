@@ -599,19 +599,17 @@
 
 (defn reorder-tx-steps
   [ops-order tx-step-maps]
-  (for [op ops-order
-        tx-step-map tx-step-maps
-        :when (= op (:op tx-step-map))]
-    tx-step-map))
+  (let [groups (group-by :op tx-step-maps)]
+    (mapcat #(get groups %) ops-order)))
 
 (defn optimistic-attrs [attrs tx-step-vecs]
   (->> tx-step-vecs
        (reduce
         (fn [acc [op value]]
           (case op
-            :add-attr    (assoc! acc (:id value) value)
-            :update-attr (coll/update! acc (:id value) merge value)
-            :delete-attr (dissoc! acc value)
+            (:add-attr
+             :update-attr) (assoc! acc (:id value) value)
+            :delete-attr   (dissoc! acc value)
             acc))
         (transient (attr-model/map-by-id attrs)))
        persistent!

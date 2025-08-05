@@ -28,10 +28,10 @@
 
 (test/use-fixtures :each
   (fn [f]
-    (testing "permissioned-transacttion"
+    (testing "permissioned-transaction"
       (f))
     (binding [permissioned-tx/*new-permissioned-transact?* true]
-      (testing "permissioned-transacttion-new"
+      (testing "permissioned-transaction-new"
         (f)))))
 
 (defn- fetch-triples
@@ -166,7 +166,6 @@
                         :unique?          false
                         :index?           false
                         :required?        true}]]))
-
         (permissioned-tx/transact!
          (make-ctx)
          [[:add-triple extra-user-id attr-user-id extra-user-id]
@@ -1439,6 +1438,43 @@
                       [[:delete-entity ex-node "nodes"]])
         (is (= #{[ex-board board-id-attr-id (str ex-board)]}
                (fetch-triples app-id)))))))
+
+(deftest delete-without-etype
+  (with-empty-app
+    (fn [{app-id   :id
+          make-ctx :make-ctx}]
+      (let [{attr-users-id      :users/id
+             attr-users-email   :users/email
+             attr-profiles-id   :profiles/id
+             attr-profiles-name :profiles/name}
+            (test-util/make-attrs
+             app-id
+             [[:users/id :required? :index? :unique?]
+              [:users/email]
+              [:profiles/id :required? :index? :unique?]
+              [:profiles/name]])
+            user-id (suid "0001")]
+
+        (permissioned-tx/transact!
+         (make-ctx)
+         [[:add-triple user-id attr-users-id      user-id]
+          [:add-triple user-id attr-users-email   "email@"]
+          [:add-triple user-id attr-profiles-id   user-id]
+          [:add-triple user-id attr-profiles-name "User"]])
+
+        (is (= #{[user-id attr-users-id      (str user-id)]
+                 [user-id attr-users-email   "email@"]
+                 [user-id attr-profiles-id   (str user-id)]
+                 [user-id attr-profiles-name "User"]}
+               (fetch-triples app-id [[:= :entity-id user-id]])))
+
+        (permissioned-tx/transact!
+         (make-ctx)
+         [[:delete-entity user-id]])
+
+        (is (= #{}
+               (fetch-triples app-id [[:= :entity-id user-id]])))))))
+
 
 (deftest delete-with-updates
   (doseq [[title transact-fn]
