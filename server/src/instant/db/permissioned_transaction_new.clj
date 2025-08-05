@@ -222,6 +222,11 @@
                   :etype    "attrs"
                   :program  {:result admin?}}]
 
+                (and (= :add-triple op)
+                     entity
+                     rev-etype) ;; update, ref
+                [] ;; FIXME
+
                 (and (#{:add-triple :deep-merge-triple :retract-triple} op)
                      entity) ;; update
                 (concat

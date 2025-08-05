@@ -2234,6 +2234,49 @@
                     set)
                book-id)))))))
 
+(deftest link-unlink-perms
+  (with-empty-app
+    (fn [{app-id   :id
+          make-ctx :make-ctx}]
+      (let [{attr-users-id      :users/id
+             attr-users-name    :users/name
+             attr-posts-id      :posts/id
+             attr-posts-text    :posts/text
+             attr-posts-author  :posts/author}
+            (test-util/make-attrs
+             app-id
+             [[:users/id :required? :index? :unique?]
+              [:users/name]
+              [:posts/id :required? :index? :unique?]
+              [:posts/text]
+              [[:posts/author :users/posts]]])
+            user-id (suid "0001")
+            post-id (suid "000a")]
+        (rule-model/put!
+         (aurora/conn-pool :write)
+         {:app-id app-id
+          :code {:posts
+                 {:allow
+                  {:update "false"
+                   :link   {:users "true"}
+                   :unlink {:usert "true"}}}}})
+        (permissioned-tx/transact!
+         (make-ctx)
+         [[:add-triple user-id attr-users-id user-id]
+          [:add-triple user-id attr-users-name "user"]
+          [:add-triple post-id attr-posts-id post-id]
+          [:add-triple post-id attr-posts-text "post"]])
+
+        (is (perm-err?
+             (permissioned-tx/transact!
+              (make-ctx)
+              [[:add-triple post-id attr-posts-text "post 2"]])))
+
+        (is (not (perm-err?
+                  (permissioned-tx/transact!
+                   (make-ctx)
+                   [[:add-triple post-id attr-posts-author user-id]]))))))))
+
 (deftest lookup-perms
   (with-empty-app
     (fn [{app-id :id}]
