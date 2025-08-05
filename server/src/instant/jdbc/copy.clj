@@ -88,6 +88,10 @@
 ;; ------------
 ;; Row decoding
 
+;; Docs on binary format
+;; https://www.postgresql.org/docs/current/sql-copy.html#id-1.9.3.55.9.4
+;; First row includes a header and the first row of data
+
 (def signature-bytes (byte-array [(byte \P)
                                   (byte \G)
                                   (byte \C)
@@ -100,7 +104,10 @@
                                   (byte \newline)
                                   0]))
 
-(defn- advance-header [^ByteBuffer bb]
+(defn- advance-header
+  "Consumes the header from the first row, throwing if it encounters anything
+   unexpected."
+  [^ByteBuffer bb]
   (doseq [expected signature-bytes
           :let [actual (.get bb)]]
     (when (not= expected actual)
@@ -115,7 +122,9 @@
   (let [extension-length (.getInt bb)]
     (.position bb (+ (.position bb) extension-length))))
 
-(defn- decode-row [^ByteBuffer bb columns]
+(defn- decode-row
+  "Decodes a single row from the input, consumes the input."
+  [^ByteBuffer bb columns]
   (let [field-count (.getShort bb)]
     (if (= -1 field-count)
       nil
@@ -139,9 +148,6 @@
         format (.getFormat out)]
     (when (not= 1 format)
       (throw (ex-info "Expected copy query to be in binary format." {:format format})))
-    ;; Docs on binary format
-    ;; https://www.postgresql.org/docs/current/sql-copy.html#id-1.9.3.55.9.4
-    ;; First row includes a header and the first row of data
     (let [bb (ByteBuffer/wrap (.readFromCopy out))]
       (advance-header bb)
       (loop [init' init
