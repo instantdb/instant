@@ -60,8 +60,18 @@ function ResizingTextArea({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const autoResize = (element: HTMLTextAreaElement) => {
+    // Capture the scroll position before resizing
+    const scrollContainer = element.closest('.overflow-y-auto');
+    const scrollTop = scrollContainer?.scrollTop || 0;
+
+    // Resize the textarea
     element.style.height = 'auto';
     element.style.height = element.scrollHeight + 'px';
+
+    // Restore scroll position
+    if (scrollContainer) {
+      scrollContainer.scrollTop = scrollTop;
+    }
   };
 
   useLayoutEffect(() => {
