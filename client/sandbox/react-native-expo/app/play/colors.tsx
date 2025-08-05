@@ -1,20 +1,8 @@
-import { init, i } from '@instantdb/react-native';
+import { init, tx } from '@instantdb/react-native';
 import { View, Text, Button, StyleSheet } from 'react-native';
-
 import config from '../config';
 
-const schema = i.schema({
-  entities: {
-    colors: i.entity({
-      color: i.string(),
-    }),
-  },
-});
-
-const { useQuery, transact, tx } = init({
-  ...config,
-  schema,
-});
+const { useQuery, transact } = init(config);
 
 function App() {
   return <Main />;

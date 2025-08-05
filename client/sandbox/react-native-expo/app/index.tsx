@@ -1,4 +1,4 @@
-import { Linking, StyleSheet, Text, View } from 'react-native';
+import { View, Text } from 'react-native';
 import { Link } from 'expo-router';
 import config from './config';
 
@@ -19,6 +19,9 @@ export default function Page() {
   }
   return (
     <View className="h-full m-4 mt-8">
+      <Link className="text-lg" href="/play/ephemeral-demo">
+        Ephemeral Demo
+      </Link>
       <Link className="text-lg" href="/play/authhello">
         Auth Hello
       </Link>
@@ -30,9 +33,6 @@ export default function Page() {
       </Link>
       <Link className="text-lg" href="/play/colors-schema">
         Colors (with schema)
-      </Link>
-      <Link className="text-lg" href="/play/litoe">
-        Litoe
       </Link>
     </View>
   );

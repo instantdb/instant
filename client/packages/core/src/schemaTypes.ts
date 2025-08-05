@@ -556,8 +556,8 @@ export type CreateParams<
     Schema['entities'][EntityName]['attrs']
   >]?: Schema['entities'][EntityName]['attrs'][AttrName] extends DataAttrDef<
     infer ValueType,
-    any,
-    false
+    false,
+    any
   >
     ? (ValueType extends Date ? string | number | Date : ValueType) | null
     : never;

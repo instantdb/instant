@@ -23,6 +23,9 @@ importers:
       '@instantdb/core':
         specifier: workspace:*
         version: link:../core
+      '@instantdb/version':
+        specifier: workspace:*
+        version: link:../version
     devDependencies:
       '@arethetypeswrong/cli':
         specifier: ^0.17.4
@@ -60,6 +63,9 @@ importers:
       '@instantdb/platform':
         specifier: workspace:*
         version: link:../platform
+      '@instantdb/version':
+        specifier: workspace:*
+        version: link:../version
       ansi-escapes:
         specifier: 4.3.2
         version: 4.3.2
@@ -130,6 +136,9 @@ importers:
 
   packages/core:
     dependencies:
+      '@instantdb/version':
+        specifier: workspace:*
+        version: link:../version
       mutative:
         specifier: ^1.0.10
         version: 1.1.0
@@ -185,6 +194,9 @@ importers:
       '@instantdb/platform':
         specifier: workspace:*
         version: link:../platform
+      '@instantdb/version':
+        specifier: workspace:*
+        version: link:../version
       '@modelcontextprotocol/sdk':
         specifier: ^1.12.1
         version: 1.12.1
@@ -246,6 +258,9 @@ importers:
       '@instantdb/core':
         specifier: workspace:*
         version: link:../core
+      '@instantdb/version':
+        specifier: workspace:*
+        version: link:../version
     devDependencies:
       '@arethetypeswrong/cli':
         specifier: ^0.17.4
@@ -289,6 +304,9 @@ importers:
       '@instantdb/core':
         specifier: workspace:*
         version: link:../core
+      '@instantdb/version':
+        specifier: workspace:*
+        version: link:../version
       react:
         specifier: '>=16'
         version: 18.3.1
@@ -335,6 +353,9 @@ importers:
       '@instantdb/react':
         specifier: workspace:*
         version: link:../react
+      '@instantdb/version':
+        specifier: workspace:*
+        version: link:../version
       '@react-native-async-storage/async-storage':
         specifier: '>=1.15'
         version: 1.23.1(react-native@0.76.1(@babel/core@7.26.7)(@babel/preset-env@7.26.7(@babel/core@7.26.7))(@react-native-community/cli-server-api@15.1.3)(@types/react@18.3.1)(react@18.3.1))
@@ -372,6 +393,24 @@ importers:
       vitest:
         specifier: ^0.21.0
         version: 0.21.1(jsdom@20.0.3)(terser@5.37.0)
+
+  packages/version:
+    devDependencies:
+      '@arethetypeswrong/cli':
+        specifier: ^0.17.4
+        version: 0.17.4
+      '@types/node':
+        specifier: ^18.11.18
+        version: 18.19.74
+      tshy:
+        specifier: ^3.0.2
+        version: 3.0.2
+      typescript:
+        specifier: ^5.8.3
+        version: 5.8.3
+      vite:
+        specifier: ^5.2.0
+        version: 5.4.14(@types/node@18.19.74)(lightningcss@1.27.0)(terser@5.37.0)
 
   sandbox/admin-sdk-express:
     dependencies:
