@@ -11,6 +11,7 @@
    [next.jdbc.connection :refer [jdbc-url]])
   (:import
    (java.sql DriverManager)
+   (java.time Instant)
    (java.util Properties)
    (org.postgresql PGProperty)
    (org.postgresql.jdbc PgConnection)))
@@ -142,7 +143,7 @@
                      :jsonb {"json" [nil 1 true 5.0]}
                      :json_number 123456
                      :jsonb_number 123456
-                     :timestamptz #instant "1970-01-01T00:00:00Z"
+                     :timestamptz (Instant/parse "1970-01-01T00:00:00Z")
                      :boolean true
                      :integer 1
                      :bigint 99999999999999999
