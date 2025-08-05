@@ -3,7 +3,6 @@
    [clojure.pprint]
    [instant.db.model.triple :as triple])
   (:import
-   (java.nio ByteBuffer)
    (net.openhft.hashing LongHashFunction)))
 
 (set! *warn-on-reflection* true)
