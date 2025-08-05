@@ -1,5 +1,11 @@
 import { id, InstantReactWebDatabase, tx } from '@instantdb/react';
-import { useMemo, useRef, useState, useLayoutEffect } from 'react';
+import {
+  TextareaHTMLAttributes,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import {
   ActionButton,
@@ -39,6 +45,52 @@ const fieldTypeOptions: FieldTypeOption[] = [
   { value: 'boolean', label: 'boolean' },
   { value: 'json', label: 'json' },
 ];
+
+interface ResizingTextAreaProps
+  extends TextareaHTMLAttributes<HTMLTextAreaElement> {
+  onSave?: () => void;
+}
+
+function ResizingTextArea({
+  onSave,
+  onChange,
+  onKeyDown,
+  ...props
+}: ResizingTextAreaProps) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const autoResize = (element: HTMLTextAreaElement) => {
+    element.style.height = 'auto';
+    element.style.height = element.scrollHeight + 'px';
+  };
+
+  useLayoutEffect(() => {
+    if (textareaRef.current) {
+      autoResize(textareaRef.current);
+    }
+  }, [props.value]);
+
+  return (
+    <textarea
+      ref={textareaRef}
+      className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 resize-none min-h-[34px] overflow-hidden"
+      rows={1}
+      placeholder="hello world (Shift+Enter for new line)"
+      {...props}
+      onChange={(e) => {
+        onChange?.(e);
+        autoResize(e.target);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' && !e.shiftKey && onSave) {
+          e.preventDefault();
+          onSave();
+        }
+        onKeyDown?.(e);
+      }}
+    />
+  );
+}
 
 const defaultValueByType: Record<FieldType, any> = {
   string: '',
@@ -788,15 +840,6 @@ export function EditRowDialog({
     });
   };
 
-  // Auto-resize textareas when dialog opens
-  useLayoutEffect(() => {
-    const textareas = document.querySelectorAll('textarea');
-    textareas.forEach((textarea: HTMLTextAreaElement) => {
-      textarea.style.height = 'auto';
-      textarea.style.height = textarea.scrollHeight + 'px';
-    });
-  }, []);
-
   const handleSaveRow = async () => {
     if (hasFormErrors) {
       setShouldDisplayErrors(true);
@@ -977,24 +1020,13 @@ export function EditRowDialog({
                           }
                         />
                       ) : (
-                        <textarea
+                        <ResizingTextArea
                           tabIndex={tabIndex}
-                          className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 resize-none min-h-[34px] overflow-hidden"
-                          rows={1}
                           value={value ?? ''}
-                          placeholder={`hello world (Shift+Enter for new line)`}
-                          onChange={(e) => {
-                            handleUpdateFieldValue(attr.name, e.target.value);
-                            e.target.style.height = 'auto';
-                            e.target.style.height =
-                              e.target.scrollHeight + 'px';
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                              e.preventDefault();
-                              handleSaveRow();
-                            }
-                          }}
+                          onChange={(e) =>
+                            handleUpdateFieldValue(attr.name, e.target.value)
+                          }
+                          onSave={handleSaveRow}
                         />
                       )}
                     </div>
