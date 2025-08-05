@@ -1,5 +1,5 @@
 import { id, InstantReactWebDatabase, tx } from '@instantdb/react';
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, useLayoutEffect } from 'react';
 
 import {
   ActionButton,
@@ -788,6 +788,15 @@ export function EditRowDialog({
     });
   };
 
+  // Auto-resize textareas when dialog opens
+  useLayoutEffect(() => {
+    const textareas = document.querySelectorAll('textarea');
+    textareas.forEach((textarea: HTMLTextAreaElement) => {
+      textarea.style.height = 'auto';
+      textarea.style.height = textarea.scrollHeight + 'px';
+    });
+  }, []);
+
   const handleSaveRow = async () => {
     if (hasFormErrors) {
       setShouldDisplayErrors(true);
@@ -968,13 +977,24 @@ export function EditRowDialog({
                           }
                         />
                       ) : (
-                        <input
+                        <textarea
                           tabIndex={tabIndex}
-                          className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400"
+                          className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 resize-none min-h-[34px] overflow-hidden"
+                          rows={1}
                           value={value ?? ''}
-                          onChange={(e) =>
-                            handleUpdateFieldValue(attr.name, e.target.value)
-                          }
+                          placeholder={`hello world (Shift+Enter for new line)`}
+                          onChange={(e) => {
+                            handleUpdateFieldValue(attr.name, e.target.value);
+                            e.target.style.height = 'auto';
+                            e.target.style.height =
+                              e.target.scrollHeight + 'px';
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              handleSaveRow();
+                            }
+                          }}
                         />
                       )}
                     </div>
