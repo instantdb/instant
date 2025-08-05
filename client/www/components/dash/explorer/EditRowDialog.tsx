@@ -1,5 +1,11 @@
 import { id, InstantReactWebDatabase, tx } from '@instantdb/react';
-import { useMemo, useRef, useState } from 'react';
+import {
+  TextareaHTMLAttributes,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import {
   ActionButton,
@@ -39,6 +45,62 @@ const fieldTypeOptions: FieldTypeOption[] = [
   { value: 'boolean', label: 'boolean' },
   { value: 'json', label: 'json' },
 ];
+
+interface ResizingTextAreaProps
+  extends TextareaHTMLAttributes<HTMLTextAreaElement> {
+  onSave?: () => void;
+}
+
+function ResizingTextArea({
+  onSave,
+  onChange,
+  onKeyDown,
+  ...props
+}: ResizingTextAreaProps) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const autoResize = (element: HTMLTextAreaElement) => {
+    // Capture the scroll position before resizing
+    const scrollContainer = element.closest('.overflow-y-auto');
+    const scrollTop = scrollContainer?.scrollTop || 0;
+
+    // Resize the textarea
+    element.style.height = 'auto';
+    element.style.height = element.scrollHeight + 'px';
+
+    // Restore scroll position
+    if (scrollContainer) {
+      scrollContainer.scrollTop = scrollTop;
+    }
+  };
+
+  useLayoutEffect(() => {
+    if (textareaRef.current) {
+      autoResize(textareaRef.current);
+    }
+  }, [props.value]);
+
+  return (
+    <textarea
+      ref={textareaRef}
+      className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 resize-none min-h-[34px] overflow-hidden"
+      rows={1}
+      placeholder="hello world (Shift+Enter for new line)"
+      {...props}
+      onChange={(e) => {
+        onChange?.(e);
+        autoResize(e.target);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' && !e.shiftKey && onSave) {
+          e.preventDefault();
+          onSave();
+        }
+        onKeyDown?.(e);
+      }}
+    />
+  );
+}
 
 const defaultValueByType: Record<FieldType, any> = {
   string: '',
@@ -968,13 +1030,13 @@ export function EditRowDialog({
                           }
                         />
                       ) : (
-                        <input
+                        <ResizingTextArea
                           tabIndex={tabIndex}
-                          className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400"
                           value={value ?? ''}
                           onChange={(e) =>
                             handleUpdateFieldValue(attr.name, e.target.value)
                           }
+                          onSave={handleSaveRow}
                         />
                       )}
                     </div>
