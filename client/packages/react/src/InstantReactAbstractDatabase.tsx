@@ -370,21 +370,63 @@ export default abstract class InstantReactAbstractDatabase<
     return this._core.queryOnce(query, opts);
   };
 
-  SignedIn = ({ children }: { children: ReactNode }) => {
+  /**
+   * Only render children if the user is signed in.
+   * Optional `loading` prop will render if the user is loading.
+   *
+   * @example
+   *  <db.SignedIn>
+   *    <MyComponent />
+   *  </db.SignedIn>
+   *
+   *  <db.SignedIn loading={<div>Loading...</div>}>
+   *    <MyComponent />
+   *  </db.SignedIn>
+   */
+  SignedIn: React.FC<{
+    children: ReactNode;
+    loading?: ReactNode;
+    error?: ReactNode;
+  }> = ({ children, loading, error }) => {
     const auth = this.useAuth();
     if (auth.user) {
       return <>{children}</>;
+    } else if (loading && auth.isLoading) {
+      return <>{loading}</>;
+    } else if (error && auth.error) {
+      return <>{error}</>;
     } else {
-      return <></>;
+      return null;
     }
   };
 
-  SignedOut = ({ children }: { children: ReactNode }) => {
+  /**
+   * Only render children if the user is signed out.
+   * Optional `loading` prop will render if the user is loading.
+   *
+   * @example
+   *  <db.SignedOut>
+   *    <MyComponent />
+   *  </db.SignedOut>
+   *
+   *  <db.SignedOut loading={<div>Loading...</div>}>
+   *    <MyComponent />
+   *  </db.SignedOut>
+   */
+  SignedOut: React.FC<{
+    children: ReactNode;
+    loading?: ReactNode;
+    error?: ReactNode;
+  }> = ({ children, loading, error }) => {
     const auth = this.useAuth();
     if (!auth.isLoading && !auth.user && !auth.error) {
       return <>{children}</>;
+    } else if (loading && auth.isLoading) {
+      return <>{loading}</>;
+    } else if (error && auth.error) {
+      return <>{error}</>;
     } else {
-      return <></>;
+      return null;
     }
   };
 }

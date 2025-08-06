@@ -61,7 +61,7 @@ function App() {
 
       <pre>{JSON.stringify(auth, null, 2)}</pre>
 
-      <db.SignedIn>
+      <db.SignedIn loading={<div>Loading auth..</div>}>
         <RequiresAuth />
       </db.SignedIn>
       <db.SignedOut>User Is signed out</db.SignedOut>
