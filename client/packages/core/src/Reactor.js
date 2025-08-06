@@ -23,6 +23,8 @@ import { createLinkIndex } from './utils/linkIndex.ts';
 import version from './version.ts';
 import { create } from 'mutative';
 import createLogger from './utils/log.ts';
+import { validateQuery } from './queryValidation.ts';
+import { validateTransactions } from './transactionValidation.ts';
 
 /** @typedef {import('./utils/log.ts').Logger} Logger */
 
@@ -734,6 +736,9 @@ export default class Reactor {
    *  Returns an unsubscribe function
    */
   subscribeQuery(q, cb, opts) {
+    if (!this.config.disableValidation) {
+      validateQuery(q, this.config.schema);
+    }
     if (opts && 'ruleParams' in opts) {
       q = { $$ruleParams: opts['ruleParams'], ...q };
     }
@@ -756,6 +761,10 @@ export default class Reactor {
   }
 
   queryOnce(q, opts) {
+    if (!this.config.disableValidation) {
+      validateQuery(q, this.config.schema);
+    }
+
     if (opts && 'ruleParams' in opts) {
       q = { $$ruleParams: opts['ruleParams'], ...q };
     }
@@ -1054,6 +1063,10 @@ export default class Reactor {
 
   /** Applies transactions locally and sends transact message to server */
   pushTx = (chunks) => {
+    // Throws if transactions are invalid
+    if (!this.config.disableValidation) {
+      validateTransactions(chunks, this.config.schema);
+    }
     try {
       const txSteps = instaml.transform(
         {

@@ -36,6 +36,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
+    "@types/react": ">=16",
     "instant-cli": "workspace:*"
   },
   "private": true
