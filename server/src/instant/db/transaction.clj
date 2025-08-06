@@ -75,7 +75,7 @@
     {:op op
      :value first}
 
-    :delete-attr
+    (:delete-attr :restore-attr)
     {:op op
      :aid first}
 
@@ -109,7 +109,7 @@
     (:add-attr :update-attr)
     [op value]
 
-    :delete-attr
+    (:delete-attr :restore-attr)
     [op aid]
 
     (:add-triple :deep-merge-triple :retract-triple)

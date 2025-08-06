@@ -217,6 +217,12 @@
                   :etype    "attrs"
                   :program  {:result admin?}}]
 
+                (= :restore-attr op)
+                [{:scope    :attr
+                  :action   :restore
+                  :etype    "attrs"
+                  :program  {:result admin?}}]
+
                 (and (#{:add-triple :deep-merge-triple :retract-triple} op)
                      entity) ;; update
                 (concat

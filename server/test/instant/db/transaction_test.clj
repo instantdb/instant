@@ -3741,7 +3741,7 @@
                     (attr-model/get-by-app-id app-id)
                     app-id
                     [[:deep-merge-triple p1 attr-posts-title "This will fail"]])))))
-          (is (= ::ex/sql-raise
+          (is (= ::ex/validation-failed
                  (::ex/type
                   (test-util/instant-ex-data
                    (tx/transact!
@@ -3752,7 +3752,7 @@
                       [attr-posts-slug "new-slug"]
                       attr-posts-id
                       [attr-posts-slug "new-slug"]]])))))
-          (is (= ::ex/sql-raise
+          (is (= ::ex/validation-failed
                  (::ex/type
                   (test-util/instant-ex-data
                    (tx/transact!
