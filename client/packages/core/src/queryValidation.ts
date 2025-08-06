@@ -368,7 +368,7 @@ const validateDollarObject = (
   entityName: string,
   schema?: IContainEntitiesAndLinks<any, any>,
   path?: string,
-  isTopLevel: boolean = false,
+  depth: number = 0,
 ): void => {
   for (const key of Object.keys(dollarObj)) {
     if (!dollarSignKeys.includes(key)) {
@@ -389,7 +389,7 @@ const validateDollarObject = (
     'last',
   ];
   for (const param of paginationParams) {
-    if (dollarObj[param] !== undefined && !isTopLevel) {
+    if (dollarObj[param] !== undefined && depth > 0) {
       throw new QueryValidationError(
         `'${param}' can only be used on top-level namespaces. It cannot be used in nested queries.`,
         path,
@@ -418,7 +418,7 @@ const validateEntityInQuery = (
   entityName: string,
   schema: IContainEntitiesAndLinks<any, any>,
   path: string,
-  isTopLevel: boolean = false,
+  depth: number = 0,
 ): void => {
   if (!queryPart || typeof queryPart !== 'object') {
     throw new QueryValidationError(
@@ -449,7 +449,7 @@ const validateEntityInQuery = (
             linkedEntityName,
             schema,
             `${path}.${key}`,
-            false, // nested queries are never top-level
+            depth + 1,
           );
         }
       }
@@ -468,7 +468,7 @@ const validateEntityInQuery = (
         entityName,
         schema,
         `${path}.$`,
-        isTopLevel,
+        depth,
       );
     }
   }
@@ -527,7 +527,7 @@ export const validateQuery = (
       topLevelKey,
       schema,
       topLevelKey,
-      true, // This is a top-level entity
+      0, // Start at depth 0 for top-level entities
     );
   }
 };
