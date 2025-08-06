@@ -62,6 +62,8 @@ import {
   type FileOpts,
   type UploadFileResponse,
   type DeleteFileResponse,
+  validateQuery,
+  validateTransactions,
 } from '@instantdb/core';
 
 import version from './version.js';
@@ -82,6 +84,7 @@ type Config = {
   adminToken: string;
   apiURI?: string;
   useDateObjects?: boolean;
+  disableValidation?: boolean;
 };
 
 export type InstantConfig<
@@ -93,6 +96,7 @@ export type InstantConfig<
   apiURI?: string;
   schema?: Schema;
   useDateObjects?: UseDates;
+  disableValidation?: boolean;
 };
 
 type InstantConfigFilled<
@@ -779,6 +783,11 @@ class InstantAdminDatabase<
     if (query && opts && 'ruleParams' in opts) {
       query = { $$ruleParams: opts['ruleParams'], ...query };
     }
+
+    if (!this.config.disableValidation) {
+      validateQuery(query, this.config.schema);
+    }
+
     const fetchOpts = opts.fetchOpts || {};
     const fetchOptsHeaders = fetchOpts['headers'] || {};
     return jsonFetch(`${this.config.apiURI}/admin/query`, {
@@ -821,6 +830,9 @@ class InstantAdminDatabase<
   transact = (
     inputChunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
   ) => {
+    if (!this.config.disableValidation) {
+      validateTransactions(inputChunks, this.config.schema);
+    }
     return jsonFetch(`${this.config.apiURI}/admin/transact`, {
       method: 'POST',
       headers: authorizedHeaders(this.config, this.impersonationOpts),
