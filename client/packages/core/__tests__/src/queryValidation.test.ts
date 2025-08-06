@@ -824,3 +824,162 @@ test('where clause dot notation validation', () => {
     users: { $: { where: { 'posts.comments': 'not-a-uuid' } } },
   });
 });
+
+test('pagination parameters can only be used at top-level namespaces', () => {
+  const cursor = ['cursor', 'data', 'value', 1];
+
+  beValid({
+    posts: {
+      $: {
+        limit: 10,
+      },
+    },
+  });
+
+  beValid({
+    posts: {
+      $: {
+        offset: 20,
+      },
+    },
+  });
+
+  beValid({
+    posts: {
+      $: {
+        before: cursor,
+      },
+    },
+  });
+
+  beValid({
+    posts: {
+      $: {
+        after: cursor,
+      },
+    },
+  });
+
+  beValid({
+    posts: {
+      $: {
+        first: 5,
+      },
+    },
+  });
+
+  beValid({
+    posts: {
+      $: {
+        last: 5,
+      },
+    },
+  });
+
+  // Valid - multiple pagination params at top-level
+  beValid({
+    users: {
+      $: {
+        limit: 5,
+        offset: 10,
+      },
+      posts: {
+        $: {
+          where: { title: 'Test' },
+        },
+      },
+    },
+  });
+
+  // Invalid - pagination params in nested namespace
+  beWrong({
+    users: {
+      posts: {
+        $: {
+          limit: 10,
+        },
+      },
+    },
+  });
+
+  beWrong({
+    users: {
+      posts: {
+        $: {
+          offset: 10,
+        },
+      },
+    },
+  });
+
+  beWrong({
+    users: {
+      posts: {
+        $: {
+          before: cursor,
+        },
+      },
+    },
+  });
+
+  beWrong({
+    users: {
+      posts: {
+        $: {
+          after: cursor,
+        },
+      },
+    },
+  });
+
+  beWrong({
+    users: {
+      posts: {
+        $: {
+          first: 5,
+        },
+      },
+    },
+  });
+
+  beWrong({
+    users: {
+      posts: {
+        $: {
+          last: 5,
+        },
+      },
+    },
+  });
+
+  // Invalid - multiple pagination params in deeply nested namespace
+  beWrong({
+    users: {
+      posts: {
+        comments: {
+          $: {
+            limit: 5,
+            offset: 10,
+            first: 3,
+          },
+        },
+      },
+    },
+  });
+
+  // Valid - multiple top-level entities with different pagination params
+  beValid({
+    posts: {
+      $: {
+        limit: 10,
+        offset: 5,
+      },
+    },
+    users: {
+      $: {
+        first: 20,
+        after: cursor,
+      },
+    },
+  });
+});
