@@ -17,7 +17,8 @@
    (com.github.vertical_blank.sqlformatter SqlFormatter)
    (com.zaxxer.hikari HikariDataSource)
    (java.time Instant)
-   (java.util UUID)))
+   (java.util UUID)
+   (org.postgresql.replication LogSequenceNumber)))
 
 (defmacro def-locals*
   [prefix]
@@ -170,18 +171,31 @@
                                                      (= "boolean[]" (-> v meta :pgtype))
                                                      (= "float8[]" (-> v meta :pgtype))
                                                      (= "timestamptz[]" (-> v meta :pgtype))
+                                                     (= "integer[]" (-> v meta :pgtype))
+                                                     (= "bigint[]" (-> v meta :pgtype))
                                                      (and (set? v)
                                                           (or (every? uuid? v)
                                                               (every? boolean? v)
                                                               (every? number? v)
                                                               (every? (fn [x] (instance? Instant x)) v))))
-                                                 (format "'%s'" (->pg-stringable-array v))
+                                                 (format "'%s'%s"
+                                                         (->pg-stringable-array v)
+                                                         (when-let [pgtype (-> v meta :pgtype)]
+                                                           (str "::" pgtype)))
 
+                                                 (= "bigint[][]" (-> v meta :pgtype))
+                                                 (format "'%s'::bigint[][]"
+                                                         (->pg-stringable-array
+                                                          (map (fn [a]
+                                                                 (->pg-stringable-array a))
+                                                               v)))
+
+                                                 (instance? LogSequenceNumber v)
+                                                 (format "'%s'::pg_lsn" (LogSequenceNumber/.asString v))
 
                                                  ;; Fallback to JSON
                                                  (set? v)
                                                  (->pg-json-array v)
-
 
                                                  :else (format "'%s'" v))
                                                (if (uuid? v)
@@ -310,7 +324,7 @@
        result#)))
 
 (defmacro profile [options? & body]
-  `(prof/profile ~options? ~body))
+  `(prof/profile ~options? ~@body))
 
 (def prof-serve-ui prof/serve-ui)
 

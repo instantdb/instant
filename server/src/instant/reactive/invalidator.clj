@@ -266,6 +266,8 @@
     (.toInstant (Timestamp/valueOf created-at))))
 
 (defn transform-wal-record [{:keys [changes tx-bytes] :as _record}]
+  ;; n.b. Add the table to the `add-tables` setting in create-replication-stream
+  ;;      or else we will never be notified about it.
   (let [{:strs [idents triples attrs transactions rules apps instant_users]}
         (group-by :table changes)
 
@@ -496,7 +498,8 @@
                                                              ;; invalidator when failing over to a
                                                              ;; new blue/green deployment
                                                              (config/get-aurora-config)))
-                                      :slot-name process-id})]
+                                      :slot-suffix process-id
+                                      :slot-type :invalidator})]
      (ua/fut-bg
       (wal/start-worker wal-opts))
 

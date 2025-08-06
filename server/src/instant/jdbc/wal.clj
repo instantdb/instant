@@ -29,10 +29,11 @@
    [instant.gauges :as gauges]
    [instant.health :as health]
    [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.pgerrors :as pgerrors]
    [instant.jdbc.sql :as sql]
    [instant.util.async :as ua]
-   [instant.util.lang :as lang]
    [instant.util.json :refer [<-json]]
+   [instant.util.lang :as lang]
    [instant.util.tracer :as tracer]
    [lambdaisland.uri :as uri]
    [next.jdbc.connection :refer [jdbc-url]])
@@ -42,9 +43,11 @@
    (java.time Duration Instant)
    (java.util Properties)
    (java.util.concurrent TimeUnit)
-   (org.postgresql PGConnection PGProperty)
-   (org.postgresql.replication LogSequenceNumber PGReplicationStream)
-   (org.postgresql.replication.fluent.logical ChainedLogicalStreamBuilder)))
+   (org.postgresql PGProperty)
+   (org.postgresql.jdbc PgConnection)
+   (org.postgresql.replication LogSequenceNumber PGReplicationStream ReplicationSlotInfo)
+   (org.postgresql.replication.fluent.logical ChainedLogicalCreateSlotBuilder ChainedLogicalStreamBuilder)
+   (org.postgresql.util PSQLException)))
 
 ;; ----
 ;; Connection
@@ -62,7 +65,7 @@
 
    This PG connection has a few special settings to support replication
    (e.g REPLICATION, ASSUME_MIN_SERVER_VERSION, PREFER_QUERY_MODE)"
-  ^PGConnection [db-spec]
+  ^PgConnection [db-spec]
   (let [db-spec (if-let [secret-arn (:secret-arn db-spec)]
                   (-> db-spec
                       (dissoc db-spec :secret-arn)
@@ -77,7 +80,7 @@
         conn (DriverManager/getConnection (jdbc-url (-> db-spec
                                                         (dissoc :user :password)))
                                           props)]
-    (.unwrap conn PGConnection)))
+    (.unwrap conn PgConnection)))
 
 (comment
   (def pg-conn (get-pg-replication-conn (config/get-aurora-config)))
@@ -122,9 +125,51 @@
                         pg_create_logical_replication_slot(?, ?, false);"
                      slot-name output-plugin]))
 
+(defn create-slot-with-snapshot!
+  "Creates a permanent logical replication slot that exports a snapshot
+  you can use to sync the database."
+  ^ReplicationSlotInfo [^PgConnection replication-conn ^String slot-name output-plugin]
+  (-> replication-conn
+      (.getReplicationAPI)
+      (.createReplicationSlot)
+      (.logical)
+      ^ChainedLogicalCreateSlotBuilder (.withSlotName slot-name)
+      (.withOutputPlugin output-plugin)
+      (.make)))
+
+(defn create-sync-db-replication-slot-and-connection
+  "Creates the replication slot and returns a connection that can be used to
+   fetch all data up to the time that the slot was created.
+
+   If the slot already exists, returns nil.
+
+   The caller is resposible for closing the connection if one was returned."
+  [db-config slot-name]
+  ;; First create the slot
+  (with-open [c1 (get-pg-replication-conn db-config)]
+    (when-let [slot-info (try
+                           (create-slot-with-snapshot! c1 slot-name "wal2json")
+                           (catch PSQLException e
+                             (when (not= :duplicate-object (:condition (pgerrors/extract-data e)))
+                               (throw e))))]
+      ;; Then in another connection (has to be a new connection), we can
+      ;; set the connection snapshot to the snapshot that was created with our slot
+      (let [slot-info ^ReplicationSlotInfo slot-info
+            snapshot-name (.getSnapshotName slot-info)
+            c2 (get-pg-replication-conn db-config)]
+        (.setAutoCommit c2 false)
+        ;; It's generally a bad idea to construct sql strings like this, but we do it here
+        ;; because you can't pass the snapshot name as a parameter and the input comes from
+        ;; the create_replication_slot postgres command.
+        (sql/select c2 [(format "set transaction isolation level repeatable read, read only;
+                                 set transaction snapshot '%s'" snapshot-name)])
+        {:connection c2
+         :lsn (.getConsistentPoint slot-info)}))))
+
 (defn get-logical-replication-slot
   [conn slot-name]
-  (sql/select-one conn
+  (sql/select-one ::get-logical-replication-slot
+                  conn
                   ["SELECT slot_name, confirmed_flush_lsn as lsn
                       FROM pg_replication_slots
                      WHERE slot_name = ?"
@@ -132,16 +177,18 @@
 
 (defn get-replication-latency-bytes [conn slot-name]
   (->
-   (sql/select-one
-    conn
-    ["select pg_wal_lsn_diff(pg_current_wal_lsn(), confirmed_flush_lsn) as latency
+    (sql/select-one
+      ::get-replication-latency-bytes
+      conn
+      ["select pg_wal_lsn_diff(pg_current_wal_lsn(), confirmed_flush_lsn) as latency
         from pg_replication_slots
        where slot_name = ?"
-     slot-name])
-   :latency))
+       slot-name])
+    :latency))
 
 (defn drop-logical-replication-slot [conn slot-name]
-  (sql/execute! conn
+  (sql/execute! ::drop-logical-replication-slot
+                conn
                 ["SELECT pg_drop_replication_slot(?)" slot-name]))
 
 (defn get-all-slots
@@ -152,11 +199,14 @@
   [conn]
   (sql/select conn ["SELECT * FROM pg_replication_slots;"]))
 
-(defn get-inactive-replication-slots [conn]
+(defn get-inactive-replication-slots
+  "Gets inactive slots for the invalidator."
+  [conn]
   (sql/select conn ["select slot_name
                        from pg_replication_slots
                       where active = false
-                        and plugin = 'wal2json'"]))
+                        and plugin = 'wal2json'
+                        and slot_name like 'invalidator%'"]))
 
 (defn cleanup-inactive-replication-slots [conn slot-names]
   (sql/select conn ["select slot_name, pg_drop_replication_slot(slot_name)
@@ -179,13 +229,21 @@
    This returns the latest LSN processed by PG."
   [conn]
   (:pg_current_wal_lsn
-   (sql/select-one conn ["SELECT * FROM pg_current_wal_lsn();"])))
+    (sql/select-one conn ["SELECT * FROM pg_current_wal_lsn();"])))
 
 (comment
   (get-current-wal-lsn (aurora/conn-pool :read)))
 
 ;; ------
 ;; Stream
+
+(def invalidator-tables [:idents
+                         :triples
+                         :attrs
+                         :transactions
+                         :rules
+                         :apps
+                         :instant_users])
 
 (defn- create-replication-stream
   "Given a PGConnection (with replication settings), a slot,
@@ -195,14 +253,19 @@
    a PGConnection with some specific settings. Use `get-pg-replication-conn`
    to get the right kind of PGConnection."
   ^PGReplicationStream
-  [^PGConnection replication-conn slot-name ^String start-lsn ^Long version]
-  (let [builder (-> replication-conn
+  [^PgConnection replication-conn slot-type slot-name ^LogSequenceNumber start-lsn ^Long version]
+  (let [tables (case slot-type
+                 :invalidator invalidator-tables
+                 :aggregator [:triples])
+        add-tables (clojure.string/join "," (map #(str "public." (name %)) tables))
+        builder (-> replication-conn
                     (.getReplicationAPI)
                     (.replicationStream)
                     (.logical)
                     (.withSlotOption "include-lsn" true)
                     (.withSlotOption "format-version" version)
-                    (.withStartPosition (LogSequenceNumber/valueOf start-lsn))
+                    (.withSlotOption "add-tables" add-tables)
+                    (.withStartPosition start-lsn)
                     (.withSlotName slot-name)
                     (.withStatusInterval 1 TimeUnit/SECONDS))]
     (.start ^ChainedLogicalStreamBuilder builder)))
@@ -254,7 +317,7 @@
 
    We do some book-keeping for the replication stream, by recording the LSN
    for the last record that was pushed to `to`."
-  [^PGReplicationStream stream to close-signal-chan]
+  [^PGReplicationStream stream to close-signal-chan {:keys [auto-flush?]}]
   ;; :next-action is either:
   ;;   :begin, we're waiting for a :begin record
   ;;   :close, we got :begin and we're collecting records until we get :close
@@ -305,19 +368,28 @@
                                     close-signal-chan :closed)]
             (when (and (= put-result :put)
                        (not (.isClosed stream)))
-              (.setAppliedLSN stream last-receive-lsn)
-              (.setFlushedLSN stream last-receive-lsn)
+              (when auto-flush?
+                (.setAppliedLSN stream last-receive-lsn)
+                (.setFlushedLSN stream last-receive-lsn))
               (recur (.read stream) produce-start-state))))))))
 
+(defn full-slot-name [slot-type slot-suffix]
+  (str (name slot-type) "_" slot-suffix))
+
 (defn make-wal-opts [{:keys [wal-chan close-signal-chan
-                             ex-handler get-conn-config slot-name]}]
+                             ex-handler get-conn-config
+                             slot-suffix slot-type
+                             flush-lsn-chan lsn]}]
   {:to wal-chan
    :close-signal-chan close-signal-chan
    :ex-handler ex-handler
    :get-conn-config get-conn-config
-   :slot-name slot-name
+   :slot-name (full-slot-name slot-type slot-suffix)
+   :slot-type slot-type
    :shutdown-fn (atom nil)
-   :started-promise (promise)})
+   :started-promise (promise)
+   :flush-lsn-chan flush-lsn-chan
+   :lsn lsn})
 
 (defn set-shutdown-fn [wal-opts shutdown-fn]
   (swap! (:shutdown-fn wal-opts)
@@ -339,23 +411,23 @@
 
 (defn alert-discord [slot-name]
   (discord/send-error-async!
-   (str (:instateam discord/mention-constants)
-        " The wal handler threw an exception. Check if it restart automatically."
-        " If it didn't, redeploy the server.\n\nIf you're quick enough you can "
-        "peek at the transaction that caused the error:\n\n"
-        (format "```\nselect data from pg_logical_slot_peek_changes('%s', null, null, 'format-version', '2', 'include-lsn', 'true');```"
-                slot-name))))
+    (str (:instateam discord/mention-constants)
+         " The wal handler threw an exception. Check if it restart automatically."
+         " If it didn't, redeploy the server.\n\nIf you're quick enough you can "
+         "peek at the transaction that caused the error:\n\n"
+         (format "```\nselect data from pg_logical_slot_peek_changes('%s', null, null, 'format-version', '2', 'include-lsn', 'true');```"
+                 slot-name))))
 
 (defn get-reconnect-conn*
   "Tries to create a new connection and restart the replication stream"
-  [get-conn-config slot-name]
+  [get-conn-config slot-type slot-name]
   (try
     (let [conn (get-pg-replication-conn (get-conn-config))]
       ;; try is double-nested so that we can dispose of the connection
       ;; if we get an error creating the stream.
       (try
         (let [slot (get-logical-replication-slot conn slot-name)
-              stream (create-replication-stream conn slot-name (:lsn slot) 2)]
+              stream (create-replication-stream conn slot-type slot-name (:lsn slot) 2)]
           {:conn conn
            :slot slot
            :stream stream})
@@ -370,9 +442,9 @@
 (defn get-reconnect-conn
   "Repeatedly tries to create a new connection and restart the replication stream,
    waiting a second between tries."
-  [get-conn-config slot-name]
+  [get-conn-config slot-type slot-name]
   (loop [i 1]
-    (if-let [res (get-reconnect-conn* get-conn-config slot-name)]
+    (if-let [res (get-reconnect-conn* get-conn-config slot-type slot-name)]
       res
       (do
         (tracer/record-info! {:name "wal/get-reconnect-conn"
@@ -387,27 +459,34 @@
    Note: Blocks the calling thread. Call with fut-bg.
 
    Use `shutdown!` to stop the stream and clean up."
-  [{:keys [get-conn-config slot-name to ex-handler close-signal-chan started-promise]
+  [{:keys [get-conn-config slot-name slot-type to ex-handler close-signal-chan started-promise]
     :as wal-opts}]
+  (when (not= slot-type :invalidator)
+    (throw (ex-info "Called start-worker with invalid slot-type" {:slot-type slot-type})))
   (let [replication-conn (get-pg-replication-conn (get-conn-config))
         {:keys [lsn]} (create-logical-replication-slot! replication-conn
                                                         slot-name
                                                         "wal2json")
         shutdown? (atom false)]
+    (tool/def-locals)
     (loop [replication-conn replication-conn
-           stream (create-replication-stream replication-conn slot-name lsn 2)
+           stream (create-replication-stream replication-conn slot-type slot-name lsn 2)
            restart-count 0]
+      (tool/def-locals)
+
       (deliver started-promise true)
       (tracer/record-info! {:name "wal-worker/start"
                             :attributes {:slot-name slot-name}})
       (set-shutdown-fn wal-opts (fn []
                                   (reset! shutdown? true)
                                   (close-nicely stream)
-                                  (drop-logical-replication-slot replication-conn slot-name)
+                                  (case slot-type
+                                    :invalidator (drop-logical-replication-slot replication-conn slot-name)
+                                    :aggregator nil)
                                   (close-nicely replication-conn)
                                   (health/mark-wal-healthy-async)))
       (let [produce-error (try
-                            (produce stream to close-signal-chan)
+                            (produce stream to close-signal-chan {:auto-flush? true})
                             (catch Exception e
                               (tracer/with-span! {:name "wal-worker/produce-error"
                                                   :attributes {:exception e}}
@@ -421,7 +500,7 @@
                                           :escpaing? false})
           (try (close-nicely stream) (catch Exception _e nil))
           (try (close-nicely replication-conn) (catch Exception _e nil))
-          (let [{new-conn :conn stream :stream} (get-reconnect-conn get-conn-config slot-name)]
+          (let [{new-conn :conn stream :stream} (get-reconnect-conn get-conn-config slot-type slot-name)]
             (if-not stream
               (ex-handler produce-error)
               (do
@@ -433,6 +512,73 @@
                   ;; If we keep restarting, stop marking ourselves as healthy
                   (health/mark-wal-healthy-async))
                 (recur new-conn stream (inc restart-count))))))))))
+
+(defn start-aggregator-worker
+  "Starts a logical replication stream and pushes records to
+   the given `to` channel.
+
+   Returns nil if the
+
+   Use `shutdown!` to stop the stream and clean up."
+  [{:keys [get-conn-config slot-name slot-type to lsn
+           close-signal-chan started-promise flush-lsn-chan]
+    :as wal-opts}]
+  (when (not= slot-type :aggregator)
+    (throw (ex-info "Called start-aggregator-worker with invalid slot-type" {:slot-type slot-type
+                                                                             :slot-name slot-name})))
+  (when (not flush-lsn-chan)
+    (throw (ex-info "Missing flush-lsn-chan in wal-opts for aggregator" {:slot-type slot-type
+                                                                         :slot-name slot-name})))
+
+  (let [replication-conn (get-pg-replication-conn (get-conn-config))
+        shutdown? (atom false)
+        stream (try (create-replication-stream replication-conn slot-type slot-name lsn 2)
+                    (catch PSQLException e
+                      (when (not= :object-in-use (:condition (pgerrors/extract-data e)))
+                        (throw e))))]
+    (when-not stream
+      (close-nicely replication-conn))
+    (when stream
+      (deliver started-promise true)
+      (tracer/record-info! {:name "wal-aggregator-worker/start"
+                            :attributes {:slot-name slot-name}})
+      (set-shutdown-fn wal-opts (fn []
+                                  (reset! shutdown? true)
+                                  (close-nicely stream)
+                                  (close-nicely replication-conn)))
+      (let [stream ^PGReplicationStream stream
+            flush-interrupt (a/chan)
+            flush-process (a/go
+                            (loop []
+                              (let [[lsn _ch] (a/alts! [flush-lsn-chan flush-interrupt])]
+                                (if lsn
+                                  (do (tracer/with-span! {:name "wal/flush-lsn"
+                                                          :attributes {:lsn lsn}}
+                                        (try
+                                          (.setAppliedLSN stream lsn)
+                                          (.setFlushedLSN stream lsn)
+                                          (catch Exception e
+                                            (tracer/add-exception! e {:escaping? false}))))
+                                      (recur))
+                                  (tracer/record-info! {:name "wal/flush-lsn-exit"})))))
+            produce-error (try
+                            (produce stream to close-signal-chan {:auto-flush? false})
+                            (catch Exception e
+                              (tracer/with-span! {:name "wal-worker/produce-error"
+                                                  :attributes {:exception e}}
+                                e)))]
+        (a/close! flush-interrupt)
+        (a/<!! flush-process)
+        (when-not @shutdown?
+          (when (= :prod (config/get-env))
+            (alert-discord slot-name))
+          (tracer/record-exception-span! (ex-info "Wal aggregation handler closed unexpectedly"
+                                                  {:slot-name slot-name}
+                                                  produce-error)
+                                         {:name "wal-aggregation-worker/unexpected-disconnect"
+                                          :escpaing? false})
+          (try (close-nicely stream) (catch Exception _e nil))
+          (try (close-nicely replication-conn) (catch Exception _e nil)))))))
 
 (defn shutdown! [wal-opts]
   (tracer/with-span! {:name "wal-worker/shutdown!"

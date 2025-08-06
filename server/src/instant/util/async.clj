@@ -8,14 +8,8 @@
    [instant.gauges :as gauges]
    [instant.util.tracer :as tracer])
   (:import
-   (java.util.concurrent ConcurrentHashMap
-                         Executors
-                         ExecutorService
-                         Future)
-   (clojure.core.async.impl.buffers FixedBuffer
-                                    DroppingBuffer
-                                    SlidingBuffer
-                                    PromiseBuffer)))
+   (clojure.core.async.impl.buffers DroppingBuffer FixedBuffer PromiseBuffer SlidingBuffer)
+   (java.util.concurrent ConcurrentHashMap ExecutorService Executors Future)))
 
 (defmacro fut-bg
   "Futures only throw when de-referenced. fut-bg writes a future
@@ -108,21 +102,21 @@
         ^ConcurrentHashMap parent-vfutures *child-vfutures*
         f (wrap-catch-unhandled-exceptions f)
         f (bound-fn* (^{:once true} fn* []
-                      (if dont-track-immediate-children?
-                        (f)
-                        (binding [*child-vfutures* children]
-                          (let [res (f)]
-                            (when parent-vfutures
-                              (.remove parent-vfutures fut-id))
-                            res)))))
+                       (if dont-track-immediate-children?
+                         (f)
+                         (binding [*child-vfutures* children]
+                           (let [res (f)]
+                             (when parent-vfutures
+                               (.remove parent-vfutures fut-id))
+                             res)))))
         fut (.submit executor ^Callable f)
         wrapped-fut (reify
                       clojure.lang.IDeref
                       (deref [_] (deref-future fut))
                       clojure.lang.IBlockingDeref
                       (deref
-                          [_ timeout-ms timeout-val]
-                          (deref-future fut timeout-ms timeout-val))
+                        [_ timeout-ms timeout-val]
+                        (deref-future fut timeout-ms timeout-val))
                       clojure.lang.IPending
                       (isRealized [_] (.isDone fut))
                       java.util.concurrent.Future
@@ -181,18 +175,18 @@
   _ever_ de-referencing them"
   [& forms]
   `(future-call
-    default-virtual-thread-executor
-    ;; These aren't regularly canceled, so don't incur the
-    ;; overhead of tracking child futures
-    {:dont-track-immediate-children? true}
-    (^{:once true} fn* []
-     (try
-       ~@forms
-       (catch Exception e#
-         (tracer/record-exception-span! e# {:name "vfut-bg"
-                                            :escaping?  true
-                                            :attributes {:forms (pr-str '~forms)}})
-         (throw e#))))))
+     default-virtual-thread-executor
+     ;; These aren't regularly canceled, so don't incur the
+     ;; overhead of tracking child futures
+     {:dont-track-immediate-children? true}
+     (^{:once true} fn* []
+       (try
+         ~@forms
+         (catch Exception e#
+           (tracer/record-exception-span! e# {:name "vfut-bg"
+                                              :escaping?  true
+                                              :attributes {:forms (pr-str '~forms)}})
+           (throw e#))))))
 
 ;; ----
 ;; core.async
@@ -208,7 +202,6 @@
               (a/alt!
                 ch ([v] v)
                 timeout-ch :timeout))))))
-
 
 (defn buf-capacity [buf]
   (cond (instance? FixedBuffer buf)
@@ -263,3 +256,51 @@
   (future
     (doseq [f futures]
       (deref f))))
+
+(defn chunked-chan
+  "Takes a `flush-ms` and a `max-size`. Returns an `in` and `out` chan.
+
+   Put new items in `in`, `out` will receive the items combined with the
+   `combine` function after the buffer length (determined by calling `size`)
+   exceeds `max-items` or when it has not flushed in more than `flush-ms` (and
+   the buffer is not empty).
+
+   `combine` should accept two arguments, the accumulator and the next item."
+  [{:keys [flush-ms
+           max-size
+           combine
+           init
+           size]
+    :or {combine (fn [acc xs] (apply conj acc xs))
+         init []
+         size count}}]
+  (let [in (a/chan)
+        out (a/chan)
+        process
+        (a/go-loop [items init
+                    timeout-ch nil]
+          (let [[vs ch] (a/alts! (remove nil? [in timeout-ch]))
+                timeout? (= ch timeout-ch)]
+            (cond timeout?
+                  (do
+                    (a/>! out items)
+                    (recur init nil))
+
+                  (nil? vs)
+                  (do
+                    (when (and (not (nil? items))
+                               (not (identical? items init)))
+                      (a/>! out items))
+                    (a/close! out))
+
+                  :else
+                  (let [items' (combine items vs)]
+                    (if (>= (size items') max-size)
+                      (do
+                        (a/>! out items')
+                        (recur init nil))
+                      (recur items' (or timeout-ch
+                                        (a/timeout flush-ms))))))))]
+    {:in in
+     :out out
+     :process process}))
