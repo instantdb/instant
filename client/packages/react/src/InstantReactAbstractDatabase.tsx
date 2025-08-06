@@ -259,6 +259,24 @@ export default abstract class InstantReactAbstractDatabase<
     return state;
   };
 
+  /**
+   * Subscribe to the currently logged in user.
+   * If the user is not logged in, this hook with throw an Error.
+   * You will want to protect any calls of this hook with a <db.SignedIn> component, or your own logic based on db.useAuth()
+   *
+   * @see https://instantdb.com/docs/auth
+   * @throws Error indicating user not signed in
+   * @example
+   *  function UserDisplay() {
+   *    const user = db.useUser()
+   *    return <div>Logged in as: {user.email}</div>
+   *  }
+   *
+   *  <db.SignedIn>
+   *    <UserDisplay />
+   *  </db.SignedIn>
+   *
+   */
   useUser = () => {
     const { user } = this.useAuth();
     if (!user) {
