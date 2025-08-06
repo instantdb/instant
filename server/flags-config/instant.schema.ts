@@ -14,9 +14,6 @@ const _schema = i.schema({
     $users: i.entity({
       email: i.string().unique().indexed().optional(),
     }),
-    "app-deletion-sweeper": i.entity({
-      "disabled?": i.boolean(),
-    }),
     "app-users-to-triples-migration": i.entity({
       appId: i.string().optional(),
       processId: i.string().optional(),
@@ -135,7 +132,7 @@ const _schema = i.schema({
 
 // This helps Typescript display nicer intellisense
 type _AppSchema = typeof _schema;
-interface AppSchema extends _AppSchema {}
+interface AppSchema extends _AppSchema { }
 const schema: AppSchema = _schema;
 
 export type { AppSchema };

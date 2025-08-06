@@ -335,11 +335,6 @@
                                      [:e2e-logging :invalidator-every-n])
                              10000)))))
 
-(defn app-deletion-sweeper-disabled? []
-  (-> (query-result)
-      :app-deletion-sweeper
-      :disabled?))
-
 (defn use-vfutures? []
   (-> (query-result)
       :threading
@@ -381,3 +376,7 @@
                  acc))
              {}
              (get (query-result) :toggles)))
+
+(defn hard-deletion-sweeper-disabled? []
+  (toggled? :hard-deletion-sweeper-disabled?))
+

@@ -22,7 +22,8 @@
    [instant.model.rule :as rule-model]
    [instant.util.instaql :refer [instaql-nodes->object-tree]]
    [instant.util.exception :as ex]
-   [instant.util.test :as test-util :refer [suid validation-err? perm-err?]])
+   [instant.util.test :as test-util :refer [suid validation-err? perm-err?]]
+   [instant.util.date :as date-util])
   (:import
    (java.util UUID)))
 
@@ -36,12 +37,14 @@
 
 (defn- fetch-triples
   ([app-id] (fetch-triples app-id []))
-  ([app-id where-clause]
+  ([app-id where-clause] (fetch-triples app-id where-clause {}))
+  ([app-id where-clause opts]
    (set (map :triple
              (triple-model/fetch
               (aurora/conn-pool :read)
               app-id
-              where-clause)))))
+              where-clause
+              opts)))))
 
 (deftest attrs-create-delete
   (doseq [{:keys [test tx-fn]} [{:test "tx/transact!"
@@ -2493,8 +2496,8 @@
                        :unique? true
                        :index? true}]
                      [:add-triple stopa-eid email-attr-id "test@instantdb.com"]]))))))
-        (testing "invalid foreign key for attrs triggers foreign key violation"
-          (is (= ::ex/record-foreign-key-invalid
+        (testing "invalid foreign key for attrs triggers sql raise"
+          (is (= ::ex/sql-raise
                  (->  (test-util/instant-ex-data
                        (tx/transact!
                         (aurora/conn-pool :write)
@@ -2509,11 +2512,11 @@
       (let [alex-eid (resolvers/->uuid r "eid-alex")
             bookshelf-aid (resolvers/->uuid r :users/bookshelves)
             ex (test-util/instant-ex-data
-                 (tx/transact!
-                  (aurora/conn-pool :write)
-                  (attr-model/get-by-app-id (:id app))
-                  (:id app)
-                  [[:add-triple alex-eid bookshelf-aid ""]]))]
+                (tx/transact!
+                 (aurora/conn-pool :write)
+                 (attr-model/get-by-app-id (:id app))
+                 (:id app)
+                 [[:add-triple alex-eid bookshelf-aid ""]]))]
         (is ex)
         (is (= ::ex/validation-failed
                (::ex/type ex)))
@@ -2563,10 +2566,10 @@
                                                    :attr-id (str email-attr-id)
                                                    :entity-id (str eid)}}
                    (dissoc (test-util/instant-ex-data
-                             (tx/transact! (aurora/conn-pool :write)
-                                           (attr-model/get-by-app-id app-id)
-                                           app-id
-                                           [[:add-triple eid email-attr-id 10]]))
+                            (tx/transact! (aurora/conn-pool :write)
+                                          (attr-model/get-by-app-id app-id)
+                                          app-id
+                                          [[:add-triple eid email-attr-id 10]]))
                            ::ex/trace-id)))))))))
 
 (deftest rejects-large-values-for-indexed-data
@@ -2611,10 +2614,10 @@
                                                    :entity-id (str eid)
                                                    :value-too-large? true}}
                    (dissoc (test-util/instant-ex-data
-                             (tx/transact! (aurora/conn-pool :write)
-                                           (attr-model/get-by-app-id app-id)
-                                           app-id
-                                           [[:add-triple eid email-attr-id (apply str (repeat 1000000 "a"))]]))
+                            (tx/transact! (aurora/conn-pool :write)
+                                          (attr-model/get-by-app-id app-id)
+                                          app-id
+                                          [[:add-triple eid email-attr-id (apply str (repeat 1000000 "a"))]]))
                            ::ex/trace-id)))))
         (testing "returns a friendly error message for unique data"
           (let [eid (random-uuid)]
@@ -2631,10 +2634,10 @@
                                              :value-too-large? true}}
                    (dissoc
                     (test-util/instant-ex-data
-                      (tx/transact! (aurora/conn-pool :write)
-                                    (attr-model/get-by-app-id app-id)
-                                    app-id
-                                    [[:add-triple eid unique-attr-id (apply str (repeat 1000000 "a"))]]))
+                     (tx/transact! (aurora/conn-pool :write)
+                                   (attr-model/get-by-app-id app-id)
+                                   app-id
+                                   [[:add-triple eid unique-attr-id (apply str (repeat 1000000 "a"))]]))
                     ::ex/trace-id)))))))))
 
 (deftest deep-merge-existing-object
@@ -3643,13 +3646,312 @@
                    [:add-triple id (resolvers/->uuid r :users/id) (str id)])
 
             instant-ex-data (test-util/instant-ex-data
-                              (tx/transact!
-                               (aurora/conn-pool :write)
-                               (attr-model/get-by-app-id (:id app))
-                               (:id app)
-                               txes))]
+                             (tx/transact!
+                              (aurora/conn-pool :write)
+                              (attr-model/get-by-app-id (:id app))
+                              (:id app)
+                              txes))]
         (is (= ::ex/parameter-limit-exceeded
                (::ex/type instant-ex-data)))))))
+
+(deftest soft-delete-obj-attrs
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [{attr-posts-id          :posts/id
+             attr-posts-title       :posts/title
+             attr-posts-slug        :posts/slug
+             attr-posts-description :posts/description}
+            (test-util/make-attrs
+             app-id
+             [[:posts/id :required? :unique? :index?]
+              [:posts/title :required?]
+              [:posts/slug :required? :unique?]
+              [:posts/description]])
+            p1       (random-uuid)
+            p2       (random-uuid)
+            pd       (random-uuid)
+            make-ctx (fn make-ctx
+                       ([]
+                        (make-ctx {}))
+                       ([{:keys [admin?]}]
+                        {:db               {:conn-pool (aurora/conn-pool :write)}
+                         :app-id           app-id
+                         :attrs            (attr-model/get-by-app-id app-id)
+                         :datalog-query-fn d/query
+                         :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                         :current-user     nil
+                         :admin?           admin?}))]
+
+        (permissioned-tx/transact!
+         (make-ctx)
+         [[:add-triple p1 attr-posts-id          (str p1)]
+          [:add-triple p1 attr-posts-title       "First Post"]
+          [:add-triple p1 attr-posts-slug        "first-post"]
+          [:add-triple p1 attr-posts-description "This is the first post"]
+          [:add-triple pd attr-posts-id (str pd)]
+          [:add-triple pd attr-posts-title "I will delete this post"]
+          [:add-triple pd attr-posts-slug "delete-me"]
+          [:add-triple pd attr-posts-description "I will delete this post later"]])
+
+        (testing "We get back posts"
+          (let [result (instaql-nodes->object-tree
+                        (make-ctx)
+                        (iq/query (make-ctx)
+                                  {:posts {}}))]
+            (is (= #{{"slug" "first-post",
+                      "title" "First Post",
+                      "description" "This is the first post",
+                      "id" (str p1)}
+                     {"description" "I will delete this post later",
+                      "slug" "delete-me",
+                      "id" (str pd)
+                      "title" "I will delete this post"}}
+                   (set (get result "posts"))))))
+
+        (permissioned-tx/transact!
+         (make-ctx {:admin? true})
+         [[:delete-attr attr-posts-title]
+          [:delete-attr attr-posts-slug]])
+
+        (testing "Soft deletes remove columns from query results"
+          (let [result (instaql-nodes->object-tree
+                        (make-ctx)
+                        (iq/query (make-ctx)
+                                  {:posts {}}))]
+            (is (= #{{"description" "This is the first post",
+                      "id" (str p1)}
+                     {"id" (str pd)
+                      "description" "I will delete this post later"}}
+                   (set (get result "posts"))))))
+
+        (testing "We can't create new triples for deleted attrs"
+          (is (= ::ex/sql-raise
+                 (::ex/type
+                  (test-util/instant-ex-data
+                   (tx/transact!
+                    (aurora/conn-pool :write)
+                    (attr-model/get-by-app-id app-id)
+                    app-id
+                    [[:add-triple p1 attr-posts-title "This will fail"]])))))
+          (is (= ::ex/sql-raise
+                 (::ex/type
+                  (test-util/instant-ex-data
+                   (tx/transact!
+                    (aurora/conn-pool :write)
+                    (attr-model/get-by-app-id app-id)
+                    app-id
+                    [[:deep-merge-triple p1 attr-posts-title "This will fail"]])))))
+          (is (= ::ex/sql-raise
+                 (::ex/type
+                  (test-util/instant-ex-data
+                   (tx/transact!
+                    (aurora/conn-pool :write)
+                    (attr-model/get-by-app-id app-id)
+                    app-id
+                    [[:add-triple
+                      [attr-posts-slug "new-slug"]
+                      attr-posts-id
+                      [attr-posts-slug "new-slug"]]])))))
+          (is (= ::ex/sql-raise
+                 (::ex/type
+                  (test-util/instant-ex-data
+                   (tx/transact!
+                    (aurora/conn-pool :write)
+                    (attr-model/get-by-app-id app-id)
+                    app-id
+                    [[:deep-merge-triple
+                      [attr-posts-slug "new-slug"]
+                      attr-posts-id
+                      [attr-posts-slug "new-slug"]]]))))))
+        (testing "We can create new objects without uniqueness errors"
+          (permissioned-tx/transact!
+           (make-ctx)
+           [[:add-triple p2 attr-posts-id (str p2)]
+            [:add-triple p2 attr-posts-description "No title needed"]]))
+
+        (let [{new-attr-posts-title :posts/title}
+              (test-util/make-attrs
+               app-id
+               [[:posts/title]])]
+          (testing "We can create new attrs with the same label as deleted ones"
+            (permissioned-tx/transact!
+             (make-ctx)
+             [[:add-triple p1 new-attr-posts-title "p1"]
+              [:add-triple p2 new-attr-posts-title "p2"]
+              [:add-triple pd new-attr-posts-title "pd"]])
+            (let [result (instaql-nodes->object-tree
+                          (make-ctx)
+                          (iq/query (make-ctx)
+                                    {:posts {}}))]
+
+              (is (= #{{"title" "p1",
+                        "description" "This is the first post",
+                        "id" (str p1)}
+                       {"title" "pd",
+                        "description" "I will delete this post later",
+                        "id" (str pd)}
+                       {"title" "p2",
+                        "id" (str p2)
+                        "description" "No title needed"}}
+                     (set (get result "posts")))))
+
+            (permissioned-tx/transact!
+             (make-ctx {:admin? true})
+             [[:delete-attr new-attr-posts-title]]))
+
+          (permissioned-tx/transact!
+           (make-ctx)
+           [[:delete-entity pd]])
+
+          (permissioned-tx/transact!
+           (make-ctx {:admin? true})
+           [[:restore-attr attr-posts-slug]])
+
+          (testing "only admins can restore attrs"
+            (is
+             (perm-err?
+              (permissioned-tx/transact!
+               (make-ctx)
+               [[:restore-attr attr-posts-title]]))))
+
+          (testing "Restored attrs restore triples"
+            (let [result (instaql-nodes->object-tree
+                          (make-ctx)
+                          (iq/query (make-ctx)
+                                    {:posts {}}))]
+
+              (is (= #{{"description" "No title needed",
+                        "id" (str p2)}
+                       {"slug" "first-post",
+                        "description" "This is the first post",
+                        "id" (str p1)}}
+                     (set (get result "posts"))))
+              result))
+
+          (testing "Restored attrs do not have uniqueness or index constraints"
+            (let [attrs (attr-model/get-by-app-id app-id)
+                  slug-attr (attr-model/seek-by-id  attr-posts-slug attrs)]
+              (is {:unique? false :required? false :index? false}
+                  (select-keys slug-attr [:unique? :required? :index?]))))
+
+          (testing "hard-deletes work"
+            (let [get-hard-deleted
+                  (fn [date] (->>  (attr-model/get-for-hard-delete (aurora/conn-pool :read)
+                                                                   {:maximum-deletion-marked-at date})
+                                   (filter (fn [{:keys [app_id]}]
+                                             (= app_id app-id)))))]
+
+              (is (empty? (get-hard-deleted (-> (date-util/pst-now)
+                                                (.minusDays 1)
+                                                (.toInstant)))))
+
+              (is (= #{new-attr-posts-title attr-posts-title}
+                     (set  (map :id (get-hard-deleted (-> (date-util/pst-now)
+                                                          (.toInstant)))))))
+              (attr-model/hard-delete-multi!
+               (aurora/conn-pool :write)
+               app-id
+               #{new-attr-posts-title attr-posts-title})
+
+              (is (empty? (get-hard-deleted (-> (date-util/pst-now)
+                                                (.toInstant))))))))))))
+
+(deftest soft-delete-refs
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [{attr-posts-id       :posts/id
+             attr-posts-title    :posts/title
+             attr-comments-id    :comments/id
+             attr-comments-text  :comments/text
+             attr-comments-post  :comments/post}
+            (test-util/make-attrs
+             app-id
+             [[:posts/id :required? :unique? :index?]
+              [:posts/title :required?]
+              [:comments/id :required? :unique? :index?]
+              [:comments/text :required?]
+              [[:comments/post :posts/comments] :many]])
+            p1       (random-uuid)
+            c1       (random-uuid)
+            c2       (random-uuid)
+            make-ctx (fn make-ctx
+                       ([]
+                        (make-ctx {}))
+                       ([{:keys [admin?]}]
+                        {:db               {:conn-pool (aurora/conn-pool :write)}
+                         :app-id           app-id
+                         :attrs            (attr-model/get-by-app-id app-id)
+                         :datalog-query-fn d/query
+                         :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                         :current-user     nil
+                         :admin?           admin?}))]
+
+        ;; Create 1 post and 2 comments
+        (permissioned-tx/transact!
+         (make-ctx)
+         [[:add-triple p1 attr-posts-id    (str p1)]
+          [:add-triple p1 attr-posts-title "Test Post"]
+          [:add-triple c1 attr-comments-id   (str c1)]
+          [:add-triple c1 attr-comments-text "First comment"]
+          [:add-triple c1 attr-comments-post p1]
+          [:add-triple c2 attr-comments-id   (str c2)]
+          [:add-triple c2 attr-comments-text "Second comment"]
+          [:add-triple c2 attr-comments-post p1]])
+
+        (testing "We get 1 post with 2 comments"
+          (let [result (instaql-nodes->object-tree
+                        (make-ctx)
+                        (iq/query (make-ctx)
+                                  {:posts {:comments {}}}))]
+            (is (= #{"Test Post"}
+                   (set (map #(get % "title") (get result "posts")))))
+
+            (is (= #{"First comment"
+                     "Second comment"}
+                   (set (map #(get % "text") (-> result (get "posts") first (get "comments"))))))))
+
+        (permissioned-tx/transact!
+         (make-ctx {:admin? true})
+         [[:delete-attr attr-comments-post]])
+
+        (testing "After deleting link attr, post has no comments"
+          (let [result (instaql-nodes->object-tree
+                        (make-ctx)
+                        (iq/query (make-ctx)
+                                  {:posts {:comments {}}}))]
+            (is (= #{"Test Post"}
+                   (set (map #(get % "title") (get result "posts")))))
+            (is (empty? (-> result (get "posts") first (get "comments"))))))
+
+        (testing "But we still have two soft-deleted triples"
+          (is (empty?
+               (fetch-triples app-id [[:= :attr-id attr-comments-post]])))
+          (is (= 2
+                 (count  (fetch-triples app-id [[:= :attr-id attr-comments-post]]
+                                        {:include-soft-deleted? true})))))
+
+        (permissioned-tx/transact!
+         (make-ctx)
+         [[:delete-entity c1]])
+
+        (permissioned-tx/transact!
+         (make-ctx {:admin? true})
+         [[:restore-attr attr-comments-post]])
+
+        (testing "After restore, we get 1 post with 1 comment (since we deleted c1)"
+          (let [result (instaql-nodes->object-tree
+                        (make-ctx)
+                        (iq/query (make-ctx)
+                                  {:posts {:comments {}}}))]
+            (is (= #{"Test Post"}
+                   (set (map #(get % "title") (get result "posts")))))
+
+            (is (= #{"Second comment"}
+                   (set (map #(get % "text") (-> result (get "posts") first (get "comments"))))))
+
+            (is (= 1 (count (fetch-triples app-id [[:= :attr-id attr-comments-post]]))))
+            (is (= 1 (count (fetch-triples app-id [[:= :attr-id attr-comments-post]]
+                                           {:include-soft-deleted? true}))))))))))
 
 (comment
   (test/run-tests *ns*))

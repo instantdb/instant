@@ -124,7 +124,7 @@
    ;; Maybe we clean it up later, but we don't really need to right now.
    ;; One idea for a cleanup, is to create an "exported app" file.
    ;; We can then write a function that works on this kind of file schema.
-   (attr-model/delete-by-app-id! conn app-id)
+   (attr-model/hard-delete-by-app-id! conn app-id)
    (let [txes (extract-zeneca-txes {:checked-data? checked-data?
                                     :indexed-data? indexed-data?})
          _ (tx/transact!
@@ -246,7 +246,7 @@
   ;; Maybe we clean it up later, but we don't really need to right now.
   ;; One idea for a cleanup, is to create an "exported app" file.
   ;; We can then write a function that works on this kind of file schema.
-  (attr-model/delete-by-app-id! (aurora/conn-pool :write) app-id)
+  (attr-model/hard-delete-by-app-id! (aurora/conn-pool :write) app-id)
   (let [json-triples
         (<-json (slurp (io/resource "sample_triples/movie.json")))
         id-triples

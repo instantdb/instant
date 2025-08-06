@@ -107,13 +107,25 @@
         topics (map (fn [k] [k '_ #{attr-id} '_]) indexes)]
     (set topics)))
 
-(defn- topics-for-attr-upsert [{:keys [columns]}]
+(defn- topics-for-attr-upsert [{:keys [columns identity] :as _change}]
   (let [indexes #{:ea :eav :av :ave :vae}
         attr-id (parse-uuid (get-column columns "id"))
-        topics (map (fn [k] [k '_ #{attr-id} '_]) indexes)]
-    (set topics)))
+        topics (map (fn [k] [k '_ #{attr-id} '_]) indexes)
 
-(defn- topics-for-attr-delete [{:keys [identity]}]
+        value-type (get-column columns "value_type")
+        object-attr? (not= value-type "ref")
+        restoration? (and (get-column identity "deletion_marked_at")
+                          (nil? (get-column columns "deletion_marked_at")))]
+
+    (cond-> topics
+      ;; Queries specifically request object attributes. 
+      ;; If we are restoring an attr, all queries that require 
+      ;; object attributes would need to be refreshed
+      (and object-attr? restoration?) (conj [:ea '_ '_ '_])
+
+      true set)))
+
+(defn- topics-for-attr-delete [{:keys [identity] :as _change}]
   (let [attr-id (parse-uuid (get-column identity "id"))
         indexes #{:ea :eav :av :ave :vae}
         topics (map (fn [k] [k '_ #{attr-id} '_]) indexes)]
@@ -386,10 +398,10 @@
          {:group-key-fn :app-id
           :combine-fn   combine-wal-records
           :process-fn   (fn [_key wal-record]
-                         (process-wal-record process-id
-                                             store
-                                             (::grouped-queue/combined wal-record 1)
-                                             wal-record))
+                          (process-wal-record process-id
+                                              store
+                                              (::grouped-queue/combined wal-record 1)
+                                              wal-record))
           :metrics-path "instant.reactive.invalidator.q"
           :max-workers  8})]
     (a/go

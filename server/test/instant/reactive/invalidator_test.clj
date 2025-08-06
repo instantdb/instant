@@ -247,6 +247,85 @@
        :keytypes ["uuid"],
        :keyvalues ["a684c2ba-27af-4d54-8c02-68832b4566f0"]}})))
 
+(def restore-attr-changes
+  [{:action :update,
+    :lsn "8/BB2BEB60",
+    :schema "public",
+    :table "attrs",
+    :columns
+    [{:name "id",
+      :type "uuid",
+      :value "d57f071f-737d-4d12-baaf-298ee202d24d"}
+     {:name "app_id",
+      :type "uuid",
+      :value "6384b04c-e790-48a2-86b1-fc6ee294adb7"}
+     {:name "value_type", :type "text", :value "blob"}
+     {:name "cardinality", :type "text", :value "one"}
+     {:name "is_unique", :type "boolean", :value false}
+     {:name "is_indexed", :type "boolean", :value false}
+     {:name "forward_ident",
+      :type "uuid",
+      :value "2e05dc1b-6e9e-4844-820d-7cf15813fdf6"}
+     {:name "reverse_ident", :type "uuid", :value nil}
+     {:name "inferred_types",
+      :type "bit(32)",
+      :value "00000000000000000000000000000010"}
+     {:name "on_delete", :type "attr_on_delete", :value nil}
+     {:name "checked_data_type",
+      :type "checked_data_type",
+      :value "string"}
+     {:name "checking_data_type", :type "boolean", :value nil}
+     {:name "indexing", :type "boolean", :value nil}
+     {:name "setting_unique", :type "boolean", :value nil}
+     {:name "on_delete_reverse", :type "attr_on_delete", :value nil}
+     {:name "is_required", :type "boolean", :value false}
+     {:name "etype", :type "text", :value "posts"}
+     {:name "label", :type "text", :value "title"}
+     {:name "reverse_etype", :type "text", :value nil}
+     {:name "reverse_label", :type "text", :value nil}
+     {:name "deletion_marked_at",
+      :type "timestamp with time zone",
+      :value nil}],
+    :identity
+    [{:name "id",
+      :type "uuid",
+      :value "d57f071f-737d-4d12-baaf-298ee202d24d"}
+     {:name "app_id",
+      :type "uuid",
+      :value "6384b04c-e790-48a2-86b1-fc6ee294adb7"}
+     {:name "value_type", :type "text", :value "blob"}
+     {:name "cardinality", :type "text", :value "one"}
+     {:name "is_unique", :type "boolean", :value false}
+     {:name "is_indexed", :type "boolean", :value false}
+     {:name "forward_ident",
+      :type "uuid",
+      :value "2e05dc1b-6e9e-4844-820d-7cf15813fdf6"}
+     {:name "reverse_ident", :type "uuid", :value nil}
+     {:name "inferred_types",
+      :type "bit(32)",
+      :value "00000000000000000000000000000010"}
+     {:name "on_delete", :type "attr_on_delete", :value nil}
+     {:name "checked_data_type",
+      :type "checked_data_type",
+      :value "string"}
+     {:name "checking_data_type", :type "boolean", :value nil}
+     {:name "indexing", :type "boolean", :value nil}
+     {:name "setting_unique", :type "boolean", :value nil}
+     {:name "on_delete_reverse", :type "attr_on_delete", :value nil}
+     {:name "is_required", :type "boolean", :value false}
+     {:name "etype",
+      :type "text",
+      :value "d57f071f-737d-4d12-baaf-298ee202d24d_deleted$posts"}
+     {:name "label",
+      :type "text",
+      :value "d57f071f-737d-4d12-baaf-298ee202d24d_deleted$title"}
+     {:name "reverse_etype", :type "text", :value nil}
+     {:name "reverse_label", :type "text", :value nil}
+     {:name "deletion_marked_at",
+      :type "timestamp with time zone",
+      :value "2025-08-01 09:16:58.402186-07"}],
+    :tx-bytes 2763}])
+
 (def update-ident-changes
   (->wal2jsonv2
    '({:kind "update",
@@ -374,6 +453,14 @@
               [:ave _ #{#uuid "a684c2ba-27af-4d54-8c02-68832b4566f0"} _]}
            (inv/topics-for-changes {:ident-changes update-ident-changes
                                     :attr-changes update-attr-changes}))))
+  (testing "restoring an attr includes a full wildcard for :ea"
+    (is (= '#{[:av _ #{#uuid "d57f071f-737d-4d12-baaf-298ee202d24d"} _]
+              [:eav _ #{#uuid "d57f071f-737d-4d12-baaf-298ee202d24d"} _]
+              [:ea _ _ _]
+              [:vae _ #{#uuid "d57f071f-737d-4d12-baaf-298ee202d24d"} _]
+              [:ea _ #{#uuid "d57f071f-737d-4d12-baaf-298ee202d24d"} _]
+              [:ave _ #{#uuid "d57f071f-737d-4d12-baaf-298ee202d24d"} _]}
+           (inv/topics-for-changes {:attr-changes restore-attr-changes}))))
   (testing "delete attr + idents (these happen together)"
     (is (= '#{[:ea _ #{#uuid "48c22b06-ecc8-4459-a3b4-3c0b640780b5"} _]
               [:vae _ #{#uuid "48c22b06-ecc8-4459-a3b4-3c0b640780b5"} _]

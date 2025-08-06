@@ -54,7 +54,6 @@ server/resources/config/overlay.edn
 
 dist
 
-.lsp
 .calva
 
 .clj-kondo/*
