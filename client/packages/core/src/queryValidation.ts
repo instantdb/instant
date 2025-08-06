@@ -391,7 +391,7 @@ const validateDollarObject = (
   for (const param of paginationParams) {
     if (dollarObj[param] !== undefined && !isTopLevel) {
       throw new QueryValidationError(
-        `'${param}' can only be used on top-level namespaces. It cannot be used in nested queries at path: ${path}`,
+        `'${param}' can only be used on top-level namespaces. It cannot be used in nested queries.`,
         path,
       );
     }
