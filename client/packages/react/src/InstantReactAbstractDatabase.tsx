@@ -264,7 +264,7 @@ export default abstract class InstantReactAbstractDatabase<
    * If the user is not logged in, this hook with throw an Error.
    * You will want to protect any calls of this hook with a <db.SignedIn> component, or your own logic based on db.useAuth()
    *
-   * @see https://instantdb.com/docs/auth
+   * @see https://instantdb.com/docs/auth/frontend
    * @throws Error indicating user not signed in
    * @example
    *  function UserDisplay() {
@@ -373,7 +373,7 @@ export default abstract class InstantReactAbstractDatabase<
   /**
    * Only render children if the user is signed in.
    * Optional `loading` prop will render if the user is loading.
-   * @see https://instantdb.com/docs/auth
+   * @see https://instantdb.com/docs/auth/frontend
    *
    * @example
    *  <db.SignedIn>
@@ -408,7 +408,7 @@ export default abstract class InstantReactAbstractDatabase<
   /**
    * Only render children if the user is signed out.
    * Optional `loading` prop will render if the user is loading.
-   * @see https://instantdb.com/docs/auth
+   * @see https://instantdb.com/docs/auth/frontend
    *
    * @example
    *  <db.SignedOut>

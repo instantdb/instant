@@ -177,27 +177,6 @@ on the backend during permission checks.
 
 On the client, `useAuth` will set `isLoading` to `false` and populate `user` -- huzzah!
 
-## useAuth
-
-```javascript
-function App() {
-  const { isLoading, user, error } = db.useAuth();
-  if (isLoading) {
-    return;
-  }
-  if (error) {
-    return <div className="p-4 text-red-500">Uh oh! {error.message}</div>;
-  }
-  if (user) {
-    return <Main />;
-  }
-  return <Login />;
-}
-```
-
-Use `useAuth` to fetch the current user. Here we guard against loading
-our `Main` component until a user is logged in
-
 ## Send a Magic Code
 
 ```javascript
@@ -219,23 +198,3 @@ db.auth.signInWithMagicCode({ email: sentEmail, code }).catch((err) => {
 ```
 
 You can then use `auth.signInWithMagicCode` to authenticate the user with the magic code they provided.
-
-## Sign out
-
-```javascript
-db.auth.signOut();
-```
-
-Use `auth.signOut` from the client to invalidate the user's refresh token and
-sign them out.You can also use the admin SDK to sign out the user [from the
-server](/docs/backend#sign-out).
-
-## Get auth
-
-```javascript
-const user = await db.getAuth();
-console.log('logged in as', user.email);
-```
-
-For scenarios where you want to know the current auth state without subscribing
-to changes, you can use `getAuth`.

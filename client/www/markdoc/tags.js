@@ -69,6 +69,9 @@ const tags = {
   },
   'nav-group': {
     render: NavGroup,
+    attributes: {
+      margin: { type: Boolean, default: true },
+    },
   },
   'nav-button': {
     selfClosing: true,
