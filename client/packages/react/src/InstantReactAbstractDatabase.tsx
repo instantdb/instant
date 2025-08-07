@@ -7,8 +7,6 @@ import {
   type User,
   type ConnectionStatus,
   type TransactionChunk,
-  type PresenceOpts,
-  type PresenceResponse,
   type RoomSchemaShape,
   type InstaQLParams,
   type InstaQLOptions,
@@ -21,9 +19,10 @@ import {
   RoomsOf,
   InstantSchemaDef,
   IInstantDatabase,
-  Config,
+  InstantError,
 } from '@instantdb/core';
 import {
+  ReactNode,
   useCallback,
   useEffect,
   useRef,
@@ -262,6 +261,34 @@ export default abstract class InstantReactAbstractDatabase<
   };
 
   /**
+   * Subscribe to the currently logged in user.
+   * If the user is not logged in, this hook with throw an Error.
+   * You will want to protect any calls of this hook with a <db.SignedIn> component, or your own logic based on db.useAuth()
+   *
+   * @see https://instantdb.com/docs/auth/frontend
+   * @throws Error indicating user not signed in
+   * @example
+   *  function UserDisplay() {
+   *    const user = db.useUser()
+   *    return <div>Logged in as: {user.email}</div>
+   *  }
+   *
+   *  <db.SignedIn>
+   *    <UserDisplay />
+   *  </db.SignedIn>
+   *
+   */
+  useUser = (): User => {
+    const { user } = this.useAuth();
+    if (!user) {
+      throw new InstantError(
+        'useUser must be used within an auth-protected route',
+      );
+    }
+    return user;
+  };
+
+  /**
    * One time query for the logged in state. This is useful
    * for scenarios where you want to know the current auth
    * state without subscribing to changes.
@@ -344,5 +371,65 @@ export default abstract class InstantReactAbstractDatabase<
     pageInfo: PageInfoResponse<Q>;
   }> => {
     return this._core.queryOnce(query, opts);
+  };
+
+  /**
+   * Only render children if the user is signed in.
+   * Optional `loading` prop will render if the user is loading.
+   * @see https://instantdb.com/docs/auth/frontend
+   *
+   * @example
+   *  <db.SignedIn>
+   *    <MyComponent />
+   *  </db.SignedIn>
+   *
+   *  <db.SignedIn loading={<div>Loading...</div>}>
+   *    <MyComponent />
+   *  </db.SignedIn>
+   */
+  SignedIn: React.FC<{
+    children: ReactNode;
+    loading?: ReactNode;
+    error?: ReactNode;
+  }> = ({ children, loading, error }) => {
+    const auth = this.useAuth();
+    if (auth.isLoading) {
+      return loading || null;
+    }
+    if (auth.error) {
+      return error || <>{auth.error.message}</>;
+    }
+    if (!auth.user) return null;
+    return <>{children}</>;
+  };
+
+  /**
+   * Only render children if the user is signed out.
+   * Optional `loading` prop will render if the user is loading.
+   * @see https://instantdb.com/docs/auth/frontend
+   *
+   * @example
+   *  <db.SignedOut>
+   *    <MyComponent />
+   *  </db.SignedOut>
+   *
+   *  <db.SignedOut loading={<div>Loading...</div>}>
+   *    <MyComponent />
+   *  </db.SignedOut>
+   */
+  SignedOut: React.FC<{
+    children: ReactNode;
+    loading?: ReactNode;
+    error?: ReactNode;
+  }> = ({ children, loading, error }) => {
+    const auth = this.useAuth();
+    if (auth.isLoading) {
+      return loading || null;
+    }
+    if (auth.error) {
+      return error || <>{auth.error.message}</>;
+    }
+    if (auth.user) return null;
+    return <>{children}</>;
   };
 }
