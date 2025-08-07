@@ -267,13 +267,7 @@ const db = init({ appId: APP_ID });
 export default function App() {
   return (
     <>
-      <db.SignedIn
-        loading={
-          <View style={styles.container}>
-            <Text>Loading...</Text>
-          </View>
-        }
-      >
+      <db.SignedIn>
         <UserInfo />
       </db.SignedIn>
       <db.SignedOut>
