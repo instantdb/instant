@@ -226,7 +226,7 @@
           put3 (future (deliver put3-started true)
                        (a/>!! in 3))
           put4-started (promise)
-          put4 (and @put3-started
+          _put4 (and @put3-started
                     (future (deliver put4-started true)
                             (a/>!! in 4)))
           _put5 (and @put4-started
