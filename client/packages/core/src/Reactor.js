@@ -27,7 +27,7 @@ import { validateQuery } from './queryValidation.ts';
 import { validateTransactions } from './transactionValidation.ts';
 import { InstantError } from './InstantError.ts';
 import { InstantAPIError } from './utils/fetch.ts';
-
+import { validate as validateUUID } from 'uuid';
 /** @typedef {import('./utils/log.ts').Logger} Logger */
 
 const STATUS = {
@@ -198,6 +198,17 @@ export default class Reactor {
     if (!isClient()) {
       return;
     }
+
+    if (!config.appId) {
+      throw new Error('Instant must be initialized with an appId.');
+    }
+
+    if (!validateUUID(config.appId)) {
+      throw new Error(
+        `Instant must be initialized with a valid appId. \`${config.appId}\` is not a valid uuid.`,
+      );
+    }
+
     if (typeof BroadcastChannel === 'function') {
       this._broadcastChannel = new BroadcastChannel('@instantdb');
       this._broadcastChannel.addEventListener('message', async (e) => {
