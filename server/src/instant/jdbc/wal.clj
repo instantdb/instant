@@ -375,7 +375,9 @@
               (recur (.read stream) produce-start-state))))))))
 
 (defn full-slot-name [slot-type slot-suffix]
-  (str (name slot-type) "_" slot-suffix))
+  (if slot-suffix
+    (str (name slot-type) "_" slot-suffix)
+    (name slot-type)))
 
 (defn make-wal-opts [{:keys [wal-chan close-signal-chan
                              ex-handler get-conn-config

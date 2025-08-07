@@ -1,7 +1,7 @@
 (ns instant.reactive.aggregator-test
   (:require
    [clojure.string :as string]
-   [clojure.test :as test :refer [deftest is]]
+   [clojure.test :as test :refer [deftest is testing]]
    [instant.data.bootstrap :as bootstrap]
    [instant.data.resolvers :as resolvers]
    [instant.db.attr-sketch :as cms]
@@ -199,14 +199,26 @@
                         pid-b (shutdown-b))
 
                       ;; Create another update
-                      (sql/execute! (aurora/conn-pool :write)
-                                    ["update triples set value = '\"alex3\"'::jsonb where app_id = ? and attr_id = ? and entity_id = ?"
-                                     (:id app)
-                                     (resolvers/->uuid r :users/handle)
-                                     (resolvers/->uuid r "eid-alex")])
+                      (let [{:keys [lsn]} (sql/execute-one!
+                                            (aurora/conn-pool :write)
+                                            ["with write as (
+                                               update triples set value = '\"alex3\"'::jsonb
+                                                        where app_id = ? and attr_id = ? and entity_id = ?
+                                                    returning *
+                                             ) select * from write, pg_current_wal_insert_lsn() as lsn"
+                                             (:id app)
+                                             (resolvers/->uuid r :users/handle)
+                                             (resolvers/->uuid r "eid-alex")])]
 
-                      (wait-for #(= next-pid (:process_id (get-aggregator-status)))
-                                1000)
+                        (testing "the new process picks up the slot"
+                          (wait-for #(= next-pid (:process_id (get-aggregator-status)))
+                                    1000))
+
+                        ;; Wait for the sketches to catch up
+                        (wait-for #(>= 0 (compare lsn
+                                                  (cms/get-start-lsn (aurora/conn-pool :read)
+                                                                     {:slot-name slot-name})))
+                                  1000))
 
                       (check-sketches app r)))
                   (finally

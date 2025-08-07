@@ -1,6 +1,7 @@
 (ns instant.reactive.aggregator
   (:require
    [clojure.core.async :as a]
+   [clojure.core.cache.wrapped :as cache]
    [instant.config :as config]
    [instant.db.attr-sketch :as cms]
    [instant.jdbc.aurora :as aurora]
@@ -100,8 +101,6 @@
                                                          :actual (:lsn wal-status)
                                                          :wal-status wal-status})))))))
 
-
-
 ;; -------------
 ;; wal record xf
 
@@ -124,42 +123,45 @@
   "Extracts triples changes from the wal that would affect the sketch.
 
    Returns a list of (possibly empty) changes and the lsn."
-  [{:keys [changes lsn] :as _record}]
+  [{:keys [changes nextlsn] :as _record}]
   (let [sketch-changes
-        (reduce (fn [acc change]
-                  (if (not= "triples" (:table change))
-                    acc
-                    (case (:action change)
-                      :insert
-                      (conj acc {:incr 1
-                                 :lsn lsn
-                                 :triples-data (get-triples-data (:columns change))})
+        (test-filter
+         (reduce
+          (fn [acc change]
+            (if (not= "triples" (:table change))
+              acc
+              (let [lsn (LogSequenceNumber/valueOf ^String (:lsn change))]
+                (case (:action change)
+                  :insert
+                  (conj acc {:incr 1
+                             :lsn lsn
+                             :triples-data (get-triples-data (:columns change))})
 
-                      :delete
-                      (conj acc {:incr -1
-                                 :lsn lsn
-                                 :triples-data (get-triples-data (:identity change))})
+                  :delete
+                  (conj acc {:incr -1
+                             :lsn lsn
+                             :triples-data (get-triples-data (:identity change))})
 
-                      :update
-                      (let [update-data (get-triples-data (:columns change))]
-                        (if-not (contains? update-data :value)
-                          ;; The triple was updated, but not the value field.
-                          ;; We should ignore this change.
-                          acc
-                          (conj acc
-                                ;; Remove the old
-                                {:incr -1
-                                 :lsn lsn
-                                 :triples-data (get-triples-data (:identity change))}
-                                ;; Add the new
-                                {:incr 1
-                                 :lsn lsn
-                                 :triples-data update-data}))))))
-                []
-                changes)]
+                  :update
+                  (let [update-data (get-triples-data (:columns change))]
+                    (if-not (contains? update-data :value)
+                      ;; The triple was updated, but not the value field.
+                      ;; We should ignore this change.
+                      acc
+                      (conj acc
+                            ;; Remove the old
+                            {:incr -1
+                             :lsn lsn
+                             :triples-data (get-triples-data (:identity change))}
+                            ;; Add the new
+                            {:incr 1
+                             :lsn lsn
+                             :triples-data update-data})))))))
+          []
+          changes))]
     (when (seq sketch-changes)
-      {:sketch-changes (test-filter sketch-changes)
-       :lsn lsn})))
+      {:sketch-changes sketch-changes
+       :lsn nextlsn})))
 
 (defn wal-record-xf []
   (keep #'transform-wal-record))
@@ -195,7 +197,8 @@
                     changes
                     sketch-changes)})
 
-(defn process-sketch-changes [conn process-id slot-name previous-lsn max-lsn changes]
+(defn process-sketch-changes [conn {:keys [process-id slot-name previous-lsn
+                                           max-lsn changes sketch-cache]}]
   (tracer/with-span! {:name "aggregator/process-sketch-changes"
                       :attributes {:previous-lsn previous-lsn
                                    :changed-sketch-count (count changes)
@@ -203,7 +206,22 @@
     (when-not max-lsn
       (throw (ex-info "max-lsn was nil, we can't apply changes" {:previous-lsn previous-lsn
                                                                  :max-lsn max-lsn})))
-    (let [sketches (cms/find-or-create-sketches! conn (keys changes))
+    (let [{:keys [cached-sketches remaining-keys]}
+          (reduce (fn [acc k]
+                    (if-let [cached (cache/lookup sketch-cache k)]
+                      (-> acc
+                          (assoc-in [:cached-sketches k] cached))
+                      (update acc :remaining-keys conj k)))
+                  {:cached-sketches {}
+                   :remaining-keys #{}}
+                  (keys changes))
+          _ (tracer/add-data! {:attributes {:cached-count (count cached-sketches)}})
+          sketches (merge cached-sketches
+                          (when (seq remaining-keys)
+                            (cms/find-or-create-sketches! conn remaining-keys)))
+          ;; Tracks how many attrs were deleted before we could save them
+          _ (tracer/add-data! {:attributes {:deleted-count (- (count changes)
+                                                              (count sketches))}})
           sketches (reduce-kv
                     (fn [acc k {:keys [records max-lsn]}]
                       ;; attr may have been deleted in the interim
@@ -214,6 +232,9 @@
                         acc))
                     []
                     changes)]
+      (doseq [sketch sketches
+              :let [k (select-keys sketch [:app-id :attr-id])]]
+        (cache/miss sketch-cache k sketch))
       (cms/save-sketches! conn {:sketches sketches
                                 :previous-lsn previous-lsn
                                 :lsn max-lsn
@@ -227,7 +248,8 @@
            start-lsn flush-lsn-chan on-error slot-name process-id]}]
 
   ;; sketch cache should live here
-  (let [process-chan (ua/chunked-chan {:flush-ms sketch-flush-ms
+  (let [sketch-cache (cache/lru-cache-factory {} :threshold 4092)
+        process-chan (ua/chunked-chan {:flush-ms sketch-flush-ms
                                        :max-size sketch-flush-max-items
                                        :combine combine-sketch-changes
                                        :init nil
@@ -255,11 +277,12 @@
             (loop [previous-lsn start-lsn]
               (when-some [{:keys [changes max-lsn]} (a/<! (:out process-chan))]
                 (let [{:keys [lsn]} (process-sketch-changes (aurora/conn-pool :write)
-                                                            process-id
-                                                            slot-name
-                                                            previous-lsn
-                                                            max-lsn
-                                                            changes)]
+                                                            {:process-id process-id
+                                                             :slot-name slot-name
+                                                             :previous-lsn previous-lsn
+                                                             :max-lsn max-lsn
+                                                             :changes changes
+                                                             :sketch-cache sketch-cache})]
                   (ua/>!-close-safe close-signal-chan flush-lsn-chan lsn)
                   (recur lsn))))
             (tracer/record-info! {:name "aggregator-worker/processor-shutdown"})
@@ -323,20 +346,20 @@
                       (create-wal-chans)
 
                       wal-opts (wal/make-wal-opts
-                                {:wal-chan wal-chan
-                                 :worker-chan worker-chan
-                                 :close-signal-chan close-signal-chan
-                                 :flush-lsn-chan flush-lsn-chan
-                                 :get-conn-config (fn []
-                                                    (or (config/get-next-aurora-config)
-                                                        ;; Use the next db so that we don't
-                                                        ;; have to worry about restarting the
-                                                        ;; aggregator when failing over to a
-                                                        ;; new blue/green deployment
-                                                        (config/get-aurora-config)))
-                                 :slot-suffix slot-suffix
-                                 :slot-type slot-type
-                                 :lsn lsn})
+                                 {:wal-chan wal-chan
+                                  :worker-chan worker-chan
+                                  :close-signal-chan close-signal-chan
+                                  :flush-lsn-chan flush-lsn-chan
+                                  :get-conn-config (fn []
+                                                     (or (config/get-next-aurora-config)
+                                                         ;; Use the next db so that we don't
+                                                         ;; have to worry about restarting the
+                                                         ;; aggregator when failing over to a
+                                                         ;; new blue/green deployment
+                                                         (config/get-aurora-config)))
+                                  :slot-suffix slot-suffix
+                                  :slot-type slot-type
+                                  :lsn lsn})
 
                       wal-started-promise (:started-promise wal-opts)
                       signal-chan (a/chan)
@@ -401,7 +424,7 @@
   When we subscribe to the wal slot, we aggregate counts for all of
   the attrs."
   ([]
-   (start {:slot-suffix (name (config/get-env))
+   (start {:slot-suffix nil
            :process-id @config/process-id
            :copy-sql triples-copy-sql
            ;; Check every minute to see if we can claim the slot

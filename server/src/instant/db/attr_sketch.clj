@@ -107,27 +107,27 @@
   ([^Sketch sketch items]
    (let [{:keys [bins item-count not-binned-count]}
          (persistent!
-          (reduce-kv (fn [acc {:keys [value checked-data-type]} n]
-                       (if-let [[data-type v] (data-type-for-hash checked-data-type value)]
-                         (let [seed (hash-val 0 -1 data-type v)
-                               bins (reduce (fn [bins i]
-                                              (let [hash (hash-val seed i data-type v)
-                                                    bin-idx (int (+ (Long/remainderUnsigned hash
-                                                                                            (:width sketch))
-                                                                    (* i (:width sketch))))]
-                                                (assoc! bins bin-idx (+ n (get bins bin-idx)))))
-                                            (:bins acc)
-                                            (range (:depth sketch)))]
-                           (-> acc
-                               (assoc! :bins bins)
-                               (assoc! :item-count (+ (:item-count acc) n))))
-                         (-> acc
-                             (assoc! :item-count (+ (:item-count acc) n))
-                             (assoc! :not-binned-count (+ (:not-binned-count acc) n)))))
-                     (transient {:bins (transient (:bins sketch))
-                                 :item-count 0
-                                 :not-binned-count 0})
-                     items))]
+           (reduce-kv (fn [acc {:keys [value checked-data-type]} n]
+                        (if-let [[data-type v] (data-type-for-hash checked-data-type value)]
+                          (let [seed (hash-val 0 -1 data-type v)
+                                bins (reduce (fn [bins i]
+                                               (let [hash (hash-val seed i data-type v)
+                                                     bin-idx (int (+ (Long/remainderUnsigned hash
+                                                                                             (:width sketch))
+                                                                     (* i (:width sketch))))]
+                                                 (assoc! bins bin-idx (+ n (get bins bin-idx)))))
+                                             (:bins acc)
+                                             (range (:depth sketch)))]
+                            (-> acc
+                                (assoc! :bins bins)
+                                (assoc! :item-count (+ (:item-count acc) n))))
+                          (-> acc
+                              (assoc! :item-count (+ (:item-count acc) n))
+                              (assoc! :not-binned-count (+ (:not-binned-count acc) n)))))
+                      (transient {:bins (transient (:bins sketch))
+                                  :item-count 0
+                                  :not-binned-count 0})
+                      items))]
      (-> sketch
          (update :total + item-count)
          (update :total-not-binned + not-binned-count)
