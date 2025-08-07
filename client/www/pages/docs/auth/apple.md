@@ -265,35 +265,37 @@ const APP_ID = '__APP_ID__';
 const db = init({ appId: APP_ID });
 
 export default function App() {
-  const { isLoading, user, error } = db.useAuth();
-  if (isLoading) {
-    return (
-      <View style={styles.container}>
-        <Text>Loading...</Text>
-      </View>
-    );
-  }
-  if (error) {
-    return (
-      <View style={styles.container}>
-        <Text>Uh oh! {error.message}</Text>
-      </View>
-    );
-  }
-  if (user) {
-    return (
-      <View style={styles.container}>
-        <Text>Hello {user.email}!</Text>
-        <Button
-          title="Sign Out"
-          onPress={async () => {
-            await db.auth.signOut();
-          }}
-        />
-      </View>
-    );
-  }
-  return <Login />;
+  return (
+    <>
+      <db.SignedIn
+        loading={
+          <View style={styles.container}>
+            <Text>Loading...</Text>
+          </View>
+        }
+      >
+        <UserInfo />
+      </db.SignedIn>
+      <db.SignedOut>
+        <Login />
+      </db.SignedOut>
+    </>
+  );
+}
+
+function UserInfo() {
+  const user = db.useUser();
+  return (
+    <View style={styles.container}>
+      <Text>Hello {user.email}!</Text>
+      <Button
+        title="Sign Out"
+        onPress={async () => {
+          await db.auth.signOut();
+        }}
+      />
+    </View>
+  );
 }
 
 function Login() {

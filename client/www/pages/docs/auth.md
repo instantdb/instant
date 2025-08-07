@@ -71,6 +71,8 @@ server](/docs/backend#sign-out).
 
 ## Low Level API
 
+Sometimes you need finer control over the state of auth in your application. In those cases, you can use some of the lower-level API.
+
 ### useAuth
 
 ```javascript
