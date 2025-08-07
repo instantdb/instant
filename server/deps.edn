@@ -115,6 +115,9 @@
                             "-Dclojure.main.report=stderr"
                             "-Dclojure.server.repl={:port 6006 :accept clojure.core.server/repl}"
 
+                            ;; throw on invalid go block usage in development
+                            "-Dclojure.core.async.go-checking=true"
+
                             ;; hazelcast
                             "--add-modules" "java.se"
                             "--add-exports" "java.base/jdk.internal.ref=ALL-UNNAMED"
@@ -143,6 +146,9 @@
                              "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
                              "--add-opens" "java.management/sun.management=ALL-UNNAMED"
                              "--add-opens" "jdk.management/com.sun.management.internal=ALL-UNNAMED"
+
+                             ;; throw on invalid go block usage in tests
+                             "-Dclojure.core.async.go-checking=true"
                              ;; headless charts 
                              "-Djava.awt.headless=true"]}
            :retest {:extra-paths ["test" "dev-resources"]

@@ -489,6 +489,7 @@
          (create-wal-chans)
 
          wal-opts (wal/make-wal-opts {:wal-chan wal-chan
+                                      :worker-chan worker-chan
                                       :close-signal-chan close-signal-chan
                                       :ex-handler wal-ex-handler
                                       :get-conn-config (fn []
@@ -525,7 +526,8 @@
         (Thread/sleep 100)
         (recur))))
   (a/close! (:to wal-opts))
-  (a/close! (:close-signal-chan wal-opts)))
+  (a/close! (:close-signal-chan wal-opts))
+  (a/close! (:worker-chan wal-opts)))
 
 (defn stop-global []
   (when (bound? #'wal-opts)

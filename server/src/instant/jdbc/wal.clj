@@ -23,6 +23,7 @@
   (:require
    [chime.core :as chime-core]
    [clojure.core.async :as a]
+   [clojure.string]
    [instant.aurora-config :as aurora-config]
    [instant.config :as config]
    [instant.discord :as discord]
@@ -379,7 +380,7 @@
 (defn make-wal-opts [{:keys [wal-chan close-signal-chan
                              ex-handler get-conn-config
                              slot-suffix slot-type
-                             flush-lsn-chan lsn]}]
+                             flush-lsn-chan lsn worker-chan]}]
   {:to wal-chan
    :close-signal-chan close-signal-chan
    :ex-handler ex-handler
@@ -389,7 +390,8 @@
    :shutdown-fn (atom nil)
    :started-promise (promise)
    :flush-lsn-chan flush-lsn-chan
-   :lsn lsn})
+   :lsn lsn
+   :worker-chan worker-chan})
 
 (defn set-shutdown-fn [wal-opts shutdown-fn]
   (swap! (:shutdown-fn wal-opts)

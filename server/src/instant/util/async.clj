@@ -257,6 +257,17 @@
     (doseq [f futures]
       (deref f))))
 
+(defmacro >!-close-safe
+  "Prevents hangs when putting to a channel that is later closed.
+   Takes a close-signal-ch channel that will interrupt the stuck
+   put when the channel is closed.
+
+   This only works if you remember to close the close-signal channel
+   when you close the channel itself."
+  [close-signal-ch ch val]
+  `(a/alt! [[~ch ~val]] ([res#] res#)
+           ~close-signal-ch false))
+
 (defn chunked-chan
   "Takes a `flush-ms` and a `max-size`. Returns an `in` and `out` chan.
 
@@ -276,31 +287,34 @@
          size count}}]
   (let [in (a/chan)
         out (a/chan)
+        shutdown-ch (a/chan)
         process
         (a/go-loop [items init
                     timeout-ch nil]
           (let [[vs ch] (a/alts! (remove nil? [in timeout-ch]))
                 timeout? (= ch timeout-ch)]
             (cond timeout?
-                  (do
-                    (a/>! out items)
+                  (when (>!-close-safe shutdown-ch out items)
                     (recur init nil))
 
                   (nil? vs)
                   (do
                     (when (and (not (nil? items))
                                (not (identical? items init)))
-                      (a/>! out items))
+                      (>!-close-safe shutdown-ch out items))
                     (a/close! out))
 
                   :else
                   (let [items' (combine items vs)]
                     (if (>= (size items') max-size)
-                      (do
-                        (a/>! out items')
+                      (when (>!-close-safe shutdown-ch out items')
                         (recur init nil))
                       (recur items' (or timeout-ch
                                         (a/timeout flush-ms))))))))]
     {:in in
      :out out
-     :process process}))
+     :shutdown (fn []
+                 (a/close! in)
+                 (a/close! out)
+                 (a/close! shutdown-ch)
+                 process)}))

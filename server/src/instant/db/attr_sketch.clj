@@ -2,7 +2,6 @@
   (:require
    [clojure.pprint]
    [honey.sql :as hsql]
-   [instant.config :as config]
    [instant.db.model.triple :as triple]
    [instant.jdbc.sql :as sql]
    [instant.util.coll :as ucoll])
@@ -108,27 +107,27 @@
   ([^Sketch sketch items]
    (let [{:keys [bins item-count not-binned-count]}
          (persistent!
-           (reduce-kv (fn [acc {:keys [value checked-data-type]} n]
-                        (if-let [[data-type v] (data-type-for-hash checked-data-type value)]
-                          (let [seed (hash-val 0 -1 data-type v)
-                                bins (reduce (fn [bins i]
-                                               (let [hash (hash-val seed i data-type v)
-                                                     bin-idx (int (+ (Long/remainderUnsigned hash
-                                                                                             (:width sketch))
-                                                                     (* i (:width sketch))))]
-                                                 (assoc! bins bin-idx (+ n (get bins bin-idx)))))
-                                             (:bins acc)
-                                             (range (:depth sketch)))]
-                            (-> acc
-                                (assoc! :bins bins)
-                                (assoc! :item-count (+ (:item-count acc) n))))
-                          (-> acc
-                              (assoc! :item-count (+ (:item-count acc) n))
-                              (assoc! :not-binned-count (+ (:not-binned-count acc) n)))))
-                      (transient {:bins (transient (:bins sketch))
-                                  :item-count 0
-                                  :not-binned-count 0})
-                      items))]
+          (reduce-kv (fn [acc {:keys [value checked-data-type]} n]
+                       (if-let [[data-type v] (data-type-for-hash checked-data-type value)]
+                         (let [seed (hash-val 0 -1 data-type v)
+                               bins (reduce (fn [bins i]
+                                              (let [hash (hash-val seed i data-type v)
+                                                    bin-idx (int (+ (Long/remainderUnsigned hash
+                                                                                            (:width sketch))
+                                                                    (* i (:width sketch))))]
+                                                (assoc! bins bin-idx (+ n (get bins bin-idx)))))
+                                            (:bins acc)
+                                            (range (:depth sketch)))]
+                           (-> acc
+                               (assoc! :bins bins)
+                               (assoc! :item-count (+ (:item-count acc) n))))
+                         (-> acc
+                             (assoc! :item-count (+ (:item-count acc) n))
+                             (assoc! :not-binned-count (+ (:not-binned-count acc) n)))))
+                     (transient {:bins (transient (:bins sketch))
+                                 :item-count 0
+                                 :not-binned-count 0})
+                     items))]
      (-> sketch
          (update :total + item-count)
          (update :total-not-binned + not-binned-count)
@@ -160,13 +159,13 @@
 
 ;; Wal aggregator
 
-(defn initialize-wal-aggregator-status [conn {:keys [lsn slot-name]}]
+(defn initialize-wal-aggregator-status [conn {:keys [lsn slot-name process-id]}]
   (let [status (sql/execute-one! ::intialize-wal-aggregator-status
                                  conn
                                  (hsql/format {:insert-into :wal-aggregator-status
                                                :values [{:lsn lsn
                                                          :slot-name slot-name
-                                                         :process-id @config/process-id}]}))]
+                                                         :process-id process-id}]}))]
     (when-not status
       (throw (ex-info "wal-aggregator-status is already initialized" {})))
     status))
@@ -294,8 +293,8 @@
 (defn save-sketches! [conn {:keys [sketches
                                    previous-lsn
                                    lsn
+                                   process-id
                                    slot-name]}]
-  (tool/def-locals)
   (let [params (reduce (fn [acc {:keys [id sketch]}]
                          (let [{:keys [total total-not-binned bins]} sketch]
                            (-> acc
@@ -310,7 +309,7 @@
                         :lsn lsn
                         :previous-lsn previous-lsn
                         :slot-name slot-name
-                        :process-id @config/process-id}
+                        :process-id process-id}
                        sketches)
         q {:with [[:data {:select [[[:unnest :?id] :id]
                                    [[:unnest :?total] :total]

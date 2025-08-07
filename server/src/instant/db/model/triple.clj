@@ -852,7 +852,8 @@
            [:triples.*]
            :from :triples
            :join [[:attrs :a] [:and
-                               [:= :a.app-id :triples.app-id]
+                               [:= :a.app-id [:any [:array [:triples.app-id
+                                                            system-catalog-app-id]]]]
                                [:= :a.id :triples.attr_id]]]
            :where
            (concat [:and
