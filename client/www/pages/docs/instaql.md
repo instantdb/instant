@@ -546,7 +546,7 @@ const loadPreviousPage = () => {
 
 ### Ordering
 
-The default ordering is by the time the objects were created, in ascending order. You can change the order with the `order` key in the option map for top-level namespaces:
+The default ordering is by the time the objects were created, in ascending order. You can change the order with the `order` key in the option map for namespaces:
 
 ```javascript
 const query = {
@@ -581,6 +581,23 @@ const query = {
       },
       order: {
         dueDate: 'asc',
+      },
+    },
+  },
+};
+```
+
+You can use order in nested namespaces as well:
+
+```typescript
+// Get goals with their associated todos ordered by due date
+const query = {
+  goals: {
+    todos: {
+      $: {
+        order: {
+          dueDate: 'asc',
+        },
       },
     },
   },
