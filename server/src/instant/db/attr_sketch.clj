@@ -133,7 +133,10 @@
          (update :total-not-binned + not-binned-count)
          (assoc :bins (persistent! bins))))))
 
-(defn check [^Sketch sketch checked-data-type val_]
+(defn check
+  "Returns the estimated count for a value from the skech.
+   Will throw if the input is not valid (e.g. a JSON array)."
+  [^Sketch sketch checked-data-type val_]
   (let [[data-type val] (data-type-for-hash checked-data-type val_)
         _ (when-not data-type
             (throw (ex-info (format
@@ -159,7 +162,10 @@
 
 ;; Wal aggregator
 
-(defn initialize-wal-aggregator-status [conn {:keys [lsn slot-name process-id]}]
+(defn initialize-wal-aggregator-status
+  "Used when the sketches are first initialized. Keeps track of where
+   we are in the WAL."
+  [conn {:keys [lsn slot-name process-id]}]
   (let [status (sql/execute-one! ::intialize-wal-aggregator-status
                                  conn
                                  (hsql/format {:insert-into :wal-aggregator-status
@@ -170,7 +176,11 @@
       (throw (ex-info "wal-aggregator-status is already initialized" {})))
     status))
 
-(defn get-start-lsn [conn {:keys [slot-name]}]
+(defn get-start-lsn
+  "Gets the last committed lsn. We update the lsn in a single
+   transaction when we update the sketches, so it is safe to continue
+   processing the replication stream from this lsn."
+  [conn {:keys [slot-name]}]
   (:lsn (sql/select-one ::get-start-lsn
                         conn
                         (hsql/format {:select :lsn
@@ -212,7 +222,9 @@
                                              {:pgtype "uuid[]"})}})]
     (sql/select ::find-sketches conn q)))
 
-(defn all-for-attrs [conn app-id attrs]
+(defn all-for-attrs
+  "Gets all sketches for attrs, returns a map of {attr-id: sketch}"
+  [conn app-id attrs]
   (let [q (hsql/format {:select :*
                         :from :attr-sketches
                         :where [:and
@@ -256,10 +268,11 @@
                         :insert-into [[:attr-sketches cols]
                                       {:select (qualify-cols :data cols)
                                        :from :data
-                                       :join [:attrs [:= :attrs.id :data.attr-id]]}]
+                                       :join [:attrs [:= :attrs.id :data.attr-id]
+                                              :apps [:= :apps.id :data.app-id]]}]
                         :returning :*}
                        {:params params})]
-    (sql/execute! ::create-sketches
+    (sql/execute! ::create-empty-sketch-rows!
                   conn
                   q
                   ;; Don't send the bins to honeycomb
@@ -289,12 +302,14 @@
               results
               (create-empty-sketch-rows! conn missing-keys)))))
 
-;; XXX: Test that things continue if save-sketches! fails
-(defn save-sketches! [conn {:keys [sketches
-                                   previous-lsn
-                                   lsn
-                                   process-id
-                                   slot-name]}]
+(defn save-sketches!
+  "Overwrites the sketches and updates the wal-aggregator-status with the latest lsn
+   we've processed."
+  [conn {:keys [sketches
+                previous-lsn
+                lsn
+                process-id
+                slot-name]}]
   (let [params (reduce (fn [acc {:keys [id sketch]}]
                          (let [{:keys [total total-not-binned bins]} sketch]
                            (-> acc
@@ -385,8 +400,9 @@
                         :insert-into [[:attr-sketches cols]
                                       {:select (qualify-cols :data cols)
                                        :from :data
-                                       ;; Filter out sketches for attrs that were deleted
-                                       :join [:attrs [:= :attrs.id :data.attr-id]]}]}
+                                       ;; Filter out sketches for attrs/apps that were deleted
+                                       :join [:attrs [:= :attrs.id :data.attr-id]
+                                              :apps [:= :apps.id :data.app-id]]}]}
                        {:params params})]
     (sql/do-execute! ::insert-initial-sketches!
                      conn

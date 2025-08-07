@@ -297,7 +297,6 @@
 
 (def slot-type :aggregator)
 
-;; XXX: Need some with-spans
 (defn start-slot-listener
   "Starts process that will try to acquire the aggregation wal slot every
   `acquire-slot-interval-ms`.
@@ -315,7 +314,6 @@
   (let [shutdown-chan (a/chan)
         process
         (a/go
-          ;; XXX: Throw an error in here an make sure it doesn't kill the listener
           (loop [timeout-ch (a/timeout 0)]
             (when (= timeout-ch (second (a/alts! [shutdown-chan timeout-ch])))
               (if-let [lsn (cms/get-start-lsn (aurora/conn-pool :read)
@@ -378,17 +376,20 @@
                                                      :on-error (fn [_t]
                                                                  (a/close! close-signal-chan))})
                           [_exit-v exit-ch] (a/alts! [shutdown-chan close-signal-chan])]
-                      (stop wal-opts)
-                      (a/<! (stop-worker))
+                      (tracer/with-span! {:name "aggregator/wait-for-worker-to-finish"}
+                        (stop wal-opts)
+                        (a/<! (stop-worker)))
                       (when (= exit-ch close-signal-chan)
+                        (tracer/record-info! {:name "aggregator/retry"
+                                              :attributes {:wait-ms acquire-slot-interval-ms}})
                         (recur (a/timeout acquire-slot-interval-ms))))))
-                (recur (a/timeout acquire-slot-interval-ms))))))]
+                (recur (a/timeout acquire-slot-interval-ms)))))
+          (tracer/record-info! {:name "aggregator/slot-listener-exit"}))]
     (fn []
       (a/close! shutdown-chan)
       (when-let [wal-worker-finished (a/<!! process)]
         @wal-worker-finished))))
 
-;; XXX: Need some way to test.
 (defn start
   "Entry point for the agggregator.
 
@@ -404,7 +405,7 @@
            :process-id @config/process-id
            :copy-sql triples-copy-sql
            ;; Check every minute to see if we can claim the slot
-           :aquire-slot-interval-ms (* 1000 60)
+           :acquire-slot-interval-ms (* 1000 60)
            ;; Flush sketch changes to db every 10 seconds or 50k items
            :sketch-flush-ms (* 1000 10)
            :sketch-flush-max-items 50000}))

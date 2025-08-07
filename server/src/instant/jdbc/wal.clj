@@ -470,21 +470,16 @@
                                                         slot-name
                                                         "wal2json")
         shutdown? (atom false)]
-    (tool/def-locals)
     (loop [replication-conn replication-conn
            stream (create-replication-stream replication-conn slot-type slot-name lsn 2)
            restart-count 0]
-      (tool/def-locals)
-
       (deliver started-promise true)
       (tracer/record-info! {:name "wal-worker/start"
                             :attributes {:slot-name slot-name}})
       (set-shutdown-fn wal-opts (fn []
                                   (reset! shutdown? true)
                                   (close-nicely stream)
-                                  (case slot-type
-                                    :invalidator (drop-logical-replication-slot replication-conn slot-name)
-                                    :aggregator nil)
+                                  (drop-logical-replication-slot replication-conn slot-name)
                                   (close-nicely replication-conn)
                                   (health/mark-wal-healthy-async)))
       (let [produce-error (try
@@ -519,7 +514,7 @@
   "Starts a logical replication stream and pushes records to
    the given `to` channel.
 
-   Returns nil if the
+   Returns nil if the slot is already active.
 
    Use `shutdown!` to stop the stream and clean up."
   [{:keys [get-conn-config slot-name slot-type to lsn
@@ -538,49 +533,50 @@
                     (catch PSQLException e
                       (when (not= :object-in-use (:condition (pgerrors/extract-data e)))
                         (throw e))))]
-    (when-not stream
-      (close-nicely replication-conn))
-    (when stream
-      (deliver started-promise true)
-      (tracer/record-info! {:name "wal-aggregator-worker/start"
-                            :attributes {:slot-name slot-name}})
-      (set-shutdown-fn wal-opts (fn []
-                                  (reset! shutdown? true)
-                                  (close-nicely stream)
-                                  (close-nicely replication-conn)))
-      (let [stream ^PGReplicationStream stream
-            flush-interrupt (a/chan)
-            flush-process (a/go
-                            (loop []
-                              (let [[lsn _ch] (a/alts! [flush-lsn-chan flush-interrupt])]
-                                (if lsn
-                                  (do (tracer/with-span! {:name "wal/flush-lsn"
-                                                          :attributes {:lsn lsn}}
-                                        (try
-                                          (.setAppliedLSN stream lsn)
-                                          (.setFlushedLSN stream lsn)
-                                          (catch Exception e
-                                            (tracer/add-exception! e {:escaping? false}))))
-                                      (recur))
-                                  (tracer/record-info! {:name "wal/flush-lsn-exit"})))))
-            produce-error (try
-                            (produce stream to close-signal-chan {:auto-flush? false})
-                            (catch Exception e
-                              (tracer/with-span! {:name "wal-worker/produce-error"
-                                                  :attributes {:exception e}}
-                                e)))]
-        (a/close! flush-interrupt)
-        (a/<!! flush-process)
-        (when-not @shutdown?
-          (when (= :prod (config/get-env))
-            (alert-discord slot-name))
-          (tracer/record-exception-span! (ex-info "Wal aggregation handler closed unexpectedly"
-                                                  {:slot-name slot-name}
-                                                  produce-error)
-                                         {:name "wal-aggregation-worker/unexpected-disconnect"
-                                          :escpaing? false})
-          (try (close-nicely stream) (catch Exception _e nil))
-          (try (close-nicely replication-conn) (catch Exception _e nil)))))))
+    (if-not stream
+      (do (close-nicely replication-conn)
+          nil)
+      (do
+        (deliver started-promise true)
+        (tracer/record-info! {:name "wal-aggregator-worker/start"
+                              :attributes {:slot-name slot-name}})
+        (set-shutdown-fn wal-opts (fn []
+                                    (reset! shutdown? true)
+                                    (close-nicely stream)
+                                    (close-nicely replication-conn)))
+        (let [stream ^PGReplicationStream stream
+              flush-interrupt (a/chan)
+              flush-process (a/go
+                              (loop []
+                                (let [[lsn _ch] (a/alts! [flush-lsn-chan flush-interrupt])]
+                                  (if lsn
+                                    (do (tracer/with-span! {:name "wal-aggregator/flush-lsn"
+                                                            :attributes {:lsn lsn}}
+                                          (try
+                                            (.setAppliedLSN stream lsn)
+                                            (.setFlushedLSN stream lsn)
+                                            (catch Exception e
+                                              (tracer/add-exception! e {:escaping? false}))))
+                                        (recur))
+                                    (tracer/record-info! {:name "wal-aggregator/flush-lsn-exit"})))))
+              produce-error (try
+                              (produce stream to close-signal-chan {:auto-flush? false})
+                              (catch Exception e
+                                (tracer/with-span! {:name "wal-aggregator/produce-error"
+                                                    :attributes {:exception e}}
+                                  e)))]
+          (a/close! flush-interrupt)
+          (a/<!! flush-process)
+          (when-not @shutdown?
+            (when (= :prod (config/get-env))
+              (alert-discord slot-name))
+            (tracer/record-exception-span! (ex-info "Wal aggregation handler closed unexpectedly"
+                                                    {:slot-name slot-name}
+                                                    produce-error)
+                                           {:name "wal-aggregator/unexpected-disconnect"
+                                            :escpaing? false})
+            (try (close-nicely stream) (catch Exception _e nil))
+            (try (close-nicely replication-conn) (catch Exception _e nil))))))))
 
 (defn shutdown! [wal-opts]
   (tracer/with-span! {:name "wal-worker/shutdown!"

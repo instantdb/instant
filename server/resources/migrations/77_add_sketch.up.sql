@@ -6,8 +6,6 @@ create table attr_sketches (
   depth integer not null,
   total bigint not null,
   total_not_binned bigint not null,
-  -- maybe we should make bins nullable so that we can avoid storing
-  -- zeroes
   bins bigint[] not null,
   max_lsn pg_lsn,
   created_at timestamp with time zone not null default now(),
