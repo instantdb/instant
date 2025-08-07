@@ -19,6 +19,7 @@ import {
   RoomsOf,
   InstantSchemaDef,
   IInstantDatabase,
+  InstantError,
 } from '@instantdb/core';
 import {
   ReactNode,
@@ -277,10 +278,12 @@ export default abstract class InstantReactAbstractDatabase<
    *  </db.SignedIn>
    *
    */
-  useUser = () => {
+  useUser = (): User => {
     const { user } = this.useAuth();
     if (!user) {
-      throw new Error('useUser must be used within an auth-protected route');
+      throw new InstantError(
+        'useUser must be used within an auth-protected route',
+      );
     }
     return user;
   };
@@ -390,19 +393,14 @@ export default abstract class InstantReactAbstractDatabase<
     error?: ReactNode;
   }> = ({ children, loading, error }) => {
     const auth = this.useAuth();
-    if (auth.user) {
-      return <>{children}</>;
-    }
-    if (loading && auth.isLoading) {
-      return <>{loading}</>;
+    if (auth.isLoading) {
+      return loading || null;
     }
     if (auth.error) {
-      if (error) {
-        return <>{error}</>;
-      }
-      return <>{auth.error.message}</>;
+      return error || <>{auth.error.message}</>;
     }
-    return null;
+    if (!auth.user) return null;
+    return <>{children}</>;
   };
 
   /**
@@ -425,18 +423,13 @@ export default abstract class InstantReactAbstractDatabase<
     error?: ReactNode;
   }> = ({ children, loading, error }) => {
     const auth = this.useAuth();
-    if (!auth.isLoading && !auth.user && !auth.error) {
-      return <>{children}</>;
-    }
-    if (loading && auth.isLoading) {
-      return <>{loading}</>;
+    if (auth.isLoading) {
+      return loading || null;
     }
     if (auth.error) {
-      if (error) {
-        return <>{error}</>;
-      }
-      return <>{auth.error.message}</>;
+      return error || <>{auth.error.message}</>;
     }
-    return null;
+    if (auth.user) return null;
+    return <>{children}</>;
   };
 }

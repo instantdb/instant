@@ -105,6 +105,7 @@ import type {
 } from './authAPI.ts';
 
 import { InstantAPIError, type InstantIssue } from './utils/fetch.js';
+import { InstantError } from './InstantError.ts';
 
 const defaultOpenDevtool = true;
 
@@ -844,6 +845,7 @@ export {
   Auth,
   Storage,
   version,
+  InstantError,
 
   // og types
   type IDatabase,
