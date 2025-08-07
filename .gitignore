@@ -197,6 +197,7 @@ dist
 .DS_Store
 .yarn
 apps/.DS_Store
+.pnpm-store
 
 # turbo
 .turbo
@@ -217,4 +218,5 @@ server/resources/emails/*
 
 # algolia 
 client/www/scripts/algolia-objects.json
+
 client/packages/mcp/.env
