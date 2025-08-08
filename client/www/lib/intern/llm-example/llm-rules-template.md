@@ -80,7 +80,7 @@ only use `@instantdb/react-native`. For scripts or server environments you shoul
 `@instantdb/admin`. For other client-side frameworks or vanilla js you should only use `@instantdb/core`
 
 CRITICAL: To use the admin SDK you MUST get an admin token for the app. You can
-get the admin token with the MCP tool via `create-app` or `get-app`. The admin
+get the admin token with the MCP tool via `create-app`. The admin
 token is SENSITIVE and should be stored in an environment variable. Do not
 hardcode it in your script.
 
