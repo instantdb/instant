@@ -190,6 +190,15 @@
       (assoc! m (f k) v))
     (transient (empty m)) m)))
 
+(defn map-vals
+  "Apply `f` to vals of `m`"
+  [f m]
+  (persistent!
+   (reduce-kv
+    (fn [m k v]
+      (assoc! m k (f v)))
+    (transient (empty m)) m)))
+
 (defn filter-keys
   "Only keep keys in `m` that return truthy for `(pred key)`"
   [pred m]
