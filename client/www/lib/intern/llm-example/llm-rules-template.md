@@ -76,10 +76,16 @@ and react native. Instant also offers a javascript admin SDK that can be used on
 the backend.
 
 If you want to use Instant with react you should only use `@instantdb/react`. For react-native you should
-only use `@instantdb/react-native`. For the admin SDK you should only use
+only use `@instantdb/react-native`. For scripts or server environments you should only use the admin SDK
 `@instantdb/admin`. For other client-side frameworks or vanilla js you should only use `@instantdb/core`
 
-You cannot use Instant on the backend outside of the admin SDK at the moment.
+CRITICAL: To use the admin SDK you MUST get an admin token for the app. You can
+get the admin token with the MCP tool via `create-app` or `get-app`. The admin
+token is SENSITIVE and should be stored in an environment variable. Do not
+hardcode it in your script.
+
+CRITICAL: If you want to create seed data YOU MUST write a script that uses the admin SDK.
+DO NOT try to seed data on the client.
 
 <!-- SECTION: APP_DESCRIPTION -->
 
