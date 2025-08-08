@@ -15,7 +15,7 @@ How do GPT-5 and Opus 4.1 perform with building apps? To find out I asked them b
 > - Make the theme really cool
 > - Let’s keep everything under 1000 lines of code.
 
-I recorded myself going through the process in this [video](https://youtu.be/yzjC0wcMvxI). In this post I’ll share the results and some of the surprises I discovered when prompting!
+I recorded myself going through the process in this <a href="https://youtu.be/yzjC0wcMvxI" target="_blank">video</a>. In this post I’ll share the results and some of the surprises I discovered when prompting!
 
 # GPT5’s work
 
@@ -67,7 +67,7 @@ Both models made about 2 errors. **All errors were all related to new features.*
 
 But **both models fixed all errors in one shot**. They just needed me to paste an error message and they were able to solve it.
 
-It was interesting to see how GPT-5 made an error with "db.SignedIn". Instructions for how to use it were already included in the [rules.md](https://www.instantdb.com/mcp-tutorial/cursor-rules.md) file. I think this is related to how closely the models follow rules.
+It was interesting to see how GPT-5 made an error with "db.SignedIn". Instructions for how to use it were already included in the <a href="https://www.instantdb.com/mcp-tutorial/cursor-rules.md" target="_blank">rules.md</a> file. I think this is related to how closely the models follow rules.
 
 **Opus seemed to follow the rule file more closely, while GPT-5 seems to explore more**. Opus used the exact same patterns that provided in the rules file. This let them skip past the "db.SignedIn" bug. On the other hand, GPT-5 seemed to be more free with what it tried. It did get more bugs, but it wrote code that was objectively more "different" then the examples that we provided. In one case, it wrote a simpler schema file.
 
@@ -75,9 +75,9 @@ It was interesting to see how GPT-5 made an error with "db.SignedIn". Instructio
 
 We actually ran the same test in April.
 
-We compared o4-mini with Claude 3 Sonnet. o4-mini made a barebones version (see [here](https://codex-chiptunes.vercel.app/)). Sonnet made a good UI but couldn’t actually write the backend logic.
+We compared o4-mini with Claude 3 Sonnet. o4-mini made a barebones version (see <a href="https://codex-chiptunes.vercel.app/" target="_blank">here</a>). Sonnet made a good UI but couldn’t actually write the backend logic.
 
-Now both apps look pretty cool, both apps have auth, permissions, and a much slicker way to compose songs. You can take a look at the source files the new models generated. This is [GPT-5 source](https://github.com/stopachka/gpt-5-chiptunes), This is [Opus source](https://github.com/stopachka/opus-chiptunes).
+Now both apps look pretty cool, both apps have auth, permissions, and a much slicker way to compose songs. You can take a look at the source files the new models generated. This is <a href="https://github.com/stopachka/gpt-5-chiptunes" target="_blank">GPT-5 source</a>, and this is the <a href="https://github.com/stopachka/opus-chiptunes" target="_blank">Opus source</a>.
 
 In the last few months it feels like Claude and Claude Code have been the dominant choice for vibe coding apps. With the new GPT5 model it feels like the gap is closing.
 
