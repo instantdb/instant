@@ -8,7 +8,7 @@
     "gen-docs": "pnpm exec tsx scripts/gen-md-docs.ts",
     "gen-rss": "pnpm exec tsx scripts/gen-rss.ts",
     "gen-llm-rules": "pnpm exec tsx scripts/gen-llm-rules.ts",
-    "postbuild": "pnpm gen-docs && pnpm gen-llms && pnpm gen-rss && next-sitemap",
+    "postbuild": "pnpm gen-docs && pnpm gen-llms && pnpm gen-rss && && pnpm gen-llm-rules && next-sitemap",
     "start": "next start",
     "test": "jest --watch"
   },
