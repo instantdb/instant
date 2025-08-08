@@ -18,6 +18,7 @@ import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
 import { muxPattern, youtubeParams, youtubePattern } from '@/lib/videos';
 import { isValidElement } from 'react';
+import { DemoIframe } from '@/components/DemoIframe';
 
 const Post = ({ post }: { post: Post }) => {
   const { title, date, authors, hero, content, og_image } = post;
@@ -87,6 +88,7 @@ const Post = ({ post }: { post: Post }) => {
                     {children}
                   </div>
                 ),
+                'demo-iframe': DemoIframe,
                 a(props) {
                   if (props.hasOwnProperty('data-footnote-ref')) {
                     return <a {...props}>[{props.children}]</a>;
