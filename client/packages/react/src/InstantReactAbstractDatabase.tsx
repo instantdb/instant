@@ -263,9 +263,10 @@ export default abstract class InstantReactAbstractDatabase<
   /**
    * Subscribe to the currently logged in user.
    * If the user is not logged in, this hook with throw an Error.
-   * You will want to protect any calls of this hook with a <db.SignedIn> component, or your own logic based on db.useAuth()
+   * You will want to protect any calls of this hook with a
+   * <db.SignedIn> component, or your own logic based on db.useAuth()
    *
-   * @see https://instantdb.com/docs/auth/frontend
+   * @see https://instantdb.com/docs/auth
    * @throws Error indicating user not signed in
    * @example
    *  function UserDisplay() {
@@ -375,17 +376,13 @@ export default abstract class InstantReactAbstractDatabase<
 
   /**
    * Only render children if the user is signed in.
-   * Optional `loading` prop will render if the user is loading.
-   * @see https://instantdb.com/docs/auth/frontend
+   * @see https://instantdb.com/docs/auth
    *
    * @example
    *  <db.SignedIn>
    *    <MyComponent />
    *  </db.SignedIn>
    *
-   *  <db.SignedIn loading={<div>Loading...</div>}>
-   *    <MyComponent />
-   *  </db.SignedIn>
    */
   SignedIn: React.FC<{
     children: ReactNode;
@@ -393,43 +390,28 @@ export default abstract class InstantReactAbstractDatabase<
     error?: ReactNode;
   }> = ({ children, loading, error }) => {
     const auth = this.useAuth();
-    if (auth.isLoading) {
-      return loading || null;
+    if (auth.isLoading || auth.error || !auth.user) {
+      return null;
     }
-    if (auth.error) {
-      return error || <>{auth.error.message}</>;
-    }
-    if (!auth.user) return null;
+
     return <>{children}</>;
   };
 
   /**
    * Only render children if the user is signed out.
-   * Optional `loading` prop will render if the user is loading.
-   * @see https://instantdb.com/docs/auth/frontend
+   * @see https://instantdb.com/docs/auth
    *
    * @example
    *  <db.SignedOut>
    *    <MyComponent />
    *  </db.SignedOut>
    *
-   *  <db.SignedOut loading={<div>Loading...</div>}>
-   *    <MyComponent />
-   *  </db.SignedOut>
    */
   SignedOut: React.FC<{
     children: ReactNode;
-    loading?: ReactNode;
-    error?: ReactNode;
-  }> = ({ children, loading, error }) => {
+  }> = ({ children }) => {
     const auth = this.useAuth();
-    if (auth.isLoading) {
-      return loading || null;
-    }
-    if (auth.error) {
-      return error || <>{auth.error.message}</>;
-    }
-    if (auth.user) return null;
+    if (auth.isLoading || auth.error || auth.user) return null;
     return <>{children}</>;
   };
 }
