@@ -65,11 +65,11 @@ Both models made a few errors before the projects built. Here’s how that looke
 
 Both models made about 2 errors. **They were all related with new features.** Next.js has a new flow for query params, and Instant just added a `db.SignedIn` component.
 
-But **both models fixed errors in one shot**. All they needed was for a user to paste an error message and they were able to solve it.
+But **both models fixed all errors in one shot**. They just needed me to paste an error message and they were able to solve it.
 
 It was interesting to see how GPT-5 made an error with "db.SignedIn". Instructions for how to use it were already included in the [rules.md](https://www.instantdb.com/mcp-tutorial/cursor-rules.md) file. I think this is related to how closely the models follow rules.
 
-**Opus seemed to follow the rule file more closely**. It used the same pattern for "profiles" that we gave it, and skipped past the "db.SignedIn" bug. On the other hand, **GPT-5 followed the rules file less closely**. As a result it hit a bug that was explicitly warned against in the rules. However, it also skipped past adding a "profiles" namespace. Objectively that leads to a smaller schema, and still hits the requirements that we started out with.
+**Opus seemed to follow the rule file more closely, while GPT-5 seems to explore more**. Opus used the exact same patterns that provided in the rules file. This let them skip past the "db.SignedIn" bug. On the other hand, GPT-5 seemed to be more free with what it tried. It did get more bugs, but it wrote code that was objectively more "different" then the examples that we provided. In one case, it wrote a simpler schema file.
 
 # What a change in 4 months…
 
