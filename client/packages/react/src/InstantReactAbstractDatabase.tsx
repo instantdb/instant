@@ -386,13 +386,9 @@ export default abstract class InstantReactAbstractDatabase<
    */
   SignedIn: React.FC<{
     children: ReactNode;
-    loading?: ReactNode;
-    error?: ReactNode;
-  }> = ({ children, loading, error }) => {
+  }> = ({ children }) => {
     const auth = this.useAuth();
-    if (auth.isLoading || auth.error || !auth.user) {
-      return null;
-    }
+    if (auth.isLoading || auth.error || !auth.user) return null;
 
     return <>{children}</>;
   };
