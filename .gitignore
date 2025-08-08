@@ -26,6 +26,10 @@ client/www/public/rss.xml
 client/www/public/docs
 client/www/public/docs*
 
+# MCP tutorial rules
+client/www/public/mcp-tutorial*
+
+
 # production
 www/build
 
