@@ -48,7 +48,7 @@ Both models got a _lot_ done in one shot.
 
 They both figured out auth, data models, permissions, and at least the flow to create songs in one go.
 
-**One difference is that GPT-5 was able to get song sharing work in one shot.** Opus needed two additional nudges to get there. Initially Opus talked about making songs shareable, but did not actually implement it. First Opus added support for sharing songs, but gated it to logged in users. A second prompt helped Opus open songs for public consumption.
+**One difference is that GPT-5 was able to get song sharing working in one shot.** Opus needed two additional nudges to get there. Initially Opus talked about making songs shareable, but did not actually implement it. First Opus added support for sharing songs, but gated it to logged in users. A second prompt helped Opus open songs for public consumption.
 
 **However, Opus’ UI was more slick.** I do think OpenAI improved UI skills a lot compared to their earlier models. For now I think Opus has the edge.
 
