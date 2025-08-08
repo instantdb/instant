@@ -528,7 +528,7 @@ function PostList({ posts }: { posts: PostsWithProfile[] }) {
 
 function App() {
   return (
-    <>
+    <div>
       <db.SignedIn>
         <EnsureProfile>
           <Main />
@@ -537,7 +537,7 @@ function App() {
       <db.SignedOut>
         <Login />
       </db.SignedOut>
-    </>
+    </div>
   );
 }
 
