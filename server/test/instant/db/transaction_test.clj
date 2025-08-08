@@ -61,6 +61,7 @@
                     (coll/update-in-when [:add-triple] set)
                     (coll/update-in-when [:retract-triple] set)
                     (coll/update-in-when [:delete-entity] set)
+                    (coll/update-in-when [:add-attr :attrs] set)
                     (coll/update-in-when [:add-attr :idents] set)))))))
 
 (defn- normalize-results
