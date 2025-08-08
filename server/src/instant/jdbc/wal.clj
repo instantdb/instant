@@ -619,14 +619,19 @@
            (tracer/record-exception-span! e {:name "wal/cleanup-error"
                                              :escaping? false}))))))
 
-  (let [replication-latency-bytes (atom 0)]
+  (let [replication-latency-bytes (atom 0)
+        aggregate-latency-bytes (atom 0)]
     (def latency-schedule
       (chime-core/chime-at
        (rest (chime-core/periodic-seq (Instant/now) (Duration/ofMinutes 1)))
        (fn [_time]
          (try
-           (let [latency (get-replication-latency-bytes (aurora/conn-pool :read) @config/process-id)]
+           (let [latency (get-replication-latency-bytes (aurora/conn-pool :read)
+                                                        (full-slot-name :invalidator @config/process-id))]
              (reset! replication-latency-bytes latency))
+           (let [latency (get-replication-latency-bytes (aurora/conn-pool :read)
+                                                        (full-slot-name :aggregator nil))]
+             (reset! aggregate-latency-bytes latency))
            (catch Exception e
              (tracer/record-exception-span! e {:name "wal/check-latency-error"
                                                :escaping? false}))))))
@@ -635,7 +640,9 @@
       (gauges/add-gauge-metrics-fn
        (fn [_]
          [{:path "instant.jdb.wal.replication-latency-bytes"
-           :value @replication-latency-bytes}])))))
+           :value @replication-latency-bytes}
+          {:path "instant.jdb.wal.aggregate-latency-bytes"
+           :value @aggregate-latency-bytes}])))))
 
 (defn stop []
   (lang/close cleanup-slots-schedule)

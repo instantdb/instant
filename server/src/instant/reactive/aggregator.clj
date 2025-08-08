@@ -11,6 +11,7 @@
    [instant.util.json :refer [<-json]]
    [instant.util.tracer :as tracer])
   (:import
+   (com.fasterxml.jackson.core.exc StreamConstraintsException)
    (org.postgresql.jdbc PgConnection)
    (org.postgresql.replication LogSequenceNumber)))
 
@@ -34,7 +35,14 @@
                                     {:name :value
                                      :pgtype "jsonb"}
                                     {:name :checked-data-type
-                                     :pgtype "checked_data_type"}])
+                                     :pgtype "checked_data_type"}]
+                                   {:handle-json-parse-error (fn [e]
+                                                               ;; Replace objects that are too large to read
+                                                               ;; with an empty object. That will keep it out
+                                                               ;; of the bins, but keep it in the total.
+                                                               (if (instance? StreamConstraintsException e)
+                                                                 {}
+                                                                 (throw e)))})
         base-sketch (cms/make-sketch)
 
         collect-changes (fn [batch]
@@ -126,39 +134,39 @@
   [{:keys [changes nextlsn] :as _record}]
   (let [sketch-changes
         (test-filter
-         (reduce
-          (fn [acc change]
-            (if (not= "triples" (:table change))
-              acc
-              (let [lsn (LogSequenceNumber/valueOf ^String (:lsn change))]
-                (case (:action change)
-                  :insert
-                  (conj acc {:incr 1
-                             :lsn lsn
-                             :triples-data (get-triples-data (:columns change))})
+          (reduce
+            (fn [acc change]
+              (if (not= "triples" (:table change))
+                acc
+                (let [lsn (LogSequenceNumber/valueOf ^String (:lsn change))]
+                  (case (:action change)
+                    :insert
+                    (conj acc {:incr 1
+                               :lsn lsn
+                               :triples-data (get-triples-data (:columns change))})
 
-                  :delete
-                  (conj acc {:incr -1
-                             :lsn lsn
-                             :triples-data (get-triples-data (:identity change))})
+                    :delete
+                    (conj acc {:incr -1
+                               :lsn lsn
+                               :triples-data (get-triples-data (:identity change))})
 
-                  :update
-                  (let [update-data (get-triples-data (:columns change))]
-                    (if-not (contains? update-data :value)
-                      ;; The triple was updated, but not the value field.
-                      ;; We should ignore this change.
-                      acc
-                      (conj acc
-                            ;; Remove the old
-                            {:incr -1
-                             :lsn lsn
-                             :triples-data (get-triples-data (:identity change))}
-                            ;; Add the new
-                            {:incr 1
-                             :lsn lsn
-                             :triples-data update-data})))))))
-          []
-          changes))]
+                    :update
+                    (let [update-data (get-triples-data (:columns change))]
+                      (if-not (contains? update-data :value)
+                        ;; The triple was updated, but not the value field.
+                        ;; We should ignore this change.
+                        acc
+                        (conj acc
+                              ;; Remove the old
+                              {:incr -1
+                               :lsn lsn
+                               :triples-data (get-triples-data (:identity change))}
+                              ;; Add the new
+                              {:incr 1
+                               :lsn lsn
+                               :triples-data update-data})))))))
+            []
+            changes))]
     (when (seq sketch-changes)
       {:sketch-changes sketch-changes
        :lsn nextlsn})))
@@ -223,15 +231,15 @@
           _ (tracer/add-data! {:attributes {:deleted-count (- (count changes)
                                                               (count sketches))}})
           sketches (reduce-kv
-                    (fn [acc k {:keys [records max-lsn]}]
-                      ;; attr may have been deleted in the interim
-                      (if-let [sketch (get sketches k)]
-                        (conj acc (-> sketch
-                                      (update :sketch cms/add-batch records)
-                                      (assoc :max-lsn max-lsn)))
-                        acc))
-                    []
-                    changes)]
+                     (fn [acc k {:keys [records max-lsn]}]
+                       ;; attr may have been deleted in the interim
+                       (if-let [sketch (get sketches k)]
+                         (conj acc (-> sketch
+                                       (update :sketch cms/add-batch records)
+                                       (assoc :max-lsn max-lsn)))
+                         acc))
+                     []
+                     changes)]
       (doseq [sketch sketches
               :let [k (select-keys sketch [:app-id :attr-id])]]
         (cache/miss sketch-cache k sketch))

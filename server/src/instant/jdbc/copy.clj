@@ -25,17 +25,21 @@
     (advance-buf bb byte-len)
     res))
 
-(defn- bin-decode-json [^ByteBuffer bb ^Integer byte-len]
-  (let [res (json/parse-bytes (.array bb) (.position bb) byte-len)]
+(defn- bin-decode-json [^ByteBuffer bb ^Integer byte-len handle-json-parse-error]
+  (let [res (if handle-json-parse-error
+              (try (json/parse-bytes (.array bb) (.position bb) byte-len)
+                   (catch Exception e
+                     (handle-json-parse-error e)))
+              (json/parse-bytes (.array bb) (.position bb) byte-len))]
     (advance-buf bb byte-len)
     res))
 
-(defn- bin-decode-jsonb [^ByteBuffer bb ^Integer byte-len]
+(defn- bin-decode-jsonb [^ByteBuffer bb ^Integer byte-len handle-json-parse-error]
   ;; jsonb starts with a version byte, then the data comes after
   (let [version (.get bb)]
     (when (not= 1 version)
       (throw (ex-info "Invalid version byte for jsonb" {:version version}))))
-  (bin-decode-json bb (dec byte-len)))
+  (bin-decode-json bb (dec byte-len) handle-json-parse-error))
 
 (def pg-diff (Duration/between Instant/EPOCH
                                (.atStartOfDay (LocalDate/of 2000 1 1)
@@ -73,12 +77,12 @@
 
 ;; Check https://github.com/igrishaev/pg2/tree/master/pg-core/src/java/org/pg/processor
 ;; for the format when adding a new decoder.
-(defn- bin-decode [^ByteBuffer bb pgtype ^Integer byte-len]
+(defn- bin-decode [^ByteBuffer bb pgtype ^Integer byte-len handle-json-parse-error]
   (case pgtype
     "uuid" (bin-decode-uuid bb byte-len)
     "text" (bin-decode-text bb byte-len)
-    "json" (bin-decode-json bb byte-len)
-    "jsonb" (bin-decode-jsonb bb byte-len)
+    "json" (bin-decode-json bb byte-len handle-json-parse-error)
+    "jsonb" (bin-decode-jsonb bb byte-len handle-json-parse-error)
     "timestamptz" (bin-decode-timestamptz bb byte-len)
     "boolean" (bin-decode-boolean bb byte-len)
     "integer" (bin-decode-integer bb byte-len)
@@ -124,7 +128,7 @@
 
 (defn- decode-row
   "Decodes a single row from the input, consumes the input."
-  [^ByteBuffer bb columns]
+  [^ByteBuffer bb columns handle-json-parse-error]
   (let [field-count (.getShort bb)]
     (if (= -1 field-count)
       nil
@@ -136,14 +140,22 @@
                       (let [field-length (.getInt bb)]
                         (if (= -1 field-length)
                           (assoc! m name nil)
-                          (assoc! m name (bin-decode bb pgtype field-length)))))
+                          (assoc! m name (bin-decode bb
+                                                     pgtype
+                                                     field-length
+                                                     handle-json-parse-error)))))
                     (transient {})
                     columns))))))
 
 ;; -------
 ;; Reducer
 
-(defn- copy-reduce [^PgConnection conn copy-query columns f init]
+(defn- copy-reduce [^PgConnection conn
+                    copy-query
+                    columns
+                    f
+                    init
+                    {:keys [handle-json-parse-error]}]
   (let [out (.copyOut (.getCopyAPI conn) copy-query)
         format (.getFormat out)]
     (when (not= 1 format)
@@ -152,7 +164,7 @@
       (advance-header bb)
       (loop [init' init
              bb bb]
-        (if-let [row (decode-row bb columns)]
+        (if-let [row (decode-row bb columns handle-json-parse-error)]
           (let [result (f init' row)]
             (if (reduced? result)
               @result
@@ -179,9 +191,15 @@
 
    Open a new connection to be used with copy and close it afterwards.
    Don't use one from the Hikari pool. The connection might be left in
-   an invalid state if the copy operation ends prematurely."
-  [^PgConnection conn copy-query columns]
-  (reify
-    clojure.lang.IReduceInit
-    (reduce [_ f init]
-      (copy-reduce conn copy-query columns f init))))
+   an invalid state if the copy operation ends prematurely.
+
+   Takes optional opts:
+     handle-json-parse-error: function that receives an exception during json
+                              parse and should either throw or return a value"
+  ([^PgConnection conn copy-query columns]
+   (copy-reducer conn copy-query columns nil))
+  ([^PgConnection conn copy-query columns opts]
+   (reify
+     clojure.lang.IReduceInit
+     (reduce [_ f init]
+       (copy-reduce conn copy-query columns f init opts)))))

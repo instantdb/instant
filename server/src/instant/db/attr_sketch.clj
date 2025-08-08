@@ -6,6 +6,7 @@
    [instant.jdbc.sql :as sql]
    [instant.util.coll :as ucoll])
   (:import
+   (java.math BigInteger)
    (net.openhft.hashing LongHashFunction)))
 
 (set! *warn-on-reflection* true)
@@ -46,7 +47,8 @@
       :number (condp instance? x
                 java.lang.Long [:long x]
                 java.lang.Integer [:long (long x)]
-                java.lang.Double [:double x])
+                java.lang.Double [:double x]
+                java.math.BigInteger [:bigint x])
       :string (do (assert (string? x))
                   [:string x])
       :boolean (do (assert (boolean? x))
@@ -57,6 +59,7 @@
         java.lang.Long [:long x]
         java.lang.Integer [:long (long x)]
         java.lang.Double [:double x]
+        java.math.BigInteger [:bigint x]
         java.lang.String [:string x]
         java.lang.Boolean [:boolean x]
         ;; Use string as the universal format for uuids for the purpose of
@@ -69,6 +72,11 @@
   (let [xx (LongHashFunction/xx3 (+ seed hash-idx))]
     (case data-type
       :long (.hashLong xx val)
+      :bigint (try (.hashLong xx (BigInteger/.longValueExact val))
+                   (catch ArithmeticException _e
+                     ;; Only store it as a bigint if it doesn't actually
+                     ;; fit in a long
+                     (.hashBytes xx (BigInteger/.toByteArray val))))
       :double (.hashLong xx (Double/doubleToLongBits val))
       :string (.hashChars xx ^String val)
       :boolean (.hashBoolean xx val)

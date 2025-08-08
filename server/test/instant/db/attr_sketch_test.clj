@@ -1,6 +1,8 @@
 (ns instant.db.attr-sketch-test
-  (:require [clojure.test :as test :refer [deftest is]]
-            [instant.db.attr-sketch :as cms]))
+  (:require [clojure.test :as test :refer [deftest is testing]]
+            [instant.db.attr-sketch :as cms]
+            [instant.util.json :as json])
+  (:import (java.math BigInteger)))
 
 (deftest sketch-returns-counts
   (let [sketch (cms/make-sketch)
@@ -100,3 +102,15 @@
             [1 0 1 0 0 2 0 1 0 0 0 0 1 0 0 1 0 0 1 0]
             [0 0 0 1 1 0 0 0 0 1 0 1 1 1 0 0 0 0 1 1]]
            (mapv vec (partition-all (:width sketch) (:bins sketch)))))))
+
+(deftest bigints
+  (testing "bigints are converted to longs if possible"
+    (is (= 1 (-> (cms/make-sketch)
+                 (cms/add nil (BigInteger/valueOf 10))
+                 (cms/check nil 10)))))
+
+  (testing "real bigints round-trip"
+    (let [b (json/<-json  "9999999999999999999999999999999999999999999999999999999999")]
+      (is (= 1 (-> (cms/make-sketch)
+                   (cms/add nil b)
+                   (cms/check nil b)))))))
