@@ -641,10 +641,10 @@
        (fn [_]
          (concat (when-let [latency @replication-latency-bytes]
                    [{:path "instant.jdb.wal.replication-latency-bytes"
-                     :value @replication-latency-bytes}])
+                     :value latency}])
                  (when-let [latency @aggregate-latency-bytes]
                    [{:path "instant.jdb.wal.aggregate-latency-bytes"
-                     :value @aggregate-latency-bytes}])))))))
+                     :value latency}])))))))
 
 (defn stop []
   (lang/close cleanup-slots-schedule)
