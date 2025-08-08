@@ -108,6 +108,7 @@ function addShout({
 // Instant query Hooks
 // ---------
 function useProfile() {
+  // CRITICAL: useUser can only be used inside a db.SignedIn component
   const user = db.useUser();
   const { data, isLoading, error } = db.useQuery({
     profiles: {
@@ -259,7 +260,6 @@ function CodeStep({ sentEmail }: { sentEmail: string }) {
 }
 
 function EnsureProfile({ children }: { children: React.ReactNode }) {
-  // IMPORTANT: useUser can only be used inside a db.SignedIn component
   const user = db.useUser();
 
   const { isLoading, profile, error } = useProfile();
@@ -526,6 +526,7 @@ function PostList({ posts }: { posts: PostsWithProfile[] }) {
   );
 }
 
+// CRITICAL: Use db.SignedIn and db.SignedOut to handle authentication state
 function App() {
   return (
     <div>
