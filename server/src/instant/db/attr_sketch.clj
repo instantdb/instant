@@ -83,8 +83,8 @@
       :double (.hashLong xx (Double/doubleToLongBits val))
       :string (.hashChars xx ^String val)
       :boolean (.hashBoolean xx val)
-      ;; use null byte for nil. postgres will refuse to
-      ;; store it, so we know that it's not going to match any other value
+      ;; use null byte for nil. postgres will refuse to store it as a
+      ;; value, so we know that it's not going to distort counts
       :nil (.hashChar xx \u0000))))
 
 (defn add

@@ -136,6 +136,9 @@
         (test-filter
           (reduce
             (fn [acc change]
+              ;; n.b. If you add more tables, be sure to add the table to
+              ;;      add-table in the stream in wal.clj or you won't get
+              ;;      the updates here.
               (if (not= "triples" (:table change))
                 acc
                 (let [lsn (LogSequenceNumber/valueOf ^String (:lsn change))]
@@ -179,17 +182,11 @@
 
 (defn max-lsn ^LogSequenceNumber
   [^LogSequenceNumber a ^LogSequenceNumber b]
-  (cond (not a)
-        b
-
-        (not b)
-        a
-
-        :else
-        (case (compare a b)
-          0 a
-          -1 b
-          1 a)))
+  (cond (not a) b
+        (not b) a
+        :else (case (compare a b)
+                (0 1) a
+                -1 b)))
 
 (defn combine-sketch-changes [{:keys [changes]}
                               {:keys [sketch-changes lsn]}]
