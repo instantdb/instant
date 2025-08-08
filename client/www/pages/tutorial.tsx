@@ -421,8 +421,8 @@ export default function McpTutorial({ files }: MarkdownContent) {
           <FileContentCard
             title="Instant Rules for Cursor"
             content={cursorRulesContent}
-            filename=".cursor/rules/instant.md"
-            description="Click the button below to copy the rules for Instant and paste them into .cursor/rules/instant.md in the root of your project."
+            filename=".cursor/rules/instant.mdc"
+            description="Click the button below to copy the rules for Instant and paste them into .cursor/rules/instant.mdc in the root of your project."
           />
         </div>
       ),
