@@ -47,6 +47,8 @@
 (defn- create-pg-array [^PreparedStatement s pgtype clazz vs]
   (.createArrayOf (.getConnection s) pgtype (into-array clazz vs)))
 
+(def byte-class (Class/forName "[B"))
+
 (defn set-param
   "Transform PGobject containing `json` or `jsonb` value to Clojure data"
   [^PreparedStatement s i v]
@@ -61,6 +63,7 @@
       "integer[]" (.setArray s i (create-pg-array s "integer" Integer v))
       "bigint[]" (.setArray s i (create-pg-array s "bigint" Long v))
       "bigint[][]" (.setArray s i (.createArrayOf (.getConnection s) "bigint" (to-array-2d v)))
+      "bytea[]" (.setArray s i (create-pg-array s "bytea" byte-class v))
       (.setObject s i (doto (PGobject.)
                         (.setType pgtype)
                         (.setValue (->json v)))))))

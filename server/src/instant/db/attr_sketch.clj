@@ -6,7 +6,10 @@
    [instant.jdbc.sql :as sql]
    [instant.util.coll :as ucoll])
   (:import
+   (com.github.luben.zstd Zstd)
+   (java.lang Long)
    (java.math BigInteger)
+   (java.nio ByteBuffer)
    (net.openhft.hashing LongHashFunction)))
 
 (set! *warn-on-reflection* true)
@@ -197,6 +200,32 @@
 
 ;; Sketches
 
+;;; Compression
+
+(defn compress-bins
+  "Returns the bins as bytes compressed with zstd."
+  ^bytes [sketch]
+  (let [bb (ByteBuffer/allocate (* (:width sketch)
+                                   (:depth sketch)
+                                   Long/BYTES))]
+    (doseq [l (:bins sketch)]
+      (.putLong bb l))
+    (Zstd/compress (.array bb))))
+
+(defn bytes->longs [^bytes b]
+  (let [bb (ByteBuffer/wrap b)]
+    (loop [arr (transient [])]
+      (if (.hasRemaining bb)
+        (recur (conj! arr (.getLong bb)))
+        (persistent! arr)))))
+
+(defn decompress-bins [width depth ^bytes compressed-bin-bytes]
+  (let [dst (byte-array (* width depth Long/BYTES))]
+    (Zstd/decompress dst compressed-bin-bytes)
+    (bytes->longs dst)))
+
+;;; Queries
+
 (defn qualify-col [ns col]
   (keyword (format "%s.%s" (name ns) (name col))))
 
@@ -204,15 +233,16 @@
   (map (partial qualify-col ns) cols))
 
 (defn record->Sketch [record]
-  {:sketch (map->Sketch {:width (:width record)
-                         :depth (:depth record)
-                         :bins (:bins record)
-                         :total (:total record)
-                         :total-not-binned (:total_not_binned record)})
-   :id (:id record)
-   :app-id (:app_id record)
-   :attr-id (:attr_id record)
-   :max-lsn (:max_lsn record)})
+  (let [{:keys [width depth bins]} record]
+    {:sketch (map->Sketch {:width width
+                           :depth depth
+                           :bins (decompress-bins width depth bins)
+                           :total (:total record)
+                           :total-not-binned (:total_not_binned record)})
+     :id (:id record)
+     :app-id (:app_id record)
+     :attr-id (:attr_id record)
+     :max-lsn (:max_lsn record)}))
 
 (defn- find-sketch-rows
   "Takes a set of {:app-id :attr-id} maps and returns a list of sketch
@@ -258,8 +288,7 @@
                                     :depth
                                     :total
                                     :total-not-binned])
-                      :bins (with-meta (:bins sketch)
-                              {:pgtype "bigint[]"})
+                      :bins (compress-bins sketch)
                       :app-ids (with-meta (mapv :app-id keys)
                                  {:pgtype "uuid[]"})
                       :attr-ids (with-meta (mapv :attr-id keys)
@@ -319,16 +348,16 @@
                 process-id
                 slot-name]}]
   (let [params (reduce (fn [acc {:keys [id sketch]}]
-                         (let [{:keys [total total-not-binned bins]} sketch]
+                         (let [{:keys [total total-not-binned]} sketch]
                            (-> acc
                                (update :id conj id)
                                (update :total conj total)
                                (update :total-not-binned conj total-not-binned)
-                               (update :bins conj bins))))
+                               (update :bins conj (compress-bins sketch)))))
                        {:id (with-meta [] {:pgtype "uuid[]"})
                         :total (with-meta [] {:pgtype "bigint[]"})
                         :total-not-binned (with-meta [] {:pgtype "bigint[]"})
-                        :bins (with-meta [] {:pgtype "bigint[][]"})
+                        :bins (with-meta [] {:pgtype "bytea[]"})
                         :lsn lsn
                         :previous-lsn previous-lsn
                         :slot-name slot-name
@@ -337,7 +366,7 @@
         q {:with [[:data {:select [[[:unnest :?id] :id]
                                    [[:unnest :?total] :total]
                                    [[:unnest :?total-not-binned] :total-not-binned]
-                                   [[:unnest_2d :?bins] :bins]
+                                   [[:unnest :?bins] :bins]
                                    [:?lsn :max-lsn]]}]
                   [:update-sketches
                    {:update :attr_sketches
@@ -378,7 +407,7 @@
   [conn {:keys [sketches
                 lsn]}]
   (let [params (reduce (fn [acc {:keys [app-id attr-id sketch]}]
-                         (let [{:keys [width depth total total-not-binned bins]} sketch]
+                         (let [{:keys [width depth total total-not-binned]} sketch]
                            (-> acc
                                (update :app-id conj app-id)
                                (update :attr-id conj attr-id)
@@ -386,14 +415,14 @@
                                (update :depth conj depth)
                                (update :total conj total)
                                (update :total-not-binned conj total-not-binned)
-                               (update :bins conj bins))))
+                               (update :bins conj (compress-bins sketch)))))
                        {:app-id (with-meta [] {:pgtype "uuid[]"})
                         :attr-id (with-meta [] {:pgtype "uuid[]"})
                         :width (with-meta [] {:pgtype "integer[]"})
                         :depth (with-meta [] {:pgtype "integer[]"})
                         :total (with-meta [] {:pgtype "bigint[]"})
                         :total-not-binned (with-meta [] {:pgtype "bigint[]"})
-                        :bins (with-meta [] {:pgtype "bigint[][]"})}
+                        :bins (with-meta [] {:pgtype "bytea[]"})}
                        sketches)
         cols [:id :max-lsn :app-id :attr-id :width :depth :total :total-not-binned :bins]
         q (hsql/format {:with [[:data {:select [[:%gen_random_uuid :id]
@@ -404,7 +433,7 @@
                                                 [[:unnest :?depth] :depth]
                                                 [[:unnest :?total] :total]
                                                 [[:unnest :?total-not-binned] :total-not-binned]
-                                                [[:unnest_2d :?bins] :bins]]}]]
+                                                [[:unnest :?bins] :bins]]}]]
                         :insert-into [[:attr-sketches cols]
                                       {:select (qualify-cols :data cols)
                                        :from :data

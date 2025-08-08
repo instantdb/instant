@@ -6,7 +6,7 @@ create table attr_sketches (
   depth integer not null,
   total bigint not null,
   total_not_binned bigint not null,
-  bins bigint[] not null,
+  bins bytea not null,
   max_lsn pg_lsn,
   created_at timestamp with time zone not null default now(),
   updated_at timestamp with time zone not null default now(),
@@ -43,25 +43,3 @@ for each row
 execute function update_updated_at_column();
 
 alter table triples replica identity full;
-
--- same as unnest, but will not flatten a 2-dimensional array
--- select unnest_2d('{{1,2},{3,4}}') as rows
---    rows
---   ------
---    {1,2}
---    {3,4}
-create or replace function unnest_2d(anyarray, out a anyarray)
-  returns setof anyarray
-  language plpgsql
-  immutable parallel safe strict
-as $$
-begin
-  if array_length($1, 1) is null then
-    return;
-  end if;
-
-  foreach a slice 1 in array $1 loop
-    return next;
-  end loop;
-end;
-$$;
