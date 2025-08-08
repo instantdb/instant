@@ -136,8 +136,8 @@
         (let [{op :op event-auth :auth} (blocking-send-msg :init-ok socket {:op :init :app-id zeneca-app-id})
               store-auth (-> (rs/session store id) :session/auth)]
           (is (= :init-ok op))
-          (is (= ["test app" nil] (pretty-auth event-auth)))
-          (is (= ["test app" nil] (pretty-auth store-auth)))))
+          (is (= ["empty-app" nil] (pretty-auth event-auth)))
+          (is (= ["empty-app" nil] (pretty-auth store-auth)))))
 
       (testing "already authed"
         (is (= 400

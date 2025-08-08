@@ -1,19 +1,22 @@
 (ns instant.fixtures
   (:require [clojure.core.async :as a]
-            [clojure.test :refer [report]]
+            [clojure.test :as test :refer [report]]
             [instant.config :as config]
             [instant.data.bootstrap :as bootstrap]
             [instant.data.constants :refer [test-user-id]]
             [instant.data.resolvers :as resolvers]
+            [instant.db.datalog :as d]
             [instant.db.indexing-jobs :as indexing-jobs]
+            [instant.db.model.attr :as attr-model]
             [instant.model.app :as app-model]
             [instant.model.app-member-invites :as instant-app-member-invites]
             [instant.model.app-members :as instant-app-members]
             [instant.model.instant-stripe-customer :as instant-stripe-customer-model]
             [instant.model.instant-subscription :as instant-subscription-model]
-            [instant.model.instant-user-refresh-token :as instant-user-refresh-token-model]
-            [instant.stripe :refer [PRO_SUBSCRIPTION_TYPE]]
             [instant.model.instant-user :as instant-user-model]
+            [instant.model.instant-user-refresh-token :as instant-user-refresh-token-model]
+            [instant.model.rule :as rule-model]
+            [instant.stripe :refer [PRO_SUBSCRIPTION_TYPE]]
             [instant.db.pg-introspect :as pg-introspect]
             [instant.jdbc.sql :as sql]
             [instant.jdbc.aurora :as aurora]
@@ -70,13 +73,25 @@
 
 (defmacro with-empty-app [f]
   `(let [app-id# (UUID/randomUUID)
-         app# (app-model/create! {:title "test app"
-                                  :creator-id ~test-user-id
-                                  :id app-id#
-                                  :admin-token (UUID/randomUUID)})]
+         app#    (app-model/create! {:title       "empty-app"
+                                     :creator-id  ~test-user-id
+                                     :id          app-id#
+                                     :admin-token (UUID/randomUUID)})]
      (try
        (with-fail-on-warn-io
-         (~f app#))
+         (~f (assoc app#
+                    :make-ctx (fn make-ctx#
+                                ([]
+                                 (make-ctx# {}))
+                                ([opts#]
+                                 (merge
+                                  {:db               {:conn-pool (aurora/conn-pool :write)}
+                                   :app-id           app-id#
+                                   :attrs            (attr-model/get-by-app-id app-id#)
+                                   :datalog-query-fn d/query
+                                   :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id#})
+                                   :current-user     nil}
+                                  opts#))))))
        (finally
          (app-model/delete-immediately-by-id! {:id app-id#})))))
 
