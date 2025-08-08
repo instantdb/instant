@@ -619,8 +619,8 @@
            (tracer/record-exception-span! e {:name "wal/cleanup-error"
                                              :escaping? false}))))))
 
-  (let [replication-latency-bytes (atom 0)
-        aggregate-latency-bytes (atom 0)]
+  (let [replication-latency-bytes (atom nil)
+        aggregate-latency-bytes (atom nil)]
     (def latency-schedule
       (chime-core/chime-at
        (rest (chime-core/periodic-seq (Instant/now) (Duration/ofMinutes 1)))
@@ -639,10 +639,12 @@
     (def cleanup-gauge
       (gauges/add-gauge-metrics-fn
        (fn [_]
-         [{:path "instant.jdb.wal.replication-latency-bytes"
-           :value @replication-latency-bytes}
-          {:path "instant.jdb.wal.aggregate-latency-bytes"
-           :value @aggregate-latency-bytes}])))))
+         (concat (when-let [latency @replication-latency-bytes]
+                   [{:path "instant.jdb.wal.replication-latency-bytes"
+                     :value @replication-latency-bytes}])
+                 (when-let [latency @aggregate-latency-bytes]
+                   [{:path "instant.jdb.wal.aggregate-latency-bytes"
+                     :value @aggregate-latency-bytes}])))))))
 
 (defn stop []
   (lang/close cleanup-slots-schedule)
