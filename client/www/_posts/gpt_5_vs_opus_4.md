@@ -63,7 +63,7 @@ Both models made a few errors before the projects built. Here’s how that looke
 | Query Issues?                      | ✅        | 🐛       |
 | Next Query Params?                 | 🐛        | 🐛       |
 
-Both models made about 2 errors. **They were all related to new features.** Next.js has a new flow for query params, and Instant just added a "db.SignedIn" component.
+Both models made about 2 errors. **All errors were all related to new features.** Next.js has a new flow for query params, and Instant just added a "db.SignedIn" component.
 
 But **both models fixed all errors in one shot**. They just needed me to paste an error message and they were able to solve it.
 
