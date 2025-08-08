@@ -33,7 +33,7 @@
   ([] (make-sketch {}))
   ([{:keys [confidence error-rate]
      :or {confidence 0.999
-          error-rate 0.001}}]
+          error-rate 0.0001}}]
    (let [width (int (Math/ceil (/ 2 error-rate)))
          depth (int (Math/ceil (/ (* -1 (Math/log (- 1 confidence)))
                                   ln2)))]
