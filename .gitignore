@@ -29,7 +29,6 @@ client/www/public/docs*
 # MCP tutorial rules
 client/www/public/mcp-tutorial*
 
-
 # production
 www/build
 
