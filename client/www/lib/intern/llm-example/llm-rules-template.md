@@ -23,6 +23,8 @@ How to update this file:
   instead and run the script to regenerate it
 
 Sections:
+- CURSOR_FRONTMATTER: Frontmatter for Cursor IDE
+- WINDSURF_FRONTMATTER: Frontmatter for Windsurf IDE
 - INTRO: Basic instructions for the LLM.
 - BASICS: About InstantDB and how to use it
 - APP_DESCRIPTION: Description of the example app features
@@ -31,6 +33,22 @@ Sections:
 
 ═══════════════════════════════════════════════════════════════════════════════
 -->
+
+## <!-- SECTION: CURSOR_FRONTMATTER -->
+
+description:
+globs:
+alwaysApply: true
+
+---
+
+## <!-- SECTION: WINDSURF_FRONTMATTER -->
+
+trigger: always_on
+description: How to use InstantDB
+globs: ['**/*.tsx', '**/*.ts']
+
+---
 
 <!-- SECTION: INTRO -->
 

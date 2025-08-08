@@ -1,10 +1,16 @@
-# Instant LLM Example App
+# Instant LLM Rules Template
 
-This is an example app that we feed into our rules files for LLMs to learn how
-to use InstantDB.
+This directory contains a template and an example app to generate LLM rules
+files
 
-This combines Instant, Next.js, and TailwindCSS to show how to build an app with
-the following features:
+## Updating LLM rules
+
+`llm-rules-template.md` is the source of truth for generating our rule files.
+See instructions in the file for how to update it!
+
+## Example app
+
+The example app demonstrate the following features of Instant:
 
 - Initiailizes a connection to InstantDB
 - Defines schema and permissions for the app
@@ -15,12 +21,12 @@ the following features:
 
 Logic is split across four files:
 
-- `lib/db.ts` -- InstantDB client setup
-- `instant.schema.ts` - InstantDB schema, gives you type safety for your data!
-- `instant.perms.ts` - InstantDB permissions, not required for this app, but we still included to show how to restrict access to your data.
-- `app/page.tsx` - Main logic, mostly UI with some Instant magic :)
+- `lib/db.ts`
+- `instant.schema.ts`
+- `instant.perms.ts`
+- `app/page.tsx`
 
-## See it live
+## See the example app live
 
 You can see the tool at `/intern/llm-example`.
 
