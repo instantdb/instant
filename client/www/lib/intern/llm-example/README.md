@@ -15,9 +15,10 @@ the following features:
 
 Logic is split across four files:
 
-- `app/page.tsx` - Main logic, mostly UI with some Instant magic :)
 - `lib/db.ts` -- InstantDB client setup
 - `instant.schema.ts` - InstantDB schema, gives you type safety for your data!
+- `instant.perms.ts` - InstantDB permissions, not required for this app, but we still included to show how to restrict access to your data.
+- `app/page.tsx` - Main logic, mostly UI with some Instant magic :)
 
 ## See it live
 
