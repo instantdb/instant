@@ -18,6 +18,7 @@ import {
   type AuthState,
   type User,
 } from '@instantdb/react';
+
 import {
   i,
   id,

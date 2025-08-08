@@ -28,6 +28,7 @@
  */
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { cn } from '../../components/ui.tsx';
 import { createContext, useContext } from 'react';
 
 const DefaultValueContext = createContext(undefined);
@@ -42,7 +43,7 @@ export function NavDefault({ value, children }) {
 
 export function NavGroup({ children }) {
   return (
-    <div className="not-prose my-12 grid grid-cols-2 gap-3 xl:grid-cols-3">
+    <div className={cn('not-prose grid grid-cols-2 gap-3 xl:grid-cols-3')}>
       {children}
     </div>
   );

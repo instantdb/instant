@@ -201,18 +201,21 @@ const GOOGLE_CLIENT_ID = 'REPLACE_ME';
 const GOOGLE_CLIENT_NAME = 'REPLACE_ME';
 
 function App() {
-  const { isLoading, user, error } = db.useAuth();
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
-  if (error) {
-    return <div>Uh oh! {error.message}</div>;
-  }
-  if (user) {
-    return <h1>Hello {user.email}!</h1>;
-  }
+  return (
+    <>
+      <db.SignedIn>
+        <UserInfo />
+      </db.SignedIn>
+      <db.SignedOut>
+        <Login />
+      </db.SignedOut>
+    </>
+  );
+}
 
-  return <Login />;
+function UserInfo() {
+  const user = db.useUser();
+  return <h1>Hello {user.email}!</h1>;
 }
 
 function Login() {
@@ -286,19 +289,24 @@ const url = db.auth.createAuthorizationURL({
   redirectURL: window.location.href,
 });
 
-function App() {
-  const { isLoading, user, error } = db.useAuth();
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
-  if (error) {
-    return <div>Uh oh! {error.message}</div>;
-  }
-  if (user) {
-    return <h1>Hello {user.email}!</h1>;
-  }
+import React from 'react';
 
-  return <Login />;
+export default function App() {
+  return (
+    <>
+      <db.SignedIn>
+        <UserInfo />
+      </db.SignedIn>
+      <db.SignedOut>
+        <Login />
+      </db.SignedOut>
+    </>
+  );
+}
+
+function UserInfo() {
+  const user = db.useUser();
+  return <h1>Hello {user.email}!</h1>;
 }
 
 function Login() {
@@ -369,20 +377,21 @@ const APP_ID = '__APP_ID__';
 const db = init({ appId: APP_ID });
 
 function App() {
-  const { isLoading, user, error } = db.useAuth();
+  return (
+    <>
+      <db.SignedIn loading={<Text>Loading...</Text>}>
+        <UserInfo />
+      </db.SignedIn>
+      <db.SignedOut>
+        <Login />
+      </db.SignedOut>
+    </>
+  );
+}
 
-  let content;
-  if (isLoading) {
-    content = <Text>Loading...</Text>;
-  } else if (error) {
-    content = <Text>Uh oh! {error.message}</Text>;
-  } else if (user) {
-    content = <Text>Hello {user.email}!</Text>;
-  } else {
-    content = <Login />;
-  }
-
-  return <View style={styles.container}>{content}</View>;
+function UserInfo() {
+  const user = db.useUser();
+  return <Text>Hello {user.email}!</Text>;
 }
 
 function Login() {
@@ -480,20 +489,21 @@ GoogleSignin.configure({
 });
 
 function App() {
-  const { isLoading, user, error } = db.useAuth();
+  return (
+    <>
+      <db.SignedIn loading={<Text>Loading...</Text>}>
+        <UserInfo />
+      </db.SignedIn>
+      <db.SignedOut>
+        <Login />
+      </db.SignedOut>
+    </>
+  );
+}
 
-  let content;
-  if (isLoading) {
-    content = <Text>Loading...</Text>;
-  } else if (error) {
-    content = <Text>Uh oh! {error.message}</Text>;
-  } else if (user) {
-    content = <Text>Hello {user.email}!</Text>;
-  } else {
-    content = <Login />;
-  }
-
-  return <View style={styles.container}>{content}</View>;
+function UserInfo() {
+  const user = db.useUser();
+  return <Text>Hello {user.email}!</Text>;
 }
 
 function Login() {

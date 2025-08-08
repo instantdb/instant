@@ -1,5 +1,5 @@
 import type { InstantConfig, InstantSchemaDef } from '@instantdb/core';
-import InstantReactAbstractDatabase from './InstantReactAbstractDatabase.ts';
+import InstantReactAbstractDatabase from './InstantReactAbstractDatabase.tsx';
 
 export default class InstantReactWebDatabase<
   Schema extends InstantSchemaDef<any, any, any>,

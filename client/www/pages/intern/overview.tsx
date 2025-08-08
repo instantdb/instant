@@ -229,23 +229,28 @@ export function Main() {
   const subInfo = daily.data?.['subscription-info'];
   return (
     <div className="flex flex-col font-mono h-full overflow-auto">
-      <div className="p-4 space-x-4 flex items-center border-b">
+      <div className="p-2 space-x-4 flex items-center border-b">
         <LogoIcon size="normal" />
-        <h3 className="text-xl">
-          <span className="font-bold">instant</span> metrics
+        <h3 className="text-lg space-x-4">
+          <span>
+            <span className="font-bold">instant</span> metrics
+          </span>
+          <span>/</span>
+          <span>{format(dateAnalyzed, 'MMMM d, yyyy')}</span>
+          <span>/</span>
+          <span>{format(minute.sentAt, 'hh:mma')}</span>
         </h3>
       </div>
       <div className="flex min-h-0">
-        <div className="flex-1 p-4 space-y-2">
+        <div className="flex-1 p-2 space-y-2">
           <div>
-            <h3 className="text-lg">{format(dateAnalyzed, 'MMMM d, yyyy')}</h3>
             <div className="inline-flex items-baseline space-x-4">
               <h1 className="leading-none" style={{ fontSize: 120 }}>
                 {latestRolling['distinct_apps']}
               </h1>
               <div className="font-bold leading-none">Monthly Active Apps</div>
             </div>
-            <div className="grid grid-cols-2 gap-4 mt-4">
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <img src={charts['rolling-monthly-active-apps']} />
               </div>
@@ -282,7 +287,6 @@ export function Main() {
           </div>
         </div>
         <div className="flex-1 p-4 space-y-2 flex flex-col min-h-0 w-1/2">
-          <h3 className="text-lg">{format(minute.sentAt, 'hh:mma')}</h3>
           <div className="flex justify-between items-baseline">
             <div className="inline-flex items-baseline space-x-4">
               <h1 className="leading-none" style={{ fontSize: 120 }}>
