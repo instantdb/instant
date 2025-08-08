@@ -34,7 +34,9 @@ Sections:
 ═══════════════════════════════════════════════════════════════════════════════
 -->
 
-## <!-- SECTION: CURSOR_FRONTMATTER -->
+<!-- SECTION: CURSOR_FRONTMATTER -->
+
+---
 
 description:
 globs:
@@ -42,7 +44,9 @@ alwaysApply: true
 
 ---
 
-## <!-- SECTION: WINDSURF_FRONTMATTER -->
+<!-- SECTION: WINDSURF_FRONTMATTER -->
+
+---
 
 trigger: always_on
 description: How to use InstantDB
