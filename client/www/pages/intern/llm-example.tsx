@@ -1,13 +1,15 @@
 'use client';
 
 import App from '@/lib/intern/llm-example/app/page';
+import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { useAdmin } from '@/lib/auth';
 
 function Page() {
   const { isAdmin, isLoading, error } = useAdmin();
+  const isHydrated = useIsHydrated();
 
-  if (isLoading) {
-    return null;
+  if (!isHydrated || isLoading) {
+    return <div></div>;
   }
 
   if (error || !isAdmin) {
