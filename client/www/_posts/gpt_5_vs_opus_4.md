@@ -25,6 +25,12 @@ Create a chiptunes app.
 
 I recorded myself going through the process in this <a href="https://youtu.be/yzjC0wcMvxI" target="_blank">video</a>. In this post I’ll share the results and some of the surprises I discovered when prompting!
 
+# What a change in 4 months…
+
+We actually ran the same test in April. We compared o4-mini with Claude 3 Sonnet. o4-mini made a barebones version (see <a href="https://codex-chiptunes.vercel.app/" target="_blank">here</a>). Sonnet made a good UI but couldn’t actually write the backend logic.
+
+Now both apps look pretty cool, both apps have auth, permissions, and a much slicker way to compose songs.
+
 # GPT5’s work
 
 Here’s the result that GPT-5 came up with: https://gpt5-chiptunes.vercel.app/
@@ -79,15 +85,9 @@ It was interesting to see how GPT-5 made an error with "db.SignedIn". Instructio
 
 **Opus seemed to follow the rule file more closely, while GPT-5 seems to explore more**. Opus used the exact same patterns that provided in the rules file. This let them skip past the "db.SignedIn" bug. On the other hand, GPT-5 seemed to be more free with what it tried. It did get more bugs, but it wrote code that was objectively more "different" then the examples that we provided. In one case, it wrote a simpler schema file.
 
-# What a change in 4 months…
+# Gaps are closing
 
-We actually ran the same test in April.
-
-We compared o4-mini with Claude 3 Sonnet. o4-mini made a barebones version (see <a href="https://codex-chiptunes.vercel.app/" target="_blank">here</a>). Sonnet made a good UI but couldn’t actually write the backend logic.
-
-Now both apps look pretty cool, both apps have auth, permissions, and a much slicker way to compose songs. You can take a look at the source files the new models generated. This is <a href="https://github.com/stopachka/gpt-5-chiptunes" target="_blank">GPT-5 source</a>, and this is the <a href="https://github.com/stopachka/opus-chiptunes" target="_blank">Opus source</a>.
-
-In the last few months it feels like Claude and Claude Code have been the dominant choice for vibe coding apps. With the new GPT5 model it feels like the gap is closing.
+This is <a href="https://github.com/stopachka/gpt-5-chiptunes" target="_blank">GPT-5 source</a>, and this is the <a href="https://github.com/stopachka/opus-chiptunes" target="_blank">Opus source</a>. In the last few months it feels like Claude and Claude Code have been the dominant choice for vibe coding apps. With the new GPT5 model it feels like the gap is closing.
 
 Really interesting times ahead!
 
