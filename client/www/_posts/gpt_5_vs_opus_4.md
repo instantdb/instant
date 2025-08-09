@@ -5,11 +5,12 @@ authors: stopachka
 ---
 
 > We're InstantDB, we make it easy to add a backend with auth, file storage, and
-> real-time updates to your web and mobile apps. Instant is a great choice for
-> building delightful apps quickly. <a href="/tutorial" target="_blank">Try it out; you can get a live app deployed in minutes.</a> You'll see how we use Instant to compare full-stack vibe coded apps built with GPT-5 and Opus below.
+> real-time updates to your web and mobile apps. <a href="/tutorial" target="_blank">Try us out and get a live app deployed in minutes.</a>
 
 I've been seeing posts comparing GPT-5 and Sonnet, but thought comparing GPT-5
-and Opus 4.1 would be more interesting! So how do GPT-5 and Opus 4.1 perform with building apps? To find out I asked them both to build a full stack app for making chiptunes in Instant. Here’s the prompt I used:
+and Opus 4.1 would be more interesting!
+
+So how do GPT-5 and Opus 4.1 perform with building apps? To find out I asked them both to build a full stack app for making chiptunes in Instant. Here’s the prompt I used:
 
 ```
 Create a chiptunes app.
