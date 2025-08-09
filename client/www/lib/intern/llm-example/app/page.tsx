@@ -26,7 +26,7 @@ function randomHandle() {
 // Write Data
 // ---------
 async function createProfile(userId: string) {
-  // IMPORTANT: transact is how you write data to the database
+  // CRITICAL: transact is how you write data to the database
   // We want to block until the profile is created, so we use await
   await db.transact(
     db.tx.profiles[userId]
@@ -39,7 +39,7 @@ async function createProfile(userId: string) {
 
 function addPost(text: string, authorId: string | undefined) {
   db.transact(
-    // IMPORTANT: ids must be a valid UUID, so we use `id()` to generate one
+    // CRITICAL: ids must be a valid UUID, so we use `id()` to generate one
     db.tx.posts[id()]
       .update({
         text,
@@ -108,6 +108,7 @@ function addShout({
 // Instant query Hooks
 // ---------
 function useProfile() {
+  // CRITICAL: useUser can only be used inside a db.SignedIn component
   const user = db.useUser();
   const { data, isLoading, error } = db.useQuery({
     profiles: {
@@ -259,7 +260,6 @@ function CodeStep({ sentEmail }: { sentEmail: string }) {
 }
 
 function EnsureProfile({ children }: { children: React.ReactNode }) {
-  // IMPORTANT: useUser can only be used inside a db.SignedIn component
   const user = db.useUser();
 
   const { isLoading, profile, error } = useProfile();
@@ -526,6 +526,7 @@ function PostList({ posts }: { posts: PostsWithProfile[] }) {
   );
 }
 
+// CRITICAL: Use db.SignedIn and db.SignedOut to handle authentication state
 function App() {
   return (
     <div>
