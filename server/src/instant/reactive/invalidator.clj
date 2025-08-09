@@ -266,6 +266,8 @@
     (.toInstant (Timestamp/valueOf created-at))))
 
 (defn transform-wal-record [{:keys [changes tx-bytes] :as _record}]
+  ;; n.b. Add the table to the `add-tables` setting in create-replication-stream
+  ;;      or else we will never be notified about it.
   (let [{:strs [idents triples attrs transactions rules apps instant_users]}
         (group-by :table changes)
 
@@ -487,6 +489,7 @@
          (create-wal-chans)
 
          wal-opts (wal/make-wal-opts {:wal-chan wal-chan
+                                      :worker-chan worker-chan
                                       :close-signal-chan close-signal-chan
                                       :ex-handler wal-ex-handler
                                       :get-conn-config (fn []
@@ -496,7 +499,8 @@
                                                              ;; invalidator when failing over to a
                                                              ;; new blue/green deployment
                                                              (config/get-aurora-config)))
-                                      :slot-name process-id})]
+                                      :slot-suffix process-id
+                                      :slot-type :invalidator})]
      (ua/fut-bg
       (wal/start-worker wal-opts))
 
@@ -522,7 +526,8 @@
         (Thread/sleep 100)
         (recur))))
   (a/close! (:to wal-opts))
-  (a/close! (:close-signal-chan wal-opts)))
+  (a/close! (:close-signal-chan wal-opts))
+  (a/close! (:worker-chan wal-opts)))
 
 (defn stop-global []
   (when (bound? #'wal-opts)
