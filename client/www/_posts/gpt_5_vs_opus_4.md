@@ -4,16 +4,24 @@ date: '2025-08-08'
 authors: stopachka
 ---
 
-How do GPT-5 and Opus 4.1 perform with building apps? To find out I asked them both to build a full stack app for making chiptunes in Instant. Here’s the prompt I used:
+> We're InstantDB, we make it easy to add a backend with auth, file storage, and
+> real-time updates to your web and mobile apps. <a href="/tutorial" target="_blank">Try us out and get a live app deployed in minutes.</a>
 
-> Create a chiptunes app.
->
-> - Log in with magic codes
-> - Users should be able to compose songs
-> - Users should be able to share songs
-> - Users can only edit their own songs
-> - Make the theme really cool
-> - Let’s keep everything under 1000 lines of code.
+I've been seeing posts comparing GPT-5 and Sonnet, but thought comparing GPT-5
+and Opus 4.1 would be more interesting!
+
+So how do GPT-5 and Opus 4.1 perform with building apps? To find out I asked them both to build a full stack app for making chiptunes in Instant. Here’s the prompt I used:
+
+```
+Create a chiptunes app.
+
+- Log in with magic codes
+- Users should be able to compose songs
+- Users should be able to share songs
+- Users can only edit their own songs
+- Make the theme really cool
+- Let’s keep everything under 1000 lines of code.
+```
 
 I recorded myself going through the process in this <a href="https://youtu.be/yzjC0wcMvxI" target="_blank">video</a>. In this post I’ll share the results and some of the surprises I discovered when prompting!
 
@@ -82,12 +90,6 @@ Now both apps look pretty cool, both apps have auth, permissions, and a much sli
 In the last few months it feels like Claude and Claude Code have been the dominant choice for vibe coding apps. With the new GPT5 model it feels like the gap is closing.
 
 Really interesting times ahead!
-
-# A plug for Instant
-
-I am biased, but it’s really cool to see how Instant can sing with LLMs. It comes with lots of abstractions, so LLMs can write less code that’s easier to review.
-
-If you actually want to look at the code your LLMs write, I think Instant is one of the best infrastructure bets you can make. Give us a try
 
 ---
 
