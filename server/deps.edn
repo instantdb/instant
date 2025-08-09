@@ -28,7 +28,7 @@
         software.amazon.awssdk.crt/aws-crt {:mvn/version "0.33.11"}
 
         juji/editscript {:mvn/version "0.6.4"}
-        io.github.tonsky/clojure-plus {:mvn/version "1.6.1"}
+        io.github.tonsky/clojure-plus {:mvn/version "1.6.3"}
 
         org.bouncycastle/bcprov-jdk15on {:mvn/version "1.70"}
 
