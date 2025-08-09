@@ -67,9 +67,9 @@ Both models made a few errors before the projects built. Here’s how that looke
 | **Places the models had an error** |           |          |
 | ---------------------------------- | --------- | -------- |
 |                                    | **GPT-5** | **Opus** |
-| db.SignedIn?                       | 🐛        | ✅       |
-| Query Issues?                      | ✅        | 🐛       |
-| Next Query Params?                 | 🐛        | 🐛       |
+| db.SignedIn?                       | ❌        | ✅       |
+| Query Issues?                      | ✅        | ❌       |
+| Next Query Params?                 | ❌        | ❌       |
 
 Both models made about 2 errors. **All errors were all related to new features.** Next.js has a new flow for query params, and Instant just added a "db.SignedIn" component.
 
