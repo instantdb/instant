@@ -432,6 +432,7 @@ async function startSse() {
     adminToken: ensureEnv('INSTANT_ADMIN_TOKEN'),
     appId: ensureEnv('INSTANT_APP_ID'),
     schema,
+    disableValidation: true,
   });
 
   const oauthConfig: OAuthConfig = {
