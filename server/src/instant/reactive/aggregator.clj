@@ -46,12 +46,15 @@
         base-sketch (cms/make-sketch)
 
         collect-changes (fn [batch]
-                          (reduce (fn [acc row]
-                                    (let [key (select-keys row [:app-id :attr-id])
-                                          record (select-keys row [:value :checked-data-type])]
-                                      (update-in acc [key record] (fnil inc 0))))
-                                  {}
-                                  batch))
+                          (persistent!
+                            (reduce (fn [acc row]
+                                      (let [key (select-keys row [:app-id :attr-id])
+                                            record (select-keys row [:value :checked-data-type])]
+                                        (assoc! acc key (assoc (get acc key)
+                                                               record
+                                                               (inc (get-in acc [key record] 0))))))
+                                    (transient {})
+                                    batch)))
         {sketches-by-key :sketches}
         (transduce
           ;; Take 1M triples at a time
@@ -64,10 +67,13 @@
 
                                 sketches
                                 ;; Update each sketch in a single batch-add
-                                (reduce-kv (fn [sketches k batch]
-                                             (update sketches k (fnil cms/add-batch base-sketch) batch))
-                                           sketches
-                                           changes)
+                                (persistent!
+                                  (reduce-kv (fn [sketches k batch]
+                                               (assoc! sketches k (cms/add-batch (or (get sketches k)
+                                                                                     base-sketch)
+                                                                                 batch)))
+                                             (transient sketches)
+                                             changes))
                                 res {:sketches sketches
                                      :triple-count triple-total}]
                             (tracer/add-data! {:attributes {:sketch-count (count sketches)
