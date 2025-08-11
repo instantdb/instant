@@ -5,7 +5,9 @@
             [instant.util.json :refer [->json]]
             [honey.sql :as hsql]
             [clojure.test :refer [is deftest testing]])
-  (:import [java.util Date]))
+  (:import
+   (java.time Instant)
+   (java.util Date)))
 
 (defn extract-pg-date [s]
   (let [query {:select [[[:triples_extract_date_value [:cast (->json s) :jsonb]]
@@ -33,9 +35,6 @@
              "epoch"
              "infinity"
              "-infinity"
-             "today"
-             "tomorrow"
-             "yesterday"
              "Mon Feb 24 2025 22:37:27 GMT+0000"
              "\t2025-03-02T16:08:53Z"
              "2024-05-29 01:51:06.11848+00"
@@ -56,8 +55,21 @@
                (triple/parse-date-value s))
             (format "parse-date-value for `%s` should return `%s`" s pg-date))))))
 
-(deftest now-works
-  (is (not (nil? (triple/parse-date-value "now")))))
+(deftest special-strings-work
+  (let [base-time (Instant/parse "2025-08-11T18:42:30.157666Z")]
+    (testing "now"
+      (is (= base-time (triple/parse-date-value "now" base-time))))
+    (testing "today"
+      (is (= (Instant/parse "2025-08-11T00:00:00Z")
+             (triple/parse-date-value "today" base-time))))
+    (testing "tomorrow"
+      (is (= (Instant/parse "2025-08-12T00:00:00Z")
+             (triple/parse-date-value "tomorrow" base-time))))
+    (testing "yesterday"
+      (is (= (Instant/parse "2025-08-10T00:00:00Z")
+             (triple/parse-date-value "yesterday" base-time)))))
+  (testing "doesn't require a base time"
+    (is (not (nil? (triple/parse-date-value "now"))))))
 
 (deftest parse-date-value-throws-for-invalid-dates
   (doseq [s ["2025-01-0"

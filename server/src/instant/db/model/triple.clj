@@ -15,9 +15,9 @@
    [instant.util.string :refer [multiline->single-line]]
    [instant.util.tracer :as tracer])
   (:import
-   (java.time Instant LocalDate LocalDateTime ZoneOffset ZonedDateTime)
+   (java.time Duration Instant LocalDate LocalDateTime ZoneOffset ZonedDateTime)
    (java.time.format DateTimeFormatter DateTimeFormatterBuilder SignStyle)
-   (java.time.temporal ChronoField)
+   (java.time.temporal ChronoField ChronoUnit)
    (java.util UUID)))
 
 ;; (XXX): Currently we allow value to be nil
@@ -988,24 +988,21 @@
 (defn special-str->instant
   "Parses the special values
    https://www.postgresql.org/docs/17/datatype-datetime.html#DATATYPE-DATETIME-SPECIAL-VALUES"
-  [s]
-  (case s
-    "epoch" (Instant/ofEpochMilli 0)
-    ;; https://github.com/pgjdbc/pgjdbc/blob/82d480fdb247bd5da7dcea23bd261dc32b6e8217/pgjdbc/src/main/java/org/postgresql/PGStatement.java#L21
-    "infinity" (Instant/ofEpochMilli 9223372036825200000)
-    "-infinity" (Instant/ofEpochMilli -9223372036832400000)
-    "now" (Instant/now)
-    "today" (.. (LocalDate/now ZoneOffset/UTC)
-                (atStartOfDay)
-                (toInstant ZoneOffset/UTC))
-    "tomorrow" (.. (LocalDate/now ZoneOffset/UTC)
-                   (plusDays 1)
-                   (atStartOfDay)
-                   (toInstant ZoneOffset/UTC))
-    "yesterday" (.. (LocalDate/now ZoneOffset/UTC)
-                    (plusDays -1)
-                    (atStartOfDay)
-                    (toInstant ZoneOffset/UTC))))
+  [s db-timestamp]
+  (let [^Instant now (or db-timestamp (Instant/now))]
+    (case s
+      "epoch" (Instant/ofEpochMilli 0)
+      ;; https://github.com/pgjdbc/pgjdbc/blob/82d480fdb247bd5da7dcea23bd261dc32b6e8217/pgjdbc/src/main/java/org/postgresql/PGStatement.java#L21
+      "infinity" (Instant/ofEpochMilli 9223372036825200000)
+      "-infinity" (Instant/ofEpochMilli -9223372036832400000)
+      "now" now
+      "today" (.truncatedTo now ChronoUnit/DAYS)
+      "tomorrow" (-> now
+                     (.plus (Duration/ofDays 1))
+                     (.truncatedTo ChronoUnit/DAYS))
+      "yesterday" (-> now
+                     (.plus (Duration/ofDays -1))
+                     (.truncatedTo ChronoUnit/DAYS)))))
 
 ;; Docs on DateTimeFormatterBuilder
 ;; https://docs.oracle.com/en/java/javase/24/docs/api/java.base/java/time/format/DateTimeFormatterBuilder.html
@@ -1086,8 +1083,7 @@
 ;; client/packages/core/src/utils/dates.ts
 (def date-parsers (concat [zoned-date-time-str->instant
                            local-date-time-str->instant
-                           local-date-str->instant
-                           special-str->instant]
+                           local-date-str->instant]
                           (mapv (fn [formatter]
                                   (with-meta
                                     (partial local-date-time-str->instant formatter)
@@ -1124,15 +1120,19 @@
                    nil))]
     (date-str->instant s)))
 
-(defn parse-date-value ^Instant [x]
-  (cond (string? x)
-        (or (date-str->instant x)
-            (json-str->instant x)
-            (date-str->instant (str/trim x))
-            (throw (Exception. (str "Unable to parse date string " x))))
+(defn parse-date-value ^Instant
+  ([x] (parse-date-value x nil))
+  ([x db-timestamp]
+   (cond (string? x)
+         (or (date-str->instant x)
+             (json-str->instant x)
+             (date-str->instant (str/trim x))
+             (try (special-str->instant x db-timestamp)
+                  (catch Exception _e nil))
+             (throw (Exception. (str "Unable to parse date string " x))))
 
-        (number? x)
-        (Instant/ofEpochMilli x)))
+         (number? x)
+         (Instant/ofEpochMilli x))))
 
 (comment
   (parse-date-value "Wed Jul 09 2025")
