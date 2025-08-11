@@ -474,13 +474,13 @@
                          (:id user))
             program (cel/rule->program "view" code)
             results (cel/eval-programs! (make-ctx)
-                                        {:first {:program {:cel-program program}
-                                                 :bindings {}}
-                                         :second {:program {:cel-program program}
-                                                  :bindings {}}})]
+                                        [{:program {:cel-program program}
+                                          :bindings {}}
+                                         {:program {:cel-program program}
+                                          :bindings {}}])]
 
-        (is (= true (-> results :first :result)))
-        (is (= true (-> results :second :result)))
+        (is (= true (-> results first :result)))
+        (is (= true (-> results second :result)))
         (is (= 1 (count @queries)))
         (is (= {{:eid (:id user), :etype "$users", :path-str "id"} [(str (:id user))]}
                preloaded-refs))
