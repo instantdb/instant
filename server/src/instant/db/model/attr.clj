@@ -924,9 +924,6 @@
 ;; ------
 ;; seek
 
-(defn map-by-id [^Attrs attrs]
-  @(.-by-id-cache attrs))
-
 (defn seek-by-id [id ^Attrs attrs]
   (get @(.-by-id-cache attrs) id))
 
