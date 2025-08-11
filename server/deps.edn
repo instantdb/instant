@@ -103,6 +103,7 @@
                             ;; force locale
                             "-Duser.language=en"
                             "-Duser.country=US"
+                            "-Duser.timezone=UTC"
                             "-Dfile.encoding=UTF-8"
 
                             ;; clj-async-profiler

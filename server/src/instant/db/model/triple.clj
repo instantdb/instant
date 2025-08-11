@@ -10,13 +10,15 @@
    [instant.util.crypt :refer [json-null-md5]]
    [instant.util.exception :as ex]
    [instant.util.json :refer [->json <-json]]
+   [instant.util.pgtime :as pgtime]
    [instant.util.spec :as uspec]
    [instant.util.string :refer [multiline->single-line]]
    [instant.util.tracer :as tracer])
   (:import
-   (java.util UUID)
-   (java.time Instant LocalDate LocalDateTime ZonedDateTime ZoneOffset)
-   (java.time.format DateTimeFormatter)))
+   (java.time Instant LocalDate LocalDateTime ZoneOffset ZonedDateTime)
+   (java.time.format DateTimeFormatter DateTimeFormatterBuilder SignStyle)
+   (java.time.temporal ChronoField)
+   (java.util UUID)))
 
 ;; (XXX): Currently we allow value to be nil
 ;; In the future, we may want to _retract_ the triple if the value is nil
@@ -959,65 +961,148 @@
       (tracer/add-data! {:attributes {:total-count @row-count}})
       {:row-count @row-count})))
 
-(defn zoned-date-time-str->instant [s]
-  (.toInstant (ZonedDateTime/parse s)))
+(defn zoned-date-time-str->instant
+  ([s] (.toInstant (ZonedDateTime/parse s)))
+  ([formatter s] (.toInstant (ZonedDateTime/parse s formatter))))
 
-(defn local-date-time-str->instant [s]
-  (-> (LocalDateTime/parse s)
-      (.atZone ZoneOffset/UTC)
-      (.toInstant)))
+(defn local-date-time-str->instant
+  ([s]
+   (-> (LocalDateTime/parse s)
+       (.atZone ZoneOffset/UTC)
+       (.toInstant)))
+  ([formatter s]
+   (-> (LocalDateTime/parse s formatter)
+       (.atZone ZoneOffset/UTC)
+       (.toInstant))))
 
-(defn local-date-str->instant [s]
-  (-> (LocalDate/parse s)
-      (.atStartOfDay)
-      (.toInstant ZoneOffset/UTC)))
+(defn local-date-str->instant
+  ([s]
+   (-> (LocalDate/parse s)
+       (.atStartOfDay)
+       (.toInstant ZoneOffset/UTC)))
+  ([formatter s]
+   (-> (LocalDate/parse s formatter)
+       (.atStartOfDay)
+       (.toInstant ZoneOffset/UTC))))
 
-(def offio-date-formatter (DateTimeFormatter/ofPattern "yyyy-MM-dd HH:mm:ss"))
+(defn special-str->instant
+  "Parses the special values
+   https://www.postgresql.org/docs/17/datatype-datetime.html#DATATYPE-DATETIME-SPECIAL-VALUES"
+  [s]
+  (case s
+    "epoch" (Instant/ofEpochMilli 0)
+    ;; https://github.com/pgjdbc/pgjdbc/blob/82d480fdb247bd5da7dcea23bd261dc32b6e8217/pgjdbc/src/main/java/org/postgresql/PGStatement.java#L21
+    "infinity" (Instant/ofEpochMilli 9223372036825200000)
+    "-infinity" (Instant/ofEpochMilli -9223372036832400000)
+    "now" (Instant/now)
+    "today" (.. (LocalDate/now ZoneOffset/UTC)
+                (atStartOfDay)
+                (toInstant ZoneOffset/UTC))
+    "tomorrow" (.. (LocalDate/now ZoneOffset/UTC)
+                   (plusDays 1)
+                   (atStartOfDay)
+                   (toInstant ZoneOffset/UTC))
+    "yesterday" (.. (LocalDate/now ZoneOffset/UTC)
+                    (plusDays -1)
+                    (atStartOfDay)
+                    (toInstant ZoneOffset/UTC))))
 
-(defn offio-date-str->instant [s]
-  (-> s
-      (LocalDateTime/parse offio-date-formatter)
-      (.toInstant ZoneOffset/UTC)))
+;; Docs on DateTimeFormatterBuilder
+;; https://docs.oracle.com/en/java/javase/24/docs/api/java.base/java/time/format/DateTimeFormatterBuilder.html
 
-(def zeneca-date-formatter (DateTimeFormatter/ofPattern "yyyy-MM-dd HH:mm:ss.n"))
+(defn append-year ^DateTimeFormatterBuilder [^DateTimeFormatterBuilder builder]
+  (.appendValue builder ChronoField/YEAR 1 19 SignStyle/NORMAL))
 
-(defn zeneca-date-str->instant [s]
-  (-> s
-      (LocalDateTime/parse zeneca-date-formatter)
-      (.toInstant ZoneOffset/UTC)))
+(def optional-nano-or-milli
+  (let [builder (DateTimeFormatterBuilder.)]
+    (.appendOptional builder
+                     (.. (DateTimeFormatterBuilder.)
+                         (appendFraction ChronoField/NANO_OF_SECOND 0 9 true)
+                         (toFormatter)))
+    (.appendOptional builder
+                     (.. (DateTimeFormatterBuilder.)
+                         (appendFraction ChronoField/MILLI_OF_SECOND 0 3 true)
+                         (toFormatter)))
 
-(defn rfc-1123->instant [s]
-  (-> s
-      (ZonedDateTime/parse DateTimeFormatter/RFC_1123_DATE_TIME)
-      (.toInstant)))
+    (.toFormatter builder)))
 
-(def dow-mon-day-year-formatter
-  (DateTimeFormatter/ofPattern "EEE MMM dd yyyy"))
+;; Formatters without time zone
+(def local-date-time-formatters
+  [(-> (DateTimeFormatterBuilder.)
+       (append-year)
+       (.appendPattern "-MM-dd HH:mm:ss")
+       (.append optional-nano-or-milli)
+       (.toFormatter))
+   DateTimeFormatter/RFC_1123_DATE_TIME
+   (DateTimeFormatter/ofPattern "M/d/yyyy, h:mm:ss a")
+   (DateTimeFormatter/ofPattern "yyyy-MM-dd HH:mm")])
 
-(defn dow-mon-day-year-str->instant [s]
-  (-> s
-      (LocalDate/parse dow-mon-day-year-formatter)
-      (.atStartOfDay)
-      (.toInstant ZoneOffset/UTC)))
+;; Formatters with time zone
+(def zoned-date-time-formatters
+  [(-> (DateTimeFormatterBuilder.)
+       (.appendPattern "EEE MMM dd ")
+       (.appendValue ChronoField/YEAR 1 19 SignStyle/NORMAL)
+       (.appendPattern " HH:mm:ss zZ")
+       (.toFormatter))
+   ;; 2025-03-01T16:08:53+0000
+   (-> (DateTimeFormatterBuilder.)
+       (.appendValue ChronoField/YEAR 1 19 SignStyle/NORMAL)
+       (.appendPattern "-MM-dd'T'HH:mm:ss")
+       (.append optional-nano-or-milli)
+       (.appendPattern "[Z][X]")
+       (.toFormatter))
+   (-> (DateTimeFormatterBuilder.)
+       (.appendValue ChronoField/YEAR 1 19 SignStyle/NORMAL)
+       (.appendPattern "-MM-d'T'HH:mm:ss.SSSX")
+       (.toFormatter))
+   (-> (DateTimeFormatterBuilder.)
+       (.appendValue ChronoField/YEAR 1 19 SignStyle/NORMAL)
+       (.appendPattern "-MM-dd HH:mm:ss")
+       (.append optional-nano-or-milli)
+       (.appendOffset "+HHmm" "Z")
+       (.toFormatter))
+   (-> (DateTimeFormatterBuilder.)
+       (.appendValue ChronoField/YEAR 1 19 SignStyle/NORMAL)
+       (.appendPattern "-MM-dd'T'HH:mm:ss")
+       (.append pgtime/tz-abbrev-formatter)
+       (.toFormatter))])
 
-(def us-datetime-formatter
-  (DateTimeFormatter/ofPattern "M/d/yyyy, h:mm:ss a"))
-
-(defn us-datetime-str->instant [s]
-  (-> s
-      (LocalDateTime/parse us-datetime-formatter)
-      (.toInstant ZoneOffset/UTC)))
+;; Formatters with just the date
+(def date-formatters
+  [(.. (DateTimeFormatterBuilder.)
+       (appendPattern "EEE MMM dd ")
+       (appendValue ChronoField/YEAR 1 19 SignStyle/NORMAL)
+       (toFormatter))
+   (.. (DateTimeFormatterBuilder.)
+       (appendPattern "MM-dd-")
+       (appendValue ChronoField/YEAR 1 19 SignStyle/NORMAL)
+       (toFormatter))
+   (.. (DateTimeFormatterBuilder.)
+       (appendValue ChronoField/YEAR 1 19 SignStyle/NORMAL)
+       (appendPattern "-MM-dd")
+       (toFormatter))])
 
 ;; If you update anything here, be sure to also update the client:
 ;; client/packages/core/src/utils/dates.ts
-(def date-parsers [zoned-date-time-str->instant
-                   local-date-time-str->instant
-                   local-date-str->instant
-                   rfc-1123->instant
-                   offio-date-str->instant
-                   zeneca-date-str->instant
-                   dow-mon-day-year-str->instant
-                   us-datetime-str->instant])
+(def date-parsers (concat [zoned-date-time-str->instant
+                           local-date-time-str->instant
+                           local-date-str->instant
+                           special-str->instant]
+                          (mapv (fn [formatter]
+                                  (with-meta
+                                    (partial local-date-time-str->instant formatter)
+                                    {:formatter formatter}))
+                                local-date-time-formatters)
+                          (mapv (fn [formatter]
+                                  (with-meta
+                                    (partial zoned-date-time-str->instant formatter)
+                                    {:formatter formatter}))
+                                zoned-date-time-formatters)
+                          (mapv (fn [formatter]
+                                  (with-meta
+                                    (partial local-date-str->instant formatter)
+                                    {:formatter formatter}))
+                                date-formatters)))
 
 (defn try-parse-date-string [parser s]
   (try
@@ -1043,6 +1128,7 @@
   (cond (string? x)
         (or (date-str->instant x)
             (json-str->instant x)
+            (date-str->instant (str/trim x))
             (throw (Exception. (str "Unable to parse date string " x))))
 
         (number? x)

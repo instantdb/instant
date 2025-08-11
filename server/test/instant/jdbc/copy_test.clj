@@ -62,11 +62,11 @@
                                            :pgtype "bigint"}
                                           {:name :checked_data_type
                                            :pgtype "checked_data_type"}])
-              copy-rows (time (persistent!
-                                (reduce (fn [rows row]
-                                          (conj! rows row))
-                                        (transient [])
-                                        reducer)))
+              copy-rows (persistent!
+                         (reduce (fn [rows row]
+                                   (conj! rows row))
+                                 (transient [])
+                                 reducer))
               select-rows (mapv (fn [row]
                                   (update row :checked_data_type keyword))
                                 (sql/select (aurora/conn-pool :read)
