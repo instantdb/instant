@@ -1,6 +1,16 @@
-import { TransactionChunk, Op } from './instatx.ts';
+import { TransactionChunk, Op, isLookup } from './instatx.ts';
 import { IContainEntitiesAndLinks, DataAttrDef } from './schemaTypes.ts';
 import { validate as validateUUID } from 'uuid';
+
+export const validateUUIDOrLink = (value: unknown): boolean => {
+  if (typeof value !== 'string') {
+    return false;
+  }
+  if (isLookup(value)) {
+    return true;
+  }
+  return validateUUID(value);
+};
 
 export class TransactionValidationError extends Error {
   constructor(message: string) {
@@ -104,7 +114,7 @@ const validateLinkOperation = (
       if (Array.isArray(linkValue)) {
         // Handle array of UUIDs
         for (const uuid of linkValue) {
-          if (!validateUUID(uuid)) {
+          if (!validateUUIDOrLink(uuid)) {
             throw new TransactionValidationError(
               `Invalid UUID in link '${linkName}' for entity '${entityName}'. Expected a UUID, but received: ${uuid}`,
             );
@@ -112,7 +122,7 @@ const validateLinkOperation = (
         }
       } else {
         // Handle single UUID
-        if (!validateUUID(linkValue)) {
+        if (typeof linkValue === 'string' && !validateUUIDOrLink(linkValue)) {
           throw new TransactionValidationError(
             `Invalid UUID in link '${linkName}' for entity '${entityName}'. Expected a UUID, but received: ${linkValue}`,
           );
@@ -141,7 +151,7 @@ const validateOp = (
 
   // _id should be a uuid
   if (!Array.isArray(_id)) {
-    const isUuid = validateUUID(_id);
+    const isUuid = validateUUIDOrLink(_id);
     if (!isUuid) {
       throw new TransactionValidationError(
         `Invalid id for entity '${entityName}'. Expected a UUID, but received: ${_id}`,
