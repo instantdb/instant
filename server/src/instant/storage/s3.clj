@@ -117,7 +117,7 @@
                       :attributes {:requires-tika? (requires-tika? ctx)
                                    :app-id app-id
                                    :input-content-type (:content-type ctx)
-                                   :flag-enabled (or (flags/toggled?  :tika-enabled?)
+                                   :flag-enabled (or (flags/toggled? :tika-enabled?)
                                                      (contains? (flags/flag :tika-enabled-apps) app-id))}}
 
     (when (not (instance? InputStream file_))
