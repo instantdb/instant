@@ -3,65 +3,42 @@ import { coerceToDate } from '../../../src/utils/dates.ts';
 
 describe('coerceToDate', () => {
   describe('parse-date-value-works-for-valid-dates', () => {
-    const validDateStrings = [
-      'Sat, 05 Apr 2025 18:00:31 GMT',
-      '2025-01-01T00:00:00Z',
-      '2025-01-01',
-      '2025-01-02T00:00:00-08',
-      '"2025-01-02T00:00:00-08"',
-      '2025-01-15 20:53:08',
-      '"2025-01-15 20:53:08"',
-      'Wed Jul 09 2025',
-      '8/4/2025, 11:02:31 PM',
-    ];
+    // Map of string -> expected result
+    const validDateStrings = {
+      'Sat, 05 Apr 2025 18:00:31 GMT': '2025-04-05T18:00:31.000Z',
+      '2025-01-01T00:00:00Z': '2025-01-01T00:00:00.000Z',
+      '2025-01-01': '2025-01-01T00:00:00.000Z',
+      '2025-01-02T00:00:00-08': '2025-01-02T08:00:00.000Z',
+      '"2025-01-02T00:00:00-08"': '2025-01-02T08:00:00.000Z',
+      '2025-01-15 20:53:08.200': '2025-01-15T20:53:08.200Z',
+      '2025-01-15 20:53:08.892865': '2025-01-15T20:53:08.892Z',
+      '"2025-01-15 20:53:08"': '2025-01-15T20:53:08.000Z',
+      'Wed Jul 09 2025': '2025-07-09T00:00:00.000Z',
+      '8/4/2025, 11:02:31 PM': '2025-08-04T23:02:31.000Z',
+      '2024-12-30 20:19:41.892865+00': '2024-12-30T20:19:41.892Z',
+      epoch: '1970-01-01T00:00:00.000Z',
+      'Mon Feb 24 2025 22:37:27 GMT+0000': '2025-02-24T22:37:27.000Z',
+      '\t2025-03-02T16:08:53Z': '2025-03-02T16:08:53.000Z',
+      '2024-05-29 01:51:06.11848+00': '2024-05-29T01:51:06.118Z',
+      '2025-03-01T16:08:53+0000': '2025-03-01T16:08:53.000Z',
+      '2025-12-31 21:11': '2025-12-31T21:11:00.000Z',
+      '04-17-2025': '2025-04-17T00:00:00.000Z',
+      '2025-06-12T10:56:31.924+0530': '2025-06-12T05:26:31.924Z',
+      '72026-07-01': '+072026-07-01T00:00:00.000Z',
+      '2025-06-05T17:00:00EST': '2025-06-05T22:00:00.000Z',
+      '2025-06-05T17:00:00PDT': '2025-06-06T00:00:00.000Z',
+      '2025-06-05T17:00:00CETDST': '2025-06-05T15:00:00.000Z',
+      '2025-06-05T17:00:00CET': '2025-06-05T16:00:00.000Z',
+    };
 
-    validDateStrings.forEach((dateString) => {
-      it(`Date string \`${dateString}\` parses.`, () => {
+    for (const [dateString, expected] of Object.entries(validDateStrings)) {
+      it(`should parse ${dateString} to ${expected}`, () => {
         const result = coerceToDate(dateString);
-
-        // Verify the result is a valid Date
         expect(result).toBeInstanceOf(Date);
         expect(result.getTime()).not.toBeNaN();
-
-        // Additional specific validations for known cases
-        switch (dateString) {
-          case 'Sat, 05 Apr 2025 18:00:31 GMT':
-            expect(result.toISOString()).toBe('2025-04-05T18:00:31.000Z');
-            break;
-          case '2025-01-01T00:00:00Z':
-            expect(result.toISOString()).toBe('2025-01-01T00:00:00.000Z');
-            break;
-          case '2025-01-01':
-            expect(result.toISOString()).toBe('2025-01-01T00:00:00.000Z');
-            break;
-          case '2025-01-02T00:00:00-08':
-            expect(result.toISOString()).toBe('2025-01-02T08:00:00.000Z');
-            break;
-          case '"2025-01-02T00:00:00-08"':
-            expect(result.toISOString()).toBe('2025-01-02T08:00:00.000Z');
-            break;
-          case '2025-01-15 20:53:08':
-            expect(result.toISOString()).toBe('2025-01-15T20:53:08.000Z');
-            break;
-          case '"2025-01-15 20:53:08"':
-            expect(result.toISOString()).toBe('2025-01-15T20:53:08.000Z');
-            break;
-          case 'Wed Jul 09 2025':
-            expect(result.getUTCFullYear()).toBe(2025);
-            expect(result.getUTCMonth()).toBe(6); // July is month 6 (0-indexed)
-            expect(result.getUTCDate()).toBe(9);
-            expect(result.getUTCHours()).toBe(0);
-            expect(result.getUTCMinutes()).toBe(0);
-            expect(result.getUTCSeconds()).toBe(0);
-            break;
-          case '8/4/2025, 11:02:31 PM':
-            expect(result.toISOString()).toBe('2025-08-04T23:02:31.000Z');
-            break;
-          default:
-            throw new Error(`Unexpected date string: ${dateString}`);
-        }
+        expect(result.toISOString()).toBe(expected);
       });
-    });
+    }
   });
 
   describe('parse-date-value-throws-for-invalid-dates', () => {
