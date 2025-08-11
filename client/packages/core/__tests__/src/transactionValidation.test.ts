@@ -1,6 +1,6 @@
 import { i } from '../../src/schema';
 import { validateTransactions } from '../../src/transactionValidation.ts';
-import { tx as originalTx, TxChunk } from '../../src/instatx.ts';
+import { lookup, tx as originalTx, TxChunk } from '../../src/instatx.ts';
 import id from '../../src/utils/uuid.ts';
 import { expect, test } from 'vitest';
 import { InstantSchemaDef } from '../../src';
@@ -385,4 +385,11 @@ test('validates UUID format for entity IDs', () => {
   // Test for links
   beValid(tx.users[validUuid].link({ posts: id() }));
   beWrong(tx.users[validUuid].link({ posts: 'not-a-uuid' }));
+});
+
+test('allows lookup values in square bracket', () => {
+  beValid(
+    tx.users[lookup('email', 'john@example.net')].update({ name: 'John' }),
+  );
+  beValid(tx.users[lookup('email', 'john@example.net')].link({ posts: id() }));
 });
