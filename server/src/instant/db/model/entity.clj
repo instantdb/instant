@@ -1,10 +1,7 @@
 (ns instant.db.model.entity
-  (:require
-   [instant.db.model.attr :as attr-model])
-  (:import
-   [java.util Date]))
+  (:require [instant.db.model.attr :as attr-model])
+  (:import [java.util Date]))
 
-;; TODO remove after moving to new permissioned-transaction
 (defn get-triples-batch
   "Takes a list of eid+etype maps and returns a map of eid+etype to triples.
   (get-triples-batch ctx [{:eid 'eid-a' :etype \"users'}])
@@ -48,18 +45,16 @@
     triples))
 
 (defn triples->map [{:keys [attrs include-server-created-at?] :as _ctx} triples]
-  (->> triples
-       (reduce (fn [acc [_e a v t]]
-                 (let [label (attr-model/fwd-label (attr-model/seek-by-id a attrs))]
-                   (cond-> acc
-                     true (assoc! label v)
+  (reduce (fn [acc [_e a v t]]
+            (let [label (attr-model/fwd-label (attr-model/seek-by-id a attrs))]
+              (cond-> acc
+                true (assoc label v)
 
-                     (and (= label "id")
-                          include-server-created-at?)
-                     (assoc! "$serverCreatedAt" (Date. (long t))))))
-               (transient {}))
-       (persistent!)
-       (not-empty)))
+                (and (= label "id")
+                     include-server-created-at?)
+                (assoc "$serverCreatedAt" (Date. (long t))))))
+          {}
+          triples))
 
 (defn datalog-result->map [ctx datalog-result]
   (let [triples (->> datalog-result :join-rows (mapcat identity))]
