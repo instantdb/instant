@@ -3,7 +3,7 @@ import {
   DataAttrDef,
   ValueTypes,
 } from './schemaTypes.ts';
-import { validateUUIDOrLink } from './transactionValidation.ts';
+import { isValidEntityId } from './transactionValidation.ts';
 
 export class QueryValidationError extends Error {
   constructor(message: string, path?: string) {
@@ -225,7 +225,7 @@ const validateDotNotationAttribute = (
 
   // Handle 'id' field specially - every entity has an id field
   if (finalAttrName === 'id') {
-    if (!validateUUIDOrLink(value)) {
+    if (!isValidEntityId(value)) {
       throw new QueryValidationError(
         `Invalid value for id field in entity '${currentEntityName}'. Expected a UUID, but received: ${value}`,
         path,
@@ -244,7 +244,7 @@ const validateDotNotationAttribute = (
   const attrDef = finalEntity.attrs[finalAttrName];
 
   if (Object.keys(finalEntity.links).includes(finalAttrName)) {
-    if (!validateUUIDOrLink(value)) {
+    if (!isValidEntityId(value)) {
       throw new QueryValidationError(
         `Invalid value for link '${finalAttrName}' in entity '${currentEntityName}'. Expected a UUID, but received: ${value}`,
         path,
@@ -344,7 +344,7 @@ const validateWhereClause = (
     } else if (linkDef) {
       // For links, we expect the value to be a string (ID of the linked entity)
       // Create a synthetic string attribute definition for validation
-      if (!validateUUIDOrLink(value)) {
+      if (!isValidEntityId(value)) {
         throw new QueryValidationError(
           `Invalid value for link '${key}' in entity '${entityName}'. Expected a UUID, but received: ${value}`,
           `${path}.${key}`,
