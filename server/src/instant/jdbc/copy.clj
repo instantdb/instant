@@ -3,7 +3,8 @@
    [instant.util.json :as json])
   (:import
    (java.nio ByteBuffer)
-   (java.time Duration Instant LocalDate ZoneOffset)
+   (java.time Instant)
+   (java.time.temporal ChronoUnit)
    (java.util UUID)
    (org.postgresql.jdbc PgConnection)))
 
@@ -41,19 +42,15 @@
       (throw (ex-info "Invalid version byte for jsonb" {:version version}))))
   (bin-decode-json bb (dec byte-len) handle-json-parse-error))
 
-(def pg-diff (Duration/between Instant/EPOCH
-                               (.atStartOfDay (LocalDate/of 2000 1 1)
-                                              ZoneOffset/UTC)))
-
-(def pg-diff-seconds (.toSeconds ^Duration pg-diff))
+(def pg-epoch-instant (Instant/parse "2000-01-01T00:00:00Z"))
 
 (defn- bin-decode-timestamptz [^ByteBuffer bb ^Integer byte-len]
   (when (not= byte-len 8)
     (throw (ex-info "Invalid byte length for timestamptz" {:byte-len byte-len})))
-  (let [secs-and-micros (.getLong bb)
-        secs (+ (/ secs-and-micros 1000000) pg-diff-seconds)
-        nanos (* (mod secs-and-micros 1000000) 1000)]
-    (Instant/ofEpochSecond secs nanos)))
+  (let [micros-from-pg-epoch (.getLong bb)]
+    (.plus ^Instant pg-epoch-instant
+           micros-from-pg-epoch
+           ChronoUnit/MICROS)))
 
 (defn- bin-decode-boolean [^ByteBuffer bb ^Integer byte-len]
   (when (not= byte-len 1)

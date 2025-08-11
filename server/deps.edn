@@ -28,7 +28,7 @@
         software.amazon.awssdk.crt/aws-crt {:mvn/version "0.33.11"}
 
         juji/editscript {:mvn/version "0.6.4"}
-        io.github.tonsky/clojure-plus {:mvn/version "1.6.1"}
+        io.github.tonsky/clojure-plus {:mvn/version "1.6.3"}
 
         org.bouncycastle/bcprov-jdk15on {:mvn/version "1.70"}
 
@@ -104,6 +104,7 @@
                             ;; force locale
                             "-Duser.language=en"
                             "-Duser.country=US"
+                            "-Duser.timezone=UTC"
                             "-Dfile.encoding=UTF-8"
 
                             ;; clj-async-profiler
@@ -138,6 +139,7 @@
                   :jvm-opts ["-XX:+UseZGC"
                              "-enableassertions"
                              "-Djdk.tracePinnedThreads=full"
+                             "-Duser.timezone=UTC"
                              ;; print stack traces instead of "Full report at ..."
                              "-Dclojure.main.report=stderr"
                              ;; hazelcast

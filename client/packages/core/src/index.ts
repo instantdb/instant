@@ -14,6 +14,11 @@ import WindowNetworkListener from './WindowNetworkListener.js';
 import { i } from './schema.js';
 import { createDevtool } from './devtool.js';
 import version from './version.ts';
+import { validateQuery, QueryValidationError } from './queryValidation.ts';
+import {
+  validateTransactions,
+  TransactionValidationError,
+} from './transactionValidation.ts';
 
 import type {
   PresenceOpts,
@@ -100,6 +105,7 @@ import type {
 } from './authAPI.ts';
 
 import { InstantAPIError, type InstantIssue } from './utils/fetch.js';
+import { InstantError } from './InstantError.ts';
 
 const defaultOpenDevtool = true;
 
@@ -113,6 +119,7 @@ export type Config = {
   verbose?: boolean;
   queryCacheLimit?: number;
   useDateObjects?: boolean;
+  disableValidation?: boolean;
 };
 
 export type InstantConfig<
@@ -127,6 +134,7 @@ export type InstantConfig<
   verbose?: boolean;
   queryCacheLimit?: number;
   useDateObjects?: UseDates;
+  disableValidation?: boolean;
 };
 
 export type ConfigWithSchema<S extends InstantGraph<any, any>> = Config & {
@@ -816,6 +824,10 @@ export {
   tx,
   txInit,
   lookup,
+  validateQuery,
+  QueryValidationError,
+  validateTransactions,
+  TransactionValidationError,
 
   // error
   InstantAPIError,
@@ -833,6 +845,7 @@ export {
   Auth,
   Storage,
   version,
+  InstantError,
 
   // og types
   type IDatabase,

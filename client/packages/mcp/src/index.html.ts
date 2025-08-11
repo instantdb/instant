@@ -6,7 +6,7 @@ const html = (serverOrigin: string): string => {
     'utf-8',
   ).toString('base64');
 
-  const cursorUrl = `https://cursor.com/install-mcp?name=InstantDB${dev ? '%20Dev' : ''}&config=${cursorConfig}`;
+  const cursorUrl = `https://cursor.com/en/install-mcp?name=InstantDB${dev ? '%20Dev' : ''}&config=${cursorConfig}`;
   return /* HTML */ `<!doctype html>
     <html lang="en">
       <head>

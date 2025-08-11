@@ -1,3 +1,5 @@
+import { InstantError } from '../InstantError.ts';
+
 type InstantIssueBody =
   | { type: 'param-missing'; message: string; hint: { in: string[] } }
   | { type: 'param-malformed'; message: string; hint: { in: string[] } }
@@ -77,14 +79,14 @@ export type InstantIssue = {
   status: number;
 };
 
-export class InstantAPIError extends Error {
+export class InstantAPIError extends InstantError {
   body: InstantIssueBody;
   status: number;
 
   constructor(error: InstantIssue) {
     // Create a descriptive message based on the error
     const message = error.body?.message || `API Error (${error.status})`;
-    super(message);
+    super(message, (error.body as any).hint);
 
     const actualProto = new.target.prototype;
     if (Object.setPrototypeOf) {
