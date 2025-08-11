@@ -494,7 +494,7 @@ async function startSse() {
     });
   });
 
-  const requireTokenMiddleware = (path) =>
+  const requireTokenMiddleware = (path: string) =>
     requireBearerAuth({
       verifier: proxyProvider,
       resourceMetadataUrl: `${oauthConfig.serverOrigin}/.well-known/oauth-protected-resource/${path}`,
