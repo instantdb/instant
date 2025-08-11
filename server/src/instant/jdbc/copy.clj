@@ -44,7 +44,6 @@
   (when (not= byte-len 8)
     (throw (ex-info "Invalid byte length for timestamptz" {:byte-len byte-len})))
   (let [micros-from-pg-epoch (.getLong bb)]
-    (tool/def-locals)
     (.plus ^Instant pg-epoch-instant
            micros-from-pg-epoch
            ChronoUnit/MICROS)))
