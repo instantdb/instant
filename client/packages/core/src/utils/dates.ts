@@ -13,10 +13,12 @@ function localDateTimeStrToInstant(s) {
 const localDateStrRe = /^(\d+)[\./-](\d+)[\./-](\d+)$/;
 
 function localDateStrToInstant(s) {
-  const [match, part1, part2, part3] = s.match(localDateStrRe);
+  const match = s.match(localDateStrRe);
   if (!match) {
     return null;
   }
+
+  const [_, part1, part2, part3] = match;
 
   if (part1 <= 0 || part2 <= 0 || part3 <= 0) {
     return null;
