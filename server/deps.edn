@@ -135,6 +135,7 @@
                   :jvm-opts ["-XX:+UseZGC"
                              "-enableassertions"
                              "-Djdk.tracePinnedThreads=full"
+                             "-Duser.timezone=UTC"
                              ;; print stack traces instead of "Full report at ..."
                              "-Dclojure.main.report=stderr"
                              ;; hazelcast
