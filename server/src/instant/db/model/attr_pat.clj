@@ -279,6 +279,15 @@
                   (catch Exception _e
                     (throw-invalid-timestamp! state attr v)))
 
+                ;; We can parse these, but we need a way to agree with the
+                ;; client on what these values mean to support them in query
+                (contains? #{"tomorrow"
+                             "now"
+                             "yesterday"
+                             "today"}
+                           v)
+                (throw-invalid-date-string! state attr v)
+
                 (string? v)
                 (try
                   (triple-model/parse-date-value v)
