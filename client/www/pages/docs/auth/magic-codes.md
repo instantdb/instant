@@ -40,7 +40,7 @@ function App() {
 }
 
 function Main() {
-  const user = useUser();
+  const user = db.useUser();
   return (
     <div className="p-4 space-y-4">
       <h1 className="text-2xl font-bold">Hello {user.email}!</h1>
