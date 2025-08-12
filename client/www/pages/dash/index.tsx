@@ -72,7 +72,7 @@ import {
 import { AppAuth } from '@/components/dash/AppAuth';
 import Billing from '@/components/dash/Billing';
 import { QueryInspector } from '@/components/dash/explorer/QueryInspector';
-import { Sandbox } from '@/components/dash/Sandbox';
+import { Sandbox } from '@/components/dash/sandbox/Sandbox';
 import PersonalAccessTokensScreen from '@/components/dash/PersonalAccessTokensScreen';
 import { useForm } from '@/lib/hooks/useForm';
 import useLocalStorage from '@/lib/hooks/useLocalStorage';

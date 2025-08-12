@@ -5,7 +5,7 @@ import config from '@/lib/config';
 import { useSchemaQuery } from '@/lib/hooks/explorer';
 import { jsonFetch } from '@/lib/fetch';
 import { APIResponse, signOut, useAuthToken, useTokenFetch } from '@/lib/auth';
-import { Sandbox } from '@/components/dash/Sandbox';
+import { Sandbox } from '@/components/dash/sandbox/Sandbox';
 import { Explorer } from '@/components/dash/explorer/Explorer';
 import { init } from '@instantdb/react';
 import { useEffect, useState, useContext, useMemo } from 'react';
