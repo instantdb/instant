@@ -227,6 +227,7 @@ async function testAdminStorageBulkDelete(keyword: string) {
 // testCreateToken();
 // testQuery();
 // testTransact();
+// testTransactWithLookup();
 // testScoped();
 // testSignOut();
 // testFetchUser();
