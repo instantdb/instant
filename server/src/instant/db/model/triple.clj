@@ -1120,9 +1120,9 @@
                    nil))]
     (date-str->instant s)))
 
-(defn parse-date-value ^Instant
-  ([x] (parse-date-value x nil))
-  ([x db-timestamp]
+(defn parse-date-value
+  (^Instant [x] (parse-date-value x nil))
+  (^Instant [x db-timestamp]
    (cond (string? x)
          (or (date-str->instant x)
              (json-str->instant x)

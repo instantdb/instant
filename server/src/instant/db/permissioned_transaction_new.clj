@@ -372,7 +372,8 @@
             (let [;; pre-processing tx
                   tx-step-maps         (->> tx-step-maps
                                             (coerce-value-uuids ctx)
-                                            (validate-lookup-etypes ctx))
+                                            (validate-lookup-etypes ctx)
+                                            (tx/validate-value-lookup-etypes optimistic-attrs))
                   ;; TODO somehow fetch update-delete data-ref dependencies in the same go
                   entities-map         (io/expect-io
                                          (load-entities-map ctx tx-step-maps))

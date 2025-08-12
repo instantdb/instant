@@ -60,9 +60,11 @@
                 (-> result-map
                     (coll/update-in-when [:add-triple] set)
                     (coll/update-in-when [:retract-triple] set)
+                    (coll/update-in-when [:deep-merge-triple] set)
                     (coll/update-in-when [:delete-entity] set)
                     (coll/update-in-when [:add-attr :attrs] set)
-                    (coll/update-in-when [:add-attr :idents] set)))))))
+                    (coll/update-in-when [:add-attr :idents] set)
+                    (coll/update-in-when [:add-attr :triples] set)))))))
 
 (defn- normalize-results
   "Given a list of old transact! results and new ones, normalizes them so they
@@ -504,7 +506,10 @@
     (fn [{app-id :id}]
       (let [{attr-book-title :book/title
              attr-book-desc  :book/desc}
-            (test-util/make-attrs app-id [[:book/title :unique?] [:book/desc]])
+            (test-util/make-attrs
+             app-id
+             [[:book/title :unique?]
+              [:book/desc]])
             make-ctx (fn make-ctx
                        ([]
                         (make-ctx {}))
@@ -3833,7 +3838,7 @@
                     (attr-model/get-by-app-id app-id)
                     app-id
                     [[:deep-merge-triple p1 attr-posts-title "This will fail"]])))))
-          (is (= ::ex/validation-failed
+          (is (= ::ex/sql-raise
                  (::ex/type
                   (test-util/instant-ex-data
                    (tx/transact!
@@ -3844,7 +3849,7 @@
                       [attr-posts-slug "new-slug"]
                       attr-posts-id
                       [attr-posts-slug "new-slug"]]])))))
-          (is (= ::ex/validation-failed
+          (is (= ::ex/sql-raise
                  (::ex/type
                   (test-util/instant-ex-data
                    (tx/transact!

@@ -629,8 +629,7 @@
        (mapify-tx-steps attrs)
        (resolve-lookups-for-delete-entity conn app-id)
        (resolve-etypes-for-delete-entity conn app-id)
-       (expand-delete-entity-cascade conn app-id attrs)
-       (validate-value-lookup-etypes attrs)))
+       (expand-delete-entity-cascade conn app-id attrs)))
 
 (defn transact-without-tx-conn! [conn attrs app-id tx-step-vecs opts]
   (let [ops-order     (tx-steps-order tx-step-vecs)
