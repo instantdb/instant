@@ -30,7 +30,7 @@
   (let [res (if handle-json-parse-error
               (try (json/parse-bytes (.array bb) (.position bb) byte-len)
                    (catch Exception e
-                     (handle-json-parse-error e)))
+                     (handle-json-parse-error e {:value (String. (.array bb) (.position bb) byte-len "UTF-8")})))
               (json/parse-bytes (.array bb) (.position bb) byte-len))]
     (advance-buf bb byte-len)
     res))
@@ -200,3 +200,37 @@
      clojure.lang.IReduceInit
      (reduce [_ f init]
        (copy-reduce conn copy-query columns f init opts)))))
+
+(defn copy-seq
+  "copy-query must be in format:
+     `copy table to stdout with (format binary)`
+   You can do a select with:
+     `copy (select id, field from table) to stdout with (format binary)`
+
+   Columns should be a list of {:name, :pgtype} maps and must be in the same
+   order as the data that the query returns.
+   See bin-decode for the list of supported types.
+
+   Open a new connection to be used with copy and close it afterwards.
+   Don't use one from the Hikari pool. The connection might be left in
+   an invalid state if the copy operation ends prematurely.
+
+   Takes optional opts:
+     handle-json-parse-error: function that receives an exception during json
+                              parse and should either throw or return a value"
+  ([^PgConnection conn copy-query columns]
+   (copy-seq conn copy-query columns nil))
+  ([^PgConnection conn copy-query columns {:keys [handle-json-parse-error]}]
+   (let [out (.copyOut (.getCopyAPI conn) copy-query)
+         format (.getFormat out)]
+     (when (not= 1 format)
+       (throw (ex-info "Expected copy query to be in binary format." {:format format})))
+     (let [bb (ByteBuffer/wrap (.readFromCopy out))
+           _ (advance-header bb)
+           collect (fn collect [bb]
+                     (lazy-seq
+                      (if-let [row (decode-row bb columns handle-json-parse-error)]
+                        (cons row (collect (ByteBuffer/wrap (.readFromCopy out))))
+                        (when-not (nil? (.readFromCopy out))
+                          (throw (ex-info "readFromCopy returned non-nil after last row." {}))))))]
+       (collect bb)))))

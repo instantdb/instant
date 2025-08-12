@@ -4,6 +4,7 @@
    [clojure.core.cache.wrapped :as cache]
    [instant.config :as config]
    [instant.db.attr-sketch :as cms]
+   [instant.db.model.triple :as triple]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.copy :as copy]
    [instant.jdbc.wal :as wal]
@@ -12,6 +13,7 @@
    [instant.util.tracer :as tracer])
   (:import
    (com.fasterxml.jackson.core.exc StreamConstraintsException)
+   (java.time Instant)
    (org.postgresql.jdbc PgConnection)
    (org.postgresql.replication LogSequenceNumber)))
 
@@ -20,72 +22,96 @@
 ;; --------------
 ;; Initialization
 
-(def triples-copy-sql "copy (select app_id, attr_id, value, checked_data_type from triples) to stdout with (format binary)")
+(def triples-copy-sql "copy (select app_id, attr_id, value, checked_data_type, created_at from triples order by app_id, attr_id) to stdout with (format binary)")
 
-(defn construct-initial-sketches
-  "Fetches all triples from the database and generates an attr-sketch
-   for each attr. Meant to be used once when bootstrapping the attr sketches."
+;; XXX: Handle value too large in the wal listener
+
+(defn initial-sketch-seq
+  "Returns a lazy seq of sketches with app-id and attr-id, expects `copy-sql` to sort by
+   app_id and attr_id. Meant to be used once when bootstrapping the attr sketches."
   [^PgConnection connection copy-sql]
-  (let [reducer (copy/copy-reducer connection
-                                   copy-sql
-                                   [{:name :app-id
-                                     :pgtype "uuid"}
-                                    {:name :attr-id
-                                     :pgtype "uuid"}
-                                    {:name :value
-                                     :pgtype "jsonb"}
-                                    {:name :checked-data-type
-                                     :pgtype "checked_data_type"}]
-                                   {:handle-json-parse-error (fn [e]
-                                                               ;; Replace objects that are too large to read
-                                                               ;; with an empty object. That will keep it out
-                                                               ;; of the bins, but keep it in the total.
-                                                               (if (instance? StreamConstraintsException e)
-                                                                 {}
-                                                                 (throw e)))})
+  (let [copy-seq (copy/copy-seq connection
+                                copy-sql
+                                [{:name :app-id
+                                  :pgtype "uuid"}
+                                 {:name :attr-id
+                                  :pgtype "uuid"}
+                                 {:name :value
+                                  :pgtype "jsonb"}
+                                 {:name :checked-data-type
+                                  :pgtype "checked_data_type"}
+                                 {:name :created-at
+                                  :pgtype "bigint"}]
+                                {:handle-json-parse-error (fn [e _props]
+                                                            ;; Replace objects that are too large to read
+                                                            ;; with an empty object. That will keep it out
+                                                            ;; of the bins, but keep it in the total.
+                                                            (if (instance? StreamConstraintsException e)
+                                                              (with-meta {} {:value-too-large? true})
+                                                              (throw e)))})
+
+        ;; Updates date and removes data-type if the value is too large
+        update-triple (fn [row]
+                        (cond-> row
+                          (= :date (:checked-data-type row))
+                          (update :value (fn [v]
+                                           ;; This isn't perfect, since the value may have been
+                                           ;; updated without changing created_at, but it's as
+                                           ;; close as we can get.
+                                           (let [created (Instant/ofEpochMilli (:created-at row))]
+                                             (triple/parse-date-value v created))))
+                          (:value-too-large? (meta (:value row)))
+                          (assoc :checked-data-type nil)))
+
         base-sketch (cms/make-sketch)
 
-        collect-changes (fn [batch]
-                          (persistent!
-                            (reduce (fn [acc row]
-                                      (let [key (select-keys row [:app-id :attr-id])
-                                            record (select-keys row [:value :checked-data-type])]
-                                        (assoc! acc key (assoc (get acc key)
-                                                               record
-                                                               (inc (get-in acc [key record] 0))))))
-                                    (transient {})
-                                    batch)))
-        {sketches-by-key :sketches}
-        (transduce
-          ;; Take 1M triples at a time
-          (partition-all 1000000)
-          (completing (fn [{:keys [sketches triple-count]} batch]
-                        ;; Group them into batches by app-id and attr-id
-                        (tracer/with-span! {:name "aggregator/initial-sketch-batch"}
-                          (let [triple-total (+ triple-count (count batch))
-                                changes (collect-changes batch)
+        triple-count (volatile! 0)
+        sketch-count (volatile! 0)
+        span (volatile! (tracer/new-span! {:name "aggregator/initial-sketch-batch"}))
+        end-span (fn [finished?]
+                   (tracer/add-data! @span {:attributes {:triple-count @triple-count
+                                                         :sketch-count @sketch-count
+                                                         :finished? finished?}})
+                   (tracer/end-span! @span)
+                   (vreset! span (tracer/new-span! {:name "aggregator/initial-sketch-batch"}))
+                   nil)
+        inc-triple-count (fn []
+                           (when (zero? (mod (vswap! triple-count inc) 1e5))
+                             (end-span false)))
 
-                                sketches
-                                ;; Update each sketch in a single batch-add
-                                (persistent!
-                                  (reduce-kv (fn [sketches k batch]
-                                               (assoc! sketches k (cms/add-batch (or (get sketches k)
-                                                                                     base-sketch)
-                                                                                 batch)))
-                                             (transient sketches)
-                                             changes))
-                                res {:sketches sketches
-                                     :triple-count triple-total}]
-                            (tracer/add-data! {:attributes {:sketch-count (count sketches)
-                                                            :triple-count triple-total}})
-                            res))))
-          {:sketches {}
-           :triple-count 0}
-          reducer)]
-    (reduce-kv (fn [acc key sketch]
-                 (conj acc (assoc key :sketch sketch)))
-               []
-               sketches-by-key)))
+        ;; How many triple values to flush to the sketch per batch
+        sketch-flush-limit 100000
+
+        collect (fn collect [coll]
+                  (lazy-seq
+                   (if-let [s (seq coll)]
+                     (loop [s s
+                            app-id (:app-id (first s))
+                            attr-id (:attr-id (first s))
+                            triples (transient {})
+                            sketch base-sketch]
+                       (if (and (= app-id (:app-id (first s)))
+                                (= attr-id (:attr-id (first s))))
+                         (let [k (select-keys (update-triple (first s)) [:value :checked-data-type])]
+                           (inc-triple-count)
+                           (if (<= sketch-flush-limit (count triples))
+                             (recur (rest s)
+                                    app-id
+                                    attr-id
+                                    (assoc! (transient {}) k 1)
+                                    (cms/add-batch sketch (persistent! triples)))
+                             (recur (rest s)
+                                    app-id
+                                    attr-id
+                                    (assoc! triples k (inc (get triples k 0)))
+                                    sketch)))
+                         (do (vswap! sketch-count inc)
+                             (cons {:app-id app-id
+                                    :attr-id attr-id
+                                    :sketch (cms/add-batch sketch (persistent! triples))}
+                                   (collect s)))))
+                     (end-span true))))]
+    (collect copy-seq)))
 
 (defn initialize-slot
   "Called on startup, will initialize the permanent aggregation slot and update
@@ -95,18 +121,17 @@
   [{:keys [slot-name copy-sql process-id]}]
   (tracer/with-span! {:name "aggregator/initialize-slot"}
     (when-let [{:keys [connection lsn]}
-               (wal/create-sync-db-replication-slot-and-connection
-                 (config/get-aurora-config)
-                 slot-name)]
-      (let [sketches (tracer/with-span! {:name "aggregator/construct-initial-sketches"}
-                       (with-open [connection ^PgConnection connection]
-                         (construct-initial-sketches connection copy-sql)))
-            _ (tracer/with-span! {:name "aggregator/insert-initial-sketches"}
-                (doseq [group (partition-all 1000 sketches)]
-                  (cms/insert-initial-sketches! (aurora/conn-pool :write)
-                                                {:sketches group
-                                                 :lsn lsn})))
-            wal-status (cms/initialize-wal-aggregator-status (aurora/conn-pool :write)
+               (tracer/with-span! {:name "aggregator/maybe-create-slot"}
+                 (wal/create-sync-db-replication-slot-and-connection
+                  (config/get-aurora-config)
+                  slot-name))]
+      (with-open [connection ^PgConnection connection]
+        (doseq [sketches (partition-all 1000 (initial-sketch-seq connection copy-sql))]
+          (tracer/with-span! {:name "aggregator/insert-initial-sketches"}
+            (cms/insert-initial-sketches! (aurora/conn-pool :write)
+                                          {:sketches sketches
+                                           :lsn lsn}))))
+      (let [wal-status (cms/initialize-wal-aggregator-status (aurora/conn-pool :write)
                                                              {:lsn lsn
                                                               :process-id process-id
                                                               :slot-name slot-name})]
@@ -123,11 +148,34 @@
             (case name
               "app_id" (assoc data :app-id (parse-uuid value))
               "attr_id" (assoc data :attr-id (parse-uuid value))
-              "value" (assoc data :value (<-json value))
+              "value" (assoc data :value (try
+                                           (<-json value)
+                                           (catch StreamConstraintsException _e
+                                             (with-meta {} {:value-too-large? true}))))
               "checked_data_type" (assoc data :checked-data-type (keyword value))
+              "created_at" (assoc data :created-at value)
               data))
           {}
           columns))
+
+(defn update-triple
+  "Updates the date to an Instant and removes the checked-data-type if
+   the value was too large to parse.
+   Requires the identity-data to get created-at or checked-data-type if
+   those values weren't updated."
+  [triples-data identity-data]
+  (cond-> triples-data
+    (or (= :date (:checked-data-type triples-data))
+        (and (not (contains? triples-data :checked-data-type))
+             (= :date (:checked-data-type identity-data))))
+    (update :value
+            (fn [v]
+              (let [tx-now (Instant/ofEpochMilli (or (:created-at triples-data)
+                                                     (:created-at identity-data)))]
+                (triple/parse-date-value v tx-now))))
+
+    (:value-too-large? (meta (:value triples-data)))
+    (assoc :checked-data-type nil)))
 
 ;; Used by tests so that we can prevent the aggregator
 ;; from overwriting data in the tests
@@ -136,46 +184,55 @@
 (defn transform-wal-record
   "Extracts triples changes from the wal that would affect the sketch.
 
-   Returns a list of (possibly empty) changes and the lsn."
+   Returns a list of changes and the lsn."
   [{:keys [changes nextlsn] :as _record}]
   (let [sketch-changes
         (test-filter
-          (reduce
-            (fn [acc change]
-              ;; n.b. If you add more tables, be sure to add the table to
-              ;;      add-table in the stream in wal.clj or you won't get
-              ;;      the updates here.
-              (if (not= "triples" (:table change))
-                acc
-                (let [lsn (LogSequenceNumber/valueOf ^String (:lsn change))]
-                  (case (:action change)
-                    :insert
-                    (conj acc {:incr 1
-                               :lsn lsn
-                               :triples-data (get-triples-data (:columns change))})
+         (reduce
+          (fn [acc change]
+            ;; n.b. If you add more tables, be sure to add the table to
+            ;;      add-table in the stream in wal.clj or you won't get
+            ;;      the updates here.
+            (if (not= "triples" (:table change))
+              acc
+              (let [lsn (LogSequenceNumber/valueOf ^String (:lsn change))]
+                (case (:action change)
+                  :insert
+                  (conj acc {:incr 1
+                             :lsn lsn
+                             :triples-data (-> (get-triples-data (:columns change))
+                                               (update-triple nil))})
 
-                    :delete
-                    (conj acc {:incr -1
-                               :lsn lsn
-                               :triples-data (get-triples-data (:identity change))})
+                  :delete
+                  (conj acc {:incr -1
+                             :lsn lsn
+                             :triples-data (-> (get-triples-data (:identity change))
+                                               (update-triple nil))})
 
-                    :update
-                    (let [update-data (get-triples-data (:columns change))]
-                      (if-not (contains? update-data :value)
-                        ;; The triple was updated, but not the value field.
-                        ;; We should ignore this change.
-                        acc
-                        (conj acc
-                              ;; Remove the old
-                              {:incr -1
-                               :lsn lsn
-                               :triples-data (get-triples-data (:identity change))}
-                              ;; Add the new
-                              {:incr 1
-                               :lsn lsn
-                               :triples-data update-data})))))))
-            []
-            changes))]
+                  :update
+                  (let [identity-data (get-triples-data (:identity change))
+                        update-data (let [data (get-triples-data (:columns change))]
+                                      (if (contains? data :value)
+                                        data
+                                        ;; The value was toasted and not updated, so
+                                        ;; postgres didn't give it to us in the update.
+                                        ;; We might still need it if the checked_data_type
+                                        ;; changed, so we'll use the value from the identity
+                                        ;; column.
+                                        (assoc data :value (:value identity-data))))]
+                    (conj acc
+                          ;; Remove the old
+                          {:incr -1
+                           :lsn lsn
+                           :triples-data (-> identity-data
+                                             (update-triple nil))}
+                          ;; Add the new
+                          {:incr 1
+                           :lsn lsn
+                           :triples-data (update-triple update-data
+                                                        identity-data)}))))))
+          []
+          changes))]
     (when (seq sketch-changes)
       {:sketch-changes sketch-changes
        :lsn nextlsn})))

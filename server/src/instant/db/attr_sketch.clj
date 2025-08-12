@@ -2,7 +2,6 @@
   (:require
    [clojure.pprint]
    [honey.sql :as hsql]
-   [instant.db.model.triple :as triple]
    [instant.jdbc.sql :as sql]
    [instant.util.coll :as ucoll])
   (:import
@@ -10,6 +9,7 @@
    (java.lang Long)
    (java.math BigInteger)
    (java.nio ByteBuffer)
+   (java.time Instant)
    (net.openhft.hashing LongHashFunction)))
 
 (set! *warn-on-reflection* true)
@@ -52,11 +52,21 @@
                 java.lang.Integer [:long (long x)]
                 java.lang.Double [:double x]
                 java.math.BigInteger [:bigint x])
-      :string (do (assert (string? x))
-                  [:string x])
-      :boolean (do (assert (boolean? x))
-                   [:boolean x])
-      :date [:long (.toEpochMilli (triple/parse-date-value x))]
+      :string (if (string? x)
+                [:string x]
+                (throw (ex-info "Invalid type for string in data-type-for-hash."
+                                {:value x
+                                 :expected :string})))
+      :boolean (if (boolean? x)
+                 [:boolean x]
+                 (throw (ex-info "Invalid type for boolean in data-type-for-hash."
+                                 {:value x
+                                  :expected :boolean})))
+      :date (if (instance? Instant x)
+              [:long (.toEpochMilli ^Instant x)]
+              (throw (ex-info "Invalid type for date in data-type-for-hash."
+                              {:value x
+                               :expected :instant})))
 
       (condp instance? x
         java.lang.Long [:long x]
@@ -277,6 +287,21 @@
                        (assoc! acc (:attr_id row) (:sketch (record->Sketch row))))
                      {}
                      rows)))
+
+(defn for-attr
+  "Gets sketch for a single attr, returns the sketch row with inflated sketch."
+  [conn app-id attr-id]
+  (let [q (hsql/format {:select :*
+                        :from :attr-sketches
+                        :where [:and
+                                [:= :app-id :?app-id]
+                                [:= :attr-id :?attr-id]]}
+                       {:params {:app-id app-id
+                                 :attr-id attr-id}})
+
+        row (sql/select-one ::for-attr conn q)]
+    (when row
+      (record->Sketch row))))
 
 (defn- create-empty-sketch-rows!
   "Takes a set of {:app-id :attr-id} maps, creates a new sketch for each

@@ -33,7 +33,7 @@
    [instant.jdbc.pgerrors :as pgerrors]
    [instant.jdbc.sql :as sql]
    [instant.util.async :as ua]
-   [instant.util.json :refer [<-json]]
+   [instant.util.json :refer [<-json-big]]
    [instant.util.lang :as lang]
    [instant.util.tracer :as tracer]
    [lambdaisland.uri :as uri]
@@ -259,6 +259,9 @@
                  :invalidator invalidator-tables
                  :aggregator [:triples])
         add-tables (clojure.string/join "," (map #(str "public." (name %)) tables))
+        status-interval (case slot-type
+                          :invalidator 1
+                          :aggregator 30)
         builder (-> replication-conn
                     (.getReplicationAPI)
                     (.replicationStream)
@@ -268,7 +271,7 @@
                     (.withSlotOption "add-tables" add-tables)
                     (.withStartPosition start-lsn)
                     (.withSlotName slot-name)
-                    (.withStatusInterval 1 TimeUnit/SECONDS))]
+                    (.withStatusInterval status-interval TimeUnit/SECONDS))]
     (.start ^ChainedLogicalStreamBuilder builder)))
 
 (defn kw-action [action]
@@ -292,7 +295,7 @@
         offset (.arrayOffset buffer)
         record-len (- (count src) offset)
         json-str (String. src offset record-len)
-        record (<-json json-str true)]
+        record (<-json-big json-str true)]
     (-> record
         (update :action kw-action)
         (assoc :tx-bytes record-len))))

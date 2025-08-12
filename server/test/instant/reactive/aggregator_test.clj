@@ -22,7 +22,7 @@
 (defn copy-sql-for-app-ids
   "copy command that only copies the app we are interested in"
   [app-ids]
-  (format "copy (select app_id, attr_id, value, checked_data_type from triples where app_id = ANY('{%s}'::uuid[])) to stdout with (format binary)"
+  (format "copy (select app_id, attr_id, value, checked_data_type, created_at from triples where app_id = ANY('{%s}'::uuid[]) order by app_id, attr_id) to stdout with (format binary)"
           (string/join "," (map #(UUID/.toString %) app-ids))))
 
 (defn check-sketches [app r]
@@ -41,7 +41,11 @@
     (doseq [[{:keys [attr_id value checked_data_type]} triples] value-groups
             :when (not (coll? value))]
       (is (= (count triples)
-             (cms/check (get sketches attr_id) checked_data_type value))
+             (cms/check (get sketches attr_id)
+                        (keyword checked_data_type)
+                        (if (= "date" checked_data_type)
+                          (triple-model/parse-date-value value)
+                          value)))
           (str "count mismatch for " (resolvers/->friendly r attr_id) " value=" value)))))
 
 (deftest bootstrap
@@ -57,6 +61,9 @@
                                    changes)))]
         ;; Add some data before we start the process so we have some data to bootstrap
         (bootstrap/add-movies-to-app! (:id app))
+        (bootstrap/add-zeneca-to-app! {:checked-data? true
+                                       :indexed-data? true}
+                                      (:id app))
         (binding [*in-test* true]
           (let [slot-suffix (crypt-util/random-hex 16)
                 slot-name (wal/full-slot-name agg/slot-type slot-suffix)
@@ -77,6 +84,7 @@
                              (or (:total (get sketches (:id attr))) 0))
                           (str "count matches for " (resolvers/->friendly movies-r (:id attr))))))
                   (check-sketches app movies-r)
+                  (check-sketches app (resolvers/make-zeneca-resolver (:id app)))
 
                   (finally (shutdown))))
               (finally
@@ -109,7 +117,9 @@
                                          :sketch-flush-max-items 1000})]
                 (try
                   ;; add some data after startup so that we can test the wal-slot aggregator
-                  (bootstrap/add-zeneca-to-app! (:id app))
+                  (bootstrap/add-zeneca-to-app! {:checked-data? true
+                                                 :indexed-data? true}
+                                                (:id app))
                   (let [zeneca-r (resolvers/make-zeneca-resolver (:id app))
                         ;; create a new transaction so that we can be sure the aggregator
                         ;; will advance past `next-lsn`
@@ -224,6 +234,198 @@
                   (finally
                     (shutdown-a)
                     (shutdown-b))))
+              (finally
+                (sql/do-execute! (aurora/conn-pool :write)
+                                 ["select pg_terminate_backend(active_pid) from pg_replication_slots where slot_name = ? and active"
+                                  slot-name])
+                (wal/drop-logical-replication-slot (aurora/conn-pool :write) slot-name)
+                (sql/do-execute! (aurora/conn-pool :write)
+                                 ["delete from wal_aggregator_status where slot_name = ?" slot-name])))))))))
+
+(deftest value-too-large
+  (with-empty-app
+    (fn [app]
+      (with-redefs [agg/test-filter
+                    (fn [changes]
+                      (vec (filter (fn [change]
+                                     (let [app-id (get-in change [:triples-data :app-id])]
+                                       (if *in-test*
+                                         (= app-id (:id app))
+                                         (not= app-id (:id app)))))
+                                   changes)))]
+        (binding [*in-test* true]
+          (let [slot-suffix (crypt-util/random-hex 16)
+                slot-name (wal/full-slot-name agg/slot-type slot-suffix)]
+            (try
+              (bootstrap/add-movies-to-app! (:id app))
+              (let [r (resolvers/make-movies-resolver (:id app))
+                    _ (sql/execute-one!
+                       (aurora/conn-pool :write)
+                       ["update triples
+                            set value = to_jsonb(repeat('x', 40000000))
+                          where app_id = ? and attr_id = ? and entity_id = ?
+                          returning entity_id"
+                        (:id app)
+                        (resolvers/->uuid r :movie/title)
+                        (resolvers/->uuid r "eid-robocop")])
+                    shutdown (agg/start {:slot-suffix slot-suffix
+                                         :copy-sql (copy-sql-for-app-ids [(:id app)])
+                                         :acquire-slot-interval-ms 10000
+                                         :sketch-flush-ms 10
+                                         :sketch-flush-max-items 1000})]
+
+                (try
+                  (testing "handles value-too-large in setup"
+                    (is (= 1 (:total-not-binned
+                               (:sketch (cms/for-attr (aurora/conn-pool :read)
+                                                      (:id app)
+                                                      (resolvers/->uuid r :movie/title))))))
+
+                    (is (thrown-with-msg? Throwable #"String value length"
+                                          (sql/select-one (aurora/conn-pool :read)
+                                                          ["select value
+                                                            from triples
+                                                           where app_id = ?
+                                                             and attr_id = ?
+                                                             and entity_id = ?"
+                                                           (:id app)
+                                                           (resolvers/->uuid r :movie/title)
+                                                           (resolvers/->uuid r "eid-robocop")]))))
+
+                  (let [{:keys [lsn]} (sql/execute-one!
+                                        (aurora/conn-pool :write)
+                                        ["with write as (
+                                           update triples
+                                              set value = to_jsonb(repeat('y', 40000000))
+                                            where app_id = ? and attr_id = ? and entity_id = ?
+                                           returning entity_id
+                                         )
+                                         select *, pg_current_wal_insert_lsn() as lsn from write"
+                                         (:id app)
+                                         (resolvers/->uuid r :movie/title)
+                                         (resolvers/->uuid r "eid-alien")])]
+
+                    ;; Wait for the sketches to catch up
+                    (wait-for #(>= 0 (compare lsn
+                                              (cms/get-start-lsn (aurora/conn-pool :read)
+                                                                 {:slot-name slot-name})))
+                              1000)
+
+                    (testing "handles value-too-large in listener"
+                      (is (thrown-with-msg? Throwable
+                                            #"String value length"
+                                            (sql/select-one
+                                              (aurora/conn-pool :read)
+                                              ["select value
+                                                  from triples
+                                                 where app_id = ?
+                                                   and attr_id = ?
+                                                   and entity_id = ?"
+                                               (:id app)
+                                               (resolvers/->uuid r :movie/title)
+                                               (resolvers/->uuid r "eid-alien")])))
+
+                      (is (= 2 (:total-not-binned
+                                 (:sketch (cms/for-attr (aurora/conn-pool :read)
+                                                        (:id app)
+                                                        (resolvers/->uuid r :movie/title))))))))
+                  ;; add some data after startup so that we can test the wal-slot aggregator
+                  (finally (shutdown))))
+              (finally
+                (sql/do-execute! (aurora/conn-pool :write)
+                                 ["select pg_terminate_backend(active_pid) from pg_replication_slots where slot_name = ? and active"
+                                  slot-name])
+                (wal/drop-logical-replication-slot (aurora/conn-pool :write) slot-name)
+                (sql/do-execute! (aurora/conn-pool :write)
+                                 ["delete from wal_aggregator_status where slot_name = ?" slot-name])))))))))
+
+(deftest add-remove-checked-data-type
+  (with-empty-app
+    (fn [app]
+      (with-redefs [agg/test-filter
+                    (fn [changes]
+                      (vec (filter (fn [change]
+                                     (let [app-id (get-in change [:triples-data :app-id])]
+                                       (if *in-test*
+                                         (= app-id (:id app))
+                                         (not= app-id (:id app)))))
+                                   changes)))]
+        (binding [*in-test* true]
+          (let [slot-suffix (crypt-util/random-hex 16)
+                slot-name (wal/full-slot-name agg/slot-type slot-suffix)]
+            (try
+              (bootstrap/add-zeneca-to-app! {:checked-data? true
+                                             :indexed-data? true}
+                                            (:id app))
+              (let [r (resolvers/make-zeneca-resolver (:id app))
+                    shutdown (agg/start {:slot-suffix slot-suffix
+                                         :copy-sql (copy-sql-for-app-ids [(:id app)])
+                                         :acquire-slot-interval-ms 10000
+                                         :sketch-flush-ms 10
+                                         :sketch-flush-max-items 1000})]
+                (try
+                  ;; Add a date that will get toasted
+                  (sql/execute!
+                   (aurora/conn-pool :write)
+                   ["with write as (
+                       update triples
+                          set value = to_jsonb(?::text)
+                        where app_id = ? and attr_id = ? and entity_id = ?
+                       returning entity_id
+                     )
+                     select *, pg_current_wal_insert_lsn() as lsn from write"
+                    ;; Add a string that's big so that postgres will to toast it
+                    (str (apply str (repeat 10000000 " "))
+                         "2025-08-12T23:00:31.368181Z")
+                    (:id app)
+                    (resolvers/->uuid r :users/createdAt)
+                    (resolvers/->uuid r "eid-alex")])
+
+                  (let [{:keys [lsn]} (first
+                                       (sql/execute!
+                                        (aurora/conn-pool :write)
+                                        ["with write as (
+                                           update triples
+                                              set checked_data_type = null
+                                            where app_id = ? and attr_id = ? and checked_data_type = 'date'
+                                           returning entity_id
+                                         )
+                                         select *, pg_current_wal_insert_lsn() as lsn from write"
+                                         (:id app)
+                                         (resolvers/->uuid r :users/createdAt)]))]
+
+                    ;; Wait for the sketches to catch up
+                    (wait-for #(>= 0 (compare lsn
+                                              (cms/get-start-lsn (aurora/conn-pool :read)
+                                                                 {:slot-name slot-name})))
+                              1000)
+
+                    (testing "removing checked-data-type works"
+                      (check-sketches app r)))
+
+                  (let [{:keys [lsn]} (first
+                                       (sql/execute!
+                                        (aurora/conn-pool :write)
+                                        ["with write as (
+                                           update triples
+                                              set checked_data_type = 'date'
+                                            where app_id = ? and attr_id = ? and checked_data_type is null
+                                           returning entity_id
+                                         )
+                                         select *, pg_current_wal_insert_lsn() as lsn from write"
+                                         (:id app)
+                                         (resolvers/->uuid r :users/createdAt)]))]
+
+                    ;; Wait for the sketches to catch up
+                    (wait-for #(>= 0 (compare lsn
+                                              (cms/get-start-lsn (aurora/conn-pool :read)
+                                                                 {:slot-name slot-name})))
+                              1000)
+
+                    (testing "adding checked-data-type works"
+                      (check-sketches app r)))
+                  ;; add some data after startup so that we can test the wal-slot aggregator
+                  (finally (shutdown))))
               (finally
                 (sql/do-execute! (aurora/conn-pool :write)
                                  ["select pg_terminate_backend(active_pid) from pg_replication_slots where slot_name = ? and active"

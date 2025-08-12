@@ -31,6 +31,23 @@
   "Converts a JSON string to a Clojure data structure."
   cheshire/parse-string)
 
+(def big-factory (factory/make-json-factory
+                              ;; default is 20000000
+                  {:max-input-string-length 200000000}))
+
+(defn <-json-big
+  "Converts a JSON string to a Clojure data structure.
+   Allows for larger stings than <-json.
+
+   Used to parse wal records that are very large, to prevent a large
+   string from stopping the entire wal parser. Should not be used
+   for user-facing input in general."
+  ([s]
+   (<-json-big s nil))
+  ([s key-fn]
+   (binding [factory/*json-factory* big-factory]
+     (<-json s key-fn))))
+
 (defn parse-bytes [^bytes bytes ^Integer offset ^Integer len]
   (parse/parse
    (.createParser ^JsonFactory (or factory/*json-factory*
