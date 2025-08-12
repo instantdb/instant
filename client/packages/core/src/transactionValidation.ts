@@ -1,6 +1,16 @@
-import { TransactionChunk, Op } from './instatx.ts';
+import { TransactionChunk, Op, isLookup } from './instatx.ts';
 import { IContainEntitiesAndLinks, DataAttrDef } from './schemaTypes.ts';
 import { validate as validateUUID } from 'uuid';
+
+export const isValidEntityId = (value: unknown): boolean => {
+  if (typeof value !== 'string') {
+    return false;
+  }
+  if (isLookup(value)) {
+    return true;
+  }
+  return validateUUID(value);
+};
 
 export class TransactionValidationError extends Error {
   constructor(message: string) {
@@ -103,16 +113,16 @@ const validateLinkOperation = (
     if (linkValue !== null && linkValue !== undefined) {
       if (Array.isArray(linkValue)) {
         // Handle array of UUIDs
-        for (const uuid of linkValue) {
-          if (!validateUUID(uuid)) {
+        for (const linkReference of linkValue) {
+          if (!isValidEntityId(linkReference)) {
             throw new TransactionValidationError(
-              `Invalid UUID in link '${linkName}' for entity '${entityName}'. Expected a UUID, but received: ${uuid}`,
+              `Invalid entity ID in link '${linkName}' for entity '${entityName}'. Expected a UUID or a lookup, but received: ${linkReference}`,
             );
           }
         }
       } else {
         // Handle single UUID
-        if (!validateUUID(linkValue)) {
+        if (!isValidEntityId(linkValue)) {
           throw new TransactionValidationError(
             `Invalid UUID in link '${linkName}' for entity '${entityName}'. Expected a UUID, but received: ${linkValue}`,
           );

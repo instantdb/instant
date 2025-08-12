@@ -1,7 +1,7 @@
 import express from 'express';
 import bodyParser from 'body-parser';
 import cors from 'cors'; // Import cors module
-import { init, tx, id } from '@instantdb/admin';
+import { init, tx, id, lookup } from '@instantdb/admin';
 import { assert } from 'console';
 import dotenv from 'dotenv';
 import fs from 'fs';

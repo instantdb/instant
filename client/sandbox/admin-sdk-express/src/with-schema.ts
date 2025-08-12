@@ -1,7 +1,7 @@
 import express from 'express';
 import bodyParser from 'body-parser';
 import cors from 'cors'; // Import cors module
-import { id, i, init } from '@instantdb/admin';
+import { id, i, init, lookup } from '@instantdb/admin';
 import { assert } from 'console';
 import dotenv from 'dotenv';
 import fs from 'fs';
@@ -15,7 +15,7 @@ const schema = i.schema({
       creatorId: i.string(),
       priorityId: i.string(),
     }),
-    todos: i.entity({ title: i.string(), creatorId: i.string() }),
+    todos: i.entity({ title: i.string().unique(), creatorId: i.string() }),
   },
   links: {
     goalsTodos: {
@@ -93,6 +93,41 @@ async function testTransact() {
       .link({ todos: todoBId }),
   ]);
   console.log(JSON.stringify(res, null, 2));
+}
+
+async function testTransactWithLookup() {
+  const user = { id: '3c32701d-f4a2-40e8-b83c-077dd4cb5cec' };
+  const pushupId = id();
+  const res = await transact([
+    tx.todos[pushupId].create({
+      title: 'Do a pushup',
+      creatorId: user.id,
+    }),
+  ]);
+
+  await transact([
+    tx.todos[lookup('title', 'Do a pushup')].update({
+      title: 'Do a pushup',
+      creatorId: 'random id',
+    }),
+  ]);
+
+  console.log(JSON.stringify(res, null, 2));
+
+  const result = await query({
+    todos: {
+      $: {
+        where: {
+          title: 'Do a pushup',
+        },
+      },
+    },
+  });
+
+  console.log(JSON.stringify(result, null, 2));
+
+  // Delete the todo
+  await transact([tx.todos[lookup('title', 'Do a pushup')].delete()]);
 }
 
 async function testCreateToken() {
@@ -192,6 +227,7 @@ async function testAdminStorageBulkDelete(keyword: string) {
 // testCreateToken();
 // testQuery();
 // testTransact();
+// testTransactWithLookup();
 // testScoped();
 // testSignOut();
 // testFetchUser();

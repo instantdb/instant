@@ -3,7 +3,6 @@ import {
   DataAttrDef,
   ValueTypes,
 } from './schemaTypes.ts';
-
 import { validate as validateUUID } from 'uuid';
 
 export class QueryValidationError extends Error {
