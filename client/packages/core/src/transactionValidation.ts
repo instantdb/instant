@@ -122,7 +122,7 @@ const validateLinkOperation = (
         }
       } else {
         // Handle single UUID
-        if (typeof linkValue === 'string' && !isValidEntityId(linkValue)) {
+        if (!isValidEntityId(linkValue)) {
           throw new TransactionValidationError(
             `Invalid UUID in link '${linkName}' for entity '${entityName}'. Expected a UUID, but received: ${linkValue}`,
           );
@@ -151,7 +151,7 @@ const validateOp = (
 
   // _id should be a uuid
   if (!Array.isArray(_id)) {
-    const isUuid = isValidEntityId(_id);
+    const isUuid = validateUUID(_id);
     if (!isUuid) {
       throw new TransactionValidationError(
         `Invalid id for entity '${entityName}'. Expected a UUID, but received: ${_id}`,

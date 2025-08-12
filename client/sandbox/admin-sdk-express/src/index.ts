@@ -74,27 +74,6 @@ async function testTransact() {
   console.log(JSON.stringify(res, null, 2));
 }
 
-async function testTransactWithLookup() {
-  const todoAId = id();
-  const todoBId = id();
-  const user = { id: '3c32701d-f4a2-40e8-b83c-077dd4cb5cec' };
-  const res = await transact([
-    tx.todos[lookup('title', 'Drink a protein shake')].update({
-      title: 'Drink a protein shake',
-      creatorId: user.id,
-    }),
-    tx.goals[id()]
-      .update({
-        title: 'Get six pack abs',
-        priority6: 1,
-        creatorId: user.id,
-      })
-      .link({ todos: lookup('title', 'Go on a run') })
-      .link({ todos: lookup('title', 'Drink a protein shake') }),
-  ]);
-  console.log(JSON.stringify(res, null, 2));
-}
-
 async function testCreateToken() {
   const token = await auth.createToken('stopa@instantdb.com');
   console.log('custom token!', token);

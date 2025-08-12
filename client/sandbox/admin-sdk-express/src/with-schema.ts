@@ -1,7 +1,7 @@
 import express from 'express';
 import bodyParser from 'body-parser';
 import cors from 'cors'; // Import cors module
-import { id, i, init } from '@instantdb/admin';
+import { id, i, init, lookup } from '@instantdb/admin';
 import { assert } from 'console';
 import dotenv from 'dotenv';
 import fs from 'fs';
@@ -15,7 +15,7 @@ const schema = i.schema({
       creatorId: i.string(),
       priorityId: i.string(),
     }),
-    todos: i.entity({ title: i.string(), creatorId: i.string() }),
+    todos: i.entity({ title: i.string().unique(), creatorId: i.string() }),
   },
   links: {
     goalsTodos: {
@@ -64,6 +64,8 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
+testTransactWithLookup();
+
 // ----------------------------
 // Some handy tester functions
 
@@ -91,6 +93,26 @@ async function testTransact() {
       })
       .link({ todos: todoAId })
       .link({ todos: todoBId }),
+  ]);
+  console.log(JSON.stringify(res, null, 2));
+}
+
+async function testTransactWithLookup() {
+  const todoAId = id();
+  const todoBId = id();
+  const user = { id: '3c32701d-f4a2-40e8-b83c-077dd4cb5cec' };
+  const res = await transact([
+    tx.todos[lookup('title', 'Drink a protein shake')].update({
+      title: 'Drink a protein shake',
+      creatorId: user.id,
+    }),
+    tx.goals[id()]
+      .update({
+        title: 'Get six pack abs',
+        creatorId: user.id,
+      })
+      .link({ todos: lookup('title', 'Go on a run') })
+      .link({ todos: lookup('title', 'Drink a protein shake') }),
   ]);
   console.log(JSON.stringify(res, null, 2));
 }
