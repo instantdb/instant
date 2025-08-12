@@ -36,7 +36,7 @@
         start-of-day (.atStartOfDay first-of-next-month est-zone)]
     start-of-day))
 
-(defmethod print-method Instant [^Instant o ^Writer w]
+(defmethod print-method Instant [o ^Writer w]
   (.write w (str "#instant \"" (.toString o) "\"")))
 
 (defn parse-instant [x]
