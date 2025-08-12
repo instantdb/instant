@@ -113,10 +113,10 @@ const validateLinkOperation = (
     if (linkValue !== null && linkValue !== undefined) {
       if (Array.isArray(linkValue)) {
         // Handle array of UUIDs
-        for (const uuid of linkValue) {
-          if (!isValidEntityId(uuid)) {
+        for (const linkReference of linkValue) {
+          if (!isValidEntityId(linkReference)) {
             throw new TransactionValidationError(
-              `Invalid UUID in link '${linkName}' for entity '${entityName}'. Expected a UUID, but received: ${uuid}`,
+              `Invalid entity ID in link '${linkName}' for entity '${entityName}'. Expected a UUID or a lookup, but received: ${linkReference}`,
             );
           }
         }
