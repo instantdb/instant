@@ -64,8 +64,6 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
-testTransactWithLookup();
-
 // ----------------------------
 // Some handy tester functions
 
@@ -98,8 +96,6 @@ async function testTransact() {
 }
 
 async function testTransactWithLookup() {
-  const todoAId = id();
-  const todoBId = id();
   const user = { id: '3c32701d-f4a2-40e8-b83c-077dd4cb5cec' };
   const res = await transact([
     tx.todos[lookup('title', 'Drink a protein shake')].update({
