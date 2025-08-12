@@ -1,0 +1,43 @@
+{
+  "name": "create-instant-app",
+  "version": "0.0.0",
+  "description": "Scaffold a new web/mobile app with InstantDB",
+  "type": "module",
+  "exports": "./dist/index.js",
+  "bin": {
+    "create-instant-app": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "template",
+    "README.md",
+    "package.json"
+  ],
+  "scripts": {
+    "typecheck": "tsc",
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "clean": "rm -rf dist .turbo node_modules",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@clack/core": "^0.3.4",
+    "@clack/prompts": "^0.6.3",
+    "@ianvs/prettier-plugin-sort-imports": "^4.2.1",
+    "chalk": "5.2.0",
+    "commander": "^10.0.1",
+    "execa": "^7.2.0",
+    "fs-extra": "^11.2.0",
+    "gradient-string": "^2.0.2",
+    "ora": "6.3.1",
+    "sort-package-json": "^2.10.0"
+  },
+  "devDependencies": {
+    "@types/node": "^18.11.18",
+    "tsup": "^6.7.0",
+    "typescript": "^5.8.3"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
