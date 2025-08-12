@@ -97,20 +97,37 @@ async function testTransact() {
 
 async function testTransactWithLookup() {
   const user = { id: '3c32701d-f4a2-40e8-b83c-077dd4cb5cec' };
+  const pushupId = id();
   const res = await transact([
-    tx.todos[lookup('title', 'Drink a protein shake')].update({
-      title: 'Drink a protein shake',
+    tx.todos[pushupId].create({
+      title: 'Do a pushup',
       creatorId: user.id,
     }),
-    tx.goals[id()]
-      .update({
-        title: 'Get six pack abs',
-        creatorId: user.id,
-      })
-      .link({ todos: lookup('title', 'Go on a run') })
-      .link({ todos: lookup('title', 'Drink a protein shake') }),
   ]);
+
+  await transact([
+    tx.todos[lookup('title', 'Do a pushup')].update({
+      title: 'Do a pushup',
+      creatorId: 'random id',
+    }),
+  ]);
+
   console.log(JSON.stringify(res, null, 2));
+
+  const result = await query({
+    todos: {
+      $: {
+        where: {
+          title: 'Do a pushup',
+        },
+      },
+    },
+  });
+
+  console.log(JSON.stringify(result, null, 2));
+
+  // Delete the todo
+  await transact([tx.todos[lookup('title', 'Do a pushup')].delete()]);
 }
 
 async function testCreateToken() {
