@@ -393,3 +393,8 @@ test('allows lookup values in square bracket', () => {
   );
   beValid(tx.users[lookup('email', 'john@example.net')].link({ posts: id() }));
 });
+
+test('allows lookup values in link', () => {
+  beValid(tx.users[id()].link({ posts: lookup('title', 'Hello') }));
+  beWrong(tx.users[id()].link({ posts: 'non lookup or uuid' }));
+});
