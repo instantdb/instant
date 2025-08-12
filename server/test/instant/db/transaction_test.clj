@@ -4045,5 +4045,23 @@
             (is (= 1 (count (fetch-triples app-id [[:= :attr-id attr-comments-post]]
                                            {:include-soft-deleted? true}))))))))))
 
+(deftest array-as-lookup
+  (with-empty-app
+    (fn [{app-id   :id
+          make-ctx :make-ctx}]
+      (let [{attr-todos-id      :todos/id
+             attr-todos-text    :todos/text}
+            (test-util/make-attrs
+             app-id
+             [[:todos/id :required? :index? :unique?]
+              [:todos/text]])
+            todo-id (suid "0001")]
+        (is (map?
+             (permissioned-tx/transact!
+              (make-ctx)
+              [[:add-triple todo-id attr-todos-id   todo-id]
+               [:add-triple todo-id attr-todos-text [#uuid "2473c57f-6a58-4167-96b7-cf9e034a670a" #uuid "7758b4b1-7c0b-4c90-9532-f41a54812f76"]]])))))))
+
+
 (comment
   (test/run-tests *ns*))

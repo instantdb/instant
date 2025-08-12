@@ -505,10 +505,11 @@
   [attrs tx-step-maps]
   (doseq [{:keys [op aid value] :as tx-step} tx-step-maps
           :when (#{:add-triple :deep-merge-triple :retract-triple} op)
-          :when (triple-model/value-lookup-ref? value)
+          :let [rev-etype (attr-model/rev-etype (attr-model/seek-by-id aid attrs))]
+          :when (and rev-etype
+                     (triple-model/value-lookup-ref? value))
           :let [[value-lookup-attr-id _] value
-                value-lookup-etype       (attr-model/fwd-etype (attr-model/seek-by-id value-lookup-attr-id attrs))
-                rev-etype                (attr-model/rev-etype (attr-model/seek-by-id aid attrs))]]
+                value-lookup-etype       (attr-model/fwd-etype (attr-model/seek-by-id value-lookup-attr-id attrs))]]
     (when-not value-lookup-etype
       (ex/throw-validation-err! :lookup value
                                 [{:message "Invalid lookup. Could not determine namespace from lookup attribute."
