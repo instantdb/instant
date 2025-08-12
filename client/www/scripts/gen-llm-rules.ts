@@ -72,10 +72,6 @@ function buildAppCode(): string {
     path.join(exampleDir, 'instant.schema.ts'),
     'utf-8',
   );
-  const permsFile = fs.readFileSync(
-    path.join(exampleDir, 'instant.perms.ts'),
-    'utf-8',
-  );
   const pageFile = fs.readFileSync(
     path.join(exampleDir, 'app/page.tsx'),
     'utf-8',
@@ -92,8 +88,6 @@ function buildAppCode(): string {
 ${dbFileFixed}
 /* FILE: instant.schema.ts */
 ${schemaFile}
-/* FILE: instant.perms.ts */
-${permsFile}
 /* FILE: app/page.tsx */
 ${pageFile}\`\`\``;
 }

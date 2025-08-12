@@ -187,15 +187,6 @@ function EmailStep({ onSendEmail }: { onSendEmail: (email: string) => void }) {
       <p className="text-gray-700">
         This is a demo app for InstantDB with the following features:
       </p>
-      <ul className="list-disc pl-5 space-y-1">
-        <li>Initiailizes a connection to InstantDB</li>
-        <li>Defines schema and permissions for the app</li>
-        <li>Authentication with magic codes</li>
-        <li>Reads and writes data via `db.useQuery` and `db.transact`</li>
-        <li>Ephemeral features like who's online</li>
-        <li>File uploads for avatars</li>
-      </ul>
-
       <p className="text-gray-700">
         To try the app, enter your email, and we'll send you a verification
         code. We'll create an account for you too if you don't already have one.
