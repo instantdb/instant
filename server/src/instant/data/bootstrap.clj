@@ -12,9 +12,7 @@
    [instant.db.model.attr :as attr-model]
    [instant.db.model.entity :as entity-model]
    [instant.db.model.triple :as triple-model]
-   [instant.util.spec :as uspec])
-  (:import
-   (java.util UUID)))
+   [instant.util.spec :as uspec]))
 
 (defn extract-zeneca-txes [{:keys [checked-data? indexed-data?]}]
   (let [imported (<-json (slurp (io/resource "sample_triples/zeneca.json")))
@@ -27,7 +25,7 @@
                                    (not v)))))
         eid->uuid (->> triples
                        (map (fn [[id _ _]]
-                              [id (java.util.UUID/randomUUID)]))
+                              [id (random-uuid)]))
                        (into {}))
         triples-with-eids
         (->> triples
@@ -41,7 +39,7 @@
                        v)])))
         attr->uuid (->> triples
                         (map (fn [[_ a _]]
-                               [a (java.util.UUID/randomUUID)]))
+                               [a (random-uuid)]))
                         (into {}))
         triples-with-attr-ids
         (->> triples-with-eids
@@ -62,15 +60,15 @@
                    (cond
                      ref?
                      {:id uuid
-                      :forward-identity [(java.util.UUID/randomUUID) nsp idn]
-                      :reverse-identity [(java.util.UUID/randomUUID) idn nsp]
+                      :forward-identity [(random-uuid) nsp idn]
+                      :reverse-identity [(random-uuid) idn nsp]
                       :cardinality :many
                       :value-type :ref
                       :unique? false
                       :index? false}
                      (= "id" idn)
                      {:id uuid
-                      :forward-identity [(java.util.UUID/randomUUID) nsp "id"]
+                      :forward-identity [(random-uuid) nsp "id"]
                       :cardinality :one
                       :value-type :blob
                       :unique? true
@@ -78,7 +76,7 @@
                      :else
                      (merge
                       {:id uuid
-                       :forward-identity [(java.util.UUID/randomUUID) nsp idn]
+                       :forward-identity [(random-uuid) nsp idn]
                        :cardinality :one
                        :value-type :blob
                        :unique? (if-not indexed-data?
@@ -264,7 +262,7 @@
         eid->uuid
         (->> triples
              (map (fn [[id _ _]]
-                    [id (UUID/randomUUID)]))
+                    [id (random-uuid)]))
              (into {}))
 
         triples-with-uuids
@@ -278,7 +276,7 @@
 
         attr->uuid (->> triples
                         (map (fn [[_ a _]]
-                               [a (UUID/randomUUID)]))
+                               [a (random-uuid)]))
                         (into {}))
 
         triples-with-attr-ids
@@ -302,8 +300,8 @@
                    (cond
                      ref?
                      {:id uuid
-                      :forward-identity [(UUID/randomUUID) etype label]
-                      :reverse-identity [(UUID/randomUUID) label etype]
+                      :forward-identity [(random-uuid) etype label]
+                      :reverse-identity [(random-uuid) label etype]
                       :cardinality :many
                       :value-type :ref
                       :unique? false
@@ -311,7 +309,7 @@
 
                      :else
                      {:id uuid
-                      :forward-identity [(UUID/randomUUID) etype label]
+                      :forward-identity [(random-uuid) etype label]
                       :cardinality :one
                       :value-type :blob
                       :unique? false

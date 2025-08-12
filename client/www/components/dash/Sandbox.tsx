@@ -552,7 +552,10 @@ export function Sandbox({
                           <code>{cr.eid}</code>
                         </div>
                         <div>Value</div>
-                        <Data data={cr.data?.updated} collapsed={0} />
+                        <Data
+                          data={cr.bindings?.['new-data'] || cr.data?.updated}
+                          collapsed={0}
+                        />
                         <div>Check</div>
                         <div className="border bg-white">
                           <span className="px-2 border-r font-bold bg-gray-50">
