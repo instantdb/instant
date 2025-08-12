@@ -24,8 +24,6 @@
 
 (def triples-copy-sql "copy (select app_id, attr_id, value, checked_data_type, created_at from triples order by app_id, attr_id) to stdout with (format binary)")
 
-;; XXX: Handle value too large in the wal listener
-
 (defn initial-sketch-seq
   "Returns a lazy seq of sketches with app-id and attr-id, expects `copy-sql` to sort by
    app_id and attr_id. Meant to be used once when bootstrapping the attr sketches."
