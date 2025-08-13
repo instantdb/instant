@@ -578,37 +578,39 @@ type ValidWhereValue<Input, AttrDef extends DataAttrDef<any, any, any>> =
 type NoDistribute<T> = [T] extends [any] ? T : never;
 
 type ValidWhereObject<
-  Input extends { [key: string]: any },
+  Input extends { [key: string]: any } | undefined,
   Schema extends IContainEntitiesAndLinks<any, any>,
   EntityName extends keyof Schema['entities'],
-> = keyof Input extends
-  | ValidDotPath<keyof Input, Schema, EntityName>
-  | keyof Schema['entities'][EntityName]['attrs']
-  | 'and'
-  | 'or'
-  | 'id'
-  ? {
-      [K in ValidDotPath<keyof Input, Schema, EntityName>]?: ValidWhereValue<
-        Input[K],
-        ExtractAttrFromDotPath<K, Schema, EntityName>
-      >;
-    } & {
-      [K in keyof Schema['entities'][EntityName]['attrs']]?: ValidWhereValue<
-        Input[K],
-        Schema['entities'][EntityName]['attrs'][K]
-      >;
-    } & {
-      and?: Input extends { and: Array<infer Item> }
-        ? ValidWhereObject<NoDistribute<Item>, Schema, EntityName>[]
-        : never;
-      or?: Input extends { or: Array<infer Item> }
-        ? ValidWhereObject<NoDistribute<Item>, Schema, EntityName>[]
-        : never;
-    } & {
-      // Special case for id
-      id?: ValidWhereValue<Input['id'], DataAttrDef<string, false, false>>;
-    }
-  : never;
+> = Input extends undefined
+  ? undefined
+  : keyof Input extends
+        | ValidDotPath<keyof Input, Schema, EntityName>
+        | keyof Schema['entities'][EntityName]['attrs']
+        | 'and'
+        | 'or'
+        | 'id'
+    ? {
+        [K in ValidDotPath<keyof Input, Schema, EntityName>]?: ValidWhereValue<
+          Input[K],
+          ExtractAttrFromDotPath<K, Schema, EntityName>
+        >;
+      } & {
+        [K in keyof Schema['entities'][EntityName]['attrs']]?: ValidWhereValue<
+          Input[K],
+          Schema['entities'][EntityName]['attrs'][K]
+        >;
+      } & {
+        and?: Input extends { and: Array<infer Item> }
+          ? ValidWhereObject<NoDistribute<Item>, Schema, EntityName>[]
+          : never;
+        or?: Input extends { or: Array<infer Item> }
+          ? ValidWhereObject<NoDistribute<Item>, Schema, EntityName>[]
+          : never;
+      } & {
+        // Special case for id
+        id?: ValidWhereValue<Input['id'], DataAttrDef<string, false, false>>;
+      }
+    : never;
 
 /**
  * Extracts the attribute definition from a valid dot path.

@@ -627,5 +627,15 @@ test('runs without exception', () => {
         },
       },
     });
+
+    const flip = false;
+    const testWhereClause = flip ? { prizes: 'hi' } : undefined;
+    const r22 = dummyQuery({
+      birthdays: {
+        $: {
+          where: testWhereClause,
+        },
+      },
+    });
   };
 });
