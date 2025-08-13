@@ -30,7 +30,7 @@
 
 (defn test-rule-wheres [ctx permissioned-query-fn o query-hash]
   (cache/lookup-or-miss seen query-hash (constantly true))
-  (binding [tracer/*span* nil] ;; Create new root span
+  (tracer/with-new-trace-root
     (tracer/with-span! {:name "test-pg-hint-plan"
                         :attributes (merge {:query o
                                             :app-id (:app-id ctx)

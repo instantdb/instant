@@ -233,7 +233,7 @@
      (tracer/record-info! {:name (format "init.start.%s" (name ~operation))})
      (tracer/with-span! {:name (format "init.finish.%s" (name ~operation))}
        ;; Don't let ourselves be the parent of any child spans
-       (binding [tracer/*span* nil]
+       (tracer/with-new-trace-root
          ~@body))))
 
 (defn -main [& _args]
