@@ -75,13 +75,14 @@
   "Wraps standard http requests within a span."
   [handler]
   (fn [request]
-    (if (or (:websocket? request)
-            (cors/preflight? request))
+    (if (cors/preflight? request)
       ;; We skip websocket requests;
       ;; Because websockets are long-lived,
       ;; a parent-span doesn't make sense.
       (handler request)
-      (tracer/with-span! {:name "http-req"}
+      (tracer/with-span! {:name "http-req"
+                          :attributes (when (:websocket? request)
+                                        {:websocket? true})}
         (let [{:keys [status] :as response}  (handler request)]
           (tracer/add-data! {:attributes {:status status}})
           response)))))

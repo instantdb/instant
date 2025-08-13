@@ -533,7 +533,9 @@
     (assoc (merge metadata event-attrs)
            :socket-origin (rs/socket-origin socket)
            :socket-ip (rs/socket-ip socket)
-           :session-id sess-id)))
+           :session-id sess-id
+           :x-amzn-trace-id (rs/socket-x-amzn-trace-id socket)
+           :x-amzn-cf-id (rs/socket-x-amz-cf-id socket))))
 
 (defn handle-receive [store session event metadata]
   (tracer/with-exceptions-silencer [silence-exceptions]
