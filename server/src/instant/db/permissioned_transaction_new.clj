@@ -1,6 +1,7 @@
 (ns instant.db.permissioned-transaction-new
   (:require
    [clojure.string :as string]
+   [clojure+.core :as clojure+]
    [instant.db.cel :as cel]
    [instant.db.datalog :as d]
    [instant.db.model.attr :as attr-model]
@@ -194,16 +195,22 @@
 
 (defn pre-checks
   "Checks that run before tx: update, delete for attrs & objects"
-  [{:keys [admin? rules]}
+  [{:keys [attrs admin? rules]}
    entities-map
    updated-entities-map
    rule-params-map
    tx-steps]
-  (for [{:keys [op eid etype value rev-etype]} tx-steps
-        :let [key         {:eid eid :etype etype}
-              entity      (get entities-map key)
-              rule-params (get rule-params-map key)]
-        check (cond
+  (for [{:keys [op eid aid etype value rev-etype]} tx-steps
+        :let [key             {:eid eid :etype etype}
+              entity          (get entities-map key)
+              update?         (some? entity)
+              ref?            (some? rev-etype)
+              [_ _ fwd-label] (:forward-identity (attr-model/seek-by-id aid attrs))
+              [_ _ rev-label] (:reverse-identity (attr-model/seek-by-id aid attrs))
+              rev-entity      (when ref?
+                                (get entities-map {:eid value :etype rev-etype}))
+              rule-params     (get rule-params-map key)]
+        check (clojure+/cond+
                 (= :update-attr op)
                 [{:scope    :attr
                   :action   :update
@@ -223,12 +230,33 @@
                   :program  {:result admin?}}]
 
                 (and (= :add-triple op)
-                     entity
-                     rev-etype) ;; update, ref
-                [] ;; FIXME
+                     update?
+                     ref?
+                     :let [fwd-program (rule-model/get-program! rules etype "link" fwd-label)
+                           rev-program (rule-model/get-program! rules rev-etype "link" rev-label)]
+                     (or fwd-program rev-program))
+                (concat
+                 (when fwd-program
+                   [{:scope    :object
+                     :action   :update
+                     :etype    etype
+                     :eid      eid
+                     :program  fwd-program
+                     :bindings {:data        entity
+                                :new-data    (get updated-entities-map key)
+                                :rule-params rule-params}}])
+                 (when rev-program
+                   [{:scope    :object
+                     :action   :update
+                     :etype    rev-etype
+                     :eid      value
+                     :program  rev-program
+                     :bindings {:data        rev-entity
+                                ;; :new-data    (get updated-entities-map key)
+                                :rule-params rule-params}}]))
 
                 (and (#{:add-triple :deep-merge-triple :retract-triple} op)
-                     entity) ;; update
+                     update?)
                 (concat
                  [{:scope    :object
                    :action   :update
