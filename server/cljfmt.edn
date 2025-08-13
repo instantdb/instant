@@ -1,3 +1,6 @@
 {:extra-indents {warn-io   [[:block 1]]
                  expect-io [[:block 0]]
-                 tag-io    [[:block 0]]}}
+                 tag-io    [[:block 0]]
+                 cond+     [[:block 0]]
+                 if+       [[:block 1]]
+                 when+     [[:block 1]]}}
