@@ -154,7 +154,7 @@ type LinksIndex = Record<
  */
 function schema<
   EntitiesWithoutLinks extends EntitiesDef,
-  const Links extends LinksDef<EntitiesWithoutLinks> = {},
+  const Links extends LinksDef<EntitiesWithoutLinks>,
   Rooms extends RoomsDef = {},
 >({
   entities,

@@ -175,6 +175,11 @@ export type LinkDef<
 
 // ==========
 // derived types
+type IsEmptyOrIndexSignature<T> = keyof T extends never
+  ? true
+  : string extends keyof T
+    ? true
+    : false;
 
 export type EntitiesWithLinks<
   Entities extends EntitiesDef,
@@ -182,13 +187,8 @@ export type EntitiesWithLinks<
 > = {
   [EntityName in keyof Entities]: EntityDef<
     Entities[EntityName]['attrs'],
-    Links extends {}
-      ? keyof Links extends never
-        ? {}
-        : EntityForwardLinksMap<EntityName, Entities, Links> &
-            EntityReverseLinksMap<EntityName, Entities, Links>
-      : EntityForwardLinksMap<EntityName, Entities, Links> &
-          EntityReverseLinksMap<EntityName, Entities, Links>,
+    EntityForwardLinksMap<EntityName, Entities, Links> &
+      EntityReverseLinksMap<EntityName, Entities, Links>,
     Entities[EntityName] extends EntityDef<any, any, infer O>
       ? O extends void
         ? void
@@ -202,52 +202,54 @@ type EntityForwardLinksMap<
   Entities extends EntitiesDef,
   Links extends LinksDef<Entities>,
   LinkIndexFwd = LinksIndexedByEntity<Entities, Links, 'reverse'>,
-> = keyof Links extends never
-  ? {}
-  : EntityName extends keyof LinkIndexFwd
-    ? {
-        [LinkName in keyof LinkIndexFwd[EntityName]]: LinkIndexFwd[EntityName][LinkName] extends LinkDef<
-          Entities,
-          infer RelatedEntityName,
-          any,
-          any,
-          any,
-          any,
-          infer Cardinality
-        >
-          ? {
-              entityName: RelatedEntityName;
-              cardinality: Cardinality;
-            }
-          : never;
-      }
-    : {};
+> =
+  IsEmptyOrIndexSignature<Links> extends true
+    ? {}
+    : EntityName extends keyof LinkIndexFwd
+      ? {
+          [LinkName in keyof LinkIndexFwd[EntityName]]: LinkIndexFwd[EntityName][LinkName] extends LinkDef<
+            Entities,
+            infer RelatedEntityName,
+            any,
+            any,
+            any,
+            any,
+            infer Cardinality
+          >
+            ? {
+                entityName: RelatedEntityName;
+                cardinality: Cardinality;
+              }
+            : never;
+        }
+      : {};
 
 type EntityReverseLinksMap<
   EntityName extends keyof Entities,
   Entities extends EntitiesDef,
   Links extends LinksDef<Entities>,
   RevLinkIndex = LinksIndexedByEntity<Entities, Links, 'forward'>,
-> = keyof Links extends never
-  ? {}
-  : EntityName extends keyof RevLinkIndex
-    ? {
-        [LinkName in keyof RevLinkIndex[EntityName]]: RevLinkIndex[EntityName][LinkName] extends LinkDef<
-          Entities,
-          any,
-          any,
-          infer Cardinality,
-          infer RelatedEntityName,
-          any,
-          any
-        >
-          ? {
-              entityName: RelatedEntityName;
-              cardinality: Cardinality;
-            }
-          : never;
-      }
-    : {};
+> =
+  IsEmptyOrIndexSignature<Links> extends true
+    ? {}
+    : EntityName extends keyof RevLinkIndex
+      ? {
+          [LinkName in keyof RevLinkIndex[EntityName]]: RevLinkIndex[EntityName][LinkName] extends LinkDef<
+            Entities,
+            any,
+            any,
+            infer Cardinality,
+            infer RelatedEntityName,
+            any,
+            any
+          >
+            ? {
+                entityName: RelatedEntityName;
+                cardinality: Cardinality;
+              }
+            : never;
+        }
+      : {};
 
 type LinksIndexedByEntity<
   Entities extends EntitiesDef,
