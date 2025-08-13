@@ -504,9 +504,13 @@
 
    (when-not (flags/toggled? :disable-aggregator)
 
-     (initialize-slot {:slot-name (wal/full-slot-name slot-type slot-suffix)
-                       :process-id process-id
-                       :copy-sql copy-sql})
+     ;; This will be set in production after we've initialized the
+     ;; slot. If something happens to the slot, we don't want to block
+     ;; startup.
+     (when-not (flags/toggled? :skip-aggregator-initialization)
+       (initialize-slot {:slot-name (wal/full-slot-name slot-type slot-suffix)
+                         :process-id process-id
+                         :copy-sql copy-sql}))
 
      (start-slot-listener {:slot-suffix slot-suffix
                            :acquire-slot-interval-ms acquire-slot-interval-ms
