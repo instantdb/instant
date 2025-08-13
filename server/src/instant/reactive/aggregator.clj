@@ -5,6 +5,7 @@
    [instant.config :as config]
    [instant.db.attr-sketch :as cms]
    [instant.db.model.triple :as triple]
+   [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.copy :as copy]
    [instant.jdbc.wal :as wal]
@@ -501,15 +502,17 @@
   ([{:keys [slot-suffix process-id copy-sql acquire-slot-interval-ms
             sketch-flush-ms sketch-flush-max-items]}]
 
-   (initialize-slot {:slot-name (wal/full-slot-name slot-type slot-suffix)
-                     :process-id process-id
-                     :copy-sql copy-sql})
+   (when-not (flags/toggled? :disable-aggregator)
 
-   (start-slot-listener {:slot-suffix slot-suffix
-                         :acquire-slot-interval-ms acquire-slot-interval-ms
-                         :sketch-flush-ms sketch-flush-ms
-                         :sketch-flush-max-items sketch-flush-max-items
-                         :process-id process-id})))
+     (initialize-slot {:slot-name (wal/full-slot-name slot-type slot-suffix)
+                       :process-id process-id
+                       :copy-sql copy-sql})
+
+     (start-slot-listener {:slot-suffix slot-suffix
+                           :acquire-slot-interval-ms acquire-slot-interval-ms
+                           :sketch-flush-ms sketch-flush-ms
+                           :sketch-flush-max-items sketch-flush-max-items
+                           :process-id process-id}))))
 
 (defn start-global []
   (def shutdown (start)))

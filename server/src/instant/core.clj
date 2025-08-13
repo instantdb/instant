@@ -25,6 +25,7 @@
    [instant.machine-summaries]
    [instant.nrepl :as nrepl]
    [instant.oauth-apps.routes :as oauth-app-routes]
+   [instant.reactive.aggregator :as agg]
    [instant.reactive.ephemeral :as eph]
    [instant.reactive.invalidator :as inv]
    [instant.reactive.session :as session]
@@ -214,6 +215,9 @@
         (tracer/with-span! {:name "stop-invalidator"}
           (inv/stop-global)))
       (future
+        (tracer/with-span! {:name "stop-aggregator"}
+          (agg/stop-global)))
+      (future
         (tracer/with-span! {:name "stop-ephemeral"}
           (eph/stop)))
       (future
@@ -305,6 +309,14 @@
       (start))
     (with-log-init :shutdown-hook
       (add-shutdown-hook))
+    ;; This is way down at the end
+    ;; because the first time it starts
+    ;; it will spend some time initializing
+    ;; the sketches and we don't want to block
+    ;; the health check. After it's initialized,
+    ;; we can move it up
+    (with-log-init :aggregator
+      (agg/start-global))
     (log/info "Finished initializing")))
 
 (defn before-ns-unload []
