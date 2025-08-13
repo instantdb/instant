@@ -117,12 +117,19 @@
                 expr
                 all-bind-usages)))))
 
-(defn get-expr [rule etype action]
-  (or
-   (get-in rule [etype "allow" action])
-   (get-in rule [etype "allow" "$default"])
-   (get-in rule ["$default" "allow" action])
-   (get-in rule ["$default" "allow" "$default"])))
+(defn get-expr
+  ([rule etype action]
+   (get-expr rule etype action nil))
+  ([rule etype action attr]
+   (or
+    (if attr
+      (get-in rule [etype "allow" action attr])
+      (get-in rule [etype "allow" action]))
+    (get-in rule [etype "allow" "$default"])
+    (if attr
+      (get-in rule ["$default" "allow" action attr])
+      (get-in rule ["$default" "allow" action]))
+    (get-in rule ["$default" "allow" "$default"]))))
 
 (defn patch-code
   "Don't break if the perm check is a simple boolean"
@@ -176,34 +183,43 @@
                      (reset! program-cache
                              @(cache/lru-cache-factory {} :threshold 2048))))
 
-(defn get-program!* [rules etype action]
-  (or
-   (when-let [expr (get-expr (:code rules) etype action)]
-     (try
-       (let [code (with-binds (:code rules) etype action (patch-code expr))
-             compiler (cel/action->compiler action)
-             ast (cel/->ast compiler code)]
-         {:etype etype
-          :action action
-          :code code
-          :display-code expr
-          :cel-ast ast
-          :cel-program (cel/->program ast)
-          :ref-uses (cel/collect-ref-uses ast)
-          :where-clauses-program (when (= action "view")
-                                   (cel/where-clauses-program code))})
-       (catch CelValidationException e
-         (ex/throw-validation-err!
-          :permission
-          [etype action]
-          (->> (.getErrors e)
-               (map (fn [^CelIssue cel-issue]
-                      {:message (.getMessage cel-issue)})))))))
-   (default-program etype action)))
+(defn get-program!*
+  ([rules etype action]
+   (get-program!* rules etype action nil))
+  ([rules etype action attr]
+   (or
+    (when-let [expr (get-expr (:code rules) etype action attr)]
+      (try
+        (let [code (with-binds (:code rules) etype action (patch-code expr))
+              compiler (cel/action->compiler action)
+              ast (cel/->ast compiler code)]
+          {:etype etype
+           :action action
+           :code code
+           :display-code expr
+           :cel-ast ast
+           :cel-program (cel/->program ast)
+           :ref-uses (cel/collect-ref-uses ast)
+           :where-clauses-program (when (= action "view")
+                                    (cel/where-clauses-program code))})
+        (catch CelValidationException e
+          (ex/throw-validation-err!
+           :permission
+           [etype action]
+           (->> (.getErrors e)
+                (map (fn [^CelIssue cel-issue]
+                       {:message (.getMessage cel-issue)})))))))
+    (default-program etype action))))
 
-(defn get-program! [rules etype action]
-  (lookup-or-miss program-cache [rules etype action] (fn [[rules etype action]]
-                                                       (get-program!* rules etype action))))
+(defn get-program!
+  ([rules etype action]
+   (get-program! rules etype action nil))
+  ([rules etype action attr]
+   (lookup-or-miss
+    program-cache
+    [rules etype action attr]
+    (fn [[rules etype action attr]]
+      (get-program!* rules etype action attr)))))
 
 (defn $users-validation-errors
   "Only allow users to changes the `view` rules for $users, since we don't have

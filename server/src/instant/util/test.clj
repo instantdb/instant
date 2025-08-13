@@ -117,6 +117,18 @@
                 :let [[_ ns n] (:forward-identity attr)]]
             [(keyword ns n) (:id attr)]))))
 
+(defn resolve-attrs [attrs tx]
+  (for [step tx]
+    (cond-> step
+      (and (vector? (-> step (nth 1))) (contains? attrs (-> step (nth 1) first)))
+      (update-in [1 0] attrs)
+
+      (contains? attrs (-> step (nth 2)))
+      (update-in [2] attrs)
+
+      (and (vector? (-> step (nth 3))) (contains? attrs (-> step (nth 3) first)))
+      (update-in [3 0] attrs))))
+
 (defn insert-entities
   "Insert entities in more human-readable form (attrs by their ns/ident value,
    not by attr-id). All entities must have :db/id presudo-attr:
