@@ -86,7 +86,8 @@
         clojure.lang.LazySeq nil ;; top-level arrays
         (tracer/with-span! {:name "attr-sketch/unknown-type"
                             :attributes {:warning true
-                                         :value x}}
+                                         :value x
+                                         :type (type x)}}
           nil)))))
 
 (defn hash-val [^Long seed ^Long hash-idx data-type val]
