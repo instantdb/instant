@@ -3,7 +3,8 @@
    [clojure.pprint]
    [honey.sql :as hsql]
    [instant.jdbc.sql :as sql]
-   [instant.util.coll :as ucoll])
+   [instant.util.coll :as ucoll]
+   [instant.util.tracer :as tracer])
   (:import
    (com.github.luben.zstd Zstd)
    (java.lang Long)
@@ -69,17 +70,24 @@
                                :expected :instant})))
 
       (condp instance? x
+        java.lang.String [:string x]
         java.lang.Long [:long x]
         java.lang.Integer [:long (long x)]
         java.lang.Double [:double x]
         java.math.BigInteger [:bigint x]
-        java.lang.String [:string x]
         java.lang.Boolean [:boolean x]
         ;; Use string as the universal format for uuids for the purpose of
         ;; the sketch. We could use bytes, but this will still work if the
         ;; uuid gets passed to us as a string somehow
         java.util.UUID [:string (str x)]
-        nil))))
+        clojure.lang.PersistentArrayMap nil ;; small objects
+        clojure.lang.PersistentHashMap nil ;; large objects
+        clojure.lang.PersistentVector nil ;; nested arrays
+        clojure.lang.LazySeq nil ;; top-level arrays
+        (tracer/with-span! {:name "attr-sketch/unknown-type"
+                            :attributes {:warning true
+                                         :value x}}
+          nil)))))
 
 (defn hash-val [^Long seed ^Long hash-idx data-type val]
   (let [xx (LongHashFunction/xx3 (+ seed hash-idx))]
