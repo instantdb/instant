@@ -97,7 +97,7 @@
   (cache/ttl-cache-factory {} :ttl (* 1000 60)))
 
 (defn test-pg-hints-for-datalog-query [ctx patterns query query-hash]
-  (binding [tracer/*span* nil] ;; new root span
+  (tracer/with-new-trace-root
     (tracer/with-span! {:name "test-pg-hints-for-datalog"
                         :attributes {:query query
                                      :query-hash query-hash
@@ -138,7 +138,7 @@
   individually."
   [ctx permissioned-query-fn o query-hash]
   (cache/lookup-or-miss seen query-hash (constantly true))
-  (binding [tracer/*span* nil] ;; Create new root span
+  (tracer/with-new-trace-root
     (tracer/with-span! {:name "test-pg-hint-plan"
                         :attributes (merge {:query o
                                             :query-hash query-hash
