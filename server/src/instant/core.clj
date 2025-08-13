@@ -274,6 +274,8 @@
       (session/start))
     (with-log-init :invalidator
       (inv/start-global))
+    (with-log-init :aggregator
+      (agg/start-global))
     (with-log-init :wal
       (wal/start))
 
@@ -309,14 +311,6 @@
       (start))
     (with-log-init :shutdown-hook
       (add-shutdown-hook))
-    ;; This is way down at the end
-    ;; because the first time it starts
-    ;; it will spend some time initializing
-    ;; the sketches and we don't want to block
-    ;; the health check. After it's initialized,
-    ;; we can move it up
-    (with-log-init :aggregator
-      (agg/start-global))
     (log/info "Finished initializing")))
 
 (defn before-ns-unload []
