@@ -339,7 +339,7 @@ type InstaQLEntity<
         ResolveEntityAttrs<Schema['entities'][EntityName], UseDates>,
         Exclude<Fields[number], 'id'>
       >) &
-    InstaQLEntitySubqueryResult<Schema, EntityName, Subquery>
+    InstaQLEntitySubqueryResult<Schema, EntityName, Subquery, UseDates>
 >;
 
 type InstaQLQueryEntityResult<
@@ -355,7 +355,8 @@ type InstaQLQueryEntityResult<
     Entities,
     EntityName,
     Query,
-    WithCardinalityInference
+    WithCardinalityInference,
+    UseDates
   >;
 
 type InstaQLQueryResult<
