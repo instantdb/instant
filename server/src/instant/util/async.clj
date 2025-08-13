@@ -209,7 +209,6 @@
                 ch ([v] v)
                 timeout-ch :timeout))))))
 
-
 (defn buf-capacity [buf]
   (cond (instance? FixedBuffer buf)
         (.n ^FixedBuffer buf)
@@ -263,3 +262,65 @@
   (future
     (doseq [f futures]
       (deref f))))
+
+(defmacro >!-close-safe
+  "Prevents hangs when putting to a channel that is later closed.
+   Takes a close-signal-ch channel that will interrupt the stuck
+   put when the channel is closed.
+
+   This only works if you remember to close the close-signal channel
+   when you close the channel itself."
+  [close-signal-ch ch val]
+  `(a/alt! [[~ch ~val]] ([res#] res#)
+           ~close-signal-ch false))
+
+(defn chunked-chan
+  "Takes a `flush-ms` and a `max-size`. Returns an `in` and `out` chan.
+
+   Put new items in `in`, `out` will receive the items combined with the
+   `combine` function after the buffer length (determined by calling `size`)
+   exceeds `max-items` or when it has not flushed in more than `flush-ms` (and
+   the buffer is not empty).
+
+   `combine` should accept two arguments, the accumulator and the next item."
+  [{:keys [flush-ms
+           max-size
+           combine
+           init
+           size]
+    :or {combine (fn [acc xs] (apply conj acc xs))
+         init []
+         size count}}]
+  (let [in (a/chan)
+        out (a/chan)
+        shutdown-ch (a/chan)
+        process
+        (a/go-loop [items init
+                    timeout-ch nil]
+          (let [[vs ch] (a/alts! (remove nil? [in timeout-ch]))
+                timeout? (= ch timeout-ch)]
+            (cond timeout?
+                  (when (>!-close-safe shutdown-ch out items)
+                    (recur init nil))
+
+                  (nil? vs)
+                  (do
+                    (when (and (not (nil? items))
+                               (not (identical? items init)))
+                      (>!-close-safe shutdown-ch out items))
+                    (a/close! out))
+
+                  :else
+                  (let [items' (combine items vs)]
+                    (if (>= (size items') max-size)
+                      (when (>!-close-safe shutdown-ch out items')
+                        (recur init nil))
+                      (recur items' (or timeout-ch
+                                        (a/timeout flush-ms))))))))]
+    {:in in
+     :out out
+     :shutdown (fn []
+                 (a/close! in)
+                 (a/close! out)
+                 (a/close! shutdown-ch)
+                 process)}))
