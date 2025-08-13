@@ -25,6 +25,7 @@
    [instant.machine-summaries]
    [instant.nrepl :as nrepl]
    [instant.oauth-apps.routes :as oauth-app-routes]
+   [instant.reactive.aggregator :as agg]
    [instant.reactive.ephemeral :as eph]
    [instant.reactive.invalidator :as inv]
    [instant.reactive.session :as session]
@@ -214,6 +215,9 @@
         (tracer/with-span! {:name "stop-invalidator"}
           (inv/stop-global)))
       (future
+        (tracer/with-span! {:name "stop-aggregator"}
+          (agg/stop-global)))
+      (future
         (tracer/with-span! {:name "stop-ephemeral"}
           (eph/stop)))
       (future
@@ -279,6 +283,8 @@
                          flags/queries
                          flags/query-results)))
 
+    (with-log-init :aggregator
+      (agg/start-global))
     (with-log-init :ephemeral-app
       (ephemeral-app/start))
     (with-log-init :session-counter
