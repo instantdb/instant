@@ -76,9 +76,6 @@
   [handler]
   (fn [request]
     (if (cors/preflight? request)
-      ;; We skip websocket requests;
-      ;; Because websockets are long-lived,
-      ;; a parent-span doesn't make sense.
       (handler request)
       (tracer/with-span! {:name "http-req"
                           :attributes (when (:websocket? request)
