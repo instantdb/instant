@@ -12,6 +12,7 @@ import {
   type InstantObject,
   type InstantEntity,
   type InstantSchemaDatabase,
+  type InstantUnknownSchemaDef,
   type IInstantDatabase,
   type User,
   type AuthState,
@@ -29,6 +30,7 @@ import {
   type EntitiesWithLinks,
   type EntityDef,
   type InstantGraph,
+  type InstantConfig,
   type LinkAttrDef,
   type LinkDef,
   type LinksDef,
@@ -83,6 +85,8 @@ export {
 
   // types
   type Config,
+  type InstantConfig,
+  type InstantUnknownSchemaDef,
   type Query,
   type QueryResponse,
   type InstantObject,
