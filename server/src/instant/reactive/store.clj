@@ -141,6 +141,18 @@
           last
           string/trim))
 
+(defn socket-x-amzn-trace-id
+  "Load balancer trace id"
+  [{:keys [^WebSocketHttpExchange http-req]}]
+  (some-> http-req
+          (.getRequestHeader "x-amzn-trace-id")))
+
+(defn socket-x-amz-cf-id
+  "Cloudfront tracking id"
+  [{:keys [^WebSocketHttpExchange http-req]}]
+  (some-> http-req
+          (.getRequestHeader "x-amz-cf-id")))
+
 (defn report-active-sessions [store]
   (let [db @(:sessions store)]
     (for [datom (d/datoms db :aevt :session/id)
