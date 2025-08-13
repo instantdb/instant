@@ -274,8 +274,6 @@
       (session/start))
     (with-log-init :invalidator
       (inv/start-global))
-    (with-log-init :aggregator
-      (agg/start-global))
     (with-log-init :wal
       (wal/start))
 
@@ -285,6 +283,8 @@
                          flags/queries
                          flags/query-results)))
 
+    (with-log-init :aggregator
+      (agg/start-global))
     (with-log-init :ephemeral-app
       (ephemeral-app/start))
     (with-log-init :session-counter
