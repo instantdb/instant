@@ -270,10 +270,7 @@
 
   (testing "$not"
     (is-match-topic-part #{1} {:$not 2} true)
-    (is-match-topic-part #{1} {:$not 1} false))
-  (testing "$ne"
-    (is-match-topic-part #{1} {:$ne 2} true)
-    (is-match-topic-part #{1} {:$ne 1} false)))
+    (is-match-topic-part #{1} {:$not 1} false)))
 
 (comment
   (test/run-tests *ns*))

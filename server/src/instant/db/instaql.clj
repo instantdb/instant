@@ -262,7 +262,11 @@
          ;; entities where the entity has a triple with the attr. If the
          ;; attr is missing, then we won't find it. We add an extra
          ;; `isNull` check to ensure that we find the entity.
-         (let [path (string/split (name k) #"\.")
+         ;; Normalize $ne to $not here.
+         (let [v (if (contains? v :$ne)
+                   (-> v (assoc :$not (:$ne v)) (dissoc :$ne))
+                   v)
+               path (string/split (name k) #"\.")
                is-null-paths (cond-> (mapv (fn [p]
                                              [p {:$isNull true}])
                                            (grow-paths path))
@@ -1703,6 +1707,7 @@
                           [])})
         results))
 
+
 (defn collect-topics [query-result]
   (reduce (fn [topics result]
             (set/union topics
@@ -2089,6 +2094,8 @@
                                             etype-rule-where))))))))
               {}
               o)))
+
+
 
 
 (defn permissioned-query [{:keys [app-id current-user admin?] :as ctx} o]

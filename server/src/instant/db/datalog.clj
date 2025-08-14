@@ -56,10 +56,8 @@
         :variable symbol?))
 
 (s/def ::$not ::triple-model/value)
-(s/def ::$ne ::triple-model/value)
-;; $not and $ne for the entity_id should always be a uuid
+;; $not for the entity_id should always be a uuid
 (s/def :datalog-entity-id/$not uuid?)
-(s/def :datalog-entity-id/$ne uuid?)
 (s/def ::attr-id uuid?)
 (s/def ::nil? boolean?)
 (s/def ::$isNull (s/keys :req-un [::attr-id ::nil?]))
@@ -72,14 +70,14 @@
 (s/def ::entity-value-component (s/or :constant (s/coll-of ::triple-model/lookup :kind set? :min-count 0)
                                       :any #{'_}
                                       :variable symbol?
-                                      :function (s/keys :req-un [(or :datalog-entity-id/$not :datalog-entity-id/$ne)])))
+                                      :function (s/keys :req-un [:datalog-entity-id/$not])))
 
 (s/def ::value-pattern-component (s/or :constant (s/coll-of ::triple-model/value
                                                             :kind set?
                                                             :min-count 0)
                                        :any #{'_}
                                        :variable symbol?
-                                       :function (s/keys :req-un [(or ::$not ::$ne ::$isNull ::$comparator ::$entityIdStartsWith)])))
+                                       :function (s/keys :req-un [(or ::$not ::$isNull ::$comparator ::$entityIdStartsWith)])))
 
 (s/def ::idx-key #{:ea :eav :av :ave :vae})
 (s/def ::data-type #{:string :number :boolean :date})
@@ -134,13 +132,11 @@
       (if (or
            (and (= i 0)
                 (map? c)
-                (or (contains? c :$not)
-                    (contains? c :$ne)))
+                (contains? c :$not))
            ;; Don't override function clauses
            (and (= i 2)
                 (map? c)
                 (or (contains? c :$not)
-                    (contains? c :$ne)
                     (contains? c :$isNull)
                     (contains? c :$comparator)
                     (contains? c :$entityIdStartsWith)))
@@ -698,7 +694,7 @@
   (case v-tag
     :function (let [[func val] (first v-value)]
                 (case func
-                  (:$not :$ne) [(not-eq-value idx val)]
+                  :$not [(not-eq-value idx val)]
                   :$isNull [[(if (:nil? val)
                                :not-in
                                :in)
@@ -742,7 +738,7 @@
   (case e-tag
     :function (let [[func val] (first e-value)]
                 (case func
-                  (:$not :$ne) [[:not= :entity-id val]]))
+                  :$not [[:not= :entity-id val]]))
     []))
 
 (defn- function-clauses [app-id triples-alias named-pattern]
