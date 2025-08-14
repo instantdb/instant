@@ -1147,7 +1147,6 @@ test('$isNull with reverse relations', () => {
 test('$not and $ne', () => {
   const qNot = { tests: { $: { where: { val: { $not: 'a' } } } } };
   const qNe = { tests: { $: { where: { val: { $ne: 'a' } } } } };
-  expect(query({ store }, q).data.tests.length).toEqual(0);
   const chunks = [
     tx.tests[randomUUID()].update({ val: 'a' }),
     tx.tests[randomUUID()].update({ val: 'b' }),
