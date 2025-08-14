@@ -44,6 +44,7 @@
 (s/def ::in ::$in)
 
 (s/def ::$not where-value-valid?)
+(s/def ::$ne where-value-valid?)
 (s/def ::$isNull boolean?)
 (s/def ::comparator (s/or :string string?
                           :number number?
@@ -60,14 +61,14 @@
 
 (defn where-value-valid-keys? [m]
   (every? #{:in :$in
-            :$not :$isNull
+            :$not :$ne :$isNull
             :$gt :$gte :$lt :$lte
             :$like :$ilike
             :$entityId}
           (keys m)))
 
 (s/def ::where-args-map (s/and
-                         (s/keys :opt-un [::in ::$in ::$not ::$isNull
+                         (s/keys :opt-un [::in ::$in ::$not ::$ne ::$isNull
                                           ::$gt ::$gte ::$lt ::$lte ::$like ::$ilike
                                           ::$entityIdStartsWith])
                          where-value-valid-keys?))
@@ -256,8 +257,8 @@
                 :in (conj (:in state) :and)
                 :message "The list of `and` conditions can't be empty."}])))
 
-         (and (map? v) (contains? v :$not))
-         ;; If the where cond has `not`, then the check will only include
+         (and (map? v) (or (contains? v :$not) (contains? v :$ne)))
+         ;; If the where cond has `$not` or `$ne`, then the check will only include
          ;; entities where the entity has a triple with the attr. If the
          ;; attr is missing, then we won't find it. We add an extra
          ;; `isNull` check to ensure that we find the entity.
@@ -2088,6 +2089,7 @@
                                             etype-rule-where))))))))
               {}
               o)))
+
 
 (defn permissioned-query [{:keys [app-id current-user admin?] :as ctx} o]
   (tracer/with-span! {:name "instaql/permissioned-query"

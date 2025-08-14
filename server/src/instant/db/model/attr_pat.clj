@@ -181,6 +181,12 @@
             {:$not v-coerced}))
 
         (and (map? v)
+             (contains? v :$ne))
+        (let [{:keys [$ne]} v]
+          (when-let [v-coerced (uuid-util/coerce $ne)]
+            {:$ne v-coerced}))
+
+        (and (map? v)
              (contains? v :$isNull))
         v
 
@@ -326,10 +332,16 @@
       value)))
 
 (defn coerce-v-single! [state attr data-type v]
-  (if (and (map? v)
-           (contains? v :$not))
-    (update v :$not (partial coerce-value-data-value! state attr data-type))
-    (coerce-value-data-value! state attr data-type v)))
+  (cond (and (map? v)
+             (contains? v :$not))
+        (update v :$not (partial coerce-value-data-value! state attr data-type))
+        
+        (and (map? v)
+             (contains? v :$ne))
+        (update v :$ne (partial coerce-value-data-value! state attr data-type))
+        
+        :else
+        (coerce-value-data-value! state attr data-type v)))
 
 (defn coerced-value-with-checked-type! [state attr data-type v]
   (if (set? v)

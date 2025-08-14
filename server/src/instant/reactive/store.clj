@@ -636,8 +636,9 @@
                            (match-nil op)
                            (f v value)))
                        iv-part))
-      (when (contains? dq-part :$not)
-        (let [not-val (:$not dq-part)]
+      (when (or (contains? dq-part :$not)
+                (contains? dq-part :$ne))
+        (let [not-val (or (:$not dq-part) (:$ne dq-part))]
           (ucoll/exists? (partial not= not-val) iv-part))))))
 
 (defn match-topic?
