@@ -1027,6 +1027,45 @@ test('arbitrary ordering with dates', () => {
   expect(numAscRes).toEqual(ascExpected);
 });
 
+test('arbitrary ordering with strings', () => {
+  const schema = i.schema({
+    entities: {
+      tests: i.entity({
+        string: i.string().indexed(),
+      }),
+    },
+  });
+
+  const txSteps = [];
+  const vs = ['10', '2', 'a0', 'Zz'];
+  for (const v of vs) {
+    txSteps.push(
+      tx.tests[randomUUID()].update({
+        string: v,
+      }),
+    );
+  }
+
+  const newStore = transact(
+    store,
+    instaml.transform({ attrs: store.attrs, schema: schema }, txSteps),
+  );
+
+  const ascRes = query(
+    { store: newStore },
+    { tests: { $: { order: { string: 'asc' } } } },
+  ).data.tests.map((x) => x.string);
+
+  expect(ascRes).toEqual(vs);
+
+  const descRes = query(
+    { store: newStore },
+    { tests: { $: { order: { string: 'desc' } } } },
+  ).data.tests.map((x) => x.string);
+
+  expect(descRes).toEqual(vs.toReversed());
+});
+
 test('$isNull', () => {
   const q = { books: { $: { where: { title: { $isNull: true } } } } };
   expect(query({ store }, q).data.books.length).toEqual(0);
