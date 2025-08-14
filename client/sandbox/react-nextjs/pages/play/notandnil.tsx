@@ -19,7 +19,7 @@ function Example({ appId }: { appId: string }) {
   });
 
   const { data: notData } = db.useQuery({
-    items: { $: { where: { val: { $not: 'a' } } } },
+    items: { $: { where: { val: { $ne: 'a' } } } },
   });
 
   const { data: fwdLinkNotData } = db.useQuery({

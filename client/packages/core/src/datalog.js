@@ -30,7 +30,6 @@ const validArgMapProps = [
   'in',
   '$in',
   '$not',
-  '$ne',
   '$isNull',
   '$comparator', // covers all of $gt, $lt, etc.
 ];
