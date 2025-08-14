@@ -221,6 +221,15 @@
         (and (:index? attr)
              (not (:indexing? attr)))))))
 
+(defn- normalize-ne-to-not
+  "Treat `$ne` as an alias for `$not`."
+  [where-cond-v]
+  (if (contains? where-cond-v :$ne)
+    (-> where-cond-v
+        (assoc :$not (:$ne where-cond-v))
+        (dissoc :$ne))
+    where-cond-v))
+
 (defn- coerce-where-cond
   "Splits keys into segments."
   [state attrs [k v :as c]]
@@ -258,14 +267,11 @@
                 :message "The list of `and` conditions can't be empty."}])))
 
          (and (map? v) (or (contains? v :$not) (contains? v :$ne)))
-         ;; If the where cond has `$not` or `$ne`, then the check will only include
+         ;; If the where cond has `$not`, then the check will only include
          ;; entities where the entity has a triple with the attr. If the
          ;; attr is missing, then we won't find it. We add an extra
          ;; `isNull` check to ensure that we find the entity.
-         ;; Normalize $ne to $not here.
-         (let [v (if (contains? v :$ne)
-                   (-> v (assoc :$not (:$ne v)) (dissoc :$ne))
-                   v)
+         (let [v (normalize-ne-to-not v)
                path (string/split (name k) #"\.")
                is-null-paths (cond-> (mapv (fn [p]
                                              [p {:$isNull true}])
@@ -1706,7 +1712,6 @@
                                                 children))
                           [])})
         results))
-
 
 (defn collect-topics [query-result]
   (reduce (fn [topics result]
