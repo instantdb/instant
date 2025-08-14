@@ -159,6 +159,10 @@ async function generateLLMRuleFiles() {
   ];
 
   const OUTPUT_DIR = path.join(__dirname, '../public/mcp-tutorial');
+  const CREATE_INSTANT_APP_OUTPUT_DIR = path.join(
+    __dirname,
+    '../../packages/create-instant-app/template/rules/',
+  );
 
   // Ensure output directory exists
   if (!fs.existsSync(OUTPUT_DIR)) {
@@ -172,6 +176,13 @@ async function generateLLMRuleFiles() {
     const outputPath = path.join(OUTPUT_DIR, filename);
     fs.writeFileSync(outputPath, content);
     console.log(`  ✅ Generated: ${filename}`);
+
+    // Output to create-instant-app template folder
+    const createInstantAppOutputPath = path.join(
+      CREATE_INSTANT_APP_OUTPUT_DIR,
+      filename,
+    );
+    fs.writeFileSync(createInstantAppOutputPath, content);
   }
 
   console.log(

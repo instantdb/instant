@@ -8,8 +8,7 @@
     "packages": [
       "sandbox/*",
       "packages/*",
-      "www",
-      "create-instant-app"
+      "www"
     ]
   },
   "scripts": {
@@ -17,8 +16,8 @@
     "dev": "turbo run dev --filter=!@instantdb/mcp --parallel --no-update-notifier",
     "test": "turbo run test:ci --no-update-notifier",
     "bench": "turbo run bench:ci --no-update-notifier",
-    "format": "prettier --write --ignore-path ../.gitignore --config ./.prettierrc \"**/*.{ts,tsx,js,jsx,json,md}\"",
-    "check-format": "prettier --check --ignore-path ../.gitignore --config ./.prettierrc \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "format": "prettier --write --ignore-path .prettierignore --ignore-path ../.gitignore --config ./.prettierrc \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "check-format": "prettier --check --ignore-path .prettierignore --ignore-path ../.gitignore --config ./.prettierrc \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "publish-packages": "turbo run publish-package --filter=\"./packages/*\" --no-update-notifier",
     "build-packages": "turbo run build --filter=\"./packages/*\" --cache-dir=.turbo --no-update-notifier",
     "build-sandbox": "turbo run build --filter=\"./sandbox/*\" --cache-dir=.turbo --no-update-notifier"
