@@ -7,6 +7,7 @@ import {
   ConditionalContent,
 } from '@/components/docs/NavButton';
 import { Tag, transformer } from '@markdoc/markdoc';
+import { HasAppID } from '../components/docs/Fence';
 
 function CustomDiv({ className, children }) {
   return <div className={className}>{children}</div>;
@@ -93,6 +94,23 @@ const tags = {
       const attrs = node.transformAttributes(config);
       const kids = node.children ?? [];
 
+      const idx = kids.findIndex((c) => c?.type === 'tag' && c?.tag === 'else');
+
+      const thenNodes = idx === -1 ? kids : kids.slice(0, idx);
+      const elseNodes = idx === -1 ? [] : kids.slice(idx);
+
+      const thenChildren = thenNodes.map((c) => transformer.node(c, config));
+      const elseChildren = elseNodes.map((c) => transformer.node(c, config));
+
+      return new Tag(this.render, { ...attrs, elseChildren }, thenChildren);
+    },
+  },
+
+  'has-app-id': {
+    render: HasAppID,
+    transform(node, config) {
+      const attrs = node.transformAttributes(config);
+      const kids = node.children ?? [];
       const idx = kids.findIndex((c) => c?.type === 'tag' && c?.tag === 'else');
 
       const thenNodes = idx === -1 ? kids : kids.slice(0, idx);

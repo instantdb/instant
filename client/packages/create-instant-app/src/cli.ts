@@ -1,23 +1,19 @@
 import { Command } from 'commander';
 import * as p from '@clack/prompts';
 
-type CliResults = {
-  base: 'nextjs' | 'vite' | 'react-native';
+export type CliResults = {
+  base: 'next-js-app-dir' | 'vite-vanilla' | 'expo';
   appName: string;
-  nextOptions?: {
-    routerType: 'app' | 'pages';
-  };
+  ruleFiles: ('cursor' | 'claude' | 'windsurf' | 'zed')[];
 };
 
 const defaultOptions: CliResults = {
-  base: 'nextjs',
-  nextOptions: {
-    routerType: 'app',
-  },
+  base: 'next-js-app-dir',
   appName: 'my-instant-app',
+  ruleFiles: [],
 };
 
-export const runCli = async () => {
+export const runCli = async (): Promise<CliResults> => {
   const results = defaultOptions;
 
   const program = new Command()
@@ -26,11 +22,6 @@ export const runCli = async () => {
     .argument(
       '[dir]',
       'The name of the application, as well as the name of the directory to create',
-    )
-    .option(
-      '-y, --default',
-      'Bypass the CLI and use all default options',
-      false,
     )
     .parse(process.argv);
   const cliProvidedName = program.args[0];
@@ -42,34 +33,38 @@ export const runCli = async () => {
 
   const project = await p.group(
     {
-      appName: () => {
+      appName: async () => {
         if (cliProvidedName) {
-          return new Promise((resolve) => {
-            resolve(cliProvidedName);
-          });
+          return cliProvidedName;
         }
         return p.text({
           message: 'What will your project be called?',
           placeholder: 'my-instant-app',
-          defaultValue: cliProvidedName,
+          defaultValue: 'my-instant-app',
         });
       },
       base: () =>
         p.select({
           message: 'What framework would you like to use?',
           options: [
-            { value: 'nextjs', label: 'Next.js' },
-            { value: 'vite', label: 'Vite' },
-            { value: 'react-native', label: 'React Native' },
+            { value: 'next-js-app-dir', label: 'Next.js (App Directory)' },
+            { value: 'vite-vanilla', label: 'Vanilla JS (Vite)' },
+            { value: 'expo', label: 'React Native (Expo)' },
           ],
           initialValue: 'nextjs' as CliResults['base'],
         }),
-      nextOptions: async ({ results }) => {
-        const options = {
-          routerType: 'app',
-        } satisfies CliResults['nextOptions'];
-        return options;
-      },
+      ruleFiles: () =>
+        p.multiselect({
+          required: false,
+          message: `Which AI tools would you like to add rule files for? (select multiple)`,
+          options: [
+            { value: 'cursor', label: 'Cursor' },
+            { value: 'claude', label: 'Claude' },
+            { value: 'windsurf', label: 'Windsurf' },
+            { value: 'zed', label: 'Zed' },
+          ],
+          initialValues: [] as CliResults['ruleFiles'],
+        }),
     } satisfies {
       [K in keyof CliResults]: (args: {
         results: Partial<CliResults>;
@@ -82,5 +77,5 @@ export const runCli = async () => {
     },
   );
 
-  return { project, flags };
+  return project;
 };
