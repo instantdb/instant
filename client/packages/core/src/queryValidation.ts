@@ -93,6 +93,7 @@ const validateOperator = (
       }
       break;
     case '$not':
+    case '$ne':
     case '$gt':
     case '$lt':
     case '$gte':

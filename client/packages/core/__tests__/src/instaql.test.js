@@ -1144,8 +1144,9 @@ test('$isNull with reverse relations', () => {
   ).toEqual(['Lonely shelf']);
 });
 
-test('$not', () => {
-  const q = { tests: { $: { where: { val: { $not: 'a' } } } } };
+test('$not and $ne', () => {
+  const qNot = { tests: { $: { where: { val: { $not: 'a' } } } } };
+  const qNe = { tests: { $: { where: { val: { $ne: 'a' } } } } };
   expect(query({ store }, q).data.tests.length).toEqual(0);
   const chunks = [
     tx.tests[randomUUID()].update({ val: 'a' }),
@@ -1156,12 +1157,13 @@ test('$not', () => {
   ];
   const txSteps = instaml.transform({ attrs: store.attrs }, chunks);
   const newStore = transact(store, txSteps);
-  expect(query({ store: newStore }, q).data.tests.map((x) => x.val)).toEqual([
-    'b',
-    'c',
-    null,
-    undefined,
-  ]);
+  const expected = ['b', 'c', null, undefined];
+  expect(query({ store: newStore }, qNot).data.tests.map((x) => x.val)).toEqual(
+    expected,
+  );
+  expect(query({ store: newStore }, qNe).data.tests.map((x) => x.val)).toEqual(
+    expected,
+  );
 });
 
 test('comparators', () => {

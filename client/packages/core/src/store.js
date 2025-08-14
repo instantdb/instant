@@ -492,9 +492,10 @@ export function allMapValues(m, level, res = []) {
 
 function triplesByValue(store, m, v) {
   const res = [];
-  if (v?.hasOwnProperty('$not')) {
+  if (v?.hasOwnProperty('$not') || v?.hasOwnProperty('$ne')) {
+    const compareValue = v.$not || v.$ne;
     for (const candidate of m.keys()) {
-      if (v.$not !== candidate) {
+      if (compareValue !== candidate) {
         res.push(m.get(candidate));
       }
     }
