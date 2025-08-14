@@ -2301,18 +2301,34 @@
           (is (perm-err?
                (transact!
                 [[:add-triple post-id :posts/fwd-only user-id]])))
+          (is (perm-err?
+               (transact!
+                [[:rule-params post-id "posts" {"b" true}]
+                 [:add-triple post-id :posts/fwd-only user-id]])))
+          (is (perm-err?
+               (transact!
+                [[:rule-params post-id "posts" {"d" true}]
+                 [:add-triple post-id :posts/fwd-only user-id]])))
           (is (not (perm-err?
                     (transact!
-                     [[:rule-params post-id "posts" {"b" true}]
+                     [[:rule-params post-id "posts" {"b" true, "d" true}]
                       [:add-triple post-id :posts/fwd-only user-id]])))))
 
         (testing "Check in reverse direction only"
           (is (perm-err?
                (transact!
                 [[:add-triple post-id :posts/rev-only user-id]])))
+          (is (perm-err?
+               (transact!
+                [[:rule-params post-id "posts" {"a" true}]
+                 [:add-triple post-id :posts/rev-only user-id]])))
+          (is (perm-err?
+               (transact!
+                [[:rule-params post-id "posts" {"f" true}]
+                 [:add-triple post-id :posts/rev-only user-id]])))
           (is (not (perm-err?
                     (transact!
-                     [[:rule-params post-id "posts" {"f" true}]
+                     [[:rule-params post-id "posts" {"a" true, "f" true}]
                       [:add-triple post-id :posts/rev-only user-id]])))))
 
         (testing "Checks in both directions are combined with AND"
@@ -3499,9 +3515,13 @@
                        book-creator-attr-id
                        [(resolvers/->uuid r :$users/email) "test@example.com"]]]]
 
-        (perm-err? (permissioned-tx/transact! (make-ctx) tx-steps))
-        (permissioned-tx/transact! (assoc (make-ctx)
-                                          :current-user {:id user-id}) tx-steps)
+        (is (perm-err? (permissioned-tx/transact! (make-ctx) tx-steps)))
+
+        (is (not (perm-err? (permissioned-tx/transact!
+                             (assoc (make-ctx)
+                                    :current-user {:id user-id})
+                             tx-steps))))
+
         (is (= (test-util/pretty-perm-q
                 (assoc (make-ctx) :current-user {:id user-id})
                 {:books {:$ {:where {:creator (str user-id)}}
