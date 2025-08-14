@@ -52,6 +52,14 @@ async function testQuery() {
   console.log(JSON.stringify(res, null, 2));
 }
 
+async function testNeQuery() {
+  const res = await query({
+    goals: { $: { where: { title: { $ne: 'Get six pack abs' } } } },
+  });
+
+  console.log(JSON.stringify(res, null, 2));
+}
+
 async function testTransact() {
   const todoAId = id();
   const todoBId = id();
@@ -138,6 +146,7 @@ async function testDeleteUser() {
 
 // testCreateToken();
 // testQuery();
+// testNeQuery();
 // testTransact();
 // testScoped();
 // testSignOut();

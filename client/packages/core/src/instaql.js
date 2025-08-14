@@ -349,6 +349,12 @@ function parseWhere(makeVar, store, etype, level, where) {
 
     const path = k.split('.');
 
+    // Normalize $ne to $not
+    if (v?.hasOwnProperty('$ne')) {
+      v = { ...v, $not: v.$ne };
+      delete v.$ne;
+    }
+
     if (v?.hasOwnProperty('$not')) {
       // `$not` won't pick up entities that are missing the attr, so we
       // add in a `$isNull` to catch those too.

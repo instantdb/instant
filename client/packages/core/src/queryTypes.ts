@@ -37,6 +37,7 @@ type BaseWhereClauseValueComplex<V> = {
   in?: V[];
   $in?: V[];
   $not?: V;
+  $ne?: V;
   $gt?: V;
   $lt?: V;
   $gte?: V;

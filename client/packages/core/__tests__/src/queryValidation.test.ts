@@ -395,6 +395,17 @@ test('where clause operators', () => {
     },
   });
 
+  // Valid $ne operator (alias for $not)
+  beValid({
+    posts: {
+      $: {
+        where: {
+          title: { $ne: 'Draft' },
+        },
+      },
+    },
+  });
+
   // Valid $gt, $lt, $gte, $lte operators
   beValid({
     posts: {

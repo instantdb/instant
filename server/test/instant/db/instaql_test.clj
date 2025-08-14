@@ -1693,11 +1693,57 @@
   (with-zeneca-app
     (fn [app r]
       (let [ctx (make-ctx app)
+            query-pretty (partial query-pretty ctx r)
+            expected '({:topics ([:av _ #{:users/handle} {:$not "alex"}]
+                                 [:av #{"eid-joe-averbukh" "eid-stepan-parunashvili"} #{:users/handle}
+                                  {:$not "nicolegf"}]
+                                 --
+                                 [:ea #{"eid-joe-averbukh"}
+                                  #{:users/createdAt :users/email :users/id :users/fullName
+                                    :users/handle} _]
+                                 --
+                                 [:ea #{"eid-stepan-parunashvili"}
+                                  #{:users/createdAt :users/email :users/id :users/fullName
+                                    :users/handle} _])
+                        :triples
+                        (("eid-joe-averbukh" :users/handle "joe")
+                         ("eid-joe-averbukh" :users/handle "joe")
+                         ("eid-stepan-parunashvili" :users/handle "stopa")
+                         ("eid-stepan-parunashvili" :users/handle "stopa")
+                         --
+                         ("eid-joe-averbukh" :users/id "eid-joe-averbukh")
+                         ("eid-joe-averbukh" :users/email "joe@instantdb.com")
+                         ("eid-joe-averbukh" :users/handle "joe")
+                         ("eid-joe-averbukh" :users/fullName "Joe Averbukh")
+                         ("eid-joe-averbukh" :users/createdAt "2021-01-07 18:51:23.742637")
+                         --
+                         ("eid-stepan-parunashvili" :users/email "stopa@instantdb.com")
+                         ("eid-stepan-parunashvili" :users/createdAt "2021-01-07 18:50:43.447955")
+                         ("eid-stepan-parunashvili" :users/fullName "Stepan Parunashvili")
+                         ("eid-stepan-parunashvili" :users/handle "stopa")
+                         ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili"))})]
+        (testing "$not works as expected"
+          (is-pretty-eq?
+           (query-pretty
+            {:users {:$ {:where {:and [{:handle {:$not "alex"}}
+                                       {:handle {:$not "nicolegf"}}]}}}})
+           expected))
+        (testing "$ne is an alias for $not"
+          (is-pretty-eq?
+           (query-pretty
+            {:users {:$ {:where {:and [{:handle {:$not "alex"}}
+                                       {:handle {:$not "nicolegf"}}]}}}})
+           expected))))))
+
+(deftest where-$ne
+  (with-zeneca-app
+    (fn [app r]
+      (let [ctx (make-ctx app)
             query-pretty (partial query-pretty ctx r)]
         (is-pretty-eq?
          (query-pretty
-          {:users {:$ {:where {:and [{:handle {:$not "alex"}}
-                                     {:handle {:$not "nicolegf"}}]}}}})
+          {:users {:$ {:where {:and [{:handle {:$ne "alex"}}
+                                     {:handle {:$ne "nicolegf"}}]}}}})
          '({:topics ([:av _ #{:users/handle} {:$not "alex"}]
                      [:av #{"eid-joe-averbukh" "eid-stepan-parunashvili"} #{:users/handle}
                       {:$not "nicolegf"}]
@@ -1777,37 +1823,45 @@
 
                              [:add-triple id-undefined id-aid (str id-undefined)]
                              [:add-triple id-undefined title-aid "undefined"]])
-            r (resolvers/make-zeneca-resolver (:id app))]
-        (is-pretty-eq?
-         (query-pretty (make-ctx)
-                       r
-                       {:books {:$ {:where {:val {:$not "a"}}}}})
-         '({:topics
-            ([:ea _ #{:books/val} {:$not "a"}]
-             [:ea _ #{:books/id} _]
-             [:ea _ #{:books/val} _]
-             --
-             [:ea #{"eid-b"} #{:books/val :books/id :books/title} _]
-             --
-             [:ea #{"eid-null"} #{:books/val :books/id :books/title} _]
-             --
-             [:ea #{"eid-undefined"} #{:books/val :books/id :books/title} _]),
-            :triples
-            (("eid-null" :books/id "eid-null")
-             ("eid-undefined" :books/id "eid-undefined")
-             ("eid-b" :books/val "b")
-             ("eid-null" :books/val nil)
-             --
-             ("eid-b" :books/title "b")
-             ("eid-b" :books/id "eid-b")
-             ("eid-b" :books/val "b")
-             --
-             ("eid-null" :books/id "eid-null")
-             ("eid-null" :books/title "null")
-             ("eid-null" :books/val nil)
-             --
-             ("eid-undefined" :books/id "eid-undefined")
-             ("eid-undefined" :books/title "undefined"))}))))))
+            r (resolvers/make-zeneca-resolver (:id app))
+            expected '({:topics
+                        ([:ea _ #{:books/val} {:$not "a"}]
+                         [:ea _ #{:books/id} _]
+                         [:ea _ #{:books/val} _]
+                         --
+                         [:ea #{"eid-b"} #{:books/val :books/id :books/title} _]
+                         --
+                         [:ea #{"eid-null"} #{:books/val :books/id :books/title} _]
+                         --
+                         [:ea #{"eid-undefined"} #{:books/val :books/id :books/title} _]),
+                        :triples
+                        (("eid-null" :books/id "eid-null")
+                         ("eid-undefined" :books/id "eid-undefined")
+                         ("eid-b" :books/val "b")
+                         ("eid-null" :books/val nil)
+                         --
+                         ("eid-b" :books/title "b")
+                         ("eid-b" :books/id "eid-b")
+                         ("eid-b" :books/val "b")
+                         --
+                         ("eid-null" :books/id "eid-null")
+                         ("eid-null" :books/title "null")
+                         ("eid-null" :books/val nil)
+                         --
+                         ("eid-undefined" :books/id "eid-undefined")
+                         ("eid-undefined" :books/title "undefined"))})]
+        (testing "$not works on nil values"
+          (is-pretty-eq?
+           (query-pretty (make-ctx)
+                         r
+                         {:books {:$ {:where {:val {:$not "a"}}}}})
+           expected))
+        (testing "$ne works on nil values"
+          (is-pretty-eq?
+           (query-pretty (make-ctx)
+                         r
+                         {:books {:$ {:where {:val {:$ne "a"}}}}})
+           expected))))))
 
 (deftest where-$isNull
   (with-empty-app
