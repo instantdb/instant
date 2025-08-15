@@ -2202,6 +2202,120 @@
                     set)
                book-id)))))))
 
+(deftest link-unlink-perms
+  (with-empty-app
+    (fn [{app-id   :id
+          make-ctx :make-ctx}]
+      (let [attrs
+            (test-util/make-attrs
+             app-id
+             [[:users/id :required? :index? :unique?]
+              [:users/name]
+              [:posts/id :required? :index? :unique?]
+              [:posts/text]
+              [[:posts/update   :users/rev-update]]
+              [[:posts/fwd-only :users/rev-fwd-only]]
+              [[:posts/rev-only :users/rev-rev-only]]
+              [[:posts/fwd-rev  :users/rev-fwd-rev]]])
+            user-id   (suid "0001")
+            post-id   (suid "000a")
+            transact! #(permissioned-tx/transact!
+                        (make-ctx)
+                        (test-util/resolve-attrs attrs %))]
+        (rule-model/put!
+         (aurora/conn-pool :write)
+         {:app-id app-id
+          :code {:posts
+                 {:allow
+                  {:update "ruleParams.a"
+                   :link   {"fwd-only" "ruleParams.b"
+                            "fwd-rev"  "ruleParams.c"}}}
+                 :users
+                 {:allow
+                  {:view   "ruleParams.d"
+                   :update "ruleParams.e"
+                   :link   {"rev-rev-only" "ruleParams.f"
+                            "rev-fwd-rev"  "ruleParams.g"}}}}})
+
+        (transact!
+         [[:add-triple user-id :users/id   user-id]
+          [:add-triple user-id :users/name "user"]
+          [:add-triple post-id :posts/id   post-id]
+          [:add-triple post-id :posts/text "post"]])
+
+        (testing "Can't update"
+          (is (perm-err?
+               (transact!
+                [[:add-triple post-id :posts/text "post 2"]]))))
+
+        (testing "Update+view fallback"
+          (is (perm-err?
+               (transact!
+                [[:add-triple post-id :posts/update user-id]])))
+          (is (perm-err?
+               (transact!
+                [[:rule-params post-id "posts" {"a" true}]
+                 [:add-triple post-id :posts/update user-id]])))
+          (is (perm-err?
+               (transact!
+                [[:rule-params post-id "posts" {"d" true}]
+                 [:add-triple post-id :posts/update user-id]])))
+          (is (not (perm-err?
+                    (transact!
+                     [[:rule-params post-id "posts" {"a" true, "d" true}]
+                      [:add-triple post-id :posts/update user-id]])))))
+
+        (testing "Check in forward direction only"
+          (is (perm-err?
+               (transact!
+                [[:add-triple post-id :posts/fwd-only user-id]])))
+          (is (perm-err?
+               (transact!
+                [[:rule-params post-id "posts" {"b" true}]
+                 [:add-triple post-id :posts/fwd-only user-id]])))
+          (is (perm-err?
+               (transact!
+                [[:rule-params post-id "posts" {"d" true}]
+                 [:add-triple post-id :posts/fwd-only user-id]])))
+          (is (not (perm-err?
+                    (transact!
+                     [[:rule-params post-id "posts" {"b" true, "d" true}]
+                      [:add-triple post-id :posts/fwd-only user-id]])))))
+
+        (testing "Check in reverse direction only"
+          (is (perm-err?
+               (transact!
+                [[:add-triple post-id :posts/rev-only user-id]])))
+          (is (perm-err?
+               (transact!
+                [[:rule-params post-id "posts" {"a" true}]
+                 [:add-triple post-id :posts/rev-only user-id]])))
+          (is (perm-err?
+               (transact!
+                [[:rule-params post-id "posts" {"f" true}]
+                 [:add-triple post-id :posts/rev-only user-id]])))
+          (is (not (perm-err?
+                    (transact!
+                     [[:rule-params post-id "posts" {"a" true, "f" true}]
+                      [:add-triple post-id :posts/rev-only user-id]])))))
+
+        (testing "Checks in both directions are combined with AND"
+          (is (perm-err?
+               (transact!
+                [[:add-triple post-id :posts/fwd-rev user-id]])))
+          (is (perm-err?
+               (transact!
+                [[:rule-params post-id "posts" {"c" true}]
+                 [:add-triple post-id :posts/fwd-rev user-id]])))
+          (is (perm-err?
+               (transact!
+                [[:rule-params post-id "posts" {"g" true}]
+                 [:add-triple post-id :posts/fwd-rev user-id]])))
+          (is (not (perm-err?
+                    (transact!
+                     [[:rule-params post-id "posts" {"c" true, "g" true}]
+                      [:add-triple post-id :posts/fwd-rev user-id]])))))))))
+
 (deftest lookup-perms
   (with-empty-app
     (fn [{app-id :id}]
@@ -3369,9 +3483,13 @@
                        book-creator-attr-id
                        [(resolvers/->uuid r :$users/email) "test@example.com"]]]]
 
-        (perm-err? (permissioned-tx/transact! (make-ctx) tx-steps))
-        (permissioned-tx/transact! (assoc (make-ctx)
-                                          :current-user {:id user-id}) tx-steps)
+        (is (perm-err? (permissioned-tx/transact! (make-ctx) tx-steps)))
+
+        (is (not (perm-err? (permissioned-tx/transact!
+                             (assoc (make-ctx)
+                                    :current-user {:id user-id})
+                             tx-steps))))
+
         (is (= (test-util/pretty-perm-q
                 (assoc (make-ctx) :current-user {:id user-id})
                 {:books {:$ {:where {:creator (str user-id)}}
