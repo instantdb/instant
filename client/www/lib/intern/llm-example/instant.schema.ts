@@ -23,7 +23,7 @@ const _schema = i.schema({
       reverse: { on: '$users', has: 'one', label: 'profile' },
     },
     postAuthors: {
-      forward: { on: 'posts', has: 'one', label: 'author', required: true },
+      forward: { on: 'posts', has: 'one', label: 'author' },
       reverse: { on: 'profiles', has: 'many', label: 'posts' },
     },
     profileAvatars: {
