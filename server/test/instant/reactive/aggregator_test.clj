@@ -145,9 +145,6 @@
                                                 (:id app))
 
                   (let [live-pid (:process_id (get-aggregator-status))
-                        next-pid (if (= live-pid pid-a)
-                                   pid-b
-                                   pid-a)
                         zeneca-r (resolvers/make-zeneca-resolver (:id app))
                         ;; create a new transaction so that we can be sure the aggregator
                         ;; will advance past `next-lsn`
