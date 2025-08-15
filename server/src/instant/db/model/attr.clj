@@ -9,6 +9,7 @@
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.system-catalog :refer [system-catalog-app-id]]
+   [instant.util.cache :refer [lookup-or-miss]]
    [instant.util.coll :as coll]
    [instant.util.crypt :refer [json-null-md5]]
    [instant.util.exception :as ex]
@@ -877,7 +878,7 @@
 
 (defn get-by-app-id
   ([app-id]
-   (cache/lookup-or-miss attr-cache app-id (partial get-by-app-id* (aurora/conn-pool :read))))
+   (lookup-or-miss attr-cache app-id (partial get-by-app-id* (aurora/conn-pool :read))))
   ([conn app-id]
    (if (= conn (aurora/conn-pool :read))
      (get-by-app-id app-id)

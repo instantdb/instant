@@ -6,6 +6,7 @@
    [instant.db.datalog :as d]
    [instant.flags :as flags]
    [instant.jdbc.sql :as sql]
+   [instant.util.cache :refer [lookup-or-miss]]
    [instant.util.instaql :refer [forms-hash]]
    [instant.util.json :refer [->json]]
    [instant.util.tracer :as tracer]
@@ -137,7 +138,7 @@
   explain (analyze) time and indexes used for each datalog query
   individually."
   [ctx permissioned-query-fn o query-hash]
-  (cache/lookup-or-miss seen query-hash (constantly true))
+  (lookup-or-miss seen query-hash (constantly true))
   (tracer/with-new-trace-root
     (tracer/with-span! {:name "test-pg-hint-plan"
                         :attributes (merge {:query o

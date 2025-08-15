@@ -2,7 +2,8 @@
   (:require [clojure.core.cache.wrapped :as cache]
             [instant.jdbc.aurora :as aurora]
             [instant.jdbc.sql :as sql]
-            [instant.util.cache :refer [multi-evict-lru-cache-factory]]
+            [instant.util.cache :refer [lookup-or-miss
+                                        multi-evict-lru-cache-factory]]
             [instant.util.crypt :as crypt-util]
             [instant.util.exception :as ex]
             [instant.util.token :as token-util])
@@ -80,7 +81,7 @@
 
 (defn get-by-app-id
   ([{:keys [app-id]}]
-   (cache/lookup-or-miss user-by-app-cache app-id (partial get-by-app-id* (aurora/conn-pool :read))))
+   (lookup-or-miss user-by-app-cache app-id (partial get-by-app-id* (aurora/conn-pool :read))))
   ([conn {:keys [app-id]}]
    ;; Don't cache if we're using a custom connection
    (get-by-app-id* conn app-id)))

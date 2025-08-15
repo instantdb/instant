@@ -3,6 +3,7 @@
    [chime.core :as chime-core]
    [clj-http.client :as clj-http]
    [clojure.core.cache.wrapped :as cache]
+   [instant.util.cache :refer [lookup-or-miss]]
    [instant.util.exception :as ex]
    [instant.util.lang :as lang]
    [instant.util.tracer :as tracer])
@@ -58,7 +59,7 @@
   (cache/lru-cache-factory {} :threshold 32))
 
 (defn find-key [{:keys [jwks-uri key-id no-recur]}]
-  (let [{:keys [keys expires]} (cache/lookup-or-miss keys-cache jwks-uri get-keys)]
+  (let [{:keys [keys expires]} (lookup-or-miss keys-cache jwks-uri get-keys)]
     (if-let [key (first (filter #(= key-id (Jwk/.getId %)) keys))]
       key
       ;; If we're close to cache expiry, try refreshing the cache

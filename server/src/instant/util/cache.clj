@@ -1,7 +1,8 @@
 (ns instant.util.cache
-  (:require [clojure.data.priority-map :as priority-map]
-            [clojure.core.cache :as cache :refer [defcache CacheProtocol]]
-            [instant.util.coll :refer [disj-in]]))
+  (:require
+   [clojure.core.cache :as c :refer [CacheProtocol defcache]]
+   [clojure.data.priority-map :as priority-map]
+   [instant.util.coll :refer [disj-in]]))
 
 (defn- build-leastness-queue
   [base start-at]
@@ -97,10 +98,127 @@
   elements in the cache before the LRU semantics apply"
   [base mapping-fn threshold]
   {:pre [(number? threshold) (< 0 threshold)]}
-  (atom (cache/seed (MultiEvictLRUCache. {}
-                                         (priority-map/priority-map)
-                                         {}
-                                         mapping-fn
-                                         0
-                                         threshold)
+  (atom (c/seed (MultiEvictLRUCache. {}
+                                     (priority-map/priority-map)
+                                     {}
+                                     mapping-fn
+                                     0
+                                     threshold)
                     base)))
+
+(def ^{:private true} default-wrapper-fn #(%1 %2))
+
+;; Copy of `clojure.core.cache.wrapped`, but evicts errors.
+;; The default will keep the error in the cache forever, for example
+;; (wrapped/lookup-or-miss cache :k (fn [_] (throw (Exception. "oops"))))
+;; => (wrapped/lookup cache :k) => throws
+;; (lookup-or-miss cache :k (fn [_] (throw (Exception. "oops"))))
+;; => (wrapped/lookup cache :k) => nil
+(defn lookup-or-miss
+  "Retrieve the value associated with `e` if it exists, else compute the
+  value (using value-fn, and optionally wrap-fn), update the cache for `e`
+  and then perform the lookup again.
+
+  value-fn (and wrap-fn) will only be called (at most) once even in the
+  case of retries, so there is no risk of cache stampede.
+
+  Since lookup can cause invalidation in some caches (such as TTL), we
+  trap that case and retry (a maximum of ten times)."
+  ([cache-atom e value-fn]
+   (lookup-or-miss cache-atom e default-wrapper-fn value-fn))
+  ([cache-atom e wrap-fn value-fn]
+   (let [d-new-value (delay (wrap-fn value-fn e))
+         res (loop [n 0
+                    v (c/lookup (swap! cache-atom
+                                       c/through-cache
+                                       e
+                                       default-wrapper-fn
+                                       (fn [_] d-new-value))
+                                e
+                                ::expired)]
+               (when (< n 10)
+                 (if (= ::expired v)
+                   (recur (inc n)
+                          (c/lookup (swap! cache-atom
+                                           c/through-cache
+                                           e
+                                           default-wrapper-fn
+                                           (fn [_] d-new-value))
+                                    e
+                                    ::expired))
+                   v)))]
+     (if (identical? res d-new-value)
+       (try
+         (force res)
+         (catch Throwable t
+           (swap! cache-atom
+                  (fn [a]
+                    (if (and (c/has? a e)
+                             (identical? d-new-value (c/lookup a e)))
+                      (c/evict a e)
+                      a)))
+           (throw t)))
+       (force res)))))
+
+(defn lookup-or-miss-batch
+  "Like lookup-or-miss, but takes a coll of keys and returns a map
+   of key to result.
+   Expects batch-value-fn to take a list of keys that are missing
+   from the cache and return a map of key to result."
+  [cache-atom es batch-value-fn]
+  (let [results (volatile! {})
+        our-results (volatile! #{})
+        _a (locking cache-atom
+             (swap! cache-atom (fn [a]
+                                 (let [{:keys [missing a]}
+                                       (reduce (fn [acc e]
+                                                 (let [existing (c/lookup a e ::not-found)]
+                                                   (if (= ::not-found existing)
+                                                     (update acc :missing conj e)
+                                                     (do
+                                                       ;; exisiting will be a delay
+                                                       (vswap! results assoc e existing)
+                                                       (update acc :a c/hit e)))))
+                                               {:missing #{}
+                                                :a a}
+                                               (set es))
+
+                                       new-values (when (seq missing)
+                                                    (delay (batch-value-fn missing)))]
+                                   (reduce (fn [a e]
+                                             (let [v (delay (get @new-values e))]
+                                               (vswap! our-results conj v)
+                                               (vswap! results assoc e v)
+                                               (c/miss a e v)))
+                                           a
+                                           missing)))))
+
+        ;; Force all of the results and evict any errors that we put in the cache
+        res (reduce-kv (fn [acc e v]
+                         (let [result (try
+                                        {:type :ok
+                                         :result (force v)}
+                                        (catch Throwable t
+                                          (when (contains? @our-results v)
+                                            (swap! cache-atom
+                                                   (fn [a]
+                                                     (if (and (c/has? a e)
+                                                              (contains? @our-results (c/lookup a e)))
+                                                       (c/evict a e)
+                                                       a))))
+                                          {:type :error
+                                           :error t}))]
+                           (case (:type acc)
+                             :ok (case (:type result)
+                                   :ok (update acc :result assoc e (:result result))
+                                   :error {:type :error :error (:error result)})
+                             :error (case (:type result)
+                                      :ok acc
+                                      :error (update acc :error (fn [^Throwable t]
+                                                                  (.addSuppressed t (:error result))))))))
+                       {:type :ok
+                        :result {}}
+                       @results)]
+    (case (:type res)
+      :error (throw (:error res))
+      :ok (:result res))))
