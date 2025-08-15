@@ -399,6 +399,7 @@
                                (update :bins conj (compress-bins sketch))
                                (update :reverse-width conj (:width reverse-sketch))
                                (update :reverse-depth conj (:depth reverse-sketch))
+                               (update :reverse-total conj (:total reverse-sketch))
                                (update :reverse-bins conj (when reverse-sketch
                                                             (compress-bins reverse-sketch))))))
                        {:id (with-meta [] {:pgtype "uuid[]"})

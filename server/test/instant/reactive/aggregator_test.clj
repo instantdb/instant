@@ -13,6 +13,7 @@
    [instant.jdbc.wal :as wal]
    [instant.reactive.aggregator :as agg]
    [instant.util.crypt :as crypt-util]
+   [instant.util.json :refer [->json]]
    [instant.util.test :refer [wait-for]])
   (:import
    (java.util UUID)))
@@ -112,19 +113,39 @@
                                    changes)))]
         (binding [*in-test* true]
           (let [slot-suffix (crypt-util/random-hex 16)
-                slot-name (wal/full-slot-name agg/slot-type slot-suffix)]
+                slot-name (wal/full-slot-name agg/slot-type slot-suffix)
+                get-aggregator-status
+                (fn []
+                  (sql/select-one (aurora/conn-pool :read)
+                                  ["select * from wal_aggregator_status where slot_name = ?"
+                                   slot-name]))]
             (try
-              (let [shutdown (agg/start {:slot-suffix slot-suffix
-                                         :copy-sql (copy-sql-for-app-ids [(:id app)])
-                                         :acquire-slot-interval-ms 10000
-                                         :sketch-flush-ms 10
-                                         :sketch-flush-max-items 1000})]
+              (let [pid-a (str "a_" (crypt-util/random-hex 12))
+                    pid-b (str "b_" (crypt-util/random-hex 12))
+                    shutdown-a (agg/start {:slot-suffix slot-suffix
+                                           :copy-sql (copy-sql-for-app-ids [(:id app)])
+                                           :acquire-slot-interval-ms 100
+                                           :sketch-flush-ms 10
+                                           :sketch-flush-max-items 1000
+                                           :process-id pid-a})
+                    shutdown-b (agg/start {:slot-suffix slot-suffix
+                                           :copy-sql (copy-sql-for-app-ids [(:id app)])
+                                           :acquire-slot-interval-ms 100
+                                           :sketch-flush-ms 10
+                                           :sketch-flush-max-items 1000
+                                           :process-id pid-b})]
                 (try
+
+                  (wait-for #(contains? #{pid-a pid-b}
+                                        (:process_id (get-aggregator-status)))
+                            1000)
                   ;; add some data after startup so that we can test the wal-slot aggregator
                   (bootstrap/add-zeneca-to-app! {:checked-data? true
                                                  :indexed-data? true}
                                                 (:id app))
-                  (let [zeneca-r (resolvers/make-zeneca-resolver (:id app))
+
+                  (let [live-pid (:process_id (get-aggregator-status))
+                        zeneca-r (resolvers/make-zeneca-resolver (:id app))
                         ;; create a new transaction so that we can be sure the aggregator
                         ;; will advance past `next-lsn`
                         {:keys [lsn]} (sql/execute-one!
@@ -137,14 +158,41 @@
                                          (:id app)
                                          (resolvers/->uuid zeneca-r :users/handle)
                                          (resolvers/->uuid zeneca-r "eid-alex")])
+
                         ;; Wait for sketches to catch up
+                        _ (wait-for #(>= 0 (compare lsn
+                                                    (cms/get-start-lsn (aurora/conn-pool :read)
+                                                                       {:slot-name slot-name})))
+                                    1000)
+
+                        ;; Shutdown the process that has the slot so that we clear any sketches
+                        ;; cached in memory
+                        _ (condp = live-pid
+                            pid-a (shutdown-a)
+                            pid-b (shutdown-b))
+
+                        ;; Create a transaction that will update an existing sketch (with ave)
+                        {:keys [lsn]} (sql/execute-one!
+                                        (aurora/conn-pool :write)
+                                        ["with write as (
+                                            update triples set value = ?::jsonb
+                                                     where app_id = ? and attr_id = ? and eav
+                                                       and entity_id = ? and value = ?::jsonb
+                                                 returning *
+                                          ) select * from write, pg_current_wal_insert_lsn() as lsn"
+                                         (->json (str (resolvers/->uuid zeneca-r "eid-web-development-with-clojure")))
+                                         (:id app)
+                                         (resolvers/->uuid zeneca-r :bookshelves/books)
+                                         (resolvers/->uuid zeneca-r "eid-currently-reading")
+                                         (->json (str (resolvers/->uuid zeneca-r "eid-heroes")))])
                         _ (wait-for #(>= 0 (compare lsn
                                                     (cms/get-start-lsn (aurora/conn-pool :read)
                                                                        {:slot-name slot-name})))
                                     1000)]
 
                     (check-sketches app zeneca-r))
-                  (finally (shutdown))))
+                  (finally (shutdown-a)
+                           (shutdown-b))))
               (finally
                 (sql/do-execute! (aurora/conn-pool :write)
                                  ["select pg_terminate_backend(active_pid) from pg_replication_slots where slot_name = ? and active"
