@@ -160,7 +160,12 @@
            (throw t)))
        (force res)))))
 
-(defn lookup-or-miss-batch [cache-atom es batch-value-fn]
+(defn lookup-or-miss-batch
+  "Like lookup-or-miss, but takes a coll of keys and returns a map
+   of key to result.
+   Expects batch-value-fn to take a list of keys that are missing
+   from the cache and return a map of key to result."
+  [cache-atom es batch-value-fn]
   (let [results (volatile! {})
         our-results (volatile! #{})
         _a (locking cache-atom
