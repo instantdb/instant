@@ -482,7 +482,7 @@ function coerceQuery(o: any) {
 
 class InstantCoreDatabase<
   Schema extends InstantSchemaDef<any, any, any>,
-  UseDates extends boolean,
+  UseDates extends boolean = false,
 > implements IInstantDatabase<Schema>
 {
   public _reactor: Reactor<RoomsOf<Schema>>;
@@ -554,9 +554,12 @@ class InstantCoreDatabase<
    *    console.log(resp.data.goals)
    *  });
    */
-  subscribeQuery<Q extends InstaQLParams<Schema>, UseDates extends boolean>(
+  subscribeQuery<
+    Q extends InstaQLParams<Schema>,
+    UseDatesLocal extends boolean = UseDates,
+  >(
     query: Q,
-    cb: (resp: InstaQLSubscriptionState<Schema, Q, UseDates>) => void,
+    cb: (resp: InstaQLSubscriptionState<Schema, Q, UseDatesLocal>) => void,
     opts?: InstaQLOptions,
   ) {
     return this._reactor.subscribeQuery(query, cb, opts);
@@ -741,7 +744,7 @@ function init<
   Storage?: any,
   NetworkListener?: any,
   versions?: { [key: string]: string },
-): InstantCoreDatabase<Schema, Config['useDateObjects']> {
+): InstantCoreDatabase<Schema, UseDates> {
   const existingClient = globalInstantCoreStore[
     reactorKey(config)
   ] as InstantCoreDatabase<any, Config['useDateObjects']>;
