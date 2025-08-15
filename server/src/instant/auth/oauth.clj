@@ -5,6 +5,7 @@
    [clojure.core.cache.wrapped :as cache]
    [clojure.string :as string]
    [instant.auth.jwt :as jwt]
+   [instant.util.cache :refer [lookup-or-miss]]
    [instant.util.crypt :as crypt-util]
    [instant.util.exception :as ex]
    [instant.util.lang :as lang]
@@ -186,7 +187,7 @@
         (ex/throw-oauth-err! "Unable to fetch OAuth configuration.")))))
 
 (defn get-discovery [endpoint]
-  (:data (cache/lookup-or-miss discovery-endpoint-cache endpoint fetch-discovery)))
+  (:data (lookup-or-miss discovery-endpoint-cache endpoint fetch-discovery)))
 
 (defn generic-oauth-client-from-discovery-url [{:keys [app-id
                                                        provider-id

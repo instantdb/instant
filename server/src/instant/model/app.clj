@@ -10,6 +10,7 @@
    [instant.model.instant-user :as instant-user-model]
    [instant.model.rule :as rule-model]
    [instant.system-catalog-ops :refer [query-op]]
+   [instant.util.cache :refer [lookup-or-miss]]
    [instant.util.crypt :as crypt-util]
    [instant.util.exception :as ex]
    [instant.util.uuid :as uuid-util]
@@ -63,7 +64,7 @@
 
 (defn get-by-id
   ([{:keys [id]}]
-   (cache/lookup-or-miss app-cache id (partial get-by-id* (aurora/conn-pool :read))))
+   (lookup-or-miss app-cache id (partial get-by-id* (aurora/conn-pool :read))))
   ([conn {:keys [id] :as params}]
    (if (= conn (aurora/conn-pool :read))
      (get-by-id params)

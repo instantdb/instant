@@ -75,7 +75,7 @@ prod-up:
 	@DATABASE_URL=$$(./scripts/prod_connection_string.sh); \
 	echo "[IMPORTANT] Migrating prod up to latest -- are you sure you want to do this? [y/N]" && \
 		read ans && [ $$ans = y ] && \
-		migrate -database "$${DATABASE_URL}" -source github://instantdb/instant/server/resources/migrations#main up
+		migrate -verbose -database "$${DATABASE_URL}" -source github://instantdb/instant/server/resources/migrations#main up
 
 prod-down:
 	@DATABASE_URL=$$(./scripts/prod_connection_string.sh); \

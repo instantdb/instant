@@ -50,6 +50,7 @@
             [instant.superadmin.routes :refer [req->superadmin-user-and-app!]]
             [instant.system-catalog :as system-catalog]
             [instant.util.async :refer [fut-bg]]
+            [instant.util.cache :refer [lookup-or-miss]]
             [instant.util.coll :as ucoll]
             [instant.util.crypt :as crypt-util]
             [instant.util.date :as date]
@@ -1241,12 +1242,12 @@
 (def active-session-cache (cache/ttl-cache-factory {} :ttl 5000))
 
 (defn get-total-count-cached []
-  (cache/lookup-or-miss active-session-cache
-                        :total-count
-                        (fn [_]
-                          (->> (machine-summaries/get-all-num-sessions (eph/get-hz))
-                               vals
-                               (reduce +)))))
+  (lookup-or-miss active-session-cache
+                  :total-count
+                  (fn [_]
+                    (->> (machine-summaries/get-all-num-sessions (eph/get-hz))
+                         vals
+                         (reduce +)))))
 
 (defn active-sessions-get [_]
   (response/ok {:total-count (get-total-count-cached)}))
