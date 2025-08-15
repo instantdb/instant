@@ -12,12 +12,6 @@
   `(binding [*tracking-io* ~context]
      ~@body))
 
-(defmacro expect-io
-  "Use inside warn-io for places that expect io"
-  [& body]
-  `(binding [*tracking-io* nil]
-     ~@body))
-
 (defmacro tag-io
   "Wrap a body with `tag-io` if it does i/o and should log a warning inside of
    a body wrapped with `warn-io`."

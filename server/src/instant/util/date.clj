@@ -37,7 +37,7 @@
     start-of-day))
 
 (defmethod print-method Instant [o ^Writer w]
-  (.write w (str "#instant \"" o "\"")))
+  (.write w (str "#instant \"" (.toString o) "\"")))
 
 (defn parse-instant [x]
   (Instant/parse x))

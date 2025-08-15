@@ -174,7 +174,7 @@
      (catch Exception e#
        (let [instant-ex# (ex/find-instant-exception e#)]
          (if (= ::ex/permission-denied (::ex/type (ex-data instant-ex#)))
-           instant-ex#
+           true
            (throw e#))))))
 
 (defmacro validation-err? [& body]
@@ -184,5 +184,5 @@
      (catch Exception e#
        (let [instant-ex# (ex/find-instant-exception e#)]
          (if (= ::ex/validation-failed (::ex/type (ex-data instant-ex#)))
-           instant-ex#
+           true
            (throw e#))))))
