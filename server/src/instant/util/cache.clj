@@ -186,6 +186,8 @@
                                                (c/miss a e v)))
                                            a
                                            missing)))))
+
+        ;; Force all of the results and evict any errors that we put in the cache
         res (reduce-kv (fn [acc e v]
                          (let [result (try
                                         {:type :ok

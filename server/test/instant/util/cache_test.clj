@@ -146,3 +146,16 @@
         (when (< n limit)
           (recur (+ 1 n)))))
     (is true)))
+
+(deftest lookup-or-miss-batch-works
+  (let [cache-atom (cache/lru-cache-factory {} :threshold 2)]
+    (is (= {:a :a
+            :b :b}
+           (ucache/lookup-or-miss-batch cache-atom [:a :b] (fn [xs] (zipmap xs xs)))))
+
+    (is (= {:a :a
+            :e :e}
+           (ucache/lookup-or-miss-batch cache-atom [:a :e] (fn [xs] (zipmap xs xs)))))
+
+    (is (cache/has? cache-atom :a))
+    (is (not (cache/has? cache-atom :b)))))
