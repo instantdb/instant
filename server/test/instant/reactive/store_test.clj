@@ -8,21 +8,21 @@
 
 (deftest match-topic?
   (is (true?
-       (rs/match-topic?
-        '[:eav _ _ _]
-        '[:eav #{1} #{2} #{3}])))
+        (rs/match-topic?
+          '[:eav _ _ _]
+          '[:eav #{1} #{2} #{3}])))
   (is (true?
-       (rs/match-topic?
-        '[:eav #{1 2} _ _]
-        '[:eav #{1} #{2} #{3}])))
+        (rs/match-topic?
+          '[:eav #{1 2} _ _]
+          '[:eav #{1} #{2} #{3}])))
   (is (false?
-       (rs/match-topic?
-        '[:ea #{1 2} _ _]
-        '[:eav #{1} #{2} #{3}])))
+        (rs/match-topic?
+          '[:ea #{1 2} _ _]
+          '[:eav #{1} #{2} #{3}])))
   (is (false?
-       (rs/match-topic?
-        '[:eav #{3} _ _]
-        '[:eav #{1} #{2} #{3}]))))
+        (rs/match-topic?
+          '[:eav #{3} _ _]
+          '[:eav #{1} #{2} #{3}]))))
 
 (deftest swap-datalog-cache!
   (let [store  (rs/init)
@@ -183,6 +183,26 @@
 
   (is-match-topic-part #{"hello"} {:$comparator {:op :$like
                                                  :value "wor%"
+                                                 :data-type :string}} false)
+
+  (is-match-topic-part #{"hello world"} {:$comparator {:op :$like
+                                                       :value "%w%r_d"
+                                                       :data-type :string}} true)
+
+  (is-match-topic-part #{"hello world"} {:$comparator {:op :$like
+                                                       :value "_w%r_d"
+                                                       :data-type :string}} false)
+
+  (is-match-topic-part #{"[[Daily/2025-08-15]]"} {:$comparator {:op :$like
+                                                                :value "%[[Daily/2025-08-15]]%"
+                                                                :data-type :string}} true)
+
+  (is-match-topic-part #{"HELLO"} {:$comparator {:op :$ilike
+                                                 :value "he%"
+                                                 :data-type :string}} true)
+
+  (is-match-topic-part #{"HELLO"} {:$comparator {:op :$like
+                                                 :value "he%"
                                                  :data-type :string}} false)
 
   (is-match-topic-part #{true} {:$comparator {:op :$gte
