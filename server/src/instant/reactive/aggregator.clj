@@ -23,7 +23,7 @@
 ;; --------------
 ;; Initialization
 
-(def triples-copy-sql "copy (select app_id, attr_id, value, checked_data_type, created_at from triples order by app_id, attr_id) to stdout with (format binary)")
+(def triples-copy-sql "copy (select app_id, attr_id, entity_id, value, checked_data_type, created_at, eav, ea from triples order by app_id, attr_id) to stdout with (format binary)")
 
 (defn initial-sketch-seq
   "Returns a lazy seq of sketches with app-id and attr-id, expects `copy-sql` to sort by
@@ -35,12 +35,18 @@
                                   :pgtype "uuid"}
                                  {:name :attr-id
                                   :pgtype "uuid"}
+                                 {:name :entity-id
+                                  :pgtype "uuid"}
                                  {:name :value
                                   :pgtype "jsonb"}
                                  {:name :checked-data-type
                                   :pgtype "checked_data_type"}
                                  {:name :created-at
-                                  :pgtype "bigint"}]
+                                  :pgtype "bigint"}
+                                 {:name :eav
+                                  :pgtype "boolean"}
+                                 {:name :ea
+                                  :pgtype "boolean"}]
                                 {:handle-json-parse-error (fn [e _props]
                                                             ;; Replace objects that are too large to read
                                                             ;; with an empty object. That will keep it out
@@ -83,33 +89,49 @@
 
         collect (fn collect [coll]
                   (lazy-seq
-                   (if-let [s (seq coll)]
-                     (loop [s s
-                            app-id (:app-id (first s))
-                            attr-id (:attr-id (first s))
-                            triples (transient {})
-                            sketch base-sketch]
-                       (if (and (= app-id (:app-id (first s)))
-                                (= attr-id (:attr-id (first s))))
-                         (let [k (select-keys (update-triple (first s)) [:value :checked-data-type])]
-                           (inc-triple-count)
-                           (if (<= sketch-flush-limit (count triples))
-                             (recur (rest s)
-                                    app-id
-                                    attr-id
-                                    (assoc! (transient {}) k 1)
-                                    (cms/add-batch sketch (persistent! triples)))
-                             (recur (rest s)
-                                    app-id
-                                    attr-id
-                                    (assoc! triples k (inc (get triples k 0)))
-                                    sketch)))
-                         (do (vswap! sketch-count inc)
-                             (cons {:app-id app-id
-                                    :attr-id attr-id
-                                    :sketch (cms/add-batch sketch (persistent! triples))}
-                                   (collect s)))))
-                     (end-span true))))]
+                    (if-let [s (seq coll)]
+                      (loop [s s
+                             app-id (:app-id (first s))
+                             attr-id (:attr-id (first s))
+                             triples (transient {})
+                             reverse-triples (transient {})
+                             sketch base-sketch
+                             reverse-sketch base-sketch]
+                        (if (and (= app-id (:app-id (first s)))
+                                 (= attr-id (:attr-id (first s))))
+                          (let [triple (update-triple (first s))
+                                k (select-keys triple [:value :checked-data-type])
+                                ref-k (when (and (:eav triple)
+                                                 (not (:ea triple)))
+                                        {:value (:entity-id triple)})]
+                            (inc-triple-count)
+                            (if (<= sketch-flush-limit (count triples))
+                              (recur (rest s)
+                                     app-id
+                                     attr-id
+                                     (assoc! (transient {}) k 1)
+                                     (cond-> (transient {})
+                                       ref-k (assoc! ref-k 1))
+                                     (cms/add-batch sketch (persistent! triples))
+                                     (cms/add-batch reverse-sketch (persistent! reverse-triples)))
+                              (recur (rest s)
+                                     app-id
+                                     attr-id
+                                     (assoc! triples k (inc (get triples k 0)))
+                                     (cond-> reverse-triples
+                                       ref-k (assoc! ref-k (inc (get reverse-triples ref-k 0))))
+                                     sketch
+                                     reverse-sketch)))
+                          (let [forward-sketch (cms/add-batch sketch (persistent! triples))
+                                reverse-sketch (cms/add-batch reverse-sketch (persistent! reverse-triples))]
+                            (vswap! sketch-count inc)
+                            (cons {:app-id app-id
+                                   :attr-id attr-id
+                                   :sketch forward-sketch
+                                   :reverse-sketch (when (pos? (:total reverse-sketch))
+                                                     reverse-sketch)}
+                                  (collect s)))))
+                      (end-span true))))]
     (collect copy-seq)))
 
 (defn initialize-slot
@@ -122,8 +144,8 @@
     (when-let [{:keys [connection lsn]}
                (tracer/with-span! {:name "aggregator/maybe-create-slot"}
                  (wal/create-sync-db-replication-slot-and-connection
-                  (config/get-aurora-config)
-                  slot-name))]
+                   (config/get-aurora-config)
+                   slot-name))]
       (with-open [connection ^PgConnection connection]
         (doseq [sketches (partition-all 1000 (initial-sketch-seq connection copy-sql))]
           (tracer/with-span! {:name "aggregator/insert-initial-sketches"}
@@ -147,12 +169,15 @@
             (case name
               "app_id" (assoc data :app-id (parse-uuid value))
               "attr_id" (assoc data :attr-id (parse-uuid value))
+              "entity_id" (assoc data :entity-id (parse-uuid value))
               "value" (assoc data :value (try
                                            (<-json value)
                                            (catch StreamConstraintsException _e
                                              (with-meta {} {:value-too-large? true}))))
               "checked_data_type" (assoc data :checked-data-type (keyword value))
               "created_at" (assoc data :created-at value)
+              "ea" (assoc data :ea value)
+              "eav" (assoc data :eav value)
               data))
           {}
           columns))
@@ -176,6 +201,13 @@
     (:value-too-large? (meta (:value triples-data)))
     (assoc :checked-data-type nil)))
 
+(defn store-reverse?
+  "Whether we should store the entity-id for the triple in the reverse sketch.
+   Returns true if the triples is a cardinality-many ref."
+  [triple-data]
+  (and (:eav triple-data)
+       (not (:ea triple-data))))
+
 ;; Used by tests so that we can prevent the aggregator
 ;; from overwriting data in the tests
 (def test-filter identity)
@@ -187,51 +219,51 @@
   [{:keys [changes nextlsn] :as _record}]
   (let [sketch-changes
         (test-filter
-         (reduce
-          (fn [acc change]
-            ;; n.b. If you add more tables, be sure to add the table to
-            ;;      add-table in the stream in wal.clj or you won't get
-            ;;      the updates here.
-            (if (not= "triples" (:table change))
-              acc
-              (let [lsn (LogSequenceNumber/valueOf ^String (:lsn change))]
-                (case (:action change)
-                  :insert
-                  (conj acc {:incr 1
-                             :lsn lsn
-                             :triples-data (-> (get-triples-data (:columns change))
-                                               (update-triple nil))})
+          (reduce
+            (fn [acc change]
+              ;; n.b. If you add more tables, be sure to add the table to
+              ;;      add-table in the stream in wal.clj or you won't get
+              ;;      the updates here.
+              (if (not= "triples" (:table change))
+                acc
+                (let [lsn (LogSequenceNumber/valueOf ^String (:lsn change))]
+                  (case (:action change)
+                    :insert
+                    (conj acc {:incr 1
+                               :lsn lsn
+                               :triples-data (-> (get-triples-data (:columns change))
+                                                 (update-triple nil))})
 
-                  :delete
-                  (conj acc {:incr -1
-                             :lsn lsn
-                             :triples-data (-> (get-triples-data (:identity change))
-                                               (update-triple nil))})
+                    :delete
+                    (conj acc {:incr -1
+                               :lsn lsn
+                               :triples-data (-> (get-triples-data (:identity change))
+                                                 (update-triple nil))})
 
-                  :update
-                  (let [identity-data (get-triples-data (:identity change))
-                        update-data (let [data (get-triples-data (:columns change))]
-                                      (if (contains? data :value)
-                                        data
-                                        ;; The value was toasted and not updated, so
-                                        ;; postgres didn't give it to us in the update.
-                                        ;; We might still need it if the checked_data_type
-                                        ;; changed, so we'll use the value from the identity
-                                        ;; column.
-                                        (assoc data :value (:value identity-data))))]
-                    (conj acc
-                          ;; Remove the old
-                          {:incr -1
-                           :lsn lsn
-                           :triples-data (-> identity-data
-                                             (update-triple nil))}
-                          ;; Add the new
-                          {:incr 1
-                           :lsn lsn
-                           :triples-data (update-triple update-data
-                                                        identity-data)}))))))
-          []
-          changes))]
+                    :update
+                    (let [identity-data (get-triples-data (:identity change))
+                          update-data (let [data (get-triples-data (:columns change))]
+                                        (if (contains? data :value)
+                                          data
+                                          ;; The value was toasted and not updated, so
+                                          ;; postgres didn't give it to us in the update.
+                                          ;; We might still need it if the checked_data_type
+                                          ;; changed, so we'll use the value from the identity
+                                          ;; column.
+                                          (assoc data :value (:value identity-data))))]
+                      (conj acc
+                            ;; Remove the old
+                            {:incr -1
+                             :lsn lsn
+                             :triples-data (-> identity-data
+                                               (update-triple nil))}
+                            ;; Add the new
+                            {:incr 1
+                             :lsn lsn
+                             :triples-data (update-triple update-data
+                                                          identity-data)}))))))
+            []
+            changes))]
     (when (seq sketch-changes)
       {:sketch-changes sketch-changes
        :lsn nextlsn})))
@@ -257,10 +289,13 @@
                       (let [key {:app-id (:app-id triples-data)
                                  :attr-id (:attr-id triples-data)}
                             record {:value (:value triples-data)
-                                    :checked-data-type (:checked-data-type triples-data)}]
-                        (-> acc
-                            (update-in [key :records record] (fnil + 0) incr)
-                            (update-in [key :max-lsn] max-lsn lsn))))
+                                    :checked-data-type (:checked-data-type triples-data)}
+                            reverse-record (when (store-reverse? triples-data)
+                                             {:value (:entity-id triples-data)})]
+                        (cond-> acc
+                          true (update-in [key :records record] (fnil + 0) incr)
+                          true (update-in [key :max-lsn] max-lsn lsn)
+                          reverse-record (update-in [key :reverse-records reverse-record] (fnil + 0) incr))))
                     changes
                     sketch-changes)})
 
@@ -290,18 +325,22 @@
           _ (tracer/add-data! {:attributes {:deleted-count (- (count changes)
                                                               (count sketches))}})
           sketches (reduce-kv
-                     (fn [acc k {:keys [records max-lsn]}]
+                     (fn [acc k {:keys [records reverse-records max-lsn]}]
                        ;; attr may have been deleted in the interim
                        (if-let [sketch (get sketches k)]
-                         (conj acc (-> sketch
-                                       (update :sketch cms/add-batch records)
-                                       (assoc :max-lsn max-lsn)))
+                         (conj acc (cond-> sketch
+                                     true (update :sketch cms/add-batch records)
+                                     true (assoc :max-lsn max-lsn)
+
+                                     (seq reverse-records)
+                                     (update :reverse-sketch (fnil cms/add-batch (cms/make-sketch)) reverse-records)))
                          acc))
                      []
                      changes)]
       (doseq [sketch sketches
               :let [k (select-keys sketch [:app-id :attr-id])]]
         (cache/miss sketch-cache k sketch))
+
       (cms/save-sketches! conn {:sketches sketches
                                 :previous-lsn previous-lsn
                                 :lsn max-lsn

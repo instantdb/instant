@@ -22,7 +22,7 @@
 (defn copy-sql-for-app-ids
   "copy command that only copies the app we are interested in"
   [app-ids]
-  (format "copy (select app_id, attr_id, value, checked_data_type, created_at from triples where app_id = ANY('{%s}'::uuid[]) order by app_id, attr_id) to stdout with (format binary)"
+  (format "copy (select app_id, attr_id, entity_id, value, checked_data_type, created_at, eav, ea from triples where app_id = ANY('{%s}'::uuid[]) order by app_id, attr_id) to stdout with (format binary)"
           (string/join "," (map #(UUID/.toString %) app-ids))))
 
 (defn check-sketches [app r]
@@ -30,23 +30,35 @@
                             ["select * from triples where app_id = ?" (:id app)])
         attr-groups (group-by :attr_id triples)
         value-groups (group-by #(select-keys % [:attr_id :value :checked_data_type]) triples)
+        reverse-value-groups (group-by #(select-keys % [:attr_id :entity_id])
+                                       (filter (fn [t]
+                                                 (and (not (:ea t))
+                                                      (:eav t)))
+                                               triples))
         sketches (cms/all-for-attrs (aurora/conn-pool :read)
                                     (:id app)
                                     (attr-model/get-by-app-id (:id app)))]
     (doseq [[attr-id triples] attr-groups]
       (is (= (count triples)
-             (:total (get sketches attr-id)))
+             (:total (:sketch (get sketches attr-id))))
           (str "count mismatch for " (resolvers/->friendly r attr-id))))
 
     (doseq [[{:keys [attr_id value checked_data_type]} triples] value-groups
             :when (not (coll? value))]
       (is (= (count triples)
-             (cms/check (get sketches attr_id)
+             (cms/check (:sketch (get sketches attr_id))
                         (keyword checked_data_type)
                         (if (= "date" checked_data_type)
                           (triple-model/parse-date-value value)
                           value)))
-          (str "count mismatch for " (resolvers/->friendly r attr_id) " value=" value)))))
+          (str "count mismatch for " (resolvers/->friendly r attr_id) " value=" value)))
+
+    (doseq [[{:keys [attr_id entity_id]} triples] reverse-value-groups]
+      (is (= (count triples)
+             (cms/check (:reverse-sketch (get sketches attr_id))
+                        nil
+                        entity_id))
+          (str "count mismatch for reverse ref " (resolvers/->friendly r attr_id) " entity_id=" entity_id)))))
 
 (deftest bootstrap
   (with-empty-app
@@ -75,14 +87,6 @@
                                          :sketch-flush-ms 10
                                          :sketch-flush-max-items 1000})]
                 (try
-                  (let [attrs (attr-model/get-by-app-id (:id app))
-                        sketches (cms/all-for-attrs (aurora/conn-pool :read) (:id app) attrs)]
-                    (doseq [attr attrs]
-                      (is (= (count (triple-model/fetch (aurora/conn-pool :read)
-                                                        (:id app)
-                                                        [[:= :attr-id (:id attr)]]))
-                             (or (:total (get sketches (:id attr))) 0))
-                          (str "count matches for " (resolvers/->friendly movies-r (:id attr))))))
                   (check-sketches app movies-r)
                   (check-sketches app (resolvers/make-zeneca-resolver (:id app)))
 

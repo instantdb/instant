@@ -18,6 +18,7 @@
    (com.zaxxer.hikari HikariDataSource)
    (java.time Instant)
    (java.util UUID)
+   (org.apache.commons.codec.binary Hex)
    (org.postgresql.replication LogSequenceNumber)))
 
 (defmacro def-locals*
@@ -131,7 +132,9 @@
     (doseq [item items]
       (when (not= 1 (.length s))
         (.append s \,))
-      (.append s (.toString ^Object item)))
+      (.append s (if (nil? item)
+                   "null"
+                   (.toString ^Object item))))
     (.append s "}")
     (.toString s)))
 
@@ -188,6 +191,19 @@
                                                          (->pg-stringable-array
                                                           (map (fn [a]
                                                                  (->pg-stringable-array a))
+                                                               v)))
+
+                                                 (or (= "bytea[]" (-> v meta :pgtype))
+                                                     (and (coll? v)
+                                                          (every? (fn [x]
+                                                                    (or (bytes? x)
+                                                                        (nil? x)))
+                                                                  v)))
+                                                 (format "'%s'::bytea[]"
+                                                         (->pg-stringable-array
+                                                          (map (fn [x]
+                                                                 (when x
+                                                                   (str "\\x" (String. (Hex/encodeHex ^bytes x)))))
                                                                v)))
 
                                                  (instance? LogSequenceNumber v)

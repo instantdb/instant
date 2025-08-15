@@ -252,12 +252,19 @@
   (map (partial qualify-col ns) cols))
 
 (defn record->Sketch [record]
-  (let [{:keys [width depth bins]} record]
+  (let [{:keys [width depth bins
+                reverse_width reverse_depth reverse_bins reverse_total]} record]
     {:sketch (map->Sketch {:width width
                            :depth depth
                            :bins (decompress-bins width depth bins)
                            :total (:total record)
                            :total-not-binned (:total_not_binned record)})
+     :reverse-sketch (when reverse_width
+                       (map->Sketch {:width reverse_width
+                                     :depth reverse_depth
+                                     :bins (decompress-bins reverse_width reverse_depth reverse_bins)
+                                     :total reverse_total
+                                     :total-not-binned 0}))
      :id (:id record)
      :app-id (:app_id record)
      :attr-id (:attr_id record)
@@ -293,7 +300,7 @@
 
         rows (sql/select ::all-for-attrs conn q)]
     (ucoll/reduce-tr (fn [acc row]
-                       (assoc! acc (:attr_id row) (:sketch (record->Sketch row))))
+                       (assoc! acc (:attr_id row) (record->Sketch row)))
                      {}
                      rows)))
 
@@ -381,34 +388,58 @@
                 lsn
                 process-id
                 slot-name]}]
-  (let [params (reduce (fn [acc {:keys [id sketch]}]
-                         (let [{:keys [total total-not-binned]} sketch]
+  (let [params (reduce (fn [acc {:keys [id sketch reverse-sketch]}]
+                         (let [{:keys [width depth total total-not-binned]} sketch]
                            (-> acc
                                (update :id conj id)
+                               (update :width conj width)
+                               (update :depth conj depth)
                                (update :total conj total)
                                (update :total-not-binned conj total-not-binned)
-                               (update :bins conj (compress-bins sketch)))))
+                               (update :bins conj (compress-bins sketch))
+                               (update :reverse-width conj (:width reverse-sketch))
+                               (update :reverse-depth conj (:depth reverse-sketch))
+                               (update :reverse-bins conj (when reverse-sketch
+                                                            (compress-bins reverse-sketch))))))
                        {:id (with-meta [] {:pgtype "uuid[]"})
+                        :width (with-meta [] {:pgtype "integer[]"})
+                        :depth (with-meta [] {:pgtype "integer[]"})
                         :total (with-meta [] {:pgtype "bigint[]"})
                         :total-not-binned (with-meta [] {:pgtype "bigint[]"})
                         :bins (with-meta [] {:pgtype "bytea[]"})
+                        :reverse-width (with-meta [] {:pgtype "integer[]"})
+                        :reverse-depth (with-meta [] {:pgtype "integer[]"})
+                        :reverse-total (with-meta [] {:pgtype "bigint[]"})
+                        :reverse-bins (with-meta [] {:pgtype "bytea[]"})
                         :lsn lsn
                         :previous-lsn previous-lsn
                         :slot-name slot-name
                         :process-id process-id}
                        sketches)
         q {:with [[:data {:select [[[:unnest :?id] :id]
+                                   [[:unnest :?width] :width]
+                                   [[:unnest :?depth] :depth]
                                    [[:unnest :?total] :total]
                                    [[:unnest :?total-not-binned] :total-not-binned]
                                    [[:unnest :?bins] :bins]
+                                   [[:unnest :?reverse-width] :reverse-width]
+                                   [[:unnest :?reverse-depth] :reverse-depth]
+                                   [[:unnest :?reverse-total] :reverse-total]
+                                   [[:unnest :?reverse-bins] :reverse-bins]
                                    [:?lsn :max-lsn]]}]
                   [:update-sketches
                    {:update :attr_sketches
                     :from :data
-                    :set {:total :data.total
+                    :set {:width :data.width
+                          :depth :data.depth
+                          :total :data.total
                           :total-not-binned :data.total-not-binned
                           :max-lsn :data.max-lsn
-                          :bins :data.bins}
+                          :bins :data.bins
+                          :reverse-width :data.reverse-width
+                          :reverse-depth :data.reverse-depth
+                          :reverse-total :data.reverse-total
+                          :reverse-bins :data.reverse-bins}
                     :where [:= :attr_sketches.id :data.id]}]
                   [:update-wal-aggregator-status
                    {:update :wal-aggregator-status
@@ -440,7 +471,7 @@
    add attr sketches to the database."
   [conn {:keys [sketches
                 lsn]}]
-  (let [params (reduce (fn [acc {:keys [app-id attr-id sketch]}]
+  (let [params (reduce (fn [acc {:keys [app-id attr-id sketch reverse-sketch]}]
                          (let [{:keys [width depth total total-not-binned]} sketch]
                            (-> acc
                                (update :app-id conj app-id)
@@ -449,16 +480,27 @@
                                (update :depth conj depth)
                                (update :total conj total)
                                (update :total-not-binned conj total-not-binned)
-                               (update :bins conj (compress-bins sketch)))))
+                               (update :bins conj (compress-bins sketch))
+                               (update :reverse-width conj (:width reverse-sketch))
+                               (update :reverse-depth conj (:depth reverse-sketch))
+                               (update :reverse-total conj (:total reverse-sketch))
+                               (update :reverse-bins conj (when reverse-sketch
+                                                            (compress-bins reverse-sketch))))))
                        {:app-id (with-meta [] {:pgtype "uuid[]"})
                         :attr-id (with-meta [] {:pgtype "uuid[]"})
                         :width (with-meta [] {:pgtype "integer[]"})
                         :depth (with-meta [] {:pgtype "integer[]"})
                         :total (with-meta [] {:pgtype "bigint[]"})
                         :total-not-binned (with-meta [] {:pgtype "bigint[]"})
-                        :bins (with-meta [] {:pgtype "bytea[]"})}
+                        :bins (with-meta [] {:pgtype "bytea[]"})
+                        :reverse-width (with-meta [] {:pgtype "integer[]"})
+                        :reverse-depth (with-meta [] {:pgtype "integer[]"})
+                        :reverse-total (with-meta [] {:pgtype "bigint[]"})
+                        :reverse-bins (with-meta [] {:pgtype "bytea[]"})}
                        sketches)
-        cols [:id :max-lsn :app-id :attr-id :width :depth :total :total-not-binned :bins]
+        cols [:id :max-lsn :app-id :attr-id
+              :width :depth :total :total-not-binned :bins
+              :reverse-width :reverse-depth :reverse-total :reverse-bins]
         q (hsql/format {:with [[:data {:select [[:%gen_random_uuid :id]
                                                 [lsn :max-lsn]
                                                 [[:unnest :?app-id] :app-id]
@@ -467,7 +509,11 @@
                                                 [[:unnest :?depth] :depth]
                                                 [[:unnest :?total] :total]
                                                 [[:unnest :?total-not-binned] :total-not-binned]
-                                                [[:unnest :?bins] :bins]]}]]
+                                                [[:unnest :?bins] :bins]
+                                                [[:unnest :?reverse-width] :reverse-width]
+                                                [[:unnest :?reverse-depth] :reverse-depth]
+                                                [[:unnest :?reverse-total] :reverse-total]
+                                                [[:unnest :?reverse-bins] :reverse-bins]]}]]
                         :insert-into [[:attr-sketches cols]
                                       {:select (qualify-cols :data cols)
                                        :from :data
