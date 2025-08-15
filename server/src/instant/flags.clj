@@ -170,6 +170,8 @@
                             (assoc acc (keyword setting) value))
                           {}
                           (get result "flags"))
+                  (update :always-materialize-attr-ids (fn [vs]
+                                                         (set (map parse-uuid vs))))
                   (update :tika-enabled-apps (fn [vs]
                                                (set (map parse-uuid vs)))))
 

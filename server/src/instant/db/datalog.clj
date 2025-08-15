@@ -1504,6 +1504,12 @@
         (assoc named-p :idx [:keyword :eav])
         named-p))))
 
+(defn always-materialize? [named-p]
+  (and (uspec/tagged-as? :constant (:a named-p))
+       (= 1 (count (uspec/tagged-unwrap (:a named-p))))
+       (contains? (flags/flag :always-materialize-attr-ids)
+                  (first (uspec/tagged-unwrap (:a named-p))))))
+
 (defn- joining-with
   "Produces subsequent match tables. Each table joins on the previous
    table unless it is the first cte or the start of a new AND/OR
@@ -1552,6 +1558,7 @@
                                     :additional-clauses all-joins}
                                    named-p)}
              (if (or
+                  (always-materialize? named-p)
                   ;; only use `not materialized` when we're in the middle of an ordered
                   ;; query
                   (not page-info)
