@@ -871,9 +871,9 @@ console.log(error);
 }
 ```
 
-### $not
+### $ne
 
-The `where` clause supports `$not` queries that will return entities that don't
+The `where` clause supports `$ne` queries that will return entities that don't
 match the provided value for the field, including entities where the field is null or undefined.
 
 ```javascript
@@ -881,7 +881,7 @@ const query = {
   todos: {
     $: {
       where: {
-        location: { $not: 'work' },
+        location: { $ne: 'work' },
       },
     },
   },
