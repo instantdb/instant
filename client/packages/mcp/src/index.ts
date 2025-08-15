@@ -195,20 +195,9 @@ function registerTools(server: McpServer, api: PlatformApi) {
   server.tool(
     'get-apps',
     'List all apps owned by the authenticated user',
-    {
-      includeSchema: z
-        .boolean()
-        .optional()
-        .describe('Include schema in response'),
-      includePerms: z
-        .boolean()
-        .optional()
-        .describe('Include permissions in response'),
-    },
-    async ({ includeSchema, includePerms }) => {
+    async () => {
       try {
-        const opts = { includeSchema, includePerms };
-        const result = await api.getApps(opts);
+        const result = await api.getApps();
 
         return {
           content: [
