@@ -87,6 +87,35 @@ hardcode it in your script.
 CRITICAL: If you want to create seed data YOU MUST write a script that uses the admin SDK.
 DO NOT try to seed data on the client.
 
+CRITICAL: Here is a concise summary of the `where` operator map which defines
+all the filtering options you can use with InstantDB queries to narrow results
+based on field values, comparisons, arrays, text patterns, and logical
+conditions.
+
+```
+Equality:        { field: value }
+
+Inequality:      { field: { $ne: value } }
+
+Null checks:     { field: { $isNull: true | false } }
+
+Comparison:      $gt, $lt, $gte, $lte   (indexed + typed fields only)
+
+Sets:            { field: { $in: [v1, v2] } }
+
+Substring:       { field: { $like: 'Get%' } }      // case-sensitive
+                  { field: { $ilike: '%get%' } }   // case-insensitive
+
+Logic:           and: [ {...}, {...} ]
+                  or:  [ {...}, {...} ]
+
+Nested fields:   'relation.field': value
+```
+
+CRITICAL: The operator map above is the full set of `where` filters Instant
+supports right now. There is no `$exists`, `$nin`, or `$regex`. And `$like` and
+`$ilike` are what you use for `startsWith` / `endsWith` / `includes`.
+
 <!-- SECTION: APP_DESCRIPTION -->
 
 # Full Example App
