@@ -6,6 +6,7 @@ import type {
   InstantObject,
   InstaQLParams,
   InstaQLResponse,
+  ValidQuery,
 } from './queryTypes.ts';
 import { InstantUnknownSchema } from './schemaTypes.ts';
 
@@ -19,7 +20,7 @@ import { InstantUnknownSchema } from './schemaTypes.ts';
  *  * the api is more vebose than this
  */
 
-export function dummyQuery<Q extends InstaQLParams<InstantUnknownSchema>>(
+export function dummyQuery<Q extends ValidQuery<Q, InstantUnknownSchema>>(
   _query: Q,
 ): InstaQLResponse<InstantUnknownSchema, Q> {
   return 1 as any;

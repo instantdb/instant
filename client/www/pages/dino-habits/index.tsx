@@ -597,7 +597,7 @@ function HabitDetails({
     habits: {
       $: { where: { id: habitId } },
       completions: {
-        $: { order: { completedAt: 'desc' }, limit: 30 },
+        $: { order: { completedAt: 'desc' } },
       },
     },
   });

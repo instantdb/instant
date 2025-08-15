@@ -7,6 +7,7 @@ import {
   InstantCoreDatabase,
   InstaQLLifecycleState,
   InstantSchemaDef,
+  ValidQuery,
 } from '@instantdb/core';
 import { useCallback, useRef, useSyncExternalStore } from 'react';
 
@@ -28,7 +29,7 @@ function stateForResult(result: any) {
 }
 
 export function useQueryInternal<
-  Q extends InstaQLParams<Schema>,
+  Q extends ValidQuery<Q, Schema>,
   Schema extends InstantSchemaDef<any, any, any>,
   UseDates extends boolean,
 >(
