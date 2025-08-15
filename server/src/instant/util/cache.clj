@@ -183,7 +183,8 @@
                                                 :a a}
                                                (set es))
 
-                                       new-values (delay (batch-value-fn missing))]
+                                       new-values (when (seq missing)
+                                                    (delay (batch-value-fn missing)))]
                                    (reduce (fn [a e]
                                              (let [v (delay (get @new-values e))]
                                                (vswap! our-results conj v)
