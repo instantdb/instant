@@ -567,7 +567,7 @@ The `serverCreatedAt` field is a reserved key that orders by the time that the o
 You can also order by any attribute that is indexed and has a checked type.
 
 {% callout %}
-Add indexes and checked types to your attributes from the [Explorer on the Instant dashboard](/dash?t=explorer) or from the [cli with Schema-as-code](/docs/schema).
+Add indexes and checked types to your attributes from the [Explorer on the Instant dashboard](/dash?t=explorer) or from the [cli](/docs/cli).
 {% /callout %}
 
 ```typescript
