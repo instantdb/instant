@@ -42,7 +42,7 @@ How does it look? Here's a barebones chat app in about 12 lines:
 
 import { init, tx, id } from "@instantdb/react";
 
-const db = init({ 
+const db = init({
   appId: process.env.NEXT_PUBLIC_APP_ID,
 });
 

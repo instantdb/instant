@@ -20,6 +20,26 @@ import {
   TransactionValidationError,
 } from './transactionValidation.ts';
 
+// Internal modules needed by @instantdb/node
+import instaql from './instaql.js';
+import * as instaml from './instaml.js';
+import * as store from './store.js';
+import * as authAPI from './authAPI.js';
+import * as StorageApi from './StorageAPI.js';
+import * as flags from './utils/flags.js';
+import { buildPresenceSlice, hasPresenceResponseChanged } from './presence.js';
+import { Deferred } from './utils/Deferred.js';
+import { PersistedObject } from './utils/PersistedObject.js';
+import { extractTriples } from './model/instaqlResult.js';
+import {
+  areObjectsDeepEqual,
+  assocInMutative,
+  dissocInMutative,
+  insertInMutative,
+} from './utils/object.js';
+import { createLinkIndex } from './utils/linkIndex.js';
+import createLogger from './utils/log.js';
+
 import type {
   PresenceOpts,
   PresenceResponse,
@@ -849,6 +869,25 @@ export {
   Storage,
   version,
   InstantError,
+
+  // Internal modules for @instantdb/node
+  instaql,
+  instaml,
+  store,
+  authAPI,
+  StorageApi,
+  flags,
+  buildPresenceSlice,
+  hasPresenceResponseChanged,
+  Deferred,
+  PersistedObject,
+  extractTriples,
+  areObjectsDeepEqual,
+  assocInMutative,
+  dissocInMutative,
+  insertInMutative,
+  createLinkIndex,
+  createLogger,
 
   // og types
   type IDatabase,

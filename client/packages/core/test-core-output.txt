@@ -1,0 +1,17 @@
+Testing @instantdb/core...
+
+Test 1: Basic Query
+file:///Users/mlustig/dev/tools/instant/client/packages/core/dist/esm/Reactor.js:739
+        this.querySubs.set((prev) => {
+                       ^
+
+TypeError: Cannot read properties of undefined (reading 'set')
+    at Reactor._startQuerySub (file:///Users/mlustig/dev/tools/instant/client/packages/core/dist/esm/Reactor.js:739:24)
+    at Reactor.subscribeQuery (file:///Users/mlustig/dev/tools/instant/client/packages/core/dist/esm/Reactor.js:772:14)
+    at InstantCoreDatabase.subscribeQuery (file:///Users/mlustig/dev/tools/instant/client/packages/core/dist/esm/index.js:314:30)
+    at file:///Users/mlustig/dev/tools/instant/client/packages/core/test-core.js:15:24
+    at ModuleJob.run (node:internal/modules/esm/module_job:343:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:647:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+
+Node.js v22.18.0

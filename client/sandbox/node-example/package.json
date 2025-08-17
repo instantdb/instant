@@ -1,0 +1,23 @@
+{
+  "name": "instantdb-node-examples",
+  "version": "1.0.0",
+  "description": "Examples for using @instantdb/node",
+  "type": "module",
+  "scripts": {
+    "basic": "node basic-example.js",
+    "sync": "node multi-instance-sync.js",
+    "express": "node express-integration.js",
+    "sync:multi": "npm-run-all --parallel sync:instance1 sync:instance2 sync:instance3",
+    "sync:instance1": "INSTANCE_NAME=server1 INSTANCE_COLOR='\\x1b[32m' node multi-instance-sync.js",
+    "sync:instance2": "INSTANCE_NAME=server2 INSTANCE_COLOR='\\x1b[33m' node multi-instance-sync.js",
+    "sync:instance3": "INSTANCE_NAME=server3 INSTANCE_COLOR='\\x1b[35m' node multi-instance-sync.js"
+  },
+  "dependencies": {
+    "@instantdb/node": "workspace:*",
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "npm-run-all": "^4.1.5"
+  }
+}
