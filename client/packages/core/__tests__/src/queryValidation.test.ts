@@ -491,39 +491,6 @@ test('where clause operators', () => {
     },
   });
 
-  // Valid $isNull on optional field
-  beValid({
-    users: {
-      $: {
-        where: {
-          bio: { $isNull: true },
-        },
-      },
-    },
-  });
-
-  // Invalid $isNull on required field
-  beWrong({
-    users: {
-      $: {
-        where: {
-          name: { $isNull: true },
-        },
-      },
-    },
-  });
-
-  // Valid $isNull: false on required field
-  beValid({
-    users: {
-      $: {
-        where: {
-          name: { $isNull: false },
-        },
-      },
-    },
-  });
-
   // Invalid $isNull value type
   beWrong({
     users: {
@@ -802,17 +769,6 @@ test('where clause dot notation validation', () => {
       $: {
         where: {
           'author.bio': { $isNull: true },
-        },
-      },
-    },
-  });
-
-  // Invalid dot notation with $isNull on required field
-  beWrong({
-    posts: {
-      $: {
-        where: {
-          'author.name': { $isNull: true },
         },
       },
     },

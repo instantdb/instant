@@ -120,12 +120,6 @@ const validateOperator = (
       break;
     case '$isNull':
       assertValidValue(op, 'boolean', opValue);
-      if (attrDef.required && opValue === true) {
-        throw new QueryValidationError(
-          `Cannot use '$isNull: true' on required attribute '${attrName}' in entity '${entityName}'`,
-          path,
-        );
-      }
       break;
     default:
       throw new QueryValidationError(
