@@ -12,6 +12,7 @@ import {
   type InstantObject,
   type InstantEntity,
   type InstantSchemaDatabase,
+  type InstantUnknownSchemaDef,
   type IInstantDatabase,
   type User,
   type AuthState,
@@ -19,6 +20,7 @@ import {
   type Config,
   type InstaQLParams,
   type ConnectionStatus,
+  type ValidQuery,
 
   // schema types
   type AttrsDefs,
@@ -28,6 +30,7 @@ import {
   type EntitiesWithLinks,
   type EntityDef,
   type InstantGraph,
+  type InstantConfig,
   type LinkAttrDef,
   type LinkDef,
   type LinksDef,
@@ -42,6 +45,7 @@ import {
   type TopicsOf,
   type TopicOf,
   type RoomHandle,
+  type TransactionChunk,
   type InstantUnknownSchema,
   type InstantSchemaDef,
   type BackwardsCompatibleSchema,
@@ -81,6 +85,8 @@ export {
 
   // types
   type Config,
+  type InstantConfig,
+  type InstantUnknownSchemaDef,
   type Query,
   type QueryResponse,
   type InstantObject,
@@ -94,6 +100,7 @@ export {
   type InstantSchemaDatabase,
   type IInstantDatabase,
   type InstaQLParams,
+  type ValidQuery,
   type InstaQLFields,
 
   // schema types
@@ -113,6 +120,7 @@ export {
   type InstaQLResult,
   type InstaQLEntitySubquery,
   type RoomsOf,
+  type TransactionChunk,
   type PresenceOf,
   type TopicsOf,
   type TopicOf,

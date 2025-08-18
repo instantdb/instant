@@ -155,7 +155,7 @@ type LinksIndex = Record<
 function schema<
   EntitiesWithoutLinks extends EntitiesDef,
   const Links extends LinksDef<EntitiesWithoutLinks>,
-  Rooms extends RoomsDef,
+  Rooms extends RoomsDef = {},
 >({
   entities,
   links,
@@ -165,11 +165,11 @@ function schema<
   links?: Links;
   rooms?: Rooms;
 }) {
-  const linksDef = links ?? ({} as Links);
-  const roomsDef = rooms ?? ({} as Rooms);
+  const linksDef = (links ?? {}) as Links;
+  const roomsDef = (rooms ?? {}) as Rooms;
   return new InstantSchemaDef(
     enrichEntitiesWithLinks<EntitiesWithoutLinks, Links>(entities, linksDef),
-    // (XXX): LinksDef<any> stems from TypeScript’s inability to reconcile the
+    // (XXX): LinksDef<any> stems from TypeScript's inability to reconcile the
     // type EntitiesWithLinks<EntitiesWithoutLinks, Links> with
     // EntitiesWithoutLinks. TypeScript is strict about ensuring that types are
     // correctly aligned and does not allow for substituting a type that might

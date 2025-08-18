@@ -20,6 +20,7 @@ import {
   type QueryResponse,
   type InstaQLResponse,
   type InstaQLParams,
+  type ValidQuery,
   type InstaQLFields,
   type InstantQuery,
   type InstantQueryResult,
@@ -40,6 +41,7 @@ import {
   type InstantGraph,
   type LinkAttrDef,
   type LinkDef,
+  type InstantUnknownSchemaDef,
   type LinksDef,
   type RoomsOf,
   type PresenceOf,
@@ -774,7 +776,7 @@ class InstantAdminDatabase<
    *  // all goals, _alongside_ their todos
    *  await db.query({ goals: { todos: {} } })
    */
-  query = <Q extends InstaQLParams<Schema>>(
+  query = <Q extends ValidQuery<Q, Schema>>(
     query: Q,
     opts: AdminQueryOpts = {},
   ): Promise<
@@ -864,7 +866,7 @@ class InstantAdminDatabase<
    *    { rules: { goals: { allow: { read: "auth.id != null" } } }
    *  )
    */
-  debugQuery = async <Q extends InstaQLParams<Schema>>(
+  debugQuery = async <Q extends ValidQuery<Q, Schema>>(
     query: Q,
     opts?: { rules?: any; ruleParams?: { [key: string]: any } },
   ): Promise<{
@@ -946,11 +948,14 @@ export {
   // core types
   type User,
   type InstaQLParams,
+  type ValidQuery,
   type Query,
 
   // query types
   type QueryResponse,
+  type InstaQLResponse,
   type InstantQuery,
+  type InstantUnknownSchemaDef,
   type InstantQueryResult,
   type InstantSchema,
   type InstantSchemaDatabase,

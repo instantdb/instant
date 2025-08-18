@@ -175,6 +175,11 @@ export type LinkDef<
 
 // ==========
 // derived types
+type IsEmptyOrIndexSignature<T> = keyof T extends never
+  ? true
+  : string extends keyof T
+    ? true
+    : false;
 
 export type EntitiesWithLinks<
   Entities extends EntitiesDef,
@@ -197,48 +202,54 @@ type EntityForwardLinksMap<
   Entities extends EntitiesDef,
   Links extends LinksDef<Entities>,
   LinkIndexFwd = LinksIndexedByEntity<Entities, Links, 'reverse'>,
-> = EntityName extends keyof LinkIndexFwd
-  ? {
-      [LinkName in keyof LinkIndexFwd[EntityName]]: LinkIndexFwd[EntityName][LinkName] extends LinkDef<
-        Entities,
-        infer RelatedEntityName,
-        any,
-        any,
-        any,
-        any,
-        infer Cardinality
-      >
-        ? {
-            entityName: RelatedEntityName;
-            cardinality: Cardinality;
-          }
-        : never;
-    }
-  : {};
+> =
+  IsEmptyOrIndexSignature<Links> extends true
+    ? {}
+    : EntityName extends keyof LinkIndexFwd
+      ? {
+          [LinkName in keyof LinkIndexFwd[EntityName]]: LinkIndexFwd[EntityName][LinkName] extends LinkDef<
+            Entities,
+            infer RelatedEntityName,
+            any,
+            any,
+            any,
+            any,
+            infer Cardinality
+          >
+            ? {
+                entityName: RelatedEntityName;
+                cardinality: Cardinality;
+              }
+            : never;
+        }
+      : {};
 
 type EntityReverseLinksMap<
   EntityName extends keyof Entities,
   Entities extends EntitiesDef,
   Links extends LinksDef<Entities>,
   RevLinkIndex = LinksIndexedByEntity<Entities, Links, 'forward'>,
-> = EntityName extends keyof RevLinkIndex
-  ? {
-      [LinkName in keyof RevLinkIndex[EntityName]]: RevLinkIndex[EntityName][LinkName] extends LinkDef<
-        Entities,
-        any,
-        any,
-        infer Cardinality,
-        infer RelatedEntityName,
-        any,
-        any
-      >
-        ? {
-            entityName: RelatedEntityName;
-            cardinality: Cardinality;
-          }
-        : never;
-    }
-  : {};
+> =
+  IsEmptyOrIndexSignature<Links> extends true
+    ? {}
+    : EntityName extends keyof RevLinkIndex
+      ? {
+          [LinkName in keyof RevLinkIndex[EntityName]]: RevLinkIndex[EntityName][LinkName] extends LinkDef<
+            Entities,
+            any,
+            any,
+            infer Cardinality,
+            infer RelatedEntityName,
+            any,
+            any
+          >
+            ? {
+                entityName: RelatedEntityName;
+                cardinality: Cardinality;
+              }
+            : never;
+        }
+      : {};
 
 type LinksIndexedByEntity<
   Entities extends EntitiesDef,
@@ -530,11 +541,13 @@ export interface UnknownRooms {
   };
 }
 
-export type InstantUnknownSchema = InstantSchemaDef<
+export class InstantUnknownSchemaDef extends InstantSchemaDef<
   UnknownEntities,
   UnknownLinks<UnknownEntities>,
   UnknownRooms
->;
+> {}
+
+export type InstantUnknownSchema = InstantUnknownSchemaDef;
 
 export type CreateParams<
   Schema extends IContainEntitiesAndLinks<any, any>,
