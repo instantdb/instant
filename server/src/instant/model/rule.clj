@@ -8,6 +8,7 @@
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.system-catalog :as system-catalog]
+   [instant.util.cache :refer [lookup-or-miss]]
    [instant.util.exception :as ex]
    [instant.util.json :refer [->json]])
   (:import
@@ -55,7 +56,7 @@
 
 (defn get-by-app-id
   ([{:keys [app-id]}]
-   (cache/lookup-or-miss rule-cache app-id (partial get-by-app-id* (aurora/conn-pool :read))))
+   (lookup-or-miss rule-cache app-id (partial get-by-app-id* (aurora/conn-pool :read))))
   ([conn {:keys [app-id]}]
    ;; Don't cache if we're using a custom connection
    (get-by-app-id* conn app-id)))
@@ -201,8 +202,8 @@
    (default-program etype action)))
 
 (defn get-program! [rules etype action]
-  (cache/lookup-or-miss program-cache [rules etype action] (fn [[rules etype action]]
-                                                             (get-program!* rules etype action))))
+  (lookup-or-miss program-cache [rules etype action] (fn [[rules etype action]]
+                                                       (get-program!* rules etype action))))
 
 (defn $users-validation-errors
   "Only allow users to changes the `view` rules for $users, since we don't have
