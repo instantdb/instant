@@ -77,6 +77,12 @@ function ResizingTextArea({
   useLayoutEffect(() => {
     if (textareaRef.current) {
       autoResize(textareaRef.current);
+      // Small delay to ensure autoResize runs after the component has rendered
+      setTimeout(() => {
+        if (textareaRef.current) {
+          autoResize(textareaRef.current);
+        }
+      }, 0);
     }
   }, [props.value]);
 
