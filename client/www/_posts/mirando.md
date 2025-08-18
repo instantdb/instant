@@ -78,7 +78,7 @@ As a proof of concept Javier built a script that amalgamated homes across a few 
 
 ## Convincing Javier on Instant
 
-Javier first started to build a version 1 on an Instant competitor [^]. When Ignacio saw this, he knew he had convince Javier to switch. The competitor’s product worked, but things weren’t real time, it took longer to build, and the devex didn’t feel right.
+Javier first started to build a version 1 on an Instant competitor [^1]. When Ignacio saw this, he knew he had convince Javier to switch. The competitor’s product worked, but things weren’t real time, it took longer to build, and the devex didn’t feel right.
 
 So what did Ignacio do? **He shipped a PR to demonstrate the difference**. The PR was full of deletions:
 
@@ -115,3 +115,5 @@ When we asked Ignacio what he loved the most about Instant, he picked sync:
 It’s only the beginning for Ignacio and Javier. They started working on Mirando in January. Today they have large agencies signing up in Montevideo, Uruguay. They have a truly delightful experience, and an AI agent that keeps getting better after every search.
 
 They plan to grow to all of Latin America, and we’re so darn excited to be supporting their infra.
+
+[^1]: For gentlemanly reasons we will not mention names
