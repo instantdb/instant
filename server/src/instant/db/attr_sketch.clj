@@ -354,6 +354,8 @@
                      rows)))
 
 (defn lookup
+  "Takes a set of {:app-id attr-id} maps and fetches sketches, if they exist.
+   Returns a map with key {:app-id :attr-id} and value :sketch-record"
   ([keys]
    (lookup (aurora/conn-pool :read) keys))
   ([conn keys]

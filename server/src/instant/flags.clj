@@ -173,7 +173,9 @@
                   (update :always-materialize-attr-ids (fn [vs]
                                                          (set (map parse-uuid vs))))
                   (update :tika-enabled-apps (fn [vs]
-                                               (set (map parse-uuid vs)))))
+                                               (set (map parse-uuid vs))))
+                  (update :use-hint-query-hashes (fn [vs]
+                                                   (set vs))))
 
         handle-receive-timeout (reduce (fn [acc {:strs [appId timeoutMs]}]
                                          (assoc acc (parse-uuid appId) timeoutMs))
