@@ -208,6 +208,9 @@
               ref?            (some? rev-etype)
               [_ _ fwd-label] (:forward-identity (attr-model/seek-by-id aid attrs))
               [_ _ rev-label] (:reverse-identity (attr-model/seek-by-id aid attrs))
+              rev-key         {:eid value :etype rev-etype}
+              rev-entity      (when ref?
+                                (get entities-map rev-key))
               rule-params     (get rule-params-map key)]
         check (clojure+/cond+
                 (= :update-attr op)
@@ -247,7 +250,7 @@
                    :bindings {:data        entity
                               :new-data    (get updated-entities-map key)
                               :rule-params rule-params}}]
-                 (when-some [rev-entity (get entities-map {:eid value :etype rev-etype})]
+                 (when rev-entity
                    [{:scope    :object
                      :action   :link
                      :etype    rev-etype
@@ -262,7 +265,8 @@
                                  ["$default" "allow" "$default"]])
                      :bindings {:data        rev-entity
                                 ;; :new-data    (get updated-entities-map key)
-                                :rule-params rule-params}}]))
+                                :rule-params (merge rule-params
+                                                    (get rule-params-map rev-key))}}]))
 
                 (and (#{:add-triple :deep-merge-triple :retract-triple} op)
                      update?)
@@ -305,6 +309,10 @@
               ref?            (some? rev-etype)
               [_ _ fwd-label] (:forward-identity (attr-model/seek-by-id aid attrs))
               [_ _ rev-label] (:reverse-identity (attr-model/seek-by-id aid attrs))
+              rev-key         {:eid value :etype rev-etype}
+              rev-entity      (when ref?
+                                (-> (get updated-entities-map rev-key)
+                                    (update "id" #(get create-lookups-map % %))))
               rule-params     (get rule-params-map key)]
         check (cond
                 (= :add-attr op)
@@ -336,7 +344,7 @@
                                {:data        updated-entity
                                 :new-data    updated-entity
                                 :rule-params rule-params})}]
-                 (when-some [rev-entity (get entities-map {:eid value :etype rev-etype})]
+                 (when rev-entity
                    [{:scope    :object
                      :action   :view
                      :etype    rev-etype
@@ -350,7 +358,8 @@
                                  ["$default" "allow" "view"]
                                  ["$default" "allow" "$default"]])
                      :bindings {:data        rev-entity
-                                :rule-params rule-params}}]))
+                                :rule-params (merge rule-params
+                                                    (get rule-params-map rev-key))}}]))
 
                 (and (#{:add-triple :deep-merge-triple :retract-triple} op)
                      create?)

@@ -193,6 +193,9 @@
            instant-ex#
            (throw e#))))))
 
+(defmacro perm-pass? [& body]
+  `(boolean (not (perm-err? ~@body))))
+
 (defmacro validation-err? [& body]
   `(try
      ~@body
@@ -248,3 +251,10 @@
          original-lookup# (var-get #'cms/lookup)]
      (with-redefs [cms/lookup (partial lookup-with-in-memory-sketches original-lookup# sketches# (:id ~app))]
        ~@body)))
+
+(defmacro test-matrix [bindings & body]
+  (let [keys (mapv first (partition 2 bindings))]
+    `(doseq [var# (for ~bindings (array-map ~@(mapcat #(vector (keyword %) %) keys)))
+             :let [{:keys ~keys} var#]]
+       (clojure.test/testing (str var#)
+         ~@body))))
