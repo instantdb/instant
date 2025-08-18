@@ -31,6 +31,7 @@
             [clojure.spec.alpha :as s]
             [clojure.set :as set]
             [instant.db.model.triple :as triple-model]
+            [instant.db.attr-sketch :as cms]
             [instant.flags :as flags]
             [instant.util.spec :as uspec]
             [instant.util.tracer :as tracer]
@@ -1037,31 +1038,136 @@
 (defn test-pg-hints? []
   *testing-pg-hints*)
 
+(defn required-sketch-keys-for-component
+  "Returns a set of {:app-id :attr-id} maps for the sketches that we'll
+   need to fulfill the count queries for the named pattern."
+  [ctx named-p component]
+  (let [app-id (:app-id ctx)
+        a (:a named-p)
+        [tag val] (get named-p component)]
+    (concat (when (named-constant? a)
+              (map (fn [a] {:app-id app-id
+                            :attr-id a})
+                   (uspec/tagged-unwrap a)))
+            (when (= tag :function)
+              (let [[f body] (first val)]
+                (when (= :$isNull f)
+                  [{:app-id app-id
+                    :attr-id (:attr-id body)}]))))))
+
+(defn required-sketch-keys
+  "Returns a set of {:app-id :attr-id} maps of the sketches that we'll
+   need to fulfill the count queries for the named pattern."
+  [ctx named-p]
+  (reduce (fn [acc component]
+            (into acc (required-sketch-keys-for-component ctx named-p component)))
+          #{}
+          [:e :v]))
+
+(defn index-size-from-sketch [ctx named-p component]
+  (let [a (:a named-p)
+        app-id (:app-id ctx)
+        sketches (:sketches ctx)
+        [tag val] (get named-p component)
+        counts (for [attr-id (when (named-constant? a)
+                               (uspec/tagged-unwrap a))
+                     :let [record (get sketches {:app-id app-id
+                                                 :attr-id attr-id})
+                           sketch (if (and (= component :e)
+                                           (= :constant tag)
+                                           (contains? #{:vae :eav} (idx-key (:idx named-p))))
+                                    (:reverse-sketch record)
+                                    (:sketch record))]
+                     vs (case tag
+                          :constant (map (fn [c]
+                                           {:type :constant
+                                            :value c})
+                                         val)
+                          (:any :variable) [{:type :total}]
+                          :function (let [[f body] (first val)]
+                                      (case f
+                                        :$not [{:type :not
+                                                :value body}]
+                                        :$isNull [{:type :nil?
+                                                   :nil? (:nil? body)
+                                                   :attr-id (:attr-id body)}]
+                                        ;; No good way to count entity-ids, so plan
+                                        ;; for the worst case
+                                        :$entityIdStartsWith [{:type :total}]
+                                        :$comparator [{:type :compare
+                                                       :op (:op body)
+                                                       :data-type (:data-type body)
+                                                       :value (:value body)}])))]
+                 (if (not sketch)
+                   0
+                   (case (:type vs)
+                     :total (:total sketch)
+                     :constant (cms/check sketch
+                                          (when (instance? java.time.Instant (:value vs))
+                                            :date)
+                                          (:value vs))
+                     :not (- (:total sketch)
+                             (cms/check sketch
+                                        (when (instance? java.time.Instant (:value vs))
+                                          :date)
+                                        (:value vs)))
+                     :nil? (if-let [sketch (:sketch (get sketches {:app-id app-id
+                                                                   :attr-id (:attr-id vs)}))]
+                             ;; This only gives an accurate count on indexed attrs
+                             (if (:nil? vs)
+                               (cms/check sketch nil nil)
+                               (- (:total sketch)
+                                  (cms/check sketch nil nil)))
+                             0)
+                     ;; We don't have a good way to do comparisions, yet, so we'll
+                     ;; just put a default of half the items.
+                     :compare (long (/ (:total sketch) 2)))))]
+    (reduce + 0 counts)))
+
+(defn rows-size-from-sketch [ctx named-p]
+  (apply min (map (partial index-size-from-sketch ctx named-p) [:e :v])))
+
+(def ^:dynamic *estimate-with-sketch* false)
+
 (defn estimate-index-size [ctx named-p component]
-  (let [filtered-p (select-keys named-p [:idx component :a])
-        wheres (where-clause {:app-id (:app-id ctx)
-                              :remove-unnecessary-idx-key? true
-                              :triples-alias :t}
-                            filtered-p)
-        count-info {:wheres wheres}]
+  (if *estimate-with-sketch*
     (if (= (:phase ctx) :deps)
-      (do
-        (swap! (:counts ctx) conj count-info)
+      (let [sketch-keys (required-sketch-keys-for-component ctx
+                                                            named-p
+                                                            component)]
+        (swap! (:sketch-keys ctx) into sketch-keys)
         10000)
-      (get-in ctx [:counts count-info]))))
+      (index-size-from-sketch ctx named-p component))
+    (let [filtered-p (select-keys named-p [:idx component :a])
+          wheres (where-clause {:app-id (:app-id ctx)
+                                :remove-unnecessary-idx-key? true
+                                :triples-alias :t}
+                               filtered-p)
+          count-info {:wheres wheres}]
+      (if (= (:phase ctx) :deps)
+        (do
+          (swap! (:counts ctx) conj count-info)
+          10000)
+        (get-in ctx [:counts count-info])))))
 
 (defn estimate-rows [ctx named-p]
-  (let [count-info {:wheres (where-clause {:app-id (:app-id ctx)
-                                           :triples-alias :t
-                                           :remove-unnecessary-idx-key? true}
-                                          named-p)}]
+  (if *estimate-with-sketch*
     (if (= :deps (:phase ctx))
-      (do
-        (swap! (:counts ctx) conj count-info)
+      (let [sketch-keys (required-sketch-keys ctx named-p)]
+        (swap! (:sketch-keys ctx) into sketch-keys)
         10000)
-      (let [res (get-in ctx [:counts count-info])]
-        (assert res)
-        res))))
+      (rows-size-from-sketch ctx named-p))
+    (let [count-info {:wheres (where-clause {:app-id (:app-id ctx)
+                                             :triples-alias :t
+                                             :remove-unnecessary-idx-key? true}
+                                            named-p)}]
+      (if (= :deps (:phase ctx))
+        (do
+          (swap! (:counts ctx) conj count-info)
+          10000)
+        (let [res (get-in ctx [:counts count-info])]
+          (assert res)
+          res)))))
 
 (defn path-cost-with-joins
   "Tries to estimate the work we'll be doing for an individual index,
@@ -1423,17 +1529,16 @@
   single go. Then we a second pass with the counts and it determines
   the best index."
   ([ctx nested-named-patterns]
-   (let [counts-atom (atom (set {}))
+   (let [counts-atom (atom (set #{}))
+         sketch-keys-atom (atom (set #{}))
          ;; Run annotate-with-hints to populate the counts atom
          _ (annotate-with-hints (assoc ctx
                                        :phase :deps
-                                       :counts counts-atom)
+                                       :counts counts-atom
+                                       :sketch-keys sketch-keys-atom)
                                 {}
                                 nested-named-patterns)
          count-queries @counts-atom
-
-         ;; Fetch counts from the database. We should be able to store
-         ;; a sketch that lets us do counts without talking to the db
          query (when (seq count-queries)
                  {:union-all (map-indexed (fn [i {:keys [wheres]}]
                                             {:select [[i :i]
@@ -1448,12 +1553,15 @@
                         (sql/select ::resolve-counts
                                     (:conn-pool (:db ctx))
                                     (hsql/format query)))
+
          resolved-counts (zipmap count-queries
-                                 (map :count query-result))]
+                                 (map :count query-result))
+         sketches (cms/lookup (:conn-pool (:db ctx)) @sketch-keys-atom)]
      ;; Run again with resolved counts
      (annotate-with-hints (assoc ctx
                                  :phase :choose
-                                 :counts resolved-counts)
+                                 :counts resolved-counts
+                                 :sketches sketches)
                           {}
                           nested-named-patterns)))
   ([ctx symbol-map nested-named-patterns]
@@ -1461,10 +1569,12 @@
               [:children :pattern-groups]
               (fn [groups]
                 (mapv (fn [pattern-group]
-                        (annotate-pattern-group-with-hints ctx
-                                                           (when-let [join-sym (get-in nested-named-patterns [:children :join-sym])]
-                                                             {join-sym (get symbol-map join-sym 0)})
-                                                           pattern-group))
+                        (if (:missing-attr? pattern-group)
+                          pattern-group
+                          (annotate-pattern-group-with-hints ctx
+                                                             (when-let [join-sym (get-in nested-named-patterns [:children :join-sym])]
+                                                               {join-sym (get symbol-map join-sym 0)})
+                                                             pattern-group)))
                       groups)))))
 
 ;; ---

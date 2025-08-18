@@ -15,7 +15,7 @@
    [next.jdbc.result-set :as rs]
    [next.jdbc.sql :as sql])
   (:import
-   (clojure.lang IPersistentList IPersistentMap IPersistentSet IPersistentVector)
+   (clojure.lang IPersistentList IPersistentMap IPersistentSet IPersistentVector ISeq)
    (com.zaxxer.hikari HikariDataSource)
    (java.sql Array Connection PreparedStatement ResultSet ResultSetMetaData)
    (java.time Instant LocalDate LocalDateTime)
@@ -110,6 +110,10 @@
     (set-param s i v))
 
   IPersistentSet
+  (set-parameter [v ^PreparedStatement s i]
+    (set-param s i v))
+
+  ISeq
   (set-parameter [v ^PreparedStatement s i]
     (set-param s i v)))
 

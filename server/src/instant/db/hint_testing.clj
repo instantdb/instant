@@ -119,19 +119,38 @@
                         (tracer/add-data! {:attributes res})
                         res)
                       (catch Exception e
-                        e))))]
+                        e))))
+            sketches (tracer/with-span! {:name "test-pg-hints-for-datalog/with-sketches"}
+                       (binding [d/*testing-pg-hints* true
+                                 d/*estimate-with-sketch* true]
+                         (try
+                           (let [res (explain-datalog ctx patterns)]
+                             (tracer/add-data! {:attributes res})
+                             res)
+                           (catch Exception e
+                             e))))]
         (tracer/add-data! {:attributes {:without.ms (:time old)
                                         :with.ms (:time new)
+                                        :with-sketch.ms (:time sketches)
                                         :without.error (instance? Exception old)
                                         :with.error (instance? Exception new)
-                                        :improvement (- (or (:time old)
+                                        :with-sketch.error (instance? Exception sketches)
+                                        :improvement (- (or (:time sketches)
                                                             (* 1000 10))
                                                         (or (:time new)
                                                             (* 1000 10)))
-                                        :index-diff (when (and (:indexes old)
-                                                               (:indexes new))
-                                                      (->json (diff-indexes (:indexes old)
-                                                                            (:indexes new))))}})))))
+                                        :base-improvement (- (or (:time sketches)
+                                                                 (* 1000 10))
+                                                             (or (:time old)
+                                                                 (* 1000 10)))
+                                        :index-diff (when (and (:indexes new)
+                                                               (:indexes sketches))
+                                                      (->json (diff-indexes (:indexes new)
+                                                                            (:indexes sketches))))
+                                        :base-index-diff (when (and (:indexes old)
+                                                                    (:indexes sketches))
+                                                           (->json (diff-indexes (:indexes old)
+                                                                                 (:indexes sketches))))}})))))
 
 (defn test-pg-hints
   "Runs the query to capture all datalog queries, then compares the
