@@ -1,7 +1,7 @@
 import { id, InstantReactWebDatabase, tx } from '@instantdb/react';
 import {
   TextareaHTMLAttributes,
-  useLayoutEffect,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -74,9 +74,12 @@ function ResizingTextArea({
     }
   };
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (textareaRef.current) {
       autoResize(textareaRef.current);
+      if (textareaRef.current) {
+        autoResize(textareaRef.current);
+      }
     }
   }, [props.value]);
 
