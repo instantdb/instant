@@ -50,7 +50,11 @@ const isValidValueForType = (
     case 'boolean':
       return typeof value === 'boolean';
     case 'date':
-      return value instanceof Date || typeof value === 'string';
+      return (
+        value instanceof Date ||
+        typeof value === 'string' ||
+        typeof value === 'number'
+      );
     default:
       return true;
   }
