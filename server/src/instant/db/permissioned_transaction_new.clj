@@ -292,16 +292,20 @@
 
 (defn post-checks
   "Checks that run after tx: create, add-attr"
-  [{:keys [rules]}
+  [{:keys [attrs rules]}
    entities-map
    updated-entities-map
    rule-params-map
    create-lookups-map
    tx-steps]
-  (for [{:keys [op eid etype value rev-etype]} tx-steps
-        :let [key         {:eid eid :etype etype}
-              entity      (get entities-map key)
-              rule-params (get rule-params-map key)]
+  (for [{:keys [op eid aid etype value rev-etype]} tx-steps
+        :let [key             {:eid eid :etype etype}
+              entity          (get entities-map key)
+              create?         (nil? entity)
+              ref?            (some? rev-etype)
+              [_ _ fwd-label] (:forward-identity (attr-model/seek-by-id aid attrs))
+              [_ _ rev-label] (:reverse-identity (attr-model/seek-by-id aid attrs))
+              rule-params     (get rule-params-map key)]
         check (cond
                 (= :add-attr op)
                 [{:scope    :attr
@@ -311,32 +315,56 @@
                                 {:result true})
                   :bindings {:data value}}]
 
-                (and (#{:add-triple :deep-merge-triple :retract-triple} op)
-                     (not entity)) ;; create
+                (and (= :add-triple op)
+                     create?
+                     ref?)
                 (concat
                  [{:scope    :object
                    :action   :create
                    :etype    etype
                    :eid      (get create-lookups-map eid eid)
-                   :program  (or (rule-model/get-program! rules etype "create")
-                                 {:result true})
+                   :program  (rule-model/get-program!
+                              rules
+                              [[etype      "allow" "link" fwd-label]
+                               [etype      "allow" "create"]
+                               [etype      "allow" "$default"]
+                               ["$default" "allow" "link" fwd-label]
+                               ["$default" "allow" "create"]
+                               ["$default" "allow" "$default"]])
                    :bindings (let [updated-entity (-> (get updated-entities-map key)
                                                       (update "id" #(get create-lookups-map % %)))]
                                {:data        updated-entity
                                 :new-data    updated-entity
                                 :rule-params rule-params})}]
-                   ;; updating a ref adds implicit "view" check in reverse direction
-                   ;; with rule-params from forward direction
-                 (when rev-etype
-                   (when-some [rev-entity (get entities-map {:eid value :etype rev-etype})]
-                     [{:scope    :object
-                       :action   :view
-                       :etype    rev-etype
-                       :eid      value
-                       :program  (or (rule-model/get-program! rules rev-etype "view")
-                                     {:result true})
-                       :bindings {:data        rev-entity
-                                  :rule-params rule-params}}])))
+                 (when-some [rev-entity (get entities-map {:eid value :etype rev-etype})]
+                   [{:scope    :object
+                     :action   :view
+                     :etype    rev-etype
+                     :eid      value
+                     :program  (rule-model/get-program!
+                                rules
+                                [[rev-etype  "allow" "link" rev-label]
+                                 [rev-etype  "allow" "view"]
+                                 [rev-etype  "allow" "$default"]
+                                 ["$default" "allow" "link" rev-label]
+                                 ["$default" "allow" "view"]
+                                 ["$default" "allow" "$default"]])
+                     :bindings {:data        rev-entity
+                                :rule-params rule-params}}]))
+
+                (and (#{:add-triple :deep-merge-triple :retract-triple} op)
+                     create?)
+                [{:scope    :object
+                  :action   :create
+                  :etype    etype
+                  :eid      (get create-lookups-map eid eid)
+                  :program  (or (rule-model/get-program! rules etype "create")
+                                {:result true})
+                  :bindings (let [updated-entity (-> (get updated-entities-map key)
+                                                     (update "id" #(get create-lookups-map % %)))]
+                              {:data        updated-entity
+                               :new-data    updated-entity
+                               :rule-params rule-params})}]
 
                 :else
                 [])]
