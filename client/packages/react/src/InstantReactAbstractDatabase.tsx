@@ -8,7 +8,6 @@ import {
   type ConnectionStatus,
   type TransactionChunk,
   type RoomSchemaShape,
-  type InstaQLParams,
   type InstaQLOptions,
   type InstantConfig,
   type PageInfoResponse,
@@ -21,6 +20,7 @@ import {
   IInstantDatabase,
   InstantError,
   ValidQuery,
+  InstaQLSimpleSubscription,
 } from '@instantdb/core';
 import {
   ReactNode,
@@ -197,7 +197,7 @@ export default abstract class InstantReactAbstractDatabase<
   useQuery = <Q extends ValidQuery<Q, Schema>>(
     query: null | Q,
     opts?: InstaQLOptions,
-  ): InstaQLLifecycleState<
+  ): InstaQLSimpleSubscription<
     Schema,
     Q,
     NonNullable<Config['useDateObjects']>
