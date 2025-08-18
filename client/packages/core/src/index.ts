@@ -557,7 +557,7 @@ class InstantCoreDatabase<
    *  });
    */
   subscribeQuery<
-    Q extends InstaQLParams<Schema>,
+    Q extends ValidQuery<Q, Schema>,
     UseDatesLocal extends boolean = UseDates,
   >(
     query: Q,
