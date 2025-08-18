@@ -52,9 +52,7 @@ Now that Ignacio had a product he could focus on users.
 
 ## Hitting the top of Product Hunt…twice
 
-He launched on Product Hunt and hit the front page not <a href="https://www.producthunt.com/products/mentor-v1/launches/mentor-v1" target="_blank">once</a>, but
-
-but <a href="https://www.producthunt.com/products/mentor-v1/launches/mentor-ai-2" target="_blank">twice</a>. He iterated until he felt Mentor reached a stable state: users were fans, and Ignacio himself used Mentor every day.
+He launched on Product Hunt and hit the front page not <a href="https://www.producthunt.com/products/mentor-v1/launches/mentor-v1" target="_blank">once</a>, but <a href="https://www.producthunt.com/products/mentor-v1/launches/mentor-ai-2" target="_blank">twice</a>. He iterated until he felt Mentor reached a stable state: users were fans, and Ignacio himself used Mentor every day.
 
 As Ignacio kept improving Mentor, he traveled back to his hometown in Uruguay and met his close friend Javier. That’s when everything changed again.
 
