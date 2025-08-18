@@ -25,7 +25,7 @@ import {
  * i.schema({ entities, links, rooms })
  *
  * @see
- * https://instantdb.com/docs/schema
+ * https://instantdb.com/docs/modeling-data
  */
 function graph<
   EntitiesWithoutLinks extends EntitiesDef,
@@ -46,7 +46,7 @@ function graph<
 /**
  * Creates an entity definition, to be used in conjunction with `i.graph`.
  *
- * @see https://instantdb.com/docs/schema
+ * @see https://instantdb.com/docs/modeling-data
  * @example
  *   {
  *     posts: i.entity({
@@ -144,7 +144,7 @@ type LinksIndex = Record<
  * You can push this schema to your database with the CLI,
  * or use it inside `init`, to get typesafety and autocompletion.
  *
- * @see https://instantdb.com/docs/schema
+ * @see https://instantdb.com/docs/modeling-data
  * @example
  *   i.schema({
  *     entities: { },
