@@ -1,12 +1,16 @@
 (ns instant.db.attr-sketch
   (:require
+   [clojure.core.cache.wrapped :as cache]
    [clojure.pprint]
    [honey.sql :as hsql]
+   [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
+   [instant.util.cache :as ucache]
    [instant.util.coll :as ucoll]
    [instant.util.tracer :as tracer])
   (:import
    (com.github.luben.zstd Zstd)
+   (java.io Writer)
    (java.lang Long)
    (java.math BigInteger)
    (java.nio ByteBuffer)
@@ -23,10 +27,20 @@
                    total
                    total-not-binned])
 
+(defn printable-sketch
+  "Removes the bins when we print the sketch."
+  [s]
+  (let [bin-display (symbol (format "<bins %d>" (count (:bins s))))]
+    (into {} (assoc s :bins bin-display))))
+
 ;; Update printer so that it doesn't print a ton numbers for the bins
 (defmethod clojure.pprint/simple-dispatch Sketch [x]
-  (let [bin-display (symbol (format "<bins %d>" (count (:bins x))))]
-    (#'clojure.pprint/pprint-map (into {} (assoc x :bins bin-display)))))
+  (#'clojure.pprint/pprint-map (printable-sketch x)))
+
+;; This will prevent us from round-tripping the sketch with pr-str/read-string,
+;; but if we want to round-trip it, we should be compressing first.
+(defmethod print-method Sketch [^Sketch o ^Writer w]
+  (.write w (str (printable-sketch o))))
 
 (def ln2 (Math/log 2))
 
@@ -318,6 +332,36 @@
         row (sql/select-one ::for-attr conn q)]
     (when row
       (record->Sketch row))))
+
+(def lookup-cache (-> (cache/lru-cache-factory {} :threshold 4096)
+                      deref
+                      (cache/ttl-cache-factory :ttl (* 1000 60 5))))
+
+(defn lookup* [conn keys]
+  (let [params {:params {:app-ids (with-meta (mapv :app-id keys) {:pgtype "uuid[]"})
+                         :attr-ids (with-meta (mapv :attr-id keys) {:pgtype "uuid[]"})}}
+        q {:select :*
+           :from :attr-sketches
+           :where [:in
+                   [:composite :app-id :attr-id]
+                   {:select [[[:unnest :?app-ids] :app-id]
+                             [[:unnest :?attr-ids] :attr-id]]}]}
+        rows (sql/select ::lookup conn (hsql/format q params))]
+    (ucoll/reduce-tr (fn [acc row]
+                       (let [sketch (record->Sketch row)]
+                         (assoc! acc (select-keys sketch [:app-id :attr-id]) sketch)))
+                     {}
+                     rows)))
+
+(defn lookup
+  "Takes a set of {:app-id attr-id} maps and fetches sketches, if they exist.
+   Returns a map with key {:app-id :attr-id} and value :sketch-record"
+  ([keys]
+   (lookup (aurora/conn-pool :read) keys))
+  ([conn keys]
+   (if (= conn (aurora/conn-pool :read))
+     (ucache/lookup-or-miss-batch lookup-cache keys (partial lookup* conn))
+     (lookup* conn keys))))
 
 (defn- create-empty-sketch-rows!
   "Takes a set of {:app-id :attr-id} maps, creates a new sketch for each
