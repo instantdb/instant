@@ -345,7 +345,7 @@ const validateWhereClause = (
     } else if (linkDef) {
       // For links, we expect the value to be a string (ID of the linked entity)
       // Create a synthetic string attribute definition for validation
-      if (!validateUUID(value)) {
+      if (typeof value === 'string' && !validateUUID(value)) {
         throw new QueryValidationError(
           `Invalid value for link '${key}' in entity '${entityName}'. Expected a UUID, but received: ${value}`,
           `${path}.${key}`,

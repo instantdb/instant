@@ -994,3 +994,26 @@ test('pagination parameters can only be used at top-level namespaces', () => {
     },
   });
 });
+
+test('relations with complex objects', () => {
+  beValid({
+    users: {
+      $: {
+        where: {
+          posts: {
+            $isNull: true,
+          },
+        },
+      },
+    },
+  });
+  beWrong({
+    users: {
+      $: {
+        where: {
+          posts: ' Invalid equality check',
+        },
+      },
+    },
+  });
+});
