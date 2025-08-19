@@ -232,24 +232,24 @@
                   :program  {:result admin?}}]
 
                 (and (= :add-triple op)
-                     update?
                      ref?)
                 (concat
-                 [{:scope    :object
-                   :action   :link
-                   :etype    etype
-                   :eid      eid
-                   :program  (rule-model/get-program!
-                              rules
-                              [[etype      "allow" "link" fwd-label]
-                               [etype      "allow" "update"]
-                               [etype      "allow" "$default"]
-                               ["$default" "allow" "link" fwd-label]
-                               ["$default" "allow" "update"]
-                               ["$default" "allow" "$default"]])
-                   :bindings {:data        entity
-                              :new-data    (get updated-entities-map key)
-                              :rule-params rule-params}}]
+                 (when update?
+                   [{:scope    :object
+                     :action   :link
+                     :etype    etype
+                     :eid      eid
+                     :program  (rule-model/get-program!
+                                rules
+                                [[etype      "allow" "link" fwd-label]
+                                 [etype      "allow" "update"]
+                                 [etype      "allow" "$default"]
+                                 ["$default" "allow" "link" fwd-label]
+                                 ["$default" "allow" "update"]
+                                 ["$default" "allow" "$default"]])
+                     :bindings {:data        entity
+                                :new-data    (get updated-entities-map key)
+                                :rule-params rule-params}}])
                  (when rev-entity
                    [{:scope    :object
                      :action   :link
@@ -324,26 +324,26 @@
                   :bindings {:data value}}]
 
                 (and (= :add-triple op)
-                     create?
                      ref?)
                 (concat
-                 [{:scope    :object
-                   :action   :create
-                   :etype    etype
-                   :eid      (get create-lookups-map eid eid)
-                   :program  (rule-model/get-program!
-                              rules
-                              [[etype      "allow" "link" fwd-label]
-                               [etype      "allow" "create"]
-                               [etype      "allow" "$default"]
-                               ["$default" "allow" "link" fwd-label]
-                               ["$default" "allow" "create"]
-                               ["$default" "allow" "$default"]])
-                   :bindings (let [updated-entity (-> (get updated-entities-map key)
-                                                      (update "id" #(get create-lookups-map % %)))]
-                               {:data        updated-entity
-                                :new-data    updated-entity
-                                :rule-params rule-params})}]
+                 (when create?
+                   [{:scope    :object
+                     :action   :create
+                     :etype    etype
+                     :eid      (get create-lookups-map eid eid)
+                     :program  (rule-model/get-program!
+                                rules
+                                [[etype      "allow" "link" fwd-label]
+                                 [etype      "allow" "create"]
+                                 [etype      "allow" "$default"]
+                                 ["$default" "allow" "link" fwd-label]
+                                 ["$default" "allow" "create"]
+                                 ["$default" "allow" "$default"]])
+                     :bindings (let [updated-entity (-> (get updated-entities-map key)
+                                                        (update "id" #(get create-lookups-map % %)))]
+                                 {:data        updated-entity
+                                  :new-data    updated-entity
+                                  :rule-params rule-params})}])
                  (when rev-entity
                    [{:scope    :object
                      :action   :view
@@ -445,10 +445,14 @@
                   tx-step-maps         (resolve-lookups-tx-steps ctx entities-map tx-step-maps)
                   entities-map         (resolve-lookups-entities-map ctx entities-map)
                   updated-entities-map (update-entities-map ctx entities-map tx-step-maps)
-                  rule-params-map      (into {}
-                                             (for [{:keys [op eid etype value]} tx-step-maps
-                                                   :when (= :rule-params op)]
-                                               [{:eid eid :etype etype} value]))
+                  rule-params-map      (persistent!
+                                        (reduce
+                                         (fn [acc {:keys [op eid etype value]}]
+                                           (if (= :rule-params op)
+                                             (ucoll/update! acc {:eid eid :etype etype} merge value)
+                                             acc))
+                                         (transient {})
+                                         tx-step-maps))
 
                   ;; pre checks
                   pre-checks           (pre-checks ctx
