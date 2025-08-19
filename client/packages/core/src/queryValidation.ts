@@ -224,7 +224,7 @@ const validateDotNotationAttribute = (
 
   // Handle 'id' field specially - every entity has an id field
   if (finalAttrName === 'id') {
-    if (!validateUUID(value)) {
+    if (typeof value == 'string' && !validateUUID(value)) {
       throw new QueryValidationError(
         `Invalid value for id field in entity '${currentEntityName}'. Expected a UUID, but received: ${value}`,
         path,
@@ -243,7 +243,7 @@ const validateDotNotationAttribute = (
   const attrDef = finalEntity.attrs[finalAttrName];
 
   if (Object.keys(finalEntity.links).includes(finalAttrName)) {
-    if (!validateUUID(value)) {
+    if (typeof value === 'string' && !validateUUID(value)) {
       throw new QueryValidationError(
         `Invalid value for link '${finalAttrName}' in entity '${currentEntityName}'. Expected a UUID, but received: ${value}`,
         path,
