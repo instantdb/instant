@@ -200,21 +200,22 @@
                                                    app-id)))))
 
 (defn lookup-with-in-memory-sketches
-  ([original-lookup in-memory-sketches keys]
+  ([original-lookup in-memory-sketches app-id keys]
    (lookup-with-in-memory-sketches original-lookup
                                    in-memory-sketches
+                                   app-id
                                    (aurora/conn-pool :read)
                                    keys))
-  ([original-lookup in-memory-sketches conn keys]
-   (let [{:keys [results missing]}
+  ([original-lookup in-memory-sketches app-id conn keys]
+   (let [{ours true theirs false} (group-by (fn [k]
+                                              (= app-id (:app-id k)))
+                                            keys)
+         results
          (reduce (fn [acc k]
-                   (if-let [ours (get in-memory-sketches k)]
-                     (assoc-in acc [:results k] ours)
-                     (update acc :missing conj k)))
-                 {:results {}
-                  :missing #{}}
-                 keys)]
-     (merge results (original-lookup conn missing)))))
+                   (assoc acc k (get in-memory-sketches k)))
+                 {}
+                 ours)]
+     (merge results (original-lookup conn theirs)))))
 
 (defmacro with-sketches
   "Calculates the sketches for the app and returns them from calls to `attr-sketch/lookup`.
@@ -223,5 +224,5 @@
   [app & body]
   `(let [sketches# (in-memory-sketches-for-app (:id ~app))
          original-lookup# (var-get #'cms/lookup)]
-     (with-redefs [cms/lookup (partial lookup-with-in-memory-sketches original-lookup# sketches#)]
+     (with-redefs [cms/lookup (partial lookup-with-in-memory-sketches original-lookup# sketches# (:id ~app))]
        ~@body)))

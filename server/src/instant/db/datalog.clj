@@ -1052,7 +1052,7 @@
     (when (seq ors)
       (list* :or ors))))
 
-(def ^:dynamic *enable-pg-hints* true)
+(def ^:dynamic *enable-pg-hints* false)
 (def ^:dynamic *estimate-with-sketch* true)
 (def ^:dynamic *debug* false)
 
@@ -2922,11 +2922,15 @@
            batch-data))))
 
 (defn query-nested [{:keys [app-id db] :as ctx} nested-patterns]
-  (let [nested-named-patterns (cond->> nested-patterns
-                                true nested->named-patterns
-                                (enable-pg-hints?) (annotate-with-hints ctx))]
-    (throw-invalid-nested-patterns nested-named-patterns)
-    (send-query-nested ctx (:conn-pool db) app-id nested-named-patterns)))
+  (let [disable-pg-hint? (or (flags/toggled? :disable-pg-hints)
+                             (contains? (flags/flag :disable-hint-query-hashes (:query-hash ctx))))]
+    (tracer/add-data! {:use-pg-hint (not disable-pg-hint?)})
+    (binding [*enable-pg-hints* (not disable-pg-hint?)]
+      (let [nested-named-patterns (cond->> nested-patterns
+                                    true nested->named-patterns
+                                    (enable-pg-hints?) (annotate-with-hints ctx))]
+        (throw-invalid-nested-patterns nested-named-patterns)
+        (send-query-nested ctx (:conn-pool db) app-id nested-named-patterns)))))
 
 (defn explain
   "Takes nested patterns and returns the explain result from running

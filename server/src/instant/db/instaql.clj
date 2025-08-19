@@ -1184,22 +1184,17 @@
 (defn query-normal
   "Generates and runs a nested datalog query, then collects the results into nodes."
   [ctx o]
-  (let [query-hash (forms-hash o)
-        disable-pg-hint? (or (flags/toggled? :disable-pg-hints)
-                             (contains? (flags/flag :disable-hint-query-hashes) query-hash))]
-    (binding [d/*enable-pg-hints* (not disable-pg-hint?)
-              d/*estimate-with-sketch* true]
-      (tracer/with-span! {:name "instaql/query-nested"
-                          :attributes {:app-id (:app-id ctx)
-                                       :forms o
-                                       :query-hash query-hash
-                                       :use-pg-hint (not disable-pg-hint?)}}
-        (let [datalog-query-fn (or (:datalog-query-fn ctx)
-                                   #'d/query)
-              {:keys [patterns forms]} (instaql-query->patterns ctx o)
-              datalog-result (datalog-query-fn (assoc ctx :query-hash query-hash)
-                                               patterns)]
-          (collect-query-results ctx (:data datalog-result) forms))))))
+  (let [query-hash (forms-hash o)]
+    (tracer/with-span! {:name "instaql/query-nested"
+                        :attributes {:app-id (:app-id ctx)
+                                     :forms o
+                                     :query-hash query-hash}}
+      (let [datalog-query-fn (or (:datalog-query-fn ctx)
+                                 #'d/query)
+            {:keys [patterns forms]} (instaql-query->patterns ctx o)
+            datalog-result (datalog-query-fn (assoc ctx :query-hash query-hash)
+                                             patterns)]
+        (collect-query-results ctx (:data datalog-result) forms)))))
 
 (defn explain
   "Generates a nested datalog query, then runs explain."

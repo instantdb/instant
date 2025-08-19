@@ -112,6 +112,7 @@
                         (tracer/add-data! {:attributes res})
                         res)
                       (catch Exception e
+                        (tracer/add-exception! e {:escaping? false})
                         e))))
             new (tracer/with-span! {:name "test-pg-hints-for-datalog/with-hint-plan"}
                   (binding [d/*enable-pg-hints* true
@@ -121,6 +122,7 @@
                         (tracer/add-data! {:attributes res})
                         res)
                       (catch Exception e
+                        (tracer/add-exception! e {:escaping? false})
                         e))))
             sketches (tracer/with-span! {:name "test-pg-hints-for-datalog/with-sketches"}
                        (binding [d/*enable-pg-hints* true
@@ -130,6 +132,7 @@
                              (tracer/add-data! {:attributes res})
                              res)
                            (catch Exception e
+                             (tracer/add-exception! e {:escaping? false})
                              e))))]
         (tracer/add-data! {:attributes {:without.ms (:time old)
                                         :with.ms (:time new)
