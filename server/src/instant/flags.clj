@@ -3,7 +3,8 @@
 ;; and can be required from anywhere.
 (ns instant.flags
   (:require
-   [clojure.walk :as w]))
+   [clojure.walk :as w]
+   [instant.config :as config]))
 
 ;; Map of query to {:result {result-tree}
 ;;                  :tx-id int}
@@ -33,6 +34,8 @@
             :toggles {}
             :flags {}
             :handle-receive-timeout {}})
+
+(def toggle-defaults {:pg-hints-by-default (= :test (config/get-env))})
 
 (defn transform-query-result
   "Function that is called on the query result before it is stored in the
@@ -164,7 +167,7 @@
                             (get result "query-flags"))
         toggles (reduce (fn [acc {:strs [setting toggled]}]
                           (assoc acc (keyword setting) toggled))
-                        {}
+                        toggle-defaults
                         (get result "toggles"))
         flags (-> (reduce (fn [acc {:strs [setting value]}]
                             (assoc acc (keyword setting) value))

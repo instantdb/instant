@@ -2921,10 +2921,15 @@
                                  true))
            batch-data))))
 
-(defn query-nested [{:keys [app-id db] :as ctx} nested-patterns]
+(defn query-nested [{:keys [app-id db query-hash] :as ctx} nested-patterns]
   (let [disable-pg-hint? (or (flags/toggled? :disable-pg-hints)
-                             (contains? (flags/flag :disable-hint-query-hashes (:query-hash ctx))))]
-    (tracer/add-data! {:use-pg-hint (not disable-pg-hint?)})
+                             (contains? (flags/flag :disable-hint-query-hashes)
+                                        query-hash))
+        enable-pg-hints? (or (flags/toggled? :pg-hints-by-default)
+                             (contains? (flags/flag :use-hint-query-hashes)
+                                        query-hash))]
+    (tracer/add-data! {:use-pg-hint (and enable-pg-hints?
+                                         (not disable-pg-hint?))})
     (binding [*enable-pg-hints* (not disable-pg-hint?)]
       (let [nested-named-patterns (cond->> nested-patterns
                                     true nested->named-patterns
