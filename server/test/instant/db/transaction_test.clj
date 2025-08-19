@@ -3384,25 +3384,42 @@
 (deftest admins-can-write-to-users-table
   (with-empty-app
     (fn [{app-id :id}]
-      (let [r (resolvers/make-movies-resolver app-id)
-            id (random-uuid)
-            make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :write)}
-                             :app-id app-id
-                             :admin? true
-                             :attrs (attr-model/get-by-app-id app-id)
-                             :datalog-query-fn d/query
-                             :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
-                             :current-user nil})]
+      (let [r                     (resolvers/make-movies-resolver app-id)
+            attr-id               #(resolvers/->uuid r %)
+            user-id               (random-uuid)
+            user-refresh-token-id (random-uuid)
+            magic-code-id         (random-uuid)
+            make-ctx (fn []
+                       {:db {:conn-pool (aurora/conn-pool :write)}
+                        :app-id app-id
+                        :admin? true
+                        :attrs (attr-model/get-by-app-id app-id)
+                        :datalog-query-fn d/query
+                        :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                        :current-user nil})]
 
-        (permissioned-tx/transact! (make-ctx)
-                                   [[:add-triple id (resolvers/->uuid r :$users/id) (str id)]
-                                    [:add-triple id (resolvers/->uuid r :$users/email) "test@example.com"]])
+        (permissioned-tx/transact!
+         (make-ctx)
+         [[:add-triple user-id (attr-id :$users/id) (str user-id)]
+          [:add-triple user-id (attr-id :$users/email) "test@example.com"]])
 
         (is (app-user-model/get-by-email {:app-id app-id
                                           :email "test@example.com"}))
 
-        (permissioned-tx/transact! (make-ctx)
-                                   [[:delete-entity id "$users"]])
+        (tx/transact!
+         (aurora/conn-pool :write)
+         (attr-model/get-by-app-id app-id)
+         app-id
+         [[:add-triple user-refresh-token-id (attr-id :$userRefreshTokens/id) user-refresh-token-id]
+          [:add-triple user-refresh-token-id (attr-id :$userRefreshTokens/$user) user-id]
+          [:add-triple user-refresh-token-id (attr-id :$userRefreshTokens/hashedToken) "abc"]
+          [:add-triple magic-code-id (attr-id :$magicCodes/id) magic-code-id]
+          [:add-triple magic-code-id (attr-id :$magicCodes/$user) user-id]
+          [:add-triple magic-code-id (attr-id :$magicCodes/codeHash) "abc"]])
+
+        (is (permissioned-tx/transact!
+             (make-ctx)
+             [[:delete-entity user-id "$users"]]))
 
         (is (empty? (app-user-model/get-by-email {:app-id app-id
                                                   :email "test@example.com"})))))))
