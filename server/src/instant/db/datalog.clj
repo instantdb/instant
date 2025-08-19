@@ -2928,8 +2928,9 @@
         enable-hints? (or (flags/toggled? :pg-hints-by-default)
                           (contains? (flags/flag :use-hint-query-hashes)
                                      query-hash))]
-    (tracer/add-data! {:use-pg-hint (and enable-hints?
-                                         (not disable-hints?))})
+    (tracer/add-data! {:attributes {:use-pg-hint (and enable-hints?
+                                                      (not disable-hints?))
+                                    :query-hash query-hash}})
     (binding [*enable-pg-hints* (and enable-hints?
                                      (not disable-hints?))]
       (let [nested-named-patterns (cond->> nested-patterns
