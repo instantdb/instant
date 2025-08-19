@@ -2,9 +2,11 @@
   "Handles our ephemeral data apis for a session (presence, cursors)"
   (:require
    [chime.core :as chime-core]
+   [clojure.java.jmx :as jmx]
    [datascript.core :as ds]
    [editscript.core :as editscript]
    [instant.config :as config]
+   [instant.gauges :as gauges]
    [instant.reactive.receive-queue :as receive-queue]
    [instant.reactive.store :as rs]
    [instant.util.aws :as aws-util]
@@ -25,7 +27,8 @@
    (com.hazelcast.topic ITopic MessageListener Message)
    (java.time Duration Instant)
    (java.util Map$Entry)
-   (java.util.concurrent Future)))
+   (java.util.concurrent Future)
+   (javax.management ObjectName)))
 
 ;; ------
 ;; Setup
@@ -82,7 +85,7 @@
       (do
         (.setEnabled tcp-ip-config true)
         (.setMembers tcp-ip-config (list "127.0.0.1"))
-        (.setEnabled metrics-config false))
+        (.setEnabled metrics-config true))
 
       :test
       (do
@@ -322,6 +325,80 @@
   (doseq [room-id (get-in @room-maps [:sessions sess-id])]
     (remove-session! app-id room-id sess-id)))
 
+(defn hz-jmx-stats []
+  (for [^ObjectName n (jmx/mbean-names "com.hazelcast:*")
+        a (jmx/attribute-names n)
+        :let [prefix (.getKeyProperty n "prefix")
+              tag (.getKeyProperty n "tag0")
+              k (if tag
+                  (format "hz.%s.%s.%s" prefix tag (name a))
+                  (format "hz.%s.%s" prefix (name a)))]]
+    [{:path k
+      :value (clojure.java.jmx/read n a)}]))
+
+(defn hz-gauges [{:keys [^IMap hz-rooms-map ^ITopic hz-broadcast-topic]}]
+  (let [{:keys [putOperationCount
+                totalPutLatency
+                getOperationCount
+                totalGetLatency
+                removeOperationCount
+                totalRemoveLatency
+                setOperationCount
+                totalSetLatency] :as map-stats} (bean (.getLocalMapStats hz-rooms-map))]
+    (concat
+     (hz-jmx-stats)
+     (for [[k v] (select-keys map-stats
+                              [:maxGetLatency
+                               :otherOperationCount
+                               :maxPutLatency
+                               :maxRemoveLatency
+                               :heapCost
+                               :totalSetLatency
+                               :ownedEntryMemoryCost
+                               :setOperationCount
+                               :eventOperationCount
+                               :totalPutLatency
+                               :hits
+                               :backupCount
+                               :backupEntryMemoryCost
+                               :totalGetLatency
+                               :totalRemoveLatency
+                               :dirtyEntryCount
+                               :removeOperationCount
+                               :backupEntryCount
+                               :maxSetLatency
+                               :lockedEntryCount
+                               :ownedEntryCount
+                               :putOperationCount
+                               :expirationCount
+                               :evictionCount
+                               :getOperationCount])]
+       [{:path (str "hz.hz-rooms-map." (name k))
+         :value v}])
+
+     (when (pos? putOperationCount)
+       [{:path "hz.hz-rooms-map.avgPutLatency"
+         :value (double (/ totalPutLatency
+                           putOperationCount))}])
+     (when (pos? getOperationCount)
+       [{:path "hz.hz-rooms-map.avgGetLatency"
+         :value (double (/ totalGetLatency
+                           getOperationCount))}])
+     (when (pos? removeOperationCount)
+       [{:path "hz.hz-rooms-map.avgRemoveLatency"
+         :value (double (/ totalRemoveLatency
+                           removeOperationCount))}])
+     (when (pos? setOperationCount)
+       [{:path "hz.hz-rooms-map.avgSetLatency"
+         :value (double (/ totalSetLatency
+                           setOperationCount))}])
+
+     (let [stats (.getLocalTopicStats hz-broadcast-topic)]
+       [{:path "hz.hz-broadcast-topic.publishOperationCount"
+         :value (.getPublishOperationCount stats)}
+        {:path "hz.hz-broadcast-topic.receiveOperationCount"
+         :value (.getReceiveOperationCount stats)}]))))
+
 ;; ------
 ;; System
 
@@ -333,11 +410,16 @@
     (chime-core/chime-at
      (chime-core/periodic-seq (.plusMillis (Instant/now) 60000) (Duration/ofMinutes 1))
      clean-orphan-sessions))
-  (let [^Future f (future @hz)]
-    (.get f (* 60 1000) java.util.concurrent.TimeUnit/MILLISECONDS)))
+
+  (let [^Future f (future @hz)
+        hz-realized (.get f (* 60 1000) java.util.concurrent.TimeUnit/MILLISECONDS)]
+    (def stop-gauge (gauges/add-gauge-metrics-fn (fn [_]
+                                                   (hz-gauges hz-realized))))))
 
 (defn stop []
   (lang/close clean-orphan-sessions-schedule)
+  (when (bound? #'stop-gauge)
+    (stop-gauge))
   (when-let [^HazelcastInstance hz (try (get-hz) (catch Exception _e nil))]
     (.shutdown hz)))
 
