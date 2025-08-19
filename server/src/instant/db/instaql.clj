@@ -1933,16 +1933,16 @@
 
                                          program
                                          (let [data (io/warn-io :instaql/entity-map
-                                                                (entity-map ctx
-                                                                            query-cache
-                                                                            etype
-                                                                            eid))
+                                                      (entity-map ctx
+                                                                  query-cache
+                                                                  etype
+                                                                  eid))
                                                bindings {:rule-params rule-params
                                                          :data data}]
-                                           (update acc :programs conj
-                                                   {:key k
-                                                    :program program
-                                                    :bindings bindings}))
+                                           (assoc-in acc
+                                                     [:programs k]
+                                                     {:program program
+                                                      :bindings bindings}))
 
                                          :else
                                          (assoc-in acc
@@ -1950,11 +1950,11 @@
                                                    {:result true}))))
                                acc
                                eids))
-                     {:programs []
+                     {:programs {}
                       :no-programs {}}
                      etype->eids+program)]
       (merge no-programs
-             (ucoll/map-by :key (cel/eval-programs! ctx programs))))))
+             (cel/eval-programs! ctx programs)))))
 
 (defn use-rule-wheres? [ctx o]
   (if (contains? ctx :use-rule-wheres?)
