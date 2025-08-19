@@ -528,6 +528,63 @@ function printDotEnvInfo(envType, appId) {
   console.log(terminalLink('Dashboard:', appDashUrl(appId)) + '\n');
 }
 
+async function updateEnvFile({ appId, appToken }) {
+  const pkgDir = await packageDirectoryWithErrorLogging();
+  if (!pkgDir) return;
+
+  const envPath = join(pkgDir, '.env');
+  const envType = await detectEnvType({ pkgDir });
+  const envName = potentialEnvs[envType];
+
+  try {
+    // Read existing .env file
+    const content = await readFile(envPath, 'utf-8');
+
+    // Parse existing content into lines
+    const lines = content.split('\n');
+    const updatedLines = [];
+    let appIdFound = false;
+
+    // Update existing lines or mark what was found
+    for (const line of lines) {
+      const trimmed = line.trim();
+
+      // Check if this line contains any of the possible app ID env names
+      let isAppIdLine = false;
+      for (const possibleEnvName of Object.values(potentialEnvs)) {
+        if (trimmed.startsWith(`${possibleEnvName}=`)) {
+          updatedLines.push(`${possibleEnvName}=${appId}`);
+          appIdFound = true;
+          isAppIdLine = true;
+          break;
+        }
+      }
+
+      if (!isAppIdLine) {
+        updatedLines.push(line);
+      }
+    }
+
+    // If no app ID found, do nothing
+    if (!appIdFound) {
+      return;
+    }
+
+    // Ensure file ends with a newline
+    let finalContent = updatedLines.join('\n');
+    if (finalContent && !finalContent.endsWith('\n')) {
+      finalContent += '\n';
+    }
+
+    await writeFile(envPath, finalContent, 'utf-8');
+    console.log(
+      `Updated ${chalk.green('.env')} file with ${chalk.green(envName)}.`,
+    );
+  } catch (err) {
+    error(`Failed to update .env file: ${err.message}`);
+  }
+}
+
 async function handleEnvFile(pkgAndAuthInfo, { appId, appToken }) {
   const { pkgDir } = pkgAndAuthInfo;
   const envType = await detectEnvType(pkgAndAuthInfo);
@@ -535,7 +592,7 @@ async function handleEnvFile(pkgAndAuthInfo, { appId, appToken }) {
 
   const hasEnvFile = await pathExists(join(pkgDir, '.env'));
   if (hasEnvFile) {
-    printDotEnvInfo(envType, appId);
+    updateEnvFile({ appId, appToken });
     return;
   }
   console.log(
