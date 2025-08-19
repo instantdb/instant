@@ -33,7 +33,12 @@
           :when (#{:add-triple :deep-merge-triple :retract-triple :delete-entity} op)
           :when (and etype
                      (string/starts-with? etype "$")
-                     (not (and admin? (= etype "$users")))
+                     (not (and admin?
+                               (#{"$users"
+                                  "$userRefreshTokens"
+                                  "$magicCodes"
+                                  "$oauthUserLinks"
+                                  "$oauthCodes"} etype)))
                      ;; checking admin? is not enough for $files so we handle
                      ;; validations later
                      (not (string/starts-with? etype "$files")))]
