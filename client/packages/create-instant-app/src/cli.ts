@@ -67,11 +67,11 @@ export const runCli = async (): Promise<CliResults> => {
         return p.select({
           message: 'What framework would you like to use?',
           options: [
-            { value: 'next-js-app-dir', label: 'Next.js (App Directory)' },
-            { value: 'vite-vanilla', label: 'Vanilla JS (Vite)' },
-            { value: 'expo', label: 'React Native (Expo)' },
+            { value: 'next-js-app-dir', label: 'Next.js: App Directory' },
+            { value: 'vite-vanilla', label: 'Vite: Vanilla TS' },
+            { value: 'expo', label: 'Expo: React Native' },
           ],
-          initialValue: 'nextjs' as CliResults['base'],
+          initialValue: 'next-js-app-dir' as CliResults['base'],
         });
       },
       ruleFiles: () => {
