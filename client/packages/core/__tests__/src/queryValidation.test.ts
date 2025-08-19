@@ -491,39 +491,6 @@ test('where clause operators', () => {
     },
   });
 
-  // Valid $isNull on optional field
-  beValid({
-    users: {
-      $: {
-        where: {
-          bio: { $isNull: true },
-        },
-      },
-    },
-  });
-
-  // Invalid $isNull on required field
-  beWrong({
-    users: {
-      $: {
-        where: {
-          name: { $isNull: true },
-        },
-      },
-    },
-  });
-
-  // Valid $isNull: false on required field
-  beValid({
-    users: {
-      $: {
-        where: {
-          name: { $isNull: false },
-        },
-      },
-    },
-  });
-
   // Invalid $isNull value type
   beWrong({
     users: {
@@ -807,17 +774,6 @@ test('where clause dot notation validation', () => {
     },
   });
 
-  // Invalid dot notation with $isNull on required field
-  beWrong({
-    posts: {
-      $: {
-        where: {
-          'author.name': { $isNull: true },
-        },
-      },
-    },
-  });
-
   // Don't need final attributes
   beValid({
     comments: { $: { where: { post: id() } } },
@@ -990,6 +946,42 @@ test('pagination parameters can only be used at top-level namespaces', () => {
       $: {
         first: 20,
         after: cursor,
+      },
+    },
+  });
+});
+
+test('relations with complex objects', () => {
+  beValid({
+    users: {
+      $: {
+        where: {
+          posts: {
+            $isNull: true,
+          },
+        },
+      },
+    },
+  });
+
+  beValid({
+    users: {
+      $: {
+        where: {
+          posts: {
+            $not: 'this',
+          },
+        },
+      },
+    },
+  });
+
+  beWrong({
+    users: {
+      $: {
+        where: {
+          posts: ' Invalid equality check',
+        },
       },
     },
   });

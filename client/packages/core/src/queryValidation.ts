@@ -50,7 +50,11 @@ const isValidValueForType = (
     case 'boolean':
       return typeof value === 'boolean';
     case 'date':
-      return value instanceof Date || typeof value === 'string';
+      return (
+        value instanceof Date ||
+        typeof value === 'string' ||
+        typeof value === 'number'
+      );
     default:
       return true;
   }
@@ -116,12 +120,6 @@ const validateOperator = (
       break;
     case '$isNull':
       assertValidValue(op, 'boolean', opValue);
-      if (attrDef.required && opValue === true) {
-        throw new QueryValidationError(
-          `Cannot use '$isNull: true' on required attribute '${attrName}' in entity '${entityName}'`,
-          path,
-        );
-      }
       break;
     default:
       throw new QueryValidationError(
@@ -345,7 +343,7 @@ const validateWhereClause = (
     } else if (linkDef) {
       // For links, we expect the value to be a string (ID of the linked entity)
       // Create a synthetic string attribute definition for validation
-      if (!validateUUID(value)) {
+      if (typeof value === 'string' && !validateUUID(value)) {
         throw new QueryValidationError(
           `Invalid value for link '${key}' in entity '${entityName}'. Expected a UUID, but received: ${value}`,
           `${path}.${key}`,
