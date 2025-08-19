@@ -6,6 +6,7 @@ import { runInstallCommand } from './installPackages.js';
 import { getUserPkgManager } from './utils/getUserPkgManager.js';
 import chalk from 'chalk';
 import { addRuleFiles } from './ruleFiles.js';
+import { initializeGit } from './git.js';
 
 const main = async () => {
   if (!process.argv.some((arg) => ['-h', '--help'].includes(arg))) {
@@ -15,6 +16,9 @@ const main = async () => {
   const projectDir = await scaffoldBase(results);
   addRuleFiles({ projectDir, ruleFilesToAdd: results.ruleFiles });
   await runInstallCommand(getUserPkgManager(), projectDir);
+  if (results.createRepo) {
+    await initializeGit(projectDir);
+  }
   outro(`Done!`);
 
   console.log(`

@@ -5,12 +5,14 @@ export type CliResults = {
   base: 'next-js-app-dir' | 'vite-vanilla' | 'expo';
   appName: string;
   ruleFiles: ('cursor' | 'claude' | 'windsurf' | 'zed')[];
+  createRepo: boolean;
 };
 
 const defaultOptions: CliResults = {
   base: 'next-js-app-dir',
   appName: 'my-instant-app',
   ruleFiles: [],
+  createRepo: true,
 };
 
 export const runCli = async (): Promise<CliResults> => {
@@ -28,6 +30,14 @@ export const runCli = async (): Promise<CliResults> => {
         '-b --base <template>',
         'The base template to scaffold from',
       ).choices(['next-js-app-dir', 'vite-vanilla', 'expo']),
+    )
+    .addOption(
+      new Option('-g --git', 'Create a git repo in the new project').default(
+        true,
+      ),
+    )
+    .addOption(
+      new Option('--no-git', "Don't create a git repo in the new project"),
     )
     .parse(process.argv);
   const cliProvidedName = program.args[0];
@@ -76,6 +86,11 @@ export const runCli = async (): Promise<CliResults> => {
           ],
           initialValues: [] as CliResults['ruleFiles'],
         });
+      },
+      createRepo: async () => {
+        if (flags.git !== undefined) {
+          return flags.git;
+        }
       },
     } satisfies {
       [K in keyof CliResults]: (args: {
