@@ -976,6 +976,22 @@ test('relations with complex objects', () => {
     },
   });
 
+  beValid({
+    users: {
+      $: {
+        where: {
+          or: [
+            {
+              posts: {
+                $not: 'this',
+              },
+            },
+          ],
+        },
+      },
+    },
+  });
+
   beWrong({
     users: {
       $: {
