@@ -25,6 +25,7 @@
    [instant.machine-summaries]
    [instant.nrepl :as nrepl]
    [instant.oauth-apps.routes :as oauth-app-routes]
+   [instant.reactive.aggregator :as agg]
    [instant.reactive.ephemeral :as eph]
    [instant.reactive.invalidator :as inv]
    [instant.reactive.session :as session]
@@ -43,7 +44,7 @@
    [instant.util.http :as http-util]
    [instant.util.lang :as lang]
    [instant.util.tracer :as tracer]
-   [instant.app-deletion-sweeper :as app-deletion-sweeper]
+   [instant.hard-deletion-sweeper :as hard-deletion-sweeper]
    [ring.middleware.cookies :refer [CookieDateTime]]
    [ring.middleware.cors :refer [wrap-cors preflight?]]
    [ring.middleware.json :refer [wrap-json-body wrap-json-response]]
@@ -118,7 +119,6 @@
           (update response :headers merge {"Vary" "origin, Access-Control-Request-Headers"
                                            "Access-Control-Max-Age" max-age
                                            "Cache-Control" (str "public, max-age=" max-age)}))))))
-
 
 (defn not-found [_req]
   (response/not-found {:message "Oops! We couldn't match this route."}))
@@ -215,6 +215,9 @@
         (tracer/with-span! {:name "stop-invalidator"}
           (inv/stop-global)))
       (future
+        (tracer/with-span! {:name "stop-aggregator"}
+          (agg/stop-global)))
+      (future
         (tracer/with-span! {:name "stop-ephemeral"}
           (eph/stop)))
       (future
@@ -234,7 +237,7 @@
      (tracer/record-info! {:name (format "init.start.%s" (name ~operation))})
      (tracer/with-span! {:name (format "init.finish.%s" (name ~operation))}
        ;; Don't let ourselves be the parent of any child spans
-       (binding [tracer/*span* nil]
+       (tracer/with-new-trace-root
          ~@body))))
 
 (defn -main [& _args]
@@ -280,6 +283,8 @@
                          flags/queries
                          flags/query-results)))
 
+    (with-log-init :aggregator
+      (agg/start-global))
     (with-log-init :ephemeral-app
       (ephemeral-app/start))
     (with-log-init :session-counter
@@ -288,8 +293,8 @@
       (indexing-jobs/start))
     (with-log-init :storage-sweeper
       (storage-sweeper/start))
-    (with-log-init :app-deletion-sweeper
-      (app-deletion-sweeper/start))
+    (with-log-init :hard-deletion-sweeper
+      (hard-deletion-sweeper/start))
     (when (= (config/get-env) :prod)
       (with-log-init :analytics
         (analytics/start)))

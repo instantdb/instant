@@ -79,16 +79,27 @@ This step is not needed for Expo.
 
 ## Step 4: Register your OAuth client with Instant
 
+{% conditional param="method" value="web-redirect" %}
+
 - Go to the Instant dashboard and select _Auth_ tab.
 - Select _Add Apple Client_
 - Select unique _clientName_ (`apple` by default, will be used in `db.auth` calls)
 - Fill in _Services ID_ from Step 2
-<!-- prettier-ignore -->{% conditional param="method" value="web-redirect" %}
 - Fill in _Team ID_ from [Membership details](https://developer.apple.com/account#MembershipDetailsCard)
 - Fill in _Key ID_ from Step 3.5
 - Fill in _Private Key_ by copying file content from Step 3.5
-<!-- prettier-ignore -->{% /conditional %}
 - Click `Add Apple Client`
+
+{% else %}
+
+- Go to the Instant dashboard and select _Auth_ tab.
+- Select _Add Apple Client_
+- Select unique _clientName_ (`apple` by default, will be used in `db.auth` calls)
+- Fill in _Services ID_ from Step 2
+- Click `Add Apple Client`
+
+{% /else %}
+{% /conditional %}
 
 {% conditional param="method" value="web-redirect" %}
 
@@ -254,35 +265,31 @@ const APP_ID = '__APP_ID__';
 const db = init({ appId: APP_ID });
 
 export default function App() {
-  const { isLoading, user, error } = db.useAuth();
-  if (isLoading) {
-    return (
-      <View style={styles.container}>
-        <Text>Loading...</Text>
-      </View>
-    );
-  }
-  if (error) {
-    return (
-      <View style={styles.container}>
-        <Text>Uh oh! {error.message}</Text>
-      </View>
-    );
-  }
-  if (user) {
-    return (
-      <View style={styles.container}>
-        <Text>Hello {user.email}!</Text>
-        <Button
-          title="Sign Out"
-          onPress={async () => {
-            await db.auth.signOut();
-          }}
-        />
-      </View>
-    );
-  }
-  return <Login />;
+  return (
+    <>
+      <db.SignedIn>
+        <UserInfo />
+      </db.SignedIn>
+      <db.SignedOut>
+        <Login />
+      </db.SignedOut>
+    </>
+  );
+}
+
+function UserInfo() {
+  const user = db.useUser();
+  return (
+    <View style={styles.container}>
+      <Text>Hello {user.email}!</Text>
+      <Button
+        title="Sign Out"
+        onPress={async () => {
+          await db.auth.signOut();
+        }}
+      />
+    </View>
+  );
 }
 
 function Login() {

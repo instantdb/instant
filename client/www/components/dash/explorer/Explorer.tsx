@@ -50,11 +50,7 @@ import { DBAttr, SchemaAttr, SchemaNamespace } from '@/lib/types';
 import { useIsOverflow } from '@/lib/hooks/useIsOverflow';
 import { useClickOutside } from '@/lib/hooks/useClickOutside';
 import { isTouchDevice } from '@/lib/config';
-import {
-  useSchemaQuery,
-  useNamespacesQuery,
-  SearchFilter,
-} from '@/lib/hooks/explorer';
+import { useNamespacesQuery, SearchFilter } from '@/lib/hooks/explorer';
 import { TokenContext } from '@/lib/contexts';
 import { EditNamespaceDialog } from '@/components/dash/explorer/EditNamespaceDialog';
 import { EditRowDialog } from '@/components/dash/explorer/EditRowDialog';
@@ -421,9 +417,11 @@ function SearchInput({
 export function Explorer({
   db,
   appId,
+  namespaces,
 }: {
   db: InstantReactWebDatabase<any>;
   appId: string;
+  namespaces: SchemaNamespace[] | null;
 }) {
   // DEV
   _dev(db);
@@ -566,7 +564,6 @@ export function Explorer({
   }
 
   // data
-  const { namespaces } = useSchemaQuery(db);
   const { selectedNamespace } = useMemo(
     () => ({
       selectedNamespace: namespaces?.find(

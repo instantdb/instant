@@ -435,7 +435,7 @@
             res (d/query {:db {:conn-pool (aurora/conn-pool :read)}
                           :app-id (:id app)}
                          [[:ea ids #{(resolvers/->uuid r :users/id)}]])]
-        (is (= #{[["eid-alex" :users/id "eid-alex" 1610218387000]]}
+        (is (= #{[["eid-alex" :users/id "eid-alex" 1610218387993]]}
                (resolvers/walk-friendly r
                                         (:join-rows res))))))))
 

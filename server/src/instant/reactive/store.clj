@@ -28,6 +28,7 @@
    (java.time Instant)
    (java.util Map)
    (java.util.concurrent ConcurrentHashMap CancellationException)
+   (java.util.regex Pattern)
    (io.undertow.websockets.spi WebSocketHttpExchange)))
 
 (set! *warn-on-reflection* true)
@@ -142,6 +143,18 @@
           drop-last
           last
           string/trim))
+
+(defn socket-x-amzn-trace-id
+  "Load balancer trace id"
+  [{:keys [^WebSocketHttpExchange http-req]}]
+  (some-> http-req
+          (.getRequestHeader "x-amzn-trace-id")))
+
+(defn socket-x-amz-cf-id
+  "Cloudfront tracking id"
+  [{:keys [^WebSocketHttpExchange http-req]}]
+  (some-> http-req
+          (.getRequestHeader "x-amz-cf-id")))
 
 (defn report-active-sessions [store]
   (let [db @(:sessions store)]
@@ -519,16 +532,47 @@
             false
             small)))
 
+(defn like-parts
+  "Splits the like pattern into parts, quoting strings
+  (like-parts \"%hello%\")
+  -> [^ .* quoted-string<hello> .* $]"
+  [pattern]
+  (loop [pattern pattern
+         s (StringBuilder.)
+         parts (transient ["^"])]
+    (if (not (seq pattern))
+      (cond-> parts
+        (pos? (count s)) (conj! (Pattern/quote (.toString s)))
+        true (conj! "$")
+        true (persistent!))
+      (case (first pattern)
+        \_ (recur (rest pattern)
+                  (StringBuilder.)
+                  (cond-> parts
+                    (pos? (count s)) (conj! (Pattern/quote (.toString s)))
+                    true (conj! ".")))
+        \% (recur (rest pattern)
+                  (StringBuilder.)
+                  (cond-> parts
+                    (pos? (count s)) (conj! (Pattern/quote (.toString s)))
+                    true (conj! ".*")))
+        (recur (rest pattern)
+               (.append s (first pattern))
+               parts)))))
+
+(defn like-pattern
+  "Creates a regex pattern for a like pattern, taking into account
+   case insensitivity."
+  [case-insensitive? pattern]
+  (let [parts (like-parts pattern)]
+    (Pattern/compile (string/join "" parts)
+                     (if case-insensitive?
+                       Pattern/CASE_INSENSITIVE
+                       0))))
+
 (defn make-like-match? [case-insensitive? text pattern]
-  (let [regex-pattern (-> pattern
-                          (string/replace "_" ".")
-                          (string/replace "%" ".*")
-                          (#(str (when case-insensitive?
-                                   "(?i)")
-                                 "^"
-                                 %
-                                 "$")))]
-    (re-matches (re-pattern regex-pattern) text)))
+  (let [regex-pattern (like-pattern case-insensitive? pattern )]
+    (re-matches regex-pattern text)))
 
 (def like-match?
   (partial make-like-match? false))

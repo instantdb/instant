@@ -392,18 +392,13 @@ function Login() {
 
 You may want to have separate Instant apps for local development and production.
 The way to do this right now is to have two separate apps, one for local and one
-for production. You can then use an environment variables to switch between the two
-apps.
+for production.
 
 ```javascript
 // lib/db.ts
 import { init } from '@instantdb/react';
 
-// Next.js example
-const APP_ID =
-  process.env.NODE_ENV === 'production'
-    ? process.env.NEXT_PUBLIC_INSTANT_APP_ID
-    : process.env.NEXT_PUBLIC_INSTANT_APP_ID;
+const APP_ID = process.env.NEXT_PUBLIC_INSTANT_APP_ID;
 
 export const db = init({ appId: APP_ID });
 ```

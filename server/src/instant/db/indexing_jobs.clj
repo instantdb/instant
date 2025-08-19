@@ -845,7 +845,7 @@
                                         [:= :t-a/app-id app-id]
                                         [:= :t-a/attr-id attr-id]
                                         [:not= :t-a/value [:cast "null" :jsonb]]]}]]]}
-              res (sql/select conn (hsql/format query))]
+              res (sql/select ::validate-required conn (hsql/format query))]
           (when (seq res)
             (update-attr! conn {:app-id  app-id
                                 :attr-id attr-id
@@ -943,28 +943,28 @@
          (tracer/record-info! (job-span-attrs "unable-to-release-job" updated-job)))))))
 
 (defn handle-process [chan job-id]
-  (try
-    (tracer/with-span! {:name "indexing-jobs/grab-job"
-                        :attributes {:job-id job-id}}
+  (tracer/with-span! {:name "indexing-jobs/handle-process"
+                      :attributes {:job-id job-id}}
+    (try
       (if-let [job (grab-job! job-id)]
         (process-job chan job)
-        (tracer/add-data! {:attributes {:job-not-grabbed true}})))
-    (catch Throwable t
-      (discord/send-error-async! (format "%s unexpected job error job-id=%s msg=%s"
-                                         (:dww discord/mention-constants)
-                                         job-id
-                                         (.getMessage t)))
-      (tracer/record-exception-span! t {:name "indexing-jobs/process-error"
-                                        :escaping? false
-                                        :attributes {:job-id job-id}})
-      (sql/execute-one! ::handle-process-error
-                        (aurora/conn-pool :write)
-                        (hsql/format {:update :indexing-jobs
-                                      :where (job-update-wheres
-                                              [:= :id job-id])
-                                      :set {:job-status "errored"
-                                            :error unexpected-error
-                                            :error-detail (.getMessage t)}})))))
+        (tracer/add-data! {:attributes {:job-not-grabbed true}}))
+      (catch Throwable t
+        (discord/send-error-async! (format "%s unexpected job error job-id=%s msg=%s"
+                                           (:dww discord/mention-constants)
+                                           job-id
+                                           (.getMessage t)))
+        (tracer/record-exception-span! t {:name "indexing-jobs/process-error"
+                                          :escaping? false
+                                          :attributes {:job-id job-id}})
+        (sql/execute-one! ::handle-process-error
+                          (aurora/conn-pool :write)
+                          (hsql/format {:update :indexing-jobs
+                                        :where (job-update-wheres
+                                                [:= :id job-id])
+                                        :set {:job-status "errored"
+                                              :error unexpected-error
+                                              :error-detail (.getMessage t)}}))))))
 
 (defn start-process [chan]
   (loop []

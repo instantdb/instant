@@ -44,6 +44,7 @@
 (s/def ::in ::$in)
 
 (s/def ::$not where-value-valid?)
+(s/def ::$ne where-value-valid?)
 (s/def ::$isNull boolean?)
 (s/def ::comparator (s/or :string string?
                           :number number?
@@ -60,14 +61,14 @@
 
 (defn where-value-valid-keys? [m]
   (every? #{:in :$in
-            :$not :$isNull
+            :$not :$ne :$isNull
             :$gt :$gte :$lt :$lte
             :$like :$ilike
             :$entityId}
           (keys m)))
 
 (s/def ::where-args-map (s/and
-                         (s/keys :opt-un [::in ::$in ::$not ::$isNull
+                         (s/keys :opt-un [::in ::$in ::$not ::$ne ::$isNull
                                           ::$gt ::$gte ::$lt ::$lte ::$like ::$ilike
                                           ::$entityIdStartsWith])
                          where-value-valid-keys?))
@@ -220,6 +221,15 @@
         (and (:index? attr)
              (not (:indexing? attr)))))))
 
+(defn- normalize-ne-to-not
+  "Treat `$ne` as an alias for `$not`."
+  [where-cond-v]
+  (if (contains? where-cond-v :$ne)
+    (-> where-cond-v
+        (assoc :$not (:$ne where-cond-v))
+        (dissoc :$ne))
+    where-cond-v))
+
 (defn- coerce-where-cond
   "Splits keys into segments."
   [state attrs [k v :as c]]
@@ -256,12 +266,13 @@
                 :in (conj (:in state) :and)
                 :message "The list of `and` conditions can't be empty."}])))
 
-         (and (map? v) (contains? v :$not))
-         ;; If the where cond has `not`, then the check will only include
+         (and (map? v) (or (contains? v :$not) (contains? v :$ne)))
+         ;; If the where cond has `$not`, then the check will only include
          ;; entities where the entity has a triple with the attr. If the
          ;; attr is missing, then we won't find it. We add an extra
          ;; `isNull` check to ensure that we find the entity.
-         (let [path (string/split (name k) #"\.")
+         (let [v (normalize-ne-to-not v)
+               path (string/split (name k) #"\.")
                is-null-paths (cond-> (mapv (fn [p]
                                              [p {:$isNull true}])
                                            (grow-paths path))
@@ -1173,17 +1184,21 @@
 (defn query-normal
   "Generates and runs a nested datalog query, then collects the results into nodes."
   [ctx o]
-  (let [query-hash (forms-hash o)]
-    (tracer/with-span! {:name "instaql/query-nested"
-                        :attributes {:app-id (:app-id ctx)
-                                     :forms o
-                                     :query-hash query-hash}}
-      (let [datalog-query-fn (or (:datalog-query-fn ctx)
-                                 #'d/query)
-            {:keys [patterns forms]} (instaql-query->patterns ctx o)
-            datalog-result (datalog-query-fn (assoc ctx :query-hash query-hash)
-                                             patterns)]
-        (collect-query-results ctx (:data datalog-result) forms)))))
+  (let [query-hash (forms-hash o)
+        use-pg-hint? (contains? (flags/flag :use-hint-query-hashes) query-hash)]
+    (binding [d/*testing-pg-hints* use-pg-hint?
+              d/*estimate-with-sketch* use-pg-hint?]
+      (tracer/with-span! {:name "instaql/query-nested"
+                          :attributes {:app-id (:app-id ctx)
+                                       :forms o
+                                       :query-hash query-hash
+                                       :use-pg-hint use-pg-hint?}}
+        (let [datalog-query-fn (or (:datalog-query-fn ctx)
+                                   #'d/query)
+              {:keys [patterns forms]} (instaql-query->patterns ctx o)
+              datalog-result (datalog-query-fn (assoc ctx :query-hash query-hash)
+                                               patterns)]
+          (collect-query-results ctx (:data datalog-result) forms))))))
 
 (defn explain
   "Generates a nested datalog query, then runs explain."
@@ -1918,16 +1933,16 @@
 
                                          program
                                          (let [data (io/warn-io :instaql/entity-map
-                                                      (entity-map ctx
-                                                                  query-cache
-                                                                  etype
-                                                                  eid))
+                                                                (entity-map ctx
+                                                                            query-cache
+                                                                            etype
+                                                                            eid))
                                                bindings {:rule-params rule-params
                                                          :data data}]
-                                           (assoc-in acc
-                                                     [:programs k]
-                                                     {:program program
-                                                      :bindings bindings}))
+                                           (update acc :programs conj
+                                                   {:key k
+                                                    :program program
+                                                    :bindings bindings}))
 
                                          :else
                                          (assoc-in acc
@@ -1935,11 +1950,11 @@
                                                    {:result true}))))
                                acc
                                eids))
-                     {:programs {}
+                     {:programs []
                       :no-programs {}}
                      etype->eids+program)]
       (merge no-programs
-             (cel/eval-programs! ctx programs)))))
+             (ucoll/map-by :key (cel/eval-programs! ctx programs))))))
 
 (defn use-rule-wheres? [ctx o]
   (if (contains? ctx :use-rule-wheres?)
@@ -2088,6 +2103,9 @@
                                             etype-rule-where))))))))
               {}
               o)))
+
+
+
 
 (defn permissioned-query [{:keys [app-id current-user admin?] :as ctx} o]
   (tracer/with-span! {:name "instaql/permissioned-query"

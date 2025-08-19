@@ -132,6 +132,12 @@
   (stop)
   (start))
 
+(defn before-ns-unload []
+  (stop))
+
+(defn after-ns-reload []
+  (start))
+
 (comment
   (def res (http-post-handler {:body {:title "my-app"}}))
   (def ex-app (:app (:body res)))

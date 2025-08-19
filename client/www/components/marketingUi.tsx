@@ -83,6 +83,7 @@ function NavItems() {
     <>
       <NavLink href="/pricing">Pricing</NavLink>
       <NavLink href="/examples">Examples</NavLink>
+      <NavLink href="/tutorial">Tutorial</NavLink>
       <NavLink href="/essays">Essays</NavLink>
       <NavLink href="/docs">Docs</NavLink>
       <NavLink href="/hiring">Hiring</NavLink>
@@ -202,9 +203,6 @@ export function LandingFooter() {
               <div>Engineered in San Francisco</div>
             </div>
             <div className="flex flex-wrap gap-x-4 gap-y-2">
-              <NavLink href="/examples">Examples</NavLink>
-              <NavLink href="/essays">Essays</NavLink>
-              <NavLink href="/docs">Docs</NavLink>
               <NavLink href="/hiring">Hiring</NavLink>
               <NavLink href="https://discord.com/invite/VU53p7uQcE">
                 Discord
@@ -214,10 +212,6 @@ export function LandingFooter() {
               </NavLink>
               <NavLink href="/privacy">Privacy Policy</NavLink>
               <NavLink href="/terms">Terms</NavLink>
-              <NavLink href="/dash">Login</NavLink>
-              <div className="text-orange-500">
-                <NavLink href="/dash">Signup</NavLink>
-              </div>
             </div>
           </div>
         </div>
@@ -252,20 +246,4 @@ export function PageProgressBar() {
       />
     </div>
   );
-}
-
-export interface Author {
-  name: string;
-  url: string;
-}
-
-export interface Post {
-  title: string;
-  slug: string;
-  date: string;
-  content: string;
-  authors: Author[];
-  isDraft?: boolean;
-  hero?: string;
-  og_image?: string;
 }

@@ -13,7 +13,7 @@ import {
   InstantDBInferredType,
   DataAttrDef,
 } from '@instantdb/core';
-import version from './version.js';
+import version from './version.ts';
 import {
   attrFwdLabel,
   attrFwdName,

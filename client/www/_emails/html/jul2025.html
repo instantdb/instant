@@ -1,0 +1,112 @@
+<p><img
+src="https://www.instantdb.com/img/emails/jul2025/s_DF8F10A9009F2A236BC7D07C4EC05DDA50E4FB82F40AA98593D3B98A1A7EA3DC_1730238267270_instant_header.png" /></p>
+<p>Hey crew! It’s time for another edition of Instant News 🙂 Over the
+last 3 months we were heads down beefing up Instant as a platform. We’ve
+got a lot of news to share in this edition!</p>
+<p><strong>New Tutorial</strong></p>
+<p>You can now build full-stack apps directly from your IDE or terminal
+using Instant. <a href="https://www.instantdb.com/tutorial">We put
+together a whirlwind tutorial to experience what we mean.</a> If you
+ever wanted to share Instant with others, sending them the tutorial may
+be the easiest way for them to give us a spin.</p>
+<p><strong>Use Instant with</strong> <strong>Agents</strong></p>
+<p><img
+src="https://www.instantdb.com/img/emails/jul2025/s_B780C84BD85687D93B6CC8B14B02AFAD6BC12F2510D1FF046702911B9D014207_1755043210572_CleanShot+2025-08-12+at+16.59.562x.png" /></p>
+<p>When we started building Instant we wanted something great for
+builders. We wanted to offer lots of great abstractions and a generous
+free tier where projects aren’t limited or paused. To make this work we
+built Instant to be multi-tenant.</p>
+<p>Turns out when you make something great for humans, it also works
+great for agents. Agents can use all the batteries Instant provides to
+write high-level code that’s easier for them to write, and for humans to
+review. Combine that with multi-tenant infrastructure, and humans and
+agents can spin up millions of databases in milliseconds.</p>
+<p>To that end we have a slew of releases to make agents sing with
+Instant</p>
+<ul>
+<li>A <a
+href="https://github.com/instantdb/instant/tree/main/client/packages/platform">Platform
+SDK</a> which lets you programmatically create and manage Instant
+databases.</li>
+<li>An <a
+href="https://www.instantdb.com/docs/using-llms#instant-mcp-server">MCP
+server</a> that lets you leverage the Platform SDK via Cursor, Claude,
+or your agent of choice.</li>
+<li>A <a
+href="https://www.instantdb.com/docs/using-llms#instant-rules">set of
+rules</a> that teaches agents how to use Instant.</li>
+</ul>
+<p>If you’re interested in using Instant as a platform for spinning up
+databases feel free to reach out to us at founders@instantdb.com</p>
+<p><strong>Better types for queries and presence!</strong></p>
+<p><img
+src="https://pbs.twimg.com/media/GxI5Wx_bcAAjj9C?format=jpg&amp;name=large" /></p>
+<p><code>$.where</code> filters now give more specific autocomplete
+options and errors!</p>
+<p>For example, <code>$isNull</code> will only autocomplete for fields
+marked as optional, and <code>$ilike</code> will only autocomplete for
+indexed fields. Even stronger query and transaction validations are
+coming too.</p>
+<p>We’ve also shipped improve for Room/Presence types! Typescript hover
+documentation for our presence hooks should be much easier to parse at a
+glance. In addition we have also exported some additional types to make
+building wrappers and utilities for presence easier 🔥</p>
+<p><strong>Better transactions!</strong></p>
+<p><img
+src="https://www.instantdb.com/img/emails/jul2025/s_B780C84BD85687D93B6CC8B14B02AFAD6BC12F2510D1FF046702911B9D014207_1755036502869_image.png" /></p>
+<p>Historically, Instant used <code>update</code> for both creating new
+entities and updating existing ones. Now we support <code>create</code>
+as <a href="https://www.instantdb.com/docs/instaml#creating-data">as a
+separate operation</a>.</p>
+<p>Additionally, <code>update</code> now supports an
+<code>upsert: false</code> option, turning it into a “strict update”.
+Like <code>create</code> prevents updates on existing entities, strict
+update prevents creation of new entities!</p>
+<p><strong>New essays and demos!</strong></p>
+<p><img
+src="https://www.instantdb.com/img/emails/jul2025/s_B780C84BD85687D93B6CC8B14B02AFAD6BC12F2510D1FF046702911B9D014207_1755034951500_image.png" /></p>
+<p>In the last few months we released a few more essays, tutorials, and
+even had a video of Instant featured on Expo’s channel! Here’s a high
+level overview of all our new content!</p>
+<ul>
+<li><a
+href="https://expo.dev/blog/what-if-usestate-was-your-backend">Step-by-step
+written tutorial</a> showing you how to build an emoji chat application
+with Expo.</li>
+<li><a href="https://www.youtube.com/watch?v=DEJIcaGN3vY">Video
+tutorial</a> showing how to build a collaborative sketch board with
+Expo.</li>
+<li><a href="https://www.instantdb.com/essays/agents">An essay</a> on
+how we think agents will ship software in the future</li>
+<li>A <a
+href="https://www.instantdb.com/essays/gpt_5_vs_opus_4">comparison of
+Chat GPT-5 vs Opus 4.1</a> vibe-coding full-stack apps</li>
+</ul>
+<p><strong>And a few more things!</strong></p>
+<p><img
+src="https://pbs.twimg.com/media/GwFcSpCXgAAd_FE?format=jpg&amp;name=large" /></p>
+<p>Here’s a few more wins that happened in the last few months!</p>
+<ul>
+<li>Instant welcomed Drew to the team in in July — we’re now a team of
+5! He’s got typescript chops, one of the best Neovim setups we’ve seen,
+and he’s making PR after PR to improve Instant’s devex.
+<ul>
+<li>He’s responsible for shipping the typesafety wins in this
+update!</li>
+</ul></li>
+<li>You can search for <code>null</code> values in the explorer</li>
+<li>You can use <code>update</code> for <code>$files</code> to <a
+href="https://www.instantdb.com/docs/storage#update-file-paths">change
+paths</a></li>
+<li>You can <a
+href="https://www.instantdb.com/docs/backend#custom-magic-codes">send
+and verify magic codes on the backend</a></li>
+<li>You can <a
+href="https://www.instantdb.com/docs/init#configuration-options">configure
+queries</a> to return date objects for <code>i.date()</code>
+columns.</li>
+</ul>
+<p><strong>What’s next</strong></p>
+<p>We’ve been chipping away at some big infra wins. We’re seeing more
+folks build bigger apps and we’re excited to support them as they scale!
+Stay tuned for some exciting news next month :)</p>

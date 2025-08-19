@@ -9,7 +9,8 @@
             [instant.db.cel :as cel]
             [instant.jdbc.aurora :as aurora]
             [instant.model.app-upload-url :as app-upload-url-model]
-            [instant.config :as config])
+            [instant.config :as config]
+            [instant.util.string :as string-util])
   (:import
    (java.time Instant)
    (java.util Date)))
@@ -114,3 +115,14 @@
                                         :current-user current-user}))
   (let [{:keys [location-id]} (app-file-model/get-by-path {:app-id app-id :path path})]
     (instant-s3/create-signed-download-url! app-id location-id)))
+
+(defn coerce-content-type [s]
+  (let [coerced (string-util/coerce-non-blank-str s)]
+    (when-not (#{"null" "undefined"} coerced)
+      coerced)))
+
+(comment
+  (coerce-content-type "null")
+  (coerce-content-type "undefined")
+  (coerce-content-type "")
+  (coerce-content-type "application/json"))

@@ -6,7 +6,9 @@
    [instant.db.datalog :as d]
    [instant.db.model.attr :as attr-model]
    [instant.db.model.entity :as entity-model]
+   [instant.db.permissioned-transaction-new :as permissioned-tx-new]
    [instant.db.transaction :as tx]
+   [instant.flags :as flags]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.rule :as rule-model]
@@ -130,7 +132,6 @@
       {:program program
        :bindings {:data updated}})))
 
-
 (defn check-program [{:keys [scope action] :as check} ctx]
   (case [scope action]
     [:object :create] (object-upsert-check-program check ctx)
@@ -139,8 +140,8 @@
     [:object :view]   (object-view-check-program check ctx)
     [:attr   :create] (attr-create-check-program check ctx)
     [:attr   :delete] {:result (:admin? ctx)}
-    [:attr   :update] {:result (:admin? ctx)}))
-
+    [:attr   :update] {:result (:admin? ctx)}
+    [:attr   :restore] {:result (:admin? ctx)}))
 
 (defn object-checks
   "Creates check commands for each object in the transaction.
@@ -345,10 +346,20 @@
        :etype  "attrs"
        :action :delete}
 
+      :restore-attr
+      {:scope :attr
+       :etype "attrs"
+       :action :restore}
+
       :update-attr
       {:scope  :attr
        :etype  "attrs"
        :action :update})))
+
+(defn eval-programs! [ctx programs]
+  (let [keys (map first programs)
+        vals (map second programs)]
+    (zipmap keys (cel/eval-programs! ctx vals))))
 
 (defn run-check-commands! [ctx checks]
   (let [{:keys [programs no-programs]}
@@ -365,7 +376,7 @@
                 {:programs {}
                  :no-programs {}}
                 checks)
-        program-results (cel/eval-programs! ctx programs)]
+        program-results (eval-programs! ctx programs)]
     (reduce-kv (fn [acc {:keys [etype action] :as c} {:keys [result]}]
                  (conj acc (if (:admin-check? ctx)
                              (assoc c
@@ -490,7 +501,7 @@
         lookups->eid (triple-model/fetch-lookups->eid tx-conn app-id lookups)]
     (mapv #(resolve-check-lookup lookups->eid %) checks)))
 
-(defn transact!
+(defn transact-impl!
   "Runs transactions alongside permission checks. The overall flow looks like this:
 
    1. We take a list of tx-steps (add-attr, delete-attr, add-triple, etc)
@@ -510,26 +521,34 @@
    `auth.id in data.ref('creator.id')`"
   [{:keys [db app-id admin? admin-check? admin-dry-run? attrs] :as ctx} tx-steps]
   (tracer/with-span! {:name "permissioned-transaction/transact!"
-                      :attributes {:app-id app-id}}
+                      :attributes {:app-id app-id
+                                   :transact-version "1"}}
     (validate-reserved-names! admin? attrs tx-steps)
     (let [{:keys [conn-pool]} db]
       (next-jdbc/with-transaction [tx-conn conn-pool]
         (if admin?
-          (tx/transact-without-tx-conn! tx-conn attrs app-id tx-steps)
-          (let [grouped-tx-steps (tx/preprocess-tx-steps tx-conn attrs app-id tx-steps)
+          (tx/transact-without-tx-conn! tx-conn attrs app-id tx-steps {})
+          (let [ops-order        (tx/tx-steps-order tx-steps)
+                optimistic-attrs (tx/optimistic-attrs attrs tx-steps)
+                tx-step-maps     (->> tx-steps
+                                      (tx/preprocess-tx-steps tx-conn optimistic-attrs app-id)
+                                      (tx/reorder-tx-steps ops-order))
+
+                grouped-tx-steps (->> tx-step-maps
+                                      (map tx/vectorize-tx-step)
+                                      (group-by first))
 
                 attr-changes     (concat
                                   (:add-attr grouped-tx-steps)
                                   (:delete-attr grouped-tx-steps)
-                                  (:update-attr grouped-tx-steps))
+                                  (:update-attr grouped-tx-steps)
+                                  (:restore-attr grouped-tx-steps))
 
                 object-changes   (concat
                                   (:add-triple grouped-tx-steps)
                                   (:deep-merge-triple grouped-tx-steps)
                                   (:retract-triple grouped-tx-steps)
                                   (:delete-entity grouped-tx-steps))
-
-                optimistic-attrs (into attrs (map second) (:add-attr grouped-tx-steps))
 
                 ;; Use the db connection we have so that we don't cause a deadlock
                 ;; Also need to be able to read our own writes for the create checks
@@ -558,7 +577,8 @@
                 {create-checks :create
                  view-checks :view
                  update-checks :update
-                 delete-checks :delete}
+                 delete-checks :delete
+                 restore-checks :restore}
                 (group-by :action check-commands)
 
                 lookups->eid (lookup->eid-from-preloaded-triples preloaded-triples)
@@ -588,6 +608,7 @@
 
                 before-tx-checks-resolved
                 (mapv #(resolve-check-lookup lookups->eid %) (concat update-checks
+                                                                     restore-checks
                                                                      delete-checks
                                                                      view-checks))
 
@@ -597,7 +618,7 @@
                                      before-tx-checks-resolved)
 
                 tx-data
-                (tx/transact-without-tx-conn-impl! tx-conn (:attrs ctx) app-id grouped-tx-steps {})
+                (tx/transact-without-tx-conn-impl! tx-conn (:attrs ctx) app-id tx-step-maps {})
 
                 ;; update lookups with newly created triples
                 create-lookups->eid (some->> (concat create-checks (keys rule-params))
@@ -629,6 +650,33 @@
                         :committed? (not rollback?))]
             (when rollback? (.rollback tx-conn))
             result))))))
+
+(def ^:dynamic *new-permissioned-transact?*
+  false)
+
+(defn transact!
+  "Runs transactions alongside permission checks. The overall flow looks like this:
+
+   1. We take a list of tx-steps (add-attr, delete-attr, add-triple, etc)
+   2. We group tx-steps `check` commands.
+     a. Multiple `add-triple` commands for the same `eid` will collect into a single
+        `check` command
+   3. We run queries to get existing data for each `eid` in the transaction.
+
+   Here's the order that checks run:
+
+   1. We run all `update` and `delete` checks first.
+   2. Then, we run the actual transaction
+   3. Then, we run all the `create` checks.
+
+   We run `create` checks _after_ the transaction, so we can query off of the
+   object. For example, if we created a new `post`, we may want a check that says:
+   `auth.id in data.ref('creator.id')`"
+  [{:keys [app-id] :as ctx} tx-steps]
+  (if (or *new-permissioned-transact?*
+          (flags/new-permissioned-transact? app-id))
+    (permissioned-tx-new/transact! ctx tx-steps)
+    (transact-impl! ctx tx-steps)))
 
 (comment
   (do

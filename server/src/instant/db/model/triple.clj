@@ -10,13 +10,15 @@
    [instant.util.crypt :refer [json-null-md5]]
    [instant.util.exception :as ex]
    [instant.util.json :refer [->json <-json]]
+   [instant.util.pgtime :as pgtime]
    [instant.util.spec :as uspec]
    [instant.util.string :refer [multiline->single-line]]
    [instant.util.tracer :as tracer])
   (:import
-   (java.util UUID)
-   (java.time Instant LocalDate LocalDateTime ZonedDateTime ZoneOffset)
-   (java.time.format DateTimeFormatter)))
+   (java.time Duration Instant LocalDate LocalDateTime ZoneOffset ZonedDateTime)
+   (java.time.format DateTimeFormatter DateTimeFormatterBuilder SignStyle)
+   (java.time.temporal ChronoField ChronoUnit)
+   (java.util UUID)))
 
 ;; (XXX): Currently we allow value to be nil
 ;; In the future, we may want to _retract_ the triple if the value is nil
@@ -68,6 +70,7 @@
                                    [[attr_id value] entity_id]))
                             (into {}))]
       lookups->eid)))
+
 ;; ---
 ;; insert-multi!
 
@@ -98,7 +101,8 @@
                     [:or
                      [:and
                       [:= :id a]
-                      [:= :value-type [:inline "ref"]]]
+                      [:= :value-type [:inline "ref"]]
+                      [:= :deletion-marked-at nil]]
                      [:exists {:select :*
                                :from :idents
                                :where [:and
@@ -223,6 +227,20 @@
 
             ::ex/hint    {:records res}}))))))
 
+(defn- hsql-attr-id-or-raise [input-id attr-id]
+  [:case [:not= nil attr-id]
+   attr-id
+   :else
+   [:cast
+    [:cast
+     [:raise_exception_message
+      [:||
+       [:inline "We could not find an attribute with id = '"]
+       input-id
+       [:inline "'"]]]
+     :text]
+    :uuid]])
+
 (defn deep-merge-multi!  [conn _attrs app-id triples]
   (let [input-triples-values
         (->> triples
@@ -260,7 +278,8 @@
         {:select
          [[[:cast :ilr.app_id :uuid] :app-id]
           [[:gen_random_uuid] :entity-id]
-          [[:cast :ilr.attr-id :uuid] :attr-id]
+          [(hsql-attr-id-or-raise :ilr.attr-id :a.id)
+           :attr-id]
           [[:cast :ilr.value :jsonb] :value]
           [[:md5 :ilr.value] :value-md5]
           [[:case [:= :a.cardinality [:inline "one"]] true :else false]
@@ -278,7 +297,8 @@
                                   [:or
                                    [:= :a.app-id [:cast :ilr.app-id :uuid]]
                                    [:= :a.app-id system-catalog-app-id]]
-                                  [:= :a.id [:cast :ilr.attr-id :uuid]]]]}
+                                  [:= :a.id [:cast :ilr.attr-id :uuid]]
+                                  [:= nil :a.deletion-marked-at]]]}
 
         ;; insert lookup refs
         lookup-ref-inserts
@@ -317,7 +337,8 @@
          [[:at.idx :idx]
           [:at.app_id :app-id]
           [:at.entity-id :entity-id]
-          [:at.attr-id :attr-id]
+          [(hsql-attr-id-or-raise :at.attr-id :a.id)
+           :attr-id]
           [[:cast :at.value :jsonb] :value]
           [[:md5 [:cast :at.value :text]] :value-md5]
           [[:case [:= :a.cardinality [:inline "one"]] true :else false]
@@ -336,7 +357,8 @@
                                   [:or
                                    [:= :a.app-id :at.app-id]
                                    [:= :a.app-id system-catalog-app-id]]
-                                  [:= :a.id :at.attr-id]]]}
+                                  [:= :a.id :at.attr-id]
+                                  [:= :a.deletion-marked-at nil]]]}
 
         ea-index-inserts
         {:insert-into [[[:triples :t] triple-cols]
@@ -404,7 +426,8 @@
         {:select
          [[[:cast :ilr.app_id :uuid] :app-id]
           [[:gen_random_uuid] :entity-id]
-          [[:cast :ilr.attr-id :uuid] :attr-id]
+          [(hsql-attr-id-or-raise :ilr.attr-id :a.id)
+           :attr-id]
           [[:cast :ilr.value :jsonb] :value]
           [[:md5 :ilr.value] :value-md5]
           [[:case [:= :a.cardinality [:inline "one"]] true :else false] :ea]
@@ -419,7 +442,8 @@
                                   [:or
                                    [:= :a.app-id [:cast :ilr.app-id :uuid]]
                                    [:= :a.app-id system-catalog-app-id]]
-                                  [:= :a.id [:cast :ilr.attr-id :uuid]]]]}
+                                  [:= :a.id [:cast :ilr.attr-id :uuid]]
+                                  [:= nil :a.deletion-marked-at]]]}
 
         ;; insert lookup refs
         lookup-ref-inserts
@@ -504,7 +528,8 @@
          [[:it.idx :idx]
           [[:cast :it.app_id :uuid] :app-id]
           [[:cast :it.entity-id :uuid] :entity-id]
-          [[:cast :it.attr-id :uuid] :attr-id]
+          [(hsql-attr-id-or-raise :it.attr-id :a.id)
+           :attr-id]
           [[:cast :it.value :jsonb] :value]
           [[:md5 :it.value] :value-md5]
           [[:case [:= :a.cardinality [:inline "one"]] true :else false] :ea]
@@ -518,7 +543,8 @@
                                   [:or
                                    [:= :a.app-id [:cast :it.app-id :uuid]]
                                    [:= :a.app-id system-catalog-app-id]]
-                                  [:= :a.id [:cast :it.attr-id :uuid]]]]}
+                                  [:= :a.id [:cast :it.attr-id :uuid]]
+                                  [:= nil :a.deletion-marked-at]]]}
 
         ea-triples-distinct
         {:select-distinct-on [[:entity-id :attr-id] :*]
@@ -817,7 +843,8 @@
   "Fetches triples from postgres by app-id and optional sql statements and
    returns them as clj representations"
   ([conn app-id] (fetch conn app-id []))
-  ([conn app-id stmts]
+  ([conn app-id stmts] (fetch conn app-id stmts {}))
+  ([conn app-id stmts {:keys [include-soft-deleted?]}]
    (map row->enhanced-triple
         (sql/select
          ::fetch
@@ -826,8 +853,16 @@
           {:select
            [:triples.*]
            :from :triples
+           :join [[:attrs :a] [:and
+                               [:= :a.app-id [:any [:array [:triples.app-id
+                                                            system-catalog-app-id]]]]
+                               [:= :a.id :triples.attr_id]]]
            :where
-           (concat [:and [:= :app-id app-id]] stmts)})))))
+           (concat [:and
+                    [:= :triples.app-id app-id]]
+                   (when-not include-soft-deleted?
+                     [[:= :a.deletion-marked-at nil]])
+                   stmts)})))))
 
 ;; Migration for inferred types
 ;; ----------------------------
@@ -927,56 +962,144 @@
       (tracer/add-data! {:attributes {:total-count @row-count}})
       {:row-count @row-count})))
 
-(defn zoned-date-time-str->instant [s]
-  (.toInstant (ZonedDateTime/parse s)))
+(defn zoned-date-time-str->instant
+  ([s] (.toInstant (ZonedDateTime/parse s)))
+  ([formatter s] (.toInstant (ZonedDateTime/parse s formatter))))
 
-(defn local-date-time-str->instant [s]
-  (-> (LocalDateTime/parse s)
-      (.atZone ZoneOffset/UTC)
-      (.toInstant)))
+(defn local-date-time-str->instant
+  ([s]
+   (-> (LocalDateTime/parse s)
+       (.atZone ZoneOffset/UTC)
+       (.toInstant)))
+  ([formatter s]
+   (-> (LocalDateTime/parse s formatter)
+       (.atZone ZoneOffset/UTC)
+       (.toInstant))))
 
-(defn local-date-str->instant [s]
-  (-> (LocalDate/parse s)
-      (.atStartOfDay)
-      (.toInstant ZoneOffset/UTC)))
+(defn local-date-str->instant
+  ([s]
+   (-> (LocalDate/parse s)
+       (.atStartOfDay)
+       (.toInstant ZoneOffset/UTC)))
+  ([formatter s]
+   (-> (LocalDate/parse s formatter)
+       (.atStartOfDay)
+       (.toInstant ZoneOffset/UTC))))
 
-(def offio-date-formatter (DateTimeFormatter/ofPattern "yyyy-MM-dd HH:mm:ss"))
+(defn special-str->instant
+  "Parses the special values
+   https://www.postgresql.org/docs/17/datatype-datetime.html#DATATYPE-DATETIME-SPECIAL-VALUES"
+  [s db-timestamp]
+  (let [^Instant now (or db-timestamp (Instant/now))]
+    (case s
+      "epoch" (Instant/ofEpochMilli 0)
+      ;; https://github.com/pgjdbc/pgjdbc/blob/82d480fdb247bd5da7dcea23bd261dc32b6e8217/pgjdbc/src/main/java/org/postgresql/PGStatement.java#L21
+      "infinity" (Instant/ofEpochMilli 9223372036825200000)
+      "-infinity" (Instant/ofEpochMilli -9223372036832400000)
+      "now" now
+      "today" (.truncatedTo now ChronoUnit/DAYS)
+      "tomorrow" (-> now
+                     (.plus (Duration/ofDays 1))
+                     (.truncatedTo ChronoUnit/DAYS))
+      "yesterday" (-> now
+                     (.plus (Duration/ofDays -1))
+                     (.truncatedTo ChronoUnit/DAYS)))))
 
-(defn offio-date-str->instant [s]
-  (-> s
-      (LocalDateTime/parse offio-date-formatter)
-      (.toInstant ZoneOffset/UTC)))
+;; Docs on DateTimeFormatterBuilder
+;; https://docs.oracle.com/en/java/javase/24/docs/api/java.base/java/time/format/DateTimeFormatterBuilder.html
 
-(def zeneca-date-formatter (DateTimeFormatter/ofPattern "yyyy-MM-dd HH:mm:ss.n"))
+(defn append-year ^DateTimeFormatterBuilder [^DateTimeFormatterBuilder builder]
+  (.appendValue builder ChronoField/YEAR 1 19 SignStyle/NORMAL))
 
-(defn zeneca-date-str->instant [s]
-  (-> s
-      (LocalDateTime/parse zeneca-date-formatter)
-      (.toInstant ZoneOffset/UTC)))
+(def optional-nano-or-milli
+  (let [builder (DateTimeFormatterBuilder.)]
+    (.appendOptional builder
+                     (.. (DateTimeFormatterBuilder.)
+                         (appendFraction ChronoField/NANO_OF_SECOND 0 9 true)
+                         (toFormatter)))
+    (.appendOptional builder
+                     (.. (DateTimeFormatterBuilder.)
+                         (appendFraction ChronoField/MILLI_OF_SECOND 0 3 true)
+                         (toFormatter)))
 
-(defn rfc-1123->instant [s]
-  (-> s
-      (ZonedDateTime/parse DateTimeFormatter/RFC_1123_DATE_TIME)
-      (.toInstant)))
+    (.toFormatter builder)))
 
-(def dow-mon-day-year-formatter
-  (DateTimeFormatter/ofPattern "EEE MMM dd yyyy"))
+;; Formatters without time zone
+(def local-date-time-formatters
+  [(-> (DateTimeFormatterBuilder.)
+       (append-year)
+       (.appendPattern "-MM-dd HH:mm:ss")
+       (.append optional-nano-or-milli)
+       (.toFormatter))
+   DateTimeFormatter/RFC_1123_DATE_TIME
+   (DateTimeFormatter/ofPattern "M/d/yyyy, h:mm:ss a")
+   (DateTimeFormatter/ofPattern "yyyy-MM-dd HH:mm")])
 
-(defn dow-mon-day-year-str->instant [s]
-  (-> s
-      (LocalDate/parse dow-mon-day-year-formatter)
-      (.atStartOfDay)
-      (.toInstant ZoneOffset/UTC)))
+;; Formatters with time zone
+(def zoned-date-time-formatters
+  [(-> (DateTimeFormatterBuilder.)
+       (.appendPattern "EEE MMM dd ")
+       (.appendValue ChronoField/YEAR 1 19 SignStyle/NORMAL)
+       (.appendPattern " HH:mm:ss zZ")
+       (.toFormatter))
+   ;; 2025-03-01T16:08:53+0000
+   (-> (DateTimeFormatterBuilder.)
+       (.appendValue ChronoField/YEAR 1 19 SignStyle/NORMAL)
+       (.appendPattern "-MM-dd'T'HH:mm:ss")
+       (.append optional-nano-or-milli)
+       (.appendPattern "[Z][X]")
+       (.toFormatter))
+   (-> (DateTimeFormatterBuilder.)
+       (.appendValue ChronoField/YEAR 1 19 SignStyle/NORMAL)
+       (.appendPattern "-MM-d'T'HH:mm:ss.SSSX")
+       (.toFormatter))
+   (-> (DateTimeFormatterBuilder.)
+       (.appendValue ChronoField/YEAR 1 19 SignStyle/NORMAL)
+       (.appendPattern "-MM-dd HH:mm:ss")
+       (.append optional-nano-or-milli)
+       (.appendOffset "+HHmm" "Z")
+       (.toFormatter))
+   (-> (DateTimeFormatterBuilder.)
+       (.appendValue ChronoField/YEAR 1 19 SignStyle/NORMAL)
+       (.appendPattern "-MM-dd'T'HH:mm:ss")
+       (.append pgtime/tz-abbrev-formatter)
+       (.toFormatter))])
 
+;; Formatters with just the date
+(def date-formatters
+  [(.. (DateTimeFormatterBuilder.)
+       (appendPattern "EEE MMM dd ")
+       (appendValue ChronoField/YEAR 1 19 SignStyle/NORMAL)
+       (toFormatter))
+   (.. (DateTimeFormatterBuilder.)
+       (appendPattern "MM-dd-")
+       (appendValue ChronoField/YEAR 1 19 SignStyle/NORMAL)
+       (toFormatter))
+   (.. (DateTimeFormatterBuilder.)
+       (appendValue ChronoField/YEAR 1 19 SignStyle/NORMAL)
+       (appendPattern "-MM-dd")
+       (toFormatter))])
 
-
-(def date-parsers [zoned-date-time-str->instant
-                   local-date-time-str->instant
-                   local-date-str->instant
-                   rfc-1123->instant
-                   offio-date-str->instant
-                   zeneca-date-str->instant
-                   dow-mon-day-year-str->instant])
+;; If you update anything here, be sure to also update the client:
+;; client/packages/core/src/utils/dates.ts
+(def date-parsers (concat [zoned-date-time-str->instant
+                           local-date-time-str->instant
+                           local-date-str->instant]
+                          (mapv (fn [formatter]
+                                  (with-meta
+                                    (partial local-date-time-str->instant formatter)
+                                    {:formatter formatter}))
+                                local-date-time-formatters)
+                          (mapv (fn [formatter]
+                                  (with-meta
+                                    (partial zoned-date-time-str->instant formatter)
+                                    {:formatter formatter}))
+                                zoned-date-time-formatters)
+                          (mapv (fn [formatter]
+                                  (with-meta
+                                    (partial local-date-str->instant formatter)
+                                    {:formatter formatter}))
+                                date-formatters)))
 
 (defn try-parse-date-string [parser s]
   (try
@@ -998,14 +1121,19 @@
                    nil))]
     (date-str->instant s)))
 
-(defn parse-date-value ^Instant [x]
-  (cond (string? x)
-        (or (date-str->instant x)
-            (json-str->instant x)
-            (throw (Exception. (str "Unable to parse date string " x))))
+(defn parse-date-value
+  (^Instant [x] (parse-date-value x nil))
+  (^Instant [x db-timestamp]
+   (cond (string? x)
+         (or (date-str->instant x)
+             (json-str->instant x)
+             (date-str->instant (str/trim x))
+             (try (special-str->instant x db-timestamp)
+                  (catch Exception _e nil))
+             (throw (Exception. (str "Unable to parse date string " x))))
 
-        (number? x)
-        (Instant/ofEpochMilli x)))
+         (number? x)
+         (Instant/ofEpochMilli x))))
 
 (comment
   (parse-date-value "Wed Jul 09 2025")
@@ -1016,6 +1144,7 @@
   (parse-date-value "\"2025-01-02T00:00:00-08\"")
   (parse-date-value "2025-01-15 20:53:08")
   (parse-date-value "\"2025-01-15 20:53:08\"")
+  (parse-date-value "8/4/2025, 11:02:31 PM")
 
   ;; These should throw an exception
   (parse-date-value "2025-01-0")

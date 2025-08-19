@@ -107,13 +107,25 @@
         topics (map (fn [k] [k '_ #{attr-id} '_]) indexes)]
     (set topics)))
 
-(defn- topics-for-attr-upsert [{:keys [columns]}]
+(defn- topics-for-attr-upsert [{:keys [columns identity] :as _change}]
   (let [indexes #{:ea :eav :av :ave :vae}
         attr-id (parse-uuid (get-column columns "id"))
-        topics (map (fn [k] [k '_ #{attr-id} '_]) indexes)]
-    (set topics)))
+        topics (map (fn [k] [k '_ #{attr-id} '_]) indexes)
 
-(defn- topics-for-attr-delete [{:keys [identity]}]
+        value-type (get-column columns "value_type")
+        object-attr? (not= value-type "ref")
+        restoration? (and (get-column identity "deletion_marked_at")
+                          (nil? (get-column columns "deletion_marked_at")))]
+
+    (cond-> topics
+      ;; Queries specifically request object attributes. 
+      ;; If we are restoring an attr, all queries that require 
+      ;; object attributes would need to be refreshed
+      (and object-attr? restoration?) (conj [:ea '_ '_ '_])
+
+      true set)))
+
+(defn- topics-for-attr-delete [{:keys [identity] :as _change}]
   (let [attr-id (parse-uuid (get-column identity "id"))
         indexes #{:ea :eav :av :ave :vae}
         topics (map (fn [k] [k '_ #{attr-id} '_]) indexes)]
@@ -254,6 +266,8 @@
     (.toInstant (Timestamp/valueOf created-at))))
 
 (defn transform-wal-record [{:keys [changes tx-bytes] :as _record}]
+  ;; n.b. Add the table to the `add-tables` setting in create-replication-stream
+  ;;      or else we will never be notified about it.
   (let [{:strs [idents triples attrs transactions rules apps instant_users]}
         (group-by :table changes)
 
@@ -386,10 +400,10 @@
          {:group-key-fn :app-id
           :combine-fn   combine-wal-records
           :process-fn   (fn [_key wal-record]
-                         (process-wal-record process-id
-                                             store
-                                             (::grouped-queue/combined wal-record 1)
-                                             wal-record))
+                          (process-wal-record process-id
+                                              store
+                                              (::grouped-queue/combined wal-record 1)
+                                              wal-record))
           :metrics-path "instant.reactive.invalidator.q"
           :max-workers  8})]
     (a/go
@@ -475,6 +489,7 @@
          (create-wal-chans)
 
          wal-opts (wal/make-wal-opts {:wal-chan wal-chan
+                                      :worker-chan worker-chan
                                       :close-signal-chan close-signal-chan
                                       :ex-handler wal-ex-handler
                                       :get-conn-config (fn []
@@ -484,7 +499,8 @@
                                                              ;; invalidator when failing over to a
                                                              ;; new blue/green deployment
                                                              (config/get-aurora-config)))
-                                      :slot-name process-id})]
+                                      :slot-suffix process-id
+                                      :slot-type :invalidator})]
      (ua/fut-bg
       (wal/start-worker wal-opts))
 
@@ -510,7 +526,8 @@
         (Thread/sleep 100)
         (recur))))
   (a/close! (:to wal-opts))
-  (a/close! (:close-signal-chan wal-opts)))
+  (a/close! (:close-signal-chan wal-opts))
+  (a/close! (:worker-chan wal-opts)))
 
 (defn stop-global []
   (when (bound? #'wal-opts)

@@ -1,5 +1,5 @@
 {:paths ["src" "resources" "data" "target/classes"]
- :deps {cheshire/cheshire {:mvn/version "5.10.0"}
+ :deps {cheshire/cheshire {:mvn/version "6.0.0"}
         clj-http/clj-http {:mvn/version "3.12.3"}
 
         com.github.seancorfield/next.jdbc {:mvn/version "1.3.981"}
@@ -11,6 +11,9 @@
         org.clojure/clojure {:mvn/version "1.12.0"}
         org.clojure/core.async {:mvn/version "1.6.673"}
         org.clojure/tools.logging {:mvn/version "1.3.0"}
+        org.clojure/core.cache {:git/url "https://github.com/clojure/core.cache.git"
+                                ;; Includes fix for concurrent miss
+                                :sha "4a043644a0706b6d834ebf890a64d2fdcc9c388b"}
         org.postgresql/postgresql {:mvn/version "42.7.3"}
         ring-cors/ring-cors {:mvn/version "0.1.13"}
         ring/ring {:mvn/version "1.13.0"}
@@ -28,7 +31,7 @@
         software.amazon.awssdk.crt/aws-crt {:mvn/version "0.33.11"}
 
         juji/editscript {:mvn/version "0.6.4"}
-        io.github.tonsky/clojure-plus {:mvn/version "1.6.1"}
+        io.github.tonsky/clojure-plus {:mvn/version "1.6.3"}
 
         org.bouncycastle/bcprov-jdk15on {:mvn/version "1.70"}
 
@@ -60,20 +63,24 @@
         com.github.steffan-westcott/clj-otel-api {:mvn/version "0.2.4"}
 
         dev.cel/cel {:mvn/version "0.9.1"}
-        com.fasterxml.jackson.core/jackson-core {:mvn/version "2.12.6"}
+        com.fasterxml.jackson.core/jackson-core {:mvn/version "2.18.3"}
         com.google.crypto.tink/tink {:mvn/version "1.12.0"}
         com.google.crypto.tink/tink-awskms {:mvn/version "1.9.1"}
         ;; Version required by aws kms library pulled in by tink
-        com.fasterxml.jackson.core/jackson-databind {:mvn/version "2.12.7.2"}
+        com.fasterxml.jackson.core/jackson-databind {:mvn/version "2.18.3"}
 
         lambdaisland/uri {:mvn/version "1.19.155"}
-        lambdaisland/deep-diff2 {:mvn/version "2.12.219"}
+        lambdaisland/deep-diff2 {:mvn/version "2.12.219"
+                                 :exclusions [lambdaisland/clj-diff]}
+        ;; https://github.com/lambdaisland/clj-diff/pull/3
+        io.github.tonsky/clj-diff {:mvn/version "1.4.79"}
 
         com.auth0/java-jwt {:mvn/version "4.4.0"}
         com.auth0/jwks-rsa {:mvn/version "0.22.1"}
         com.stripe/stripe-java {:mvn/version "25.1.0"}
         inflections/inflections {:mvn/version "0.14.1" :exclusions [noencore/noencore]}
         noencore/noencore {:mvn/version "0.3.8"}
+        org.apache.tika/tika-core {:mvn/version "3.2.1"}
 
         datascript/datascript {:git/url "https://github.com/tonsky/datascript.git"
                                :sha "d270292ddaee0a9052e73502247798baae31a77f"
@@ -84,7 +91,9 @@
 
         djblue/portal {:mvn/version "0.58.5"}
         dev.weavejester/medley {:mvn/version "1.8.1"}
-        com.hazelcast/hazelcast {:mvn/version "5.5.0"}}
+        com.hazelcast/hazelcast {:mvn/version "5.5.0"}
+        net.openhft/zero-allocation-hashing {:mvn/version "0.27ea1"}
+        com.github.luben/zstd-jni {:mvn/version "1.5.7-4"}}
  :aliases {:dev {:extra-paths ["dev" "test" "dev-resources"]
                  :extra-deps {refactor-nrepl/refactor-nrepl {:mvn/version "3.10.0"}
                               criterium/criterium           {:mvn/version "0.4.6"}
@@ -98,6 +107,7 @@
                             ;; force locale
                             "-Duser.language=en"
                             "-Duser.country=US"
+                            "-Duser.timezone=UTC"
                             "-Dfile.encoding=UTF-8"
 
                             ;; clj-async-profiler
@@ -109,6 +119,9 @@
                             ;; print stack traces instead of "Full report at ..."
                             "-Dclojure.main.report=stderr"
                             "-Dclojure.server.repl={:port 6006 :accept clojure.core.server/repl}"
+
+                            ;; throw on invalid go block usage in development
+                            "-Dclojure.core.async.go-checking=true"
 
                             ;; hazelcast
                             "--add-modules" "java.se"
@@ -129,6 +142,7 @@
                   :jvm-opts ["-XX:+UseZGC"
                              "-enableassertions"
                              "-Djdk.tracePinnedThreads=full"
+                             "-Duser.timezone=UTC"
                              ;; print stack traces instead of "Full report at ..."
                              "-Dclojure.main.report=stderr"
                              ;; hazelcast
@@ -138,6 +152,9 @@
                              "--add-opens" "java.base/sun.nio.ch=ALL-UNNAMED"
                              "--add-opens" "java.management/sun.management=ALL-UNNAMED"
                              "--add-opens" "jdk.management/com.sun.management.internal=ALL-UNNAMED"
+
+                             ;; throw on invalid go block usage in tests
+                             "-Dclojure.core.async.go-checking=true"
                              ;; headless charts 
                              "-Djava.awt.headless=true"]}
            :retest {:extra-paths ["test" "dev-resources"]

@@ -8,6 +8,7 @@
      (tool/copy)
      (tool/hsql-pretty ...) and more!"
   (:require
+   [cheshire.core :as cheshire]
    [clojure.string :as str]
    [honey.sql :as hsql]
    [portal.api :as p]
@@ -15,7 +16,10 @@
   (:import
    (com.github.vertical_blank.sqlformatter SqlFormatter)
    (com.zaxxer.hikari HikariDataSource)
-   (java.util UUID)))
+   (java.time Instant)
+   (java.util UUID)
+   (org.apache.commons.codec.binary Hex)
+   (org.postgresql.replication LogSequenceNumber)))
 
 (defmacro def-locals*
   [prefix]
@@ -118,6 +122,32 @@
     (.append s "}")
     (.toString s)))
 
+(defn ->pg-stringable-array
+  "Formats stringable list, i.e. {item-1, item-2, item-3}. Works for
+  things you can call toString on that return the representation
+  postgres expects.  Doesn't work on things that might contain a
+  comma."
+  [items]
+  (let [s (StringBuilder. "{")]
+    (doseq [item items]
+      (when (not= 1 (.length s))
+        (.append s \,))
+      (.append s (if (nil? item)
+                   "null"
+                   (.toString ^Object item))))
+    (.append s "}")
+    (.toString s)))
+
+(defn ->pg-json-array [items]
+  (let [s (StringBuilder. "ARRAY[")]
+    (doseq [item items]
+      (when (not= 6 (.length s))
+        (.append s \,))
+      (.append s \')
+      (.append s (str/replace (cheshire/generate-string item) #"(?<!\\)'" "\\'"))
+      (.append s \'))
+    (.append s "]::jsonb[]")))
+
 (defn unsafe-sql-format-query
   "Use with caution: this inlines parameters in the query, so it could
    be used with sql injection.
@@ -133,19 +163,56 @@
                                                  (int? v) (format "%s" v)
                                                  (string? v) (format "'%s'" (-> ^String v
                                                                                 (.replace "'" "''")))
-                                                 (= "uuid[]"
-                                                    (-> v
-                                                        meta
-                                                        :pgtype)) (format "'%s'"
-                                                    (->pg-uuid-array v))
 
-                                                 (= "text[]"
-                                                    (-> v
-                                                        meta
-                                                        :pgtype)) (format "'%s'"
-                                                    (->pg-text-array v))
-                                                 (and (set? v)
-                                                      (every? uuid? v)) (format "'%s'" (->pg-uuid-array v))
+                                                 (= "text[]" (-> v meta :pgtype))
+                                                 (format "'%s'" (->pg-text-array v))
+
+                                                 (= "jsonb[]" (-> v meta :pgtype))
+                                                 (->pg-json-array v)
+
+                                                 (or (= "uuid[]" (-> v meta :pgtype))
+                                                     (= "boolean[]" (-> v meta :pgtype))
+                                                     (= "float8[]" (-> v meta :pgtype))
+                                                     (= "timestamptz[]" (-> v meta :pgtype))
+                                                     (= "integer[]" (-> v meta :pgtype))
+                                                     (= "bigint[]" (-> v meta :pgtype))
+                                                     (and (set? v)
+                                                          (or (every? uuid? v)
+                                                              (every? boolean? v)
+                                                              (every? number? v)
+                                                              (every? (fn [x] (instance? Instant x)) v))))
+                                                 (format "'%s'%s"
+                                                         (->pg-stringable-array v)
+                                                         (when-let [pgtype (-> v meta :pgtype)]
+                                                           (str "::" pgtype)))
+
+                                                 (= "bigint[][]" (-> v meta :pgtype))
+                                                 (format "'%s'::bigint[][]"
+                                                         (->pg-stringable-array
+                                                          (map (fn [a]
+                                                                 (->pg-stringable-array a))
+                                                               v)))
+
+                                                 (or (= "bytea[]" (-> v meta :pgtype))
+                                                     (and (coll? v)
+                                                          (every? (fn [x]
+                                                                    (or (bytes? x)
+                                                                        (nil? x)))
+                                                                  v)))
+                                                 (format "'%s'::bytea[]"
+                                                         (->pg-stringable-array
+                                                          (map (fn [x]
+                                                                 (when x
+                                                                   (str "\\x" (String. (Hex/encodeHex ^bytes x)))))
+                                                               v)))
+
+                                                 (instance? LogSequenceNumber v)
+                                                 (format "'%s'::pg_lsn" (LogSequenceNumber/.asString v))
+
+                                                 ;; Fallback to JSON
+                                                 (set? v)
+                                                 (->pg-json-array v)
+
                                                  :else (format "'%s'" v))
                                                (if (uuid? v)
                                                  "::uuid"
@@ -273,7 +340,7 @@
        result#)))
 
 (defmacro profile [options? & body]
-  `(prof/profile ~options? ~body))
+  `(prof/profile ~options? ~@body))
 
 (def prof-serve-ui prof/serve-ui)
 

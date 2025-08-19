@@ -1,5 +1,5 @@
 import { init as initAdmin, tx, id, lookup } from '@instantdb/admin';
-import { init as initCore } from '@instantdb/core';
+import { init as initCore, InstantUnknownSchema } from '@instantdb/core';
 import Json from '@uiw/react-json-view';
 
 import config, { getLocal, setLocal } from '@/lib/config';
@@ -552,7 +552,10 @@ export function Sandbox({
                           <code>{cr.eid}</code>
                         </div>
                         <div>Value</div>
-                        <Data data={cr.data?.updated} collapsed={0} />
+                        <Data
+                          data={cr.bindings?.['new-data'] || cr.data?.updated}
+                          collapsed={0}
+                        />
                         <div>Check</div>
                         <div className="border bg-white">
                           <span className="px-2 border-r font-bold bg-gray-50">
@@ -587,7 +590,7 @@ function EmailInput({
   setEmail,
   onEnter,
 }: {
-  db: InstantReactWebDatabase<any>;
+  db: InstantReactWebDatabase<InstantUnknownSchema>;
   email: string;
   setEmail: (email: string) => void;
   onEnter: () => void;

@@ -1,7 +1,7 @@
 import express from 'express';
 import bodyParser from 'body-parser';
 import cors from 'cors'; // Import cors module
-import { init, tx, id } from '@instantdb/admin';
+import { init, tx, id, lookup } from '@instantdb/admin';
 import { assert } from 'console';
 import dotenv from 'dotenv';
 import fs from 'fs';
@@ -48,6 +48,14 @@ process.on('unhandledRejection', (reason, promise) => {
 
 async function testQuery() {
   const res = await query({ goals: { todos: {} } });
+
+  console.log(JSON.stringify(res, null, 2));
+}
+
+async function testNeQuery() {
+  const res = await query({
+    goals: { $: { where: { title: { $ne: 'Get six pack abs' } } } },
+  });
 
   console.log(JSON.stringify(res, null, 2));
 }
@@ -138,6 +146,7 @@ async function testDeleteUser() {
 
 // testCreateToken();
 // testQuery();
+// testNeQuery();
 // testTransact();
 // testScoped();
 // testSignOut();

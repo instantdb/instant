@@ -6,6 +6,7 @@
             [instant.jdbc.sql :as sql]
             ;; [instant.model.rule :as rule-model]
             ;; [instant.util.coll :as ucoll]
+            [instant.util.cache :refer [lookup-or-miss]]
             [instant.util.tracer :as tracer]
             [instant.util.instaql :refer [instaql-nodes->object-tree forms-hash]]))
 
@@ -29,8 +30,8 @@
      :error? (instance? Exception res)}))
 
 (defn test-rule-wheres [ctx permissioned-query-fn o query-hash]
-  (cache/lookup-or-miss seen query-hash (constantly true))
-  (binding [tracer/*span* nil] ;; Create new root span
+  (lookup-or-miss seen query-hash (constantly true))
+  (tracer/with-new-trace-root
     (tracer/with-span! {:name "test-pg-hint-plan"
                         :attributes (merge {:query o
                                             :app-id (:app-id ctx)

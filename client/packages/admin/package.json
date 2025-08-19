@@ -1,6 +1,6 @@
 {
   "name": "@instantdb/admin",
-  "version": "v0.20.12",
+  "version": "0.0.0",
   "description": "Admin SDK for Instant DB",
   "type": "module",
   "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/admin",
@@ -55,6 +55,7 @@
     "vitest": "^0.21.0"
   },
   "dependencies": {
-    "@instantdb/core": "workspace:*"
+    "@instantdb/core": "workspace:*",
+    "@instantdb/version": "workspace:*"
   }
 }

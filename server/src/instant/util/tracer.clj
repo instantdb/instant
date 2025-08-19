@@ -196,6 +196,12 @@
          (finally
            (end-span! *span*))))))
 
+(defmacro with-new-trace-root
+  "Creates a new root span, divorced from any parent spans."
+  [& body]
+  `(binding [*span* nil]
+     ~@body))
+
 (defn record-info!
   "Analogous to log/info.
 

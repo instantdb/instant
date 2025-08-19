@@ -18,6 +18,7 @@ import {
   type AuthState,
   type User,
 } from '@instantdb/react';
+
 import {
   i,
   id,
@@ -38,6 +39,7 @@ import {
   type EntitiesWithLinks,
   type EntityDef,
   type InstantGraph,
+  type InstantUnknownSchemaDef,
   type LinkAttrDef,
   type LinkDef,
   type LinksDef,
@@ -47,7 +49,9 @@ import {
   type ConfigWithSchema,
   type InstaQLEntity,
   type InstaQLResult,
+  type InstaQLEntitySubquery,
   type RoomsOf,
+  type RoomsDef,
   type PresenceOf,
   type TopicsOf,
   type TopicOf,
@@ -55,9 +59,11 @@ import {
   type InstantConfig,
   type InstantSchemaDef,
   type InstantUnknownSchema,
+  type TransactionChunk,
   type InstantRules,
   type UpdateParams,
   type LinkParams,
+  type ValidQuery,
   type ExchangeCodeForTokenParams,
   type SendMagicCodeParams,
   type SendMagicCodeResponse,
@@ -123,7 +129,7 @@ const init_experimental = init;
 
 class InstantReactNativeDatabase<
   Schema extends InstantSchemaDef<any, any, any>,
-  Config extends InstantConfig<Schema, boolean>,
+  Config extends InstantConfig<Schema, boolean> = InstantConfig<Schema, false>,
 > extends InstantReactAbstractDatabase<Schema, Config> {
   static Storage = Storage;
   static NetworkListener = NetworkListener;
@@ -163,9 +169,12 @@ export {
   type EntityDef,
   type InstantGraph,
   type LinkAttrDef,
+  type InstantConfig,
   type LinkDef,
+  type InstantUnknownSchemaDef,
   type LinksDef,
   type RoomsOf,
+  type RoomsDef,
   type RoomHandle,
   type PresenceOf,
   type TopicsOf,
@@ -174,14 +183,17 @@ export {
   type ValueTypes,
   type InstaQLEntity,
   type InstaQLResult,
+  type InstaQLEntitySubquery,
   type InstantSchemaDef,
   type InstantUnknownSchema,
   type BackwardsCompatibleSchema,
   type InstantRules,
   type UpdateParams,
   type LinkParams,
+  type ValidQuery,
   type ExchangeCodeForTokenParams,
   type SendMagicCodeParams,
+  type TransactionChunk,
   type SendMagicCodeResponse,
   type SignInWithIdTokenParams,
   type VerifyMagicCodeParams,

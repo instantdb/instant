@@ -18,9 +18,17 @@
  * {% conditional param="choice" value="bar" %}
  *   Content for Bar
  * {% /conditional %}
+ *
+ * {% conditional param="choice" value="bar" %}
+ *   Content for bar
+ *   {% else %}
+ *     Content for not bar
+ *   {% /else %}
+ * {% /conditional %}
  */
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { cn } from '../../components/ui.tsx';
 import { createContext, useContext } from 'react';
 
 const DefaultValueContext = createContext(undefined);
@@ -35,7 +43,7 @@ export function NavDefault({ value, children }) {
 
 export function NavGroup({ children }) {
   return (
-    <div className="not-prose my-12 grid grid-cols-2 gap-3 xl:grid-cols-3">
+    <div className={cn('not-prose grid grid-cols-2 gap-3 xl:grid-cols-3')}>
       {children}
     </div>
   );
@@ -100,7 +108,7 @@ export function NavButton({
   return <div>{href ? <Link href={href}>{Component}</Link> : Component}</div>;
 }
 
-export function ConditionalContent({ param, value, children }) {
+export function ConditionalContent({ param, value, children, elseChildren }) {
   const selected = Array.isArray(value)
     ? value.some((v) => isSelected(param, v))
     : isSelected(param, value);
@@ -109,5 +117,8 @@ export function ConditionalContent({ param, value, children }) {
     return <>{children}</>;
   }
 
+  if (elseChildren) {
+    return <>{elseChildren}</>;
+  }
   return null;
 }

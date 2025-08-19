@@ -1027,6 +1027,45 @@ test('arbitrary ordering with dates', () => {
   expect(numAscRes).toEqual(ascExpected);
 });
 
+test('arbitrary ordering with strings', () => {
+  const schema = i.schema({
+    entities: {
+      tests: i.entity({
+        string: i.string().indexed(),
+      }),
+    },
+  });
+
+  const txSteps = [];
+  const vs = ['10', '2', 'a0', 'Zz'];
+  for (const v of vs) {
+    txSteps.push(
+      tx.tests[randomUUID()].update({
+        string: v,
+      }),
+    );
+  }
+
+  const newStore = transact(
+    store,
+    instaml.transform({ attrs: store.attrs, schema: schema }, txSteps),
+  );
+
+  const ascRes = query(
+    { store: newStore },
+    { tests: { $: { order: { string: 'asc' } } } },
+  ).data.tests.map((x) => x.string);
+
+  expect(ascRes).toEqual(vs);
+
+  const descRes = query(
+    { store: newStore },
+    { tests: { $: { order: { string: 'desc' } } } },
+  ).data.tests.map((x) => x.string);
+
+  expect(descRes).toEqual(vs.toReversed());
+});
+
 test('$isNull', () => {
   const q = { books: { $: { where: { title: { $isNull: true } } } } };
   expect(query({ store }, q).data.books.length).toEqual(0);
@@ -1105,9 +1144,9 @@ test('$isNull with reverse relations', () => {
   ).toEqual(['Lonely shelf']);
 });
 
-test('$not', () => {
-  const q = { tests: { $: { where: { val: { $not: 'a' } } } } };
-  expect(query({ store }, q).data.tests.length).toEqual(0);
+test('$not and $ne', () => {
+  const qNot = { tests: { $: { where: { val: { $not: 'a' } } } } };
+  const qNe = { tests: { $: { where: { val: { $ne: 'a' } } } } };
   const chunks = [
     tx.tests[randomUUID()].update({ val: 'a' }),
     tx.tests[randomUUID()].update({ val: 'b' }),
@@ -1117,12 +1156,13 @@ test('$not', () => {
   ];
   const txSteps = instaml.transform({ attrs: store.attrs }, chunks);
   const newStore = transact(store, txSteps);
-  expect(query({ store: newStore }, q).data.tests.map((x) => x.val)).toEqual([
-    'b',
-    'c',
-    null,
-    undefined,
-  ]);
+  const expected = ['b', 'c', null, undefined];
+  expect(query({ store: newStore }, qNot).data.tests.map((x) => x.val)).toEqual(
+    expected,
+  );
+  expect(query({ store: newStore }, qNe).data.tests.map((x) => x.val)).toEqual(
+    expected,
+  );
 });
 
 test('comparators', () => {

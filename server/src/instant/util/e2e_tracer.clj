@@ -40,7 +40,7 @@
 (def context-field ^Field (get-field SdkSpan "context"))
 
 (defn make-invalidator-tracking-span [^Long tx-id attrs]
-  (let [span (binding [tracer/*span* nil] ;; make sure this is a top-level span
+  (let [span (tracer/with-new-trace-root
                (tracer/new-span! {:name "e2e/invalidator/tracking-span"
                                   :attributes (merge {:tx-id tx-id}
                                                      attrs)}))

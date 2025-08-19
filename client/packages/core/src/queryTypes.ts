@@ -11,6 +11,8 @@ import type {
   ResolveEntityAttrs,
   DataAttrDef,
   AttrsDefs,
+  EntityDefFromSchema,
+  InstantUnknownSchemaDef,
 } from './schemaTypes.ts';
 
 type BuiltIn = Date | Function | Error | RegExp;
@@ -26,38 +28,80 @@ export type Expand<T> = T extends BuiltIn | Primitive
     : T;
 
 // NonEmpty disallows {}, so that you must provide at least one field
-type NonEmpty<T> = {
+export type NonEmpty<T> = {
   [K in keyof T]-?: Required<Pick<T, K>>;
 }[keyof T];
 
-type WhereArgs = {
+type BaseWhereClauseValueComplex<V> = {
   /** @deprecated use `$in` instead of `in` */
-  in?: (string | number | boolean)[];
-  $in?: (string | number | boolean)[];
-  $not?: string | number | boolean;
-  $isNull?: boolean;
-  $gt?: string | number | boolean;
-  $lt?: string | number | boolean;
-  $gte?: string | number | boolean;
-  $lte?: string | number | boolean;
-  $like?: string;
-  $ilike?: string;
+  in?: V[];
+  $in?: V[];
+  /** @deprecated use `$ne` instead of `not` */
+  $not?: V;
+  $ne?: V;
+  $gt?: V;
+  $lt?: V;
+  $gte?: V;
+  $lte?: V;
 };
 
-type WhereClauseValue = string | number | boolean | NonEmpty<WhereArgs>;
+type IsAny<T> = boolean extends (T extends never ? true : false) ? true : false;
 
-type BaseWhereClause = {
-  [key: string]: WhereClauseValue;
+type WhereClauseValueComplex<V, R, I> = BaseWhereClauseValueComplex<V> &
+  (IsAny<V> extends true
+    ? {
+        $ilike?: string;
+        $like?: string;
+        $isNull?: boolean;
+      }
+    : (V extends string
+        ? {
+            $like?: string;
+          }
+        : {}) &
+        (R extends false
+          ? {
+              $isNull?: boolean;
+            }
+          : {}) &
+        (I extends true
+          ? {
+              $ilike?: string;
+            }
+          : {}));
+
+// Make type display better
+type WhereClauseValue<
+  D extends DataAttrDef<string | number | boolean, boolean, boolean>,
+> =
+  D extends DataAttrDef<infer V, infer R, infer I>
+    ?
+        | (IsAny<V> extends true ? string | number | boolean : V)
+        | NonEmpty<WhereClauseValueComplex<V, R, I>>
+    : never;
+
+type WhereClauseColumnEntries<
+  T extends {
+    [key: string]: DataAttrDef<any, boolean, boolean>;
+  },
+> = {
+  [key in keyof T]?: WhereClauseValue<T[key]>;
 };
 
-type WhereClauseWithCombination = {
-  or?: WhereClause[] | WhereClauseValue;
-  and?: WhereClause[] | WhereClauseValue;
+type WhereClauseComboEntries<
+  T extends Record<any, DataAttrDef<any, boolean, boolean>>,
+> = {
+  or?: WhereClauses<T>[] | WhereClauseValue<DataAttrDef<any, false, true>>;
+  and?: WhereClauses<T>[] | WhereClauseValue<DataAttrDef<any, false, true>>;
 };
 
-type WhereClause =
-  | WhereClauseWithCombination
-  | (WhereClauseWithCombination & BaseWhereClause);
+type WhereClauses<T extends Record<any, DataAttrDef<any, boolean, boolean>>> = (
+  | WhereClauseComboEntries<T>
+  | (WhereClauseComboEntries<T> & WhereClauseColumnEntries<T>)
+) & {
+  id?: WhereClauseValue<DataAttrDef<string, false, true>>;
+  [key: `${string}.${string}`]: WhereClauseValue<DataAttrDef<any, false, true>>;
+};
 
 /**
  * A tuple representing a cursor.
@@ -78,7 +122,7 @@ type IndexedKeys<Attrs extends AttrsDefs> = {
     : never;
 }[keyof Attrs];
 
-type Order<
+export type Order<
   Schema extends IContainEntitiesAndLinks<any, any>,
   EntityName extends keyof Schema['entities'],
 > =
@@ -97,7 +141,7 @@ type $Option<
   K extends keyof S['entities'],
 > = {
   $?: {
-    where?: WhereClause;
+    where?: WhereClauses<EntityDefFromSchema<S, K>>;
     order?: Order<S, K>;
     limit?: number;
     last?: number;
@@ -112,6 +156,7 @@ type $Option<
 type NamespaceVal =
   | $Option<IContainEntitiesAndLinks<any, any>, keyof EntitiesDef>
   | ($Option<IContainEntitiesAndLinks<any, any>, keyof EntitiesDef> & Subquery);
+
 type Subquery = { [namespace: string]: NamespaceVal };
 
 interface Query {
@@ -153,7 +198,7 @@ type QueryResponse<
     ? InstaQLQueryResult<E, Q, WithCardinalityInference, UseDates>
     : ResponseOf<{ [K in keyof Q]: Remove$<Q[K]> }, Schema>;
 
-type InstaQLResponse<Schema, Q, UseDates extends boolean> =
+type InstaQLResponse<Schema, Q, UseDates extends boolean = false> =
   Schema extends IContainEntitiesAndLinks<any, any>
     ? InstaQLResult<Schema, Q, UseDates>
     : never;
@@ -294,7 +339,7 @@ type InstaQLEntity<
         ResolveEntityAttrs<Schema['entities'][EntityName], UseDates>,
         Exclude<Fields[number], 'id'>
       >) &
-    InstaQLEntitySubqueryResult<Schema, EntityName, Subquery>
+    InstaQLEntitySubqueryResult<Schema, EntityName, Subquery, UseDates>
 >;
 
 type InstaQLQueryEntityResult<
@@ -310,7 +355,8 @@ type InstaQLQueryEntityResult<
     Entities,
     EntityName,
     Query,
-    WithCardinalityInference
+    WithCardinalityInference,
+    UseDates
   >;
 
 type InstaQLQueryResult<
@@ -395,6 +441,215 @@ type InstaQLOptions = {
   ruleParams: RuleParams;
 };
 
+// Start of new types
+
+type ValidQueryObject<
+  T extends Record<string, any>,
+  Schema extends IContainEntitiesAndLinks<any, any>,
+  EntityName extends keyof Schema['entities'],
+  TopLevel extends boolean,
+> = keyof T extends keyof Schema['entities'][EntityName]['links'] | '$'
+  ? {
+      [K in keyof Schema['entities'][EntityName]['links']]?: ValidQueryObject<
+        T[K],
+        Schema,
+        Schema['entities'][EntityName]['links'][K]['entityName'],
+        false
+      >;
+    } & {
+      $?: ValidDollarSignQuery<T['$'], Schema, EntityName, TopLevel>;
+    }
+  : never;
+
+type PaginationKeys =
+  | 'limit'
+  | 'last'
+  | 'first'
+  | 'offset'
+  | 'after'
+  | 'before';
+
+type AllowedDollarSignKeys<TopLevel extends boolean> = TopLevel extends true
+  ? PaginationKeys | 'where' | 'fields' | 'order'
+  : 'where' | 'fields' | 'order' | 'limit';
+
+type ValidFieldNames<
+  S extends IContainEntitiesAndLinks<any, any>,
+  EntityName extends keyof S['entities'],
+> = Extract<keyof ResolveEntityAttrs<S['entities'][EntityName]>, string> | 'id';
+
+type ValidDollarSignQuery<
+  Input extends { [key: string]: any },
+  Schema extends IContainEntitiesAndLinks<any, any>,
+  EntityName extends keyof Schema['entities'],
+  TopLevel extends boolean,
+> =
+  keyof Input extends AllowedDollarSignKeys<TopLevel>
+    ? {
+        where?: ValidWhereObject<Input['where'], Schema, EntityName>;
+        fields?: ValidFieldNames<Schema, EntityName>[];
+        order?: Order<Schema, EntityName>;
+      } & (TopLevel extends true
+        ? {
+            limit?: number;
+            last?: number;
+            first?: number;
+            offset?: number;
+            after?: Cursor;
+            before?: Cursor;
+          }
+        : {})
+    : never;
+
+type StringifiableKey<T> = Extract<T, string | number | bigint | boolean>;
+
+type ValidWhereNestedPath<
+  T,
+  K extends string | number | symbol,
+  Schema extends IContainEntitiesAndLinks<any, any>,
+> = T extends object
+  ? K extends keyof T
+    ? K // Allow link names as valid paths (they'll default to id)
+    : K extends `${infer K0}.${infer KR}`
+      ? K0 extends keyof T
+        ? T[K0] extends keyof Schema['entities']
+          ? `${K0}.${
+              | ValidWhereNestedPath<
+                  {
+                    [K in keyof Schema['entities'][T[K0]]['links']]: Schema['entities'][T[K0]]['links'][K]['entityName'];
+                  },
+                  KR,
+                  Schema
+                >
+              | StringifiableKey<keyof Schema['entities'][T[K0]]['attrs']>
+              | 'id'}`
+          : string & keyof T
+        : string & keyof T
+      : string & keyof T
+  : never;
+
+type ValidDotPath<
+  Input extends string | number | symbol,
+  Schema extends IContainEntitiesAndLinks<any, any>,
+  EntityName extends keyof Schema['entities'],
+> = ValidWhereNestedPath<
+  {
+    [K in keyof Schema['entities'][EntityName]['links']]: Schema['entities'][EntityName]['links'][K]['entityName'];
+  },
+  Input,
+  Schema
+>;
+
+type WhereOperatorObject<Input, V, R, I> = keyof Input extends
+  | keyof BaseWhereClauseValueComplex<V>
+  | '$ilike'
+  | '$like'
+  | '$isNull'
+  ? BaseWhereClauseValueComplex<V> &
+      (IsAny<V> extends true
+        ? {
+            $ilike?: string;
+            $like?: string;
+            $isNull?: boolean;
+          }
+        : (V extends string
+            ? {
+                $like?: string;
+              }
+            : {}) &
+            (R extends false
+              ? {
+                  $isNull?: boolean;
+                }
+              : {}) &
+            (I extends true
+              ? {
+                  $ilike?: string;
+                }
+              : {}))
+  : never;
+
+type ValidWhereValue<Input, AttrDef extends DataAttrDef<any, any, any>> =
+  AttrDef extends DataAttrDef<infer V, infer R, infer I>
+    ? Input extends V
+      ? V
+      : NonEmpty<WhereOperatorObject<Input, V, R, I>>
+    : never;
+
+type NoDistribute<T> = [T] extends [any] ? T : never;
+
+type ValidWhereObject<
+  Input extends { [key: string]: any } | undefined,
+  Schema extends IContainEntitiesAndLinks<any, any>,
+  EntityName extends keyof Schema['entities'],
+> = Input extends undefined
+  ? undefined
+  : keyof Input extends
+        | ValidDotPath<keyof Input, Schema, EntityName>
+        | keyof Schema['entities'][EntityName]['attrs']
+        | 'and'
+        | 'or'
+        | 'id'
+    ? {
+        [K in ValidDotPath<keyof Input, Schema, EntityName>]?: ValidWhereValue<
+          Input[K],
+          ExtractAttrFromDotPath<K, Schema, EntityName>
+        >;
+      } & {
+        [K in keyof Schema['entities'][EntityName]['attrs']]?: ValidWhereValue<
+          Input[K],
+          Schema['entities'][EntityName]['attrs'][K]
+        >;
+      } & {
+        and?: Input extends { and: Array<infer Item> }
+          ? ValidWhereObject<NoDistribute<Item>, Schema, EntityName>[]
+          : never;
+        or?: Input extends { or: Array<infer Item> }
+          ? ValidWhereObject<NoDistribute<Item>, Schema, EntityName>[]
+          : never;
+      } & {
+        // Special case for id
+        id?: ValidWhereValue<Input['id'], DataAttrDef<string, false, false>>;
+      }
+    : never;
+
+/**
+ * Extracts the attribute definition from a valid dot path.
+ * Given a dot path like "user.posts.title", this will resolve to the type of the "title" attribute.
+ * If the path is just a link name (e.g., "posts"), it defaults to the id field.
+ * Returns DataAttrDef or never
+ */
+type ExtractAttrFromDotPath<
+  Path extends string | number | symbol,
+  Schema extends IContainEntitiesAndLinks<any, any>,
+  EntityName extends keyof Schema['entities'],
+> = Path extends keyof Schema['entities'][EntityName]['attrs']
+  ? Schema['entities'][EntityName]['attrs'][Path]
+  : Path extends 'id'
+    ? DataAttrDef<string, false, false>
+    : Path extends `${infer LinkName}.${infer RestPath}`
+      ? LinkName extends keyof Schema['entities'][EntityName]['links']
+        ? ExtractAttrFromDotPath<
+            RestPath,
+            Schema,
+            Schema['entities'][EntityName]['links'][LinkName]['entityName']
+          >
+        : never
+      : Path extends keyof Schema['entities'][EntityName]['links']
+        ? DataAttrDef<string, false, false>
+        : never;
+
+type ValidQuery<
+  Q extends object,
+  S extends IContainEntitiesAndLinks<any, any>,
+> = S extends InstantUnknownSchemaDef
+  ? InstaQLParams<S>
+  : keyof Q extends keyof S['entities']
+    ? {
+        [K in keyof S['entities']]?: ValidQueryObject<Q[K], S, K, true>;
+      }
+    : never;
+
 export {
   Query,
   QueryResponse,
@@ -403,10 +658,12 @@ export {
   InstantObject,
   Exactly,
   Remove$,
+  ValidQuery,
   InstaQLQueryResult,
   InstaQLParams,
   InstaQLOptions,
   InstaQLQueryEntityResult,
+  InstaQLEntitySubquery,
   InstaQLEntity,
   InstaQLResult,
   InstaQLFields,

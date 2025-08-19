@@ -20,6 +20,7 @@ import {
   type QueryResponse,
   type InstaQLResponse,
   type InstaQLParams,
+  type ValidQuery,
   type InstaQLFields,
   type InstantQuery,
   type InstantQueryResult,
@@ -40,8 +41,10 @@ import {
   type InstantGraph,
   type LinkAttrDef,
   type LinkDef,
+  type InstantUnknownSchemaDef,
   type LinksDef,
   type RoomsOf,
+  type RoomsDef,
   type PresenceOf,
   type RoomHandle,
   type ResolveAttrs,
@@ -50,6 +53,7 @@ import {
   type InstantUnknownSchema,
   type InstaQLEntity,
   type InstaQLResult,
+  type InstaQLEntitySubquery,
   type InstantRules,
   type UpdateParams,
   type LinkParams,
@@ -61,6 +65,8 @@ import {
   type FileOpts,
   type UploadFileResponse,
   type DeleteFileResponse,
+  validateQuery,
+  validateTransactions,
 } from '@instantdb/core';
 
 import version from './version.js';
@@ -81,6 +87,7 @@ type Config = {
   adminToken: string;
   apiURI?: string;
   useDateObjects?: boolean;
+  disableValidation?: boolean;
 };
 
 export type InstantConfig<
@@ -92,6 +99,7 @@ export type InstantConfig<
   apiURI?: string;
   schema?: Schema;
   useDateObjects?: UseDates;
+  disableValidation?: boolean;
 };
 
 type InstantConfigFilled<
@@ -573,10 +581,17 @@ class Storage {
     const headers = {
       ...authorizedHeaders(this.config),
       path,
-      'content-type': metadata.contentType || 'application/octet-stream',
     };
     if (metadata.contentDisposition) {
       headers['content-disposition'] = metadata.contentDisposition;
+    }
+
+    // headers.content-type will become "undefined" (string)
+    // if not removed from the object
+    delete headers['content-type'];
+
+    if (metadata.contentType) {
+      headers['content-type'] = metadata.contentType;
     }
 
     const data = await jsonFetch(`${this.config.apiURI}/admin/storage/upload`, {
@@ -646,7 +661,7 @@ class Storage {
       method: 'PUT',
       body: file,
       headers: {
-        'Content-Type': metadata.contentType || 'application/octet-stream',
+        'Content-Type': metadata.contentType,
       },
     });
 
@@ -721,7 +736,7 @@ class InstantAdminDatabase<
   rooms: Rooms<Schema>;
   impersonationOpts?: ImpersonationOpts;
 
-  public tx = txInit<NonNullable<Config['schema']>>();
+  public tx = txInit<NonNullable<Schema>>();
 
   constructor(_config: Config) {
     this.config = instantConfigWithDefaults(_config);
@@ -762,13 +777,20 @@ class InstantAdminDatabase<
    *  // all goals, _alongside_ their todos
    *  await db.query({ goals: { todos: {} } })
    */
-  query = <Q extends InstaQLParams<Config['schema']>>(
+  query = <Q extends ValidQuery<Q, Schema>>(
     query: Q,
     opts: AdminQueryOpts = {},
-  ): Promise<InstaQLResponse<Schema, Q, Config['useDateObjects']>> => {
+  ): Promise<
+    InstaQLResponse<Schema, Q, NonNullable<Config['useDateObjects']>>
+  > => {
     if (query && opts && 'ruleParams' in opts) {
       query = { $$ruleParams: opts['ruleParams'], ...query };
     }
+
+    if (!this.config.disableValidation) {
+      validateQuery(query, this.config.schema);
+    }
+
     const fetchOpts = opts.fetchOpts || {};
     const fetchOptsHeaders = fetchOpts['headers'] || {};
     return jsonFetch(`${this.config.apiURI}/admin/query`, {
@@ -811,6 +833,9 @@ class InstantAdminDatabase<
   transact = (
     inputChunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
   ) => {
+    if (!this.config.disableValidation) {
+      validateTransactions(inputChunks, this.config.schema);
+    }
     return jsonFetch(`${this.config.apiURI}/admin/transact`, {
       method: 'POST',
       headers: authorizedHeaders(this.config, this.impersonationOpts),
@@ -842,11 +867,11 @@ class InstantAdminDatabase<
    *    { rules: { goals: { allow: { read: "auth.id != null" } } }
    *  )
    */
-  debugQuery = async <Q extends InstaQLParams<Config['schema']>>(
+  debugQuery = async <Q extends ValidQuery<Q, Schema>>(
     query: Q,
     opts?: { rules?: any; ruleParams?: { [key: string]: any } },
   ): Promise<{
-    result: InstaQLResponse<Config['schema'], Q, Config['useDateObjects']>;
+    result: InstaQLResponse<Schema, Q, Config['useDateObjects']>;
     checkResults: DebugCheckResult[];
   }> => {
     if (query && opts && 'ruleParams' in opts) {
@@ -924,11 +949,14 @@ export {
   // core types
   type User,
   type InstaQLParams,
+  type ValidQuery,
   type Query,
 
   // query types
   type QueryResponse,
+  type InstaQLResponse,
   type InstantQuery,
+  type InstantUnknownSchemaDef,
   type InstantQueryResult,
   type InstantSchema,
   type InstantSchemaDatabase,
@@ -952,12 +980,14 @@ export {
   type ResolveAttrs,
   type RoomsOf,
   type PresenceOf,
+  type RoomsDef,
   type RoomHandle,
   type ValueTypes,
   type InstantSchemaDef,
   type InstantUnknownSchema,
   type InstaQLEntity,
   type InstaQLResult,
+  type InstaQLEntitySubquery,
   type InstantRules,
   type UpdateParams,
   type LinkParams,

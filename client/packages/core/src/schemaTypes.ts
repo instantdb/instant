@@ -121,6 +121,19 @@ export class EntityDef<
   }
 }
 
+export type EntityDefFromSchema<
+  S extends IContainEntitiesAndLinks<any, any>,
+  K extends keyof S['entities'],
+> = {
+  [k in keyof S['entities'][K]['attrs']]: S['entities'][K] extends EntityDef<
+    any,
+    any,
+    any
+  >
+    ? S['entities'][K]['attrs'][k]
+    : never;
+};
+
 export type EntitiesDef = Record<string, EntityDef<any, any, any>>;
 
 export type LinksDef<Entities extends EntitiesDef> = Record<
@@ -162,6 +175,11 @@ export type LinkDef<
 
 // ==========
 // derived types
+type IsEmptyOrIndexSignature<T> = keyof T extends never
+  ? true
+  : string extends keyof T
+    ? true
+    : false;
 
 export type EntitiesWithLinks<
   Entities extends EntitiesDef,
@@ -184,48 +202,54 @@ type EntityForwardLinksMap<
   Entities extends EntitiesDef,
   Links extends LinksDef<Entities>,
   LinkIndexFwd = LinksIndexedByEntity<Entities, Links, 'reverse'>,
-> = EntityName extends keyof LinkIndexFwd
-  ? {
-      [LinkName in keyof LinkIndexFwd[EntityName]]: LinkIndexFwd[EntityName][LinkName] extends LinkDef<
-        Entities,
-        infer RelatedEntityName,
-        any,
-        any,
-        any,
-        any,
-        infer Cardinality
-      >
-        ? {
-            entityName: RelatedEntityName;
-            cardinality: Cardinality;
-          }
-        : never;
-    }
-  : {};
+> =
+  IsEmptyOrIndexSignature<Links> extends true
+    ? {}
+    : EntityName extends keyof LinkIndexFwd
+      ? {
+          [LinkName in keyof LinkIndexFwd[EntityName]]: LinkIndexFwd[EntityName][LinkName] extends LinkDef<
+            Entities,
+            infer RelatedEntityName,
+            any,
+            any,
+            any,
+            any,
+            infer Cardinality
+          >
+            ? {
+                entityName: RelatedEntityName;
+                cardinality: Cardinality;
+              }
+            : never;
+        }
+      : {};
 
 type EntityReverseLinksMap<
   EntityName extends keyof Entities,
   Entities extends EntitiesDef,
   Links extends LinksDef<Entities>,
   RevLinkIndex = LinksIndexedByEntity<Entities, Links, 'forward'>,
-> = EntityName extends keyof RevLinkIndex
-  ? {
-      [LinkName in keyof RevLinkIndex[EntityName]]: RevLinkIndex[EntityName][LinkName] extends LinkDef<
-        Entities,
-        any,
-        any,
-        infer Cardinality,
-        infer RelatedEntityName,
-        any,
-        any
-      >
-        ? {
-            entityName: RelatedEntityName;
-            cardinality: Cardinality;
-          }
-        : never;
-    }
-  : {};
+> =
+  IsEmptyOrIndexSignature<Links> extends true
+    ? {}
+    : EntityName extends keyof RevLinkIndex
+      ? {
+          [LinkName in keyof RevLinkIndex[EntityName]]: RevLinkIndex[EntityName][LinkName] extends LinkDef<
+            Entities,
+            any,
+            any,
+            infer Cardinality,
+            infer RelatedEntityName,
+            any,
+            any
+          >
+            ? {
+                entityName: RelatedEntityName;
+                cardinality: Cardinality;
+              }
+            : never;
+        }
+      : {};
 
 type LinksIndexedByEntity<
   Entities extends EntitiesDef,
@@ -486,7 +510,7 @@ export type BackwardsCompatibleSchema<
 export type UnknownEntity = EntityDef<
   {
     id: DataAttrDef<string, true, true>;
-    [AttrName: string]: DataAttrDef<any, any, any>;
+    [AttrName: string]: DataAttrDef<any, boolean, boolean>;
   },
   { [LinkName: string]: LinkAttrDef<'many', string> },
   void
@@ -517,11 +541,13 @@ export interface UnknownRooms {
   };
 }
 
-export type InstantUnknownSchema = InstantSchemaDef<
+export class InstantUnknownSchemaDef extends InstantSchemaDef<
   UnknownEntities,
   UnknownLinks<UnknownEntities>,
   UnknownRooms
->;
+> {}
+
+export type InstantUnknownSchema = InstantUnknownSchemaDef;
 
 export type CreateParams<
   Schema extends IContainEntitiesAndLinks<any, any>,
@@ -543,8 +569,8 @@ export type CreateParams<
     Schema['entities'][EntityName]['attrs']
   >]?: Schema['entities'][EntityName]['attrs'][AttrName] extends DataAttrDef<
     infer ValueType,
-    any,
-    false
+    false,
+    any
   >
     ? (ValueType extends Date ? string | number | Date : ValueType) | null
     : never;

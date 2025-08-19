@@ -19,9 +19,15 @@ client/www/public/sitemap.xml
 client/www/public/llms.txt
 client/www/public/llms-full.txt
 
+# rss
+client/www/public/rss.xml
+
 # static docs
 client/www/public/docs
 client/www/public/docs*
+
+# MCP tutorial rules
+client/www/public/mcp-tutorial*
 
 # production
 www/build
@@ -51,7 +57,6 @@ server/resources/config/overlay.edn
 
 dist
 
-.lsp
 .calva
 
 .clj-kondo/*

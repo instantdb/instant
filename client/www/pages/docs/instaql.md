@@ -299,7 +299,7 @@ const query = {
     todos: {
       $: {
         where: {
-          'todos.title': 'Go on a run',
+          title: 'Go on a run',
         },
       },
     },
@@ -398,7 +398,7 @@ const {
         todos: {
           $: {
             where: {
-              userId: user.id,
+              'owner.id': user.id,
             },
           },
         },
@@ -546,7 +546,7 @@ const loadPreviousPage = () => {
 
 ### Ordering
 
-The default ordering is by the time the objects were created, in ascending order. You can change the order with the `order` key in the option map for top-level namespaces:
+The default ordering is by the time the objects were created, in ascending order. You can change the order with the `order` key in the option map for namespaces:
 
 ```javascript
 const query = {
@@ -567,10 +567,10 @@ The `serverCreatedAt` field is a reserved key that orders by the time that the o
 You can also order by any attribute that is indexed and has a checked type.
 
 {% callout %}
-Add indexes and checked types to your attributes from the [Explorer on the Instant dashboard](/dash?t=explorer) or from the [cli with Schema-as-code](/docs/schema).
+Add indexes and checked types to your attributes from the [Explorer on the Instant dashboard](/dash?t=explorer) or from the [cli](/docs/cli).
 {% /callout %}
 
-```javascript
+```typescript
 // Get the todos that are due next
 const query = {
   todos: {
@@ -581,6 +581,51 @@ const query = {
       },
       order: {
         dueDate: 'asc',
+      },
+    },
+  },
+};
+```
+
+You can use order in nested namespaces as well:
+
+```typescript
+// Get goals with their associated todos ordered by due date
+const query = {
+  goals: {
+    todos: {
+      $: {
+        order: {
+          dueDate: 'asc',
+        },
+      },
+    },
+  },
+};
+```
+
+Order is not supported on nested attributes. So if todos had an owner you could
+not order todos by "owner.name". This behavior is different from `where`,
+which supports filtering on nested attributes.
+
+```typescript
+// ❌ Order does not support nested attributes
+const query = {
+  todos: {
+    $: {
+      order: {
+        'owner.name': 'asc', // Cannot order by nested attributes
+      },
+    },
+  },
+};
+
+// ✅ Where does support filtering on nested attributes
+const query = {
+  todos: {
+    $: {
+      where: {
+        'owner.name': 'alyssa.p.hacker@instantdb.com',
       },
     },
   },
@@ -826,9 +871,9 @@ console.log(error);
 }
 ```
 
-### $not
+### $ne
 
-The `where` clause supports `$not` queries that will return entities that don't
+The `where` clause supports `$ne` queries that will return entities that don't
 match the provided value for the field, including entities where the field is null or undefined.
 
 ```javascript
@@ -836,7 +881,7 @@ const query = {
   todos: {
     $: {
       where: {
-        location: { $not: 'work' },
+        location: { $ne: 'work' },
       },
     },
   },

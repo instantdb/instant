@@ -1,17 +1,20 @@
 #!/usr/bin/env node
 
 import 'dotenv/config';
-import express, { Request, Response, Express, query, response } from 'express';
+import express, { Request, Response } from 'express';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import { PlatformApi } from '@instantdb/platform';
 import { zodToSchema } from './schema.ts';
 import { parseArgs } from 'node:util';
-import version from './version.js';
+import version from './version.ts';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 
-import { mcpAuthRouter } from '@modelcontextprotocol/sdk/server/auth/router.js';
+import {
+  createOAuthMetadata,
+  mcpAuthRouter,
+} from '@modelcontextprotocol/sdk/server/auth/router.js';
 import { pinoHttp } from 'pino-http';
 import { pino } from 'pino';
 import { init } from '@instantdb/admin';
@@ -192,20 +195,9 @@ function registerTools(server: McpServer, api: PlatformApi) {
   server.tool(
     'get-apps',
     'List all apps owned by the authenticated user',
-    {
-      includeSchema: z
-        .boolean()
-        .optional()
-        .describe('Include schema in response'),
-      includePerms: z
-        .boolean()
-        .optional()
-        .describe('Include permissions in response'),
-    },
-    async ({ includeSchema, includePerms }) => {
+    async () => {
       try {
-        const opts = { includeSchema, includePerms };
-        const result = await api.getApps(opts);
+        const result = await api.getApps();
 
         return {
           content: [
@@ -432,6 +424,7 @@ async function startSse() {
     adminToken: ensureEnv('INSTANT_ADMIN_TOKEN'),
     appId: ensureEnv('INSTANT_APP_ID'),
     schema,
+    disableValidation: true,
   });
 
   const oauthConfig: OAuthConfig = {
@@ -458,27 +451,48 @@ async function startSse() {
 
   const proxyProvider = new ServiceProvider(db, oauthConfig, keyConfig);
 
-  app.use(
-    mcpAuthRouter({
-      scopesSupported: ['apps-read', 'apps-write'],
-      provider: proxyProvider,
-      issuerUrl: new URL(oauthConfig.serverOrigin),
-      baseUrl: new URL(oauthConfig.serverOrigin),
-      serviceDocumentationUrl: new URL('https://instantdb.com/docs'),
-    }),
-  );
+  const authRouterOptions = {
+    scopesSupported: ['apps-read', 'apps-write'],
+    provider: proxyProvider,
+    issuerUrl: new URL(oauthConfig.serverOrigin),
+    baseUrl: new URL(oauthConfig.serverOrigin),
+    serviceDocumentationUrl: new URL('https://instantdb.com/docs'),
+  };
+
+  const oauthMetadata = createOAuthMetadata(authRouterOptions);
+
+  app.use(mcpAuthRouter(authRouterOptions));
 
   addOAuthRoutes(app, db, oauthConfig);
 
-  const requireTokenMiddleware = requireBearerAuth({
-    verifier: proxyProvider,
-    resourceMetadataUrl: `${oauthConfig.serverOrigin}/.well-known/oauth-protected-resource`,
+  app.get('/.well-known/oauth-protected-resource/mcp', (_req, res) => {
+    res.json({
+      resource: `${oauthConfig.serverOrigin}/mcp`,
+      authorization_servers: [oauthMetadata.issuer],
+      scopes_supported: oauthMetadata.scopes_supported,
+      resource_documentation: 'https://instantdb.com/docs',
+    });
   });
+
+  app.get('/.well-known/oauth-protected-resource/sse', (_req, res) => {
+    res.json({
+      resource: `${oauthConfig.serverOrigin}/mcp`,
+      authorization_servers: [oauthMetadata.issuer],
+      scopes_supported: oauthMetadata.scopes_supported,
+      resource_documentation: 'https://instantdb.com/docs',
+    });
+  });
+
+  const requireTokenMiddleware = (path: string) =>
+    requireBearerAuth({
+      verifier: proxyProvider,
+      resourceMetadataUrl: `${oauthConfig.serverOrigin}/.well-known/oauth-protected-resource/${path}`,
+    });
 
   // Handle POST requests for client-to-server communication
   app.post(
     '/mcp',
-    requireTokenMiddleware,
+    requireTokenMiddleware('mcp'),
     async (req: Request, res: Response) => {
       const server = createMCPServer();
       try {
@@ -543,7 +557,7 @@ async function startSse() {
 
   app.get(
     '/sse',
-    requireTokenMiddleware,
+    requireTokenMiddleware('sse'),
     async (req: Request, res: Response) => {
       const server = createMCPServer();
       const transport = new SSEServerTransport('/messages', res);

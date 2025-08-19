@@ -1,6 +1,6 @@
 {
   "name": "@instantdb/react",
-  "version": "v0.20.12",
+  "version": "0.0.0",
   "description": "Instant DB for React",
   "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/react",
   "repository": {
@@ -62,6 +62,7 @@
     "react": ">=16"
   },
   "dependencies": {
-    "@instantdb/core": "workspace:*"
+    "@instantdb/core": "workspace:*",
+    "@instantdb/version": "workspace:*"
   }
 }

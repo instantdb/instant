@@ -10,6 +10,7 @@
    [instant.model.instant-user :as instant-user-model]
    [instant.model.rule :as rule-model]
    [instant.system-catalog-ops :refer [query-op]]
+   [instant.util.cache :refer [lookup-or-miss]]
    [instant.util.crypt :as crypt-util]
    [instant.util.exception :as ex]
    [instant.util.uuid :as uuid-util]
@@ -63,7 +64,7 @@
 
 (defn get-by-id
   ([{:keys [id]}]
-   (cache/lookup-or-miss app-cache id (partial get-by-id* (aurora/conn-pool :read))))
+   (lookup-or-miss app-cache id (partial get-by-id* (aurora/conn-pool :read))))
   ([conn {:keys [id] :as params}]
    (if (= conn (aurora/conn-pool :read))
      (get-by-id params)
@@ -324,8 +325,8 @@
      (sql/execute-one! ::delete-by-id!
                        conn ["UPDATE apps SET deletion_marked_at = NOW() WHERE id = ?::uuid" id]))))
 
-(defn get-apps-to-delete
-  ([params] (get-apps-to-delete (aurora/conn-pool :read) params))
+(defn get-apps-to-hard-delete
+  ([params] (get-apps-to-hard-delete (aurora/conn-pool :read) params))
   ([conn {:keys [maximum-deletion-marked-at]}]
    (sql/select ::get-apps-to-delete
                conn
@@ -363,7 +364,7 @@
   ([params] (clear-by-id! (aurora/conn-pool :write) params))
   ([conn {:keys [id]}]
    (next-jdbc/with-transaction [tx-conn conn]
-     (attr-model/delete-by-app-id! tx-conn id)
+     (attr-model/hard-delete-by-app-id! tx-conn id)
      (rule-model/delete-by-app-id! tx-conn {:app-id id})
      (transaction-model/create! tx-conn {:app-id id}))))
 

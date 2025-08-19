@@ -18,6 +18,7 @@
             :test-emails {}
             :use-patch-presence {}
             :refresh-skip-attrs {}
+            :new-permissioned-transact {}
             :drop-refresh-spam {}
             :promo-emails {}
             :rate-limited-apps {}
@@ -99,6 +100,24 @@
                                 :default-value default-value
                                 :disabled? disabled?}))
 
+        new-permissioned-transact
+        (when-let [hz-flag (-> (get result "new-permissioned-transact")
+                               first)]
+          (let [disabled-apps (-> hz-flag
+                                  (get "disabled-apps")
+                                  (#(map parse-uuid %))
+                                  set)
+                enabled-apps (-> hz-flag
+                                 (get "enabled-apps")
+                                 (#(map parse-uuid %))
+                                 set)
+                default-value (get hz-flag "default-value" false)
+                disabled? (get hz-flag "disabled" false)]
+            {:disabled-apps disabled-apps
+             :enabled-apps enabled-apps
+             :default-value default-value
+             :disabled? disabled?}))
+
         promo-code-emails (set (keep (fn [o]
                                        (get o "email"))
                                      (get result "promo-emails")))
@@ -147,10 +166,17 @@
                           (assoc acc (keyword setting) toggled))
                         {}
                         (get result "toggles"))
-        flags (reduce (fn [acc {:strs [setting value]}]
-                        (assoc acc (keyword setting) value))
-                      {}
-                      (get result "flags"))
+        flags (-> (reduce (fn [acc {:strs [setting value]}]
+                            (assoc acc (keyword setting) value))
+                          {}
+                          (get result "flags"))
+                  (update :always-materialize-attr-ids (fn [vs]
+                                                         (set (map parse-uuid vs))))
+                  (update :tika-enabled-apps (fn [vs]
+                                               (set (map parse-uuid vs))))
+                  (update :use-hint-query-hashes (fn [vs]
+                                                   (set vs))))
+
         handle-receive-timeout (reduce (fn [acc {:strs [appId timeoutMs]}]
                                          (assoc acc (parse-uuid appId) timeoutMs))
                                        {}
@@ -176,6 +202,7 @@
      :storage-block-list storage-block-list
      :use-patch-presence use-patch-presence
      :refresh-skip-attrs refresh-skip-attrs
+     :new-permissioned-transact new-permissioned-transact
      :promo-code-emails promo-code-emails
      :drop-refresh-spam drop-refresh-spam
      :rate-limited-apps rate-limited-apps
@@ -270,6 +297,25 @@
       :else
       default-value)))
 
+(defn new-permissioned-transact? [app-id]
+  (let [flag (:new-permissioned-transact (query-result))
+        {:keys [disabled-apps enabled-apps default-value disabled?]} flag]
+    (cond
+      (nil? flag)
+      false
+
+      disabled?
+      false
+
+      (contains? disabled-apps app-id)
+      false
+
+      (contains? enabled-apps app-id)
+      true
+
+      :else
+      default-value)))
+
 (defn drop-refresh-spam? [app-id]
   (if-let [flag (get (query-result) :drop-refresh-spam)]
     (let [{:keys [disabled-apps enabled-apps default-value]} flag]
@@ -292,11 +338,6 @@
        (zero? (mod tx-id (or (get-in (query-result)
                                      [:e2e-logging :invalidator-every-n])
                              10000)))))
-
-(defn app-deletion-sweeper-disabled? []
-  (-> (query-result)
-      :app-deletion-sweeper
-      :disabled?))
 
 (defn use-vfutures? []
   (-> (query-result)
@@ -339,3 +380,7 @@
                  acc))
              {}
              (get (query-result) :toggles)))
+
+(defn hard-deletion-sweeper-disabled? []
+  (toggled? :hard-deletion-sweeper-disabled?))
+

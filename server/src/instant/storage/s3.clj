@@ -1,12 +1,17 @@
 (ns instant.storage.s3
   (:require [clojure.string :as string]
             [instant.config :as config]
+            [instant.flags :as flags]
             [instant.util.s3 :as s3-util]
-            [instant.util.date :as date-util])
+            [instant.util.date :as date-util]
+            [instant.util.tracer :as tracer])
   (:import
    [software.amazon.awssdk.auth.credentials DefaultCredentialsProvider]
    [software.amazon.awssdk.services.s3 S3AsyncClient S3Client]
    [java.time Duration Instant]
+   [org.apache.tika Tika]
+   [org.apache.tika.io TikaInputStream]
+   [java.io InputStream]
    [java.time.temporal ChronoUnit]))
 
 (set! *warn-on-reflection* true)
@@ -90,11 +95,40 @@
 ;; Instant <> S3 integration
 ;; ----------------------
 
-(defn upload-file-to-s3 [{:keys [app-id location-id] :as ctx} file]
-  (when (not (instance? java.io.InputStream file))
-    (throw (Exception. "Unsupported file format")))
-  (let [ctx* (assoc ctx :object-key (->object-key app-id location-id))]
-    (s3-util/upload-stream-to-s3 (s3-async-client) bucket-name ctx* file)))
+(def ^Tika tika (Tika.))
+
+(defn requires-tika? [{:keys [content-type app-id]}]
+  (and
+   (not content-type)
+   (contains? (flags/flag :tika-enabled-apps) app-id)))
+
+(defn deduce-content-type [{:keys [content-type] :as ctx} file]
+  (if (requires-tika? ctx)
+    (.detect tika ^TikaInputStream file)
+    content-type))
+
+(defn get-file-stream ^InputStream [ctx ^InputStream file]
+  (if (requires-tika? ctx)
+    (TikaInputStream/get file)
+    file))
+
+(defn upload-file-to-s3 [{:keys [app-id location-id] :as ctx} file_]
+  (tracer/with-span! {:name "upload-file-to-s3"
+                      :attributes {:requires-tika? (requires-tika? ctx)
+                                   :app-id app-id
+                                   :input-content-type (:content-type ctx)
+                                   :flag-enabled (or (flags/toggled? :tika-enabled?)
+                                                     (contains? (flags/flag :tika-enabled-apps) app-id))}}
+
+    (when (not (instance? InputStream file_))
+      (throw (Exception. "Unsupported file format")))
+    (with-open [file (get-file-stream ctx file_)]
+      (let [content-type (deduce-content-type ctx file)
+            _ (tracer/add-data! {:attributes {:output-content-type content-type}})
+            ctx* (cond-> ctx
+                   true (assoc :object-key (->object-key app-id location-id))
+                   content-type (assoc :content-type content-type))]
+        (s3-util/upload-stream-to-s3 (s3-async-client) bucket-name ctx* file)))))
 
 (defn format-object [{:keys [object-metadata]}]
   (-> object-metadata

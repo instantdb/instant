@@ -1,5 +1,6 @@
 import { query as datalogQuery } from './datalog.js';
 import { uuidCompare } from './utils/uuid.ts';
+import { stringCompare } from './utils/strings.ts';
 import * as s from './store.js';
 
 // Pattern variables
@@ -348,6 +349,12 @@ function parseWhere(makeVar, store, etype, level, where) {
 
     const path = k.split('.');
 
+    // Normalize $ne to $not
+    if (v?.hasOwnProperty('$ne')) {
+      v = { ...v, $not: v.$ne };
+      delete v.$ne;
+    }
+
     if (v?.hasOwnProperty('$not')) {
       // `$not` won't pick up entities that are missing the attr, so we
       // add in a `$isNull` to catch those too.
@@ -477,7 +484,20 @@ function shouldIgnoreAttr(attrs, id) {
   return attr['value-type'] === 'ref' && attr['forward-identity'][2] !== 'id';
 }
 
-function compareOrder([id_a, v_a], [id_b, v_b]) {
+// Compares values where we already know that the two values are distinct
+// and not null.
+// Takes into account the data type.
+function compareDisparateValues(a, b, dataType) {
+  if (dataType === 'string') {
+    return stringCompare(a, b);
+  }
+  if (a > b) {
+    return 1;
+  }
+  return -1;
+}
+
+function compareOrder([id_a, v_a], [id_b, v_b], dataType) {
   if (v_a === v_b || (v_a == null && v_b == null)) {
     return uuidCompare(id_a, id_b);
   }
@@ -488,10 +508,8 @@ function compareOrder([id_a, v_a], [id_b, v_b]) {
   if (v_a == null) {
     return -1;
   }
-  if (v_a > v_b) {
-    return 1;
-  }
-  return -1;
+
+  return compareDisparateValues(v_a, v_b, dataType);
 }
 
 function comparableDate(x) {
@@ -505,14 +523,14 @@ function isBefore(startCursor, orderAttr, direction, idVec) {
   const [c_e, _c_a, c_v, c_t] = startCursor;
   const compareVal = direction === 'desc' ? 1 : -1;
   if (orderAttr['forward-identity']?.[2] === 'id') {
-    return compareOrder(idVec, [c_e, c_t]) === compareVal;
+    return compareOrder(idVec, [c_e, c_t], null) === compareVal;
   }
   const [e, v] = idVec;
-  const v_new =
-    orderAttr['checked-data-type'] === 'date' ? comparableDate(v) : v;
-  const c_v_new =
-    orderAttr['checked-data-type'] === 'date' ? comparableDate(c_v) : c_v;
-  return compareOrder([e, v_new], [c_e, c_v_new]) === compareVal;
+  const dataType = orderAttr['checked-data-type'];
+  const v_new = dataType === 'date' ? comparableDate(v) : v;
+  const c_v_new = dataType === 'date' ? comparableDate(c_v) : c_v;
+
+  return compareOrder([e, v_new], [c_e, c_v_new], dataType) === compareVal;
 }
 
 function orderAttrFromCursor(store, cursor) {
@@ -590,10 +608,10 @@ function runDataloadAndReturnObjects(
   idVecs.sort(
     direction === 'asc'
       ? function compareIdVecs(a, b) {
-          return compareOrder(a, b);
+          return compareOrder(a, b, orderAttr?.['checked-data-type']);
         }
       : function compareIdVecs(a, b) {
-          return compareOrder(b, a);
+          return compareOrder(b, a, orderAttr?.['checked-data-type']);
         },
   );
 

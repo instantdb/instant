@@ -25,7 +25,7 @@ import {
  * i.schema({ entities, links, rooms })
  *
  * @see
- * https://instantdb.com/docs/schema
+ * https://instantdb.com/docs/modeling-data
  */
 function graph<
   EntitiesWithoutLinks extends EntitiesDef,
@@ -46,7 +46,7 @@ function graph<
 /**
  * Creates an entity definition, to be used in conjunction with `i.graph`.
  *
- * @see https://instantdb.com/docs/schema
+ * @see https://instantdb.com/docs/modeling-data
  * @example
  *   {
  *     posts: i.entity({
@@ -144,7 +144,7 @@ type LinksIndex = Record<
  * You can push this schema to your database with the CLI,
  * or use it inside `init`, to get typesafety and autocompletion.
  *
- * @see https://instantdb.com/docs/schema
+ * @see https://instantdb.com/docs/modeling-data
  * @example
  *   i.schema({
  *     entities: { },
@@ -155,7 +155,7 @@ type LinksIndex = Record<
 function schema<
   EntitiesWithoutLinks extends EntitiesDef,
   const Links extends LinksDef<EntitiesWithoutLinks>,
-  Rooms extends RoomsDef,
+  Rooms extends RoomsDef = {},
 >({
   entities,
   links,
@@ -165,11 +165,11 @@ function schema<
   links?: Links;
   rooms?: Rooms;
 }) {
-  const linksDef = links ?? ({} as Links);
-  const roomsDef = rooms ?? ({} as Rooms);
+  const linksDef = (links ?? {}) as Links;
+  const roomsDef = (rooms ?? {}) as Rooms;
   return new InstantSchemaDef(
     enrichEntitiesWithLinks<EntitiesWithoutLinks, Links>(entities, linksDef),
-    // (XXX): LinksDef<any> stems from TypeScript’s inability to reconcile the
+    // (XXX): LinksDef<any> stems from TypeScript's inability to reconcile the
     // type EntitiesWithLinks<EntitiesWithoutLinks, Links> with
     // EntitiesWithoutLinks. TypeScript is strict about ensuring that types are
     // correctly aligned and does not allow for substituting a type that might

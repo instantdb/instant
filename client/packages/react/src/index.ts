@@ -12,6 +12,7 @@ import {
   type InstantObject,
   type InstantEntity,
   type InstantSchemaDatabase,
+  type InstantUnknownSchemaDef,
   type IInstantDatabase,
   type User,
   type AuthState,
@@ -19,6 +20,7 @@ import {
   type Config,
   type InstaQLParams,
   type ConnectionStatus,
+  type ValidQuery,
 
   // schema types
   type AttrsDefs,
@@ -28,6 +30,7 @@ import {
   type EntitiesWithLinks,
   type EntityDef,
   type InstantGraph,
+  type InstantConfig,
   type LinkAttrDef,
   type LinkDef,
   type LinksDef,
@@ -36,11 +39,14 @@ import {
   type InstaQLEntity,
   type InstaQLFields,
   type InstaQLResult,
+  type InstaQLEntitySubquery,
   type RoomsOf,
+  type RoomsDef,
   type PresenceOf,
   type TopicsOf,
   type TopicOf,
   type RoomHandle,
+  type TransactionChunk,
   type InstantUnknownSchema,
   type InstantSchemaDef,
   type BackwardsCompatibleSchema,
@@ -60,7 +66,7 @@ import {
   type DeleteFileResponse,
 } from '@instantdb/core';
 
-import InstantReactAbstractDatabase from './InstantReactAbstractDatabase.ts';
+import InstantReactAbstractDatabase from './InstantReactAbstractDatabase.tsx';
 import InstantReactWebDatabase from './InstantReactWebDatabase.ts';
 import { init, init_experimental } from './init.ts';
 import { Cursors } from './Cursors.tsx';
@@ -80,6 +86,8 @@ export {
 
   // types
   type Config,
+  type InstantConfig,
+  type InstantUnknownSchemaDef,
   type Query,
   type QueryResponse,
   type InstantObject,
@@ -93,6 +101,7 @@ export {
   type InstantSchemaDatabase,
   type IInstantDatabase,
   type InstaQLParams,
+  type ValidQuery,
   type InstaQLFields,
 
   // schema types
@@ -110,7 +119,10 @@ export {
   type ValueTypes,
   type InstaQLEntity,
   type InstaQLResult,
+  type InstaQLEntitySubquery,
   type RoomsOf,
+  type RoomsDef,
+  type TransactionChunk,
   type PresenceOf,
   type TopicsOf,
   type TopicOf,

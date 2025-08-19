@@ -1,6 +1,6 @@
 {
   "name": "@instantdb/react-native",
-  "version": "v0.20.12",
+  "version": "0.0.0",
   "description": "Instant DB for React Native",
   "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/react-native",
   "repository": {
@@ -40,6 +40,7 @@
   },
   "dependencies": {
     "@instantdb/core": "workspace:*",
-    "@instantdb/react": "workspace:*"
+    "@instantdb/react": "workspace:*",
+    "@instantdb/version": "workspace:*"
   }
 }

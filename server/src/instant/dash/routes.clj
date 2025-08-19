@@ -50,6 +50,7 @@
             [instant.superadmin.routes :refer [req->superadmin-user-and-app!]]
             [instant.system-catalog :as system-catalog]
             [instant.util.async :refer [fut-bg]]
+            [instant.util.cache :refer [lookup-or-miss]]
             [instant.util.coll :as ucoll]
             [instant.util.crypt :as crypt-util]
             [instant.util.date :as date]
@@ -1024,11 +1025,12 @@
         params (:headers req)
         path (ex/get-param! params ["path"] string-util/coerce-non-blank-str)
         file (ex/get-param! req [:body] identity)
+        content-type (storage-coordinator/coerce-content-type (:content-type req))
         data (storage-coordinator/upload-file!
               {:app-id app-id
                :path path
                :file file
-               :content-type (:content-type req)
+               :content-type content-type
                :content-length (:content-length req)
                :skip-perms-check? true}
               file)]
@@ -1240,12 +1242,12 @@
 (def active-session-cache (cache/ttl-cache-factory {} :ttl 5000))
 
 (defn get-total-count-cached []
-  (cache/lookup-or-miss active-session-cache
-                        :total-count
-                        (fn [_]
-                          (->> (machine-summaries/get-all-num-sessions (eph/get-hz))
-                               vals
-                               (reduce +)))))
+  (lookup-or-miss active-session-cache
+                  :total-count
+                  (fn [_]
+                    (->> (machine-summaries/get-all-num-sessions (eph/get-hz))
+                         vals
+                         (reduce +)))))
 
 (defn active-sessions-get [_]
   (response/ok {:total-count (get-total-count-cached)}))

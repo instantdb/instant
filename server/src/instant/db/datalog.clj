@@ -31,6 +31,7 @@
             [clojure.spec.alpha :as s]
             [clojure.set :as set]
             [instant.db.model.triple :as triple-model]
+            [instant.db.attr-sketch :as cms]
             [instant.flags :as flags]
             [instant.util.spec :as uspec]
             [instant.util.tracer :as tracer]
@@ -567,17 +568,22 @@
 ;; -----
 ;; where
 
-(defn- in-or-eq
-  "If the set has only one element,
-   return an = clause. Otherwise, return an :in clause."
-  [k v-set]
-  (case (count v-set)
-    0 [:= 0 1]
-    1 [:= k (first v-set)]
-    [:in k v-set]))
-
 (defn- value->jsonb [x]
   [:cast (->json x) :jsonb])
+
+(defn- in-any
+  "If the set has only one element,
+   return an = clause. Otherwise, return an `= ANY(vs)` clause."
+  [col vs pgtype]
+  (case (count vs)
+    0 [:= 0 1]
+    1 [:= col [:cast
+               (case pgtype
+                 :jsonb (->json (first vs))
+                 (first vs))
+               pgtype]]
+    [:= col [:any (with-meta (set vs)
+                    {:pgtype (str (name pgtype) "[]")})]]))
 
 (defn extract-value-fn [data-type op]
   (case data-type
@@ -588,14 +594,25 @@
               nil)
     :boolean :triples_extract_boolean_value))
 
+(def data-type->pg-type {:date :timestamptz
+                         :number :float8
+                         :string :text
+                         :boolean :boolean})
+
 (defn data-type-comparison [data-type op col val]
   (if-let [f (extract-value-fn data-type op)]
     [:and
-     [op [f col] val]
+     (if (and (= op :=)
+              (set? val))
+       (in-any [f col] val (data-type->pg-type data-type))
+       [op [f col] val])
      [:=
       :checked_data_type
       [:cast [:inline (name data-type)] :checked_data_type]]]
-    [op col (value->jsonb val)]))
+    (if (and (= op :=)
+             (set? val))
+      (in-any col val :jsonb)
+      [op col (value->jsonb val)])))
 
 (defn- not-eq-value [idx val]
   (let [[tag idx-val] idx
@@ -619,30 +636,26 @@
     (if (empty? v-set)
       [:= 0 1]
       (if-not data-type
-        (in-or-eq (case idx-val
+        (let [col (case idx-val
                     ;; Make sure av uses the av_index
                     :av [:json_null_to_null :value]
                     ;; Make sure vae uses the vae_uuid_index
                     ;; and eav uses the eav_uuid_index
                     (:eav :vae) [:json_uuid_to_uuid :value]
 
-                    :value)
-                  (if (or (= :vae idx-val)
-                          (= :eav idx-val))
-                    v-set
-                    (map value->jsonb v-set)))
-
-        (list* :or (map (fn [v]
-                          (data-type-comparison data-type := :value v))
-                        v-set))))))
+                    :value)]
+          (if (or (= :vae idx-val)
+                  (= :eav idx-val))
+            (in-any col v-set (if (every? uuid? v-set)
+                                :uuid
+                                :jsonb))
+            (in-any col v-set :jsonb)))
+        (data-type-comparison data-type := :value v-set)))))
 
 (defn- constant->where-part [idx app-id component-type [_ v]]
   (condp = component-type
     :e (if (every? uuid? v)
-         (case (count v)
-           0 [:= 0 1]
-           1 [:= :entity-id (first v)]
-           [:= :entity-id [:any (with-meta v {:pgtype "uuid[]"})]])
+         (in-any :entity-id v :uuid)
          (list* :or
                 (for [lookup v]
                   (if (uuid? lookup)
@@ -1025,77 +1038,207 @@
 (defn test-pg-hints? []
   *testing-pg-hints*)
 
+(defn required-sketch-keys-for-component
+  "Returns a set of {:app-id :attr-id} maps for the sketches that we'll
+   need to fulfill the count queries for the named pattern."
+  [ctx named-p component]
+  (let [app-id (:app-id ctx)
+        a (:a named-p)
+        [tag val] (get named-p component)]
+    (concat (when (named-constant? a)
+              (map (fn [a] {:app-id app-id
+                            :attr-id a})
+                   (uspec/tagged-unwrap a)))
+            (when (= tag :function)
+              (let [[f body] (first val)]
+                (when (= :$isNull f)
+                  [{:app-id app-id
+                    :attr-id (:attr-id body)}]))))))
+
+(defn required-sketch-keys
+  "Returns a set of {:app-id :attr-id} maps of the sketches that we'll
+   need to fulfill the count queries for the named pattern."
+  [ctx named-p]
+  (reduce (fn [acc component]
+            (into acc (required-sketch-keys-for-component ctx named-p component)))
+          #{}
+          [:e :v]))
+
+(defn index-size-from-sketch [ctx named-p component]
+  (let [a (:a named-p)
+        app-id (:app-id ctx)
+        sketches (:sketches ctx)
+        [tag val] (get named-p component)
+        counts (for [attr-id (when (named-constant? a)
+                               (uspec/tagged-unwrap a))
+                     :let [record (get sketches {:app-id app-id
+                                                 :attr-id attr-id})
+                           sketch (if (and (= component :e)
+                                           (= :constant tag)
+                                           (contains? #{:vae :eav} (idx-key (:idx named-p))))
+                                    (:reverse-sketch record)
+                                    (:sketch record))]
+                     vs (case tag
+                          :constant (map (fn [c]
+                                           {:type :constant
+                                            :value c})
+                                         val)
+                          (:any :variable) [{:type :total}]
+                          :function (let [[f body] (first val)]
+                                      (case f
+                                        :$not [{:type :not
+                                                :value body}]
+                                        :$isNull [{:type :nil?
+                                                   :nil? (:nil? body)
+                                                   :attr-id (:attr-id body)}]
+                                        ;; No good way to count entity-ids, so plan
+                                        ;; for the worst case
+                                        :$entityIdStartsWith [{:type :total}]
+                                        :$comparator [{:type :compare
+                                                       :op (:op body)
+                                                       :data-type (:data-type body)
+                                                       :value (:value body)}])))]
+                 (if (not sketch)
+                   0
+                   (case (:type vs)
+                     :total (:total sketch)
+                     :constant (cms/check sketch
+                                          (when (instance? java.time.Instant (:value vs))
+                                            :date)
+                                          (:value vs))
+                     :not (- (:total sketch)
+                             (cms/check sketch
+                                        (when (instance? java.time.Instant (:value vs))
+                                          :date)
+                                        (:value vs)))
+                     :nil? (if-let [sketch (:sketch (get sketches {:app-id app-id
+                                                                   :attr-id (:attr-id vs)}))]
+                             ;; This only gives an accurate count on indexed attrs
+                             (if (:nil? vs)
+                               (cms/check sketch nil nil)
+                               (- (:total sketch)
+                                  (cms/check sketch nil nil)))
+                             0)
+                     ;; We don't have a good way to do comparisions, yet, so we'll
+                     ;; just put a default of half the items.
+                     :compare (long (/ (:total sketch) 2)))))]
+    (reduce + 0 counts)))
+
+(defn rows-size-from-sketch [ctx named-p]
+  (apply min (map (partial index-size-from-sketch ctx named-p) [:e :v])))
+
+(def ^:dynamic *estimate-with-sketch* false)
+
 (defn estimate-index-size [ctx named-p component]
-  (let [filtered-p (select-keys named-p [:idx component :a])
-        wheres (where-clause {:app-id (:app-id ctx)
-                              :remove-unnecessary-idx-key? true
-                              :triples-alias :t}
-                            filtered-p)
-        count-info {:wheres wheres}]
+  (if *estimate-with-sketch*
     (if (= (:phase ctx) :deps)
-      (do
-        (swap! (:counts ctx) conj count-info)
+      (let [sketch-keys (required-sketch-keys-for-component ctx
+                                                            named-p
+                                                            component)]
+        (swap! (:sketch-keys ctx) into sketch-keys)
         10000)
-      (get-in ctx [:counts count-info]))))
+      (index-size-from-sketch ctx named-p component))
+    (let [filtered-p (select-keys named-p [:idx component :a])
+          wheres (where-clause {:app-id (:app-id ctx)
+                                :remove-unnecessary-idx-key? true
+                                :triples-alias :t}
+                               filtered-p)
+          count-info {:wheres wheres}]
+      (if (= (:phase ctx) :deps)
+        (do
+          (swap! (:counts ctx) conj count-info)
+          10000)
+        (get-in ctx [:counts count-info])))))
 
 (defn estimate-rows [ctx named-p]
-  (let [count-info {:wheres (where-clause {:app-id (:app-id ctx)
-                                           :triples-alias :t
-                                           :remove-unnecessary-idx-key? true}
-                                          named-p)}]
+  (if *estimate-with-sketch*
     (if (= :deps (:phase ctx))
-      (do
-        (swap! (:counts ctx) conj count-info)
+      (let [sketch-keys (required-sketch-keys ctx named-p)]
+        (swap! (:sketch-keys ctx) into sketch-keys)
         10000)
-      (get-in ctx [:counts count-info]))))
+      (rows-size-from-sketch ctx named-p))
+    (let [count-info {:wheres (where-clause {:app-id (:app-id ctx)
+                                             :triples-alias :t
+                                             :remove-unnecessary-idx-key? true}
+                                            named-p)}]
+      (if (= :deps (:phase ctx))
+        (do
+          (swap! (:counts ctx) conj count-info)
+          10000)
+        (let [res (get-in ctx [:counts count-info])]
+          (assert res)
+          res)))))
+
+(defn path-cost-with-joins
+  "Tries to estimate the work we'll be doing for an individual index,
+  taking into account joins. It should correlate with the cost of a
+  nested loop."
+  [index]
+  (let [costs (:index-costs index)
+        path-cost (/ (reduce + (map :cost (:path costs)))
+                     (max (count (:path costs)) 1))
+        join-cost (reduce + 0 (vals (:join-remaining costs)))
+        filter-cost (reduce + 0 (vals (select-keys (:known-remaining costs)
+                                                   (:filter-components costs))))]
+    (* 1.0
+       (+ path-cost
+          (* 2 filter-cost))
+       (max 1 join-cost))))
 
 (defn index-compare
   "Compares the indexes pairwise to try to pick the best one.
    A scoring system might be better, but this is a easier to debug."
   [a b]
-  (cond (and (empty? (:known-remaining (:index-costs a)))
-             (seq (:known-remaining (:index-costs b))))
+  (let [a-costs (:index-costs a)
+        b-costs (:index-costs b)
+        cost-compare (compare (:path-cost-with-joins a)
+                              (:path-cost-with-joins b))]
+    (if-not (zero? cost-compare)
+      cost-compare
+      (cond
+        (and (empty? (:known-remaining a-costs))
+             (seq (:known-remaining b-costs)))
         -1
 
-        (and (seq (:known-remaining (:index-costs a)))
-             (empty? (:known-remaining (:index-costs b))))
+        (and (seq (:known-remaining a-costs))
+             (empty? (:known-remaining b-costs)))
         1
 
-        (> (count (:path (:index-costs a)))
-           (count (:path (:index-costs b))))
+        (> (count (:path a-costs))
+           (count (:path b-costs)))
         -1
 
-        (> (count (:path (:index-costs b)))
-           (count (:path (:index-costs a))))
+        (> (count (:path b-costs))
+           (count (:path a-costs)))
         1
 
-        (and (< 0 (count (:path (:index-costs a))))
-             (< 0 (count (:path (:index-costs b))))
-             (< (/ (reduce + (map :cost (:path (:index-costs a))))
-                   (count (:path (:index-costs a))))
-                (/ (reduce + (map :cost (:path (:index-costs b))))
-                   (count (:path (:index-costs b))))))
+        (and (< 0 (count (:path a-costs)))
+             (< 0 (count (:path b-costs)))
+             (< (/ (reduce + (map :cost (:path a-costs)))
+                   (count (:path a-costs)))
+                (/ (reduce + (map :cost (:path b-costs)))
+                   (count (:path b-costs)))))
         -1
 
-        (and (< 0 (count (:path (:index-costs b))))
-             (< 0 (count (:path (:index-costs a))))
-             (< (/ (reduce + (map :cost (:path (:index-costs b))))
-                   (count (:path (:index-costs b))))
-                (/ (reduce + (map :cost (:path (:index-costs a))))
-                   (count (:path (:index-costs a))))))
+        (and (< 0 (count (:path b-costs)))
+             (< 0 (count (:path a-costs)))
+             (< (/ (reduce + (map :cost (:path b-costs)))
+                   (count (:path b-costs)))
+                (/ (reduce + (map :cost (:path a-costs)))
+                   (count (:path a-costs)))))
         1
 
         ;; Prefer to put join conds in the index
-        (and (= (:known-remaining (:index-costs b))
-                (:join-components (:index-costs b)))
-             (not= (:known-remaining (:index-costs a))
-                   (:join-components (:index-costs a))))
+        (and (= (:known-remaining b-costs)
+                (:join-components b-costs))
+             (not= (:known-remaining a-costs)
+                   (:join-components a-costs)))
         -1
 
-        (and (= (:known-remaining (:index-costs a))
-                (:join-components (:index-costs a)))
-             (not= (:known-remaining (:index-costs b))
-                   (:join-components (:index-costs b))))
+        (and (= (:known-remaining a-costs)
+                (:join-components a-costs))
+             (not= (:known-remaining b-costs)
+                   (:join-components b-costs)))
         1
 
         (and (:matching-idx-key? a)
@@ -1114,7 +1257,7 @@
              (:matching-data-type? b))
         1
 
-        :else 0))
+        :else 0))))
 
 (defn best-index
   "Determines the best index to use based on which components we know will be
@@ -1197,27 +1340,48 @@
                                   #{}
                                   [:e :a :v :created-at])
 
+        filter-components (reduce (fn [acc c]
+                                    (let [[tag value] (get named-p c)]
+                                      (if-let [comp (case tag
+                                                      (:any :variable) nil
+                                                      :constant c
+                                                      :function (if (and (= :v c)
+                                                                         (contains? #{:$isNull} (-> value keys first)))
+                                                                  :e
+                                                                  c))]
+                                        (conj acc comp)
+                                        acc)))
+                                  #{}
+                                  [:e :a :v :created-at])
+
         indexes-with-costs
         (map (fn [idx-config]
-               (assoc idx-config
-                      :index-costs
-                      (reduce (fn [acc col]
-                                (if-let [cost (get (:known-remaining acc) col)]
-                                  (-> acc
-                                      (update :known-remaining dissoc col)
-                                      (update :path conj {:cost cost
-                                                          :col col
-                                                          :type :index-lookup}))
-                                  (reduced acc)))
-                              {:known-remaining known-components
-                               :join-components join-components
-                               :needed-components needed-components
-                               :path []}
-                              (:cols idx-config))
-                      :matching-idx-key? (= (:idx-key idx-config)
-                                            (idx-key (:idx named-p)))
-                      :matching-data-type? (= (:data-type idx-config)
-                                              (idx-data-type (:idx named-p)))))
+               (let [costs (reduce (fn [acc col]
+                                     (if-let [cost (get (:known-remaining acc) col)]
+                                       (-> acc
+                                           (update :known-remaining dissoc col)
+                                           (update :join-remaining dissoc col)
+                                           (update :filter-remaining disj col)
+                                           (update :path conj {:cost cost
+                                                               :col col
+                                                               :type :index-lookup}))
+                                       (reduced acc)))
+                                   {:known-remaining known-components
+                                    :known-components known-components
+                                    :join-components join-components
+                                    :join-remaining join-components
+                                    :needed-components needed-components
+                                    :filter-components filter-components
+                                    :filter-remaining filter-components
+                                    :path []}
+                                   (:cols idx-config))
+                     cfg (assoc idx-config
+                                :index-costs costs
+                                :matching-idx-key? (= (:idx-key idx-config)
+                                                      (idx-key (:idx named-p)))
+                                :matching-data-type? (= (:data-type idx-config)
+                                                        (idx-data-type (:idx named-p))))]
+                 (assoc cfg :path-cost-with-joins (path-cost-with-joins cfg))))
              index-candidates)
 
         sorted-indexes (sort index-compare indexes-with-costs)
@@ -1312,17 +1476,26 @@
           0
           patterns))
 
+(defn first-pattern [patterns]
+  (let [[tag pattern] (first patterns)]
+    (case tag
+      :pattern pattern
+      :or (first-pattern (:patterns (:or pattern)))
+      :and (first-pattern (:and pattern)))))
+
 (declare annotate-with-hints)
 
 (defn annotate-pattern-group-with-hints [ctx initial-symbol-map pattern-group]
   (let [level (:level ctx 0)
         page-info-pattern (get-in pattern-group [:page-info :named-pattern 1])
 
-        page-info-first? (and (= level 0)
-                              (= 1 (pattern-count (:patterns pattern-group))))
+        page-info-first? (and page-info-pattern
+                              (= level 0)
+                              (= 1 (pattern-count (:patterns pattern-group)))
+                              (> (estimate-rows ctx (first-pattern (:patterns pattern-group)))
+                                 5000))
 
         page-pattern-row-estimate (when page-info-pattern
-                                    ;; XXX: We should do this later to get the symbol-map??
                                     (estimate-rows ctx page-info-pattern))
         {:keys [patterns symbol-map]}
         (annotate-patterns-with-hints ctx
@@ -1341,11 +1514,8 @@
                                             :best-index
                                             (best-index ctx
                                                         p
-                                                        (merge
-                                                         {(get-in pattern-group [:page-info :order-sym])
-                                                          page-pattern-row-estimate}
-                                                         (when (not page-info-first?)
-                                                           symbol-map))))))
+                                                        (when (not page-info-first?)
+                                                          symbol-map)))))
       (:children pattern-group) ((fn [pg]
                                    (annotate-with-hints (assoc ctx :level (inc level)) symbol-map pg))))))
 
@@ -1359,17 +1529,16 @@
   single go. Then we a second pass with the counts and it determines
   the best index."
   ([ctx nested-named-patterns]
-   (let [counts-atom (atom (set {}))
+   (let [counts-atom (atom (set #{}))
+         sketch-keys-atom (atom (set #{}))
          ;; Run annotate-with-hints to populate the counts atom
          _ (annotate-with-hints (assoc ctx
                                        :phase :deps
-                                       :counts counts-atom)
+                                       :counts counts-atom
+                                       :sketch-keys sketch-keys-atom)
                                 {}
                                 nested-named-patterns)
          count-queries @counts-atom
-
-         ;; Fetch counts from the database. We should be able to store
-         ;; a sketch that lets us do counts without talking to the db
          query (when (seq count-queries)
                  {:union-all (map-indexed (fn [i {:keys [wheres]}]
                                             {:select [[i :i]
@@ -1384,12 +1553,15 @@
                         (sql/select ::resolve-counts
                                     (:conn-pool (:db ctx))
                                     (hsql/format query)))
+
          resolved-counts (zipmap count-queries
-                                 (map :count query-result))]
+                                 (map :count query-result))
+         sketches (cms/lookup (:conn-pool (:db ctx)) @sketch-keys-atom)]
      ;; Run again with resolved counts
      (annotate-with-hints (assoc ctx
                                  :phase :choose
-                                 :counts resolved-counts)
+                                 :counts resolved-counts
+                                 :sketches sketches)
                           {}
                           nested-named-patterns)))
   ([ctx symbol-map nested-named-patterns]
@@ -1397,10 +1569,12 @@
               [:children :pattern-groups]
               (fn [groups]
                 (mapv (fn [pattern-group]
-                        (annotate-pattern-group-with-hints ctx
-                                                           (when-let [join-sym (get-in nested-named-patterns [:children :join-sym])]
-                                                             {join-sym (get symbol-map join-sym 0)})
-                                                           pattern-group))
+                        (if (:missing-attr? pattern-group)
+                          pattern-group
+                          (annotate-pattern-group-with-hints ctx
+                                                             (when-let [join-sym (get-in nested-named-patterns [:children :join-sym])]
+                                                               {join-sym (get symbol-map join-sym 0)})
+                                                             pattern-group)))
                       groups)))))
 
 ;; ---
@@ -1433,9 +1607,18 @@
                               #{}
                               (variable-components named-p))]
       (if (or (= #{[:e :e]} join-ctypes)
-              (= #{[:e :v]} join-ctypes))
+              (= #{[:e :v]} join-ctypes)
+              (and (empty? join-ctypes)
+                   (named-constant? (:e named-p))
+                   (not (named-constant? (:v named-p)))))
         (assoc named-p :idx [:keyword :eav])
         named-p))))
+
+(defn always-materialize? [named-p]
+  (and (uspec/tagged-as? :constant (:a named-p))
+       (= 1 (count (uspec/tagged-unwrap (:a named-p))))
+       (contains? (flags/flag :always-materialize-attr-ids)
+                  (first (uspec/tagged-unwrap (:a named-p))))))
 
 (defn- joining-with
   "Produces subsequent match tables. Each table joins on the previous
@@ -1485,6 +1668,7 @@
                                     :additional-clauses all-joins}
                                    named-p)}
              (if (or
+                  (always-materialize? named-p)
                   ;; only use `not materialized` when we're in the middle of an ordered
                   ;; query
                   (not page-info)
@@ -1496,7 +1680,8 @@
                   ;; skip indexed with constant value because it's likely
                   ;; to return a small set of elements and we'll spend forever
                   ;; looping through the sorted elements
-                  (and (= :ave (idx-key (:idx named-p)))
+                  (and (not (:best-index named-p))
+                       (= :ave (idx-key (:idx named-p)))
                        (named-constant? (:v named-p))))
                :materialized
                :not-materialized)]]

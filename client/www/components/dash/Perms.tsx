@@ -10,16 +10,17 @@ import { InstantApp, DashResponse, SchemaNamespace } from '@/lib/types';
 import { Button, Content, JSONEditor, SectionHeading } from '@/components/ui';
 import { HomeButton } from '@/pages/dash';
 import { InstantReactWebDatabase } from '@instantdb/react';
-import { useSchemaQuery } from '@/lib/hooks/explorer';
 
 export function Perms({
   app,
   db,
   dashResponse,
+  namespaces,
 }: {
   app: InstantApp;
   db: InstantReactWebDatabase<any>;
   dashResponse: SWRResponse<DashResponse>;
+  namespaces: SchemaNamespace[] | null;
 }) {
   const [errorRes, setErrorRes] = useState<{
     message: string;
@@ -29,8 +30,6 @@ export function Perms({
   const value = useMemo(() => {
     return app.rules ? JSON.stringify(app.rules, null, 2) : '';
   }, [app]);
-
-  const { namespaces } = useSchemaQuery(db);
 
   const schema = rulesSchema(namespaces);
 

@@ -392,7 +392,7 @@ export default function McpTutorial({ files }: MarkdownContent) {
           <p>Click this button to install the Instant MCP server in Cursor:</p>
           <div className="flex">
             <a
-              href="https://cursor.com/install-mcp?name=InstantDB&config=eyJ1cmwiOiJodHRwczovL21jcC5pbnN0YW50ZGIuY29tL21jcCJ9"
+              href="https://cursor.com/en/install-mcp?name=InstantDB&config=eyJ1cmwiOiJodHRwczovL21jcC5pbnN0YW50ZGIuY29tL21jcCJ9"
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -421,8 +421,8 @@ export default function McpTutorial({ files }: MarkdownContent) {
           <FileContentCard
             title="Instant Rules for Cursor"
             content={cursorRulesContent}
-            filename=".cursor/rules/instant.md"
-            description="Click the button below to copy the rules for Instant and paste them into .cursor/rules/instant.md in the root of your project."
+            filename=".cursor/rules/instant.mdc"
+            description="Click the button below to copy the rules for Instant and paste them into .cursor/rules/instant.mdc in the root of your project."
           />
         </div>
       ),

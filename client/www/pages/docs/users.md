@@ -56,14 +56,12 @@ const _schema = i.schema({
     }),
     profiles: i.entity({
       nickname: i.string(), // We can't add this directly to `$users`
-      userId: i.string().unique(),
     }),
     roles: i.entity({
       type: i.string().unique(), // We couldn't add this directly to `$users` either
     }),
     todos: i.entity({
       text: i.string(),
-      userId: i.string(),
       completed: i.boolean(),
     }),
   },
@@ -158,7 +156,7 @@ const addTodo = (newTodo, currentUser) => {
   const newId = id();
   db.transact(
     tx.todos[newId]
-      .update({ text: newTodo, userId: currentUser.id, completed: false })
+      .update({ text: newTodo, completed: false })
       // Link the todo to the user with the `owner` label we defined in the schema
       .link({ owner: currentUser.id }),
   );
@@ -170,7 +168,7 @@ const updateNick = (newNick, currentUser) => {
   const profileId = lookup('email', currentUser.email);
   db.transact([
     tx.profiles[profileId]
-      .update({ userId: currentUser.id, nickname: newNick })
+      .update({ nickname: newNick })
       // Link the profile to the user with the `user` label we defined in the schema
       .link({ user: currentUser.id }),
   ]);
@@ -187,14 +185,15 @@ this case you can only link to `$users` and not from `$users`.
 // ✅ This works!
 const commentId = id()
 db.transact(
-  tx.comments[commentId].update({ text: 'Hello world', userId: currentUser.id })
-    .link({ $user: currentUser.id }));
+  tx.comments[commentId].update({ text: 'Hello world', })
+    .link({ $users: currentUser.id }));
 
 // ❌ This will not work! Cannot create a forward link on the fly
 const commentId = id()
 db.transact([
-  tx.comments[id()].update({ text: 'Hello world', userId: currentUser.id }),
+  tx.comments[id()].update({ text: 'Hello world' }),
   tx.$users[currentUser.id].link({ comment: commentId }))]);
+])
 
 // ❌ This will also not work! Cannot create new properties on `$users`
 db.transact(tx.$users[currentUser.id].update({ nickname: "Alyssa" }))

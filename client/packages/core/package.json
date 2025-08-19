@@ -1,6 +1,6 @@
 {
   "name": "@instantdb/core",
-  "version": "v0.20.12",
+  "version": "0.0.0",
   "description": "Instant's core local abstraction",
   "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/core",
   "repository": {
@@ -64,6 +64,7 @@
     "vitest": "^1.6.0"
   },
   "dependencies": {
+    "@instantdb/version": "workspace:*",
     "mutative": "^1.0.10",
     "uuid": "^11.1.0"
   }

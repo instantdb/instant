@@ -9,7 +9,7 @@ results we recommend doing two things:
 - Use the Instant MCP server to enable LLMs to create and update your apps
 - Add rules or context to your LLM to help it understand how Instant works
 
-To get set up quickly, check out our [whirlwind tutorial](/labs/mcp-tutorial).
+To get set up quickly, check out our [whirlwind tutorial](https://instantdb.com/tutorial).
 Otherwise read on for more detailed setup instructions.
 
 ## Instant MCP Server
@@ -28,7 +28,7 @@ When you add the MCP server, you'll be sent through an OAuth flow to grant acces
 
 ### Cursor
 
-[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/install-mcp?name=InstantDB&config=eyJ1cmwiOiJodHRwczovL21jcC5pbnN0YW50ZGIuY29tL21jcCJ9)
+[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=InstantDB&config=eyJ1cmwiOiJodHRwczovL21jcC5pbnN0YW50ZGIuY29tL21jcCJ9)
 
 Or edit your `~/.cursor/mcp.json` directly:
 

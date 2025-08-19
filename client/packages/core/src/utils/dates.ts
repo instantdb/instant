@@ -1,3 +1,5 @@
+import { pgTimezoneMatch, pgTimezoneAbbrevs } from './pgtime.ts';
+
 // Date parsing functions
 function zonedDateTimeStrToInstant(s) {
   return new Date(s);
@@ -8,9 +10,24 @@ function localDateTimeStrToInstant(s) {
   return new Date(s + 'Z');
 }
 
+const localDateStrRe = /^(\d+)[\./-](\d+)[\./-](\d+)$/;
+
 function localDateStrToInstant(s) {
-  // Parse date and set to start of day in UTC
-  return new Date(s + 'T00:00:00Z');
+  const match = s.match(localDateStrRe);
+  if (!match) {
+    return null;
+  }
+
+  const [_, part1, part2, part3] = match;
+
+  if (part1 <= 0 || part2 <= 0 || part3 <= 0) {
+    return null;
+  }
+
+  if (part1 > 999) {
+    return new Date(Date.UTC(part1, part2 - 1, part3, 0, 0, 0, 0));
+  }
+  return new Date(Date.UTC(part3, part1 - 1, part2, 0, 0, 0, 0));
 }
 
 // Custom date formatters
@@ -74,16 +91,76 @@ function iso8601IncompleteOffsetToInstant(s) {
   return null;
 }
 
+function usDateTimeStrToInstant(s) {
+  // Format: "M/d/yyyy, h:mm:ss a" (e.g., "8/4/2025, 11:02:31 PM")
+  const [datePart, timePart] = s.split(', ');
+  const [month, day, year] = datePart.split('/').map(Number);
+
+  // Parse time with AM/PM
+  const timeMatch = timePart.match(/(\d{1,2}):(\d{2}):(\d{2}) (AM|PM)/);
+  if (!timeMatch) {
+    throw new Error(`Unable to parse time from: ${s}`);
+  }
+
+  let [, hours, minutes, seconds, ampm] = timeMatch;
+  hours = Number(hours);
+  minutes = Number(minutes);
+  seconds = Number(seconds);
+
+  // Convert 12-hour to 24-hour format
+  if (ampm === 'PM' && hours !== 12) {
+    hours += 12;
+  } else if (ampm === 'AM' && hours === 12) {
+    hours = 0;
+  }
+
+  // Create date in UTC
+  return new Date(Date.UTC(year, month - 1, day, hours, minutes, seconds));
+}
+
+// https://www.postgresql.org/docs/17/datatype-datetime.html#DATATYPE-DATETIME-SPECIAL-VALUES
+function specialStrToInstant(s: string) {
+  switch (s) {
+    case 'epoch':
+      return new Date(0);
+    // These are not implemented yet because we need some way for the
+    // client and server to aggree on the values
+    case 'infinity':
+    case '-infinity':
+    case 'today':
+    case 'tomorrow':
+    case 'yesterday':
+      return null;
+  }
+}
+
+function pgTimezoneStrToInstant(s: string) {
+  const match = s.match(pgTimezoneMatch);
+  if (!match) {
+    return null;
+  }
+  const [tz] = match;
+
+  const offset = pgTimezoneAbbrevs[tz];
+
+  const baseDate = new Date(s.replace(pgTimezoneMatch, 'Z'));
+
+  return new Date(baseDate.getTime() - offset * 1000);
+}
+
 // Array of parsers
 const dateParsers = [
+  localDateStrToInstant,
   zenecaDateStrToInstant,
   dowMonDayYearStrToInstant,
+  usDateTimeStrToInstant,
   rfc1123ToInstant,
-  localDateStrToInstant,
   localDateTimeStrToInstant,
-  zonedDateTimeStrToInstant,
   iso8601IncompleteOffsetToInstant,
   offioDateStrToInstant,
+  zonedDateTimeStrToInstant,
+  specialStrToInstant,
+  pgTimezoneStrToInstant,
 ];
 
 // Try to parse with a specific parser
@@ -130,7 +207,8 @@ export function coerceToDate(x: unknown): Date {
     return x;
   }
   if (typeof x === 'string') {
-    const result = dateStrToInstant(x) || jsonStrToInstant(x);
+    const result =
+      dateStrToInstant(x) || jsonStrToInstant(x) || dateStrToInstant(x.trim());
     if (!result) {
       throw new Error(`Unable to parse \`${x}\` as a date.`);
     }

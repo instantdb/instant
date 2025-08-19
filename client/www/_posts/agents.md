@@ -147,6 +147,8 @@ Put this together and you get a toolkit that lets humans and agents make more pr
 
 ---
 
+[Discussion on HN](https://news.ycombinator.com/item?id=44585002)
+
 _Thanks to Joe Averbukh, Daniel Woelfel, Alex Kotliarskyi, Ian Alejandro Sinnott, Cam Glynn, Anupam Batra, Predrag Gruevski, Irakli Popkhadze, Cody Breene, Kote Mushegiani, Nicole Garcia Fischer for reviewing drafts of this essay_
 
 [^1]: We can probably make the review experience even better. If code is high-level enough, maybe we don’t need to show it. We could build UIs around abstractions and use them to summarize changes.

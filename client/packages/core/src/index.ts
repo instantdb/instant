@@ -13,7 +13,12 @@ import IndexedDBStorage from './IndexedDBStorage.js';
 import WindowNetworkListener from './WindowNetworkListener.js';
 import { i } from './schema.js';
 import { createDevtool } from './devtool.js';
-import version from './version.js';
+import version from './version.ts';
+import { validateQuery, QueryValidationError } from './queryValidation.ts';
+import {
+  validateTransactions,
+  TransactionValidationError,
+} from './transactionValidation.ts';
 
 import type {
   PresenceOpts,
@@ -38,8 +43,10 @@ import type {
   InstaQLOptions,
   InstaQLQueryParams,
   InstaQLEntity,
+  InstaQLEntitySubquery,
   InstaQLResult,
   InstaQLFields,
+  ValidQuery,
 } from './queryTypes.ts';
 import type {
   AuthState,
@@ -81,6 +88,7 @@ import type {
   TopicOf,
   ValueTypes,
   InstantUnknownSchema,
+  InstantUnknownSchemaDef,
   BackwardsCompatibleSchema,
   UpdateParams,
   LinkParams,
@@ -99,6 +107,7 @@ import type {
 } from './authAPI.ts';
 
 import { InstantAPIError, type InstantIssue } from './utils/fetch.js';
+import { InstantError } from './InstantError.ts';
 
 const defaultOpenDevtool = true;
 
@@ -112,6 +121,7 @@ export type Config = {
   verbose?: boolean;
   queryCacheLimit?: number;
   useDateObjects?: boolean;
+  disableValidation?: boolean;
 };
 
 export type InstantConfig<
@@ -126,6 +136,7 @@ export type InstantConfig<
   verbose?: boolean;
   queryCacheLimit?: number;
   useDateObjects?: UseDates;
+  disableValidation?: boolean;
 };
 
 export type ConfigWithSchema<S extends InstantGraph<any, any>> = Config & {
@@ -473,7 +484,7 @@ function coerceQuery(o: any) {
 
 class InstantCoreDatabase<
   Schema extends InstantSchemaDef<any, any, any>,
-  UseDates extends boolean,
+  UseDates extends boolean = false,
 > implements IInstantDatabase<Schema>
 {
   public _reactor: Reactor<RoomsOf<Schema>>;
@@ -545,9 +556,12 @@ class InstantCoreDatabase<
    *    console.log(resp.data.goals)
    *  });
    */
-  subscribeQuery<Q extends InstaQLParams<Schema>, UseDates extends boolean>(
+  subscribeQuery<
+    Q extends ValidQuery<Q, Schema>,
+    UseDatesLocal extends boolean = UseDates,
+  >(
     query: Q,
-    cb: (resp: InstaQLSubscriptionState<Schema, Q, UseDates>) => void,
+    cb: (resp: InstaQLSubscriptionState<Schema, Q, UseDatesLocal>) => void,
     opts?: InstaQLOptions,
   ) {
     return this._reactor.subscribeQuery(query, cb, opts);
@@ -671,7 +685,7 @@ class InstantCoreDatabase<
    *  const resp = await db.queryOnce({ goals: {} });
    *  console.log(resp.data.goals)
    */
-  queryOnce<Q extends InstaQLParams<Schema>>(
+  queryOnce<Q extends ValidQuery<Q, Schema>>(
     query: Q,
     opts?: InstaQLOptions,
   ): Promise<{
@@ -732,7 +746,7 @@ function init<
   Storage?: any,
   NetworkListener?: any,
   versions?: { [key: string]: string },
-): InstantCoreDatabase<Schema, Config['useDateObjects']> {
+): InstantCoreDatabase<Schema, UseDates> {
   const existingClient = globalInstantCoreStore[
     reactorKey(config)
   ] as InstantCoreDatabase<any, Config['useDateObjects']>;
@@ -815,6 +829,10 @@ export {
   tx,
   txInit,
   lookup,
+  validateQuery,
+  QueryValidationError,
+  validateTransactions,
+  TransactionValidationError,
 
   // error
   InstantAPIError,
@@ -832,6 +850,7 @@ export {
   Auth,
   Storage,
   version,
+  InstantError,
 
   // og types
   type IDatabase,
@@ -860,6 +879,7 @@ export {
 
   // new query types
   type InstaQLParams,
+  type ValidQuery,
   type InstaQLOptions,
   type InstaQLQueryParams,
   type InstantQuery,
@@ -874,6 +894,7 @@ export {
   type CardinalityKind,
   type DataAttrDef,
   type EntitiesDef,
+  type InstantUnknownSchemaDef,
   type EntitiesWithLinks,
   type EntityDef,
   type RoomsDef,
@@ -889,6 +910,7 @@ export {
   type TopicOf,
   type InstaQLEntity,
   type InstaQLResult,
+  type InstaQLEntitySubquery,
   type InstantSchemaDef,
   type InstantUnknownSchema,
   type IInstantDatabase,
