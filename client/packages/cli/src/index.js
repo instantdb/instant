@@ -17,7 +17,7 @@ import chalk from 'chalk';
 import { program, Option } from 'commander';
 import { input, select } from '@inquirer/prompts';
 import envPaths from 'env-paths';
-import { loadConfig } from 'unconfig';
+import { loadConfig } from './util/loadConfig.js';
 import { packageDirectory } from 'pkg-dir';
 import openInBrowser from 'open';
 import ora from 'ora';
