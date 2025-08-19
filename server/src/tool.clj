@@ -183,8 +183,9 @@
                                                               (every? (fn [x] (instance? Instant x)) v))))
                                                  (format "'%s'%s"
                                                          (->pg-stringable-array v)
-                                                         (when-let [pgtype (-> v meta :pgtype)]
-                                                           (str "::" pgtype)))
+                                                         (if-let [pgtype (-> v meta :pgtype)]
+                                                           (str "::" pgtype)
+                                                           ""))
 
                                                  (= "bigint[][]" (-> v meta :pgtype))
                                                  (format "'%s'::bigint[][]"
