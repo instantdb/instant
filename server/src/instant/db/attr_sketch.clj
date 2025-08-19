@@ -338,20 +338,22 @@
                       (cache/ttl-cache-factory :ttl (* 1000 60 5))))
 
 (defn lookup* [conn keys]
-  (let [params {:params {:app-ids (with-meta (mapv :app-id keys) {:pgtype "uuid[]"})
-                         :attr-ids (with-meta (mapv :attr-id keys) {:pgtype "uuid[]"})}}
-        q {:select :*
-           :from :attr-sketches
-           :where [:in
-                   [:composite :app-id :attr-id]
-                   {:select [[[:unnest :?app-ids] :app-id]
-                             [[:unnest :?attr-ids] :attr-id]]}]}
-        rows (sql/select ::lookup conn (hsql/format q params))]
-    (ucoll/reduce-tr (fn [acc row]
-                       (let [sketch (record->Sketch row)]
-                         (assoc! acc (select-keys sketch [:app-id :attr-id]) sketch)))
-                     {}
-                     rows)))
+  (if-not (seq keys)
+    {}
+    (let [params {:params {:app-ids (with-meta (mapv :app-id keys) {:pgtype "uuid[]"})
+                           :attr-ids (with-meta (mapv :attr-id keys) {:pgtype "uuid[]"})}}
+          q {:select :*
+             :from :attr-sketches
+             :where [:in
+                     [:composite :app-id :attr-id]
+                     {:select [[[:unnest :?app-ids] :app-id]
+                               [[:unnest :?attr-ids] :attr-id]]}]}
+          rows (sql/select ::lookup conn (hsql/format q params))]
+      (ucoll/reduce-tr (fn [acc row]
+                         (let [sketch (record->Sketch row)]
+                           (assoc! acc (select-keys sketch [:app-id :attr-id]) sketch)))
+                       {}
+                       rows))))
 
 (defn lookup
   "Takes a set of {:app-id attr-id} maps and fetches sketches, if they exist.

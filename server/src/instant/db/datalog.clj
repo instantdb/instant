@@ -652,32 +652,36 @@
             (in-any col v-set :jsonb)))
         (data-type-comparison data-type := :value v-set)))))
 
-(defn- constant->where-part [idx app-id component-type [_ v]]
+(defn- constant->where-part [triples-alias idx app-id component-type [_ v]]
   (condp = component-type
     :e (if (every? uuid? v)
-         (in-any :entity-id v :uuid)
-         (list* :or
-                (for [lookup v]
-                  (if (uuid? lookup)
-                    [:= :entity-id lookup]
-                    [:=
-                     :entity-id
-                     {:select :entity-id
-                      :from :triples
-                      :where [:and
-                              [:= :app-id app-id]
-
+         {:where (in-any :entity-id v :uuid)}
+         (let [lookup-alias (kw triples-alias :-lookup)]
+           {:where (list* :or
+                          (for [lookup v]
+                            (if (uuid? lookup)
+                              [:= :entity-id lookup]
                               [:=
-                               ;; Make sure it uses the av_index
-                               [:json_null_to_null :value]
-                               [:cast (->json (second lookup)) :jsonb]]
-                              [:= :attr-id [:cast (first lookup) :uuid]]
-                              :av]}]))))
-    :a (case (count v)
-         0 [:= 0 1]
-         1 [:= :attr-id (first v)]
-         [:= :attr-id [:any (with-meta v {:pgtype "uuid[]"})]])
-    :v (in-or-eq-value idx v)))
+                               :entity-id
+                               ;; if we have multiple lookups with the same attr, we could
+                               ;; collapse this query
+                               {:select :entity-id
+                                :from [[:triples lookup-alias]]
+                                :where [:and
+                                        [:= :app-id app-id]
+
+                                        [:=
+                                         ;; Make sure it uses the av_index
+                                         [:json_null_to_null :value]
+                                         [:cast (->json (second lookup)) :jsonb]]
+                                        [:= :attr-id [:cast (first lookup) :uuid]]
+                                        :av]}])))
+            :pg-hints [(pg-hint/index-scan lookup-alias :av_index)]}))
+    :a {:where (case (count v)
+                 0 [:= 0 1]
+                 1 [:= :attr-id (first v)]
+                 [:= :attr-id [:any (with-meta v {:pgtype "uuid[]"})]])}
+    :v {:where (in-or-eq-value idx v)}))
 
 (def all-zeroes-uuid "00000000-0000-0000-0000-000000000000")
 (defn prefix->uuid-start [s]
@@ -840,21 +844,37 @@
    {:keys [idx] :as named-pattern}]
   (let [attr-ids-where (when-let [a (:a named-pattern)]
                          (when (named-constant? a)
-                           (constant->where-part idx app-id :a a)))
-        rest-wheres (concat (->> (dissoc named-pattern :a)
-                                 constant-components
-                                 (map (fn [[component-type v]]
-                                        (constant->where-part idx app-id component-type v))))
-                            (function-clauses app-id triples-alias named-pattern)
-                            (patch-values-for-av-index (idx-key idx) additional-clauses))]
-    (list*
-     :and
-     [:= :app-id app-id]
-     (when (or (seq rest-wheres)
-               (not remove-unnecessary-idx-key?))
-       [:= (idx-key idx) :true])
-     attr-ids-where
-     rest-wheres)))
+                           (:where (constant->where-part triples-alias idx app-id :a a))))
+
+        {constant-wheres :where
+         pg-hints :pg-hints}
+        (reduce (fn [acc [component-type v]]
+                  (let [{:keys [where pg-hints]}
+                        (constant->where-part triples-alias
+                                              idx
+                                              app-id
+                                              component-type
+                                              v)]
+                    (-> acc
+                        (update :pg-hints into pg-hints)
+                        (update :where conj where))))
+                {:where []
+                 :pg-hints []}
+                (constant-components (dissoc named-pattern :a)))
+
+        rest-wheres (concat
+                     constant-wheres
+                     (function-clauses app-id triples-alias named-pattern)
+                     (patch-values-for-av-index (idx-key idx) additional-clauses))]
+    {:where (list*
+             :and
+             [:= :app-id app-id]
+             (when (or (seq rest-wheres)
+                       (not remove-unnecessary-idx-key?))
+               [:= (idx-key idx) :true])
+             attr-ids-where
+             rest-wheres)
+     :pg-hints pg-hints}))
 
 ;; ---
 ;; join-clause
@@ -1032,11 +1052,12 @@
     (when (seq ors)
       (list* :or ors))))
 
-(def ^:dynamic *testing-pg-hints* false)
+(def ^:dynamic *enable-pg-hints* true)
+(def ^:dynamic *estimate-with-sketch* true)
 (def ^:dynamic *debug* false)
 
-(defn test-pg-hints? []
-  *testing-pg-hints*)
+(defn enable-pg-hints? []
+  *enable-pg-hints*)
 
 (defn required-sketch-keys-for-component
   "Returns a set of {:app-id :attr-id} maps for the sketches that we'll
@@ -1127,8 +1148,6 @@
 (defn rows-size-from-sketch [ctx named-p]
   (apply min (map (partial index-size-from-sketch ctx named-p) [:e :v])))
 
-(def ^:dynamic *estimate-with-sketch* false)
-
 (defn estimate-index-size [ctx named-p component]
   (if *estimate-with-sketch*
     (if (= (:phase ctx) :deps)
@@ -1139,10 +1158,10 @@
         10000)
       (index-size-from-sketch ctx named-p component))
     (let [filtered-p (select-keys named-p [:idx component :a])
-          wheres (where-clause {:app-id (:app-id ctx)
-                                :remove-unnecessary-idx-key? true
-                                :triples-alias :t}
-                               filtered-p)
+          wheres (:where (where-clause {:app-id (:app-id ctx)
+                                        :remove-unnecessary-idx-key? true
+                                        :triples-alias :t}
+                                       filtered-p))
           count-info {:wheres wheres}]
       (if (= (:phase ctx) :deps)
         (do
@@ -1157,10 +1176,10 @@
         (swap! (:sketch-keys ctx) into sketch-keys)
         10000)
       (rows-size-from-sketch ctx named-p))
-    (let [count-info {:wheres (where-clause {:app-id (:app-id ctx)
-                                             :triples-alias :t
-                                             :remove-unnecessary-idx-key? true}
-                                            named-p)}]
+    (let [count-info {:wheres (:where (where-clause {:app-id (:app-id ctx)
+                                                     :triples-alias :t
+                                                     :remove-unnecessary-idx-key? true}
+                                                    named-p))}]
       (if (= :deps (:phase ctx))
         (do
           (swap! (:counts ctx) conj count-info)
@@ -1650,6 +1669,13 @@
                           (keep (fn [[_ [_ sym]]]
                                   (when-let [{:keys [pattern-idx]} (get additional-joins sym)]
                                     (kw prefix pattern-idx)))))
+        {where :where
+         where-hints :pg-hints}
+        (where-clause {:app-id app-id
+                       :triples-alias  triples-alias
+                       :additional-clauses all-joins}
+                      named-p)
+
         cte [cur-table
              {:select (concat (when prev-table
                                 [(kw prev-table :.*)])
@@ -1663,10 +1689,7 @@
                                    (when prev-table
                                      [prev-table]))
                             parent-froms)
-              :where (where-clause {:app-id app-id
-                                    :triples-alias  triples-alias
-                                    :additional-clauses all-joins}
-                                   named-p)}
+              :where where}
              (if (or
                   (always-materialize? named-p)
                   ;; only use `not materialized` when we're in the middle of an ordered
@@ -1684,27 +1707,28 @@
                        (= :ave (idx-key (:idx named-p)))
                        (named-constant? (:v named-p))))
                :materialized
-               :not-materialized)]]
+               :not-materialized)]
+        pattern-hints (if-let [best-idx (:best-index named-p)]
+                        (let [hint-fn (if (<= 2 (join-cond-count symbol-map named-p))
+                                        ;; This isn't a great hueristic--it
+                                        ;; catches too many cases where an index
+                                        ;; scan would be better. But it's usually
+                                        ;; much slower to use an index scan when
+                                        ;; you need a bitmap scan (unless you're
+                                        ;; sorting)
+                                        pg-hint/bitmap-scan
+                                        pg-hint/index-scan)
+                              idx (if (= (idx-key (:idx named-p))
+                                         :eav)
+                                    (:name (:best-index-if-eav named-p))
+                                    ;;:eav_uuid_index
+                                    (:name best-idx))]
+                          (if idx
+                            [(hint-fn triples-alias idx)]
+                            []))
+                        [])]
     {:cte cte
-     :pg-hints (if-let [best-idx (:best-index named-p)]
-                 (let [hint-fn (if (<= 2 (join-cond-count symbol-map named-p))
-                                 ;; This isn't a great hueristic--it
-                                 ;; catches too many cases where an index
-                                 ;; scan would be better. But it's usually
-                                 ;; much slower to use an index scan when
-                                 ;; you need a bitmap scan (unless you're
-                                 ;; sorting)
-                                 pg-hint/bitmap-scan
-                                 pg-hint/index-scan)
-                       idx (if (= (idx-key (:idx named-p))
-                                  :eav)
-                             (:name (:best-index-if-eav named-p))
-                             ;;:eav_uuid_index
-                             (:name best-idx))]
-                   (if idx
-                     [(hint-fn triples-alias idx)]
-                     []))
-                 [])}))
+     :pg-hints (into pattern-hints where-hints)}))
 
 (defn symbol-fields-of-pattern
   "Keeps track of which idx in the triple maps to which variable.
@@ -2900,7 +2924,7 @@
 (defn query-nested [{:keys [app-id db] :as ctx} nested-patterns]
   (let [nested-named-patterns (cond->> nested-patterns
                                 true nested->named-patterns
-                                (test-pg-hints?) (annotate-with-hints ctx))]
+                                (enable-pg-hints?) (annotate-with-hints ctx))]
     (throw-invalid-nested-patterns nested-named-patterns)
     (send-query-nested ctx (:conn-pool db) app-id nested-named-patterns)))
 
@@ -2911,7 +2935,7 @@
   (assert (map? patterns) "explain only works with nested patterns.")
   (let [nested-named-patterns (cond->> patterns
                                 true nested->named-patterns
-                                (test-pg-hints?) (annotate-with-hints ctx))]
+                                (enable-pg-hints?) (annotate-with-hints ctx))]
     (throw-invalid-nested-patterns nested-named-patterns)
     (let [{:keys [query]} (nested-match-query ctx
                                               :m-
@@ -2922,7 +2946,7 @@
                      (cond-> query
                        true (assoc :raw
                                    "explain (analyze, verbose, buffers, timing, format json)")
-                       (not (test-pg-hints?)) (dissoc :pg-hints)))]
+                       (not (enable-pg-hints?)) (dissoc :pg-hints)))]
       (when query
         (sql/select-string-keys ::explain
                                 (-> ctx :db :conn-pool)

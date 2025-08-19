@@ -1185,14 +1185,15 @@
   "Generates and runs a nested datalog query, then collects the results into nodes."
   [ctx o]
   (let [query-hash (forms-hash o)
-        use-pg-hint? (contains? (flags/flag :use-hint-query-hashes) query-hash)]
-    (binding [d/*testing-pg-hints* use-pg-hint?
-              d/*estimate-with-sketch* use-pg-hint?]
+        disable-pg-hint? (or (flags/toggled? :disable-pg-hints)
+                             (contains? (flags/flag :disable-hint-query-hashes) query-hash))]
+    (binding [d/*enable-pg-hints* (not disable-pg-hint?)
+              d/*estimate-with-sketch* true]
       (tracer/with-span! {:name "instaql/query-nested"
                           :attributes {:app-id (:app-id ctx)
                                        :forms o
                                        :query-hash query-hash
-                                       :use-pg-hint use-pg-hint?}}
+                                       :use-pg-hint (not disable-pg-hint?)}}
         (let [datalog-query-fn (or (:datalog-query-fn ctx)
                                    #'d/query)
               {:keys [patterns forms]} (instaql-query->patterns ctx o)

@@ -106,14 +106,16 @@
                                      :current-user-id (-> ctx :current-user :id)
                                      :patterns (pr-str patterns)}}
       (let [old (tracer/with-span! {:name "test-pg-hints-for-datalog/without-hint-plan"}
-                  (try
-                    (let [res (explain-datalog ctx patterns)]
-                      (tracer/add-data! {:attributes res})
-                      res)
-                    (catch Exception e
-                      e)))
+                  (binding [d/*enable-pg-hints* false]
+                    (try
+                      (let [res (explain-datalog ctx patterns)]
+                        (tracer/add-data! {:attributes res})
+                        res)
+                      (catch Exception e
+                        e))))
             new (tracer/with-span! {:name "test-pg-hints-for-datalog/with-hint-plan"}
-                  (binding [d/*testing-pg-hints* true]
+                  (binding [d/*enable-pg-hints* true
+                            d/*estimate-with-sketch* false]
                     (try
                       (let [res (explain-datalog ctx patterns)]
                         (tracer/add-data! {:attributes res})
@@ -121,7 +123,7 @@
                       (catch Exception e
                         e))))
             sketches (tracer/with-span! {:name "test-pg-hints-for-datalog/with-sketches"}
-                       (binding [d/*testing-pg-hints* true
+                       (binding [d/*enable-pg-hints* true
                                  d/*estimate-with-sketch* true]
                          (try
                            (let [res (explain-datalog ctx patterns)]
