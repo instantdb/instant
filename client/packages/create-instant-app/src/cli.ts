@@ -1,4 +1,4 @@
-import { Command } from 'commander';
+import { Command, Option } from 'commander';
 import * as p from '@clack/prompts';
 
 export type CliResults = {
@@ -23,6 +23,12 @@ export const runCli = async (): Promise<CliResults> => {
       '[dir]',
       'The name of the application, as well as the name of the directory to create',
     )
+    .addOption(
+      new Option(
+        '-b --base <template>',
+        'The base template to scaffold from',
+      ).choices(['next-js-app-dir', 'vite-vanilla', 'expo']),
+    )
     .parse(process.argv);
   const cliProvidedName = program.args[0];
   if (cliProvidedName) {
@@ -43,8 +49,12 @@ export const runCli = async (): Promise<CliResults> => {
           defaultValue: 'my-instant-app',
         });
       },
-      base: () =>
-        p.select({
+      base: async () => {
+        if (flags.base) {
+          return flags.base;
+        }
+
+        return p.select({
           message: 'What framework would you like to use?',
           options: [
             { value: 'next-js-app-dir', label: 'Next.js (App Directory)' },
@@ -52,9 +62,10 @@ export const runCli = async (): Promise<CliResults> => {
             { value: 'expo', label: 'React Native (Expo)' },
           ],
           initialValue: 'nextjs' as CliResults['base'],
-        }),
-      ruleFiles: () =>
-        p.multiselect({
+        });
+      },
+      ruleFiles: () => {
+        return p.multiselect({
           required: false,
           message: `Which AI tools would you like to add rule files for? (select multiple)`,
           options: [
@@ -64,11 +75,12 @@ export const runCli = async (): Promise<CliResults> => {
             { value: 'zed', label: 'Zed' },
           ],
           initialValues: [] as CliResults['ruleFiles'],
-        }),
+        });
+      },
     } satisfies {
       [K in keyof CliResults]: (args: {
         results: Partial<CliResults>;
-      }) => Promise<CliResults[K] | symbol>;
+      }) => Promise<CliResults[K] | symbol> | CliResults[K];
     },
     {
       onCancel() {

@@ -8,7 +8,9 @@ import chalk from 'chalk';
 import { addRuleFiles } from './ruleFiles.js';
 
 const main = async () => {
-  renderTitle();
+  if (!process.argv.some((arg) => ['-h', '--help'].includes(arg))) {
+    renderTitle();
+  }
   const results = await runCli();
   const projectDir = await scaffoldBase(results);
   addRuleFiles({ projectDir, ruleFilesToAdd: results.ruleFiles });
@@ -20,7 +22,7 @@ const main = async () => {
 
   To get started:
     1. ${chalk.bgBlackBright('cd ' + results.project.appName)}
-    2. Create a new app on ${chalk.underline('instantdb.com')}
+    2. Create a new app on ${chalk.underline('www.instantdb.com')}
     3. Add your APP_ID to the .env file
     4. ${chalk.bgBlackBright(getUserPkgManager() + ' run dev')}
   `);
