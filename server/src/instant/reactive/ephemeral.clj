@@ -24,6 +24,7 @@
    (com.hazelcast.map.listener EntryAddedListener
                                EntryRemovedListener
                                EntryUpdatedListener)
+   (com.hazelcast.spi.properties ClusterProperty HazelcastProperty)
    (com.hazelcast.topic ITopic MessageListener Message)
    (java.time Duration Instant)
    (java.util Map$Entry)
@@ -54,8 +55,6 @@
                    java.util.logging.Level/WARNING)))
   (.setLevel (java.util.logging.Logger/getLogger "com.hazelcast.system.logo")
              java.util.logging.Level/OFF)
-  (System/setProperty "hazelcast.shutdownhook.enabled" "false")
-  (System/setProperty "hazelcast.phone.home.enabled" "false")
   (let [config               (Config.)
         network-config       (.getNetworkConfig config)
         join-config          (.getJoin network-config)
@@ -66,6 +65,20 @@
         instance-id          (or @config/instance-id "dev")
         member-attribute-config (doto (com.hazelcast.config.MemberAttributeConfig.)
                                   (.setAttribute "instance-id" instance-id))]
+
+    ;; Docs: https://docs.hazelcast.com/hazelcast/5.5/system-properties
+    (doseq [[prop value] [[ClusterProperty/PHONE_HOME_ENABLED "false"]
+                          [ClusterProperty/SHUTDOWNHOOK_ENABLED "false"]
+
+                          ;; Make sure max join seconds is less than the startup timeout
+                          ;; Default is 300
+                          [ClusterProperty/MAX_JOIN_SECONDS "45"]
+
+                          ;; Timeout to connect all other cluster members when a member is joining to a cluster.
+                          ;; Default is 120
+                          [ClusterProperty/CONNECT_ALL_WAIT_SECONDS "60"]]]
+      (.setProperty config (.getName ^HazelcastProperty prop) value))
+
     (.setMemberAttributeConfig config member-attribute-config)
     (.setInstanceName config instance-name)
     (.setEnabled (.getMulticastConfig join-config) false)
@@ -412,7 +425,7 @@
      clean-orphan-sessions))
 
   (let [^Future f (future @hz)
-        hz-realized (.get f (* 60 1000) java.util.concurrent.TimeUnit/MILLISECONDS)]
+        hz-realized (.get f (* 60 1000 2) java.util.concurrent.TimeUnit/MILLISECONDS)]
     (def stop-gauge (gauges/add-gauge-metrics-fn (fn [_]
                                                    (hz-gauges hz-realized))))))
 
