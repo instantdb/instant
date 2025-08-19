@@ -2234,6 +2234,16 @@
                     set)
                book-id)))))))
 
+(defn permutations
+  ([keys]
+   (permutations {} keys))
+  ([base keys]
+   (if (empty? keys)
+     [base]
+     (concat
+      (permutations (assoc base (first keys) true) (next keys))
+      (permutations (assoc base (first keys) false) (next keys))))))
+
 (deftest link-unlink-perms
   (with-empty-app
     (fn [{app-id   :id
@@ -2271,177 +2281,72 @@
                             "rev-fwd-rev"  "ruleParams.users_fwd_rev"}}}}})
 
         (test-util/test-matrix
+         ;; we test both cases when either user or post are created in the same
+         ;; transaction or already exist
          [user-action       [:create :update]
           post-action       [:create :update]
-          user-ref-type     [:id #_:lookup]
-          post-ref-type     [:id #_:lookup]
-          perm-users-change [false true]
-          perm-users-view   [false true]
-          perm-posts-change [false true]
-          view-params-pos   [:users :posts]]
-         (let [user-id    (random-uuid)
-               user-email (str (rand))
-               user-ref   (case user-ref-type
-                            :id     user-id
-                            :lookup [:users/email user-email])
-               post-id    (random-uuid)
-               post-title (str (rand))
-               post-ref   (case post-ref-type
-                            :id     post-id
-                            :lookup [:posts/title post-title])]
-           (when (= :update user-action)
-             (transact!
-              [[:add-triple  user-id :users/id    user-id]
-               [:add-triple  user-id :users/email user-email]
-               [:rule-params user-id "users"      {"users_create" true}]]))
-           (when (= :update post-action)
-             (transact!
-              [[:add-triple  post-id :posts/id    post-id]
-               [:add-triple  post-id :posts/title post-title]
-               [:rule-params post-id "posts"      {"posts_create" true}]]))
+          :let              [post-fallback-rule-param
+                             (case post-action
+                               :create "posts_create"
+                               :update "posts_update")]
+          ; user-ref-type     [:id #_:lookup]
+          ; post-ref-type     [:id #_:lookup]
+          ;; link check can be not defined at all (then update/view fallback is used),
+          ;; defined only for one side (then other side will use a fallback), or be
+          ;; defined for both sides
+          attr              [:posts/fallback
+                             :posts/fwd-only
+                             :posts/rev-only
+                             :posts/fwd-rev]
+          rule-params       (permutations
+                             (case attr
+                               :posts/fallback [post-fallback-rule-param "users_view"]
+                               :posts/fwd-only ["posts_fwd_only"         "users_view"]
+                               :posts/rev-only [post-fallback-rule-param "users_rev_only"]
+                               :posts/fwd-rev  ["posts_fwd_rev"          "users_fwd_rev"]))
+          ;; rule params for reverse direction can be placed on forward one, e.g.
+          ;; db.tx.posts[id].link({user: ...}).ruleParams({user_param: ...})
+          user-params-pos   [:post :user]]
+         (let [user-id     (random-uuid)
+               user-email  (test-util/rand-email)
+               ; user-ref   (case user-ref-type
+               ;              :id     user-id
+               ;              :lookup [:users/email user-email])
+               post-id     (random-uuid)
+               post-title  (test-util/rand-string)
+               ; post-ref   (case post-ref-type
+               ;              :id     post-id
+               ;              :lookup [:posts/title post-title])
+               user-tx     [[:add-triple  user-id :users/id    user-id]
+                            [:add-triple  user-id :users/email user-email]
+                            [:rule-params user-id "users"      {"users_create" true}]]
+               post-tx     [[:add-triple  post-id :posts/id    post-id]
+                            [:add-triple  post-id :posts/title post-title]
+                            [:rule-params post-id "posts"      {"posts_create" true}]]
+               _           (when (= :update user-action)
+                             (transact! user-tx))
+               _           (when (= :update post-action)
+                             (transact! post-tx))
 
-           (let [tx (concat
-                     (when (= :create user-action)
-                       [[:add-triple  user-id :users/id    user-id]
-                        [:add-triple  user-id :users/email user-email]])
-                     (when (= :create post-action)
-                       [[:add-triple  post-id :posts/id    post-id]
-                        [:add-triple  post-id :posts/title post-title]])
-                     [[:rule-params user-ref "users" (cond-> {}
-                                                       (= :create user-action)
-                                                       (assoc "users_create" perm-users-change)
+               user-params (coll/filter-keys #(string/starts-with? % "users_") rule-params)
+               post-params (coll/filter-keys #(string/starts-with? % "posts_") rule-params)
 
-                                                       (= :update user-action)
-                                                       (assoc "users_update" perm-users-change)
+               tx          (concat
+                            (when (= :create user-action)
+                              user-tx)
+                            (when (= :create post-action)
+                              post-tx)
+                            (case user-params-pos
+                              :user
+                              [[:rule-params user-id "users" user-params]
+                               [:rule-params post-id "posts" post-params]]
+                              :post
+                              [[:rule-params post-id "posts" rule-params]])
+                            [[:add-triple post-id attr user-id]])
 
-                                                       (= :users view-params-pos)
-                                                       (assoc "users_view"   perm-users-view))]
-                      [:add-triple post-ref :posts/fallback user-ref]
-                      [:rule-params post-ref "posts" (cond-> {}
-                                                       (= :create post-action)
-                                                       (assoc "posts_create" perm-posts-change)
+               expected    (every? true? (vals rule-params))]
 
-                                                       (= :update post-action)
-                                                       (assoc "posts_update" perm-posts-change)
-
-                                                       (= :posts view-params-pos)
-                                                       (assoc "users_view"   perm-users-view))]])
-                 expect (and perm-posts-change
-                             perm-users-view
-                             (case user-action
-                               :create perm-users-change
-                               :update true))]
-             (is (= expect (perm-pass? (transact! tx)))))))
-
-        (testing "Update+view fallback, rule params on post"
-          (let [user-id (random-uuid)
-                post-id (random-uuid)]
-            (transact!
-             [[:add-triple  user-id :users/id    user-id]
-              [:add-triple  user-id :users/email "user@1"]
-              [:rule-params user-id "users"      {"users_create" true}]
-              [:add-triple  post-id :posts/id    post-id]
-              [:add-triple  post-id :posts/title "post1"]
-              [:rule-params post-id "posts"      {"posts_create" true}]])
-            (doseq [posts-update [false true]
-                    users-view   [false true]]
-              (testing (str "posts-update: " posts-update ", users-view: " users-view)
-                (is (= (and posts-update users-view)
-                       (perm-pass?
-                        (transact!
-                         [[:rule-params post-id "posts" {"posts_update" posts-update
-                                                         "users_view"   users-view}]
-                          [:add-triple post-id :posts/fallback user-id]]))))))))
-
-        (testing "Update+view fallback, rule params on user"
-          (let [user-id (random-uuid)
-                post-id (random-uuid)]
-            (transact!
-             [[:add-triple  user-id :users/id   user-id]
-              [:add-triple  user-id :users/email "user@2"]
-              [:rule-params user-id "users"     {"users_create" true}]
-              [:add-triple  post-id :posts/id   post-id]
-              [:add-triple  post-id :posts/title "post2"]
-              [:rule-params post-id "posts"     {"posts_create" true}]])
-            (doseq [posts-update [false true]
-                    users-view   [false true]]
-              (testing (str "posts-update: " posts-update ", users-view: " users-view)
-                (is (= (and posts-update users-view)
-                       (perm-pass?
-                        (transact!
-                         [[:rule-params post-id "posts" {"posts_update" posts-update}]
-                          [:rule-params user-id "users" {"users_view"   users-view}]
-                          [:add-triple post-id :posts/fallback user-id]]))))))))
-
-        (testing "update both"
-          (let [user-id (suid "0001")
-                post-id (suid "000a")]
-            (transact!
-             [[:add-triple  user-id :users/id   user-id]
-              [:add-triple  user-id :users/email "user@3"]
-              [:rule-params user-id "users"     {"users_create" true}]
-              [:add-triple  post-id :posts/id   post-id]
-              [:add-triple  post-id :posts/title "post3"]
-              [:rule-params post-id "posts"     {"posts_create" true}]])
-
-            (testing "Can't update"
-              (is (perm-err?
-                   (transact!
-                    [[:add-triple post-id :posts/title "post 4"]]))))
-
-            (testing "Check in forward direction only"
-              (is (perm-err?
-                   (transact!
-                    [[:add-triple post-id :posts/fwd-only user-id]])))
-              (is (perm-err?
-                   (transact!
-                    [[:rule-params post-id "posts" {"posts_fwd_only" true}]
-                     [:add-triple post-id :posts/fwd-only user-id]])))
-              (is (perm-err?
-                   (transact!
-                    [[:rule-params post-id "posts" {"users_view" true}]
-                     [:add-triple post-id :posts/fwd-only user-id]])))
-              (is (not (perm-err?
-                        (transact!
-                         [[:rule-params post-id "posts" {"posts_fwd_only" true
-                                                         "users_view" true}]
-                          [:add-triple post-id :posts/fwd-only user-id]])))))
-
-            (testing "Check in reverse direction only"
-              (is (perm-err?
-                   (transact!
-                    [[:add-triple post-id :posts/rev-only user-id]])))
-              (is (perm-err?
-                   (transact!
-                    [[:rule-params post-id "posts" {"posts_update" true}]
-                     [:add-triple post-id :posts/rev-only user-id]])))
-              (is (perm-err?
-                   (transact!
-                    [[:rule-params post-id "posts" {"users_rev_only" true}]
-                     [:add-triple post-id :posts/rev-only user-id]])))
-              (is (not (perm-err?
-                        (transact!
-                         [[:rule-params post-id "posts" {"posts_update" true
-                                                         "users_rev_only" true}]
-                          [:add-triple post-id :posts/rev-only user-id]])))))
-
-            (testing "Checks in both directions are combined with AND"
-              (is (perm-err?
-                   (transact!
-                    [[:add-triple post-id :posts/fwd-rev user-id]])))
-              (is (perm-err?
-                   (transact!
-                    [[:rule-params post-id "posts" {"posts_fwd_rev" true}]
-                     [:add-triple post-id :posts/fwd-rev user-id]])))
-              (is (perm-err?
-                   (transact!
-                    [[:rule-params post-id "posts" {"users_fwd_rev" true}]
-                     [:add-triple post-id :posts/fwd-rev user-id]])))
-              (is (not (perm-err?
-                        (transact!
-                         [[:rule-params post-id "posts" {"posts_fwd_rev" true
-                                                         "users_fwd_rev" true}]
-                          [:add-triple post-id :posts/fwd-rev user-id]])))))))))))
+           (is (= expected (perm-pass? (transact! tx))))))))))
 
 (deftest lookup-perms
   (with-empty-app

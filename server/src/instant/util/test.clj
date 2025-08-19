@@ -1,6 +1,7 @@
 (ns instant.util.test
   (:require
    [clojure.set :as set]
+   [clojure.string :as string]
    [clojure+.walk :as walk]
    [instant.config :as config]
    [instant.db.attr-sketch :as cms]
@@ -183,6 +184,16 @@
   (parse-uuid
     (str s (subs "00000000-0000-0000-0000-000000000000" (count s)))))
 
+(defn rand-string
+  ([]
+   (rand-string (+ 13 (rand-int 13))))
+  ([len]
+   (string/join
+    (repeatedly len #(rand-nth "qwertyuiopasdfghjklzxcvbnm")))))
+
+(defn rand-email []
+  (str (rand-string 13) "@" (rand-string 13) (rand-nth [".com" ".net" ".org" ".int" ".edu" ".gov" ".mil"])))
+
 (defmacro perm-err? [& body]
   `(try
      ~@body
@@ -253,7 +264,10 @@
        ~@body)))
 
 (defmacro test-matrix [bindings & body]
-  (let [keys (mapv first (partition 2 bindings))]
+  (let [keys (->> bindings
+                  (partition 2)
+                  (map first)
+                  (filterv symbol?))]
     `(doseq [var# (for ~bindings (array-map ~@(mapcat #(vector (keyword %) %) keys)))
              :let [{:keys ~keys} var#]]
        (clojure.test/testing (str var#)
