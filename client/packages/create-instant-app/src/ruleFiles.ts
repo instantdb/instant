@@ -41,6 +41,12 @@ export const addRuleFiles = ({
           path.join(PKG_ROOT, 'template/rules/other-rules.md'),
           path.join(projectDir, 'AGENT.md'),
         );
+        break;
+      case 'codex':
+        fs.copyFileSync(
+          path.join(PKG_ROOT, 'template/rules/other-rules.md'),
+          path.join(projectDir, 'AGENTS.md'),
+        );
     }
   });
 };

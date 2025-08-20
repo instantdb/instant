@@ -3,8 +3,8 @@ import * as p from '@clack/prompts';
 
 export type CliResults = {
   base: 'next-js-app-dir' | 'vite-vanilla' | 'expo';
+  ruleFiles: ('cursor' | 'claude' | 'windsurf' | 'zed' | 'codex')[];
   appName: string;
-  ruleFiles: ('cursor' | 'claude' | 'windsurf' | 'zed')[];
   createRepo: boolean;
 };
 
@@ -82,6 +82,7 @@ export const runCli = async (): Promise<CliResults> => {
             { value: 'cursor', label: 'Cursor' },
             { value: 'claude', label: 'Claude' },
             { value: 'windsurf', label: 'Windsurf' },
+            { value: 'codex', label: 'Codex' },
             { value: 'zed', label: 'Zed' },
           ],
           initialValues: [] as CliResults['ruleFiles'],
