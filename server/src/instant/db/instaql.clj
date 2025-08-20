@@ -171,6 +171,16 @@
 
 (def sentinel (Object.))
 
+(defn link-etype [attrs etype link-attr-name]
+  (or (when-let [attr (attr-model/seek-by-fwd-ident-name
+                       [etype link-attr-name]
+                       attrs)]
+        (attr-model/rev-etype attr))
+      (when-let [attr (attr-model/seek-by-rev-ident-name
+                       [etype link-attr-name]
+                       attrs)]
+        (attr-model/fwd-etype attr))))
+
 (defn indexed-attr?
   "Checks if the cond path is a top-level indexed attr so that we can
    avoid checking for `isNull` on a `not` query."
@@ -220,16 +230,6 @@
   (mapv (fn [i]
           (take (inc i) path))
         (range (count path))))
-
-(defn link-etype [attrs etype link-attr-name]
-  (or (when-let [attr (attr-model/seek-by-fwd-ident-name
-                       [etype link-attr-name]
-                       attrs)]
-        (attr-model/rev-etype attr))
-      (when-let [attr (attr-model/seek-by-rev-ident-name
-                       [etype link-attr-name]
-                       attrs)]
-        (attr-model/fwd-etype attr))))
 
 (defn- normalize-ne-to-not
   "Treat `$ne` as an alias for `$not`."
