@@ -191,6 +191,16 @@
            instant-ex#
            (throw e#))))))
 
+(defmacro timeout-err? [& body]
+  `(try
+     ~@body
+     false
+     (catch Exception e#
+       (let [instant-ex# (ex/find-instant-exception e#)]
+         (if (= ::ex/timeout (::ex/type (ex-data instant-ex#)))
+           instant-ex#
+           (throw e#))))))
+
 (defn in-memory-sketches-for-app [app-id]
   (with-open [conn (next.jdbc/get-connection (config/get-aurora-config))]
     (reduce (fn [acc sketch]

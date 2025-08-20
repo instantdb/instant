@@ -3,6 +3,7 @@
    [clojure.string :as string]
    [clojure.test :as test :refer [are deftest is testing]]
    [clojure+.walk :as walk]
+   [instant.config :as config]
    [instant.db.cel :as cel]
    [instant.data.bootstrap :as bootstrap]
    [instant.data.constants :refer [test-user-id]]
@@ -19,15 +20,17 @@
                              with-zeneca-app
                              with-zeneca-app-no-indexing]]
    [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
    [instant.model.app-user :as app-user-model]
    [instant.model.rule :as rule-model]
    [instant.util.coll :as coll]
    [instant.util.instaql :refer [instaql-nodes->object-tree]]
    [instant.util.exception :as ex]
-   [instant.util.test :as test-util :refer [suid validation-err? perm-err?]]
+   [instant.util.test :as test-util :refer [suid validation-err? perm-err? timeout-err?]]
    [instant.util.date :as date-util]
-   [instant.util.uuid :as uuid-util])
+   [instant.util.uuid :as uuid-util]
+   [next.jdbc])
   (:import
    (java.util UUID)))
 
@@ -4083,6 +4086,30 @@
               (make-ctx)
               [[:add-triple todo-id attr-todos-id   todo-id]
                [:add-triple todo-id attr-todos-text [#uuid "2473c57f-6a58-4167-96b7-cf9e034a670a" #uuid "7758b4b1-7c0b-4c90-9532-f41a54812f76"]]])))))))
+
+(deftest idle-in-transaction-error
+  (with-empty-app
+    (fn [{app-id   :id
+          make-ctx :make-ctx}]
+      ;; Add a rule so that the transaction takes longer than 1ms
+      (rule-model/put!
+       (aurora/conn-pool :write)
+       {:app-id app-id :code {:books {:allow {:update "newData.title == 'Test'"}}}})
+      (let [book-id (random-uuid)
+            {title-aid :books/title
+             :as attr->id}
+            (test-util/make-attrs
+             app-id
+             [[:books/id :required? :index? :unique?]
+              [:books/title]])]
+        (test-util/insert-entities
+         app-id attr->id
+         [{:db/id book-id :books/id book-id :books/title "Original title"}])
+        (with-open [conn (next.jdbc/get-connection (config/get-aurora-config))]
+          (sql/execute! conn ["select set_config('idle_in_transaction_session_timeout', '1ms', false)"])
+          (timeout-err? (permissioned-tx/transact!
+                         (assoc (make-ctx) :db {:conn-pool conn})
+                         [[:add-triple book-id title-aid "Test"]])))))))
 
 
 (comment
