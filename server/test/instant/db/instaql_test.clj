@@ -2,7 +2,6 @@
   (:require
    [clojure.string :as string]
    [clojure.test :as test :refer [are deftest is testing]]
-   [instant.config :as config]
    [instant.data.bootstrap :as bootstrap]
    [instant.data.constants :as constants]
    [instant.data.resolvers :as resolvers]
@@ -27,7 +26,7 @@
    [instant.util.coll :as ucoll]
    [instant.util.exception :as ex]
    [instant.util.instaql :refer [instaql-nodes->object-tree]]
-   [instant.util.test :refer [instant-ex-data pretty-perm-q]]
+   [instant.util.test :refer [instant-ex-data pretty-perm-q with-sketches]]
    [next.jdbc :as next-jdbc]
    [rewrite-clj.zip :as z]
    [zprint.core :as zprint])
@@ -2768,132 +2767,132 @@
              ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili"))}))))))
 
 (deftest comparators
-  (binding [d/*testing-pg-hints* true]
+  (binding [d/*enable-pg-hints* true
+            d/*estimate-with-sketch* true]
     (with-zeneca-checked-data-app
       (fn [app _r]
-        (let [attr-ids {:string (random-uuid)
-                        :number (random-uuid)
-                        :boolean (random-uuid)
-                        :date (random-uuid)}
-              label-attr-id (random-uuid)
-              labels ["a" "b" "c" "d" "e"]
-              make-ctx (fn []
-                         (let [attrs (attr-model/get-by-app-id (:id app))]
-                           {:db {:conn-pool (aurora/conn-pool :write)}
-                            :app-id (:id app)
-                            :attrs attrs}))
-              run-query (fn [return-field q]
-                          (let [ctx (make-ctx)]
-                            (->> (iq/permissioned-query ctx q)
-                                 (instaql-nodes->object-tree ctx)
-                                 (#(get % "etype"))
-                                 (map #(get % (name return-field)))
-                                 set)))
-              run-explain (fn run-explain
-                            ([data-type value]
-                             (run-explain :$gt data-type value))
-                            ([op data-type value]
-                             (let [explain
-                                   (d/explain (make-ctx)
-                                              {:children
-                                               {:pattern-groups
-                                                [{:patterns
-                                                  [[{:idx-key :ave, :data-type data-type}
-                                                    '?etype-0
-                                                    (get attr-ids data-type)
-                                                    {:$comparator {:op op, :value value, :data-type data-type}}]]}]}})]
-                               (-> explain
-                                   first
-                                   (get "QUERY PLAN")
-                                   first
-                                   (get-in ["Plan" "Plans" 0 "Index Name"])))))]
-          (tx/transact! (aurora/conn-pool :write)
-                        (attr-model/get-by-app-id (:id app))
-                        (:id app)
-                        (concat
-                         [[:add-attr {:id (random-uuid)
-                                      :forward-identity [(random-uuid) "etype" "id"]
-                                      :unique? true
-                                      :index? true
-                                      :value-type :blob
-                                      :checked-data-type :string
-                                      :cardinality :one}]
-                          [:add-attr {:id label-attr-id
-                                      :forward-identity [(random-uuid) "etype" "label"]
-                                      :unique? true
-                                      :index? true
-                                      :value-type :blob
-                                      :checked-data-type :string
-                                      :cardinality :one}]]
-                         (for [[t attr-id] attr-ids]
-                           [:add-attr {:id attr-id
-                                       :forward-identity [(random-uuid) "etype" (name t)]
-                                       :unique? false
-                                       :index? true
-                                       :value-type :blob
-                                       :checked-data-type t
-                                       :cardinality :one}])
+        (with-sketches app
+          (let [attr-ids {:string (random-uuid)
+                          :number (random-uuid)
+                          :boolean (random-uuid)
+                          :date (random-uuid)}
+                label-attr-id (random-uuid)
+                labels ["a" "b" "c" "d" "e"]
+                make-ctx (fn []
+                           (let [attrs (attr-model/get-by-app-id (:id app))]
+                             {:db {:conn-pool (aurora/conn-pool :write)}
+                              :app-id (:id app)
+                              :attrs attrs}))
+                run-query (fn [return-field q]
+                            (let [ctx (make-ctx)]
+                              (->> (iq/permissioned-query ctx q)
+                                   (instaql-nodes->object-tree ctx)
+                                   (#(get % "etype"))
+                                   (map #(get % (name return-field)))
+                                   set)))
+                run-explain (fn run-explain
+                              ([data-type value]
+                               (run-explain :$gt data-type value))
+                              ([op data-type value]
+                               (let [explain
+                                     (d/explain (make-ctx)
+                                                {:children
+                                                 {:pattern-groups
+                                                  [{:patterns
+                                                    [[{:idx-key :ave, :data-type data-type}
+                                                      '?etype-0
+                                                      (get attr-ids data-type)
+                                                      {:$comparator {:op op, :value value, :data-type data-type}}]]}]}})]
+                                 (-> explain
+                                     first
+                                     (get "QUERY PLAN")
+                                     first
+                                     (get-in ["Plan" "Plans" 0 "Index Name"])))))]
+            (tx/transact! (aurora/conn-pool :write)
+                          (attr-model/get-by-app-id (:id app))
+                          (:id app)
+                          (concat
+                           [[:add-attr {:id (random-uuid)
+                                        :forward-identity [(random-uuid) "etype" "id"]
+                                        :unique? true
+                                        :index? true
+                                        :value-type :blob
+                                        :checked-data-type :string
+                                        :cardinality :one}]
+                            [:add-attr {:id label-attr-id
+                                        :forward-identity [(random-uuid) "etype" "label"]
+                                        :unique? true
+                                        :index? true
+                                        :value-type :blob
+                                        :checked-data-type :string
+                                        :cardinality :one}]]
+                           (for [[t attr-id] attr-ids]
+                             [:add-attr {:id attr-id
+                                         :forward-identity [(random-uuid) "etype" (name t)]
+                                         :unique? false
+                                         :index? true
+                                         :value-type :blob
+                                         :checked-data-type t
+                                         :cardinality :one}])
 
-                         (mapcat
-                          (fn [i]
-                            (let [id (random-uuid)]
-                              [[:add-triple id label-attr-id (nth labels i)]
-                               [:add-triple id (:string attr-ids) (str i)]
-                               [:add-triple id (:number attr-ids) i]
-                               [:add-triple id (:date attr-ids) i]
-                               [:add-triple id (:boolean attr-ids) (zero? (mod i 2))]]))
-                          (range (count labels)))))
-          (when (= :test (config/get-env))
-            (sql/select (aurora/conn-pool :write) ["ANALYZE triples"]))
-          (testing "string"
-            (is (= #{"3" "4"}  (run-query :string {:etype {:$ {:where {:string {:$gt "2"}}}}})))
-            (is (= #{"2" "3" "4"} (run-query :string {:etype {:$ {:where {:string {:$gte "2"}}}}})))
-            (is (= #{"0" "1"} (run-query :string {:etype {:$ {:where {:string {:$lt "2"}}}}})))
-            (is (= #{"0" "1" "2"} (run-query :string {:etype {:$ {:where {:string {:$lte "2"}}}}})))
-            (is (= #{"1"} (run-query :string {:etype {:$ {:where {:string "1"}}}})))
-            (is (= #{"0" "2" "3" "4"} (run-query :string {:etype {:$ {:where {:string {:$not "1"}}}}})))
+                           (mapcat
+                            (fn [i]
+                              (let [id (random-uuid)]
+                                [[:add-triple id label-attr-id (nth labels i)]
+                                 [:add-triple id (:string attr-ids) (str i)]
+                                 [:add-triple id (:number attr-ids) i]
+                                 [:add-triple id (:date attr-ids) i]
+                                 [:add-triple id (:boolean attr-ids) (zero? (mod i 2))]]))
+                            (range (count labels)))))
+            (testing "string"
+              (is (= #{"3" "4"}  (run-query :string {:etype {:$ {:where {:string {:$gt "2"}}}}})))
+              (is (= #{"2" "3" "4"} (run-query :string {:etype {:$ {:where {:string {:$gte "2"}}}}})))
+              (is (= #{"0" "1"} (run-query :string {:etype {:$ {:where {:string {:$lt "2"}}}}})))
+              (is (= #{"0" "1" "2"} (run-query :string {:etype {:$ {:where {:string {:$lte "2"}}}}})))
+              (is (= #{"1"} (run-query :string {:etype {:$ {:where {:string "1"}}}})))
+              (is (= #{"0" "2" "3" "4"} (run-query :string {:etype {:$ {:where {:string {:$not "1"}}}}})))
 
-            (testing "uses index"
-              (is (= "ave_index" (run-explain :string "2"))))
+              (testing "uses index"
+                (is (= "ave_index" (run-explain :string "2"))))
 
-            (testing "like uses index"
-              (is (= "triples_string_trgm_gist_idx" (run-explain :$like :string "%aaa")))))
+              (testing "like uses index"
+                (is (= "triples_string_trgm_gist_idx" (run-explain :$like :string "%aaa")))))
 
-          (testing "number"
-            (is (= #{3 4} (run-query :number {:etype {:$ {:where {:number {:$gt 2}}}}})))
-            (is (= #{2 3 4} (run-query :number {:etype {:$ {:where {:number {:$gte 2}}}}})))
-            (is (= #{0 1} (run-query :number {:etype {:$ {:where {:number {:$lt 2}}}}})))
-            (is (= #{0 1 2} (run-query :number {:etype {:$ {:where {:number {:$lte 2}}}}})))
-            (is (= #{1} (run-query :number {:etype {:$ {:where {:number 1}}}})))
-            (is (= #{0 2 3 4} (run-query :number {:etype {:$ {:where {:number {:$not 1}}}}})))
+            (testing "number"
+              (is (= #{3 4} (run-query :number {:etype {:$ {:where {:number {:$gt 2}}}}})))
+              (is (= #{2 3 4} (run-query :number {:etype {:$ {:where {:number {:$gte 2}}}}})))
+              (is (= #{0 1} (run-query :number {:etype {:$ {:where {:number {:$lt 2}}}}})))
+              (is (= #{0 1 2} (run-query :number {:etype {:$ {:where {:number {:$lte 2}}}}})))
+              (is (= #{1} (run-query :number {:etype {:$ {:where {:number 1}}}})))
+              (is (= #{0 2 3 4} (run-query :number {:etype {:$ {:where {:number {:$not 1}}}}})))
 
-            (testing "uses index"
-              (is (= "triples_number_type_idx" (run-explain :number 2)))))
+              (testing "uses index"
+                (is (= "triples_number_type_idx" (run-explain :number 2)))))
 
-          (testing "date"
-            (is (= #{3 4} (run-query :date {:etype {:$ {:where {:date {:$gt 2}}}}})))
-            (is (= #{2 3 4} (run-query :date {:etype {:$ {:where {:date {:$gte 2}}}}})))
-            (is (= #{0 1} (run-query :date {:etype {:$ {:where {:date {:$lt 2}}}}})))
-            (is (= #{0 1 2} (run-query :date {:etype {:$ {:where {:date {:$lte 2}}}}})))
-            (is (= #{1} (run-query :date {:etype {:$ {:where {:date 1}}}})))
-            (is (= #{1} (run-query :date {:etype {:$ {:where {:date (.toString (Instant/ofEpochMilli 1))}}}})))
-            (is (= #{0 2 3 4} (run-query :date {:etype {:$ {:where {:date {:$not 1}}}}})))
+            (testing "date"
+              (is (= #{3 4} (run-query :date {:etype {:$ {:where {:date {:$gt 2}}}}})))
+              (is (= #{2 3 4} (run-query :date {:etype {:$ {:where {:date {:$gte 2}}}}})))
+              (is (= #{0 1} (run-query :date {:etype {:$ {:where {:date {:$lt 2}}}}})))
+              (is (= #{0 1 2} (run-query :date {:etype {:$ {:where {:date {:$lte 2}}}}})))
+              (is (= #{1} (run-query :date {:etype {:$ {:where {:date 1}}}})))
+              (is (= #{1} (run-query :date {:etype {:$ {:where {:date (.toString (Instant/ofEpochMilli 1))}}}})))
+              (is (= #{0 2 3 4} (run-query :date {:etype {:$ {:where {:date {:$not 1}}}}})))
 
-            (testing "uses index"
-              (is (= "triples_date_type_idx" (run-explain :date (Instant/ofEpochMilli 2))))))
+              (testing "uses index"
+                (is (= "triples_date_type_idx" (run-explain :date (Instant/ofEpochMilli 2))))))
 
-          (testing "boolean"
-            (is (= #{} (run-query :boolean {:etype {:$ {:where {:boolean {:$gt true}}}}})))
-            (is (= #{true} (run-query :boolean {:etype {:$ {:where {:boolean {:$gt false}}}}})))
-            (is (= #{true} (run-query :boolean {:etype {:$ {:where {:boolean {:$gte true}}}}})))
-            (is (= #{} (run-query :boolean {:etype {:$ {:where {:boolean {:$lt false}}}}})))
-            (is (= #{false} (run-query :boolean {:etype {:$ {:where {:boolean {:$lt true}}}}})))
-            (is (= #{false true} (run-query :boolean {:etype {:$ {:where {:boolean {:$lte true}}}}})))
-            (is (= #{true} (run-query :boolean {:etype {:$ {:where {:boolean true}}}})))
-            (is (= #{false} (run-query :boolean {:etype {:$ {:where {:boolean {:$not true}}}}})))
+            (testing "boolean"
+              (is (= #{} (run-query :boolean {:etype {:$ {:where {:boolean {:$gt true}}}}})))
+              (is (= #{true} (run-query :boolean {:etype {:$ {:where {:boolean {:$gt false}}}}})))
+              (is (= #{true} (run-query :boolean {:etype {:$ {:where {:boolean {:$gte true}}}}})))
+              (is (= #{} (run-query :boolean {:etype {:$ {:where {:boolean {:$lt false}}}}})))
+              (is (= #{false} (run-query :boolean {:etype {:$ {:where {:boolean {:$lt true}}}}})))
+              (is (= #{false true} (run-query :boolean {:etype {:$ {:where {:boolean {:$lte true}}}}})))
+              (is (= #{true} (run-query :boolean {:etype {:$ {:where {:boolean true}}}})))
+              (is (= #{false} (run-query :boolean {:etype {:$ {:where {:boolean {:$not true}}}}})))
 
-            (testing "uses index"
-              (is (= "triples_boolean_type_idx" (run-explain :boolean true))))))))))
+              (testing "uses index"
+                (is (= "triples_boolean_type_idx" (run-explain :boolean true)))))))))))
 
 (deftest in-with-types
   (with-zeneca-checked-data-app
@@ -3015,7 +3014,8 @@
                                     ("eid-nonfiction" :bookshelves/order 1))}))))))
 
 (deftest lookup-unique-uses-the-av-index
-  (binding [d/*testing-pg-hints* true]
+  (binding [d/*enable-pg-hints* true
+            d/*estimate-with-sketch* true]
     (with-zeneca-app
       (fn [app _r]
         (let [attr-ids {:id (random-uuid)
@@ -3045,51 +3045,45 @@
                                          [:add-triple id (:handle attr-ids) "a"]])
                                       (let [id (random-uuid)]
                                         [[:add-triple id (:id attr-ids) (str id)]
-                                         [:add-triple id (:handle attr-ids) "b"]])
-                                      (mapcat (fn [i]
-                                                (let [id (random-uuid)]
-                                                  [[:add-triple id (:id attr-ids) (str id)]
-                                                   [:add-triple id (:handle attr-ids) (str i)]]))
-                                              (range 5000))))]
-          (when (= :test (config/get-env))
-            (sql/select (aurora/conn-pool :write) ["ANALYZE triples"]))
-          (testing "query on unique attr"
-            (let [{:keys [patterns]} (iq/instaql-query->patterns
-                                      (make-ctx)
-                                      {:user {:$ {:where {:handle "a"}}}})
-                  explain (d/explain (make-ctx) patterns)
-                  plan (-> explain
-                           first
-                           (get "QUERY PLAN")
-                           first
-                           (get-in ["Plan" "Plans" 0]))
-                  ;; Make sure it's using the full index
-                  expected-index-cond (format "((t0.app_id = '%s'::uuid) AND (t0.attr_id = '%s'::uuid) AND (CASE WHEN (t0.value = 'null'::jsonb) THEN NULL::jsonb ELSE t0.value END = '\"a\"'::jsonb))"
-                                              (:id app)
-                                              (:handle attr-ids))]
-              (is (= expected-index-cond (get plan "Index Cond")))
-              (is (= "av_index" (get plan "Index Name")))))
+                                         [:add-triple id (:handle attr-ids) "b"]])))]
+          (with-sketches app
+            (testing "query on unique attr"
+              (let [{:keys [patterns]} (iq/instaql-query->patterns
+                                        (make-ctx)
+                                        {:user {:$ {:where {:handle "a"}}}})
+                    explain (d/explain (make-ctx) patterns)
+                    plan (-> explain
+                             first
+                             (get "QUERY PLAN")
+                             first
+                             (get-in ["Plan" "Plans" 0]))
+                    ;; Make sure it's using the full index
+                    expected-index-cond (format "((t0.app_id = '%s'::uuid) AND (t0.attr_id = '%s'::uuid) AND (CASE WHEN (t0.value = 'null'::jsonb) THEN NULL::jsonb ELSE t0.value END = '\"a\"'::jsonb))"
+                                                (:id app)
+                                                (:handle attr-ids))]
+                (is (= expected-index-cond (get plan "Index Cond")))
+                (is (= "av_index" (get plan "Index Name")))))
 
-          (testing "query with lookup"
-            (let [explain (d/explain (make-ctx) {:children
-                                                 {:pattern-groups
-                                                  [{:patterns
-                                                    [[:ea [(:handle attr-ids) "a"]]]}]}})
-                  plan (-> explain
-                           first
-                           (get "QUERY PLAN")
-                           first
-                           (get-in ["Plan" "Plans"])
-                           first
-                           (get "Plans")
-                           first)
-                  ;; Make sure it's using the full index
-                  expected-index-cond (format "((triples.app_id = '%s'::uuid) AND (triples.attr_id = '%s'::uuid) AND (CASE WHEN (triples.value = 'null'::jsonb) THEN NULL::jsonb ELSE triples.value END = '\"a\"'::jsonb))"
-                                              (:id app)
-                                              (:handle attr-ids))]
+            (testing "query with lookup"
+              (let [explain (d/explain (make-ctx) {:children
+                                                   {:pattern-groups
+                                                    [{:patterns
+                                                      [[:ea [(:handle attr-ids) "a"]]]}]}})
+                    plan (-> explain
+                             first
+                             (get "QUERY PLAN")
+                             first
+                             (get-in ["Plan" "Plans"])
+                             first
+                             (get "Plans")
+                             first)
+                    ;; Make sure it's using the full index
+                    expected-index-cond (format "((t0_lookup.app_id = '%s'::uuid) AND (t0_lookup.attr_id = '%s'::uuid) AND (CASE WHEN (t0_lookup.value = 'null'::jsonb) THEN NULL::jsonb ELSE t0_lookup.value END = '\"a\"'::jsonb))"
+                                                (:id app)
+                                                (:handle attr-ids))]
 
-              (is (= expected-index-cond (get plan "Index Cond")))
-              (is (= "av_index" (get plan "Index Name"))))))))))
+                (is (= expected-index-cond (get plan "Index Cond")))
+                (is (= "av_index" (get plan "Index Name")))))))))))
 
 (deftest arbitrary-order-by-all-types
   (with-empty-app
@@ -4540,37 +4534,38 @@
 (deftest fields-with-rules
   (with-zeneca-app
     (fn [app r]
-      (let [attrs         (attr-model/get-by-app-id (:id app))
-            ctx           {:db {:conn-pool (aurora/conn-pool :read)}
-                           :app-id (:id app)
-                           :attrs attrs}
-            query-count   (atom 0)
-            query-tracker {:add (fn [_ _]
-                                  (swap! query-count inc))
-                           :remove (fn [_ _]
-                                     nil)
-                           :stmts (atom #{})}
-            _             (rule-model/put! (aurora/conn-pool :write)
-                                           {:app-id (:id app)
-                                            :code {:users {:allow {:view "data.handle == 'alex'"}}
-                                                   :bookshelves {:allow {:view "data.name == 'Nonfiction'"}}
-                                                   :books {:allow {:view "data.isbn13 == '9780316486668'"}}}})]
-        (testing "rules work even when you filter fields"
-          (is (= {:users [{:id (str (resolvers/->uuid r "eid-alex"))
-                           :fullName "Alex"
-                           :bookshelves [{:id (str (resolvers/->uuid r "eid-nonfiction"))
-                                          :order 1
-                                          :books [{:id (str (resolvers/->uuid r "eid-catch-and-kill"))
-                                                   :title "Catch and Kill"}]}]}]}
-                 (binding [sql/*in-progress-stmts* query-tracker]
-                   (pretty-perm-q ctx {:users {:$ {:fields ["fullName"]}
-                                               :bookshelves {:$ {:fields ["order"]}
-                                                             :books {:$ {:fields ["title"]}}}}}))))
+      (with-sketches app
+        (let [attrs         (attr-model/get-by-app-id (:id app))
+              ctx           {:db {:conn-pool (aurora/conn-pool :read)}
+                             :app-id (:id app)
+                             :attrs attrs}
+              query-count   (atom 0)
+              query-tracker {:add (fn [_ _]
+                                    (swap! query-count inc))
+                             :remove (fn [_ _]
+                                       nil)
+                             :stmts (atom #{})}
+              _             (rule-model/put! (aurora/conn-pool :write)
+                                             {:app-id (:id app)
+                                              :code {:users {:allow {:view "data.handle == 'alex'"}}
+                                                     :bookshelves {:allow {:view "data.name == 'Nonfiction'"}}
+                                                     :books {:allow {:view "data.isbn13 == '9780316486668'"}}}})]
+          (testing "rules work even when you filter fields"
+            (is (= {:users [{:id (str (resolvers/->uuid r "eid-alex"))
+                             :fullName "Alex"
+                             :bookshelves [{:id (str (resolvers/->uuid r "eid-nonfiction"))
+                                            :order 1
+                                            :books [{:id (str (resolvers/->uuid r "eid-catch-and-kill"))
+                                                     :title "Catch and Kill"}]}]}]}
+                   (binding [sql/*in-progress-stmts* query-tracker]
+                     (pretty-perm-q ctx {:users {:$ {:fields ["fullName"]}
+                                                 :bookshelves {:$ {:fields ["order"]}
+                                                               :books {:$ {:fields ["title"]}}}}}))))
 
-          ;; 1 to fetch the query result
-          ;; 1 to fetch rules
-          ;; 1 to preload entity maps
-          (is (= 3 @query-count)))))))
+            ;; 1 to fetch the query result
+            ;; 1 to fetch rules
+            ;; 1 to preload entity maps
+            (is (= 3 @query-count))))))))
 
 (defn query-object-tree [ctx q]
   (instaql-nodes->object-tree ctx (iq/query ctx q)))
@@ -4736,27 +4731,29 @@
 (deftest pg-hint-plan-is-working
   (with-zeneca-app
     (fn [app _r]
-      (binding [d/*testing-pg-hints* true]
-        (next-jdbc/with-transaction [conn (aurora/conn-pool :read)]
-          (next-jdbc/execute! conn ["select set_config('pg_hint_plan.debug_print', 'verbose', true)"])
-          (next-jdbc/execute! conn ["select set_config('pg_hint_plan.message_level', 'warning', true)"])
-          (let [ctx {:db {:conn-pool conn}
-                     :app-id (:id app)
-                     :attrs (attr-model/get-by-app-id (:id app))}
-                {:keys [patterns]} (iq/instaql-query->patterns ctx
-                                                               {:users {:$ {:where {:handle "a"}}}})
-                explain (d/explain ctx patterns)
-                warnings (loop [msgs []
-                                ^PSQLWarning warnings (:warnings (meta explain))]
-                           (if warnings
-                             (recur (conj msgs (.getMessage warnings))
-                                    (.getNextWarning warnings))
-                             msgs))
-                hint-state-dump (ucoll/seek (fn [msg]
-                                              (string/includes? msg "HintStateDump"))
-                                            warnings)]
-            (is (not (nil? hint-state-dump)))
-            (is (string/includes? hint-state-dump "used hints:IndexScan(t0 av_index)IndexScan(t2 ea_index)"))))))))
+      (with-sketches app
+        (binding [d/*enable-pg-hints* true
+                  d/*estimate-with-sketch* true]
+          (next-jdbc/with-transaction [conn (aurora/conn-pool :read)]
+            (next-jdbc/execute! conn ["select set_config('pg_hint_plan.debug_print', 'verbose', true)"])
+            (next-jdbc/execute! conn ["select set_config('pg_hint_plan.message_level', 'warning', true)"])
+            (let [ctx {:db {:conn-pool conn}
+                       :app-id (:id app)
+                       :attrs (attr-model/get-by-app-id (:id app))}
+                  {:keys [patterns]} (iq/instaql-query->patterns ctx
+                                                                 {:users {:$ {:where {:handle "a"}}}})
+                  explain (d/explain ctx patterns)
+                  warnings (loop [msgs []
+                                  ^PSQLWarning warnings (:warnings (meta explain))]
+                             (if warnings
+                               (recur (conj msgs (.getMessage warnings))
+                                      (.getNextWarning warnings))
+                               msgs))
+                  hint-state-dump (ucoll/seek (fn [msg]
+                                                (string/includes? msg "HintStateDump"))
+                                              warnings)]
+              (is (not (nil? hint-state-dump)))
+              (is (string/includes? hint-state-dump "used hints:IndexScan(t0 av_index)IndexScan(t2 ea_index)")))))))))
 
 (comment
   (test/run-tests *ns*))

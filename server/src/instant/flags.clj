@@ -3,7 +3,8 @@
 ;; and can be required from anywhere.
 (ns instant.flags
   (:require
-   [clojure.walk :as w]))
+   [clojure.walk :as w]
+   [instant.config :as config]))
 
 ;; Map of query to {:result {result-tree}
 ;;                  :tx-id int}
@@ -33,6 +34,8 @@
             :toggles {}
             :flags {}
             :handle-receive-timeout {}})
+
+(def toggle-defaults {:pg-hints-by-default (= :test (config/get-env))})
 
 (defn transform-query-result
   "Function that is called on the query result before it is stored in the
@@ -164,7 +167,7 @@
                             (get result "query-flags"))
         toggles (reduce (fn [acc {:strs [setting toggled]}]
                           (assoc acc (keyword setting) toggled))
-                        {}
+                        toggle-defaults
                         (get result "toggles"))
         flags (-> (reduce (fn [acc {:strs [setting value]}]
                             (assoc acc (keyword setting) value))
@@ -174,8 +177,8 @@
                                                          (set (map parse-uuid vs))))
                   (update :tika-enabled-apps (fn [vs]
                                                (set (map parse-uuid vs))))
-                  (update :use-hint-query-hashes (fn [vs]
-                                                   (set vs))))
+                  (update :disable-hint-query-hashes (fn [vs]
+                                                       (set vs))))
 
         handle-receive-timeout (reduce (fn [acc {:strs [appId timeoutMs]}]
                                          (assoc acc (parse-uuid appId) timeoutMs))
@@ -383,4 +386,3 @@
 
 (defn hard-deletion-sweeper-disabled? []
   (toggled? :hard-deletion-sweeper-disabled?))
-

@@ -2,6 +2,8 @@
   (:require
    [clojure.set :as set]
    [clojure+.walk :as walk]
+   [instant.config :as config]
+   [instant.db.attr-sketch :as cms]
    [instant.db.datalog :as d]
    [instant.db.instaql :as iq]
    [instant.db.model.attr :as attr-model]
@@ -9,8 +11,10 @@
    [instant.db.transaction :as tx]
    [instant.jdbc.aurora :as aurora]
    [instant.model.rule :as rule-model]
+   [instant.reactive.aggregator :as aggregator]
    [instant.util.exception :as ex]
-   [instant.util.instaql :refer [instaql-nodes->object-tree]])
+   [instant.util.instaql :refer [instaql-nodes->object-tree]]
+   [next.jdbc])
   (:import
    (java.time Duration Instant)))
 
@@ -186,3 +190,39 @@
          (if (= ::ex/validation-failed (::ex/type (ex-data instant-ex#)))
            instant-ex#
            (throw e#))))))
+
+(defn in-memory-sketches-for-app [app-id]
+  (with-open [conn (next.jdbc/get-connection (config/get-aurora-config))]
+    (reduce (fn [acc sketch]
+              (assoc acc (select-keys sketch [:app-id :attr-id]) sketch))
+            (aggregator/initial-sketch-seq conn
+                                           (format "copy (select app_id, attr_id, entity_id, value, checked_data_type, created_at, eav, ea from triples where app_id = '%s'::uuid order by app_id, attr_id) to stdout with (format binary)"
+                                                   app-id)))))
+
+(defn lookup-with-in-memory-sketches
+  ([original-lookup in-memory-sketches app-id keys]
+   (lookup-with-in-memory-sketches original-lookup
+                                   in-memory-sketches
+                                   app-id
+                                   (aurora/conn-pool :read)
+                                   keys))
+  ([original-lookup in-memory-sketches app-id conn keys]
+   (let [{ours true theirs false} (group-by (fn [k]
+                                              (= app-id (:app-id k)))
+                                            keys)
+         results
+         (reduce (fn [acc k]
+                   (assoc acc k (get in-memory-sketches k)))
+                 {}
+                 ours)]
+     (merge results (original-lookup conn theirs)))))
+
+(defmacro with-sketches
+  "Calculates the sketches for the app and returns them from calls to `attr-sketch/lookup`.
+   Used when we need to have the sketches for a test, but the aggregator isn't running or
+   we don't want to wait for the aggregator to catch up."
+  [app & body]
+  `(let [sketches# (in-memory-sketches-for-app (:id ~app))
+         original-lookup# (var-get #'cms/lookup)]
+     (with-redefs [cms/lookup (partial lookup-with-in-memory-sketches original-lookup# sketches# (:id ~app))]
+       ~@body)))
