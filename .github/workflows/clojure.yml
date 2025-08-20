@@ -284,7 +284,7 @@ jobs:
       uses: "./.github/actions/elastic-beanstalk"
       with:
         working-directory: "server"
-        files: '["docker-compose.yml", ".ebextensions/resources.config", ".ebextensions/sysctl.config", ".platform/hooks/prebuild/prebuild.sh", ".platform/hooks/postdeploy/cloudwatch.sh"]'
+        files: '["docker-compose.yml", ".ebextensions/resources.config", ".ebextensions/sysctl.config", ".platform/hooks/prebuild/prebuild.sh", ".platform/hooks/postdeploy/cloudwatch.sh", ".platform/confighooks/prebuild/prebuild.sh", ".platform/confighooks/postdeploy/cloudwatch.sh"]'
         aws-region: "us-east-1"
         bucket: "elasticbeanstalk-us-east-1-597134865416"
         application-name: "instant-docker-prod"
