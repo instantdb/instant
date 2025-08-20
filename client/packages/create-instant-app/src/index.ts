@@ -9,6 +9,7 @@ import { addRuleFiles } from './ruleFiles.js';
 import { initializeGit } from './git.js';
 import { tryConnectApp } from './login.js';
 import { applyEnvFile } from './env.js';
+import { promptClaude } from './claude.js';
 
 const main = async () => {
   if (!process.argv.some((arg) => ['-h', '--help'].includes(arg))) {
@@ -25,6 +26,10 @@ const main = async () => {
   const appId = await tryConnectApp(results.project);
   if (appId) {
     applyEnvFile(results.project, projectDir, appId);
+  }
+
+  if (results.prompt) {
+    await promptClaude(results.prompt, projectDir);
   }
 
   outro(`Done!`);

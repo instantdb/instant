@@ -69,13 +69,15 @@ export const runCli = async (): Promise<CliResults> => {
       },
       prompt: async () => {
         if (flags.prompt) {
-          p.text({
-            message: 'What is the prompt?',
-            placeholder: 'Create an app that....',
-          }).then((value) => {
-            if (p.isCancel(value)) return null;
-            return value;
-          });
+          return await p
+            .text({
+              message: 'What is the prompt?',
+              placeholder: 'Create an app that....',
+            })
+            .then((value) => {
+              if (p.isCancel(value)) return null;
+              return value;
+            });
         }
         return null;
       },
