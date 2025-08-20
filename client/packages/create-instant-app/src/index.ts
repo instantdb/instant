@@ -7,6 +7,7 @@ import { getUserPkgManager } from './utils/getUserPkgManager.js';
 import chalk from 'chalk';
 import { addRuleFiles } from './ruleFiles.js';
 import { initializeGit } from './git.js';
+import { tryConnectApp } from './login.js';
 
 const main = async () => {
   if (!process.argv.some((arg) => ['-h', '--help'].includes(arg))) {
@@ -19,6 +20,9 @@ const main = async () => {
   if (results.createRepo) {
     await initializeGit(projectDir);
   }
+
+  await tryConnectApp(results.project);
+
   outro(`Done!`);
 
   console.log(`
