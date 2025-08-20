@@ -276,8 +276,7 @@ Use `db.storage.uploadFile(path, file, opts?)` to upload a file.
 
 - `path` determines where the file will be stored, and can be used with permissions to restrict access to certain files.
 - `file` should be a [`File`](https://developer.mozilla.org/en-US/docs/Web/API/File) type, which will likely come from a [file-type input](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input/file).
-- `opts` is optional and can be used to set the `contentType` and
-  `contentDisposition` headers for the file.
+- `opts` can be used to set additional metadata like `contentType` and `contentDisposition`
 
 ```javascript
 // use the file's current name as the path
@@ -540,23 +539,28 @@ files without worrying about authentication.
 
 ### Uploading files
 
-Once again, we use the `db.storage.uploadFile(path, file, opts?)` function to upload a file on the backend.
-
-Note that unlike our browser SDK, the `file` argument must be a `Buffer`. In
-this case you'll likely want to at least specify the `contentType` in the
-options otherwise the default content-type will be `application/octet-stream`.
+`db.storage.uploadFile(path, file, opts?)` is also available to upload a file
+on the backend. In the admin SDK, the `file` argument must either be a buffer
+or a stream.
 
 ```tsx
 import fs from 'fs';
 
-// Read a file from disk and upload to storage, return the uploaded file id
-async function uploadFile(filepath: string) {
-  const buffer = fs.readFileSync(filepath);
-  const { data } = await db.storage.uploadFile('images/demo.png', buffer, {
-    contentType: 'image/png',
-  }
-  return data.id;
-}
+const fp = 'path/to/your/file.png';
+const dest = 'images/demo.png';
+
+// Upload a file from a buffer
+const buffer = fs.readFileSync(filepath);
+const { data } = await db.storage.uploadFile(dest, buffer);
+
+// Upload a file from a stream
+// IMPORTANT: You must provide `fileSize` as an option when uploading via stream
+const stream = fs.createReadStream(fp);
+const fileSize = fs.statSync(fp).size;
+const { data } = await db.storage.uploadFile(dest, stream, {
+  contentType: contentType,
+  fileSize,
+});
 ```
 
 ### View Files
@@ -590,6 +594,17 @@ await db.storage.delete(filename);
 
 const images = ['images/1.png', 'images/2.png', 'images/3.png'];
 await db.storage.deleteMany(images);
+```
+
+### Link files
+
+Similar to the client SDK, after uploading a file, you can use the response to
+link the upload to other entities.
+
+```typescript
+// Assume we have a user ID and a buffer for the file
+const { data } = await db.storage.uploadFile('images/demo.png', buffer);
+db.transact([db.tx.$users[userId].link({ avatar: data.id })]);
 ```
 
 ## Permissions
