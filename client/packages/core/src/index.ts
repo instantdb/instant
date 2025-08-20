@@ -405,6 +405,7 @@ class Auth {
 type FileOpts = {
   contentType?: string;
   contentDisposition?: string;
+  fileSize?: number; // Required for streaming uploads
 };
 
 /**
