@@ -2234,17 +2234,7 @@
                     set)
                book-id)))))))
 
-(defn permutations
-  ([keys]
-   (permutations {} keys))
-  ([base keys]
-   (if (empty? keys)
-     [base]
-     (concat
-      (permutations (assoc base (first keys) true) (next keys))
-      (permutations (assoc base (first keys) false) (next keys))))))
-
-(deftest link-unlink-perms
+(deftest link-perms
   (with-empty-app
     (fn [{app-id   :id
           make-ctx :make-ctx}]
@@ -2289,8 +2279,8 @@
                              (case post-action
                                :create "posts_create"
                                :update "posts_update")]
-          ; user-ref-type     [:id #_:lookup]
-          ; post-ref-type     [:id #_:lookup]
+          user-ref-type     [:id :lookup]
+          post-ref-type     [:id :lookup]
           ;; link check can be not defined at all (then update/view fallback is used),
           ;; defined only for one side (then other side will use a fallback), or be
           ;; defined for both sides
@@ -2298,7 +2288,7 @@
                              :posts/fwd-only
                              :posts/rev-only
                              :posts/fwd-rev]
-          rule-params       (permutations
+          rule-params       (coll/permutations
                              (case attr
                                :posts/fallback [post-fallback-rule-param "users_view"]
                                :posts/fwd-only ["posts_fwd_only"         "users_view"]
@@ -2309,20 +2299,30 @@
           user-params-pos   [:post :user]]
          (let [user-id     (random-uuid)
                user-email  (test-util/rand-email)
-               ; user-ref   (case user-ref-type
-               ;              :id     user-id
-               ;              :lookup [:users/email user-email])
+               user-ref    (case user-ref-type
+                             :id     user-id
+                             :lookup [:users/email user-email])
                post-id     (random-uuid)
                post-title  (test-util/rand-string)
-               ; post-ref   (case post-ref-type
-               ;              :id     post-id
-               ;              :lookup [:posts/title post-title])
-               user-tx     [[:add-triple  user-id :users/id    user-id]
-                            [:add-triple  user-id :users/email user-email]
-                            [:rule-params user-id "users"      {"users_create" true}]]
-               post-tx     [[:add-triple  post-id :posts/id    post-id]
-                            [:add-triple  post-id :posts/title post-title]
-                            [:rule-params post-id "posts"      {"posts_create" true}]]
+               post-ref    (case post-ref-type
+                             :id     post-id
+                             :lookup [:posts/title post-title])
+               user-tx     (case user-ref-type
+                             :id
+                             [[:add-triple  user-id :users/id    user-id]
+                              [:add-triple  user-id :users/email user-email]
+                              [:rule-params user-id "users"      {"users_create" true}]]
+                             :lookup
+                             [[:add-triple  user-ref :users/id    user-ref]
+                              [:rule-params user-ref "users"      {"users_create" true}]])
+               post-tx     (case post-ref-type
+                             :id
+                             [[:add-triple  post-id :posts/id    post-id]
+                              [:add-triple  post-id :posts/title post-title]
+                              [:rule-params post-id "posts"      {"posts_create" true}]]
+                             :lookup
+                             [[:add-triple  post-ref :posts/id    post-ref]
+                              [:rule-params post-ref "posts"      {"posts_create" true}]])
                _           (when (= :update user-action)
                              (transact! user-tx))
                _           (when (= :update post-action)
@@ -2338,11 +2338,11 @@
                               post-tx)
                             (case user-params-pos
                               :user
-                              [[:rule-params user-id "users" user-params]
-                               [:rule-params post-id "posts" post-params]]
+                              [[:rule-params user-ref "users" user-params]
+                               [:rule-params post-ref "posts" post-params]]
                               :post
-                              [[:rule-params post-id "posts" rule-params]])
-                            [[:add-triple post-id attr user-id]])
+                              [[:rule-params post-ref "posts" rule-params]])
+                            [[:add-triple post-ref attr user-ref]])
 
                expected    (every? true? (vals rule-params))]
 
