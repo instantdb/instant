@@ -5,6 +5,7 @@ export type CliResults = {
   base: 'next-js-app-dir' | 'vite-vanilla' | 'expo';
   ruleFiles: ('cursor' | 'claude' | 'windsurf' | 'zed' | 'codex')[];
   appName: string;
+  prompt: string | null;
   createRepo: boolean;
 };
 
@@ -13,6 +14,7 @@ const defaultOptions: CliResults = {
   appName: 'my-instant-app',
   ruleFiles: [],
   createRepo: true,
+  prompt: null,
 };
 
 export const runCli = async (): Promise<CliResults> => {
@@ -39,6 +41,12 @@ export const runCli = async (): Promise<CliResults> => {
     .addOption(
       new Option('--no-git', "Don't create a git repo in the new project"),
     )
+    .addOption(
+      new Option(
+        '--prompt',
+        'Create a fresh InstantDB app based off of a prompt. (requires Claude Code)',
+      ),
+    )
     .parse(process.argv);
   const cliProvidedName = program.args[0];
   if (cliProvidedName) {
@@ -59,7 +67,22 @@ export const runCli = async (): Promise<CliResults> => {
           defaultValue: 'my-instant-app',
         });
       },
-      base: async () => {
+      prompt: async () => {
+        if (flags.prompt) {
+          p.text({
+            message: 'What is the prompt?',
+            placeholder: 'Create an app that....',
+          }).then((value) => {
+            if (p.isCancel(value)) return null;
+            return value;
+          });
+        }
+        return null;
+      },
+      base: async ({ results }) => {
+        if (results.prompt) {
+          return 'next-js-app-dir';
+        }
         if (flags.base) {
           return flags.base;
         }
@@ -74,7 +97,10 @@ export const runCli = async (): Promise<CliResults> => {
           initialValue: 'next-js-app-dir' as CliResults['base'],
         });
       },
-      ruleFiles: () => {
+      ruleFiles: async ({ results }) => {
+        if (results.prompt) {
+          return ['claude'];
+        }
         return p.multiselect({
           required: false,
           message: `Which AI tools would you like to add rule files for? (select multiple)`,
