@@ -367,8 +367,9 @@
 (defn toggled? [key]
   (get-in (query-result) [:toggles key]))
 
-(defn flag [key]
-  (get-in (query-result) [:flags key]))
+(defn flag
+  ([key] (get-in (query-result) [:flags key]))
+  ([key not-found] (get-in (query-result) [:flags key] not-found)))
 
 (defn handle-receive-timeout [app-id]
   (get-in (query-result) [:handle-receive-timeout app-id]))
@@ -383,4 +384,3 @@
 
 (defn hard-deletion-sweeper-disabled? []
   (toggled? :hard-deletion-sweeper-disabled?))
-
