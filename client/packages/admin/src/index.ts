@@ -562,9 +562,11 @@ type DeleteManyFileResponse = {
  */
 class Storage {
   config: FilledConfig;
+  impersonationOpts?: ImpersonationOpts;
 
-  constructor(config: FilledConfig) {
+  constructor(config: FilledConfig, impersonationOpts?: ImpersonationOpts) {
     this.config = config;
+    this.impersonationOpts = impersonationOpts;
   }
 
   /**
@@ -581,7 +583,7 @@ class Storage {
     metadata: FileOpts = {},
   ): Promise<UploadFileResponse> => {
     const headers = {
-      ...authorizedHeaders(this.config),
+      ...authorizedHeaders(this.config, this.impersonationOpts),
       path,
     };
     if (metadata.contentDisposition) {
@@ -636,7 +638,7 @@ class Storage {
       )}`,
       {
         method: 'DELETE',
-        headers: authorizedHeaders(this.config),
+        headers: authorizedHeaders(this.config, this.impersonationOpts),
       },
     );
   };
@@ -651,7 +653,7 @@ class Storage {
   deleteMany = async (pathnames: string[]): Promise<DeleteManyFileResponse> => {
     return jsonFetch(`${this.config.apiURI}/admin/storage/files/delete`, {
       method: 'POST',
-      headers: authorizedHeaders(this.config),
+      headers: authorizedHeaders(this.config, this.impersonationOpts),
       body: JSON.stringify({ filenames: pathnames }),
     });
   };
@@ -760,7 +762,7 @@ class InstantAdminDatabase<
   constructor(_config: Config) {
     this.config = instantConfigWithDefaults(_config);
     this.auth = new Auth(this.config);
-    this.storage = new Storage(this.config);
+    this.storage = new Storage(this.config, this.impersonationOpts);
     this.rooms = new Rooms<Schema>(this.config);
   }
 
@@ -778,6 +780,7 @@ class InstantAdminDatabase<
       ...(this.config as Config),
     });
     newClient.impersonationOpts = opts;
+    newClient.storage = new Storage(this.config, opts);
     return newClient;
   };
 
