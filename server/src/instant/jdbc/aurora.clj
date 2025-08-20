@@ -187,10 +187,13 @@
                       (catch Exception _e nil)))
      :get-config (fn [] @current-config)}))
 
-(defn get-connection [config]
+(defn get-connection
+  "Creates a new connection for the connection pool and sets the idle_in_transaction_session_timeout.
+   Defaults to one minute, but can be modified with a flag in an emergency."
+  [config]
   (let [conn (next-jdbc/get-connection config)]
     (next-jdbc/execute! conn ["select set_config('idle_in_transaction_session_timeout', ?::text, false)"
-                              (flags/flag :idle-in-transaction-session-timeout (* 1000 45))])
+                              (flags/flag :idle-in-transaction-session-timeout (* 1000 60))])
     conn))
 
 (defn aurora-cluster-datasource
@@ -229,7 +232,9 @@
       (setLoginTimeout [_ seconds] (reset! login-timeout seconds))
       (toString [_] (connection/jdbc-url (get-config))))))
 
-(defn dev-datasource [config]
+(defn dev-datasource
+  "Creates a datasource that lets us modify connections before handing them off to hikari"
+  [config]
   (let [login-timeout (atom nil)]
     (reify DataSource
       (getConnection [_]
