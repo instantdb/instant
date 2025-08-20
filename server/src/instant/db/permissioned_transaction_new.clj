@@ -348,7 +348,7 @@
                    [{:scope    :object
                      :action   :view
                      :etype    rev-etype
-                     :eid      value
+                     :eid      (get create-lookups-map value value)
                      :program  (rule-model/get-program!
                                 rules
                                 [[rev-etype  "allow" "link" rev-label]

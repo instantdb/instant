@@ -263,3 +263,15 @@
   "update for transients"
   [m k f & args]
   (assoc! m k (apply f (get m k) args)))
+
+(defn permutations
+  "For given [a b c ...] returns a list of maps
+   where {a -> true | false, b -> true | false, ... }"
+  ([keys]
+   (permutations {} keys))
+  ([base keys]
+   (if (empty? keys)
+     [base]
+     (concat
+      (permutations (assoc base (first keys) true) (next keys))
+      (permutations (assoc base (first keys) false) (next keys))))))
