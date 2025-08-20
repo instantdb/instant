@@ -63,6 +63,11 @@ export const tryConnectApp = async (
     return null;
   }
 
+  if (program.prompt) {
+    const { appId } = await createApp(program.appName, authToken);
+    return appId;
+  }
+
   const action = await p
     .select({
       message: `You are logged in already! ${chalk.bold('Create')} or ${chalk.bold('import')} existing app?`,
