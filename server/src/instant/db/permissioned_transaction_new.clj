@@ -268,7 +268,41 @@
                                 :rule-params (merge rule-params
                                                     (get rule-params-map rev-key))}}]))
 
-                (and (#{:add-triple :deep-merge-triple :retract-triple} op)
+                (and (= :retract-triple op)
+                     ref?)
+                [{:scope    :object
+                  :action   :unlink
+                  :etype    etype
+                  :eid      eid
+                  :program  (rule-model/get-program!
+                             rules
+                             [[etype      "allow" "unlink" fwd-label]
+                              [etype      "allow" "update"]
+                              [etype      "allow" "$default"]
+                              ["$default" "allow" "unlink" fwd-label]
+                              ["$default" "allow" "update"]
+                              ["$default" "allow" "$default"]])
+                  :bindings {:data        entity
+                             :new-data    (get updated-entities-map key)
+                             :rule-params rule-params}}
+                 {:scope    :object
+                  :action   :unlink
+                  :etype    rev-etype
+                  :eid      value
+                  :program  (rule-model/get-program!
+                             rules
+                             [[rev-etype  "allow" "unlink" rev-label]
+                              [rev-etype  "allow" "view"]
+                              [rev-etype  "allow" "$default"]
+                              ["$default" "allow" "unlink" rev-label]
+                              ["$default" "allow" "view"]
+                              ["$default" "allow" "$default"]])
+                  :bindings {:data        rev-entity
+                                ;; :new-data    (get updated-entities-map key)
+                             :rule-params (merge rule-params
+                                                 (get rule-params-map rev-key))}}]
+
+                (and (#{:add-triple :deep-merge-triple} op)
                      update?)
                 [{:scope    :object
                   :action   :update
@@ -312,7 +346,10 @@
               rev-key         {:eid value :etype rev-etype}
               rev-entity      (when ref?
                                 (-> (get updated-entities-map rev-key)
-                                    (update "id" #(get create-lookups-map % %))))
+                                    (update "id" #(or
+                                                   (get create-lookups-map %)
+                                                   (:eid rev-key)
+                                                   %))))
               rule-params     (get rule-params-map key)]
         check (cond
                 (= :add-attr op)
@@ -328,7 +365,7 @@
                 (concat
                  (when create?
                    [{:scope    :object
-                     :action   :create
+                     :action   :link
                      :etype    etype
                      :eid      (get create-lookups-map eid eid)
                      :program  (rule-model/get-program!
@@ -346,7 +383,7 @@
                                   :rule-params rule-params})}])
                  (when rev-entity
                    [{:scope    :object
-                     :action   :view
+                     :action   :link
                      :etype    rev-etype
                      :eid      (get create-lookups-map value value)
                      :program  (rule-model/get-program!
@@ -361,7 +398,7 @@
                                 :rule-params (merge rule-params
                                                     (get rule-params-map rev-key))}}]))
 
-                (and (#{:add-triple :deep-merge-triple :retract-triple} op)
+                (and (#{:add-triple :deep-merge-triple} op)
                      create?)
                 [{:scope    :object
                   :action   :create

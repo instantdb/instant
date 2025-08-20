@@ -2348,6 +2348,93 @@
 
            (is (= expected (perm-pass? (transact! tx))))))))))
 
+(deftest unlink-perms
+  (with-empty-app
+    (fn [{app-id   :id
+          make-ctx :make-ctx}]
+      (let [attrs
+            (test-util/make-attrs
+             app-id
+             [[:users/id    :required? :index? :unique?]
+              [:users/email :unique?]
+              [:posts/id    :required? :index? :unique?]
+              [:posts/title :unique?]
+              [[:posts/fallback :users/rev-fallback]]
+              [[:posts/fwd-only :users/rev-fwd-only]]
+              [[:posts/rev-only :users/rev-rev-only]]
+              [[:posts/fwd-rev  :users/rev-fwd-rev]]])
+            transact! #(permissioned-tx/transact!
+                        (make-ctx)
+                        (test-util/resolve-attrs attrs %))]
+        (rule-model/put!
+         (aurora/conn-pool :write)
+         {:app-id app-id
+          :code {:posts
+                 {:allow
+                  {:update "ruleParams.posts_update"
+                   :unlink {"fwd-only" "ruleParams.posts_fwd_only"
+                            "fwd-rev"  "ruleParams.posts_fwd_rev"}}}
+
+                 :users
+                 {:allow
+                  {:view   "ruleParams.users_view"
+                   :update "ruleParams.users_update"
+                   :unlink {"rev-rev-only" "ruleParams.users_rev_only"
+                            "rev-fwd-rev"  "ruleParams.users_fwd_rev"}}}}})
+
+        (test-util/test-matrix
+         [user-ref-type     [:id :lookup]
+          post-ref-type     [:id :lookup]
+          ;; link check can be not defined at all (then update/view fallback is used),
+          ;; defined only for one side (then other side will use a fallback), or be
+          ;; defined for both sides
+          attr              [:posts/fallback
+                             :posts/fwd-only
+                             :posts/rev-only
+                             :posts/fwd-rev]
+          rule-params       (coll/permutations
+                             (case attr
+                               :posts/fallback ["posts_update"   "users_view"]
+                               :posts/fwd-only ["posts_fwd_only" "users_view"]
+                               :posts/rev-only ["posts_update"   "users_rev_only"]
+                               :posts/fwd-rev  ["posts_fwd_rev"  "users_fwd_rev"]))
+          ;; rule params for reverse direction can be placed on forward one, e.g.
+          ;; db.tx.posts[id].link({user: ...}).ruleParams({user_param: ...})
+          user-params-pos   [:post :user]]
+         (let [user-id     (random-uuid)
+               user-email  (test-util/rand-email)
+               user-ref    (case user-ref-type
+                             :id     user-id
+                             :lookup [:users/email user-email])
+               post-id     (random-uuid)
+               post-title  (test-util/rand-string)
+               post-ref    (case post-ref-type
+                             :id     post-id
+                             :lookup [:posts/title post-title])
+               _           (transact!
+                            [[:add-triple  user-id :users/id    user-id]
+                             [:add-triple  user-id :users/email user-email]
+                             [:rule-params user-id "users"      {"users_create" true}]
+                             [:add-triple  post-id :posts/id    post-id]
+                             [:add-triple  post-id :posts/title post-title]
+                             [:rule-params post-id "posts"      {"posts_create" true}]])
+
+               user-params (coll/filter-keys #(string/starts-with? % "users_") rule-params)
+               post-params (coll/filter-keys #(string/starts-with? % "posts_") rule-params)
+
+               tx          (concat
+                            (case user-params-pos
+                              :user
+                              [[:rule-params user-ref "users" user-params]
+                               [:rule-params post-ref "posts" post-params]]
+                              :post
+                              [[:rule-params post-ref "posts" rule-params]])
+                            [[:retract-triple post-ref attr user-ref]])
+
+               expected    (every? true? (vals rule-params))]
+
+           (is (= expected (perm-pass? (transact! tx))))))))))
+
 (deftest lookup-perms
   (with-empty-app
     (fn [{app-id :id}]
@@ -2424,10 +2511,10 @@
                  (aurora/conn-pool :write)
                  {:app-id app-id
                   :code {:profiles {:allow
-                                    {:create "size(data.ref('org.id')) == 1"
-                                     :update  "size(data.ref('org.id')) == 1"
-                                     :view  "size(data.ref('org.id')) == 1"
-                                     :delete  "size(data.ref('org.id')) == 1"}}}})
+                                    {:create "size(data.ref('org.id')) == 1 // create"
+                                     :update "size(data.ref('org.id')) == 1 // update"
+                                     :view   "size(data.ref('org.id')) == 1 // view"
+                                     :delete "size(data.ref('org.id')) == 1 // delete"}}}})
               rules (rule-model/get-by-app-id {:app-id app-id})
               ctx {:db {:conn-pool (aurora/conn-pool :write)}
                    :app-id app-id
