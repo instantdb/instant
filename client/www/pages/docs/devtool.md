@@ -73,7 +73,7 @@ const db = init({
 
 ## Shortcuts
 
-To quickly toggle the window, you can use the shortcut `ctrl` + `shit` + `0` (zero)
+To quickly toggle the window, you can use the shortcut `ctrl` + `shift` + `0` (zero)
 
 ## Feedback?
 
