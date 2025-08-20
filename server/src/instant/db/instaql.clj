@@ -36,7 +36,11 @@
 (defn where-value-valid? [x]
   (or (string? x) (uuid? x) (number? x) (boolean? x)))
 
-(s/def ::$in (s/coll-of where-value-valid?
+(defn in-value-valid? [x]
+  (or (where-value-valid? x)
+      (nil? x)))
+
+(s/def ::$in (s/coll-of in-value-valid?
                         :kind vector?
                         :min-count 0
                         :into #{}))
@@ -167,37 +171,6 @@
 
 (def sentinel (Object.))
 
-(defn- combine-or-where-conds
-  "Converts {:or [{:a 1} {:a 2}] -> {:or [{:a {:in [1 2]}}]}"
-  [conds]
-  (let [{:keys [uncombined optimized]}
-        (reduce (fn [acc c]
-                  (if-not (and (= (count c) 1)
-                               (where-value-valid? (second (first c)))
-                               (not (string/starts-with? (name (ffirst c)) "$")))
-                    (update acc :uncombined conj c)
-                    (let [[k v] (first c)
-                          existing (get-in acc [:optimized k] sentinel)]
-                      (if (= existing sentinel)
-                        (assoc-in acc [:optimized k] {:in [v]})
-                        (update-in acc [:optimized k :in] conj v)))))
-
-                {:uncombined []
-                 :optimized {}}
-                conds)]
-    (into uncombined (map (fn [[k v]]
-                            {k v})
-                          optimized))))
-
-(defn grow-paths
-  "Given a path, creates a list of paths leading up to that path,
-   including the path itself.
-   (grow-paths [1 2 3]) => ((1) (1 2) (1 2 3))"
-  [path]
-  (mapv (fn [i]
-          (take (inc i) path))
-        (range (count path))))
-
 (defn link-etype [attrs etype link-attr-name]
   (or (when-let [attr (attr-model/seek-by-fwd-ident-name
                        [etype link-attr-name]
@@ -221,6 +194,43 @@
         (and (:index? attr)
              (not (:indexing? attr)))))))
 
+(defn- combine-or-where-conds
+  "Converts {:or [{:a 1} {:a 2}] -> {:or [{:a {:in [1 2]}}]}"
+  [attrs initial-etype conds]
+  (let [{:keys [uncombined optimized]}
+        (reduce (fn [acc c]
+                  (if-not (or (and (= (count c) 1)
+                                   (= (second (first c)) {:$isNull true})
+                                   (indexed-attr? attrs initial-etype (string/split (name (ffirst c)) #"\.")))
+                              (and (= (count c) 1)
+                                   (where-value-valid? (second (first c)))
+                                   (not (string/starts-with? (name (ffirst c)) "$"))))
+                    (update acc :uncombined conj c)
+                    (let [[k v] (first c)
+                          v (if (= v {:$isNull true})
+                              nil
+                              v)
+                          existing (get-in acc [:optimized k] sentinel)]
+                      (if (= existing sentinel)
+                        (assoc-in acc [:optimized k] {:in [v]})
+                        (update-in acc [:optimized k :in] conj v)))))
+
+                {:uncombined []
+                 :optimized {}}
+                conds)]
+    (into uncombined (map (fn [[k v]]
+                            {k v})
+                          optimized))))
+
+(defn grow-paths
+  "Given a path, creates a list of paths leading up to that path,
+   including the path itself.
+   (grow-paths [1 2 3]) => ((1) (1 2) (1 2 3))"
+  [path]
+  (mapv (fn [i]
+          (take (inc i) path))
+        (range (count path))))
+
 (defn- normalize-ne-to-not
   "Treat `$ne` as an alias for `$not`."
   [where-cond-v]
@@ -236,7 +246,7 @@
   (collapse-coerced-conds
    (cond (or-where-cond? c)
          (let [conds (->> v
-                          combine-or-where-conds
+                          (combine-or-where-conds attrs (:etype state))
                           (map (fn [conds]
                                  {:and
                                   (mapcat (partial coerce-where-cond state attrs)

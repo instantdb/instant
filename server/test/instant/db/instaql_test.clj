@@ -405,6 +405,7 @@
                                                       attrs))
                                                 nil
                                                 0]}}}))))))))
+
 (deftest equality-on-dates-without-index
   (with-empty-app
     (fn [app]
@@ -4754,6 +4755,131 @@
                                               warnings)]
               (is (not (nil? hint-state-dump)))
               (is (string/includes? hint-state-dump "used hints:IndexScan(t0 av_index)IndexScan(t2 ea_index)")))))))))
+
+(deftest indexed-ors-collapse-isNull-true
+  (with-zeneca-checked-data-app
+    (fn [app _r]
+      (let [attr-ids {:string (random-uuid)
+                      :number (random-uuid)
+                      :boolean (random-uuid)
+                      :date (random-uuid)}
+            id-attr-id (random-uuid)
+            label-attr-id (random-uuid)
+            labels ["a" "b" "c" "d" "e"]
+            make-ctx (fn []
+                       (let [attrs (attr-model/get-by-app-id (:id app))]
+                         {:db {:conn-pool (aurora/conn-pool :write)}
+                          :app-id (:id app)
+                          :attrs attrs}))
+            run-query (fn [return-field q]
+                        (let [ctx (make-ctx)]
+                          (->> (iq/permissioned-query ctx q)
+                               (instaql-nodes->object-tree ctx)
+                               (#(get % "etype"))
+                               (map #(get % (name return-field)))
+                               set)))]
+        (tx/transact! (aurora/conn-pool :write)
+                      (attr-model/get-by-app-id (:id app))
+                      (:id app)
+                      (concat
+                       [[:add-attr {:id id-attr-id
+                                    :forward-identity [(random-uuid) "etype" "id"]
+                                    :unique? true
+                                    :index? true
+                                    :value-type :blob
+                                    :checked-data-type :string
+                                    :cardinality :one}]
+                        [:add-attr {:id label-attr-id
+                                    :forward-identity [(random-uuid) "etype" "label"]
+                                    :unique? true
+                                    :index? false
+                                    :value-type :blob
+                                    :checked-data-type :string
+                                    :cardinality :one}]]
+                       (for [[t attr-id] attr-ids]
+                         [:add-attr {:id attr-id
+                                     :forward-identity [(random-uuid) "etype" (name t)]
+                                     :unique? false
+                                     :index? true
+                                     :value-type :blob
+                                     :checked-data-type t
+                                     :cardinality :one}])
+
+                       (mapcat
+                        (fn [i]
+                          (let [id (random-uuid)]
+                            [[:add-triple id id-attr-id (str id)]
+                             [:add-triple id label-attr-id (nth labels i)]
+                             [:add-triple id (:string attr-ids) (str i)]
+                             [:add-triple id (:number attr-ids) i]
+                             [:add-triple id (:date attr-ids) i]
+                             [:add-triple id (:boolean attr-ids) (zero? (mod i 2))]]))
+                        (range (count labels)))
+
+                       (let [id (random-uuid)]
+                         [[:add-triple id id-attr-id (str id)]
+                          [:add-triple id label-attr-id "nil"]])))
+
+        (testing "you can use nil in an $in with an indexed"
+          (testing "string"
+            (is (= #{"3" "4" nil} (run-query :string {:etype {:$ {:where {:string {:$in ["3" "4" nil]}}}}})))
+            (is (= #{"3" "4" nil} (run-query :string {:etype {:$ {:where {:or [{:string "3"}
+                                                                               {:string "4"}
+                                                                               {:string {:$isNull true}}]}}}})))
+            (is (= #{"2"} (run-query :string {:etype {:$ {:where {:string "2"}}}}))))
+
+          (testing "number"
+            (is (= #{3 4 nil} (run-query :number {:etype {:$ {:where {:number {:$in [3 4 nil]}}}}})))
+            (is (= #{3 4 nil} (run-query :number {:etype {:$ {:where {:or [{:number 3}
+                                                                           {:number 4}
+                                                                           {:number {:$isNull true}}]}}}})))
+            (is (= #{2} (run-query :number {:etype {:$ {:where {:number 2}}}}))))
+
+          (testing "date"
+            (is (= #{3 4 nil} (run-query :date {:etype {:$ {:where {:date {:$in [3 4 nil]}}}}})))
+            (is (= #{3 4 nil} (run-query :date {:etype {:$ {:where {:or [{:date 3}
+                                                                         {:date 4}
+                                                                         {:date {:$isNull true}}]}}}})))
+            (is (= #{2} (run-query :date {:etype {:$ {:where {:date 2}}}}))))
+
+          (testing "boolean"
+            (is (= #{true false nil} (run-query :boolean {:etype {:$ {:where {:boolean {:$in [true false nil]}}}}})))
+            (is (= #{true nil} (run-query :boolean {:etype {:$ {:where {:or [{:boolean true}
+                                                                             {:boolean {:$isNull true}}]}}}})))
+            (is (= #{false} (run-query :boolean {:etype {:$ {:where {:boolean false}}}})))))
+
+        (testing "you can't use nil in an in with non-indexed fields"
+          (is (= '{:expected? indexed?,
+                   :in ["etype" :$ :where :$in #{nil "a"}],
+                   :message
+                   "Only indexed attrs can check for `nil` in `$in`. etype.label is not indexed."}
+                 (validation-err (make-ctx)
+                                 {:etype {:$ {:where {:label {:$in ["a" nil]}}}}}))))
+
+        (testing "indexed fields collapse ors"
+          (let [attrs (attr-model/get-by-app-id (:id app))]
+            (is (= '({:k "etype",
+                      :option-map
+                      {:where-conds
+                       ([:cond {:path ["string"], :v [:args-map {:in #{nil "3" "4"}}]}])},
+                      :child-forms ()})
+                   (iq/->forms! attrs {:etype {:$ {:where {:or [{:string "3"}
+                                                                {:string "4"}
+                                                                {:string {:$isNull true}}]}}}})))))
+
+        (testing "non-indexed fields don't collapse ors"
+          (let [attrs (attr-model/get-by-app-id (:id app))]
+            (is (= '({:k "etype",
+                      :option-map
+                      {:where-conds
+                       ([:or
+                         {:or
+                          [[:cond {:path ("label"), :v [:args-map {:$isNull true}]}]
+                           [:cond {:path ["label"], :v [:args-map {:in #{"3" "4"}}]}]]}])},
+                      :child-forms ()})
+                   (iq/->forms! attrs {:etype {:$ {:where {:or [{:label "3"}
+                                                                {:label "4"}
+                                                                {:label {:$isNull true}}]}}}})))))))))
 
 (comment
   (test/run-tests *ns*))

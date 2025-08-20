@@ -604,7 +604,13 @@
     [:and
      (if (and (= op :=)
               (set? val))
-       (in-any [f col] val (data-type->pg-type data-type))
+       (let [in-val (if (= :string data-type)
+                      val
+                      (disj val nil))
+             in-clause (in-any [f col] in-val (data-type->pg-type data-type))]
+         (if (contains? val nil)
+           [:or in-clause [:= nil [f col]]]
+           in-clause))
        [op [f col] val])
      [:=
       :checked_data_type

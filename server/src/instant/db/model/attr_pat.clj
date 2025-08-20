@@ -264,16 +264,22 @@
   "Coerces an individual value"
   [state attr data-type v]
   (case data-type
-    :string (if (string? v)
+    :string (if (or (nil? v)
+                    (string? v))
               v
               (throw-invalid-data-value! state attr data-type v))
-    :number (if (number? v)
+    :number (if (or (nil? v)
+                    (number? v))
               v
               (throw-invalid-data-value! state attr data-type v))
-    :boolean (if (boolean? v)
+    :boolean (if (or (nil? v)
+                     (boolean? v))
                v
                (throw-invalid-data-value! state attr data-type v))
-    :date (cond (number? v)
+    :date (cond (nil? v)
+                nil
+
+                (number? v)
                 (try
                   (triple-model/parse-date-value v)
                   (catch Exception _e
@@ -411,6 +417,17 @@
                            :message (format "Expected %s to be a uuid, got %s"
                                             value-label
                                             (json/->json v))}]))))]
+    (when (and (set? v)
+               (contains? v nil)
+               (or (not (:index? fwd-attr))
+                   (:indexing? fwd-attr)))
+      (ex/throw-validation-err! :query
+                                (:root state)
+                                [{:expected? 'indexed?
+                                  :in (conj (:in state) :$ :where :$in v)
+                                  :message (format "Only indexed attrs can check for `nil` in `$in`. %s.%s is not indexed."
+                                                   (attr-model/fwd-etype fwd-attr)
+                                                   (attr-model/fwd-label fwd-attr))}]))
     (if (and (= :ref value-type)
              (= attr rev-attr))
       [v-coerced id (level-sym value-etype value-level)]
