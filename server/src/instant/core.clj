@@ -241,77 +241,85 @@
          ~@body))))
 
 (defn -main [& _args]
-  (binding [*print-namespace-maps* false]
-    (log/info "Initializing...")
-    (let [{:keys [aead-keyset]} (config/init)]
-      (crypt-util/init aead-keyset))
+  (try
+    (binding [*print-namespace-maps* false]
+      (log/info "Initializing...")
+      (let [{:keys [aead-keyset]} (config/init)]
+        (crypt-util/init aead-keyset))
 
-    (tracer/init)
+      (tracer/init)
 
-    (with-log-init :uncaught-exception-handler
-      (Thread/setDefaultUncaughtExceptionHandler
-       (ua/logging-uncaught-exception-handler)))
+      (with-log-init :uncaught-exception-handler
+        (Thread/setDefaultUncaughtExceptionHandler
+         (ua/logging-uncaught-exception-handler)))
 
-    (with-log-init :gauges
-      (gauges/start))
-    (with-log-init :nrepl
-      (nrepl/start))
-    (with-log-init :oauth
-      (oauth/start))
-    (with-log-init :jwt
-      (jwt/start))
-    (with-log-init :aurora
-      (aurora/start))
-    (with-log-init :system-catalog
-      (ensure-attrs-on-system-catalog-app))
-    (with-log-init :reactive-store
-      (rs/start))
-    (with-log-init :ephemeral
-      (eph/start))
-    (with-log-init :stripe
-      (stripe/init))
-    (with-log-init :session
-      (session/start))
-    (with-log-init :invalidator
-      (inv/start-global))
-    (with-log-init :wal
-      (wal/start))
+      (with-log-init :shutdown-hook
+        (add-shutdown-hook))
 
-    (when-let [config-app-id (config/instant-config-app-id)]
-      (with-log-init :flags
-        (flags-impl/init config-app-id
-                         flags/queries
-                         flags/query-results)))
+      (with-log-init :gauges
+        (gauges/start))
+      (with-log-init :nrepl
+        (nrepl/start))
+      (with-log-init :oauth
+        (oauth/start))
+      (with-log-init :jwt
+        (jwt/start))
+      (with-log-init :aurora
+        (aurora/start))
+      (with-log-init :system-catalog
+        (ensure-attrs-on-system-catalog-app))
+      (with-log-init :reactive-store
+        (rs/start))
+      (with-log-init :ephemeral
+        (eph/start))
+      (with-log-init :stripe
+        (stripe/init))
+      (with-log-init :session
+        (session/start))
+      (with-log-init :invalidator
+        (inv/start-global))
+      (with-log-init :wal
+        (wal/start))
 
-    (with-log-init :aggregator
-      (agg/start-global))
-    (with-log-init :ephemeral-app
-      (ephemeral-app/start))
-    (with-log-init :session-counter
-      (session-counter/start))
-    (with-log-init :indexing-jobs
-      (indexing-jobs/start))
-    (with-log-init :storage-sweeper
-      (storage-sweeper/start))
-    (with-log-init :hard-deletion-sweeper
-      (hard-deletion-sweeper/start))
-    (when (= (config/get-env) :prod)
-      (with-log-init :analytics
-        (analytics/start)))
-    (when (= (config/get-env) :prod)
-      (with-log-init :daily-metrics
-        (daily-metrics/start)))
-    (when (= (config/get-env) :prod)
-      (with-log-init :welcome-email
-        (welcome-email/start)))
+      (when-let [config-app-id (config/instant-config-app-id)]
+        (with-log-init :flags
+          (flags-impl/init config-app-id
+                           flags/queries
+                           flags/query-results)))
 
-    (with-log-init :hint-testing
-      (hint-testing/start))
-    (with-log-init :web-server
-      (start))
-    (with-log-init :shutdown-hook
-      (add-shutdown-hook))
-    (log/info "Finished initializing")))
+      (with-log-init :aggregator
+        (agg/start-global))
+      (with-log-init :ephemeral-app
+        (ephemeral-app/start))
+      (with-log-init :session-counter
+        (session-counter/start))
+      (with-log-init :indexing-jobs
+        (indexing-jobs/start))
+      (with-log-init :storage-sweeper
+        (storage-sweeper/start))
+      (with-log-init :hard-deletion-sweeper
+        (hard-deletion-sweeper/start))
+      (when (= (config/get-env) :prod)
+        (with-log-init :analytics
+          (analytics/start)))
+      (when (= (config/get-env) :prod)
+        (with-log-init :daily-metrics
+          (daily-metrics/start)))
+      (when (= (config/get-env) :prod)
+        (with-log-init :welcome-email
+          (welcome-email/start)))
+
+      (with-log-init :hint-testing
+        (hint-testing/start))
+      (with-log-init :web-server
+        (start))
+      (log/info "Finished initializing"))
+    (catch Throwable t
+      (log/error t "Error in startup")
+      (when (and (not= (System/getenv "EXIT_ON_ERROR") "false")
+                 (not= :dev (config/get-env)))
+        (log/info "Exiting")
+        (System/exit 1)))))
 
 (defn before-ns-unload []
   (stop))
