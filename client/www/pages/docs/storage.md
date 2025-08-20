@@ -550,7 +550,7 @@ options otherwise the default content-type will be `application/octet-stream`.
 import fs from 'fs';
 
 // Read a file from disk and upload to storage, return the uploaded file id
-async function upload(filepath: string) {
+async function uploadFile(filepath: string) {
   const buffer = fs.readFileSync(filepath);
   const { data } = await db.storage.uploadFile('images/demo.png', buffer, {
     contentType: 'image/png',
