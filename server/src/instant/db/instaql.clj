@@ -36,7 +36,11 @@
 (defn where-value-valid? [x]
   (or (string? x) (uuid? x) (number? x) (boolean? x)))
 
-(s/def ::$in (s/coll-of where-value-valid?
+(defn in-value-valid? [x]
+  (or (where-value-valid? x)
+      (nil? x)))
+
+(s/def ::$in (s/coll-of in-value-valid?
                         :kind vector?
                         :min-count 0
                         :into #{}))
@@ -167,16 +171,35 @@
 
 (def sentinel (Object.))
 
+(defn indexed-attr?
+  "Checks if the cond path is a top-level indexed attr so that we can
+   avoid checking for `isNull` on a `not` query."
+  [attrs initial-etype path]
+  (loop [etype initial-etype
+         [segment & rest-path] path]
+    (if (seq rest-path) ;; we're in a link
+      (recur (link-etype attrs etype segment)
+             rest-path)
+      (let [attr (attr-model/seek-by-fwd-ident-name [etype segment] attrs)]
+        (and (:index? attr)
+             (not (:indexing? attr)))))))
+
 (defn- combine-or-where-conds
   "Converts {:or [{:a 1} {:a 2}] -> {:or [{:a {:in [1 2]}}]}"
-  [conds]
+  [attrs initial-etype conds]
   (let [{:keys [uncombined optimized]}
         (reduce (fn [acc c]
-                  (if-not (and (= (count c) 1)
-                               (where-value-valid? (second (first c)))
-                               (not (string/starts-with? (name (ffirst c)) "$")))
+                  (if-not (or (and (= (count c) 1)
+                                   (= (second (first c)) {:$isNull true})
+                                   (indexed-attr? attrs initial-etype (string/split (name (ffirst c)) #"\.")))
+                              (and (= (count c) 1)
+                                   (where-value-valid? (second (first c)))
+                                   (not (string/starts-with? (name (ffirst c)) "$"))))
                     (update acc :uncombined conj c)
                     (let [[k v] (first c)
+                          v (if (= v {:$isNull true})
+                              nil
+                              v)
                           existing (get-in acc [:optimized k] sentinel)]
                       (if (= existing sentinel)
                         (assoc-in acc [:optimized k] {:in [v]})
@@ -208,19 +231,6 @@
                        attrs)]
         (attr-model/fwd-etype attr))))
 
-(defn indexed-attr?
-  "Checks if the cond path is a top-level indexed attr so that we can
-   avoid checking for `isNull` on a `not` query."
-  [attrs initial-etype path]
-  (loop [etype initial-etype
-         [segment & rest-path] path]
-    (if (seq rest-path) ;; we're in a link
-      (recur (link-etype attrs etype segment)
-             rest-path)
-      (let [attr (attr-model/seek-by-fwd-ident-name [etype segment] attrs)]
-        (and (:index? attr)
-             (not (:indexing? attr)))))))
-
 (defn- normalize-ne-to-not
   "Treat `$ne` as an alias for `$not`."
   [where-cond-v]
@@ -236,7 +246,7 @@
   (collapse-coerced-conds
    (cond (or-where-cond? c)
          (let [conds (->> v
-                          combine-or-where-conds
+                          (combine-or-where-conds attrs (:etype state))
                           (map (fn [conds]
                                  {:and
                                   (mapcat (partial coerce-where-cond state attrs)
