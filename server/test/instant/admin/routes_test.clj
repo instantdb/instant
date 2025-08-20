@@ -14,6 +14,7 @@
             [instant.model.app-user :as app-user-model]
             [instant.model.rule :as rule-model]
             [instant.util.s3 :as s3-util]
+            [instant.storage.s3 :as s3-storage]
             [instant.reactive.ephemeral :as eph])
   (:import [java.util UUID]))
 
@@ -928,11 +929,14 @@
                    body))))))))
 
 (deftest storage-impersonation-test
-  (with-redefs [;; Mock the S3 operations that would hit AWS
+  (with-redefs [;; Prevent AWS SDK initialization to avoid CI issues
+                s3-storage/s3-client (constantly nil)
+                s3-storage/s3-async-client (constantly nil)
+                ;; Mock the S3 operations that would use these clients
                 s3-util/upload-stream-to-s3 (constantly nil)
                 s3-util/delete-object (constantly nil)
                 s3-util/delete-objects-paginated (constantly nil)
-                ;; This is called after upload
+                ;; Mock head-object which is called after upload to get metadata
                 s3-util/head-object (fn [_client _bucket _key]
                                       {:object-metadata
                                        {:content-length 5
