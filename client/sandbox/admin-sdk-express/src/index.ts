@@ -5,9 +5,13 @@ import { init, tx, id, lookup } from '@instantdb/admin';
 import { assert } from 'console';
 import dotenv from 'dotenv';
 import fs from 'fs';
-import path from 'path';
+import path, { dirname } from 'path';
+import { fileURLToPath } from 'url';
 
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const config = {
   apiURI: 'http://localhost:8888',
@@ -165,6 +169,21 @@ async function testUploadFile(src: string, dest: string, contentType?: string) {
   console.log('Uploaded:', data);
 }
 
+async function testUploadFileStream(
+  src: string,
+  dest: string,
+  contentType?: string,
+) {
+  const fp = path.join(__dirname, src);
+  const stream = fs.createReadStream(fp);
+  const fileSize = fs.statSync(fp).size;
+  const data = await db.storage.uploadFile(dest, stream, {
+    contentType: contentType,
+    fileSize,
+  });
+  console.log('Uploaded with stream:', data);
+}
+
 async function testQueryFiles() {
   const res = await query({ $files: {} });
   console.log(JSON.stringify(res, null, 2));
@@ -257,6 +276,7 @@ async function testDeleteAllowedInTx(
 
 // testUploadFile('circle_blue.jpg', 'circle_blue.jpg', 'image/jpeg');
 // testUploadFile("circle_blue.jpg", "circle_blue2.jpg", "image/jpeg");
+// testUploadFileStream("circle_blue.jpg", "circle_blue.jpg", "image/jpeg");
 // testQueryFiles()
 // testDeleteSingleFile("circle_blue.jpg");
 // testDeleteBulkFile(["circle_blue.jpg", "circle_blue2.jpg"]);

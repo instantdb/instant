@@ -1,3 +1,5 @@
+import { Readable } from 'stream';
+
 import {
   tx,
   lookup,
@@ -566,7 +568,7 @@ class Storage {
   }
 
   /**
-   * Uploads file at the provided path.
+   * Uploads file at the provided path. Accepts a Buffer or a Readable stream.
    *
    * @see https://instantdb.com/docs/storage
    * @example
@@ -575,7 +577,7 @@ class Storage {
    */
   uploadFile = async (
     path: string,
-    file: Buffer,
+    file: Buffer | Readable,
     metadata: FileOpts = {},
   ): Promise<UploadFileResponse> => {
     const headers = {
@@ -594,13 +596,30 @@ class Storage {
       headers['content-type'] = metadata.contentType;
     }
 
-    const data = await jsonFetch(`${this.config.apiURI}/admin/storage/upload`, {
+    let body: BodyInit;
+    let duplex: 'half' | undefined;
+    if (file instanceof Readable) {
+      if (!metadata.fileSize) {
+        throw new Error(
+          'fileSize is required in metadata when uploading streams',
+        );
+      }
+      headers['content-length'] = metadata.fileSize.toString();
+      body = Readable.toWeb(file) as ReadableStream;
+      duplex = 'half'; // one-way stream
+    } else {
+      // File is a buffer, use directly
+      body = file;
+    }
+
+    let options = {
       method: 'PUT',
       headers,
-      body: file,
-    });
+      body,
+      ...(duplex && { duplex }),
+    };
 
-    return data;
+    return jsonFetch(`${this.config.apiURI}/admin/storage/upload`, options);
   };
 
   /**
