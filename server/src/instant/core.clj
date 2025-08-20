@@ -287,8 +287,6 @@
                            flags/queries
                            flags/query-results)))
 
-      (throw (Exception. "oops"))
-
       (with-log-init :aggregator
         (agg/start-global))
       (with-log-init :ephemeral-app
