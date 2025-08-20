@@ -12,6 +12,7 @@
             [instant.util.http :as http-util]
             [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
             [instant.model.app-user :as app-user-model]
+            [instant.model.rule :as rule-model]
             [instant.reactive.ephemeral :as eph])
   (:import [java.util UUID]))
 
@@ -38,6 +39,15 @@
 
 (defn presence-get [& args]
   (apply (http-util/wrap-errors admin-routes/presence-get) args))
+
+(defn upload-put [& args]
+  (apply (http-util/wrap-errors admin-routes/upload-put) args))
+
+(defn file-delete [& args]
+  (apply (http-util/wrap-errors admin-routes/file-delete) args))
+
+(defn files-delete [& args]
+  (apply (http-util/wrap-errors admin-routes/files-delete) args))
 
 (deftest query-test
   (with-movies-app
@@ -915,6 +925,200 @@
                        :created_at louis-created-at
                        :email louis-email}}}}
                    body))))))))
+
+(deftest storage-impersonation-test
+  (with-empty-app
+    (fn [{app-id :id admin-token :admin-token :as _app}]
+      (let [user-email "test-user@example.com"
+            user-ret (refresh-tokens-post
+                      {:body {:email user-email}
+                       :headers {"app-id" app-id
+                                 "authorization" (str "Bearer " admin-token)}})
+            user-token (-> user-ret :body :user :refresh_token)
+
+            ;; Only authenticated users can create/delete files
+            _ (rule-model/put!
+               {:app-id app-id
+                :code {"$files" {:allow {:create "auth.id != null"
+                                         :delete "auth.id != null"
+                                         :view "true"}}}})
+
+            ;; Mock file content
+            file-content (byte-array [1 2 3 4 5])]
+
+        (testing "admin can upload"
+          (let [ret (upload-put
+                     {:body file-content
+                      :headers {"app-id" app-id
+                                "authorization" (str "Bearer " admin-token)
+                                "path" "admin-file.txt"
+                                "content-type" "text/plain"}
+                      :content-length 5})]
+            (is (= 200 (:status ret)))
+            (is (some? (-> ret :body :data :id)))))
+
+        (testing "user with email can upload"
+          (let [ret (upload-put
+                     {:body file-content
+                      :headers {"app-id" app-id
+                                "authorization" (str "Bearer " admin-token)
+                                "as-email" user-email
+                                "path" "user-file.txt"
+                                "content-type" "text/plain"}
+                      :content-length 5})]
+            (is (= 200 (:status ret)))
+            (is (some? (-> ret :body :data :id)))))
+
+        (testing "guest cannot upload"
+          (let [ret (upload-put
+                     {:body file-content
+                      :headers {"app-id" app-id
+                                "authorization" (str "Bearer " admin-token)
+                                "as-guest" "true"
+                                "path" "guest-file.txt"
+                                "content-type" "text/plain"}
+                      :content-length 5})]
+            (is (= 400 (:status ret)))
+            (is (= :permission-denied (-> ret :body :type)))))
+
+        (testing "user with token can upload"
+          (let [ret (upload-put
+                     {:body file-content
+                      :headers {"app-id" app-id
+                                "authorization" (str "Bearer " admin-token)
+                                "as-token" user-token
+                                "path" "token-file.txt"
+                                "content-type" "text/plain"}
+                      :content-length 5})]
+            (is (= 200 (:status ret)))
+            (is (some? (-> ret :body :data :id)))))
+
+        (testing "admin can delete"
+          (let [;; First upload a file
+                upload-ret (upload-put
+                            {:body file-content
+                             :headers {"app-id" app-id
+                                       "authorization" (str "Bearer " admin-token)
+                                       "path" "delete-test.txt"
+                                       "content-type" "text/plain"}
+                             :content-length 5})
+                _ (is (= 200 (:status upload-ret)))
+                ;; Then delete it
+                delete-ret (file-delete
+                            {:params {:filename "delete-test.txt"}
+                             :headers {"app-id" app-id
+                                       "authorization" (str "Bearer " admin-token)}})]
+            (is (= 200 (:status delete-ret)))
+            (is (some? (-> delete-ret :body :data :id)))))
+
+        (testing "user can delete"
+          (let [;; First upload a file as admin
+                upload-ret (upload-put
+                            {:body file-content
+                             :headers {"app-id" app-id
+                                       "authorization" (str "Bearer " admin-token)
+                                       "path" "user-delete-test.txt"
+                                       "content-type" "text/plain"}
+                             :content-length 5})
+                _ (is (= 200 (:status upload-ret)))
+                ;; Then delete it
+                delete-ret (file-delete
+                            {:params {:filename "user-delete-test.txt"}
+                             :headers {"app-id" app-id
+                                       "authorization" (str "Bearer " admin-token)
+                                       "as-email" user-email}})]
+            (is (= 200 (:status delete-ret)))
+            (is (some? (-> delete-ret :body :data :id)))))
+
+        (testing "guest cannot delete"
+          (let [;; First upload a file as admin
+                upload-ret (upload-put
+                            {:body file-content
+                             :headers {"app-id" app-id
+                                       "authorization" (str "Bearer " admin-token)
+                                       "path" "guest-delete-test.txt"
+                                       "content-type" "text/plain"}
+                             :content-length 5})
+                _ (is (= 200 (:status upload-ret)))
+                ;; Try to delete it as guest
+                delete-ret (file-delete
+                            {:params {:filename "guest-delete-test.txt"}
+                             :headers {"app-id" app-id
+                                       "authorization" (str "Bearer " admin-token)
+                                       "as-guest" "true"}})]
+            (is (= 400 (:status delete-ret)))
+            (is (= :permission-denied (-> delete-ret :body :type)))))
+
+        (testing "admin can bulk delete"
+          (let [_ (upload-put
+                   {:body file-content
+                    :headers {"app-id" app-id
+                              "authorization" (str "Bearer " admin-token)
+                              "path" "bulk1.txt"
+                              "content-type" "text/plain"}
+                    :content-length 5})
+                _ (upload-put
+                   {:body file-content
+                    :headers {"app-id" app-id
+                              "authorization" (str "Bearer " admin-token)
+                              "path" "bulk2.txt"
+                              "content-type" "text/plain"}
+                    :content-length 5})
+                ;; Then delete them
+                delete-ret (files-delete
+                            {:body {:filenames ["bulk1.txt" "bulk2.txt"]}
+                             :headers {"app-id" app-id
+                                       "authorization" (str "Bearer " admin-token)}})]
+            (is (= 200 (:status delete-ret)))
+            (is (= 2 (count (-> delete-ret :body :data :ids))))))
+
+        (testing "user can bulk delete"
+          (let [_ (upload-put
+                   {:body file-content
+                    :headers {"app-id" app-id
+                              "authorization" (str "Bearer " admin-token)
+                              "path" "user-bulk1.txt"
+                              "content-type" "text/plain"}
+                    :content-length 5})
+                _ (upload-put
+                   {:body file-content
+                    :headers {"app-id" app-id
+                              "authorization" (str "Bearer " admin-token)
+                              "path" "user-bulk2.txt"
+                              "content-type" "text/plain"}
+                    :content-length 5})
+                ;; Then delete them as impersonated user
+                delete-ret (files-delete
+                            {:body {:filenames ["user-bulk1.txt" "user-bulk2.txt"]}
+                             :headers {"app-id" app-id
+                                       "authorization" (str "Bearer " admin-token)
+                                       "as-email" user-email}})]
+            (is (= 200 (:status delete-ret)))
+            (is (= 2 (count (-> delete-ret :body :data :ids))))))
+
+        (testing "guest cannot bulk delete"
+          (let [_ (upload-put
+                   {:body file-content
+                    :headers {"app-id" app-id
+                              "authorization" (str "Bearer " admin-token)
+                              "path" "guest-bulk1.txt"
+                              "content-type" "text/plain"}
+                    :content-length 5})
+                _ (upload-put
+                   {:body file-content
+                    :headers {"app-id" app-id
+                              "authorization" (str "Bearer " admin-token)
+                              "path" "guest-bulk2.txt"
+                              "content-type" "text/plain"}
+                    :content-length 5})
+                ;; Try to delete them as guest
+                delete-ret (files-delete
+                            {:body {:filenames ["guest-bulk1.txt" "guest-bulk2.txt"]}
+                             :headers {"app-id" app-id
+                                       "authorization" (str "Bearer " admin-token)
+                                       "as-guest" "true"}})]
+            (is (= 400 (:status delete-ret)))
+            (is (= :permission-denied (-> delete-ret :body :type)))))))))
 
 (comment
   (test/run-tests *ns*))
