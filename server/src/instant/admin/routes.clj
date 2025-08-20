@@ -429,7 +429,7 @@
 ;; Storage
 
 (defn upload-put [req]
-  (let [{:keys [app-id]} (req->app-id-authed! req :storage/write)
+  (let [{:keys [app-id] :as perms} (get-perms! req :storage/write)
         params (:headers req)
         path (ex/get-param! params ["path"] string-util/coerce-non-blank-str)
         file (ex/get-param! req [:body] identity)
@@ -440,23 +440,27 @@
                                                 :content-type content-type
                                                 :content-disposition content-disposition
                                                 :content-length (:content-length req)
-                                                :skip-perms-check? true}
+                                                :current-user (:current-user perms)
+                                                :skip-perms-check? (:admin? perms)}
                                                file)]
     (response/ok {:data data})))
 
 (defn file-delete [req]
-  (let [{:keys [app-id]} (req->app-id-authed! req :storage/write)
+  (let [{:keys [app-id] :as perms} (get-perms! req :storage/write)
         filename (ex/get-param! req [:params :filename] string-util/coerce-non-blank-str)
         data (storage-coordinator/delete-file! {:app-id app-id
                                                 :path filename
-                                                :skip-perms-check? true})]
+                                                :current-user (:current-user perms)
+                                                :skip-perms-check? (:admin? perms)})]
     (response/ok {:data data})))
 
 (defn files-delete [req]
-  (let [{:keys [app-id]} (req->app-id-authed! req :storage/write)
+  (let [{:keys [app-id] :as perms} (get-perms! req :storage/write)
         filenames (ex/get-param! req [:body :filenames] vec)
         data (storage-coordinator/delete-files! {:app-id app-id
-                                                 :paths filenames})]
+                                                 :paths filenames
+                                                 :current-user (:current-user perms)
+                                                 :skip-perms-check? (:admin? perms)})]
     (response/ok {:data data})))
 
 (comment

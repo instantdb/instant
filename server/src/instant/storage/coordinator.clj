@@ -54,8 +54,13 @@
 
 (defn delete-files!
   "Deletes multiple files from both Instant and S3."
-  [{:keys [app-id paths]}]
+  [{:keys [app-id paths current-user skip-perms-check?]}]
   (storage-beta/assert-storage-enabled! app-id)
+  (when (not skip-perms-check?)
+    (doseq [path paths]
+      (assert-storage-permission! "delete" {:app-id app-id
+                                            :path path
+                                            :current-user current-user})))
   (let [deleted (app-file-model/delete-by-paths! {:app-id app-id :paths paths})
         locations (mapv :location-id deleted)
         ids (mapv :id deleted)

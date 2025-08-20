@@ -184,6 +184,30 @@ async function testUploadFileStream(
   console.log('Uploaded with stream:', data);
 }
 
+async function testUploadFileAsGuestFails(
+  src: string,
+  dest: string,
+  contentType?: string,
+) {
+  const buffer = fs.readFileSync(path.join(__dirname, src));
+  const guestDb = db.asUser({ guest: true });
+
+  const prefix = 'Uploading file as guest with default perms';
+  const message = `${prefix} should not be supported`;
+  try {
+    await guestDb.storage.uploadFile(dest, buffer, {
+      contentType: contentType,
+    });
+    throw new Error(message);
+  } catch (err) {
+    if (err instanceof Error && err.message === message) {
+      throw err;
+    } else {
+      console.log(`${prefix} failed as expected!`);
+    }
+  }
+}
+
 async function testQueryFiles() {
   const res = await query({ $files: {} });
   console.log(JSON.stringify(res, null, 2));
@@ -277,6 +301,7 @@ async function testDeleteAllowedInTx(
 // testUploadFile('circle_blue.jpg', 'circle_blue.jpg', 'image/jpeg');
 // testUploadFile("circle_blue.jpg", "circle_blue2.jpg", "image/jpeg");
 // testUploadFileStream("circle_blue.jpg", "circle_blue.jpg", "image/jpeg");
+// testUploadFileAsGuestFails("circle_blue.jpg", "circle_blue.jpg", "image/jpeg");
 // testQueryFiles()
 // testDeleteSingleFile("circle_blue.jpg");
 // testDeleteBulkFile(["circle_blue.jpg", "circle_blue2.jpg"]);
