@@ -8,6 +8,7 @@ import chalk from 'chalk';
 import { addRuleFiles } from './ruleFiles.js';
 import { initializeGit } from './git.js';
 import { tryConnectApp } from './login.js';
+import { applyEnvFile } from './env.js';
 
 const main = async () => {
   if (!process.argv.some((arg) => ['-h', '--help'].includes(arg))) {
@@ -21,7 +22,10 @@ const main = async () => {
     await initializeGit(projectDir);
   }
 
-  await tryConnectApp(results.project);
+  const appId = await tryConnectApp(results.project);
+  if (appId) {
+    applyEnvFile(results.project, projectDir, appId);
+  }
 
   outro(`Done!`);
 

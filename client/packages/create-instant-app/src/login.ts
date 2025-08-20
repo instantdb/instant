@@ -4,6 +4,8 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import chalk from 'chalk';
 import { CliResults } from './cli.js';
+import { randomUUID } from 'node:crypto';
+import { fetchJson } from './utils/fetch.js';
 
 const dev = Boolean(process.env.INSTANT_CLI_DEV);
 
@@ -28,10 +30,26 @@ export const promptForAppName = async (program: CliResults) => {
       return value;
     });
 
-  return title;
+  return title.trim();
 };
 
-export const tryConnectApp = async (program: CliResults) => {
+export const createApp = async (title: string, authToken: string) => {
+  const id = randomUUID();
+  const token = randomUUID();
+  const app = { id, title, admin_token: token };
+  const appRes = await fetchJson({
+    method: 'POST',
+    authToken,
+    path: '/dash/apps',
+    debugName: 'App create',
+    body: app,
+  });
+  return { appId: id, appToken: token, source: 'created' };
+};
+
+export const tryConnectApp = async (
+  program: CliResults,
+): Promise<string | null> => {
   if (process.env.INSTANT_CLI_AUTH_TOKEN) {
     return process.env.INSTANT_CLI_AUTH_TOKEN;
   }
@@ -42,7 +60,7 @@ export const tryConnectApp = async (program: CliResults) => {
   ).catch(() => null);
 
   if (!authToken) {
-    return;
+    return null;
   }
 
   const action = await p
@@ -61,13 +79,17 @@ export const tryConnectApp = async (program: CliResults) => {
     });
 
   if (action === 'nothing') {
-    return;
+    return null;
   }
   if (action === 'create') {
     const title = await promptForAppName(program);
     p.log.success(`Creating app "${title}"`);
-    return;
+    const { appId } = await createApp(title, authToken);
+    return appId;
   }
 
-  return;
+  if (action === 'link') {
+    throw new Error('Not implemented!');
+  }
+  return null;
 };
