@@ -1040,7 +1040,8 @@
   (let [filenames (ex/get-param! req [:body :filenames] vec)
         {{app-id :id} :app} (req->app-and-user! :collaborator req)
         data (storage-coordinator/delete-files! {:app-id app-id
-                                                 :paths filenames})]
+                                                 :paths filenames
+                                                 :skip-perms-check? true})]
     (response/ok {:data data})))
 
 ;; ---
