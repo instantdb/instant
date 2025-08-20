@@ -433,16 +433,13 @@ try to update another attribute like `content-type` the transaction will fail.
 
 ### Link files
 
-Use links to associate files with other entities in your schema.
+When the upload succeeds, `uploadFile` returns a `data` object containing a file ID associated with the uploaded file. You can use this id to link the file to other namespaces.
 
 ```javascript
 async function uploadImage(file: File) {
   try {
-    // Create an explicit upload path
     const path = `${user.id}/avatar`;
-    // Upload the file
     const { data } = await db.storage.uploadFile(path, file);
-    // Link it to a profile
     await db.transact(db.tx.profiles[profileId].link({ avatar: data.id }));
   } catch (error) {
     console.error('Error uploading image:', error);
@@ -552,11 +549,13 @@ options otherwise the default content-type will be `application/octet-stream`.
 ```tsx
 import fs from 'fs';
 
-async function upload(filepath: string) {
+// Read a file from disk and upload to storage, return the uploaded file id
+async function uploadFile(filepath: string) {
   const buffer = fs.readFileSync(filepath);
-  await db.storage.upload('images/demo.png', buffer, {
+  const { data } = await db.storage.uploadFile('images/demo.png', buffer, {
     contentType: 'image/png',
   }
+  return data.id;
 }
 ```
 
