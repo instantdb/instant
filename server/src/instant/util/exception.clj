@@ -564,6 +564,11 @@
                ::message "The query took too long to complete."}
               e)
 
+      :idle-in-transaction-session-timeout
+      (throw+ {::type ::timeout
+               ::message "The transaction took too long to complete."}
+              e)
+
       :invalid-parameter-value
       (if (string/starts-with? (.getMessage e) "PreparedStatement can have at most")
         (throw+ {::type ::parameter-limit-exceeded
@@ -605,5 +610,7 @@
   (loop [cause e]
     (cond
       (::type (ex-data cause)) cause
+      ;; Unwrap errors from next-jdbc/with-transaction
+      (:handling (ex-data cause)) (:handling (ex-data cause))
       (nil? (.getCause cause)) nil
       :else (recur (.getCause cause)))))

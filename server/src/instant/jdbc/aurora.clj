@@ -2,6 +2,7 @@
   (:require
    [instant.aurora-config :refer [rds-cluster-id->db-config secret-arn->db-creds]]
    [instant.config :as config]
+   [instant.flags :as flags]
    [instant.util.async :as ua]
    [instant.util.lang :as lang]
    [instant.util.tracer :as tracer]
@@ -186,6 +187,15 @@
                       (catch Exception _e nil)))
      :get-config (fn [] @current-config)}))
 
+(defn get-connection
+  "Creates a new connection for the connection pool and sets the idle_in_transaction_session_timeout.
+   Defaults to one minute, but can be modified with a flag in an emergency."
+  [config]
+  (let [conn (next-jdbc/get-connection config)]
+    (next-jdbc/execute! conn ["select set_config('idle_in_transaction_session_timeout', ?::text, false)"
+                              (flags/flag :idle-in-transaction-session-timeout (* 1000 60))])
+    conn))
+
 (defn aurora-cluster-datasource
   "Creates a datasource that is resilent to password rotations and failover in aurora"
   [add-conn-to-tracker get-config]
@@ -201,7 +211,7 @@
                   (get-creds {:failed-credentials failed-credentials
                               :attempts 3})
                   config (get-config)
-                  conn (try (next-jdbc/get-connection config user password)
+                  conn (try (get-connection (assoc config :user user :password password))
                             (catch Exception e
                               (let [throwing? (>= attempt 3)]
                                 (tracer/record-info! {:name "aurora/get-conn-error"
@@ -217,10 +227,25 @@
                 (recur (inc attempt)
                        creds))))))
       (getConnection [_ user pass]
-        (next-jdbc/get-connection (get-config) user pass))
+        (get-connection (assoc (get-config) :user user :password pass)))
       (getLoginTimeout [_] (or @login-timeout 0))
       (setLoginTimeout [_ seconds] (reset! login-timeout seconds))
       (toString [_] (connection/jdbc-url (get-config))))))
+
+(defn dev-datasource
+  "Creates a datasource that lets us modify connections before handing them off to hikari"
+  [config]
+  (let [login-timeout (atom nil)]
+    (reify DataSource
+      (getConnection [_]
+        (tracer/with-span! {:name "dev/get-connection"}
+          (get-connection config)))
+      (getConnection [_ user pass]
+        (tracer/with-span! {:name "dev/get-connection"}
+          (get-connection (assoc config :user user :password pass))))
+      (getLoginTimeout [_] (or @login-timeout 0))
+      (setLoginTimeout [_ seconds] (reset! login-timeout seconds))
+      (toString [_] (connection/jdbc-url config)))))
 
 (defonce -conn-pool nil)
 
@@ -273,8 +298,7 @@
                 (doto hikari-config
                   (.setUsername (:user config))
                   (.setPassword (:password config))
-                  (.setJdbcUrl (connection/jdbc-url (dissoc config
-                                                            :user :password))))))]
+                  (.setDataSource (dev-datasource config)))))]
     ;; Check that the pool is working
     (.close (next-jdbc/get-connection pool))
     pool))
