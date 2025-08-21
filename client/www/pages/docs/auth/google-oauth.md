@@ -400,7 +400,7 @@ function Login() {
     {
       // The unique name you gave the OAuth client when you
       // registered it on the Instant dashboard
-      clientName: 'YOUR_INSTANT_AUTH_CLIENT_NAME',
+      clientId: 'YOUR_INSTANT_AUTH_CLIENT_NAME',
       redirectUri: makeRedirectUri(),
     },
     discovery,
