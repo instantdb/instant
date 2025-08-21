@@ -612,6 +612,35 @@
                        [op new-book-id attr-book-desc  (str "book desc " (rand)) {:mode :update}]
                        [op [attr-book-title "book 3"] attr-book-desc (str "book 3 desc " (rand)) {:mode :update}]])))))))))))
 
+;; https://github.com/instantdb/instant/pull/1555
+(deftest create-same-eid-different-etype
+  (with-empty-app
+    (fn [{app-id :id
+          make-ctx :make-ctx}]
+      (let [{attr-users-id      :users/id
+             attr-users-name    :users/name
+             attr-profiles-id   :profiles/id
+             attr-profiles-name :profiles/name}
+            (test-util/make-attrs
+             app-id
+             [[:users/id :required? :index? :unique?]
+              [:users/name :required?]
+              [:profiles/id :required? :index? :unique?]
+              [:profiles/name :required? :index? :unique?]])
+            id (suid "0000")]
+
+        (is (not (validation-err?
+                  (permissioned-tx/transact!
+                   (make-ctx)
+                   [[:add-triple id attr-users-id   id     {:mode :create}]
+                    [:add-triple id attr-users-name "user" {:mode :create}]]))))
+
+        (is (not (validation-err?
+                  (permissioned-tx/transact!
+                   (make-ctx)
+                   [[:add-triple id attr-profiles-id   id        {:mode :create}]
+                    [:add-triple id attr-profiles-name "profile" {:mode :create}]]))))))))
+
 (deftest attrs-update
   (with-empty-app
     (fn [{app-id :id}]

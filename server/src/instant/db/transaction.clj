@@ -270,52 +270,56 @@
   (let [tx-step-maps (filter #(#{:add-triple :deep-merge-triple} (:op %)) tx-step-maps)
         create-steps (filter #(= :create (:mode (:opts %))) tx-step-maps)
         update-steps (filter #(= :update (:mode (:opts %))) tx-step-maps)
-        eids         (into #{}
-                           (keep (fn [{:keys [eid]}]
+        eid+etypes   (into #{}
+                           (keep (fn [{:keys [eid etype]}]
                                    (when (uuid? eid)
-                                     eid)))
+                                     [eid etype])))
                            (concat create-steps update-steps))
         lookups      (into #{}
                            (keep (fn [{:keys [eid]}]
                                    (when (triple-model/eid-lookup-ref? eid)
                                      eid)))
                            (concat create-steps update-steps))]
-    (when (or (seq eids) (seq lookups))
+    (when (or (seq eid+etypes) (seq lookups))
       (tracer/with-span! {:name "transaction/validate-mode"
                           :attributes {:app-id app-id}}
-        (let [query    "WITH eids AS (
-                        SELECT cast(elem AS uuid) AS id
-                        FROM jsonb_array_elements_text(cast(?eids AS jsonb)) AS elem
-                      ),
-                      check_eids AS (
-                        SELECT DISTINCT id, entity_id
-                        FROM eids
-                        LEFT JOIN triples
-                               ON app_id = ?app-id
-                              AND id = entity_id
-                      ),
-                      lookups AS (
-                        SELECT CAST(elem ->> 0 AS uuid) AS attr_id,
-                               CAST(elem ->> 1 AS jsonb) AS value
-                        FROM JSONB_ARRAY_ELEMENTS(CAST(?lookups AS JSONB)) AS elem
-                      ),
-                      check_lookups AS (
-                        SELECT DISTINCT lookups.attr_id, lookups.value, triples.entity_id
-                        FROM lookups
-                        LEFT JOIN triples
-                               ON app_id = ?app-id
-                              AND triples.av
-                              AND lookups.attr_id = triples.attr_id
-                              AND lookups.value = triples.value
-                      )
-                      SELECT id, NULL AS attr_id, NULL AS value, entity_id
-                      FROM check_eids
-                      UNION
-                      SELECT NULL as id, attr_id, value, entity_id
-                      FROM check_lookups"
-              params   {"?eids"    (->json eids)
-                        "?lookups" (->json (map (fn [[a v]] [a (->json v)]) lookups))
-                        "?app-id"  app-id}
+        (let [query    "WITH eid_etypes AS (
+                          SELECT CAST(elem ->> 0 AS UUID) AS id,
+                                 CAST(elem ->> 1 AS TEXT) as etype
+                          FROM JSONB_ARRAY_ELEMENTS(CAST(?eid+etypes AS JSONB)) AS elem
+                        ),
+                        check_eids AS (
+                          SELECT DISTINCT eid_etypes.id, eid_etypes.etype, triples.entity_id
+                          FROM eid_etypes
+                          LEFT JOIN triples
+                                 ON triples.app_id = ?app-id
+                                AND triples.entity_id = eid_etypes.id
+                          LEFT JOIN attrs
+                                 ON triples.attr_id = attrs.id
+                          WHERE attrs.etype = eid_etypes.etype
+                        ),
+                        lookups AS (
+                          SELECT CAST(elem ->> 0 AS uuid) AS attr_id,
+                                 CAST(elem ->> 1 AS jsonb) AS value
+                          FROM JSONB_ARRAY_ELEMENTS(CAST(?lookups AS JSONB)) AS elem
+                        ),
+                        check_lookups AS (
+                          SELECT DISTINCT lookups.attr_id, lookups.value, triples.entity_id
+                          FROM lookups
+                          LEFT JOIN triples
+                                 ON app_id = ?app-id
+                                AND triples.av
+                                AND lookups.attr_id = triples.attr_id
+                                AND lookups.value = triples.value
+                        )
+                        SELECT id, etype, NULL AS attr_id, NULL AS value, entity_id
+                        FROM check_eids
+                        UNION
+                        SELECT NULL as id, NULL as etype, attr_id, value, entity_id
+                        FROM check_lookups"
+              params   {"?eid+etypes" (->json eid+etypes)
+                        "?lookups"    (->json (map (fn [[a v]] [a (->json v)]) lookups))
+                        "?app-id"     app-id}
               resolved (->> (sql/select ::validate-mode conn (sql/format query params))
                             (map (fn [{:keys [id attr_id value entity_id]}]
                                    [(or id [attr_id value]) entity_id]))
