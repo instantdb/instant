@@ -1,6 +1,8 @@
 import { exec } from 'child_process';
 import { log } from '@clack/prompts';
 import chalk from 'chalk';
+import fs from 'fs-extra';
+import path from 'path';
 
 interface ClaudeMessage {
   type: 'assistant' | 'user' | 'system' | 'result';
@@ -89,6 +91,11 @@ const printClaudeMessage = (
 };
 
 export const promptClaude = async (prompt: string, projectDir: string) => {
+  fs.appendFile(
+    path.join(projectDir, 'claude.md'),
+    'Do not use the instant mcp server to create a new app, a fresh app id has already been placed in the .env file',
+  );
+
   return new Promise<void>((resolve, reject) => {
     const running = exec(
       `claude --dangerously-skip-permissions --output-format stream-json -p --verbose "${prompt}"`,
