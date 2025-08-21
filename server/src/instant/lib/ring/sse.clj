@@ -21,12 +21,10 @@
         (.addCloseTask conn close-task)
         (.setKeepAliveTime conn 5000)
         (on-open {:exchange conn
-                  :channel conn}))
-      (def -conn conn))))
+                  :channel conn})))))
 
 (defn sse-request [^HttpServerExchange exchange ^IPersistentMap headers ^ServerSentEventConnectionCallback callback]
   (let [handler (-> (ServerSentEventHandler. callback))]
-    (tool/def-locals)
     (when headers
       (set-headers (.getResponseHeaders exchange) headers))
     (.put (.getResponseHeaders exchange) Headers/CACHE_CONTROL "nocache")
