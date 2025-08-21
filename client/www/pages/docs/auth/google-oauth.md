@@ -526,7 +526,7 @@ function Login() {
           const res = await db.auth.signInWithIdToken({
             // The unique name you gave the OAuth client when you
             // registered it on the Instant dashboard
-            clientId: 'YOUR_INSTANT_AUTH_CLIENT_NAME',
+            clientName: 'YOUR_INSTANT_AUTH_CLIENT_NAME',
             idToken,
           });
           console.log('logged in!', res);
