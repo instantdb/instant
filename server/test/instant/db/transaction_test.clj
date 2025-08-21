@@ -27,7 +27,7 @@
    [instant.util.coll :as coll]
    [instant.util.instaql :refer [instaql-nodes->object-tree]]
    [instant.util.exception :as ex]
-   [instant.util.test :as test-util :refer [suid validation-err? perm-err? timeout-err? with-sketches]]
+   [instant.util.test :as test-util :refer [suid validation-err? perm-err? timeout-err?]]
    [instant.util.date :as date-util]
    [instant.util.uuid :as uuid-util]
    [next.jdbc])
