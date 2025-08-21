@@ -1,6 +1,5 @@
 import { exec } from 'child_process';
 import { log } from '@clack/prompts';
-import { appendFile } from 'fs';
 import chalk from 'chalk';
 
 interface ClaudeMessage {
@@ -119,13 +118,6 @@ export const promptClaude = async (prompt: string, projectDir: string) => {
         if (line.trim()) {
           try {
             const parsed: ClaudeMessage = JSON.parse(line);
-
-            // Log the complete message object to see structure
-            appendFile(
-              'messages.txt',
-              JSON.stringify(parsed, null, 2) + '\n',
-              () => {},
-            );
 
             // Handle different message types with compact formatting
             if (parsed.type === 'assistant' && parsed.message?.content) {

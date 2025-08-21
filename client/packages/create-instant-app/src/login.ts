@@ -41,10 +41,25 @@ export const createApp = async (title: string, authToken: string) => {
     method: 'POST',
     authToken,
     path: '/dash/apps',
-    debugName: 'App create',
     body: app,
   });
   return { appId: id, appToken: token, source: 'created' };
+};
+
+export const fetchApps = async (authToken: string) => {
+  const res = await fetchJson<{
+    apps: {
+      id: string;
+      title: string;
+      created_at: string;
+    }[];
+  }>({
+    method: 'GET',
+    path: '/dash',
+    authToken,
+  });
+  const { apps } = res;
+  return apps;
 };
 
 export const tryConnectApp = async (
@@ -63,10 +78,13 @@ export const tryConnectApp = async (
     return null;
   }
 
+  // If doing ai generation
   if (program.prompt) {
     const { appId } = await createApp(program.appName, authToken);
     return appId;
   }
+
+  const currentAppsPromise = fetchApps(authToken);
 
   const action = await p
     .select({
@@ -94,7 +112,27 @@ export const tryConnectApp = async (
   }
 
   if (action === 'link') {
-    throw new Error('Not implemented!');
+    const apps = await currentAppsPromise;
+    if (apps.length === 0) {
+      return null;
+    }
+
+    apps.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
+
+    const choice = await p
+      .select({
+        message: 'Which app would you like to import?',
+        options: apps.map((app) => {
+          return { value: app.id, label: `${app.title} (${app.id})` };
+        }),
+        initialValue: apps[0]!.id,
+      })
+      .then((value) => {
+        if (p.isCancel(value)) return null;
+        return value;
+      });
+
+    return choice;
   }
   return null;
 };
