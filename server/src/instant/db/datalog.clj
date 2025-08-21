@@ -1148,10 +1148,11 @@
                                           (:value vs))
                      :lookup (if-let [sketch (:sketch (get sketches {:app-id app-id
                                                                      :attr-id (:attr-id vs)}))]
-                               (cms/check sketch
-                                          (when (instance? java.time.Instant (:value vs))
-                                            :date)
-                                          (:value vs))
+                               ;; Lookups are only on unique attrs, so we know that it will be at most 1
+                               (min 1 (cms/check sketch
+                                                 (when (instance? java.time.Instant (:value vs))
+                                                   :date)
+                                                 (:value vs)))
                                0)
                      :not (- (:total sketch)
                              (cms/check sketch
