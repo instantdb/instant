@@ -14,10 +14,10 @@ const schema = i.schema({
   },
   links: {
     todoComments: {
-      forward: { on: "todos", has: "many", label: "comments" },
-      reverse: { on: "comments", has: "one", label: "todo" },
-    }
-  }
+      forward: { on: 'todos', has: 'many', label: 'comments' },
+      reverse: { on: 'comments', has: 'one', label: 'todo' },
+    },
+  },
 });
 
 type Schema = typeof schema;
@@ -36,7 +36,9 @@ function App({ db }: AppProps) {
 
   function addComment(todoId: string) {
     db.transact(
-      db.tx.comments[todoId].create({ text: `Comment ${Date.now()}` }).link({ todo: todoId })
+      db.tx.comments[todoId]
+        .create({ text: `Comment ${Date.now()}` })
+        .link({ todo: todoId }),
     );
   }
 
@@ -98,17 +100,20 @@ db.transact(db.tx.profiles[userID].create(
 export default function Page() {
   return (
     <div className="max-w-lg flex flex-col mt-20 mx-auto space-y-4">
-      <h1 className="text-2xl font-bold text-center mb-4">
-        Bad Create
-      </h1>
-      <p>We got a report that the following code snippet would throw an error</p>
-      <pre className='bg-gray-200 whitespace-pre-wrap'>{snippet}</pre>
+      <h1 className="text-2xl font-bold text-center mb-4">Bad Create</h1>
+      <p>
+        We got a report that the following code snippet would throw an error
+      </p>
+      <pre className="bg-gray-200 whitespace-pre-wrap">{snippet}</pre>
       <p>This would return an error like so</p>
-      <pre className='bg-red-200 whitespace-pre-wrap'>
+      <pre className="bg-red-200 whitespace-pre-wrap">
         Creating entities that exist: 6784278a-552b-4afc-97d3-6ca598cddc4f
       </pre>
       <p>The issue seems to be in how we validate create on the server.</p>
-      <p>You can repro this issue by first creating a todo and then trying to add a comment to it. This will fail and you'll see an error in the console</p>
+      <p>
+        You can repro this issue by first creating a todo and then trying to add
+        a comment to it. This will fail and you'll see an error in the console
+      </p>
       <EphemeralAppPage schema={schema} Component={App} />
     </div>
   );
