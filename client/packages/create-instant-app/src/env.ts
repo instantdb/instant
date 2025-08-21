@@ -12,10 +12,11 @@ export const applyEnvFile = (
   project: CliResults,
   projectDir: string,
   appId: string,
+  adminToken: string,
 ) => {
   const envPath = path.join(projectDir, '.env');
   const envVarName = envNames[project.base];
-  const envContent = `${envVarName}=${appId}\n`;
+  const envContent = `${envVarName}=${appId}\nINSTANT_APP_ADMIN_TOKEN=${adminToken}`;
 
   fs.writeFileSync(envPath, envContent);
 };

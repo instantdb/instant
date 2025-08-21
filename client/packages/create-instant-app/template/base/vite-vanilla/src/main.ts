@@ -1,6 +1,6 @@
 import { id, type InstaQLEntity } from "@instantdb/core";
 import type { AppSchema } from "./instant.schema";
-import { db } from "./db";
+import { db } from "./lib/db";
 
 type Todo = InstaQLEntity<AppSchema, "todos", {}, undefined, true>;
 

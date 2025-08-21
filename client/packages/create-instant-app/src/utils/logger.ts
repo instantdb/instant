@@ -1,4 +1,5 @@
 import chalk from 'chalk';
+import { Theme } from '~/terminalTheme.js';
 
 export const logger = {
   error(...args: unknown[]) {
@@ -13,4 +14,12 @@ export const logger = {
   success(...args: unknown[]) {
     console.log(chalk.green(...args));
   },
+};
+
+export const getCodeColors = (theme: Theme, message: string) => {
+  if (theme === 'light') {
+    return chalk.bgYellowBright(message);
+  } else {
+    return chalk.bgBlackBright(message);
+  }
 };
