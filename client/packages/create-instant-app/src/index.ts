@@ -10,11 +10,15 @@ import { initializeGit } from './git.js';
 import { tryConnectApp } from './login.js';
 import { applyEnvFile } from './env.js';
 import { promptClaude } from './claude.js';
+import { detectTerminalTheme } from './terminalTheme.js';
+import { getCodeColors } from './utils/logger.js';
 
 const main = async () => {
+  const theme = await detectTerminalTheme();
   if (!process.argv.some((arg) => ['-h', '--help'].includes(arg))) {
-    renderTitle();
+    renderTitle(theme);
   }
+
   const results = await runCli();
   const projectDir = await scaffoldBase(results);
   addRuleFiles({ projectDir, ruleFilesToAdd: results.ruleFiles });
@@ -23,9 +27,14 @@ const main = async () => {
     await initializeGit(projectDir);
   }
 
-  const appId = await tryConnectApp(results.project);
-  if (appId) {
-    applyEnvFile(results.project, projectDir, appId);
+  const possibleAppTokenPair = await tryConnectApp(results);
+  if (possibleAppTokenPair) {
+    applyEnvFile(
+      results,
+      projectDir,
+      possibleAppTokenPair.appID,
+      possibleAppTokenPair.adminToken,
+    );
   }
 
   if (results.prompt) {
@@ -34,15 +43,28 @@ const main = async () => {
 
   outro(`Done!`);
 
-  console.log(`
+  const startScript = results.base === 'expo' ? 'start' : 'dev';
+
+  if (possibleAppTokenPair) {
+    // already linked
+    console.log(`
   🎉 Success! Your project is ready to go!
 
   To get started:
-    1. ${chalk.bgBlackBright('cd ' + results.project.appName)}
+    1. ${getCodeColors(theme, 'cd ' + results.appName)}
+    2. ${getCodeColors(theme, getUserPkgManager() + ` run ` + startScript)}
+  `);
+  } else {
+    console.log(`
+  🎉 Success! Your project is ready to go!
+
+  To get started:
+    1. ${getCodeColors(theme, 'cd ' + results.appName)}
     2. Create a new app on ${chalk.underline('www.instantdb.com')}
     3. Add your APP_ID to the .env file
-    4. ${chalk.bgBlackBright(getUserPkgManager() + ' run dev')}
+    4. ${getCodeColors(theme, getUserPkgManager() + ` run ` + startScript)}
   `);
+  }
 };
 
 main().catch((err) => {

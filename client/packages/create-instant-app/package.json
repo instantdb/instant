@@ -26,6 +26,7 @@
     "@ianvs/prettier-plugin-sort-imports": "^4.2.1",
     "chalk": "5.2.0",
     "commander": "^10.0.1",
+    "env-paths": "^3.0.0",
     "execa": "^7.2.0",
     "fs-extra": "^11.3.1",
     "gradient-string": "^2.0.2",

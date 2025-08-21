@@ -146,12 +146,6 @@ export const promptClaude = async (prompt: string, projectDir: string) => {
               } else {
                 console.log('✓ Done');
               }
-            } else if (parsed.type === 'result' && parsed.result) {
-              const truncated =
-                parsed.result.length > 100
-                  ? parsed.result.substring(0, 100) + '...'
-                  : parsed.result;
-              console.log(`📋 ${truncated}`);
             }
           } catch (error) {
             // If JSON parsing fails, treat as regular text output

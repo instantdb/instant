@@ -203,6 +203,9 @@ importers:
       commander:
         specifier: ^10.0.1
         version: 10.0.1
+      env-paths:
+        specifier: ^3.0.0
+        version: 3.0.0
       execa:
         specifier: ^7.2.0
         version: 7.2.0

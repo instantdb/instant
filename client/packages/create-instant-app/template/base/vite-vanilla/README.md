@@ -1,9 +1,9 @@
-# Welcome to your InstantDB Expo app 👋
+# Welcome to your InstantDB Vanilla JS app 👋
 
-This is an Expo project scaffolded with create-instant-app.
+This is a Vite project scaffolded with create-instant-app.
 
 To run the development server:
-`npm run start`
+`npm run dev`
 
 To push schema changes:
 `npx instant-cli push`

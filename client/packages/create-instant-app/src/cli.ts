@@ -3,16 +3,25 @@ import * as p from '@clack/prompts';
 
 export type CliResults = {
   base: 'next-js-app-dir' | 'vite-vanilla' | 'expo';
-  ruleFiles: ('cursor' | 'claude' | 'windsurf' | 'zed' | 'codex')[];
+  ruleFiles: 'cursor' | 'claude' | 'windsurf' | 'zed' | 'codex' | null;
   appName: string;
   prompt: string | null;
   createRepo: boolean;
 };
 
+export const unwrapSkippablePrompt = <T>(result: Promise<T | symbol>) => {
+  return result.then((value) => {
+    if (p.isCancel(value)) {
+      throw new Error('Cancelled');
+    }
+    return value;
+  }) satisfies Promise<T>;
+};
+
 const defaultOptions: CliResults = {
   base: 'next-js-app-dir',
-  appName: 'my-instant-app',
-  ruleFiles: [],
+  appName: 'awesome-todos',
+  ruleFiles: null,
   createRepo: true,
   prompt: null,
 };
@@ -44,7 +53,7 @@ export const runCli = async (): Promise<CliResults> => {
     .addOption(
       new Option(
         '--prompt',
-        'Create a fresh InstantDB app based off of a prompt. (requires Claude Code)',
+        'Create a new InstantDB app based off of a prompt. (requires Claude Code)',
       ),
     )
     .parse(process.argv);
@@ -59,25 +68,34 @@ export const runCli = async (): Promise<CliResults> => {
     {
       appName: async () => {
         if (cliProvidedName) {
-          return cliProvidedName;
+          return cliProvidedName.trim();
         }
-        return p.text({
-          message: 'What will your project be called?',
-          placeholder: 'my-instant-app',
-          defaultValue: 'my-instant-app',
-        });
+        const promptedName = await unwrapSkippablePrompt(
+          p.text({
+            message: 'What will your project/folder be called?',
+            placeholder: 'awesome-todos',
+            defaultValue: 'awesome-todos',
+            validate(value) {
+              if (value.trim() === '') {
+                return 'Please enter a project name';
+              }
+              if (value.includes(' ')) {
+                return 'Project name cannot contain spaces';
+              }
+              return;
+            },
+          }),
+        );
+        return promptedName.trim();
       },
       prompt: async () => {
         if (flags.prompt) {
-          return await p
-            .text({
+          return await unwrapSkippablePrompt(
+            p.text({
               message: 'What is the prompt?',
               placeholder: 'Create an app that....',
-            })
-            .then((value) => {
-              if (p.isCancel(value)) return null;
-              return value;
-            });
+            }),
+          );
         }
         return null;
       },
@@ -86,40 +104,51 @@ export const runCli = async (): Promise<CliResults> => {
           return 'next-js-app-dir';
         }
         if (flags.base) {
-          return flags.base;
+          return flags.base as CliResults['base'];
         }
 
-        return p.select({
-          message: 'What framework would you like to use?',
-          options: [
-            { value: 'next-js-app-dir', label: 'Next.js: App Directory' },
-            { value: 'vite-vanilla', label: 'Vite: Vanilla TS' },
-            { value: 'expo', label: 'Expo: React Native' },
-          ],
-          initialValue: 'next-js-app-dir' as CliResults['base'],
-        });
+        return unwrapSkippablePrompt(
+          p.select({
+            message: 'What framework would you like to use?',
+            options: [
+              { value: 'next-js-app-dir', label: 'Next.js' },
+              { value: 'vite-vanilla', label: 'Vite: Vanilla TS' },
+              { value: 'expo', label: 'Expo: React Native' },
+            ],
+            initialValue: 'next-js-app-dir' as CliResults['base'],
+          }),
+        );
       },
       ruleFiles: async ({ results }) => {
         if (results.prompt) {
-          return ['claude'];
+          return 'claude';
         }
-        return p.multiselect({
-          required: false,
-          message: `Which AI tools would you like to add rule files for? (select multiple)`,
-          options: [
-            { value: 'cursor', label: 'Cursor' },
-            { value: 'claude', label: 'Claude' },
-            { value: 'windsurf', label: 'Windsurf' },
-            { value: 'codex', label: 'Codex' },
-            { value: 'zed', label: 'Zed' },
-          ],
-          initialValues: [] as CliResults['ruleFiles'],
-        });
+
+        // No rules files for anything besides nextjs (for now)
+        if (results.base !== 'next-js-app-dir') {
+          return null;
+        }
+
+        return unwrapSkippablePrompt(
+          p.select({
+            message: 'Which AI tool would you like to add rule files for?',
+            options: [
+              { value: null, label: 'None' },
+              { value: 'cursor', label: 'Cursor' },
+              { value: 'claude', label: 'Claude' },
+              { value: 'windsurf', label: 'Windsurf' },
+              { value: 'codex', label: 'Codex' },
+              { value: 'zed', label: 'Zed' },
+            ],
+            initialValue: null as CliResults['ruleFiles'],
+          }),
+        );
       },
       createRepo: async () => {
         if (flags.git !== undefined) {
-          return flags.git;
+          return flags.git as boolean;
         }
+        return true;
       },
     } satisfies {
       [K in keyof CliResults]: (args: {

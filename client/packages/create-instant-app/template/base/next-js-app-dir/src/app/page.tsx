@@ -1,6 +1,6 @@
 "use client";
 
-import { db } from "@/db";
+import { db } from "@/lib/db";
 import { type AppSchema } from "@/instant.schema";
 import { id, InstaQLEntity } from "@instantdb/react";
 
