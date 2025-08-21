@@ -1099,7 +1099,7 @@
           #{}
           [:e :v]))
 
-(defn index-size-from-sketch* [ctx named-p component]
+(defn index-size-from-sketch [ctx named-p component]
   (let [a (:a named-p)
         app-id (:app-id ctx)
         sketches (:sketches ctx)
@@ -1171,16 +1171,6 @@
                      ;; just put a default of half the items.
                      :compare (long (/ (:total sketch) 2)))))]
     (reduce + 0 counts)))
-
-(defn index-size-from-sketch [ctx named-p component]
-  (try
-    (index-size-from-sketch* ctx named-p component)
-    (catch Exception e
-      (tracer/record-exception-span! e {:name "index-size-from-sketch-error"
-                                        :escaping? false
-                                        :attributes {:named-p named-p
-                                                     :component component}})
-      0)))
 
 (defn rows-size-from-sketch [ctx named-p]
   (apply min (map (partial index-size-from-sketch ctx named-p) [:e :v])))
@@ -1539,7 +1529,7 @@
       :or (first-pattern (:patterns (:or pattern)))
       :and (first-pattern (:and pattern)))))
 
-(declare annotate-with-hints)
+(declare annotate-with-hints-impl)
 
 (defn annotate-pattern-group-with-hints [ctx initial-symbol-map pattern-group]
   (let [level (:level ctx 0)
@@ -1573,7 +1563,21 @@
                                                         (when (not page-info-first?)
                                                           symbol-map)))))
       (:children pattern-group) ((fn [pg]
-                                   (annotate-with-hints (assoc ctx :level (inc level)) symbol-map pg))))))
+                                   (annotate-with-hints-impl (assoc ctx :level (inc level)) symbol-map pg))))))
+
+(defn annotate-with-hints-impl
+  [ctx symbol-map nested-named-patterns]
+  (update-in nested-named-patterns
+             [:children :pattern-groups]
+             (fn [groups]
+               (mapv (fn [pattern-group]
+                       (if (:missing-attr? pattern-group)
+                         pattern-group
+                         (annotate-pattern-group-with-hints ctx
+                                                            (when-let [join-sym (get-in nested-named-patterns [:children :join-sym])]
+                                                              {join-sym (get symbol-map join-sym 0)})
+                                                            pattern-group)))
+                     groups))))
 
 (defn annotate-with-hints
   "Annotates the named-patterns with the best index to use.  It uses
@@ -1584,54 +1588,48 @@
   that we need to make so that we can fetch all of the counts in a
   single go. Then we a second pass with the counts and it determines
   the best index."
-  ([ctx nested-named-patterns]
-   (let [counts-atom (atom (set #{}))
-         sketch-keys-atom (atom (set #{}))
-         ;; Run annotate-with-hints to populate the counts atom
-         _ (annotate-with-hints (assoc ctx
-                                       :phase :deps
-                                       :counts counts-atom
-                                       :sketch-keys sketch-keys-atom)
-                                {}
-                                nested-named-patterns)
-         count-queries @counts-atom
-         query (when (seq count-queries)
-                 {:union-all (map-indexed (fn [i {:keys [wheres]}]
-                                            {:select [[i :i]
-                                                      [{:select [:%count.*]
-                                                        :from {:select :*
-                                                               :from :triples
-                                                               :where wheres
-                                                               :limit 10000}}
-                                                       :count]]})
-                                          count-queries)})
-         query-result (when query
-                        (sql/select ::resolve-counts
-                                    (:conn-pool (:db ctx))
-                                    (hsql/format query)))
+  [ctx nested-named-patterns]
+  (try
+    (let [counts-atom (atom (set #{}))
+          sketch-keys-atom (atom (set #{}))
+          ;; Run annotate-with-hints to populate the counts atom
+          _ (annotate-with-hints-impl (assoc ctx
+                                             :phase :deps
+                                             :counts counts-atom
+                                             :sketch-keys sketch-keys-atom)
+                                      {}
+                                      nested-named-patterns)
+          count-queries @counts-atom
+          query (when (seq count-queries)
+                  {:union-all (map-indexed (fn [i {:keys [wheres]}]
+                                             {:select [[i :i]
+                                                       [{:select [:%count.*]
+                                                         :from {:select :*
+                                                                :from :triples
+                                                                :where wheres
+                                                                :limit 10000}}
+                                                        :count]]})
+                                           count-queries)})
+          query-result (when query
+                         (sql/select ::resolve-counts
+                                     (:conn-pool (:db ctx))
+                                     (hsql/format query)))
 
-         resolved-counts (zipmap count-queries
-                                 (map :count query-result))
-         sketches (cms/lookup (:conn-pool (:db ctx)) @sketch-keys-atom)]
-     ;; Run again with resolved counts
-     (annotate-with-hints (assoc ctx
-                                 :phase :choose
-                                 :counts resolved-counts
-                                 :sketches sketches)
-                          {}
-                          nested-named-patterns)))
-  ([ctx symbol-map nested-named-patterns]
-   (update-in nested-named-patterns
-              [:children :pattern-groups]
-              (fn [groups]
-                (mapv (fn [pattern-group]
-                        (if (:missing-attr? pattern-group)
-                          pattern-group
-                          (annotate-pattern-group-with-hints ctx
-                                                             (when-let [join-sym (get-in nested-named-patterns [:children :join-sym])]
-                                                               {join-sym (get symbol-map join-sym 0)})
-                                                             pattern-group)))
-                      groups)))))
+          resolved-counts (zipmap count-queries
+                                  (map :count query-result))
+          sketches (cms/lookup (:conn-pool (:db ctx)) @sketch-keys-atom)]
+      ;; Run again with resolved counts
+      (annotate-with-hints-impl (assoc ctx
+                                       :phase :choose
+                                       :counts resolved-counts
+                                       :sketches sketches)
+                                {}
+                                nested-named-patterns))
+    (catch Exception e
+      (tracer/record-exception-span! e {:name "annotate-with-hints-error"
+                                        :escaping? false
+                                        :attributes {:patterns nested-named-patterns}})
+      nested-named-patterns)))
 
 ;; ---
 ;; match-query
