@@ -1076,6 +1076,14 @@
               (map (fn [a] {:app-id app-id
                             :attr-id a})
                    (uspec/tagged-unwrap a)))
+            ;; Handle lookups
+            (when (and (= tag :constant)
+                       (= :e component))
+              (keep (fn [v]
+                      (when (coll? v)
+                        {:app-id app-id
+                         :attr-id (first v)}))
+                    val))
             (when (= tag :function)
               (let [[f body] (first val)]
                 (when (= :$isNull f)
@@ -1091,7 +1099,7 @@
           #{}
           [:e :v]))
 
-(defn index-size-from-sketch [ctx named-p component]
+(defn index-size-from-sketch* [ctx named-p component]
   (let [a (:a named-p)
         app-id (:app-id ctx)
         sketches (:sketches ctx)
@@ -1107,8 +1115,13 @@
                                     (:sketch record))]
                      vs (case tag
                           :constant (map (fn [c]
-                                           {:type :constant
-                                            :value c})
+                                           (if (and (= :e component)
+                                                    (coll? c))
+                                             {:type :lookup
+                                              :attr-id (first c)
+                                              :value (second c)}
+                                             {:type :constant
+                                              :value c}))
                                          val)
                           (:any :variable) [{:type :total}]
                           :function (let [[f body] (first val)]
@@ -1133,6 +1146,13 @@
                                           (when (instance? java.time.Instant (:value vs))
                                             :date)
                                           (:value vs))
+                     :lookup (if-let [sketch (:sketch (get sketches {:app-id app-id
+                                                                     :attr-id (:attr-id vs)}))]
+                               (cms/check sketch
+                                          (when (instance? java.time.Instant (:value vs))
+                                            :date)
+                                          (:value vs))
+                               0)
                      :not (- (:total sketch)
                              (cms/check sketch
                                         (when (instance? java.time.Instant (:value vs))
@@ -1150,6 +1170,16 @@
                      ;; just put a default of half the items.
                      :compare (long (/ (:total sketch) 2)))))]
     (reduce + 0 counts)))
+
+(defn index-size-from-sketch [ctx named-p component]
+  (try
+    (index-size-from-sketch* ctx named-p component)
+    (catch Exception e
+      (tracer/record-exception-span! e {:name "index-size-from-sketch-error"
+                                        :escaping? false
+                                        :attributes {:named-p named-p
+                                                     :component component}})
+      0)))
 
 (defn rows-size-from-sketch [ctx named-p]
   (apply min (map (partial index-size-from-sketch ctx named-p) [:e :v])))
