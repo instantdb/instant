@@ -22,6 +22,7 @@ interface Sections {
   CURSOR_FRONTMATTER: string;
   WINDSURF_FRONTMATTER: string;
   INTRO: string;
+  INSTANT_RULES: string;
   BASICS: string;
   APP_DESCRIPTION: string;
   APP_CODE: string;
@@ -34,6 +35,7 @@ function parseTemplate(templatePath: string): Sections {
     CURSOR_FRONTMATTER: '',
     WINDSURF_FRONTMATTER: '',
     INTRO: '',
+    INSTANT_RULES: '',
     BASICS: '',
     APP_DESCRIPTION: '',
     APP_CODE: '',
@@ -93,7 +95,7 @@ ${pageFile}\`\`\``;
 }
 
 function buildClaudeMd(sections: Sections): string {
-  return sections.INTRO;
+  return [sections.INTRO, sections.INSTANT_RULES].join('\n\n');
 }
 
 function buildClaudeRules(sections: Sections): string {
