@@ -9,7 +9,6 @@ export async function fetchJson<T>({
   method = 'GET',
   authToken,
 }: {
-  debugName: string;
   path: string;
   body?: any;
   method?: 'POST' | 'GET';
