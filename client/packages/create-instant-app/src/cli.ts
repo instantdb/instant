@@ -52,7 +52,7 @@ export const runCli = async (): Promise<CliResults> => {
     )
     .addOption(
       new Option(
-        '--prompt',
+        '--ai',
         'Create a new InstantDB app based off of a prompt. (requires Claude Code)',
       ),
     )
@@ -89,7 +89,7 @@ export const runCli = async (): Promise<CliResults> => {
         return promptedName.trim();
       },
       prompt: async () => {
-        if (flags.prompt) {
+        if (flags.ai) {
           return await unwrapSkippablePrompt(
             p.text({
               message: 'What is the prompt?',

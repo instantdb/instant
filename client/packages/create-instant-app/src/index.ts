@@ -9,9 +9,9 @@ import { addRuleFiles } from './ruleFiles.js';
 import { initializeGit } from './git.js';
 import { tryConnectApp } from './login.js';
 import { applyEnvFile } from './env.js';
-import { promptClaude } from './claude.js';
 import { detectTerminalTheme } from './terminalTheme.js';
 import { getCodeColors } from './utils/logger.js';
+import { promptClaude } from './claude.js';
 
 const main = async () => {
   const theme = await detectTerminalTheme();
@@ -54,6 +54,11 @@ const main = async () => {
     1. ${getCodeColors(theme, 'cd ' + results.appName)}
     2. ${getCodeColors(theme, getUserPkgManager() + ` run ` + startScript)}
   `);
+    if (possibleAppTokenPair.approach === 'ephemeral') {
+      console.log(`
+  An ephemeral app has been created and loaded into .env
+`);
+    }
   } else {
     console.log(`
   🎉 Success! Your project is ready to go!

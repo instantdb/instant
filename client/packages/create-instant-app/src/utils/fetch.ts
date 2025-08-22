@@ -12,14 +12,14 @@ export async function fetchJson<T>({
   path: string;
   body?: any;
   method?: 'POST' | 'GET';
-  authToken: string;
+  authToken: string | null;
 }): Promise<T> {
   const timeoutMs = 1000 * 60 * 5; // 5 minutes
 
   const res = await fetch(`${instantBackendOrigin}${path}`, {
     method: method ?? 'GET',
     headers: {
-      Authorization: `Bearer ${authToken}`,
+      Authorization: authToken ? `Bearer ${authToken}` : '',
       'Content-Type': 'application/json',
     },
     body: body ? JSON.stringify(body) : undefined,
