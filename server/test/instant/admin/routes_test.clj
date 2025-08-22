@@ -287,6 +287,71 @@
                        :attributes
                        set)))))))))
 
+(deftest obj-actions-optimistically-create-attrs
+  (with-empty-app
+    (fn [{app-id :id admin-token :admin-token}]
+      (testing "all obj-actions operations optimistically create attributes"
+        (let [create-id (UUID/randomUUID)
+              update-id (UUID/randomUUID)
+              merge-id (UUID/randomUUID)
+              link-source-id (UUID/randomUUID)
+              link-target-id (UUID/randomUUID)
+              unlink-source-id (UUID/randomUUID)
+              unlink-target-id (UUID/randomUUID)
+
+              tx-ret (transact-post
+                      {:body {:steps [["create" "test_entities" create-id
+                                       {"created_attr" "created_value"}]
+
+                                      ["update" "test_entities" update-id
+                                       {"updated_attr" "updated_value"}]
+
+                                      ["merge" "test_entities" merge-id
+                                       {"merged_attr" "merged_value"}]
+
+                                      ["update" "test_sources" link-source-id {"name" "source"}]
+                                      ["update" "test_targets" link-target-id {"name" "target"}]
+                                      ["link" "test_sources" link-source-id
+                                       {"test_targets" link-target-id}]
+
+                                      ["update" "test_sources" unlink-source-id {"name" "unlink-source"}]
+                                      ["update" "test_targets" unlink-target-id {"name" "unlink-target"}]
+                                      ["link" "test_sources" unlink-source-id
+                                       {"test_targets" unlink-target-id}]
+                                      ["unlink" "test_sources" unlink-source-id
+                                       {"test_targets" unlink-target-id}]]}
+                       :headers {"app-id" (str app-id)
+                                 "authorization" (str "Bearer " admin-token)}})
+
+              ;; Verify transaction succeeded
+              _ (is (= 200 (:status tx-ret)))
+
+              query-ret (query-post
+                         {:body {:query {:test_entities {}
+                                         :test_sources {:test_targets {}}}}
+                          :headers {"app-id" (str app-id)
+                                    "authorization" (str "Bearer " admin-token)}})]
+
+          ;; Verify all operations created their entities with the correct attributes
+          (is (= 200 (:status query-ret)))
+          (let [entities (-> query-ret :body (get "test_entities"))
+                sources (-> query-ret :body (get "test_sources"))
+                created-entity (first (filter #(= (str create-id) (get % "id")) entities))
+                updated-entity (first (filter #(= (str update-id) (get % "id")) entities))
+                merged-entity (first (filter #(= (str merge-id) (get % "id")) entities))
+                linked-source (first (filter #(= (str link-source-id) (get % "id")) sources))
+                unlinked-source (first (filter #(= (str unlink-source-id) (get % "id")) sources))]
+
+            (is (= "created_value" (get created-entity "created_attr")))
+            (is (= "updated_value" (get updated-entity "updated_attr")))
+            (is (= "merged_value" (get merged-entity "merged_attr")))
+
+            ;; Verify link worked
+            (is (= 1 (count (get linked-source "test_targets"))))
+
+            ;; Verify unlink worked
+            (is (= 0 (count (get unlinked-source "test_targets"))))))))))
+
 (deftest refresh-tokens-test
   (with-empty-app
     (let [email "stopa@instantdb.com"]
