@@ -2457,11 +2457,11 @@
          {:app-id app-id
           :code {:posts
                  {:allow
-                  {:link   {"ref" "data.title == linkedData.email"}
+                  {:link   {"ref" "newData.title == linkedData.email"}
                    :unlink {"ref" "data.title == linkedData.email"}}}
                  :users
                  {:allow
-                  {:link   {"rev-ref" "data.email == linkedData.title"}
+                  {:link   {"rev-ref" "newData.email == linkedData.title"}
                    :unlink {"rev-ref" "data.email == linkedData.title"}}}}})
 
         (testing "pre-checks"

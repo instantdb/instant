@@ -247,7 +247,8 @@
                                  ["$default" "allow" "link" fwd-label]
                                  ["$default" "allow" "update"]
                                  ["$default" "allow" "$default"]])
-                     :bindings {:data        (get updated-entities-map key)
+                     :bindings {:data        entity
+                                :new-data    (get updated-entities-map key)
                                 :linked-data rev-entity
                                 :rule-params rule-params}}])
                  (when rev-entity
@@ -264,6 +265,7 @@
                                  ["$default" "allow" "view"]
                                  ["$default" "allow" "$default"]])
                      :bindings {:data        rev-entity
+                                :new-data    (get updated-entities-map rev-key)
                                 :linked-data (get updated-entities-map key)
                                 :rule-params (merge rule-params
                                                     (get rule-params-map rev-key))}}]))
@@ -283,6 +285,7 @@
                               ["$default" "allow" "update"]
                               ["$default" "allow" "$default"]])
                   :bindings {:data        entity
+                             :new-data    (get updated-entities-map key)
                              :linked-data rev-entity
                              :rule-params rule-params}}
                  {:scope    :object
@@ -298,6 +301,7 @@
                               ["$default" "allow" "view"]
                               ["$default" "allow" "$default"]])
                   :bindings {:data        rev-entity
+                             :new-data    (get updated-entities-map rev-key)
                              :linked-data entity
                              :rule-params (merge rule-params
                                                  (get rule-params-map rev-key))}}]
@@ -376,6 +380,7 @@
                                  ["$default" "allow" "create"]
                                  ["$default" "allow" "$default"]])
                      :bindings {:data        updated-entity
+                                :new-data    updated-entity
                                 :linked-data updated-rev-entity
                                 :rule-params rule-params}}])
                  (when (and updated-rev-entity
@@ -393,6 +398,7 @@
                                  ["$default" "allow" "view"]
                                  ["$default" "allow" "$default"]])
                      :bindings {:data        updated-rev-entity
+                                :new-data    updated-rev-entity
                                 :linked-data updated-entity
                                 :rule-params (merge rule-params
                                                     (get rule-params-map rev-key))}}]))
