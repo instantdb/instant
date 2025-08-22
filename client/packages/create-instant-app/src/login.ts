@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { fetchJson } from './utils/fetch.js';
 
 const dev = Boolean(process.env.INSTANT_CLI_DEV);
+const forceEphemeral = Boolean(process.env.INSTANT_CLI_FORCE_EPHEMERAL);
 
 function getAuthPaths() {
   const key = `instantdb-${dev ? 'dev' : 'prod'}`;
@@ -62,6 +63,9 @@ export const fetchApps = async (authToken: string) => {
 };
 
 const getAuthToken = async (): Promise<string | null> => {
+  if (forceEphemeral) {
+    return null;
+  }
   if (process.env.INSTANT_CLI_AUTH_TOKEN) {
     return process.env.INSTANT_CLI_AUTH_TOKEN;
   }
@@ -73,23 +77,58 @@ const getAuthToken = async (): Promise<string | null> => {
   return authToken;
 };
 
-type AppTokenPair = {
+type AppTokenResponse = {
   appID: string;
   adminToken: string;
+  approach: 'ephemeral' | 'import' | 'create';
+};
+
+const createPermissiveEphemeralApp = async (title: string) => {
+  const response = await fetchJson<{
+    app: { id: string; 'admin-token': string };
+  }>({
+    authToken: null,
+    method: 'POST',
+    path: '/dash/apps/ephemeral',
+    body: {
+      title,
+      rules: {
+        $users: {
+          view: 'true',
+        },
+        $files: {
+          allow: {
+            view: 'true',
+            create: 'true',
+            delete: 'true',
+          },
+        },
+      },
+    },
+  });
+  return { appID: response.app.id, adminToken: response.app['admin-token'] };
 };
 
 export const tryConnectApp = async (
   program: CliResults,
-): Promise<AppTokenPair | null> => {
+): Promise<AppTokenResponse | null> => {
   const authToken = await getAuthToken();
-  if (!authToken) {
-    return null;
-  }
 
   // If doing ai generation
   if (program.prompt) {
-    const { appID, adminToken } = await createApp(program.appName, authToken);
-    return { appID, adminToken };
+    if (authToken) {
+      const { appID, adminToken } = await createApp(program.appName, authToken);
+      return { appID, adminToken, approach: 'create' };
+    }
+    // Create ephemeral app
+    const { appID, adminToken } = await createPermissiveEphemeralApp(
+      program.appName,
+    );
+    return { appID, adminToken, approach: 'ephemeral' };
+  }
+
+  if (!authToken) {
+    return null;
   }
 
   const currentAppsPromise = fetchApps(authToken);
@@ -113,7 +152,7 @@ export const tryConnectApp = async (
     const title = await promptForAppName(program);
     p.log.success(`Creating app "${title}"`);
     const { appID, adminToken } = await createApp(title, authToken);
-    return { appID, adminToken };
+    return { appID, adminToken, approach: 'create' };
   }
 
   if (action === 'link') {
@@ -140,6 +179,7 @@ export const tryConnectApp = async (
     return {
       adminToken: choice.admin_token,
       appID: choice.id,
+      approach: 'import',
     };
   }
   return null;
