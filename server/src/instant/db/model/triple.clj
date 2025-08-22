@@ -449,7 +449,8 @@
         lookup-ref-inserts
         {:insert-into [[:triples triple-cols]
                        {:select triple-cols
-                        :from :enhanced-lookup-refs}]
+                        :from :enhanced-lookup-refs
+                        :order-by [[:app-id :asc] [:attr-id :asc] [:value-md5 :asc]]}]
          :on-conflict [:app-id :attr-id [:json_null_to_null :value] {:where :av}]
          :do-nothing true
          :returning :*}
@@ -558,7 +559,8 @@
         ea-index-inserts
         {:insert-into [[:triples triple-cols]
                        {:select triple-cols
-                        :from :ea-triples-distinct}]
+                        :from :ea-triples-distinct
+                        :order-by [[:app-id :asc] [:attr-id :asc] [:value-md5 :asc]]}]
          :on-conflict [:app-id :entity-id :attr-id {:where [:= :ea true]}]
          :do-update-set {:value :excluded.value
                          :value-md5 :excluded.value-md5}
@@ -567,7 +569,8 @@
         remaining-inserts
         {:insert-into [[:triples triple-cols]
                        {:select triple-cols
-                        :from :remaining-triples}]
+                        :from :remaining-triples
+                        :order-by [[:app-id :asc] [:attr-id :asc] [:value-md5 :asc]]}]
          :on-conflict [:app-id :entity-id :attr-id :value-md5]
          :do-nothing true
          :returning :*}
@@ -650,7 +653,8 @@
         indexed-null-inserts
         {:insert-into [[:triples triple-cols]
                        {:select triple-cols
-                        :from :indexed-null-triples}]
+                        :from :indexed-null-triples
+                        :order-by [[:app-id :asc] [:attr-id :asc] [:value-md5 :asc]]}]
          :on-conflict [:app-id :entity-id :attr-id :value-md5]
          :do-nothing true
          :returning [:entity-id :attr-id]}
@@ -1002,8 +1006,8 @@
                      (.plus (Duration/ofDays 1))
                      (.truncatedTo ChronoUnit/DAYS))
       "yesterday" (-> now
-                     (.plus (Duration/ofDays -1))
-                     (.truncatedTo ChronoUnit/DAYS)))))
+                      (.plus (Duration/ofDays -1))
+                      (.truncatedTo ChronoUnit/DAYS)))))
 
 ;; Docs on DateTimeFormatterBuilder
 ;; https://docs.oracle.com/en/java/javase/24/docs/api/java.base/java/time/format/DateTimeFormatterBuilder.html
