@@ -1,4 +1,4 @@
-import { exec } from 'child_process';
+import { exec, spawn } from 'child_process';
 import { log } from '@clack/prompts';
 import chalk from 'chalk';
 import fs from 'fs-extra';
@@ -90,7 +90,43 @@ const printClaudeMessage = (
   }
 };
 
+function findClaudePath(): Promise<string | null> {
+  return new Promise((resolve) => {
+    // Use the user's shell to resolve the command
+    const shell = process.env.SHELL || '/bin/bash';
+    const child = spawn(shell, ['-i', '-c', 'which claude'], {
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+
+    let output = '';
+    child.stdout.on('data', (data) => {
+      output += data.toString();
+    });
+
+    child.on('close', (code) => {
+      if (code === 0) {
+        const result = output.trim();
+        if (result.includes('aliased to ')) {
+          resolve(result.split('aliased to ')[1] || null);
+        } else {
+          resolve(result);
+        }
+      } else {
+        resolve(null);
+      }
+    });
+  });
+}
+
 export const promptClaude = async (prompt: string, projectDir: string) => {
+  // Check if instant mcp installed and prompt to install it
+
+  const claudePath = await findClaudePath();
+
+  if (!claudePath) {
+    throw new Error("Could not find Claude's path on your machine");
+  }
+
   fs.appendFile(
     path.join(projectDir, 'claude.md'),
     'Do not use the instant mcp server to create a new app, a fresh app id has already been placed in the .env file',
@@ -98,7 +134,7 @@ export const promptClaude = async (prompt: string, projectDir: string) => {
 
   return new Promise<void>((resolve, reject) => {
     const running = exec(
-      `claude --dangerously-skip-permissions --output-format stream-json -p --verbose "${prompt}"`,
+      `${claudePath} --dangerously-skip-permissions --output-format stream-json -p --verbose "${prompt}"`,
       {
         cwd: projectDir,
       },
