@@ -20,30 +20,30 @@ const main = async () => {
   }
 
   const results = await runCli();
-  const projectDir = await scaffoldBase(results.project);
-  addRuleFiles({ projectDir, ruleFilesToAdd: results.project.ruleFiles });
+  const projectDir = await scaffoldBase(results);
+  addRuleFiles({ projectDir, ruleFilesToAdd: results.ruleFiles });
   await runInstallCommand(getUserPkgManager(), projectDir);
-  if (results.project.createRepo) {
+  if (results.createRepo) {
     await initializeGit(projectDir);
   }
 
-  const possibleAppTokenPair = await tryConnectApp(results.project);
+  const possibleAppTokenPair = await tryConnectApp(results);
   if (possibleAppTokenPair) {
     applyEnvFile(
-      results.project,
+      results,
       projectDir,
       possibleAppTokenPair.appID,
       possibleAppTokenPair.adminToken,
     );
   }
 
-  if (results.project.prompt) {
-    await promptClaude(results.project.prompt, projectDir);
+  if (results.prompt) {
+    await promptClaude(results.prompt, projectDir);
   }
 
   outro(`Done!`);
 
-  const startScript = results.project.base === 'expo' ? 'start' : 'dev';
+  const startScript = results.base === 'expo' ? 'start' : 'dev';
 
   if (possibleAppTokenPair) {
     // already linked
@@ -51,7 +51,7 @@ const main = async () => {
   🎉 Success! Your project is ready to go!
 
   To get started:
-    1. ${getCodeColors(theme, 'cd ' + results.project.appName)}
+    1. ${getCodeColors(theme, 'cd ' + results.appName)}
     2. ${getCodeColors(theme, getUserPkgManager() + ` run ` + startScript)}
   `);
   } else {
@@ -59,7 +59,7 @@ const main = async () => {
   🎉 Success! Your project is ready to go!
 
   To get started:
-    1. ${getCodeColors(theme, 'cd ' + results.project.appName)}
+    1. ${getCodeColors(theme, 'cd ' + results.appName)}
     2. Create a new app on ${chalk.underline('www.instantdb.com')}
     3. Add your APP_ID to the .env file
     4. ${getCodeColors(theme, getUserPkgManager() + ` run ` + startScript)}

@@ -202,18 +202,16 @@ export const promptClaude = async (prompt: string, projectDir: string) => {
 
     running.on('close', (code) => {
       if (code === 0) {
-        log.success('Claude command completed successfully');
+        log.success('Claude completed successfully');
         resolve();
       } else {
-        log.error(`Claude command failed with exit code ${code}`);
+        log.error(`Claude failed with exit code ${code}`);
         reject(new Error(`Process exited with code ${code}`));
       }
     });
 
     running.on('error', (error) => {
-      console.log('STDOUT RAW:', error.toString()); // Add this
-
-      log.error(`Process error: ${error.message}`);
+      log.error(error.message);
       reject(error);
     });
   });

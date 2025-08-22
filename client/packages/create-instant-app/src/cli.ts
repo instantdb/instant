@@ -26,7 +26,7 @@ const defaultOptions: CliResults = {
   prompt: null,
 };
 
-export const runCli = async () => {
+export const runCli = async (): Promise<CliResults> => {
   const results = defaultOptions;
 
   const program = new Command()
@@ -162,5 +162,5 @@ export const runCli = async () => {
     },
   );
 
-  return { project, flags };
+  return project;
 };
