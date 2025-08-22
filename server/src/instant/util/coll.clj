@@ -1,5 +1,7 @@
 (ns instant.util.coll
-  (:require [medley.core :as medley]))
+  (:require
+   [clojure+.walk :as walk]
+   [medley.core :as medley]))
 
 (defn split-last [coll]
   (list (butlast coll)
@@ -264,14 +266,12 @@
   [m k f & args]
   (assoc! m k (apply f (get m k) args)))
 
-(defn permutations
-  "For given [a b c ...] returns a list of maps
-   where {a -> true | false, b -> true | false, ... }"
-  ([keys]
-   (permutations {} keys))
-  ([base keys]
-   (if (empty? keys)
-     [base]
-     (concat
-      (permutations (assoc base (first keys) true) (next keys))
-      (permutations (assoc base (first keys) false) (next keys))))))
+(defn collect [pred form]
+  (let [res (volatile! (transient []))]
+    (walk/postwalk
+     (fn [form]
+       (when (pred form)
+         (vswap! res conj! form))
+       form)
+     form)
+    (persistent! @res)))

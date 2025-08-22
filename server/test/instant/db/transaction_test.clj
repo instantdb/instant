@@ -2249,9 +2249,10 @@
               [[:posts/fwd-only :users/rev-fwd-only]]
               [[:posts/rev-only :users/rev-rev-only]]
               [[:posts/fwd-rev  :users/rev-fwd-rev]]])
-            transact! #(permissioned-tx/transact!
-                        (make-ctx)
-                        (test-util/resolve-attrs attrs %))]
+            transact! #(when (seq %)
+                         (permissioned-tx/transact!
+                          (make-ctx)
+                          (test-util/resolve-attrs attrs %)))]
         (rule-model/put!
          (aurora/conn-pool :write)
          {:app-id app-id
@@ -2275,12 +2276,7 @@
          ;; transaction or already exist
          [user-action       [:create :update]
           post-action       [:create :update]
-          :let              [post-fallback-rule-param
-                             (case post-action
-                               :create "posts_create"
-                               :update "posts_update")]
-          user-ref-type     [:id :lookup]
-          post-ref-type     [:id :lookup]
+          ref-type          [:id :lookup]
           ;; link check can be not defined at all (then update/view fallback is used),
           ;; defined only for one side (then other side will use a fallback), or be
           ;; defined for both sides
@@ -2288,26 +2284,33 @@
                              :posts/fwd-only
                              :posts/rev-only
                              :posts/fwd-rev]
-          rule-params       (coll/permutations
-                             (case attr
-                               :posts/fallback [post-fallback-rule-param "users_view"]
-                               :posts/fwd-only ["posts_fwd_only"         "users_view"]
-                               :posts/rev-only [post-fallback-rule-param "users_rev_only"]
-                               :posts/fwd-rev  ["posts_fwd_rev"          "users_fwd_rev"]))
+          :let              [[posts-param users-param]
+                             (case [post-action attr]
+                               [:create :posts/fallback] ["posts_create"   "users_view"]
+                               [:create :posts/fwd-only] ["posts_fwd_only" "users_view"]
+                               [:create :posts/rev-only] ["posts_create"   "users_rev_only"]
+                               [:create :posts/fwd-rev]  ["posts_fwd_rev"  "users_fwd_rev"]
+                               [:update :posts/fallback] ["posts_update"   "users_view"]
+                               [:update :posts/fwd-only] ["posts_fwd_only" "users_view"]
+                               [:update :posts/rev-only] ["posts_update"   "users_rev_only"]
+                               [:update :posts/fwd-rev]  ["posts_fwd_rev"  "users_fwd_rev"])]
+          rule-params       [{posts-param true  users-param false}
+                             {posts-param false users-param true}
+                             {posts-param true  users-param true}]
           ;; rule params for reverse direction can be placed on forward one, e.g.
           ;; db.tx.posts[id].link({user: ...}).ruleParams({user_param: ...})
           user-params-pos   [:post :user]]
          (let [user-id     (random-uuid)
                user-email  (test-util/rand-email)
-               user-ref    (case user-ref-type
+               user-ref    (case ref-type
                              :id     user-id
                              :lookup [:users/email user-email])
                post-id     (random-uuid)
                post-title  (test-util/rand-string)
-               post-ref    (case post-ref-type
+               post-ref    (case ref-type
                              :id     post-id
                              :lookup [:posts/title post-title])
-               user-tx     (case user-ref-type
+               user-tx     (case ref-type
                              :id
                              [[:add-triple  user-id :users/id    user-id]
                               [:add-triple  user-id :users/email user-email]
@@ -2315,7 +2318,7 @@
                              :lookup
                              [[:add-triple  user-ref :users/id    user-ref]
                               [:rule-params user-ref "users"      {"users_create" true}]])
-               post-tx     (case post-ref-type
+               post-tx     (case ref-type
                              :id
                              [[:add-triple  post-id :posts/id    post-id]
                               [:add-triple  post-id :posts/title post-title]
@@ -2323,13 +2326,13 @@
                              :lookup
                              [[:add-triple  post-ref :posts/id    post-ref]
                               [:rule-params post-ref "posts"      {"posts_create" true}]])
-               _           (when (= :update user-action)
-                             (transact! user-tx))
-               _           (when (= :update post-action)
-                             (transact! post-tx))
 
-               user-params (coll/filter-keys #(string/starts-with? % "users_") rule-params)
-               post-params (coll/filter-keys #(string/starts-with? % "posts_") rule-params)
+               _           (transact!
+                            (concat
+                             (when (= :update user-action)
+                               user-tx)
+                             (when (= :update post-action)
+                               post-tx)))
 
                tx          (concat
                             (when (= :create user-action)
@@ -2338,8 +2341,8 @@
                               post-tx)
                             (case user-params-pos
                               :user
-                              [[:rule-params user-ref "users" user-params]
-                               [:rule-params post-ref "posts" post-params]]
+                              [[:rule-params user-ref "users" (select-keys rule-params [users-param])]
+                               [:rule-params post-ref "posts" (select-keys rule-params [posts-param])]]
                               :post
                               [[:rule-params post-ref "posts" rule-params]])
                             [[:add-triple post-ref attr user-ref]])
@@ -2383,8 +2386,7 @@
                             "rev-fwd-rev"  "ruleParams.users_fwd_rev"}}}}})
 
         (test-util/test-matrix
-         [user-ref-type     [:id :lookup]
-          post-ref-type     [:id :lookup]
+         [ref-type     [:id :lookup]
           ;; link check can be not defined at all (then update/view fallback is used),
           ;; defined only for one side (then other side will use a fallback), or be
           ;; defined for both sides
@@ -2392,23 +2394,26 @@
                              :posts/fwd-only
                              :posts/rev-only
                              :posts/fwd-rev]
-          rule-params       (coll/permutations
+          :let              [[posts-param users-param]
                              (case attr
                                :posts/fallback ["posts_update"   "users_view"]
                                :posts/fwd-only ["posts_fwd_only" "users_view"]
                                :posts/rev-only ["posts_update"   "users_rev_only"]
-                               :posts/fwd-rev  ["posts_fwd_rev"  "users_fwd_rev"]))
+                               :posts/fwd-rev  ["posts_fwd_rev"  "users_fwd_rev"])]
+          rule-params       [{posts-param true  users-param false}
+                             {posts-param false users-param true}
+                             {posts-param true  users-param true}]
           ;; rule params for reverse direction can be placed on forward one, e.g.
           ;; db.tx.posts[id].link({user: ...}).ruleParams({user_param: ...})
           user-params-pos   [:post :user]]
          (let [user-id     (random-uuid)
                user-email  (test-util/rand-email)
-               user-ref    (case user-ref-type
-                             :id     user-id
-                             :lookup [:users/email user-email])
+               user-ref    (case ref-type  type
+                                 :id     user-id
+                                 :lookup [:users/email user-email])
                post-id     (random-uuid)
                post-title  (test-util/rand-string)
-               post-ref    (case post-ref-type
+               post-ref    (case ref-type
                              :id     post-id
                              :lookup [:posts/title post-title])
                _           (transact!
@@ -2419,14 +2424,11 @@
                              [:add-triple  post-id :posts/title post-title]
                              [:rule-params post-id "posts"      {"posts_create" true}]])
 
-               user-params (coll/filter-keys #(string/starts-with? % "users_") rule-params)
-               post-params (coll/filter-keys #(string/starts-with? % "posts_") rule-params)
-
                tx          (concat
                             (case user-params-pos
                               :user
-                              [[:rule-params user-ref "users" user-params]
-                               [:rule-params post-ref "posts" post-params]]
+                              [[:rule-params user-ref "users" (select-keys rule-params [users-param])]
+                               [:rule-params post-ref "posts" (select-keys rule-params [posts-param])]]
                               :post
                               [[:rule-params post-ref "posts" rule-params]])
                             [[:retract-triple post-ref attr user-ref]])
@@ -2434,6 +2436,67 @@
                expected    (every? true? (vals rule-params))]
 
            (is (= expected (perm-pass? (transact! tx))))))))))
+
+(deftest linked-data-perm
+  (with-empty-app
+    (fn [{app-id   :id
+          make-ctx :make-ctx}]
+      (let [attrs
+            (test-util/make-attrs
+             app-id
+             [[:users/id    :required? :index? :unique?]
+              [:users/email :unique?]
+              [:posts/id    :required? :index? :unique?]
+              [:posts/title :unique?]
+              [[:posts/ref :users/rev-ref]]])
+            transact! #(permissioned-tx/transact!
+                        (make-ctx)
+                        (test-util/resolve-attrs attrs %))]
+        (rule-model/put!
+         (aurora/conn-pool :write)
+         {:app-id app-id
+          :code {:posts
+                 {:allow
+                  {:link   {"ref" "data.title == linkedData.email"}
+                   :unlink {"ref" "data.title == linkedData.email"}}}
+                 :users
+                 {:allow
+                  {:link   {"rev-ref" "data.email == linkedData.title"}
+                   :unlink {"rev-ref" "data.email == linkedData.title"}}}}})
+
+        (testing "pre-checks"
+          (let [user-id     (random-uuid)
+                user-email  (test-util/rand-email)
+                post-id     (random-uuid)
+                post-title  user-email]
+            (transact!
+             [[:add-triple user-id :users/id    user-id]
+              [:add-triple user-id :users/email user-email]
+              [:add-triple post-id :posts/id    post-id]
+              [:add-triple post-id :posts/title post-title]])
+            (is (not (perm-err?
+                      (transact!
+                       [[:add-triple post-id :posts/ref user-id]]))))
+            (is (not (perm-err?
+                      (transact!
+                       [[:retract-triple post-id :posts/ref user-id]]))))))
+
+        (testing "post-checks"
+          (let [user-id     (random-uuid)
+                user-email  (test-util/rand-email)
+                post-id     (random-uuid)
+                post-title  user-email]
+            (is (not (perm-err?
+                      (transact!
+                       [[:add-triple user-id :users/id    user-id]
+                        [:add-triple user-id :users/email user-email]
+                        [:add-triple post-id :posts/id    post-id]
+                        [:add-triple post-id :posts/title post-title]
+                        [:add-triple post-id :posts/ref user-id]]))))
+
+            (is (not (perm-err?
+                      (transact!
+                       [[:retract-triple post-id :posts/ref user-id]]))))))))))
 
 (deftest lookup-perms
   (with-empty-app
@@ -2562,7 +2625,6 @@
                                             app-id
                                             [[:= :attr-id p-fullname-aid]
                                              [:= :entity-id stopa-eid]])
-
                         first
                         :triple
                         last))))
