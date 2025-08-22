@@ -44,7 +44,7 @@ Or edit your `~/.cursor/mcp.json` directly:
 
 ### Claude Code
 
-If you're on a paid plan, you can add the the server via the command line
+If you're on a paid Claude plan, you can add the the server via the command line
 
 ```text {% showCopy="true" %}
 claude mcp add instant -s user -t http https://mcp.instantdb.com/mcp
