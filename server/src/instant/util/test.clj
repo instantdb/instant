@@ -13,6 +13,7 @@
    [instant.jdbc.aurora :as aurora]
    [instant.model.rule :as rule-model]
    [instant.reactive.aggregator :as aggregator]
+   [instant.util.coll :as coll]
    [instant.util.exception :as ex]
    [instant.util.instaql :refer [instaql-nodes->object-tree]]
    [next.jdbc])
@@ -263,12 +264,28 @@
      (with-redefs [cms/lookup (partial lookup-with-in-memory-sketches original-lookup# sketches# (:id ~app))]
        ~@body)))
 
-(defmacro test-matrix [bindings & body]
-  (let [keys (->> bindings
-                  (partition 2)
-                  (map first)
-                  (filterv symbol?))]
-    `(doseq [var# (for ~bindings (array-map ~@(mapcat #(vector (keyword %) %) keys)))
-             :let [{:keys ~keys} var#]]
-       (clojure.test/testing (str var#)
+(defn- collect-symbols [with-let? bindings]
+  (vec
+   (distinct
+    (for [[left right] (partition 2 bindings)
+          sym          (cond
+                         (= :let left)  (if with-let?
+                                          (->> right
+                                             (partition 2)
+                                             (map first)
+                                             (mapcat #(coll/collect symbol? %)))
+                                          [])
+                         (symbol? left) [left]
+                         :else          (coll/collect symbol? left))]
+      sym))))
+
+(defmacro test-matrix
+  "Similar to doseq, but records current testing context via `testing`,
+   and avoids “method body too large” produced by doseq"
+  [bindings & body]
+  (let [all-keys      (collect-symbols true bindings)
+        variable-keys (collect-symbols false bindings)]
+    `(doseq [var# (for ~bindings (array-map ~@(mapcat #(vector (keyword %) %) all-keys)))
+             :let [{:keys ~all-keys} var#]]
+       (clojure.test/testing (str (select-keys var# ~variable-keys))
          ~@body))))

@@ -247,8 +247,8 @@
                                  ["$default" "allow" "link" fwd-label]
                                  ["$default" "allow" "update"]
                                  ["$default" "allow" "$default"]])
-                     :bindings {:data        entity
-                                :new-data    (get updated-entities-map key)
+                     :bindings {:data        (get updated-entities-map key)
+                                :linked-data rev-entity
                                 :rule-params rule-params}}])
                  (when rev-entity
                    [{:scope    :object
@@ -264,7 +264,7 @@
                                  ["$default" "allow" "view"]
                                  ["$default" "allow" "$default"]])
                      :bindings {:data        rev-entity
-                                ;; :new-data    (get updated-entities-map key)
+                                :linked-data (get updated-entities-map key)
                                 :rule-params (merge rule-params
                                                     (get rule-params-map rev-key))}}]))
 
@@ -283,7 +283,7 @@
                               ["$default" "allow" "update"]
                               ["$default" "allow" "$default"]])
                   :bindings {:data        entity
-                             :new-data    (get updated-entities-map key)
+                             :linked-data rev-entity
                              :rule-params rule-params}}
                  {:scope    :object
                   :action   :unlink
@@ -298,7 +298,7 @@
                               ["$default" "allow" "view"]
                               ["$default" "allow" "$default"]])
                   :bindings {:data        rev-entity
-                                ;; :new-data    (get updated-entities-map key)
+                             :linked-data entity
                              :rule-params (merge rule-params
                                                  (get rule-params-map rev-key))}}]
 
@@ -337,20 +337,19 @@
    create-lookups-map
    tx-steps]
   (for [{:keys [op eid aid etype value rev-etype]} tx-steps
-        :let [key             {:eid eid :etype etype}
-              entity          (get entities-map key)
-              create?         (nil? entity)
-              ref?            (some? rev-etype)
-              [_ _ fwd-label] (:forward-identity (attr-model/seek-by-id aid attrs))
-              [_ _ rev-label] (:reverse-identity (attr-model/seek-by-id aid attrs))
-              rev-key         {:eid value :etype rev-etype}
-              rev-entity      (when ref?
-                                (-> (get updated-entities-map rev-key)
-                                    (update "id" #(or
-                                                   (get create-lookups-map %)
-                                                   (:eid rev-key)
-                                                   %))))
-              rule-params     (get rule-params-map key)]
+        :let [key                {:eid eid :etype etype}
+              entity             (get entities-map key)
+              updated-entity     (-> (get updated-entities-map key)
+                                     (update "id" #(or (get create-lookups-map %) (:eid key) %)))
+              create?            (nil? entity)
+              ref?               (some? rev-etype)
+              [_ _ fwd-label]    (:forward-identity (attr-model/seek-by-id aid attrs))
+              [_ _ rev-label]    (:reverse-identity (attr-model/seek-by-id aid attrs))
+              rev-key            {:eid value :etype rev-etype}
+              updated-rev-entity (when ref?
+                                   (-> (get updated-entities-map rev-key)
+                                       (update "id" #(or (get create-lookups-map %) (:eid rev-key) %))))
+              rule-params        (get rule-params-map key)]
         check (cond
                 (= :add-attr op)
                 [{:scope    :attr
@@ -376,16 +375,15 @@
                                  ["$default" "allow" "link" fwd-label]
                                  ["$default" "allow" "create"]
                                  ["$default" "allow" "$default"]])
-                     :bindings (let [updated-entity (-> (get updated-entities-map key)
-                                                        (update "id" #(get create-lookups-map % %)))]
-                                 {:data        updated-entity
-                                  :new-data    updated-entity
-                                  :rule-params rule-params})}])
-                 (when rev-entity
+                     :bindings {:data        updated-entity
+                                :linked-data updated-rev-entity
+                                :rule-params rule-params}}])
+                 (when (and updated-rev-entity
+                            (nil? (get entities-map rev-key)))
                    [{:scope    :object
                      :action   :link
                      :etype    rev-etype
-                     :eid      (get create-lookups-map value value)
+                     :eid      (get updated-rev-entity "id")
                      :program  (rule-model/get-program!
                                 rules
                                 [[rev-etype  "allow" "link" rev-label]
@@ -394,7 +392,8 @@
                                  ["$default" "allow" "link" rev-label]
                                  ["$default" "allow" "view"]
                                  ["$default" "allow" "$default"]])
-                     :bindings {:data        rev-entity
+                     :bindings {:data        updated-rev-entity
+                                :linked-data updated-entity
                                 :rule-params (merge rule-params
                                                     (get rule-params-map rev-key))}}]))
 

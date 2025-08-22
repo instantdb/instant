@@ -359,6 +359,11 @@
       (.addVar "newData" type-obj)
       (.build)))
 
+(def ^:private ^CelCompiler cel-link-unlink-compiler
+  (-> (runtime-compiler-builder)
+      (.addVar "linkedData" type-obj)
+      (.build)))
+
 ;; n.b. if you edit something here, make sure you make the
 ;;      equivalent change to iql-cel-compiler below
 (def ^:private ^CelRuntime cel-runtime
@@ -372,9 +377,9 @@
 
 (defn action->compiler [action]
   (case (name action)
-    ("view" "delete")
-    cel-view-delete-compiler
-    cel-create-update-compiler))
+    ("view" "delete") cel-view-delete-compiler
+    ("link" "unlink") cel-link-unlink-compiler
+    #_else            cel-create-update-compiler))
 
 (defn get-expr ^CelExpr [^CelNavigableExpr node]
   ;; Not sure why this is necessary, but can't call
@@ -416,7 +421,7 @@
 (defn eval-program!
   [ctx
    {:keys [cel-program etype action]}
-   {:keys [data rule-params new-data]}]
+   {:keys [data rule-params new-data linked-data]}]
   (try
     (let [bindings (HashMap.)
 
@@ -425,6 +430,8 @@
           _ (.put bindings "ruleParams" (CelMap. rule-params))
           _ (when new-data
               (.put bindings "newData" (CelMap. new-data)))
+          _ (when linked-data
+              (.put bindings "linkedData" (CelMap. linked-data)))
           result (.eval ^CelRuntime$Program cel-program
                         bindings)]
       (cond
@@ -455,7 +462,7 @@
    {:keys [^CelRuntime$Program cel-program
            etype
            action] :as program}
-   {:keys [resolver data rule-params new-data]}]
+   {:keys [resolver data rule-params new-data linked-data]}]
   (if (contains? program :result)
     (:result program)
     (try
@@ -472,6 +479,9 @@
                                "newData" (if new-data
                                            (Optional/of (CelMap. new-data))
                                            (Optional/empty))
+                               "linkedData" (if linked-data
+                                              (Optional/of (CelMap. linked-data))
+                                              (Optional/empty))
                                (Optional/empty)))))
             unknown-ctx (UnknownContext/create resolver (ImmutableList/of))
             i (AtomicInteger.)
