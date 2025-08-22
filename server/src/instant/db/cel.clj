@@ -361,6 +361,7 @@
 
 (def ^:private ^CelCompiler cel-link-unlink-compiler
   (-> (runtime-compiler-builder)
+      (.addVar "newData" type-obj)
       (.addVar "linkedData" type-obj)
       (.build)))
 

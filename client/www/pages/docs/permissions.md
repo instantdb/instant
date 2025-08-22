@@ -129,7 +129,7 @@ You can add checks per link attribute for cases when link is added and removed. 
   "users": {
     "allow": {
       "link": {
-        "posts": "data.id == auth.id && linkedData.text != null"
+        "posts": "newData.id == auth.id && linkedData.text != null"
       },
       "unlink": {
         "posts": "data.id == auth.id && linkedData.text != null"
@@ -145,6 +145,7 @@ Few things to note:
 2. Permission checks can be defined either on both sides, on one side or at neither.
 3. If `link`/`unlink` permission is not defined for an attribute, it falls back to `update` check in forward direction and `view` check in reverse direction.
 4. Inside `link`/`unlink` permissions you have access to `linkedData` object which is just a shorthand for the other side of the relation.
+5. You still have access to `data` and `newData`, with the same logic as in `create`/`update` checks.
 
 ### Default permissions
 
