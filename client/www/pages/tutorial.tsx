@@ -432,8 +432,8 @@ export default function McpTutorial({ files }: MarkdownContent) {
       setupContent: (
         <div className="space-y-4">
           <p>
-            If you're on a paid plan, you can add the server via the command
-            line:
+            If you're on a paid Claude plan, you can add the server via the
+            command line:
           </p>
           <Copyable value="claude mcp add instant -s user -t http https://mcp.instantdb.com/mcp" />
           <p>Now you can run through the following:</p>
