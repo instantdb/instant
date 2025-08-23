@@ -178,14 +178,14 @@
 
 (defn get-replication-latency-bytes [conn slot-name]
   (->
-    (sql/select-one
-      ::get-replication-latency-bytes
-      conn
-      ["select pg_wal_lsn_diff(pg_current_wal_lsn(), confirmed_flush_lsn) as latency
+   (sql/select-one
+    ::get-replication-latency-bytes
+    conn
+    ["select pg_wal_lsn_diff(pg_current_wal_lsn(), confirmed_flush_lsn) as latency
         from pg_replication_slots
        where slot_name = ?"
-       slot-name])
-    :latency))
+     slot-name])
+   :latency))
 
 (defn drop-logical-replication-slot [conn slot-name]
   (sql/execute! ::drop-logical-replication-slot
@@ -230,7 +230,7 @@
    This returns the latest LSN processed by PG."
   [conn]
   (:pg_current_wal_lsn
-    (sql/select-one conn ["SELECT * FROM pg_current_wal_lsn();"])))
+   (sql/select-one conn ["SELECT * FROM pg_current_wal_lsn();"])))
 
 (comment
   (get-current-wal-lsn (aurora/conn-pool :read)))
@@ -418,12 +418,12 @@
 
 (defn alert-discord [slot-name]
   (discord/send-error-async!
-    (str (:instateam discord/mention-constants)
-         " The wal handler threw an exception. Check if it restart automatically."
-         " If it didn't, redeploy the server.\n\nIf you're quick enough you can "
-         "peek at the transaction that caused the error:\n\n"
-         (format "```\nselect data from pg_logical_slot_peek_changes('%s', null, null, 'format-version', '2', 'include-lsn', 'true');```"
-                 slot-name))))
+   (str (:instateam discord/mention-constants)
+        " The wal handler threw an exception. Check if it restart automatically."
+        " If it didn't, redeploy the server.\n\nIf you're quick enough you can "
+        "peek at the transaction that caused the error:\n\n"
+        (format "```\nselect data from pg_logical_slot_peek_changes('%s', null, null, 'format-version', '2', 'include-lsn', 'true');```"
+                slot-name))))
 
 (defn get-reconnect-conn*
   "Tries to create a new connection and restart the replication stream"
@@ -471,9 +471,10 @@
   (when (not= slot-type :invalidator)
     (throw (ex-info "Called start-worker with invalid slot-type" {:slot-type slot-type})))
   (let [replication-conn (get-pg-replication-conn (get-conn-config))
-        {:keys [lsn]} (create-logical-replication-slot! replication-conn
-                                                        slot-name
-                                                        "wal2json")
+        {:keys [lsn]} (binding [sql/*query-timeout-seconds* 120]
+                        (create-logical-replication-slot! replication-conn
+                                                          slot-name
+                                                          "wal2json"))
         shutdown? (atom false)]
     (loop [replication-conn replication-conn
            stream (create-replication-stream replication-conn slot-type slot-name lsn 2)
