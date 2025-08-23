@@ -1,0 +1,2173 @@
+Testing @instantdb/node package...
+
+[socket][start] 0
+✓ Database initialized
+
+Test 1: Testing subscribeQuery...
+Query result: {
+  "users": [
+    {
+      "id": "d5e4d61a-d041-450e-b7e4-41864816920b",
+      "displayName": "Alice Johnson",
+      "email": "alice@example.com",
+      "status": "online"
+    },
+    {
+      "id": "c64bf249-267f-4f17-9d74-59583e452610",
+      "displayName": "Bob Smith",
+      "email": "bob@example.com",
+      "status": "offline"
+    },
+    {
+      "id": "f237914e-00ae-4218-a097-80a77e86b093",
+      "createdAt": "2025-08-16T22:58:24.878Z",
+      "displayName": "Test User from Node.js",
+      "name": "Test User from Node.js",
+      "email": "test@example.com",
+      "status": "active"
+    },
+    {
+      "id": "4bda5639-783b-48d4-bdf3-eb819a83b694",
+      "createdAt": "2025-08-16T22:59:32.471Z",
+      "displayName": "Test User from Node.js",
+      "name": "Test User from Node.js",
+      "email": "test@example.com",
+      "status": "active"
+    }
+  ]
+}
+✓ subscribeQuery working
+
+[socket][open] 0
+[socket][open] 0
+[send] 0 init {
+  op: 'init',
+  'app-id': '54d69382-c27c-4e54-b2ac-c3dcaef2f0ad',
+  'refresh-token': undefined,
+  versions: { '@instantdb/core': 'v0.20.28', '@instantdb/node': '0.0.0' },
+  '__admin-token': undefined
+}
+[send] 0 init {
+  op: 'init',
+  'app-id': '54d69382-c27c-4e54-b2ac-c3dcaef2f0ad',
+  'refresh-token': undefined,
+  versions: { '@instantdb/core': 'v0.20.28', '@instantdb/node': '0.0.0' },
+  '__admin-token': undefined
+}
+[receive] 0 init-ok {
+  op: 'init-ok',
+  'session-id': '68a10ef5-4571-476a-98e8-d1e2ab2db7f1',
+  'client-event-id': '0a126836-5400-40db-a2ce-06ff67c54a6e',
+  auth: {
+    app: {
+      id: '54d69382-c27c-4e54-b2ac-c3dcaef2f0ad',
+      creator_id: '9052580e-b7a6-480a-a96e-e1bd5ba4ae1f',
+      title: 'Claude Code Remote Control',
+      created_at: '2025-08-16T17:14:39Z',
+      connection_string: null,
+      deletion_marked_at: null
+    },
+    user: null,
+    'admin?': null
+  },
+  attrs: [
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      id: '03c0697d-e30a-46ee-ba8e-bfa72a4c3125',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'user',
+      'index?': false
+    },
+    {
+      'required?': true,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '05f331d7-99c1-4a2d-a003-2ab240adce07',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'user',
+      'index?': false
+    },
+    {
+      'required?': true,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '06df21d0-68ce-4407-94bc-5900966e903c',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'user',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      id: '0fb1c6ed-ee6f-47c3-843a-6f9bd0da4b02',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'user',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'boolean',
+      id: '113e9105-edbf-4ed2-820c-158637ea8104',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'user',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      id: '14d110aa-b72c-4342-963e-b7345a050578',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'user',
+      'index?': false
+    },
+    {
+      'required?': true,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '168c1c77-2343-4bf8-aa43-2a477ad5e523',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'user',
+      'index?': false
+    },
+    {
+      'required?': true,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '2058cf68-37cd-4aa4-9996-78aa315ce9ac',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'user',
+      'index?': false
+    },
+    {
+      'required?': true,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '26c91c7e-8d65-4fda-8c34-687341636991',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'user',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      id: '41054ed1-564e-4ade-9bfb-266261610a82',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'user',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      id: '4c6f3be1-9b70-472f-9922-877c3b16dc2b',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'user',
+      'index?': false
+    },
+    {
+      'required?': true,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '92ca77dc-92a8-4829-a262-427969412448',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'user',
+      'index?': false
+    },
+    {
+      'required?': true,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '93eed1b5-413a-4810-8289-5db7ff938e31',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'user',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-13b4-211c0b61267f',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-13b4-270c823816bf',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-13b4-270c87048fff',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      id: '96653230-13ff-ffff-13b4-81ffffffffff',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'on-delete': 'cascade',
+      id: '96653230-13ff-ffff-13b5-49123fffffff',
+      'unique?': false,
+      'reverse-identity': [Array],
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'ref',
+      catalog: 'system',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-2a34-21a24fffffff',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-2a34-29e5e4ffffff',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      id: '96653230-13ff-ffff-2a34-81ffffffffff',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'number',
+      id: '96653230-13ff-ffff-2a34-aaffffffffff',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-2a34-b40fffffffff',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': true,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-2a34-f04cffffffff',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': true,
+      'forward-identity': [Array],
+      'checked-data-type': 'number',
+      id: '96653230-13ff-ffff-2a35-24609fffffff',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-2a35-48afffffffff',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-60b4-270c87048fff',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      id: '96653230-13ff-ffff-60b4-81ffffffffff',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'on-delete': 'cascade',
+      id: '96653230-13ff-ffff-60b5-49123fffffff',
+      'unique?': false,
+      'reverse-identity': [Array],
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'ref',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      id: '96653230-13ff-ffff-70b4-25a08d9a07ff',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-70b4-34484ea91a3f',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-70b4-46884b44882f',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      id: '96653230-13ff-ffff-70b4-81ffffffffff',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      id: '96653230-13ff-ffff-70b4-c24c1fffffff',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-70b4-d0309fffffff',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'on-delete': 'cascade',
+      id: '96653230-13ff-ffff-70b4-e7c5d540c91f',
+      'unique?': false,
+      'reverse-identity': [Array],
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'ref',
+      catalog: 'system',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      id: '96653230-13ff-ffff-72f4-81ffffffffff',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'on-delete': 'cascade',
+      id: '96653230-13ff-ffff-72f4-e7c5d540c91f',
+      'unique?': false,
+      'reverse-identity': [Array],
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-72f5-2a05f175503f',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-72f5-2a07ffffffff',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'on-delete': 'cascade',
+      id: '96653230-13ff-ffff-72f5-49123fffffff',
+      'unique?': false,
+      'reverse-identity': [Array],
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'ref',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      id: '96653230-13ff-ffff-73f4-81ffffffffff',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-73f4-d0309fffffff',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-7474-211c0b61267f',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-7474-270c823816bf',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-7474-27394838247f',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      id: '96653230-13ff-ffff-7474-81ffffffffff',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'on-delete': 'cascade',
+      id: '96653230-13ff-ffff-7474-e0504b411b3f',
+      'unique?': false,
+      'reverse-identity': [Array],
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'ref',
+      catalog: 'system',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-7475-120d112522bf',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-7475-29826438247f',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-a474-7048e41cdcaf',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      id: '96653230-13ff-ffff-a474-81ffffffffff',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'on-delete': 'cascade',
+      id: '96653230-13ff-ffff-a475-49123fffffff',
+      'unique?': false,
+      'reverse-identity': [Array],
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'ref',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-a4b4-46010bffffff',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      id: '96653230-13ff-ffff-a4b4-81ffffffffff',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'date',
+      id: '9ef2d530-37b1-4f4a-9668-b121d6ce5b05',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'user',
+      'index?': false
+    },
+    {
+      'required?': true,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: 'ab1d2116-29fc-4c8e-a2f7-757e13d6304d',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'user',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      id: 'bdb317ea-4207-4ab0-8366-48e7793a691f',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'user',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: 'c7181c40-4971-4f3a-ba33-e85f28c5f5e7',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'user',
+      'index?': false
+    },
+    {
+      'required?': true,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: 'd1b3dcc4-e63e-44bf-a98c-dafb6a102b51',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'user',
+      'index?': false
+    }
+  ]
+}
+[send] 0 add-query { op: 'add-query', q: { users: {} } }
+[send] 0 transact {
+  op: 'transact',
+  'tx-steps': [
+    [
+      'add-triple',
+      '4bda5639-783b-48d4-bdf3-eb819a83b694',
+      '03c0697d-e30a-46ee-ba8e-bfa72a4c3125',
+      '4bda5639-783b-48d4-bdf3-eb819a83b694'
+    ],
+    [
+      'add-triple',
+      '4bda5639-783b-48d4-bdf3-eb819a83b694',
+      '4c6f3be1-9b70-472f-9922-877c3b16dc2b',
+      'Test User from Node.js'
+    ],
+    [
+      'add-triple',
+      '4bda5639-783b-48d4-bdf3-eb819a83b694',
+      '93eed1b5-413a-4810-8289-5db7ff938e31',
+      'test@example.com'
+    ],
+    [
+      'add-triple',
+      '4bda5639-783b-48d4-bdf3-eb819a83b694',
+      '168c1c77-2343-4bf8-aa43-2a477ad5e523',
+      'Test User from Node.js'
+    ],
+    [
+      'add-triple',
+      '4bda5639-783b-48d4-bdf3-eb819a83b694',
+      'ab1d2116-29fc-4c8e-a2f7-757e13d6304d',
+      'active'
+    ],
+    [
+      'add-triple',
+      '4bda5639-783b-48d4-bdf3-eb819a83b694',
+      '14d110aa-b72c-4342-963e-b7345a050578',
+      '2025-08-16T22:59:32.471Z'
+    ]
+  ],
+  created: 1755385172472,
+  order: 1
+}
+[receive] 0 init-ok {
+  op: 'init-ok',
+  'session-id': '68a10ef5-4571-476a-98e8-d1e2ab2db7f1',
+  'client-event-id': '0a126836-5400-40db-a2ce-06ff67c54a6e',
+  auth: {
+    app: {
+      id: '54d69382-c27c-4e54-b2ac-c3dcaef2f0ad',
+      creator_id: '9052580e-b7a6-480a-a96e-e1bd5ba4ae1f',
+      title: 'Claude Code Remote Control',
+      created_at: '2025-08-16T17:14:39Z',
+      connection_string: null,
+      deletion_marked_at: null
+    },
+    user: null,
+    'admin?': null
+  },
+  attrs: [
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      id: '03c0697d-e30a-46ee-ba8e-bfa72a4c3125',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'user',
+      'index?': false
+    },
+    {
+      'required?': true,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '05f331d7-99c1-4a2d-a003-2ab240adce07',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'user',
+      'index?': false
+    },
+    {
+      'required?': true,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '06df21d0-68ce-4407-94bc-5900966e903c',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'user',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      id: '0fb1c6ed-ee6f-47c3-843a-6f9bd0da4b02',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'user',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'boolean',
+      id: '113e9105-edbf-4ed2-820c-158637ea8104',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'user',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      id: '14d110aa-b72c-4342-963e-b7345a050578',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'user',
+      'index?': false
+    },
+    {
+      'required?': true,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '168c1c77-2343-4bf8-aa43-2a477ad5e523',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'user',
+      'index?': false
+    },
+    {
+      'required?': true,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '2058cf68-37cd-4aa4-9996-78aa315ce9ac',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'user',
+      'index?': false
+    },
+    {
+      'required?': true,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '26c91c7e-8d65-4fda-8c34-687341636991',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'user',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      id: '41054ed1-564e-4ade-9bfb-266261610a82',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'user',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      id: '4c6f3be1-9b70-472f-9922-877c3b16dc2b',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'user',
+      'index?': false
+    },
+    {
+      'required?': true,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '92ca77dc-92a8-4829-a262-427969412448',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'user',
+      'index?': false
+    },
+    {
+      'required?': true,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '93eed1b5-413a-4810-8289-5db7ff938e31',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'user',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-13b4-211c0b61267f',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-13b4-270c823816bf',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-13b4-270c87048fff',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      id: '96653230-13ff-ffff-13b4-81ffffffffff',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'on-delete': 'cascade',
+      id: '96653230-13ff-ffff-13b5-49123fffffff',
+      'unique?': false,
+      'reverse-identity': [Array],
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'ref',
+      catalog: 'system',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-2a34-21a24fffffff',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-2a34-29e5e4ffffff',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      id: '96653230-13ff-ffff-2a34-81ffffffffff',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'number',
+      id: '96653230-13ff-ffff-2a34-aaffffffffff',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-2a34-b40fffffffff',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': true,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-2a34-f04cffffffff',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': true,
+      'forward-identity': [Array],
+      'checked-data-type': 'number',
+      id: '96653230-13ff-ffff-2a35-24609fffffff',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-2a35-48afffffffff',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-60b4-270c87048fff',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      id: '96653230-13ff-ffff-60b4-81ffffffffff',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'on-delete': 'cascade',
+      id: '96653230-13ff-ffff-60b5-49123fffffff',
+      'unique?': false,
+      'reverse-identity': [Array],
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'ref',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      id: '96653230-13ff-ffff-70b4-25a08d9a07ff',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-70b4-34484ea91a3f',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-70b4-46884b44882f',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      id: '96653230-13ff-ffff-70b4-81ffffffffff',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      id: '96653230-13ff-ffff-70b4-c24c1fffffff',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-70b4-d0309fffffff',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'on-delete': 'cascade',
+      id: '96653230-13ff-ffff-70b4-e7c5d540c91f',
+      'unique?': false,
+      'reverse-identity': [Array],
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'ref',
+      catalog: 'system',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      id: '96653230-13ff-ffff-72f4-81ffffffffff',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'on-delete': 'cascade',
+      id: '96653230-13ff-ffff-72f4-e7c5d540c91f',
+      'unique?': false,
+      'reverse-identity': [Array],
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-72f5-2a05f175503f',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-72f5-2a07ffffffff',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'on-delete': 'cascade',
+      id: '96653230-13ff-ffff-72f5-49123fffffff',
+      'unique?': false,
+      'reverse-identity': [Array],
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'ref',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      id: '96653230-13ff-ffff-73f4-81ffffffffff',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-73f4-d0309fffffff',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-7474-211c0b61267f',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-7474-270c823816bf',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-7474-27394838247f',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      id: '96653230-13ff-ffff-7474-81ffffffffff',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'on-delete': 'cascade',
+      id: '96653230-13ff-ffff-7474-e0504b411b3f',
+      'unique?': false,
+      'reverse-identity': [Array],
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'ref',
+      catalog: 'system',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-7475-120d112522bf',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-7475-29826438247f',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-a474-7048e41cdcaf',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      id: '96653230-13ff-ffff-a474-81ffffffffff',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'on-delete': 'cascade',
+      id: '96653230-13ff-ffff-a475-49123fffffff',
+      'unique?': false,
+      'reverse-identity': [Array],
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'ref',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: '96653230-13ff-ffff-a4b4-46010bffffff',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      id: '96653230-13ff-ffff-a4b4-81ffffffffff',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'system',
+      'index?': true
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'date',
+      id: '9ef2d530-37b1-4f4a-9668-b121d6ce5b05',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'user',
+      'index?': false
+    },
+    {
+      'required?': true,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: 'ab1d2116-29fc-4c8e-a2f7-757e13d6304d',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'user',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      id: 'bdb317ea-4207-4ab0-8366-48e7793a691f',
+      'unique?': true,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'user',
+      'index?': false
+    },
+    {
+      'required?': false,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: 'c7181c40-4971-4f3a-ba33-e85f28c5f5e7',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'user',
+      'index?': false
+    },
+    {
+      'required?': true,
+      'forward-identity': [Array],
+      'checked-data-type': 'string',
+      id: 'd1b3dcc4-e63e-44bf-a98c-dafb6a102b51',
+      'unique?': false,
+      cardinality: 'one',
+      'inferred-types': [Array],
+      'value-type': 'blob',
+      catalog: 'user',
+      'index?': false
+    }
+  ]
+}
+[send] 0 add-query { op: 'add-query', q: { users: {} } }
+[send] 0 transact {
+  op: 'transact',
+  'tx-steps': [
+    [
+      'add-triple',
+      '4bda5639-783b-48d4-bdf3-eb819a83b694',
+      '03c0697d-e30a-46ee-ba8e-bfa72a4c3125',
+      '4bda5639-783b-48d4-bdf3-eb819a83b694'
+    ],
+    [
+      'add-triple',
+      '4bda5639-783b-48d4-bdf3-eb819a83b694',
+      '4c6f3be1-9b70-472f-9922-877c3b16dc2b',
+      'Test User from Node.js'
+    ],
+    [
+      'add-triple',
+      '4bda5639-783b-48d4-bdf3-eb819a83b694',
+      '93eed1b5-413a-4810-8289-5db7ff938e31',
+      'test@example.com'
+    ],
+    [
+      'add-triple',
+      '4bda5639-783b-48d4-bdf3-eb819a83b694',
+      '168c1c77-2343-4bf8-aa43-2a477ad5e523',
+      'Test User from Node.js'
+    ],
+    [
+      'add-triple',
+      '4bda5639-783b-48d4-bdf3-eb819a83b694',
+      'ab1d2116-29fc-4c8e-a2f7-757e13d6304d',
+      'active'
+    ],
+    [
+      'add-triple',
+      '4bda5639-783b-48d4-bdf3-eb819a83b694',
+      '14d110aa-b72c-4342-963e-b7345a050578',
+      '2025-08-16T22:59:32.471Z'
+    ]
+  ],
+  created: 1755385172472,
+  order: 1
+}
+[receive] 0 error {
+  op: 'error',
+  status: 400,
+  'client-event-id': '73f4ed02-9827-425a-912d-7840ba6fec77',
+  'original-event': {
+    'client-event-id': '73f4ed02-9827-425a-912d-7840ba6fec77',
+    op: 'init',
+    'app-id': '54d69382-c27c-4e54-b2ac-c3dcaef2f0ad',
+    versions: { '@instantdb/core': 'v0.20.28', '@instantdb/node': '0.0.0' },
+    'session-id': '68a10ef5-4571-476a-98e8-d1e2ab2db7f1',
+    'instant.grouped-queue/put-at': 1755385589655,
+    'total-delay-ms': 1,
+    'ws-ping-latency-ms': 0
+  },
+  type: 'validation-failed',
+  message: 'Validation failed for init: `init` has already run for this session.',
+  hint: {
+    'data-type': 'init',
+    input: {
+      'client-event-id': '73f4ed02-9827-425a-912d-7840ba6fec77',
+      op: 'init',
+      'app-id': '54d69382-c27c-4e54-b2ac-c3dcaef2f0ad',
+      versions: [Object],
+      'session-id': '68a10ef5-4571-476a-98e8-d1e2ab2db7f1',
+      'instant.grouped-queue/put-at': 1755385589655,
+      'total-delay-ms': 1,
+      'ws-ping-latency-ms': 0
+    },
+    errors: [ [Object] ]
+  }
+}
+error {
+  op: 'error',
+  status: 400,
+  'client-event-id': '73f4ed02-9827-425a-912d-7840ba6fec77',
+  'original-event': {
+    'client-event-id': '73f4ed02-9827-425a-912d-7840ba6fec77',
+    op: 'init',
+    'app-id': '54d69382-c27c-4e54-b2ac-c3dcaef2f0ad',
+    versions: { '@instantdb/core': 'v0.20.28', '@instantdb/node': '0.0.0' },
+    'session-id': '68a10ef5-4571-476a-98e8-d1e2ab2db7f1',
+    'instant.grouped-queue/put-at': 1755385589655,
+    'total-delay-ms': 1,
+    'ws-ping-latency-ms': 0
+  },
+  type: 'validation-failed',
+  message: 'Validation failed for init: `init` has already run for this session.',
+  hint: {
+    'data-type': 'init',
+    input: {
+      'client-event-id': '73f4ed02-9827-425a-912d-7840ba6fec77',
+      op: 'init',
+      'app-id': '54d69382-c27c-4e54-b2ac-c3dcaef2f0ad',
+      versions: [Object],
+      'session-id': '68a10ef5-4571-476a-98e8-d1e2ab2db7f1',
+      'instant.grouped-queue/put-at': 1755385589655,
+      'total-delay-ms': 1,
+      'ws-ping-latency-ms': 0
+    },
+    errors: [ [Object] ]
+  }
+}
+Query error: {
+  message: 'Validation failed for init: `init` has already run for this session.',
+  hint: {
+    'data-type': 'init',
+    input: {
+      'client-event-id': '73f4ed02-9827-425a-912d-7840ba6fec77',
+      op: 'init',
+      'app-id': '54d69382-c27c-4e54-b2ac-c3dcaef2f0ad',
+      versions: [Object],
+      'session-id': '68a10ef5-4571-476a-98e8-d1e2ab2db7f1',
+      'instant.grouped-queue/put-at': 1755385589655,
+      'total-delay-ms': 1,
+      'ws-ping-latency-ms': 0
+    },
+    errors: [ [Object] ]
+  }
+}
+[receive] 0 error {
+  op: 'error',
+  status: 400,
+  'client-event-id': '73f4ed02-9827-425a-912d-7840ba6fec77',
+  'original-event': {
+    'client-event-id': '73f4ed02-9827-425a-912d-7840ba6fec77',
+    op: 'init',
+    'app-id': '54d69382-c27c-4e54-b2ac-c3dcaef2f0ad',
+    versions: { '@instantdb/core': 'v0.20.28', '@instantdb/node': '0.0.0' },
+    'session-id': '68a10ef5-4571-476a-98e8-d1e2ab2db7f1',
+    'instant.grouped-queue/put-at': 1755385589655,
+    'total-delay-ms': 1,
+    'ws-ping-latency-ms': 0
+  },
+  type: 'validation-failed',
+  message: 'Validation failed for init: `init` has already run for this session.',
+  hint: {
+    'data-type': 'init',
+    input: {
+      'client-event-id': '73f4ed02-9827-425a-912d-7840ba6fec77',
+      op: 'init',
+      'app-id': '54d69382-c27c-4e54-b2ac-c3dcaef2f0ad',
+      versions: [Object],
+      'session-id': '68a10ef5-4571-476a-98e8-d1e2ab2db7f1',
+      'instant.grouped-queue/put-at': 1755385589655,
+      'total-delay-ms': 1,
+      'ws-ping-latency-ms': 0
+    },
+    errors: [ [Object] ]
+  }
+}
+error {
+  op: 'error',
+  status: 400,
+  'client-event-id': '73f4ed02-9827-425a-912d-7840ba6fec77',
+  'original-event': {
+    'client-event-id': '73f4ed02-9827-425a-912d-7840ba6fec77',
+    op: 'init',
+    'app-id': '54d69382-c27c-4e54-b2ac-c3dcaef2f0ad',
+    versions: { '@instantdb/core': 'v0.20.28', '@instantdb/node': '0.0.0' },
+    'session-id': '68a10ef5-4571-476a-98e8-d1e2ab2db7f1',
+    'instant.grouped-queue/put-at': 1755385589655,
+    'total-delay-ms': 1,
+    'ws-ping-latency-ms': 0
+  },
+  type: 'validation-failed',
+  message: 'Validation failed for init: `init` has already run for this session.',
+  hint: {
+    'data-type': 'init',
+    input: {
+      'client-event-id': '73f4ed02-9827-425a-912d-7840ba6fec77',
+      op: 'init',
+      'app-id': '54d69382-c27c-4e54-b2ac-c3dcaef2f0ad',
+      versions: [Object],
+      'session-id': '68a10ef5-4571-476a-98e8-d1e2ab2db7f1',
+      'instant.grouped-queue/put-at': 1755385589655,
+      'total-delay-ms': 1,
+      'ws-ping-latency-ms': 0
+    },
+    errors: [ [Object] ]
+  }
+}
+Query error: {
+  message: 'Validation failed for init: `init` has already run for this session.',
+  hint: {
+    'data-type': 'init',
+    input: {
+      'client-event-id': '73f4ed02-9827-425a-912d-7840ba6fec77',
+      op: 'init',
+      'app-id': '54d69382-c27c-4e54-b2ac-c3dcaef2f0ad',
+      versions: [Object],
+      'session-id': '68a10ef5-4571-476a-98e8-d1e2ab2db7f1',
+      'instant.grouped-queue/put-at': 1755385589655,
+      'total-delay-ms': 1,
+      'ws-ping-latency-ms': 0
+    },
+    errors: [ [Object] ]
+  }
+}
+[receive] 0 add-query-ok {
+  op: 'add-query-ok',
+  q: { users: {} },
+  result: [ { data: [Object], 'child-nodes': [] } ],
+  'processed-tx-id': 1050542154,
+  'client-event-id': '97e8f324-10d9-4837-911e-97d591dc0e0c'
+}
+Query error: {
+  message: 'Validation failed for init: `init` has already run for this session.',
+  hint: {
+    'data-type': 'init',
+    input: {
+      'client-event-id': '73f4ed02-9827-425a-912d-7840ba6fec77',
+      op: 'init',
+      'app-id': '54d69382-c27c-4e54-b2ac-c3dcaef2f0ad',
+      versions: [Object],
+      'session-id': '68a10ef5-4571-476a-98e8-d1e2ab2db7f1',
+      'instant.grouped-queue/put-at': 1755385589655,
+      'total-delay-ms': 1,
+      'ws-ping-latency-ms': 0
+    },
+    errors: [ [Object] ]
+  }
+}
+[receive] 0 add-query-ok {
+  op: 'add-query-ok',
+  q: { users: {} },
+  result: [ { data: [Object], 'child-nodes': [] } ],
+  'processed-tx-id': 1050542154,
+  'client-event-id': '97e8f324-10d9-4837-911e-97d591dc0e0c'
+}
+Query error: {
+  message: 'Validation failed for init: `init` has already run for this session.',
+  hint: {
+    'data-type': 'init',
+    input: {
+      'client-event-id': '73f4ed02-9827-425a-912d-7840ba6fec77',
+      op: 'init',
+      'app-id': '54d69382-c27c-4e54-b2ac-c3dcaef2f0ad',
+      versions: [Object],
+      'session-id': '68a10ef5-4571-476a-98e8-d1e2ab2db7f1',
+      'instant.grouped-queue/put-at': 1755385589655,
+      'total-delay-ms': 1,
+      'ws-ping-latency-ms': 0
+    },
+    errors: [ [Object] ]
+  }
+}
+[receive] 0 add-query-exists {
+  op: 'add-query-exists',
+  q: { users: {} },
+  'client-event-id': '97e8f324-10d9-4837-911e-97d591dc0e0c'
+}
+[receive] 0 add-query-exists {
+  op: 'add-query-exists',
+  q: { users: {} },
+  'client-event-id': '97e8f324-10d9-4837-911e-97d591dc0e0c'
+}
+[receive] 0 error {
+  op: 'error',
+  status: 400,
+  'client-event-id': '9f733147-67fd-4882-a6d5-948e05b08934',
+  'original-event': {
+    'session-id': '68a10ef5-4571-476a-98e8-d1e2ab2db7f1',
+    'instant.grouped-queue/put-at': 1755385589695,
+    'total-delay-ms': 0,
+    created: 1755385172472,
+    op: 'transact',
+    order: 1,
+    'client-event-id': '9f733147-67fd-4882-a6d5-948e05b08934',
+    'tx-steps': [ [Array], [Array], [Array], [Array], [Array], [Array] ],
+    'ws-ping-latency-ms': 0
+  },
+  type: 'record-not-unique',
+  message: '`email` is a unique attribute on `users` and an entity already exists with `users.email` = "test@example.com"',
+  hint: {
+    'record-type': 'triple',
+    'attr-id': '93eed1b5-413a-4810-8289-5db7ff938e31',
+    etype: 'users',
+    label: 'email',
+    value: '"test@example.com"'
+  }
+}
+error {
+  op: 'error',
+  status: 400,
+  'client-event-id': '9f733147-67fd-4882-a6d5-948e05b08934',
+  'original-event': {
+    'session-id': '68a10ef5-4571-476a-98e8-d1e2ab2db7f1',
+    'instant.grouped-queue/put-at': 1755385589695,
+    'total-delay-ms': 0,
+    created: 1755385172472,
+    op: 'transact',
+    order: 1,
+    'client-event-id': '9f733147-67fd-4882-a6d5-948e05b08934',
+    'tx-steps': [ [Array], [Array], [Array], [Array], [Array], [Array] ],
+    'ws-ping-latency-ms': 0
+  },
+  type: 'record-not-unique',
+  message: '`email` is a unique attribute on `users` and an entity already exists with `users.email` = "test@example.com"',
+  hint: {
+    'record-type': 'triple',
+    'attr-id': '93eed1b5-413a-4810-8289-5db7ff938e31',
+    etype: 'users',
+    label: 'email',
+    value: '"test@example.com"'
+  }
+}
+Query error: {
+  message: 'Validation failed for init: `init` has already run for this session.',
+  hint: {
+    'data-type': 'init',
+    input: {
+      'client-event-id': '73f4ed02-9827-425a-912d-7840ba6fec77',
+      op: 'init',
+      'app-id': '54d69382-c27c-4e54-b2ac-c3dcaef2f0ad',
+      versions: [Object],
+      'session-id': '68a10ef5-4571-476a-98e8-d1e2ab2db7f1',
+      'instant.grouped-queue/put-at': 1755385589655,
+      'total-delay-ms': 1,
+      'ws-ping-latency-ms': 0
+    },
+    errors: [ [Object] ]
+  }
+}
+Mutation failed {
+  status: 400,
+  eventId: '9f733147-67fd-4882-a6d5-948e05b08934',
+  op: 'error',
+  'client-event-id': '9f733147-67fd-4882-a6d5-948e05b08934',
+  'original-event': {
+    'session-id': '68a10ef5-4571-476a-98e8-d1e2ab2db7f1',
+    'instant.grouped-queue/put-at': 1755385589695,
+    'total-delay-ms': 0,
+    created: 1755385172472,
+    op: 'transact',
+    order: 1,
+    'client-event-id': '9f733147-67fd-4882-a6d5-948e05b08934',
+    'tx-steps': [ [Array], [Array], [Array], [Array], [Array], [Array] ],
+    'ws-ping-latency-ms': 0
+  },
+  type: 'record-not-unique',
+  message: '`email` is a unique attribute on `users` and an entity already exists with `users.email` = "test@example.com"',
+  hint: {
+    'record-type': 'triple',
+    'attr-id': '93eed1b5-413a-4810-8289-5db7ff938e31',
+    etype: 'users',
+    label: 'email',
+    value: '"test@example.com"'
+  }
+}
+[receive] 0 error {
+  op: 'error',
+  status: 400,
+  'client-event-id': '9f733147-67fd-4882-a6d5-948e05b08934',
+  'original-event': {
+    'session-id': '68a10ef5-4571-476a-98e8-d1e2ab2db7f1',
+    'instant.grouped-queue/put-at': 1755385589695,
+    'total-delay-ms': 0,
+    created: 1755385172472,
+    op: 'transact',
+    order: 1,
+    'client-event-id': '9f733147-67fd-4882-a6d5-948e05b08934',
+    'tx-steps': [ [Array], [Array], [Array], [Array], [Array], [Array] ],
+    'ws-ping-latency-ms': 0
+  },
+  type: 'record-not-unique',
+  message: '`email` is a unique attribute on `users` and an entity already exists with `users.email` = "test@example.com"',
+  hint: {
+    'record-type': 'triple',
+    'attr-id': '93eed1b5-413a-4810-8289-5db7ff938e31',
+    etype: 'users',
+    label: 'email',
+    value: '"test@example.com"'
+  }
+}
+error {
+  op: 'error',
+  status: 400,
+  'client-event-id': '9f733147-67fd-4882-a6d5-948e05b08934',
+  'original-event': {
+    'session-id': '68a10ef5-4571-476a-98e8-d1e2ab2db7f1',
+    'instant.grouped-queue/put-at': 1755385589695,
+    'total-delay-ms': 0,
+    created: 1755385172472,
+    op: 'transact',
+    order: 1,
+    'client-event-id': '9f733147-67fd-4882-a6d5-948e05b08934',
+    'tx-steps': [ [Array], [Array], [Array], [Array], [Array], [Array] ],
+    'ws-ping-latency-ms': 0
+  },
+  type: 'record-not-unique',
+  message: '`email` is a unique attribute on `users` and an entity already exists with `users.email` = "test@example.com"',
+  hint: {
+    'record-type': 'triple',
+    'attr-id': '93eed1b5-413a-4810-8289-5db7ff938e31',
+    etype: 'users',
+    label: 'email',
+    value: '"test@example.com"'
+  }
+}
+`email` is a unique attribute on `users` and an entity already exists with `users.email` = "test@example.com" {
+  op: 'error',
+  status: 400,
+  'client-event-id': '9f733147-67fd-4882-a6d5-948e05b08934',
+  'original-event': {
+    'session-id': '68a10ef5-4571-476a-98e8-d1e2ab2db7f1',
+    'instant.grouped-queue/put-at': 1755385589695,
+    'total-delay-ms': 0,
+    created: 1755385172472,
+    op: 'transact',
+    order: 1,
+    'client-event-id': '9f733147-67fd-4882-a6d5-948e05b08934',
+    'tx-steps': [ [Array], [Array], [Array], [Array], [Array], [Array] ],
+    'ws-ping-latency-ms': 0
+  },
+  type: 'record-not-unique'
+}
+This error comes with some debugging information. Here it is: 
+ {
+  'record-type': 'triple',
+  'attr-id': '93eed1b5-413a-4810-8289-5db7ff938e31',
+  etype: 'users',
+  label: 'email',
+  value: '"test@example.com"'
+}
+[receive] 0 error {
+  op: 'error',
+  status: 400,
+  'client-event-id': '9f733147-67fd-4882-a6d5-948e05b08934',
+  'original-event': {
+    'session-id': '68a10ef5-4571-476a-98e8-d1e2ab2db7f1',
+    'instant.grouped-queue/put-at': 1755385589696,
+    'total-delay-ms': 12,
+    created: 1755385172472,
+    op: 'transact',
+    order: 1,
+    'client-event-id': '9f733147-67fd-4882-a6d5-948e05b08934',
+    'tx-steps': [ [Array], [Array], [Array], [Array], [Array], [Array] ],
+    'ws-ping-latency-ms': 0
+  },
+  type: 'record-not-unique',
+  message: '`email` is a unique attribute on `users` and an entity already exists with `users.email` = "test@example.com"',
+  hint: {
+    'record-type': 'triple',
+    'attr-id': '93eed1b5-413a-4810-8289-5db7ff938e31',
+    etype: 'users',
+    label: 'email',
+    value: '"test@example.com"'
+  }
+}
+error {
+  op: 'error',
+  status: 400,
+  'client-event-id': '9f733147-67fd-4882-a6d5-948e05b08934',
+  'original-event': {
+    'session-id': '68a10ef5-4571-476a-98e8-d1e2ab2db7f1',
+    'instant.grouped-queue/put-at': 1755385589696,
+    'total-delay-ms': 12,
+    created: 1755385172472,
+    op: 'transact',
+    order: 1,
+    'client-event-id': '9f733147-67fd-4882-a6d5-948e05b08934',
+    'tx-steps': [ [Array], [Array], [Array], [Array], [Array], [Array] ],
+    'ws-ping-latency-ms': 0
+  },
+  type: 'record-not-unique',
+  message: '`email` is a unique attribute on `users` and an entity already exists with `users.email` = "test@example.com"',
+  hint: {
+    'record-type': 'triple',
+    'attr-id': '93eed1b5-413a-4810-8289-5db7ff938e31',
+    etype: 'users',
+    label: 'email',
+    value: '"test@example.com"'
+  }
+}
+`email` is a unique attribute on `users` and an entity already exists with `users.email` = "test@example.com" {
+  op: 'error',
+  status: 400,
+  'client-event-id': '9f733147-67fd-4882-a6d5-948e05b08934',
+  'original-event': {
+    'session-id': '68a10ef5-4571-476a-98e8-d1e2ab2db7f1',
+    'instant.grouped-queue/put-at': 1755385589696,
+    'total-delay-ms': 12,
+    created: 1755385172472,
+    op: 'transact',
+    order: 1,
+    'client-event-id': '9f733147-67fd-4882-a6d5-948e05b08934',
+    'tx-steps': [ [Array], [Array], [Array], [Array], [Array], [Array] ],
+    'ws-ping-latency-ms': 0
+  },
+  type: 'record-not-unique'
+}
+This error comes with some debugging information. Here it is: 
+ {
+  'record-type': 'triple',
+  'attr-id': '93eed1b5-413a-4810-8289-5db7ff938e31',
+  etype: 'users',
+  label: 'email',
+  value: '"test@example.com"'
+}
+[receive] 0 error {
+  op: 'error',
+  status: 400,
+  'client-event-id': '9f733147-67fd-4882-a6d5-948e05b08934',
+  'original-event': {
+    'session-id': '68a10ef5-4571-476a-98e8-d1e2ab2db7f1',
+    'instant.grouped-queue/put-at': 1755385589696,
+    'total-delay-ms': 12,
+    created: 1755385172472,
+    op: 'transact',
+    order: 1,
+    'client-event-id': '9f733147-67fd-4882-a6d5-948e05b08934',
+    'tx-steps': [ [Array], [Array], [Array], [Array], [Array], [Array] ],
+    'ws-ping-latency-ms': 0
+  },
+  type: 'record-not-unique',
+  message: '`email` is a unique attribute on `users` and an entity already exists with `users.email` = "test@example.com"',
+  hint: {
+    'record-type': 'triple',
+    'attr-id': '93eed1b5-413a-4810-8289-5db7ff938e31',
+    etype: 'users',
+    label: 'email',
+    value: '"test@example.com"'
+  }
+}
+error {
+  op: 'error',
+  status: 400,
+  'client-event-id': '9f733147-67fd-4882-a6d5-948e05b08934',
+  'original-event': {
+    'session-id': '68a10ef5-4571-476a-98e8-d1e2ab2db7f1',
+    'instant.grouped-queue/put-at': 1755385589696,
+    'total-delay-ms': 12,
+    created: 1755385172472,
+    op: 'transact',
+    order: 1,
+    'client-event-id': '9f733147-67fd-4882-a6d5-948e05b08934',
+    'tx-steps': [ [Array], [Array], [Array], [Array], [Array], [Array] ],
+    'ws-ping-latency-ms': 0
+  },
+  type: 'record-not-unique',
+  message: '`email` is a unique attribute on `users` and an entity already exists with `users.email` = "test@example.com"',
+  hint: {
+    'record-type': 'triple',
+    'attr-id': '93eed1b5-413a-4810-8289-5db7ff938e31',
+    etype: 'users',
+    label: 'email',
+    value: '"test@example.com"'
+  }
+}
+`email` is a unique attribute on `users` and an entity already exists with `users.email` = "test@example.com" {
+  op: 'error',
+  status: 400,
+  'client-event-id': '9f733147-67fd-4882-a6d5-948e05b08934',
+  'original-event': {
+    'session-id': '68a10ef5-4571-476a-98e8-d1e2ab2db7f1',
+    'instant.grouped-queue/put-at': 1755385589696,
+    'total-delay-ms': 12,
+    created: 1755385172472,
+    op: 'transact',
+    order: 1,
+    'client-event-id': '9f733147-67fd-4882-a6d5-948e05b08934',
+    'tx-steps': [ [Array], [Array], [Array], [Array], [Array], [Array] ],
+    'ws-ping-latency-ms': 0
+  },
+  type: 'record-not-unique'
+}
+This error comes with some debugging information. Here it is: 
+ {
+  'record-type': 'triple',
+  'attr-id': '93eed1b5-413a-4810-8289-5db7ff938e31',
+  etype: 'users',
+  label: 'email',
+  value: '"test@example.com"'
+}
+Test 2: Testing transact...
+Query error: {
+  message: 'Validation failed for init: `init` has already run for this session.',
+  hint: {
+    'data-type': 'init',
+    input: {
+      'client-event-id': '73f4ed02-9827-425a-912d-7840ba6fec77',
+      op: 'init',
+      'app-id': '54d69382-c27c-4e54-b2ac-c3dcaef2f0ad',
+      versions: [Object],
+      'session-id': '68a10ef5-4571-476a-98e8-d1e2ab2db7f1',
+      'instant.grouped-queue/put-at': 1755385589655,
+      'total-delay-ms': 1,
+      'ws-ping-latency-ms': 0
+    },
+    errors: [ [Object] ]
+  }
+}
+Transaction result: { status: 'enqueued', eventId: '0c62f9ae-b62c-447d-afa6-39c1cb47ee4f' }
+✓ transact working
+
+Test 3: Testing queryOnce...
+QueryOnce error: Error: Query timed out
+    at Timeout._onTimeout (file:///Users/mlustig/dev/tools/instant/client/packages/node/dist/esm/Reactor.js:812:24)
+    at listOnTimeout (node:internal/timers:588:17)
+    at process.processTimers (node:internal/timers:523:7)
+Test 4: Testing auth...
+Auth state: { isLoading: false, user: null, error: undefined }
+✓ subscribeAuth working
+
+Test 5: Testing connection status...
+Auth state: { user: null, error: undefined }
+✓ subscribeAuth working
+
+Cleaning up...
+[shutdown] 54d69382-c27c-4e54-b2ac-c3dcaef2f0ad
+✓ Cleanup complete
