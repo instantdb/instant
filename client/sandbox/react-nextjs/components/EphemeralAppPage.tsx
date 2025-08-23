@@ -12,7 +12,7 @@ import { useEffect, useState } from 'react';
 import { RoomsDef, TransactionChunk } from '../../../packages/core/dist/esm';
 import { IContainEntitiesAndLinks } from '../../../packages/core/dist/esm/schemaTypes';
 
-async function provisionEphemeralApp({
+export async function provisionEphemeralApp({
   perms,
   schema,
   onCreateApp,

@@ -73,6 +73,8 @@ import {
 
 import version from './version.js';
 
+import { EventSource } from 'eventsource';
+
 type DebugCheckResult = {
   /** The ID of the record. */
   id: string;
@@ -154,7 +156,7 @@ function withImpersonation(
 function authorizedHeaders(
   config: FilledConfig,
   impersonationOpts?: ImpersonationOpts,
-) {
+): Record<string, string> {
   const { adminToken, appId } = config;
   const headers = {
     'content-type': 'application/json',
@@ -188,6 +190,21 @@ function getDefaultFetchOpts(): RequestInit {
   return isNextJSVersionThatCachesFetchByDefault() ? { cache: 'no-store' } : {};
 }
 
+async function jsonReject(rejectFn, res) {
+  const body = await res.text();
+  try {
+    const json = JSON.parse(body);
+    return rejectFn(new InstantAPIError({ status: res.status, body: json }));
+  } catch (_e) {
+    return rejectFn(
+      new InstantAPIError({
+        status: res.status,
+        body: { type: undefined, message: body },
+      }),
+    );
+  }
+}
+
 async function jsonFetch(
   input: RequestInfo,
   init: RequestInit | undefined,
@@ -203,20 +220,8 @@ async function jsonFetch(
     const json = await res.json();
     return Promise.resolve(json);
   }
-  const body = await res.text();
-  try {
-    const json = JSON.parse(body);
-    return Promise.reject(
-      new InstantAPIError({ status: res.status, body: json }),
-    );
-  } catch (_e) {
-    return Promise.reject(
-      new InstantAPIError({
-        status: res.status,
-        body: { type: undefined, message: body },
-      }),
-    );
-  }
+
+  return jsonReject((x) => Promise.reject(x), res);
 }
 
 /**
@@ -738,6 +743,12 @@ type AdminQueryOpts = {
   fetchOpts?: RequestInit;
 };
 
+type AdminSubscribeQueryOpts = {
+  onMessage?: (data: any) => void;
+  ruleParams?: RuleParams;
+  fetchOpts?: RequestInit;
+};
+
 /**
  *
  * The first step: init your application!
@@ -828,6 +839,79 @@ class InstantAdminDatabase<
       }),
     });
   };
+
+  subscribeQuery(query, opts: AdminSubscribeQueryOpts = {}) {
+    if (query && opts && 'ruleParams' in opts) {
+      query = { $$ruleParams: opts['ruleParams'], ...query };
+    }
+
+    if (!this.config.disableValidation) {
+      validateQuery(query, this.config.schema);
+    }
+
+    const fetchOpts = opts.fetchOpts || {};
+    const fetchOptsHeaders = fetchOpts['headers'] || {};
+
+    const es = new EventSource(`${this.config.apiURI}/admin/subscribe-query`, {
+      fetch: (input, init) => {
+        // XXX: Set errors
+        return fetch(input, {
+          ...init,
+          method: 'POST',
+          headers: {
+            ...fetchOptsHeaders,
+            ...authorizedHeaders(this.config, this.impersonationOpts),
+          },
+          body: JSON.stringify({
+            query: query,
+            'inference?': !!this.config.schema,
+            versions: {
+              '@instantdb/admin': version,
+              '@instantdb/core': coreVersion,
+            },
+          }),
+        })
+          .then((r) => {
+            if (!r.ok) {
+              // XXX: reject
+              //jsonReject(reject, r);
+            }
+            return r;
+          })
+          .catch((e) => {
+            console.log('e', e);
+            //reject(e);
+            return e;
+          });
+      },
+    });
+
+    function handleMessage(msg) {
+      switch (msg.op) {
+        case 'add-query-ok': {
+          opts.onMessage(msg.result);
+          break;
+        }
+        case 'refresh-ok': {
+          if (msg.computations.length) {
+            opts.onMessage(msg.computations[0]['instaql-result']);
+          }
+          break;
+        }
+        case 'error': {
+          // XXX: Do something here
+          console.log('error', msg);
+          break;
+        }
+      }
+    }
+
+    es.onerror = (e) => console.error('ERROR', e);
+    es.onopen = (e) => console.log('onopen', e);
+    es.onmessage = (e) => handleMessage(JSON.parse(e.data));
+
+    return { close: () => es.close() };
+  }
 
   /**
    * Use this to write data! You can create, update, delete, and link objects

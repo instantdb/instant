@@ -38,7 +38,8 @@
    [lambdaisland.uri :as uri])
   (:import
    (java.util.concurrent CancellationException)
-   (java.util.concurrent.atomic AtomicLong)))
+   (java.util.concurrent.atomic AtomicLong)
+   (io.undertow.server.handlers.sse ServerSentEventConnection)))
 
 ;; ------
 ;; Setup
@@ -126,6 +127,23 @@
                                           :client-event-id client-event-id
                                           :auth            auth
                                           :attrs           attrs})))
+
+(defn admin-init! [store sess-id ctx]
+  (let [app (app-model/get-by-id! {:id (:app-id ctx)})
+        attrs (:attrs ctx)
+        user (:current-user ctx)
+        admin? (:admin? ctx)
+        auth {:app app
+              :user user
+              :admin? admin?}
+        creator (instant-user-model/get-by-app-id {:app-id (:app-id ctx)})]
+    (apply rs/assoc-session! store sess-id
+           :session/auth auth
+           :session/creator creator
+           (concat (when-let [versions (:versions ctx)]
+                     [:session/versions versions])
+                   (when (flags/refresh-skip-attrs? (:id app))
+                     [:session/attrs-hash (hash attrs)])))))
 
 (defn- get-auth! [store sess-id]
   (let [{:session/keys [auth]} (rs/session store sess-id)]
@@ -697,6 +715,43 @@
                     (on-message {:id id
                                  :data data
                                  :receive-q receive-q}))
+      :on-error (fn [{:keys [error]}]
+                  (on-error {:id id
+                             :error error}))
+      :on-close (fn [_]
+                  (on-close store
+                            {:id id
+                             :pending-handlers pending-handlers}))}}))
+
+(defn undertow-sse-admin-config
+  [store receive-q {:keys [id]} ctx]
+  (let [pending-handlers (atom #{})]
+    {:undertow/sse
+     ;; XXX: There has to be some on-error or way to close
+     {:on-open (fn [req]
+                 (tool/def-locals)
+                 (try
+                   (let [socket {:id id
+                                 :http-req (:exchange req)
+                                 :sse-conn (:channel req)
+                                 :receive-q receive-q
+                                 :pending-handlers pending-handlers}]
+                     (on-open store socket)
+                     (admin-init! store id ctx)
+                     (receive-queue/put! receive-q
+                                         {:op :add-query
+                                          :session-id id
+                                          :client-event-id (random-uuid)
+                                          :q (:query ctx)
+                                          :return-type :tree}))
+                   (catch Exception e
+                     (def -e e)
+                     (rs/send-event! store
+                                     (:app-id ctx)
+                                     id
+                                     {:op :error
+                                      :data "oops"})
+                     (.close ^ServerSentEventConnection (:channel req)))))
       :on-error (fn [{:keys [error]}]
                   (on-error {:id id
                              :error error}))

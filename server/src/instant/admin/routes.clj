@@ -1,6 +1,7 @@
 (ns instant.admin.routes
   (:require
    [compojure.core :as compojure :refer [defroutes DELETE GET POST PUT]]
+   [datascript.core :refer [squuid]]
    [instant.admin.model :as admin-model]
    [instant.db.datalog :as d]
    [instant.db.instaql :as iq]
@@ -13,6 +14,9 @@
    [instant.model.app-user :as app-user-model]
    [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
    [instant.model.rule :as rule-model]
+   [instant.reactive.receive-queue :as receive-queue]
+   [instant.reactive.session :as session]
+   [instant.reactive.store :as rs]
    [instant.superadmin.routes :refer [req->superadmin-user!]]
    [instant.util.email :as email]
    [instant.util.exception :as ex]
@@ -121,11 +125,30 @@
                     :attrs attrs
                     :datalog-query-fn d/query
                     :datalog-loader (d/make-loader)
-                    :inference? inference?}
+                    :inference? inference?
+                    :versions (-> req :body :versions)}
                    perms)
         nodes (iq/permissioned-query ctx query)
         result (instaql-nodes->object-tree ctx nodes)]
     (response/ok result)))
+
+(defn query-sse [req]
+  (let [query (ex/get-param! req [:body :query] #(when (map? %) %))
+        inference? (-> req :body :inference? boolean)
+        {:keys [app-id] :as perms} (get-perms! req :data/read)
+        attrs (attr-model/get-by-app-id app-id)
+        ctx (merge {:db {:conn-pool (aurora/conn-pool :read)}
+                    :app-id app-id
+                    :attrs attrs
+                    :datalog-query-fn d/query
+                    :datalog-loader (d/make-loader)
+                    :inference? inference?
+                    :query query}
+                   perms)]
+    (session/undertow-sse-admin-config rs/store
+                                       receive-queue/receive-q
+                                       {:id (squuid)}
+                                       ctx)))
 
 (comment
   (def app-id  #uuid "386af13d-635d-44b8-8030-6a3958537db6")
@@ -571,6 +594,8 @@
 (defroutes routes
   (POST "/admin/query" []
     (with-rate-limiting query-post))
+  (POST "/admin/subscribe-query" []
+    (with-rate-limiting query-sse))
   (POST "/admin/transact" []
     (with-rate-limiting transact-post))
   (POST "/admin/query_perms_check" []

@@ -19,6 +19,7 @@
    [datascript.core :as d]
    [instant.jdbc.sql :as sql]
    [instant.lib.ring.websocket :as ws]
+   [instant.lib.ring.sse :as sse]
    [instant.util.async :as ua]
    [instant.util.coll :as ucoll]
    [instant.util.exception :as ex]
@@ -29,6 +30,7 @@
    (java.util Map)
    (java.util.concurrent ConcurrentHashMap CancellationException)
    (java.util.regex Pattern)
+   (io.undertow.server.handlers.sse ServerSentEventConnection)
    (io.undertow.websockets.spi WebSocketHttpExchange)))
 
 (set! *warn-on-reflection* true)
@@ -129,15 +131,26 @@
 ;; -----
 ;; reports
 
-(defn socket-origin [{:keys [^WebSocketHttpExchange http-req]}]
-  (some-> http-req
-          (.getRequestHeaders)
-          (.get "origin")
-          first))
+(defprotocol HasHeaderMap
+  (get-header [this ^String header-name]))
 
-(defn socket-ip [{:keys [^WebSocketHttpExchange http-req]}]
+(extend-protocol HasHeaderMap
+  WebSocketHttpExchange
+  (get-header [req ^String header-name]
+    (.getRequestHeader req header-name))
+
+  ServerSentEventConnection
+  (get-header [req ^String header-name]
+    (some-> (.getRequestHeaders req)
+            (.getFirst header-name))))
+
+(defn socket-origin [{:keys [http-req]}]
   (some-> http-req
-          (.getRequestHeader "x-forwarded-for")
+          (get-header "origin")))
+
+(defn socket-ip [{:keys [http-req]}]
+  (some-> http-req
+          (get-header "x-forwarded-for")
           (String/.split ",")
           ;; Drop the ip added by the elb
           drop-last
@@ -146,15 +159,15 @@
 
 (defn socket-x-amzn-trace-id
   "Load balancer trace id"
-  [{:keys [^WebSocketHttpExchange http-req]}]
+  [{:keys [http-req]}]
   (some-> http-req
-          (.getRequestHeader "x-amzn-trace-id")))
+          (get-header "x-amzn-trace-id")))
 
 (defn socket-x-amz-cf-id
   "Cloudfront tracking id"
-  [{:keys [^WebSocketHttpExchange http-req]}]
+  [{:keys [http-req]}]
   (some-> http-req
-          (.getRequestHeader "x-amz-cf-id")))
+          (get-header "x-amz-cf-id")))
 
 (defn report-active-sessions [store]
   (let [db @(:sessions store)]
@@ -761,13 +774,19 @@
 ;; Websocket Helpers
 
 (defn send-event! [store app-id sess-id event]
-  (let [ws-conn (-> (session store sess-id) :session/socket :ws-conn)]
-    (when-not ws-conn
+  (let [socket (:session/socket (session store sess-id))]
+    (when-not socket
       (ex/throw-socket-missing! sess-id))
-    (try
-      (ws/send-json! app-id event ws-conn)
-      (catch java.io.IOException e
-        (ex/throw-socket-error! sess-id e)))))
+    (when-let [sse-conn (:sse-conn socket)]
+      (try
+        (sse/send-json! app-id event {:conn sse-conn})
+        (catch java.io.IOException e
+          (ex/throw-socket-error! sess-id e))))
+    (when-let [ws-conn (:ws-conn socket)]
+      (try
+        (ws/send-json! app-id event ws-conn)
+        (catch java.io.IOException e
+          (ex/throw-socket-error! sess-id e))))))
 
 (defn try-send-event!
   "Does a best-effort send. If it fails, we record and swallow the exception"
