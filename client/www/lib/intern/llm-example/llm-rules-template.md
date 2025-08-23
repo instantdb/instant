@@ -109,6 +109,8 @@ CRITICAL: The operator map above is the full set of `where` filters Instant
 supports right now. There is no `$exists`, `$nin`, or `$regex`. And `$like` and
 `$ilike` are what you use for `startsWith` / `endsWith` / `includes`.
 
+CRITICAL: Pagination keys (`limit`, `offset`, `first`, `after`, `last`, `before`) only work on top-level namespaces. DO NOT use them on nested relations or else you will get an error.
+
 CRITICAL: If you are unsure how something works in InstantDB you fetch the relevant urls in the documentation to learn more.
 
 <!-- SECTION: APP_DESCRIPTION -->
