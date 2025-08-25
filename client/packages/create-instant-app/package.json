@@ -2,6 +2,12 @@
   "name": "create-instant-app",
   "version": "0.0.0",
   "description": "Scaffold a new web/mobile app with InstantDB",
+  "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/create-instant-app",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/instantdb/instant.git",
+    "directory": "client/packages/create-instant-app"
+  },  
   "type": "module",
   "exports": "./dist/index.js",
   "bin": {
