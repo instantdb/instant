@@ -25,10 +25,17 @@ export default async function handler(
         response_times: 1,
         response_times_limit: 90,
         custom_uptime_ratios: '1-7-30-90',
-        custom_uptime_ranges: Array.from({ length: 90 }, (_, i) => {
-          const start = Math.floor(Date.now() / 1000) - (i + 1) * 24 * 60 * 60;
-          const end = Math.floor(Date.now() / 1000) - i * 24 * 60 * 60;
-          return `${start}_${end}`;
+        custom_uptime_ranges: Array.from({ length: 90 }, (_, dayIndex) => {
+          const currentUnixTimestamp = Math.floor(Date.now() / 1000);
+          const secondsPerDay = 24 * 60 * 60;
+          
+          const daysAgoStart = dayIndex + 1;
+          const daysAgoEnd = dayIndex;
+          
+          const rangeStartTimestamp = currentUnixTimestamp - (daysAgoStart * secondsPerDay);
+          const rangeEndTimestamp = currentUnixTimestamp - (daysAgoEnd * secondsPerDay);
+          
+          return `${rangeStartTimestamp}_${rangeEndTimestamp}`;
         })
           .reverse()
           .join('-'),
