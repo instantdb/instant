@@ -41,68 +41,7 @@ export default async function handler(
     }
 
     const data = await response.json();
-
-    const monitors =
-      data.monitors?.map((monitor: any) => {
-        const customRatios = monitor.custom_uptime_ratio?.split('-') || [];
-
-        const customRanges = monitor.custom_uptime_ranges?.split('-') || [];
-
-        const dailyUptime = customRanges.map((range: string) => {
-          const uptime = parseFloat(range);
-          return isNaN(uptime) ? 100 : uptime;
-        });
-
-        while (dailyUptime.length < 90) {
-          dailyUptime.push(100);
-        }
-
-        return {
-          id: monitor.id,
-          friendly_name: monitor.friendly_name,
-          url: monitor.url,
-          status: monitor.status,
-          uptime_ratio: {
-            '24h': parseFloat(customRatios[0]) || 100,
-            '7d': parseFloat(customRatios[1]) || 100,
-            '30d': parseFloat(customRatios[2]) || 100,
-            '90d': parseFloat(customRatios[3]) || 100,
-            all_time: parseFloat(monitor.all_time_uptime_ratio) || 100,
-          },
-          daily_uptime: dailyUptime,
-          average_response_time: monitor.average_response_time,
-          logs: monitor.logs?.slice(0, 10) || [],
-        };
-      }) || [];
-
-    const overallUptime = {
-      '24h':
-        monitors.reduce(
-          (acc: number, m: any) => acc + m.uptime_ratio['24h'],
-          0,
-        ) / (monitors.length || 1),
-      '7d':
-        monitors.reduce(
-          (acc: number, m: any) => acc + m.uptime_ratio['7d'],
-          0,
-        ) / (monitors.length || 1),
-      '30d':
-        monitors.reduce(
-          (acc: number, m: any) => acc + m.uptime_ratio['30d'],
-          0,
-        ) / (monitors.length || 1),
-      '90d':
-        monitors.reduce(
-          (acc: number, m: any) => acc + m.uptime_ratio['90d'],
-          0,
-        ) / (monitors.length || 1),
-    };
-
-    res.status(200).json({
-      monitors,
-      overall_uptime: overallUptime,
-      last_updated: new Date().toISOString(),
-    });
+    res.status(200).json(data);
   } catch (error) {
     console.error('Error fetching uptime data:', error);
     res.status(500).json({ error: 'Failed to fetch uptime data' });
