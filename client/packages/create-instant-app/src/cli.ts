@@ -1,5 +1,7 @@
 import { Command, Option } from 'commander';
 import * as p from '@clack/prompts';
+import { findClaudePath } from './claude.js';
+import { version } from '@instantdb/version';
 
 export type CliResults = {
   base: 'next-js-app-dir' | 'vite-vanilla' | 'expo';
@@ -56,6 +58,7 @@ export const runCli = async (): Promise<CliResults> => {
         'Create a new InstantDB app based off of a prompt. (requires Claude Code)',
       ),
     )
+    .version(version)
     .parse(process.argv);
   const cliProvidedName = program.args[0];
   if (cliProvidedName) {
@@ -63,6 +66,16 @@ export const runCli = async (): Promise<CliResults> => {
   }
 
   const flags = program.opts();
+
+  // Check if claude is in path
+  if (flags.ai) {
+    const claudePath = await findClaudePath();
+    if (!claudePath) {
+      throw new Error(
+        "--ai only works with Claude Code, but we couldn't find it in your machine. Install it first, and run it again : ). Alternatively you can scaffold out a project without --ai",
+      );
+    }
+  }
 
   const project = await p.group(
     {

@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { runCli } from './cli.js';
 import { log, outro } from '@clack/prompts';
 import { renderTitle } from './utils/title.js';
@@ -10,12 +11,16 @@ import { initializeGit } from './git.js';
 import { tryConnectApp } from './login.js';
 import { applyEnvFile } from './env.js';
 import { detectTerminalTheme } from './terminalTheme.js';
-import { getCodeColors } from './utils/logger.js';
+import { getCodeColors, wrappedWindowOutput } from './utils/logger.js';
 import { promptClaude } from './claude.js';
 
 const main = async () => {
   const theme = await detectTerminalTheme();
-  if (!process.argv.some((arg) => ['-h', '--help'].includes(arg))) {
+  if (
+    !process.argv.some((arg) =>
+      ['-h', '--help', '--version', '-V'].includes(arg),
+    )
+  ) {
     renderTitle(theme);
   }
 
@@ -56,7 +61,8 @@ const main = async () => {
   `);
     if (possibleAppTokenPair.approach === 'ephemeral') {
       console.log(`
-  An ephemeral app has been created and loaded into .env
+  An ephemeral app has been created and added to your .env file.
+  It will expire in two weeks. For a permanent app, use ${getCodeColors(theme, 'npx instant-cli init')}
 `);
     }
   } else {
@@ -74,6 +80,6 @@ const main = async () => {
 
 main().catch((err) => {
   log.error('Aborting installation...');
-  log.error(err.message);
+  wrappedWindowOutput(err.message, log.error);
   process.exit(1);
 });

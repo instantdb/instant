@@ -3,6 +3,9 @@ import { log } from '@clack/prompts';
 import chalk from 'chalk';
 import fs from 'fs-extra';
 import path from 'path';
+import ora from 'ora';
+import * as p from '@clack/prompts';
+import { wrappedWindowOutput } from './utils/logger.js';
 
 interface ClaudeMessage {
   type: 'assistant' | 'user' | 'system' | 'result';
@@ -13,84 +16,117 @@ interface ClaudeMessage {
   subtype?: string;
 }
 
+let currentSpinner: ReturnType<typeof ora> | null = null;
+
+const getSpinnerText = (
+  content: NonNullable<ClaudeMessage['message']>['content'][0],
+) => {
+  const input = content.input || {};
+  let output = '';
+
+  switch (content.name) {
+    case 'Read':
+      const filePath = input.filePath || input.file_path || '';
+      const shortPath = filePath.split('/').slice(-2).join('/');
+      output = `Reading ${shortPath}`;
+      break;
+
+    case 'Write':
+      const writeFile = input.filePath || input.file_path || '';
+      const shortWrite = writeFile.split('/').slice(-2).join('/');
+      output = `Creating ${shortWrite}`;
+      break;
+
+    case 'Edit':
+      const editFile = input.filePath || input.file_path || '';
+      const shortEdit = editFile.split('/').slice(-2).join('/');
+      output = `Editing ${shortEdit}`;
+      break;
+
+    case 'Bash':
+      const cmd = input.command || '';
+      const shortCmd = cmd.length > 50 ? cmd.substring(0, 50) + '...' : cmd;
+      output = `Running ${shortCmd}`;
+      break;
+
+    case 'LS':
+      const path = input.path || '.';
+      const shortLs =
+        path === '.' ? 'current directory' : path.split('/').slice(-1)[0];
+      output = `Listing files in ${shortLs}`;
+      break;
+
+    case 'TodoWrite':
+      const todos = input.todos || [];
+      const activeTodo =
+        todos.find((t: any) => t.status === 'in_progress') || todos[0];
+      if (activeTodo) {
+        output = `Todo: ${activeTodo.content || 'updating todos'}`;
+      } else {
+        output = `Updating todo list`;
+      }
+      break;
+
+    case 'Glob':
+      output = `Searching for ${input.pattern || 'files'}`;
+      break;
+
+    case 'Grep':
+      const pattern = input.pattern || '';
+      const shortPattern =
+        pattern.length > 30 ? pattern.substring(0, 30) + '...' : pattern;
+      output = `Searching for "${shortPattern}"`;
+      break;
+
+    default:
+      // For any other tools, show a compact version
+      const inputStr = Object.entries(input)
+        .map(([k, v]) => `${k}: ${JSON.stringify(v)}`)
+        .join(', ');
+      const shortInput =
+        inputStr.length > 50 ? inputStr.substring(0, 50) + '...' : inputStr;
+      output = `${content.name}(${shortInput})`;
+  }
+
+  return output;
+};
+
 const printClaudeMessage = (
   content: NonNullable<ClaudeMessage['message']>['content'][0],
 ) => {
   if (content.type === 'text' && content.text) {
-    log.info(content.text);
-  } else if (content.type === 'tool_use') {
-    const input = content.input || {};
-    let output = '';
-    // Format based on tool type
-    switch (content.name) {
-      case 'Read':
-        const filePath = input.filePath || input.file_path || '';
-        const shortPath = filePath.split('/').slice(-2).join('/');
-        output = `Reading ${shortPath}`;
-        break;
-
-      case 'Write':
-        const writeFile = input.filePath || input.file_path || '';
-        const shortWrite = writeFile.split('/').slice(-2).join('/');
-        output = `Creating ${shortWrite}`;
-        break;
-
-      case 'Edit':
-        const editFile = input.filePath || input.file_path || '';
-        const shortEdit = editFile.split('/').slice(-2).join('/');
-        output = `Editing ${shortEdit}`;
-        break;
-
-      case 'Bash':
-        const cmd = input.command || '';
-        const shortCmd = cmd.length > 50 ? cmd.substring(0, 50) + '...' : cmd;
-        output = `> ${shortCmd}`;
-        break;
-
-      case 'LS':
-        const path = input.path || '.';
-        const shortLs =
-          path === '.' ? 'current directory' : path.split('/').slice(-1)[0];
-        output = `> ls ${shortLs}`;
-        break;
-
-      case 'TodoWrite':
-        const todos = input.todos || [];
-        const activeTodo =
-          todos.find((t: any) => t.status === 'in_progress') || todos[0];
-        if (activeTodo) {
-          output = `Todo: ${activeTodo.content || 'updating todos'}`;
-        } else {
-          output = `Updating todo list`;
-        }
-        break;
-
-      case 'Glob':
-        output = `Searching for ${input.pattern || 'files'}`;
-        break;
-
-      case 'Grep':
-        const pattern = input.pattern || '';
-        const shortPattern =
-          pattern.length > 30 ? pattern.substring(0, 30) + '...' : pattern;
-        output = `Searching for "${shortPattern}"`;
-        break;
-
-      default:
-        // For any other tools, show a compact version
-        const inputStr = Object.entries(input)
-          .map(([k, v]) => `${k}: ${JSON.stringify(v)}`)
-          .join(', ');
-        const shortInput =
-          inputStr.length > 50 ? inputStr.substring(0, 50) + '...' : inputStr;
-        output = `${content.name}(${shortInput})`;
+    // Stop any existing spinner before showing text
+    if (currentSpinner) {
+      currentSpinner.stop();
+      currentSpinner = null;
     }
 
-    log.message(chalk.dim(output));
+    wrappedWindowOutput(content.text, p.log.info, true);
+    // p.log.info(content.text);
+    // console.log(chalk.gray('│'));
+  } else if (content.type === 'tool_use') {
+    // Stop any existing spinner
+    if (currentSpinner) {
+      currentSpinner.stop();
+      currentSpinner = null;
+    }
+
+    // Start new spinner for this tool use
+    const spinnerText = getSpinnerText(content);
+    currentSpinner = ora({
+      text: spinnerText,
+      prefixText: chalk.gray('│ '),
+    }).start();
+  } else if (content.type === 'tool_result') {
+    // Stop spinner when tool result is received
+    if (currentSpinner) {
+      currentSpinner.stop();
+      currentSpinner = null;
+    }
   }
 };
 
-function findClaudePath(): Promise<string | null> {
+export async function findClaudePath(): Promise<string | null> {
   return new Promise((resolve) => {
     // Use the user's shell to resolve the command
     const shell = process.env.SHELL || '/bin/bash';
@@ -129,7 +165,7 @@ export const promptClaude = async (prompt: string, projectDir: string) => {
 
   fs.appendFile(
     path.join(projectDir, 'claude.md'),
-    'Do not use the instant mcp server to create a new app, a fresh app id has already been placed in the .env file',
+    'Do not use the instant mcp server to create a new app, a fresh app id has already been placed in the .env file. Do not attempt to start a dev server.',
   );
 
   return new Promise<void>((resolve, reject) => {
@@ -153,6 +189,7 @@ export const promptClaude = async (prompt: string, projectDir: string) => {
     });
 
     running.stdout.on('data', (data) => {
+      process.stdout.write('\x1B[?25l');
       buffer += data.toString();
       const lines = buffer.split('\n');
       buffer = lines.pop() || '';
@@ -167,21 +204,6 @@ export const promptClaude = async (prompt: string, projectDir: string) => {
               parsed.message.content.forEach((content) => {
                 printClaudeMessage(content);
               });
-            } else if (parsed.type === 'result' && parsed.result) {
-              // Show very short result indication
-              if (
-                parsed.result.includes('success') ||
-                parsed.result.includes('completed')
-              ) {
-                console.log('✓ Success');
-              } else if (
-                parsed.result.includes('error') ||
-                parsed.result.includes('failed')
-              ) {
-                console.log('✗ Error');
-              } else {
-                console.log('✓ Done');
-              }
             }
           } catch (error) {
             // If JSON parsing fails, treat as regular text output
@@ -201,6 +223,12 @@ export const promptClaude = async (prompt: string, projectDir: string) => {
     });
 
     running.on('close', (code) => {
+      // Stop any remaining spinner
+      if (currentSpinner) {
+        currentSpinner.stop();
+        currentSpinner = null;
+      }
+
       if (code === 0) {
         log.success('Claude completed successfully');
         resolve();
@@ -211,6 +239,12 @@ export const promptClaude = async (prompt: string, projectDir: string) => {
     });
 
     running.on('error', (error) => {
+      // Stop any remaining spinner
+      if (currentSpinner) {
+        currentSpinner.stop();
+        currentSpinner = null;
+      }
+
       log.error(error.message);
       reject(error);
     });

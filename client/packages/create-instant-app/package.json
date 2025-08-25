@@ -28,16 +28,16 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
-    "@clack/core": "^0.3.4",
-    "@clack/prompts": "^0.6.3",
+    "@clack/core": "^0.5.0",
+    "@clack/prompts": "^0.11.0",
     "@ianvs/prettier-plugin-sort-imports": "^4.2.1",
+    "@instantdb/version": "workspace:*",
     "chalk": "5.2.0",
     "commander": "^10.0.1",
     "env-paths": "^3.0.0",
     "execa": "^7.2.0",
     "fs-extra": "^11.3.1",
     "gradient-string": "^2.0.2",
-    "@instantdb/version": "workspace:*",
     "ora": "6.3.1",
     "sort-package-json": "^2.10.0"
   },
