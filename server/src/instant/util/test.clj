@@ -125,10 +125,13 @@
       (and (vector? (-> step (nth 1))) (contains? attrs (-> step (nth 1) first)))
       (update-in [1 0] attrs)
 
-      (contains? attrs (-> step (nth 2)))
+      (and (> (count step) 2)
+           (contains? attrs (-> step (nth 2))))
       (update-in [2] attrs)
 
-      (and (vector? (-> step (nth 3))) (contains? attrs (-> step (nth 3) first)))
+      (and (> (count step) 3)
+           (vector? (-> step (nth 3)))
+           (contains? attrs (-> step (nth 3) first)))
       (update-in [3 0] attrs))))
 
 (defn insert-entities
@@ -284,7 +287,7 @@
    and avoids “method body too large” produced by doseq"
   [bindings & body]
   (let [all-keys      (collect-symbols true bindings)
-        variable-keys (collect-symbols false bindings)]
+        variable-keys (mapv keyword (collect-symbols false bindings))]
     `(doseq [var# (for ~bindings (array-map ~@(mapcat #(vector (keyword %) %) all-keys)))
              :let [{:keys ~all-keys} var#]]
        (clojure.test/testing (str (select-keys var# ~variable-keys))
