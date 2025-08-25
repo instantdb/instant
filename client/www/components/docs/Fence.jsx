@@ -69,3 +69,15 @@ export function Fence({ children, language, showCopy }) {
     </Highlight>
   );
 }
+
+export function HasAppID({ children, elseChildren }) {
+  const app = useContext(SelectedAppContext);
+
+  if (app) {
+    return <Fragment>{children}</Fragment>;
+  } else {
+    if (elseChildren) {
+      return <Fragment>{elseChildren}</Fragment>;
+    }
+  }
+}
