@@ -119,7 +119,7 @@ You can add checks per link attribute for cases when link is added and removed. 
     "allow": {
       "link": {
         "author": "linkedData.id == auth.id",
-        "reviewer": "...",
+        "reviewer": "..."
       },
       "unlink": {
         "author": "linkedData.id == auth.id"
