@@ -6,6 +6,13 @@ import config from '../../config';
 let i = 0;
 const testId = id();
 
+async function doThing(sub: any) {
+  console.log('doing thing');
+  for await (const res of sub) {
+    console.log('got a res!', res);
+  }
+}
+
 function App({ app }: { app: { id: string; 'admin-token': string } }) {
   const db = useRef(
     init({ ...config, appId: app.id, adminToken: app['admin-token'] }),
@@ -13,14 +20,11 @@ function App({ app }: { app: { id: string; 'admin-token': string } }) {
   const [payloads, setPayloads] = useState<any[]>([]);
 
   useEffect(() => {
-    const sub = db.current.subscribeQuery(
-      { test: {} },
-      {
-        onMessage: (m) => {
-          setPayloads((ps) => [m, ...ps]);
-        },
-      },
-    );
+    const sub = db.current.subscribeQuery({ test: {} }, (m) => {
+      console.log('m', m);
+      setPayloads((ps) => [m, ...ps]);
+    });
+    doThing(sub);
     () => {
       sub.close();
     };

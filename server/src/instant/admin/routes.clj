@@ -143,7 +143,8 @@
                     :datalog-query-fn d/query
                     :datalog-loader (d/make-loader)
                     :inference? inference?
-                    :query query}
+                    :query query
+                    :versions (ex/get-optional-param! req [:body :versions] identity)}
                    perms)]
     (session/undertow-sse-admin-config rs/store
                                        receive-queue/receive-q

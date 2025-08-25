@@ -743,12 +743,6 @@ type AdminQueryOpts = {
   fetchOpts?: RequestInit;
 };
 
-type AdminSubscribeQueryOpts = {
-  onMessage?: (data: any) => void;
-  ruleParams?: RuleParams;
-  fetchOpts?: RequestInit;
-};
-
 /**
  *
  * The first step: init your application!
@@ -840,7 +834,7 @@ class InstantAdminDatabase<
     });
   };
 
-  subscribeQuery(query, opts: AdminSubscribeQueryOpts = {}) {
+  subscribeQuery(query, cb, opts: AdminQueryOpts = {}) {
     if (query && opts && 'ruleParams' in opts) {
       query = { $$ruleParams: opts['ruleParams'], ...query };
     }
@@ -852,19 +846,26 @@ class InstantAdminDatabase<
     const fetchOpts = opts.fetchOpts || {};
     const fetchOptsHeaders = fetchOpts['headers'] || {};
 
+    let readyState = 'open';
+
+    const headers = {
+      ...fetchOptsHeaders,
+      ...authorizedHeaders(this.config, this.impersonationOpts),
+    };
+
+    const inference = !!this.config.schema;
+
     const es = new EventSource(`${this.config.apiURI}/admin/subscribe-query`, {
-      fetch: (input, init) => {
+      fetch(input, init) {
+        console.log('THIS', this);
         // XXX: Set errors
         return fetch(input, {
           ...init,
           method: 'POST',
-          headers: {
-            ...fetchOptsHeaders,
-            ...authorizedHeaders(this.config, this.impersonationOpts),
-          },
+          headers,
           body: JSON.stringify({
             query: query,
-            'inference?': !!this.config.schema,
+            'inference?': inference,
             versions: {
               '@instantdb/admin': version,
               '@instantdb/core': coreVersion,
@@ -886,19 +887,36 @@ class InstantAdminDatabase<
       },
     });
 
+    const subscribers = [];
+    const onCloseSubscribers = [];
+
+    if (cb) {
+      subscribers.push(cb);
+    }
+
+    function deliver(result) {
+      for (const sub of subscribers) {
+        // XXX: try/catch?
+        sub(result);
+      }
+    }
+
     function handleMessage(msg) {
       switch (msg.op) {
         case 'add-query-ok': {
-          opts.onMessage(msg.result);
+          deliver({ data: msg.result });
           break;
         }
         case 'refresh-ok': {
           if (msg.computations.length) {
-            opts.onMessage(msg.computations[0]['instaql-result']);
+            deliver({ data: msg.computations[0]['instaql-result'] });
           }
           break;
         }
         case 'error': {
+          deliver({
+            error: new InstantAPIError({ body: msg, status: msg.status }),
+          });
           // XXX: Do something here
           console.log('error', msg);
           break;
@@ -910,7 +928,82 @@ class InstantAdminDatabase<
     es.onopen = (e) => console.log('onopen', e);
     es.onmessage = (e) => handleMessage(JSON.parse(e.data));
 
-    return { close: () => es.close() };
+    function makeAsyncIterator(): AsyncGenerator<any> {
+      console.log('called me');
+      let wakeup = null;
+      let closed = false;
+      const backlog = [];
+      const handler = (data) => {
+        console.log('handler got', data);
+        backlog.push(data);
+        if (wakeup) {
+          wakeup();
+          wakeup = null;
+        }
+      };
+      subscribers.push(handler);
+      const unsubscribe = () =>
+        subscribers.splice(subscribers.indexOf(handler), 1);
+      const done = () => {
+        unsubscribe();
+        return Promise.resolve({ done: true, value: undefined });
+      };
+      const onClose = () => {
+        closed = true;
+        if (wakeup) {
+          wakeup();
+        }
+        done();
+      };
+
+      onCloseSubscribers.push(onClose);
+
+      const next = async () => {
+        while (true) {
+          if (readyState === 'closed' || closed) {
+            return done();
+          }
+
+          const nextValue = backlog.shift();
+          if (nextValue) {
+            return { value: nextValue, done: false };
+          }
+
+          const p = new Promise((resolve) => {
+            wakeup = resolve;
+          });
+
+          await p;
+        }
+
+        // next value
+      };
+      return {
+        next() {
+          console.log('THIS', this);
+          return next();
+        },
+        return: done,
+        throw(error) {
+          unsubscribe();
+          return Promise.reject(error);
+        },
+        [Symbol.asyncIterator]() {
+          console.log('I WAS CALLED', this);
+          return this;
+        },
+      };
+    }
+
+    return {
+      close: () => es.close(),
+      [Symbol.iterator]: () => {
+        throw new Error(
+          'subscribeQuery does not support synchronous iteration. Use `for await` instead.',
+        );
+      },
+      [Symbol.asyncIterator]: makeAsyncIterator,
+    };
   }
 
   /**

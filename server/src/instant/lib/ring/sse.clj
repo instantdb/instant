@@ -1,6 +1,8 @@
 (ns instant.lib.ring.sse
   (:refer-clojure :exclude [send])
   (:require
+   [instant.lib.ring.websocket :refer [ping-pool]]
+   [instant.util.delay :as delay]
    [instant.util.e2e-tracer :as e2e-tracer]
    [instant.util.json :refer [->json]]
    [instant.util.tracer :as tracer]
@@ -15,11 +17,24 @@
 (defn sse-callback [{:keys [on-open on-close]}]
   (reify ServerSentEventConnectionCallback
     (^void connected [_ ^ServerSentEventConnection conn ^String _last-event-id]
-      (let [close-task (reify ChannelListener
+      (let [keep-alive-ms (* 1000 15)
+            _ (.setKeepAliveTime conn keep-alive-ms)
+            ;; undertow will send a message every keep-alive-ms and notice when
+            ;; the connection is closed, but it won't always run the close task.
+            ;; We use this ping job to run `on-close` ourselves eventually.
+            ping-job (delay/repeat-fn ping-pool
+                                      keep-alive-ms
+                                      (fn []
+                                        (when-not (.isOpen conn)
+                                          (on-close conn)
+                                          ;; Throw an exception to stop the job
+                                          (throw (ex-info "stop ping" {})))))
+            close-task (reify ChannelListener
                          (handleEvent [_this channel]
+                           (when-not (.isDone ping-job)
+                             (.cancel ping-job false))
                            (on-close channel)))]
         (.addCloseTask conn close-task)
-        (.setKeepAliveTime conn 5000)
         (on-open {:exchange conn
                   :channel conn})))))
 
@@ -46,7 +61,7 @@
                (proxy [ServerSentEventConnection$EventCallback] []
                  (done [_conn _data _event _id]
                    (deliver p nil))
-                 (onError [_conn _data _event _id e]
+                 (failed [_conn _data _event _id e]
                    (deliver p e))))
         (let [ret @p]
           (when-let [tx-id (-> obj meta :tx-id)]
