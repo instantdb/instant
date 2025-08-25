@@ -1,4 +1,4 @@
-# From https://turbo.build/repo/docs/ci/github-actions
+ # From https://turbo.build/repo/docs/ci/github-actions
 name: JS CI
 
 on:
@@ -281,10 +281,11 @@ jobs:
                        version (->> version-js
                                     (re-find #"const version = '"'"'(v\d+\.\d+\.\d+)'"'"'")
                                     last)
-                       new-version (format "%s-experimental.%s.%s"
+                       new-version (format "%s-experimental.%s.%s.%s"
                                            version
                                            (System/getenv "BRANCH_NAME")
-                                           (System/getenv "GITHUB_RUN_ID"))]
+                                           (System/getenv "GITHUB_RUN_ID")
+                                           (System/getenv "GITHUB_RUN_NUMBER"))]
                    (spit file (clojure.string/replace version-js version new-version)))'
           cat version.ts
 
