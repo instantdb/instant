@@ -35,6 +35,7 @@
     (throw (Exception. "Call to trace before initialization."))))
 
 (def span-limits (.. (SpanLimits/builder)
+                     ;; https://docs.honeycomb.io/get-started/best-practices/organizing-data/#limits-for-events
                      (setMaxNumberOfAttributes 1900)
                      (build)))
 
