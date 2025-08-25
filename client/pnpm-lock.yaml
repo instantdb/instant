@@ -197,6 +197,9 @@ importers:
       '@ianvs/prettier-plugin-sort-imports':
         specifier: ^4.2.1
         version: 4.6.1(@vue/compiler-sfc@3.5.13)(prettier@3.4.2)
+      '@instantdb/version':
+        specifier: workspace:*
+        version: link:../version
       chalk:
         specifier: 5.2.0
         version: 5.2.0
