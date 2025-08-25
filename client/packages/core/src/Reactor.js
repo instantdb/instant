@@ -183,6 +183,10 @@ export default class Reactor {
     this.config = { ...defaultConfig, ...config };
     this.queryCacheLimit = this.config.queryCacheLimit ?? 10;
 
+    // Used for storing query object by hash for queries that have not yet been processed.
+    // This happens when we return an empty query result rather than undefined for subscriptions
+    this.simpleQueryHash = {};
+
     this._log = createLogger(
       config.verbose || flags.devBackend || flags.instantLogs,
     );
@@ -735,6 +739,9 @@ export default class Reactor {
 
   getPreviousResult = (q) => {
     const hash = weakHash(q);
+    if (!this.querySubs?.currentValue[hash]) {
+      this.simpleQueryHash[hash] = { q };
+    }
     return this.dataForQuery(hash);
   };
 
@@ -1005,8 +1012,11 @@ export default class Reactor {
     const pendingMutationsVersion = this.pendingMutations.version();
     const pendingMutations = this.pendingMutations.currentValue;
 
-    const { q, result } = querySubs[hash] || {};
-    if (!result) return;
+    let { q, result } = querySubs[hash] || {};
+
+    if (!q) {
+      q = this.simpleQueryHash[hash]?.q;
+    }
 
     const cached = this._dataForQueryCache[hash];
     if (
@@ -1017,7 +1027,17 @@ export default class Reactor {
       return cached.data;
     }
 
-    const { store, pageInfo, aggregate, processedTxId } = result;
+    const enableCardinalityInference = true;
+    const { store, pageInfo, aggregate, processedTxId } = result || {
+      // Create an empty store so we always have a result
+      store: s.createStore(
+        {},
+        [],
+        enableCardinalityInference,
+        this._linkIndex,
+        this.config.useDateObjects,
+      ),
+    };
     const mutations = this._rewriteMutationsSorted(
       store.attrs,
       pendingMutations,

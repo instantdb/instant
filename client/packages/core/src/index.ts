@@ -183,7 +183,11 @@ export type RoomHandle<PresenceShape, TopicsByKey> = {
 type AuthToken = string;
 
 type SubscriptionState<Q, Schema, WithCardinalityInference extends boolean> =
-  | { error: { message: string }; data: undefined; pageInfo: undefined }
+  | {
+      error: { message: string };
+      data: QueryResponse<Q, Schema, WithCardinalityInference>;
+      pageInfo: undefined;
+    }
   | {
       error: undefined;
       data: QueryResponse<Q, Schema, WithCardinalityInference>;
@@ -191,7 +195,11 @@ type SubscriptionState<Q, Schema, WithCardinalityInference extends boolean> =
     };
 
 type InstaQLSubscriptionState<Schema, Q, UseDates extends boolean> =
-  | { error: { message: string }; data: undefined; pageInfo: undefined }
+  | {
+      error: { message: string };
+      data: InstaQLResponse<Schema, Q, UseDates>;
+      pageInfo: undefined;
+    }
   | {
       error: undefined;
       data: InstaQLResponse<Schema, Q, UseDates>;
