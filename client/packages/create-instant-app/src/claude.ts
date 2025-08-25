@@ -205,10 +205,7 @@ export const promptClaude = async (prompt: string, projectDir: string) => {
                 printClaudeMessage(content);
               });
             }
-          } catch (error) {
-            // If JSON parsing fails, treat as regular text output
-            // log.message(line);
-          }
+          } catch (error) {}
         }
       });
     });

@@ -2,8 +2,9 @@ import { Command, Option } from 'commander';
 import * as p from '@clack/prompts';
 import { findClaudePath } from './claude.js';
 import { version } from '@instantdb/version';
+import { validateAppName } from './utils/validateAppName.js';
 
-export type CliResults = {
+export type Project = {
   base: 'next-js-app-dir' | 'vite-vanilla' | 'expo';
   ruleFiles: 'cursor' | 'claude' | 'windsurf' | 'zed' | 'codex' | null;
   appName: string;
@@ -20,7 +21,7 @@ export const unwrapSkippablePrompt = <T>(result: Promise<T | symbol>) => {
   }) satisfies Promise<T>;
 };
 
-const defaultOptions: CliResults = {
+const defaultOptions: Project = {
   base: 'next-js-app-dir',
   appName: 'awesome-todos',
   ruleFiles: null,
@@ -28,7 +29,7 @@ const defaultOptions: CliResults = {
   prompt: null,
 };
 
-export const runCli = async (): Promise<CliResults> => {
+export const runCli = async (): Promise<Project> => {
   const results = defaultOptions;
 
   const program = new Command()
@@ -62,6 +63,10 @@ export const runCli = async (): Promise<CliResults> => {
     .parse(process.argv);
   const cliProvidedName = program.args[0];
   if (cliProvidedName) {
+    if (validateAppName(cliProvidedName)) {
+      throw new Error('Invalid app name: ' + validateAppName(cliProvidedName));
+    }
+
     results.appName = cliProvidedName;
   }
 
@@ -88,15 +93,7 @@ export const runCli = async (): Promise<CliResults> => {
             message: 'What will your project/folder be called?',
             placeholder: 'awesome-todos',
             defaultValue: 'awesome-todos',
-            validate(value) {
-              if (value.trim() === '') {
-                return 'Please enter a project name';
-              }
-              if (value.includes(' ')) {
-                return 'Project name cannot contain spaces';
-              }
-              return;
-            },
+            validate: validateAppName,
           }),
         );
         return promptedName.trim();
@@ -117,7 +114,7 @@ export const runCli = async (): Promise<CliResults> => {
           return 'next-js-app-dir';
         }
         if (flags.base) {
-          return flags.base as CliResults['base'];
+          return flags.base as Project['base'];
         }
 
         return unwrapSkippablePrompt(
@@ -128,7 +125,7 @@ export const runCli = async (): Promise<CliResults> => {
               { value: 'vite-vanilla', label: 'Vite: Vanilla TS' },
               { value: 'expo', label: 'Expo: React Native' },
             ],
-            initialValue: 'next-js-app-dir' as CliResults['base'],
+            initialValue: 'next-js-app-dir' as Project['base'],
           }),
         );
       },
@@ -153,7 +150,7 @@ export const runCli = async (): Promise<CliResults> => {
               { value: 'codex', label: 'Codex' },
               { value: 'zed', label: 'Zed' },
             ],
-            initialValue: null as CliResults['ruleFiles'],
+            initialValue: null as Project['ruleFiles'],
           }),
         );
       },
@@ -164,9 +161,9 @@ export const runCli = async (): Promise<CliResults> => {
         return true;
       },
     } satisfies {
-      [K in keyof CliResults]: (args: {
-        results: Partial<CliResults>;
-      }) => Promise<CliResults[K] | symbol> | CliResults[K];
+      [K in keyof Project]: (args: {
+        results: Partial<Project>;
+      }) => Promise<Project[K] | symbol> | Project[K];
     },
     {
       onCancel() {

@@ -2,11 +2,11 @@ import path from 'path';
 import fs from 'fs-extra';
 import { PKG_ROOT } from './consts.js';
 import * as p from '@clack/prompts';
-import { CliResults } from './cli.js';
+import { Project } from './cli.js';
 import chalk from 'chalk';
 
-export const scaffoldBase = async (cliResults: CliResults) => {
-  const projectDir = path.resolve(process.cwd(), cliResults.appName);
+export const scaffoldBase = async (cliResults: Project, appDir: string) => {
+  const projectDir = path.resolve(process.cwd(), appDir);
   const srcDir = path.join(PKG_ROOT, `template/base/${cliResults.base}`);
 
   const spinner = p.spinner();

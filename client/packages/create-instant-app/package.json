@@ -45,6 +45,7 @@
     "@types/fs-extra": "^11.0.4",
     "@types/node": "^18.11.18",
     "tsup": "^6.7.0",
+    "type-fest": "^4.41.0",
     "typescript": "^5.8.3"
   },
   "keywords": [],

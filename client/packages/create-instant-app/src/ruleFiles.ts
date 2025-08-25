@@ -1,4 +1,4 @@
-import { CliResults } from './cli.js';
+import { Project } from './cli.js';
 import fs from 'fs-extra';
 import path from 'path';
 import { PKG_ROOT } from './consts.js';
@@ -8,7 +8,7 @@ export const addRuleFiles = ({
   ruleFilesToAdd,
 }: {
   projectDir: string;
-  ruleFilesToAdd: CliResults['ruleFiles'];
+  ruleFilesToAdd: Project['ruleFiles'];
 }) => {
   if (ruleFilesToAdd === null) {
     return;

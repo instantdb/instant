@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 import { runCli } from './cli.js';
+import path from 'path';
+import fs from 'fs-extra';
+import { type PackageJson } from 'type-fest';
 import { log, outro } from '@clack/prompts';
 import { renderTitle } from './utils/title.js';
 import { scaffoldBase } from './scaffold.js';
@@ -13,6 +16,8 @@ import { applyEnvFile } from './env.js';
 import { detectTerminalTheme } from './terminalTheme.js';
 import { getCodeColors, wrappedWindowOutput } from './utils/logger.js';
 import { promptClaude } from './claude.js';
+import { parseNameAndPath } from './utils/validateAppName.js';
+import { execa } from 'execa';
 
 const main = async () => {
   const theme = await detectTerminalTheme();
@@ -24,31 +29,53 @@ const main = async () => {
     renderTitle(theme);
   }
 
-  const results = await runCli();
-  const projectDir = await scaffoldBase(results);
-  addRuleFiles({ projectDir, ruleFilesToAdd: results.ruleFiles });
+  const project = await runCli();
+
+  const [scopedAppName, appDir] = parseNameAndPath(project.appName);
+
+  const pkgManager = getUserPkgManager();
+
+  const projectDir = await scaffoldBase(project, appDir);
+  addRuleFiles({ projectDir, ruleFilesToAdd: project.ruleFiles });
   await runInstallCommand(getUserPkgManager(), projectDir);
-  if (results.createRepo) {
-    await initializeGit(projectDir);
+
+  // Update package.json with app name
+  const pkgJson = fs.readJSONSync(
+    path.join(projectDir, 'package.json'),
+  ) as PackageJson;
+  pkgJson.name = scopedAppName;
+  if (pkgManager !== 'bun') {
+    const { stdout } = await execa(pkgManager, ['-v'], {
+      cwd: projectDir,
+    });
+    pkgJson.packageManager = `${pkgManager}@${stdout.trim()}`;
   }
 
-  const possibleAppTokenPair = await tryConnectApp(results);
+  fs.writeJSONSync(path.join(projectDir, 'package.json'), pkgJson, {
+    spaces: 2,
+  });
+
+  const possibleAppTokenPair = await tryConnectApp(project);
   if (possibleAppTokenPair) {
     applyEnvFile(
-      results,
+      project,
       projectDir,
       possibleAppTokenPair.appID,
       possibleAppTokenPair.adminToken,
     );
   }
 
-  if (results.prompt) {
-    await promptClaude(results.prompt, projectDir);
+  if (project.createRepo) {
+    await initializeGit(projectDir);
+  }
+
+  if (project.prompt) {
+    await promptClaude(project.prompt, projectDir);
   }
 
   outro(`Done!`);
 
-  const startScript = results.base === 'expo' ? 'start' : 'dev';
+  const startScript = project.base === 'expo' ? 'start' : 'dev';
 
   if (possibleAppTokenPair) {
     // already linked
@@ -56,7 +83,7 @@ const main = async () => {
   🎉 Success! Your project is ready to go!
 
   To get started:
-    1. ${getCodeColors(theme, 'cd ' + results.appName)}
+    1. ${getCodeColors(theme, 'cd ' + appDir)}
     2. ${getCodeColors(theme, getUserPkgManager() + ` run ` + startScript)}
   `);
     if (possibleAppTokenPair.approach === 'ephemeral') {
@@ -70,7 +97,7 @@ const main = async () => {
   🎉 Success! Your project is ready to go!
 
   To get started:
-    1. ${getCodeColors(theme, 'cd ' + results.appName)}
+    1. ${getCodeColors(theme, 'cd ' + appDir)}
     2. Create a new app on ${chalk.underline('www.instantdb.com')}
     3. Add your APP_ID to the .env file
     4. ${getCodeColors(theme, getUserPkgManager() + ` run ` + startScript)}

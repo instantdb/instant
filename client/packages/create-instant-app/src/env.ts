@@ -1,15 +1,15 @@
 import fs from 'fs-extra';
 import path from 'path';
-import { CliResults } from './cli.js';
+import { Project } from './cli.js';
 
-const envNames: Record<CliResults['base'], string> = {
+const envNames: Record<Project['base'], string> = {
   'next-js-app-dir': 'NEXT_PUBLIC_INSTANT_APP_ID',
   'vite-vanilla': 'VITE_INSTANT_APP_ID',
   expo: 'EXPO_PUBLIC_INSTANT_APP_ID',
 };
 
 export const applyEnvFile = (
-  project: CliResults,
+  project: Project,
   projectDir: string,
   appId: string,
   adminToken: string,

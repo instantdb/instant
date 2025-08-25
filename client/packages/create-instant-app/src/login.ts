@@ -3,7 +3,7 @@ import * as p from '@clack/prompts';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import chalk from 'chalk';
-import { CliResults, unwrapSkippablePrompt } from './cli.js';
+import { Project, unwrapSkippablePrompt } from './cli.js';
 import { randomUUID } from 'node:crypto';
 import { fetchJson } from './utils/fetch.js';
 
@@ -18,7 +18,7 @@ function getAuthPaths() {
   return { authConfigFilePath, appConfigDirPath };
 }
 
-export const promptForAppName = async (program: CliResults) => {
+export const promptForAppName = async (program: Project) => {
   const title = await unwrapSkippablePrompt(
     p.text({
       message: 'What would you like to call it?',
@@ -110,19 +110,19 @@ const createPermissiveEphemeralApp = async (title: string) => {
 };
 
 export const tryConnectApp = async (
-  program: CliResults,
+  project: Project,
 ): Promise<AppTokenResponse | null> => {
   const authToken = await getAuthToken();
 
   // If doing ai generation
-  if (program.prompt) {
+  if (project.prompt) {
     if (authToken) {
-      const { appID, adminToken } = await createApp(program.appName, authToken);
+      const { appID, adminToken } = await createApp(project.appName, authToken);
       return { appID, adminToken, approach: 'create' };
     }
     // Create ephemeral app
     const { appID, adminToken } = await createPermissiveEphemeralApp(
-      program.appName,
+      project.appName,
     );
     p.log.success('Created ephemeral app');
     p.log.success('Updated .env');
@@ -151,7 +151,7 @@ export const tryConnectApp = async (
     return null;
   }
   if (action === 'create') {
-    const title = await promptForAppName(program);
+    const title = await promptForAppName(project);
     p.log.success(`Creating app "${title}"`);
     const { appID, adminToken } = await createApp(title, authToken);
     return { appID, adminToken, approach: 'create' };
