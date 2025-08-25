@@ -2,7 +2,6 @@
   (:require
    [clojure.string :as string]
    [clojure.test :as test :refer [are deftest is testing]]
-   [clojure+.walk :as walk]
    [instant.config :as config]
    [instant.db.cel :as cel]
    [instant.data.bootstrap :as bootstrap]
@@ -14,7 +13,6 @@
    [instant.db.model.triple :as triple-model]
    [instant.model.app-file :as app-file-model]
    [instant.db.permissioned-transaction :as permissioned-tx]
-   [instant.db.permissioned-transaction-new :as permissioned-tx-new]
    [instant.db.transaction :as tx]
    [instant.fixtures :refer [with-empty-app
                              with-zeneca-app
@@ -24,114 +22,11 @@
    [instant.model.app :as app-model]
    [instant.model.app-user :as app-user-model]
    [instant.model.rule :as rule-model]
-   [instant.util.coll :as coll]
    [instant.util.instaql :refer [instaql-nodes->object-tree]]
    [instant.util.exception :as ex]
    [instant.util.test :as test-util :refer [suid validation-err? perm-err? perm-pass? timeout-err?]]
    [instant.util.date :as date-util]
-   [instant.util.uuid :as uuid-util]
-   [next.jdbc])
-  (:import
-   (java.util UUID)))
-
-(defn- abstract-results
-  "Does what’s described in normalize-results items 2-4"
-  [uuid->serial form]
-  (let [uuid->serial (atom uuid->serial)
-        serial       (atom 0)]
-    (->> form
-         (walk/postwalk
-          (fn [form]
-            (if (and (map? form) (contains? form :created_at))
-              (assoc form :created_at "ignored")
-              form)))
-         (walk/postwalk
-          (fn [form]
-            (let [as-uuid (uuid-util/coerce form)]
-              (cond
-                (and as-uuid (not (@uuid->serial as-uuid)))
-                (let [next-serial (str "uuid-" (swap! serial inc))]
-                  (swap! uuid->serial assoc as-uuid next-serial)
-                  next-serial)
-
-                as-uuid
-                (@uuid->serial as-uuid)
-
-                :else
-                form))))
-         (map (fn [result-map]
-                (-> result-map
-                    (coll/update-in-when [:add-triple] set)
-                    (coll/update-in-when [:retract-triple] set)
-                    (coll/update-in-when [:deep-merge-triple] set)
-                    (coll/update-in-when [:delete-entity] set)
-                    (coll/update-in-when [:add-attr :attrs] set)
-                    (coll/update-in-when [:add-attr :idents] set)
-                    (coll/update-in-when [:add-attr :triples] set)))))))
-
-(defn- normalize-results
-  "Given a list of old transact! results and new ones, normalizes them so they
-   can be compared for equivalence.
-
-   This is done by:
-
-   1. Determining UUIDs that appear in both result sets. These are kept intact
-   2. Sequentially replacing non-shared UUIDs with strings like \"uuid-18\",
-   3. Replacing :created_at with \"ignored\"
-   4. Turning lists into sets"
-  [old new]
-  (let [seen       (atom #{})
-        uuid->self (atom {})]
-    (walk/postwalk
-     (fn [form]
-       (when-some [as-uuid (uuid-util/coerce form)]
-         (swap! seen conj as-uuid)))
-     old)
-    (walk/postwalk
-     (fn [form]
-       (when-some [as-uuid (uuid-util/coerce form)]
-         (when (@seen as-uuid)
-           (swap! uuid->self assoc as-uuid as-uuid)))
-       form)
-     new)
-    [(abstract-results @uuid->self old)
-     (abstract-results @uuid->self new)]))
-
-(defn- sequential-uuid-generator
-  "Fake UUID generator so that most of allocated UUIDs will be the same.
-   The ones assigned by Postgres (lookup inserts) are still out of our control"
-  []
-  (let [counter (atom -9223372036854775808)]
-    (fn []
-      (UUID. 0x0000000000008000 (swap! counter inc)))))
-
-;; TODO this is only needed until we’ve switched to permissioned-transaction-new
-(test/use-fixtures :each
-  (fn [f]
-    (let [transact!     permissioned-tx/transact-impl!
-          results       (atom [])
-          transact-new! permissioned-tx-new/transact!
-          results-new   (atom [])]
-      (with-redefs [permissioned-tx/transact-impl!
-                    (fn [ctx tx-steps]
-                      (let [res (transact! ctx tx-steps)]
-                        (swap! results conj (:results res))
-                        res))
-                    permissioned-tx-new/transact!
-                    (fn [ctx tx-steps]
-                      (let [res (transact-new! ctx tx-steps)]
-                        (swap! results-new conj (:results res))
-                        res))]
-        (testing "permissioned-transaction"
-          (with-redefs [random-uuid (sequential-uuid-generator)]
-            (f)))
-        (binding [permissioned-tx/*new-permissioned-transact?* true]
-          (testing "permissioned-transaction-new"
-            (with-redefs [random-uuid (sequential-uuid-generator)]
-              (f)))))
-      (let [[normalized-old normalized-new] (normalize-results @results @results-new)]
-        (is (= normalized-old
-               normalized-new))))))
+   [next.jdbc]))
 
 (defn- fetch-triples
   ([app-id] (fetch-triples app-id []))
