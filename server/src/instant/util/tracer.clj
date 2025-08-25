@@ -14,7 +14,7 @@
    (io.opentelemetry.exporter.otlp.trace OtlpGrpcSpanExporter)
    (io.opentelemetry.sdk OpenTelemetrySdk)
    (io.opentelemetry.sdk.resources Resource)
-   (io.opentelemetry.sdk.trace SdkTracer SdkTracerProvider)
+   (io.opentelemetry.sdk.trace SdkTracer SdkTracerProvider SpanLimits)
    (io.opentelemetry.sdk.trace.export BatchSpanProcessor SimpleSpanProcessor)
    (java.util.concurrent TimeUnit)))
 
@@ -34,6 +34,10 @@
     t
     (throw (Exception. "Call to trace before initialization."))))
 
+(def span-limits (.. (SpanLimits/builder)
+                     (setMaxNumberOfAttributes 1900)
+                     (build)))
+
 (defn make-log-only-sdk
   "Creates an opentelemetry sdk that logs to the console for use in tests
   and for Open Source when no Honeycomb API key is available."
@@ -43,6 +47,7 @@
         sdk-builder (OpenTelemetrySdk/builder)
         log-exporter (SimpleSpanProcessor/create (logging-exporter/create))]
     (.addSpanProcessor trace-provider-builder log-exporter)
+    (.setSpanLimits trace-provider-builder ^SpanLimits span-limits)
     (-> sdk-builder
         (.setTracerProvider (.build trace-provider-builder))
         (.build))))
@@ -61,6 +66,7 @@
         resource (.merge (Resource/getDefault)
                          (Resource/create (Attributes/of (AttributeKey/stringKey "service.name")
                                                          "instant-server")))]
+    (.setSpanLimits trace-provider-builder ^SpanLimits span-limits)
 
     (.setResource trace-provider-builder resource)
     (.setCompression otlp-builder "gzip")
