@@ -1,0 +1,90 @@
+{
+  "name": "@instantdb/node",
+  "version": "0.1.0",
+  "description": "Instant's Node.js client for real-time sync",
+  "keywords": [
+    "instant",
+    "instantdb",
+    "database",
+    "realtime",
+    "sync",
+    "nodejs",
+    "websocket",
+    "offline-first"
+  ],
+  "author": "Instant Team",
+  "license": "MIT",
+  "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/node",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/instantdb/instant.git",
+    "directory": "client/packages/node"
+  },
+  "bugs": {
+    "url": "https://github.com/instantdb/instant/issues"
+  },
+  "type": "module",
+  "main": "./dist/commonjs/index.js",
+  "types": "./dist/commonjs/index.d.ts",
+  "module": "./dist/esm/index.js",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "import": {
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/commonjs/index.d.ts",
+        "default": "./dist/commonjs/index.js"
+      }
+    }
+  },
+  "tshy": {
+    "selfLink": false,
+    "main": true,
+    "module": true,
+    "project": "./tsconfig.json",
+    "exports": {
+      "./package.json": "./package.json",
+      ".": "./src/index.ts"
+    },
+    "includeAllFiles": true
+  },
+  "scripts": {
+    "test": "vitest",
+    "bench": "vitest bench",
+    "test:ci": "vitest run",
+    "bench:ci": "vitest bench --run",
+    "check": "tsc --noEmit",
+    "check-exports": "attw --pack .",
+    "dev": "tshy --watch",
+    "build": "rm -rf dist; npm run build:tshy && npm run post-build && npm run check-exports",
+    "build:tshy": "tshy",
+    "post-build": "node scripts/post-build.js",
+    "publish-package": "pnpm publish --access public --no-git-checks"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.17.4",
+    "@babel/core": "^7.17.9",
+    "@babel/preset-env": "^7.16.11",
+    "@types/node": "^18.11.18",
+    "@types/ws": "^8.5.5",
+    "fake-indexeddb": "^6.0.0",
+    "npm-run-all": "^4.1.5",
+    "tshy": "^3.0.2",
+    "typescript": "^5.8.3",
+    "vite": "^5.2.0",
+    "vitest": "^1.6.0"
+  },
+  "dependencies": {
+    "@instantdb/core": "workspace:*",
+    "@instantdb/version": "workspace:*",
+    "mutative": "^1.0.10",
+    "uuid": "^11.1.0",
+    "ws": "^8.16.0"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
