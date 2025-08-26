@@ -45,9 +45,8 @@
     (.put (.getResponseHeaders exchange) Headers/CACHE_CONTROL "nocache")
     (.handleRequest handler exchange)))
 
-;; XXX
 (defn send-json!
-  "Serializes `obj` to json, and sends over a websocket."
+  "Serializes `obj` to json, and sends over the SSE connection."
   [app-id obj {:keys [stub ^ServerSentEventConnection conn]}]
   (if stub
     (stub obj)
