@@ -99,17 +99,25 @@ const processUptimeData = (UptimeRobotResponse: any): UptimeData => {
 
   const overallUptime = {
     '24h':
-      monitors.reduce((acc: number, m: Monitor) => acc + m.uptime_ratio['24h'], 0) /
-      (monitors.length || 1),
+      monitors.reduce(
+        (acc: number, m: Monitor) => acc + m.uptime_ratio['24h'],
+        0,
+      ) / (monitors.length || 1),
     '7d':
-      monitors.reduce((acc: number, m: Monitor) => acc + m.uptime_ratio['7d'], 0) /
-      (monitors.length || 1),
+      monitors.reduce(
+        (acc: number, m: Monitor) => acc + m.uptime_ratio['7d'],
+        0,
+      ) / (monitors.length || 1),
     '30d':
-      monitors.reduce((acc: number, m: Monitor) => acc + m.uptime_ratio['30d'], 0) /
-      (monitors.length || 1),
+      monitors.reduce(
+        (acc: number, m: Monitor) => acc + m.uptime_ratio['30d'],
+        0,
+      ) / (monitors.length || 1),
     '90d':
-      monitors.reduce((acc: number, m: Monitor) => acc + m.uptime_ratio['90d'], 0) /
-      (monitors.length || 1),
+      monitors.reduce(
+        (acc: number, m: Monitor) => acc + m.uptime_ratio['90d'],
+        0,
+      ) / (monitors.length || 1),
   };
 
   return {
@@ -172,7 +180,13 @@ function MainStatus({
   );
 }
 
-function MonitorDisplay({ monitor, title }: { monitor: Monitor | undefined; title: string }) {
+function MonitorDisplay({
+  monitor,
+  title,
+}: {
+  monitor: Monitor | undefined;
+  title: string;
+}) {
   return (
     <>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3">
@@ -242,7 +256,13 @@ function MonitorDisplay({ monitor, title }: { monitor: Monitor | undefined; titl
   );
 }
 
-function UptimeDetails({ backendMonitor, walMonitor }: { backendMonitor: Monitor | undefined; walMonitor: Monitor | undefined }) {
+function UptimeDetails({
+  backendMonitor,
+  walMonitor,
+}: {
+  backendMonitor: Monitor | undefined;
+  walMonitor: Monitor | undefined;
+}) {
   return (
     <div className="flex z-10 justify-center px-4 sm:px-8 md:px-16 lg:px-32 xl:px-64 py-4 relative">
       <div className="font-mono flex-1 max-w-4xl">
@@ -337,7 +357,7 @@ function StatusPage({ initialData }: { initialData: UptimeData | null }) {
       setNextUpdate(60);
     } catch (error) {
       console.error('Failed to fetch uptime data:', error);
-      setStatusState(prev => ({
+      setStatusState((prev) => ({
         ...prev,
         isLoading: false,
       }));
@@ -374,9 +394,10 @@ function StatusPage({ initialData }: { initialData: UptimeData | null }) {
   );
 
   const allOperational =
-    statusState.data &&
-    statusState.data.monitors.length > 0 &&
-    statusState.data.monitors.every((m: Monitor) => m.status === 2) || false;
+    (statusState.data &&
+      statusState.data.monitors.length > 0 &&
+      statusState.data.monitors.every((m: Monitor) => m.status === 2)) ||
+    false;
 
   return (
     <div className="flex flex-col relative min-h-screen overflow-y-auto">
@@ -392,8 +413,14 @@ function StatusPage({ initialData }: { initialData: UptimeData | null }) {
   );
 }
 
-export default function Page({ initialUptimeData }: { initialUptimeData: any }) {
-  const processedInitialData = initialUptimeData ? processUptimeData(initialUptimeData) : null;
+export default function Page({
+  initialUptimeData,
+}: {
+  initialUptimeData: any;
+}) {
+  const processedInitialData = initialUptimeData
+    ? processUptimeData(initialUptimeData)
+    : null;
 
   return (
     <LandingContainer>
@@ -421,13 +448,13 @@ export async function getServerSideProps() {
     // Fetch uptime data on the server
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://instantdb.com';
     const response = await fetch(`${baseUrl}/api/uptime`);
-    
+
     if (!response.ok) {
       throw new Error('Failed to fetch uptime data');
     }
-    
+
     const uptimeData = await response.json();
-    
+
     return {
       props: {
         initialUptimeData: uptimeData,

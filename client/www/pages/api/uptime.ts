@@ -28,13 +28,15 @@ export default async function handler(
         custom_uptime_ranges: Array.from({ length: 90 }, (_, dayIndex) => {
           const currentUnixTimestamp = Math.floor(Date.now() / 1000);
           const secondsPerDay = 24 * 60 * 60;
-          
+
           const daysAgoStart = dayIndex + 1;
           const daysAgoEnd = dayIndex;
-          
-          const rangeStartTimestamp = currentUnixTimestamp - (daysAgoStart * secondsPerDay);
-          const rangeEndTimestamp = currentUnixTimestamp - (daysAgoEnd * secondsPerDay);
-          
+
+          const rangeStartTimestamp =
+            currentUnixTimestamp - daysAgoStart * secondsPerDay;
+          const rangeEndTimestamp =
+            currentUnixTimestamp - daysAgoEnd * secondsPerDay;
+
           return `${rangeStartTimestamp}_${rangeEndTimestamp}`;
         })
           .reverse()
