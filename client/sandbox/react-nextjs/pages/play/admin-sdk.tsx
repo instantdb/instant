@@ -44,9 +44,7 @@ function App({ app }: { app: { id: string; 'admin-token': string } }) {
     globalThis.sub = sub;
     setSub(sub);
     asyncIterate(sub);
-    () => {
-      sub.close();
-    };
+    return sub.close;
   }, [triggerSub]);
 
   // @ts-ignore

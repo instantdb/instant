@@ -312,17 +312,19 @@ export function subscribe<
     handleMessage(JSON.parse(e.data));
   };
 
-  return {
-    close: () => {
-      for (const sub of onCloseSubscribers) {
-        try {
-          sub();
-        } catch (e) {
-          console.error('Error in onClose callback', e);
-        }
+  const close = () => {
+    for (const sub of onCloseSubscribers) {
+      try {
+        sub();
+      } catch (e) {
+        console.error('Error in onClose callback', e);
       }
-      es.close();
-    },
+    }
+    es.close();
+  };
+
+  return {
+    close: close,
     [Symbol.iterator]: () => {
       throw new Error(
         'subscribeQuery does not support synchronous iteration. Use `for await` instead.',
