@@ -154,7 +154,7 @@
                                             update triples set value = '\"alex2\"'::jsonb
                                                      where app_id = ? and attr_id = ? and entity_id = ?
                                                  returning *
-                                          ) select * from write, pg_current_wal_insert_lsn() as lsn"
+                                          ) select * from write, pg_current_wal_lsn() as lsn"
                                          (:id app)
                                          (resolvers/->uuid zeneca-r :users/handle)
                                          (resolvers/->uuid zeneca-r "eid-alex")])
@@ -179,7 +179,7 @@
                                                      where app_id = ? and attr_id = ? and eav
                                                        and entity_id = ? and value = ?::jsonb
                                                  returning *
-                                          ) select * from write, pg_current_wal_insert_lsn() as lsn"
+                                          ) select * from write, pg_current_wal_lsn() as lsn"
                                          (->json (str (resolvers/->uuid zeneca-r "eid-web-development-with-clojure")))
                                          (:id app)
                                          (resolvers/->uuid zeneca-r :bookshelves/books)
@@ -267,7 +267,7 @@
                                                update triples set value = '\"alex3\"'::jsonb
                                                         where app_id = ? and attr_id = ? and entity_id = ?
                                                     returning *
-                                             ) select * from write, pg_current_wal_insert_lsn() as lsn"
+                                             ) select * from write, pg_current_wal_lsn() as lsn"
                                              (:id app)
                                              (resolvers/->uuid r :users/handle)
                                              (resolvers/->uuid r "eid-alex")])]
@@ -352,7 +352,7 @@
                                             where app_id = ? and attr_id = ? and entity_id = ?
                                            returning entity_id
                                          )
-                                         select *, pg_current_wal_insert_lsn() as lsn from write"
+                                         select *, pg_current_wal_lsn() as lsn from write"
                                          (:id app)
                                          (resolvers/->uuid r :movie/title)
                                          (resolvers/->uuid r "eid-alien")])]
@@ -425,7 +425,7 @@
                         where app_id = ? and attr_id = ? and entity_id = ?
                        returning entity_id
                      )
-                     select *, pg_current_wal_insert_lsn() as lsn from write"
+                     select *, pg_current_wal_lsn() as lsn from write"
                     ;; Add a string that's big so that postgres will to toast it
                     (str (apply str (repeat 10000000 " "))
                          "2025-08-12T23:00:31.368181Z")
@@ -442,7 +442,7 @@
                                             where app_id = ? and attr_id = ? and checked_data_type = 'date'
                                            returning entity_id
                                          )
-                                         select *, pg_current_wal_insert_lsn() as lsn from write"
+                                         select *, pg_current_wal_lsn() as lsn from write"
                                          (:id app)
                                          (resolvers/->uuid r :users/createdAt)]))]
 
@@ -464,7 +464,7 @@
                                             where app_id = ? and attr_id = ? and checked_data_type is null
                                            returning entity_id
                                          )
-                                         select *, pg_current_wal_insert_lsn() as lsn from write"
+                                         select *, pg_current_wal_lsn() as lsn from write"
                                          (:id app)
                                          (resolvers/->uuid r :users/createdAt)]))]
 

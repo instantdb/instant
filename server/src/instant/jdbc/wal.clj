@@ -377,6 +377,29 @@
                 (.setFlushedLSN stream last-receive-lsn))
               (recur (.read stream) produce-start-state))))))))
 
+(defn- produce-aggregate
+  "Repeatedly read from the stream and puts records on the `to` channel.
+   Unlike produce, it does not batch the records and only puts
+   `insert`, `update`, and `delete` records on the channel. This makes
+   it suitable for handling large transactions, like a COPY command,
+   that would exceed all available memory."
+  [^PGReplicationStream stream to close-signal-chan]
+  (loop [buffer (.read stream)]
+    (if-not buffer
+      (when-not (.isClosed stream)
+        (recur (.read stream)))
+      (let [record (wal-buffer->record buffer)]
+        (case (:action record)
+          (:begin :close :truncate :message)
+          (when-not (.isClosed stream)
+            (recur (.read stream)))
+
+          (:insert :update :delete)
+          (let [put-result (a/alt!! [[to record]] :put)]
+            (when (and (= put-result :put)
+                       (not (.isClosed stream)))
+              (recur (.read stream)))))))))
+
 (defn full-slot-name [slot-type slot-suffix]
   (if slot-suffix
     (str (name slot-type) "_" slot-suffix)
@@ -566,7 +589,7 @@
                                         (recur))
                                     (tracer/record-info! {:name "wal-aggregator/flush-lsn-exit"})))))
               produce-error (try
-                              (produce stream to close-signal-chan {:auto-flush? false})
+                              (produce-aggregate stream to close-signal-chan)
                               (catch Exception e
                                 (tracer/with-span! {:name "wal-aggregator/produce-error"
                                                     :attributes {:exception e}}

@@ -216,60 +216,55 @@
   "Extracts triples changes from the wal that would affect the sketch.
 
    Returns a list of changes and the lsn."
-  [{:keys [changes nextlsn] :as _record}]
-  (let [sketch-changes
+  [start-lsn change]
+  (let [lsn (LogSequenceNumber/valueOf ^String (:lsn change))
+        sketch-changes
         (test-filter
-          (reduce
-            (fn [acc change]
-              ;; n.b. If you add more tables, be sure to add the table to
-              ;;      add-table in the stream in wal.clj or you won't get
-              ;;      the updates here.
-              (if (not= "triples" (:table change))
-                acc
-                (let [lsn (LogSequenceNumber/valueOf ^String (:lsn change))]
-                  (case (:action change)
-                    :insert
-                    (conj acc {:incr 1
-                               :lsn lsn
-                               :triples-data (-> (get-triples-data (:columns change))
-                                                 (update-triple nil))})
+         (when (= "triples" (:table change))
+           (case (:action change)
+             :insert
+             [{:incr 1
+               :lsn lsn
+               :triples-data (-> (get-triples-data (:columns change))
+                                 (update-triple nil))}]
 
-                    :delete
-                    (conj acc {:incr -1
-                               :lsn lsn
-                               :triples-data (-> (get-triples-data (:identity change))
-                                                 (update-triple nil))})
+             :delete
+             [{:incr -1
+               :lsn lsn
+               :triples-data (-> (get-triples-data (:identity change))
+                                 (update-triple nil))}]
 
-                    :update
-                    (let [identity-data (get-triples-data (:identity change))
-                          update-data (let [data (get-triples-data (:columns change))]
-                                        (if (contains? data :value)
-                                          data
-                                          ;; The value was toasted and not updated, so
-                                          ;; postgres didn't give it to us in the update.
-                                          ;; We might still need it if the checked_data_type
-                                          ;; changed, so we'll use the value from the identity
-                                          ;; column.
-                                          (assoc data :value (:value identity-data))))]
-                      (conj acc
-                            ;; Remove the old
-                            {:incr -1
-                             :lsn lsn
-                             :triples-data (-> identity-data
-                                               (update-triple nil))}
-                            ;; Add the new
-                            {:incr 1
-                             :lsn lsn
-                             :triples-data (update-triple update-data
-                                                          identity-data)}))))))
-            []
-            changes))]
-    (when (seq sketch-changes)
+             :update
+             (let [identity-data (get-triples-data (:identity change))
+                   update-data (let [data (get-triples-data (:columns change))]
+                                 (if (contains? data :value)
+                                   data
+                                   ;; The value was toasted and not updated, so
+                                   ;; postgres didn't give it to us in the update.
+                                   ;; We might still need it if the checked_data_type
+                                   ;; changed, so we'll use the value from the identity
+                                   ;; column.
+                                   (assoc data :value (:value identity-data))))]
+               ;; Remove the old
+               [{:incr -1
+                 :lsn lsn
+                 :triples-data (-> identity-data
+                                   (update-triple nil))}
+                ;; Add the new
+                {:incr 1
+                 :lsn lsn
+                 :triples-data (update-triple update-data
+                                              identity-data)}]))))]
+    (when (and (seq sketch-changes)
+               ;; When we restart the slot, it will also include the last
+               ;; transaction that we processed. Setting the
+               (= -1 (compare start-lsn lsn)))
       {:sketch-changes sketch-changes
-       :lsn nextlsn})))
+       :lsn lsn})))
 
-(defn wal-record-xf []
-  (keep #'transform-wal-record))
+(defn wal-record-xf [start-lsn]
+  (keep (fn [record]
+          (transform-wal-record start-lsn record))))
 
 ;; ----------
 ;; aggregator
@@ -405,8 +400,8 @@
 ;; -------------
 ;; orchestration
 
-(defn create-wal-chans []
-  (let [chan (a/chan 1 (wal-record-xf))]
+(defn create-wal-chans [start-lsn]
+  (let [chan (a/chan 1 (wal-record-xf start-lsn))]
     {:wal-chan chan
      :close-signal-chan (a/chan)
      :worker-chan chan
@@ -449,7 +444,7 @@
                                               {:slot-name (wal/full-slot-name slot-type
                                                                               slot-suffix)})]
                 (let [{:keys [wal-chan worker-chan flush-lsn-chan close-signal-chan]}
-                      (create-wal-chans)
+                      (create-wal-chans lsn)
 
                       wal-opts (wal/make-wal-opts
                                  {:wal-chan wal-chan
