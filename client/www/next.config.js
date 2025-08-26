@@ -1,4 +1,4 @@
-const withMarkdoc = require('@markdoc/next.js');
+import withMarkdoc from '@markdoc/next.js';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -32,4 +32,4 @@ const nextConfig = {
   },
 };
 
-module.exports = withMarkdoc()(nextConfig);
+export default withMarkdoc({})(nextConfig);

@@ -286,6 +286,7 @@ export function Layout({ children, title, tableOfContents }) {
   const apps = (dashResponse.data?.apps ?? []).toSorted(createdAtComparator);
   const { data: selectedAppData, update: updateSelectedAppId } =
     useSelectedApp(apps);
+
   return (
     <SelectedAppContext.Provider value={selectedAppData}>
       <style jsx global>
