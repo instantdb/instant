@@ -53,7 +53,9 @@ interface AppProps {
 function App({ db }: AppProps) {
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
-  const [orderHistory, setOrderHistory] = useState<{ order: string; count: number }[]>([]);
+  const [orderHistory, setOrderHistory] = useState<
+    { order: string; count: number }[]
+  >([]);
 
   const { data, isLoading } = db.useQuery({
     chats: {
@@ -92,22 +94,22 @@ function App({ db }: AppProps) {
   // Track order changes
   useEffect(() => {
     if (!data?.chats?.length) return;
-    
-    const currentOrder = data.chats.map(c => c.title).join(' → ');
-    
-    setOrderHistory(prevHistory => {
+
+    const currentOrder = data.chats.map((c) => c.title).join(' → ');
+
+    setOrderHistory((prevHistory) => {
       if (prevHistory.length === 0) {
         return [{ order: currentOrder, count: 1 }];
       }
-      
+
       const lastEntry = prevHistory[prevHistory.length - 1];
-      
+
       if (lastEntry.order === currentOrder) {
         // Same order, increment count
         const newHistory = [...prevHistory];
         newHistory[newHistory.length - 1] = {
           ...lastEntry,
-          count: lastEntry.count + 1
+          count: lastEntry.count + 1,
         };
         return newHistory;
       } else {
@@ -143,7 +145,7 @@ function App({ db }: AppProps) {
 
     setMessageInput('');
   };
-  
+
   if (!data?.chats) return null;
 
   return (
@@ -151,99 +153,104 @@ function App({ db }: AppProps) {
       <div className="flex h-96 border rounded-lg overflow-hidden">
         {/* Chat list on the left */}
         <div className="w-1/3 bg-gray-50 border-r">
-        <div className="p-4 border-b bg-white">
-          <h3 className="font-semibold">Chats (ordered by updatedAt desc)</h3>
-          <ResetButton className="text-sm bg-red-500 text-white px-2 py-1 rounded mt-2" />
-        </div>
-        <div className="overflow-y-auto">
-          {data.chats.map((chat) => (
-            <div
-              key={chat.id}
-              onClick={() => setSelectedChatId(chat.id)}
-              className={`p-4 border-b cursor-pointer hover:bg-gray-100 ${
-                chat.id === selectedChatId
-                  ? 'bg-blue-50 border-l-4 border-l-blue-500'
-                  : ''
-              }`}
-            >
-              <div className="font-medium">{chat.title}</div>
-              <div className="text-xs text-gray-500 mt-1">
-                Updated: {new Date(chat.updatedAt || 0).toLocaleTimeString()}
+          <div className="p-4 border-b bg-white">
+            <h3 className="font-semibold">Chats (ordered by updatedAt desc)</h3>
+            <ResetButton className="text-sm bg-red-500 text-white px-2 py-1 rounded mt-2" />
+          </div>
+          <div className="overflow-y-auto">
+            {data.chats.map((chat) => (
+              <div
+                key={chat.id}
+                onClick={() => setSelectedChatId(chat.id)}
+                className={`p-4 border-b cursor-pointer hover:bg-gray-100 ${
+                  chat.id === selectedChatId
+                    ? 'bg-blue-50 border-l-4 border-l-blue-500'
+                    : ''
+                }`}
+              >
+                <div className="font-medium">{chat.title}</div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Updated: {new Date(chat.updatedAt || 0).toLocaleTimeString()}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Messages on the right */}
-      <div className="flex-1 flex flex-col">
-        <div className="p-4 border-b bg-white">
-          <h3 className="font-semibold">
-            {selectedChat?.title || 'Select a chat'}
-          </h3>
+            ))}
+          </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-2">
-          {sortedMessages.map((msg) => (
-            <div key={msg.id} className="bg-gray-100 rounded-lg p-3">
-              <div>{msg.text}</div>
-              <div className="text-xs text-gray-500 mt-1">
-                {new Date(msg.createdAt || 0).toLocaleTimeString()}
+        {/* Messages on the right */}
+        <div className="flex-1 flex flex-col">
+          <div className="p-4 border-b bg-white">
+            <h3 className="font-semibold">
+              {selectedChat?.title || 'Select a chat'}
+            </h3>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4 space-y-2">
+            {sortedMessages.map((msg) => (
+              <div key={msg.id} className="bg-gray-100 rounded-lg p-3">
+                <div>{msg.text}</div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {new Date(msg.createdAt || 0).toLocaleTimeString()}
+                </div>
               </div>
-            </div>
-          ))}
-          {sortedMessages.length === 0 && (
-            <div className="text-gray-500 text-center mt-8">
-              No messages yet. Send one below!
-            </div>
-          )}
-        </div>
+            ))}
+            {sortedMessages.length === 0 && (
+              <div className="text-gray-500 text-center mt-8">
+                No messages yet. Send one below!
+              </div>
+            )}
+          </div>
 
-        <div className="p-4 border-t bg-white">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={messageInput}
-              onChange={(e) => setMessageInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-              placeholder="Type a message..."
-              className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <button
-              onClick={sendMessage}
-              className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
-            >
-              Send
-            </button>
+          <div className="p-4 border-t bg-white">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={messageInput}
+                onChange={(e) => setMessageInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+                placeholder="Type a message..."
+                className="flex-1 px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button
+                onClick={sendMessage}
+                className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
+              >
+                Send
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-    
-    {/* Order History */}
-    <div className="mt-6 border rounded-lg p-4 bg-gray-50">
-      <h3 className="font-semibold mb-3">Order History (showing flicker)</h3>
-      <div className="space-y-2 max-h-40 overflow-y-auto">
-        {orderHistory.length === 0 ? (
-          <div className="text-gray-500">No ordering changes yet. Send a message to see the flicker!</div>
-        ) : (
-          orderHistory.map((entry, index) => (
-            <div key={index} className="flex items-center gap-2">
-              <span className="text-xs font-mono bg-white px-2 py-1 rounded border">
-                {entry.count > 1 ? `${entry.count}x` : 'NEW'}
-              </span>
-              <span className="text-sm font-mono text-gray-700">{entry.order}</span>
+
+      {/* Order History */}
+      <div className="mt-6 border rounded-lg p-4 bg-gray-50">
+        <h3 className="font-semibold mb-3">Order History (showing flicker)</h3>
+        <div className="space-y-2 max-h-40 overflow-y-auto">
+          {orderHistory.length === 0 ? (
+            <div className="text-gray-500">
+              No ordering changes yet. Send a message to see the flicker!
             </div>
-          ))
+          ) : (
+            orderHistory.map((entry, index) => (
+              <div key={index} className="flex items-center gap-2">
+                <span className="text-xs font-mono bg-white px-2 py-1 rounded border">
+                  {entry.count > 1 ? `${entry.count}x` : 'NEW'}
+                </span>
+                <span className="text-sm font-mono text-gray-700">
+                  {entry.order}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+        {orderHistory.length > 1 && (
+          <div className="mt-3 text-xs text-gray-600">
+            Total renders:{' '}
+            {orderHistory.reduce((sum, entry) => sum + entry.count, 0)} | Order
+            changes: {orderHistory.length}
+          </div>
         )}
       </div>
-      {orderHistory.length > 1 && (
-        <div className="mt-3 text-xs text-gray-600">
-          Total renders: {orderHistory.reduce((sum, entry) => sum + entry.count, 0)} | 
-          Order changes: {orderHistory.length}
-        </div>
-      )}
-    </div>
     </div>
   );
 }
