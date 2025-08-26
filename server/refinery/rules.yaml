@@ -9,7 +9,7 @@ Samplers:
           - Name: keep errors
             SampleRate: 1
             Conditions:
-              - Field: error
+              - Field: root.error
                 Operator: exists
 
           - Name: default rule

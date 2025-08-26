@@ -106,7 +106,11 @@
                       (catch Throwable t
                         [{:path "instant.gauges.metric-fn-error"
                           :value (.getMessage t)}])))])]
-    (into {} (keep (juxt :path :value) metrics))))
+    (reduce (fn [acc {:keys [path value]}]
+              (if path
+                (assoc acc path value)
+                acc))
+            metrics)))
 
 (comment
   (gauges))
