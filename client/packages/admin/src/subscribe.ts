@@ -1,0 +1,335 @@
+import { EventSource } from 'eventsource';
+import version from './version.ts';
+import {
+  version as coreVersion,
+  InstantAPIError,
+  InstantConfig,
+  InstantSchemaDef,
+  InstaQLResponse,
+  ValidQuery,
+} from '@instantdb/core';
+
+export type SubscriptionReadyState = 'closed' | 'connecting' | 'open';
+
+export type SubscribeQueryResult<
+  Schema extends InstantSchemaDef<any, any, any>,
+  Q extends ValidQuery<Q, Schema>,
+  Config extends InstantConfig<Schema, boolean> = InstantConfig<Schema, false>,
+> =
+  | {
+      data: InstaQLResponse<Schema, Q, NonNullable<Config['useDateObjects']>>;
+    }
+  | { error: InstantAPIError };
+
+export type SubscribeQueryCallback<
+  Schema extends InstantSchemaDef<any, any, any>,
+  Q extends ValidQuery<Q, Schema>,
+  Config extends InstantConfig<Schema, boolean> = InstantConfig<Schema, false>,
+> = (result: SubscribeQueryResult<Schema, Q, Config>) => void;
+
+export interface SubscribeQueryResponse<
+  Schema extends InstantSchemaDef<any, any, any>,
+  Q extends ValidQuery<Q, Schema>,
+  Config extends InstantConfig<Schema, boolean> = InstantConfig<Schema, false>,
+> {
+  /** Stop the subscription and close the connection. */
+  close(): void;
+
+  /** Warns when attempting to iterate synchronously */
+  [Symbol.iterator](): never;
+
+  /** Async iterator of query payloads */
+  [Symbol.asyncIterator](): AsyncIterableIterator<
+    SubscribeQueryResult<Schema, Q, Config>
+  >;
+
+  /** Ready state of the connection */
+  readonly readyState: SubscriptionReadyState;
+
+  /** `true` if the connection is closed and no more payloads will be delivered */
+  readonly isClosed: boolean;
+}
+
+function makeAsyncIterator<
+  Schema extends InstantSchemaDef<any, any, any>,
+  Q extends ValidQuery<Q, Schema>,
+  Config extends InstantConfig<Schema, boolean> = InstantConfig<Schema, false>,
+>(
+  subscribe: (cb: SubscribeQueryCallback<Schema, Q, Config>) => void,
+  subscribeOnClose: (cb: () => void) => void,
+  unsubscribe: (
+    handler: (cb: SubscribeQueryCallback<Schema, Q, Config>) => void,
+  ) => void,
+  readyState: () => SubscriptionReadyState,
+): AsyncGenerator<SubscribeQueryResult<Schema, Q, Config>> {
+  let wakeup = null;
+  let closed = false;
+
+  const backlog = [];
+  const handler = (data) => {
+    backlog.push(data);
+    if (backlog.length > 100) {
+      // Remove the oldest item to prevent the backlog
+      // from growing forever. This is okay for live queries,
+      // but we need some other machanism if we use this for
+      // event-based subscriptions.
+      backlog.shift();
+    }
+    if (wakeup) {
+      wakeup();
+      wakeup = null;
+    }
+  };
+
+  subscribe(handler);
+
+  const done = () => {
+    unsubscribe(handler);
+    return Promise.resolve({ done: true, value: undefined });
+  };
+
+  const onClose = () => {
+    closed = true;
+    if (wakeup) {
+      wakeup();
+    }
+    done();
+  };
+
+  subscribeOnClose(onClose);
+
+  const next = async () => {
+    while (true) {
+      if (readyState() === 'closed' || closed) {
+        return done();
+      }
+
+      const nextValue = backlog.shift();
+      if (nextValue) {
+        return { value: nextValue, done: false };
+      }
+
+      const p = new Promise((resolve) => {
+        wakeup = resolve;
+      });
+
+      await p;
+    }
+  };
+
+  return {
+    next,
+    return: done,
+    throw(error) {
+      unsubscribe(handler);
+      return Promise.reject(error);
+    },
+    [Symbol.asyncIterator]() {
+      return this;
+    },
+  };
+}
+
+function esReadyState(es: EventSource): SubscriptionReadyState {
+  switch (es.readyState) {
+    case es.CLOSED: {
+      return 'closed';
+    }
+    case es.CONNECTING: {
+      return 'connecting';
+    }
+    case es.OPEN: {
+      return 'open';
+    }
+  }
+}
+
+function multiReadFetchResponse(r) {
+  let p = null;
+  return {
+    ...r,
+    text() {
+      if (!p) {
+        p = r.text();
+      }
+      return p;
+    },
+    json() {
+      if (!p) {
+        p = r.text();
+      }
+      return p.then((x) => JSON.parse(x));
+    },
+  };
+}
+
+export function subscribe<
+  Schema extends InstantSchemaDef<any, any, any>,
+  Q extends ValidQuery<Q, Schema>,
+>(
+  query: Q,
+  cb,
+  opts: { headers: HeadersInit; inference: boolean; apiURI: string },
+): SubscribeQueryResponse<Schema, Q> {
+  let fetchErrorResponse;
+
+  const es = new EventSource(`${opts.apiURI}/admin/subscribe-query`, {
+    fetch(input, init) {
+      fetchErrorResponse = null;
+      return fetch(input, {
+        ...init,
+        method: 'POST',
+        headers: opts.headers,
+        body: JSON.stringify({
+          query: query,
+          'inference?': opts.inference,
+          versions: {
+            '@instantdb/admin': version,
+            '@instantdb/core': coreVersion,
+          },
+        }),
+      }).then((r) => {
+        if (!r.ok) {
+          fetchErrorResponse = multiReadFetchResponse(r);
+        }
+        return r;
+      });
+    },
+  });
+
+  // @ts-ignore
+  globalThis.es = es;
+
+  const subscribers = [];
+  const onCloseSubscribers = [];
+
+  const subscribe = (cb) => {
+    subscribers.push(cb);
+  };
+
+  const unsubscribe = (cb) => {
+    subscribers.splice(subscribers.indexOf(cb), 1);
+  };
+
+  const subscribeOnClose = (cb) => {
+    onCloseSubscribers.push(cb);
+  };
+
+  const unsubscribeOnClose = (cb) => {
+    onCloseSubscribers.splice(onCloseSubscribers.indexOf(cb), 1);
+  };
+
+  if (cb) {
+    subscribe(cb);
+  }
+
+  function deliver(result) {
+    for (const sub of subscribers) {
+      try {
+        sub(result);
+      } catch (e) {
+        console.error('Error in subscribeQuery callback', e);
+      }
+    }
+  }
+
+  function handleMessage(msg) {
+    switch (msg.op) {
+      case 'add-query-ok': {
+        deliver({
+          data: msg.result,
+          get readyState() {
+            return esReadyState(es);
+          },
+        });
+        break;
+      }
+      case 'refresh-ok': {
+        if (msg.computations.length) {
+          deliver({
+            data: msg.computations[0]['instaql-result'],
+            get readyState() {
+              return esReadyState(es);
+            },
+          });
+        }
+        break;
+      }
+      case 'error': {
+        deliver({
+          error: new InstantAPIError({ body: msg, status: msg.status }),
+          get readyState() {
+            return esReadyState(es);
+          },
+        });
+        break;
+      }
+    }
+  }
+
+  es.onerror = (e) => {
+    if (fetchErrorResponse) {
+      fetchErrorResponse.text().then((t) => {
+        let body = { type: undefined, message: t };
+        try {
+          body = JSON.parse(t);
+        } catch (_e) {}
+        deliver({
+          error: new InstantAPIError({
+            status: fetchErrorResponse.status,
+            body,
+          }),
+          get readyState() {
+            return esReadyState(es);
+          },
+        });
+      });
+    } else {
+      deliver({
+        error: new InstantAPIError({
+          status: e.code || 500,
+          body: {
+            type: undefined,
+            message: e.message || 'Unknown error setting up subscribe query.',
+          },
+        }),
+        get readyState() {
+          return esReadyState(es);
+        },
+      });
+    }
+  };
+  es.onopen = (e) => console.log('onopen', e);
+  es.onmessage = (e) => handleMessage(JSON.parse(e.data));
+
+  return {
+    close: () => {
+      for (const sub of onCloseSubscribers) {
+        try {
+          sub();
+        } catch (e) {
+          console.error('Error in onClose callback', e);
+        }
+      }
+      es.close();
+    },
+    [Symbol.iterator]: () => {
+      throw new Error(
+        'subscribeQuery does not support synchronous iteration. Use `for await` instead.',
+      );
+    },
+    get readyState() {
+      return esReadyState(es);
+    },
+    get isClosed() {
+      return esReadyState(es) === 'closed';
+    },
+    [Symbol.asyncIterator]: makeAsyncIterator.bind(
+      this,
+      subscribe,
+      subscribeOnClose,
+      unsubscribe,
+      () => 1,
+    ),
+  };
+}

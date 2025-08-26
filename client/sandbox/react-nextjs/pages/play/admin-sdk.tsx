@@ -20,10 +20,12 @@ function App({ app }: { app: { id: string; 'admin-token': string } }) {
   const [payloads, setPayloads] = useState<any[]>([]);
 
   useEffect(() => {
-    const sub = db.current.subscribeQuery({ test: {} }, (m) => {
+    const sub = db.current.subscribeQuery({ test: {} }, (m: any) => {
       console.log('m', m);
       setPayloads((ps) => [m, ...ps]);
     });
+    // @ts-ignore
+    globalThis.sub = sub;
     doThing(sub);
     () => {
       sub.close();
@@ -37,6 +39,7 @@ function App({ app }: { app: { id: string; 'admin-token': string } }) {
 
   return (
     <div>
+      <div>This uses the admin sdk to subscribe to a query.</div>
       <div>Check window.db for the admin db.</div>
       <div>
         <button
