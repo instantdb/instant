@@ -124,8 +124,7 @@ export const tryConnectApp = async (
     const { appID, adminToken } = await createPermissiveEphemeralApp(
       project.appName,
     );
-    p.log.success('Created ephemeral app');
-    p.log.success('Updated .env');
+    p.log.success('Created ephemeral app and updated .env');
     return { appID, adminToken, approach: 'ephemeral' };
   }
 

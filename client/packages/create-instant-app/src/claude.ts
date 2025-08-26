@@ -1,27 +1,15 @@
-import { exec, spawn } from 'child_process';
-import { log } from '@clack/prompts';
+import { spawn } from 'child_process';
 import chalk from 'chalk';
-import fs from 'fs-extra';
-import path from 'path';
 import ora from 'ora';
 import * as p from '@clack/prompts';
+import type { ContentBlock, ToolUseBlock } from '@anthropic-ai/sdk/resources';
 import { wrappedWindowOutput } from './utils/logger.js';
-
-interface ClaudeMessage {
-  type: 'assistant' | 'user' | 'system' | 'result';
-  message?: {
-    content: Array<{ type: string; text?: string; name?: string; input?: any }>;
-  };
-  result?: string;
-  subtype?: string;
-}
+import { query } from '@anthropic-ai/claude-code';
 
 let currentSpinner: ReturnType<typeof ora> | null = null;
 
-const getSpinnerText = (
-  content: NonNullable<ClaudeMessage['message']>['content'][0],
-) => {
-  const input = content.input || {};
+const getSpinnerText = (content: ToolUseBlock) => {
+  const input = content.input || ({} as any);
   let output = '';
 
   switch (content.name) {
@@ -91,13 +79,12 @@ const getSpinnerText = (
   return output;
 };
 
-const printClaudeMessage = (
-  content: NonNullable<ClaudeMessage['message']>['content'][0],
-) => {
+const printClaudeMessage = (content: ContentBlock) => {
   if (content.type === 'text' && content.text) {
     // Stop any existing spinner before showing text
     if (currentSpinner) {
       currentSpinner.stop();
+      process.stdout.write('\x1B[?25l');
       currentSpinner = null;
     }
 
@@ -115,14 +102,10 @@ const printClaudeMessage = (
     const spinnerText = getSpinnerText(content);
     currentSpinner = ora({
       text: spinnerText,
+      // we are sending control characters to hide the cursor manually
+      hideCursor: false,
       prefixText: chalk.gray('│ '),
     }).start();
-  } else if (content.type === 'tool_result') {
-    // Stop spinner when tool result is received
-    if (currentSpinner) {
-      currentSpinner.stop();
-      currentSpinner = null;
-    }
   }
 };
 
@@ -155,95 +138,23 @@ export async function findClaudePath(): Promise<string | null> {
 }
 
 export const promptClaude = async (prompt: string, projectDir: string) => {
-  // Check if instant mcp installed and prompt to install it
-
-  const claudePath = await findClaudePath();
-
-  if (!claudePath) {
-    throw new Error("Could not find Claude's path on your machine");
-  }
-
-  fs.appendFile(
-    path.join(projectDir, 'claude.md'),
-    'Do not use the instant mcp server to create a new app, a fresh app id has already been placed in the .env file. Do not attempt to start a dev server.',
-  );
-
-  return new Promise<void>((resolve, reject) => {
-    const running = exec(
-      `${claudePath} --dangerously-skip-permissions --output-format stream-json -p --verbose "${prompt}"`,
-      {
-        cwd: projectDir,
-      },
-    );
-
-    if (!running || !running.stdout || !running.stderr) {
-      reject(new Error('Failed to start claude process or get streams'));
-      return;
+  process.stdout.write('\x1B[?25l');
+  for await (const message of query({
+    options: {
+      cwd: projectDir,
+      appendSystemPrompt:
+        'Do not use the instant mcp server to create a new app, a fresh app id has already been placed in the .env file. Do not attempt to start a dev server.',
+      permissionMode: 'bypassPermissions', // todo: make more strict
+      env: process.env,
+    },
+    prompt: prompt,
+  })) {
+    if (message.type === 'system') {
+    } else if (message.type === 'assistant') {
+      message.message.content.forEach((content) => {
+        printClaudeMessage(content);
+      });
+    } else if (message.type === 'result') {
     }
-
-    let buffer = '';
-
-    running.on('spawn', () => {
-      // Claude code listens for stdin if not connected to a tty
-      running.stdin?.end();
-    });
-
-    running.stdout.on('data', (data) => {
-      process.stdout.write('\x1B[?25l');
-      buffer += data.toString();
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
-
-      lines.forEach((line: string) => {
-        if (line.trim()) {
-          try {
-            const parsed: ClaudeMessage = JSON.parse(line);
-
-            // Handle different message types with compact formatting
-            if (parsed.type === 'assistant' && parsed.message?.content) {
-              parsed.message.content.forEach((content) => {
-                printClaudeMessage(content);
-              });
-            }
-          } catch (error) {}
-        }
-      });
-    });
-
-    running.stderr?.on('data', (data) => {
-      const error = data.toString();
-      error.split('\n').forEach((line: string) => {
-        if (line.trim()) {
-          log.error(line);
-        }
-      });
-    });
-
-    running.on('close', (code) => {
-      // Stop any remaining spinner
-      if (currentSpinner) {
-        currentSpinner.stop();
-        currentSpinner = null;
-      }
-
-      if (code === 0) {
-        log.success('Claude completed successfully');
-        resolve();
-      } else {
-        log.error(`Claude failed with exit code ${code}`);
-        reject(new Error(`Process exited with code ${code}`));
-      }
-    });
-
-    running.on('error', (error) => {
-      // Stop any remaining spinner
-      if (currentSpinner) {
-        currentSpinner.stop();
-        currentSpinner = null;
-      }
-
-      log.error(error.message);
-      reject(error);
-    });
-  });
+  }
 };

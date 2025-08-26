@@ -28,6 +28,7 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
+    "@anthropic-ai/claude-code": "^1.0.92",
     "@clack/core": "^0.5.0",
     "@clack/prompts": "^0.11.0",
     "@ianvs/prettier-plugin-sort-imports": "^4.2.1",
@@ -42,6 +43,7 @@
     "sort-package-json": "^2.10.0"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^0.60.0",
     "@types/fs-extra": "^11.0.4",
     "@types/node": "^18.11.18",
     "tsup": "^6.7.0",
