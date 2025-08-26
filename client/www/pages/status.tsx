@@ -76,9 +76,9 @@ function getUptimeColor(percentage: number) {
   }
 }
 
-const processUptimeData = (UptimeRobotResponse: any): UptimeData => {
+const processUptimeData = (apiRes: any): UptimeData => {
   const monitors =
-    UptimeRobotResponse.monitors?.map((monitor: any): Monitor => {
+    apiRes.monitors?.map((monitor: any): Monitor => {
       const customRatios = monitor.custom_uptime_ratio?.split('-') || [];
       const customRanges = monitor.custom_uptime_ranges?.split('-') || [];
 
@@ -359,8 +359,8 @@ function StatusPage({ initialData }: { initialData: UptimeData | null }) {
   const fetchUptimeData = async () => {
     try {
       const response = await fetch('/api/uptime');
-      const UptimeRobotResponse = await response.json();
-      const processedData = processUptimeData(UptimeRobotResponse);
+      const apiRes = await response.json();
+      const processedData = processUptimeData(apiRes);
       setStatusState({
         data: processedData,
         isLoading: false,
