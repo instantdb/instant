@@ -744,23 +744,22 @@
   (let [pending-handlers (atom #{})]
     {:undertow/sse
      {:on-open (fn [req]
-                 (try
-                   (let [socket {:id id
-                                 :http-req (:exchange req)
-                                 :sse-conn (:channel req)
-                                 :receive-q receive-q
-                                 :pending-handlers pending-handlers
-                                 :close (fn []
-                                          (IoUtils/safeClose
-                                           ^ServerSentEventConnection (:channel req)))}]
-                     (on-open store socket)
-                     (admin-init! store id ctx)
-                     (receive-queue/put! receive-q
-                                         {:op :add-query
-                                          :session-id id
-                                          :client-event-id (random-uuid)
-                                          :q (:query ctx)
-                                          :return-type :tree}))))
+                 (let [socket {:id id
+                               :http-req (:exchange req)
+                               :sse-conn (:channel req)
+                               :receive-q receive-q
+                               :pending-handlers pending-handlers
+                               :close (fn []
+                                        (IoUtils/safeClose
+                                         ^ServerSentEventConnection (:channel req)))}]
+                   (on-open store socket)
+                   (admin-init! store id ctx)
+                   (receive-queue/put! receive-q
+                                       {:op :add-query
+                                        :session-id id
+                                        :client-event-id (random-uuid)
+                                        :q (:query ctx)
+                                        :return-type :tree})))
       :on-close (fn [_]
                   (on-close store
                             {:id id
