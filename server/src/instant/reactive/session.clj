@@ -130,14 +130,14 @@
                                           :attrs           attrs})))
 
 (defn admin-init! [store sess-id ctx]
-  (let [app (app-model/get-by-id! {:id (:app-id ctx)})
+  (let [app (:app ctx)
         attrs (:attrs ctx)
         user (:current-user ctx)
         admin? (:admin? ctx)
         auth {:app app
               :user user
               :admin? admin?}
-        creator (instant-user-model/get-by-app-id {:app-id (:app-id ctx)})]
+        creator (:creator ctx)]
     (apply rs/assoc-session! store sess-id
            :session/auth auth
            :session/creator creator
@@ -708,7 +708,6 @@
                         :close)]
       (rs/remove-session! store app-id id)
       (eph/leave-by-session-id! app-id id)
-      (tool/def-locals)
       (when close (close)))))
 
 (defn undertow-config
@@ -744,9 +743,7 @@
   [store receive-q {:keys [id]} ctx]
   (let [pending-handlers (atom #{})]
     {:undertow/sse
-     ;; XXX: There has to be some on-error or way to close
      {:on-open (fn [req]
-                 (tool/def-locals)
                  (try
                    (let [socket {:id id
                                  :http-req (:exchange req)
@@ -763,15 +760,7 @@
                                           :session-id id
                                           :client-event-id (random-uuid)
                                           :q (:query ctx)
-                                          :return-type :tree}))
-                   (catch Exception e
-                     (def -e e)
-                     (rs/send-event! store
-                                     (:app-id ctx)
-                                     id
-                                     {:op :error
-                                      :data "oops"})
-                     (.close ^ServerSentEventConnection (:channel req)))))
+                                          :return-type :tree}))))
       :on-close (fn [_]
                   (on-close store
                             {:id id

@@ -201,9 +201,6 @@ export function subscribe<
     },
   });
 
-  // @ts-ignore
-  globalThis.es = es;
-
   const subscribers = [];
   const onCloseSubscribers = [];
 
@@ -217,10 +214,6 @@ export function subscribe<
 
   const subscribeOnClose = (cb) => {
     onCloseSubscribers.push(cb);
-  };
-
-  const unsubscribeOnClose = (cb) => {
-    onCloseSubscribers.splice(onCloseSubscribers.indexOf(cb), 1);
   };
 
   if (cb) {
@@ -307,7 +300,9 @@ export function subscribe<
     }
   };
 
-  es.onmessage = (e) => handleMessage(JSON.parse(e.data));
+  es.onmessage = (e) => {
+    handleMessage(JSON.parse(e.data));
+  };
 
   return {
     close: () => {

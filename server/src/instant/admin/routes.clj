@@ -14,6 +14,7 @@
    [instant.model.app-user :as app-user-model]
    [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
    [instant.model.rule :as rule-model]
+   [instant.model.instant-user :as instant-user-model]
    [instant.reactive.receive-queue :as receive-queue]
    [instant.reactive.session :as session]
    [instant.reactive.store :as rs]
@@ -144,7 +145,9 @@
                     :datalog-loader (d/make-loader)
                     :inference? inference?
                     :query query
-                    :versions (ex/get-optional-param! req [:body :versions] identity)}
+                    :versions (ex/get-optional-param! req [:body :versions] identity)
+                    :app (app-model/get-by-id {:id app-id})
+                    :creator (instant-user-model/get-by-app-id {:app-id app-id})}
                    perms)]
     (session/undertow-sse-admin-config rs/store
                                        receive-queue/receive-q
