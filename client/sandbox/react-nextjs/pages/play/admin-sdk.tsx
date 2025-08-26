@@ -1,36 +1,53 @@
 import { provisionEphemeralApp } from '../../components/EphemeralAppPage';
 import { useEffect, useRef, useState } from 'react';
-import { init, id } from '@instantdb/admin';
+import {
+  init,
+  id,
+  SubscribeQueryResult,
+  SubscribeQueryResponse,
+} from '@instantdb/admin';
 import config from '../../config';
 
 let i = 0;
 const testId = id();
 
-async function doThing(sub: any) {
-  console.log('doing thing');
+async function asyncIterate(sub: any) {
+  console.log('async iterate');
   for await (const res of sub) {
-    console.log('got a res!', res);
+    console.log('got an async iterator res!', res);
   }
+  console.log('async iterate is done!');
 }
 
 function App({ app }: { app: { id: string; 'admin-token': string } }) {
   const db = useRef(
     init({ ...config, appId: app.id, adminToken: app['admin-token'] }),
   );
-  const [payloads, setPayloads] = useState<any[]>([]);
+  const [payloads, setPayloads] = useState<
+    SubscribeQueryResult<any, any, any>[]
+  >([]);
+  const [sub, setSub] = useState<SubscribeQueryResponse<any, any, any> | null>(
+    null,
+  );
+
+  const [triggerSub, setTriggerSub] = useState(0);
 
   useEffect(() => {
-    const sub = db.current.subscribeQuery({ test: {} }, (m: any) => {
-      console.log('m', m);
-      setPayloads((ps) => [m, ...ps]);
+    const sub = db.current.subscribeQuery({ test: {} }, (m) => {
+      if (m.type === 'error') {
+        setPayloads((ps) => [m, ...ps]);
+      } else if (m.data) {
+        setPayloads((ps) => [m, ...ps]);
+      }
     });
     // @ts-ignore
     globalThis.sub = sub;
-    doThing(sub);
+    setSub(sub);
+    asyncIterate(sub);
     () => {
       sub.close();
     };
-  }, []);
+  }, [triggerSub]);
 
   // @ts-ignore
   globalThis.db = db.current;
@@ -50,6 +67,26 @@ function App({ app }: { app: { id: string; 'admin-token': string } }) {
         >
           Add data
         </button>
+        {sub ? (
+          <button
+            className="bg-black text-white m-2 p-2"
+            onClick={() => {
+              sub?.close();
+              setSub(null);
+            }}
+          >
+            Close subscription
+          </button>
+        ) : (
+          <button
+            className="bg-black text-white m-2 p-2"
+            onClick={() => {
+              setTriggerSub((x) => x + 1);
+            }}
+          >
+            Recreate subscription
+          </button>
+        )}
       </div>
       <div>Payloads:</div>
       <ul>

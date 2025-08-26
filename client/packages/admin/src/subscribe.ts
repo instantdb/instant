@@ -17,9 +17,11 @@ export type SubscribeQueryResult<
   Config extends InstantConfig<Schema, boolean> = InstantConfig<Schema, false>,
 > =
   | {
+      type: 'ok';
       data: InstaQLResponse<Schema, Q, NonNullable<Config['useDateObjects']>>;
     }
   | {
+      type: 'error';
       error: InstantAPIError;
       readyState: SubscriptionReadyState;
       isClosed: boolean;
@@ -61,16 +63,16 @@ function makeAsyncIterator<
 >(
   subscribe: (cb: SubscribeQueryCallback<Schema, Q, Config>) => void,
   subscribeOnClose: (cb: () => void) => void,
-  unsubscribe: (
-    handler: (cb: SubscribeQueryCallback<Schema, Q, Config>) => void,
-  ) => void,
+  unsubscribe: (cb: SubscribeQueryCallback<Schema, Q, Config>) => void,
   readyState: () => SubscriptionReadyState,
 ): AsyncGenerator<SubscribeQueryResult<Schema, Q, Config>> {
   let wakeup = null;
   let closed = false;
 
-  const backlog = [];
-  const handler = (data) => {
+  const backlog: SubscribeQueryResult<Schema, Q, Config>[] = [];
+  const handler: SubscribeQueryCallback<Schema, Q, Config> = (
+    data: SubscribeQueryResult<Schema, Q, Config>,
+  ): void => {
     backlog.push(data);
     if (backlog.length > 100) {
       // Remove the oldest item to prevent the backlog
@@ -170,11 +172,12 @@ function multiReadFetchResponse(r) {
 export function subscribe<
   Schema extends InstantSchemaDef<any, any, any>,
   Q extends ValidQuery<Q, Schema>,
+  Config extends InstantConfig<Schema, boolean> = InstantConfig<Schema, false>,
 >(
   query: Q,
   cb,
   opts: { headers: HeadersInit; inference: boolean; apiURI: string },
-): SubscribeQueryResponse<Schema, Q> {
+): SubscribeQueryResponse<Schema, Q, Config> {
   let fetchErrorResponse;
 
   const es = new EventSource(`${opts.apiURI}/admin/subscribe-query`, {
@@ -201,7 +204,7 @@ export function subscribe<
     },
   });
 
-  const subscribers = [];
+  const subscribers: SubscribeQueryCallback<Schema, Q, Config>[] = [];
   const onCloseSubscribers = [];
 
   const subscribe = (cb) => {
@@ -220,7 +223,7 @@ export function subscribe<
     subscribe(cb);
   }
 
-  function deliver(result) {
+  function deliver(result: SubscribeQueryResult<Schema, Q, Config>) {
     for (const sub of subscribers) {
       try {
         sub(result);
@@ -234,6 +237,7 @@ export function subscribe<
     switch (msg.op) {
       case 'add-query-ok': {
         deliver({
+          type: 'ok',
           data: msg.result,
         });
         break;
@@ -241,6 +245,7 @@ export function subscribe<
       case 'refresh-ok': {
         if (msg.computations.length) {
           deliver({
+            type: 'ok',
             data: msg.computations[0]['instaql-result'],
           });
         }
@@ -248,6 +253,7 @@ export function subscribe<
       }
       case 'error': {
         deliver({
+          type: 'error',
           error: new InstantAPIError({ body: msg, status: msg.status }),
           get readyState() {
             return esReadyState(es);
@@ -269,6 +275,7 @@ export function subscribe<
           body = JSON.parse(t);
         } catch (_e) {}
         deliver({
+          type: 'error',
           error: new InstantAPIError({
             status: fetchErrorResponse.status,
             body,
@@ -283,6 +290,7 @@ export function subscribe<
       });
     } else {
       deliver({
+        type: 'error',
         error: new InstantAPIError({
           status: e.code || 500,
           body: {

@@ -77,6 +77,8 @@ import {
   subscribe,
   SubscribeQueryCallback,
   SubscribeQueryResponse,
+  SubscribeQueryPayload,
+  SubscriptionReadyState,
 } from './subscribe.ts';
 
 type DebugCheckResult = {
@@ -838,6 +840,41 @@ class InstantAdminDatabase<
     });
   };
 
+  /**
+   * Use this to to get a live view of your data!
+   *
+   * @see https://instantdb.com/docs/instaql
+   *
+   * @example
+   *  // create a subscription to a query
+   *  const query = { goals: { $: { where: { title: "Get Fit" } } } }
+   *  const sub = db.subscribeQuery(query);
+   *
+   *  // iterate through the results with an async iterator
+   *  for await (const payload of sub) {
+   *    if (payload.error) {
+   *      console.log(payload.error);
+   *      // Stop the subscription
+   *      sub.close();
+   *    } else {
+   *      console.log(payload.data);
+   *    }
+   *  }
+   *
+   *  // Stop the subscription
+   *  sub.close();
+   *
+   *  // Createa a subscription with a callback
+   *  const sub = db.subscribeQuery(query, (payload) => {
+   *    if (payload.error) {
+   *      console.log(payload.error);
+   *      // Stop the subscription
+   *      sub.close();
+   *    } else {
+   *      console.log(payload.data);
+   *    }
+   *  });
+   */
   subscribeQuery<Q extends ValidQuery<Q, Schema>>(
     query: Q,
     cb?: SubscribeQueryCallback<Schema, Q, Config>,
@@ -1026,6 +1063,10 @@ export {
   type InstantEntity,
   type BackwardsCompatibleSchema,
   type InstaQLFields,
+  type SubscribeQueryCallback,
+  type SubscribeQueryResponse,
+  type SubscribeQueryPayload,
+  type SubscriptionReadyState,
 
   // schema types
   type AttrsDefs,
