@@ -2,7 +2,16 @@ const UPTIMEROBOT_API_KEY = process.env.UPTIMEROBOT_API_KEY;
 const DAY_SECONDS = 24 * 60 * 60;
 
 export type UptimeAPIResponse = {
-  something: '123';
+  monitors: Array<{
+    id: string;
+    friendly_name: string;
+    url: string;
+    status: number;
+    custom_uptime_ratio?: string;
+    custom_uptime_ranges?: string;
+    all_time_uptime_ratio: string;
+    average_response_time: number;
+  }>;
 };
 
 export async function fetchStats(): Promise<UptimeAPIResponse> {
@@ -19,8 +28,6 @@ export async function fetchStats(): Promise<UptimeAPIResponse> {
     body: JSON.stringify({
       api_key: UPTIMEROBOT_API_KEY,
       format: 'json',
-      logs: 1,
-      logs_limit: 200,
       response_times: 1,
       response_times_limit: 90,
       custom_uptime_ratios: '1-7-30-90',

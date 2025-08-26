@@ -34,7 +34,6 @@ interface Monitor {
   };
   daily_uptime: number[];
   average_response_time: number;
-  logs: any[];
 }
 
 interface UptimeData {
@@ -76,9 +75,9 @@ function getUptimeColor(percentage: number) {
   }
 }
 
-const processUptimeData = (apiRes: any): UptimeData => {
+const processUptimeData = (apiRes: UptimeAPIResponse): UptimeData => {
   const monitors =
-    apiRes.monitors?.map((monitor: any): Monitor => {
+    apiRes.monitors?.map((monitor): Monitor => {
       const customRatios = monitor.custom_uptime_ratio?.split('-') || [];
       const customRanges = monitor.custom_uptime_ranges?.split('-') || [];
 
@@ -105,7 +104,6 @@ const processUptimeData = (apiRes: any): UptimeData => {
         },
         daily_uptime: dailyUptime,
         average_response_time: monitor.average_response_time,
-        logs: monitor.logs?.slice(0, 10) || [],
       };
     }) || [];
 
@@ -429,7 +427,7 @@ export default function Page({
   initialStats,
 }: InferGetServerSidePropsType<typeof getServerSideProps>) {
   const processedInitialData = initialStats
-    ? processUptimeData(initialStats as any)
+    ? processUptimeData(initialStats)
     : null;
 
   return (
