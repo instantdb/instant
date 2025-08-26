@@ -53,6 +53,7 @@ interface AppProps {
 function App({ db }: AppProps) {
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
+  const [orderHistory, setOrderHistory] = useState<{ order: string; count: number }[]>([]);
 
   const { data, isLoading } = db.useQuery({
     chats: {
@@ -88,6 +89,34 @@ function App({ db }: AppProps) {
     }
   }, [data?.chats, selectedChatId]);
 
+  // Track order changes
+  useEffect(() => {
+    if (!data?.chats?.length) return;
+    
+    const currentOrder = data.chats.map(c => c.title).join(' → ');
+    
+    setOrderHistory(prevHistory => {
+      if (prevHistory.length === 0) {
+        return [{ order: currentOrder, count: 1 }];
+      }
+      
+      const lastEntry = prevHistory[prevHistory.length - 1];
+      
+      if (lastEntry.order === currentOrder) {
+        // Same order, increment count
+        const newHistory = [...prevHistory];
+        newHistory[newHistory.length - 1] = {
+          ...lastEntry,
+          count: lastEntry.count + 1
+        };
+        return newHistory;
+      } else {
+        // Different order, add new entry
+        return [...prevHistory, { order: currentOrder, count: 1 }];
+      }
+    });
+  }, [data?.chats]);
+
   const selectedChat = data?.chats?.find((c) => c.id === selectedChatId);
   const messages = selectedChat?.messages || [];
   const sortedMessages = [...messages].sort(
@@ -114,18 +143,14 @@ function App({ db }: AppProps) {
 
     setMessageInput('');
   };
-  if (isLoading) {
-    return (
-      <div className="flex h-96 border rounded-lg overflow-hidden bg-blue-500"></div>
-    );
-  }
-
+  
   if (!data?.chats) return null;
 
   return (
-    <div className="flex h-96 border rounded-lg overflow-hidden">
-      {/* Chat list on the left */}
-      <div className="w-1/3 bg-gray-50 border-r">
+    <div>
+      <div className="flex h-96 border rounded-lg overflow-hidden">
+        {/* Chat list on the left */}
+        <div className="w-1/3 bg-gray-50 border-r">
         <div className="p-4 border-b bg-white">
           <h3 className="font-semibold">Chats (ordered by updatedAt desc)</h3>
           <ResetButton className="text-sm bg-red-500 text-white px-2 py-1 rounded mt-2" />
@@ -193,6 +218,32 @@ function App({ db }: AppProps) {
           </div>
         </div>
       </div>
+    </div>
+    
+    {/* Order History */}
+    <div className="mt-6 border rounded-lg p-4 bg-gray-50">
+      <h3 className="font-semibold mb-3">Order History (showing flicker)</h3>
+      <div className="space-y-2 max-h-40 overflow-y-auto">
+        {orderHistory.length === 0 ? (
+          <div className="text-gray-500">No ordering changes yet. Send a message to see the flicker!</div>
+        ) : (
+          orderHistory.map((entry, index) => (
+            <div key={index} className="flex items-center gap-2">
+              <span className="text-xs font-mono bg-white px-2 py-1 rounded border">
+                {entry.count > 1 ? `${entry.count}x` : 'NEW'}
+              </span>
+              <span className="text-sm font-mono text-gray-700">{entry.order}</span>
+            </div>
+          ))
+        )}
+      </div>
+      {orderHistory.length > 1 && (
+        <div className="mt-3 text-xs text-gray-600">
+          Total renders: {orderHistory.reduce((sum, entry) => sum + entry.count, 0)} | 
+          Order changes: {orderHistory.length}
+        </div>
+      )}
+    </div>
     </div>
   );
 }
