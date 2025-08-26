@@ -1,5 +1,12 @@
 import { useState } from 'react';
-import { init, tx, id, i } from '@instantdb/react';
+import {
+  init,
+  tx,
+  id,
+  i,
+  InstantReactAbstractDatabase,
+  InstantSchemaDef,
+} from '@instantdb/react';
 import config from '../../config';
 import EphemeralAppPage from '../../components/EphemeralAppPage';
 
@@ -41,6 +48,8 @@ const schema = i.schema({
   },
 });
 
+type Schema = typeof schema;
+
 const perms = {
   groups: {
     allow: {
@@ -67,7 +76,7 @@ const perms = {
   },
 };
 
-function Login({ db }) {
+function Login({ db }: { db: InstantReactAbstractDatabase<Schema> }) {
   const [state, setState] = useState({
     sentEmail: '',
     email: '',
@@ -132,7 +141,13 @@ function Login({ db }) {
   );
 }
 
-function Example({ db, user }) {
+function Example({
+  db,
+  user,
+}: {
+  db: InstantReactAbstractDatabase<Schema>;
+  user: { id: string };
+}) {
   const { isLoading, error, data } = db.useQuery({
     groups: {
       members: {},
@@ -270,7 +285,7 @@ function Router({ appId }: { appId: string }) {
     return <div>Loading...</div>;
   }
   if (auth.error) {
-    return <div>Uh oh! {error.message}</div>;
+    return <div>Uh oh! {auth.error.message}</div>;
   }
   if (!auth.user) {
     return <Login db={db} />;
