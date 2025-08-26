@@ -395,7 +395,10 @@
             (recur (.read stream)))
 
           (:insert :update :delete)
-          (let [put-result (a/alt!! [[to record]] :put)]
+          (let [put-result (a/alt!! [[to record]] :put
+                                    ;; The close signal chan keeps us from
+                                    ;; waiting to put on a closed `to` channel
+                                    close-signal-chan :closed)]
             (when (and (= put-result :put)
                        (not (.isClosed stream)))
               (recur (.read stream)))))))))
