@@ -7,6 +7,18 @@ import {
 import * as og from '@/lib/og';
 import { useState, useEffect } from 'react';
 import styles from '@/styles/status.module.css';
+import type { InferGetServerSidePropsType, GetServerSideProps } from 'next';
+import type { UptimeAPIResponse } from '@/lib/uptimeAPI';
+import * as uptimeAPI from '@/lib/uptimeAPI';
+
+export const getServerSideProps = (async () => {
+  const initialStats = await uptimeAPI.fetchStats();
+  return {
+    props: {
+      initialStats,
+    },
+  };
+}) satisfies GetServerSideProps<{ initialStats: UptimeAPIResponse }>;
 
 interface Monitor {
   id: string;
@@ -414,12 +426,10 @@ function StatusPage({ initialData }: { initialData: UptimeData | null }) {
 }
 
 export default function Page({
-  initialUptimeData,
-}: {
-  initialUptimeData: any;
-}) {
-  const processedInitialData = initialUptimeData
-    ? processUptimeData(initialUptimeData)
+  initialStats,
+}: InferGetServerSidePropsType<typeof getServerSideProps>) {
+  const processedInitialData = initialStats
+    ? processUptimeData(initialStats as any)
     : null;
 
   return (
@@ -441,31 +451,4 @@ export default function Page({
       </div>
     </LandingContainer>
   );
-}
-
-export async function getServerSideProps() {
-  try {
-    // Fetch uptime data on the server
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://instantdb.com';
-    const response = await fetch(`${baseUrl}/api/uptime`);
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch uptime data');
-    }
-
-    const uptimeData = await response.json();
-
-    return {
-      props: {
-        initialUptimeData: uptimeData,
-      },
-    };
-  } catch (error) {
-    console.error('Error fetching initial uptime data:', error);
-    return {
-      props: {
-        initialUptimeData: null,
-      },
-    };
-  }
 }
