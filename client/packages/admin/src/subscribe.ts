@@ -11,7 +11,7 @@ import {
 
 export type SubscriptionReadyState = 'closed' | 'connecting' | 'open';
 
-export type SubscribeQueryResult<
+export type SubscribeQueryPayload<
   Schema extends InstantSchemaDef<any, any, any>,
   Q extends ValidQuery<Q, Schema>,
   Config extends InstantConfig<Schema, boolean> = InstantConfig<Schema, false>,
@@ -31,7 +31,7 @@ export type SubscribeQueryCallback<
   Schema extends InstantSchemaDef<any, any, any>,
   Q extends ValidQuery<Q, Schema>,
   Config extends InstantConfig<Schema, boolean> = InstantConfig<Schema, false>,
-> = (result: SubscribeQueryResult<Schema, Q, Config>) => void;
+> = (payload: SubscribeQueryPayload<Schema, Q, Config>) => void;
 
 export interface SubscribeQueryResponse<
   Schema extends InstantSchemaDef<any, any, any>,
@@ -46,7 +46,7 @@ export interface SubscribeQueryResponse<
 
   /** Async iterator of query payloads */
   [Symbol.asyncIterator](): AsyncIterableIterator<
-    SubscribeQueryResult<Schema, Q, Config>
+    SubscribeQueryPayload<Schema, Q, Config>
   >;
 
   /** Ready state of the connection */
@@ -65,13 +65,13 @@ function makeAsyncIterator<
   subscribeOnClose: (cb: () => void) => void,
   unsubscribe: (cb: SubscribeQueryCallback<Schema, Q, Config>) => void,
   readyState: () => SubscriptionReadyState,
-): AsyncGenerator<SubscribeQueryResult<Schema, Q, Config>> {
+): AsyncGenerator<SubscribeQueryPayload<Schema, Q, Config>> {
   let wakeup = null;
   let closed = false;
 
-  const backlog: SubscribeQueryResult<Schema, Q, Config>[] = [];
+  const backlog: SubscribeQueryPayload<Schema, Q, Config>[] = [];
   const handler: SubscribeQueryCallback<Schema, Q, Config> = (
-    data: SubscribeQueryResult<Schema, Q, Config>,
+    data: SubscribeQueryPayload<Schema, Q, Config>,
   ): void => {
     backlog.push(data);
     if (backlog.length > 100) {
@@ -223,7 +223,7 @@ export function subscribe<
     subscribe(cb);
   }
 
-  function deliver(result: SubscribeQueryResult<Schema, Q, Config>) {
+  function deliver(result: SubscribeQueryPayload<Schema, Q, Config>) {
     for (const sub of subscribers) {
       try {
         sub(result);
