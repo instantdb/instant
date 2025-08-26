@@ -341,11 +341,11 @@
 (defn hz-jmx-stats []
   (for [^ObjectName n (jmx/mbean-names "com.hazelcast:*")
         a (jmx/attribute-names n)
+        ;; Filter out properties with tags or else we'll
+        ;; overload honeycomb
+        :when (not (.getKeyProperty n "tag0"))
         :let [prefix (.getKeyProperty n "prefix")
-              tag (.getKeyProperty n "tag0")
-              k (if tag
-                  (format "hz.%s.%s.%s" prefix tag (name a))
-                  (format "hz.%s.%s" prefix (name a)))]]
+              k (format "hz.%s.%s" prefix (name a))]]
     [{:path k
       :value (clojure.java.jmx/read n a)}]))
 

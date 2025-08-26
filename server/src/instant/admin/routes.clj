@@ -188,9 +188,7 @@
                                            :throw-on-missing-attrs? throw-on-missing-attrs?}
                                           steps)
         {tx-id :id} (permissioned-tx/transact! ctx tx-steps)]
-    (cond
-      :else
-      (response/ok {:tx-id tx-id}))))
+    (response/ok {:tx-id tx-id})))
 
 (defn transact-perms-check [req]
   (let [{:keys [app-id] :as perms} (get-perms! req :data/write)
