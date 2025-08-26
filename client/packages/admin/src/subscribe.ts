@@ -19,7 +19,11 @@ export type SubscribeQueryResult<
   | {
       data: InstaQLResponse<Schema, Q, NonNullable<Config['useDateObjects']>>;
     }
-  | { error: InstantAPIError };
+  | {
+      error: InstantAPIError;
+      readyState: SubscriptionReadyState;
+      isClosed: boolean;
+    };
 
 export type SubscribeQueryCallback<
   Schema extends InstantSchemaDef<any, any, any>,
@@ -238,9 +242,6 @@ export function subscribe<
       case 'add-query-ok': {
         deliver({
           data: msg.result,
-          get readyState() {
-            return esReadyState(es);
-          },
         });
         break;
       }
@@ -248,9 +249,6 @@ export function subscribe<
         if (msg.computations.length) {
           deliver({
             data: msg.computations[0]['instaql-result'],
-            get readyState() {
-              return esReadyState(es);
-            },
           });
         }
         break;
@@ -260,6 +258,9 @@ export function subscribe<
           error: new InstantAPIError({ body: msg, status: msg.status }),
           get readyState() {
             return esReadyState(es);
+          },
+          get isClosed() {
+            return esReadyState(es) === 'closed';
           },
         });
         break;
@@ -282,6 +283,9 @@ export function subscribe<
           get readyState() {
             return esReadyState(es);
           },
+          get isClosed() {
+            return esReadyState(es) === 'closed';
+          },
         });
       });
     } else {
@@ -296,10 +300,13 @@ export function subscribe<
         get readyState() {
           return esReadyState(es);
         },
+        get isClosed() {
+          return esReadyState(es) === 'closed';
+        },
       });
     }
   };
-  es.onopen = (e) => console.log('onopen', e);
+
   es.onmessage = (e) => handleMessage(JSON.parse(e.data));
 
   return {
