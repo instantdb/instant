@@ -843,7 +843,7 @@ class InstantAdminDatabase<
   /**
    * Use this to to get a live view of your data!
    *
-   * @see https://instantdb.com/docs/instaql
+   * @see https://www.instantdb.com/docs/backend
    *
    * @example
    *  // create a subscription to a query
