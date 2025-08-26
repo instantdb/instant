@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   init,
   id,
-  SubscribeQueryResult,
+  SubscribeQueryPayload,
   SubscribeQueryResponse,
 } from '@instantdb/admin';
 import config from '../../config';
@@ -24,7 +24,7 @@ function App({ app }: { app: { id: string; 'admin-token': string } }) {
     init({ ...config, appId: app.id, adminToken: app['admin-token'] }),
   );
   const [payloads, setPayloads] = useState<
-    SubscribeQueryResult<any, any, any>[]
+    SubscribeQueryPayload<any, any, any>[]
   >([]);
   const [sub, setSub] = useState<SubscribeQueryResponse<any, any, any> | null>(
     null,
