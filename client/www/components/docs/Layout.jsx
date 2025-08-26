@@ -8,7 +8,7 @@ import { Prose } from '@/components/docs/Prose';
 import { Search } from '@/components/docs/Search';
 import { SelectedAppContext } from '@/lib/SelectedAppContext';
 import { useAuthToken, useTokenFetch } from '@/lib/auth';
-import config, { getLocal, setLocal } from '@/lib/config';
+import config from '@/lib/config';
 import { Select } from '@/components/ui';
 import { BareNav } from '@/components/marketingUi';
 import navigation from '@/data/docsNavigation';

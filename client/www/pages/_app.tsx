@@ -18,6 +18,18 @@ declare global {
 
 (globalThis as any)._nodevtool = true;
 
+const getpageType = (
+  pageProps: AppProps['pageProps'],
+): 'docs' | 'normal' | 'api-reference' => {
+  if (!pageProps.markdoc) {
+    return 'normal';
+  }
+  if (pageProps.markdoc.file.path.startsWith('/api-reference/')) {
+    return 'api-reference';
+  }
+  return 'docs';
+};
+
 // hack to pass app ID to examples pages
 globalThis.__getAppId = () =>
   typeof window !== 'undefined'
@@ -26,12 +38,15 @@ globalThis.__getAppId = () =>
     : undefined;
 
 function App({ Component, pageProps }: AppProps) {
-  const isDocsPage = 'markdoc' in pageProps;
-  const mainEl = isDocsPage ? (
-    <DocsPage {...{ Component, pageProps }} />
-  ) : (
-    <Component {...pageProps} />
-  );
+  const pageType = getpageType(pageProps);
+
+  const mainEl =
+    pageType === 'docs' ? (
+      <DocsPage {...{ Component, pageProps }} />
+    ) : (
+      <Component {...pageProps} />
+    );
+
   useEffect(() => {
     return patchFirefoxClicks();
   }, []);

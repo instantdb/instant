@@ -1,0 +1,24 @@
+{
+  "$schema": "https://typedoc-plugin-markdown.org/schema.json",
+  "entryPointStrategy": "packages",
+  "entryPoints": [
+    "../packages/react/",
+  ],
+  "useCodeBlocks": true,
+  "plugin": [
+    "typedoc-plugin-markdown"
+  ],
+  "packageOptions": {
+    "entryPoints": [
+      "./src/index.ts"
+    ],
+    "router": "member",
+  },
+  "readme": "none",
+  "exclude": [
+    "www",
+    "README.md",
+  ],
+  "router": "member",
+  "out": "./pages/api-reference/"
+}
