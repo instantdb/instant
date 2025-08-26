@@ -864,7 +864,7 @@ class InstantAdminDatabase<
    *  // Stop the subscription
    *  sub.close();
    *
-   *  // Createa a subscription with a callback
+   *  // Create a subscription with a callback
    *  const sub = db.subscribeQuery(query, (payload) => {
    *    if (payload.error) {
    *      console.log(payload.error);
