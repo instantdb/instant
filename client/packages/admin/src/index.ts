@@ -73,6 +73,14 @@ import {
 
 import version from './version.js';
 
+import {
+  subscribe,
+  SubscribeQueryCallback,
+  SubscribeQueryResponse,
+  SubscribeQueryPayload,
+  SubscriptionReadyState,
+} from './subscribe.ts';
+
 type DebugCheckResult = {
   /** The ID of the record. */
   id: string;
@@ -154,7 +162,7 @@ function withImpersonation(
 function authorizedHeaders(
   config: FilledConfig,
   impersonationOpts?: ImpersonationOpts,
-) {
+): Record<string, string> {
   const { adminToken, appId } = config;
   const headers = {
     'content-type': 'application/json',
@@ -188,6 +196,21 @@ function getDefaultFetchOpts(): RequestInit {
   return isNextJSVersionThatCachesFetchByDefault() ? { cache: 'no-store' } : {};
 }
 
+async function jsonReject(rejectFn, res) {
+  const body = await res.text();
+  try {
+    const json = JSON.parse(body);
+    return rejectFn(new InstantAPIError({ status: res.status, body: json }));
+  } catch (_e) {
+    return rejectFn(
+      new InstantAPIError({
+        status: res.status,
+        body: { type: undefined, message: body },
+      }),
+    );
+  }
+}
+
 async function jsonFetch(
   input: RequestInfo,
   init: RequestInit | undefined,
@@ -203,20 +226,8 @@ async function jsonFetch(
     const json = await res.json();
     return Promise.resolve(json);
   }
-  const body = await res.text();
-  try {
-    const json = JSON.parse(body);
-    return Promise.reject(
-      new InstantAPIError({ status: res.status, body: json }),
-    );
-  } catch (_e) {
-    return Promise.reject(
-      new InstantAPIError({
-        status: res.status,
-        body: { type: undefined, message: body },
-      }),
-    );
-  }
+
+  return jsonReject((x) => Promise.reject(x), res);
 }
 
 /**
@@ -830,6 +841,71 @@ class InstantAdminDatabase<
   };
 
   /**
+   * Use this to to get a live view of your data!
+   *
+   * @see https://www.instantdb.com/docs/backend
+   *
+   * @example
+   *  // create a subscription to a query
+   *  const query = { goals: { $: { where: { title: "Get Fit" } } } }
+   *  const sub = db.subscribeQuery(query);
+   *
+   *  // iterate through the results with an async iterator
+   *  for await (const payload of sub) {
+   *    if (payload.error) {
+   *      console.log(payload.error);
+   *      // Stop the subscription
+   *      sub.close();
+   *    } else {
+   *      console.log(payload.data);
+   *    }
+   *  }
+   *
+   *  // Stop the subscription
+   *  sub.close();
+   *
+   *  // Create a subscription with a callback
+   *  const sub = db.subscribeQuery(query, (payload) => {
+   *    if (payload.error) {
+   *      console.log(payload.error);
+   *      // Stop the subscription
+   *      sub.close();
+   *    } else {
+   *      console.log(payload.data);
+   *    }
+   *  });
+   */
+  subscribeQuery<Q extends ValidQuery<Q, Schema>>(
+    query: Q,
+    cb?: SubscribeQueryCallback<Schema, Q, Config>,
+    opts: AdminQueryOpts = {},
+  ): SubscribeQueryResponse<Schema, Q, Config> {
+    if (query && opts && 'ruleParams' in opts) {
+      query = { $$ruleParams: opts['ruleParams'], ...query };
+    }
+
+    if (!this.config.disableValidation) {
+      validateQuery(query, this.config.schema);
+    }
+
+    const fetchOpts = opts.fetchOpts || {};
+    const fetchOptsHeaders = fetchOpts['headers'] || {};
+
+    const headers: HeadersInit = {
+      ...fetchOptsHeaders,
+      ...authorizedHeaders(this.config, this.impersonationOpts),
+    };
+
+    const inference = !!this.config.schema;
+
+    return subscribe(query, cb, {
+      headers,
+      inference,
+      apiURI: this.config.apiURI,
+    });
+  }
+
+  /**
    * Use this to write data! You can create, update, delete, and link objects
    *
    * @see https://instantdb.com/docs/instaml
@@ -987,6 +1063,10 @@ export {
   type InstantEntity,
   type BackwardsCompatibleSchema,
   type InstaQLFields,
+  type SubscribeQueryCallback,
+  type SubscribeQueryResponse,
+  type SubscribeQueryPayload,
+  type SubscriptionReadyState,
 
   // schema types
   type AttrsDefs,

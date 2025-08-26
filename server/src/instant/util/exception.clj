@@ -388,7 +388,7 @@
            ::hint {:sess-id sess-id}}))
 
 (defn throw-socket-error! [sess-id ^IOException io-ex]
-  (throw+ {::type ::socket-missing
+  (throw+ {::type ::socket-error
            ::message (format "Socket error for session: %s" sess-id)
            ::hint {:sess-id sess-id
                    :exception-message (.getMessage io-ex)}}

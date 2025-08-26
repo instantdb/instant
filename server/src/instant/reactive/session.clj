@@ -37,8 +37,10 @@
    [instant.util.uuid :as uuid-util]
    [lambdaisland.uri :as uri])
   (:import
+   (io.undertow.server.handlers.sse ServerSentEventConnection)
    (java.util.concurrent CancellationException)
-   (java.util.concurrent.atomic AtomicLong)))
+   (java.util.concurrent.atomic AtomicLong)
+   (org.xnio IoUtils)))
 
 ;; ------
 ;; Setup
@@ -126,6 +128,23 @@
                                           :client-event-id client-event-id
                                           :auth            auth
                                           :attrs           attrs})))
+
+(defn admin-init! [store sess-id ctx]
+  (let [app (:app ctx)
+        attrs (:attrs ctx)
+        user (:current-user ctx)
+        admin? (:admin? ctx)
+        auth {:app app
+              :user user
+              :admin? admin?}
+        creator (:creator ctx)]
+    (apply rs/assoc-session! store sess-id
+           :session/auth auth
+           :session/creator creator
+           (concat (when-let [versions (:versions ctx)]
+                     [:session/versions versions])
+                   (when (flags/refresh-skip-attrs? (:id app))
+                     [:session/attrs-hash (hash attrs)])))))
 
 (defn- get-auth! [store sess-id]
   (let [{:session/keys [auth]} (rs/session store sess-id)]
@@ -452,7 +471,9 @@
 ;; --------------
 ;; Receive Workers
 
-(defn- handle-instant-exception [session app-id original-event instant-ex debug-info]
+(declare on-close)
+
+(defn- handle-instant-exception [store session app-id original-event instant-ex debug-info]
   (let [sess-id (:session/id session)
         q (:receive-q (:session/socket session))
         {:keys [client-event-id]} original-event
@@ -489,8 +510,14 @@
                              :hint hint
                              :session-id sess-id})
 
+        ::ex/socket-missing
+        (do
+          (tracer/record-exception-span! instant-ex
+                                         {:name "receive-worker/socket-unreachable"})
+          (when-let [socket (:session/socket session)]
+            (on-close store socket)))
+
         (::ex/session-missing
-         ::ex/socket-missing
          ::ex/socket-error)
         (tracer/record-exception-span! instant-ex
                                        {:name "receive-worker/socket-unreachable"})
@@ -514,17 +541,20 @@
         q (:receive-q (:session/socket session))
         {:keys [client-event-id]} original-event]
     (tracer/add-exception! root-err {:escaping? false})
-
-    (receive-queue/put! q
-                        {:op :error
-                         :app-id app-id
-                         :client-event-id client-event-id
-                         :status 500
-                         :original-event (merge original-event
-                                                debug-info)
-                         :message (str "Yikes, something broke on our end! Sorry about that."
-                                       " Please ping us (Joe and Stopa) on Discord and let us know!")
-                         :session-id sess-id})))
+    (if (= :error (:op original-event))
+      ;; Don't send an error if we failed to send the error or we'll get into an
+      ;; infinite loop of errors
+      (tracer/add-data! {:attributes {:error-on-error true}})
+      (receive-queue/put! q
+                          {:op :error
+                           :app-id app-id
+                           :client-event-id client-event-id
+                           :status 500
+                           :original-event (merge original-event
+                                                  debug-info)
+                           :message (str "Yikes, something broke on our end! Sorry about that."
+                                         " Please ping us (Joe and Stopa) on Discord and let us know!")
+                           :session-id sess-id}))))
 
 (defn handle-receive-attrs [store session event metadata]
   (let [{:keys [session/socket]} session
@@ -593,7 +623,8 @@
                                  :app
                                  :id)]
               (cond
-                instant-ex (handle-instant-exception session
+                instant-ex (handle-instant-exception store
+                                                     session
                                                      app-id
                                                      original-event
                                                      instant-ex
@@ -672,9 +703,12 @@
     (let [app-id (-> (rs/session store id)
                      :session/auth
                      :app
-                     :id)]
+                     :id)
+          close (some-> (rs/session store id)
+                        :close)]
       (rs/remove-session! store app-id id)
-      (eph/leave-by-session-id! app-id id))))
+      (eph/leave-by-session-id! app-id id)
+      (when close (close)))))
 
 (defn undertow-config
   [store receive-q {:keys [id]}]
@@ -700,6 +734,32 @@
       :on-error (fn [{:keys [error]}]
                   (on-error {:id id
                              :error error}))
+      :on-close (fn [_]
+                  (on-close store
+                            {:id id
+                             :pending-handlers pending-handlers}))}}))
+
+(defn undertow-sse-admin-config
+  [store receive-q {:keys [id]} ctx]
+  (let [pending-handlers (atom #{})]
+    {:undertow/sse
+     {:on-open (fn [req]
+                 (let [socket {:id id
+                               :http-req (:exchange req)
+                               :sse-conn (:channel req)
+                               :receive-q receive-q
+                               :pending-handlers pending-handlers
+                               :close (fn []
+                                        (IoUtils/safeClose
+                                         ^ServerSentEventConnection (:channel req)))}]
+                   (on-open store socket)
+                   (admin-init! store id ctx)
+                   (receive-queue/put! receive-q
+                                       {:op :add-query
+                                        :session-id id
+                                        :client-event-id (random-uuid)
+                                        :q (:query ctx)
+                                        :return-type :tree})))
       :on-close (fn [_]
                   (on-close store
                             {:id id
