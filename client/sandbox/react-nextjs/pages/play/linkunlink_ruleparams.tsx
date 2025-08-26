@@ -37,10 +37,11 @@ const perms = {
       update: 'true',
       delete: 'true',
       link: {
-        members: 'data.ownerId == auth.id || linkedData.id == auth.id',
+        members: 'data.ownerId == ruleParams.currentUserId',
       },
       unlink: {
-        members: 'data.ownerId == auth.id || linkedData.id == auth.id',
+        members:
+          'data.ownerId == ruleParams.currentUserId || linkedData.id == ruleParams.currentUserId',
       },
     },
   },
@@ -85,7 +86,11 @@ function Example({ appId }: { appId: string }) {
 
   const addMember = async (groupId: string, userId: string) => {
     try {
-      await db.transact([tx.groups[groupId].link({ members: userId })]);
+      await db.transact([
+        tx.groups[groupId]
+          .ruleParams({ currentUserId })
+          .link({ members: userId }),
+      ]);
     } catch (error) {
       console.error('Failed to add member:', error);
       alert(`Failed to add member: ${error}`);
@@ -94,7 +99,11 @@ function Example({ appId }: { appId: string }) {
 
   const removeMember = async (groupId: string, userId: string) => {
     try {
-      await db.transact([tx.groups[groupId].unlink({ members: userId })]);
+      await db.transact([
+        tx.groups[groupId]
+          .ruleParams({ currentUserId })
+          .unlink({ members: userId }),
+      ]);
     } catch (error) {
       console.error('Failed to remove member:', error);
       alert(`Failed to remove member: ${error}`);
@@ -111,9 +120,7 @@ function Example({ appId }: { appId: string }) {
   return (
     <div className="p-8">
       <h1 className="text-2xl font-bold mb-4">Link/Unlink Permissions Demo</h1>
-      <p className="mb-4">
-        Owners can add or remove anyone. Users can _only_ remove themselves.
-      </p>
+
       <div className="mb-6 p-4 bg-gray-100 rounded">
         <p className="mb-2">
           Current User: {currentUser?.name || 'None'} (ID:{' '}
