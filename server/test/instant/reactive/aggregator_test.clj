@@ -113,7 +113,7 @@
                                          (not= app-id (:id app)))))
                                    changes)))]
         (binding [*in-test* true]
-          (let [slot-suffix (crypt-util/random-hex 16)
+          (let [slot-suffix (str "cc_" (crypt-util/random-hex 16))
                 slot-name (wal/full-slot-name agg/slot-type slot-suffix)
                 get-aggregator-status
                 (fn []
@@ -315,7 +315,7 @@
                                          (not= app-id (:id app)))))
                                    changes)))]
         (binding [*in-test* true]
-          (let [slot-suffix (crypt-util/random-hex 16)
+          (let [slot-suffix (str "vtl_" (crypt-util/random-hex 16))
                 slot-name (wal/full-slot-name agg/slot-type slot-suffix)]
             (try
               (bootstrap/add-movies-to-app! (:id app))
@@ -411,7 +411,7 @@
                                          (not= app-id (:id app)))))
                                    changes)))]
         (binding [*in-test* true]
-          (let [slot-suffix (crypt-util/random-hex 16)
+          (let [slot-suffix (str "cdt_" (crypt-util/random-hex 16))
                 slot-name (wal/full-slot-name agg/slot-type slot-suffix)]
             (try
               (bootstrap/add-zeneca-to-app! {:checked-data? true

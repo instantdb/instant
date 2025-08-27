@@ -140,7 +140,9 @@
 
    Does nothing if the slot has already been created."
   [{:keys [slot-name copy-sql process-id]}]
-  (tracer/with-span! {:name "aggregator/initialize-slot"}
+  (tracer/with-span! {:name "aggregator/initialize-slot"
+                      :attributes {:pid process-id
+                                   :slot-name slot-name}}
     (when-let [{:keys [connection lsn]}
                (tracer/with-span! {:name "aggregator/maybe-create-slot"}
                  (wal/create-sync-db-replication-slot-and-connection
@@ -148,7 +150,9 @@
                    slot-name))]
       (with-open [connection ^PgConnection connection]
         (doseq [sketches (partition-all 1000 (initial-sketch-seq connection copy-sql))]
-          (tracer/with-span! {:name "aggregator/insert-initial-sketches"}
+          (tracer/with-span! {:name "aggregator/insert-initial-sketches"
+                              :attributes {:pid process-id
+                                           :slot-name slot-name}}
             (cms/insert-initial-sketches! (aurora/conn-pool :write)
                                           {:sketches sketches
                                            :lsn lsn}))))
@@ -299,7 +303,9 @@
   (tracer/with-span! {:name "aggregator/process-sketch-changes"
                       :attributes {:previous-lsn previous-lsn
                                    :changed-sketch-count (count changes)
-                                   :max-lsn max-lsn}}
+                                   :max-lsn max-lsn
+                                   :pid process-id
+                                   :slot-name slot-name}}
     (when-not max-lsn
       (throw (ex-info "max-lsn was nil, we can't apply changes" {:previous-lsn previous-lsn
                                                                  :max-lsn max-lsn})))
@@ -366,10 +372,14 @@
               (when-some [wal-record (a/<! wal-chan)]
                 (ua/>!-close-safe close-signal-chan (:in process-chan) wal-record)
                 (recur)))
-            (tracer/record-info! {:name "aggregator-worker/shuffler-shutdown"})
+            (tracer/record-info! {:name "aggregator-worker/shuffler-shutdown"
+                                  :attributes {:pid process-id
+                                               :slot-name slot-name}})
             (catch Throwable t
               (on-error t)
-              (tracer/record-exception-span! t {:name "aggregator-worker/shuffler-error"}))))
+              (tracer/record-exception-span! t {:name "aggregator-worker/shuffler-error"
+                                                :attributes {:pid process-id
+                                                             :slot-name slot-name}}))))
 
         ;; Processes the items every N seconds (or M items) in a batch
         processor
@@ -386,10 +396,14 @@
                                                              :sketch-cache sketch-cache})]
                   (ua/>!-close-safe close-signal-chan flush-lsn-chan lsn)
                   (recur lsn))))
-            (tracer/record-info! {:name "aggregator-worker/processor-shutdown"})
+            (tracer/record-info! {:name "aggregator-worker/processor-shutdown"
+                                  :attributes {:pid process-id
+                                               :slot-name slot-name}})
             (catch Throwable t
               (on-error t)
-              (tracer/record-exception-span! t {:name "aggregator-worker/processor-error"}))))]
+              (tracer/record-exception-span! t {:name "aggregator-worker/processor-error"
+                                                :attributes {:pid process-id
+                                                             :slot-name slot-name}}))))]
     (fn []
       (let [shutdown-finished ((:shutdown process-chan))]
         (a/go
@@ -436,13 +450,14 @@
            sketch-flush-max-items
            process-id]}]
   (let [shutdown-chan (a/chan)
+        slot-name (wal/full-slot-name slot-type
+                                      slot-suffix)
         process
         (a/go
           (loop [timeout-ch (a/timeout 0)]
             (when (= timeout-ch (second (a/alts! [shutdown-chan timeout-ch])))
               (if-let [lsn (cms/get-start-lsn (aurora/conn-pool :read)
-                                              {:slot-name (wal/full-slot-name slot-type
-                                                                              slot-suffix)})]
+                                              {:slot-name slot-name})]
                 (let [{:keys [wal-chan worker-chan flush-lsn-chan close-signal-chan]}
                       (create-wal-chans lsn)
 
@@ -500,15 +515,21 @@
                                                      :on-error (fn [_t]
                                                                  (a/close! close-signal-chan))})
                           [_exit-v exit-ch] (a/alts! [shutdown-chan close-signal-chan])]
-                      (tracer/with-span! {:name "aggregator/wait-for-worker-to-finish"}
+                      (tracer/with-span! {:name "aggregator/wait-for-worker-to-finish"
+                                          :attributes {:pid process-id
+                                                       :slot-name (:slot-name wal-opts)}}
                         (stop wal-opts)
                         (a/<! (stop-worker)))
                       (when (= exit-ch close-signal-chan)
                         (tracer/record-info! {:name "aggregator/retry"
-                                              :attributes {:wait-ms acquire-slot-interval-ms}})
+                                              :attributes {:wait-ms acquire-slot-interval-ms
+                                                           :attributes {:pid process-id
+                                                                        :slot-name (:slot-name wal-opts)}}})
                         (recur (a/timeout acquire-slot-interval-ms))))))
                 (recur (a/timeout acquire-slot-interval-ms)))))
-          (tracer/record-info! {:name "aggregator/slot-listener-exit"}))]
+          (tracer/record-info! {:name "aggregator/slot-listener-exit"
+                                :attributes {:pid process-id
+                                             :slot-name slot-name}}))]
     (fn []
       (a/close! shutdown-chan)
       (when-let [wal-worker-finished (a/<!! process)]
