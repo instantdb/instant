@@ -4,6 +4,7 @@ import { PKG_ROOT } from './consts.js';
 import * as p from '@clack/prompts';
 import { Project } from './cli.js';
 import chalk from 'chalk';
+import { getUserPkgManager } from './utils/getUserPkgManager.js';
 
 export const scaffoldBase = async (cliResults: Project, appDir: string) => {
   const projectDir = path.resolve(process.cwd(), appDir);
@@ -57,6 +58,14 @@ export const scaffoldBase = async (cliResults: Project, appDir: string) => {
     path.join(projectDir, '.gitignore'),
   );
   fs.renameSync(path.join(projectDir, '_env'), path.join(projectDir, '.env'));
+
+  if (getUserPkgManager() === 'pnpm' && cliResults.base === 'expo') {
+    fs.appendFile(
+      path.join(projectDir, '.npmrc'),
+      `node-linker=hoisted
+enable-pre-post-scripts=true`,
+    );
+  }
 
   const scaffoldedName =
     cliResults.appName === '.' ? 'App' : chalk.cyan.bold(cliResults.appName);
