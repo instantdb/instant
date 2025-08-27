@@ -5,20 +5,19 @@ import {
   MainNav,
 } from '@/components/marketingUi';
 import * as og from '@/lib/og';
-import { useState, useEffect } from 'react';
 import styles from '@/styles/status.module.css';
 import type { InferGetServerSidePropsType, GetServerSideProps } from 'next';
 import type { UptimeResponse, Monitor } from '@/lib/uptimeAPI';
 import * as uptimeAPI from '@/lib/uptimeAPI';
 
 export const getServerSideProps = (async () => {
-  const initialUptime = await uptimeAPI.fetchUptime();
+  const uptime = await uptimeAPI.fetchUptime();
   return {
     props: {
-      initialUptime,
+      uptime,
     },
   };
-}) satisfies GetServerSideProps<{ initialUptime: UptimeResponse }>;
+}) satisfies GetServerSideProps<{ uptime: UptimeResponse }>;
 
 const ERR_COLOR = '#e5e7eb';
 const PERFECT_COLOR = '#22c55e';
@@ -30,24 +29,34 @@ const DIVIDER_COLOR = '#e5e7eb';
 function getUptimeColor(percentage: number) {
   if (percentage >= 100) {
     return PERFECT_COLOR;
-  } else if (percentage >= 99.9) {
-    return GOOD_COLOR;
-  } else if (percentage >= 99) {
-    return BAD_COLOR;
-  } else if (percentage > 0 && percentage < 99) {
-    return WORST_COLOR;
-  } else {
-    return ERR_COLOR;
   }
+
+  if (percentage >= 99.9) {
+    return GOOD_COLOR;
+  }
+
+  if (percentage >= 99) {
+    return BAD_COLOR;
+  }
+
+  return WORST_COLOR;
 }
 
-function MainStatus({ allOperational }: { allOperational: boolean }) {
+function MainStatus({
+  allOperational,
+  lastUpdated,
+}: {
+  allOperational: boolean;
+  lastUpdated: Date;
+}) {
   return (
     <div className="flex justify-center px-4 sm:px-8 md:px-16 lg:px-32 xl:px-64 z-10 py-4 md:py-8 relative">
       <div className="relative bg-white w-full max-w-4xl h-32 sm:h-44 md:h-60 border-2 border-gray-200">
         <div className="absolute top-3 right-4 text-xs md:text-sm font-mono">
           <div className="text-right">
-            <div className="font-semibold text-gray-700">Service Status</div>
+            <span className="text-gray-500">
+              Last updated {lastUpdated.toLocaleTimeString()}
+            </span>
           </div>
         </div>
         <div className="flex gap-4 sm:gap-6 md:gap-8 h-full justify-center items-center px-4">
@@ -237,28 +246,17 @@ function OverallUptime({ uptime }: { uptime: UptimeResponse }) {
   );
 }
 
-function StatusPage({ initialUptime }: { initialUptime: UptimeResponse }) {
-  const [uptime, setUptime] = useState<UptimeResponse>(initialUptime);
-
-  const fetchUptimeData = async () => {
-    const response = await fetch('/api/uptime');
-    const processedData: UptimeResponse = await response.json();
-    setUptime(processedData);
-  };
-
-  useEffect(() => {
-    fetchUptimeData();
-    const timer = setInterval(fetchUptimeData, 60000); // Update every 60 seconds
-    return () => clearInterval(timer);
-  }, []);
-
+function StatusPage({ uptime }: { uptime: UptimeResponse }) {
   const allOperational =
     uptime.monitors.length > 0 &&
     uptime.monitors.every((m: Monitor) => m.status === 2);
 
   return (
     <div className="flex flex-col relative min-h-screen overflow-y-auto">
-      <MainStatus allOperational={allOperational} />
+      <MainStatus
+        allOperational={allOperational}
+        lastUpdated={new Date(uptime.last_updated)}
+      />
       <UptimeDetails uptime={uptime} />
       <OverallUptime uptime={uptime} />
     </div>
@@ -266,7 +264,7 @@ function StatusPage({ initialUptime }: { initialUptime: UptimeResponse }) {
 }
 
 export default function Page({
-  initialUptime,
+  uptime,
 }: InferGetServerSidePropsType<typeof getServerSideProps>) {
   return (
     <LandingContainer>
@@ -282,7 +280,7 @@ export default function Page({
         <div>
           <MainNav />
         </div>
-        <StatusPage initialUptime={initialUptime} />
+        <StatusPage uptime={uptime} />
         <LandingFooter />
       </div>
     </LandingContainer>
