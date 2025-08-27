@@ -264,7 +264,8 @@
     ;; less than or equal to that lsn
     (when (= -1 (compare start-lsn lsn))
       {:sketch-changes sketch-changes
-       :lsn lsn})))
+       :lsn lsn
+       :tx-bytes (:tx-bytes change)})))
 
 (defn wal-record-xf [start-lsn]
   (keep (fn [record]
@@ -281,9 +282,10 @@
                 (0 1) a
                 -1 b)))
 
-(defn combine-sketch-changes [{:keys [changes]}
-                              {:keys [sketch-changes lsn]}]
+(defn combine-sketch-changes [{:keys [changes] :as existing}
+                              {:keys [sketch-changes lsn tx-bytes]}]
   {:max-lsn lsn
+   :tx-bytes (+ (:tx-bytes existing 0) tx-bytes)
    :changes (reduce (fn [acc {:keys [incr triples-data lsn]}]
                       (let [key {:app-id (:app-id triples-data)
                                  :attr-id (:attr-id triples-data)}
@@ -299,11 +301,12 @@
                     sketch-changes)})
 
 (defn process-sketch-changes [conn {:keys [process-id slot-name previous-lsn
-                                           max-lsn changes sketch-cache]}]
+                                           max-lsn changes sketch-cache tx-bytes]}]
   (tracer/with-span! {:name "aggregator/process-sketch-changes"
                       :attributes {:previous-lsn previous-lsn
                                    :changed-sketch-count (count changes)
                                    :max-lsn max-lsn
+                                   :tx-bytes tx-bytes
                                    :pid process-id
                                    :slot-name slot-name}}
     (when-not max-lsn
@@ -360,8 +363,8 @@
                                        :max-size sketch-flush-max-items
                                        :combine combine-sketch-changes
                                        :init nil
-                                       :size (fn [{:keys [sketch-changes]}]
-                                               (count sketch-changes))})
+                                       :size (fn [{:keys [changes] :as x}]
+                                               (count changes))})
 
         shuffler
         ;; Shuffles items from the wal-chan to the process-chan, where they are
@@ -386,13 +389,14 @@
         (a/go
           (try
             (loop [previous-lsn start-lsn]
-              (when-some [{:keys [changes max-lsn]} (a/<! (:out process-chan))]
+              (when-some [{:keys [changes max-lsn tx-bytes]} (a/<! (:out process-chan))]
                 (let [{:keys [lsn]} (process-sketch-changes (aurora/conn-pool :write)
                                                             {:process-id process-id
                                                              :slot-name slot-name
                                                              :previous-lsn previous-lsn
                                                              :max-lsn max-lsn
                                                              :changes changes
+                                                             :tx-bytes tx-bytes
                                                              :sketch-cache sketch-cache})]
                   (ua/>!-close-safe close-signal-chan flush-lsn-chan lsn)
                   (recur lsn))))
