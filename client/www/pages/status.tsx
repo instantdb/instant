@@ -167,13 +167,18 @@ function MonitorDisplay({
   );
 }
 
-function UptimeDetails({
-  backendMonitor,
-  walMonitor,
-}: {
-  backendMonitor: Monitor | undefined;
-  walMonitor: Monitor | undefined;
-}) {
+function UptimeDetails({ uptime }: { uptime: UptimeResponse }) {
+  const backendMonitor = uptime.monitors.find(
+    (m: Monitor) =>
+      m.friendly_name?.toLowerCase().includes('backend') ||
+      m.friendly_name?.toLowerCase().includes('api'),
+  );
+  const walMonitor = uptime.monitors?.find(
+    (m: Monitor) =>
+      m.friendly_name?.toLowerCase().includes('wal') ||
+      m.friendly_name?.toLowerCase().includes('write'),
+  );
+
   return (
     <div className="flex z-10 justify-center px-4 sm:px-8 md:px-16 lg:px-32 xl:px-64 py-4 relative">
       <div className="font-mono flex-1 max-w-4xl">
@@ -276,17 +281,6 @@ function StatusPage({ initialUptime }: { initialUptime: UptimeResponse }) {
     fetchUptimeData();
   }, []);
 
-  const backendMonitor = uptime.monitors.find(
-    (m: Monitor) =>
-      m.friendly_name?.toLowerCase().includes('backend') ||
-      m.friendly_name?.toLowerCase().includes('api'),
-  );
-  const walMonitor = uptime.monitors?.find(
-    (m: Monitor) =>
-      m.friendly_name?.toLowerCase().includes('wal') ||
-      m.friendly_name?.toLowerCase().includes('write'),
-  );
-
   const allOperational =
     uptime.monitors.length > 0 &&
     uptime.monitors.every((m: Monitor) => m.status === 2);
@@ -298,7 +292,7 @@ function StatusPage({ initialUptime }: { initialUptime: UptimeResponse }) {
         lastUpdated={new Date(uptime.last_updated)}
         nextUpdate={nextUpdate}
       />
-      <UptimeDetails backendMonitor={backendMonitor} walMonitor={walMonitor} />
+      <UptimeDetails uptime={uptime} />
       <OverallUptime uptime={uptime} />
     </div>
   );
