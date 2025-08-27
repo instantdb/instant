@@ -95,6 +95,34 @@ function SoftDeleteTest({ db, appId, adminToken }: any) {
     }
   };
 
+  const hardDeleteAttr = async (attrId: string) => {
+    if (!adminToken) return;
+
+    try {
+      const response = await fetch(
+        `${config.apiURI}/admin/hard_delete_attrs`,
+        {
+          method: 'POST',
+          headers: {
+            'app-id': appId,
+            'authorization': `Bearer ${adminToken}`,
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({ ids: [attrId] }),
+        },
+      );
+      
+      if (!response.ok) {
+        throw new Error(`Failed to hard delete: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('Hard deleted attr:', attrId, data);
+    } catch (error) {
+      console.error('Error hard deleting attr:', error);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-4 p-4">
       <h1 className="text-2xl font-bold">Soft Delete Test</h1>
@@ -203,12 +231,20 @@ function SoftDeleteTest({ db, appId, adminToken }: any) {
                   {new Date(attr['deletion-marked-at']).toLocaleString()}
                 </span>
               </div>
-              <button
-                onClick={() => restoreAttr(attr.id)}
-                className="px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600"
-              >
-                Restore
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => restoreAttr(attr.id)}
+                  className="px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600"
+                >
+                  Restore
+                </button>
+                <button
+                  onClick={() => hardDeleteAttr(attr.id)}
+                  className="px-3 py-1 bg-gray-700 text-white text-sm rounded hover:bg-gray-800"
+                >
+                  Hard Delete
+                </button>
+              </div>
             </div>
           ))}
           {softDeletedAttrs.length === 0 && isPolling && (
