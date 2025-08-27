@@ -13,7 +13,7 @@ const getVariantStyles = (variant: string) => {
   switch (variant) {
     case 'teams':
       return {
-        outline: 'outline-orange-600/80',
+        outline: 'outline-orange-600',
         outlineWidth: 'outline-2',
         background: 'bg-white',
         textColor: 'text-black',
