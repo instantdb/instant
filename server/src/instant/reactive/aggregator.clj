@@ -259,10 +259,10 @@
                  :lsn lsn
                  :triples-data (update-triple update-data
                                               identity-data)}]))))]
-    (when (and (seq sketch-changes)
-               ;; When we restart the slot, it will also include the last
-               ;; transaction that we processed. Setting the
-               (= -1 (compare start-lsn lsn)))
+    ;; When we restart the slot, it will also include the last
+    ;; transaction that we processed, so we need to filter out anything
+    ;; less than or equal to that lsn
+    (when (= -1 (compare start-lsn lsn))
       {:sketch-changes sketch-changes
        :lsn lsn})))
 

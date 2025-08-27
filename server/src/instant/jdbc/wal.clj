@@ -390,11 +390,13 @@
         (recur (.read stream)))
       (let [record (wal-buffer->record buffer)]
         (case (:action record)
-          (:begin :close :truncate :message)
+          (:begin :truncate :message)
           (when-not (.isClosed stream)
             (recur (.read stream)))
 
-          (:insert :update :delete)
+          ;; Process the close so that we update the lsn in the
+          ;; wal_aggregator_status table
+          (:insert :update :delete :close)
           (let [put-result (a/alt!! [[to record]] :put
                                     ;; The close signal chan keeps us from
                                     ;; waiting to put on a closed `to` channel
