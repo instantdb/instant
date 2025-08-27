@@ -237,18 +237,26 @@
                                            :sketch-flush-max-items 1000
                                            :process-id pid-b})]
                 (try
-                  (let [r (resolvers/make-zeneca-resolver (:id app))]
-                    ;; create a new transaction so that we can see who grabbed the slot.
-                    (sql/execute! (aurora/conn-pool :write)
-                                  ["update triples set value = '\"alex2\"'::jsonb where app_id = ? and attr_id = ? and entity_id = ?"
-                                   (:id app)
-                                   (resolvers/->uuid r :users/handle)
-                                   (resolvers/->uuid r "eid-alex")])
+                  ;; wait for the process to start
+                  (wait-for #(contains? #{pid-a pid-b}
+                                        (:process_id (get-aggregator-status)))
+                            1000)
 
-                    ;; wait for the transaction to be handled
-                    (wait-for #(contains? #{pid-a pid-b}
-                                          (:process_id (get-aggregator-status)))
-                              1000)
+                  (let [r (resolvers/make-zeneca-resolver (:id app))]
+                    (let [start-lsn (cms/get-start-lsn (aurora/conn-pool :read)
+                                                       {:slot-name slot-name})]
+                      ;; create a new transaction so that we can see who grabbed the slot.
+                      (sql/execute! (aurora/conn-pool :write)
+                                    ["update triples set value = '\"alex2\"'::jsonb where app_id = ? and attr_id = ? and entity_id = ?"
+                                     (:id app)
+                                     (resolvers/->uuid r :users/handle)
+                                     (resolvers/->uuid r "eid-alex")])
+
+                      ;; Wait for aggregator to catch up
+                      (wait-for #(> 0 (compare start-lsn
+                                               (cms/get-start-lsn (aurora/conn-pool :read)
+                                                                  {:slot-name slot-name})))
+                                1000))
 
                     (let [live-pid (:process_id (get-aggregator-status))
                           next-pid (if (= live-pid pid-a)
