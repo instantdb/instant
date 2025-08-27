@@ -20,3 +20,11 @@
       (when (and val# (not (instance? Var$Unbound val#)))
         (~method val#)
         (Var/.doReset var# nil)))))
+
+(defmacro with-reentrant-lock [lock-expr & body]
+  `(let [lockee# ~(with-meta lock-expr {:tag 'java.util.concurrent.locks.ReentrantLock})]
+     (.lock lockee#)
+     (try
+       ~@body
+       (finally
+         (.unlock lockee#)))))
