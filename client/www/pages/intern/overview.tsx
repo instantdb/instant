@@ -193,29 +193,130 @@ const OriginColumn = ({ origins }: { origins: any }) => {
   );
 };
 
-export function Main() {
-  const token = useAuthToken();
-  const daily = useDailyOverview(token!);
-  const minute = useMinuteOverview(token!);
-  if (daily.isLoading || minute.isLoading) return <FullscreenLoading />;
-  const error = daily.error || minute.error;
-  if (error) {
+// Component for Daily Stats Section
+const DailyStatsSection = ({ daily }: { daily: any }) => {
+  if (daily.isLoading) {
     return (
-      <div>
-        Error: <pre>{JSON.stringify(error.body, null, 2)}</pre>
+      <div className="flex-1 p-2 space-y-2">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-gray-500">Loading daily stats...</div>
+        </div>
       </div>
     );
   }
-  if (!minute.data || !daily.data) {
+
+  if (daily.error) {
     return (
-      <div>
-        Error: <pre>Missing data for minute.</pre>
+      <div className="flex-1 p-2 space-y-2">
+        <div className="bg-red-50 border border-red-200 rounded p-4">
+          <h3 className="text-red-600 font-semibold mb-2">Daily Stats Error</h3>
+          <pre className="text-sm text-red-500">
+            {JSON.stringify(daily.error.body || daily.error.message, null, 2)}
+          </pre>
+        </div>
       </div>
     );
   }
+
+  if (!daily.data) {
+    return (
+      <div className="flex-1 p-2 space-y-2">
+        <div className="bg-yellow-50 border border-yellow-200 rounded p-4">
+          <p className="text-yellow-600">No daily data available</p>
+        </div>
+      </div>
+    );
+  }
+
   const rollingStats = daily.data['data-points']['rolling-monthly-stats'];
   const latestRolling = rollingStats[rollingStats.length - 1];
   const charts = daily.data['charts'];
+  const subInfo = daily.data?.['subscription-info'];
+
+  return (
+    <div className="flex-1 p-2 space-y-2">
+      <div>
+        <div className="inline-flex items-baseline space-x-4">
+          <h1 className="leading-none" style={{ fontSize: 120 }}>
+            {latestRolling['distinct_apps']}
+          </h1>
+          <div className="font-bold leading-none">Monthly Active Apps</div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <img src={charts['rolling-monthly-active-apps']} />
+          </div>
+          <div>
+            <img src={charts['month-to-date-active-apps']} />
+          </div>
+          <div>
+            <img src={charts['rolling-avg-signups']} />
+          </div>
+          <div>
+            <img src={charts['weekly-signups']} />
+          </div>
+        </div>
+      </div>
+      <div className="flex space-x-8 pb-4">
+        <div>
+          <h3 className="font-bold" style={{ fontSize: 30 }}>
+            {latestRolling['distinct_users']}
+          </h3>
+          <div>Monthly Active Devs</div>
+        </div>
+        <div>
+          <h3 className="font-bold" style={{ fontSize: 30 }}>
+            {subInfo?.['num-subs']}
+          </h3>
+          <div>Pro Subscriptions</div>
+        </div>
+        <div>
+          <h3 className="font-bold" style={{ fontSize: 30 }}>
+            ${Math.round(subInfo?.['total-monthly-revenue'] / 100)}
+          </h3>
+          <div>Monthly Revenue</div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const MinuteStatsSection = ({ minute }: { minute: any }) => {
+  if (minute.isLoading) {
+    return (
+      <div className="flex-1 p-4 space-y-2 flex flex-col min-h-0 w-1/2">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-gray-500">Loading minute stats...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (minute.error) {
+    return (
+      <div className="flex-1 p-4 space-y-2 flex flex-col min-h-0 w-1/2">
+        <div className="bg-red-50 border border-red-200 rounded p-4">
+          <h3 className="text-red-600 font-semibold mb-2">
+            Minute Stats Error
+          </h3>
+          <pre className="text-sm text-red-500">
+            {JSON.stringify(minute.error.body || minute.error.message, null, 2)}
+          </pre>
+        </div>
+      </div>
+    );
+  }
+
+  if (!minute.data) {
+    return (
+      <div className="flex-1 p-4 space-y-2 flex flex-col min-h-0 w-1/2">
+        <div className="bg-yellow-50 border border-yellow-200 rounded p-4">
+          <p className="text-yellow-600">No minute data available</p>
+        </div>
+      </div>
+    );
+  }
+
   const sessions = flattenedSessionReports(
     minute.data['session-reports'],
   ).toSorted((a: any, b: any) => b.count - a.count);
@@ -224,9 +325,70 @@ export function Main() {
     (acc: number, x: any) => acc + x.count,
     0,
   );
-  const dateAnalyzed = parse(daily.data.date, 'yyyy-MM-dd', new Date());
   const totalApps = Object.keys(sessions).length;
-  const subInfo = daily.data?.['subscription-info'];
+
+  return (
+    <div className="flex-1 p-4 space-y-2 flex flex-col min-h-0 w-1/2">
+      <div className="flex justify-between items-baseline">
+        <div className="inline-flex items-baseline space-x-4">
+          <h1 className="leading-none" style={{ fontSize: 120 }}>
+            {totalSessions}
+          </h1>
+
+          <div className="flex flex-col justify-between self-stretch m-4">
+            <div>
+              {Object.entries(machineSummary).map(([machine, count]) => (
+                <div key={machine}>
+                  {machine}: {Intl.NumberFormat().format(count)}
+                </div>
+              ))}
+            </div>
+
+            <div className="font-bold leading-none">Active Connections</div>
+          </div>
+        </div>
+        <div className="inline-flex items-baseline space-x-4">
+          <h3 className="font-bold" style={{ fontSize: 30 }}>
+            {totalApps}
+          </h3>
+          <div>Active Apps</div>
+        </div>
+      </div>
+      <div className="mt-4 border overflow-y-scroll">
+        <table className="w-full">
+          <tbody>
+            {sessions.map((session: any, i) => (
+              <tr key={session['app-title'] + i}>
+                <td className="px-4 py-2 text-right">
+                  {Intl.NumberFormat().format(session.count)}
+                </td>
+                <td className="px-4 py-2">{session['app-title']}</td>
+                <td className="px-4 py-2">{session['creator-email'] || '-'}</td>
+                <td className="px-4 py-2">
+                  <OriginColumn origins={session['origins']} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+export function Main() {
+  const token = useAuthToken();
+  const daily = useDailyOverview(token!);
+  const minute = useMinuteOverview(token!);
+
+  if (daily.isLoading && minute.isLoading) {
+    return <FullscreenLoading />;
+  }
+
+  const dateAnalyzed = daily.data?.date
+    ? parse(daily.data.date, 'yyyy-MM-dd', new Date())
+    : new Date();
+
   return (
     <div className="flex flex-col font-mono h-full overflow-auto">
       <div className="p-2 space-x-4 flex items-center border-b">
@@ -242,97 +404,8 @@ export function Main() {
         </h3>
       </div>
       <div className="flex min-h-0">
-        <div className="flex-1 p-2 space-y-2">
-          <div>
-            <div className="inline-flex items-baseline space-x-4">
-              <h1 className="leading-none" style={{ fontSize: 120 }}>
-                {latestRolling['distinct_apps']}
-              </h1>
-              <div className="font-bold leading-none">Monthly Active Apps</div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <img src={charts['rolling-monthly-active-apps']} />
-              </div>
-              <div>
-                <img src={charts['month-to-date-active-apps']} />
-              </div>
-              <div>
-                <img src={charts['rolling-avg-signups']} />
-              </div>
-              <div>
-                <img src={charts['weekly-signups']} />
-              </div>
-            </div>
-          </div>
-          <div className="flex space-x-8 pb-4">
-            <div>
-              <h3 className="font-bold" style={{ fontSize: 30 }}>
-                {latestRolling['distinct_users']}
-              </h3>
-              <div>Monthly Active Devs</div>
-            </div>
-            <div>
-              <h3 className="font-bold" style={{ fontSize: 30 }}>
-                {subInfo?.['num-subs']}
-              </h3>
-              <div>Pro Subscriptions</div>
-            </div>
-            <div>
-              <h3 className="font-bold" style={{ fontSize: 30 }}>
-                ${Math.round(subInfo?.['total-monthly-revenue'] / 100)}
-              </h3>
-              <div>Monthly Revenue</div>
-            </div>
-          </div>
-        </div>
-        <div className="flex-1 p-4 space-y-2 flex flex-col min-h-0 w-1/2">
-          <div className="flex justify-between items-baseline">
-            <div className="inline-flex items-baseline space-x-4">
-              <h1 className="leading-none" style={{ fontSize: 120 }}>
-                {totalSessions}
-              </h1>
-
-              <div className="flex flex-col justify-between self-stretch m-4">
-                <div>
-                  {Object.entries(machineSummary).map(([machine, count]) => (
-                    <div key={machine}>
-                      {machine}: {Intl.NumberFormat().format(count)}
-                    </div>
-                  ))}
-                </div>
-
-                <div className="font-bold leading-none">Active Connections</div>
-              </div>
-            </div>
-            <div className="inline-flex items-baseline space-x-4">
-              <h3 className="font-bold" style={{ fontSize: 30 }}>
-                {totalApps}
-              </h3>
-              <div>Active Apps</div>
-            </div>
-          </div>
-          <div className="mt-4 border overflow-y-scroll">
-            <table className="w-full">
-              <tbody>
-                {sessions.map((session: any, i) => (
-                  <tr key={session['app-title'] + i}>
-                    <td className="px-4 py-2 text-right">
-                      {Intl.NumberFormat().format(session.count)}
-                    </td>
-                    <td className="px-4 py-2">{session['app-title']}</td>
-                    <td className="px-4 py-2">
-                      {session['creator-email'] || '-'}
-                    </td>
-                    <td className="px-4 py-2">
-                      <OriginColumn origins={session['origins']} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <DailyStatsSection daily={daily} />
+        <MinuteStatsSection minute={minute} />
       </div>
     </div>
   );
