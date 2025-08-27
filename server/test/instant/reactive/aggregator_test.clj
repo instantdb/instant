@@ -149,20 +149,20 @@
                         ;; create a new transaction so that we can be sure the aggregator
                         ;; will advance past `next-lsn`
                         {:keys [lsn]} (sql/execute-one!
-                                        (aurora/conn-pool :write)
-                                        ["with write as (
+                                       (aurora/conn-pool :write)
+                                       ["with write as (
                                             update triples set value = '\"alex2\"'::jsonb
                                                      where app_id = ? and attr_id = ? and entity_id = ?
                                                  returning *
                                           ) select * from write, pg_current_wal_lsn() as lsn"
-                                         (:id app)
-                                         (resolvers/->uuid zeneca-r :users/handle)
-                                         (resolvers/->uuid zeneca-r "eid-alex")])
+                                        (:id app)
+                                        (resolvers/->uuid zeneca-r :users/handle)
+                                        (resolvers/->uuid zeneca-r "eid-alex")])
 
                         ;; Wait for sketches to catch up
-                        _ (wait-for #(>= 0 (compare lsn
-                                                    (cms/get-start-lsn (aurora/conn-pool :read)
-                                                                       {:slot-name slot-name})))
+                        _ (wait-for #(> 0 (compare lsn
+                                                   (cms/get-start-lsn (aurora/conn-pool :read)
+                                                                      {:slot-name slot-name})))
                                     1000)
 
                         ;; Shutdown the process that has the slot so that we clear any sketches
@@ -173,21 +173,21 @@
 
                         ;; Create a transaction that will update an existing sketch (with ave)
                         {:keys [lsn]} (sql/execute-one!
-                                        (aurora/conn-pool :write)
-                                        ["with write as (
+                                       (aurora/conn-pool :write)
+                                       ["with write as (
                                             update triples set value = ?::jsonb
                                                      where app_id = ? and attr_id = ? and eav
                                                        and entity_id = ? and value = ?::jsonb
                                                  returning *
                                           ) select * from write, pg_current_wal_lsn() as lsn"
-                                         (->json (str (resolvers/->uuid zeneca-r "eid-web-development-with-clojure")))
-                                         (:id app)
-                                         (resolvers/->uuid zeneca-r :bookshelves/books)
-                                         (resolvers/->uuid zeneca-r "eid-currently-reading")
-                                         (->json (str (resolvers/->uuid zeneca-r "eid-heroes")))])
-                        _ (wait-for #(>= 0 (compare lsn
-                                                    (cms/get-start-lsn (aurora/conn-pool :read)
-                                                                       {:slot-name slot-name})))
+                                        (->json (str (resolvers/->uuid zeneca-r "eid-web-development-with-clojure")))
+                                        (:id app)
+                                        (resolvers/->uuid zeneca-r :bookshelves/books)
+                                        (resolvers/->uuid zeneca-r "eid-currently-reading")
+                                        (->json (str (resolvers/->uuid zeneca-r "eid-heroes")))])
+                        _ (wait-for #(> 0 (compare lsn
+                                                   (cms/get-start-lsn (aurora/conn-pool :read)
+                                                                      {:slot-name slot-name})))
                                     1000)]
 
                     (check-sketches app zeneca-r))
@@ -262,24 +262,24 @@
 
                       ;; Create another update
                       (let [{:keys [lsn]} (sql/execute-one!
-                                            (aurora/conn-pool :write)
-                                            ["with write as (
+                                           (aurora/conn-pool :write)
+                                           ["with write as (
                                                update triples set value = '\"alex3\"'::jsonb
                                                         where app_id = ? and attr_id = ? and entity_id = ?
                                                     returning *
                                              ) select * from write, pg_current_wal_lsn() as lsn"
-                                             (:id app)
-                                             (resolvers/->uuid r :users/handle)
-                                             (resolvers/->uuid r "eid-alex")])]
+                                            (:id app)
+                                            (resolvers/->uuid r :users/handle)
+                                            (resolvers/->uuid r "eid-alex")])]
 
                         (testing "the new process picks up the slot"
                           (wait-for #(= next-pid (:process_id (get-aggregator-status)))
                                     1000))
 
                         ;; Wait for the sketches to catch up
-                        (wait-for #(>= 0 (compare lsn
-                                                  (cms/get-start-lsn (aurora/conn-pool :read)
-                                                                     {:slot-name slot-name})))
+                        (wait-for #(> 0 (compare lsn
+                                                 (cms/get-start-lsn (aurora/conn-pool :read)
+                                                                    {:slot-name slot-name})))
                                   1000))
 
                       (check-sketches app r)))
@@ -329,9 +329,9 @@
                 (try
                   (testing "handles value-too-large in setup"
                     (is (= 1 (:total-not-binned
-                               (:sketch (cms/for-attr (aurora/conn-pool :read)
-                                                      (:id app)
-                                                      (resolvers/->uuid r :movie/title))))))
+                              (:sketch (cms/for-attr (aurora/conn-pool :read)
+                                                     (:id app)
+                                                     (resolvers/->uuid r :movie/title))))))
 
                     (is (thrown-with-msg? Throwable #"String value length"
                                           (sql/select-one (aurora/conn-pool :read)
@@ -345,42 +345,42 @@
                                                            (resolvers/->uuid r "eid-robocop")]))))
 
                   (let [{:keys [lsn]} (sql/execute-one!
-                                        (aurora/conn-pool :write)
-                                        ["with write as (
+                                       (aurora/conn-pool :write)
+                                       ["with write as (
                                            update triples
                                               set value = to_jsonb(repeat('y', 40000000))
                                             where app_id = ? and attr_id = ? and entity_id = ?
                                            returning entity_id
                                          )
                                          select *, pg_current_wal_lsn() as lsn from write"
-                                         (:id app)
-                                         (resolvers/->uuid r :movie/title)
-                                         (resolvers/->uuid r "eid-alien")])]
+                                        (:id app)
+                                        (resolvers/->uuid r :movie/title)
+                                        (resolvers/->uuid r "eid-alien")])]
 
                     ;; Wait for the sketches to catch up
-                    (wait-for #(>= 0 (compare lsn
-                                              (cms/get-start-lsn (aurora/conn-pool :read)
-                                                                 {:slot-name slot-name})))
+                    (wait-for #(> 0 (compare lsn
+                                             (cms/get-start-lsn (aurora/conn-pool :read)
+                                                                {:slot-name slot-name})))
                               1000)
 
                     (testing "handles value-too-large in listener"
                       (is (thrown-with-msg? Throwable
                                             #"String value length"
                                             (sql/select-one
-                                              (aurora/conn-pool :read)
-                                              ["select value
+                                             (aurora/conn-pool :read)
+                                             ["select value
                                                   from triples
                                                  where app_id = ?
                                                    and attr_id = ?
                                                    and entity_id = ?"
-                                               (:id app)
-                                               (resolvers/->uuid r :movie/title)
-                                               (resolvers/->uuid r "eid-alien")])))
+                                              (:id app)
+                                              (resolvers/->uuid r :movie/title)
+                                              (resolvers/->uuid r "eid-alien")])))
 
                       (is (= 2 (:total-not-binned
-                                 (:sketch (cms/for-attr (aurora/conn-pool :read)
-                                                        (:id app)
-                                                        (resolvers/->uuid r :movie/title))))))))
+                                (:sketch (cms/for-attr (aurora/conn-pool :read)
+                                                       (:id app)
+                                                       (resolvers/->uuid r :movie/title))))))))
                   ;; add some data after startup so that we can test the wal-slot aggregator
                   (finally (shutdown))))
               (finally
@@ -447,9 +447,9 @@
                                          (resolvers/->uuid r :users/createdAt)]))]
 
                     ;; Wait for the sketches to catch up
-                    (wait-for #(>= 0 (compare lsn
-                                              (cms/get-start-lsn (aurora/conn-pool :read)
-                                                                 {:slot-name slot-name})))
+                    (wait-for #(> 0 (compare lsn
+                                             (cms/get-start-lsn (aurora/conn-pool :read)
+                                                                {:slot-name slot-name})))
                               1000)
 
                     (testing "removing checked-data-type works"
@@ -469,9 +469,9 @@
                                          (resolvers/->uuid r :users/createdAt)]))]
 
                     ;; Wait for the sketches to catch up
-                    (wait-for #(>= 0 (compare lsn
-                                              (cms/get-start-lsn (aurora/conn-pool :read)
-                                                                 {:slot-name slot-name})))
+                    (wait-for #(> 0 (compare lsn
+                                             (cms/get-start-lsn (aurora/conn-pool :read)
+                                                                {:slot-name slot-name})))
                               1000)
 
                     (testing "adding checked-data-type works"
