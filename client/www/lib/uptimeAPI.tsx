@@ -64,7 +64,6 @@ export type UptimeResponse = {
     '30d': number;
     '90d': number;
   };
-  last_updated: string;
 };
 
 type ProviderResponse = {
@@ -137,6 +136,5 @@ function toUptimeResponse(apiRes: ProviderResponse): UptimeResponse {
   return {
     monitors,
     overall_uptime: overallUptime,
-    last_updated: new Date().toISOString(),
   };
 }

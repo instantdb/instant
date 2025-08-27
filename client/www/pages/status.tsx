@@ -42,27 +42,13 @@ function getUptimeColor(percentage: number) {
   }
 }
 
-function MainStatus({
-  allOperational,
-  lastUpdated,
-  nextUpdate,
-}: {
-  allOperational: boolean;
-  lastUpdated: Date;
-  nextUpdate: number;
-}) {
+function MainStatus({ allOperational }: { allOperational: boolean }) {
   return (
     <div className="flex justify-center px-4 sm:px-8 md:px-16 lg:px-32 xl:px-64 z-10 py-4 md:py-8 relative">
       <div className="relative bg-white w-full max-w-4xl h-32 sm:h-44 md:h-60 border-2 border-gray-200">
         <div className="absolute top-3 right-4 text-xs md:text-sm font-mono">
           <div className="text-right">
-            <div className="font-semibold text-gray-700 mb-1">
-              Service Status
-            </div>
-            <span className="text-gray-500">
-              Last updated {lastUpdated.toLocaleTimeString()} | Next update in{' '}
-              {nextUpdate} sec.
-            </span>
+            <div className="font-semibold text-gray-700">Service Status</div>
           </div>
         </div>
         <div className="flex gap-4 sm:gap-6 md:gap-8 h-full justify-center items-center px-4">
@@ -102,7 +88,7 @@ function MonitorDisplay({
     <>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3">
         <div className="flex items-center gap-2">
-          <span className="text-sm md:text-base font-medium">{title}</span>
+          <span className="text-sm md:text-base font-semibold">{title}</span>
           <span className="text-xs md:text-sm text-gray-500">|</span>
           <span
             className={`text-sm md:text-base font-semibold ${monitor?.uptime_ratio?.['90d'] ? 'text-green-500' : 'text-gray-400'}`}
@@ -207,41 +193,41 @@ function OverallUptime({ uptime }: { uptime: UptimeResponse }) {
         <span className="text-sm md:text-base font-semibold">
           Overall Uptime
         </span>
-        <div className="flex shadow-sm bg-white border-gray-200 border-2 p-3 md:p-4 mt-2 h-48 md:h-64 justify-center items-center">
-          <div className="flex items-center flex-row gap-10">
-            <div className="flex flex-col w-32 text-center">
+        <div className="flex shadow-sm bg-white border-gray-200 border-2 p-4 sm:p-6 mt-2 h-auto sm:h-48 md:h-64 justify-center items-center">
+          <div className="flex items-center flex-col sm:flex-row gap-6 sm:gap-2.5 py-4 sm:py-0">
+            <div className="flex flex-col flex-1 sm:w-40 text-center">
               <span className="text-2xl font-semibold">
-                {uptime?.overall_uptime?.['24h']?.toFixed(3) || '100.000'}%
+                {uptime?.overall_uptime?.['24h']?.toFixed(3) || '...'}%
               </span>
               <span className="text-sm text-gray-500">Last 24 Hours</span>
             </div>
             <div
-              className="w-0.5 h-20"
+              className="w-60 h-0.5 sm:w-0.5 sm:h-20"
               style={{ backgroundColor: DIVIDER_COLOR }}
             ></div>
-            <div className="flex flex-col w-32 text-center">
+            <div className="flex flex-col flex-1 sm:w-40 text-center">
               <span className="text-2xl font-semibold">
-                {uptime?.overall_uptime?.['7d']?.toFixed(3) || '99.910'}%
+                {uptime?.overall_uptime?.['7d']?.toFixed(3) || '...'}%
               </span>
               <span className="text-sm text-gray-500">Last 7 Days</span>
             </div>
             <div
-              className="w-0.5 h-20"
+              className="w-60 h-0.5 sm:w-0.5 sm:h-20"
               style={{ backgroundColor: DIVIDER_COLOR }}
             ></div>
-            <div className="flex flex-col w-32 text-center">
+            <div className="flex flex-col flex-1 sm:w-40 text-center">
               <span className="text-2xl font-semibold">
-                {uptime?.overall_uptime?.['30d']?.toFixed(3) || '99.837'}%
+                {uptime?.overall_uptime?.['30d']?.toFixed(3) || '...'}%
               </span>
               <span className="text-sm text-gray-500">Last 30 Days</span>
             </div>
             <div
-              className="w-0.5 h-20"
+              className="w-60 h-0.5 sm:w-0.5 sm:h-20"
               style={{ backgroundColor: DIVIDER_COLOR }}
             ></div>
-            <div className="flex flex-col w-32 text-center">
+            <div className="flex flex-col flex-1 sm:w-40 text-center">
               <span className="text-2xl font-semibold">
-                {uptime?.overall_uptime?.['90d']?.toFixed(3) || '99.621'}%
+                {uptime?.overall_uptime?.['90d']?.toFixed(3) || '...'}%
               </span>
               <span className="text-sm text-gray-500">Last 90 Days</span>
             </div>
@@ -254,31 +240,17 @@ function OverallUptime({ uptime }: { uptime: UptimeResponse }) {
 
 function StatusPage({ initialUptime }: { initialUptime: UptimeResponse }) {
   const [uptime, setUptime] = useState<UptimeResponse>(initialUptime);
-  const [nextUpdate, setNextUpdate] = useState(60);
 
   const fetchUptimeData = async () => {
     const response = await fetch('/api/uptime');
     const processedData: UptimeResponse = await response.json();
     setUptime(processedData);
-    setNextUpdate(60);
   };
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setNextUpdate((prev) => {
-        if (prev <= 1) {
-          fetchUptimeData();
-          return 60;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
     fetchUptimeData();
+    const timer = setInterval(fetchUptimeData, 60000); // Update every 60 seconds
+    return () => clearInterval(timer);
   }, []);
 
   const allOperational =
@@ -287,11 +259,7 @@ function StatusPage({ initialUptime }: { initialUptime: UptimeResponse }) {
 
   return (
     <div className="flex flex-col relative min-h-screen overflow-y-auto">
-      <MainStatus
-        allOperational={allOperational}
-        lastUpdated={new Date(uptime.last_updated)}
-        nextUpdate={nextUpdate}
-      />
+      <MainStatus allOperational={allOperational} />
       <UptimeDetails uptime={uptime} />
       <OverallUptime uptime={uptime} />
     </div>
