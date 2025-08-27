@@ -10,7 +10,22 @@ import type { InferGetServerSidePropsType, GetServerSideProps } from 'next';
 import type { UptimeResponse, Monitor } from '@/lib/uptimeAPI';
 import * as uptimeAPI from '@/lib/uptimeAPI';
 
-export const getServerSideProps = (async () => {
+export const getServerSideProps = (async (ctx) => {
+  // This is considered `fresh` for 10 the next 10 seconds.
+  //
+  // If a request is repeated within the next 10 seconds:
+  //   the previously cached value will still be fresh.
+  // If the request is repeated before 59 seconds,
+  //   the cached value will be stale but still render
+  //   (stale-while-revalidate=59).
+  //
+  //   ...but in the background, a revalidation request will
+  //   be made to populate the cache with a fresh value.
+  ctx.res.setHeader(
+    'Cache-Control',
+    'public, s-maxage=10, stale-while-revalidate=59',
+  );
+
   const uptime = await uptimeAPI.fetchUptime();
   return {
     props: {
