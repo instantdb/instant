@@ -567,3 +567,9 @@
 (defn restart []
   (stop-global)
   (start-global))
+
+(defn before-ns-unload []
+  (stop-global))
+
+(defn after-ns-reload []
+  (start-global))

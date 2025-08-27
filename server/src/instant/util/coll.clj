@@ -1,5 +1,7 @@
 (ns instant.util.coll
-  (:require [medley.core :as medley]))
+  (:require
+   [clojure+.walk :as walk]
+   [medley.core :as medley]))
 
 (defn split-last [coll]
   (list (butlast coll)
@@ -263,3 +265,13 @@
   "update for transients"
   [m k f & args]
   (assoc! m k (apply f (get m k) args)))
+
+(defn collect [pred form]
+  (let [res (volatile! (transient []))]
+    (walk/postwalk
+     (fn [form]
+       (when (pred form)
+         (vswap! res conj! form))
+       form)
+     form)
+    (persistent! @res)))
