@@ -99,23 +99,20 @@ function SoftDeleteTest({ db, appId, adminToken }: any) {
     if (!adminToken) return;
 
     try {
-      const response = await fetch(
-        `${config.apiURI}/admin/hard_delete_attrs`,
-        {
-          method: 'POST',
-          headers: {
-            'app-id': appId,
-            'authorization': `Bearer ${adminToken}`,
-            'content-type': 'application/json',
-          },
-          body: JSON.stringify({ ids: [attrId] }),
+      const response = await fetch(`${config.apiURI}/admin/hard_delete_attrs`, {
+        method: 'POST',
+        headers: {
+          'app-id': appId,
+          authorization: `Bearer ${adminToken}`,
+          'content-type': 'application/json',
         },
-      );
-      
+        body: JSON.stringify({ ids: [attrId] }),
+      });
+
       if (!response.ok) {
         throw new Error(`Failed to hard delete: ${response.status}`);
       }
-      
+
       const data = await response.json();
       console.log('Hard deleted attr:', attrId, data);
     } catch (error) {
@@ -293,16 +290,12 @@ export default function Page() {
   const [app, setApp] = useState(null);
   const [error, setError] = useState<null | Error>(null);
   useEffect(() => {
-    setApp({
-      id: 'cd80c208-acb8-4c68-a1de-04d4ad7c2f72',
-      'admin-token': 'b018e3d3-9f2e-4fcc-b5e1-e65a43bfe84b',
-    } as any);
-    // provisionEphemeralApp({})
-    //   .then((res) => setApp(res.app))
-    //   .catch((e) => {
-    //     console.error('Error creating app', e);
-    //     setError(e);
-    //   });
+    provisionEphemeralApp({})
+      .then((res) => setApp(res.app))
+      .catch((e) => {
+        console.error('Error creating app', e);
+        setError(e);
+      });
   }, []);
 
   if (error) {
