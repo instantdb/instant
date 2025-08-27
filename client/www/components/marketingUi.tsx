@@ -48,11 +48,10 @@ export const TwoColResponsive = ({ children }: PropsWithChildren) => (
 
 export const Link = NextLink;
 
-export const TextLink: React.FC<PropsWithChildren<{ href: string }>> = ({
-  children,
-  href,
-}) => (
-  <NextLink href={href} className="underline">
+export const TextLink: React.FC<
+  PropsWithChildren<{ href: string; target?: string }>
+> = ({ children, href, target }) => (
+  <NextLink href={href} className="underline" target={target}>
     {children}
   </NextLink>
 );

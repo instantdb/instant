@@ -3,6 +3,7 @@ import {
   LandingContainer,
   LandingFooter,
   MainNav,
+  TextLink,
 } from '@/components/marketingUi';
 import * as og from '@/lib/og';
 import styles from '@/styles/status.module.css';
@@ -261,6 +262,33 @@ function OverallUptime({ uptime }: { uptime: UptimeResponse }) {
   );
 }
 
+function SupportSection() {
+  return (
+    <div className="flex z-10 justify-center px-4 sm:px-8 md:px-16 lg:px-32 xl:px-64 py-4 relative">
+      <div className="flex-1 max-w-4xl space-y-4 mb-4">
+        <h3 className="font-mono text-sm md:text-base font-semibold text-center">
+          Experiencing issues?
+        </h3>
+
+        <p className="text-sm md:text-base text-center">
+          Reach out to us on{' '}
+          <TextLink
+            href="https://discord.com/invite/VU53p7uQcE"
+            target="_blank"
+          >
+            Discord
+          </TextLink>{' '}
+          or send us an{' '}
+          <TextLink href="mailto:hello@instantdb.com" target="_blank">
+            email
+          </TextLink>
+          . We'll get right on it!
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function StatusPage({ uptime }: { uptime: UptimeResponse }) {
   const allOperational =
     uptime.monitors.length > 0 &&
@@ -274,6 +302,7 @@ function StatusPage({ uptime }: { uptime: UptimeResponse }) {
       />
       <UptimeDetails uptime={uptime} />
       <OverallUptime uptime={uptime} />
+      <SupportSection />
     </div>
   );
 }
