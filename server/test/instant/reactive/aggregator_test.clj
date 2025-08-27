@@ -1,5 +1,6 @@
 (ns instant.reactive.aggregator-test
   (:require
+   [tool]
    [clojure.string :as string]
    [clojure.test :as test :refer [deftest is testing]]
    [instant.data.bootstrap :as bootstrap]
