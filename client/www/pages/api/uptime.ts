@@ -9,7 +9,7 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const stats = await uptimeAPI.fetchStats();
+  const stats = await uptimeAPI.fetchUptime();
 
   res.status(200).json(stats);
 }

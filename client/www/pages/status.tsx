@@ -8,142 +8,45 @@ import * as og from '@/lib/og';
 import { useState, useEffect } from 'react';
 import styles from '@/styles/status.module.css';
 import type { InferGetServerSidePropsType, GetServerSideProps } from 'next';
-import type { UptimeAPIResponse } from '@/lib/uptimeAPI';
+import type { UptimeResponse, Monitor } from '@/lib/uptimeAPI';
 import * as uptimeAPI from '@/lib/uptimeAPI';
 
 export const getServerSideProps = (async () => {
-  const initialStats = await uptimeAPI.fetchStats();
+  const initialUptime = await uptimeAPI.fetchUptime();
   return {
     props: {
-      initialStats,
+      initialUptime,
     },
   };
-}) satisfies GetServerSideProps<{ initialStats: UptimeAPIResponse }>;
+}) satisfies GetServerSideProps<{ initialUptime: UptimeResponse }>;
 
-interface Monitor {
-  id: string;
-  friendly_name: string;
-  url: string;
-  status: number;
-  uptime_ratio: {
-    '24h': number;
-    '7d': number;
-    '30d': number;
-    '90d': number;
-    all_time: number;
-  };
-  daily_uptime: number[];
-  average_response_time: number;
-}
-
-interface UptimeData {
-  monitors: Monitor[];
-  overall_uptime: {
-    '24h': number;
-    '7d': number;
-    '30d': number;
-    '90d': number;
-  };
-  last_updated: string;
-}
-
-interface StatusState {
-  data: UptimeData | null;
-  isLoading: boolean;
-  lastUpdated: Date;
-}
-
-const error_color = '#e5e7eb';
-const perfect_color = '#22c55e';
-const good_color = '#86efac';
-const bad_color = '#fbbf24';
-const worst_color = '#fb923c';
-const divider_color = '#e5e7eb';
+const ERR_COLOR = '#e5e7eb';
+const PERFECT_COLOR = '#22c55e';
+const GOOD_COLOR = '#86efac';
+const BAD_COLOR = '#fbbf24';
+const WORST_COLOR = '#fb923c';
+const DIVIDER_COLOR = '#e5e7eb';
 
 function getUptimeColor(percentage: number) {
   if (percentage < 0 || percentage > 100) {
-    return error_color;
+    return ERR_COLOR;
   }
   if (percentage >= 100) {
-    return perfect_color;
+    return PERFECT_COLOR;
   } else if (percentage >= 99.9) {
-    return good_color;
+    return GOOD_COLOR;
   } else if (percentage >= 99) {
-    return bad_color;
+    return BAD_COLOR;
   } else {
-    return worst_color;
+    return WORST_COLOR;
   }
 }
 
-const processUptimeData = (apiRes: UptimeAPIResponse): UptimeData => {
-  const monitors =
-    apiRes.monitors?.map((monitor): Monitor => {
-      const customRatios = monitor.custom_uptime_ratio?.split('-') || [];
-      const customRanges = monitor.custom_uptime_ranges?.split('-') || [];
-
-      const dailyUptime = customRanges.map((range: string) => {
-        const uptime = parseFloat(range);
-        return isNaN(uptime) ? 100 : uptime;
-      });
-
-      while (dailyUptime.length < 90) {
-        dailyUptime.push(100);
-      }
-
-      return {
-        id: monitor.id,
-        friendly_name: monitor.friendly_name,
-        url: monitor.url,
-        status: monitor.status,
-        uptime_ratio: {
-          '24h': parseFloat(customRatios[0]) || 100,
-          '7d': parseFloat(customRatios[1]) || 100,
-          '30d': parseFloat(customRatios[2]) || 100,
-          '90d': parseFloat(customRatios[3]) || 100,
-          all_time: parseFloat(monitor.all_time_uptime_ratio) || 100,
-        },
-        daily_uptime: dailyUptime,
-        average_response_time: monitor.average_response_time,
-      };
-    }) || [];
-
-  const overallUptime = {
-    '24h':
-      monitors.reduce(
-        (acc: number, m: Monitor) => acc + m.uptime_ratio['24h'],
-        0,
-      ) / (monitors.length || 1),
-    '7d':
-      monitors.reduce(
-        (acc: number, m: Monitor) => acc + m.uptime_ratio['7d'],
-        0,
-      ) / (monitors.length || 1),
-    '30d':
-      monitors.reduce(
-        (acc: number, m: Monitor) => acc + m.uptime_ratio['30d'],
-        0,
-      ) / (monitors.length || 1),
-    '90d':
-      monitors.reduce(
-        (acc: number, m: Monitor) => acc + m.uptime_ratio['90d'],
-        0,
-      ) / (monitors.length || 1),
-  };
-
-  return {
-    monitors,
-    overall_uptime: overallUptime,
-    last_updated: new Date().toISOString(),
-  };
-};
-
 function MainStatus({
-  isLoading,
   allOperational,
   lastUpdated,
   nextUpdate,
 }: {
-  isLoading: boolean;
   allOperational: boolean;
   lastUpdated: Date;
   nextUpdate: number;
@@ -166,23 +69,21 @@ function MainStatus({
           <div
             className={`flex justify-center items-center ${allOperational ? '' : 'w-5 h-5 sm:h-7 sm:w-7'} h-10 w-10 sm:h-12 sm:w-12 rounded-full shadow-2xl flex-shrink-0`}
             style={{
-              backgroundColor: allOperational ? good_color : error_color,
+              backgroundColor: allOperational ? GOOD_COLOR : ERR_COLOR,
             }}
           >
             <div
               className={`h-8 w-8 sm:h-10 sm:w-10 absolute rounded-full shadow-2xl ${styles.pulseAnimation}`}
               style={{
-                backgroundColor: allOperational ? good_color : error_color,
+                backgroundColor: allOperational ? GOOD_COLOR : ERR_COLOR,
               }}
             ></div>
           </div>
 
           <span className="font-mono text-lg sm:text-xl md:text-2xl">
-            {isLoading
-              ? 'Loading...'
-              : allOperational
-                ? 'All systems Operational'
-                : 'Failed to receive status information'}
+            {allOperational
+              ? 'All systems Operational'
+              : 'Failed to receive status information'}
           </span>
         </div>
       </div>
@@ -215,14 +116,14 @@ function MonitorDisplay({
           <div
             className="relative w-2 h-2 rounded-full flex justify-center items-center"
             style={{
-              backgroundColor: monitor?.status === 2 ? good_color : worst_color,
+              backgroundColor: monitor?.status === 2 ? GOOD_COLOR : WORST_COLOR,
             }}
           >
             <div
               className={`absolute w-2 h-2 rounded-full ${styles.pulseAnimation}`}
               style={{
                 backgroundColor:
-                  monitor?.status === 2 ? good_color : worst_color,
+                  monitor?.status === 2 ? GOOD_COLOR : WORST_COLOR,
               }}
             ></div>
           </div>
@@ -250,7 +151,7 @@ function MonitorDisplay({
                   backgroundColor:
                     percentage !== null
                       ? getUptimeColor(percentage)
-                      : error_color,
+                      : ERR_COLOR,
                 }}
                 title={`${dateStr}: ${percentage !== null ? `${percentage.toFixed(3)}% uptime` : 'Loading...'}`}
               ></div>
@@ -284,7 +185,7 @@ function UptimeDetails({
           <div className="flex py-6">
             <div
               className="h-0.5 w-full"
-              style={{ backgroundColor: divider_color }}
+              style={{ backgroundColor: DIVIDER_COLOR }}
             ></div>
           </div>
           <MonitorDisplay monitor={walMonitor} title="Instant WAL" />
@@ -294,7 +195,7 @@ function UptimeDetails({
   );
 }
 
-function OverallUptime({ uptimeData }: { uptimeData: UptimeData | null }) {
+function OverallUptime({ uptime }: { uptime: UptimeResponse }) {
   return (
     <div className="flex z-10 justify-center px-4 sm:px-8 md:px-16 lg:px-32 xl:px-64 py-4 relative">
       <div className="font-mono flex-1 max-w-4xl">
@@ -305,37 +206,37 @@ function OverallUptime({ uptimeData }: { uptimeData: UptimeData | null }) {
           <div className="flex items-center flex-row gap-10">
             <div className="flex flex-col w-32 text-center">
               <span className="text-2xl font-semibold">
-                {uptimeData?.overall_uptime?.['24h']?.toFixed(3) || '100.000'}%
+                {uptime?.overall_uptime?.['24h']?.toFixed(3) || '100.000'}%
               </span>
               <span className="text-sm text-gray-500">Last 24 Hours</span>
             </div>
             <div
               className="w-0.5 h-20"
-              style={{ backgroundColor: divider_color }}
+              style={{ backgroundColor: DIVIDER_COLOR }}
             ></div>
             <div className="flex flex-col w-32 text-center">
               <span className="text-2xl font-semibold">
-                {uptimeData?.overall_uptime?.['7d']?.toFixed(3) || '99.910'}%
+                {uptime?.overall_uptime?.['7d']?.toFixed(3) || '99.910'}%
               </span>
               <span className="text-sm text-gray-500">Last 7 Days</span>
             </div>
             <div
               className="w-0.5 h-20"
-              style={{ backgroundColor: divider_color }}
+              style={{ backgroundColor: DIVIDER_COLOR }}
             ></div>
             <div className="flex flex-col w-32 text-center">
               <span className="text-2xl font-semibold">
-                {uptimeData?.overall_uptime?.['30d']?.toFixed(3) || '99.837'}%
+                {uptime?.overall_uptime?.['30d']?.toFixed(3) || '99.837'}%
               </span>
               <span className="text-sm text-gray-500">Last 30 Days</span>
             </div>
             <div
               className="w-0.5 h-20"
-              style={{ backgroundColor: divider_color }}
+              style={{ backgroundColor: DIVIDER_COLOR }}
             ></div>
             <div className="flex flex-col w-32 text-center">
               <span className="text-2xl font-semibold">
-                {uptimeData?.overall_uptime?.['90d']?.toFixed(3) || '99.621'}%
+                {uptime?.overall_uptime?.['90d']?.toFixed(3) || '99.621'}%
               </span>
               <span className="text-sm text-gray-500">Last 90 Days</span>
             </div>
@@ -346,32 +247,15 @@ function OverallUptime({ uptimeData }: { uptimeData: UptimeData | null }) {
   );
 }
 
-function StatusPage({ initialData }: { initialData: UptimeData | null }) {
-  const [statusState, setStatusState] = useState<StatusState>({
-    data: initialData,
-    isLoading: initialData === null,
-    lastUpdated: new Date(),
-  });
+function StatusPage({ initialUptime }: { initialUptime: UptimeResponse }) {
+  const [uptime, setUptime] = useState<UptimeResponse>(initialUptime);
   const [nextUpdate, setNextUpdate] = useState(60);
 
   const fetchUptimeData = async () => {
-    try {
-      const response = await fetch('/api/uptime');
-      const apiRes = await response.json();
-      const processedData = processUptimeData(apiRes);
-      setStatusState({
-        data: processedData,
-        isLoading: false,
-        lastUpdated: new Date(),
-      });
-      setNextUpdate(60);
-    } catch (error) {
-      console.error('Failed to fetch uptime data:', error);
-      setStatusState((prev) => ({
-        ...prev,
-        isLoading: false,
-      }));
-    }
+    const response = await fetch('/api/uptime');
+    const processedData: UptimeResponse = await response.json();
+    setUptime(processedData);
+    setNextUpdate(60);
   };
 
   useEffect(() => {
@@ -392,44 +276,37 @@ function StatusPage({ initialData }: { initialData: UptimeData | null }) {
     fetchUptimeData();
   }, []);
 
-  const backendMonitor = statusState.data?.monitors?.find(
+  const backendMonitor = uptime.monitors.find(
     (m: Monitor) =>
       m.friendly_name?.toLowerCase().includes('backend') ||
       m.friendly_name?.toLowerCase().includes('api'),
   );
-  const walMonitor = statusState.data?.monitors?.find(
+  const walMonitor = uptime.monitors?.find(
     (m: Monitor) =>
       m.friendly_name?.toLowerCase().includes('wal') ||
       m.friendly_name?.toLowerCase().includes('write'),
   );
 
   const allOperational =
-    (statusState.data &&
-      statusState.data.monitors.length > 0 &&
-      statusState.data.monitors.every((m: Monitor) => m.status === 2)) ||
-    false;
+    uptime.monitors.length > 0 &&
+    uptime.monitors.every((m: Monitor) => m.status === 2);
 
   return (
     <div className="flex flex-col relative min-h-screen overflow-y-auto">
       <MainStatus
-        isLoading={statusState.isLoading}
         allOperational={allOperational}
-        lastUpdated={statusState.lastUpdated}
+        lastUpdated={new Date(uptime.last_updated)}
         nextUpdate={nextUpdate}
       />
       <UptimeDetails backendMonitor={backendMonitor} walMonitor={walMonitor} />
-      <OverallUptime uptimeData={statusState.data} />
+      <OverallUptime uptime={uptime} />
     </div>
   );
 }
 
 export default function Page({
-  initialStats,
+  initialUptime,
 }: InferGetServerSidePropsType<typeof getServerSideProps>) {
-  const processedInitialData = initialStats
-    ? processUptimeData(initialStats)
-    : null;
-
   return (
     <LandingContainer>
       <Head>
@@ -444,7 +321,7 @@ export default function Page({
         <div>
           <MainNav />
         </div>
-        <StatusPage initialData={processedInitialData} />
+        <StatusPage initialUptime={initialUptime} />
         <LandingFooter />
       </div>
     </LandingContainer>
