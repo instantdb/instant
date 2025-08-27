@@ -38,7 +38,7 @@ export async function fetchUptime(): Promise<UptimeResponse> {
   }
   const data: ProviderResponse = await response.json();
 
-  return processProviderResponse(data);
+  return toUptimeResponse(data);
 }
 
 export type Monitor = {
@@ -80,7 +80,7 @@ type ProviderResponse = {
   }>;
 };
 
-function processProviderResponse(apiRes: ProviderResponse): UptimeResponse {
+function toUptimeResponse(apiRes: ProviderResponse): UptimeResponse {
   const monitors =
     apiRes.monitors?.map((monitor): Monitor => {
       const customRatios = monitor.custom_uptime_ratio?.split('-') || [];
