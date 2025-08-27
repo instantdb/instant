@@ -168,3 +168,11 @@
     (is (thrown-with-msg? ExceptionInfo #"Missing parameter: \?b"
                           (let [q "WHERE ?a = ?b"]
                             (sql/format q {"?a" 1}))))))
+
+(deftest setting-settings-works
+  (is (= {:auto_explain.log_parameter_max_length "0"}
+         (sql/select-one (aurora/conn-pool :read)
+                         ["show auto_explain.log_parameter_max_length"])))
+  (is (= {:setting 60}
+         (sql/select-one (aurora/conn-pool :read)
+                         ["select extract(epoch from current_setting('idle_in_transaction_session_timeout')::interval)::int setting"]))))
