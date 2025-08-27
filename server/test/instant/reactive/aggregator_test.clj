@@ -450,6 +450,8 @@
                                                                 {:slot-name slot-name})))
                               1000)
 
+                    (Thread/sleep 1000)
+
                     (testing "removing checked-data-type works"
                       (check-sketches app r)))
 
@@ -471,6 +473,8 @@
                                              (cms/get-start-lsn (aurora/conn-pool :read)
                                                                 {:slot-name slot-name})))
                               1000)
+
+                    (Thread/sleep 1000)
 
                     (testing "adding checked-data-type works"
                       (check-sketches app r)))
