@@ -458,8 +458,6 @@
                                                                 {:slot-name slot-name})))
                               1000)
 
-                    (Thread/sleep 1000)
-
                     (testing "removing checked-data-type works"
                       (check-sketches app r)))
 
@@ -477,12 +475,10 @@
                       (is (= [{:next.jdbc/update-count 4}] check-result)))
 
                     ;; Wait for the sketches to catch up
-                    (wait-for #(> 0 (compare start-lsn
-                                             (cms/get-start-lsn (aurora/conn-pool :read)
-                                                                {:slot-name slot-name})))
+                    (wait-for #(> 0 (compare (tool/inspect start-lsn)
+                                             (tool/inspect (cms/get-start-lsn (aurora/conn-pool :read)
+                                                                              {:slot-name slot-name}))))
                               1000)
-
-                    (Thread/sleep 1000)
 
                     (testing "adding checked-data-type works"
                       (check-sketches app r)))
