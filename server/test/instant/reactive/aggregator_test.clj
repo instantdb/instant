@@ -149,15 +149,15 @@
                         ;; create a new transaction so that we can be sure the aggregator
                         ;; will advance past `next-lsn`
                         {:keys [lsn]} (sql/execute-one!
-                                       (aurora/conn-pool :write)
-                                       ["with write as (
+                                        (aurora/conn-pool :write)
+                                        ["with write as (
                                             update triples set value = '\"alex2\"'::jsonb
                                                      where app_id = ? and attr_id = ? and entity_id = ?
                                                  returning *
                                           ) select * from write, pg_current_wal_lsn() as lsn"
-                                        (:id app)
-                                        (resolvers/->uuid zeneca-r :users/handle)
-                                        (resolvers/->uuid zeneca-r "eid-alex")])
+                                         (:id app)
+                                         (resolvers/->uuid zeneca-r :users/handle)
+                                         (resolvers/->uuid zeneca-r "eid-alex")])
 
                         ;; Wait for sketches to catch up
                         _ (wait-for #(> 0 (compare lsn
@@ -173,18 +173,18 @@
 
                         ;; Create a transaction that will update an existing sketch (with ave)
                         {:keys [lsn]} (sql/execute-one!
-                                       (aurora/conn-pool :write)
-                                       ["with write as (
+                                        (aurora/conn-pool :write)
+                                        ["with write as (
                                             update triples set value = ?::jsonb
                                                      where app_id = ? and attr_id = ? and eav
                                                        and entity_id = ? and value = ?::jsonb
                                                  returning *
                                           ) select * from write, pg_current_wal_lsn() as lsn"
-                                        (->json (str (resolvers/->uuid zeneca-r "eid-web-development-with-clojure")))
-                                        (:id app)
-                                        (resolvers/->uuid zeneca-r :bookshelves/books)
-                                        (resolvers/->uuid zeneca-r "eid-currently-reading")
-                                        (->json (str (resolvers/->uuid zeneca-r "eid-heroes")))])
+                                         (->json (str (resolvers/->uuid zeneca-r "eid-web-development-with-clojure")))
+                                         (:id app)
+                                         (resolvers/->uuid zeneca-r :bookshelves/books)
+                                         (resolvers/->uuid zeneca-r "eid-currently-reading")
+                                         (->json (str (resolvers/->uuid zeneca-r "eid-heroes")))])
                         _ (wait-for #(> 0 (compare lsn
                                                    (cms/get-start-lsn (aurora/conn-pool :read)
                                                                       {:slot-name slot-name})))
@@ -261,23 +261,23 @@
                         pid-b (shutdown-b))
 
                       ;; Create another update
-                      (let [{:keys [lsn]} (sql/execute-one!
-                                           (aurora/conn-pool :write)
-                                           ["with write as (
-                                               update triples set value = '\"alex3\"'::jsonb
-                                                        where app_id = ? and attr_id = ? and entity_id = ?
-                                                    returning *
-                                             ) select * from write, pg_current_wal_lsn() as lsn"
-                                            (:id app)
-                                            (resolvers/->uuid r :users/handle)
-                                            (resolvers/->uuid r "eid-alex")])]
+                      (let [start-lsn (cms/get-start-lsn (aurora/conn-pool :read)
+                                                         {:slot-name slot-name})
+                            update-res (sql/do-execute!
+                                         (aurora/conn-pool :write)
+                                         ["update triples set value = '\"alex3\"'::jsonb
+                                            where app_id = ? and attr_id = ? and entity_id = ?"
+                                          (:id app)
+                                          (resolvers/->uuid r :users/handle)
+                                          (resolvers/->uuid r "eid-alex")])]
+                        (is (= [{:next.jdbc/update-count 1}] update-res))
 
                         (testing "the new process picks up the slot"
                           (wait-for #(= next-pid (:process_id (get-aggregator-status)))
                                     1000))
 
                         ;; Wait for the sketches to catch up
-                        (wait-for #(> 0 (compare lsn
+                        (wait-for #(> 0 (compare start-lsn
                                                  (cms/get-start-lsn (aurora/conn-pool :read)
                                                                     {:slot-name slot-name})))
                                   1000))
@@ -312,14 +312,14 @@
               (bootstrap/add-movies-to-app! (:id app))
               (let [r (resolvers/make-movies-resolver (:id app))
                     _ (sql/execute-one!
-                       (aurora/conn-pool :write)
-                       ["update triples
+                        (aurora/conn-pool :write)
+                        ["update triples
                             set value = to_jsonb(repeat('x', 40000000))
                           where app_id = ? and attr_id = ? and entity_id = ?
                           returning entity_id"
-                        (:id app)
-                        (resolvers/->uuid r :movie/title)
-                        (resolvers/->uuid r "eid-robocop")])
+                         (:id app)
+                         (resolvers/->uuid r :movie/title)
+                         (resolvers/->uuid r "eid-robocop")])
                     shutdown (agg/start {:slot-suffix slot-suffix
                                          :copy-sql (copy-sql-for-app-ids [(:id app)])
                                          :acquire-slot-interval-ms 10000
@@ -329,9 +329,9 @@
                 (try
                   (testing "handles value-too-large in setup"
                     (is (= 1 (:total-not-binned
-                              (:sketch (cms/for-attr (aurora/conn-pool :read)
-                                                     (:id app)
-                                                     (resolvers/->uuid r :movie/title))))))
+                               (:sketch (cms/for-attr (aurora/conn-pool :read)
+                                                      (:id app)
+                                                      (resolvers/->uuid r :movie/title))))))
 
                     (is (thrown-with-msg? Throwable #"String value length"
                                           (sql/select-one (aurora/conn-pool :read)
@@ -344,21 +344,20 @@
                                                            (resolvers/->uuid r :movie/title)
                                                            (resolvers/->uuid r "eid-robocop")]))))
 
-                  (let [{:keys [lsn]} (sql/execute-one!
-                                       (aurora/conn-pool :write)
-                                       ["with write as (
-                                           update triples
+                  (let [start-lsn (cms/get-start-lsn (aurora/conn-pool :read)
+                                                     {:slot-name slot-name})
+                        update-result (sql/do-execute!
+                                        (aurora/conn-pool :write)
+                                        ["update triples
                                               set value = to_jsonb(repeat('y', 40000000))
-                                            where app_id = ? and attr_id = ? and entity_id = ?
-                                           returning entity_id
-                                         )
-                                         select *, pg_current_wal_lsn() as lsn from write"
-                                        (:id app)
-                                        (resolvers/->uuid r :movie/title)
-                                        (resolvers/->uuid r "eid-alien")])]
+                                            where app_id = ? and attr_id = ? and entity_id = ?"
+                                         (:id app)
+                                         (resolvers/->uuid r :movie/title)
+                                         (resolvers/->uuid r "eid-alien")])]
+                    (is (= [{:next.jdbc/update-count 1}] update-result))
 
                     ;; Wait for the sketches to catch up
-                    (wait-for #(> 0 (compare lsn
+                    (wait-for #(> 0 (compare start-lsn
                                              (cms/get-start-lsn (aurora/conn-pool :read)
                                                                 {:slot-name slot-name})))
                               1000)
@@ -367,20 +366,20 @@
                       (is (thrown-with-msg? Throwable
                                             #"String value length"
                                             (sql/select-one
-                                             (aurora/conn-pool :read)
-                                             ["select value
+                                              (aurora/conn-pool :read)
+                                              ["select value
                                                   from triples
                                                  where app_id = ?
                                                    and attr_id = ?
                                                    and entity_id = ?"
-                                              (:id app)
-                                              (resolvers/->uuid r :movie/title)
-                                              (resolvers/->uuid r "eid-alien")])))
+                                               (:id app)
+                                               (resolvers/->uuid r :movie/title)
+                                               (resolvers/->uuid r "eid-alien")])))
 
                       (is (= 2 (:total-not-binned
-                                (:sketch (cms/for-attr (aurora/conn-pool :read)
-                                                       (:id app)
-                                                       (resolvers/->uuid r :movie/title))))))))
+                                 (:sketch (cms/for-attr (aurora/conn-pool :read)
+                                                        (:id app)
+                                                        (resolvers/->uuid r :movie/title))))))))
                   ;; add some data after startup so that we can test the wal-slot aggregator
                   (finally (shutdown))))
               (finally
@@ -410,44 +409,43 @@
                                              :indexed-data? true}
                                             (:id app))
               (let [r (resolvers/make-zeneca-resolver (:id app))
+                    toast-res ;; Add a date that will get toasted
+                    (sql/do-execute!
+                      (aurora/conn-pool :write)
+                      ["update triples
+                          set value = to_jsonb(?::text)
+                        where app_id = ? and attr_id = ? and entity_id = ?"
+                       ;; Add a string that's big so that postgres will toast it
+                       (str (apply str (repeat 10000000 " "))
+                            "2025-08-12T23:00:31.368181Z")
+                       (:id app)
+                       (resolvers/->uuid r :users/createdAt)
+                       (resolvers/->uuid r "eid-alex")])
                     shutdown (agg/start {:slot-suffix slot-suffix
                                          :copy-sql (copy-sql-for-app-ids [(:id app)])
                                          :acquire-slot-interval-ms 10000
                                          :sketch-flush-ms 10
                                          :sketch-flush-max-items 1000})]
                 (try
-                  ;; Add a date that will get toasted
-                  (sql/execute!
-                   (aurora/conn-pool :write)
-                   ["with write as (
-                       update triples
-                          set value = to_jsonb(?::text)
-                        where app_id = ? and attr_id = ? and entity_id = ?
-                       returning entity_id
-                     )
-                     select *, pg_current_wal_lsn() as lsn from write"
-                    ;; Add a string that's big so that postgres will to toast it
-                    (str (apply str (repeat 10000000 " "))
-                         "2025-08-12T23:00:31.368181Z")
-                    (:id app)
-                    (resolvers/->uuid r :users/createdAt)
-                    (resolvers/->uuid r "eid-alex")])
 
-                  (let [{:keys [lsn]} (first
-                                       (sql/execute!
-                                        (aurora/conn-pool :write)
-                                        ["with write as (
-                                           update triples
+                  (testing "setting the date worked"
+                    (is (= [{:next.jdbc/update-count 1}] toast-res)))
+
+                  (let [start-lsn (cms/get-start-lsn (aurora/conn-pool :read)
+                                                     {:slot-name slot-name})
+                        uncheck-result (sql/do-execute!
+                                         (aurora/conn-pool :write)
+                                         ["update triples
                                               set checked_data_type = null
-                                            where app_id = ? and attr_id = ? and checked_data_type = 'date'
-                                           returning entity_id
-                                         )
-                                         select *, pg_current_wal_lsn() as lsn from write"
-                                         (:id app)
-                                         (resolvers/->uuid r :users/createdAt)]))]
+                                            where app_id = ? and attr_id = ? and checked_data_type = 'date'"
+                                          (:id app)
+                                          (resolvers/->uuid r :users/createdAt)])]
+
+                    (testing "setting unchecked worked"
+                      (is (= [{:next.jdbc/update-count 4}] uncheck-result)))
 
                     ;; Wait for the sketches to catch up
-                    (wait-for #(> 0 (compare lsn
+                    (wait-for #(> 0 (compare start-lsn
                                              (cms/get-start-lsn (aurora/conn-pool :read)
                                                                 {:slot-name slot-name})))
                               1000)
@@ -455,28 +453,27 @@
                     (testing "removing checked-data-type works"
                       (check-sketches app r)))
 
-                  (let [{:keys [lsn]} (first
-                                       (sql/execute!
-                                        (aurora/conn-pool :write)
-                                        ["with write as (
-                                           update triples
-                                              set checked_data_type = 'date'
-                                            where app_id = ? and attr_id = ? and checked_data_type is null
-                                           returning entity_id
-                                         )
-                                         select *, pg_current_wal_lsn() as lsn from write"
-                                         (:id app)
-                                         (resolvers/->uuid r :users/createdAt)]))]
+                  (let [start-lsn (cms/get-start-lsn (aurora/conn-pool :read)
+                                                     {:slot-name slot-name})
+                        check-result (sql/do-execute!
+                                       (aurora/conn-pool :write)
+                                       ["update triples
+                                            set checked_data_type = 'date'
+                                          where app_id = ? and attr_id = ? and checked_data_type is null"
+                                        (:id app)
+                                        (resolvers/->uuid r :users/createdAt)])]
+
+                    (testing "setting checked worked"
+                      (is (= [{:next.jdbc/update-count 4}] check-result)))
 
                     ;; Wait for the sketches to catch up
-                    (wait-for #(> 0 (compare lsn
+                    (wait-for #(> 0 (compare start-lsn
                                              (cms/get-start-lsn (aurora/conn-pool :read)
                                                                 {:slot-name slot-name})))
                               1000)
 
                     (testing "adding checked-data-type works"
                       (check-sketches app r)))
-                  ;; add some data after startup so that we can test the wal-slot aggregator
                   (finally (shutdown))))
               (finally
                 (sql/do-execute! (aurora/conn-pool :write)
