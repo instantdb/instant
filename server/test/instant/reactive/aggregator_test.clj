@@ -404,6 +404,7 @@
     (fn [app]
       (with-redefs [agg/test-filter
                     (fn [changes]
+                      (tool/inspect changes)
                       (vec (filter (fn [change]
                                      (let [app-id (get-in change [:triples-data :app-id])]
                                        (if *in-test*
