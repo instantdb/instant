@@ -363,7 +363,7 @@
                                        :max-size sketch-flush-max-items
                                        :combine combine-sketch-changes
                                        :init nil
-                                       :size (fn [{:keys [changes] :as x}]
+                                       :size (fn [{:keys [changes]}]
                                                (count changes))})
 
         shuffler
