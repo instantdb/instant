@@ -191,9 +191,17 @@
   "Creates a new connection for the connection pool and sets the idle_in_transaction_session_timeout.
    Defaults to one minute, but can be modified with a flag in an emergency."
   [config]
-  (let [conn (next-jdbc/get-connection config)]
-    (next-jdbc/execute! conn ["select set_config('idle_in_transaction_session_timeout', ?::text, false)"
-                              (flags/flag :idle-in-transaction-session-timeout (* 1000 60))])
+  (let [conn (next-jdbc/get-connection config)
+        settings [{:setting "idle_in_transaction_session_timeout"
+                   :value (flags/flag :idle-in-transaction-session-timeout (* 1000 60))}
+                  {:setting "auto_explain.log_parameter_max_length"
+                   :value 0}]]
+    (next-jdbc/execute! conn ["select set_config(setting, value, false) from (
+                                 select unnest(?::text[]) setting,
+                                        unnest(?::text[]) value
+                              )"
+                              (with-meta (mapv :setting settings) {:pgtype "text[]"})
+                              (with-meta (mapv (comp str :value) settings) {:pgtype "text[]"})])
     conn))
 
 (defn aurora-cluster-datasource

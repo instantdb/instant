@@ -400,10 +400,7 @@
                   conn
                   q
                   ;; Don't send the bins to honeycomb
-                  {:skip-log-params (not debug-queries)
-                   ;; Don't log statements
-                   :postgres-config [{:setting "auto_explain.log_min_duration"
-                                      :value "-1"}]})))
+                  {:skip-log-params (not debug-queries)})))
 
 (defn find-or-create-sketches!
   "Takes a set of {:app-id :attr-id} maps and returns a map of
@@ -511,10 +508,7 @@
                       conn
                       (hsql/format q {:params params})
                       ;; Don't send the bins to honeycomb
-                      {:skip-log-params (not debug-queries)
-                       ;; Don't log statements
-                       :postgres-config [{:setting "auto_explain.log_min_duration"
-                                          :value "-1"}]})))
+                      {:skip-log-params (not debug-queries)})))
 
 ;; -------------
 ;; Bootstrapping
@@ -578,7 +572,4 @@
                      conn
                      q
                      ;; Don't send the bins to honeycomb
-                     {:skip-log-params (not debug-queries)
-                      ;; Don't log statements
-                      :postgres-config [{:setting "auto_explain.log_min_duration"
-                                         :value "-1"}]})))
+                     {:skip-log-params (not debug-queries)})))
