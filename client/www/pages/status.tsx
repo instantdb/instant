@@ -28,17 +28,16 @@ const WORST_COLOR = '#fb923c';
 const DIVIDER_COLOR = '#e5e7eb';
 
 function getUptimeColor(percentage: number) {
-  if (percentage < 0 || percentage > 100) {
-    return ERR_COLOR;
-  }
   if (percentage >= 100) {
     return PERFECT_COLOR;
   } else if (percentage >= 99.9) {
     return GOOD_COLOR;
   } else if (percentage >= 99) {
     return BAD_COLOR;
-  } else {
+  } else if (percentage > 0 && percentage < 99) {
     return WORST_COLOR;
+  } else {
+    return ERR_COLOR;
   }
 }
 
