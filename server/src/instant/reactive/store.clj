@@ -29,6 +29,7 @@
    (java.time Instant)
    (java.util Map)
    (java.util.concurrent ConcurrentHashMap CancellationException)
+   (java.util.concurrent.locks ReentrantLock)
    (java.util.regex Pattern)
    (io.undertow.server.handlers.sse ServerSentEventConnection)
    (io.undertow.websockets.spi WebSocketHttpExchange)))
@@ -90,8 +91,13 @@
    :datalog-query/delayed-call {} ;; delay with datalog result (from query.clj)
    :datalog-query/topics {:db/type :db.type/list-of-topics}})
 
-(defn make-app-conn [_app-id]
-  (d/create-conn schema))
+(defn create-conn [schema]
+  (doto (d/create-conn schema)
+    (alter-meta! assoc :lock (ReentrantLock. true))))
+
+(defn make-app-conn [app-id]
+  (doto (create-conn schema)
+    (alter-meta! assoc :app-id app-id)))
 
 (defn app-conn [store app-id]
   (Map/.computeIfAbsent (:conns store) app-id make-app-conn))
@@ -112,13 +118,16 @@
     (tracer/with-span! {:name span-name}
       (let [t1 (System/nanoTime)]
         (try
-          (let [[ret t2 t3]
-                (locking conn
-                  (let [t2  (System/nanoTime)
-                        ret (d/transact! conn tx-data)
-                        t3  (System/nanoTime)]
-                    [ret t2 t3]))]
-            (tracer/add-data! {:attributes {:changed-datoms-count (count (:tx-data ret))
+          (let [lock        ^ReentrantLock (:lock (meta conn))
+                _           (.lock lock)
+                [t2 ret t3] (try
+                              [(System/nanoTime)
+                               (d/transact! conn tx-data)
+                               (System/nanoTime)]
+                              (finally
+                                (.unlock lock)))]
+            (tracer/add-data! {:attributes {:app-id               (:app-id (meta conn))
+                                            :changed-datoms-count (count (:tx-data ret))
                                             :span-time-ms         (-> t1 (- t0) (/ 1000000) double)
                                             :lock-time-ms         (-> t2 (- t1) (/ 1000000) double)
                                             :tx-time-ms           (-> t3 (- t2) (/ 1000000) double)
@@ -806,7 +815,7 @@
 
 (defn init []
   (->ReactiveStore
-   (d/create-conn sessions-schema)
+   (create-conn sessions-schema)
    (ConcurrentHashMap.)))
 
 (defn start []
