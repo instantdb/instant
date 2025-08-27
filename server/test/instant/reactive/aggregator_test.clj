@@ -267,9 +267,7 @@
                         pid-b (shutdown-b))
 
                       ;; Create another update
-                      (let [start-lsn (cms/get-start-lsn (aurora/conn-pool :read)
-                                                         {:slot-name slot-name})
-                            update-res (sql/do-execute!
+                      (let [update-res (sql/do-execute!
                                          (aurora/conn-pool :write)
                                          ["update triples set value = '\"alex3\"'::jsonb
                                             where app_id = ? and attr_id = ? and entity_id = ?"
