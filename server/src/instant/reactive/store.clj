@@ -17,12 +17,14 @@
   (:require
    [clojure.string :as string]
    [datascript.core :as d]
+   [instant.flags :as flags]
    [instant.jdbc.sql :as sql]
    [instant.lib.ring.websocket :as ws]
    [instant.lib.ring.sse :as sse]
    [instant.util.async :as ua]
    [instant.util.coll :as ucoll]
    [instant.util.exception :as ex]
+   [instant.util.lang :as lang]
    [instant.util.tracer :as tracer])
   (:import
    (java.lang InterruptedException)
@@ -91,16 +93,25 @@
    :datalog-query/delayed-call {} ;; delay with datalog result (from query.clj)
    :datalog-query/topics {:db/type :db.type/list-of-topics}})
 
-(defn create-conn [schema]
+(defn create-conn [schema app-id]
   (doto (d/create-conn schema)
-    (alter-meta! assoc :lock (ReentrantLock. true))))
+    (alter-meta! assoc
+                 :lock   (ReentrantLock. (flags/store-fair-lock? app-id))
+                 :app-id app-id)))
 
-(defn make-app-conn [app-id]
-  (doto (create-conn schema)
-    (alter-meta! assoc :app-id app-id)))
+(defn ensure-lock-fairness [conn]
+  (let [{:keys [^ReentrantLock lock app-id]} (meta conn)
+        should-be-fair? (flags/store-fair-lock? app-id)]
+    (when (not= (.isFair lock) should-be-fair?)
+      (lang/with-reentrant-lock lock
+        (let [{:keys [^ReentrantLock lock]} (meta conn)]
+          (when (not= (.isFair lock) should-be-fair?)
+            (alter-meta! conn assoc :lock (ReentrantLock. should-be-fair?))))))
+    conn))
 
 (defn app-conn [store app-id]
-  (Map/.computeIfAbsent (:conns store) app-id make-app-conn))
+  (-> (Map/.computeIfAbsent (:conns store) app-id #(create-conn schema %))
+      ensure-lock-fairness))
 
 ;; -----
 ;; misc
@@ -114,28 +125,27 @@
       (throw exinfo))))
 
 (defn transact! [span-name conn tx-data]
-  (let [t0 (System/nanoTime)]
+  (let [t0 (System/nanoTime)
+        _  (ensure-lock-fairness conn)
+        t1 (System/nanoTime)]
     (tracer/with-span! {:name span-name}
-      (let [t1 (System/nanoTime)]
-        (try
-          (let [lock        ^ReentrantLock (:lock (meta conn))
-                _           (.lock lock)
-                [t2 ret t3] (try
-                              [(System/nanoTime)
-                               (d/transact! conn tx-data)
-                               (System/nanoTime)]
-                              (finally
-                                (.unlock lock)))]
-            (tracer/add-data! {:attributes {:app-id               (:app-id (meta conn))
-                                            :changed-datoms-count (count (:tx-data ret))
-                                            :span-time-ms         (-> t1 (- t0) (/ 1000000) double)
-                                            :lock-time-ms         (-> t2 (- t1) (/ 1000000) double)
-                                            :tx-time-ms           (-> t3 (- t2) (/ 1000000) double)
-                                            :db-before-size       (count (:db-before ret))
-                                            :db-after-size        (count (:db-after ret))}})
-            ret)
-          (catch clojure.lang.ExceptionInfo e
-            (translate-datascript-exceptions e)))))))
+      (try
+        (let [t2          (System/nanoTime)
+              [t3 ret t4] (lang/with-reentrant-lock (:lock (meta conn))
+                            [(System/nanoTime)
+                             (d/transact! conn tx-data)
+                             (System/nanoTime)])]
+          (tracer/add-data! {:attributes {:app-id               (:app-id (meta conn))
+                                          :changed-datoms-count (count (:tx-data ret))
+                                          :flag-time-ms         (-> t1 (- t0) (/ 1000000) double)
+                                          :span-time-ms         (-> t2 (- t1) (/ 1000000) double)
+                                          :lock-time-ms         (-> t3 (- t2) (/ 1000000) double)
+                                          :tx-time-ms           (-> t4 (- t3) (/ 1000000) double)
+                                          :db-before-size       (count (:db-before ret))
+                                          :db-after-size        (count (:db-after ret))}})
+          ret)
+        (catch clojure.lang.ExceptionInfo e
+          (translate-datascript-exceptions e))))))
 
 ;; -----
 ;; reports
@@ -349,20 +359,21 @@
 
 (defn remove-session! [store app-id sess-id]
   ;; sync so new sessions are not added while we clean up this one
-  (locking (:sessions store)
-    (let [{:keys [db-after]} (transact! "store/remove-session!"
-                                        (:sessions store)
-                                        [[:db.fn/retractEntity [:session/id sess-id]]])]
-      (when app-id
-        (if (ucoll/seek #(= app-id (-> % :v :app :id))
-                        (d/datoms db-after :aevt :session/auth))
-          (transact! "store/remove-session-data!"
-                     (app-conn store app-id)
-                     [[:db.fn/call remove-session-queries-tx-data sess-id]
-                      [:db.fn/call remove-session-subscriptions-tx-data sess-id]
-                      [:db.fn/call clean-stale-datalog-tx-data]])
-          (Map/.remove (:conns store) app-id))))))
-
+  (let [conn (-> (:sessions store)
+                 ensure-lock-fairness)]
+    (lang/with-reentrant-lock (:lock (meta conn))
+      (let [{:keys [db-after]} (transact! "store/remove-session!"
+                                          (:sessions store)
+                                          [[:db.fn/retractEntity [:session/id sess-id]]])]
+        (when app-id
+          (if (ucoll/seek #(= app-id (-> % :v :app :id))
+                          (d/datoms db-after :aevt :session/auth))
+            (transact! "store/remove-session-data!"
+                       (app-conn store app-id)
+                       [[:db.fn/call remove-session-queries-tx-data sess-id]
+                        [:db.fn/call remove-session-subscriptions-tx-data sess-id]
+                        [:db.fn/call clean-stale-datalog-tx-data]])
+            (Map/.remove (:conns store) app-id)))))))
 
 ;; ------
 ;; datalog cache
@@ -478,7 +489,8 @@
     [[:db/add [:session/id sess-id] :session/datalog-loader (make-loader-fn)]]))
 
 (defn upsert-datalog-loader! [store sess-id make-loader-fn]
-  (let [conn (:sessions store)]
+  (let [conn (-> (:sessions store)
+                 ensure-lock-fairness)]
     (if-some [loader (:session/datalog-loader (d/entity @conn [:session/id sess-id]))]
       loader
       (let [{:keys [db-after]}
@@ -815,7 +827,7 @@
 
 (defn init []
   (->ReactiveStore
-   (create-conn sessions-schema)
+   (create-conn sessions-schema "sessions")
    (ConcurrentHashMap.)))
 
 (defn start []

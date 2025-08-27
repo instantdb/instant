@@ -54,6 +54,12 @@ const _schema = i.schema({
       "disabled-apps": i.any().optional(),
       "enabled-apps": i.any().optional(),
     }),
+    "store-fair-lock": i.entity({
+      "default-value": i.boolean().optional(),
+      disabled: i.boolean().optional(),
+      "disabled-apps": i.any().optional(),
+      "enabled-apps": i.any().optional(),
+    }),
     "power-user-emails": i.entity({
       email: i.string().unique(),
     }),
