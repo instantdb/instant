@@ -3,7 +3,7 @@ import chalk from 'chalk';
 import ora from 'ora';
 import * as p from '@clack/prompts';
 import type { ContentBlock, ToolUseBlock } from '@anthropic-ai/sdk/resources';
-import { wrappedWindowOutput } from './utils/logger.js';
+import { HIDE_CURSOR, wrappedWindowOutput } from './utils/logger.js';
 import { query } from '@anthropic-ai/claude-code';
 
 let currentSpinner: ReturnType<typeof ora> | null = null;
@@ -84,13 +84,11 @@ const printClaudeMessage = (content: ContentBlock) => {
     // Stop any existing spinner before showing text
     if (currentSpinner) {
       currentSpinner.stop();
-      process.stdout.write('\x1B[?25l');
+      process.stdout.write(HIDE_CURSOR);
       currentSpinner = null;
     }
 
     wrappedWindowOutput(content.text, p.log.info, true);
-    // p.log.info(content.text);
-    // console.log(chalk.gray('│'));
   } else if (content.type === 'tool_use') {
     // Stop any existing spinner
     if (currentSpinner) {
@@ -138,7 +136,7 @@ export async function findClaudePath(): Promise<string | null> {
 }
 
 export const promptClaude = async (prompt: string, projectDir: string) => {
-  process.stdout.write('\x1B[?25l');
+  process.stdout.write(HIDE_CURSOR);
   for await (const message of query({
     options: {
       cwd: projectDir,

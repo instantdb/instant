@@ -51,3 +51,6 @@ export const wrappedWindowOutput = (
     console.log(chalk.gray('│'));
   }
 };
+
+export const HIDE_CURSOR = '\x1B[?25l';
+export const SHOW_CURSOR = '\x1B[?25h';

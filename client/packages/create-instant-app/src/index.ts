@@ -14,7 +14,11 @@ import { initializeGit } from './git.js';
 import { tryConnectApp } from './login.js';
 import { applyEnvFile } from './env.js';
 import { detectTerminalTheme } from './terminalTheme.js';
-import { getCodeColors, wrappedWindowOutput } from './utils/logger.js';
+import {
+  getCodeColors,
+  SHOW_CURSOR,
+  wrappedWindowOutput,
+} from './utils/logger.js';
 import { promptClaude } from './claude.js';
 import { parseNameAndPath } from './utils/validateAppName.js';
 import { execa } from 'execa';
@@ -72,7 +76,7 @@ const main = async () => {
   if (project.prompt) {
     await promptClaude(project.prompt, projectDir);
     // show cursor again
-    process.stdout.write('\x1B[?25h');
+    process.stdout.write(SHOW_CURSOR);
   }
 
   outro(`Done!`);
