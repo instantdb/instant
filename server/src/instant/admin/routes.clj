@@ -603,19 +603,6 @@
                             app-id)]
     (response/ok {:soft-deleted-attrs soft-deleted-attrs})))
 
-(defn hard-delete-attrs-post [req]
-  (let [{:keys [app-id]} (req->app-id-authed! req :data/read)
-        attr-ids (ex/get-param! req [:body :ids] (fn [xs]
-                                                   (let [uuids (and (coll? xs)
-                                                                    (map uuid-util/coerce xs))]
-                                                     (when (every? identity uuids)
-                                                       uuids))))
-        res (attr-model/hard-delete-multi! (aurora/conn-pool :write)
-                                           app-id
-                                           attr-ids)]
-
-    (response/ok {:res res})))
-
 (defroutes routes
   (POST "/admin/query" []
     (with-rate-limiting query-post))
@@ -652,8 +639,6 @@
     (with-rate-limiting files-delete)) ;; bulk delete
 
   (GET "/admin/soft_deleted_attrs" [] soft-deleted-attrs-get)
-
-  (POST "/admin/hard_delete_attrs" [] hard-delete-attrs-post)
 
   (GET "/admin/schema" [] schema-get)
 

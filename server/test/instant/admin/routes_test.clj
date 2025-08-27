@@ -54,9 +54,6 @@
 (defn soft-deleted-attrs-get [& args]
   (apply (http-util/wrap-errors admin-routes/soft-deleted-attrs-get) args))
 
-(defn hard-delete-attrs-post [& args]
-  (apply (http-util/wrap-errors admin-routes/hard-delete-attrs-post) args))
-
 (deftest query-test
   (with-movies-app
     (fn [{movies-app-id :id} _r]
@@ -1229,37 +1226,20 @@
             _ (is (= 200 (:status initial-soft-deleted)))
             _ (is (empty? (-> initial-soft-deleted :body :soft-deleted-attrs)))
 
-            ;; Soft-delete both attrs
+            ;; Soft-delete one attr 
             _ (transact-post
-               {:body {:steps [[:delete-attr aid-1]
-                               [:delete-attr aid-2]]}
+               {:body {:steps [[:delete-attr aid-2]]}
                 :headers {"app-id" (str app-id)
                           "authorization" (str "Bearer " admin-token)}})
 
-            ;; Check both appear in soft-deleted attrs
+            ;; Check that attr appears 
             after-delete (soft-deleted-attrs-get
                           {:headers {"app-id" (str app-id)
                                      "authorization" (str "Bearer " admin-token)}})
             _ (is (= 200 (:status after-delete)))
             soft-deleted-attrs (-> after-delete :body :soft-deleted-attrs)
-            _ (is (= #{aid-1 aid-2}
-                     (set (map :id soft-deleted-attrs))))
-
-            ;; Hard-delete one attr
-            hard-delete-res (hard-delete-attrs-post
-                             {:body {:ids [aid-2]}
-                              :headers {"app-id" (str app-id)
-                                        "authorization" (str "Bearer " admin-token)}})
-            _ (is (= 200 (:status hard-delete-res)))
-
-            ;; Check only one remains in soft-deleted attrs
-            after-hard-delete (soft-deleted-attrs-get
-                               {:headers {"app-id" (str app-id)
-                                          "authorization" (str "Bearer " admin-token)}})
-            _ (is (= 200 (:status after-hard-delete)))
-            remaining-soft-deleted (-> after-hard-delete :body :soft-deleted-attrs)
-            _ (is (= #{aid-1}
-                     (set (map :id remaining-soft-deleted))))]))))
+            _ (is (= #{aid-2}
+                     (set (map :id soft-deleted-attrs))))]))))
 
 (comment
   (test/run-tests *ns*))
