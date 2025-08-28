@@ -22,7 +22,6 @@
    [instant.model.app :as app-model]
    [instant.model.app-user :as app-user-model]
    [instant.model.rule :as rule-model]
-   [instant.util.async :as ua]
    [instant.util.instaql :refer [instaql-nodes->object-tree]]
    [instant.util.exception :as ex]
    [instant.util.test :as test-util :refer [suid validation-err? perm-err? perm-pass? timeout-err?]]
@@ -4471,7 +4470,7 @@
 
 
               txes (mapv (fn [conn tx-data]
-                           (ua/vfuture
+                           (future
                              (triple-model/insert-multi! conn attrs app-id (map rest tx-data))))
                          conns tx-datas)]
 
