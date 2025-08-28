@@ -22,6 +22,7 @@
    [instant.model.app :as app-model]
    [instant.model.app-user :as app-user-model]
    [instant.model.rule :as rule-model]
+   [instant.util.async :as ua]
    [instant.util.instaql :refer [instaql-nodes->object-tree]]
    [instant.util.exception :as ex]
    [instant.util.test :as test-util :refer [suid validation-err? perm-err? perm-pass? timeout-err?]]
@@ -4427,6 +4428,56 @@
                          (assoc (make-ctx) :db {:conn-pool conn})
                          [[:add-triple book-id title-aid "Test"]])))))))
 
+
+(deftest deadlock
+  (with-zeneca-app
+    (fn [{app-id :id} r]
+      (with-open [pool (aurora/start-pool 10 (config/get-aurora-config))
+                  conn1 (next.jdbc/get-connection pool)
+                  conn2 (next.jdbc/get-connection pool)
+                  conn3 (next.jdbc/get-connection pool)
+                  conn4 (next.jdbc/get-connection pool)
+                  conn5 (next.jdbc/get-connection pool)
+                  conn6 (next.jdbc/get-connection pool)
+                  conn7 (next.jdbc/get-connection pool)
+                  conn8 (next.jdbc/get-connection pool)
+                  conn9 (next.jdbc/get-connection pool)
+                  conn10 (next.jdbc/get-connection pool)]
+        (let [attrs (attr-model/get-by-app-id app-id)
+              id-attr-id (resolvers/->uuid r :users/id)
+              handle-attr-id (resolvers/->uuid r :users/handle)
+              bookshelves-attr-id (resolvers/->uuid r :users/bookshelves)
+              alex-eid (resolvers/->uuid r "eid-alex")
+              stopa-eid (resolvers/->uuid r "eid-stepan-parunashvili")
+              nicole-eid (resolvers/->uuid r "eid-nicole")
+              eid-nonfiction (resolvers/->uuid r "eid-nonfiction")
+
+              conns [conn1 conn2 conn3 conn4 conn5 conn6 conn7 conn8 conn9 conn10]
+
+              tx-datas (mapv (fn [_]
+                               (let [id (random-uuid)]
+                                 [[:add-triple id id-attr-id (str id)]
+                                  [:add-triple id handle-attr-id (str id)]
+                                  [:add-triple alex-eid id-attr-id (str alex-eid)]
+                                  [:add-triple alex-eid handle-attr-id (str "alex" id)]
+                                  [:add-triple alex-eid bookshelves-attr-id eid-nonfiction]
+                                  [:add-triple stopa-eid id-attr-id (str stopa-eid)]
+                                  [:add-triple stopa-eid handle-attr-id (str "stopa" id)]
+                                  [:add-triple stopa-eid bookshelves-attr-id eid-nonfiction]
+                                  [:add-triple nicole-eid id-attr-id (str nicole-eid)]
+                                  [:add-triple nicole-eid handle-attr-id (str "nicole" id)]
+                                  [:add-triple nicole-eid bookshelves-attr-id eid-nonfiction]]))
+                             (range (count conns)))
+
+
+              txes (mapv (fn [conn tx-data]
+                           (ua/vfuture
+                             (tx/transact! conn attrs app-id tx-data)))
+                         conns tx-datas)]
+
+          (doseq [tx txes]
+           (testing "connection did not deadlock"
+              (is @tx))))))))
 
 (comment
   (test/run-tests *ns*))
