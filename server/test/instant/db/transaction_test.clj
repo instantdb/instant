@@ -4432,7 +4432,7 @@
 (deftest deadlock
   (with-zeneca-app
     (fn [{app-id :id} r]
-      (with-open [pool (aurora/start-pool 10 (config/get-aurora-config))
+      (with-open [pool (aurora/start-pool 12 (config/get-aurora-config))
                   conn1 (next.jdbc/get-connection pool)
                   conn2 (next.jdbc/get-connection pool)
                   conn3 (next.jdbc/get-connection pool)
@@ -4472,7 +4472,7 @@
 
               txes (mapv (fn [conn tx-data]
                            (ua/vfuture
-                             (tx/transact! conn attrs app-id tx-data)))
+                             (triple-model/insert-multi! conn attrs app-id (map rest tx-data))))
                          conns tx-datas)]
 
           (doseq [tx txes]
