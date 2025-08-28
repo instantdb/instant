@@ -52,7 +52,7 @@ export function useQueryInternal<
   // If we don't use a ref, the state will always be considered different, so
   // the component will always re-render.
   const resultCacheRef = useRef<InstaQLLifecycleState<Schema, Q, UseDates>>(
-    stateForResult(_core._reactor.getPreviousResult(query)),
+    stateForResult(_core._reactor.getPreviousResultOrEmpty(query)),
   );
 
   // Similar to `resultCacheRef`, `useSyncExternalStore` will unsubscribe
