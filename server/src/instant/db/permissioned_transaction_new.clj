@@ -1,6 +1,7 @@
 (ns instant.db.permissioned-transaction-new
   (:require
    [clojure.string :as string]
+   [clojure+.core :as clojure+]
    [instant.db.cel :as cel]
    [instant.db.datalog :as d]
    [instant.db.model.attr :as attr-model]
@@ -194,16 +195,24 @@
 
 (defn pre-checks
   "Checks that run before tx: update, delete for attrs & objects"
-  [{:keys [admin? rules]}
+  [{:keys [attrs admin? rules]}
    entities-map
    updated-entities-map
    rule-params-map
    tx-steps]
-  (for [{:keys [op eid etype value rev-etype]} tx-steps
-        :let [key         {:eid eid :etype etype}
-              entity      (get entities-map key)
-              rule-params (get rule-params-map key)]
-        check (cond
+  (for [tx-step tx-steps
+        :let [{:keys [op eid aid etype value rev-etype]} tx-step
+              key             {:eid eid :etype etype}
+              entity          (get entities-map key)
+              update?         (some? entity)
+              ref?            (some? rev-etype)
+              [_ _ fwd-label] (:forward-identity (attr-model/seek-by-id aid attrs))
+              [_ _ rev-label] (:reverse-identity (attr-model/seek-by-id aid attrs))
+              rev-key         {:eid value :etype rev-etype}
+              rev-entity      (when ref?
+                                (get entities-map rev-key))
+              rule-params     (get rule-params-map key)]
+        check (clojure+/cond+
                 (= :update-attr op)
                 [{:scope    :attr
                   :action   :update
@@ -222,30 +231,92 @@
                   :etype    "attrs"
                   :program  {:result admin?}}]
 
-                (and (#{:add-triple :deep-merge-triple :retract-triple} op)
-                     entity) ;; update
+                (and (= :add-triple op)
+                     ref?)
                 (concat
-                 [{:scope    :object
-                   :action   :update
-                   :etype    etype
-                   :eid      eid
-                   :program  (or (rule-model/get-program! rules etype "update")
-                                 {:result true})
-                   :bindings {:data        entity
-                              :new-data    (get updated-entities-map key)
-                              :rule-params rule-params}}]
-                 ;; updating a ref adds implicit "view" check in reverse direction
-                 ;; with rule-params from forward direction
-                 (when rev-etype
-                   (when-some [rev-entity (get entities-map {:eid value :etype rev-etype})]
-                     [{:scope    :object
-                       :action   :view
-                       :etype    rev-etype
-                       :eid      value
-                       :program  (or (rule-model/get-program! rules rev-etype "view")
-                                     {:result true})
-                       :bindings {:data        rev-entity
-                                  :rule-params rule-params}}])))
+                 (when update?
+                   [{:scope    :object
+                     :action   :link
+                     :etype    etype
+                     :eid      eid
+                     :program  (rule-model/get-program!
+                                rules
+                                [[etype      "allow" "link" fwd-label]
+                                 [etype      "allow" "update"]
+                                 [etype      "allow" "$default"]
+                                 ["$default" "allow" "link" fwd-label]
+                                 ["$default" "allow" "update"]
+                                 ["$default" "allow" "$default"]])
+                     :bindings {:data        entity
+                                :new-data    (get updated-entities-map key)
+                                :linked-data rev-entity
+                                :rule-params rule-params}}])
+                 (when rev-entity
+                   [{:scope    :object
+                     :action   :link
+                     :etype    rev-etype
+                     :eid      value
+                     :program  (rule-model/get-program!
+                                rules
+                                [[rev-etype  "allow" "link" rev-label]
+                                 [rev-etype  "allow" "view"]
+                                 [rev-etype  "allow" "$default"]
+                                 ["$default" "allow" "link" rev-label]
+                                 ["$default" "allow" "view"]
+                                 ["$default" "allow" "$default"]])
+                     :bindings {:data        rev-entity
+                                :new-data    (get updated-entities-map rev-key)
+                                :linked-data (get updated-entities-map key)
+                                :rule-params (merge rule-params
+                                                    (get rule-params-map rev-key))}}]))
+
+                (and (= :retract-triple op)
+                     ref?)
+                [{:scope    :object
+                  :action   :unlink
+                  :etype    etype
+                  :eid      eid
+                  :program  (rule-model/get-program!
+                             rules
+                             [[etype      "allow" "unlink" fwd-label]
+                              [etype      "allow" "update"]
+                              [etype      "allow" "$default"]
+                              ["$default" "allow" "unlink" fwd-label]
+                              ["$default" "allow" "update"]
+                              ["$default" "allow" "$default"]])
+                  :bindings {:data        entity
+                             :new-data    (get updated-entities-map key)
+                             :linked-data rev-entity
+                             :rule-params rule-params}}
+                 {:scope    :object
+                  :action   :unlink
+                  :etype    rev-etype
+                  :eid      value
+                  :program  (rule-model/get-program!
+                             rules
+                             [[rev-etype  "allow" "unlink" rev-label]
+                              [rev-etype  "allow" "view"]
+                              [rev-etype  "allow" "$default"]
+                              ["$default" "allow" "unlink" rev-label]
+                              ["$default" "allow" "view"]
+                              ["$default" "allow" "$default"]])
+                  :bindings {:data        rev-entity
+                             :new-data    (get updated-entities-map rev-key)
+                             :linked-data entity
+                             :rule-params (merge rule-params
+                                                 (get rule-params-map rev-key))}}]
+
+                (and (#{:add-triple :deep-merge-triple} op)
+                     update?)
+                [{:scope    :object
+                  :action   :update
+                  :etype    etype
+                  :eid      eid
+                  :program  (or (rule-model/get-program! rules etype "update")
+                                {:result true})
+                  :bindings {:data        entity
+                             :new-data    (get updated-entities-map key)
+                             :rule-params rule-params}}]
 
                 (= :delete-entity op)
                 [{:scope    :object
@@ -261,18 +332,29 @@
                 [])]
     check))
 
-(defn post-checks
-  "Checks that run after tx: create, add-attr"
-  [{:keys [rules]}
+(defn post-create-checks
+  "Checks for new entities created -- assumed to be run after tx so it can
+   reference new data in rules"
+  [{:keys [attrs rules]}
    entities-map
    updated-entities-map
    rule-params-map
    create-lookups-map
    tx-steps]
-  (for [{:keys [op eid etype value rev-etype]} tx-steps
-        :let [key         {:eid eid :etype etype}
-              entity      (get entities-map key)
-              rule-params (get rule-params-map key)]
+  (for [{:keys [op eid aid etype value rev-etype]} tx-steps
+        :let [key                {:eid eid :etype etype}
+              entity             (get entities-map key)
+              updated-entity     (-> (get updated-entities-map key)
+                                     (update "id" #(or (get create-lookups-map %) (:eid key) %)))
+              create?            (nil? entity)
+              ref?               (some? rev-etype)
+              [_ _ fwd-label]    (:forward-identity (attr-model/seek-by-id aid attrs))
+              [_ _ rev-label]    (:reverse-identity (attr-model/seek-by-id aid attrs))
+              rev-key            {:eid value :etype rev-etype}
+              updated-rev-entity (when ref?
+                                   (-> (get updated-entities-map rev-key)
+                                       (update "id" #(or (get create-lookups-map %) (:eid rev-key) %))))
+              rule-params        (get rule-params-map key)]
         check (cond
                 (= :add-attr op)
                 [{:scope    :attr
@@ -282,36 +364,133 @@
                                 {:result true})
                   :bindings {:data value}}]
 
-                (and (#{:add-triple :deep-merge-triple :retract-triple} op)
-                     (not entity)) ;; create
+                (and (= :add-triple op)
+                     ref?)
                 (concat
-                 [{:scope    :object
-                   :action   :create
-                   :etype    etype
-                   :eid      (get create-lookups-map eid eid)
-                   :program  (or (rule-model/get-program! rules etype "create")
-                                 {:result true})
-                   :bindings (let [updated-entity (-> (get updated-entities-map key)
-                                                      (update "id" #(get create-lookups-map % %)))]
-                               {:data        updated-entity
+                 (when create?
+                   [{:scope    :object
+                     :action   :link
+                     :etype    etype
+                     :eid      (get create-lookups-map eid eid)
+                     :program  (rule-model/get-program!
+                                rules
+                                [[etype      "allow" "link" fwd-label]
+                                 [etype      "allow" "create"]
+                                 [etype      "allow" "$default"]
+                                 ["$default" "allow" "link" fwd-label]
+                                 ["$default" "allow" "create"]
+                                 ["$default" "allow" "$default"]])
+                     :bindings {:data        updated-entity
                                 :new-data    updated-entity
-                                :rule-params rule-params})}]
-                   ;; updating a ref adds implicit "view" check in reverse direction
-                   ;; with rule-params from forward direction
-                 (when rev-etype
-                   (when-some [rev-entity (get entities-map {:eid value :etype rev-etype})]
-                     [{:scope    :object
-                       :action   :view
-                       :etype    rev-etype
-                       :eid      value
-                       :program  (or (rule-model/get-program! rules rev-etype "view")
-                                     {:result true})
-                       :bindings {:data        rev-entity
-                                  :rule-params rule-params}}])))
+                                :linked-data updated-rev-entity
+                                :rule-params rule-params}}])
+                 (when (and updated-rev-entity
+                            (nil? (get entities-map rev-key)))
+                   [{:scope    :object
+                     :action   :link
+                     :etype    rev-etype
+                     :eid      (get updated-rev-entity "id")
+                     :program  (rule-model/get-program!
+                                rules
+                                [[rev-etype  "allow" "link" rev-label]
+                                 [rev-etype  "allow" "view"]
+                                 [rev-etype  "allow" "$default"]
+                                 ["$default" "allow" "link" rev-label]
+                                 ["$default" "allow" "view"]
+                                 ["$default" "allow" "$default"]])
+                     :bindings {:data        updated-rev-entity
+                                :new-data    updated-rev-entity
+                                :linked-data updated-entity
+                                :rule-params (merge rule-params
+                                                    (get rule-params-map rev-key))}}]))
+
+                (and (#{:add-triple :deep-merge-triple} op)
+                     create?)
+                [{:scope    :object
+                  :action   :create
+                  :etype    etype
+                  :eid      (get create-lookups-map eid eid)
+                  :program  (or (rule-model/get-program! rules etype "create")
+                                {:result true})
+                  :bindings (let [updated-entity (-> (get updated-entities-map key)
+                                                     (update "id" #(get create-lookups-map % %)))]
+                              {:data        updated-entity
+                               :new-data    updated-entity
+                               :rule-params rule-params})}]
 
                 :else
                 [])]
     check))
+
+(defn post-delete-checks
+  "Checks based on automatic retract-triples generated by delete-entity"
+  [{:keys [attrs rules]}
+   entities-map
+   updated-entities-map
+   rule-params-map
+   tx-steps
+   deleled-triples]
+  (let [delete-keys (set
+                     (for [{:keys [op eid etype]} tx-steps
+                           :when (= :delete-entity op)]
+                       {:eid eid :etype etype}))]
+
+    (for [{:keys [entity_id attr_id value]} deleled-triples
+          :let [value (if (string? value)
+                        (uuid-util/coerce value)
+                        value)
+                attr  (attr-model/seek-by-id attr_id attrs)]
+          :when (= :ref (:value-type attr))
+          :let [[_ etype     fwd-label] (:forward-identity attr)
+                [_ rev-etype rev-label] (:reverse-identity attr)
+                key             {:eid entity_id :etype etype}
+                entity          (get entities-map key)
+                rev-key         {:eid value :etype rev-etype}
+                rev-entity      (get entities-map rev-key)
+                rule-params     (get rule-params-map key)]
+          check (concat
+                 ;; do not check unlink if we are deleting the whole entity
+                 (clojure+/when+ (and (not (contains? delete-keys key))
+                                      :let [program (rule-model/get-program!
+                                                     rules
+                                                     [[etype      "allow" "unlink" fwd-label]
+                                                      ["$default" "allow" "unlink" fwd-label]])]
+                                      (some? program))
+                   [{:scope    :object
+                     :action   :unlink
+                     :etype    etype
+                     :eid      entity_id
+                     :program  program
+                     :bindings {:data        entity
+                                :new-data    (get updated-entities-map key)
+                                :linked-data rev-entity
+                                :rule-params rule-params}}])
+
+                 ;; do not check unlink if we are deleting the whole entity
+                 (clojure+/when+ (and (not (contains? delete-keys rev-key))
+                                      :let [program (rule-model/get-program!
+                                                     rules
+                                                     [[rev-etype  "allow" "unlink" rev-label]
+                                                      ["$default" "allow" "unlink" rev-label]])]
+                                      (some? program))
+                   [{:scope    :object
+                     :action   :unlink
+                     :etype    rev-etype
+                     :eid      value
+                     :program  program
+                     :bindings {:data        rev-entity
+                                :new-data    (get updated-entities-map rev-key)
+                                :linked-data entity
+                                :rule-params (merge rule-params
+                                                    (get rule-params-map rev-key))}}]))]
+      check)))
+
+(defn post-checks
+  "Checks that run after tx: create, add-attr"
+  [ctx entities-map updated-entities-map rule-params-map create-lookups-map tx-steps results]
+  (concat
+   (post-create-checks ctx entities-map updated-entities-map rule-params-map create-lookups-map tx-steps)
+   (post-delete-checks ctx entities-map updated-entities-map rule-params-map tx-steps (:delete-entity results))))
 
 (defn run-checks!
   "Runs checks, returning results (admin-check?) or throwing"
@@ -379,10 +558,14 @@
                   tx-step-maps         (resolve-lookups-tx-steps ctx entities-map tx-step-maps)
                   entities-map         (resolve-lookups-entities-map ctx entities-map)
                   updated-entities-map (update-entities-map ctx entities-map tx-step-maps)
-                  rule-params-map      (into {}
-                                             (for [{:keys [op eid etype value]} tx-step-maps
-                                                   :when (= :rule-params op)]
-                                               [{:eid eid :etype etype} value]))
+                  rule-params-map      (persistent!
+                                        (reduce
+                                         (fn [acc {:keys [op eid etype value]}]
+                                           (if (= :rule-params op)
+                                             (ucoll/update! acc {:eid eid :etype etype} merge value)
+                                             acc))
+                                         (transient {})
+                                         tx-step-maps))
 
                   ;; pre checks
                   pre-checks           (pre-checks ctx
@@ -409,7 +592,8 @@
                                                     updated-entities-map
                                                     rule-params-map
                                                     create-lookups-map
-                                                    tx-step-maps)
+                                                    tx-step-maps
+                                                    (:results tx-data))
                   post-check-results   (io/expect-io
                                          (run-checks! ctx post-checks))
 

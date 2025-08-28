@@ -325,7 +325,7 @@
         {:keys [disabled-apps enabled-apps default-value disabled?]} flag]
     (cond
       (nil? flag)
-      false
+      true
 
       disabled?
       false
