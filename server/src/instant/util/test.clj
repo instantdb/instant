@@ -1,7 +1,6 @@
 (ns instant.util.test
   (:require
    [clojure.set :as set]
-   [clojure.string :as string]
    [clojure+.walk :as walk]
    [instant.config :as config]
    [instant.db.attr-sketch :as cms]
@@ -13,7 +12,6 @@
    [instant.jdbc.aurora :as aurora]
    [instant.model.rule :as rule-model]
    [instant.reactive.aggregator :as aggregator]
-   [instant.util.coll :as coll]
    [instant.util.exception :as ex]
    [instant.util.instaql :refer [instaql-nodes->object-tree]]
    [next.jdbc])
@@ -119,21 +117,6 @@
                 :let [[_ ns n] (:forward-identity attr)]]
             [(keyword ns n) (:id attr)]))))
 
-(defn resolve-attrs [attrs tx]
-  (for [step tx]
-    (cond-> step
-      (and (vector? (-> step (nth 1))) (contains? attrs (-> step (nth 1) first)))
-      (update-in [1 0] attrs)
-
-      (and (> (count step) 2)
-           (contains? attrs (-> step (nth 2))))
-      (update-in [2] attrs)
-
-      (and (> (count step) 3)
-           (vector? (-> step (nth 3)))
-           (contains? attrs (-> step (nth 3) first)))
-      (update-in [3 0] attrs))))
-
 (defn insert-entities
   "Insert entities in more human-readable form (attrs by their ns/ident value,
    not by attr-id). All entities must have :db/id presudo-attr:
@@ -188,16 +171,6 @@
   (parse-uuid
     (str s (subs "00000000-0000-0000-0000-000000000000" (count s)))))
 
-(defn rand-string
-  ([]
-   (rand-string (+ 13 (rand-int 13))))
-  ([len]
-   (string/join
-    (repeatedly len #(rand-nth "qwertyuiopasdfghjklzxcvbnm")))))
-
-(defn rand-email []
-  (str (rand-string 13) "@" (rand-string 13) (rand-nth [".com" ".net" ".org" ".int" ".edu" ".gov" ".mil"])))
-
 (defmacro perm-err? [& body]
   `(try
      ~@body
@@ -207,9 +180,6 @@
          (if (= ::ex/permission-denied (::ex/type (ex-data instant-ex#)))
            instant-ex#
            (throw e#))))))
-
-(defmacro perm-pass? [& body]
-  `(boolean (not (perm-err? ~@body))))
 
 (defmacro validation-err? [& body]
   `(try
@@ -266,29 +236,3 @@
          original-lookup# (var-get #'cms/lookup)]
      (with-redefs [cms/lookup (partial lookup-with-in-memory-sketches original-lookup# sketches# (:id ~app))]
        ~@body)))
-
-(defn- collect-symbols [with-let? bindings]
-  (vec
-   (distinct
-    (for [[left right] (partition 2 bindings)
-          sym          (cond
-                         (= :let left)  (if with-let?
-                                          (->> right
-                                             (partition 2)
-                                             (map first)
-                                             (mapcat #(coll/collect symbol? %)))
-                                          [])
-                         (symbol? left) [left]
-                         :else          (coll/collect symbol? left))]
-      sym))))
-
-(defmacro test-matrix
-  "Similar to doseq, but records current testing context via `testing`,
-   and avoids “method body too large” produced by doseq"
-  [bindings & body]
-  (let [all-keys      (collect-symbols true bindings)
-        variable-keys (mapv keyword (collect-symbols false bindings))]
-    `(doseq [var# (for ~bindings (array-map ~@(mapcat #(vector (keyword %) %) all-keys)))
-             :let [{:keys ~all-keys} var#]]
-       (clojure.test/testing (str (select-keys var# ~variable-keys))
-         ~@body))))

@@ -109,44 +109,6 @@ a user executes, they’ll _only_ see data that they are allowed to see.
 Similarly, for each object in a transaction, we make sure to evaluate the respective `create`, `update`, and `delete` rule.
 Transactions will fail if a user does not have adequate permission.
 
-### Link, Unlink
-
-You can add checks per link attribute for cases when link is added and removed. For example:
-
-```json
-{
-  "posts": {
-    "allow": {
-      "link": {
-        "author": "linkedData.id == auth.id",
-        "reviewer": "..."
-      },
-      "unlink": {
-        "author": "linkedData.id == auth.id"
-      }
-    }
-  },
-  "users": {
-    "allow": {
-      "link": {
-        "posts": "newData.id == auth.id && linkedData.text != null"
-      },
-      "unlink": {
-        "posts": "data.id == auth.id && linkedData.text != null"
-      }
-    }
-  }
-}
-```
-
-Few things to note:
-
-1. Unlike other permissions, value for `link`/`unlink` is a map, not a string. Keys in that map are attribute labels.
-2. Permission checks can be defined either on both sides, on one side or at neither.
-3. If `link`/`unlink` permission is not defined for an attribute, it falls back to `update` check in forward direction and `view` check in reverse direction.
-4. Inside `link`/`unlink` permissions you have access to `linkedData` object which is just a shorthand for the other side of the relation.
-5. You still have access to `data` and `newData`, with the same logic as in `create`/`update` checks.
-
 ### Default permissions
 
 By default, all permissions are considered to be `"true"`. To change that, use `"$default"` key. This:
@@ -274,15 +236,11 @@ The above example shows a taste of the kind of rules you can write :)
 
 ### data
 
-`data` refers to the object you have saved. This will be populated when used for `view`, `create`, `update`, `delete`, `link` and `unlink` rules.
+`data` refers to the object you have saved. This will be populated when used for `view`, `create`, `update`, and `delete` rules
 
 ### newData
 
 In `update`, you'll also have access to `newData`. This refers to the changes that are being made to the object.
-
-### linkedData
-
-In `link`/`unlink`, you have access to `linkedData` object which is just a shorthand for the other side of the relation.
 
 ### bind
 

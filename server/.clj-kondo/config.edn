@@ -8,5 +8,4 @@
                         instant.fixtures/with-indexing-job-queue hooks.with-indexing-job-queue/with-indexing-job-queue}}
  :lint-as {instant.jdbc.sql/with-connection clojure.core/let
            instant.util.tracer/with-exceptions-silencer clojure.core/fn
-           clojure.core.cache/defcache clojure.core/defrecord
-           instant.util.test/test-matrix clojure.core/doseq}}
+           clojure.core.cache/defcache clojure.core/defrecord}}
