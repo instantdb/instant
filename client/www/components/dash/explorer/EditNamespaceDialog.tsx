@@ -55,6 +55,7 @@ import {
   PendingJob,
   useEditBlobConstraints,
 } from '@/lib/hooks/useEditBlobConstraints';
+import { mutate } from 'swr';
 
 export function EditNamespaceDialog({
   db,
@@ -1563,7 +1564,11 @@ function EditAttrForm({
   }
 
   async function deleteAttr() {
+    // update the recently deleted attr cache
     await db._core._reactor.pushOps([['delete-attr', attr.id]]);
+    setTimeout(() => {
+      mutate(['recently-deleted', appId]);
+    }, 500);
     onClose();
   }
 

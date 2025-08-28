@@ -40,9 +40,9 @@ export const RecentlyDeletedAttrs: React.FC<{
     }))
     .filter((attr) => attr.entity === namespace.name);
 
-  // if (filtered?.length === 0) {
-  //   return null;
-  // }
+  if (filtered?.length === 0) {
+    return null;
+  }
 
   return (
     <div>
