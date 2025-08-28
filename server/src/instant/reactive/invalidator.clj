@@ -440,8 +440,8 @@
           (tracer/record-info! {:name "invalidation-worker/shutdown-byop"})
           (do
             (try
-              (handle-byop-record app-id
-                                  table-info
+              (handle-byop-record table-info
+                                  app-id
                                   store
                                   wal-record)
               (catch Throwable t
