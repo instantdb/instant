@@ -114,5 +114,6 @@ const main = async () => {
 main().catch((err) => {
   log.error('Aborting installation...');
   wrappedWindowOutput(err.message, log.error);
+  process.stdout.write(SHOW_CURSOR);
   process.exit(1);
 });
