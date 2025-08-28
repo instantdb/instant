@@ -304,7 +304,8 @@
         lookup-ref-inserts
         {:insert-into [[:triples triple-cols]
                        {:select triple-cols
-                        :from :enhanced-lookup-refs}]
+                        :from :enhanced-lookup-refs
+                        :order-by [:app-id :entity-id :attr-id :value-md5]}]
          :on-conflict [:app-id :attr-id [:json_null_to_null :value] {:where :av}]
          :do-nothing true
          :returning :*}
@@ -363,7 +364,8 @@
         ea-index-inserts
         {:insert-into [[[:triples :t] triple-cols]
                        {:select triple-cols
-                        :from :enhanced-triples}]
+                        :from :enhanced-triples
+                        :order-by [:app-id :entity-id :attr-id :value-md5]}]
          :on-conflict [:app-id :entity-id :attr-id {:where [:= :ea true]}]
          :do-update-set {:value :excluded.value
                          :value-md5 :excluded.value-md5}
@@ -450,7 +452,7 @@
         {:insert-into [[:triples triple-cols]
                        {:select triple-cols
                         :from :enhanced-lookup-refs
-                        :order-by [[:app-id :asc] [:attr-id :asc] [:value-md5 :asc]]}]
+                        :order-by [:app-id :entity-id :attr-id :value-md5]}]
          :on-conflict [:app-id :attr-id [:json_null_to_null :value] {:where :av}]
          :do-nothing true
          :returning :*}
@@ -560,7 +562,7 @@
         {:insert-into [[:triples triple-cols]
                        {:select triple-cols
                         :from :ea-triples-distinct
-                        :order-by [[:app-id :asc] [:attr-id :asc] [:value-md5 :asc]]}]
+                        :order-by [:app-id :entity-id :attr-id :value-md5]}]
          :on-conflict [:app-id :entity-id :attr-id {:where [:= :ea true]}]
          :do-update-set {:value :excluded.value
                          :value-md5 :excluded.value-md5}
@@ -570,7 +572,7 @@
         {:insert-into [[:triples triple-cols]
                        {:select triple-cols
                         :from :remaining-triples
-                        :order-by [[:app-id :asc] [:attr-id :asc] [:value-md5 :asc]]}]
+                        :order-by [:app-id :entity-id :attr-id :value-md5]}]
          :on-conflict [:app-id :entity-id :attr-id :value-md5]
          :do-nothing true
          :returning :*}
@@ -654,7 +656,7 @@
         {:insert-into [[:triples triple-cols]
                        {:select triple-cols
                         :from :indexed-null-triples
-                        :order-by [[:app-id :asc] [:attr-id :asc] [:value-md5 :asc]]}]
+                        :order-by [:app-id :entity-id :attr-id :value-md5]}]
          :on-conflict [:app-id :entity-id :attr-id :value-md5]
          :do-nothing true
          :returning [:entity-id :attr-id]}
