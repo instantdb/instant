@@ -2371,13 +2371,16 @@
             ;; link check can be not defined at all (then update/view fallback is used),
             ;; defined only for one side (then other side will use a fallback), or be
             ;; defined for both sides
-            [attr posts-param users-param] [[:posts/fallback "posts_delete" "users_view"]
-                                            [:posts/fwd-only "posts_delete" "users_view"]
+            [attr posts-param users-param] [[:posts/fallback "posts_delete" nil]
+                                            [:posts/fwd-only "posts_delete" nil]
                                             [:posts/rev-only "posts_delete" "users_rev_only"]
                                             [:posts/fwd-rev  "posts_delete" "users_fwd_rev"]]
-            rule-params                    [{posts-param false users-param true}
-                                            {posts-param true  users-param false}
-                                            {posts-param true  users-param true}]
+            rule-params                    (if users-param
+                                             [{posts-param false users-param true}
+                                              {posts-param true  users-param false}
+                                              {posts-param true  users-param true}]
+                                             [{posts-param false}
+                                              {posts-param true}])
             ;; rule params for reverse direction can be placed on forward one, e.g.
             ;; db.tx.posts[id].link({user: ...}).ruleParams({user_param: ...})
             user-params-pos                [:post :user]]
@@ -2418,13 +2421,16 @@
             ;; link check can be not defined at all (then update/view fallback is used),
             ;; defined only for one side (then other side will use a fallback), or be
             ;; defined for both sides
-            [attr posts-param users-param] [[:posts/fallback "posts_update"   "users_delete"]
+            [attr posts-param users-param] [[:posts/fallback nil              "users_delete"]
                                             [:posts/fwd-only "posts_fwd_only" "users_delete"]
-                                            [:posts/rev-only "posts_update"   "users_delete"]
+                                            [:posts/rev-only nil              "users_delete"]
                                             [:posts/fwd-rev  "posts_fwd_rev"  "users_delete"]]
-            rule-params                    [{posts-param false users-param true}
-                                            {posts-param true  users-param false}
-                                            {posts-param true  users-param true}]]
+            rule-params                    (if posts-param
+                                             [{posts-param false users-param true}
+                                              {posts-param true  users-param false}
+                                              {posts-param true  users-param true}]
+                                             [{users-param false}
+                                              {users-param true}])]
            (let [user-id     (random-uuid)
                  user-email  (test-util/rand-email)
                  user-ref    (case ref-type
