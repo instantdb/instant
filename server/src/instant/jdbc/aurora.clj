@@ -193,9 +193,7 @@
   [config]
   (let [conn (next-jdbc/get-connection config)]
     (next-jdbc/execute! conn ["select set_config('auto_explain.log_parameter_max_length', ?::text, false)"
-                              0
-                              ;;(flags/flag :idle-in-transaction-session-timeout (* 1000 60))
-                              ])
+                              (flags/flag :idle-in-transaction-session-timeout (* 1000 60))])
     conn))
 
 (defn aurora-cluster-datasource
