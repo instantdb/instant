@@ -79,7 +79,7 @@ function AlwaysResultComponent({ db }: { db: any }) {
       </form>
 
       <div className="space-y-2">
-        {data?.todos?.map((todo: any) => (
+        {data.todos?.map((todo: any) => (
           <div
             key={todo.id}
             className="flex items-center gap-3 p-3 border border-gray-200 rounded-md"

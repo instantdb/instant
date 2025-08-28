@@ -1,15 +1,14 @@
 import {
   weakHash,
   coerceQuery,
-  type InstaQLParams,
   type InstaQLOptions,
-  type InstantGraph,
   InstantCoreDatabase,
   InstaQLLifecycleState,
   InstantSchemaDef,
   ValidQuery,
 } from '@instantdb/core';
 import { useCallback, useRef, useSyncExternalStore } from 'react';
+import { AlwaysDefined } from './InstantReactAbstractDatabase.tsx';
 
 const defaultState = {
   isLoading: true,
@@ -37,7 +36,7 @@ export function useQueryInternal<
   _query: null | Q,
   _opts?: InstaQLOptions,
 ): {
-  state: InstaQLLifecycleState<Schema, Q, UseDates>;
+  state: AlwaysDefined<InstaQLLifecycleState<Schema, Q, UseDates>>;
   query: any;
 } {
   if (_query && _opts && 'ruleParams' in _opts) {
@@ -51,9 +50,9 @@ export function useQueryInternal<
   // to compare the previous and next state.
   // If we don't use a ref, the state will always be considered different, so
   // the component will always re-render.
-  const resultCacheRef = useRef<InstaQLLifecycleState<Schema, Q, UseDates>>(
-    stateForResult(_core._reactor.getPreviousResultOrEmpty(query)),
-  );
+  const resultCacheRef = useRef<
+    AlwaysDefined<InstaQLLifecycleState<Schema, Q, UseDates>>
+  >(stateForResult(_core._reactor.getPreviousResultOrEmpty(query)));
 
   // Similar to `resultCacheRef`, `useSyncExternalStore` will unsubscribe
   // if `subscribe` changes, so we use `useCallback` to memoize the function.
@@ -61,7 +60,7 @@ export function useQueryInternal<
     (cb) => {
       // Update the ref when the query changes to avoid showing stale data
       resultCacheRef.current = stateForResult(
-        _core._reactor.getPreviousResult(query),
+        _core._reactor.getPreviousResultOrEmpty(query),
       );
 
       // Don't subscribe if query is null
@@ -71,9 +70,9 @@ export function useQueryInternal<
       }
 
       const unsubscribe = _core.subscribeQuery<Q, UseDates>(query, (result) => {
+        // @ts-expect-error AlwaysDefined can't infer the union it's wrapped around properly
         resultCacheRef.current = {
           isLoading: !Boolean(result),
-          data: undefined,
           pageInfo: undefined,
           error: undefined,
           ...result,
@@ -89,7 +88,7 @@ export function useQueryInternal<
   );
 
   const state = useSyncExternalStore<
-    InstaQLLifecycleState<Schema, Q, UseDates>
+    AlwaysDefined<InstaQLLifecycleState<Schema, Q, UseDates>>
   >(
     subscribe,
     () => resultCacheRef.current,
