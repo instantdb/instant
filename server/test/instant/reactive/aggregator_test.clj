@@ -86,7 +86,8 @@
                                          :copy-sql (copy-sql-for-app-ids [(:id app)])
                                          :acquire-slot-interval-ms 10000
                                          :sketch-flush-ms 10
-                                         :sketch-flush-max-items 1000})]
+                                         :sketch-flush-max-items 1000
+                                         :skip-empty-updates false})]
                 (try
                   (check-sketches app movies-r)
                   (check-sketches app (resolvers/make-zeneca-resolver (:id app)))
@@ -144,7 +145,8 @@
                                            :acquire-slot-interval-ms 100
                                            :sketch-flush-ms 10
                                            :sketch-flush-max-items 1000
-                                           :process-id pid-a})
+                                           :process-id pid-a
+                                           :skip-empty-updates false})
                     shutdown-b (agg/start {:slot-suffix slot-suffix
                                            :copy-sql (copy-sql-for-app-ids [(:id app)])
                                            :acquire-slot-interval-ms 100
@@ -238,13 +240,15 @@
                                            :acquire-slot-interval-ms 10
                                            :sketch-flush-ms 10
                                            :sketch-flush-max-items 1000
-                                           :process-id pid-a})
+                                           :process-id pid-a
+                                           :skip-empty-updates false})
                     shutdown-b (agg/start {:slot-suffix slot-suffix
                                            :copy-sql (copy-sql-for-app-ids [(:id app)])
                                            :acquire-slot-interval-ms 10
                                            :sketch-flush-ms 10
                                            :sketch-flush-max-items 1000
-                                           :process-id pid-b})]
+                                           :process-id pid-b
+                                           :skip-empty-updates false})]
                 (try
                   (let [r (resolvers/make-zeneca-resolver (:id app))]
                     (let [update-res (sql/do-execute! (aurora/conn-pool :write)
@@ -324,7 +328,8 @@
                                          :copy-sql (copy-sql-for-app-ids [(:id app)])
                                          :acquire-slot-interval-ms 10000
                                          :sketch-flush-ms 10
-                                         :sketch-flush-max-items 1000})]
+                                         :sketch-flush-max-items 1000
+                                         :skip-empty-updates false})]
 
                 (try
                   (testing "handles value-too-large in setup"
@@ -419,7 +424,8 @@
                                          :copy-sql (copy-sql-for-app-ids [(:id app)])
                                          :acquire-slot-interval-ms 10000
                                          :sketch-flush-ms 10
-                                         :sketch-flush-max-items 1000})]
+                                         :sketch-flush-max-items 1000
+                                         :skip-empty-updates false})]
                 (try
 
                   (testing "setting the date worked"

@@ -220,7 +220,7 @@
   "Extracts triples changes from the wal that would affect the sketch.
 
    Returns a list of changes and the lsn."
-  [start-lsn change]
+  [start-lsn skip-empty-updates change]
   (let [lsn (LogSequenceNumber/valueOf ^String (:lsn change))
         sketch-changes
         (test-filter
@@ -262,14 +262,20 @@
     ;; When we restart the slot, it will also include the last
     ;; transaction that we processed, so we need to filter out anything
     ;; less than or equal to that lsn
-    (when (= -1 (compare start-lsn lsn))
+    (when (and (= -1 (compare start-lsn lsn))
+               ;; Skip empty updates in dev so that we don't trigger ourselves
+               ;; from our own update. There are enough changes in prod that
+               ;; it won't matter and we need them in tests to let us know
+               ;; when the sketches are synced.
+               (or (not skip-empty-updates)
+                   (seq sketch-changes)))
       {:sketch-changes sketch-changes
        :lsn lsn
        :tx-bytes (:tx-bytes change)})))
 
-(defn wal-record-xf [start-lsn]
+(defn wal-record-xf [start-lsn skip-empty-updates]
   (keep (fn [record]
-          (transform-wal-record start-lsn record))))
+          (transform-wal-record start-lsn skip-empty-updates record))))
 
 ;; ----------
 ;; aggregator
@@ -418,8 +424,8 @@
 ;; -------------
 ;; orchestration
 
-(defn create-wal-chans [start-lsn]
-  (let [chan (a/chan 1 (wal-record-xf start-lsn))]
+(defn create-wal-chans [start-lsn skip-empty-updates]
+  (let [chan (a/chan 1 (wal-record-xf start-lsn skip-empty-updates))]
     {:wal-chan chan
      :close-signal-chan (a/chan)
      :worker-chan chan
@@ -452,7 +458,8 @@
            acquire-slot-interval-ms
            sketch-flush-ms
            sketch-flush-max-items
-           process-id]}]
+           process-id
+           skip-empty-updates]}]
   (let [shutdown-chan (a/chan)
         slot-name (wal/full-slot-name slot-type
                                       slot-suffix)
@@ -463,7 +470,7 @@
               (if-let [lsn (cms/get-start-lsn (aurora/conn-pool :read)
                                               {:slot-name slot-name})]
                 (let [{:keys [wal-chan worker-chan flush-lsn-chan close-signal-chan]}
-                      (create-wal-chans lsn)
+                      (create-wal-chans lsn skip-empty-updates)
 
                       wal-opts (wal/make-wal-opts
                                  {:wal-chan wal-chan
@@ -557,9 +564,10 @@
            :acquire-slot-interval-ms (* 1000 60)
            ;; Flush sketch changes to db every 10 seconds or 50k items
            :sketch-flush-ms (* 1000 10)
-           :sketch-flush-max-items 50000}))
+           :sketch-flush-max-items 50000
+           :skip-empty-updates (= :dev (config/get-env))}))
   ([{:keys [slot-suffix process-id copy-sql acquire-slot-interval-ms
-            sketch-flush-ms sketch-flush-max-items]}]
+            sketch-flush-ms sketch-flush-max-items skip-empty-updates]}]
 
    (when-not (flags/toggled? :disable-aggregator)
 
@@ -575,7 +583,8 @@
                            :acquire-slot-interval-ms acquire-slot-interval-ms
                            :sketch-flush-ms sketch-flush-ms
                            :sketch-flush-max-items sketch-flush-max-items
-                           :process-id process-id}))))
+                           :process-id process-id
+                           :skip-empty-updates skip-empty-updates}))))
 
 (defn start-global []
   (def shutdown (start)))
