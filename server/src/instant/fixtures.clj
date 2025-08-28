@@ -25,12 +25,13 @@
             [lambdaisland.uri :as uri]
             [next.jdbc.connection :as connection])
   (:import
-   (java.io File)))
+   (java.io File)
+   (java.util UUID)))
 
 (defn mock-app-req
   ([a] (mock-app-req a (instant-user-model/get-by-id {:id (:creator_id a)})))
   ([a u]
-   (let [r (instant-user-refresh-token-model/create! {:id (random-uuid) :user-id (:id u)})]
+   (let [r (instant-user-refresh-token-model/create! {:id (UUID/randomUUID) :user-id (:id u)})]
      {:headers {"authorization" (str "Bearer " (:id r))}
       :params {:app_id (:id a)}
       :body {}})))
@@ -71,11 +72,11 @@
      ~@body))
 
 (defmacro with-empty-app [f]
-  `(let [app-id# (random-uuid)
+  `(let [app-id# (UUID/randomUUID)
          app#    (app-model/create! {:title       "empty-app"
                                      :creator-id  ~test-user-id
                                      :id          app-id#
-                                     :admin-token (random-uuid)})]
+                                     :admin-token (UUID/randomUUID)})]
      (try
        (with-fail-on-warn-io
          (~f (assoc app#
@@ -161,12 +162,12 @@
        (run-zeneca-byop app# ~f))))
 
 (defn with-pro-app [owner f]
-  (let [app-id (random-uuid)
+  (let [app-id (UUID/randomUUID)
         app (app-model/create!
              {:title "test team app"
               :creator-id (:id owner)
               :id app-id
-              :admin-token (random-uuid)})
+              :admin-token (UUID/randomUUID)})
         stripe-customer (instant-stripe-customer-model/get-or-create! {:user owner})
         owner-req (mock-app-req app owner)
         _ (instant-subscription-model/create!
@@ -174,8 +175,8 @@
             :app-id app-id
             :subscription-type-id 2 ;; Pro
             :stripe-customer-id (:id stripe-customer)
-            :stripe-subscription-id (str "fake_sub_" (random-uuid))
-            :stripe-event-id (str "fake_evt_" (random-uuid))})]
+            :stripe-subscription-id (str "fake_sub_" (UUID/randomUUID))
+            :stripe-event-id (str "fake_evt_" (UUID/randomUUID))})]
     (try
       (f {:app app
           :owner owner
@@ -184,12 +185,12 @@
         (app-model/delete-immediately-by-id! {:id app-id})))))
 
 (defn with-team-app [owner invitee role f]
-  (let [app-id (random-uuid)
+  (let [app-id (UUID/randomUUID)
         app (app-model/create!
              {:title "test team app"
               :creator-id (:id owner)
               :id app-id
-              :admin-token (random-uuid)})
+              :admin-token (UUID/randomUUID)})
         invite (instant-app-member-invites/create!
                 {:app-id app-id
                  :inviter-id (:creator_id app)
@@ -207,8 +208,8 @@
             :app-id app-id
             :subscription-type-id PRO_SUBSCRIPTION_TYPE
             :stripe-customer-id (:id stripe-customer)
-            :stripe-subscription-id (str "fake_sub_" (random-uuid))
-            :stripe-event-id (str "fake_evt_" (random-uuid))})
+            :stripe-subscription-id (str "fake_sub_" (UUID/randomUUID))
+            :stripe-event-id (str "fake_evt_" (UUID/randomUUID))})
         _ (instant-app-member-invites/accept-by-id! {:id (:id invite)})]
     (try
       (f {:app app

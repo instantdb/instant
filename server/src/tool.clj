@@ -343,9 +343,7 @@
 (defmacro profile [options? & body]
   `(prof/profile ~options? ~@body))
 
-(defn prof-serve-ui
-  ([] (prof/serve-ui 8080))
-  ([port] (prof/serve-ui port)))
+(def prof-serve-ui prof/serve-ui)
 
 (defmacro bench [& body]
   `(do
