@@ -1,10 +1,14 @@
-import { Dialog, useDialog } from '@/components/ui';
+import { Button, Dialog, SectionHeading, useDialog } from '@/components/ui';
 import config from '@/lib/config';
 import { SchemaNamespace, InstantApp, DBAttr } from '@/lib/types';
 import { useDashFetch } from '@/lib/hooks/useDashFetch';
 import useSWR from 'swr';
 import { errorToast } from '@/lib/toast';
 import { InstantReactWebDatabase } from '@instantdb/react';
+import { ClockIcon } from '@heroicons/react/24/outline';
+import { ArrowUturnLeftIcon } from '@heroicons/react/24/solid';
+import { format, formatRelative } from 'date-fns';
+import { useEffect } from 'react';
 
 export const RecentlyDeletedAttrs: React.FC<{
   namespace: SchemaNamespace;
@@ -40,28 +44,53 @@ export const RecentlyDeletedAttrs: React.FC<{
     }))
     .filter((attr) => attr.entity === namespace.name);
 
+  useEffect(() => {
+    if (filtered?.length === 0) {
+      dialog.onClose();
+    }
+  }, [filtered]);
+
   if (filtered?.length === 0) {
     return null;
   }
 
+  const DeletedAttr = ({ attr }: { attr: NonNullable<typeof filtered>[0] }) => {
+    const date = new Date(attr['deletion-marked-at']);
+    return (
+      <div className="border justify-between items-center px-4 flex border-gray-200 bg-gray-50 p-2">
+        <div className="flex gap-4 items-center">
+          <div className="font-mono">{attr.fieldName}</div>
+          <div className="text-xs opacity-40">
+            deleted {formatRelative(date, new Date())}
+          </div>
+        </div>
+        <Button onClick={() => restoreAttr(attr.id)}>
+          <ArrowUturnLeftIcon fontWeight={800} width={15} />
+          Restore
+        </Button>
+      </div>
+    );
+  };
+
   return (
-    <div>
-      <button onClick={dialog.toggleOpen}>Open me {filtered?.length}</button>
+    <>
+      <Button
+        className="px-3 gap-2 items-center"
+        variant="subtle"
+        onClick={dialog.toggleOpen}
+      >
+        <ClockIcon width={15}></ClockIcon>
+        <div className="text-sm">Recently Deleted Attributes</div>
+      </Button>
       <Dialog {...dialog}>
-        <div>
-          {filtered?.map((attr) => (
-            <div
-              key={attr.id}
-              onClick={() => {
-                restoreAttr(attr.id);
-              }}
-            >
-              {attr.entity}: {attr.fieldName}
-            </div>
-          ))}
+        <SectionHeading className="font-light pb-2">
+          Recently Deleted Attributes
+        </SectionHeading>
+        <div className="space-y-2">
+          {filtered?.map((attr) => <DeletedAttr key={attr.id} attr={attr} />)}
         </div>
       </Dialog>
-    </div>
+    </>
   );
 };
 
