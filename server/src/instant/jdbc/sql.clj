@@ -381,13 +381,7 @@
                       (let [debug-info (str "-- trace-id=" trace-id
                                             ", span-id=" span-id
                                             "\n")]
-                        (if-not (string/starts-with? s "/*+")
-                          (str debug-info s)
-                          (let [end-comment (or (when-let [i (string/index-of s "*/")]
-                                                  (+ i 2))
-                                                (count s))]
-                            (str (subs s 0 end-comment)
-                                 (subs s end-comment)))))))
+                        (str debug-info s))))
     query))
 
 (defn apply-postgres-config [postgres-config created-connection? ^Connection c]
