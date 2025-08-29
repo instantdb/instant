@@ -756,7 +756,9 @@
                    (on-open store socket)
                    (admin-init! store id ctx)
                    ;; If we got this far, retry on disconnect after half a second
-                   (sse/set-retry-interval! (:app-id ctx) 500 {:conn (:channel req)})
+                   (sse/set-retry-interval! (:app-id ctx)
+                                            (flags/flag :sse-retry-interval-ms 500)
+                                            {:conn (:channel req)})
                    (receive-queue/put! receive-q
                                        {:op :add-query
                                         :session-id id
