@@ -179,6 +179,7 @@ export function subscribe<
   opts: { headers: HeadersInit; inference: boolean; apiURI: string },
 ): SubscribeQueryResponse<Schema, Q, Config> {
   let fetchErrorResponse;
+  let closed = false;
 
   const es = new EventSource(`${opts.apiURI}/admin/subscribe-query`, {
     fetch(input, init) {
@@ -224,6 +225,9 @@ export function subscribe<
   }
 
   function deliver(result: SubscribeQueryPayload<Schema, Q, Config>) {
+    if (closed) {
+      return;
+    }
     for (const sub of subscribers) {
       try {
         sub(result);
@@ -289,22 +293,34 @@ export function subscribe<
         });
       });
     } else {
-      deliver({
-        type: 'error',
-        error: new InstantAPIError({
-          status: e.code || 500,
-          body: {
-            type: undefined,
-            message: e.message || 'Unknown error setting up subscribe query.',
+      const deliverError = () => {
+        deliver({
+          type: 'error',
+          error: new InstantAPIError({
+            status: e.code || 500,
+            body: {
+              type: undefined,
+              message: e.message || 'Unknown error in subscribe query.',
+            },
+          }),
+          get readyState() {
+            return esReadyState(es);
           },
-        }),
-        get readyState() {
-          return esReadyState(es);
-        },
-        get isClosed() {
-          return esReadyState(es) === 'closed';
-        },
-      });
+          get isClosed() {
+            return esReadyState(es) === 'closed';
+          },
+        });
+      };
+      if (es.readyState === EventSource.CLOSED) {
+        deliverError();
+        return;
+      }
+
+      setTimeout(() => {
+        if (es.readyState !== EventSource.OPEN) {
+          deliverError();
+        }
+      }, 5000);
     }
   };
 
@@ -313,6 +329,7 @@ export function subscribe<
   };
 
   const close = () => {
+    closed = true;
     for (const sub of onCloseSubscribers) {
       try {
         sub();

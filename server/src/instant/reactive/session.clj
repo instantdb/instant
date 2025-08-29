@@ -18,6 +18,7 @@
    [instant.grouped-queue :as grouped-queue]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
+   [instant.lib.ring.sse :as sse]
    [instant.model.app :as app-model]
    [instant.model.app-admin-token :as app-admin-token-model]
    [instant.model.app-user :as app-user-model]
@@ -754,6 +755,8 @@
                                          ^ServerSentEventConnection (:channel req)))}]
                    (on-open store socket)
                    (admin-init! store id ctx)
+                   ;; If we got this far, retry on disconnect after half a second
+                   (sse/set-retry-interval! (:app-id ctx) 500 {:conn (:channel req)})
                    (receive-queue/put! receive-q
                                        {:op :add-query
                                         :session-id id

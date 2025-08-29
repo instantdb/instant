@@ -74,3 +74,14 @@
                  :attributes {:session-id (-> obj meta :session-id)}})))
           (when (instance? Throwable ret)
             (throw ret)))))))
+
+(defn set-retry-interval!
+  "Instructs the client how long to wait to retry after a connection error."
+  [app-id ^Long interval-ms {:keys [stub ^ServerSentEventConnection conn]}]
+  (if stub
+    nil
+    (tracer/with-span! {:name "sse/set-retry!"
+                        :attributes {:app-id app-id
+                                     :interval-ms interval-ms}}
+      (.sendRetry conn
+                  interval-ms))))
