@@ -387,6 +387,7 @@
                                                   (+ i 2))
                                                 (count s))]
                             (str (subs s 0 end-comment)
+                                 debug-info
                                  (subs s end-comment)))))))
     query))
 
