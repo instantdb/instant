@@ -115,7 +115,7 @@
                  rest))]
     (attr-model/insert-multi! (aurora/conn-pool :write) app-id attrs {})
     (into {}
-          (for [attr attrs
+          (for [attr (attr-model/get-by-app-id app-id)
                 :let [[_ ns n] (:forward-identity attr)]]
             [(keyword ns n) (:id attr)]))))
 

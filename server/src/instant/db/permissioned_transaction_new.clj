@@ -241,12 +241,13 @@
                      :eid      eid
                      :program  (rule-model/get-program!
                                 rules
-                                [[etype      "allow" "link" fwd-label]
-                                 [etype      "allow" "update"]
-                                 [etype      "allow" "$default"]
-                                 ["$default" "allow" "link" fwd-label]
-                                 ["$default" "allow" "update"]
-                                 ["$default" "allow" "$default"]])
+                                [[etype      "allow"    "link" fwd-label]
+                                 [etype      "allow"    "update"]
+                                 [etype      "allow"    "$default"]
+                                 ["$default" "allow"    "link" fwd-label]
+                                 ["$default" "allow"    "update"]
+                                 ["$default" "allow"    "$default"]
+                                 [etype      "fallback" "link" fwd-label]])
                      :bindings {:data        entity
                                 :new-data    (get updated-entities-map key)
                                 :linked-data rev-entity
@@ -258,12 +259,13 @@
                      :eid      value
                      :program  (rule-model/get-program!
                                 rules
-                                [[rev-etype  "allow" "link" rev-label]
-                                 [rev-etype  "allow" "view"]
-                                 [rev-etype  "allow" "$default"]
-                                 ["$default" "allow" "link" rev-label]
-                                 ["$default" "allow" "view"]
-                                 ["$default" "allow" "$default"]])
+                                [[rev-etype  "allow"    "link" rev-label]
+                                 [rev-etype  "allow"    "view"]
+                                 [rev-etype  "allow"    "$default"]
+                                 ["$default" "allow"    "link" rev-label]
+                                 ["$default" "allow"    "view"]
+                                 ["$default" "allow"    "$default"]
+                                 [rev-etype  "fallback" "link" rev-label]])
                      :bindings {:data        rev-entity
                                 :new-data    (get updated-entities-map rev-key)
                                 :linked-data (get updated-entities-map key)
@@ -278,12 +280,13 @@
                   :eid      eid
                   :program  (rule-model/get-program!
                              rules
-                             [[etype      "allow" "unlink" fwd-label]
-                              [etype      "allow" "update"]
-                              [etype      "allow" "$default"]
-                              ["$default" "allow" "unlink" fwd-label]
-                              ["$default" "allow" "update"]
-                              ["$default" "allow" "$default"]])
+                             [[etype      "allow"    "unlink" fwd-label]
+                              [etype      "allow"    "update"]
+                              [etype      "allow"    "$default"]
+                              ["$default" "allow"    "unlink" fwd-label]
+                              ["$default" "allow"    "update"]
+                              ["$default" "allow"    "$default"]
+                              [etype      "fallback" "unlink" fwd-label]])
                   :bindings {:data        entity
                              :new-data    (get updated-entities-map key)
                              :linked-data rev-entity
@@ -294,12 +297,13 @@
                   :eid      value
                   :program  (rule-model/get-program!
                              rules
-                             [[rev-etype  "allow" "unlink" rev-label]
-                              [rev-etype  "allow" "view"]
-                              [rev-etype  "allow" "$default"]
-                              ["$default" "allow" "unlink" rev-label]
-                              ["$default" "allow" "view"]
-                              ["$default" "allow" "$default"]])
+                             [[rev-etype  "allow"    "unlink" rev-label]
+                              [rev-etype  "allow"    "view"]
+                              [rev-etype  "allow"    "$default"]
+                              ["$default" "allow"    "unlink" rev-label]
+                              ["$default" "allow"    "view"]
+                              ["$default" "allow"    "$default"]
+                              [rev-etype  "fallback" "unlink" rev-label]])
                   :bindings {:data        rev-entity
                              :new-data    (get updated-entities-map rev-key)
                              :linked-data entity
@@ -374,12 +378,13 @@
                      :eid      (get create-lookups-map eid eid)
                      :program  (rule-model/get-program!
                                 rules
-                                [[etype      "allow" "link" fwd-label]
-                                 [etype      "allow" "create"]
-                                 [etype      "allow" "$default"]
-                                 ["$default" "allow" "link" fwd-label]
-                                 ["$default" "allow" "create"]
-                                 ["$default" "allow" "$default"]])
+                                [[etype      "allow"    "link" fwd-label]
+                                 [etype      "allow"    "create"]
+                                 [etype      "allow"    "$default"]
+                                 ["$default" "allow"    "link" fwd-label]
+                                 ["$default" "allow"    "create"]
+                                 ["$default" "allow"    "$default"]
+                                 [etype      "fallback" "link" fwd-label]])
                      :bindings {:data        updated-entity
                                 :new-data    updated-entity
                                 :linked-data updated-rev-entity
@@ -392,12 +397,13 @@
                      :eid      (get updated-rev-entity "id")
                      :program  (rule-model/get-program!
                                 rules
-                                [[rev-etype  "allow" "link" rev-label]
-                                 [rev-etype  "allow" "view"]
-                                 [rev-etype  "allow" "$default"]
-                                 ["$default" "allow" "link" rev-label]
-                                 ["$default" "allow" "view"]
-                                 ["$default" "allow" "$default"]])
+                                [[rev-etype  "allow"    "link" rev-label]
+                                 [rev-etype  "allow"    "view"]
+                                 [rev-etype  "allow"    "$default"]
+                                 ["$default" "allow"    "link" rev-label]
+                                 ["$default" "allow"    "view"]
+                                 ["$default" "allow"    "$default"]
+                                 [rev-etype  "fallback" "link" rev-label]])
                      :bindings {:data        updated-rev-entity
                                 :new-data    updated-rev-entity
                                 :linked-data updated-entity

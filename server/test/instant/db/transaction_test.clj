@@ -2344,7 +2344,9 @@
               [[:posts/fallback :users/rev-fallback]]
               [[:posts/fwd-only :users/rev-fwd-only]]
               [[:posts/rev-only :users/rev-rev-only]]
-              [[:posts/fwd-rev  :users/rev-fwd-rev]]])
+              [[:posts/fwd-rev  :users/rev-fwd-rev]]
+              [[:posts/$user    :$users/post]]
+              [[:posts/$file    :$files/post]]])
             transact! #(permissioned-tx/transact!
                         (make-ctx)
                         (test-util/resolve-attrs attrs %))]
@@ -2356,7 +2358,9 @@
                   {:update "ruleParams.posts_update"
                    :delete "ruleParams.posts_delete"
                    :unlink {"fwd-only" "ruleParams.posts_fwd_only"
-                            "fwd-rev"  "ruleParams.posts_fwd_rev"}}}
+                            "fwd-rev"  "ruleParams.posts_fwd_rev"
+                            "$user"    "ruleParams.$user"
+                            "$file"    "ruleParams.$file"}}}
 
                  :users
                  {:allow
@@ -2413,7 +2417,28 @@
 
                  expected    (every? true? (vals rule-params))]
 
-             (is (= expected (perm-pass? (transact! tx)))))))
+             (is (= expected (perm-pass? (transact! tx))))))
+
+          (testing "system namespaces"
+            (let [user-id (random-uuid)
+                  file-id (random-uuid)
+                  post-id (random-uuid)
+                  _       (tx/transact!
+                           (aurora/conn-pool :write)
+                           (attr-model/get-by-app-id app-id)
+                           app-id
+                           (test-util/resolve-attrs
+                            attrs
+                            [[:add-triple  user-id :$users/id          user-id]
+                             [:add-triple  file-id :$files/id          file-id]
+                             [:add-triple  file-id :$files/path        (test-util/rand-string)]
+                             [:add-triple  file-id :$files/location-id (random-uuid)]
+                             [:add-triple  post-id :posts/id           post-id]
+                             [:add-triple  post-id :posts/$user        user-id]
+                             [:add-triple  post-id :posts/$file        file-id]])
+                           {:allow-$files-update? true})]
+              (is (perm-pass? (transact! [[:delete-entity post-id "posts"]
+                                          [:rule-params   post-id "posts" {"posts_delete" true}]]))))))
 
         (testing "deleting user"
           (test-util/test-matrix
@@ -3632,7 +3657,7 @@
         (app-user-model/create! (aurora/conn-pool :write) {:app-id app-id
                                                            :id user-id
                                                            :email "test@example.com"})
-        (perm-err? (permissioned-tx/transact! (make-ctx) tx-steps))
+        (is (perm-err? (permissioned-tx/transact! (make-ctx) tx-steps)))
         (is (permissioned-tx/transact! (assoc (make-ctx)
                                               :current-user {:id user-id}) tx-steps))))))
 
