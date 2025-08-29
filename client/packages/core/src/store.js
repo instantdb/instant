@@ -463,6 +463,8 @@ function applyTxStep(store, txStep) {
     case 'update-attr':
       updateAttr(store, args);
       break;
+    case 'restore-attr':
+      break;
     case 'rule-params':
       break;
     default:
