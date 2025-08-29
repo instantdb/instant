@@ -8,7 +8,6 @@ import {
   type ConnectionStatus,
   type TransactionChunk,
   type RoomSchemaShape,
-  type InstaQLParams,
   type InstaQLOptions,
   type InstantConfig,
   type PageInfoResponse,
@@ -38,6 +37,12 @@ const defaultAuthState = {
   user: undefined,
   error: undefined,
 };
+
+export type AlwaysDefined<T extends { data: any }> = T extends { data: infer D }
+  ? T & {
+      data: NonNullable<D>;
+    }
+  : never;
 
 export default abstract class InstantReactAbstractDatabase<
   // need to pull this schema out to another generic for query params, not sure why
@@ -197,10 +202,8 @@ export default abstract class InstantReactAbstractDatabase<
   useQuery = <Q extends ValidQuery<Q, Schema>>(
     query: null | Q,
     opts?: InstaQLOptions,
-  ): InstaQLLifecycleState<
-    Schema,
-    Q,
-    NonNullable<Config['useDateObjects']>
+  ): AlwaysDefined<
+    InstaQLLifecycleState<Schema, Q, NonNullable<Config['useDateObjects']>>
   > => {
     return useQueryInternal<Q, Schema, Config['useDateObjects']>(
       this._core,

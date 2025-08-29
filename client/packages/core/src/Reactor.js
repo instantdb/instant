@@ -733,6 +733,51 @@ export default class Reactor {
   // ---------------------------
   // Queries
 
+  // Only called by the react package
+  getPreviousResultOrEmpty = (q) => {
+    if (!q) {
+      return null;
+    }
+    if (typeof window !== undefined) {
+      return {
+        data: Object.keys(q).reduce((acc, key) => {
+          acc[key] = [];
+          return acc;
+        }, {}),
+      };
+    }
+
+    const hash = weakHash(q);
+    const data = this.dataForQuery(hash);
+    if (!data) {
+      // create store and apply pending mutations
+      const store = s.createStore(
+        {},
+        [],
+        this.config.useDateObjects,
+        this._linkIndex,
+        this.config.useDateObjects,
+      );
+
+      const pendingMutations = this.pendingMutations.currentValue;
+      const mutations = this._rewriteMutationsSorted(
+        store.attrs,
+        pendingMutations,
+      );
+      const newStore = this._applyOptimisticUpdates(
+        store,
+        mutations,
+        undefined,
+      );
+      const resp = instaql(
+        { store: newStore, pageInfo: undefined, aggregate: undefined },
+        q,
+      );
+      return resp;
+    }
+    return data;
+  };
+
   getPreviousResult = (q) => {
     const hash = weakHash(q);
     return this.dataForQuery(hash);
