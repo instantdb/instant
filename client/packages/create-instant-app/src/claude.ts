@@ -136,6 +136,7 @@ export async function findClaudePath(): Promise<string | null> {
 }
 
 export const promptClaude = async (prompt: string, projectDir: string) => {
+  p.log.info('Generating with Claude Code...');
   process.stdout.write(HIDE_CURSOR);
   for await (const message of query({
     options: {
