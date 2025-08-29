@@ -2330,6 +2330,41 @@
 
            (is (= expected (perm-pass? (transact! tx))))))))))
 
+(deftest link-unlink-non-existing-entities
+  (with-empty-app
+    (fn [{app-id   :id
+          make-ctx :make-ctx}]
+      (let [attrs
+            (test-util/make-attrs
+             app-id
+             [[:users/id    :required? :index? :unique?]
+              [:users/email :unique?]
+              [:posts/id    :required? :index? :unique?]
+              [:posts/title :unique?]
+              [[:posts/user :users/post]]])
+            transact! #(permissioned-tx/transact!
+                        (make-ctx)
+                        (test-util/resolve-attrs attrs %))]
+        (rule-model/put!
+         (aurora/conn-pool :write)
+         {:app-id app-id
+          :code {:posts
+                 {:allow
+                  {:link   {"user" "ruleParams.posts_user"}
+                   :unlink {"user" "ruleParams.posts_user"}}}
+                 :users
+                 {:allow
+                  {:link   {"post" "false"}
+                   :unlink {"post" "false"}}}}})
+        (let [post-id (random-uuid)
+              _       (transact!
+                       [[:add-triple post-id :posts/id post-id]])]
+          ;; if user doesn't exist, we don't check permissions on it
+          (is (perm-pass? (transact! [[:add-triple post-id :posts/user (random-uuid)]
+                                      [:rule-params post-id "posts" {"posts_user" true}]])))
+          (is (perm-pass? (transact! [[:retract-triple post-id :posts/user (random-uuid)]
+                                      [:rule-params post-id "posts" {"posts_user" true}]]))))))))
+
 (deftest unlink-perms-during-delete
   (with-empty-app
     (fn [{app-id   :id
