@@ -735,6 +735,18 @@ export default class Reactor {
 
   // Only called by the react package
   getPreviousResultOrEmpty = (q) => {
+    if (!q) {
+      return null;
+    }
+    if (typeof window !== undefined) {
+      return {
+        data: Object.keys(q).reduce((acc, key) => {
+          acc[key] = [];
+          return acc;
+        }, {}),
+      };
+    }
+
     const hash = weakHash(q);
     const data = this.dataForQuery(hash);
     if (!data) {
