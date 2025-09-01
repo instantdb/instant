@@ -2129,6 +2129,65 @@
                     set)
                book-id)))))))
 
+(deftest refs-in-default-perms
+  (with-empty-app
+    (fn [{app-id   :id
+          make-ctx :make-ctx}]
+      (let [attrs      (test-util/make-attrs
+                        app-id
+                        [[:users/id :required? :index? :unique?]
+                         [:users/email]
+                         [:posts/id :required? :index? :unique?]
+                         [:posts/title]
+                         [[:posts/author :users/posts]]])
+            transact!  #(when (seq %)
+                          (permissioned-tx/transact!
+                           (make-ctx)
+                           (test-util/resolve-attrs attrs %)))
+            user-id #uuid "f7914f50-0fb0-4223-bace-ea5317a1f907"
+            post-id #uuid "0fe6c627-3781-411b-a3d6-8d127d5979ae"]
+
+        (transact!
+         [[:add-triple user-id :users/id     user-id]
+          [:add-triple user-id :users/email  "e@mail.com"]
+          [:add-triple post-id :posts/id     post-id]
+          [:add-triple post-id :posts/title  "title"]
+          [:add-triple post-id :posts/author user-id]])
+
+        (test-util/test-matrix
+         [perms [{:$default
+                  {:allow
+                   {:update "true"}}
+                  :posts
+                  {:allow
+                   {:$default "true"
+                    :update   "!('e@mail.com' in data.ref('author.email'))"}}}
+
+                 {:$default
+                  {:allow
+                   {:update "true"}}
+                  :posts
+                  {:allow
+                   {:$default "!('e@mail.com' in data.ref('author.email'))"}}}
+
+                 {:$default
+                  {:allow
+                   {:update "!('e@mail.com' in data.ref('author.email'))"}}}
+
+                 {:$default
+                  {:allow
+                   {:$default "!('e@mail.com' in data.ref('author.email'))"}}}]]
+
+         (rule-model/put!
+          (aurora/conn-pool :write)
+          {:app-id app-id
+           :code perms})
+
+         (is (perm-err?
+              (transact!
+               [[:add-triple post-id :posts/id post-id]
+                [:add-triple post-id :posts/title "new title"]]))))))))
+
 (deftest link-perms
   (with-empty-app
     (fn [{app-id   :id
