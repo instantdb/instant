@@ -94,7 +94,9 @@
                             (cel/ident-usages compiler expr)))
 
 (defn with-binds [rule etype action expr]
-  (let [binds (get-in rule [etype "bind"])]
+  (let [binds (concat
+               (get-in rule ["$default" "bind"])
+               (get-in rule [etype      "bind"]))]
     (if (empty? binds)
       expr
       (let [compiler (cel/action->compiler action)

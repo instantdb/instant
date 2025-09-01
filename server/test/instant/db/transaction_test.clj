@@ -2188,6 +2188,55 @@
                [[:add-triple post-id :posts/id post-id]
                 [:add-triple post-id :posts/title "new title"]]))))))))
 
+(deftest bind-in-default-perms
+  (with-empty-app
+    (fn [{app-id   :id
+          make-ctx :make-ctx}]
+      (let [attrs      (test-util/make-attrs
+                        app-id
+                        [[:posts/id :required? :index? :unique?]
+                         [:posts/title]])
+            transact!  #(when (seq %)
+                          (permissioned-tx/transact!
+                           (make-ctx)
+                           (test-util/resolve-attrs attrs %)))
+            post-id #uuid "0fe6c627-3781-411b-a3d6-8d127d5979ae"]
+
+        (transact!
+         [[:add-triple post-id :posts/id    post-id]
+          [:add-triple post-id :posts/title "title"]])
+
+        (test-util/test-matrix
+         [perms [{:posts
+                  {:bind ["bind" "false"]
+                   :allow
+                   {:update "bind"}}}
+
+                 {:posts
+                  {:bind ["bind" "false"]
+                   :allow
+                   {:$default "bind"}}}
+
+                 {:$default
+                  {:bind ["bind" "false"]
+                   :allow
+                   {:update "bind"}}}
+
+                 {:$default
+                  {:bind ["bind" "false"]
+                   :allow
+                   {:$default "bind"}}}]]
+
+         (rule-model/put!
+          (aurora/conn-pool :write)
+          {:app-id app-id
+           :code perms})
+
+         (is (perm-err?
+              (transact!
+               [[:add-triple post-id :posts/id post-id]
+                [:add-triple post-id :posts/title "new title"]]))))))))
+
 (deftest link-perms
   (with-empty-app
     (fn [{app-id   :id
