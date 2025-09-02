@@ -381,20 +381,25 @@
                       :attr-ids (with-meta (mapv :attr-id keys)
                                   {:pgtype "uuid[]"}))
         cols [:id :app-id :attr-id :width :depth :total :total-not-binned :bins]
-        q (hsql/format {:with [[:data {:select [[:%gen_random_uuid :id]
+        q (hsql/format {:with [[:setting
+                                {:select [[[:set_config [:inline "auto_explain.log_min_duration"] [:inline "-1"] :true] :config]]}
+                                :materialized]
+                               [:data {:select [[:%gen_random_uuid :id]
                                                 [[:unnest :?app-ids] :app-id]
                                                 [[:unnest :?attr-ids] :attr-id]
                                                 [:?width :width]
                                                 [:?depth :depth]
                                                 [:?total :total]
                                                 [:?total-not-binned :total-not-binned]
-                                                [:?bins :bins]]}]]
-                        :insert-into [[:attr-sketches cols]
-                                      {:select (qualify-cols :data cols)
-                                       :from :data
-                                       :join [:attrs [:= :attrs.id :data.attr-id]
-                                              :apps [:= :apps.id :data.app-id]]}]
-                        :returning :*}
+                                                [:?bins :bins]]}]
+                               [:changes {:insert-into [[:attr-sketches cols]
+                                                        {:select (qualify-cols :data cols)
+                                                         :from :data
+                                                         :join [:attrs [:= :attrs.id :data.attr-id]
+                                                                :apps [:= :apps.id :data.app-id]]}]
+                                          :returning :*}]]
+                        :select [:changes.* [{:select :config :from :setting} :ignored]]
+                        :from :changes}
                        {:params params})]
     (sql/execute! ::create-empty-sketch-rows!
                   conn
@@ -463,7 +468,10 @@
                         :slot-name slot-name
                         :process-id process-id}
                        sketches)
-        q {:with [[:data {:select [[[:unnest :?id] :id]
+        q {:with [[:setting
+                   {:select [[[:set_config [:inline "auto_explain.log_min_duration"] [:inline "-1"] :true] :config]]}
+                   :materialized]
+                  [:data {:select [[[:unnest :?id] :id]
                                    [[:unnest :?width] :width]
                                    [[:unnest :?depth] :depth]
                                    [[:unnest :?total] :total]
@@ -501,8 +509,8 @@
                                true
                                :else [:raise_exception_message [:inline "lsn is not what we expected, another machine may have stolen the replication slot"]]]
                               :ok]]}]]
-           :select :*
-           :from :update-wal-aggregator-status
+           :select [:s.* [{:select :config :from :setting} :ignored]]
+           :from [[:update-wal-aggregator-status :s]]
            :where [:= true {:select :ok :from :check-empty}]}]
     (sql/execute-one! ::save-sketches!
                       conn
@@ -548,7 +556,10 @@
         cols [:id :max-lsn :app-id :attr-id
               :width :depth :total :total-not-binned :bins
               :reverse-width :reverse-depth :reverse-total :reverse-bins]
-        q (hsql/format {:with [[:data {:select [[:%gen_random_uuid :id]
+        q (hsql/format {:with [[:setting
+                                {:select [[[:set_config [:inline "auto_explain.log_min_duration"] [:inline "-1"] :true] :config]]}
+                                :materialized]
+                               [:data {:select [[:%gen_random_uuid :id]
                                                 [lsn :max-lsn]
                                                 [[:unnest :?app-id] :app-id]
                                                 [[:unnest :?attr-id] :attr-id]
@@ -560,13 +571,16 @@
                                                 [[:unnest :?reverse-width] :reverse-width]
                                                 [[:unnest :?reverse-depth] :reverse-depth]
                                                 [[:unnest :?reverse-total] :reverse-total]
-                                                [[:unnest :?reverse-bins] :reverse-bins]]}]]
-                        :insert-into [[:attr-sketches cols]
-                                      {:select (qualify-cols :data cols)
-                                       :from :data
-                                       ;; Filter out sketches for attrs/apps that were deleted
-                                       :join [:attrs [:= :attrs.id :data.attr-id]
-                                              :apps [:= :apps.id :data.app-id]]}]}
+                                                [[:unnest :?reverse-bins] :reverse-bins]]}]
+                               [:changes {:insert-into [[:attr-sketches cols]
+                                                        {:select (qualify-cols :data cols)
+                                                         :from :data
+                                                         ;; Filter out sketches for attrs/apps that were deleted
+                                                         :join [:attrs [:= :attrs.id :data.attr-id]
+                                                                :apps [:= :apps.id :data.app-id]]}]
+                                          :returning :*}]]
+                        :select [:changes.* [{:select :config :from :setting} :ignored]]
+                        :from :changes}
                        {:params params})]
     (sql/do-execute! ::insert-initial-sketches!
                      conn

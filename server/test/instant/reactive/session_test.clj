@@ -286,7 +286,7 @@
                  (resolvers/walk-friendly movies-resolver (map remove-created-at result)))))))))
 
 (defn- get-datalog-cache-for-app [store app-id]
-  (let [db  @(rs/app-conn store app-id)]
+  (let [db @(rs/app-conn store app-id)]
     (->> (ds/q '{:find [?query ?result]
                  :in [$ ?app-id]
                  :where [[?e :datalog-query/app-id ?app-id]
@@ -297,7 +297,7 @@
          (into {}))))
 
 (defn- get-subscriptions-for-app-id [store app-id]
-  (let [db  @(rs/app-conn store app-id)]
+  (let [db @(rs/app-conn store app-id)]
     (for [datom (ds/datoms db :aevt :subscription/app-id)
           :when (= app-id (:v datom))
           :let  [ent (ds/entity db (:e datom))]]

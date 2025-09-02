@@ -2129,6 +2129,114 @@
                     set)
                book-id)))))))
 
+(deftest refs-in-default-perms
+  (with-empty-app
+    (fn [{app-id   :id
+          make-ctx :make-ctx}]
+      (let [attrs      (test-util/make-attrs
+                        app-id
+                        [[:users/id :required? :index? :unique?]
+                         [:users/email]
+                         [:posts/id :required? :index? :unique?]
+                         [:posts/title]
+                         [[:posts/author :users/posts]]])
+            transact!  #(when (seq %)
+                          (permissioned-tx/transact!
+                           (make-ctx)
+                           (test-util/resolve-attrs attrs %)))
+            user-id #uuid "f7914f50-0fb0-4223-bace-ea5317a1f907"
+            post-id #uuid "0fe6c627-3781-411b-a3d6-8d127d5979ae"]
+
+        (transact!
+         [[:add-triple user-id :users/id     user-id]
+          [:add-triple user-id :users/email  "e@mail.com"]
+          [:add-triple post-id :posts/id     post-id]
+          [:add-triple post-id :posts/title  "title"]
+          [:add-triple post-id :posts/author user-id]])
+
+        (test-util/test-matrix
+         [perms [{:$default
+                  {:allow
+                   {:update "true"}}
+                  :posts
+                  {:allow
+                   {:$default "true"
+                    :update   "!('e@mail.com' in data.ref('author.email'))"}}}
+
+                 {:$default
+                  {:allow
+                   {:update "true"}}
+                  :posts
+                  {:allow
+                   {:$default "!('e@mail.com' in data.ref('author.email'))"}}}
+
+                 {:$default
+                  {:allow
+                   {:update "!('e@mail.com' in data.ref('author.email'))"}}}
+
+                 {:$default
+                  {:allow
+                   {:$default "!('e@mail.com' in data.ref('author.email'))"}}}]]
+
+         (rule-model/put!
+          (aurora/conn-pool :write)
+          {:app-id app-id
+           :code perms})
+
+         (is (perm-err?
+              (transact!
+               [[:add-triple post-id :posts/id post-id]
+                [:add-triple post-id :posts/title "new title"]]))))))))
+
+(deftest bind-in-default-perms
+  (with-empty-app
+    (fn [{app-id   :id
+          make-ctx :make-ctx}]
+      (let [attrs      (test-util/make-attrs
+                        app-id
+                        [[:posts/id :required? :index? :unique?]
+                         [:posts/title]])
+            transact!  #(when (seq %)
+                          (permissioned-tx/transact!
+                           (make-ctx)
+                           (test-util/resolve-attrs attrs %)))
+            post-id #uuid "0fe6c627-3781-411b-a3d6-8d127d5979ae"]
+
+        (transact!
+         [[:add-triple post-id :posts/id    post-id]
+          [:add-triple post-id :posts/title "title"]])
+
+        (test-util/test-matrix
+         [perms [{:posts
+                  {:bind ["bind" "false"]
+                   :allow
+                   {:update "bind"}}}
+
+                 {:posts
+                  {:bind ["bind" "false"]
+                   :allow
+                   {:$default "bind"}}}
+
+                 {:$default
+                  {:bind ["bind" "false"]
+                   :allow
+                   {:update "bind"}}}
+
+                 {:$default
+                  {:bind ["bind" "false"]
+                   :allow
+                   {:$default "bind"}}}]]
+
+         (rule-model/put!
+          (aurora/conn-pool :write)
+          {:app-id app-id
+           :code perms})
+
+         (is (perm-err?
+              (transact!
+               [[:add-triple post-id :posts/id post-id]
+                [:add-triple post-id :posts/title "new title"]]))))))))
+
 (deftest link-perms
   (with-empty-app
     (fn [{app-id   :id
@@ -2330,6 +2438,41 @@
 
            (is (= expected (perm-pass? (transact! tx))))))))))
 
+(deftest link-unlink-non-existing-entities
+  (with-empty-app
+    (fn [{app-id   :id
+          make-ctx :make-ctx}]
+      (let [attrs
+            (test-util/make-attrs
+             app-id
+             [[:users/id    :required? :index? :unique?]
+              [:users/email :unique?]
+              [:posts/id    :required? :index? :unique?]
+              [:posts/title :unique?]
+              [[:posts/user :users/post]]])
+            transact! #(permissioned-tx/transact!
+                        (make-ctx)
+                        (test-util/resolve-attrs attrs %))]
+        (rule-model/put!
+         (aurora/conn-pool :write)
+         {:app-id app-id
+          :code {:posts
+                 {:allow
+                  {:link   {"user" "ruleParams.posts_user"}
+                   :unlink {"user" "ruleParams.posts_user"}}}
+                 :users
+                 {:allow
+                  {:link   {"post" "false"}
+                   :unlink {"post" "false"}}}}})
+        (let [post-id (random-uuid)
+              _       (transact!
+                       [[:add-triple post-id :posts/id post-id]])]
+          ;; if user doesn't exist, we don't check permissions on it
+          (is (perm-pass? (transact! [[:add-triple post-id :posts/user (random-uuid)]
+                                      [:rule-params post-id "posts" {"posts_user" true}]])))
+          (is (perm-pass? (transact! [[:retract-triple post-id :posts/user (random-uuid)]
+                                      [:rule-params post-id "posts" {"posts_user" true}]]))))))))
+
 (deftest unlink-perms-during-delete
   (with-empty-app
     (fn [{app-id   :id
@@ -2344,7 +2487,9 @@
               [[:posts/fallback :users/rev-fallback]]
               [[:posts/fwd-only :users/rev-fwd-only]]
               [[:posts/rev-only :users/rev-rev-only]]
-              [[:posts/fwd-rev  :users/rev-fwd-rev]]])
+              [[:posts/fwd-rev  :users/rev-fwd-rev]]
+              [[:posts/$user    :$users/post]]
+              [[:posts/$file    :$files/post]]])
             transact! #(permissioned-tx/transact!
                         (make-ctx)
                         (test-util/resolve-attrs attrs %))]
@@ -2356,7 +2501,9 @@
                   {:update "ruleParams.posts_update"
                    :delete "ruleParams.posts_delete"
                    :unlink {"fwd-only" "ruleParams.posts_fwd_only"
-                            "fwd-rev"  "ruleParams.posts_fwd_rev"}}}
+                            "fwd-rev"  "ruleParams.posts_fwd_rev"
+                            "$user"    "ruleParams.$user"
+                            "$file"    "ruleParams.$file"}}}
 
                  :users
                  {:allow
@@ -2371,13 +2518,16 @@
             ;; link check can be not defined at all (then update/view fallback is used),
             ;; defined only for one side (then other side will use a fallback), or be
             ;; defined for both sides
-            [attr posts-param users-param] [[:posts/fallback "posts_delete" "users_view"]
-                                            [:posts/fwd-only "posts_delete" "users_view"]
+            [attr posts-param users-param] [[:posts/fallback "posts_delete" nil]
+                                            [:posts/fwd-only "posts_delete" nil]
                                             [:posts/rev-only "posts_delete" "users_rev_only"]
                                             [:posts/fwd-rev  "posts_delete" "users_fwd_rev"]]
-            rule-params                    [{posts-param false users-param true}
-                                            {posts-param true  users-param false}
-                                            {posts-param true  users-param true}]
+            rule-params                    (if users-param
+                                             [{posts-param false users-param true}
+                                              {posts-param true  users-param false}
+                                              {posts-param true  users-param true}]
+                                             [{posts-param false}
+                                              {posts-param true}])
             ;; rule params for reverse direction can be placed on forward one, e.g.
             ;; db.tx.posts[id].link({user: ...}).ruleParams({user_param: ...})
             user-params-pos                [:post :user]]
@@ -2410,7 +2560,28 @@
 
                  expected    (every? true? (vals rule-params))]
 
-             (is (= expected (perm-pass? (transact! tx)))))))
+             (is (= expected (perm-pass? (transact! tx))))))
+
+          (testing "system namespaces"
+            (let [user-id (random-uuid)
+                  file-id (random-uuid)
+                  post-id (random-uuid)
+                  _       (tx/transact!
+                           (aurora/conn-pool :write)
+                           (attr-model/get-by-app-id app-id)
+                           app-id
+                           (test-util/resolve-attrs
+                            attrs
+                            [[:add-triple  user-id :$users/id          user-id]
+                             [:add-triple  file-id :$files/id          file-id]
+                             [:add-triple  file-id :$files/path        (test-util/rand-string)]
+                             [:add-triple  file-id :$files/location-id (random-uuid)]
+                             [:add-triple  post-id :posts/id           post-id]
+                             [:add-triple  post-id :posts/$user        user-id]
+                             [:add-triple  post-id :posts/$file        file-id]])
+                           {:allow-$files-update? true})]
+              (is (perm-pass? (transact! [[:delete-entity post-id "posts"]
+                                          [:rule-params   post-id "posts" {"posts_delete" true}]]))))))
 
         (testing "deleting user"
           (test-util/test-matrix
@@ -2418,13 +2589,16 @@
             ;; link check can be not defined at all (then update/view fallback is used),
             ;; defined only for one side (then other side will use a fallback), or be
             ;; defined for both sides
-            [attr posts-param users-param] [[:posts/fallback "posts_update"   "users_delete"]
+            [attr posts-param users-param] [[:posts/fallback nil              "users_delete"]
                                             [:posts/fwd-only "posts_fwd_only" "users_delete"]
-                                            [:posts/rev-only "posts_update"   "users_delete"]
+                                            [:posts/rev-only nil              "users_delete"]
                                             [:posts/fwd-rev  "posts_fwd_rev"  "users_delete"]]
-            rule-params                    [{posts-param false users-param true}
-                                            {posts-param true  users-param false}
-                                            {posts-param true  users-param true}]]
+            rule-params                    (if posts-param
+                                             [{posts-param false users-param true}
+                                              {posts-param true  users-param false}
+                                              {posts-param true  users-param true}]
+                                             [{users-param false}
+                                              {users-param true}])]
            (let [user-id     (random-uuid)
                  user-email  (test-util/rand-email)
                  user-ref    (case ref-type
@@ -3626,7 +3800,7 @@
         (app-user-model/create! (aurora/conn-pool :write) {:app-id app-id
                                                            :id user-id
                                                            :email "test@example.com"})
-        (perm-err? (permissioned-tx/transact! (make-ctx) tx-steps))
+        (is (perm-err? (permissioned-tx/transact! (make-ctx) tx-steps)))
         (is (permissioned-tx/transact! (assoc (make-ctx)
                                               :current-user {:id user-id}) tx-steps))))))
 
@@ -4421,6 +4595,56 @@
                          (assoc (make-ctx) :db {:conn-pool conn})
                          [[:add-triple book-id title-aid "Test"]])))))))
 
+
+(deftest deadlock
+  (with-zeneca-app
+    (fn [{app-id :id} r]
+      (with-open [pool (aurora/start-pool 12 (config/get-aurora-config))
+                  conn1 (next.jdbc/get-connection pool)
+                  conn2 (next.jdbc/get-connection pool)
+                  conn3 (next.jdbc/get-connection pool)
+                  conn4 (next.jdbc/get-connection pool)
+                  conn5 (next.jdbc/get-connection pool)
+                  conn6 (next.jdbc/get-connection pool)
+                  conn7 (next.jdbc/get-connection pool)
+                  conn8 (next.jdbc/get-connection pool)
+                  conn9 (next.jdbc/get-connection pool)
+                  conn10 (next.jdbc/get-connection pool)]
+        (let [attrs (attr-model/get-by-app-id app-id)
+              id-attr-id (resolvers/->uuid r :users/id)
+              handle-attr-id (resolvers/->uuid r :users/handle)
+              bookshelves-attr-id (resolvers/->uuid r :users/bookshelves)
+              alex-eid (resolvers/->uuid r "eid-alex")
+              stopa-eid (resolvers/->uuid r "eid-stepan-parunashvili")
+              nicole-eid (resolvers/->uuid r "eid-nicole")
+              eid-nonfiction (resolvers/->uuid r "eid-nonfiction")
+
+              conns [conn1 conn2 conn3 conn4 conn5 conn6 conn7 conn8 conn9 conn10]
+
+              tx-datas (mapv (fn [_]
+                               (let [id (random-uuid)]
+                                 [[:add-triple id id-attr-id (str id)]
+                                  [:add-triple id handle-attr-id (str id)]
+                                  [:add-triple alex-eid id-attr-id (str alex-eid)]
+                                  [:add-triple alex-eid handle-attr-id (str "alex" id)]
+                                  [:add-triple alex-eid bookshelves-attr-id eid-nonfiction]
+                                  [:add-triple stopa-eid id-attr-id (str stopa-eid)]
+                                  [:add-triple stopa-eid handle-attr-id (str "stopa" id)]
+                                  [:add-triple stopa-eid bookshelves-attr-id eid-nonfiction]
+                                  [:add-triple nicole-eid id-attr-id (str nicole-eid)]
+                                  [:add-triple nicole-eid handle-attr-id (str "nicole" id)]
+                                  [:add-triple nicole-eid bookshelves-attr-id eid-nonfiction]]))
+                             (range (count conns)))
+
+
+              txes (mapv (fn [conn tx-data]
+                           (future
+                             (triple-model/insert-multi! conn attrs app-id (map rest tx-data))))
+                         conns tx-datas)]
+
+          (doseq [tx txes]
+           (testing "connection did not deadlock"
+              (is @tx))))))))
 
 (comment
   (test/run-tests *ns*))

@@ -204,7 +204,6 @@
         :let [{:keys [op eid aid etype value rev-etype]} tx-step
               key             {:eid eid :etype etype}
               entity          (get entities-map key)
-              update?         (some? entity)
               ref?            (some? rev-etype)
               [_ _ fwd-label] (:forward-identity (attr-model/seek-by-id aid attrs))
               [_ _ rev-label] (:reverse-identity (attr-model/seek-by-id aid attrs))
@@ -234,19 +233,20 @@
                 (and (= :add-triple op)
                      ref?)
                 (concat
-                 (when update?
+                 (when entity
                    [{:scope    :object
                      :action   :link
                      :etype    etype
                      :eid      eid
                      :program  (rule-model/get-program!
                                 rules
-                                [[etype      "allow" "link" fwd-label]
-                                 [etype      "allow" "update"]
-                                 [etype      "allow" "$default"]
-                                 ["$default" "allow" "link" fwd-label]
-                                 ["$default" "allow" "update"]
-                                 ["$default" "allow" "$default"]])
+                                [[etype      "allow"    "link" fwd-label]
+                                 [etype      "allow"    "update"]
+                                 [etype      "allow"    "$default"]
+                                 ["$default" "allow"    "link" fwd-label]
+                                 ["$default" "allow"    "update"]
+                                 ["$default" "allow"    "$default"]
+                                 [etype      "fallback" "link" fwd-label]])
                      :bindings {:data        entity
                                 :new-data    (get updated-entities-map key)
                                 :linked-data rev-entity
@@ -258,12 +258,13 @@
                      :eid      value
                      :program  (rule-model/get-program!
                                 rules
-                                [[rev-etype  "allow" "link" rev-label]
-                                 [rev-etype  "allow" "view"]
-                                 [rev-etype  "allow" "$default"]
-                                 ["$default" "allow" "link" rev-label]
-                                 ["$default" "allow" "view"]
-                                 ["$default" "allow" "$default"]])
+                                [[rev-etype  "allow"    "link" rev-label]
+                                 [rev-etype  "allow"    "view"]
+                                 [rev-etype  "allow"    "$default"]
+                                 ["$default" "allow"    "link" rev-label]
+                                 ["$default" "allow"    "view"]
+                                 ["$default" "allow"    "$default"]
+                                 [rev-etype  "fallback" "link" rev-label]])
                      :bindings {:data        rev-entity
                                 :new-data    (get updated-entities-map rev-key)
                                 :linked-data (get updated-entities-map key)
@@ -272,42 +273,47 @@
 
                 (and (= :retract-triple op)
                      ref?)
-                [{:scope    :object
-                  :action   :unlink
-                  :etype    etype
-                  :eid      eid
-                  :program  (rule-model/get-program!
-                             rules
-                             [[etype      "allow" "unlink" fwd-label]
-                              [etype      "allow" "update"]
-                              [etype      "allow" "$default"]
-                              ["$default" "allow" "unlink" fwd-label]
-                              ["$default" "allow" "update"]
-                              ["$default" "allow" "$default"]])
-                  :bindings {:data        entity
-                             :new-data    (get updated-entities-map key)
-                             :linked-data rev-entity
-                             :rule-params rule-params}}
-                 {:scope    :object
-                  :action   :unlink
-                  :etype    rev-etype
-                  :eid      value
-                  :program  (rule-model/get-program!
-                             rules
-                             [[rev-etype  "allow" "unlink" rev-label]
-                              [rev-etype  "allow" "view"]
-                              [rev-etype  "allow" "$default"]
-                              ["$default" "allow" "unlink" rev-label]
-                              ["$default" "allow" "view"]
-                              ["$default" "allow" "$default"]])
-                  :bindings {:data        rev-entity
-                             :new-data    (get updated-entities-map rev-key)
-                             :linked-data entity
-                             :rule-params (merge rule-params
-                                                 (get rule-params-map rev-key))}}]
+                (concat
+                 (when entity
+                   [{:scope    :object
+                     :action   :unlink
+                     :etype    etype
+                     :eid      eid
+                     :program  (rule-model/get-program!
+                                rules
+                                [[etype      "allow"    "unlink" fwd-label]
+                                 [etype      "allow"    "update"]
+                                 [etype      "allow"    "$default"]
+                                 ["$default" "allow"    "unlink" fwd-label]
+                                 ["$default" "allow"    "update"]
+                                 ["$default" "allow"    "$default"]
+                                 [etype      "fallback" "unlink" fwd-label]])
+                     :bindings {:data        entity
+                                :new-data    (get updated-entities-map key)
+                                :linked-data rev-entity
+                                :rule-params rule-params}}])
+                 (when rev-entity
+                   [{:scope    :object
+                     :action   :unlink
+                     :etype    rev-etype
+                     :eid      value
+                     :program  (rule-model/get-program!
+                                rules
+                                [[rev-etype  "allow"    "unlink" rev-label]
+                                 [rev-etype  "allow"    "view"]
+                                 [rev-etype  "allow"    "$default"]
+                                 ["$default" "allow"    "unlink" rev-label]
+                                 ["$default" "allow"    "view"]
+                                 ["$default" "allow"    "$default"]
+                                 [rev-etype  "fallback" "unlink" rev-label]])
+                     :bindings {:data        rev-entity
+                                :new-data    (get updated-entities-map rev-key)
+                                :linked-data entity
+                                :rule-params (merge rule-params
+                                                    (get rule-params-map rev-key))}}]))
 
                 (and (#{:add-triple :deep-merge-triple} op)
-                     update?)
+                     entity)
                 [{:scope    :object
                   :action   :update
                   :etype    etype
@@ -344,16 +350,16 @@
   (for [{:keys [op eid aid etype value rev-etype]} tx-steps
         :let [key                {:eid eid :etype etype}
               entity             (get entities-map key)
-              updated-entity     (-> (get updated-entities-map key)
-                                     (update "id" #(or (get create-lookups-map %) (:eid key) %)))
+              updated-entity     (some-> (get updated-entities-map key)
+                                         (update "id" #(or (get create-lookups-map %) (:eid key) %)))
               create?            (nil? entity)
               ref?               (some? rev-etype)
               [_ _ fwd-label]    (:forward-identity (attr-model/seek-by-id aid attrs))
               [_ _ rev-label]    (:reverse-identity (attr-model/seek-by-id aid attrs))
               rev-key            {:eid value :etype rev-etype}
               updated-rev-entity (when ref?
-                                   (-> (get updated-entities-map rev-key)
-                                       (update "id" #(or (get create-lookups-map %) (:eid rev-key) %))))
+                                   (some-> (get updated-entities-map rev-key)
+                                           (update "id" #(or (get create-lookups-map %) (:eid rev-key) %))))
               rule-params        (get rule-params-map key)]
         check (cond
                 (= :add-attr op)
@@ -374,12 +380,13 @@
                      :eid      (get create-lookups-map eid eid)
                      :program  (rule-model/get-program!
                                 rules
-                                [[etype      "allow" "link" fwd-label]
-                                 [etype      "allow" "create"]
-                                 [etype      "allow" "$default"]
-                                 ["$default" "allow" "link" fwd-label]
-                                 ["$default" "allow" "create"]
-                                 ["$default" "allow" "$default"]])
+                                [[etype      "allow"    "link" fwd-label]
+                                 [etype      "allow"    "create"]
+                                 [etype      "allow"    "$default"]
+                                 ["$default" "allow"    "link" fwd-label]
+                                 ["$default" "allow"    "create"]
+                                 ["$default" "allow"    "$default"]
+                                 [etype      "fallback" "link" fwd-label]])
                      :bindings {:data        updated-entity
                                 :new-data    updated-entity
                                 :linked-data updated-rev-entity
@@ -392,12 +399,13 @@
                      :eid      (get updated-rev-entity "id")
                      :program  (rule-model/get-program!
                                 rules
-                                [[rev-etype  "allow" "link" rev-label]
-                                 [rev-etype  "allow" "view"]
-                                 [rev-etype  "allow" "$default"]
-                                 ["$default" "allow" "link" rev-label]
-                                 ["$default" "allow" "view"]
-                                 ["$default" "allow" "$default"]])
+                                [[rev-etype  "allow"    "link" rev-label]
+                                 [rev-etype  "allow"    "view"]
+                                 [rev-etype  "allow"    "$default"]
+                                 ["$default" "allow"    "link" rev-label]
+                                 ["$default" "allow"    "view"]
+                                 ["$default" "allow"    "$default"]
+                                 [rev-etype  "fallback" "link" rev-label]])
                      :bindings {:data        updated-rev-entity
                                 :new-data    updated-rev-entity
                                 :linked-data updated-entity
@@ -450,38 +458,34 @@
                 rule-params     (get rule-params-map key)]
           check (concat
                  ;; do not check unlink if we are deleting the whole entity
-                 (when-not (contains? delete-keys key)
+                 (clojure+/when+ (and (not (contains? delete-keys key))
+                                      :let [program (rule-model/get-program!
+                                                     rules
+                                                     [[etype      "allow" "unlink" fwd-label]
+                                                      ["$default" "allow" "unlink" fwd-label]])]
+                                      (some? program))
                    [{:scope    :object
                      :action   :unlink
                      :etype    etype
                      :eid      entity_id
-                     :program  (rule-model/get-program!
-                                rules
-                                [[etype      "allow" "unlink" fwd-label]
-                                 [etype      "allow" "update"]
-                                 [etype      "allow" "$default"]
-                                 ["$default" "allow" "unlink" fwd-label]
-                                 ["$default" "allow" "update"]
-                                 ["$default" "allow" "$default"]])
+                     :program  program
                      :bindings {:data        entity
                                 :new-data    (get updated-entities-map key)
                                 :linked-data rev-entity
                                 :rule-params rule-params}}])
 
                  ;; do not check unlink if we are deleting the whole entity
-                 (when-not (contains? delete-keys rev-key)
+                 (clojure+/when+ (and (not (contains? delete-keys rev-key))
+                                      :let [program (rule-model/get-program!
+                                                     rules
+                                                     [[rev-etype  "allow" "unlink" rev-label]
+                                                      ["$default" "allow" "unlink" rev-label]])]
+                                      (some? program))
                    [{:scope    :object
                      :action   :unlink
                      :etype    rev-etype
                      :eid      value
-                     :program  (rule-model/get-program!
-                                rules
-                                [[rev-etype  "allow" "unlink" rev-label]
-                                 [rev-etype  "allow" "view"]
-                                 [rev-etype  "allow" "$default"]
-                                 ["$default" "allow" "unlink" rev-label]
-                                 ["$default" "allow" "view"]
-                                 ["$default" "allow" "$default"]])
+                     :program  program
                      :bindings {:data        rev-entity
                                 :new-data    (get updated-entities-map rev-key)
                                 :linked-data entity
