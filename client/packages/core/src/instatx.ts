@@ -30,7 +30,8 @@ export interface TransactionChunk<
   __ops: Op[];
   __etype: EntityName;
   /**
-   * Create and update objects:
+   * Create objects. Throws an error if the object with the provided ID already
+   * exists.
    */
   create: (
     args: CreateParams<Schema, EntityName>,
