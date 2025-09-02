@@ -158,25 +158,9 @@
   (get-with-creator-by-ids ["41c12a82-f769-42e8-aad8-53bf33bbaba9"
                             "59aafa92-a900-4b3d-aaf1-45032ee8d415"]))
 
-(def all-for-user-q
+(defn make-apps-q [app-ids-select]
   (uhsql/preformat
-   {:with [[:app-ids {:union [{:select :a.id
-                               :from [[:apps :a]]
-                               :where [:and
-                                       [:= nil :a.deletion-marked-at]
-                                       [:= :a.creator-id :?user-id]]}
-                              {:select :a.id
-                               :from [[:apps :a]]
-                               :join [[:app_members :m] [:and
-                                                         [:= :m.user_id :?user-id]
-                                                         [:= :m.app_id :a.id]]]
-                               :where [:and
-                                       [:= nil :a.deletion-marked-at]
-                                       [:= :2 {:select :s.subscription_type_id
-                                               :from [[:instant-subscriptions :s]]
-                                               :where [:= :s.app-id :a.id]
-                                               :order-by [[:created-at :desc]]
-                                               :limit :1}]]}]}]
+   {:with [[:app-ids app-ids-select]
            ;; The last subscription is the active one. When a subscription changes, we don't edit
            ;; the existing row, but generate a new one.
            [:subs {:select-distinct-on [[:app-id] :s.app-id :s.subscription_type_id]
@@ -207,6 +191,10 @@
     :select [:a.*
              [:at.token :admin_token]
              [:r.code :rules]
+             [[:case [:= nil :org.id] nil
+               :else [:json_build_object
+                      [:inline "id"] :org.id
+                      [:inline "title"] :org.title]]]
              [[:coalesce [:= :2 :subs.subscription_type_id] :false] :pro]
              [[:case [:= :a.creator-id :?user-id] [:inline "owner"]
                :else {:select :m.member_role
@@ -227,6 +215,7 @@
     :join [[:apps :a] [:= :a.id :app-ids.id]
            [:app_admin_tokens :at] [:= :at.app-id :a.id]]
     :left-join [[:rules :r] [:= :r.app_id :a.id]
+                [:orgs :org] [:= :org.id :a.org-id]
                 :subs [:= :subs.app_id :a.id]
                 [:members :m] [:= :m.app_id :a.id]
                 [:member-invites :i] [:= :i.app_id :a.id]
@@ -234,6 +223,25 @@
                                                   [:= :template.app_id :a.id]
                                                   [:= :template.email-type [:inline "magic-code"]]]
                 [:app-email-senders :sender] [:= :template.sender_id :sender.id]]}))
+
+(def all-for-user-q
+  (make-apps-q {:union [{:select :a.id
+                         :from [[:apps :a]]
+                         :where [:and
+                                 [:= nil :a.deletion-marked-at]
+                                 [:= :a.creator-id :?user-id]]}
+                        {:select :a.id
+                         :from [[:apps :a]]
+                         :join [[:app_members :m] [:and
+                                                   [:= :m.user_id :?user-id]
+                                                   [:= :m.app_id :a.id]]]
+                         :where [:and
+                                 [:= nil :a.deletion-marked-at]
+                                 [:= :2 {:select :s.subscription_type_id
+                                         :from [[:instant-subscriptions :s]]
+                                         :where [:= :s.app-id :a.id]
+                                         :order-by [[:created-at :desc]]
+                                         :limit :1}]]}]}))
 
 (defn get-all-for-user
   ([params] (get-all-for-user (aurora/conn-pool :read) params))

@@ -39,6 +39,7 @@
             [instant.model.instant-user-magic-code :as instant-user-magic-code-model]
             [instant.model.instant-user-refresh-token :as instant-user-refresh-token-model]
             [instant.model.oauth-app :as oauth-app-model]
+            [instant.model.org :as org-model]
             [instant.model.outreach :as outreach-model]
             [instant.model.rule :as rule-model]
             [instant.model.schema :as schema-model]
@@ -145,6 +146,19 @@
 (defn with-pro-app-fixtures [f]
   (fixtures/with-pro-app
     (instant-user-model/get-by-email {:email "marky@instantdb.com"}) f))
+
+(defn req->org-and-user!
+  ([req] (req->org-and-user! :owner req))
+  ([least-privilege req]
+   (let [org-id (ex/get-param! req [:params :org_id] uuid-util/coerce)
+         {user-id :id :as user} (req->auth-user! req)
+         org-with-role (org-model/get-org-for-user! {:org-id org-id
+                                                     :user-id user-id})]
+
+     (assert-least-privilege!
+      least-privilege
+      (:role org-with-role))
+     {:org org-with-role :user user})))
 
 (comment
   (with-team-app-fixtures
@@ -376,9 +390,11 @@
 (defn dash-get [req]
   (let [{:keys [id email]} (req->auth-user! req)
         apps (app-model/get-all-for-user {:user-id id})
+        orgs (org-model/get-all-for-user {:user-id id})
         profile (instant-profile-model/get-by-user-id {:user-id id})
         invites (instant-app-member-invites-model/get-pending-for-invitee {:email email})]
     (response/ok {:apps apps
+                  :orgs orgs
                   :profile profile
                   :invites invites
                   :user {:id id :email email}})))
@@ -780,6 +796,22 @@
 
 (defn session-counts-get [_req]
   (session-counter/undertow-config))
+
+;; ----
+;; Orgs
+
+(defn orgs-post [req]
+  (let [title (ex/get-param! req [:body :title] string-util/coerce-non-blank-str)
+        {user-id :id} (req->auth-user! req)
+        org (org-model/create!
+             {:title title
+              :user-id user-id})]
+    (response/ok {:org org})))
+
+(defn orgs-delete [req]
+  (let [{{org-id :id} :org} (req->org-and-user! :owner req)]
+    (org-model/delete! {:org-id org-id})
+    (response/ok {:ok true})))
 
 ;; -------
 ;; Teams
@@ -1604,6 +1636,11 @@
   (GET "/dash/apps/:app_id/indexing-jobs/:job_id" [] indexing-job-get)
   (GET "/dash/apps/:app_id/indexing-jobs/group/:group_id" [] indexing-jobs-group-get)
   (POST "/dash/apps/:app_id/indexing-jobs" [] indexing-job-post)
+
+  ;; Orgs
+  (POST "/dash/orgs" [] orgs-post)
+
+  (DELETE "/dash/orgs/:org_id" [] orgs-delete)
 
   (GET "/dash/ws_playground" [] ws-playground-get)
 
