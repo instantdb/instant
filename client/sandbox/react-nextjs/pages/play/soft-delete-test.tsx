@@ -44,8 +44,8 @@ function SoftDeleteTest({ db, appId, adminToken }: any) {
           },
         );
         const data = await response.json();
-        setSoftDeletedAttrs(data['soft-deleted-attrs'] || []);
-        console.log('Soft-deleted attrs:', data['soft-deleted-attrs']);
+        setSoftDeletedAttrs(data['attrs'] || []);
+        console.log('Soft-deleted attrs:', data['attrs']);
       } catch (error) {
         console.error('Error fetching soft-deleted attrs:', error);
       }

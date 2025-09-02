@@ -1224,7 +1224,7 @@
                                   {:headers {"app-id" (str app-id)
                                              "authorization" (str "Bearer " admin-token)}})
             _ (is (= 200 (:status initial-soft-deleted)))
-            _ (is (empty? (-> initial-soft-deleted :body :soft-deleted-attrs)))
+            _ (is (empty? (-> initial-soft-deleted :body :attrs)))
 
             ;; Soft-delete one attr 
             _ (transact-post
@@ -1237,7 +1237,7 @@
                           {:headers {"app-id" (str app-id)
                                      "authorization" (str "Bearer " admin-token)}})
             _ (is (= 200 (:status after-delete)))
-            soft-deleted-attrs (-> after-delete :body :soft-deleted-attrs)
+            soft-deleted-attrs (-> after-delete :body :attrs)
             _ (is (= #{aid-2}
                      (set (map :id soft-deleted-attrs))))]))))
 

@@ -601,7 +601,7 @@
         soft-deleted-attrs (attr-model/get-soft-deleted-by-app-id
                             (aurora/conn-pool :read)
                             app-id)]
-    (response/ok {:soft-deleted-attrs soft-deleted-attrs})))
+    (response/ok {:attrs soft-deleted-attrs})))
 
 (defroutes routes
   (POST "/admin/query" []
