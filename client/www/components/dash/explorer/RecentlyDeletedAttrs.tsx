@@ -7,8 +7,20 @@ import { errorToast } from '@/lib/toast';
 import { InstantReactWebDatabase } from '@instantdb/react';
 import { ClockIcon } from '@heroicons/react/24/outline';
 import { ArrowUturnLeftIcon } from '@heroicons/react/24/solid';
-import { format, formatRelative } from 'date-fns';
+import { formatRelative } from 'date-fns';
 import { useEffect } from 'react';
+
+const getNamesByNamespace = (attr: DBAttr): Record<string, string> => {
+  const result: Record<string, string> = {};
+  result[attr['forward-identity'][1].split('$')[1]] =
+    attr['forward-identity'][2].split('$')[1];
+
+  if (attr['reverse-identity']) {
+    result[attr['reverse-identity'][1].split('$')[1]] =
+      attr['reverse-identity'][2].split('$')[1];
+  }
+  return result;
+};
 
 export const RecentlyDeletedAttrs: React.FC<{
   namespace: SchemaNamespace;
@@ -39,10 +51,9 @@ export const RecentlyDeletedAttrs: React.FC<{
   const filtered = deleted
     ?.map((attr) => ({
       ...attr,
-      entity: attr['forward-identity'][1].split('$')[1],
-      fieldName: attr['forward-identity'][2].split('$')[1],
+      names: getNamesByNamespace(attr),
     }))
-    .filter((attr) => attr.entity === namespace.name);
+    .filter((attr) => Object.keys(attr.names).includes(namespace.name));
 
   useEffect(() => {
     if (filtered?.length === 0) {
@@ -50,7 +61,7 @@ export const RecentlyDeletedAttrs: React.FC<{
     }
   }, [filtered]);
 
-  if (filtered?.length === 0) {
+  if (!filtered || filtered?.length === 0) {
     return null;
   }
 
@@ -59,7 +70,7 @@ export const RecentlyDeletedAttrs: React.FC<{
     return (
       <div className="border justify-between items-center px-4 flex border-gray-200 bg-gray-50 p-2">
         <div className="flex gap-4 items-center">
-          <div className="font-mono">{attr.fieldName}</div>
+          <div className="font-mono">{attr.names[namespace.name]}</div>
           <div className="text-xs opacity-40">
             deleted {formatRelative(date, new Date())}
           </div>
@@ -116,11 +127,11 @@ const useRecentlyDeletedAttrs = (appId: string, adminToken?: string) => {
         );
       }
       const successfulData = data as {
-        'soft-deleted-attrs': (DBAttr & {
+        attrs: (DBAttr & {
           'deletion-marked-at': string;
         })[];
       };
-      return successfulData['soft-deleted-attrs'];
+      return successfulData['attrs'];
     },
   );
 
