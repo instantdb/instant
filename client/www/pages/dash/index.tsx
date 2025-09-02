@@ -84,6 +84,7 @@ import clsx from 'clsx';
 import AuthorizedOAuthAppsScreen from '@/components/dash/AuthorizedOAuthAppsScreen';
 import { useNamespacesQuery, useSchemaQuery } from '@/lib/hooks/explorer';
 import { getLocallySavedApp, setLocallySavedApp } from '@/lib/locallySavedApp';
+import Orgs from '@/components/dash/Orgs';
 
 // (XXX): we may want to expose this underlying type
 type InstantReactClient = ReturnType<typeof init>;
@@ -114,7 +115,8 @@ type Screen =
   | 'user-settings'
   | 'personal-access-tokens'
   | 'new'
-  | 'invites';
+  | 'invites'
+  | 'orgs';
 
 function defaultTab(screen: 'main'): MainTabId;
 function defaultTab(screen: 'user-settings'): UserSettingsTabId;
@@ -427,6 +429,7 @@ function Dashboard() {
       invites: [],
       user_app_role: 'owner',
       magic_code_email_template: null,
+      org: null,
     };
 
     dashResponse.mutate(
@@ -468,6 +471,17 @@ function Dashboard() {
         </Head>
         <StyledToastContainer />
         <PersonalAccessTokensScreen className="mx-auto" />
+      </div>
+    );
+  }
+  if (screen === 'orgs') {
+    return (
+      <div className="flex h-full w-full flex-col overflow-hidden md:flex-row">
+        <Head>
+          <title>Instant - Orgs playground</title>
+        </Head>
+        <StyledToastContainer />
+        <Orgs />
       </div>
     );
   }

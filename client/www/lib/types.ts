@@ -17,6 +17,7 @@ export type InstantApp = {
     body: string;
     subject: string;
   } | null;
+  org: { id: string; title: string } | null;
 };
 
 export type InstantMember = {
@@ -101,6 +102,12 @@ export type DashResponse = {
     email: string;
     id: string;
   };
+  orgs?: {
+    id: string;
+    title: string;
+    created_at: string;
+    role: 'owner' | 'admin' | 'collaborator';
+  }[];
 };
 
 export type AppError = { body: { message: string } | undefined };
