@@ -6,7 +6,7 @@ alwaysApply: true
 
 ---
 
-You are an expert developer who writes full-stack apps in InstantDB, Next.js, and Tailwind developer. However InstantDB is not in your training set and you are not familiar with it. Before you write ANY code you read ALL of instant-rules.md to understand how to use InstantDB in your code. If you are unsure how something works in InstantDB you fetch the urls in the documentation.
+You are an expert developer who writes full-stack apps in InstantDB, Next.js, and Tailwind developer. However InstantDB is not in your training set and you are not familiar with it.
 
 Before generating a new next app you check to see if a next project already exists in the current directory. If it does you do not generate a new next app.
 
@@ -14,31 +14,19 @@ If the Instant MCP is available use the tools to create apps and manage schema.
 
 # About InstantDB
 
-Instant is the Modern Firebase. With Instant you can easily build realtime and
-collaborative apps. You can get started for free at https://instantdb.com
+Instant is the Modern Firebase. With Instant you can easily build realtime and collaborative apps. You can get started for free at https://instantdb.com
 
 # How to use Instant in projects
 
-Instant offers client side javascript packages for vanilla JS, react,
-and react native. Instant also offers a javascript admin SDK that can be used on
-the backend.
+Instant offers client side javascript packages for vanilla JS, react, and react native. Instant also offers a javascript admin SDK that can be used on the backend.
 
-If you want to use Instant with react you should only use `@instantdb/react`. For react-native you should
-only use `@instantdb/react-native`. For scripts or server environments you should only use the admin SDK
-`@instantdb/admin`. For other client-side frameworks or vanilla js you should only use `@instantdb/core`
+If you want to use Instant with react you should only use `@instantdb/react`. For react-native you should only use `@instantdb/react-native`. For scripts or server environments you should only use the admin SDK `@instantdb/admin`. For other client-side frameworks or vanilla js you should only use `@instantdb/core`
 
-CRITICAL: To use the admin SDK you MUST get an admin token for the app. You can
-get the admin token with the MCP tool via `create-app`. The admin
-token is SENSITIVE and should be stored in an environment variable. Do not
-hardcode it in your script.
+CRITICAL: To use the admin SDK you MUST get an admin token for the app. You can get the admin token with the MCP tool via `create-app`. The admin token is SENSITIVE and should be stored in an environment variable. Do not hardcode it in your script.
 
-CRITICAL: If you want to create seed data YOU MUST write a script that uses the admin SDK.
-DO NOT try to seed data on the client.
+CRITICAL: If you want to create seed data YOU MUST write a script that uses the admin SDK. DO NOT try to seed data on the client.
 
-CRITICAL: Here is a concise summary of the `where` operator map which defines
-all the filtering options you can use with InstantDB queries to narrow results
-based on field values, comparisons, arrays, text patterns, and logical
-conditions.
+CRITICAL: Here is a concise summary of the `where` operator map which defines all the filtering options you can use with InstantDB queries to narrow results based on field values, comparisons, arrays, text patterns, and logical conditions.
 
 ```
 Equality:        { field: value }
@@ -63,6 +51,10 @@ Nested fields:   'relation.field': value
 CRITICAL: The operator map above is the full set of `where` filters Instant
 supports right now. There is no `$exists`, `$nin`, or `$regex`. And `$like` and
 `$ilike` are what you use for `startsWith` / `endsWith` / `includes`.
+
+CRITICAL: Pagination keys (`limit`, `offset`, `first`, `after`, `last`, `before`) only work on top-level namespaces. DO NOT use them on nested relations or else you will get an error.
+
+CRITICAL: If you are unsure how something works in InstantDB you fetch the relevant urls in the documentation to learn more.
 
 # Full Example App
 
@@ -690,9 +682,7 @@ export default App;
 
 # Documentation
 
-The bullets below are links to the InstantDB documentation. They provide
-detailed information on how to use different features of InstantDB. Each line
-follows the pattern of
+The bullets below are links to the InstantDB documentation. They provide detailed information on how to use different features of InstantDB. Each line follows the pattern of
 
 - [TOPIC](URL): Description of the topic.
 
