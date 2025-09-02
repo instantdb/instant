@@ -10,14 +10,20 @@ import { ArrowUturnLeftIcon } from '@heroicons/react/24/solid';
 import { add, formatDistanceToNow } from 'date-fns';
 import { useEffect } from 'react';
 
-const getNamesByNamespace = (attr: DBAttr): Record<string, string> => {
-  const result: Record<string, string> = {};
-  result[attr['forward-identity'][1].split('$')[1]] =
-    attr['forward-identity'][2].split('$')[1];
+type SoftDeletedAttr = DBAttr & {
+  'deletion-marked-at': string;
+};
 
-  if (attr['reverse-identity']) {
-    result[attr['reverse-identity'][1].split('$')[1]] =
-      attr['reverse-identity'][2].split('$')[1];
+const getNamesByNamespace = (
+  softDeletedAttr: SoftDeletedAttr,
+): Record<string, string> => {
+  const result: Record<string, string> = {};
+  result[softDeletedAttr['forward-identity'][1].split('$')[1]] =
+    softDeletedAttr['forward-identity'][2].split('$')[1];
+
+  if (softDeletedAttr['reverse-identity']) {
+    result[softDeletedAttr['reverse-identity'][1].split('$')[1]] =
+      softDeletedAttr['reverse-identity'][2].split('$')[1];
   }
   return result;
 };
@@ -40,9 +46,7 @@ export const RecentlyDeletedAttrs: React.FC<{
     try {
       await db._core._reactor.pushOps([['restore-attr', attrId]]);
       mutate({
-        attrs:
-          data.attrs.filter((attr) => (attr.id === attrId ? false : true)) ??
-          [],
+        attrs: data.attrs.filter((attr) => attr.id !== attrId) ?? [],
         'grace-period-days': data['grace-period-days'],
       });
       console.log('Restored attr:', attrId);
@@ -133,9 +137,7 @@ const useRecentlyDeletedAttrs = (appId: string, adminToken?: string) => {
         );
       }
       const successfulData = data as {
-        attrs: (DBAttr & {
-          'deletion-marked-at': string;
-        })[];
+        attrs: SoftDeletedAttr[];
         'grace-period-days': number;
       };
       return successfulData;
