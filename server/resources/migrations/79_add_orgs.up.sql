@@ -14,8 +14,6 @@ create table org_members (
   id uuid primary key,
   org_id uuid not null references orgs (id) on delete cascade,
   user_id uuid not null references instant_users (id) on delete cascade,
-  -- multiple roles??
-  -- maybe we want capabilities instead?
   role text not null,
   created_at timestamp with time zone not null default now(),
   updated_at timestamp with time zone not null default now(),
@@ -31,7 +29,8 @@ before update on org_members
 for each row
 execute function update_updated_at_column();
 
--- XXX: How should we handle org deletion?
+-- No cascade on apps when the org is deleted. You'll have to delete
+-- the apps before deleting the org.
 alter table apps add column org_id uuid references orgs (id);
 create index on apps (org_id);
 
