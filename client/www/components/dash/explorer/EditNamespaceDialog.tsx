@@ -206,8 +206,6 @@ function DeleteForm({
   onClose: () => void;
   onConfirm: () => void;
 }) {
-  const [ok, setOk] = useState(false);
-
   return (
     <ActionForm className="min flex flex-col gap-4">
       <h5 className="flex items-center gap-2 text-lg font-bold">
@@ -220,21 +218,12 @@ function DeleteForm({
       </h5>
 
       <div className="flex flex-col gap-2">
-        <p>
-          Deleting is an <strong>irreversible operation</strong> and will{' '}
-          <strong>delete all data</strong> associated with{' '}
-          <strong>{name}.</strong>
-        </p>
-        <p className="flex gap-2">
-          <Checkbox
-            checked={ok}
-            onChange={(_ok) => setOk(_ok)}
-            label="I understand"
-          />
+        <p className="pb-2">
+          Are you sure you want to delete the <strong>{name}</strong> attribute?
+          It can be restored later.
         </p>
         <ActionButton
           variant="destructive"
-          disabled={!ok}
           label={`Delete ${name}`}
           submitLabel="Deleting..."
           errorMessage="Failed to delete"

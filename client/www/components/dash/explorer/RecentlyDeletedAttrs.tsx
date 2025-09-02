@@ -7,7 +7,7 @@ import { errorToast } from '@/lib/toast';
 import { InstantReactWebDatabase } from '@instantdb/react';
 import { ClockIcon } from '@heroicons/react/24/outline';
 import { ArrowUturnLeftIcon } from '@heroicons/react/24/solid';
-import { formatRelative } from 'date-fns';
+import { add, formatDistanceToNow } from 'date-fns';
 import { useEffect } from 'react';
 
 const getNamesByNamespace = (attr: DBAttr): Record<string, string> => {
@@ -30,25 +30,28 @@ export const RecentlyDeletedAttrs: React.FC<{
   const dashResponse = useDashFetch();
   const app = dashResponse.data?.apps?.find((a: InstantApp) => a.id === appId);
 
-  const { data: deleted, mutate } = useRecentlyDeletedAttrs(
-    appId,
-    app?.admin_token,
-  );
+  const { data, mutate } = useRecentlyDeletedAttrs(appId, app?.admin_token);
 
   const dialog = useDialog();
 
   const restoreAttr = async (attrId: string) => {
     if (!db) return;
+    if (!data) return;
     try {
       await db._core._reactor.pushOps([['restore-attr', attrId]]);
-      mutate(deleted?.filter((attr) => (attr.id === attrId ? false : true)));
+      mutate({
+        attrs:
+          data.attrs.filter((attr) => (attr.id === attrId ? false : true)) ??
+          [],
+        'grace-period-days': data['grace-period-days'],
+      });
       console.log('Restored attr:', attrId);
     } catch (error) {
       errorToast('Failed to restore attr');
     }
   };
 
-  const filtered = deleted
+  const filtered = data?.attrs
     ?.map((attr) => ({
       ...attr,
       names: getNamesByNamespace(attr),
@@ -66,13 +69,16 @@ export const RecentlyDeletedAttrs: React.FC<{
   }
 
   const DeletedAttr = ({ attr }: { attr: NonNullable<typeof filtered>[0] }) => {
-    const date = new Date(attr['deletion-marked-at']);
+    if (!data) return null;
+    const date = add(new Date(attr['deletion-marked-at']), {
+      days: data['grace-period-days'],
+    });
     return (
       <div className="border justify-between items-center px-4 flex border-gray-200 bg-gray-50 p-2">
         <div className="flex gap-4 items-center">
           <div className="font-mono">{attr.names[namespace.name]}</div>
           <div className="text-xs opacity-40">
-            deleted {formatRelative(date, new Date())}
+            Deletes permanently in {formatDistanceToNow(date)}
           </div>
         </div>
         <Button onClick={() => restoreAttr(attr.id)}>
@@ -130,8 +136,9 @@ const useRecentlyDeletedAttrs = (appId: string, adminToken?: string) => {
         attrs: (DBAttr & {
           'deletion-marked-at': string;
         })[];
+        'grace-period-days': number;
       };
-      return successfulData['attrs'];
+      return successfulData;
     },
   );
 
