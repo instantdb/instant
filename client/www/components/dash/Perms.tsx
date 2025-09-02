@@ -168,6 +168,14 @@ const rulesSchema = (namespaces: SchemaNamespace[] | null) => {
           update: { type: 'string' },
           delete: { type: 'string' },
           view: { type: 'string' },
+          link: {
+            type: 'object',
+            patternProperties: { '^[$a-zA-Z0-9_\\-]+$': { type: 'string' } },
+          },
+          unlink: {
+            type: 'object',
+            patternProperties: { '^[$a-zA-Z0-9_\\-]+$': { type: 'string' } },
+          },
           $default: { type: 'string' },
         },
         additionalProperties: false,
