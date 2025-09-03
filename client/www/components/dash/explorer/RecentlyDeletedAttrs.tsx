@@ -138,9 +138,8 @@ const useRecentlyDeletedAttrs = (appId: string, adminToken?: string) => {
       }
       const successfulData = data as {
         attrs: SoftDeletedAttr[];
-        'grace-period-days': number;
       };
-      return successfulData;
+      return { ...successfulData, 'grace-period-days': 2 };
     },
   );
 
