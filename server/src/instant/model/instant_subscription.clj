@@ -26,7 +26,6 @@
   ([conn {:keys [user-id app-id subscription-type-id
                  stripe-customer-id stripe-subscription-id stripe-event-id]}]
    (let [subscription-id (random-uuid)]
-     (tool/def-locals)
      (sql/execute-one! ::create!
                        conn
                        (uhsql/formatp create-q
