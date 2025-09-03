@@ -6,6 +6,20 @@
    [instant.util.exception :as ex]
    [instant.util.hsql :as uhsql]))
 
+(def by-id-q
+  (uhsql/preformat {:select :*
+                    :from :orgs
+                    :where [:= :id :?id]}))
+
+(defn get-by-id!
+  ([params] (get-by-id! (aurora/conn-pool :read) params))
+  ([conn {:keys [id]}]
+   (let [params {:id id}
+         query (uhsql/formatp by-id-q params)]
+     (ex/assert-record! (sql/select-one ::get-by-id conn query)
+                        :org
+                        {:args [{:id id}]}))))
+
 (def all-for-user-q
   (uhsql/preformat {:select [:o.id :o.title :o.created-at :o.updated-at :m.role]
                     :from [[:orgs :o]]
@@ -27,7 +41,7 @@
                                  [:org-members :m] [:= :m.org-id :o.id]]
                           :where [:and
                                   [:= :m.user-id :?user-id]
-                                  [:= :m.org-id :?org-id]]}))
+                                  [:= :o.id :?org-id]]}))
 
 (defn apps-for-org
   ([params] (apps-for-org (aurora/conn-pool :read) params))
@@ -37,11 +51,57 @@
          query (uhsql/formatp apps-for-org-q params)]
      (sql/select ::apps-for-org conn query))))
 
+(def members-for-org-q
+  (uhsql/preformat
+   {:select [:m.id :u.email :m.role]
+    :from [[:org-members :m]]
+    :join [[:orgs :o] [:= :m.org_id :o.id]
+           [:org-members :m-user] [:= :m-user.org-id :o.id]
+           [:instant-users :u] [:= :m.user-id :u.id]]
+    :where [:and
+            [:= :m-user.user-id :?user-id]
+            [:= :o.id :?org-id]]}))
+
+(defn members-for-org
+  ([params] (members-for-org (aurora/conn-pool :read) params))
+  ([conn {:keys [user-id org-id]}]
+   (let [params {:user-id user-id
+                 :org-id org-id}
+         query (uhsql/formatp members-for-org-q params)]
+     (sql/select ::members-for-org conn query))))
+
+(def invites-for-org-q
+  (uhsql/preformat
+   {:select [:i.id
+             [:i.invitee_email :email]
+             [:i.invitee_role :role]
+             :i.status
+             :i.sent_at
+             [[:< :i.sent_at [:- :%now [:interval "3 days"]]]
+              :expired]]
+    :from [[:org-member-invites :i]]
+    :join [[:orgs :o] [:= :i.org_id :o.id]
+           [:org-members :m-user] [:= :m-user.org-id :o.id]]
+    :where [:and
+            [:= :m-user.user-id :?user-id]
+            [:= :o.id :?org-id]]}))
+
+(defn invites-for-org
+  ([params] (invites-for-org (aurora/conn-pool :read) params))
+  ([conn {:keys [user-id org-id]}]
+   (let [params {:user-id user-id
+                 :org-id org-id}
+         query (uhsql/formatp invites-for-org-q params)]
+     (sql/select ::invites-for-org conn query))))
+
+
 (def org-for-user-q
   (uhsql/preformat {:select [:o.id :o.title :o.created-at :o.updated-at :m.role]
                     :from [[:orgs :o]]
                     :join [[:org-members :m] [:= :o.id :m.org-id]]
-                    :where [:= :m.user-id :?user-id]}))
+                    :where [:and
+                            [:= :m.user-id :?user-id]
+                            [:= :o.id :?org-id]]}))
 
 (defn get-org-for-user!
   ([params] (get-org-for-user! (aurora/conn-pool :read) params))

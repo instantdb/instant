@@ -6,8 +6,6 @@
    [instant.fixtures :refer [random-email with-empty-app with-user]]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
-   [instant.model.instant-user :as instant-user-model]
-   [instant.model.instant-user-refresh-token :as refresh-token-model]
    [instant.util.json :refer [->json]]))
 
 (deftest app-invites-work
@@ -53,7 +51,7 @@
               (with-user
                 {:email invitee-email}
                 (fn [invitee]
-                  (let [resp (http/post (str config/server-origin "/dash/invites/accept")
+                  (let [_res (http/post (str config/server-origin "/dash/invites/accept")
                                         {:headers {:Authorization (str "Bearer " (:refresh-token invitee))
                                                    :Content-Type "application/json"}
                                          :as :json
@@ -67,7 +65,33 @@
 
                     (is member)
                     (is (= "admin" (:member_role member)))
-                    (is (= "accepted" (:status invite)))))))))))))
+                    (is (= "accepted" (:status invite)))
+
+                    (testing "roles can be updated"
+                      (let [_res (http/post (str config/server-origin "/dash/apps/" (:id app) "/members/update")
+                                            {:headers {:Authorization (str "Bearer " (:refresh-token u))
+                                                       :Content-Type "application/json"}
+                                             :as :json
+                                             :body (->json {:id (:id member)
+                                                            :role "collaborator"})})
+                            member (sql/select-one (aurora/conn-pool :read)
+                                                   ["select * from app_members where app_id = ? and user_id = ?"
+                                                    (:id app)
+                                                    (:id invitee)])]
+                        (is (= "collaborator" (:member_role member)))))
+
+                    (testing "members can be removed"
+                      (let [_res (http/post (str config/server-origin "/dash/apps/" (:id app) "/members/update")
+                                            {:headers {:Authorization (str "Bearer " (:refresh-token u))
+                                                       :Content-Type "application/json"}
+                                             :as :json
+                                             :body (->json {:id (:id member)
+                                                            :role "collaborator"})})
+                            member (sql/select-one (aurora/conn-pool :read)
+                                                   ["select * from app_members where app_id = ? and user_id = ?"
+                                                    (:id app)
+                                                    (:id invitee)])]
+                        (is (= "collaborator" (:member_role member)))))))))))))))
 
 (deftest app-invites-can-be-revoked
   (with-redefs [config/postmark-send-enabled? (constantly false)]
@@ -105,7 +129,7 @@
                       (is (= "pending" (:status invite)))))))
 
 
-              (let [resp (http/delete (str config/server-origin "/dash/apps/" (:id app) "/invite/revoke")
+              (let [_res (http/delete (str config/server-origin "/dash/apps/" (:id app) "/invite/revoke")
                                       {:headers {:Authorization (str "Bearer " (:refresh-token u))
                                                  :Content-Type "application/json"}
                                        :as :json
@@ -162,7 +186,7 @@
               (with-user
                 {:email invitee-email}
                 (fn [invitee]
-                  (let [resp (http/post (str config/server-origin "/dash/invites/decline")
+                  (let [_res (http/post (str config/server-origin "/dash/invites/decline")
                                         {:headers {:Authorization (str "Bearer " (:refresh-token invitee))
                                                    :Content-Type "application/json"}
                                          :as :json

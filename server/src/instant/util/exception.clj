@@ -317,12 +317,15 @@
 ;; ------
 ;; Params
 
+(defn throw-missing-param! [ks]
+  (throw+ {::type ::param-missing
+           ::message (format "Missing parameter: %s" (mapv safe-name ks))
+           ::hint {:in ks}}))
+
 (defn get-param! [obj ks coercer]
   (let [param (get-in obj ks)
         _ (when-not param
-            (throw+ {::type ::param-missing
-                     ::message (format "Missing parameter: %s" (mapv safe-name ks))
-                     ::hint {:in ks}}))
+            (throw-missing-param! ks))
         coerced (coercer param)
         _ (when-not coerced
             (throw+ {::type ::param-malformed
@@ -487,11 +490,22 @@
       (throw-record-not-unique! (kw-table-name table) data e)
 
       :foreign-key-violation
-      (throw+ {::type ::record-foreign-key-invalid
-               ::message (format "Foreign Key Invalid: %s" (name condition))
-               ::hint hint
-               ::pg-error-data data}
-              e)
+      (cond (and (= "apps_org_id_fkey"
+                    (:constraint data))
+                 (string/starts-with? (:server-message data)
+                                      "update or delete on table \"orgs\""))
+            (throw+ {::type ::record-foreign-key-invalid
+                     ::message "The org can't be deleted while it still has apps."
+                     ::hint hint
+                     ::pg-error-data data}
+                    e)
+
+            :else
+            (throw+ {::type ::record-foreign-key-invalid
+                     ::message (format "Foreign Key Invalid: %s" (name condition))
+                     ::hint hint
+                     ::pg-error-data data}
+                    e))
 
       :check-violation
       (if-let [triple (extract-triple-from-constraint data)]
@@ -551,11 +565,18 @@
                                  (when (= (:constraint data)
                                           "indexed_values_are_constrained")
                                    {:value-too-large? true}))}))
-        (throw+ {::type ::record-check-violation
-                 ::message (format "Check Violation: %s" (name condition))
-                 ::hint hint
-                 ::pg-error-data data}
-                e))
+        (case (:constraint data)
+          "orgs_title_check"
+          (throw+ {::type ::validation-failed
+                   ::message "The title for the org is too long. The maximum length is 140 characters."
+                   ::hint hint
+                   ::pg-error-data data})
+
+          (throw+ {::type ::record-check-violation
+                   ::message (format "Check Violation: %s" (name condition))
+                   ::hint hint
+                   ::pg-error-data data}
+                  e)))
 
       ;; This could be other things besides a timeout,
       ;; but we don't have any way to check :/

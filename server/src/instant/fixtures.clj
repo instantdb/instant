@@ -9,12 +9,12 @@
             [instant.db.indexing-jobs :as indexing-jobs]
             [instant.db.model.attr :as attr-model]
             [instant.model.app :as app-model]
-            [instant.model.app-member-invites :as instant-app-member-invites]
             [instant.model.app-members :as instant-app-members]
             [instant.model.instant-stripe-customer :as instant-stripe-customer-model]
             [instant.model.instant-subscription :as instant-subscription-model]
             [instant.model.instant-user :as instant-user-model]
             [instant.model.instant-user-refresh-token :as instant-user-refresh-token-model]
+            [instant.model.member-invites :as member-invites]
             [instant.model.rule :as rule-model]
             [instant.stripe :refer [PRO_SUBSCRIPTION_TYPE]]
             [instant.db.pg-introspect :as pg-introspect]
@@ -217,7 +217,7 @@
               :creator-id (:id owner)
               :id app-id
               :admin-token (random-uuid)})
-        invite (instant-app-member-invites/create!
+        invite (member-invites/create!
                 {:app-id app-id
                  :inviter-id (:creator_id app)
                  :role role
@@ -236,7 +236,7 @@
             :stripe-customer-id (:id stripe-customer)
             :stripe-subscription-id (str "fake_sub_" (random-uuid))
             :stripe-event-id (str "fake_evt_" (random-uuid))})
-        _ (instant-app-member-invites/accept-by-id! {:id (:id invite)})]
+        _ (member-invites/accept-by-id! {:id (:id invite)})]
     (try
       (f {:app app
           :owner owner
@@ -248,4 +248,4 @@
       (finally
         (app-model/delete-immediately-by-id! {:id app-id})
         (instant-app-members/delete-by-id! {:id (:id member)})
-        (instant-app-member-invites/delete-by-id! {:id (:id invite)})))))
+        (member-invites/delete-by-id! {:id (:id invite)})))))
