@@ -117,3 +117,9 @@ main().catch((err) => {
   process.stdout.write(SHOW_CURSOR);
   process.exit(1);
 });
+
+// On ctrl-c, show cursor again
+process.on('SIGINT', () => {
+  process.stdout.write(SHOW_CURSOR);
+  process.exit(0);
+});
