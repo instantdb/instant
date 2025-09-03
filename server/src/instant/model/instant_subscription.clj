@@ -9,8 +9,8 @@
   (uhsql/preformat
    {:with [[:subscription {:insert-into :instant-subscriptions
                            :values [{:id :?id
-                                     :user-id :?user-id
-                                     :app-id :?app-id
+                                     :user-id [:cast :?user-id :uuid]
+                                     :app-id [:cast :?app-id :uuid]
                                      :subscription-type-id :?subscription-type-id
                                      :stripe-customer-id :?stripe-customer-id
                                      :stripe-subscription-id :?stripe-subscription-id
