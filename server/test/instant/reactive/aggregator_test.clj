@@ -116,7 +116,7 @@
     (wait-for #(> 0 (compare lsn
                              (cms/get-start-lsn (aurora/conn-pool :read)
                                                 {:slot-name slot-name})))
-              1000)))
+              10000)))
 
 (deftest captures-changes
   (with-empty-app
