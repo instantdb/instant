@@ -8,6 +8,7 @@ import {
 } from '@/components/docs/NavButton';
 import { Tag, transformer } from '@markdoc/markdoc';
 import { HasAppID } from '../components/docs/Fence';
+import { TabbedSingle } from '../components/docs/TabbedSingle';
 
 function CustomDiv({ className, children }) {
   return <div className={className}>{children}</div>;
@@ -134,6 +135,14 @@ const tags = {
         {label}
       </a>
     ),
+  },
+
+  'tabbed-single': {
+    render: TabbedSingle,
+    attributes: {
+      tabs: { type: Object, required: true },
+      defaultTab: { type: String },
+    },
   },
 };
 
