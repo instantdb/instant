@@ -25,7 +25,7 @@ Once you complete the prompts add your app ID to the .env file:
   "nextjs": { "label": "Next.js", "content": "NEXT_PUBLIC_INSTANT_APP_ID=__APP_ID__" },
   "expo": { "label": "Expo", "content": "EXPO_PUBLIC_INSTANT_APP_ID=__APP_ID__" },
   "vite": { "label": "Vanilla TS", "content": "VITE_INSTANT_APP_ID=__APP_ID__" }
-} defaultTab="nextjs" /%}
+} defaultTab="nextjs" storageKey="create-app-env" /%}
 
 {% else %}
 Once you complete the prompts {% blank-link href="http://localhost:3000/dash" label="create a new app" /%} and add your app ID to the .env file:
@@ -34,7 +34,7 @@ Once you complete the prompts {% blank-link href="http://localhost:3000/dash" la
   "nextjs": { "label": "Next.js", "content": "NEXT_PUBLIC_INSTANT_APP_ID=<YOUR_APP_ID_HERE>" },
   "expo": { "label": "Expo", "content": "EXPO_PUBLIC_INSTANT_APP_ID=<YOUR_APP_ID_HERE>" },
   "vite": { "label": "Vanilla TS", "content": "VITE_INSTANT_APP_ID=<YOUR_APP_ID_HERE>" }
-} defaultTab="nextjs" /%}
+} defaultTab="nextjs" storageKey="create-app-env" /%}
 
 {% /else %}
 {% /has-app-id %}
@@ -57,7 +57,7 @@ Use `create-instant-app` with the `--ai` flag and you'll be prompted to describe
   "npx": { "label": "npx", "content": "npx create-instant-app --ai" },
   "pnpx": { "label": "pnpx", "content": "pnpx create-instant-app --ai" },
   "bunx": { "label": "bunx", "content": "bunx create-instant-app --ai" }
-} defaultTab="npx" /%}
+} defaultTab="npx" storageKey="create-app-ai" /%}
 
 You can think of this as a one-shot app builder in the terminal. If you use
 vercel you can even deploy your app by simply running `vercel` in the project.

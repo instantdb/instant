@@ -1,6 +1,7 @@
 import { useState, useContext } from 'react';
 import { ClipboardDocumentIcon } from '@heroicons/react/24/outline';
 import { SelectedAppContext } from '@/lib/SelectedAppContext';
+import useLocalStorage from '@/lib/hooks/useLocalStorage';
 
 /**
  * TabbedSingle - A component for displaying single-line content with tab selection.
@@ -10,16 +11,21 @@ import { SelectedAppContext } from '@/lib/SelectedAppContext';
  *
  * @param {Object} tabs - Object with tab keys containing { label, content }
  * @param {string} defaultTab - Optional default selected tab key
+ * @param {string} storageKey - Optional unique key for localStorage persistence
  */
-export function TabbedSingle({ tabs, defaultTab }) {
+export function TabbedSingle({ tabs, defaultTab, storageKey }) {
   // Defensive check for tabs
   if (!tabs || Object.keys(tabs).length === 0) {
     return null;
   }
 
-  const [selectedTab, setSelectedTab] = useState(
-    defaultTab || Object.keys(tabs)[0],
-  );
+  const defaultValue = defaultTab || Object.keys(tabs)[0];
+
+  // Use localStorage if storageKey is provided, otherwise use regular state
+  const [selectedTab, setSelectedTab] = storageKey
+    ? useLocalStorage(`tabbed-single-${storageKey}`, defaultValue)
+    : useState(defaultValue);
+
   const [copyLabel, setCopyLabel] = useState('Copy');
   const app = useContext(SelectedAppContext);
 
