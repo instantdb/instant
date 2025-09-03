@@ -40,12 +40,13 @@
 
 (defn create!
   ([params] (create! (aurora/conn-pool :write) params))
-  ([conn {:keys [id title creator-id admin-token]}]
+  ([conn {:keys [id title creator-id org-id admin-token]}]
    (let [query {:with [[:app_insert
                         {:insert-into :apps
                          :values [{:id id
                                    :title title
-                                   :creator-id creator-id}]
+                                   :creator-id creator-id
+                                   :org-id org-id}]
                          :returning :*}]
                        [:token_insert
                         {:insert-into :app_admin_tokens
@@ -194,7 +195,8 @@
              [[:case [:= nil :org.id] nil
                :else [:json_build_object
                       [:inline "id"] :org.id
-                      [:inline "title"] :org.title]]]
+                      [:inline "title"] :org.title]]
+              :org]
              [[:coalesce [:= :2 :subs.subscription_type_id] :false] :pro]
              [[:case [:= :a.creator-id :?user-id] [:inline "owner"]
                :else {:select :m.member_role

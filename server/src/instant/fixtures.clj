@@ -9,18 +9,20 @@
             [instant.db.indexing-jobs :as indexing-jobs]
             [instant.db.model.attr :as attr-model]
             [instant.model.app :as app-model]
-            [instant.model.app-member-invites :as instant-app-member-invites]
             [instant.model.app-members :as instant-app-members]
             [instant.model.instant-stripe-customer :as instant-stripe-customer-model]
             [instant.model.instant-subscription :as instant-subscription-model]
             [instant.model.instant-user :as instant-user-model]
             [instant.model.instant-user-refresh-token :as instant-user-refresh-token-model]
+            [instant.model.member-invites :as member-invites]
+            [instant.model.org :as org-model]
             [instant.model.rule :as rule-model]
             [instant.stripe :refer [PRO_SUBSCRIPTION_TYPE]]
             [instant.db.pg-introspect :as pg-introspect]
             [instant.jdbc.sql :as sql]
             [instant.jdbc.aurora :as aurora]
             [instant.util.coll :as ucoll]
+            [instant.util.crypt :as crypt-util]
             [instant.util.io :as io-util]
             [lambdaisland.uri :as uri]
             [next.jdbc.connection :as connection])
@@ -70,29 +72,69 @@
   `(binding [io-util/*tap-io* nil]
      ~@body))
 
-(defmacro with-empty-app [f]
-  `(let [app-id# (random-uuid)
-         app#    (app-model/create! {:title       "empty-app"
-                                     :creator-id  ~test-user-id
-                                     :id          app-id#
-                                     :admin-token (random-uuid)})]
-     (try
-       (with-fail-on-warn-io
-         (~f (assoc app#
-                    :make-ctx (fn make-ctx#
-                                ([]
-                                 (make-ctx# {}))
-                                ([opts#]
-                                 (merge
-                                  {:db               {:conn-pool (aurora/conn-pool :write)}
-                                   :app-id           app-id#
-                                   :attrs            (attr-model/get-by-app-id app-id#)
-                                   :datalog-query-fn d/query
-                                   :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id#})
-                                   :current-user     nil}
-                                  opts#))))))
-       (finally
-         (app-model/delete-immediately-by-id! {:id app-id#})))))
+(defn random-email []
+  (str "test-user-" (crypt-util/random-hex 16) "@example.com"))
+
+(defmacro with-user [& args]
+  (let [user-params (if (= 1 (count args))
+                     {}
+                     (first args))
+        f (last args)]
+    `(let [user-id# (random-uuid)
+           email# (random-email)
+           user# (instant-user-model/create! (merge {:id user-id# :email email#}
+                                                    ~user-params))
+           token# (random-uuid)]
+       (instant-user-refresh-token-model/create! {:id token# :user-id user-id#})
+       (try
+         (~f (assoc user# :refresh-token token#))
+         (finally
+           (instant-user-model/delete-by-email! {:email email#}))))))
+
+(defmacro with-org
+  [& args]
+  (let [creator-id (if (= 1 (count args))
+                     test-user-id
+                     (first args))
+        f (last args)]
+    `(let [org# (org-model/create! {:title "empty-org"
+                                    :user-id ~creator-id})]
+       (try
+         (with-fail-on-warn-io
+           (~f org#))
+         (finally
+           (org-model/delete! {:org-id (:id org#)}))))))
+
+(defmacro with-empty-app
+  "Pass a function that takes an app created for the test.
+   Optionally pass a user-id as the first argument to set the creator for the app."
+  [& args]
+  (let [creator-id (if (= 1 (count args))
+                     test-user-id
+                     (first args))
+        f (last args)]
+    `(let [app-id# (random-uuid)
+           app#    (app-model/create! {:title       "empty-app"
+                                       :creator-id  ~creator-id
+                                       :id          app-id#
+                                       :admin-token (random-uuid)})]
+       (try
+         (with-fail-on-warn-io
+           (~f (assoc app#
+                      :make-ctx (fn make-ctx#
+                                  ([]
+                                   (make-ctx# {}))
+                                  ([opts#]
+                                   (merge
+                                    {:db               {:conn-pool (aurora/conn-pool :write)}
+                                     :app-id           app-id#
+                                     :attrs            (attr-model/get-by-app-id app-id#)
+                                     :datalog-query-fn d/query
+                                     :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id#})
+                                     :current-user     nil}
+                                    opts#))))))
+         (finally
+           (app-model/delete-immediately-by-id! {:id app-id#}))))))
 
 (defmacro with-movies-app [f]
   `(with-empty-app
@@ -190,7 +232,7 @@
               :creator-id (:id owner)
               :id app-id
               :admin-token (random-uuid)})
-        invite (instant-app-member-invites/create!
+        invite (member-invites/create!
                 {:app-id app-id
                  :inviter-id (:creator_id app)
                  :role role
@@ -209,7 +251,7 @@
             :stripe-customer-id (:id stripe-customer)
             :stripe-subscription-id (str "fake_sub_" (random-uuid))
             :stripe-event-id (str "fake_evt_" (random-uuid))})
-        _ (instant-app-member-invites/accept-by-id! {:id (:id invite)})]
+        _ (member-invites/accept-by-id! {:id (:id invite)})]
     (try
       (f {:app app
           :owner owner
@@ -221,4 +263,4 @@
       (finally
         (app-model/delete-immediately-by-id! {:id app-id})
         (instant-app-members/delete-by-id! {:id (:id member)})
-        (instant-app-member-invites/delete-by-id! {:id (:id invite)})))))
+        (member-invites/delete-by-id! {:id (:id invite)})))))

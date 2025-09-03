@@ -727,8 +727,10 @@ function Invites({
             >
               <div>
                 <strong>{invite.inviter_email}</strong> invited you to{' '}
-                <strong>{invite.app_title}</strong> as{' '}
-                <strong>{invite.invitee_role}</strong>.
+                <strong>
+                  {'type' in invite ? invite.title : invite.app_title}
+                </strong>{' '}
+                as <strong>{invite.invitee_role}</strong>.
               </div>
               <div className="flex gap-1">
                 <ActionButton
@@ -736,7 +738,7 @@ function Invites({
                   label="Accept"
                   submitLabel="Accepting..."
                   errorMessage="An error occurred when attempting to accept the invite."
-                  successMessage={`You're part of the team for ${invite.app_title}!`}
+                  successMessage={`You're part of the team for ${'type' in invite ? invite.title : invite.app_title}!`}
                   onClick={async () => {
                     await jsonMutate(`${config.apiURI}/dash/invites/accept`, {
                       token,
@@ -748,7 +750,16 @@ function Invites({
                     await dashResponse.mutate();
 
                     if (invites.length === 1) {
-                      nav({ s: 'main', t: 'home', app: invite.app_id });
+                      const appId =
+                        'app_id' in invite
+                          ? invite.app_id
+                          : invite.type === 'app'
+                            ? invite.foreign_key
+                            : null;
+                      if (appId) {
+                        // TODO(orgs): redirect to org page here
+                        nav({ s: 'main', t: 'home', app: appId });
+                      }
                     }
                   }}
                 />
@@ -1612,9 +1623,14 @@ function FullscreenErrorMessage({ message }: { message: string }) {
 
 // UTILS
 
-function createApp(
+export function createApp(
   token: string,
-  toCreate: { id: string; title: string; admin_token: string },
+  toCreate: {
+    id: string;
+    title: string;
+    admin_token: string;
+    org_id?: string | null | undefined;
+  },
 ) {
   return jsonFetch(`${config.apiURI}/dash/apps`, {
     method: 'POST',
