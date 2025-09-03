@@ -3,9 +3,9 @@ title: Permissions
 description: How to secure your data with Instant's Rule Language.
 ---
 
-To secure user data, you can use Instant’s Rule Language. Our rule language
-takes inspiration from Rails’ ActiveRecord, Google’s CEL, and JSON.
-Here’s an example ruleset below
+To secure user data, you can use Instant's Rule Language. Our rule language
+takes inspiration from Rails' ActiveRecord, Google's CEL, and JSON.
+Here's an example ruleset below.
 
 <!-- prettier-ignore-start -->
 ```tsx {% showCopy=true %}

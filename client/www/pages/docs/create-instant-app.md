@@ -49,9 +49,9 @@ Huzzah! 🎉 You now have a brand new Instant project to play around with!
 
 ## One-shot with Claude Code
 
-Got Claude Code? You can use it one-shot a full-stack Instant app!
+Got Claude Code? You can use it to one-shot a full-stack Instant app!
 
-Use `create-instant-app` with the `--ai` flag and you'll be prompted to describe the app you want. Give it a try!
+Use `create-instant-app` with the `--ai` flag and you'll be prompted to describe the app you want to build. Give it a try!
 
 {% tabbed-single tabs={
   "npx": { "label": "npx", "content": "npx create-instant-app --ai" },

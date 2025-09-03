@@ -155,7 +155,7 @@ function CodeStep({ sentEmail }: { sentEmail: string }) {
 export default App;
 ```
 
-Go to `localhost:3000`, aand huzzah 🎉 You've got auth.
+Go to `localhost:3000`, and huzzah 🎉 You've got auth.
 
 ---
 

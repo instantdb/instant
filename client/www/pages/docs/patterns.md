@@ -351,8 +351,8 @@ type JWTResponse = {
 
 // 1. Parse the `given_name`, `last_name`, and `picture` from Google's `idToken`.
 function parseIdToken(idToken: string): JWTResponse {
-  const base64Paload = idToken.split('.')[1];
-  const decoded = Buffer.from(base64Paload, 'base64');
+  const base64Payload = idToken.split('.')[1];
+  const decoded = Buffer.from(base64Payload, 'base64');
   const parsed = JSON.parse(decoded.toString());
   return parsed;
 }
