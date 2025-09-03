@@ -1,15 +1,14 @@
-import { Button, Divider, useDialog } from '@/components/ui';
+import { Divider, useDialog } from '@/components/ui';
 import config from '@/lib/config';
 import { SchemaNamespace, InstantApp, DBAttr } from '@/lib/types';
 import { useDashFetch } from '@/lib/hooks/useDashFetch';
 import useSWR from 'swr';
 import { errorToast } from '@/lib/toast';
 import { InstantReactWebDatabase } from '@instantdb/react';
-import { ArrowUturnLeftIcon } from '@heroicons/react/24/solid';
-import { add, formatDistanceToNow } from 'date-fns';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { ClockIcon } from '@heroicons/react/24/outline';
 import { InstantAPIError } from '@instantdb/core';
+import { ExpandableDeletedAttr } from './ExpandableDeletedAttr';
 
 type SoftDeletedAttr = DBAttr & {
   'deletion-marked-at': string;
@@ -35,6 +34,8 @@ export const RecentlyDeletedAttrs: React.FC<{
   db: InstantReactWebDatabase<any>;
 }> = ({ namespace, appId, db }) => {
   const { data, mutate, error } = useRecentlyDeletedAttrs(appId);
+
+  const [expandedAttr, setExpandedAttr] = useState<string | null>(null);
 
   const dialog = useDialog();
 
@@ -75,33 +76,6 @@ export const RecentlyDeletedAttrs: React.FC<{
     return null;
   }
 
-  const DeletedAttr = ({ attr }: { attr: NonNullable<typeof filtered>[0] }) => {
-    if (!data) return null;
-    const date = add(new Date(attr['deletion-marked-at']), {
-      days: data['grace-period-days'],
-    });
-    return (
-      <div className="flex justify-between">
-        <div className="flex gap-4 items-center">
-          <span className="py-0.5 font-bold">{attr.names[namespace.name]}</span>
-          <span className="py-0.5 opacity-30">
-            Fully deletes in{' '}
-            {formatDistanceToNow(date, { includeSeconds: false })}
-          </span>
-        </div>
-        <Button
-          className="px-2"
-          size="mini"
-          variant="subtle"
-          onClick={() => restoreAttr(attr.id)}
-        >
-          <ArrowUturnLeftIcon fontWeight={800} width={15} />
-          Restore
-        </Button>
-      </div>
-    );
-  };
-
   return (
     <div className="pb-2">
       <Divider className="pb-2">
@@ -111,7 +85,23 @@ export const RecentlyDeletedAttrs: React.FC<{
         </div>
       </Divider>
       <div className="flex flex-col gap-2">
-        {filtered?.map((attr) => <DeletedAttr key={attr.id} attr={attr} />)}
+        {filtered?.map((attr) => (
+          <ExpandableDeletedAttr
+            isExpanded={expandedAttr === attr.id}
+            setIsExpanded={(isExpanded) => {
+              if (isExpanded) {
+                setExpandedAttr(attr.id);
+              } else {
+                setExpandedAttr(null);
+              }
+            }}
+            key={attr.id}
+            attr={attr}
+            namespace={namespace}
+            gracePeriodDays={data?.['grace-period-days'] || 2}
+            onRestore={restoreAttr}
+          />
+        ))}
       </div>
     </div>
   );
