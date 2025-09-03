@@ -9,7 +9,7 @@ that.
 
 We currently offer templates for Next.js, Expo, and Vanilla Typescript. Follow the quick start below to give it a spin!
 
-## Quick Start
+## Quick start
 
 To scaffold a brand new Instant project, fire up your terminal and run the following command to go through the scaffolding pomrpts.
 
@@ -39,8 +39,29 @@ Once you complete the prompts {% blank-link href="http://localhost:3000/dash" la
 {% /else %}
 {% /has-app-id %}
 
-Start up the development server:
+Run the dev server to see your new app in action!
 
 ```shell
 npm run dev
 ```
+
+Huzzah! 🎉 You now have a brand new Instant project to play around with!
+
+## One-shot with Claude Code
+
+Got Claude Code? You can use it one-shot a full-stack Instant app!
+
+Use `create-instant-app` with the `--ai` flag and you'll be prompted to describe the app you want. Give it a try!
+
+{% tabbed-single tabs={
+  "npx": { "label": "npx", "content": "npx create-instant-app --ai" },
+  "pnpx": { "label": "pnpx", "content": "pnpx create-instant-app --ai" },
+  "bunx": { "label": "bunx", "content": "bunx create-instant-app --ai" }
+} defaultTab="npx" /%}
+
+You can think of this as a one-shot app builder in the terminal. If you use
+vercel you can even deploy your app by simply running `vercel` in the project.
+
+Right now this only works with the Next.js template, but we plan to expand it to
+Expo and Vanilla TS soon. We're keen to improve this feature so if you have any
+feedback please let us know below or on [Discord](https://discord.com/invite/VU53p7uQcE)!
