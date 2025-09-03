@@ -142,7 +142,7 @@ const tags = {
     attributes: {
       tabs: { type: Object, required: true },
       defaultTab: { type: String },
-      storageKey: { type: String },
+      storageKey: { type: String, required: true },
     },
   },
 };

@@ -11,27 +11,25 @@ import useLocalStorage from '@/lib/hooks/useLocalStorage';
  *
  * @param {Object} tabs - Object with tab keys containing { label, content }
  * @param {string} defaultTab - Optional default selected tab key
- * @param {string} storageKey - Optional unique key for localStorage persistence
+ * @param {string} storageKey - Required unique key for localStorage persistence
  */
 export function TabbedSingle({ tabs, defaultTab, storageKey }) {
-  // Defensive check for tabs
+  const defaultValue = defaultTab || (tabs && Object.keys(tabs)[0]) || '';
+
+  // Always call hooks before any conditional returns
+  const [selectedTab, setSelectedTab] = useLocalStorage(
+    `tabbed-single-${storageKey}`,
+    defaultValue,
+  );
+  const [copyLabel, setCopyLabel] = useState('Copy');
+  const app = useContext(SelectedAppContext);
+
   if (!tabs || Object.keys(tabs).length === 0) {
     return null;
   }
 
-  const defaultValue = defaultTab || Object.keys(tabs)[0];
-
-  // Use localStorage if storageKey is provided, otherwise use regular state
-  const [selectedTab, setSelectedTab] = storageKey
-    ? useLocalStorage(`tabbed-single-${storageKey}`, defaultValue)
-    : useState(defaultValue);
-
-  const [copyLabel, setCopyLabel] = useState('Copy');
-  const app = useContext(SelectedAppContext);
-
   const currentTab = tabs[selectedTab];
 
-  // Defensive check for currentTab
   if (!currentTab) {
     return null;
   }
