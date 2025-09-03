@@ -9,7 +9,7 @@
    (sql/execute-one!
     conn
     ["INSERT INTO org_members
-       (id, org_id, user_id, member_role)
+       (id, org_id, user_id, role)
        VALUES
        (?::uuid, ?::uuid, ?, ?)"
      (random-uuid) org-id user-id role])))
@@ -19,7 +19,7 @@
   ([conn {:keys [role id]}]
    (sql/execute-one! conn
                      ["UPDATE org_members
-                       SET member_role = ?
+                       SET role = ?
                        WHERE id = ?::uuid"
                       role
                       id])))

@@ -15,6 +15,7 @@
             [instant.model.instant-user :as instant-user-model]
             [instant.model.instant-user-refresh-token :as instant-user-refresh-token-model]
             [instant.model.member-invites :as member-invites]
+            [instant.model.org :as org-model]
             [instant.model.rule :as rule-model]
             [instant.stripe :refer [PRO_SUBSCRIPTION_TYPE]]
             [instant.db.pg-introspect :as pg-introspect]
@@ -89,6 +90,20 @@
          (~f (assoc user# :refresh-token token#))
          (finally
            (instant-user-model/delete-by-email! {:email email#}))))))
+
+(defmacro with-org
+  [& args]
+  (let [creator-id (if (= 1 (count args))
+                     test-user-id
+                     (first args))
+        f (last args)]
+    `(let [org# (org-model/create! {:title "empty-org"
+                                    :user-id ~creator-id})]
+       (try
+         (with-fail-on-warn-io
+           (~f org#))
+         (finally
+           (org-model/delete! {:org-id (:id org#)}))))))
 
 (defmacro with-empty-app
   "Pass a function that takes an app created for the test.
