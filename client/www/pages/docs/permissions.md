@@ -224,8 +224,7 @@ You can use `$default` as the namespace:
 
 You can specify default link/unlink permission (these will apply to all attributes) and override it for specific attributes:
 
-```
-json
+```json
 {
   "users": {
     "allow": {
