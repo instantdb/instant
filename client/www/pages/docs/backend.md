@@ -67,7 +67,7 @@ from `@instantdb/react`. It returns a `tx-id` on success.
 
 ## Subscriptions on the backend
 
-You can use `db.subscribeQuery` to subscribe to queries on the backend. This can be useful if you have backend processes that reacts to database changes.
+You can use `db.subscribeQuery` to subscribe to queries on the backend. This can be useful if you have backend processes that react to database changes.
 
 For example, let's say we wanted to subscribe to a `tasks` table.
 
@@ -218,7 +218,7 @@ console.log(Object.values(data));
 
 ## Sign Out
 
-The `db.auth.signOut` method allows you to log out a users. You can log a user out from every session by passing in their `email`, or `id`. Or you can log a user out from a particular session by passing in a `refresh_token`:
+The `db.auth.signOut` method allows you to log out users. You can log a user out from every session by passing in their `email`, or `id`. Or you can log a user out from a particular session by passing in a `refresh_token`:
 
 ```javascript
 // All sessions for this email sign out

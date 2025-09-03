@@ -166,7 +166,7 @@ And voila, you are connected!
 
 We'll use {% blank-link href="https://developers.google.com/identity/gsi/web/guides/overview" label="Google's pre-built Sign in Button" /%}. The benefit of using Google's button is that you can display your app's name in the consent screen.
 
-There two steps to the code:
+There are two steps to the code:
 
 1. Use the Sign in Button to auth with Google and get an `idToken`
 2. Pass the token on to `db.auth.signInWithIdToken`, and you are logged in!

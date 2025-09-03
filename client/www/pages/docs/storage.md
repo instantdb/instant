@@ -502,7 +502,7 @@ for a more detailed example showing how you may leverage links to implement an a
 
 ## Using Storage with React Native
 
-The SDK expects a `File` object. In React Native the built-in `fetch` function can be used to construct a `File`, then you can pass that to the `uploadFile` metod.
+The SDK expects a `File` object. In React Native the built-in `fetch` function can be used to construct a `File`, then you can pass that to the `uploadFile` method.
 
 Example:
 
@@ -655,7 +655,7 @@ Authenticated users may only upload, view, update files from their own subdirect
   "$files": {
     "allow": {
       "view": "isOwner",
-      "update": "isOwner"
+      "update": "isOwner",
       "create": "isOwner"
     },
     "bind": ["isOwner", "data.path.startsWith(auth.id + '/')"]

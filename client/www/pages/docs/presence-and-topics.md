@@ -114,7 +114,7 @@ export default schema;
 
 Once you've updated your schema, you'll start seeing types in your intellisense:
 
-{% screenshot src="/img/docs/presence-intellisence.png" /%}
+{% screenshot src="/img/docs/presence-intellisense.png" /%}
 
 ## Presence
 

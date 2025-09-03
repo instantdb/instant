@@ -68,7 +68,7 @@ db.transact(
 );
 ```
 
-`update` function works as create or update depending of whether the entity already exists or not (so called “upsert” mode). If entity doesn’t exist yet, calling `update` will create it, otherwise it will update.
+`update` function works as create or update depending on whether the entity already exists or not (so called "upsert" mode). If entity doesn’t exist yet, calling `update` will create it, otherwise it will update.
 
 To force “strict update” mode, pass `{ upsert: false }` option:
 

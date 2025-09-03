@@ -92,7 +92,7 @@ Let's unpack what we just wrote. There are three core building blocks to model d
 
 ## 1) Namespaces
 
-Namespaces are equivelant to "tables" in relational databases or "collections" in NoSQL. In our case, these are: `$users`, `profiles`, `posts`, `comments`, and `tags`.
+Namespaces are equivalent to "tables" in relational databases or "collections" in NoSQL. In our case, these are: `$users`, `profiles`, `posts`, `comments`, and `tags`.
 
 They're all defined in the `entities` section:
 
@@ -110,7 +110,7 @@ const _schema = i.schema({
 
 ## 2) Attributes
 
-Attributes are properties associated with namespaces. These are equivelant to a "column" in relational databases or a "field" in NoSQL. For the `posts` entity, we have the `title`, `body`, and `createdAt` attributes:
+Attributes are properties associated with namespaces. These are equivalent to a "column" in relational databases or a "field" in NoSQL. For the `posts` entity, we have the `title`, `body`, and `createdAt` attributes:
 
 ```typescript
 // instant.schema.ts
@@ -257,7 +257,7 @@ const query = {
 ### Indexing attributes
 
 You can also use index attributes to speed up querying. An additional
-benefit is that indexed attributes can be use with comparison operators for
+benefit is that indexed attributes can be used with comparison operators for
 where queries like `$gt`, `$lt`, `$gte`, and `$lte` and can be used in `order`
 clauses.
 
@@ -296,7 +296,7 @@ const query = {
 };
 ```
 
-Even if you're not using comparison operatiors or order clauses, indexing
+Even if you're not using comparison operators or order clauses, indexing
 attributes can still speed up queries that filter by that attribute.
 
 ## 3) Links

@@ -74,7 +74,7 @@ Sometimes you want to express permissions based on an attribute in a linked enti
 {
   "comments": {
     "allow": {
-      "update": "auth.id in data.post.author.id
+      "update": "auth.id in data.post.author.id"
     }
   }
 }
@@ -390,7 +390,7 @@ const query = { goals: {}, todos: {} };
 
 ```
 // ✅ Good: Fetch goals and their associated todos
-const query = { goals: { todos: {} };
+const query = { goals: { todos: {} } };
 ```
 
 Use `where` operator to filter entities:
