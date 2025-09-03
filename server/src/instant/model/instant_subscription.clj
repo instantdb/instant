@@ -1,20 +1,42 @@
 (ns instant.model.instant-subscription
   (:require
    [instant.jdbc.aurora :as aurora]
-   [instant.jdbc.sql :as sql]))
+   [instant.jdbc.sql :as sql]
+   [instant.util.hsql :as uhsql]))
+
+(def create-q
+  (uhsql/preformat
+   {:with [[:subscription {:insert-into :instant-subscriptions
+                           :values [{:id :?id
+                                     :user-id :?user-id
+                                     :app-id :?app-id
+                                     :subscription-type-id :?subscription-type-id
+                                     :stripe-customer-id :?stripe-customer-id
+                                     :stripe-subscription-id :?stripe-subscription-id
+                                     :stripe-event-id :?stripe-event-id}]
+                           :returning :*}]
+           [:app-update {:update :apps
+                         :set {:subscription-id :?id}
+                         :where [:= :id :?app-id]}]]
+    :select :*
+    :from :subscription}))
 
 (defn create!
   ([params] (create! (aurora/conn-pool :write) params))
   ([conn {:keys [user-id app-id subscription-type-id
                  stripe-customer-id stripe-subscription-id stripe-event-id]}]
-   (sql/execute-one! conn
-                     ["INSERT INTO instant_subscriptions
-                      (user_id, app_id, subscription_type_id,
-                                stripe_customer_id, stripe_subscription_id, stripe_event_id)
-                      VALUES (?::uuid, ?::uuid, ?::smallint,
-                                       ?, ?, ?)"
-                      user-id app-id subscription-type-id
-                      stripe-customer-id stripe-subscription-id stripe-event-id])))
+   (let [subscription-id (random-uuid)]
+     (tool/def-locals)
+     (sql/execute-one! ::create!
+                       conn
+                       (uhsql/formatp create-q
+                                      {:id (random-uuid)
+                                       :user-id user-id
+                                       :app-id app-id
+                                       :subscription-type-id subscription-type-id
+                                       :stripe-customer-id stripe-customer-id
+                                       :stripe-subscription-id stripe-subscription-id
+                                       :stripe-event-id stripe-event-id})))))
 
 (defn get-by-event-id
   ([params] (get-by-event-id (aurora/conn-pool :read) params))
@@ -27,7 +49,7 @@
   ([params] (get-by-app-id (aurora/conn-pool :read) params))
   ([conn {:keys [app-id]}]
    (sql/select-one conn
-                   ["SELECT s.app_id, s.stripe_subscription_id, t.name
+                   ["SELECT s.id, s.app_id, s.stripe_subscription_id, t.name
                     FROM instant_subscriptions s
                     JOIN instant_subscription_types t on s.subscription_type_id = t.id
                     WHERE s.app_id = ?::uuid

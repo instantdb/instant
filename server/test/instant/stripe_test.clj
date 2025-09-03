@@ -3,6 +3,7 @@
    [clojure.test :as test :refer [deftest is]]
    [instant.config :as config]
    [instant.fixtures :refer [with-empty-app]]
+   [instant.model.app :as app-model]
    [instant.model.instant-stripe-customer :as instant-stripe-customer-model]
    [instant.model.instant-subscription :as instant-subscription-model]
    [instant.stripe :as stripe]))
@@ -35,20 +36,24 @@
                              :id "evt_downgrade"
                              :data data}]
 
-        ; No subscription exists at first
+        ;; No subscription exists at first
         (is (nil? (instant-subscription-model/get-by-app-id {:app-id app-id})))
 
-        ; Subscription is created
+        ;; Subscription is created
         (stripe/handle-stripe-webhook-event upgrade-event)
-        (is (= "Pro"
-               (:name (instant-subscription-model/get-by-app-id {:app-id app-id}))))
+        (let [sub (instant-subscription-model/get-by-app-id {:app-id app-id})]
+          (is (= "Pro" (:name sub)))
+          (is (= (:id sub)
+                 (:subscription_id (app-model/get-by-id! {:id app-id})))))
 
-        ; Subscription is downgraded
+        ;; Subscription is downgraded
         (stripe/handle-stripe-webhook-event downgrade-event)
-        (is (= "Free"
-               (:name (instant-subscription-model/get-by-app-id {:app-id app-id}))))
+        (let [sub (instant-subscription-model/get-by-app-id {:app-id app-id})]
+          (is (= "Free" (:name sub)))
+          (is (= (:id sub)
+                 (:subscription_id (app-model/get-by-id! {:id app-id})))))
 
-        ; Re-processing the upgrade event should not create a new subscription
+        ;; Re-processing the upgrade event should not create a new subscription
         (stripe/handle-stripe-webhook-event upgrade-event)
         (is (= "Free"
                (:name (instant-subscription-model/get-by-app-id {:app-id app-id}))))))))

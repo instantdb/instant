@@ -162,11 +162,6 @@
 (defn make-apps-q [app-ids-select]
   (uhsql/preformat
    {:with [[:app-ids app-ids-select]
-           ;; The last subscription is the active one. When a subscription changes, we don't edit
-           ;; the existing row, but generate a new one.
-           [:subs {:select-distinct-on [[:app-id] :s.app-id :s.subscription_type_id]
-                   :from [[:instant-subscriptions :s]]
-                   :order-by [:app-id [:created-at :desc]]}]
            [:members {:select [:m.app-id
                                [[:json_agg
                                  [:json_build_object
@@ -197,7 +192,7 @@
                       [:inline "id"] :org.id
                       [:inline "title"] :org.title]]
               :org]
-             [[:coalesce [:= :2 :subs.subscription_type_id] :false] :pro]
+             [[:coalesce [:= :2 :sub.subscription_type_id] :false] :pro]
              [[:case [:= :a.creator-id :?user-id] [:inline "owner"]
                :else {:select :m.member_role
                       :from [[:app-members :m]]
@@ -218,7 +213,7 @@
            [:app_admin_tokens :at] [:= :at.app-id :a.id]]
     :left-join [[:rules :r] [:= :r.app_id :a.id]
                 [:orgs :org] [:= :org.id :a.org-id]
-                :subs [:= :subs.app_id :a.id]
+                [:instant_subscriptions :sub] [:= :sub.id :a.subscription_id]
                 [:members :m] [:= :m.app_id :a.id]
                 [:member-invites :i] [:= :i.app_id :a.id]
                 [:app-email-templates :template] [:and
@@ -236,14 +231,11 @@
                          :from [[:apps :a]]
                          :join [[:app_members :m] [:and
                                                    [:= :m.user_id :?user-id]
-                                                   [:= :m.app_id :a.id]]]
+                                                   [:= :m.app_id :a.id]]
+                                [:instant_subscriptions :sub] [:= :sub.id :a.subscription_id]]
                          :where [:and
                                  [:= nil :a.deletion-marked-at]
-                                 [:= :2 {:select :s.subscription_type_id
-                                         :from [[:instant-subscriptions :s]]
-                                         :where [:= :s.app-id :a.id]
-                                         :order-by [[:created-at :desc]]
-                                         :limit :1}]]}]}))
+                                 [:= :2 :sub.subscription_type_id]]}]}))
 
 (defn get-all-for-user
   ([params] (get-all-for-user (aurora/conn-pool :read) params))
