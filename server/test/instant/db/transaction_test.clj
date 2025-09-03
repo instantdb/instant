@@ -2540,116 +2540,76 @@
 
         (testing "deleting post"
           (test-util/test-matrix
-           [ref-type                       [:id :lookup]
-            ;; link check can be not defined at all (then update/view fallback is used),
-            ;; defined only for one side (then other side will use a fallback), or be
-            ;; defined for both sides
-            [attr posts-param users-param] [[:posts/fallback "posts_delete" nil]
-                                            [:posts/fwd-only "posts_delete" nil]
-                                            [:posts/rev-only "posts_delete" "users_rev_only"]
-                                            [:posts/fwd-rev  "posts_delete" "users_fwd_rev"]]
-            rule-params                    (if users-param
-                                             [{posts-param false users-param true}
-                                              {posts-param true  users-param false}
-                                              {posts-param true  users-param true}]
-                                             [{posts-param false}
-                                              {posts-param true}])
-            ;; rule params for reverse direction can be placed on forward one, e.g.
-            ;; db.tx.posts[id].link({user: ...}).ruleParams({user_param: ...})
-            user-params-pos                [:post :user]]
-           (let [user-id     (random-uuid)
-                 user-email  (test-util/rand-email)
-                 user-ref    (case ref-type
-                               :id     user-id
-                               :lookup [:users/email user-email])
-                 post-id     (random-uuid)
-                 post-title  (test-util/rand-string)
-                 post-ref    (case ref-type
-                               :id     post-id
-                               :lookup [:posts/title post-title])
-                 _           (transact!
-                              [[:add-triple  user-id :users/id    user-id]
-                               [:add-triple  user-id :users/email user-email]
-                               [:rule-params user-id "users"      {"users_view" true}]
-                               [:add-triple  post-id :posts/id    post-id]
-                               [:add-triple  post-id :posts/title post-title]
-                               [:add-triple  post-id attr         user-id]])
+           [attr     [:posts/fallback
+                      :posts/fwd-only
+                      :posts/rev-only
+                      :posts/fwd-rev]
+            ref-type [:id :lookup]]
+           (let [user-id    (random-uuid)
+                 user-email (test-util/rand-email)
+                 post-id    (random-uuid)
+                 post-title (test-util/rand-string)
+                 post-ref   (case ref-type
+                              :id     post-id
+                              :lookup [:posts/title post-title])]
+             (transact!
+              [[:add-triple  user-id :users/id    user-id]
+               [:add-triple  user-id :users/email user-email]
+               [:rule-params user-id "users"      {"users_view" true}]
+               [:add-triple  post-id :posts/id    post-id]
+               [:add-triple  post-id :posts/title post-title]
+               [:add-triple  post-id attr         user-id]])
+             (is (not (perm-pass? (transact! [[:delete-entity post-ref "posts"]]))))
+             (is (perm-pass? (transact! [[:delete-entity post-ref "posts"]
+                                         [:rule-params post-ref "posts" {"posts_delete" true}]]))))))
 
-                 tx          (concat
-                              [[:delete-entity post-ref "posts"]]
-                              (case user-params-pos
-                                :user
-                                [[:rule-params user-ref "users" (select-keys rule-params [users-param])]
-                                 [:rule-params post-ref "posts" (select-keys rule-params [posts-param])]]
-                                :post
-                                [[:rule-params post-ref "posts" rule-params]]))
-
-                 expected    (every? true? (vals rule-params))]
-
-             (is (= expected (perm-pass? (transact! tx))))))
-
-          (testing "system namespaces"
-            (let [user-id (random-uuid)
-                  file-id (random-uuid)
-                  post-id (random-uuid)
-                  _       (tx/transact!
-                           (aurora/conn-pool :write)
-                           (attr-model/get-by-app-id app-id)
-                           app-id
-                           (test-util/resolve-attrs
-                            attrs
-                            [[:add-triple  user-id :$users/id          user-id]
-                             [:add-triple  file-id :$files/id          file-id]
-                             [:add-triple  file-id :$files/path        (test-util/rand-string)]
-                             [:add-triple  file-id :$files/location-id (random-uuid)]
-                             [:add-triple  post-id :posts/id           post-id]
-                             [:add-triple  post-id :posts/$user        user-id]
-                             [:add-triple  post-id :posts/$file        file-id]])
-                           {:allow-$files-update? true})]
-              (is (perm-pass? (transact! [[:delete-entity post-id "posts"]
-                                          [:rule-params   post-id "posts" {"posts_delete" true}]]))))))
+        (testing "system namespaces"
+          (let [user-id (random-uuid)
+                file-id (random-uuid)
+                post-id (random-uuid)
+                _       (tx/transact!
+                         (aurora/conn-pool :write)
+                         (attr-model/get-by-app-id app-id)
+                         app-id
+                         (test-util/resolve-attrs
+                          attrs
+                          [[:add-triple  user-id :$users/id          user-id]
+                           [:add-triple  file-id :$files/id          file-id]
+                           [:add-triple  file-id :$files/path        (test-util/rand-string)]
+                           [:add-triple  file-id :$files/location-id (random-uuid)]
+                           [:add-triple  post-id :posts/id           post-id]
+                           [:add-triple  post-id :posts/$user        user-id]
+                           [:add-triple  post-id :posts/$file        file-id]])
+                         {:allow-$files-update? true})]
+            (is (not (perm-pass? (transact! [[:delete-entity post-id "posts"]]))))
+            (is (perm-pass? (transact! [[:delete-entity post-id "posts"]
+                                        [:rule-params   post-id "posts" {"posts_delete" true}]])))))
 
         (testing "deleting user"
           (test-util/test-matrix
-           [ref-type                       [:id :lookup]
-            ;; link check can be not defined at all (then update/view fallback is used),
-            ;; defined only for one side (then other side will use a fallback), or be
-            ;; defined for both sides
-            [attr posts-param users-param] [[:posts/fallback nil              "users_delete"]
-                                            [:posts/fwd-only "posts_fwd_only" "users_delete"]
-                                            [:posts/rev-only nil              "users_delete"]
-                                            [:posts/fwd-rev  "posts_fwd_rev"  "users_delete"]]
-            rule-params                    (if posts-param
-                                             [{posts-param false users-param true}
-                                              {posts-param true  users-param false}
-                                              {posts-param true  users-param true}]
-                                             [{users-param false}
-                                              {users-param true}])]
-           (let [user-id     (random-uuid)
-                 user-email  (test-util/rand-email)
-                 user-ref    (case ref-type
-                               :id     user-id
-                               :lookup [:users/email user-email])
-                 post-id     (random-uuid)
-                 post-title  (test-util/rand-string)
-                 post-ref    (case ref-type
-                               :id     post-id
-                               :lookup [:posts/title post-title])
-                 _           (transact!
-                              [[:add-triple  user-id :users/id    user-id]
-                               [:add-triple  user-id :users/email user-email]
-                               [:rule-params user-id "users"      {"users_view" true}]
-                               [:add-triple  post-id :posts/id    post-id]
-                               [:add-triple  post-id :posts/title post-title]
-                               [:add-triple  post-id attr         user-id]])
+           [attr     [:posts/fallback
+                      :posts/fwd-only
+                      :posts/rev-only
+                      :posts/fwd-rev]
+            ref-type [:id :lookup]]
+           (let [user-id    (random-uuid)
+                 user-email (test-util/rand-email)
+                 user-ref   (case ref-type
+                              :id     user-id
+                              :lookup [:users/email user-email])
+                 post-id    (random-uuid)
+                 post-title (test-util/rand-string)]
+             (transact!
+              [[:add-triple  user-id :users/id    user-id]
+               [:add-triple  user-id :users/email user-email]
+               [:rule-params user-id "users"      {"users_view" true}]
+               [:add-triple  post-id :posts/id    post-id]
+               [:add-triple  post-id :posts/title post-title]
+               [:add-triple  post-id attr         user-id]])
 
-                 tx          [[:delete-entity user-ref "users"]
-                              [:rule-params user-ref "users" (select-keys rule-params [users-param])]
-                              [:rule-params post-ref "posts" (select-keys rule-params [posts-param])]]
-
-                 expected    (every? true? (vals rule-params))]
-
-             (is (= expected (perm-pass? (transact! tx)))))))))))
+             (is (not (perm-pass? (transact! [[:delete-entity user-ref "users"]]))))
+             (is (perm-pass? (transact! [[:delete-entity user-ref "users"]
+                                         [:rule-params   user-ref "users" {"users_delete" true}]]))))))))))
 
 (deftest linked-data-perm
   (with-empty-app

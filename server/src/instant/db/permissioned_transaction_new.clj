@@ -546,13 +546,6 @@
                                                     (get rule-params-map rev-key))}}]))]
       check)))
 
-(defn post-checks
-  "Checks that run after tx: create, add-attr"
-  [ctx entities-map updated-entities-map rule-params-map create-lookups-map tx-steps results]
-  (concat
-   (post-create-checks ctx entities-map updated-entities-map rule-params-map create-lookups-map tx-steps)
-   (post-delete-checks ctx entities-map updated-entities-map rule-params-map tx-steps (:delete-entity results))))
-
 (defn run-checks!
   "Runs checks, returning results (admin-check?) or throwing"
   [ctx checks]
@@ -648,13 +641,12 @@
                                               (map :eid)
                                               (filter lookup-ref?)
                                               (triple-model/fetch-lookups->eid tx-conn app-id)))
-                  post-checks          (post-checks ctx
-                                                    entities-map
-                                                    updated-entities-map
-                                                    rule-params-map
-                                                    create-lookups-map
-                                                    tx-step-maps
-                                                    (:results tx-data))
+                  post-checks          (post-create-checks ctx
+                                                           entities-map
+                                                           updated-entities-map
+                                                           rule-params-map
+                                                           create-lookups-map
+                                                           tx-step-maps)
                   post-check-results   (io/expect-io
                                          (run-checks! ctx post-checks))
 
