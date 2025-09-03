@@ -23,7 +23,7 @@ const rules = {
         "creator": "isOwner && isStillOwner"
       },
       "unlink": {
-        "creator": "isOwner"
+        "$default": "isOwner"
       }
     },
     "bind": [
@@ -61,7 +61,7 @@ For each app in your dashboard, you’ll see a permissions editor. Permissions a
 
 For each namespace you can define `allow` rules for `view`, `create`, `update`, `delete`, `link`, `unlink`. Rules must be boolean expressions.
 
-If a rule is not set then by default it evaluates to true. The following four rulesets are all equivalent:
+If a rule is not set then by default it evaluates to true. The following three rulesets are all equivalent:
 
 In this example we explicitly set each action for `todos` to true
 
@@ -74,10 +74,10 @@ In this example we explicitly set each action for `todos` to true
       "update": "true",
       "delete": "true",
       "link": {
-        "creator": "true"
+        "$default": "true"
       },
       "unlink": {
-        "creator": "true"
+        "$default": "true"
       }
     }
   }
@@ -119,6 +119,7 @@ a user executes, they’ll _only_ see data that they are allowed to see.
 ### Create, Update, Delete
 
 Similarly, for each object in a transaction, we make sure to evaluate the respective `create`, `update`, and `delete` rule.
+
 Transactions will fail if a user does not have adequate permission.
 
 ### Link, Unlink
@@ -221,6 +222,22 @@ You can use `$default` as the namespace:
 }
 ```
 
+You can specify default link/unlink permission (these will apply to all attributes) and override it for specific attributes:
+
+```
+json
+{
+  "users": {
+    "allow": {
+      "link": {
+        "$default": "false",
+        "posts": "true"
+      }
+    }
+  }
+}
+```
+
 Finally, the ultimate default:
 
 ```json
@@ -279,7 +296,13 @@ Inside each rule, you can write CEL code that evaluates to either `true` or `fal
       "view": "auth.id != null",
       "create": "auth.id in data.ref('creator.id')",
       "update": "!(newData.title == data.title)",
-      "delete": "'joe@instantdb.com' in data.ref('users.email')"
+      "delete": "'joe@instantdb.com' in data.ref('users.email')",
+      "link": {
+        "author": "linkedData.id == auth.id"
+      },
+      "unlink": {
+        "$default": "false"
+      }
     }
   }
 }
@@ -298,6 +321,36 @@ In `update`, you'll also have access to `newData`. This refers to the changes th
 ### linkedData
 
 In `link`/`unlink`, you have access to `linkedData` object which is just a shorthand for the other side of the relation.
+
+For example, if posts have authors and you only want to allow to link posts to the currently authenticated user, you can write:
+
+```json
+{
+  "posts": {
+    "allow": {
+      "link": {
+        "author": "auth.id in newData.ref(author.id)"
+      }
+    }
+  }
+}
+```
+
+or the same but using linkedData:
+
+```json
+{
+  "posts": {
+    "allow": {
+      "link": {
+        "author": "auth.id == linkedData.id"
+      }
+    }
+  }
+}
+```
+
+In this example, `linkedData` in `link.author` permission is the same as `data.ref(author)`.
 
 ### bind
 
