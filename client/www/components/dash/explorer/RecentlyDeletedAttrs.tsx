@@ -9,6 +9,7 @@ import { ArrowUturnLeftIcon } from '@heroicons/react/24/solid';
 import { add, formatDistanceToNow } from 'date-fns';
 import { useEffect } from 'react';
 import { ClockIcon } from '@heroicons/react/24/outline';
+import { InstantAPIError } from '@instantdb/core';
 
 type SoftDeletedAttr = DBAttr & {
   'deletion-marked-at': string;
@@ -33,10 +34,7 @@ export const RecentlyDeletedAttrs: React.FC<{
   appId: string;
   db: InstantReactWebDatabase<any>;
 }> = ({ namespace, appId, db }) => {
-  const dashResponse = useDashFetch();
-  const app = dashResponse.data?.apps?.find((a: InstantApp) => a.id === appId);
-
-  const { data, mutate } = useRecentlyDeletedAttrs(appId, app?.admin_token);
+  const { data, mutate } = useRecentlyDeletedAttrs(appId);
 
   const dialog = useDialog();
 
@@ -51,7 +49,12 @@ export const RecentlyDeletedAttrs: React.FC<{
       });
       console.log('Restored attr:', attrId);
     } catch (error) {
-      errorToast('Failed to restore attr');
+      console.error(error);
+      if (error instanceof InstantAPIError) {
+        errorToast(error.message);
+      } else {
+        errorToast('Failed to restore attr');
+      }
     }
   };
 
@@ -114,23 +117,29 @@ export const RecentlyDeletedAttrs: React.FC<{
   );
 };
 
-const useRecentlyDeletedAttrs = (appId: string, adminToken?: string) => {
+export const useRecentlyDeletedAttrs = (appId: string) => {
+  const dashResponse = useDashFetch();
+  const app = dashResponse.data?.apps?.find((a: InstantApp) => a.id === appId);
   const result = useSWR(
-    adminToken ? ['recently-deleted', appId] : null,
+    app?.id ? ['recently-deleted', appId] : null,
     async () => {
+      if (!app) {
+        throw new Error('No app found'); // should never happen
+      }
       const response = await fetch(
         `${config.apiURI}/admin/soft_deleted_attrs`,
         {
           method: 'GET',
           headers: {
             'app-id': appId,
-            authorization: `Bearer ${adminToken}`,
+            authorization: `Bearer ${app.admin_token}`,
           },
         },
       );
       const data = await response.json();
       if (!response.ok) {
         errorToast('Failed to get recently deleted attrs');
+        console.error('Failed to fetch recently deleted attrs', data);
         throw new Error(
           'Failed to fetch recently deleted attrs' + JSON.stringify(data),
         );

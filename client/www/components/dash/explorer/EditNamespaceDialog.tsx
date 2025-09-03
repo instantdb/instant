@@ -222,7 +222,6 @@ function DeleteForm({
       <div className="flex flex-col gap-2">
         <p className="pb-2">
           Are you sure you want to delete the <strong>{name}</strong> attribute?
-          It can be restored later.
         </p>
         <ActionButton
           variant="destructive"
