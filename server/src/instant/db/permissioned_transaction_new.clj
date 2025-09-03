@@ -212,13 +212,17 @@
                                    (get entities-map rev-key))
               rule-params        (get rule-params-map key)
               link-program       (when ref?
-                                   (rule-model/get-program! rules [[etype "allow" "link" fwd-label]]))
+                                   (rule-model/get-program! rules [[etype "allow" "link" fwd-label]
+                                                                   [etype "allow" "link" "$default"]]))
               rev-link-program   (when ref?
-                                   (rule-model/get-program! rules [[rev-etype "allow" "link" rev-label]]))
+                                   (rule-model/get-program! rules [[rev-etype "allow" "link" rev-label]
+                                                                   [rev-etype "allow" "link" "$default"]]))
               unlink-program     (when ref?
-                                   (rule-model/get-program! rules [[etype "allow" "unlink" fwd-label]]))
+                                   (rule-model/get-program! rules [[etype "allow" "unlink" fwd-label]
+                                                                   [etype "allow" "unlink" "$default"]]))
               rev-unlink-program (when ref?
-                                   (rule-model/get-program! rules [[rev-etype "allow" "unlink" rev-label]]))]
+                                   (rule-model/get-program! rules [[rev-etype "allow" "unlink" rev-label]
+                                                                   [rev-etype "allow" "unlink" "$default"]]))]
         check (clojure+/cond+
                 (= :update-attr op)
                 [{:scope    :attr
@@ -301,8 +305,7 @@
                      :action   :unlink
                      :etype    etype
                      :eid      eid
-                     :program  (or (rule-model/get-program! rules [[etype "allow" "unlink" fwd-label]])
-                                   {:result true})
+                     :program  unlink-program
                      :bindings {:data        entity
                                 :new-data    (get updated-entities-map key)
                                 :linked-data rev-entity
@@ -395,9 +398,11 @@
                                            (update "id" #(or (get create-lookups-map %) (:eid rev-key) %))))
               rule-params        (get rule-params-map key)
               link-program       (when ref?
-                                   (rule-model/get-program! rules [[etype "allow" "link" fwd-label]]))
+                                   (rule-model/get-program! rules [[etype "allow" "link" fwd-label]
+                                                                   [etype "allow" "link" "$default"]]))
               rev-link-program   (when ref?
-                                   (rule-model/get-program! rules [[rev-etype "allow" "link" rev-label]]))]
+                                   (rule-model/get-program! rules [[rev-etype "allow" "link" rev-label]
+                                                                   [rev-etype "allow" "link" "$default"]]))]
         check (clojure+/cond+
                 (= :add-attr op)
                 [{:scope    :attr

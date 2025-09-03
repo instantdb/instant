@@ -19,6 +19,12 @@ const rules = {
       "create": "isOwner",
       "update": "isOwner && isStillOwner",
       "delete": "isOwner",
+      "link": {
+        "creator": "isOwner && isStillOwner"
+      },
+      "unlink": {
+        "creator": "isOwner"
+      }
     },
     "bind": [
       "isOwner", "auth.id != null && auth.id == data.creatorId",
@@ -53,9 +59,9 @@ For each app in your dashboard, you’ll see a permissions editor. Permissions a
 
 ## Namespaces
 
-For each namespace you can define `allow` rules for `view`, `create`, `update`, `delete`. Rules must be boolean expressions.
+For each namespace you can define `allow` rules for `view`, `create`, `update`, `delete`, `link`, `unlink`. Rules must be boolean expressions.
 
-If a rule is not set then by default it evaluates to true. The following three rulesets are all equivalent
+If a rule is not set then by default it evaluates to true. The following four rulesets are all equivalent:
 
 In this example we explicitly set each action for `todos` to true
 
@@ -66,7 +72,13 @@ In this example we explicitly set each action for `todos` to true
       "view": "true",
       "create": "true",
       "update": "true",
-      "delete": "true"
+      "delete": "true",
+      "link": {
+        "creator": "true"
+      },
+      "unlink": {
+        "creator": "true"
+      }
     }
   }
 }
@@ -118,6 +130,7 @@ You can add checks per link attribute for cases when link is added and removed. 
   "posts": {
     "allow": {
       "link": {
+        // linkedData here is user, same as data.author
         "author": "linkedData.id == auth.id",
         "reviewer": "..."
       },
@@ -129,6 +142,8 @@ You can add checks per link attribute for cases when link is added and removed. 
   "users": {
     "allow": {
       "link": {
+        // data & newData here are user
+        // linkedData is post, same as data.posts
         "posts": "newData.id == auth.id && linkedData.text != null"
       },
       "unlink": {
@@ -143,8 +158,8 @@ Few things to note:
 
 1. Unlike other permissions, value for `link`/`unlink` is a map, not a string. Keys in that map are attribute labels.
 2. Permission checks can be defined either on both sides, on one side or at neither.
-3. If `link`/`unlink` permission is not defined for an attribute, it falls back to `update` check in forward direction and `view` check in reverse direction.
-4. Inside `link`/`unlink` permissions you have access to `linkedData` object which is just a shorthand for the other side of the relation.
+3. If `link`/`unlink` permissions are not defined for an attribute in either direction, it falls back to `update` check in forward direction and `view` check in reverse direction.
+4. Inside `link`/`unlink` permissions you have access to `linkedData` object which is a shorthand for the other side of the relation.
 5. You still have access to `data` and `newData`, with the same logic as in `create`/`update` checks.
 
 ### Default permissions

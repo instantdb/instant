@@ -2367,7 +2367,7 @@
 
                expected    (every? true? (vals rule-params))]
 
-           (is (= expected (perm-pass? (transact! #p tx))))))))))
+           (is (= expected (perm-pass? (transact! tx))))))))))
 
 (deftest unlink-perms
   (with-empty-app
@@ -2463,6 +2463,94 @@
                expected    (every? true? (vals rule-params))]
 
            (is (= expected (perm-pass? (transact! tx))))))))))
+
+(deftest default-link-unlink-perms
+  (with-empty-app
+    (fn [{app-id   :id
+          make-ctx :make-ctx}]
+      (let [attrs
+            (test-util/make-attrs
+             app-id
+             [[:users/id    :required? :index? :unique?]
+              [:users/email :unique?]
+              [:posts/id    :required? :index? :unique?]
+              [:posts/title :unique?]
+              [[:posts/fallback :users/rev-fallback]]
+              [[:posts/fwd-only :users/rev-fwd-only]]
+              [[:posts/rev-only :users/rev-rev-only]]
+              [[:posts/fwd-rev  :users/rev-fwd-rev]]])
+            transact! #(when (seq %)
+                         (permissioned-tx/transact!
+                          (make-ctx)
+                          (test-util/resolve-attrs attrs %)))]
+        (rule-model/put!
+         (aurora/conn-pool :write)
+         {:app-id app-id
+          :code {:posts
+                 {:allow
+                  {:create "ruleParams.posts_create"
+                   :update "ruleParams.posts_update"
+                   :link   {"$default" "ruleParams.posts_default"
+                            "fwd-only" "ruleParams.posts_fwd_only"
+                            "fwd-rev"  "ruleParams.posts_fwd_rev"}
+                   :unlink {"$default" "ruleParams.posts_default"
+                            "fwd-only" "ruleParams.posts_fwd_only"
+                            "fwd-rev"  "ruleParams.posts_fwd_rev"}}}
+
+                 :users
+                 {:allow
+                  {:view   "ruleParams.users_view"
+                   :create "ruleParams.users_create"
+                   :update "ruleParams.users_update"
+                   :link   {"$default"     "ruleParams.users_default"
+                            "rev-rev-only" "ruleParams.users_rev_only"
+                            "rev-fwd-rev"  "ruleParams.users_fwd_rev"}
+                   :unlink {"$default"     "ruleParams.users_default"
+                            "rev-rev-only" "ruleParams.users_rev_only"
+                            "rev-fwd-rev"  "ruleParams.users_fwd_rev"}}}}})
+
+        (test-util/test-matrix
+         [attr [:posts/fallback
+                :posts/fwd-only
+                :posts/rev-only
+                :posts/fwd-rev]
+          :let [[posts-attr users-attr] (case attr
+                                          :posts/fallback ["posts_default"  "users_default"]
+                                          :posts/fwd-only ["posts_fwd_only" "users_default"]
+                                          :posts/rev-only ["posts_default"  "users_rev_only"]
+                                          :posts/fwd-rev  ["posts_fwd_rev"  "users_fwd_rev"])]
+          rule-params [{posts-attr false users-attr false}
+                       {posts-attr true  users-attr false}
+                       {posts-attr false users-attr true}
+                       {posts-attr true  users-attr true}]
+          :let [user-id     (random-uuid)
+                user-email  (test-util/rand-email)
+                post-id     (random-uuid)
+                post-title  (test-util/rand-string)
+                expected    (every? true? (vals rule-params))]]
+         (transact!
+          [[:add-triple  user-id :users/id    user-id]
+           [:add-triple  user-id :users/email user-email]
+           [:rule-params user-id "users"      {"users_create" true}]
+           [:add-triple  post-id :posts/id    post-id]
+           [:add-triple  post-id :posts/title post-title]
+           [:rule-params post-id "posts"      {"posts_create" true}]])
+
+         (is (= expected
+                (perm-pass?
+                 (transact!
+                  [[:add-triple post-id attr user-id]
+                   [:rule-params post-id "posts" rule-params]]))))
+
+         (when-not expected
+           (transact!
+            [[:add-triple post-id attr user-id]
+             [:rule-params post-id "posts" {posts-attr true users-attr true}]]))
+
+         (is (= expected
+                (perm-pass?
+                 (transact! [[:retract-triple post-id attr user-id]
+                             [:rule-params post-id "posts" rule-params]])))))))))
 
 (deftest link-unlink-non-existing-entities
   (with-empty-app
