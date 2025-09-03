@@ -81,8 +81,8 @@
              {:keys [app-id user-id]} :metadata}
             (:object data)
 
-            shared {:user-id user-id
-                    :app-id app-id
+            shared {:user-id (parse-uuid user-id)
+                    :app-id (parse-uuid app-id)
                     :stripe-customer-id customer-id
                     :stripe-subscription-id subscription-id
                     :stripe-event-id id}]
