@@ -2,6 +2,7 @@
   (:require
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
+   [instant.model.app :as app-model]
    [instant.util.hsql :as uhsql]))
 
 (def create-q
@@ -25,7 +26,7 @@
   ([params] (create! (aurora/conn-pool :write) params))
   ([conn {:keys [user-id app-id subscription-type-id
                  stripe-customer-id stripe-subscription-id stripe-event-id]}]
-   (let [subscription-id (random-uuid)]
+   (app-model/with-cache-invalidation app-id
      (sql/execute-one! ::create!
                        conn
                        (uhsql/formatp create-q
