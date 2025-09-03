@@ -1039,8 +1039,11 @@ export function Fence({
   );
 }
 
-export const Divider = ({ children }: PropsWithChildren) => (
-  <div className="flex items-center justify-center">
+export const Divider = ({
+  children,
+  className,
+}: PropsWithChildren<{ className?: string }>) => (
+  <div className={cn('flex items-center justify-center', className)}>
     <div
       aria-hidden="true"
       className="h-px w-full bg-gray-200"

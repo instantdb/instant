@@ -56,6 +56,7 @@ import {
   useEditBlobConstraints,
 } from '@/lib/hooks/useEditBlobConstraints';
 import { mutate } from 'swr';
+import { RecentlyDeletedAttrs } from './RecentlyDeletedAttrs';
 
 export function EditNamespaceDialog({
   db,
@@ -169,6 +170,7 @@ export function EditNamespaceDialog({
               New attribute
             </Button>
           </div>
+          <RecentlyDeletedAttrs db={db} appId={appId} namespace={namespace} />
         </div>
       ) : screen.type === 'add' ? (
         <AddAttrForm

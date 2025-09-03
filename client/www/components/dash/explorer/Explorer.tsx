@@ -56,7 +56,6 @@ import { EditNamespaceDialog } from '@/components/dash/explorer/EditNamespaceDia
 import { EditRowDialog } from '@/components/dash/explorer/EditRowDialog';
 import { useRouter } from 'next/router';
 import { formatBytes } from '@/lib/format';
-import { RecentlyDeletedAttrs } from './RecentlyDeletedAttrs';
 
 // Helper functions for handling search filters in URLs
 function filtersToQueryString(filters: SearchFilter[]): string | null {
@@ -1043,11 +1042,6 @@ export function Explorer({
                 </div>
               </div>
               <div className="flex gap-2 px-2 py-1 justify-between md:justify-start">
-                <RecentlyDeletedAttrs
-                  db={db}
-                  appId={appId}
-                  namespace={selectedNamespace}
-                />
                 <Button
                   variant="secondary"
                   size="mini"

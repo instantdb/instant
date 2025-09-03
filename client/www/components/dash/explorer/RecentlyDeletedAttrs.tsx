@@ -1,14 +1,14 @@
-import { Button, Dialog, SectionHeading, useDialog } from '@/components/ui';
+import { Button, Divider, useDialog } from '@/components/ui';
 import config from '@/lib/config';
 import { SchemaNamespace, InstantApp, DBAttr } from '@/lib/types';
 import { useDashFetch } from '@/lib/hooks/useDashFetch';
 import useSWR from 'swr';
 import { errorToast } from '@/lib/toast';
 import { InstantReactWebDatabase } from '@instantdb/react';
-import { ClockIcon } from '@heroicons/react/24/outline';
 import { ArrowUturnLeftIcon } from '@heroicons/react/24/solid';
 import { add, formatDistanceToNow } from 'date-fns';
 import { useEffect } from 'react';
+import { ClockIcon } from '@heroicons/react/24/outline';
 
 type SoftDeletedAttr = DBAttr & {
   'deletion-marked-at': string;
@@ -78,14 +78,20 @@ export const RecentlyDeletedAttrs: React.FC<{
       days: data['grace-period-days'],
     });
     return (
-      <div className="border justify-between items-center px-4 flex border-gray-200 bg-gray-50 p-2">
+      <div className="flex justify-between">
         <div className="flex gap-4 items-center">
-          <div className="font-mono">{attr.names[namespace.name]}</div>
-          <div className="text-xs opacity-40">
-            Deletes permanently in {formatDistanceToNow(date)}
-          </div>
+          <span className="py-0.5 font-bold">{attr.names[namespace.name]}</span>
+          <span className="py-0.5 opacity-30">
+            Fully deletes in{' '}
+            {formatDistanceToNow(date, { includeSeconds: false })}
+          </span>
         </div>
-        <Button onClick={() => restoreAttr(attr.id)}>
+        <Button
+          className="px-2"
+          size="mini"
+          variant="subtle"
+          onClick={() => restoreAttr(attr.id)}
+        >
           <ArrowUturnLeftIcon fontWeight={800} width={15} />
           Restore
         </Button>
@@ -94,24 +100,17 @@ export const RecentlyDeletedAttrs: React.FC<{
   };
 
   return (
-    <>
-      <Button
-        className="px-3 gap-2 items-center"
-        variant="subtle"
-        onClick={dialog.toggleOpen}
-      >
-        <ClockIcon width={15}></ClockIcon>
-        <div className="text-sm">Recently Deleted Attributes</div>
-      </Button>
-      <Dialog {...dialog}>
-        <SectionHeading className="font-light pb-2">
-          Recently Deleted Attributes
-        </SectionHeading>
-        <div className="space-y-2">
-          {filtered?.map((attr) => <DeletedAttr key={attr.id} attr={attr} />)}
+    <div className="pb-2">
+      <Divider className="pb-2">
+        <div className="opacity-60 items-center justify-center flex gap-2 grow w-full text-center">
+          <ClockIcon width={16} />
+          Recently Deleted
         </div>
-      </Dialog>
-    </>
+      </Divider>
+      <div className="flex flex-col gap-2">
+        {filtered?.map((attr) => <DeletedAttr key={attr.id} attr={attr} />)}
+      </div>
+    </div>
   );
 };
 
