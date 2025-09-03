@@ -4,7 +4,7 @@ pageTitle: Instant - The Modern Firebase.
 description: How to use Instant with React
 ---
 
-Instant is the easy to use backend for your frontend. With Instant you can build delighful apps in less than 10 minutes. Follow the quick start below to **build a live app!**
+Instant is the easy to use backend for your frontend. With Instant you can build delightful apps in less than 10 minutes. Follow the quick start below to **build a live app!**
 
 ## Quick start
 
@@ -210,4 +210,4 @@ function ActionBar({ todos }: { todos: Todo[] }) {
 export default App;
 ```
 
-Go to `localhost:3000`, aand huzzah 🎉 You've got your first Instant web app running! Check out the [Working with data](/docs/init) section to learn more about how to use Instant :)
+Go to `localhost:3000`, and huzzah 🎉 You've got your first Instant web app running! Check out the [Working with data](/docs/init) section to learn more about how to use Instant :)

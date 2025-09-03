@@ -19,13 +19,13 @@ A room represents a temporary context for realtime events. Users in the same roo
 
 **Presence**
 
-Presence is an object that each peer shares with every other peer. When a user updates their presence, it's instantly replicated to all users in that room. Presence persists throughout the remainder of a user's connection, and is automatically cleaned up when a user leaves the room
+Presence is an object that each peer shares with every other peer. When a user updates their presence, it's instantly replicated to all users in that room. Presence persists throughout the remainder of a user's connection, and is automatically cleaned up when a user leaves the room.
 
 You can use presence to build features like "who's online." Instant's cursor and typing indicator are both built on top of the presence API.
 
 **Topics**
 
-Topics have "fire and forget" semantics, and are better suited for data that don't need any sort of persistence. When a user publishes a topic, a callback is fired for every other user in the room listening for that topic.
+Topics have "fire and forget" semantics, and are better suited for data that doesn't need any sort of persistence. When a user publishes a topic, a callback is fired for every other user in the room listening for that topic.
 
 You can use topics to build features like "live reactions." The real-time emoji button panel on Instant's homepage is built using the topics API.
 
@@ -175,7 +175,7 @@ function App() {
 }
 ```
 
-`usePresence` accepts a second parameter to select specific slices of user's presence object.
+`usePresence` accepts a second parameter to select specific slices of the user's presence object.
 
 ```typescript
 const room = db.room('chat', 'hacker-chat-room-id');

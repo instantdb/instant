@@ -11,7 +11,7 @@ We currently offer templates for Next.js, Expo, and Vanilla Typescript. Follow t
 
 ## Quick start
 
-To scaffold a brand new Instant project, fire up your terminal and run the following command to go through the scaffolding pomrpts.
+To scaffold a brand new Instant project, fire up your terminal and run the following command to go through the scaffolding prompts.
 
 ```shell {% showCopy=true %}
 npx create-instant-app instant-demo

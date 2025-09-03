@@ -67,7 +67,7 @@ from `@instantdb/react`. It returns a `tx-id` on success.
 
 ## Subscriptions on the backend
 
-You can use `db.subscribeQuery` to subscirbe to queries on the backend. This can be useful if you have backend processes that reacts to database changes.
+You can use `db.subscribeQuery` to subscribe to queries on the backend. This can be useful if you have backend processes that reacts to database changes.
 
 For example, let's say we wanted to subscribe to a `tasks` table.
 
@@ -357,11 +357,11 @@ app.post('/custom-send-magic-code', async (req, res) => {
 You can also use Instant's default email provider to send a magic code with `db.auth.sendMagicCode`:
 
 ```typescript
-// You can tigger a magic code email in your backend with `sendMagicCode`
+// You can trigger a magic code email in your backend with `sendMagicCode`
 const { code } = await db.auth.sendMagicCode(req.body.email);
 ```
 
-Similarily, you can verify a magic code with `db.auth.verifyMagicCode`:
+Similarly, you can verify a magic code with `db.auth.verifyMagicCode`:
 
 ```typescript
 const user = await db.auth.verifyMagicCode(req.body.email, req.body.code);

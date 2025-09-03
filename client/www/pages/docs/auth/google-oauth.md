@@ -101,7 +101,7 @@ For native auth, each platform needs an Oauth Client. If you support both iOS or
 - Select "iOS" or "Android" as the application type.
 - Fill in your bundle information.
 
-And with that you ready!
+And with that you're ready!
 
 {% callout type="note" %}
 

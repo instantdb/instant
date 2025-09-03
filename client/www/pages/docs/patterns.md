@@ -15,7 +15,7 @@ If you want to secure your data, you'll want to add
 
 ## Restrict creating new attributes.
 
-When your ready to lock down your schema, you can restrict creating a new
+When you're ready to lock down your schema, you can restrict creating a new
 attribute by adding this to your app's [permissions](/dash?t=perms)
 
 ```json
@@ -268,7 +268,7 @@ await adminDB.query(
 
 ## Composite keys
 
-Sometimes you an item is unique by two or more attributes. For example, consider a `location`: it's unique by `latitude` _and_ `longitude`.
+Sometimes an item is unique by two or more attributes. For example, consider a `location`: it's unique by `latitude` _and_ `longitude`.
 
 How can you enforce this uniqueness in Instant?
 
