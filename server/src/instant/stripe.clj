@@ -9,6 +9,7 @@
    [instant.util.exception :as ex]
    [instant.util.json :refer [<-json]]
    [instant.util.tracer :as tracer]
+   [instant.util.uuid :as uuid-util]
    [ring.util.http-response :as response]
    [ring.util.request :refer [body-string]])
   (:import
@@ -81,8 +82,8 @@
              {:keys [app-id user-id]} :metadata}
             (:object data)
 
-            shared {:user-id (parse-uuid user-id)
-                    :app-id (parse-uuid app-id)
+            shared {:user-id (uuid-util/coerce user-id)
+                    :app-id (uuid-util/coerce app-id)
                     :stripe-customer-id customer-id
                     :stripe-subscription-id subscription-id
                     :stripe-event-id id}]
