@@ -22,6 +22,7 @@
    [instant.model.app :as app-model]
    [instant.model.app-user :as app-user-model]
    [instant.model.rule :as rule-model]
+   [instant.util.coll :as coll]
    [instant.util.instaql :refer [instaql-nodes->object-tree]]
    [instant.util.exception :as ex]
    [instant.util.test :as test-util :refer [suid validation-err? perm-err? perm-pass? timeout-err?]]
@@ -2287,19 +2288,33 @@
                              :posts/fwd-only
                              :posts/rev-only
                              :posts/fwd-rev]
-          :let              [[posts-param users-param]
-                             (case [post-action attr]
-                               [:create :posts/fallback] ["posts_create"   "users_view"]
-                               [:create :posts/fwd-only] ["posts_fwd_only" "users_view"]
-                               [:create :posts/rev-only] ["posts_create"   "users_rev_only"]
-                               [:create :posts/fwd-rev]  ["posts_fwd_rev"  "users_fwd_rev"]
-                               [:update :posts/fallback] ["posts_update"   "users_view"]
-                               [:update :posts/fwd-only] ["posts_fwd_only" "users_view"]
-                               [:update :posts/rev-only] ["posts_update"   "users_rev_only"]
-                               [:update :posts/fwd-rev]  ["posts_fwd_rev"  "users_fwd_rev"])]
-          rule-params       [{posts-param true  users-param false}
-                             {posts-param false users-param true}
-                             {posts-param true  users-param true}]
+          rule-params       (cond
+                              (and (= :posts/fallback attr) (= :create post-action))
+                              [{"posts_create" false "users_view" false}
+                               {"posts_create" true  "users_view" false}
+                               {"posts_create" false "users_view" true}
+                               {"posts_create" true  "users_view" true}]
+
+                              (and (= :posts/fallback attr) (= :update post-action))
+                              [{"posts_update" false "users_view" false}
+                               {"posts_update" true  "users_view" false}
+                               {"posts_update" false "users_view" true}
+                               {"posts_update" true  "users_view" true}]
+
+                              (= :posts/fwd-only attr)
+                              [{"posts_fwd_only" false}
+                               {"posts_fwd_only" true}]
+
+                              (= :posts/rev-only attr)
+                              [{"users_rev_only" false}
+                               {"users_rev_only" true}]
+
+                              (= :posts/fwd-rev attr)
+                              [{"posts_fwd_rev" false "users_fwd_rev" false}
+                               {"posts_fwd_rev" true  "users_fwd_rev" false}
+                               {"posts_fwd_rev" false "users_fwd_rev" true}
+                               {"posts_fwd_rev" true  "users_fwd_rev" true}])
+
           ;; rule params for reverse direction can be placed on forward one, e.g.
           ;; db.tx.posts[id].link({user: ...}).ruleParams({user_param: ...})
           user-params-pos   [:post :user]]
@@ -2344,15 +2359,15 @@
                               post-tx)
                             (case user-params-pos
                               :user
-                              [[:rule-params user-ref "users" (select-keys rule-params [users-param])]
-                               [:rule-params post-ref "posts" (select-keys rule-params [posts-param])]]
+                              [[:rule-params user-ref "users" (coll/filter-keys #(string/starts-with? % "users_") rule-params)]
+                               [:rule-params post-ref "posts" (coll/filter-keys #(string/starts-with? % "posts_") rule-params)]]
                               :post
                               [[:rule-params post-ref "posts" rule-params]])
                             [[:add-triple post-ref attr user-ref]])
 
                expected    (every? true? (vals rule-params))]
 
-           (is (= expected (perm-pass? (transact! tx))))))))))
+           (is (= expected (perm-pass? (transact! #p tx))))))))))
 
 (deftest unlink-perms
   (with-empty-app
@@ -2397,15 +2412,26 @@
                              :posts/fwd-only
                              :posts/rev-only
                              :posts/fwd-rev]
-          :let              [[posts-param users-param]
-                             (case attr
-                               :posts/fallback ["posts_update"   "users_view"]
-                               :posts/fwd-only ["posts_fwd_only" "users_view"]
-                               :posts/rev-only ["posts_update"   "users_rev_only"]
-                               :posts/fwd-rev  ["posts_fwd_rev"  "users_fwd_rev"])]
-          rule-params       [{posts-param true  users-param false}
-                             {posts-param false users-param true}
-                             {posts-param true  users-param true}]
+          rule-params        (case attr
+                               :posts/fallback
+                               [{"posts_update" false "users_view" false}
+                                {"posts_update" true  "users_view" false}
+                                {"posts_update" false "users_view" true}
+                                {"posts_update" true  "users_view" true}]
+
+                               :posts/fwd-only
+                               [{"posts_fwd_only" false}
+                                {"posts_fwd_only" true}]
+
+                               :posts/rev-only
+                               [{"users_rev_only" false}
+                                {"users_rev_only" true}]
+
+                               :posts/fwd-rev
+                               [{"posts_fwd_rev" false "users_fwd_rev" false}
+                                {"posts_fwd_rev" true  "users_fwd_rev" false}
+                                {"posts_fwd_rev" false "users_fwd_rev" true}
+                                {"posts_fwd_rev" true  "users_fwd_rev" true}])
           ;; rule params for reverse direction can be placed on forward one, e.g.
           ;; db.tx.posts[id].link({user: ...}).ruleParams({user_param: ...})
           user-params-pos   [:post :user]]
@@ -2429,8 +2455,8 @@
                             [[:retract-triple post-ref attr user-ref]]
                             (case user-params-pos
                               :user
-                              [[:rule-params user-ref "users" (select-keys rule-params [users-param])]
-                               [:rule-params post-ref "posts" (select-keys rule-params [posts-param])]]
+                              [[:rule-params user-ref "users" (coll/filter-keys #(string/starts-with? % "users_") rule-params)]
+                               [:rule-params post-ref "posts" (coll/filter-keys #(string/starts-with? % "posts_") rule-params)]]
                               :post
                               [[:rule-params post-ref "posts" rule-params]]))
 

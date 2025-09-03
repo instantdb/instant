@@ -202,15 +202,23 @@
    tx-steps]
   (for [tx-step tx-steps
         :let [{:keys [op eid aid etype value rev-etype]} tx-step
-              key             {:eid eid :etype etype}
-              entity          (get entities-map key)
-              ref?            (some? rev-etype)
-              [_ _ fwd-label] (:forward-identity (attr-model/seek-by-id aid attrs))
-              [_ _ rev-label] (:reverse-identity (attr-model/seek-by-id aid attrs))
-              rev-key         {:eid value :etype rev-etype}
-              rev-entity      (when ref?
-                                (get entities-map rev-key))
-              rule-params     (get rule-params-map key)]
+              key                {:eid eid :etype etype}
+              entity             (get entities-map key)
+              ref?               (some? rev-etype)
+              [_ _ fwd-label]    (:forward-identity (attr-model/seek-by-id aid attrs))
+              [_ _ rev-label]    (:reverse-identity (attr-model/seek-by-id aid attrs))
+              rev-key            {:eid value :etype rev-etype}
+              rev-entity         (when ref?
+                                   (get entities-map rev-key))
+              rule-params        (get rule-params-map key)
+              link-program       (when ref?
+                                   (rule-model/get-program! rules [[etype "allow" "link" fwd-label]]))
+              rev-link-program   (when ref?
+                                   (rule-model/get-program! rules [[rev-etype "allow" "link" rev-label]]))
+              unlink-program     (when ref?
+                                   (rule-model/get-program! rules [[etype "allow" "unlink" fwd-label]]))
+              rev-unlink-program (when ref?
+                                   (rule-model/get-program! rules [[rev-etype "allow" "unlink" rev-label]]))]
         check (clojure+/cond+
                 (= :update-attr op)
                 [{:scope    :attr
@@ -230,85 +238,110 @@
                   :etype    "attrs"
                   :program  {:result admin?}}]
 
+                ;; if link is defined on at least one side
                 (and (= :add-triple op)
-                     ref?)
+                     ref?
+                     (or link-program rev-link-program))
                 (concat
-                 (when entity
+                 (when (and entity link-program)
                    [{:scope    :object
                      :action   :link
                      :etype    etype
                      :eid      eid
-                     :program  (rule-model/get-program!
-                                rules
-                                [[etype      "allow"    "link" fwd-label]
-                                 [etype      "allow"    "update"]
-                                 [etype      "allow"    "$default"]
-                                 ["$default" "allow"    "link" fwd-label]
-                                 ["$default" "allow"    "update"]
-                                 ["$default" "allow"    "$default"]
-                                 [etype      "fallback" "link" fwd-label]])
+                     :program  link-program
                      :bindings {:data        entity
                                 :new-data    (get updated-entities-map key)
                                 :linked-data rev-entity
                                 :rule-params rule-params}}])
-                 (when rev-entity
+                 (when (and rev-entity rev-link-program)
                    [{:scope    :object
                      :action   :link
                      :etype    rev-etype
                      :eid      value
-                     :program  (rule-model/get-program!
-                                rules
-                                [[rev-etype  "allow"    "link" rev-label]
-                                 [rev-etype  "allow"    "view"]
-                                 [rev-etype  "allow"    "$default"]
-                                 ["$default" "allow"    "link" rev-label]
-                                 ["$default" "allow"    "view"]
-                                 ["$default" "allow"    "$default"]
-                                 [rev-etype  "fallback" "link" rev-label]])
+                     :program  rev-link-program
                      :bindings {:data        rev-entity
                                 :new-data    (get updated-entities-map rev-key)
                                 :linked-data (get updated-entities-map key)
                                 :rule-params (merge rule-params
                                                     (get rule-params-map rev-key))}}]))
 
+                ;; fallback when link isn´t defined on either side
+                (and (= :add-triple op)
+                     ref?)
+                (concat
+                 (when entity
+                   [{:scope    :object
+                     :action   :update
+                     :etype    etype
+                     :eid      eid
+                     :program  (or (rule-model/get-program! rules etype "update")
+                                   {:result true})
+                     :bindings {:data        entity
+                                :new-data    (get updated-entities-map key)
+                                :rule-params rule-params}}])
+                 (when rev-entity
+                   [{:scope    :object
+                     :action   :view
+                     :etype    rev-etype
+                     :eid      value
+                     :program  (or (rule-model/get-program! rules rev-etype "view")
+                                   {:result true})
+                     :bindings {:data        rev-entity
+                                :new-data    (get updated-entities-map rev-key)
+                                :rule-params (merge rule-params
+                                                    (get rule-params-map rev-key))}}]))
+
+                ;; if unlink is defined on at least one side
+                (and (= :retract-triple op)
+                     ref?
+                     (or unlink-program rev-unlink-program))
+                (concat
+                 (when (and entity unlink-program)
+                   [{:scope    :object
+                     :action   :unlink
+                     :etype    etype
+                     :eid      eid
+                     :program  (or (rule-model/get-program! rules [[etype "allow" "unlink" fwd-label]])
+                                   {:result true})
+                     :bindings {:data        entity
+                                :new-data    (get updated-entities-map key)
+                                :linked-data rev-entity
+                                :rule-params rule-params}}])
+                 (when (and rev-entity rev-unlink-program)
+                   [{:scope    :object
+                     :action   :unlink
+                     :etype    rev-etype
+                     :eid      value
+                     :program  rev-unlink-program
+                     :bindings {:data        rev-entity
+                                :new-data    (get updated-entities-map rev-key)
+                                :linked-data entity
+                                :rule-params (merge rule-params
+                                                    (get rule-params-map rev-key))}}]))
+
+                ;; fallback when unlink isn´t defined on either side
                 (and (= :retract-triple op)
                      ref?)
                 (concat
                  (when entity
                    [{:scope    :object
-                     :action   :unlink
+                     :action   :update
                      :etype    etype
                      :eid      eid
-                     :program  (rule-model/get-program!
-                                rules
-                                [[etype      "allow"    "unlink" fwd-label]
-                                 [etype      "allow"    "update"]
-                                 [etype      "allow"    "$default"]
-                                 ["$default" "allow"    "unlink" fwd-label]
-                                 ["$default" "allow"    "update"]
-                                 ["$default" "allow"    "$default"]
-                                 [etype      "fallback" "unlink" fwd-label]])
+                     :program  (or (rule-model/get-program! rules etype "update")
+                                   {:result true})
                      :bindings {:data        entity
                                 :new-data    (get updated-entities-map key)
-                                :linked-data rev-entity
                                 :rule-params rule-params}}])
                  (when rev-entity
                    [{:scope    :object
-                     :action   :unlink
+                     :action   :view
                      :etype    rev-etype
                      :eid      value
-                     :program  (rule-model/get-program!
-                                rules
-                                [[rev-etype  "allow"    "unlink" rev-label]
-                                 [rev-etype  "allow"    "view"]
-                                 [rev-etype  "allow"    "$default"]
-                                 ["$default" "allow"    "unlink" rev-label]
-                                 ["$default" "allow"    "view"]
-                                 ["$default" "allow"    "$default"]
-                                 [rev-etype  "fallback" "unlink" rev-label]])
+                     :program  (or (rule-model/get-program! rules rev-etype "view")
+                                   {:result true})
                      :bindings {:data        rev-entity
                                 :new-data    (get updated-entities-map rev-key)
-                                :linked-data entity
                                 :rule-params (merge rule-params
                                                     (get rule-params-map rev-key))}}]))
 
@@ -360,8 +393,12 @@
               updated-rev-entity (when ref?
                                    (some-> (get updated-entities-map rev-key)
                                            (update "id" #(or (get create-lookups-map %) (:eid rev-key) %))))
-              rule-params        (get rule-params-map key)]
-        check (cond
+              rule-params        (get rule-params-map key)
+              link-program       (when ref?
+                                   (rule-model/get-program! rules [[etype "allow" "link" fwd-label]]))
+              rev-link-program   (when ref?
+                                   (rule-model/get-program! rules [[rev-etype "allow" "link" rev-label]]))]
+        check (clojure+/cond+
                 (= :add-attr op)
                 [{:scope    :attr
                   :action   :create
@@ -370,23 +407,46 @@
                                 {:result true})
                   :bindings {:data value}}]
 
+                ;; if link is defined on at least one side
+                (and (= :add-triple op)
+                     ref?
+                     (or link-program rev-link-program))
+                (concat
+                 (when (and create? link-program)
+                   [{:scope    :object
+                     :action   :link
+                     :etype    etype
+                     :eid      (get create-lookups-map eid eid)
+                     :program  link-program
+                     :bindings {:data        updated-entity
+                                :new-data    updated-entity
+                                :linked-data updated-rev-entity
+                                :rule-params rule-params}}])
+                 (when (and updated-rev-entity
+                            (nil? (get entities-map rev-key))
+                            rev-link-program)
+                   [{:scope    :object
+                     :action   :link
+                     :etype    rev-etype
+                     :eid      (get updated-rev-entity "id")
+                     :program  rev-link-program
+                     :bindings {:data        updated-rev-entity
+                                :new-data    updated-rev-entity
+                                :linked-data updated-entity
+                                :rule-params (merge rule-params
+                                                    (get rule-params-map rev-key))}}]))
+
+                ;; fallback when link isn´t defined on either side
                 (and (= :add-triple op)
                      ref?)
                 (concat
                  (when create?
                    [{:scope    :object
-                     :action   :link
+                     :action   :create
                      :etype    etype
                      :eid      (get create-lookups-map eid eid)
-                     :program  (rule-model/get-program!
-                                rules
-                                [[etype      "allow"    "link" fwd-label]
-                                 [etype      "allow"    "create"]
-                                 [etype      "allow"    "$default"]
-                                 ["$default" "allow"    "link" fwd-label]
-                                 ["$default" "allow"    "create"]
-                                 ["$default" "allow"    "$default"]
-                                 [etype      "fallback" "link" fwd-label]])
+                     :program  (or (rule-model/get-program! rules etype "create")
+                                   {:result true})
                      :bindings {:data        updated-entity
                                 :new-data    updated-entity
                                 :linked-data updated-rev-entity
@@ -394,18 +454,11 @@
                  (when (and updated-rev-entity
                             (nil? (get entities-map rev-key)))
                    [{:scope    :object
-                     :action   :link
+                     :action   :view
                      :etype    rev-etype
                      :eid      (get updated-rev-entity "id")
-                     :program  (rule-model/get-program!
-                                rules
-                                [[rev-etype  "allow"    "link" rev-label]
-                                 [rev-etype  "allow"    "view"]
-                                 [rev-etype  "allow"    "$default"]
-                                 ["$default" "allow"    "link" rev-label]
-                                 ["$default" "allow"    "view"]
-                                 ["$default" "allow"    "$default"]
-                                 [rev-etype  "fallback" "link" rev-label]])
+                     :program  (or (rule-model/get-program! rules rev-etype "view")
+                                   {:result true})
                      :bindings {:data        updated-rev-entity
                                 :new-data    updated-rev-entity
                                 :linked-data updated-entity
