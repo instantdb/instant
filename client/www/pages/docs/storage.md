@@ -290,7 +290,7 @@ await db.storage.uploadFile(path, file);
 const path = `${user.id}/orders/${orderId}.pdf`;
 await db.storage.uploadFile(path, file, {
   contentType: 'application/pdf',
-  contentDisporition: `attachment; filename="${orderId}-confirmation.pdf"`,
+  contentDisposition: `attachment; filename="${orderId}-confirmation.pdf"`,
 });
 ```
 

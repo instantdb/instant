@@ -529,7 +529,7 @@ https://api.instantdb.com/platform/oauth/revoke?token=YOUR_TOKEN
           "reverse": {
             "on": "reverse-namespace-name",
             "label": "reverse-attr-label",
-            "has": "many | one"
+            "has": "many | one",
             "onDelete": "cascade | null"
           }
         }
@@ -600,7 +600,7 @@ https://api.instantdb.com/platform/oauth/revoke?token=YOUR_TOKEN
       [
         "check-data-type",
         {
-          "attr-id": "uuid",,
+          "attr-id": "uuid",
           "checked-data-type": "'string' | 'boolean' | 'number' | 'date'",
           "forward-identity": ["uuid", "namespace-name", "attribute-name"]
         }
@@ -651,7 +651,7 @@ https://api.instantdb.com/platform/oauth/revoke?token=YOUR_TOKEN
           "reverse": {
             "on": "reverse-namespace-name",
             "label": "reverse-attr-label",
-            "has": "many | one"
+            "has": "many | one",
             "onDelete": "cascade | null"
           }
         }
@@ -722,7 +722,7 @@ https://api.instantdb.com/platform/oauth/revoke?token=YOUR_TOKEN
       [
         "check-data-type",
         {
-          "attr-id": "uuid",,
+          "attr-id": "uuid",
           "checked-data-type": "'string' | 'boolean' | 'number' | 'date'",
           "forward-identity": ["uuid", "namespace-name", "attribute-name"]
         }

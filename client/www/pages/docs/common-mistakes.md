@@ -3,7 +3,7 @@ title: Common mistakes
 description: Common mistakes when working with Instant
 ---
 
-Below are some common mistakes when working with Instant
+Below are some common mistakes when working with Instant.
 
 ## Common mistakes with schema
 
@@ -65,7 +65,7 @@ profileUser: {
 
 ## Common mistakes with permissions
 
-Sometimes you want to express permissions based an an attribute in a linked entity. For those instance you can use `data.ref`
+Sometimes you want to express permissions based on an attribute in a linked entity. For those instances you can use `data.ref`.
 
 ❌ **Common mistake**: Not using `data.ref` to reference linked data
 
@@ -331,8 +331,8 @@ await db.transact(txs);
 ```typescript
 import { id } from '@instantdb/react';
 
-// ❌ Bad: This fire 1000 transactions at once and will lead to multiple
-timeouts!;
+// ❌ Bad: This will fire 1000 transactions at once and will lead to multiple
+// timeouts!
 for (let i = 0; i < 1000; i++) {
   db.transact(
     db.tx.todos[id()].update({
@@ -454,9 +454,9 @@ const query = {
 };
 ```
 
-Use `or` inside of `where` to filter associated based on any criteria.
+Use `or` inside of `where` to filter entities based on any criteria.
 
-❌ **Common mistake**: Incorrect synax for `or` and `and`
+❌ **Common mistake**: Incorrect syntax for `or` and `and`
 
 ```typescript
 // ❌ Bad: This will return an error!
