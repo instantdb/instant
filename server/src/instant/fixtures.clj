@@ -21,6 +21,7 @@
             [instant.jdbc.sql :as sql]
             [instant.jdbc.aurora :as aurora]
             [instant.util.coll :as ucoll]
+            [instant.util.crypt :as crypt-util]
             [instant.util.io :as io-util]
             [lambdaisland.uri :as uri]
             [next.jdbc.connection :as connection])
@@ -70,29 +71,55 @@
   `(binding [io-util/*tap-io* nil]
      ~@body))
 
-(defmacro with-empty-app [f]
-  `(let [app-id# (random-uuid)
-         app#    (app-model/create! {:title       "empty-app"
-                                     :creator-id  ~test-user-id
-                                     :id          app-id#
-                                     :admin-token (random-uuid)})]
-     (try
-       (with-fail-on-warn-io
-         (~f (assoc app#
-                    :make-ctx (fn make-ctx#
-                                ([]
-                                 (make-ctx# {}))
-                                ([opts#]
-                                 (merge
-                                  {:db               {:conn-pool (aurora/conn-pool :write)}
-                                   :app-id           app-id#
-                                   :attrs            (attr-model/get-by-app-id app-id#)
-                                   :datalog-query-fn d/query
-                                   :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id#})
-                                   :current-user     nil}
-                                  opts#))))))
-       (finally
-         (app-model/delete-immediately-by-id! {:id app-id#})))))
+(defn random-email []
+  (str "test-user-" (crypt-util/random-hex 16) "@example.com"))
+
+(defmacro with-user [& args]
+  (let [user-params (if (= 1 (count args))
+                     {}
+                     (first args))
+        f (last args)]
+    `(let [user-id# (random-uuid)
+           email# (random-email)
+           user# (instant-user-model/create! (merge {:id user-id# :email email#}
+                                                    ~user-params))
+           token# (random-uuid)]
+       (instant-user-refresh-token-model/create! {:id token# :user-id user-id#})
+       (try
+         (~f (assoc user# :refresh-token token#))
+         (finally
+           (instant-user-model/delete-by-email! {:email email#}))))))
+
+(defmacro with-empty-app
+  "Pass a function that takes an app created for the test.
+   Optionally pass a user-id as the first argument to set the creator for the app."
+  [& args]
+  (let [creator-id (if (= 1 (count args))
+                     test-user-id
+                     (first args))
+        f (last args)]
+    `(let [app-id# (random-uuid)
+           app#    (app-model/create! {:title       "empty-app"
+                                       :creator-id  ~creator-id
+                                       :id          app-id#
+                                       :admin-token (random-uuid)})]
+       (try
+         (with-fail-on-warn-io
+           (~f (assoc app#
+                      :make-ctx (fn make-ctx#
+                                  ([]
+                                   (make-ctx# {}))
+                                  ([opts#]
+                                   (merge
+                                    {:db               {:conn-pool (aurora/conn-pool :write)}
+                                     :app-id           app-id#
+                                     :attrs            (attr-model/get-by-app-id app-id#)
+                                     :datalog-query-fn d/query
+                                     :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id#})
+                                     :current-user     nil}
+                                    opts#))))))
+         (finally
+           (app-model/delete-immediately-by-id! {:id app-id#}))))))
 
 (defmacro with-movies-app [f]
   `(with-empty-app
