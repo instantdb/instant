@@ -34,7 +34,7 @@ export const RecentlyDeletedAttrs: React.FC<{
   appId: string;
   db: InstantReactWebDatabase<any>;
 }> = ({ namespace, appId, db }) => {
-  const { data, mutate } = useRecentlyDeletedAttrs(appId);
+  const { data, mutate, error } = useRecentlyDeletedAttrs(appId);
 
   const dialog = useDialog();
 
@@ -71,7 +71,7 @@ export const RecentlyDeletedAttrs: React.FC<{
     }
   }, [filtered]);
 
-  if (!filtered || filtered?.length === 0) {
+  if (error || !filtered || filtered.length === 0) {
     return null;
   }
 
