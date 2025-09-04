@@ -3,8 +3,6 @@
    [clojure.test :as test :refer [deftest is]]
    [instant.config :as config]
    [instant.fixtures :refer [with-empty-app with-org with-user]]
-   [instant.jdbc.aurora :as aurora]
-   [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
    [instant.model.instant-stripe-customer :as instant-stripe-customer-model]
    [instant.model.instant-subscription :as instant-subscription-model]

@@ -21,7 +21,7 @@
 (defn get-by-id!
   ([params] (get-by-id! (aurora/conn-pool :read) params))
   ([conn {:keys [id]}]
-   (ex/assert-record! (get-by-id {:id id})
+   (ex/assert-record! (get-by-id conn {:id id})
                       :org
                       {:args [{:id id}]})))
 

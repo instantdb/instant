@@ -218,7 +218,7 @@
               :creator-id (:id owner)
               :id app-id
               :admin-token (random-uuid)})
-        stripe-customer (instant-stripe-customer-model/get-or-create! {:user owner})
+        stripe-customer (instant-stripe-customer-model/get-or-create-for-user! {:user owner})
         owner-req (mock-app-req app owner)
         _ (instant-subscription-model/create!
            {:user-id (:id owner)
@@ -252,7 +252,7 @@
                  :role role})
         owner-req (mock-app-req app owner)
         invitee-req (mock-app-req app invitee)
-        stripe-customer (instant-stripe-customer-model/get-or-create! {:user owner})
+        stripe-customer (instant-stripe-customer-model/get-or-create-for-user! {:user owner})
         _ (instant-subscription-model/create!
            {:user-id (:id owner)
             :app-id app-id

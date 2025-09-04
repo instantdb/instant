@@ -789,7 +789,7 @@
 
 (defn org-checkout-session-post [req]
   (let [{{org-id :id org-title :title :as org} :org
-         {user-id :id user-email :email :as user} :user} (req->org-and-user! :collaborator req)
+         {user-id :id user-email :email} :user} (req->org-and-user! :collaborator req)
         {:keys [name]} (instant-subscription-model/get-by-org-id {:org-id org-id})
         already-subscribed? (not (or (= name default-subscription) (nil? name)))
         _ (when already-subscribed?
