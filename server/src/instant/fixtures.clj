@@ -103,6 +103,15 @@
          (with-fail-on-warn-io
            (~f org#))
          (finally
+           (sql/do-execute! (aurora/conn-pool :write)
+                            ["update orgs set subscription_id = null where id = ?::uuid"
+                             (:id org#)])
+           (sql/do-execute! (aurora/conn-pool :write)
+                            ["delete from instant_subscriptions where org_id = ?::uuid"
+                             (:id org#)])
+           (sql/do-execute! (aurora/conn-pool :write)
+                            ["delete from instant_stripe_customers where org_id = ?::uuid"
+                             (:id org#)])
            (org-model/delete! {:org-id (:id org#)}))))))
 
 (defmacro with-empty-app

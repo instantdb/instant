@@ -118,7 +118,6 @@
                                                              ;; TODO(orgs): remove when backend
                                                              ;;             is fully deployed
                                                              PRO_SUBSCRIPTION_TYPE))]
-            (tool/def-locals)
             (instant-subscription-model/create! opts)
             (when (= :prod (config/get-env))
               (ping-js-on-new-customer {:user-id user-id
@@ -129,7 +128,6 @@
           "customer.subscription.deleted"
           (let [opts (assoc shared :subscription-type-id FREE_SUBSCRIPTION_TYPE)
                 {:keys [user-id app-id org-id]} opts]
-            (tool/def-locals)
             (when (and app-id (app-model/get-by-id {:id app-id}))
               (instant-subscription-model/create! opts))
             (when (and org-id (org-model/get-by-id  {:id org-id}))
