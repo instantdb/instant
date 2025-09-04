@@ -116,7 +116,7 @@ type Screen =
   | 'personal-access-tokens'
   | 'new'
   | 'invites'
-  | 'orgs';
+  | 'org';
 
 function defaultTab(screen: 'main'): MainTabId;
 function defaultTab(screen: 'user-settings'): UserSettingsTabId;
@@ -474,14 +474,14 @@ function Dashboard() {
       </div>
     );
   }
-  if (screen === 'orgs') {
+  if (screen === 'org') {
     return (
       <div className="flex h-full w-full flex-col overflow-hidden md:flex-row">
         <Head>
           <title>Instant - Orgs playground</title>
         </Head>
         <StyledToastContainer />
-        <Orgs />
+        <Orgs orgId={router.query.org} />
       </div>
     );
   }

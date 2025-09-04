@@ -1,12 +1,16 @@
-import config from '@/lib/config';
+import config, { stripeKey } from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
 import { jsonFetch } from '@/lib/fetch';
-import { useContext, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { Button } from '../ui';
 import { useDashFetch } from '@/lib/hooks/useDashFetch';
-import { useAuthedFetch } from '@/lib/auth';
+import { friendlyErrorMessage, useAuthedFetch } from '@/lib/auth';
 import { createApp } from '@/pages/dash';
 import { v4 } from 'uuid';
+import { loadStripe } from '@stripe/stripe-js';
+import { messageFromInstantError } from '@/lib/errors';
+import { InstantIssue } from '@instantdb/core';
+import { errorToast } from '@/lib/toast';
 
 function createOrg(token: string, params: { title: string }) {
   return jsonFetch(`${config.apiURI}/dash/orgs`, {
@@ -29,6 +33,62 @@ function deleteOrg(token: string, params: { id: string }) {
   });
 }
 
+async function createPortalSession(orgId: string, token: string) {
+  const sessionPromise = jsonFetch(
+    `${config.apiURI}/dash/orgs/${orgId}/portal_session`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+  Promise.all([loadStripe(stripeKey), sessionPromise])
+    .then(([stripe, session]) => {
+      if (!stripe || !session) {
+        throw new Error('Failed to create portal session');
+      }
+      window.open(session.url, '_blank');
+    })
+    .catch((err) => {
+      const message =
+        messageFromInstantError(err as InstantIssue) ||
+        'Failed to connect w/ Stripe! Try again or ping us on Discord if this persists.';
+      const friendlyMessage = friendlyErrorMessage('dash-billing', message);
+      errorToast(friendlyMessage);
+      console.error(err);
+    });
+}
+
+async function createCheckoutSession(orgId: string, token: string) {
+  const sessionPromise = jsonFetch(
+    `${config.apiURI}/dash/orgs/${orgId}/checkout_session`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+  Promise.all([loadStripe(stripeKey), sessionPromise])
+    .then(([stripe, session]) => {
+      if (!stripe || !session) {
+        throw new Error('Failed to create checkout session');
+      }
+      stripe.redirectToCheckout({ sessionId: session.id });
+    })
+    .catch((err) => {
+      const message =
+        messageFromInstantError(err as InstantIssue) ||
+        'Failed to connect w/ Stripe! Try again or ping us on Discord if this persists.';
+      const friendlyMessage = friendlyErrorMessage('dash-billing', message);
+      errorToast(friendlyMessage);
+      console.error(err);
+    });
+}
+
 function OrgDetails({ id }: { id: string }) {
   const token = useContext(TokenContext);
   const resp = useAuthedFetch(`${config.apiURI}/dash/orgs/${id}`);
@@ -48,6 +108,7 @@ function OrgDetails({ id }: { id: string }) {
     <div className="p-8">
       <pre className="text-sm">{JSON.stringify(resp.data, null, 2)}</pre>
       <Button
+        variant="subtle"
         onClick={async () => {
           const appTitle = prompt('Give your app a name');
           if (!appTitle) {
@@ -68,16 +129,47 @@ function OrgDetails({ id }: { id: string }) {
       >
         Add App
       </Button>
+      <Button
+        variant="subtle"
+        onClick={async () => {
+          createCheckoutSession(id, token);
+        }}
+      >
+        Setup Billing
+      </Button>
+
+      <Button
+        variant="subtle"
+        onClick={async () => {
+          createPortalSession(id, token);
+        }}
+      >
+        Manage Billing
+      </Button>
     </div>
   );
 }
 
-export default function Orgs() {
+export default function Orgs({
+  orgId,
+}: {
+  orgId: string | string[] | undefined;
+}) {
   const token = useContext(TokenContext);
 
   const dashResponse = useDashFetch();
 
-  const [expandedOrgs, setExpandedOrgs] = useState<string[]>([]);
+  const [expandedOrgs, setExpandedOrgs] = useState<string[]>(
+    orgId && typeof orgId === 'string' ? [orgId] : [],
+  );
+
+  console.log('orgId', orgId);
+
+  useEffect(() => {
+    if (orgId && typeof orgId === 'string') {
+      setExpandedOrgs((ids) => (ids.includes(orgId) ? ids : [...ids, orgId]));
+    }
+  }, [orgId]);
 
   if (dashResponse.isLoading) {
     return <div>Loading...</div>;

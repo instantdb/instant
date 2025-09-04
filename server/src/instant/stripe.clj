@@ -5,6 +5,7 @@
    [instant.model.app :as app-model]
    [instant.model.instant-subscription :as instant-subscription-model]
    [instant.model.instant-user :as instant-user-model]
+   [instant.model.org :as org-model]
    [instant.postmark :as postmark]
    [instant.util.exception :as ex]
    [instant.util.json :refer [<-json]]
@@ -20,13 +21,23 @@
 
 (def FREE_SUBSCRIPTION_TYPE 1)
 (def PRO_SUBSCRIPTION_TYPE 2)
+(def STARTUP_SUBSCRIPTION_TYPE 3)
 
 (defn pro-plan? [{:keys [name]}]
   (= name "Pro"))
 
-(defn ping-js-on-new-customer [user-id]
+(defn ping-js-on-new-customer [{:keys [user-id org-id app-id]}]
   (let [{email :email} (instant-user-model/get-by-id {:id user-id})
-        message (str "💖 A user subscribed! Say thank you to " "`" email "`")]
+        title (cond app-id
+                    (:title (app-model/get-by-id {:id app-id}))
+                    org-id
+                    (:title (org-model/get-by-id {:id org-id})))
+        message (format "💖 A user subscribed for %s `%s`! Say thank you to `%s`"
+                        (cond org-id "org"
+                              app-id "app"
+                              :else "unknown")
+                        title
+                        email)]
     (discord/send! config/discord-signups-channel-id
                    (str (:instateam discord/mention-constants) " " message))
     (postmark/send!
@@ -45,9 +56,18 @@
   (def u (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
   (ping-js-on-new-customer (:id u)))
 
-(defn ping-js-on-churned-customer [user-id]
+(defn ping-js-on-churned-customer [{:keys [user-id org-id app-id]}]
   (let [{email :email} (instant-user-model/get-by-id {:id user-id})
-        message (str "🪣  Churned customer! " email)]
+        title (cond app-id
+                    (:title (app-model/get-by-id {:id app-id}))
+                    org-id
+                    (:title (org-model/get-by-id {:id org-id})))
+        message (format "🪣 Churned customer for %s `%s`! %s"
+                        (cond org-id "org"
+                              app-id "app"
+                              :else "unknown")
+                        title
+                        email)]
     (discord/send! config/discord-signups-channel-id
                    (str (:instateam discord/mention-constants) " " message))
     (postmark/send!
@@ -79,28 +99,45 @@
       (tracer/add-data! {:attributes {:already-processed? true}})
       (let [{customer-id :customer
              subscription-id :subscription
-             {:keys [app-id user-id]} :metadata}
+             metadata :metadata}
             (:object data)
 
-            shared {:user-id (uuid-util/coerce user-id)
-                    :app-id (uuid-util/coerce app-id)
+            shared {:user-id (uuid-util/coerce (:user-id metadata))
+                    :app-id (uuid-util/coerce (:app-id metadata))
+                    :org-id (uuid-util/coerce (:org-id metadata))
                     :stripe-customer-id customer-id
                     :stripe-subscription-id subscription-id
-                    :stripe-event-id id}]
+                    :stripe-event-id id}
+
+            subscription-type-id (when (string? (:subscription-type-id metadata))
+                                   (parse-long (:subscription-type-id metadata)))]
         (condp = type
           "checkout.session.completed"
-          (let [opts (assoc shared :subscription-type-id PRO_SUBSCRIPTION_TYPE)]
+          (let [{:keys [user-id app-id org-id]} shared
+                opts (assoc shared :subscription-type-id (or subscription-type-id
+                                                             ;; TODO(orgs): remove when backend
+                                                             ;;             is fully deployed
+                                                             PRO_SUBSCRIPTION_TYPE))]
+            (tool/def-locals)
             (instant-subscription-model/create! opts)
             (when (= :prod (config/get-env))
-              (ping-js-on-new-customer user-id))
+              (ping-js-on-new-customer {:user-id user-id
+                                        :app-id app-id
+                                        :org-id org-id}))
             (tracer/add-data! {:attributes opts}))
 
           "customer.subscription.deleted"
-          (let [opts (assoc shared :subscription-type-id FREE_SUBSCRIPTION_TYPE)]
-            (when (app-model/get-by-id {:id app-id})
+          (let [opts (assoc shared :subscription-type-id FREE_SUBSCRIPTION_TYPE)
+                {:keys [user-id app-id org-id]} opts]
+            (tool/def-locals)
+            (when (and app-id (app-model/get-by-id {:id app-id}))
+              (instant-subscription-model/create! opts))
+            (when (and org-id (org-model/get-by-id  {:id org-id}))
               (instant-subscription-model/create! opts))
             (when (= :prod (config/get-env))
-              (ping-js-on-churned-customer user-id))
+              (ping-js-on-churned-customer {:user-id user-id
+                                            :app-id app-id
+                                            :org-id org-id}))
             (tracer/add-data! {:attributes opts}))
 
           (tracer/add-data! {:attributes {:skipped-event? true}}))))))
