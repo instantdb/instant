@@ -1,0 +1,134 @@
+import { useReadyRouter } from '@/components/clientOnlyPage';
+import { useFetchedDash } from '../MainDashLayout';
+import { Badge, Button, SubsectionHeading, useDialog } from '@/components/ui';
+import { InviteToOrgDialog } from './InviteToOrgDialog';
+import { isMinRole, Role } from '@/pages/dash';
+import config from '@/lib/config';
+import { useAuthToken } from '@/lib/auth';
+import { MemberMenu } from './MemberMenu';
+
+const READABLE_ROLES: Record<string, string> = {
+  admin: 'Admin',
+  collaborator: 'Collaborator',
+  owner: 'Owner',
+};
+
+export const Members = () => {
+  const dashResponse = useFetchedDash();
+  const router = useReadyRouter();
+  const org = dashResponse.data.workspace;
+
+  const dialog = useDialog();
+  const token = useAuthToken();
+
+  const revoke = async (inviteId: string) => {
+    console.log('Revoking invite...', inviteId);
+    if (org.type === 'personal') {
+      throw new Error('Cannot revoke invite from personal workspace');
+    }
+    const responsePromise = fetch(
+      `${config.apiURI}/dash/orgs/${org.id}/invite/revoke`,
+      {
+        body: JSON.stringify({ 'invite-id': inviteId, 'org-id': org.id }),
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        method: 'DELETE',
+      },
+    );
+
+    dashResponse.optimisticUpdateWorkspace(responsePromise, (workspace) => {
+      if (workspace.type === 'personal') {
+        throw new Error('Cannot revoke invite from personal workspace');
+      }
+      const updatedWorkspace = { ...workspace };
+      updatedWorkspace.invites = workspace.invites.filter(
+        (invite) => invite.id !== inviteId,
+      );
+      return updatedWorkspace;
+    });
+    const result = await responsePromise;
+    if (!result.ok) {
+      throw new Error('Failed to revoke invite');
+    }
+  };
+
+  if (
+    dashResponse.data.currentWorkspaceId === 'personal' ||
+    org.type === 'personal'
+  ) {
+    router.replace('/dash');
+    return;
+  }
+
+  const invites = org.invites.filter(
+    (invite) => invite.status !== 'accepted' && invite.status !== 'revoked',
+  );
+  const myRole = org.org.role as Role;
+  const myEmail = dashResponse.data.user.email;
+
+  return (
+    <div className="">
+      <div className="flex items-end py-2 justify-between">
+        <SubsectionHeading>Current Members</SubsectionHeading>
+        {isMinRole('admin', myRole) && (
+          <Button onClick={() => dialog.onOpen()} size="mini">
+            Invite
+          </Button>
+        )}
+      </div>
+      <InviteToOrgDialog dialog={dialog} />
+      <div className="bg-white border rounded-sm divide-y">
+        {org.members.map((member) => (
+          <div
+            className="p-2 hover:bg-gray-50 rounded-sm w-full flex gap-2 justify-between items-center transition-colors"
+            key={member.id}
+          >
+            <div className="flex gap-3 items-center">
+              {member.email}
+              {member.email === myEmail && <Badge>Me</Badge>}
+            </div>
+            <div className="flex gap-3 items-center">
+              <div className="text-sm">{READABLE_ROLES[member.role]}</div>
+              <MemberMenu member={member} />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-6">
+        <SubsectionHeading>Pending Invites</SubsectionHeading>
+        {invites.length === 0 ? (
+          <div className="w-full text-center opacity-50 py-8">
+            No pending invites
+          </div>
+        ) : (
+          <div className="bg-white border divide-y">
+            {invites.map((invite) => (
+              <div
+                className="p-2 hover:bg-gray-50 w-full flex gap-2 justify-between items-center transition-colors"
+                key={invite.id}
+              >
+                <div>{invite.email}</div>
+                <div className="flex items-center gap-2">
+                  {isMinRole('admin', myRole) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        revoke(invite.id);
+                      }}
+                      className="bg-red-400 p-1 text-sm text-white transition-colors hover:bg-red-500 font-semibold rounded"
+                    >
+                      Revoke
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
