@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import { ClockIcon } from '@heroicons/react/24/outline';
 import { InstantAPIError } from '@instantdb/core';
 import { ExpandableDeletedAttr } from './ExpandableDeletedAttr';
+import { useAttrNotes } from '@/lib/hooks/useAttrNotes';
 
 type SoftDeletedAttr = DBAttr & {
   'deletion-marked-at': string;
@@ -32,13 +33,16 @@ export const RecentlyDeletedAttrs: React.FC<{
   namespace: SchemaNamespace;
   appId: string;
   db: InstantReactWebDatabase<any>;
-}> = ({ namespace, appId, db }) => {
+  notes: ReturnType<typeof useAttrNotes>;
+}> = ({ namespace, appId, db, notes }) => {
   const { data, mutate, error } = useRecentlyDeletedAttrs(appId);
 
   const [expandedAttr, setExpandedAttr] = useState<string | null>(null);
 
   const dialog = useDialog();
 
+  // TODO: if restoring attr with previous contraints
+  // leave a note
   const restoreAttr = async (attrId: string) => {
     if (!db) return;
     if (!data) return;
@@ -48,6 +52,15 @@ export const RecentlyDeletedAttrs: React.FC<{
         attrs: data.attrs.filter((attr) => attr.id !== attrId) ?? [],
         'grace-period-days': data['grace-period-days'],
       });
+
+      const attr = data.attrs.find((attr) => attr.id === attrId);
+      if (attr) {
+        const possibleMessage = getConstraintMessage(attr);
+        if (possibleMessage) {
+          notes.setNote(attrId, possibleMessage);
+        }
+      }
+
       console.log('Restored attr:', attrId);
     } catch (error) {
       console.error(error);
@@ -142,4 +155,24 @@ export const useRecentlyDeletedAttrs = (appId: string) => {
   );
 
   return result;
+};
+
+const getConstraintMessage = (attr: SoftDeletedAttr): string | null => {
+  if (attr && attr?.metadata?.soft_delete_snapshot) {
+    if (
+      attr.metadata.soft_delete_snapshot.is_indexed &&
+      attr.metadata.soft_delete_snapshot.is_required
+    ) {
+      return 'note: index and required constraints were dropped after restoring';
+    }
+
+    if (attr.metadata.soft_delete_snapshot.is_indexed) {
+      return 'note: indexed constraint was dropped after restoring';
+    }
+    if (attr.metadata.soft_delete_snapshot.is_required) {
+      return 'note: required constraint was dropped after restoring';
+    }
+    return null;
+  }
+  return null;
 };

@@ -57,6 +57,7 @@ import {
 } from '@/lib/hooks/useEditBlobConstraints';
 import { mutate } from 'swr';
 import { RecentlyDeletedAttrs } from './RecentlyDeletedAttrs';
+import { useAttrNotes } from '@/lib/hooks/useAttrNotes';
 
 export function EditNamespaceDialog({
   db,
@@ -89,6 +90,8 @@ export function EditNamespaceDialog({
     await db._core._reactor.pushOps(ops);
     onClose({ ok: true });
   }
+
+  const notes = useAttrNotes();
 
   const screenAttr = useMemo(() => {
     return (
@@ -133,19 +136,27 @@ export function EditNamespaceDialog({
                 key={attr.id + '-' + attr.name}
                 className="flex justify-between"
               >
-                <span className="py-0.5 font-bold">{attr.name}</span>
+                <div className="flex gap-3 items-center">
+                  <span className="py-0.5 font-bold">{attr.name}</span>
+                  {notes.notes[attr.id]?.message && (
+                    <div className="text-xs px-2 text-gray-500">
+                      {notes.notes[attr.id].message}
+                    </div>
+                  )}
+                </div>
                 {attr.name !== 'id' ? (
                   <Button
                     className="px-2"
                     size="mini"
                     variant="subtle"
-                    onClick={() =>
+                    onClick={() => {
+                      notes.removeNote(attr.id);
                       setScreen({
                         type: 'edit',
                         attrId: attr.id,
                         isForward: attr.isForward,
-                      })
-                    }
+                      });
+                    }}
                   >
                     Edit
                   </Button>
@@ -170,7 +181,12 @@ export function EditNamespaceDialog({
               New attribute
             </Button>
           </div>
-          <RecentlyDeletedAttrs db={db} appId={appId} namespace={namespace} />
+          <RecentlyDeletedAttrs
+            notes={notes}
+            db={db}
+            appId={appId}
+            namespace={namespace}
+          />
         </div>
       ) : screen.type === 'add' ? (
         <AddAttrForm

@@ -762,6 +762,7 @@
            checking_data_type
            indexing
            setting_unique
+           metadata
            deletion_marked_at]}]
   (cond-> (transient {:id               id
                       :value-type       (keyword value_type)
@@ -783,6 +784,7 @@
     indexing           (assoc! :indexing? true)
     setting_unique     (assoc! :setting-unique? true)
     deletion_marked_at (assoc! :deletion-marked-at deletion_marked_at)
+    metadata           (assoc! :metadata metadata)
     true               persistent!))
 
 ;; Creates a wrapper over attrs. Makes them act like a regular list, but
