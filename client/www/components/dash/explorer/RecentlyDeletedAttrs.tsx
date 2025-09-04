@@ -163,14 +163,14 @@ const getConstraintMessage = (attr: SoftDeletedAttr): string | null => {
       attr.metadata.soft_delete_snapshot.is_indexed &&
       attr.metadata.soft_delete_snapshot.is_required
     ) {
-      return 'note: index and required constraints were dropped after restoring';
+      return 'Index and required constraints were dropped after restoring';
     }
 
     if (attr.metadata.soft_delete_snapshot.is_indexed) {
-      return 'note: indexed constraint was dropped after restoring';
+      return 'Indexed constraint was dropped after restoring';
     }
     if (attr.metadata.soft_delete_snapshot.is_required) {
-      return 'note: required constraint was dropped after restoring';
+      return 'Required constraint was dropped after restoring';
     }
     return null;
   }

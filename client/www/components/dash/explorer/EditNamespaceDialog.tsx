@@ -139,9 +139,11 @@ export function EditNamespaceDialog({
                 <div className="flex gap-3 items-center">
                   <span className="py-0.5 font-bold">{attr.name}</span>
                   {notes.notes[attr.id]?.message && (
-                    <div className="text-xs px-2 text-gray-500">
-                      {notes.notes[attr.id].message}
-                    </div>
+                    <InfoTip>
+                      <div className="text-xs px-2 text-gray-500">
+                        {notes.notes[attr.id].message}
+                      </div>
+                    </InfoTip>
                   )}
                 </div>
                 {attr.name !== 'id' ? (
