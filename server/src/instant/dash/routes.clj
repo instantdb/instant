@@ -766,8 +766,10 @@
         already-subscribed? (not (or (= name default-subscription) (nil? name)))
         _ (when already-subscribed?
             (ex/throw-record-not-unique! :instant-subscription))
-        {customer-id :id} (instant-stripe-customer-model/get-or-create! {:user user})
-        metadata {"app-id" app-id "user-id" user-id}
+        {customer-id :id} (instant-stripe-customer-model/get-or-create-for-user! {:user user})
+        metadata {"app-id" app-id
+                  "user-id" user-id
+                  "subscription-type-id" stripe/STARTUP_SUBSCRIPTION_TYPE}
         description (str "App name: " app-title)
         session-params {"success_url" (str (config/stripe-success-url) "&app=" app-id)
                         "cancel_url" (str (config/stripe-cancel-url) "&app=" app-id)
@@ -785,10 +787,50 @@
         session (Session/create ^Map session-params)]
     (response/ok {:id (.getId session)})))
 
+(defn org-checkout-session-post [req]
+  (let [{{org-id :id org-title :title :as org} :org
+         {user-id :id user-email :email} :user} (req->org-and-user! :collaborator req)
+        {:keys [name]} (instant-subscription-model/get-by-org-id {:org-id org-id})
+        already-subscribed? (not (or (= name default-subscription) (nil? name)))
+        _ (when already-subscribed?
+            (ex/throw-record-not-unique! :instant-subscription))
+        {customer-id :id} (instant-stripe-customer-model/get-or-create-for-org! {:org org
+                                                                                 :user-email user-email})
+        metadata (tool/inspect {"org-id" org-id
+                                "user-id" user-id
+                                "subscription-type-id" stripe/STARTUP_SUBSCRIPTION_TYPE})
+        description (str "Org name: " org-title)
+        session-params {"success_url" (str (config/stripe-success-url) "&org=" org-id)
+                        "cancel_url" (str (config/stripe-cancel-url) "&org=" org-id)
+                        "customer" customer-id
+                        "metadata" metadata
+                        "allow_promotion_codes" (or (flags/promo-code-email? user-email)
+                                                    (flags/promo-code-email? (:billing_email org))
+                                                    (admin-email? user-email))
+                        "subscription_data" {"metadata" metadata
+                                             "description" description
+                                             "billing_cycle_anchor"
+                                             (.toEpochSecond (date/first-of-next-month-est))}
+                        "mode" "subscription"
+                        "line_items" [{"price" (config/stripe-startup-subscription)
+                                       "quantity" 1}]}
+        session (Session/create ^Map session-params)]
+    (response/ok {:id (.getId session)})))
+
 (defn create-portal [req]
   (let [{{app-id :id} :app user :user} (req->app-and-user! req)
-        {customer-id :id} (instant-stripe-customer-model/get-or-create! {:user user})
+        {customer-id :id} (instant-stripe-customer-model/get-or-create-for-user! {:user user})
         session-params {"return_url" (str (config/stripe-success-url) "&app=" app-id)
+                        "customer" customer-id}
+        session (com.stripe.model.billingportal.Session/create ^Map session-params)]
+    (response/ok {:url (.getUrl session)})))
+
+(defn org-create-portal [req]
+  (let [{{org-id :id :as org} :org user :user} (req->org-and-user! :collaborator req)
+        {customer-id :id} (instant-stripe-customer-model/get-or-create-for-org!
+                           {:org org
+                            :user-email (:email user)})
+        session-params {"return_url" (str (config/stripe-success-url) "&org=" org-id)
                         "customer" customer-id}
         session (com.stripe.model.billingportal.Session/create ^Map session-params)]
     (response/ok {:url (.getUrl session)})))
@@ -1744,6 +1786,8 @@
   (DELETE "/dash/orgs/:org_id/invite/revoke" [] team-member-invite-revoke-delete)
   (DELETE "/dash/orgs/:org_id/members/remove" [] team-member-remove-delete)
   (POST "/dash/orgs/:org_id/members/update" [] team-member-update-post)
+  (POST "/dash/orgs/:org_id/checkout_session" [] org-checkout-session-post)
+  (POST "/dash/orgs/:org_id/portal_session" [] org-create-portal)
 
 
   (GET "/dash/ws_playground" [] ws-playground-get)

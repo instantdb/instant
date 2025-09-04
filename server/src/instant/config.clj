@@ -192,6 +192,15 @@
      :prod prod-pro-subscription
      test-pro-subscription)))
 
+(def test-startup-subscription "price_1RvkYbL5BwOwpxgUoDyhZtzN")
+(def prod-startup-subscription "price_1RvkPZL5BwOwpxgUSVW7f2dd")
+(defn stripe-startup-subscription
+  ([] (stripe-startup-subscription {:env (get-env)}))
+  ([{:keys [env]}]
+   (case env
+     :prod prod-startup-subscription
+     test-startup-subscription)))
+
 (defn get-honeycomb-api-key []
   (some-> @config-map :honeycomb-api-key crypt-util/secret-value))
 

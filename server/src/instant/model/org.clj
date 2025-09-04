@@ -11,20 +11,31 @@
                     :from :orgs
                     :where [:= :id :?id]}))
 
-(defn get-by-id!
-  ([params] (get-by-id! (aurora/conn-pool :read) params))
+(defn get-by-id
+  ([params] (get-by-id (aurora/conn-pool :read) params))
   ([conn {:keys [id]}]
    (let [params {:id id}
          query (uhsql/formatp by-id-q params)]
-     (ex/assert-record! (sql/select-one ::get-by-id conn query)
-                        :org
-                        {:args [{:id id}]}))))
+     (sql/select-one ::get-by-id conn query))))
+
+(defn get-by-id!
+  ([params] (get-by-id! (aurora/conn-pool :read) params))
+  ([conn {:keys [id]}]
+   (ex/assert-record! (get-by-id conn {:id id})
+                      :org
+                      {:args [{:id id}]})))
 
 (def all-for-user-q
-  (uhsql/preformat {:select [:o.id :o.title :o.created-at :o.updated-at :m.role]
+  (uhsql/preformat {:select [:o.id
+                             :o.title
+                             :o.created-at
+                             :o.updated-at
+                             :m.role
+                             [[:coalesce [:= :3 :s.subscription_type_id] false] :paid]]
                     :from [[:orgs :o]]
                     :join [[:org-members :m] [:and
                                               [:= :m.org_id :o.id]]]
+                    :left-join [[:instant-subscriptions :s] [:= :o.subscription-id :s.id]]
                     :where [:= :m.user-id :?user-id]}))
 
 (defn get-all-for-user
@@ -96,9 +107,15 @@
 
 
 (def org-for-user-q
-  (uhsql/preformat {:select [:o.id :o.title :o.created-at :o.updated-at :m.role]
+  (uhsql/preformat {:select [:o.id
+                             :o.title
+                             :o.created-at
+                             :o.updated-at
+                             :m.role
+                             [[:coalesce [:= :3 :s.subscription_type_id] false] :paid]]
                     :from [[:orgs :o]]
                     :join [[:org-members :m] [:= :o.id :m.org-id]]
+                    :left-join [[:instant-subscriptions :s] [:= :o.subscription-id :s.id]]
                     :where [:and
                             [:= :m.user-id :?user-id]
                             [:= :o.id :?org-id]]}))
