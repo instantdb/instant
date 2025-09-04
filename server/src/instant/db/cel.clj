@@ -422,7 +422,7 @@
 (defn eval-program!
   [ctx
    {:keys [cel-program etype action]}
-   {:keys [data rule-params new-data linked-data]}]
+   {:keys [data rule-params new-data linked-data linked-etype]}]
   (try
     (let [bindings (HashMap.)
 
@@ -432,7 +432,7 @@
           _ (when new-data
               (.put bindings "newData" (DataCelMap. ctx etype (CelMap. new-data))))
           _ (when linked-data
-              (.put bindings "linkedData" (CelMap. linked-data)))
+              (.put bindings "linkedData" (DataCelMap. ctx linked-etype (CelMap. linked-data))))
           result (.eval ^CelRuntime$Program cel-program
                         bindings)]
       (cond
@@ -463,7 +463,7 @@
    {:keys [^CelRuntime$Program cel-program
            etype
            action] :as program}
-   {:keys [resolver data rule-params new-data linked-data]}]
+   {:keys [resolver data rule-params new-data linked-data linked-etype]}]
   (if (contains? program :result)
     (:result program)
     (try
@@ -472,16 +472,19 @@
                          (reify CelVariableResolver
                            (find [_this var-name]
                              (case var-name
-                               "auth" (Optional/of
-                                       (AuthCelMap. ctx (CelMap. (:current-user ctx))))
-                               "data" (Optional/of
-                                       (DataCelMap. ctx etype (CelMap. data)))
-                               "ruleParams" (Optional/of (CelMap. rule-params))
-                               "newData" (if new-data
-                                           (Optional/of (DataCelMap. ctx etype (CelMap. new-data)))
-                                           (Optional/empty))
+                               "auth"       (Optional/of
+                                             (AuthCelMap. ctx (CelMap. (:current-user ctx))))
+                               "data"       (Optional/of
+                                             (DataCelMap. ctx etype (CelMap. data)))
+                               "ruleParams" (Optional/of
+                                             (CelMap. rule-params))
+                               "newData"    (if new-data
+                                              (Optional/of
+                                               (DataCelMap. ctx etype (CelMap. new-data)))
+                                              (Optional/empty))
                                "linkedData" (if linked-data
-                                              (Optional/of (CelMap. linked-data))
+                                              (Optional/of
+                                               (DataCelMap. ctx linked-etype (CelMap. linked-data)))
                                               (Optional/empty))
                                (Optional/empty)))))
             unknown-ctx (UnknownContext/create resolver (ImmutableList/of))

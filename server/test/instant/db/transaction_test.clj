@@ -2592,6 +2592,73 @@
           (is (perm-pass? (transact! [[:retract-triple post-id :posts/user (random-uuid)]
                                       [:rule-params post-id "posts" {"posts_user" true}]]))))))))
 
+(deftest linked-data-etype
+  (with-empty-app
+    (fn [{app-id   :id
+          make-ctx :make-ctx}]
+      (let [attrs
+            (test-util/make-attrs
+             app-id
+             [[:profiles/id    :required? :index? :unique?]
+
+              [:users/id       :required? :index? :unique?]
+              [[:users/profile :profiles/user]]
+
+              [:posts/id       :required? :index? :unique?]
+              [[:posts/user    :users/posts]]
+
+              [:comments/id    :required? :index? :unique?]
+              [[:comments/post :posts/comments]]])
+            transact!   #(permissioned-tx/transact!
+                          (make-ctx)
+                          (test-util/resolve-attrs attrs %))
+            profile-id (random-uuid)
+            user-id    (random-uuid)
+            post-id    (random-uuid)
+            comment-id (random-uuid)]
+
+        (transact!
+         [[:add-triple profile-id  :profiles/id    profile-id]
+          [:add-triple user-id     :users/id       user-id]
+          [:add-triple user-id     :users/profile  profile-id]
+          [:add-triple post-id     :posts/id       post-id]
+          [:add-triple comment-id  :comments/id    comment-id]
+          [:add-triple comment-id  :comments/post  post-id]])
+
+        (rule-model/put!
+         (aurora/conn-pool :write)
+         {:app-id app-id
+          :code {:posts
+                 {:allow
+                  {:link   {"user" "ruleParams.profile_id in linkedData.ref('profile.id')"}
+                   :unlink {"user" "ruleParams.comment_id in linkedData.ref('posts.comments.id')"}}}
+                 :users
+                 {:allow
+                  {:link   {"posts" "ruleParams.comment_id in linkedData.ref('comments.id')"}
+                   :unlink {"posts" "ruleParams.profile_id in linkedData.ref('user.profile.id')"}}}}})
+
+        (test-util/test-matrix
+         [post-params [nil {"profile_id" profile-id}]
+          user-params [nil {"comment_id" comment-id}]
+          :let [expected (boolean (and post-params user-params))]]
+         (is (= expected
+                (perm-pass?
+                 (transact!
+                  [[:add-triple  post-id :posts/user user-id]
+                   [:rule-params post-id "posts" post-params]
+                   [:rule-params user-id "users" user-params]])))))
+
+        (test-util/test-matrix
+         [post-params [nil {"comment_id" comment-id}]
+          user-params [nil {"profile_id" profile-id}]
+          :let [expected (boolean (and post-params user-params))]]
+         (is (= expected
+                (perm-pass?
+                 (transact!
+                  [[:retract-triple post-id :posts/user user-id]
+                   [:rule-params post-id "posts" post-params]
+                   [:rule-params user-id "users" user-params]])))))))))
+
 (deftest unlink-perms-during-delete
   (with-empty-app
     (fn [{app-id   :id
