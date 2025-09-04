@@ -26,6 +26,8 @@ CRITICAL: To use the admin SDK you MUST get an admin token for the app. You can 
 
 CRITICAL: If you want to create seed data YOU MUST write a script that uses the admin SDK. DO NOT try to seed data on the client.
 
+CRITICAL: Make sure to follow the rules of hooks. Remember, you can't have hooks show up conditionally.
+
 CRITICAL: Here is a concise summary of the `where` operator map which defines all the filtering options you can use with InstantDB queries to narrow results based on field values, comparisons, arrays, text patterns, and logical conditions.
 
 ```
