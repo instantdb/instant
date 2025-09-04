@@ -20,6 +20,8 @@ CRITICAL: If you want to create seed data YOU MUST write a script that uses the 
 
 CRITICAL: Here is a concise summary of the `where` operator map which defines all the filtering options you can use with InstantDB queries to narrow results based on field values, comparisons, arrays, text patterns, and logical conditions.
 
+CRITICAL: Make sure to follow the rules of hooks. Remember, you can't have hooks show up conditionally.
+
 ```
 Equality:        { field: value }
 
