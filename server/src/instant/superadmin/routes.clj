@@ -107,7 +107,7 @@
   (let [{user-id :id} (req->superadmin-user! :apps/write req)
         title (ex/get-param! req [:body :title] string-util/coerce-non-blank-str)
         schema (get-in req [:body :schema])
-        rules-code (get-in req [:body :perms])
+        rules-code (ex/get-optional-param! req [:body :perms] w/stringify-keys)
         _ (when rules-code
             (ex/assert-valid! :perms rules-code (rule-model/validation-errors
                                                  rules-code)))
