@@ -1,7 +1,6 @@
 import { useContext, useState, useEffect } from 'react';
 import config from '@/lib/config';
 import { jsonMutate, jsonFetch } from '@/lib/fetch';
-import { APIResponse } from '@/lib/auth';
 import { TokenContext } from '@/lib/contexts';
 import { DashResponse, InstantApp } from '@/lib/types';
 import {
@@ -18,6 +17,7 @@ import {
 import { displayInstantStandardError, useForm } from '@/lib/hooks/useForm';
 import { errorToast, successToast } from '@/lib/toast';
 import clsx from 'clsx';
+import { useFetchedDash } from '../MainDashLayout';
 
 export type EmailValues = {
   from: string;
@@ -57,14 +57,8 @@ export function getSenderVerification({
   });
 }
 
-export function Email({
-  dashResponse,
-  app,
-}: {
-  dashResponse: APIResponse<DashResponse>;
-  app: InstantApp;
-  nav: (p: { s: string; t?: string; app?: string }) => void;
-}) {
+export function Email({ app }: { app: InstantApp }) {
+  const dashResponse = useFetchedDash();
   const template = app.magic_code_email_template;
   const token = useContext(TokenContext);
   const [isEditing, setIsEditing] = useState(Boolean(template) ?? false);

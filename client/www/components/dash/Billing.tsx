@@ -9,18 +9,19 @@ import { loadStripe } from '@stripe/stripe-js';
 import { useContext, useRef } from 'react';
 import { Loading, ErrorMessage } from '@/components/dash/shared';
 import { errorToast } from '@/lib/toast';
-import clsx from 'clsx';
 import confetti from 'canvas-confetti';
+import { useOrgPaid } from '@/lib/hooks/useOrgPaid';
+import { useReadyRouter } from '../clientOnlyPage';
 
-const GB_1 = 1024 * 1024 * 1024;
-const GB_10 = 10 * GB_1;
+export const GB_1 = 1024 * 1024 * 1024;
+export const GB_10 = 10 * GB_1;
 
-function roundToDecimal(num: number, decimalPlaces: number) {
+export function roundToDecimal(num: number, decimalPlaces: number) {
   const factor = Math.pow(10, decimalPlaces);
   return Math.round(num * factor) / factor;
 }
 
-function friendlyUsage(usage: number) {
+export function friendlyUsage(usage: number) {
   if (usage < GB_1) {
     return `${roundToDecimal(usage / (1024 * 1024), 2)} MB`;
   }
@@ -83,7 +84,7 @@ async function createPortalSession(appId: string, token: string) {
     });
 }
 
-function ProgressBar({ width }: { width: number }) {
+export function ProgressBar({ width }: { width: number }) {
   return (
     <div className="h-1.5 relative overflow-hidden rounded-full bg-neutral-200">
       <div
@@ -112,12 +113,20 @@ export default function Billing({ appId }: { appId: string }) {
     createPortalSession(appId, token);
   };
 
+  const orgIsPaid = useOrgPaid();
+  const router = useReadyRouter();
+
   const authResponse = useAuthedFetch<AppsSubscriptionResponse>(
     `${config.apiURI}/dash/apps/${appId}/billing`,
   );
 
   if (authResponse.isLoading) {
     return <Loading />;
+  }
+
+  if (orgIsPaid) {
+    router.replace('/dash');
+    return;
   }
 
   const data = authResponse.data;

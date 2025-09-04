@@ -931,7 +931,7 @@ export function Explorer({
       <div
         ref={nsRef}
         className={clsx(
-          'absolute top-0 left-0 bottom-0 z-50 flex flex-col gap-1 border-r bg-white p-2 min-w-[200px] shadow-md md:static md:flex md:shadow-none',
+          'absolute top-0 left-0 bottom-0 z-40 flex flex-col gap-1 border-r bg-white p-2 min-w-[200px] shadow-md md:static md:flex md:shadow-none',
           {
             hidden: !isNsOpen,
           },

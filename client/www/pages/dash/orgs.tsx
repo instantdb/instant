@@ -2,13 +2,19 @@ import config, { stripeKey } from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
 import { jsonFetch } from '@/lib/fetch';
 import { useContext, useEffect, useState } from 'react';
-import { Button } from '../ui';
 import { friendlyErrorMessage, useAuthedFetch } from '@/lib/auth';
+import { v4 } from 'uuid';
 import { loadStripe } from '@stripe/stripe-js';
 import { messageFromInstantError } from '@/lib/errors';
 import { InstantIssue } from '@instantdb/core';
 import { errorToast } from '@/lib/toast';
-import { useFetchedDash } from './MainDashLayout';
+import { Button } from '@/components/ui';
+import {
+  MainDashLayout,
+  useFetchedDash,
+} from '@/components/dash/MainDashLayout';
+import { NextPageWithLayout } from '../_app';
+import { ClientOnly } from '@/components/clientOnlyPage';
 
 function createOrg(token: string, params: { title: string }) {
   return jsonFetch(`${config.apiURI}/dash/orgs`, {
@@ -101,22 +107,6 @@ async function createCheckoutSession(orgId: string, token: string) {
     });
 }
 
-async function transfer(
-  { appId, orgId }: { appId: string; orgId: string },
-  token: string,
-) {
-  return await jsonFetch(
-    `${config.apiURI}/dash/apps/${appId}/transfer_to_org/${orgId}`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-    },
-  );
-}
-
 function OrgDetails({ id }: { id: string }) {
   const token = useContext(TokenContext);
   const resp = useAuthedFetch(`${config.apiURI}/dash/orgs/${id}`);
@@ -137,72 +127,10 @@ function OrgDetails({ id }: { id: string }) {
     );
   }
 
-  const { apps, members, invites, org } = resp.data;
-
   return (
     <div className="p-8">
       <div>Data</div>
-      <pre className="text-sm">{JSON.stringify(org, null, 2)}</pre>
-      <details open={true}>
-        <summary>Apps</summary>
-        <div className="ml-4 mb-4">
-          {apps.map((app: any) => (
-            <details key={app.id}>
-              <summary>
-                {app.title}{' '}
-                <Button
-                  onClick={async () => {
-                    const orgId = prompt('Enter the org id to transfer to.');
-                    if (!orgId) {
-                      return;
-                    }
-                    try {
-                      const resp = await transfer(
-                        { orgId, appId: app.id },
-                        token,
-                      );
-                      console.log('transfer resp', resp);
-                      if (resp.credit) {
-                        alert(`You get a credit! ${resp.credit * -1}`);
-                      }
-                      resp.mutate();
-                    } catch (e) {
-                      console.log('Error in transfer', e);
-                    }
-                  }}
-                  variant="subtle"
-                >
-                  Transfer to org
-                </Button>
-              </summary>
-
-              <pre className="text-sm">{JSON.stringify(app, null, 2)}</pre>
-            </details>
-          ))}
-        </div>
-      </details>
-      <details open={true}>
-        <summary>Members</summary>
-        <div className="ml-4 mb-4">
-          {members.map((member: any) => (
-            <details key={member.id}>
-              <summary>{member.email}</summary>
-              <pre className="text-sm">{JSON.stringify(member, null, 2)}</pre>
-            </details>
-          ))}
-        </div>
-      </details>
-      <details open={true}>
-        <summary>Invites</summary>
-        <div className="ml-4 mb-4">
-          {invites.map((invite: any) => (
-            <details key={invite.id}>
-              <summary>{invite.email}</summary>
-              <pre className="text-sm">{JSON.stringify(invite, null, 2)}</pre>
-            </details>
-          ))}
-        </div>
-      </details>
+      <pre className="text-sm">{JSON.stringify(resp.data, null, 2)}</pre>
       <div>Billing Data</div>
       <pre className="text-sm">{JSON.stringify(billingResp.data, null, 2)}</pre>
       <Button
@@ -238,11 +166,7 @@ function OrgDetails({ id }: { id: string }) {
   );
 }
 
-export default function Orgs({
-  orgId,
-}: {
-  orgId: string | string[] | undefined;
-}) {
+const OrgsPage: NextPageWithLayout = ({}: {}) => {
   const token = useContext(TokenContext);
 
   const dashResponse = useFetchedDash();
@@ -259,7 +183,9 @@ export default function Orgs({
     }
   }, [orgId]);
 
-  const { apps, orgs } = dashResponse.data;
+  const orgs = dashResponse.data.orgs;
+
+  console.log(expandedOrgs);
 
   return (
     <div className="flex-1 flex flex-col p-4 max-w-2xl mx-auto overflow-scroll">
@@ -319,45 +245,16 @@ export default function Orgs({
           Create new org
         </Button>
       </div>
-      <div className="mt-8">
-        <details>
-          <summary>Apps</summary>
-          <div className="ml-4 mb-4">
-            {apps?.map((app: any) => (
-              <details key={app.id}>
-                <summary>
-                  {app.title}{' '}
-                  <Button
-                    onClick={async () => {
-                      const orgId = prompt('Enter the org id to transfer to.');
-                      if (!orgId) {
-                        return;
-                      }
-                      try {
-                        const resp = await transfer(
-                          { orgId, appId: app.id },
-                          token,
-                        );
-                        console.log('transfer resp', resp);
-                        if (resp.credit) {
-                          alert(`You get a credit! ${resp.credit * -1}`);
-                        }
-                        dashResponse.mutate();
-                      } catch (e) {
-                        console.log('Error in transfer', e);
-                      }
-                    }}
-                    variant="subtle"
-                  >
-                    Transfer to org
-                  </Button>
-                </summary>
-                <pre className="text-sm">{JSON.stringify(app, null, 2)}</pre>
-              </details>
-            ))}
-          </div>
-        </details>
-      </div>
     </div>
   );
-}
+};
+
+OrgsPage.getLayout = (page) => {
+  return (
+    <ClientOnly>
+      <MainDashLayout>{page}</MainDashLayout>
+    </ClientOnly>
+  );
+};
+
+export default OrgsPage;

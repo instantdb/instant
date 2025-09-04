@@ -21,11 +21,9 @@ import { AuthorizedOrigins } from './auth/Origins';
 
 export function AppAuth({
   app,
-  dashResponse,
   nav,
 }: {
   app: InstantApp;
-  dashResponse: APIResponse<DashResponse>;
   nav: (p: { s: string; t?: string; app?: string }) => void;
 }) {
   const authResponse = useAuthedFetch<AppsAuthResponse>(
@@ -212,7 +210,7 @@ export function AppAuth({
 
       <Divider />
 
-      <Email app={app} dashResponse={dashResponse} nav={nav} />
+      <Email app={app} />
     </div>
   );
 }
