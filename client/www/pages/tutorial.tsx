@@ -560,7 +560,7 @@ export default function McpTutorial({ files }: MarkdownContent) {
     "instant": {
       "command": {
         "path": "npx",
-        "args": ["-y", "mcp-remote", "https://mcp.instantdb.com/sse"],
+        "args": ["-y", "mcp-remote", "https://mcp.instantdb.com/mcp"],
         "env": {}
       },
       "settings": {}
