@@ -430,7 +430,7 @@
           _ (.put bindings "data" (DataCelMap. ctx etype (CelMap. data)))
           _ (.put bindings "ruleParams" (CelMap. rule-params))
           _ (when new-data
-              (.put bindings "newData" (CelMap. new-data)))
+              (.put bindings "newData" (DataCelMap. ctx etype (CelMap. new-data))))
           _ (when linked-data
               (.put bindings "linkedData" (CelMap. linked-data)))
           result (.eval ^CelRuntime$Program cel-program
@@ -478,7 +478,7 @@
                                        (DataCelMap. ctx etype (CelMap. data)))
                                "ruleParams" (Optional/of (CelMap. rule-params))
                                "newData" (if new-data
-                                           (Optional/of (CelMap. new-data))
+                                           (Optional/of (DataCelMap. ctx etype (CelMap. new-data)))
                                            (Optional/empty))
                                "linkedData" (if linked-data
                                               (Optional/of (CelMap. linked-data))

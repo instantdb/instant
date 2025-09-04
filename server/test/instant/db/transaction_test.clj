@@ -1694,21 +1694,26 @@
                         set))))
 
             (testing "ref works"
-              (rule-model/put!
-               (aurora/conn-pool :write)
-               {:app-id app-id :code {:bookshelves {:allow {:update "handle in data.ref('users.handle')"}
-                                                    :bind ["handle" "'alex'"]}}})
-              (permissioned-tx/transact!
-               (make-ctx)
-               [[:add-triple (resolvers/->uuid r "eid-short-stories") (resolvers/->uuid r :bookshelves/name) "Long Stories"]])
-              (is
-               (= #{"Long Stories" "Nonfiction"}
-                  (->>  (test-util/pretty-perm-q
-                         {:app-id app-id :current-user nil}
-                         {:bookshelves {:$ {:where {:users.handle "alex"}}}})
-                        :bookshelves
-                        (map :name)
-                        set))))
+              (test-util/test-matrix
+               [perm ["handle in data.ref('users.handle')"
+                      "handle in newData.ref('users.handle')"]]
+
+               (rule-model/put!
+                (aurora/conn-pool :write)
+                {:app-id app-id :code {:bookshelves {:allow {:update perm}
+                                                     :bind ["handle" "'alex'"]}}})
+               (permissioned-tx/transact!
+                (make-ctx)
+                [[:add-triple (resolvers/->uuid r "eid-short-stories") (resolvers/->uuid r :bookshelves/name) "Long Stories"]])
+               (is
+                (= #{"Long Stories" "Nonfiction"}
+                   (->>  (test-util/pretty-perm-q
+                          {:app-id app-id :current-user nil}
+                          {:bookshelves {:$ {:where {:users.handle "alex"}}}})
+                         :bookshelves
+                         (map :name)
+                         set)))))
+
             (testing "invalid ref blocks"
               (rule-model/put!
                (aurora/conn-pool :write)
