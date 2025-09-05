@@ -48,12 +48,6 @@ const _schema = i.schema({
       appId: i.string().unique(),
       sampleRate: i.number(),
     }),
-    "store-fair-lock": i.entity({
-      "default-value": i.boolean().optional(),
-      disabled: i.boolean().optional(),
-      "disabled-apps": i.any().optional(),
-      "enabled-apps": i.any().optional(),
-    }),
     "power-user-emails": i.entity({
       email: i.string().unique(),
     }),
