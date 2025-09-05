@@ -44,11 +44,11 @@
             [instant.model.outreach :as outreach-model]
             [instant.model.rule :as rule-model]
             [instant.model.schema :as schema-model]
+            [instant.plans :as plans]
             [instant.postmark :as postmark]
             [instant.reactive.ephemeral :as eph]
             [instant.session-counter :as session-counter]
             [instant.storage.coordinator :as storage-coordinator]
-            [instant.stripe :as stripe]
             [instant.superadmin.routes :refer [req->superadmin-user-and-app!]]
             [instant.system-catalog :as system-catalog]
             [instant.util.async :refer [fut-bg]]
@@ -151,13 +151,13 @@
      (cond (or (and app-member-role
                     good-app-role?
                     (or (= :owner app-member-role)
-                        (stripe/plan-supports-members? app-subscription)
-                        (stripe/plan-supports-members? org-subscription)))
+                        (instant-subscription-model/plan-supports-members? app-subscription)
+                        (instant-subscription-model/plan-supports-members? org-subscription)))
 
                (and org-member-role
                     good-org-role?
                     (or (= :owner org-member-role)
-                        (stripe/plan-supports-members? org-subscription))))
+                        (instant-subscription-model/plan-supports-members? org-subscription))))
            ;; This is the only success case. The user has access through
            ;; either the app or the org.
            {:app app :user user}
@@ -812,7 +812,7 @@
         {customer-id :id} (instant-stripe-customer-model/get-or-create-for-user! {:user user})
         metadata {"app-id" app-id
                   "user-id" user-id
-                  "subscription-type-id" stripe/PRO_SUBSCRIPTION_TYPE}
+                  "subscription-type-id" plans/PRO_SUBSCRIPTION_TYPE}
         description (str "App name: " app-title)
         session-params {"success_url" (str (config/stripe-success-url) "&app=" app-id)
                         "cancel_url" (str (config/stripe-cancel-url) "&app=" app-id)
@@ -841,7 +841,7 @@
                                                                                  :user-email user-email})
         metadata {"org-id" org-id
                   "user-id" user-id
-                  "subscription-type-id" stripe/STARTUP_SUBSCRIPTION_TYPE}
+                  "subscription-type-id" plans/STARTUP_SUBSCRIPTION_TYPE}
         description (str "Org name: " org-title)
         session-params {"success_url" (str (config/stripe-success-url) "&org=" org-id)
                         "cancel_url" (str (config/stripe-cancel-url) "&org=" org-id)

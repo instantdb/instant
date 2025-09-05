@@ -3,6 +3,7 @@
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
+   [instant.plans :as plans]
    [instant.util.hsql :as uhsql]))
 
 (def create-q
@@ -86,6 +87,12 @@
    (sql/select-one ::get-by-org-id
                    conn
                    (uhsql/formatp get-by-org-id-q {:org-id org-id}))))
+
+(defn plan-supports-members?
+  "Takes a stripe_subscription"
+  [{:keys [subscription_type_id]}]
+  (or (= subscription_type_id plans/PRO_SUBSCRIPTION_TYPE)
+      (= subscription_type_id plans/STARTUP_SUBSCRIPTION_TYPE)))
 
 (comment
   (get-by-app-id {:app-id "b40b42d5-d857-431b-90f5-f0cf36b146dd"}))

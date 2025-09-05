@@ -3,7 +3,7 @@
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
-   [instant.stripe :as stripe]
+   [instant.plans :as plans]
    [instant.util.exception :as ex]
    [instant.util.hsql :as uhsql]
    [medley.core :refer [update-existing]]))
@@ -34,7 +34,7 @@
                                                 :o.updated-at
                                                 :m.role
                                                 [[:coalesce [:=
-                                                             [:inline stripe/STARTUP_SUBSCRIPTION_TYPE]
+                                                             [:inline plans/STARTUP_SUBSCRIPTION_TYPE]
                                                              :s.subscription_type_id]
                                                   false]
                                                  :paid]]
@@ -59,8 +59,8 @@
                                            :where [:and
                                                    [:= :m.user-id :?user-id]
                                                    [:or
-                                                    [:= :org-s.subscription_type_id [:inline stripe/STARTUP_SUBSCRIPTION_TYPE]]
-                                                    [:= :app-s.subscription_type_id [:inline stripe/PRO_SUBSCRIPTION_TYPE]]]]}]
+                                                    [:= :org-s.subscription_type_id [:inline plans/STARTUP_SUBSCRIPTION_TYPE]]
+                                                    [:= :app-s.subscription_type_id [:inline plans/PRO_SUBSCRIPTION_TYPE]]]]}]
                            [:combined {:union-all [{:select :* :from :membered}
                                                    {:select :* :from :app-membered :where [:not-in :id {:select :id :from :membered}]}]}]]
 
@@ -93,8 +93,8 @@
                                            [:= :m.user-id :?user-id]
                                            [:= :o.id :?org-id]
                                            [:or
-                                            [:= :org-s.subscription_type_id [:inline stripe/STARTUP_SUBSCRIPTION_TYPE]]
-                                            [:= :app-s.subscription_type_id [:inline stripe/PRO_SUBSCRIPTION_TYPE]]]]}]}))
+                                            [:= :org-s.subscription_type_id [:inline plans/STARTUP_SUBSCRIPTION_TYPE]]
+                                            [:= :app-s.subscription_type_id [:inline plans/PRO_SUBSCRIPTION_TYPE]]]]}]}))
 
 (defn apps-for-org
   ([params] (apps-for-org (aurora/conn-pool :read) params))
@@ -159,7 +159,7 @@
                                                 :o.updated-at
                                                 :m.role
                                                 [[:coalesce [:=
-                                                             [:inline stripe/STARTUP_SUBSCRIPTION_TYPE]
+                                                             [:inline plans/STARTUP_SUBSCRIPTION_TYPE]
                                                              :s.subscription_type_id]
                                                   false]
                                                  :paid]]
@@ -187,8 +187,8 @@
                                                    [:= :o.id :?org-id]
                                                    [:= :m.user-id :?user-id]
                                                    [:or
-                                                    [:= :org-s.subscription_type_id [:inline stripe/STARTUP_SUBSCRIPTION_TYPE]]
-                                                    [:= :app-s.subscription_type_id [:inline stripe/PRO_SUBSCRIPTION_TYPE]]]]
+                                                    [:= :org-s.subscription_type_id [:inline plans/STARTUP_SUBSCRIPTION_TYPE]]
+                                                    [:= :app-s.subscription_type_id [:inline plans/PRO_SUBSCRIPTION_TYPE]]]]
                                            :limit :1}]]
                     :union-all [{:select :* :from :membered}
                                 {:select :* :from :app-membered}]

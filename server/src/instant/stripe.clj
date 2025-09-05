@@ -6,6 +6,7 @@
    [instant.model.instant-subscription :as instant-subscription-model]
    [instant.model.instant-user :as instant-user-model]
    [instant.model.org :as org-model]
+   [instant.plans :as plans]
    [instant.postmark :as postmark]
    [instant.util.exception :as ex]
    [instant.util.json :refer [<-json]]
@@ -18,17 +19,6 @@
    (com.stripe.model Discount Event Subscription SubscriptionItem)
    (com.stripe.net RequestOptions Webhook)
    (com.stripe.param SubscriptionListParams)))
-
-(def FREE_SUBSCRIPTION_TYPE 1)
-(def PRO_SUBSCRIPTION_TYPE 2)
-(def STARTUP_SUBSCRIPTION_TYPE 3)
-
-(defn pro-plan? [{:keys [name]}]
-  (= name "Pro"))
-
-(defn plan-supports-members? [{:keys [subscription_type_id]}]
-  (or (= subscription_type_id PRO_SUBSCRIPTION_TYPE)
-      (= subscription_type_id STARTUP_SUBSCRIPTION_TYPE)))
 
 (defn ping-js-on-new-customer [{:keys [user-id org-id app-id]}]
   (let [{email :email} (instant-user-model/get-by-id {:id user-id})
@@ -121,7 +111,7 @@
                 opts (assoc shared :subscription-type-id (or subscription-type-id
                                                              ;; TODO(orgs): remove when backend
                                                              ;;             is fully deployed
-                                                             PRO_SUBSCRIPTION_TYPE))]
+                                                             plans/PRO_SUBSCRIPTION_TYPE))]
             (instant-subscription-model/create! opts)
             (when (= :prod (config/get-env))
               (ping-js-on-new-customer {:user-id user-id
@@ -130,7 +120,7 @@
             (tracer/add-data! {:attributes opts}))
 
           "customer.subscription.deleted"
-          (let [opts (assoc shared :subscription-type-id FREE_SUBSCRIPTION_TYPE)
+          (let [opts (assoc shared :subscription-type-id plans/FREE_SUBSCRIPTION_TYPE)
                 {:keys [user-id app-id org-id]} opts]
             (when (and app-id (app-model/get-by-id {:id app-id}))
               (instant-subscription-model/create! opts))

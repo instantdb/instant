@@ -488,7 +488,7 @@
 
 (deftest you-are-an-app-member-of-the-org-if-you-are-a-member-of-an-app
   (with-startup-org
-    (fn [{:keys [app org owner collaborator admin outside-user]}]
+    (fn [{:keys [app org collaborator outside-user]}]
       (with-empty-app
         (fn [app-2]
           ;; Add the second app to the org
