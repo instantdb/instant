@@ -102,22 +102,35 @@
   (assert-valid-member-role! nil)
   (assert-valid-member-role! 1))
 
+(defn has-at-least-role? [least-privilege-role user-role]
+  (assert (contains? member-roles least-privilege-role) "Expected valid least-privilege-role")
+  (and user-role
+       (contains? member-roles user-role)
+       (<= (ucoll/index-of least-privilege-role member-role-hierarchy)
+           (ucoll/index-of user-role member-role-hierarchy))))
+
 (defn assert-least-privilege! [least-privilege-role user-role]
   (assert (contains? member-roles least-privilege-role) "Expected valid least-privilege-role")
   (ex/assert-valid!
    :user-role
    user-role
-   (when-not
-    (and user-role
-         (contains? member-roles user-role))
-     [{:message "This is not a valid role"
-       :expected member-roles}]))
+   (or (when-not user-role
+         [{:message (format "User is missing role %s."
+                            (name least-privilege-role))}])
+       (when-not (contains? member-roles user-role)
+         [{:message "This is not a valid role"
+           :expected member-roles}])))
   (ex/assert-permitted! :allowed-member-role? user-role
-                        (<= (ucoll/index-of least-privilege-role member-role-hierarchy)
-                            (ucoll/index-of user-role member-role-hierarchy))))
+                        (has-at-least-role? least-privilege-role user-role)))
 
-(defn get-member-role [app-id user-id]
-  (keyword (:member_role (instant-app-members/get-by-app-and-user {:app-id app-id :user-id user-id}))))
+(defn get-app-member-role [app user-id]
+  (keyword (:member_role (instant-app-members/get-by-app-and-user {:app-id (:id app)
+                                                                   :user-id user-id}))))
+
+(defn get-org-member-role [app user-id]
+  (when-let [org-id (:org_id app)]
+    (keyword (:role (instant-org-members/get-by-org-and-user {:org-id org-id
+                                                              :user-id user-id})))))
 
 (defn req->app-and-user!
   ([req] (req->app-and-user! :owner req))
@@ -125,14 +138,44 @@
    (let [app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)
          {app-creator-id :creator_id :as app} (app-model/get-by-id! {:id app-id})
          {user-id :id :as user} (req->auth-user! req)
-         subscription (instant-subscription-model/get-by-app-id {:app-id app-id})]
+         app-subscription (instant-subscription-model/get-by-app-id {:app-id app-id})
+         org-subscription (tool/inspect (when-let [org-id (:org_id app)]
+                                          (instant-subscription-model/get-by-org-id {:org-id org-id})))
+         app-member-role (if (= user-id app-creator-id)
+                           :owner
+                           (get-app-member-role app user-id))
+         good-app-role? (has-at-least-role? least-privilege app-member-role)
+         org-member-role (get-org-member-role app user-id)
+         good-org-role? (has-at-least-role? least-privilege org-member-role)]
 
-     (assert-least-privilege!
-      least-privilege
-      (cond
-        (= user-id app-creator-id) :owner
-        (stripe/pro-plan? subscription) (get-member-role app-id user-id)))
-     {:app app :user user :subscription subscription})))
+     (cond (or (and app-member-role
+                    good-app-role?
+                    (or (= :owner app-member-role)
+                        (stripe/plan-supports-members? app-subscription)
+                        (stripe/plan-supports-members? org-subscription)))
+
+               (and org-member-role
+                    good-org-role?
+                    (or (= :owner org-member-role)
+                        (stripe/plan-supports-members? org-subscription))))
+           ;; This is the only success case. The user has access through
+           ;; either the app or the org.
+           {:app app :user user}
+
+           ;; Has no role
+           (and (not app-member-role)
+                (not org-member-role))
+           (ex/throw-validation-err! :user-role nil [{:message (format "User is missing role %s."
+                                                                       (name least-privilege))}])
+
+           ;; Has a role, but not one good enough to get access
+           (and (not good-app-role?)
+                (not good-org-role?))
+           (ex/assert-permitted! :allowed-member-role? (or app-member-role org-member-role) false)
+
+           ;; Has a role, but plan doesn't support members
+           :else
+           (ex/throw-insufficient-plan! {:capability "multiple members"})))))
 
 (defn req->app-and-user-accepting-platform-tokens! [least-privilege scope req]
   (let [token (http-util/req->bearer-token! req)]

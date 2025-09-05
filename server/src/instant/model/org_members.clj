@@ -23,3 +23,10 @@
                        WHERE id = ?::uuid"
                       role
                       id])))
+
+(defn get-by-org-and-user
+  ([params] (get-by-org-and-user (aurora/conn-pool :read) params))
+  ([conn {:keys [org-id user-id]}]
+   (sql/select-one conn
+                   ["SELECT * FROM org_members WHERE org_id = ?::uuid AND user_id = ?::uuid"
+                    org-id user-id])))

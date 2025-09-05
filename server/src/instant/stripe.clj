@@ -26,6 +26,10 @@
 (defn pro-plan? [{:keys [name]}]
   (= name "Pro"))
 
+(defn plan-supports-members? [{:keys [subscription_type_id]}]
+  (or (= subscription_type_id PRO_SUBSCRIPTION_TYPE)
+      (= subscription_type_id STARTUP_SUBSCRIPTION_TYPE)))
+
 (defn ping-js-on-new-customer [{:keys [user-id org-id app-id]}]
   (let [{email :email} (instant-user-model/get-by-id {:id user-id})
         title (cond app-id

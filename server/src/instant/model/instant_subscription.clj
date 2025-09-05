@@ -61,7 +61,7 @@
   ([conn {:keys [app-id]}]
    (sql/select-one ::get-by-app-id
                    conn
-                   ["SELECT s.id, s.app_id, s.stripe_subscription_id, t.name
+                   ["SELECT s.id, s.app_id, s.stripe_subscription_id, t.name, s.subscription_type_id
                     FROM instant_subscriptions s
                     JOIN instant_subscription_types t on s.subscription_type_id = t.id
                     WHERE s.app_id = ?::uuid
@@ -70,7 +70,11 @@
                     app-id])))
 
 (def get-by-org-id-q
-  (uhsql/preformat {:select [:s.id :s.org_id :s.stripe_subscription_id, :t.name]
+  (uhsql/preformat {:select [:s.id
+                             :s.org_id
+                             :s.stripe_subscription_id
+                             :t.name
+                             :s.subscription_type_id]
                     :from :orgs
                     :join [[:instant_subscriptions :s] [:= :s.id :orgs.subscription_id]
                            [:instant_subscription_types :t] [:= :s.subscription_type_id :t.id]]
