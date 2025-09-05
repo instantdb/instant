@@ -646,6 +646,11 @@ function determineDirection(form) {
   return orderOpts[Object.keys(orderOpts)[0]] || 'asc';
 }
 
+/**
+ * A "leading" query has no `offset`, `before`, or `after`
+ *
+ * It is at the 'beginning' of the order
+ */
 function isLeading(form) {
   const offset = form.$?.offset;
   const before = form.$?.before;
