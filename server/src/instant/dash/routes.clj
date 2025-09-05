@@ -769,7 +769,7 @@
         {customer-id :id} (instant-stripe-customer-model/get-or-create-for-user! {:user user})
         metadata {"app-id" app-id
                   "user-id" user-id
-                  "subscription-type-id" stripe/STARTUP_SUBSCRIPTION_TYPE}
+                  "subscription-type-id" stripe/PRO_SUBSCRIPTION_TYPE}
         description (str "App name: " app-title)
         session-params {"success_url" (str (config/stripe-success-url) "&app=" app-id)
                         "cancel_url" (str (config/stripe-cancel-url) "&app=" app-id)
