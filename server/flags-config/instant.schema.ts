@@ -91,9 +91,6 @@ const _schema = i.schema({
     "test-emails": i.entity({
       email: i.string(),
     }),
-    threading: i.entity({
-      "use-vfutures": i.boolean(),
-    }),
     toggles: i.entity({
       setting: i.string().unique(),
       toggled: i.boolean(),
