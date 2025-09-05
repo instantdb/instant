@@ -110,12 +110,6 @@ const _schema = i.schema({
       setting: i.string().unique(),
       toggled: i.boolean(),
     }),
-    "use-patch-presence": i.entity({
-      "default-value": i.boolean(),
-      disabled: i.boolean(),
-      "disabled-apps": i.any(),
-      "enabled-apps": i.any(),
-    }),
     "view-checks": i.entity({
       "default-value": i.boolean().optional(),
       "disabled-apps": i.any().optional(),

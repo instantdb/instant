@@ -394,7 +394,6 @@
       :nop
 
       (and edits
-           (flags/use-patch-presence? app-id)
            (when-let [parsed-version (some-> version (semver/parse))]
              (pos? (semver/compare-semver parsed-version
                                           patch-presence-min-version))))
