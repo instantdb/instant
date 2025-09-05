@@ -295,6 +295,11 @@
                                                 :hint cause-message}))}
             e)))
 
+(defn throw-insufficient-plan! [{:keys [capability]}]
+  (throw+ {::type ::permission-denied
+           ::message (format "The plan for your app or organization does not support %s."
+                             capability)}))
+
 ;; -----------
 ;; Validations
 

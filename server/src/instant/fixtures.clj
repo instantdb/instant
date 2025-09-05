@@ -16,8 +16,9 @@
             [instant.model.instant-user-refresh-token :as instant-user-refresh-token-model]
             [instant.model.member-invites :as member-invites]
             [instant.model.org :as org-model]
+            [instant.model.org-members :as instant-org-members]
             [instant.model.rule :as rule-model]
-            [instant.stripe :refer [PRO_SUBSCRIPTION_TYPE]]
+            [instant.stripe :as stripe :refer [PRO_SUBSCRIPTION_TYPE]]
             [instant.db.pg-introspect :as pg-introspect]
             [instant.jdbc.sql :as sql]
             [instant.jdbc.aurora :as aurora]
@@ -273,3 +274,46 @@
         (app-model/delete-immediately-by-id! {:id app-id})
         (instant-app-members/delete-by-id! {:id (:id member)})
         (member-invites/delete-by-id! {:id (:id invite)})))))
+
+(defn with-startup-org [f]
+  (with-user
+    (fn [owner]
+      (with-user
+        (fn [collaborator]
+          (with-user
+            (fn [admin]
+              (with-user
+                (fn [outside-user]
+                  (with-org
+                    (:id owner)
+                    (fn [org]
+                      (with-empty-app
+                        (fn [app]
+                          (let [stripe-customer (sql/execute-one! (aurora/conn-pool :write)
+                                                                  ["insert into instant_stripe_customers (id, org_id) values (?::text, ?::uuid) returning *"
+                                                                   (str "test_" (crypt-util/random-hex 8))
+                                                                   (:id org)])
+                                subscription (instant-subscription-model/create! {:user-id (:id owner)
+                                                                                  :org-id (:id org)
+                                                                                  :subscription-type-id stripe/STARTUP_SUBSCRIPTION_TYPE
+                                                                                  :stripe-customer-id (:id stripe-customer)
+                                                                                  :stripe-subscription-id (str "fake_sub_" (random-uuid))
+                                                                                  :stripe-event-id (str "fake_evt_" (random-uuid))})]
+                            (sql/do-execute! (aurora/conn-pool :write) ["update apps set org_id = ?::uuid where id = ?::uuid"
+                                                                        (:id org)
+                                                                        (:id app)])
+                            (sql/do-execute! (aurora/conn-pool :write) ["update orgs set subscription_id = ?::uuid where id = ?::uuid"
+                                                                        (:id subscription)
+                                                                        (:id org)])
+                            (instant-org-members/create! {:org-id (:id org)
+                                                          :user-id (:id collaborator)
+                                                          :role "collaborator"})
+                            (instant-org-members/create! {:org-id (:id org)
+                                                          :user-id (:id admin)
+                                                          :role "admin"}))
+                          (f {:app app
+                              :org org
+                              :owner owner
+                              :collaborator collaborator
+                              :admin admin
+                              :outside-user outside-user}))))))))))))))

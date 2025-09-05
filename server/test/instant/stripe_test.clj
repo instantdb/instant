@@ -21,7 +21,6 @@
   (when (config/stripe-secret)
     (with-empty-app
       (fn [{app-id :id creator-id :creator_id}]
-        (stripe/init)
         (let [customer (instant-stripe-customer-model/get-or-create-for-user! {:user {:id creator-id}})
               customer-id (:id customer)]
           (f (event-data {:app-id app-id
@@ -36,7 +35,6 @@
         (with-org
           (:id u)
           (fn [org]
-            (stripe/init)
             (let [customer (instant-stripe-customer-model/get-or-create-for-org!
                             {:org org
                              :user-email (:email u)})
