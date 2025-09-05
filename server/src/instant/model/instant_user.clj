@@ -1,29 +1,36 @@
 (ns instant.model.instant-user
-  (:require [clojure.core.cache.wrapped :as cache]
-            [instant.jdbc.aurora :as aurora]
-            [instant.jdbc.sql :as sql]
-            [instant.util.cache :refer [lookup-or-miss
-                                        multi-evict-lru-cache-factory]]
-            [instant.util.crypt :as crypt-util]
-            [instant.util.exception :as ex]
-            [instant.util.token :as token-util])
+  (:require
+   [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.sql :as sql]
+   [instant.util.cache :as cache]
+   [instant.util.crypt :as crypt-util]
+   [instant.util.exception :as ex]
+   [instant.util.token :as token-util])
   (:import
    (java.util UUID)
    (instant.util.token PersonalAccessToken)))
 
-;; We lookup the user by the app-id, but the multi-evict
-;; cache will let us evict by both the app-id and the user-id
-(def user-by-app-cache
-  (multi-evict-lru-cache-factory {}
-                                 (fn [user]
-                                   (:id user))
-                                 256))
+;; We lookup the user by the app-id, but want to evict
+;; by both the app-id and the user-id
+
+(declare user-by-app-id-cache
+         user-by-user-id-cache)
+
+(def user-by-app-id-cache
+  (cache/make {:max-size  256
+               :on-remove (fn [_app-id user _]
+                            (cache/invalidate user-by-user-id-cache (:id user)))}))
+
+(def user-by-user-id-cache
+  (cache/make {:max-size  256
+               :on-remove (fn [_user-id user _]
+                            (cache/invalidate user-by-app-id-cache (:app_id user)))}))
 
 (defn evict-app-id-from-cache [app-id]
-  (cache/evict user-by-app-cache app-id))
+  (cache/invalidate user-by-app-id-cache app-id))
 
 (defn evict-user-id-from-cache [user-id]
-  (cache/evict user-by-app-cache user-id))
+  (cache/invalidate user-by-user-id-cache user-id))
 
 (defmacro with-cache-invalidation [key & body]
   `(do
@@ -72,7 +79,7 @@
   (sql/select-one ::get-by-app-id*
                   conn
                   ["SELECT
-                    iu.*
+                    iu.*, a.id app_id
                     FROM instant_users iu
                     JOIN apps a
                         ON iu.id = a.creator_id
@@ -90,7 +97,11 @@
 
 (defn get-by-app-id
   ([{:keys [app-id]}]
-   (lookup-or-miss user-by-app-cache app-id (partial get-by-app-id* (aurora/conn-pool :read))))
+   (cache/get user-by-app-id-cache app-id
+              (fn [app-id]
+                (let [user (get-by-app-id* (aurora/conn-pool :read) app-id)]
+                  (cache/put user-by-user-id-cache (:id user) user)
+                  user))))
   ([conn {:keys [app-id]}]
    ;; Don't cache if we're using a custom connection
    (get-by-app-id* conn app-id)))

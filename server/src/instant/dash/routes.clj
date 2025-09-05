@@ -1,6 +1,5 @@
 (ns instant.dash.routes
   (:require [clj-http.client :as clj-http]
-            [clojure.core.cache.wrapped :as cache]
             [clojure.string :as string]
             [clojure.tools.logging :as log]
             [clojure.walk :as w]
@@ -52,7 +51,7 @@
             [instant.superadmin.routes :refer [req->superadmin-user-and-app!]]
             [instant.system-catalog :as system-catalog]
             [instant.util.async :refer [fut-bg]]
-            [instant.util.cache :refer [lookup-or-miss]]
+            [instant.util.cache :as cache]
             [instant.util.coll :as ucoll]
             [instant.util.crypt :as crypt-util]
             [instant.util.date :as date]
@@ -1478,18 +1477,16 @@
     (instant-user-refresh-token-model/delete-by-id! {:id token})
     (response/ok {})))
 
-(def active-session-cache (cache/ttl-cache-factory {} :ttl 5000))
-
-(defn get-total-count-cached []
-  (lookup-or-miss active-session-cache
-                  :total-count
-                  (fn [_]
-                    (->> (machine-summaries/get-all-num-sessions (eph/get-hz))
-                         vals
-                         (reduce +)))))
+(def active-session-cache
+  (cache/make
+   {:ttl      5000
+    :value-fn (fn [_]
+                (->> (machine-summaries/get-all-num-sessions (eph/get-hz))
+                     vals
+                     (reduce +)))}))
 
 (defn active-sessions-get [_]
-  (response/ok {:total-count (get-total-count-cached)}))
+  (response/ok {:total-count (cache/get active-session-cache :total-count)}))
 
 (defn oauth-apps-get [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)]

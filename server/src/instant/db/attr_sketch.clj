@@ -1,11 +1,10 @@
 (ns instant.db.attr-sketch
   (:require
-   [clojure.core.cache.wrapped :as cache]
    [clojure.pprint]
    [honey.sql :as hsql]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
-   [instant.util.cache :as ucache]
+   [instant.util.cache :as cache]
    [instant.util.coll :as ucoll]
    [instant.util.tracer :as tracer])
   (:import
@@ -334,9 +333,10 @@
     (when row
       (record->Sketch row))))
 
-(def lookup-cache (-> (cache/lru-cache-factory {} :threshold 4096)
-                      deref
-                      (cache/ttl-cache-factory :ttl (* 1000 60 5))))
+(def lookup-cache
+  (cache/make
+   {:max-size 4096
+    :ttl      (* 1000 60 5)}))
 
 (defn lookup* [conn keys]
   (if-not (seq keys)
@@ -350,11 +350,12 @@
                      {:select [[[:unnest :?app-ids] :app-id]
                                [[:unnest :?attr-ids] :attr-id]]}]}
           rows (sql/select ::lookup conn (hsql/format q params))]
-      (ucoll/reduce-tr (fn [acc row]
-                         (let [sketch (record->Sketch row)]
-                           (assoc! acc (select-keys sketch [:app-id :attr-id]) sketch)))
-                       {}
-                       rows))))
+      (ucoll/reduce-tr
+       (fn [acc row]
+         (let [sketch (record->Sketch row)]
+           (assoc! acc (select-keys sketch [:app-id :attr-id]) sketch)))
+       {}
+       rows))))
 
 (defn lookup
   "Takes a set of {:app-id attr-id} maps and fetches sketches, if they exist.
@@ -363,7 +364,7 @@
    (lookup (aurora/conn-pool :read) keys))
   ([conn keys]
    (if (= conn (aurora/conn-pool :read))
-     (ucache/lookup-or-miss-batch lookup-cache keys (partial lookup* conn))
+     (cache/get-all lookup-cache keys #(lookup* conn %))
      (lookup* conn keys))))
 
 (defn- create-empty-sketch-rows!

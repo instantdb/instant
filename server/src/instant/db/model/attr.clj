@@ -1,6 +1,5 @@
 (ns instant.db.model.attr
   (:require
-   [clojure.core.cache.wrapped :as cache]
    [clojure.set :refer [map-invert]]
    [clojure.spec.alpha :as s]
    [clojure.string :as string]
@@ -9,7 +8,7 @@
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.system-catalog :refer [system-catalog-app-id]]
-   [instant.util.cache :refer [lookup-or-miss]]
+   [instant.util.cache :as cache]
    [instant.util.coll :as coll]
    [instant.util.crypt :refer [json-null-md5]]
    [instant.util.exception :as ex]
@@ -161,10 +160,11 @@
 ;; -------
 ;; caching
 
-(def attr-cache (cache/lru-cache-factory {} :threshold 256))
+(def attr-cache
+  (cache/make {:max-size 512}))
 
 (defn evict-app-id-from-cache [app-id]
-  (cache/evict attr-cache app-id))
+  (cache/invalidate attr-cache app-id))
 
 (defmacro with-cache-invalidation [app-id & body]
   `(do
@@ -879,7 +879,9 @@
 
 (defn get-by-app-id*
   "Returns clj representation of all attrs for an app"
-  [conn app-id]
+  ([app-id]
+   (get-by-app-id* (aurora/conn-pool :read) app-id))
+  ([conn app-id]
   (wrap-attrs
    (mapv row->attr
          (sql/select
@@ -896,11 +898,11 @@
             ORDER BY
               id ASC"
            {"?app-id" app-id
-            "?system-catalog-app-id" system-catalog-app-id})))))
+            "?system-catalog-app-id" system-catalog-app-id}))))))
 
 (defn get-by-app-id
   ([app-id]
-   (lookup-or-miss attr-cache app-id (partial get-by-app-id* (aurora/conn-pool :read))))
+   (cache/get attr-cache app-id get-by-app-id*))
   ([conn app-id]
    (if (= conn (aurora/conn-pool :read))
      (get-by-app-id app-id)

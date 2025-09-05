@@ -1,6 +1,5 @@
 (ns instant.model.app
   (:require
-   [clojure.core.cache.wrapped :as cache]
    [clojure.set :refer [rename-keys]]
    [honey.sql :as hsql]
    [instant.db.model.attr :as attr-model]
@@ -10,7 +9,7 @@
    [instant.model.instant-user :as instant-user-model]
    [instant.model.rule :as rule-model]
    [instant.system-catalog-ops :refer [query-op]]
-   [instant.util.cache :refer [lookup-or-miss]]
+   [instant.util.cache :as cache]
    [instant.util.crypt :as crypt-util]
    [instant.util.exception :as ex]
    [instant.util.hsql :as uhsql]
@@ -19,23 +18,20 @@
   (:import
    (java.util UUID)))
 
-(def app-cache (cache/lru-cache-factory {} :threshold 256))
+(def app-cache
+  (cache/make {:max-size 512}))
 
 (defn evict-app-id-from-cache [app-id]
-  (cache/evict app-cache app-id))
-
-(defn evict-app-ids-from-cache [app-ids]
-  (doseq [app-id app-ids]
-    (evict-app-id-from-cache app-id)))
+  (cache/invalidate app-cache app-id))
 
 (defmacro with-cache-invalidation [app-id-or-ids & body]
   `(let [input# ~app-id-or-ids
          ids# (if (coll? input#)
                 input#
                 [input#])]
-     (evict-app-ids-from-cache ids#)
+     (cache/invalidate-all app-cache ids#)
      (let [res# ~@body]
-       (evict-app-ids-from-cache ids#)
+       (cache/invalidate-all app-cache ids#)
        res#)))
 
 (defn create!
@@ -59,14 +55,17 @@
          app-with-token (sql/execute-one! ::create! conn (hsql/format query))]
      (rename-keys app-with-token {:admin_token :admin-token}))))
 
-(defn get-by-id* [conn id]
-  (sql/select-one ::get-by-id*
-                  conn
-                  ["SELECT * FROM apps WHERE apps.id = ?::uuid AND apps.deletion_marked_at IS NULL" id]))
+(defn get-by-id*
+  ([id]
+   (get-by-id* (aurora/conn-pool :read) id))
+  ([conn id]
+   (sql/select-one ::get-by-id*
+                   conn
+                   ["SELECT * FROM apps WHERE apps.id = ?::uuid AND apps.deletion_marked_at IS NULL" id])))
 
 (defn get-by-id
   ([{:keys [id]}]
-   (lookup-or-miss app-cache id (partial get-by-id* (aurora/conn-pool :read))))
+   (cache/get app-cache id get-by-id*))
   ([conn {:keys [id] :as params}]
    (if (= conn (aurora/conn-pool :read))
      (get-by-id params)
