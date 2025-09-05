@@ -95,11 +95,6 @@ const _schema = i.schema({
       setting: i.string().unique(),
       toggled: i.boolean(),
     }),
-    "view-checks": i.entity({
-      "default-value": i.boolean().optional(),
-      "disabled-apps": i.any().optional(),
-      "enabled-apps": i.any().optional(),
-    }),
     "welcome-email-config": i.entity({
       "enabled?": i.boolean(),
       limit: i.number(),
