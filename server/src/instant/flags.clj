@@ -19,7 +19,6 @@
             :test-emails {}
             :use-patch-presence {}
             :refresh-skip-attrs {}
-            :new-permissioned-transact {}
             :store-fair-lock {}
             :drop-refresh-spam {}
             :promo-emails {}
@@ -104,23 +103,6 @@
                                 :default-value default-value
                                 :disabled? disabled?}))
 
-        new-permissioned-transact
-        (when-let [hz-flag (-> (get result "new-permissioned-transact")
-                               first)]
-          (let [disabled-apps (-> hz-flag
-                                  (get "disabled-apps")
-                                  (#(map parse-uuid %))
-                                  set)
-                enabled-apps (-> hz-flag
-                                 (get "enabled-apps")
-                                 (#(map parse-uuid %))
-                                 set)
-                default-value (get hz-flag "default-value" false)
-                disabled? (get hz-flag "disabled" false)]
-            {:disabled-apps disabled-apps
-             :enabled-apps enabled-apps
-             :default-value default-value
-             :disabled? disabled?}))
 
         store-fair-lock
         (when-let [hz-flag (-> (get result "store-fair-lock")
@@ -224,7 +206,6 @@
      :storage-block-list storage-block-list
      :use-patch-presence use-patch-presence
      :refresh-skip-attrs refresh-skip-attrs
-     :new-permissioned-transact new-permissioned-transact
      :store-fair-lock store-fair-lock
      :promo-code-emails promo-code-emails
      :drop-refresh-spam drop-refresh-spam
@@ -320,24 +301,6 @@
       :else
       default-value)))
 
-(defn new-permissioned-transact? [app-id]
-  (let [flag (:new-permissioned-transact (query-result))
-        {:keys [disabled-apps enabled-apps default-value disabled?]} flag]
-    (cond
-      (nil? flag)
-      true
-
-      disabled?
-      false
-
-      (contains? disabled-apps app-id)
-      false
-
-      (contains? enabled-apps app-id)
-      true
-
-      :else
-      default-value)))
 
 (defn store-fair-lock? [app-id]
   (let [flag (:store-fair-lock (query-result))
