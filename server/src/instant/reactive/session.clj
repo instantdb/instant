@@ -112,8 +112,7 @@
                      :user   user
                      :admin? admin?}
         parsed-version  (some-> versions (get core-version-key) (semver/parse))
-        can-skip-attrs? (and (flags/refresh-skip-attrs? app-id)
-                             parsed-version
+        can-skip-attrs? (and parsed-version
                              (pos? (semver/compare-semver parsed-version refresh-skip-attrs-min-version)))]
     (tracer/add-data! {:attributes (auth-and-creator-attrs auth creator versions)})
     (apply rs/assoc-session! store sess-id
@@ -144,8 +143,7 @@
            :session/creator creator
            (concat (when-let [versions (:versions ctx)]
                      [:session/versions versions])
-                   (when (flags/refresh-skip-attrs? (:id app))
-                     [:session/attrs-hash (hash attrs)])))))
+                   [:session/attrs-hash (hash attrs)]))))
 
 (defn- get-auth! [store sess-id]
   (let [{:session/keys [auth]} (rs/session store sess-id)]
@@ -249,8 +247,7 @@
         {prev-attrs-hash :session/attrs-hash
          version :session/versions} (rs/session store sess-id)
         parsed-version  (some-> version (get core-version-key) (semver/parse))
-        can-skip-attrs? (and (flags/refresh-skip-attrs? app-id)
-                             parsed-version
+        can-skip-attrs? (and parsed-version
                              (pos? (semver/compare-semver parsed-version refresh-skip-attrs-min-version)))
         attrs-hash      (hash attrs)
         attrs-changed?  (not= prev-attrs-hash attrs-hash)]

@@ -69,12 +69,6 @@ const _schema = i.schema({
     "rate-limited-apps": i.entity({
       appId: i.string().unique(),
     }),
-    "refresh-skip-attrs": i.entity({
-      "default-value": i.boolean().optional(),
-      disabled: i.boolean().optional(),
-      "disabled-apps": i.any().optional(),
-      "enabled-apps": i.any().optional(),
-    }),
     "rule-where-testing": i.entity({
       enabled: i.boolean(),
     }),
