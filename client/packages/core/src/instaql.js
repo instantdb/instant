@@ -578,10 +578,8 @@ function objectAttrs(store, etype, dq) {
   return attrs;
 }
 
-function runDataloadAndReturnObjects(
-  store,
-  { etype, pageInfo, order, dq, form },
-) {
+function runDataloadAndReturnObjects(store, { etype, pageInfo, dq, form }) {
+  const order = form?.$?.order;
   const isLeadingQuery = isLeading(form);
   const direction = determineDirection(form);
 
@@ -623,7 +621,7 @@ function runDataloadAndReturnObjects(
       continue;
     }
     if (
-      !isLeading(form) &&
+      !isLeadingQuery &&
       startCursor &&
       orderAttr &&
       isBefore(startCursor, orderAttr, direction, idVec)
