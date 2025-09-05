@@ -887,7 +887,7 @@ test('pagination first', () => {
   expect(books.length).toEqual(10);
 });
 
-test('Pagination order:desc without offsets work with optimistic updates', () => {
+test('Leading queries should ignore the start cursor', () => {
   function storeWithUpdatedNicole() {
     const chunk = tx.users[lookup('handle', 'nicolegf')].update({
       createdAt: '2025-09-05 18:53:07.993689',
@@ -909,7 +909,7 @@ test('Pagination order:desc without offsets work with optimistic updates', () =>
     return transact(store, txSteps);
   }
 
-  // Existing pageInfo from server: starts at Nicole, ends at Alex
+  // Existing pageInfo from server: starts at Nicole (2021-02-05), ends at Alex (2021-01-09)
   const pageInfo = {
     users: {
       'start-cursor': [
@@ -941,8 +941,9 @@ test('Pagination order:desc without offsets work with optimistic updates', () =>
   ).data.users.map((x) => x.handle);
   expect(existingUsers).toEqual(['nicolegf', 'alex']);
 
-  // Let's update Nicole's createdAt to be later. She should _still_ show up, even though the cursor
-  // says otherwise
+  // Let's update Nicole's createdAt to be later.
+  // She should _still_ show up,
+  // even though the cursor says otherwise
   const usersWithUpdatedNicole = query(
     { store: storeWithUpdatedNicole(), pageInfo },
     {
@@ -958,7 +959,9 @@ test('Pagination order:desc without offsets work with optimistic updates', () =>
   ).data.users.map((x) => x.handle);
   expect(usersWithUpdatedNicole).toEqual(['nicolegf', 'alex']);
 
-  // Let's add Bob. Bob _should_ show up, since we don't have any offsets on this query
+  // Let's add Bob.
+  // Bob _should_ show up,
+  // even though the cursor says otherwise
   const usersWithBob = query(
     { store: storeWithBob(), pageInfo },
     {
