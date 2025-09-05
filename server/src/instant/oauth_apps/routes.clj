@@ -4,7 +4,7 @@
             [hiccup2.core :as h]
             [instant.auth.oauth :refer [verify-pkce!]]
             [instant.config :as config]
-            [instant.dash.routes :refer [get-member-role req->auth-user!]]
+            [instant.dash.routes :refer [get-app-member-role get-org-member-role req->auth-user!]]
             [instant.model.app :as app-model]
             [instant.model.oauth-app :as oauth-app-model]
             [instant.runtime.routes :refer [format-cookie parse-cookie]]
@@ -230,8 +230,9 @@
                          (= "localhost" (:host (uri/parse (:redirect_uri redirect)))))
                      (not (app-model/get-by-id-and-creator {:app-id (:app_id oauth-app)
                                                             :user-id (:id user)}))
-                     (not (get-member-role (:app_id oauth-app)
-                                           (:id user))))
+                     (let [app (app-model/get-by-id! {:id (:app_id oauth-app)})]
+                       (not (or (get-app-member-role app (:id user))
+                                (get-org-member-role app (:id user))))))
             (oauth-app-model/deny-redirect! {:redirect-id redirect-id})
             (ex/throw+ {::ex/type ::ex/permission-denied
                         ::ex/message

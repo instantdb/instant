@@ -397,7 +397,7 @@
 
 (deftest app-access-works-through-orgs
   (with-startup-org
-    (fn [{:keys [app org owner collaborator admin outside-user]}]
+    (fn [{:keys [app owner collaborator admin outside-user]}]
       ;; Check a path available to all members of the app
       (let [auth-path (format "%s/dash/apps/%s/auth" config/server-origin (:id app))]
         (doseq [{:keys [user expected type]} [{:type "owner"
