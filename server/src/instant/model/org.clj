@@ -49,8 +49,11 @@
                                                                 :o.created-at
                                                                 :o.updated-at
                                                                 [[:inline "app-member" :role]]
-                                                                ;; (we check in the join that it's a paid org)
-                                                                [:true :paid]]
+                                                                [[:coalesce [:=
+                                                                             [:inline plans/STARTUP_SUBSCRIPTION_TYPE]
+                                                                             :org-s.subscription_type_id]
+                                                                  false]
+                                                                 :paid]]
                                            :from [[:orgs :o]]
                                            :join [[:apps :a] [:= :a.org_id :o.id]
                                                   [:app_members :m] [:= :m.app-id :a.id]]
@@ -176,8 +179,11 @@
                                                     :o.created-at
                                                     :o.updated-at
                                                     [[:inline "app-member"] :role]
-                                                    ;; (checked in the join below)
-                                                    [:true :paid]]
+                                                    [[:coalesce [:=
+                                                                 [:inline plans/STARTUP_SUBSCRIPTION_TYPE]
+                                                                 :org-s.subscription_type_id]
+                                                      false]
+                                                     :paid]]
                                            :from [[:orgs :o]]
                                            :join [[:apps :a] [:= :a.org_id :o.id]
                                                   [:app_members :m] [:= :m.app-id :a.id]]
