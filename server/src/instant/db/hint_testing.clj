@@ -2,11 +2,10 @@
   (:refer-clojure :exclude [test])
   (:require
    [clojure.core.async :as a]
-   [clojure.core.cache.wrapped :as cache]
    [instant.db.datalog :as d]
    [instant.flags :as flags]
    [instant.jdbc.sql :as sql]
-   [instant.util.cache :refer [lookup-or-miss]]
+   [instant.util.cache :as cache]
    [instant.util.instaql :refer [forms-hash]]
    [instant.util.json :refer [->json]]
    [instant.util.tracer :as tracer]
@@ -95,7 +94,7 @@
 (def seen
   "Keeps track of the query hashes that we've already seen so that we
    can try to get more variety in our sampling."
-  (cache/ttl-cache-factory {} :ttl (* 1000 60)))
+  (cache/make {:ttl (* 1000 60)}))
 
 (defn test-pg-hints-for-datalog-query [ctx patterns query query-hash]
   (tracer/with-new-trace-root
@@ -162,7 +161,7 @@
   explain (analyze) time and indexes used for each datalog query
   individually."
   [ctx permissioned-query-fn o query-hash]
-  (lookup-or-miss seen query-hash (constantly true))
+  (cache/get seen query-hash (constantly true))
   (tracer/with-new-trace-root
     (tracer/with-span! {:name "test-pg-hint-plan"
                         :attributes (merge {:query o
@@ -191,7 +190,7 @@
 
 (defn worth-testing? [_ctx _o query-hash]
   (and (flags/toggled? :test-pg-hint-plan)
-       (not (cache/lookup seen query-hash))))
+       (not (cache/get-if-present seen query-hash))))
 
 (defonce process-chan (atom (a/chan (a/sliding-buffer 10))))
 

@@ -2,8 +2,7 @@
   (:require
    [chime.core :as chime-core]
    [clj-http.client :as clj-http]
-   [clojure.core.cache.wrapped :as cache]
-   [instant.util.cache :refer [lookup-or-miss]]
+   [instant.util.cache :as cache]
    [instant.util.exception :as ex]
    [instant.util.lang :as lang]
    [instant.util.tracer :as tracer])
@@ -56,25 +55,26 @@
        :keys keys})))
 
 (defonce keys-cache
-  (cache/lru-cache-factory {} :threshold 32))
+  (cache/make
+   {:max-size 32
+    :value-fn get-keys}))
 
 (defn find-key [{:keys [jwks-uri key-id no-recur]}]
-  (let [{:keys [keys expires]} (lookup-or-miss keys-cache jwks-uri get-keys)]
+  (let [{:keys [keys expires]} (cache/get keys-cache jwks-uri)]
     (if-let [key (first (filter #(= key-id (Jwk/.getId %)) keys))]
       key
       ;; If we're close to cache expiry, try refreshing the cache
       (if (and (not no-recur)
                (> 120 (.getSeconds (Duration/between (Instant/now) expires))))
         (do
-          (cache/evict keys-cache jwks-uri)
+          (cache/invalidate keys-cache jwks-uri)
           (find-key {:jwks-uri jwks-uri :key-id key-id :no-recur true}))
         (throw (SigningKeyNotFoundException.
                 (str "No key found in " jwks-uri " with kid " key-id)
                 nil))))))
 
 (defn- refresh-cached-keys [jwks-uri]
-  (let [data (get-keys jwks-uri)]
-    (swap! keys-cache assoc jwks-uri data)))
+  (cache/put keys-cache jwks-uri (get-keys jwks-uri)))
 
 (defn- get-alg [jwt]
   (.getAlgorithm (JWT/decode jwt)))
@@ -154,7 +154,7 @@
      (-> (chime-core/periodic-seq (Instant/now) (Duration/ofHours 1))
          rest)
      (fn [_time]
-       (for [[endpoint {:keys [expires]}] @keys-cache
+       (for [[endpoint {:keys [expires]}] (cache/as-map keys-cache)
              :when (> 65 (.toMinutes (Duration/between (Instant/now) expires)))]
          (tracer/with-span! {:name "jwk/updating-certs"
                              :endpoint endpoint}

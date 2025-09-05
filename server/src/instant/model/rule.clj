@@ -1,6 +1,5 @@
 (ns instant.model.rule
   (:require
-   [clojure.core.cache.wrapped :as cache]
    [clojure.set]
    [clojure.string :as string]
    [honey.sql :as hsql]
@@ -8,16 +7,17 @@
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.system-catalog :as system-catalog]
-   [instant.util.cache :refer [lookup-or-miss]]
+   [instant.util.cache :as cache]
    [instant.util.exception :as ex]
    [instant.util.json :refer [->json]])
   (:import
    (dev.cel.common CelIssue CelValidationException)))
 
-(def rule-cache (cache/lru-cache-factory {} :threshold 256))
+(def rule-cache
+  (cache/make {:max-size 512}))
 
 (defn evict-app-id-from-cache [app-id]
-  (cache/evict rule-cache app-id))
+  (cache/invalidate rule-cache app-id))
 
 (defmacro with-cache-invalidation [app-id & body]
   `(do
@@ -50,13 +50,16 @@
                     :on-conflict :app-id
                     :do-update-set {:code [:|| :rules.code :excluded.code]}})))))
 
-(defn get-by-app-id* [conn app-id]
-  (sql/select-one ::get-by-app-id*
-                  conn ["SELECT * FROM rules WHERE app_id = ?::uuid" app-id]))
+(defn get-by-app-id*
+  ([app-id]
+   (get-by-app-id* (aurora/conn-pool :read) app-id))
+  ([conn app-id]
+   (sql/select-one ::get-by-app-id*
+                   conn ["SELECT * FROM rules WHERE app_id = ?::uuid" app-id])))
 
 (defn get-by-app-id
   ([{:keys [app-id]}]
-   (lookup-or-miss rule-cache app-id (partial get-by-app-id* (aurora/conn-pool :read))))
+   (cache/get rule-cache app-id get-by-app-id*))
   ([conn {:keys [app-id]}]
    ;; Don't cache if we're using a custom connection
    (get-by-app-id* conn app-id)))
@@ -163,15 +166,15 @@
            :where-clauses-program (when (= action "view")
                                     (cel/where-clauses-program code))})))))
 
-(def program-cache (cache/lru-cache-factory {} :threshold 2048))
+(def program-cache
+  (cache/make {:max-size 2048}))
 
 ;; If you load the cel ns, the deftypes will get wiped out and the
 ;; rules in the cache will stop working. This clears the cache when its loaded
-(cel/set-afterload (fn []
-                     (reset! program-cache
-                             @(cache/lru-cache-factory {} :threshold 2048))))
+(cel/set-afterload
+ #(cache/invalidate-all program-cache))
 
-(defn get-program!* [{:keys [code]} paths]
+(defn get-program!* [[{:keys [code]} paths]]
   (let [[etype _ action & _] (first paths)]
     (loop [paths paths]
       (when-some [[_ allow _ & _ :as path] (first paths)]
@@ -206,11 +209,7 @@
 
 (defn get-program!
   ([rules paths]
-   (lookup-or-miss
-    program-cache
-    [rules paths]
-    (fn [[rules paths]]
-      (get-program!* rules paths))))
+   (cache/get program-cache [rules paths] get-program!*))
   ([rules etype action]
    (get-program!
     rules

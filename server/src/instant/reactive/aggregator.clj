@@ -1,7 +1,6 @@
 (ns instant.reactive.aggregator
   (:require
    [clojure.core.async :as a]
-   [clojure.core.cache.wrapped :as cache]
    [instant.config :as config]
    [instant.db.attr-sketch :as cms]
    [instant.db.model.triple :as triple]
@@ -10,6 +9,7 @@
    [instant.jdbc.copy :as copy]
    [instant.jdbc.wal :as wal]
    [instant.util.async :as ua]
+   [instant.util.cache :as cache]
    [instant.util.json :refer [<-json]]
    [instant.util.tracer :as tracer])
   (:import
@@ -331,7 +331,7 @@
                                                                  :max-lsn max-lsn})))
     (let [{:keys [cached-sketches remaining-keys]}
           (reduce (fn [acc k]
-                    (if-let [cached (cache/lookup sketch-cache k)]
+                    (if-some [cached (cache/get-if-present sketch-cache k)]
                       (-> acc
                           (assoc-in [:cached-sketches k] cached))
                       (update acc :remaining-keys conj k)))
@@ -360,7 +360,7 @@
                      changes)]
       (doseq [sketch sketches
               :let [k (select-keys sketch [:app-id :attr-id])]]
-        (cache/miss sketch-cache k sketch))
+        (cache/put sketch-cache k sketch))
 
       (cms/save-sketches! conn {:sketches sketches
                                 :previous-lsn previous-lsn
@@ -375,7 +375,7 @@
            start-lsn flush-lsn-chan on-error slot-name process-id]}]
 
   ;; sketch cache should live here
-  (let [sketch-cache (cache/lru-cache-factory {} :threshold 4092)
+  (let [sketch-cache (cache/make {:max-size 4096})
         process-chan (ua/chunked-chan {:flush-ms sketch-flush-ms
                                        :max-size sketch-flush-max-items
                                        :combine combine-sketch-changes

@@ -1,16 +1,17 @@
 (ns instant.db.rule-where-testing
-  (:require [clojure.core.async :as a]
-            [clojure.core.cache.wrapped :as cache]
-            [instant.db.datalog :as d]
-            [instant.flags :as flags]
-            [instant.jdbc.sql :as sql]
-            [instant.model.rule :as rule-model]
-            [instant.util.coll :as ucoll]
-            [instant.util.cache :refer [lookup-or-miss]]
-            [instant.util.tracer :as tracer]
-            [instant.util.instaql :refer [instaql-nodes->object-tree forms-hash]]))
+  (:require
+   [clojure.core.async :as a]
+   [instant.db.datalog :as d]
+   [instant.flags :as flags]
+   [instant.jdbc.sql :as sql]
+   [instant.model.rule :as rule-model]
+   [instant.util.coll :as ucoll]
+   [instant.util.cache :as cache]
+   [instant.util.tracer :as tracer]
+   [instant.util.instaql :refer [instaql-nodes->object-tree forms-hash]]))
 
-(def seen (cache/ttl-cache-factory {} :ttl (* 1000 60)))
+(def seen
+  (cache/make {:ttl (* 1000 60)}))
 
 (defn run-test [ctx permissioned-query-fn o]
   (let [start (System/nanoTime)
@@ -25,7 +26,7 @@
      :error? (instance? Exception res)}))
 
 (defn test-rule-wheres [ctx permissioned-query-fn o query-hash]
-  (lookup-or-miss seen query-hash (constantly true))
+  (cache/get seen query-hash (constantly true))
   (tracer/with-new-trace-root
     (tracer/with-span! {:name "test-rule-wheres"
                         :attributes (merge {:query o
@@ -69,7 +70,7 @@
 
 (defn worth-testing? [ctx o query-hash]
   (and (flags/test-rule-wheres?)
-       (not (cache/lookup seen query-hash))
+       (not (cache/get-if-present seen query-hash))
        (let [rules (rule-model/get-by-app-id {:app-id (:app-id ctx)})]
          (and rules
               (ucoll/exists? (fn [field]
