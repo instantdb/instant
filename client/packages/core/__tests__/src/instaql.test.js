@@ -887,6 +887,94 @@ test('pagination first', () => {
   expect(books.length).toEqual(10);
 });
 
+test('Pagination order:desc without offsets work with optimistic updates', () => {
+  function storeWithUpdatedNicole() {
+    const chunk = tx.users[lookup('handle', 'nicolegf')].update({
+      createdAt: '2025-09-05 18:53:07.993689',
+    });
+
+    const txSteps = instaml.transform({ attrs: store.attrs }, chunk);
+    return transact(store, txSteps);
+  }
+
+  function storeWithBob() {
+    const chunk = tx.users[randomUUID()].update({
+      fullName: 'bob',
+      email: 'bob@instantdb.com',
+      handle: 'bob',
+      createdAt: '2025-09-05 18:53:07.993689',
+    });
+
+    const txSteps = instaml.transform({ attrs: store.attrs }, chunk);
+    return transact(store, txSteps);
+  }
+
+  // Existing pageInfo from server: starts at Nicole, ends at Alex
+  const pageInfo = {
+    users: {
+      'start-cursor': [
+        '0f3d67fc-8b37-4b03-ac47-29fec4edc4f7',
+        '2ffdf0fc-1561-4fc5-96db-2210a41adfa6',
+        '2021-02-05 22:35:23.754264',
+        1718118127976,
+      ],
+      'end-cursor': [
+        'ad45e100-777a-4de8-8978-aa13200a4824',
+        '2ffdf0fc-1561-4fc5-96db-2210a41adfa6',
+        '2021-01-09 18:53:07.993689',
+        1718117855976,
+      ],
+    },
+  };
+  const existingUsers = query(
+    { store, pageInfo },
+    {
+      users: {
+        $: {
+          limit: 2,
+          order: {
+            createdAt: 'desc',
+          },
+        },
+      },
+    },
+  ).data.users.map((x) => x.handle);
+  expect(existingUsers).toEqual(['nicolegf', 'alex']);
+
+  // Let's update Nicole's createdAt to be later. She should _still_ show up, even though the cursor
+  // says otherwise
+  const usersWithUpdatedNicole = query(
+    { store: storeWithUpdatedNicole(), pageInfo },
+    {
+      users: {
+        $: {
+          limit: 2,
+          order: {
+            createdAt: 'desc',
+          },
+        },
+      },
+    },
+  ).data.users.map((x) => x.handle);
+  expect(usersWithUpdatedNicole).toEqual(['nicolegf', 'alex']);
+
+  // Let's add Bob. Bob _should_ show up, since we don't have any offsets on this query
+  const usersWithBob = query(
+    { store: storeWithBob(), pageInfo },
+    {
+      users: {
+        $: {
+          limit: 2,
+          order: {
+            createdAt: 'desc',
+          },
+        },
+      },
+    },
+  ).data.users.map((x) => x.handle);
+  expect(usersWithBob).toEqual(['bob', 'nicolegf']);
+});
+
 test('arbitrary ordering', () => {
   const books = query(
     { store },

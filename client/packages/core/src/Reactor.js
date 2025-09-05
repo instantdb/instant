@@ -529,8 +529,8 @@ export default class Reactor {
             mutations,
             processedTxId,
           );
-
           const pageInfo = result?.[0]?.data?.['page-info'];
+          debugger;
           const aggregate = result?.[0]?.data?.['aggregate'];
           return { hash, store: newStore, pageInfo, aggregate };
         });
