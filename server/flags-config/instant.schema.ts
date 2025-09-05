@@ -14,10 +14,6 @@ const _schema = i.schema({
     $users: i.entity({
       email: i.string().unique().indexed().optional(),
     }),
-    "app-users-to-triples-migration": i.entity({
-      appId: i.string().optional(),
-      processId: i.string().optional(),
-    }),
     "e2e-logging": i.entity({
       "invalidator-rate": i.number(),
     }),
