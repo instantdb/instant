@@ -5,8 +5,10 @@
    [clojure+.error]
    [clojure+.print]
    [clojure+.test]
+   [instant.core :as core]
    [instant.config :as config]
    [instant.jdbc.aurora :as aurora]
+   [instant.stripe :as stripe]
    [instant.system-catalog-migration :as system-catalog-migration]
    [instant.util.crypt :as crypt-util]
    [instant.util.tracer :as tracer]))
@@ -19,9 +21,12 @@
   (crypt-util/init (:aead-keyset (config/init)))
   (tracer/init)
   (aurora/start)
+  (core/start)
   (system-catalog-migration/ensure-attrs-on-system-catalog-app)
+  (stripe/init)
   (let [results (test-suite-fn)]
     (aurora/stop)
+    (core/stop)
     results))
 
 (defn -main [& _args]

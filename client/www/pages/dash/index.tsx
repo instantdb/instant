@@ -84,6 +84,7 @@ import clsx from 'clsx';
 import AuthorizedOAuthAppsScreen from '@/components/dash/AuthorizedOAuthAppsScreen';
 import { useNamespacesQuery, useSchemaQuery } from '@/lib/hooks/explorer';
 import { getLocallySavedApp, setLocallySavedApp } from '@/lib/locallySavedApp';
+import Orgs from '@/components/dash/Orgs';
 
 // (XXX): we may want to expose this underlying type
 type InstantReactClient = ReturnType<typeof init>;
@@ -114,7 +115,8 @@ type Screen =
   | 'user-settings'
   | 'personal-access-tokens'
   | 'new'
-  | 'invites';
+  | 'invites'
+  | 'org';
 
 function defaultTab(screen: 'main'): MainTabId;
 function defaultTab(screen: 'user-settings'): UserSettingsTabId;
@@ -427,6 +429,7 @@ function Dashboard() {
       invites: [],
       user_app_role: 'owner',
       magic_code_email_template: null,
+      org: null,
     };
 
     dashResponse.mutate(
@@ -468,6 +471,17 @@ function Dashboard() {
         </Head>
         <StyledToastContainer />
         <PersonalAccessTokensScreen className="mx-auto" />
+      </div>
+    );
+  }
+  if (screen === 'org') {
+    return (
+      <div className="flex h-full w-full flex-col overflow-hidden md:flex-row">
+        <Head>
+          <title>Instant - Orgs playground</title>
+        </Head>
+        <StyledToastContainer />
+        <Orgs orgId={router.query.org} />
       </div>
     );
   }
@@ -713,8 +727,10 @@ function Invites({
             >
               <div>
                 <strong>{invite.inviter_email}</strong> invited you to{' '}
-                <strong>{invite.app_title}</strong> as{' '}
-                <strong>{invite.invitee_role}</strong>.
+                <strong>
+                  {'type' in invite ? invite.title : invite.app_title}
+                </strong>{' '}
+                as <strong>{invite.invitee_role}</strong>.
               </div>
               <div className="flex gap-1">
                 <ActionButton
@@ -722,7 +738,7 @@ function Invites({
                   label="Accept"
                   submitLabel="Accepting..."
                   errorMessage="An error occurred when attempting to accept the invite."
-                  successMessage={`You're part of the team for ${invite.app_title}!`}
+                  successMessage={`You're part of the team for ${'type' in invite ? invite.title : invite.app_title}!`}
                   onClick={async () => {
                     await jsonMutate(`${config.apiURI}/dash/invites/accept`, {
                       token,
@@ -734,7 +750,16 @@ function Invites({
                     await dashResponse.mutate();
 
                     if (invites.length === 1) {
-                      nav({ s: 'main', t: 'home', app: invite.app_id });
+                      const appId =
+                        'app_id' in invite
+                          ? invite.app_id
+                          : invite.type === 'app'
+                            ? invite.foreign_key
+                            : null;
+                      if (appId) {
+                        // TODO(orgs): redirect to org page here
+                        nav({ s: 'main', t: 'home', app: appId });
+                      }
                     }
                   }}
                 />
@@ -1598,9 +1623,14 @@ function FullscreenErrorMessage({ message }: { message: string }) {
 
 // UTILS
 
-function createApp(
+export function createApp(
   token: string,
-  toCreate: { id: string; title: string; admin_token: string },
+  toCreate: {
+    id: string;
+    title: string;
+    admin_token: string;
+    org_id?: string | null | undefined;
+  },
 ) {
   return jsonFetch(`${config.apiURI}/dash/apps`, {
     method: 'POST',

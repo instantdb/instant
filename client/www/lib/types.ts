@@ -17,6 +17,7 @@ export type InstantApp = {
     body: string;
     subject: string;
   } | null;
+  org: { id: string; title: string } | null;
 };
 
 export type InstantMember = {
@@ -25,13 +26,27 @@ export type InstantMember = {
   role: 'admin' | 'collaborator';
 };
 
-export type InstantMemberInvite = {
+// TODO(orgs): Remove once backend deploys
+type InstantMemberInviteOld = {
   id: string;
   app_id: string;
   app_title: string;
-  invitee_role: 'admin' | 'collaborator';
+  invitee_role: 'admin' | 'collaborator' | 'owner';
   inviter_email: string;
 };
+
+type InstantMemberInviteNew = {
+  id: string;
+  type: 'app' | 'org';
+  foreign_key: string;
+  title: string;
+  invitee_role: 'admin' | 'collaborator' | 'owner';
+  inviter_email: string;
+};
+
+export type InstantMemberInvite =
+  | InstantMemberInviteOld
+  | InstantMemberInviteNew;
 
 export type InstantAppInvite = {
   id: string;
@@ -101,6 +116,12 @@ export type DashResponse = {
     email: string;
     id: string;
   };
+  orgs?: {
+    id: string;
+    title: string;
+    created_at: string;
+    role: 'owner' | 'admin' | 'collaborator';
+  }[];
 };
 
 export type AppError = { body: { message: string } | undefined };

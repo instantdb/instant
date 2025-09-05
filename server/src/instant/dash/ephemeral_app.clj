@@ -12,7 +12,8 @@
    [instant.util.string :as string-util]
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
-   [ring.util.http-response :as response])
+   [ring.util.http-response :as response]
+   [clojure.walk :as w])
   (:import
    (java.time Period ZonedDateTime)
    (java.time.temporal ChronoUnit)
@@ -49,7 +50,7 @@
 (defn http-post-handler [req]
   (let [title (ex/get-param! req [:body :title] string-util/coerce-non-blank-str)
         schema (get-in req [:body :schema])
-        rules-code (get-in req [:body :rules :code])
+        rules-code (ex/get-optional-param! req [:body :rules :code] w/stringify-keys)
         _ (when rules-code
             (ex/assert-valid! :rule rules-code (rule-model/validation-errors
                                                 rules-code)))
@@ -67,7 +68,9 @@
                   :expires_ms (app-expires-ms app)})))
 
 (comment
-  (http-post-handler {:body {:title "my-app"}}))
+  (http-post-handler {:body {:title "my-app"}})
+  (http-post-handler {:body {:title "my-app"
+                             :rules {:code {:ns {:bind ["auth"]}}}}}))
 
 (defn http-get-handler [req]
   (let [app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)

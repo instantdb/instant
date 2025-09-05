@@ -761,7 +761,8 @@
            checked_data_type
            checking_data_type
            indexing
-           setting_unique]}]
+           setting_unique
+           deletion_marked_at]}]
   (cond-> (transient {:id               id
                       :value-type       (keyword value_type)
                       :cardinality      (keyword cardinality)
@@ -781,6 +782,7 @@
     checking_data_type (assoc! :checking-data-type? true)
     indexing           (assoc! :indexing? true)
     setting_unique     (assoc! :setting-unique? true)
+    deletion_marked_at (assoc! :deletion-marked-at deletion_marked_at)
     true               persistent!))
 
 ;; Creates a wrapper over attrs. Makes them act like a regular list, but
@@ -854,6 +856,24 @@
 
 (defn unwrap [^Attrs attrs]
   (.-elements attrs))
+
+(defn get-soft-deleted-by-app-id
+  [conn app-id]
+  (mapv row->attr
+        (sql/select
+         ::get-soft-deleted-by-app-id
+         conn
+         (sql/format
+          "SELECT 
+            *
+           FROM
+             attrs
+           WHERE
+             app_id = CAST(?app-id AS UUID) 
+             AND deletion_marked_at IS NOT NULL
+           ORDER BY
+             id ASC"
+          {"?app-id" app-id}))))
 
 (defn get-by-app-id*
   "Returns clj representation of all attrs for an app"

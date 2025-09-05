@@ -578,14 +578,11 @@ function objectAttrs(store, etype, dq) {
   return attrs;
 }
 
-function runDataloadAndReturnObjects(
-  store,
-  etype,
-  direction,
-  pageInfo,
-  order,
-  dq,
-) {
+function runDataloadAndReturnObjects(store, { etype, pageInfo, dq, form }) {
+  const order = form?.$?.order;
+  const isLeadingQuery = isLeading(form);
+  const direction = determineDirection(form);
+
   let idVecs = datalogQuery(store, dq);
 
   const startCursor = pageInfo?.['start-cursor'];
@@ -624,6 +621,7 @@ function runDataloadAndReturnObjects(
       continue;
     }
     if (
+      !isLeadingQuery &&
       startCursor &&
       orderAttr &&
       isBefore(startCursor, orderAttr, direction, idVec)
@@ -639,13 +637,25 @@ function runDataloadAndReturnObjects(
   return objects;
 }
 
-function determineOrder(form) {
+function determineDirection(form) {
   const orderOpts = form.$?.order;
   if (!orderOpts) {
     return 'asc';
   }
 
   return orderOpts[Object.keys(orderOpts)[0]] || 'asc';
+}
+
+/**
+ * A "leading" query has no `offset`, `before`, or `after`
+ *
+ * It is at the 'beginning' of the order
+ */
+function isLeading(form) {
+  const offset = form.$?.offset;
+  const before = form.$?.before;
+  const after = form.$?.after;
+  return !offset && !before && !after;
 }
 
 /**
@@ -662,30 +672,23 @@ function determineOrder(form) {
  * and reduce all the triples into objects.
  */
 function resolveObjects(store, { etype, level, form, join, pageInfo }) {
-  const limit = form.$?.limit || form.$?.first || form.$?.last;
-  const offset = form.$?.offset;
-  const before = form.$?.before;
-  const after = form.$?.after;
-  const order = form.$?.order;
-  const fields = form.$?.fields;
-
   // Wait for server to tell us where we start if we don't start from the beginning
-  if ((offset || before || after) && (!pageInfo || !pageInfo['start-cursor'])) {
+  if (!isLeading(form) && (!pageInfo || !pageInfo['start-cursor'])) {
     return [];
   }
+
   const where = withJoin(makeWhere(store, etype, level, form.$?.where), join);
-
   const find = makeFind(makeVarImpl, etype, level);
+  const fields = form.$?.fields;
 
-  const objs = runDataloadAndReturnObjects(
-    store,
+  const objs = runDataloadAndReturnObjects(store, {
     etype,
-    determineOrder(form),
     pageInfo,
-    order,
-    { where, find, fields },
-  );
+    form,
+    dq: { where, find, fields },
+  });
 
+  const limit = form.$?.limit || form.$?.first || form.$?.last;
   if (limit != null) {
     const entries = Object.entries(objs);
     if (entries.length <= limit) {
@@ -693,6 +696,7 @@ function resolveObjects(store, { etype, level, form, join, pageInfo }) {
     }
     return Object.fromEntries(entries.slice(0, limit));
   }
+
   return objs;
 }
 

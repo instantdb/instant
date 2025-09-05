@@ -3,9 +3,9 @@
             [compojure.core :as compojure :refer [defroutes DELETE GET POST]]
             [instant.db.model.attr :as attr-model]
             [instant.model.app :as app-model]
-            [instant.model.app-member-invites :as instant-app-member-invites-model]
             [instant.model.instant-personal-access-token :as instant-personal-access-token-model]
             [instant.model.instant-user :as instant-user-model]
+            [instant.model.member-invites :as member-invites-model]
             [instant.model.oauth-app :as oauth-app-model]
             [instant.model.rule :as rule-model]
             [instant.model.schema :as schema-model]
@@ -107,7 +107,7 @@
   (let [{user-id :id} (req->superadmin-user! :apps/write req)
         title (ex/get-param! req [:body :title] string-util/coerce-non-blank-str)
         schema (get-in req [:body :schema])
-        rules-code (get-in req [:body :perms])
+        rules-code (ex/get-optional-param! req [:body :perms] w/stringify-keys)
         _ (when rules-code
             (ex/assert-valid! :perms rules-code (rule-model/validation-errors
                                                  rules-code)))
@@ -173,8 +173,9 @@
         invitee-email (ex/get-param! req [:body :dest_email] email/coerce)
         {app-id :id} app
         {user-id :id} user
-        {invite-id :id} (instant-app-member-invites-model/create!
-                         {:app-id app-id
+        {invite-id :id} (member-invites-model/create!
+                         {:type :app
+                          :foreign-key app-id
                           :inviter-id user-id
                           :email invitee-email
                           :role "creator"})]
@@ -185,9 +186,10 @@
 (defn app-transfer-revoke-post [req]
   (let [{{user-id :id} :user {app-id :id} :app} (req->superadmin-user-and-app! :apps/transfer req)
         dest-email (ex/get-param! req [:body :dest_email] email/coerce)
-        rejected-count (count (instant-app-member-invites-model/reject-by-email-and-role
+        rejected-count (count (member-invites-model/reject-by-email-and-role
                                {:inviter-id user-id
-                                :app-id app-id
+                                :type :app
+                                :foreign-key app-id
                                 :invitee-email dest-email
                                 :role "creator"}))]
 

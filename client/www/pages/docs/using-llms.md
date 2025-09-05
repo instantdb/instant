@@ -105,8 +105,6 @@ Alternatively you can directly edit your `~/.codeium/windsurf/mcp_config.json`
 
 ### Zed
 
-Use the SSE endpoint for Zed with [`mcp-remote`](https://www.npmjs.com/package/mcp-remote).
-
 Open your Zed settings and add the following
 
 ```json {% showCopy="true" %}
@@ -115,7 +113,7 @@ Open your Zed settings and add the following
     "instant": {
       "command": {
         "path": "npx",
-        "args": ["-y", "mcp-remote", "https://mcp.instantdb.com/sse"],
+        "args": ["-y", "mcp-remote", "https://mcp.instantdb.com/mcp"],
         "env": {}
       },
       "settings": {}

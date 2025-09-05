@@ -1,11 +1,11 @@
 (ns instant.dash.routes
   (:require [clj-http.client :as clj-http]
             [clojure.core.cache.wrapped :as cache]
-            [clojure.set :as set]
             [clojure.string :as string]
             [clojure.tools.logging :as log]
             [clojure.walk :as w]
             [compojure.core :as compojure :refer [defroutes DELETE GET POST PUT]]
+            [hiccup2.core :as h]
             [instant.config :as config]
             [instant.dash.admin :as dash-admin]
             [instant.dash.ephemeral-app :as ephemeral-app]
@@ -24,8 +24,9 @@
             [instant.model.app-email-sender :as app-email-sender-model]
             [instant.model.app-email-template :as app-email-template-model]
             [instant.model.app-file :as app-file-model]
-            [instant.model.app-member-invites :as instant-app-member-invites-model]
+            [instant.model.member-invites :as member-invites-model]
             [instant.model.app-members :as instant-app-members]
+            [instant.model.org-members :as instant-org-members]
             [instant.model.app-oauth-client :as app-oauth-client-model]
             [instant.model.app-oauth-service-provider :as app-oauth-service-provider-model]
             [instant.model.instant-cli-login :as instant-cli-login-model]
@@ -39,6 +40,7 @@
             [instant.model.instant-user-magic-code :as instant-user-magic-code-model]
             [instant.model.instant-user-refresh-token :as instant-user-refresh-token-model]
             [instant.model.oauth-app :as oauth-app-model]
+            [instant.model.org :as org-model]
             [instant.model.outreach :as outreach-model]
             [instant.model.rule :as rule-model]
             [instant.model.schema :as schema-model]
@@ -79,11 +81,8 @@
 ;; ---
 ;; Auth helpers
 
-(def idx->member-role [:collaborator :admin])
-(def member-role->idx (set/map-invert idx->member-role))
-
-(def idx->app-role (conj idx->member-role :owner))
-(def app-role->idx (set/map-invert idx->app-role))
+(def member-role-hierarchy [:collaborator :admin :owner])
+(def member-roles (set member-role-hierarchy))
 
 (defn req->auth-user! [req]
   (let [refresh-token (http-util/req->bearer-token! req)]
@@ -91,7 +90,10 @@
                                                :auth? true})))
 
 (defn assert-valid-member-role! [role]
-  (ex/assert-valid! :role role (when-not (member-role->idx (keyword role)) ["Invalid role"])))
+  (ex/assert-valid! :role
+                    role
+                    (when-not (contains? member-roles (keyword role))
+                      ["Invalid role"])))
 
 (comment
   (assert-valid-member-role! :collaborator)
@@ -100,21 +102,35 @@
   (assert-valid-member-role! nil)
   (assert-valid-member-role! 1))
 
+(defn has-at-least-role? [least-privilege-role user-role]
+  (assert (contains? member-roles least-privilege-role) "Expected valid least-privilege-role")
+  (and user-role
+       (contains? member-roles user-role)
+       (<= (ucoll/index-of least-privilege-role member-role-hierarchy)
+           (ucoll/index-of user-role member-role-hierarchy))))
+
 (defn assert-least-privilege! [least-privilege-role user-role]
-  (assert (app-role->idx least-privilege-role) "Expected valid least-privilege-role")
+  (assert (contains? member-roles least-privilege-role) "Expected valid least-privilege-role")
   (ex/assert-valid!
    :user-role
    user-role
-   (when-not
-    (and (app-role->idx user-role) user-role)
-     [{:message "This is not a valid role"
-       :expected idx->member-role}]))
+   (or (when-not user-role
+         [{:message (format "User is missing role %s."
+                            (name least-privilege-role))}])
+       (when-not (contains? member-roles user-role)
+         [{:message "This is not a valid role"
+           :expected member-roles}])))
   (ex/assert-permitted! :allowed-member-role? user-role
-                        (<= (app-role->idx least-privilege-role)
-                            (app-role->idx user-role))))
+                        (has-at-least-role? least-privilege-role user-role)))
 
-(defn get-member-role [app-id user-id]
-  (keyword (:member_role (instant-app-members/get-by-app-and-user {:app-id app-id :user-id user-id}))))
+(defn get-app-member-role [app user-id]
+  (keyword (:member_role (instant-app-members/get-by-app-and-user {:app-id (:id app)
+                                                                   :user-id user-id}))))
+
+(defn get-org-member-role [app user-id]
+  (when-let [org-id (:org_id app)]
+    (keyword (:role (instant-org-members/get-by-org-and-user {:org-id org-id
+                                                              :user-id user-id})))))
 
 (defn req->app-and-user!
   ([req] (req->app-and-user! :owner req))
@@ -122,14 +138,44 @@
    (let [app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)
          {app-creator-id :creator_id :as app} (app-model/get-by-id! {:id app-id})
          {user-id :id :as user} (req->auth-user! req)
-         subscription (instant-subscription-model/get-by-app-id {:app-id app-id})]
+         app-subscription (instant-subscription-model/get-by-app-id {:app-id app-id})
+         org-subscription (when-let [org-id (:org_id app)]
+                            (instant-subscription-model/get-by-org-id {:org-id org-id}))
+         app-member-role (if (= user-id app-creator-id)
+                           :owner
+                           (get-app-member-role app user-id))
+         good-app-role? (has-at-least-role? least-privilege app-member-role)
+         org-member-role (get-org-member-role app user-id)
+         good-org-role? (has-at-least-role? least-privilege org-member-role)]
 
-     (assert-least-privilege!
-      least-privilege
-      (cond
-        (= user-id app-creator-id) :owner
-        (stripe/pro-plan? subscription) (get-member-role app-id user-id)))
-     {:app app :user user :subscription subscription})))
+     (cond (or (and app-member-role
+                    good-app-role?
+                    (or (= :owner app-member-role)
+                        (stripe/plan-supports-members? app-subscription)
+                        (stripe/plan-supports-members? org-subscription)))
+
+               (and org-member-role
+                    good-org-role?
+                    (or (= :owner org-member-role)
+                        (stripe/plan-supports-members? org-subscription))))
+           ;; This is the only success case. The user has access through
+           ;; either the app or the org.
+           {:app app :user user}
+
+           ;; Has no role
+           (and (not app-member-role)
+                (not org-member-role))
+           (ex/throw-validation-err! :user-role nil [{:message (format "User is missing role %s."
+                                                                       (name least-privilege))}])
+
+           ;; Has a role, but not one good enough to get access
+           (and (not good-app-role?)
+                (not good-org-role?))
+           (ex/assert-permitted! :allowed-member-role? (or app-member-role org-member-role) false)
+
+           ;; Has a role, but plan doesn't support members
+           :else
+           (ex/throw-insufficient-plan! {:capability "multiple members"})))))
 
 (defn req->app-and-user-accepting-platform-tokens! [least-privilege scope req]
   (let [token (http-util/req->bearer-token! req)]
@@ -145,6 +191,19 @@
 (defn with-pro-app-fixtures [f]
   (fixtures/with-pro-app
     (instant-user-model/get-by-email {:email "marky@instantdb.com"}) f))
+
+(defn req->org-and-user!
+  ([req] (req->org-and-user! :owner req))
+  ([least-privilege req]
+   (let [org-id (ex/get-param! req [:params :org_id] uuid-util/coerce)
+         {user-id :id :as user} (req->auth-user! req)
+         org-with-role (org-model/get-org-for-user! {:org-id org-id
+                                                     :user-id user-id})]
+
+     (assert-least-privilege!
+      least-privilege
+      (:role org-with-role))
+     {:org org-with-role :user user})))
 
 (comment
   (with-team-app-fixtures
@@ -169,8 +228,7 @@
   (assert-least-privilege! :owner crole)
   (assert-least-privilege! :admin arole)
   (assert-least-privilege! :owner arole)
-  (assert-least-privilege! :owner :owner)
-  (member-role->idx :not-a-role))
+  (assert-least-privilege! :owner :owner))
 
 ;; --------
 ;; Outreach
@@ -376,16 +434,18 @@
 (defn dash-get [req]
   (let [{:keys [id email]} (req->auth-user! req)
         apps (app-model/get-all-for-user {:user-id id})
+        orgs (org-model/get-all-for-user {:user-id id})
         profile (instant-profile-model/get-by-user-id {:user-id id})
-        invites (instant-app-member-invites-model/get-pending-for-invitee {:email email})]
+        invites (member-invites-model/get-pending-for-invitee {:email email})]
     (response/ok {:apps apps
+                  :orgs orgs
                   :profile profile
                   :invites invites
                   :user {:id id :email email}})))
 
 (comment
   (def u (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
-  (instant-app-member-invites-model/get-pending-for-invitee {:email "marky@instantdb.com"})
+  (member-invites-model/get-pending-for-invitee {:email "marky@instantdb.com"})
   (def r (instant-user-refresh-token-model/create! {:id (UUID/randomUUID) :user-id (:id u)}))
   (req->auth-user! {:headers {"authorization" (str "Bearer " (:id r))}})
   (dash-get {:headers {"authorization" (str "Bearer " (:id r))}})
@@ -401,12 +461,21 @@
   (let [title (ex/get-param! req [:body :title] string-util/coerce-non-blank-str)
         id (ex/get-param! req [:body :id] uuid-util/coerce)
         token (ex/get-param! req [:body :admin_token] uuid-util/coerce)
-        {creator-id :id} (req->auth-user! req)
+        org-id-input (ex/get-optional-param! req [:body :org_id] uuid-util/coerce)
+        owner-fields (if org-id-input
+                       (let [org-id (-> (req->org-and-user! :collaborator (assoc-in req
+                                                                                    [:params :org_id]
+                                                                                     org-id-input))
+                                        :org
+                                        :id)]
+                         {:org-id org-id})
+                       (let [{creator-id :id} (req->auth-user! req)]
+                         {:creator-id creator-id}))
         app (app-model/create!
-             {:id id
-              :title title
-              :creator-id creator-id
-              :admin-token token})]
+             (merge {:id id
+                     :title title
+                     :admin-token token}
+                    owner-fields))]
     (response/ok {:app app})))
 
 (comment
@@ -740,8 +809,10 @@
         already-subscribed? (not (or (= name default-subscription) (nil? name)))
         _ (when already-subscribed?
             (ex/throw-record-not-unique! :instant-subscription))
-        {customer-id :id} (instant-stripe-customer-model/get-or-create! {:user user})
-        metadata {"app-id" app-id "user-id" user-id}
+        {customer-id :id} (instant-stripe-customer-model/get-or-create-for-user! {:user user})
+        metadata {"app-id" app-id
+                  "user-id" user-id
+                  "subscription-type-id" stripe/PRO_SUBSCRIPTION_TYPE}
         description (str "App name: " app-title)
         session-params {"success_url" (str (config/stripe-success-url) "&app=" app-id)
                         "cancel_url" (str (config/stripe-cancel-url) "&app=" app-id)
@@ -759,10 +830,50 @@
         session (Session/create ^Map session-params)]
     (response/ok {:id (.getId session)})))
 
+(defn org-checkout-session-post [req]
+  (let [{{org-id :id org-title :title :as org} :org
+         {user-id :id user-email :email} :user} (req->org-and-user! :collaborator req)
+        {:keys [name]} (instant-subscription-model/get-by-org-id {:org-id org-id})
+        already-subscribed? (not (or (= name default-subscription) (nil? name)))
+        _ (when already-subscribed?
+            (ex/throw-record-not-unique! :instant-subscription))
+        {customer-id :id} (instant-stripe-customer-model/get-or-create-for-org! {:org org
+                                                                                 :user-email user-email})
+        metadata {"org-id" org-id
+                  "user-id" user-id
+                  "subscription-type-id" stripe/STARTUP_SUBSCRIPTION_TYPE}
+        description (str "Org name: " org-title)
+        session-params {"success_url" (str (config/stripe-success-url) "&org=" org-id)
+                        "cancel_url" (str (config/stripe-cancel-url) "&org=" org-id)
+                        "customer" customer-id
+                        "metadata" metadata
+                        "allow_promotion_codes" (or (flags/promo-code-email? user-email)
+                                                    (flags/promo-code-email? (:billing_email org))
+                                                    (admin-email? user-email))
+                        "subscription_data" {"metadata" metadata
+                                             "description" description
+                                             "billing_cycle_anchor"
+                                             (.toEpochSecond (date/first-of-next-month-est))}
+                        "mode" "subscription"
+                        "line_items" [{"price" (config/stripe-startup-subscription)
+                                       "quantity" 1}]}
+        session (Session/create ^Map session-params)]
+    (response/ok {:id (.getId session)})))
+
 (defn create-portal [req]
   (let [{{app-id :id} :app user :user} (req->app-and-user! req)
-        {customer-id :id} (instant-stripe-customer-model/get-or-create! {:user user})
+        {customer-id :id} (instant-stripe-customer-model/get-or-create-for-user! {:user user})
         session-params {"return_url" (str (config/stripe-success-url) "&app=" app-id)
+                        "customer" customer-id}
+        session (com.stripe.model.billingportal.Session/create ^Map session-params)]
+    (response/ok {:url (.getUrl session)})))
+
+(defn org-create-portal [req]
+  (let [{{org-id :id :as org} :org user :user} (req->org-and-user! :collaborator req)
+        {customer-id :id} (instant-stripe-customer-model/get-or-create-for-org!
+                           {:org org
+                            :user-email (:email user)})
+        session-params {"return_url" (str (config/stripe-success-url) "&org=" org-id)
                         "customer" customer-id}
         session (com.stripe.model.billingportal.Session/create ^Map session-params)]
     (response/ok {:url (.getUrl session)})))
@@ -781,29 +892,60 @@
 (defn session-counts-get [_req]
   (session-counter/undertow-config))
 
+;; ----
+;; Orgs
+
+(defn orgs-post [req]
+  (let [title (ex/get-param! req [:body :title] string-util/coerce-non-blank-str)
+        {user-id :id} (req->auth-user! req)
+        org (org-model/create!
+             {:title title
+              :user-id user-id})]
+    (response/ok {:org org})))
+
+(defn orgs-delete [req]
+  (let [{{org-id :id} :org} (req->org-and-user! :owner req)]
+    (org-model/delete! {:org-id org-id})
+    (response/ok {:ok true})))
+
+(defn org-get [req]
+  (let [{org :org
+         {user-id :id} :user} (req->org-and-user! :collaborator req)
+        apps (org-model/apps-for-org {:org-id (:id org) :user-id user-id})
+        members (org-model/members-for-org {:org-id (:id org) :user-id user-id})
+        invites (org-model/invites-for-org {:org-id (:id org) :user-id user-id})]
+    (response/ok {:org org
+                  :apps apps
+                  :members members
+                  :invites invites})))
+
 ;; -------
 ;; Teams
 
-(defn team-member-invite-email [{:keys [invitee-email inviter-id app-id]}]
-  (let [title "Instant"
-        user (instant-user-model/get-by-id! {:id inviter-id})
-        app (app-model/get-by-id! {:id app-id})]
-    {:from (str title " <teams@pm.instantdb.com>")
+(defn team-member-invite-email [{:keys [invitee-email inviter-id type foreign-key]}]
+  (let [user (instant-user-model/get-by-id! {:id inviter-id})
+        title (case type
+                :org (:title (org-model/get-by-id! {:id foreign-key}))
+                :app (:title (app-model/get-by-id! {:id foreign-key})))]
+    {:from "Instant <teams@pm.instantdb.com>"
      :to invitee-email
-     :subject (str "[Instant] You've been invited to collaborate on " (:title app))
+     :subject (str "[Instant] You've been invited to collaborate on " title)
      :html
      (postmark/standard-body
-      "<p><strong>Hey there!</strong></p>
-       <p>
-         " (:email user) " invited you to collaborate on their app " (:title app) ".
-       </p>
-       <p>
-         Navigate to <a href=\"https://instantdb.com/dash?s=invites\">Instant</a> to accept the invite.
-       </p>
-       <p>
-         Note: This invite will expire in 3 days. If you
-         don't know the user inviting you, please reply to this email.
-       </p>")}))
+      (h/html
+          [:p [:strong "Hey there!"]]
+          [:p
+           (:email user)
+           " invited you to collaborate on their "
+           (case :org "organization"
+                 :app "app")
+           " " title "."]
+          [:p "Navigate to "
+           [:a {:href "https://instantdb.com/dash?s=invites"}
+            "Instant"]
+           " to accept the invite."]
+          [:p "Note: this invite will expire in 3 days. "
+           "If you don't know the user inviting you, please reply to this email."]))}))
 
 (comment
   (with-pro-app-fixtures
@@ -811,45 +953,70 @@
       (team-member-invite-email
        {:invitee-email "stopa@instantdb.com"
         :inviter-id (:id owner)
-        :app-id (:id app)}))))
+        :type :app
+        :foreign-key (:id app)}))))
 
 (defn team-member-invite-send-post [req]
-  (let [{{app-id :id} :app {inviter-id :id} :user} (req->app-and-user! :admin req)
+  (let [{:keys [type inviter-id foreign-key]}
+        (cond
+          (get-in req [:params :app_id])
+          (let [{{foreign-key :id} :app {inviter-id :id} :user}
+                (req->app-and-user! :admin req)]
+            {:type :app
+             :inviter-id inviter-id
+             :foreign-key foreign-key})
+
+          (get-in req [:params :org_id])
+          (let [{{foreign-key :id} :org {inviter-id :id} :user}
+                (req->org-and-user! :admin req)]
+            {:type :org
+             :inviter-id inviter-id
+             :foreign-key foreign-key})
+
+          :else (ex/throw-missing-param! [:params :app_id]))
         invitee-email (ex/get-param! req [:body :invitee-email] email/coerce)
         role (ex/get-param! req [:body :role] string-util/coerce-non-blank-str)]
     (assert-valid-member-role! role)
-    (instant-app-member-invites-model/create! {:app-id app-id
-                                               :inviter-id inviter-id
-                                               :email invitee-email
-                                               :role role})
+    (member-invites-model/create! {:type type
+                                   :foreign-key foreign-key
+                                   :inviter-id inviter-id
+                                   :email invitee-email
+                                   :role role})
     (postmark/send!
      (team-member-invite-email {:inviter-id inviter-id
                                 :invitee-email invitee-email
-                                :app-id app-id}))
+                                :foreign-key foreign-key
+                                :type type}))
     (response/ok {})))
 
 (defn team-member-invite-accept-post [req]
   (let [{user-email :email user-id :id} (req->auth-user! req)
         invite-id (ex/get-param! req [:body :invite-id] uuid-util/coerce)
-        {:keys [invitee_role status app_id invitee_email]} (instant-app-member-invites-model/get-by-id! {:id invite-id})]
+        {:keys [invitee_role status app_id org_id invitee_email]} (member-invites-model/get-by-id! {:id invite-id})]
     (ex/assert-permitted! :invitee? invitee_email (= invitee_email user-email))
     (ex/assert-permitted! :acceptable? invite-id (not= status "revoked"))
     (next-jdbc/with-transaction [tx-conn (aurora/conn-pool :write)]
-      (instant-app-member-invites-model/accept-by-id! tx-conn {:id invite-id})
-      (condp = invitee_role
-        "creator"
-        (app-model/change-creator!
-         tx-conn
-         {:id app_id
-          :new-creator-id user-id})
-        (instant-app-members/create! tx-conn {:user-id user-id
-                                              :app-id app_id
-                                              :role invitee_role})))
+      (let [{:keys [type]} (member-invites-model/accept-by-id! tx-conn {:id invite-id})]
+        (case type
+          :app
+          (condp = invitee_role
+            "creator"
+            (app-model/change-creator!
+             tx-conn
+             {:id app_id
+              :new-creator-id user-id})
+            (instant-app-members/create! tx-conn {:user-id user-id
+                                                  :app-id app_id
+                                                  :role invitee_role}))
+
+          :org (instant-org-members/create! tx-conn {:user-id user-id
+                                                     :org-id org_id
+                                                     :role invitee_role}))))
     (response/ok {})))
 
 (comment
   (def the-invite-id "2fc83c72-c43b-415e-8b8a-09061951ae52")
-  (def i (instant-app-member-invites-model/get-by-id! {:id the-invite-id}))
+  (def i (member-invites-model/get-by-id! {:id the-invite-id}))
   (def u (instant-user-model/get-by-email {:email (:invitee_email i)}))
   (def r' (fixtures/mock-app-req {:id "_"} u))
   (def body {:invite-id the-invite-id})
@@ -858,7 +1025,7 @@
     (fn [{:keys [app owner]}]
       (let [e "stopa@instantdb.com"
             u (instant-user-model/get-by-email {:email e})
-            i  (instant-app-member-invites-model/create! {:app-id (:id app)
+            i  (member-invites-model/create! {:app-id (:id app)
                                                           :inviter-id (:id owner)
                                                           :email e
                                                           :role "collaborator"})]
@@ -868,15 +1035,31 @@
 (defn team-member-invite-decline-post [req]
   (let [{user-email :email} (req->auth-user! req)
         invite-id (ex/get-param! req [:body :invite-id] uuid-util/coerce)
-        {invitee-email :invitee_email} (instant-app-member-invites-model/get-by-id! {:id invite-id})]
+        {invitee-email :invitee_email} (member-invites-model/get-by-id! {:id invite-id})]
     (ex/assert-permitted! :declinable? invite-id (= user-email invitee-email))
-    (instant-app-member-invites-model/reject-by-id {:id invite-id})
+    (member-invites-model/reject-by-id {:id invite-id})
     (response/ok {})))
 
 (defn team-member-invite-revoke-delete [req]
-  (let [invite-id (ex/get-param! req [:body :invite-id] uuid-util/coerce)]
-    (req->app-and-user! :admin req)
-    (instant-app-member-invites-model/reject-by-id {:id invite-id})
+  (let [invite-id (ex/get-param! req [:body :invite-id] uuid-util/coerce)
+
+        {:keys [type foreign-key]}
+        (cond (get-in req [:params :app_id])
+              {:type :app
+               :foreign-key (-> (req->app-and-user! :admin req)
+                                :app
+                                :id)}
+
+              (get-in req [:params :org_id])
+              {:type :org
+               :foreign-key (-> (req->org-and-user! :admin req)
+                                :org
+                                :id)}
+
+              :else (ex/throw-missing-param! [:params :app_id]))]
+    (member-invites-model/reject-by-id-and-foreign-key {:type type
+                                                        :foreign-key foreign-key
+                                                        :id invite-id})
     (response/ok {})))
 
 (comment
@@ -887,9 +1070,25 @@
        (assoc owner-req :body {:invite-id (:id invite)})))))
 
 (defn team-member-remove-delete [req]
-  (let [id (ex/get-param! req [:body :id] uuid-util/coerce)]
-    (req->app-and-user! :admin req)
-    (instant-app-members/delete-by-id! {:id id})
+  (let [invite-id (ex/get-param! req [:body :id] uuid-util/coerce)
+
+        {:keys [type foreign-key]}
+        (cond (get-in req [:params :app_id])
+              {:type :app
+               :foreign-key (-> (req->app-and-user! :admin req)
+                                :app
+                                :id)}
+
+              (get-in req [:params :org_id])
+              {:type :org
+               :foreign-key (-> (req->org-and-user! :admin req)
+                                :org
+                                :id)}
+
+              :else (ex/throw-missing-param! [:params :app_id]))]
+    (member-invites-model/delete-by-id-and-foreign-key! {:type type
+                                                         :foreign-key foreign-key
+                                                         :id invite-id})
     (response/ok {})))
 
 (comment
@@ -903,9 +1102,26 @@
   (let [member-id (ex/get-param! req [:body :id] uuid-util/coerce)
         role (ex/get-param! req [:body :role] string-util/coerce-non-blank-str)]
     (assert-valid-member-role! role)
-    (req->app-and-user! :admin req)
-    (instant-app-members/update-role {:id member-id :role role})
-    (response/ok {})))
+    (let [{:keys [type]}
+          (cond (get-in req [:params :app_id])
+                (let [app-id (-> (req->app-and-user! :admin req)
+                                 :app
+                                 :id)]
+                  {:type :app
+                   :foreign-key app-id})
+
+                (get-in req [:params :org_id])
+                (let [org-id (-> (req->org-and-user! :admin req)
+                                 :org
+                                 :id)]
+                  {:type :org
+                   :foreign-key org-id})
+
+                :else (ex/throw-missing-param! [:params :app_id]))]
+      (case type
+        :app (instant-app-members/update-role {:id member-id :role role})
+        :org (instant-org-members/update-role {:id member-id :role role}))
+      (response/ok {}))))
 
 (comment
   (with-team-app-fixtures
@@ -1604,6 +1820,18 @@
   (GET "/dash/apps/:app_id/indexing-jobs/:job_id" [] indexing-job-get)
   (GET "/dash/apps/:app_id/indexing-jobs/group/:group_id" [] indexing-jobs-group-get)
   (POST "/dash/apps/:app_id/indexing-jobs" [] indexing-job-post)
+
+  ;; Orgs
+  (POST "/dash/orgs" [] orgs-post)
+  (DELETE "/dash/orgs/:org_id" [] orgs-delete)
+  (GET "/dash/orgs/:org_id" [] org-get)
+  (POST "/dash/orgs/:org_id/invite/send" [] team-member-invite-send-post)
+  (DELETE "/dash/orgs/:org_id/invite/revoke" [] team-member-invite-revoke-delete)
+  (DELETE "/dash/orgs/:org_id/members/remove" [] team-member-remove-delete)
+  (POST "/dash/orgs/:org_id/members/update" [] team-member-update-post)
+  (POST "/dash/orgs/:org_id/checkout_session" [] org-checkout-session-post)
+  (POST "/dash/orgs/:org_id/portal_session" [] org-create-portal)
+
 
   (GET "/dash/ws_playground" [] ws-playground-get)
 

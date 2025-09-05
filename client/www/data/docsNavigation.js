@@ -21,6 +21,11 @@ module.exports = [
         nextHref: '/docs/init',
         optionalLLM: true,
       },
+      {
+        title: 'Create Instant App',
+        href: '/docs/create-instant-app',
+        optionalLLM: true,
+      },
       { title: 'Using LLMs', href: '/docs/using-llms', optionalLLM: true },
     ],
   },

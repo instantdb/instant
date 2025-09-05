@@ -65,6 +65,54 @@ console.log('New todo entry made for with tx-id', res['tx-id']);
 `db.transact` is an async function that behaves nearly identical to `db.transact`
 from `@instantdb/react`. It returns a `tx-id` on success.
 
+## Subscriptions on the backend
+
+You can use `db.subscribeQuery` to subscribe to queries on the backend. This can be useful if you have backend processes that react to database changes.
+
+For example, let's say we wanted to subscribe to a `tasks` table.
+
+### With callbacks
+
+You could pass in a callback to `db.subscribeQuery` that gets called with newly updated query results:
+
+```typescript
+const sub = db.subscribeQuery({ tasks: { $: { limit: 10 } } }, (payload) => {
+  if (payload.type === 'error') {
+    console.log('error', error);
+    sub.close();
+  } else {
+    console.log('got data!', payload.data);
+  }
+});
+
+// When you want to close the subscription:
+sub.close();
+```
+
+### With async iterator
+
+Or if you prefer, you can skip providing a callback and use async iterators:
+
+```typescript
+const sub = db.subscribeQuery({ tasks: { $: { limit: 10 } } });
+
+for await (const payload of sub) {
+  if (payload.type === 'error') {
+    console.log('error', error);
+    sub.close();
+  } else {
+    console.log('data', payload.data);
+  }
+}
+
+// When you want to close the subscription:
+sub.close();
+```
+
+{% callout type="note" %}
+Subscriptions keep a live connection open on your backend. Be sure to close them when they’re no longer needed to avoid tying up resources unnecessarily.
+{% /callout %}
+
 ## Schema
 
 `init` also accepts a schema argument:
@@ -170,7 +218,7 @@ console.log(Object.values(data));
 
 ## Sign Out
 
-The `db.auth.signOut` method allows you to log out a users. You can log a user out from every session by passing in their `email`, or `id`. Or you can log a user out from a particular session by passing in a `refresh_token`:
+The `db.auth.signOut` method allows you to log out users. You can log a user out from every session by passing in their `email`, or `id`. Or you can log a user out from a particular session by passing in a `refresh_token`:
 
 ```javascript
 // All sessions for this email sign out
@@ -309,11 +357,11 @@ app.post('/custom-send-magic-code', async (req, res) => {
 You can also use Instant's default email provider to send a magic code with `db.auth.sendMagicCode`:
 
 ```typescript
-// You can tigger a magic code email in your backend with `sendMagicCode`
+// You can trigger a magic code email in your backend with `sendMagicCode`
 const { code } = await db.auth.sendMagicCode(req.body.email);
 ```
 
-Similarily, you can verify a magic code with `db.auth.verifyMagicCode`:
+Similarly, you can verify a magic code with `db.auth.verifyMagicCode`:
 
 ```typescript
 const user = await db.auth.verifyMagicCode(req.body.email, req.body.code);

@@ -145,6 +145,7 @@ export const promptClaude = async (prompt: string, projectDir: string) => {
         'Do not use the instant mcp server to create a new app, a fresh app id has already been placed in the .env file. Do not attempt to start a dev server.',
       permissionMode: 'bypassPermissions', // todo: make more strict
       env: process.env,
+      pathToClaudeCodeExecutable: process.env.CLAUDE_CODE_PATH,
     },
     prompt: prompt,
   })) {

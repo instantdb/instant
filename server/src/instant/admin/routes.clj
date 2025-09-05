@@ -593,6 +593,16 @@
                             room-data)]
     (response/ok {:sessions enhanced-room-data})))
 
+;; --------------- 
+;; Soft deletions 
+
+(defn soft-deleted-attrs-get [req]
+  (let [{:keys [app-id]} (req->app-id-authed! req :data/read)
+        soft-deleted-attrs (attr-model/get-soft-deleted-by-app-id
+                            (aurora/conn-pool :read)
+                            app-id)]
+    (response/ok {:attrs soft-deleted-attrs})))
+
 (defroutes routes
   (POST "/admin/query" []
     (with-rate-limiting query-post))
@@ -627,6 +637,8 @@
     (with-rate-limiting file-delete)) ;; single delete
   (POST "/admin/storage/files/delete" []
     (with-rate-limiting files-delete)) ;; bulk delete
+
+  (GET "/admin/soft_deleted_attrs" [] soft-deleted-attrs-get)
 
   (GET "/admin/schema" [] schema-get)
 

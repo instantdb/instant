@@ -6,8 +6,8 @@
    (com.stripe.model Customer)
    (java.util Map)))
 
-(defn- create!
-  ([params] (create! (aurora/conn-pool :write) params))
+(defn- create-for-user!
+  ([params] (create-for-user! (aurora/conn-pool :write) params))
   ([conn {:keys [user]}]
    (let [{:keys [id email]} user
          opts {"metadata" {"instant_user_id" id}}
@@ -21,6 +21,21 @@
                         ON CONFLICT (user_id) DO NOTHING RETURNING *"
                         customer-id id]))))
 
+(defn- create-for-org!
+  ([params] (create-for-org! (aurora/conn-pool :write) params))
+  ([conn {:keys [org user-email]}]
+   (let [opts {"metadata" {"instant_org_id" (:id org)}}
+         email (or (:billing_email org) user-email)
+         with-email (if email
+                      (assoc opts "email" email)
+                      opts)
+         customer (Customer/create ^Map with-email)
+         customer-id (.getId customer)]
+     (sql/execute-one! conn
+                       ["INSERT INTO instant_stripe_customers (id, org_id) VALUES (?, ?::uuid)
+                        ON CONFLICT (org_id) DO NOTHING RETURNING *"
+                        customer-id (:id org)]))))
+
 (defn- get-by-instant-user-id
   "Get a stripe customer information by instant user id."
   ([params] (get-by-instant-user-id (aurora/conn-pool :read) params))
@@ -29,9 +44,24 @@
                    ["SELECT * FROM instant_stripe_customers WHERE user_id = ?::uuid"
                     user-id])))
 
-(defn get-or-create!
+(defn- get-by-org-id
+  ([params] (get-by-org-id (aurora/conn-pool :read) params))
+  ([conn {:keys [org-id]}]
+   (sql/select-one conn
+                   ["select * from instant_stripe_customers where org_id = ?::uuid"
+                    org-id])))
+
+(defn get-or-create-for-user!
   "Get or create a stripe customer from an instant user."
-  ([params] (get-or-create! (aurora/conn-pool :write) params))
+  ([params] (get-or-create-for-user! (aurora/conn-pool :write) params))
   ([conn {:keys [user]}]
    (or (get-by-instant-user-id conn {:user-id (:id user)})
-       (create! conn {:user user}))))
+       (create-for-user! conn {:user user}))))
+
+(defn get-or-create-for-org!
+  "Get or create a stripe customer from an instant user."
+  ([params] (get-or-create-for-org! (aurora/conn-pool :write) params))
+  ([conn {:keys [org user-email]}]
+   (or (get-by-org-id conn {:org-id (:id org)})
+       (create-for-org! conn {:org org
+                              :user-email user-email}))))

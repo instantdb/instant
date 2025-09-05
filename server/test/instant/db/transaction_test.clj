@@ -22,6 +22,7 @@
    [instant.model.app :as app-model]
    [instant.model.app-user :as app-user-model]
    [instant.model.rule :as rule-model]
+   [instant.util.coll :as coll]
    [instant.util.instaql :refer [instaql-nodes->object-tree]]
    [instant.util.exception :as ex]
    [instant.util.test :as test-util :refer [suid validation-err? perm-err? perm-pass? timeout-err?]]
@@ -1693,21 +1694,26 @@
                         set))))
 
             (testing "ref works"
-              (rule-model/put!
-               (aurora/conn-pool :write)
-               {:app-id app-id :code {:bookshelves {:allow {:update "handle in data.ref('users.handle')"}
-                                                    :bind ["handle" "'alex'"]}}})
-              (permissioned-tx/transact!
-               (make-ctx)
-               [[:add-triple (resolvers/->uuid r "eid-short-stories") (resolvers/->uuid r :bookshelves/name) "Long Stories"]])
-              (is
-               (= #{"Long Stories" "Nonfiction"}
-                  (->>  (test-util/pretty-perm-q
-                         {:app-id app-id :current-user nil}
-                         {:bookshelves {:$ {:where {:users.handle "alex"}}}})
-                        :bookshelves
-                        (map :name)
-                        set))))
+              (test-util/test-matrix
+               [perm ["handle in data.ref('users.handle')"
+                      "handle in newData.ref('users.handle')"]]
+
+               (rule-model/put!
+                (aurora/conn-pool :write)
+                {:app-id app-id :code {:bookshelves {:allow {:update perm}
+                                                     :bind ["handle" "'alex'"]}}})
+               (permissioned-tx/transact!
+                (make-ctx)
+                [[:add-triple (resolvers/->uuid r "eid-short-stories") (resolvers/->uuid r :bookshelves/name) "Long Stories"]])
+               (is
+                (= #{"Long Stories" "Nonfiction"}
+                   (->>  (test-util/pretty-perm-q
+                          {:app-id app-id :current-user nil}
+                          {:bookshelves {:$ {:where {:users.handle "alex"}}}})
+                         :bookshelves
+                         (map :name)
+                         set)))))
+
             (testing "invalid ref blocks"
               (rule-model/put!
                (aurora/conn-pool :write)
@@ -2129,6 +2135,114 @@
                     set)
                book-id)))))))
 
+(deftest refs-in-default-perms
+  (with-empty-app
+    (fn [{app-id   :id
+          make-ctx :make-ctx}]
+      (let [attrs      (test-util/make-attrs
+                        app-id
+                        [[:users/id :required? :index? :unique?]
+                         [:users/email]
+                         [:posts/id :required? :index? :unique?]
+                         [:posts/title]
+                         [[:posts/author :users/posts]]])
+            transact!  #(when (seq %)
+                          (permissioned-tx/transact!
+                           (make-ctx)
+                           (test-util/resolve-attrs attrs %)))
+            user-id #uuid "f7914f50-0fb0-4223-bace-ea5317a1f907"
+            post-id #uuid "0fe6c627-3781-411b-a3d6-8d127d5979ae"]
+
+        (transact!
+         [[:add-triple user-id :users/id     user-id]
+          [:add-triple user-id :users/email  "e@mail.com"]
+          [:add-triple post-id :posts/id     post-id]
+          [:add-triple post-id :posts/title  "title"]
+          [:add-triple post-id :posts/author user-id]])
+
+        (test-util/test-matrix
+         [perms [{:$default
+                  {:allow
+                   {:update "true"}}
+                  :posts
+                  {:allow
+                   {:$default "true"
+                    :update   "!('e@mail.com' in data.ref('author.email'))"}}}
+
+                 {:$default
+                  {:allow
+                   {:update "true"}}
+                  :posts
+                  {:allow
+                   {:$default "!('e@mail.com' in data.ref('author.email'))"}}}
+
+                 {:$default
+                  {:allow
+                   {:update "!('e@mail.com' in data.ref('author.email'))"}}}
+
+                 {:$default
+                  {:allow
+                   {:$default "!('e@mail.com' in data.ref('author.email'))"}}}]]
+
+         (rule-model/put!
+          (aurora/conn-pool :write)
+          {:app-id app-id
+           :code perms})
+
+         (is (perm-err?
+              (transact!
+               [[:add-triple post-id :posts/id post-id]
+                [:add-triple post-id :posts/title "new title"]]))))))))
+
+(deftest bind-in-default-perms
+  (with-empty-app
+    (fn [{app-id   :id
+          make-ctx :make-ctx}]
+      (let [attrs      (test-util/make-attrs
+                        app-id
+                        [[:posts/id :required? :index? :unique?]
+                         [:posts/title]])
+            transact!  #(when (seq %)
+                          (permissioned-tx/transact!
+                           (make-ctx)
+                           (test-util/resolve-attrs attrs %)))
+            post-id #uuid "0fe6c627-3781-411b-a3d6-8d127d5979ae"]
+
+        (transact!
+         [[:add-triple post-id :posts/id    post-id]
+          [:add-triple post-id :posts/title "title"]])
+
+        (test-util/test-matrix
+         [perms [{:posts
+                  {:bind ["bind" "false"]
+                   :allow
+                   {:update "bind"}}}
+
+                 {:posts
+                  {:bind ["bind" "false"]
+                   :allow
+                   {:$default "bind"}}}
+
+                 {:$default
+                  {:bind ["bind" "false"]
+                   :allow
+                   {:update "bind"}}}
+
+                 {:$default
+                  {:bind ["bind" "false"]
+                   :allow
+                   {:$default "bind"}}}]]
+
+         (rule-model/put!
+          (aurora/conn-pool :write)
+          {:app-id app-id
+           :code perms})
+
+         (is (perm-err?
+              (transact!
+               [[:add-triple post-id :posts/id post-id]
+                [:add-triple post-id :posts/title "new title"]]))))))))
+
 (deftest link-perms
   (with-empty-app
     (fn [{app-id   :id
@@ -2179,19 +2293,33 @@
                              :posts/fwd-only
                              :posts/rev-only
                              :posts/fwd-rev]
-          :let              [[posts-param users-param]
-                             (case [post-action attr]
-                               [:create :posts/fallback] ["posts_create"   "users_view"]
-                               [:create :posts/fwd-only] ["posts_fwd_only" "users_view"]
-                               [:create :posts/rev-only] ["posts_create"   "users_rev_only"]
-                               [:create :posts/fwd-rev]  ["posts_fwd_rev"  "users_fwd_rev"]
-                               [:update :posts/fallback] ["posts_update"   "users_view"]
-                               [:update :posts/fwd-only] ["posts_fwd_only" "users_view"]
-                               [:update :posts/rev-only] ["posts_update"   "users_rev_only"]
-                               [:update :posts/fwd-rev]  ["posts_fwd_rev"  "users_fwd_rev"])]
-          rule-params       [{posts-param true  users-param false}
-                             {posts-param false users-param true}
-                             {posts-param true  users-param true}]
+          rule-params       (cond
+                              (and (= :posts/fallback attr) (= :create post-action))
+                              [{"posts_create" false "users_view" false}
+                               {"posts_create" true  "users_view" false}
+                               {"posts_create" false "users_view" true}
+                               {"posts_create" true  "users_view" true}]
+
+                              (and (= :posts/fallback attr) (= :update post-action))
+                              [{"posts_update" false "users_view" false}
+                               {"posts_update" true  "users_view" false}
+                               {"posts_update" false "users_view" true}
+                               {"posts_update" true  "users_view" true}]
+
+                              (= :posts/fwd-only attr)
+                              [{"posts_fwd_only" false}
+                               {"posts_fwd_only" true}]
+
+                              (= :posts/rev-only attr)
+                              [{"users_rev_only" false}
+                               {"users_rev_only" true}]
+
+                              (= :posts/fwd-rev attr)
+                              [{"posts_fwd_rev" false "users_fwd_rev" false}
+                               {"posts_fwd_rev" true  "users_fwd_rev" false}
+                               {"posts_fwd_rev" false "users_fwd_rev" true}
+                               {"posts_fwd_rev" true  "users_fwd_rev" true}])
+
           ;; rule params for reverse direction can be placed on forward one, e.g.
           ;; db.tx.posts[id].link({user: ...}).ruleParams({user_param: ...})
           user-params-pos   [:post :user]]
@@ -2236,8 +2364,8 @@
                               post-tx)
                             (case user-params-pos
                               :user
-                              [[:rule-params user-ref "users" (select-keys rule-params [users-param])]
-                               [:rule-params post-ref "posts" (select-keys rule-params [posts-param])]]
+                              [[:rule-params user-ref "users" (coll/filter-keys #(string/starts-with? % "users_") rule-params)]
+                               [:rule-params post-ref "posts" (coll/filter-keys #(string/starts-with? % "posts_") rule-params)]]
                               :post
                               [[:rule-params post-ref "posts" rule-params]])
                             [[:add-triple post-ref attr user-ref]])
@@ -2289,15 +2417,26 @@
                              :posts/fwd-only
                              :posts/rev-only
                              :posts/fwd-rev]
-          :let              [[posts-param users-param]
-                             (case attr
-                               :posts/fallback ["posts_update"   "users_view"]
-                               :posts/fwd-only ["posts_fwd_only" "users_view"]
-                               :posts/rev-only ["posts_update"   "users_rev_only"]
-                               :posts/fwd-rev  ["posts_fwd_rev"  "users_fwd_rev"])]
-          rule-params       [{posts-param true  users-param false}
-                             {posts-param false users-param true}
-                             {posts-param true  users-param true}]
+          rule-params        (case attr
+                               :posts/fallback
+                               [{"posts_update" false "users_view" false}
+                                {"posts_update" true  "users_view" false}
+                                {"posts_update" false "users_view" true}
+                                {"posts_update" true  "users_view" true}]
+
+                               :posts/fwd-only
+                               [{"posts_fwd_only" false}
+                                {"posts_fwd_only" true}]
+
+                               :posts/rev-only
+                               [{"users_rev_only" false}
+                                {"users_rev_only" true}]
+
+                               :posts/fwd-rev
+                               [{"posts_fwd_rev" false "users_fwd_rev" false}
+                                {"posts_fwd_rev" true  "users_fwd_rev" false}
+                                {"posts_fwd_rev" false "users_fwd_rev" true}
+                                {"posts_fwd_rev" true  "users_fwd_rev" true}])
           ;; rule params for reverse direction can be placed on forward one, e.g.
           ;; db.tx.posts[id].link({user: ...}).ruleParams({user_param: ...})
           user-params-pos   [:post :user]]
@@ -2321,14 +2460,204 @@
                             [[:retract-triple post-ref attr user-ref]]
                             (case user-params-pos
                               :user
-                              [[:rule-params user-ref "users" (select-keys rule-params [users-param])]
-                               [:rule-params post-ref "posts" (select-keys rule-params [posts-param])]]
+                              [[:rule-params user-ref "users" (coll/filter-keys #(string/starts-with? % "users_") rule-params)]
+                               [:rule-params post-ref "posts" (coll/filter-keys #(string/starts-with? % "posts_") rule-params)]]
                               :post
                               [[:rule-params post-ref "posts" rule-params]]))
 
                expected    (every? true? (vals rule-params))]
 
            (is (= expected (perm-pass? (transact! tx))))))))))
+
+(deftest default-link-unlink-perms
+  (with-empty-app
+    (fn [{app-id   :id
+          make-ctx :make-ctx}]
+      (let [attrs
+            (test-util/make-attrs
+             app-id
+             [[:users/id    :required? :index? :unique?]
+              [:users/email :unique?]
+              [:posts/id    :required? :index? :unique?]
+              [:posts/title :unique?]
+              [[:posts/fallback :users/rev-fallback]]
+              [[:posts/fwd-only :users/rev-fwd-only]]
+              [[:posts/rev-only :users/rev-rev-only]]
+              [[:posts/fwd-rev  :users/rev-fwd-rev]]])
+            transact! #(when (seq %)
+                         (permissioned-tx/transact!
+                          (make-ctx)
+                          (test-util/resolve-attrs attrs %)))]
+        (rule-model/put!
+         (aurora/conn-pool :write)
+         {:app-id app-id
+          :code {:posts
+                 {:allow
+                  {:create "ruleParams.posts_create"
+                   :update "ruleParams.posts_update"
+                   :link   {"$default" "ruleParams.posts_default"
+                            "fwd-only" "ruleParams.posts_fwd_only"
+                            "fwd-rev"  "ruleParams.posts_fwd_rev"}
+                   :unlink {"$default" "ruleParams.posts_default"
+                            "fwd-only" "ruleParams.posts_fwd_only"
+                            "fwd-rev"  "ruleParams.posts_fwd_rev"}}}
+
+                 :users
+                 {:allow
+                  {:view   "ruleParams.users_view"
+                   :create "ruleParams.users_create"
+                   :update "ruleParams.users_update"
+                   :link   {"$default"     "ruleParams.users_default"
+                            "rev-rev-only" "ruleParams.users_rev_only"
+                            "rev-fwd-rev"  "ruleParams.users_fwd_rev"}
+                   :unlink {"$default"     "ruleParams.users_default"
+                            "rev-rev-only" "ruleParams.users_rev_only"
+                            "rev-fwd-rev"  "ruleParams.users_fwd_rev"}}}}})
+
+        (test-util/test-matrix
+         [attr [:posts/fallback
+                :posts/fwd-only
+                :posts/rev-only
+                :posts/fwd-rev]
+          :let [[posts-attr users-attr] (case attr
+                                          :posts/fallback ["posts_default"  "users_default"]
+                                          :posts/fwd-only ["posts_fwd_only" "users_default"]
+                                          :posts/rev-only ["posts_default"  "users_rev_only"]
+                                          :posts/fwd-rev  ["posts_fwd_rev"  "users_fwd_rev"])]
+          rule-params [{posts-attr false users-attr false}
+                       {posts-attr true  users-attr false}
+                       {posts-attr false users-attr true}
+                       {posts-attr true  users-attr true}]
+          :let [user-id     (random-uuid)
+                user-email  (test-util/rand-email)
+                post-id     (random-uuid)
+                post-title  (test-util/rand-string)
+                expected    (every? true? (vals rule-params))]]
+         (transact!
+          [[:add-triple  user-id :users/id    user-id]
+           [:add-triple  user-id :users/email user-email]
+           [:rule-params user-id "users"      {"users_create" true}]
+           [:add-triple  post-id :posts/id    post-id]
+           [:add-triple  post-id :posts/title post-title]
+           [:rule-params post-id "posts"      {"posts_create" true}]])
+
+         (is (= expected
+                (perm-pass?
+                 (transact!
+                  [[:add-triple post-id attr user-id]
+                   [:rule-params post-id "posts" rule-params]]))))
+
+         (when-not expected
+           (transact!
+            [[:add-triple post-id attr user-id]
+             [:rule-params post-id "posts" {posts-attr true users-attr true}]]))
+
+         (is (= expected
+                (perm-pass?
+                 (transact! [[:retract-triple post-id attr user-id]
+                             [:rule-params post-id "posts" rule-params]])))))))))
+
+(deftest link-unlink-non-existing-entities
+  (with-empty-app
+    (fn [{app-id   :id
+          make-ctx :make-ctx}]
+      (let [attrs
+            (test-util/make-attrs
+             app-id
+             [[:users/id    :required? :index? :unique?]
+              [:users/email :unique?]
+              [:posts/id    :required? :index? :unique?]
+              [:posts/title :unique?]
+              [[:posts/user :users/post]]])
+            transact! #(permissioned-tx/transact!
+                        (make-ctx)
+                        (test-util/resolve-attrs attrs %))]
+        (rule-model/put!
+         (aurora/conn-pool :write)
+         {:app-id app-id
+          :code {:posts
+                 {:allow
+                  {:link   {"user" "ruleParams.posts_user"}
+                   :unlink {"user" "ruleParams.posts_user"}}}
+                 :users
+                 {:allow
+                  {:link   {"post" "false"}
+                   :unlink {"post" "false"}}}}})
+        (let [post-id (random-uuid)
+              _       (transact!
+                       [[:add-triple post-id :posts/id post-id]])]
+          ;; if user doesn't exist, we don't check permissions on it
+          (is (perm-pass? (transact! [[:add-triple post-id :posts/user (random-uuid)]
+                                      [:rule-params post-id "posts" {"posts_user" true}]])))
+          (is (perm-pass? (transact! [[:retract-triple post-id :posts/user (random-uuid)]
+                                      [:rule-params post-id "posts" {"posts_user" true}]]))))))))
+
+(deftest linked-data-etype
+  (with-empty-app
+    (fn [{app-id   :id
+          make-ctx :make-ctx}]
+      (let [attrs
+            (test-util/make-attrs
+             app-id
+             [[:profiles/id    :required? :index? :unique?]
+
+              [:users/id       :required? :index? :unique?]
+              [[:users/profile :profiles/user]]
+
+              [:posts/id       :required? :index? :unique?]
+              [[:posts/user    :users/posts]]
+
+              [:comments/id    :required? :index? :unique?]
+              [[:comments/post :posts/comments]]])
+            transact!   #(permissioned-tx/transact!
+                          (make-ctx)
+                          (test-util/resolve-attrs attrs %))
+            profile-id (random-uuid)
+            user-id    (random-uuid)
+            post-id    (random-uuid)
+            comment-id (random-uuid)]
+
+        (transact!
+         [[:add-triple profile-id  :profiles/id    profile-id]
+          [:add-triple user-id     :users/id       user-id]
+          [:add-triple user-id     :users/profile  profile-id]
+          [:add-triple post-id     :posts/id       post-id]
+          [:add-triple comment-id  :comments/id    comment-id]
+          [:add-triple comment-id  :comments/post  post-id]])
+
+        (rule-model/put!
+         (aurora/conn-pool :write)
+         {:app-id app-id
+          :code {:posts
+                 {:allow
+                  {:link   {"user" "ruleParams.profile_id in linkedData.ref('profile.id')"}
+                   :unlink {"user" "ruleParams.comment_id in linkedData.ref('posts.comments.id')"}}}
+                 :users
+                 {:allow
+                  {:link   {"posts" "ruleParams.comment_id in linkedData.ref('comments.id')"}
+                   :unlink {"posts" "ruleParams.profile_id in linkedData.ref('user.profile.id')"}}}}})
+
+        (test-util/test-matrix
+         [post-params [nil {"profile_id" profile-id}]
+          user-params [nil {"comment_id" comment-id}]
+          :let [expected (boolean (and post-params user-params))]]
+         (is (= expected
+                (perm-pass?
+                 (transact!
+                  [[:add-triple  post-id :posts/user user-id]
+                   [:rule-params post-id "posts" post-params]
+                   [:rule-params user-id "users" user-params]])))))
+
+        (test-util/test-matrix
+         [post-params [nil {"comment_id" comment-id}]
+          user-params [nil {"profile_id" profile-id}]
+          :let [expected (boolean (and post-params user-params))]]
+         (is (= expected
+                (perm-pass?
+                 (transact!
+                  [[:retract-triple post-id :posts/user user-id]
+                   [:rule-params post-id "posts" post-params]
+                   [:rule-params user-id "users" user-params]])))))))))
 
 (deftest unlink-perms-during-delete
   (with-empty-app
@@ -2371,116 +2700,76 @@
 
         (testing "deleting post"
           (test-util/test-matrix
-           [ref-type                       [:id :lookup]
-            ;; link check can be not defined at all (then update/view fallback is used),
-            ;; defined only for one side (then other side will use a fallback), or be
-            ;; defined for both sides
-            [attr posts-param users-param] [[:posts/fallback "posts_delete" nil]
-                                            [:posts/fwd-only "posts_delete" nil]
-                                            [:posts/rev-only "posts_delete" "users_rev_only"]
-                                            [:posts/fwd-rev  "posts_delete" "users_fwd_rev"]]
-            rule-params                    (if users-param
-                                             [{posts-param false users-param true}
-                                              {posts-param true  users-param false}
-                                              {posts-param true  users-param true}]
-                                             [{posts-param false}
-                                              {posts-param true}])
-            ;; rule params for reverse direction can be placed on forward one, e.g.
-            ;; db.tx.posts[id].link({user: ...}).ruleParams({user_param: ...})
-            user-params-pos                [:post :user]]
-           (let [user-id     (random-uuid)
-                 user-email  (test-util/rand-email)
-                 user-ref    (case ref-type
-                               :id     user-id
-                               :lookup [:users/email user-email])
-                 post-id     (random-uuid)
-                 post-title  (test-util/rand-string)
-                 post-ref    (case ref-type
-                               :id     post-id
-                               :lookup [:posts/title post-title])
-                 _           (transact!
-                              [[:add-triple  user-id :users/id    user-id]
-                               [:add-triple  user-id :users/email user-email]
-                               [:rule-params user-id "users"      {"users_view" true}]
-                               [:add-triple  post-id :posts/id    post-id]
-                               [:add-triple  post-id :posts/title post-title]
-                               [:add-triple  post-id attr         user-id]])
+           [attr     [:posts/fallback
+                      :posts/fwd-only
+                      :posts/rev-only
+                      :posts/fwd-rev]
+            ref-type [:id :lookup]]
+           (let [user-id    (random-uuid)
+                 user-email (test-util/rand-email)
+                 post-id    (random-uuid)
+                 post-title (test-util/rand-string)
+                 post-ref   (case ref-type
+                              :id     post-id
+                              :lookup [:posts/title post-title])]
+             (transact!
+              [[:add-triple  user-id :users/id    user-id]
+               [:add-triple  user-id :users/email user-email]
+               [:rule-params user-id "users"      {"users_view" true}]
+               [:add-triple  post-id :posts/id    post-id]
+               [:add-triple  post-id :posts/title post-title]
+               [:add-triple  post-id attr         user-id]])
+             (is (not (perm-pass? (transact! [[:delete-entity post-ref "posts"]]))))
+             (is (perm-pass? (transact! [[:delete-entity post-ref "posts"]
+                                         [:rule-params post-ref "posts" {"posts_delete" true}]]))))))
 
-                 tx          (concat
-                              [[:delete-entity post-ref "posts"]]
-                              (case user-params-pos
-                                :user
-                                [[:rule-params user-ref "users" (select-keys rule-params [users-param])]
-                                 [:rule-params post-ref "posts" (select-keys rule-params [posts-param])]]
-                                :post
-                                [[:rule-params post-ref "posts" rule-params]]))
-
-                 expected    (every? true? (vals rule-params))]
-
-             (is (= expected (perm-pass? (transact! tx))))))
-
-          (testing "system namespaces"
-            (let [user-id (random-uuid)
-                  file-id (random-uuid)
-                  post-id (random-uuid)
-                  _       (tx/transact!
-                           (aurora/conn-pool :write)
-                           (attr-model/get-by-app-id app-id)
-                           app-id
-                           (test-util/resolve-attrs
-                            attrs
-                            [[:add-triple  user-id :$users/id          user-id]
-                             [:add-triple  file-id :$files/id          file-id]
-                             [:add-triple  file-id :$files/path        (test-util/rand-string)]
-                             [:add-triple  file-id :$files/location-id (random-uuid)]
-                             [:add-triple  post-id :posts/id           post-id]
-                             [:add-triple  post-id :posts/$user        user-id]
-                             [:add-triple  post-id :posts/$file        file-id]])
-                           {:allow-$files-update? true})]
-              (is (perm-pass? (transact! [[:delete-entity post-id "posts"]
-                                          [:rule-params   post-id "posts" {"posts_delete" true}]]))))))
+        (testing "system namespaces"
+          (let [user-id (random-uuid)
+                file-id (random-uuid)
+                post-id (random-uuid)
+                _       (tx/transact!
+                         (aurora/conn-pool :write)
+                         (attr-model/get-by-app-id app-id)
+                         app-id
+                         (test-util/resolve-attrs
+                          attrs
+                          [[:add-triple  user-id :$users/id          user-id]
+                           [:add-triple  file-id :$files/id          file-id]
+                           [:add-triple  file-id :$files/path        (test-util/rand-string)]
+                           [:add-triple  file-id :$files/location-id (random-uuid)]
+                           [:add-triple  post-id :posts/id           post-id]
+                           [:add-triple  post-id :posts/$user        user-id]
+                           [:add-triple  post-id :posts/$file        file-id]])
+                         {:allow-$files-update? true})]
+            (is (not (perm-pass? (transact! [[:delete-entity post-id "posts"]]))))
+            (is (perm-pass? (transact! [[:delete-entity post-id "posts"]
+                                        [:rule-params   post-id "posts" {"posts_delete" true}]])))))
 
         (testing "deleting user"
           (test-util/test-matrix
-           [ref-type                       [:id :lookup]
-            ;; link check can be not defined at all (then update/view fallback is used),
-            ;; defined only for one side (then other side will use a fallback), or be
-            ;; defined for both sides
-            [attr posts-param users-param] [[:posts/fallback nil              "users_delete"]
-                                            [:posts/fwd-only "posts_fwd_only" "users_delete"]
-                                            [:posts/rev-only nil              "users_delete"]
-                                            [:posts/fwd-rev  "posts_fwd_rev"  "users_delete"]]
-            rule-params                    (if posts-param
-                                             [{posts-param false users-param true}
-                                              {posts-param true  users-param false}
-                                              {posts-param true  users-param true}]
-                                             [{users-param false}
-                                              {users-param true}])]
-           (let [user-id     (random-uuid)
-                 user-email  (test-util/rand-email)
-                 user-ref    (case ref-type
-                               :id     user-id
-                               :lookup [:users/email user-email])
-                 post-id     (random-uuid)
-                 post-title  (test-util/rand-string)
-                 post-ref    (case ref-type
-                               :id     post-id
-                               :lookup [:posts/title post-title])
-                 _           (transact!
-                              [[:add-triple  user-id :users/id    user-id]
-                               [:add-triple  user-id :users/email user-email]
-                               [:rule-params user-id "users"      {"users_view" true}]
-                               [:add-triple  post-id :posts/id    post-id]
-                               [:add-triple  post-id :posts/title post-title]
-                               [:add-triple  post-id attr         user-id]])
+           [attr     [:posts/fallback
+                      :posts/fwd-only
+                      :posts/rev-only
+                      :posts/fwd-rev]
+            ref-type [:id :lookup]]
+           (let [user-id    (random-uuid)
+                 user-email (test-util/rand-email)
+                 user-ref   (case ref-type
+                              :id     user-id
+                              :lookup [:users/email user-email])
+                 post-id    (random-uuid)
+                 post-title (test-util/rand-string)]
+             (transact!
+              [[:add-triple  user-id :users/id    user-id]
+               [:add-triple  user-id :users/email user-email]
+               [:rule-params user-id "users"      {"users_view" true}]
+               [:add-triple  post-id :posts/id    post-id]
+               [:add-triple  post-id :posts/title post-title]
+               [:add-triple  post-id attr         user-id]])
 
-                 tx          [[:delete-entity user-ref "users"]
-                              [:rule-params user-ref "users" (select-keys rule-params [users-param])]
-                              [:rule-params post-ref "posts" (select-keys rule-params [posts-param])]]
-
-                 expected    (every? true? (vals rule-params))]
-
-             (is (= expected (perm-pass? (transact! tx)))))))))))
+             (is (not (perm-pass? (transact! [[:delete-entity user-ref "users"]]))))
+             (is (perm-pass? (transact! [[:delete-entity user-ref "users"]
+                                         [:rule-params   user-ref "users" {"users_delete" true}]]))))))))))
 
 (deftest linked-data-perm
   (with-empty-app

@@ -155,7 +155,7 @@ Once done, you can include user information in the client like so:
 const addTodo = (newTodo, currentUser) => {
   const newId = id();
   db.transact(
-    tx.todos[newId]
+    db.tx.todos[newId]
       .update({ text: newTodo, completed: false })
       // Link the todo to the user with the `owner` label we defined in the schema
       .link({ owner: currentUser.id }),
@@ -167,7 +167,7 @@ const addTodo = (newTodo, currentUser) => {
 const updateNick = (newNick, currentUser) => {
   const profileId = lookup('email', currentUser.email);
   db.transact([
-    tx.profiles[profileId]
+    db.tx.profiles[profileId]
       .update({ nickname: newNick })
       // Link the profile to the user with the `user` label we defined in the schema
       .link({ user: currentUser.id }),
@@ -183,20 +183,22 @@ this case you can only link to `$users` and not from `$users`.
 // Comments is a new namespace! We haven't defined it in the schema.
 
 // ✅ This works!
-const commentId = id()
+const commentId = id();
 db.transact(
-  tx.comments[commentId].update({ text: 'Hello world', })
-    .link({ $users: currentUser.id }));
+  db.tx.comments[commentId]
+    .update({ text: 'Hello world' })
+    .link({ $users: currentUser.id }),
+);
 
 // ❌ This will not work! Cannot create a forward link on the fly
-const commentId = id()
+const commentId = id();
 db.transact([
-  tx.comments[id()].update({ text: 'Hello world' }),
-  tx.$users[currentUser.id].link({ comment: commentId }))]);
-])
+  db.tx.comments[id()].update({ text: 'Hello world' }),
+  db.tx.$users[currentUser.id].link({ comment: commentId }),
+]);
 
 // ❌ This will also not work! Cannot create new properties on `$users`
-db.transact(tx.$users[currentUser.id].update({ nickname: "Alyssa" }))
+db.transact(db.tx.$users[currentUser.id].update({ nickname: 'Alyssa' }));
 ```
 
 ## User permissions

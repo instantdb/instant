@@ -51,6 +51,9 @@
 (defn files-delete [& args]
   (apply (http-util/wrap-errors admin-routes/files-delete) args))
 
+(defn soft-deleted-attrs-get [& args]
+  (apply (http-util/wrap-errors admin-routes/soft-deleted-attrs-get) args))
+
 (deftest query-test
   (with-movies-app
     (fn [{movies-app-id :id} _r]
@@ -1194,6 +1197,49 @@
                                          "as-guest" "true"}})]
               (is (= 400 (:status delete-ret)))
               (is (= :permission-denied (-> delete-ret :body :type))))))))))
+
+(deftest soft-and-hard-delete-attrs-test
+  (with-empty-app
+    (fn [{app-id :id admin-token :admin-token :as _app}]
+      (let [aid-1 (UUID/randomUUID)
+            aid-2 (UUID/randomUUID)
+            _ (transact-post
+               {:body {:steps [[:add-attr {:id aid-1
+                                           :forward-identity [(UUID/randomUUID) "goals" "id"]
+                                           :value-type :blob
+                                           :cardinality :one
+                                           :unique? false
+                                           :index? false}]
+                               [:add-attr {:id aid-2
+                                           :forward-identity [(UUID/randomUUID) "goals" "title"]
+                                           :value-type :blob
+                                           :cardinality :one
+                                           :unique? false
+                                           :index? false}]]}
+                :headers {"app-id" (str app-id)
+                          "authorization" (str "Bearer " admin-token)}})
+
+            ;; no soft-deleted attrs initially
+            initial-soft-deleted (soft-deleted-attrs-get
+                                  {:headers {"app-id" (str app-id)
+                                             "authorization" (str "Bearer " admin-token)}})
+            _ (is (= 200 (:status initial-soft-deleted)))
+            _ (is (empty? (-> initial-soft-deleted :body :attrs)))
+
+            ;; Soft-delete one attr 
+            _ (transact-post
+               {:body {:steps [[:delete-attr aid-2]]}
+                :headers {"app-id" (str app-id)
+                          "authorization" (str "Bearer " admin-token)}})
+
+            ;; Check that attr appears 
+            after-delete (soft-deleted-attrs-get
+                          {:headers {"app-id" (str app-id)
+                                     "authorization" (str "Bearer " admin-token)}})
+            _ (is (= 200 (:status after-delete)))
+            soft-deleted-attrs (-> after-delete :body :attrs)
+            _ (is (= #{aid-2}
+                     (set (map :id soft-deleted-attrs))))]))))
 
 (comment
   (test/run-tests *ns*))

@@ -13,6 +13,7 @@
    [instant.util.cache :refer [lookup-or-miss]]
    [instant.util.crypt :as crypt-util]
    [instant.util.exception :as ex]
+   [instant.util.hsql :as uhsql]
    [instant.util.uuid :as uuid-util]
    [next.jdbc :as next-jdbc])
   (:import
@@ -39,12 +40,13 @@
 
 (defn create!
   ([params] (create! (aurora/conn-pool :write) params))
-  ([conn {:keys [id title creator-id admin-token]}]
+  ([conn {:keys [id title creator-id org-id admin-token]}]
    (let [query {:with [[:app_insert
                         {:insert-into :apps
                          :values [{:id id
                                    :title title
-                                   :creator-id creator-id}]
+                                   :creator-id creator-id
+                                   :org-id org-id}]
                          :returning :*}]
                        [:token_insert
                         {:insert-into :app_admin_tokens
@@ -157,112 +159,90 @@
   (get-with-creator-by-ids ["41c12a82-f769-42e8-aad8-53bf33bbaba9"
                             "59aafa92-a900-4b3d-aaf1-45032ee8d415"]))
 
+(defn make-apps-q [app-ids-select]
+  (uhsql/preformat
+   {:with [[:app-ids app-ids-select]
+           [:members {:select [:m.app-id
+                               [[:json_agg
+                                 [:json_build_object
+                                  [:inline "id"] :m.id
+                                  [:inline "email"] :u.email
+                                  [:inline "role"] :m.member-role]]
+                                :members]]
+                      :from [[:app-members :m]]
+                      :join [[:instant-users :u] [:= :u.id :m.user-id]]
+                      :group-by :m.app-id}]
+           [:member-invites {:select [:i.app-id
+                                      [[:json_agg
+                                        [:json_build_object
+                                         [:inline "id"] :i.id
+                                         [:inline "email"] :i.invitee_email
+                                         [:inline "role"] :i.invitee_role
+                                         [:inline "status"] :i.status
+                                         [:inline "sent_at"] :i.sent_at
+                                         [:inline "expired"] [:< :i.sent_at [:- :%now [:interval "3 days"]]]]]
+                                       :invites]]
+                             :from [[:app-member-invites :i]]
+                             :group-by :i.app-id}]]
+    :select [:a.*
+             [:at.token :admin_token]
+             [:r.code :rules]
+             [[:case [:= nil :org.id] nil
+               :else [:json_build_object
+                      [:inline "id"] :org.id
+                      [:inline "title"] :org.title]]
+              :org]
+             [[:coalesce [:= :2 :sub.subscription_type_id] :false] :pro]
+             [[:case [:= :a.creator-id :?user-id] [:inline "owner"]
+               :else {:select :m.member_role
+                      :from [[:app-members :m]]
+                      :where [:and
+                              [:= :m.app-id :a.id]
+                              [:= :m.user_id :?user-id]]}] :user_app_role]
+             [[:coalesce :m.members [:cast [:inline "[]"] :json]] :members]
+             [[:coalesce :i.invites [:cast [:inline "[]"] :json]] :invites]
+             [[:case [:= nil :template.id] nil
+               :else [:json_build_object
+                      [:inline "id"] :template.id
+                      [:inline "subject"] :template.subject
+                      [:inline "body"] :template.body
+                      [:inline "name"] :template.name
+                      [:inline "email"] :sender.email]] :magic_code_email_template]]
+    :from :app-ids
+    :join [[:apps :a] [:= :a.id :app-ids.id]
+           [:app_admin_tokens :at] [:= :at.app-id :a.id]]
+    :left-join [[:rules :r] [:= :r.app_id :a.id]
+                [:orgs :org] [:= :org.id :a.org-id]
+                [:instant_subscriptions :sub] [:= :sub.id :a.subscription_id]
+                [:members :m] [:= :m.app_id :a.id]
+                [:member-invites :i] [:= :i.app_id :a.id]
+                [:app-email-templates :template] [:and
+                                                  [:= :template.app_id :a.id]
+                                                  [:= :template.email-type [:inline "magic-code"]]]
+                [:app-email-senders :sender] [:= :template.sender_id :sender.id]]}))
+
+(def all-for-user-q
+  (make-apps-q {:union [{:select :a.id
+                         :from [[:apps :a]]
+                         :where [:and
+                                 [:= nil :a.deletion-marked-at]
+                                 [:= :a.creator-id :?user-id]]}
+                        {:select :a.id
+                         :from [[:apps :a]]
+                         :join [[:app_members :m] [:and
+                                                   [:= :m.user_id :?user-id]
+                                                   [:= :m.app_id :a.id]]
+                                [:instant_subscriptions :sub] [:= :sub.id :a.subscription_id]]
+                         :where [:and
+                                 [:= nil :a.deletion-marked-at]
+                                 [:= :2 :sub.subscription_type_id]]}]}))
+
 (defn get-all-for-user
   ([params] (get-all-for-user (aurora/conn-pool :read) params))
   ([conn {:keys [user-id]}]
-   (sql/select ::get-all-for-user
-               conn ["WITH s AS (
-                        SELECT
-                          app_id,
-                          subscription_type_id
-                        FROM (
-                          SELECT
-                            app_id,
-                            subscription_type_id,
-                            ROW_NUMBER() OVER (
-                              PARTITION BY app_id ORDER BY created_at DESC
-                            ) AS row_num
-                          FROM instant_subscriptions
-                        ) s
-                        WHERE row_num = 1
-                      )
-
-                      SELECT
-                        a.*,
-                        at.token AS admin_token,
-                        r.code AS rules,
-
-                        (
-                          s.subscription_type_id IS NOT NULL
-                          AND s.subscription_type_id = 2
-                        ) AS pro,
-
-                        CASE
-                          WHEN a.creator_id = ?::uuid THEN 'owner'
-                          ELSE m.member_role
-                        END AS user_app_role,
-
-                        (
-                          SELECT
-                          CASE
-                            WHEN count(m) = 0 THEN '[]'
-                            ELSE json_agg(
-                              json_build_object(
-                                'id', m.id,
-                                'email', mu.email,
-                                'role', m.member_role
-                              )
-                            )
-                          END
-                          FROM app_members m
-                          LEFT JOIN instant_users mu ON mu.id = m.user_id
-                          WHERE m.app_id = a.id
-                        ) AS members,
-
-                        (
-                          SELECT
-                          CASE
-                            WHEN count(i) = 0 THEN '[]'
-                            ELSE json_agg(
-                              json_build_object(
-                                'id', i.id,
-                                'email', i.invitee_email,
-                                'role', i.invitee_role,
-                                'status', i.status,
-                                'sent_at', i.sent_at,
-                                'expired', i.sent_at < NOW() - INTERVAL '3 days'
-                              )
-                            )
-                          END
-                          FROM app_member_invites i
-                          WHERE i.app_id = a.id
-                        ) AS invites,
-
-                        (
-                          SELECT
-                            json_build_object(
-                              'id', et.id,
-                              'subject', et.subject,
-                              'body', et.body,
-                              'name', et.name,
-                              'email', es.email
-                            )
-                            FROM app_email_templates et
-                                LEFT JOIN app_email_senders es ON et.sender_id = es.id
-                            WHERE et.app_id = a.id
-                        ) AS magic_code_email_template
-
-                      FROM apps a
-                        JOIN app_admin_tokens at ON at.app_id = a.id
-                        LEFT JOIN rules r ON r.app_id = a.id
-                        LEFT JOIN app_members m ON (
-                          m.user_id = ?::uuid
-                          AND m.app_id = a.id
-                        )
-                        LEFT JOIN s ON a.id = s.app_id
-
-                      WHERE
-                        ( 
-                          a.creator_id = ?::uuid
-                          OR (m.user_id = ?::uuid AND s.subscription_type_id = 2)
-                        ) AND a.deletion_marked_at IS NULL
-                      GROUP BY
-                        a.id,
-                        admin_token,
-                        rules,
-                        m.member_role,
-                        s.subscription_type_id"
-                     user-id user-id user-id user-id])))
+   (let [params {:user-id user-id}
+         query (uhsql/formatp all-for-user-q params)]
+     (sql/select ::get-all-for-user conn query))))
 
 (defn get-dash-auth-data
   ([params] (get-dash-auth-data (aurora/conn-pool :read) params))

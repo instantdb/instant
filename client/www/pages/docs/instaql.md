@@ -88,7 +88,7 @@ const data = {
 
 ## Fetch a specific entity
 
-If you want to filter entities, you can use the `where` keyword. Here we fetch a specific goal
+If you want to filter entities, you can use the `where` keyword. Here we fetch a specific goal.
 
 ```javascript
 const query = {

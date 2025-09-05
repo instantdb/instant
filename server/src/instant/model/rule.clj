@@ -94,7 +94,9 @@
                             (cel/ident-usages compiler expr)))
 
 (defn with-binds [rule etype action expr]
-  (let [binds (get-in rule [etype "bind"])]
+  (let [binds (concat
+               (get-in rule ["$default" "bind"])
+               (get-in rule [etype      "bind"]))]
     (if (empty? binds)
       expr
       (let [compiler (cel/action->compiler action)
@@ -170,36 +172,37 @@
                              @(cache/lru-cache-factory {} :threshold 2048))))
 
 (defn get-program!* [{:keys [code]} paths]
-  (loop [paths paths]
-    (when-some [[etype allow action & _ :as path] (first paths)]
-      (or
-       (case allow
-         "allow"
-         (when-some [expr (get-in code path)]
-           (try
-             (let [code     (with-binds code etype action (patch-code expr))
-                   compiler (cel/action->compiler action)
-                   ast      (cel/->ast compiler code)]
-               {:etype etype
-                :action action
-                :code code
-                :display-code expr
-                :cel-ast ast
-                :cel-program (cel/->program ast)
-                :ref-uses (cel/collect-ref-uses ast)
-                :where-clauses-program (when (= action "view")
-                                         (cel/where-clauses-program code))})
-             (catch CelValidationException e
-               (ex/throw-validation-err!
-                :permission
-                [etype action]
-                (->> (.getErrors e)
-                     (map (fn [^CelIssue cel-issue]
-                            {:message (.getMessage cel-issue)})))))))
+  (let [[etype _ action & _] (first paths)]
+    (loop [paths paths]
+      (when-some [[_ allow _ & _ :as path] (first paths)]
+        (or
+         (case allow
+           "allow"
+           (when-some [expr (get-in code path)]
+             (try
+               (let [code     (with-binds code etype action (patch-code expr))
+                     compiler (cel/action->compiler action)
+                     ast      (cel/->ast compiler code)]
+                 {:etype etype
+                  :action action
+                  :code code
+                  :display-code expr
+                  :cel-ast ast
+                  :cel-program (cel/->program ast)
+                  :ref-uses (cel/collect-ref-uses ast)
+                  :where-clauses-program (when (= action "view")
+                                           (cel/where-clauses-program code))})
+               (catch CelValidationException e
+                 (ex/throw-validation-err!
+                  :permission
+                  [etype action]
+                  (->> (.getErrors e)
+                       (map (fn [^CelIssue cel-issue]
+                              {:message (.getMessage cel-issue)})))))))
 
-         "fallback"
-         (fallback-program etype action))
-       (recur (next paths))))))
+           "fallback"
+           (fallback-program etype action))
+         (recur (next paths)))))))
 
 (defn get-program!
   ([rules paths]
