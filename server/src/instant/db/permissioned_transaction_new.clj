@@ -253,21 +253,23 @@
                      :etype    etype
                      :eid      eid
                      :program  link-program
-                     :bindings {:data        entity
-                                :new-data    (get updated-entities-map key)
-                                :linked-data rev-entity
-                                :rule-params rule-params}}])
+                     :bindings {:data         entity
+                                :new-data     (get updated-entities-map key)
+                                :linked-data  rev-entity
+                                :linked-etype rev-etype
+                                :rule-params  rule-params}}])
                  (when (and rev-entity rev-link-program)
                    [{:scope    :object
                      :action   :link
                      :etype    rev-etype
                      :eid      value
                      :program  rev-link-program
-                     :bindings {:data        rev-entity
-                                :new-data    (get updated-entities-map rev-key)
-                                :linked-data (get updated-entities-map key)
-                                :rule-params (merge rule-params
-                                                    (get rule-params-map rev-key))}}]))
+                     :bindings {:data         rev-entity
+                                :new-data     (get updated-entities-map rev-key)
+                                :linked-data  (get updated-entities-map key)
+                                :linked-etype etype
+                                :rule-params  (merge rule-params
+                                                     (get rule-params-map rev-key))}}]))
 
                 ;; fallback when link isn´t defined on either side
                 (and (= :add-triple op)
@@ -306,20 +308,22 @@
                      :etype    etype
                      :eid      eid
                      :program  unlink-program
-                     :bindings {:data        entity
-                                :new-data    (get updated-entities-map key)
-                                :linked-data rev-entity
-                                :rule-params rule-params}}])
+                     :bindings {:data         entity
+                                :new-data     (get updated-entities-map key)
+                                :linked-data  rev-entity
+                                :linked-etype rev-etype
+                                :rule-params  rule-params}}])
                  (when (and rev-entity rev-unlink-program)
                    [{:scope    :object
                      :action   :unlink
                      :etype    rev-etype
                      :eid      value
                      :program  rev-unlink-program
-                     :bindings {:data        rev-entity
-                                :new-data    (get updated-entities-map rev-key)
-                                :linked-data entity
-                                :rule-params (merge rule-params
+                     :bindings {:data         rev-entity
+                                :new-data     (get updated-entities-map rev-key)
+                                :linked-data  entity
+                                :linked-etype etype
+                                :rule-params  (merge rule-params
                                                     (get rule-params-map rev-key))}}]))
 
                 ;; fallback when unlink isn´t defined on either side
@@ -423,10 +427,11 @@
                      :etype    etype
                      :eid      (get create-lookups-map eid eid)
                      :program  link-program
-                     :bindings {:data        updated-entity
-                                :new-data    updated-entity
-                                :linked-data updated-rev-entity
-                                :rule-params rule-params}}])
+                     :bindings {:data         updated-entity
+                                :new-data     updated-entity
+                                :linked-data  updated-rev-entity
+                                :linked-etype rev-etype
+                                :rule-params  rule-params}}])
                  (when (and updated-rev-entity
                             (nil? (get entities-map rev-key))
                             rev-link-program)
@@ -435,11 +440,12 @@
                      :etype    rev-etype
                      :eid      (get updated-rev-entity "id")
                      :program  rev-link-program
-                     :bindings {:data        updated-rev-entity
-                                :new-data    updated-rev-entity
-                                :linked-data updated-entity
-                                :rule-params (merge rule-params
-                                                    (get rule-params-map rev-key))}}]))
+                     :bindings {:data         updated-rev-entity
+                                :new-data     updated-rev-entity
+                                :linked-data  updated-entity
+                                :linked-etype etype
+                                :rule-params  (merge rule-params
+                                                     (get rule-params-map rev-key))}}]))
 
                 ;; fallback when link isn´t defined on either side
                 (and (= :add-triple op)
@@ -452,10 +458,11 @@
                      :eid      (get create-lookups-map eid eid)
                      :program  (or (rule-model/get-program! rules etype "create")
                                    {:result true})
-                     :bindings {:data        updated-entity
-                                :new-data    updated-entity
-                                :linked-data updated-rev-entity
-                                :rule-params rule-params}}])
+                     :bindings {:data         updated-entity
+                                :new-data     updated-entity
+                                :linked-data  updated-rev-entity
+                                :linked-etype rev-etype
+                                :rule-params  rule-params}}])
                  (when (and updated-rev-entity
                             (nil? (get entities-map rev-key)))
                    [{:scope    :object
@@ -464,10 +471,11 @@
                      :eid      (get updated-rev-entity "id")
                      :program  (or (rule-model/get-program! rules rev-etype "view")
                                    {:result true})
-                     :bindings {:data        updated-rev-entity
-                                :new-data    updated-rev-entity
-                                :linked-data updated-entity
-                                :rule-params (merge rule-params
+                     :bindings {:data         updated-rev-entity
+                                :new-data     updated-rev-entity
+                                :linked-data  updated-entity
+                                :linked-etype etype
+                                :rule-params  (merge rule-params
                                                     (get rule-params-map rev-key))}}]))
 
                 (and (#{:add-triple :deep-merge-triple} op)
@@ -487,69 +495,6 @@
                 :else
                 [])]
     check))
-
-(defn post-delete-checks
-  "Checks based on automatic retract-triples generated by delete-entity"
-  [{:keys [attrs rules]}
-   entities-map
-   updated-entities-map
-   rule-params-map
-   tx-steps
-   deleled-triples]
-  (let [delete-keys (set
-                     (for [{:keys [op eid etype]} tx-steps
-                           :when (= :delete-entity op)]
-                       {:eid eid :etype etype}))]
-
-    (for [{:keys [entity_id attr_id value]} deleled-triples
-          :let [value (if (string? value)
-                        (uuid-util/coerce value)
-                        value)
-                attr  (attr-model/seek-by-id attr_id attrs)]
-          :when (= :ref (:value-type attr))
-          :let [[_ etype     fwd-label] (:forward-identity attr)
-                [_ rev-etype rev-label] (:reverse-identity attr)
-                key             {:eid entity_id :etype etype}
-                entity          (get entities-map key)
-                rev-key         {:eid value :etype rev-etype}
-                rev-entity      (get entities-map rev-key)
-                rule-params     (get rule-params-map key)]
-          check (concat
-                 ;; do not check unlink if we are deleting the whole entity
-                 (clojure+/when+ (and (not (contains? delete-keys key))
-                                      :let [program (rule-model/get-program!
-                                                     rules
-                                                     [[etype      "allow" "unlink" fwd-label]
-                                                      ["$default" "allow" "unlink" fwd-label]])]
-                                      (some? program))
-                   [{:scope    :object
-                     :action   :unlink
-                     :etype    etype
-                     :eid      entity_id
-                     :program  program
-                     :bindings {:data        entity
-                                :new-data    (get updated-entities-map key)
-                                :linked-data rev-entity
-                                :rule-params rule-params}}])
-
-                 ;; do not check unlink if we are deleting the whole entity
-                 (clojure+/when+ (and (not (contains? delete-keys rev-key))
-                                      :let [program (rule-model/get-program!
-                                                     rules
-                                                     [[rev-etype  "allow" "unlink" rev-label]
-                                                      ["$default" "allow" "unlink" rev-label]])]
-                                      (some? program))
-                   [{:scope    :object
-                     :action   :unlink
-                     :etype    rev-etype
-                     :eid      value
-                     :program  program
-                     :bindings {:data        rev-entity
-                                :new-data    (get updated-entities-map rev-key)
-                                :linked-data entity
-                                :rule-params (merge rule-params
-                                                    (get rule-params-map rev-key))}}]))]
-      check)))
 
 (defn run-checks!
   "Runs checks, returning results (admin-check?) or throwing"
