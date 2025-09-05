@@ -18,11 +18,6 @@ const _schema = i.schema({
       appId: i.string().optional(),
       processId: i.string().optional(),
     }),
-    "drop-refresh-spam": i.entity({
-      "default-value": i.boolean(),
-      "disabled-apps": i.any().optional(),
-      "enabled-apps": i.any().optional(),
-    }),
     "e2e-logging": i.entity({
       "invalidator-rate": i.number(),
     }),

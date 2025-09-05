@@ -17,7 +17,6 @@
             :storage-migration {}
             :team-emails {}
             :test-emails {}
-            :drop-refresh-spam {}
             :promo-emails {}
             :rate-limited-apps {}
             :log-sampled-apps {}
@@ -68,20 +67,6 @@
         promo-code-emails (set (keep (fn [o]
                                        (get o "email"))
                                      (get result "promo-emails")))
-        drop-refresh-spam (when-let [hz-flag (-> (get result "drop-refresh-spam")
-                                                 first)]
-                            (let [disabled-apps (-> hz-flag
-                                                    (get "disabled-apps")
-                                                    (#(map parse-uuid %))
-                                                    set)
-                                  enabled-apps (-> hz-flag
-                                                   (get "enabled-apps")
-                                                   (#(map parse-uuid %))
-                                                   set)
-                                  default-value (get hz-flag "default-value" false)]
-                              {:disabled-apps disabled-apps
-                               :enabled-apps enabled-apps
-                               :default-value default-value}))
         rate-limited-apps (reduce (fn [acc {:strs [appId]}]
                                     (conj acc (parse-uuid appId)))
                                   #{}
@@ -146,7 +131,6 @@
      :storage-enabled-whitelist storage-enabled-whitelist
      :storage-block-list storage-block-list
      :promo-code-emails promo-code-emails
-     :drop-refresh-spam drop-refresh-spam
      :rate-limited-apps rate-limited-apps
      :log-sampled-apps log-sampled-apps
      :e2e-logging e2e-logging
@@ -200,19 +184,6 @@
   (let [app-id (str app-id)]
     (get-in (query-result) [:log-sampled-apps app-id] nil)))
 
-
-(defn drop-refresh-spam? [app-id]
-  (if-let [flag (get (query-result) :drop-refresh-spam)]
-    (let [{:keys [disabled-apps enabled-apps default-value]} flag]
-      (cond (contains? disabled-apps app-id)
-            false
-
-            (contains? enabled-apps app-id)
-            true
-
-            :else default-value))
-    ;; Default false
-    false))
 
 (defn app-rate-limited? [app-id]
   (contains? (:rate-limited-apps (query-result))

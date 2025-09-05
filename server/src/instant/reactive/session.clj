@@ -235,14 +235,10 @@
         num-spam (count spam)
         num-computations (count computations)
         num-recomputations (count recompute-results)
-        drop-spam? (flags/drop-refresh-spam? app-id)
-        computations (if drop-spam?
-                       computations
-                       recompute-results)
         tracer-attrs {:num-recomputations num-recomputations
                       :num-spam num-spam
                       :num-computations num-computations
-                      :dropped-spam? drop-spam?
+                      :dropped-spam? true
                       :tx-latency-ms (e2e-tracer/tx-latency-ms (:tx-created-at event))}
         {prev-attrs-hash :session/attrs-hash
          version :session/versions} (rs/session store sess-id)
