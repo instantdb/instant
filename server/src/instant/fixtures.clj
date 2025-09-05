@@ -289,7 +289,10 @@
                     (fn [org]
                       (with-empty-app
                         (fn [app]
-                          (let [stripe-customer (instant-stripe-customer-model/get-or-create-for-org! {:org org})
+                          (let [stripe-customer (sql/execute-one! (aurora/conn-pool :write)
+                                                                  ["insert into instant_stripe_customers (id, org_id) values (?::text, ?::uuid) returning *"
+                                                                   (str "test_" (crypt-util/random-hex 8))
+                                                                   (:id org)])
                                 subscription (instant-subscription-model/create! {:user-id (:id owner)
                                                                                   :org-id (:id org)
                                                                                   :subscription-type-id stripe/STARTUP_SUBSCRIPTION_TYPE
