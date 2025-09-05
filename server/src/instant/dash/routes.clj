@@ -139,8 +139,8 @@
          {app-creator-id :creator_id :as app} (app-model/get-by-id! {:id app-id})
          {user-id :id :as user} (req->auth-user! req)
          app-subscription (instant-subscription-model/get-by-app-id {:app-id app-id})
-         org-subscription (tool/inspect (when-let [org-id (:org_id app)]
-                                          (instant-subscription-model/get-by-org-id {:org-id org-id})))
+         org-subscription (when-let [org-id (:org_id app)]
+                            (instant-subscription-model/get-by-org-id {:org-id org-id}))
          app-member-role (if (= user-id app-creator-id)
                            :owner
                            (get-app-member-role app user-id))
@@ -839,9 +839,9 @@
             (ex/throw-record-not-unique! :instant-subscription))
         {customer-id :id} (instant-stripe-customer-model/get-or-create-for-org! {:org org
                                                                                  :user-email user-email})
-        metadata (tool/inspect {"org-id" org-id
-                                "user-id" user-id
-                                "subscription-type-id" stripe/STARTUP_SUBSCRIPTION_TYPE})
+        metadata {"org-id" org-id
+                  "user-id" user-id
+                  "subscription-type-id" stripe/STARTUP_SUBSCRIPTION_TYPE}
         description (str "Org name: " org-title)
         session-params {"success_url" (str (config/stripe-success-url) "&org=" org-id)
                         "cancel_url" (str (config/stripe-cancel-url) "&org=" org-id)
