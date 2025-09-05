@@ -38,12 +38,6 @@ const _schema = i.schema({
       appId: i.string().unique(),
       timeoutMs: i.number(),
     }),
-    hazelcast: i.entity({
-      "default-value": i.boolean().optional(),
-      disabled: i.boolean().optional(),
-      "disabled-apps": i.any().optional(),
-      "enabled-apps": i.any().optional(),
-    }),
     "log-sampled-apps": i.entity({
       appId: i.string().unique(),
       sampleRate: i.number(),
