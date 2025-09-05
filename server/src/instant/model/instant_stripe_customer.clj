@@ -6,6 +6,12 @@
    (com.stripe.model Customer)
    (java.util Map)))
 
+(defn- create-stripe-customer
+  "Creates a customer on Stripe, returns the customer id.
+   opts should be a map."
+  [^Map opts]
+  (.getId (Customer/create opts)))
+
 (defn- create-for-user!
   ([params] (create-for-user! (aurora/conn-pool :write) params))
   ([conn {:keys [user]}]
@@ -14,8 +20,7 @@
          with-email (if email
                       (assoc opts "email" email)
                       opts)
-         customer (Customer/create ^Map with-email)
-         customer-id (.getId customer)]
+         customer-id (create-stripe-customer with-email)]
      (sql/execute-one! conn
                        ["INSERT INTO instant_stripe_customers (id, user_id) VALUES (?, ?::uuid)
                         ON CONFLICT (user_id) DO NOTHING RETURNING *"
@@ -29,8 +34,7 @@
          with-email (if email
                       (assoc opts "email" email)
                       opts)
-         customer (Customer/create ^Map with-email)
-         customer-id (.getId customer)]
+         customer-id (create-stripe-customer with-email)]
      (sql/execute-one! conn
                        ["INSERT INTO instant_stripe_customers (id, org_id) VALUES (?, ?::uuid)
                         ON CONFLICT (org_id) DO NOTHING RETURNING *"

@@ -909,8 +909,12 @@
     (response/ok {:ok true})))
 
 (defn org-get [req]
-  (let [{org :org
-         {user-id :id} :user} (req->org-and-user! :collaborator req)
+  (let [{user-id :id} (req->auth-user! req)
+        org-id-param (ex/get-param! req [:params :org_id] uuid-util/coerce)
+        ;; Be careful in here. This route relies on the individual queries filtering
+        ;; what is visible to the user.
+        org (org-model/get-org-for-user! {:org-id org-id-param
+                                          :user-id user-id})
         apps (org-model/apps-for-org {:org-id (:id org) :user-id user-id})
         members (org-model/members-for-org {:org-id (:id org) :user-id user-id})
         invites (org-model/invites-for-org {:org-id (:id org) :user-id user-id})]
