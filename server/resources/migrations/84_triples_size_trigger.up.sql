@@ -6,10 +6,6 @@ drop trigger update_files_to_sweep_trigger on triples;
 drop function create_file_to_sweep();
 drop function create_file_to_sweep_on_update();
 
-alter table triples add column pg_size integer;
--- XXX: Need to fully deploy this before running the rest of the migrations
-alter table attr_sketches add column triples_pg_size bigint;
-
 create or replace function triples_delete_batch_trigger()
 returns trigger as $$
 begin
