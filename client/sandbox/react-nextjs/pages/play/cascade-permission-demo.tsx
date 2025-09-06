@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { i, id, InstantReactAbstractDatabase } from '@instantdb/react';
-import EphemeralAppPage from '../../components/EphemeralAppPage';
 import { provisionEphemeralApp } from '../../components/EphemeralAppPage';
 import config from '../../config';
 import { init } from '@instantdb/react';
@@ -144,14 +143,12 @@ function CascadePermissionDemo() {
           title="With Skip Cascade Permission Check"
           subtitle="Deleting posts will succeed even though comments have restrictive permissions"
           db={appWithSkip.db}
-          appId={appWithSkip.appId}
           highlightColor="green"
         />
         <AppInstance
           title="Without Skip Cascade Permission Check"
           subtitle="Deleting posts will fail because comments cannot be deleted"
           db={appNoSkip.db}
-          appId={appNoSkip.appId}
           highlightColor="red"
         />
       </div>
@@ -163,7 +160,6 @@ interface AppInstanceProps {
   title: string;
   subtitle: string;
   db: InstantReactAbstractDatabase<Schema>;
-  appId: string;
   highlightColor: 'green' | 'red';
 }
 
@@ -171,10 +167,8 @@ function AppInstance({
   title,
   subtitle,
   db,
-  appId,
   highlightColor,
 }: AppInstanceProps) {
-  const [userId] = useState(() => id());
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -213,13 +207,13 @@ function AppInstance({
 
       setSuccess('Created post with 2 comments');
     } catch (err) {
-      setError(`Failed to create: ${err.message}`);
+      setError(`Failed to create: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setLoading(false);
     }
   };
 
-  const deletePost = async (postId) => {
+  const deletePost = async (postId: string) => {
     setError(null);
     setSuccess(null);
     setLoading(true);
@@ -229,13 +223,13 @@ function AppInstance({
       await db.transact(db.tx.posts[postId].delete());
       setSuccess('Successfully deleted post and its comments!');
     } catch (err) {
-      setError(`Failed to delete: ${err.message}`);
+      setError(`Failed to delete: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setLoading(false);
     }
   };
 
-  const deleteComment = async (commentId) => {
+  const deleteComment = async (commentId: string) => {
     setError(null);
     setSuccess(null);
     setLoading(true);
@@ -245,7 +239,7 @@ function AppInstance({
       await db.transact(db.tx.comments[commentId].delete());
       setSuccess('Successfully deleted comment!');
     } catch (err) {
-      setError(`Failed to delete comment: ${err.message}`);
+      setError(`Failed to delete comment: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setLoading(false);
     }
