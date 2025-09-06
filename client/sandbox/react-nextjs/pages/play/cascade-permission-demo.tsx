@@ -18,7 +18,12 @@ const schema = i.schema({
   links: {
     postComments: {
       forward: { on: 'posts', has: 'many', label: 'comments' },
-      reverse: { on: 'comments', has: 'one', label: 'post', onDelete: 'cascade' },
+      reverse: {
+        on: 'comments',
+        has: 'one',
+        label: 'post',
+        onDelete: 'cascade',
+      },
     },
   },
 });
@@ -43,8 +48,14 @@ const perms = {
 };
 
 function CascadePermissionDemo() {
-  const [appWithSkip, setAppWithSkip] = useState<{ db: InstantReactAbstractDatabase<Schema>, appId: string } | null>(null);
-  const [appNoSkip, setAppNoSkip] = useState<{ db: InstantReactAbstractDatabase<Schema>, appId: string } | null>(null);
+  const [appWithSkip, setAppWithSkip] = useState<{
+    db: InstantReactAbstractDatabase<Schema>;
+    appId: string;
+  } | null>(null);
+  const [appNoSkip, setAppNoSkip] = useState<{
+    db: InstantReactAbstractDatabase<Schema>;
+    appId: string;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -57,7 +68,7 @@ function CascadePermissionDemo() {
             ...config,
             appId: res1.app.id,
             schema,
-            skipCascadePermissionCheck: true
+            skipCascadePermissionCheck: true,
           });
           setAppWithSkip({ db: db1, appId: res1.app.id });
         }
@@ -69,7 +80,7 @@ function CascadePermissionDemo() {
             ...config,
             appId: res2.app.id,
             schema,
-            skipCascadePermissionCheck: false
+            skipCascadePermissionCheck: false,
           });
           setAppNoSkip({ db: db2, appId: res2.app.id });
         }
@@ -86,7 +97,9 @@ function CascadePermissionDemo() {
   if (loading) {
     return (
       <div className="p-8">
-        <h1 className="text-3xl font-bold mb-6">Loading Cascade Permission Check Demo...</h1>
+        <h1 className="text-3xl font-bold mb-6">
+          Loading Cascade Permission Check Demo...
+        </h1>
       </div>
     );
   }
@@ -106,11 +119,23 @@ function CascadePermissionDemo() {
       <div className="mb-6 bg-blue-50 p-4 rounded">
         <h2 className="text-lg font-semibold mb-2">How this demo works:</h2>
         <ul className="list-disc list-inside space-y-1 text-sm">
-          <li>Posts have a cascade delete relationship with comments (deleting a post deletes its comments)</li>
+          <li>
+            Posts have a cascade delete relationship with comments (deleting a
+            post deletes its comments)
+          </li>
           <li>Permission rules: Posts can be deleted</li>
-          <li>Permission rules: Comments cannot be deleted directly (delete: false)</li>
-          <li>Left app: skipCascadePermissionCheck = true (cascade deletes bypass comment permissions)</li>
-          <li>Right app: skipCascadePermissionCheck = false (cascade deletes check comment permissions)</li>
+          <li>
+            Permission rules: Comments cannot be deleted directly (delete:
+            false)
+          </li>
+          <li>
+            Left app: skipCascadePermissionCheck = true (cascade deletes bypass
+            comment permissions)
+          </li>
+          <li>
+            Right app: skipCascadePermissionCheck = false (cascade deletes check
+            comment permissions)
+          </li>
         </ul>
       </div>
 
@@ -142,7 +167,13 @@ interface AppInstanceProps {
   highlightColor: 'green' | 'red';
 }
 
-function AppInstance({ title, subtitle, db, appId, highlightColor }: AppInstanceProps) {
+function AppInstance({
+  title,
+  subtitle,
+  db,
+  appId,
+  highlightColor,
+}: AppInstanceProps) {
   const [userId] = useState(() => id());
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -220,7 +251,8 @@ function AppInstance({ title, subtitle, db, appId, highlightColor }: AppInstance
     }
   };
 
-  const borderColor = highlightColor === 'green' ? 'border-green-500' : 'border-red-500';
+  const borderColor =
+    highlightColor === 'green' ? 'border-green-500' : 'border-red-500';
   const bgColor = highlightColor === 'green' ? 'bg-green-50' : 'bg-red-50';
 
   return (
@@ -252,7 +284,9 @@ function AppInstance({ title, subtitle, db, appId, highlightColor }: AppInstance
 
       <div className="space-y-4">
         <div>
-          <h3 className="font-semibold mb-2">Posts ({data?.posts?.length || 0})</h3>
+          <h3 className="font-semibold mb-2">
+            Posts ({data?.posts?.length || 0})
+          </h3>
           {isLoading ? (
             <p className="text-gray-500">Loading...</p>
           ) : (
@@ -306,7 +340,7 @@ function AppInstance({ title, subtitle, db, appId, highlightColor }: AppInstance
                       </button>
                     </div>
                   </div>
-                ))
+                )),
               )}
             </div>
           )}
@@ -318,12 +352,18 @@ function AppInstance({ title, subtitle, db, appId, highlightColor }: AppInstance
         <ul className="list-disc list-inside mt-1 space-y-1">
           {highlightColor === 'green' ? (
             <>
-              <li>✅ Deleting posts succeeds (cascaded comment deletes bypass permission check)</li>
+              <li>
+                ✅ Deleting posts succeeds (cascaded comment deletes bypass
+                permission check)
+              </li>
               <li>❌ Deleting comments directly fails (permission denied)</li>
             </>
           ) : (
             <>
-              <li>❌ Deleting posts fails (cascaded comment deletes are permission checked)</li>
+              <li>
+                ❌ Deleting posts fails (cascaded comment deletes are permission
+                checked)
+              </li>
               <li>❌ Deleting comments directly fails (permission denied)</li>
             </>
           )}

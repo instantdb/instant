@@ -1125,14 +1125,14 @@ export default class Reactor {
       error,
       order,
     };
-    
+
     // Add skipCascadePermissionCheck config if set in init config
     if (this.config.skipCascadePermissionCheck) {
       mutation['tx-config'] = {
-        skipCascadePermissionCheck: true
+        skipCascadePermissionCheck: true,
       };
     }
-    
+
     this.pendingMutations.set((prev) => {
       prev.set(eventId, mutation);
       return prev;
