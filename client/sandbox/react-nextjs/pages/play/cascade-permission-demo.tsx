@@ -207,7 +207,9 @@ function AppInstance({
 
       setSuccess('Created post with 2 comments');
     } catch (err) {
-      setError(`Failed to create: ${err instanceof Error ? err.message : String(err)}`);
+      setError(
+        `Failed to create: ${err instanceof Error ? err.message : String(err)}`,
+      );
     } finally {
       setLoading(false);
     }
@@ -223,7 +225,9 @@ function AppInstance({
       await db.transact(db.tx.posts[postId].delete());
       setSuccess('Successfully deleted post and its comments!');
     } catch (err) {
-      setError(`Failed to delete: ${err instanceof Error ? err.message : String(err)}`);
+      setError(
+        `Failed to delete: ${err instanceof Error ? err.message : String(err)}`,
+      );
     } finally {
       setLoading(false);
     }
@@ -239,7 +243,9 @@ function AppInstance({
       await db.transact(db.tx.comments[commentId].delete());
       setSuccess('Successfully deleted comment!');
     } catch (err) {
-      setError(`Failed to delete comment: ${err instanceof Error ? err.message : String(err)}`);
+      setError(
+        `Failed to delete comment: ${err instanceof Error ? err.message : String(err)}`,
+      );
     } finally {
       setLoading(false);
     }
