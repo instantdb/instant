@@ -122,6 +122,7 @@ export type Config = {
   queryCacheLimit?: number;
   useDateObjects?: boolean;
   disableValidation?: boolean;
+  skipCascadePermissionCheck?: boolean;
 };
 
 export type InstantConfig<
@@ -137,6 +138,7 @@ export type InstantConfig<
   queryCacheLimit?: number;
   useDateObjects?: UseDates;
   disableValidation?: boolean;
+  skipCascadePermissionCheck?: boolean;
 };
 
 export type ConfigWithSchema<S extends InstantGraph<any, any>> = Config & {

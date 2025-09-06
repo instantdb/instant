@@ -4385,6 +4385,60 @@
               deleted-triples (count (:delete-entity (:results res)))]
           (is (= (-> @children (* 2) (+ 1)) deleted-triples)))))))
 
+(deftest skip-cascade-permission-check
+  (with-empty-app
+    (fn [{app-id :id}]
+      ;; Create schema with posts -> comments cascade
+      (let [attr->id (test-util/make-attrs
+                      app-id
+                      [[:posts/id :unique? :index?]
+                       [:posts/creatorId]
+                       [:comments/id :unique? :index?]
+                       [[:comments/post :posts/comments] :on-delete]])
+
+            user-id (suid "a1")
+            other-user-id (suid "a2")
+            post-id (suid "b1")
+            comment1-id (suid "c1")
+            comment2-id (suid "c2")
+
+            ;; Set up rules: only post creator can delete posts, comments cannot be deleted
+            _ (rule-model/put! (aurora/conn-pool :write)
+                               {:app-id app-id
+                                :code {"posts" {"allow" {"delete" "auth.id == data.creatorId"}}
+                                       "comments" {"allow" {"delete" "false"}}}})
+
+            ;; Insert test data
+            _ (test-util/insert-entities
+               app-id attr->id
+               [{:db/id post-id :posts/id post-id :posts/creatorId user-id}
+                {:db/id comment1-id :comments/id comment1-id :comments/post post-id}
+                {:db/id comment2-id :comments/id comment2-id :comments/post post-id}])
+
+            make-ctx (fn [user-id & [tx-config]]
+                       {:db {:conn-pool (aurora/conn-pool :write)}
+                        :app-id app-id
+                        :attrs (attr-model/get-by-app-id app-id)
+                        :datalog-query-fn d/query
+                        :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                        :current-user {:id user-id}
+                        :tx-config tx-config})]
+
+        (testing "Delete with cascade fails due to comment permissions"
+          (is (not (perm-pass? (permissioned-tx/transact!
+                                (make-ctx user-id)
+                                [[:delete-entity post-id "posts"]])))))
+
+        (testing "Delete with skipCascadePermissionCheck succeeds"
+            (is (perm-pass? (permissioned-tx/transact!
+                                 (make-ctx user-id {:skipCascadePermissionCheck true})
+                                 [[:delete-entity post-id "posts"]]))))
+
+        (testing "Non-owner still cannot delete even with skipCascadePermissionCheck"
+            (is (not (perm-pass? (permissioned-tx/transact!
+                            (make-ctx other-user-id {:skipCascadePermissionCheck true})
+                            [[:delete-entity post-id "posts"]])))))))))
+
 (deftest too-many-params
   (with-zeneca-app
     (fn [app r]
@@ -4740,7 +4794,6 @@
           (timeout-err? (permissioned-tx/transact!
                          (assoc (make-ctx) :db {:conn-pool conn})
                          [[:add-triple book-id title-aid "Test"]])))))))
-
 
 (deftest deadlock
   (with-zeneca-app

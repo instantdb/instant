@@ -279,7 +279,7 @@
 ;; transact
 
 (defn handle-transact!
-  [store sess-id {:keys [tx-steps client-event-id] :as _event}]
+  [store sess-id {:keys [tx-steps tx-config client-event-id] :as _event}]
   (let [auth (get-auth! store sess-id)
         app-id (-> auth :app :id)
         coerced (tx/coerce! tx-steps)
@@ -292,7 +292,8 @@
           :current-user (:user auth)
           :admin? (:admin? auth)
           :datalog-query-fn d/query
-          :attrs (attr-model/get-by-app-id app-id)}
+          :attrs (attr-model/get-by-app-id app-id)
+          :tx-config tx-config}
          coerced)]
     (rs/send-event! store app-id sess-id
                     {:op :transact-ok

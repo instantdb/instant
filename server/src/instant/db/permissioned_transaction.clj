@@ -195,12 +195,17 @@
 
 (defn pre-checks
   "Checks that run before tx: update, delete for attrs & objects"
-  [{:keys [attrs admin? rules]}
+  [{:keys [attrs admin? rules tx-config original-deletes]}
    entities-map
    updated-entities-map
    rule-params-map
    tx-steps]
   (for [tx-step tx-steps
+        ;; Skip permission checks for cascaded deletes when skipCascadePermissionCheck is enabled
+        ;; A delete is "cascaded" if it wasn't in the original transaction
+        :when (not (and (= :delete-entity (:op tx-step))
+                        (:skipCascadePermissionCheck tx-config)
+                        (not (contains? original-deletes [(:eid tx-step) (:etype tx-step)]))))
         :let [{:keys [op eid aid etype value rev-etype]} tx-step
               key                {:eid eid :etype etype}
               entity             (get entities-map key)
@@ -539,13 +544,18 @@
       (io/warn-io :permissioned-transact!
         (let [ops-order        (tx/tx-steps-order tx-step-vecs)
               optimistic-attrs (tx/optimistic-attrs attrs tx-step-vecs)
+              ;; Capture original deletes before cascade expansion
+              original-deletes (set (for [step tx-step-vecs
+                                          :when (= :delete-entity (first step))]
+                                      [(second step) (nth step 2 nil)]))
               tx-step-maps     (io/expect-io
                                  (tx/preprocess-tx-steps tx-conn optimistic-attrs app-id tx-step-vecs))
               ;; Use the db connection we have so that we don't cause a deadlock
               ;; Also need to be able to read our own writes for the create checks
               ctx              (assoc ctx
                                       :db {:conn-pool tx-conn}
-                                      :attrs optimistic-attrs)]
+                                      :attrs optimistic-attrs
+                                      :original-deletes original-deletes)]
           (validate-reserved-names! ctx tx-step-maps)
           (if admin?
             (let [tx-steps (tx/reorder-tx-steps ops-order tx-step-maps)]
