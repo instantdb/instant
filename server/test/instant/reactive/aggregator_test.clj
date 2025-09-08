@@ -28,7 +28,7 @@
 
 (defn check-sketches [app r]
   (let [triples (sql/select (aurora/conn-pool :read)
-                            ["select *, pg_column_size(triples) actual_pg_size from triples where app_id = ?" (:id app)])
+                            ["select *, pg_column_size(triples) actual_pg_size, triples_column_size(triples) as triples_column_size from triples where app_id = ?" (:id app)])
         attr-groups (group-by :attr_id triples)
         value-groups (group-by #(select-keys % [:attr_id :value :checked_data_type]) triples)
         reverse-value-groups (group-by #(select-keys % [:attr_id :entity_id])
@@ -66,7 +66,7 @@
              (take 100 (keep (fn [t]
                                (when (not= (:pg_size t)
                                            (:actual_pg_size t))
-                                 (select-keys t [:attr_id :entity_id :value :pg_size :actual_pg_size])))
+                                 (select-keys t [:attr_id :entity_id :value :pg_size :actual_pg_size :triples_column_size])))
                              triples))))
       (doseq [attr (attr-model/get-by-app-id (:id app))]
         (tool/def-locals)
