@@ -460,7 +460,7 @@
                         (string/last-index-of detail ")"))
           ;; Skip any `,` in the value
           borders (concat (take 4 borders)
-                          (take-last 9 borders))]
+                          (take-last 10 borders))]
       (zipmap [:app-id
                :entity-id
                :attr-id
