@@ -77,6 +77,12 @@ prod-up:
 		read ans && [ $$ans = y ] && \
 		migrate -verbose -database "$${DATABASE_URL}" -source github://instantdb/instant/server/resources/migrations#main up
 
+prod-up-one:
+	@DATABASE_URL=$$(./scripts/prod_connection_string.sh); \
+	echo "[IMPORTANT] Migrating prod up 1 -- are you sure you want to do this? [y/N]" && \
+		read ans && [ $$ans = y ] && \
+		migrate -verbose -database "$${DATABASE_URL}" -source github://instantdb/instant/server/resources/migrations#main up 1
+
 prod-down:
 	@DATABASE_URL=$$(./scripts/prod_connection_string.sh); \
 	echo "[IMPORTANT] Migrating prod db down by 1 -- are you sure you want to do this? [y/N]" && \
