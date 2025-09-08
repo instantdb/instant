@@ -3,6 +3,7 @@
    [clj-http.client :as http]
    [clojure.test :refer [deftest is testing]]
    [instant.config :as config]
+   [instant.dash.routes :as route]
    [instant.fixtures :refer [random-email
                              with-empty-app
                              with-org
@@ -14,10 +15,11 @@
    [instant.model.instant-stripe-customer :as stripe-customer-model]
    [instant.util.crypt :as crypt-util]
    [instant.util.json :refer [->json]]
-   [instant.dash.routes :as route]))
+   [instant.util.tracer :as tracer]))
 
 (deftest app-invites-work
-  (with-redefs [config/postmark-send-enabled? (constantly false)]
+  (with-redefs [config/postmark-send-enabled? (constantly false)
+                tracer/*silence-exceptions?* (atom true)]
     (with-user
       (fn [u]
         (with-empty-app
@@ -102,7 +104,8 @@
                         (is (nil? member))))))))))))))
 
 (deftest app-invites-can-be-revoked
-  (with-redefs [config/postmark-send-enabled? (constantly false)]
+  (with-redefs [config/postmark-send-enabled? (constantly false)
+                tracer/*silence-exceptions?* (atom true)]
     (with-user
       (fn [u]
         (with-empty-app
@@ -210,7 +213,8 @@
                     (is (= "revoked" (:status invite)))))))))))))
 
 (deftest org-invites-work
-  (with-redefs [config/postmark-send-enabled? (constantly false)]
+  (with-redefs [config/postmark-send-enabled? (constantly false)
+                tracer/*silence-exceptions?* (atom true)]
     (with-user
       (fn [u]
         (with-org
@@ -295,7 +299,8 @@
                         (is (nil? member))))))))))))))
 
 (deftest org-invites-can-be-revoked
-  (with-redefs [config/postmark-send-enabled? (constantly false)]
+  (with-redefs [config/postmark-send-enabled? (constantly false)
+                tracer/*silence-exceptions?* (atom true)]
     (with-user
       (fn [u]
         (with-org
@@ -403,8 +408,9 @@
                     (is (= "revoked" (:status invite)))))))))))))
 
 (deftest app-access-works-through-orgs
-  (with-startup-org
-    (fn [{:keys [app owner collaborator admin outside-user]}]
+  (with-redefs [tracer/*silence-exceptions?* (atom true)]
+    (with-startup-org
+      (fn [{:keys [app owner collaborator admin outside-user]}]
       ;; Check a path available to all members of the app
       (let [auth-path (format "%s/dash/apps/%s/auth" config/server-origin (:id app))]
         (doseq [{:keys [user expected type]} [{:type "owner"
