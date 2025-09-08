@@ -3,9 +3,16 @@
    [clj-http.client :as http]
    [clojure.test :refer [deftest is testing]]
    [instant.config :as config]
-   [instant.fixtures :refer [random-email with-empty-app with-org with-user with-startup-org]]
+   [instant.fixtures :refer [random-email
+                             with-empty-app
+                             with-org
+                             with-user
+                             with-startup-org
+                             with-pro-app]]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
+   [instant.model.instant-stripe-customer :as stripe-customer-model]
+   [instant.util.crypt :as crypt-util]
    [instant.util.json :refer [->json]]
    [instant.dash.routes :as route]))
 
@@ -478,3 +485,191 @@
                 :ok (is (= (:id app)
                            (:id (:app (route/req->app-and-user! role req)))))
                 :error (is (thrown? Exception (route/req->app-and-user! role req)))))))))))
+
+(deftest you-are-an-app-member-of-the-org-if-you-are-a-member-of-an-app
+  (with-startup-org
+    (fn [{:keys [app org collaborator outside-user]}]
+      (with-empty-app
+        (fn [app-2]
+          ;; Add the second app to the org
+          (sql/do-execute! (aurora/conn-pool :write)
+                           ["update apps set org_id = ?::uuid where id = ?::uuid"
+                            (:id org)
+                            (:id app-2)])
+
+          (let [org-path (format "%s/dash/orgs/%s" config/server-origin (:id org))
+                dash-path (format "%s/dash" config/server-origin)]
+            (testing "org members get all of the apps"
+              (let [res (-> (http/get org-path
+                                      {:headers {:Authorization (str "Bearer " (:refresh-token collaborator))
+                                                 :Content-Type "application/json"}
+                                       :as :json})
+                            :body)]
+                (is (= 3 (count (:members res))))
+                (is (= #{(:id app) (:id app-2)}
+                       (->> res
+                            :apps
+                            (map (comp parse-uuid :id))
+                            set))))
+
+              (let [res (-> (http/get dash-path
+                                      {:headers {:Authorization (str "Bearer " (:refresh-token collaborator))
+                                                 :Content-Type "application/json"}
+                                       :as :json})
+                            :body)]
+                (is (= [] (:apps res)))
+                (is (= #{(:id org)}
+                       (->> res
+                            :orgs
+                            (map (comp parse-uuid :id))
+                            set)))))
+
+            (testing "outside users get a 400"
+              (let [res (http/get org-path
+                                  {:throw-exceptions false
+                                   :headers {:Authorization (str "Bearer " (:refresh-token outside-user))
+                                             :Content-Type "application/json"}
+                                   :as :json})]
+                (is (= 400 (:status res)))))
+
+            (testing "members of an app can see the org details and apps they are a member of"
+
+              (sql/do-execute! (aurora/conn-pool :write)
+                               ["insert into app_members (id, user_id, app_id, member_role) values (?, ?, ?, 'collaborator')"
+                                (random-uuid)
+                                (:id outside-user)
+                                (:id app)])
+
+
+
+              (let [res (-> (http/get org-path
+                                      {:headers {:Authorization (str "Bearer " (:refresh-token outside-user))
+                                                 :Content-Type "application/json"}
+                                       :as :json})
+                            :body)]
+
+                (is (= (:title org)
+                       (-> res :org :title)))
+
+                (is (= 0 (count (:members res)))
+                    "They shouldn't see the other org members")
+                (is (= #{(:id app)}
+                       (->> res
+                            :apps
+                            (map (comp parse-uuid :id))
+                            set))))
+
+              (let [res (-> (http/get dash-path
+                                      {:headers {:Authorization (str "Bearer " (:refresh-token outside-user))
+                                                 :Content-Type "application/json"}
+                                       :as :json})
+                            :body)]
+
+                (is (= [] (:apps res)))
+                (is (= #{(:id org)}
+                       (->> res
+                            :orgs
+                            (map (comp parse-uuid :id))
+                            set)))))))))))
+
+(deftest pro-apps-in-an-org-show-up-in-org-apps
+  (with-redefs [stripe-customer-model/create-stripe-customer (fn [_]
+                                                               (str "test_" (crypt-util/random-hex 8)))]
+    (with-startup-org
+      (fn [{:keys [app org owner outside-user]}]
+        (with-pro-app
+          owner
+          (fn [{pro-app :app}]
+            ;; Add the second app to the org
+            (sql/do-execute! (aurora/conn-pool :write)
+                             ["update apps set org_id = ?::uuid where id = ?::uuid"
+                              (:id org)
+                              (:id pro-app)])
+            (dotimes [x 2]
+              (testing (if (zero? x)
+                         "with a paid org"
+                         "with a non-paid org")
+                ;; reset
+                (sql/do-execute! (aurora/conn-pool :write)
+                                 ["delete from app_members where app_id = ?::uuid"
+                                  (:id pro-app)])
+                (when (= x 1)
+                  (sql/do-execute! (aurora/conn-pool :write)
+                                   ["update orgs set subscription_id = null where id = ?::uuid"
+                                    (:id org)]))
+
+                (let [org-path (format "%s/dash/orgs/%s" config/server-origin (:id org))
+                      dash-path (format "%s/dash" config/server-origin)]
+                  (testing "org members get all of the apps"
+                    (let [res (-> (http/get org-path
+                                            {:headers {:Authorization (str "Bearer " (:refresh-token owner))
+                                                       :Content-Type "application/json"}
+                                             :as :json})
+                                  :body)]
+                      (is (= 3 (count (:members res))))
+                      (is (= #{(:id app) (:id pro-app)}
+                             (->> res
+                                  :apps
+                                  (map (comp parse-uuid :id))
+                                  set))))
+
+                    (let [res (-> (http/get dash-path
+                                            {:headers {:Authorization (str "Bearer " (:refresh-token owner))
+                                                       :Content-Type "application/json"}
+                                             :as :json})
+                                  :body)]
+                      (is (= [] (:apps res))
+                          "apps should filter out org apps")
+                      (is (= #{(:id org)}
+                             (->> res
+                                  :orgs
+                                  (map (comp parse-uuid :id))
+                                  set)))))
+
+                  (testing "outside users get a 400"
+                    (let [res (http/get org-path
+                                        {:throw-exceptions false
+                                         :headers {:Authorization (str "Bearer " (:refresh-token outside-user))
+                                                   :Content-Type "application/json"}
+                                         :as :json})]
+                      (is (= 400 (:status res)))))
+
+                  (testing "members of an app can see the org details and apps they are a member of"
+
+                    (sql/do-execute! (aurora/conn-pool :write)
+                                     ["insert into app_members (id, user_id, app_id, member_role) values (?, ?, ?, 'collaborator')"
+                                      (random-uuid)
+                                      (:id outside-user)
+                                      (:id pro-app)])
+
+
+
+                    (let [res (-> (http/get org-path
+                                            {:headers {:Authorization (str "Bearer " (:refresh-token outside-user))
+                                                       :Content-Type "application/json"}
+                                             :as :json})
+                                  :body)]
+
+                      (is (= (:title org)
+                             (-> res :org :title)))
+
+                      (is (= 0 (count (:members res)))
+                          "They shouldn't see the other org members")
+                      (is (= #{(:id pro-app)}
+                             (->> res
+                                  :apps
+                                  (map (comp parse-uuid :id))
+                                  set))))
+
+                    (let [res (-> (http/get dash-path
+                                            {:headers {:Authorization (str "Bearer " (:refresh-token outside-user))
+                                                       :Content-Type "application/json"}
+                                             :as :json})
+                                  :body)]
+
+                      (is (= [] (:apps res)))
+                      (is (= #{(:id org)}
+                             (->> res
+                                  :orgs
+                                  (map (comp parse-uuid :id))
+                                  set))))))))))))))

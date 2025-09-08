@@ -226,6 +226,7 @@
                          :from [[:apps :a]]
                          :where [:and
                                  [:= nil :a.deletion-marked-at]
+                                 [:= nil :a.org_id]
                                  [:= :a.creator-id :?user-id]]}
                         {:select :a.id
                          :from [[:apps :a]]
@@ -235,6 +236,7 @@
                                 [:instant_subscriptions :sub] [:= :sub.id :a.subscription_id]]
                          :where [:and
                                  [:= nil :a.deletion-marked-at]
+                                 [:= nil :a.org_id]
                                  [:= :2 :sub.subscription_type_id]]}]}))
 
 (defn get-all-for-user

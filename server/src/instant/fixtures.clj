@@ -18,7 +18,7 @@
             [instant.model.org :as org-model]
             [instant.model.org-members :as instant-org-members]
             [instant.model.rule :as rule-model]
-            [instant.stripe :as stripe :refer [PRO_SUBSCRIPTION_TYPE]]
+            [instant.plans :as plans]
             [instant.db.pg-introspect :as pg-introspect]
             [instant.jdbc.sql :as sql]
             [instant.jdbc.aurora :as aurora]
@@ -257,7 +257,7 @@
         _ (instant-subscription-model/create!
            {:user-id (:id owner)
             :app-id app-id
-            :subscription-type-id PRO_SUBSCRIPTION_TYPE
+            :subscription-type-id plans/PRO_SUBSCRIPTION_TYPE
             :stripe-customer-id (:id stripe-customer)
             :stripe-subscription-id (str "fake_sub_" (random-uuid))
             :stripe-event-id (str "fake_evt_" (random-uuid))})
@@ -295,7 +295,7 @@
                                                                    (:id org)])
                                 subscription (instant-subscription-model/create! {:user-id (:id owner)
                                                                                   :org-id (:id org)
-                                                                                  :subscription-type-id stripe/STARTUP_SUBSCRIPTION_TYPE
+                                                                                  :subscription-type-id plans/STARTUP_SUBSCRIPTION_TYPE
                                                                                   :stripe-customer-id (:id stripe-customer)
                                                                                   :stripe-subscription-id (str "fake_sub_" (random-uuid))
                                                                                   :stripe-event-id (str "fake_evt_" (random-uuid))})]

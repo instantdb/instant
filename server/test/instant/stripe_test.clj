@@ -7,6 +7,7 @@
    [instant.model.instant-stripe-customer :as instant-stripe-customer-model]
    [instant.model.instant-subscription :as instant-subscription-model]
    [instant.model.org :as org-model]
+   [instant.plans :as plans]
    [instant.stripe :as stripe]))
 
 (defn event-data [{:keys [app-id org-id user-id customer subscription-type-id]}]
@@ -26,7 +27,7 @@
           (f (event-data {:app-id app-id
                           :user-id creator-id
                           :customer customer-id
-                          :subscription-type-id stripe/PRO_SUBSCRIPTION_TYPE})))))))
+                          :subscription-type-id plans/PRO_SUBSCRIPTION_TYPE})))))))
 
 (defn with-stripe-org-customer [f]
   (when (config/stripe-secret)
@@ -42,7 +43,7 @@
               (f (event-data {:org-id (:id org)
                               :user-id (:id u)
                               :customer customer-id
-                              :subscription-type-id stripe/STARTUP_SUBSCRIPTION_TYPE})))))))))
+                              :subscription-type-id plans/STARTUP_SUBSCRIPTION_TYPE})))))))))
 
 (deftest handle-stripe-events
   (with-stripe-customer
