@@ -25,11 +25,13 @@ begin
 end;
 $$ language plpgsql;
 
+-- same as pg_column_size, but accounts for pg_size being null
+-- After the triggers run, triples_column_size and pg_column_size
+-- should always return the same thing.
 create or replace function triples_column_size(t public.triples)
 returns int as $$
-                             -- add the extra 4 bytes for the pg_size column
-  select pg_column_size(t); -- + case when t.pg_size is null then 4 else 0 end;
-$$ language sql stable;
+  select pg_column_size(t) + case when t.pg_size is null then 4 else 0 end;
+$$ language sql;
 
 create or replace function triples_insert_batch_trigger()
 returns trigger as $$
