@@ -368,7 +368,8 @@
                       (is (= "revoked" (:status invite))))))))))))))
 
 (deftest org-invites-can-be-rejected
-  (with-redefs [config/postmark-send-enabled? (constantly false)]
+  (with-redefs [config/postmark-send-enabled? (constantly false)
+                tracer/*silence-exceptions?* (atom true)]
     (with-user
       (fn [u]
         (with-org
@@ -412,270 +413,268 @@
     (with-startup-org
       (fn [{:keys [app owner collaborator admin outside-user]}]
       ;; Check a path available to all members of the app
-      (let [auth-path (format "%s/dash/apps/%s/auth" config/server-origin (:id app))]
-        (doseq [{:keys [user expected type]} [{:type "owner"
-                                               :user owner
-                                               :expected 200}
-                                              {:type "collaborator"
-                                               :user collaborator
-                                               :expected 200}
-                                              {:type "admin"
-                                               :user admin
-                                               :expected 200}
-                                              {:type "outside-user"
-                                               :user outside-user
-                                               :expected 400}]]
-          (testing type
-            (is (= expected (:status (http/get auth-path
-                                               {:throw-exceptions false
-                                                :headers {:Authorization (str "Bearer " (:refresh-token user))
-                                                          :Content-Type "application/json"}
-                                                :as :json})))))))
+        (let [auth-path (format "%s/dash/apps/%s/auth" config/server-origin (:id app))]
+          (doseq [{:keys [user expected type]} [{:type "owner"
+                                                 :user owner
+                                                 :expected 200}
+                                                {:type "collaborator"
+                                                 :user collaborator
+                                                 :expected 200}
+                                                {:type "admin"
+                                                 :user admin
+                                                 :expected 200}
+                                                {:type "outside-user"
+                                                 :user outside-user
+                                                 :expected 400}]]
+            (testing type
+              (is (= expected (:status (http/get auth-path
+                                                 {:throw-exceptions false
+                                                  :headers {:Authorization (str "Bearer " (:refresh-token user))
+                                                            :Content-Type "application/json"}
+                                                  :as :json})))))))
 
-      (testing "req->app-and-user!"
-        (doseq [{:keys [user expected type role]} [{:type "owner"
-                                                    :user owner
-                                                    :role :owner
-                                                    :expected :ok}
-                                                   {:type "owner"
-                                                    :user owner
-                                                    :role :admin
-                                                    :expected :ok}
-                                                   {:type "owner"
-                                                    :user owner
-                                                    :role :collaborator
-                                                    :expected :ok}
+        (testing "req->app-and-user!"
+          (doseq [{:keys [user expected type role]} [{:type "owner"
+                                                      :user owner
+                                                      :role :owner
+                                                      :expected :ok}
+                                                     {:type "owner"
+                                                      :user owner
+                                                      :role :admin
+                                                      :expected :ok}
+                                                     {:type "owner"
+                                                      :user owner
+                                                      :role :collaborator
+                                                      :expected :ok}
 
-                                                   {:type "collaborator"
-                                                    :user collaborator
-                                                    :role :owner
-                                                    :expected :error}
-                                                   {:type "collaborator"
-                                                    :user collaborator
-                                                    :role :admin
-                                                    :expected :error}
-                                                   {:type "collaborator"
-                                                    :user collaborator
-                                                    :role :collaborator
-                                                    :expected :ok}
+                                                     {:type "collaborator"
+                                                      :user collaborator
+                                                      :role :owner
+                                                      :expected :error}
+                                                     {:type "collaborator"
+                                                      :user collaborator
+                                                      :role :admin
+                                                      :expected :error}
+                                                     {:type "collaborator"
+                                                      :user collaborator
+                                                      :role :collaborator
+                                                      :expected :ok}
 
-                                                   {:type "admin"
-                                                    :user admin
-                                                    :role :owner
-                                                    :expected :error}
-                                                   {:type "admin"
-                                                    :user admin
-                                                    :role :admin
-                                                    :expected :ok}
-                                                   {:type "admin"
-                                                    :user admin
-                                                    :role :collaborator
-                                                    :expected :ok}
+                                                     {:type "admin"
+                                                      :user admin
+                                                      :role :owner
+                                                      :expected :error}
+                                                     {:type "admin"
+                                                      :user admin
+                                                      :role :admin
+                                                      :expected :ok}
+                                                     {:type "admin"
+                                                      :user admin
+                                                      :role :collaborator
+                                                      :expected :ok}
 
-                                                   {:type "outside-user"
-                                                    :user outside-user
-                                                    :role :owner
-                                                    :expected :error}
-                                                   {:type "outside-user"
-                                                    :user outside-user
-                                                    :role :admin
-                                                    :expected :error}
-                                                   {:type "outside-user"
-                                                    :user outside-user
-                                                    :role :collaborator
-                                                    :expected :error}]]
-          (testing (format "%s with role %s" type role)
-            (let [req {:params {:app_id (:id app)}
-                       :headers {"authorization" (str "Bearer " (:refresh-token user))}}]
-              (case expected
-                :ok (is (= (:id app)
-                           (:id (:app (route/req->app-and-user! role req)))))
-                :error (is (thrown? Exception (route/req->app-and-user! role req)))))))))))
+                                                     {:type "outside-user"
+                                                      :user outside-user
+                                                      :role :owner
+                                                      :expected :error}
+                                                     {:type "outside-user"
+                                                      :user outside-user
+                                                      :role :admin
+                                                      :expected :error}
+                                                     {:type "outside-user"
+                                                      :user outside-user
+                                                      :role :collaborator
+                                                      :expected :error}]]
+            (testing (format "%s with role %s" type role)
+              (let [req {:params {:app_id (:id app)}
+                         :headers {"authorization" (str "Bearer " (:refresh-token user))}}]
+                (case expected
+                  :ok (is (= (:id app)
+                             (:id (:app (route/req->app-and-user! role req)))))
+                  :error (is (thrown? Exception (route/req->app-and-user! role req))))))))))))
 
 (deftest you-are-an-app-member-of-the-org-if-you-are-a-member-of-an-app
-  (with-startup-org
-    (fn [{:keys [app org collaborator outside-user]}]
-      (with-empty-app
-        (fn [app-2]
-          ;; Add the second app to the org
-          (sql/do-execute! (aurora/conn-pool :write)
-                           ["update apps set org_id = ?::uuid where id = ?::uuid"
-                            (:id org)
-                            (:id app-2)])
-
-          (let [org-path (format "%s/dash/orgs/%s" config/server-origin (:id org))
-                dash-path (format "%s/dash" config/server-origin)]
-            (testing "org members get all of the apps"
-              (let [res (-> (http/get org-path
-                                      {:headers {:Authorization (str "Bearer " (:refresh-token collaborator))
-                                                 :Content-Type "application/json"}
-                                       :as :json})
-                            :body)]
-                (is (= 3 (count (:members res))))
-                (is (= #{(:id app) (:id app-2)}
-                       (->> res
-                            :apps
-                            (map (comp parse-uuid :id))
-                            set))))
-
-              (let [res (-> (http/get dash-path
-                                      {:headers {:Authorization (str "Bearer " (:refresh-token collaborator))
-                                                 :Content-Type "application/json"}
-                                       :as :json})
-                            :body)]
-                (is (= [] (:apps res)))
-                (is (= #{(:id org)}
-                       (->> res
-                            :orgs
-                            (map (comp parse-uuid :id))
-                            set)))))
-
-            (testing "outside users get a 400"
-              (let [res (http/get org-path
-                                  {:throw-exceptions false
-                                   :headers {:Authorization (str "Bearer " (:refresh-token outside-user))
-                                             :Content-Type "application/json"}
-                                   :as :json})]
-                (is (= 400 (:status res)))))
-
-            (testing "members of an app can see the org details and apps they are a member of"
-
-              (sql/do-execute! (aurora/conn-pool :write)
-                               ["insert into app_members (id, user_id, app_id, member_role) values (?, ?, ?, 'collaborator')"
-                                (random-uuid)
-                                (:id outside-user)
-                                (:id app)])
-
-
-
-              (let [res (-> (http/get org-path
-                                      {:headers {:Authorization (str "Bearer " (:refresh-token outside-user))
-                                                 :Content-Type "application/json"}
-                                       :as :json})
-                            :body)]
-
-                (is (= (:title org)
-                       (-> res :org :title)))
-
-                (is (= 0 (count (:members res)))
-                    "They shouldn't see the other org members")
-                (is (= #{(:id app)}
-                       (->> res
-                            :apps
-                            (map (comp parse-uuid :id))
-                            set))))
-
-              (let [res (-> (http/get dash-path
-                                      {:headers {:Authorization (str "Bearer " (:refresh-token outside-user))
-                                                 :Content-Type "application/json"}
-                                       :as :json})
-                            :body)]
-
-                (is (= [] (:apps res)))
-                (is (= #{(:id org)}
-                       (->> res
-                            :orgs
-                            (map (comp parse-uuid :id))
-                            set)))))))))))
-
-(deftest pro-apps-in-an-org-show-up-in-org-apps
-  (with-redefs [stripe-customer-model/create-stripe-customer (fn [_]
-                                                               (str "test_" (crypt-util/random-hex 8)))]
+  (with-redefs [tracer/*silence-exceptions?* (atom true)]
     (with-startup-org
-      (fn [{:keys [app org owner outside-user]}]
-        (with-pro-app
-          owner
-          (fn [{pro-app :app}]
-            ;; Add the second app to the org
+      (fn [{:keys [app org collaborator outside-user]}]
+        (with-empty-app
+          (fn [app-2]
+          ;; Add the second app to the org
             (sql/do-execute! (aurora/conn-pool :write)
                              ["update apps set org_id = ?::uuid where id = ?::uuid"
                               (:id org)
-                              (:id pro-app)])
-            (dotimes [x 2]
-              (testing (if (zero? x)
-                         "with a paid org"
-                         "with a non-paid org")
-                ;; reset
-                (sql/do-execute! (aurora/conn-pool :write)
-                                 ["delete from app_members where app_id = ?::uuid"
-                                  (:id pro-app)])
-                (when (= x 1)
-                  (sql/do-execute! (aurora/conn-pool :write)
-                                   ["update orgs set subscription_id = null where id = ?::uuid"
-                                    (:id org)]))
+                              (:id app-2)])
 
-                (let [org-path (format "%s/dash/orgs/%s" config/server-origin (:id org))
-                      dash-path (format "%s/dash" config/server-origin)]
-                  (testing "org members get all of the apps"
-                    (let [res (-> (http/get org-path
-                                            {:headers {:Authorization (str "Bearer " (:refresh-token owner))
-                                                       :Content-Type "application/json"}
-                                             :as :json})
-                                  :body)]
-                      (is (= 3 (count (:members res))))
-                      (is (= #{(:id app) (:id pro-app)}
-                             (->> res
-                                  :apps
-                                  (map (comp parse-uuid :id))
-                                  set))))
-
-                    (let [res (-> (http/get dash-path
-                                            {:headers {:Authorization (str "Bearer " (:refresh-token owner))
-                                                       :Content-Type "application/json"}
-                                             :as :json})
-                                  :body)]
-                      (is (= [] (:apps res))
-                          "apps should filter out org apps")
-                      (is (= #{(:id org)}
-                             (->> res
-                                  :orgs
-                                  (map (comp parse-uuid :id))
-                                  set)))))
-
-                  (testing "outside users get a 400"
-                    (let [res (http/get org-path
-                                        {:throw-exceptions false
-                                         :headers {:Authorization (str "Bearer " (:refresh-token outside-user))
+            (let [org-path (format "%s/dash/orgs/%s" config/server-origin (:id org))
+                  dash-path (format "%s/dash" config/server-origin)]
+              (testing "org members get all of the apps"
+                (let [res (-> (http/get org-path
+                                        {:headers {:Authorization (str "Bearer " (:refresh-token collaborator))
                                                    :Content-Type "application/json"}
-                                         :as :json})]
-                      (is (= 400 (:status res)))))
+                                         :as :json})
+                              :body)]
+                  (is (= 3 (count (:members res))))
+                  (is (= #{(:id app) (:id app-2)}
+                         (->> res
+                              :apps
+                              (map (comp parse-uuid :id))
+                              set))))
 
-                  (testing "members of an app can see the org details and apps they are a member of"
+                (let [res (-> (http/get dash-path
+                                        {:headers {:Authorization (str "Bearer " (:refresh-token collaborator))
+                                                   :Content-Type "application/json"}
+                                         :as :json})
+                              :body)]
+                  (is (= [] (:apps res)))
+                  (is (= #{(:id org)}
+                         (->> res
+                              :orgs
+                              (map (comp parse-uuid :id))
+                              set)))))
 
+              (testing "outside users get a 400"
+                (let [res (http/get org-path
+                                    {:throw-exceptions false
+                                     :headers {:Authorization (str "Bearer " (:refresh-token outside-user))
+                                               :Content-Type "application/json"}
+                                     :as :json})]
+                  (is (= 400 (:status res)))))
+
+              (testing "members of an app can see the org details and apps they are a member of"
+
+                (sql/do-execute! (aurora/conn-pool :write)
+                                 ["insert into app_members (id, user_id, app_id, member_role) values (?, ?, ?, 'collaborator')"
+                                  (random-uuid)
+                                  (:id outside-user)
+                                  (:id app)])
+
+                (let [res (-> (http/get org-path
+                                        {:headers {:Authorization (str "Bearer " (:refresh-token outside-user))
+                                                   :Content-Type "application/json"}
+                                         :as :json})
+                              :body)]
+
+                  (is (= (:title org)
+                         (-> res :org :title)))
+
+                  (is (= 0 (count (:members res)))
+                      "They shouldn't see the other org members")
+                  (is (= #{(:id app)}
+                         (->> res
+                              :apps
+                              (map (comp parse-uuid :id))
+                              set))))
+
+                (let [res (-> (http/get dash-path
+                                        {:headers {:Authorization (str "Bearer " (:refresh-token outside-user))
+                                                   :Content-Type "application/json"}
+                                         :as :json})
+                              :body)]
+
+                  (is (= [] (:apps res)))
+                  (is (= #{(:id org)}
+                         (->> res
+                              :orgs
+                              (map (comp parse-uuid :id))
+                              set)))))))))))
+
+  (deftest pro-apps-in-an-org-show-up-in-org-apps
+    (with-redefs [stripe-customer-model/create-stripe-customer (fn [_]
+                                                                 (str "test_" (crypt-util/random-hex 8)))
+                  tracer/*silence-exceptions?* (atom true)]
+      (with-startup-org
+        (fn [{:keys [app org owner outside-user]}]
+          (with-pro-app
+            owner
+            (fn [{pro-app :app}]
+            ;; Add the second app to the org
+              (sql/do-execute! (aurora/conn-pool :write)
+                               ["update apps set org_id = ?::uuid where id = ?::uuid"
+                                (:id org)
+                                (:id pro-app)])
+              (dotimes [x 2]
+                (testing (if (zero? x)
+                           "with a paid org"
+                           "with a non-paid org")
+                ;; reset
+                  (sql/do-execute! (aurora/conn-pool :write)
+                                   ["delete from app_members where app_id = ?::uuid"
+                                    (:id pro-app)])
+                  (when (= x 1)
                     (sql/do-execute! (aurora/conn-pool :write)
-                                     ["insert into app_members (id, user_id, app_id, member_role) values (?, ?, ?, 'collaborator')"
-                                      (random-uuid)
-                                      (:id outside-user)
-                                      (:id pro-app)])
+                                     ["update orgs set subscription_id = null where id = ?::uuid"
+                                      (:id org)]))
 
+                  (let [org-path (format "%s/dash/orgs/%s" config/server-origin (:id org))
+                        dash-path (format "%s/dash" config/server-origin)]
+                    (testing "org members get all of the apps"
+                      (let [res (-> (http/get org-path
+                                              {:headers {:Authorization (str "Bearer " (:refresh-token owner))
+                                                         :Content-Type "application/json"}
+                                               :as :json})
+                                    :body)]
+                        (is (= 3 (count (:members res))))
+                        (is (= #{(:id app) (:id pro-app)}
+                               (->> res
+                                    :apps
+                                    (map (comp parse-uuid :id))
+                                    set))))
 
+                      (let [res (-> (http/get dash-path
+                                              {:headers {:Authorization (str "Bearer " (:refresh-token owner))
+                                                         :Content-Type "application/json"}
+                                               :as :json})
+                                    :body)]
+                        (is (= [] (:apps res))
+                            "apps should filter out org apps")
+                        (is (= #{(:id org)}
+                               (->> res
+                                    :orgs
+                                    (map (comp parse-uuid :id))
+                                    set)))))
 
-                    (let [res (-> (http/get org-path
-                                            {:headers {:Authorization (str "Bearer " (:refresh-token outside-user))
-                                                       :Content-Type "application/json"}
-                                             :as :json})
-                                  :body)]
+                    (testing "outside users get a 400"
+                      (let [res (http/get org-path
+                                          {:throw-exceptions false
+                                           :headers {:Authorization (str "Bearer " (:refresh-token outside-user))
+                                                     :Content-Type "application/json"}
+                                           :as :json})]
+                        (is (= 400 (:status res)))))
 
-                      (is (= (:title org)
-                             (-> res :org :title)))
+                    (testing "members of an app can see the org details and apps they are a member of"
 
-                      (is (= 0 (count (:members res)))
-                          "They shouldn't see the other org members")
-                      (is (= #{(:id pro-app)}
-                             (->> res
-                                  :apps
-                                  (map (comp parse-uuid :id))
-                                  set))))
+                      (sql/do-execute! (aurora/conn-pool :write)
+                                       ["insert into app_members (id, user_id, app_id, member_role) values (?, ?, ?, 'collaborator')"
+                                        (random-uuid)
+                                        (:id outside-user)
+                                        (:id pro-app)])
 
-                    (let [res (-> (http/get dash-path
-                                            {:headers {:Authorization (str "Bearer " (:refresh-token outside-user))
-                                                       :Content-Type "application/json"}
-                                             :as :json})
-                                  :body)]
+                      (let [res (-> (http/get org-path
+                                              {:headers {:Authorization (str "Bearer " (:refresh-token outside-user))
+                                                         :Content-Type "application/json"}
+                                               :as :json})
+                                    :body)]
 
-                      (is (= [] (:apps res)))
-                      (is (= #{(:id org)}
-                             (->> res
-                                  :orgs
-                                  (map (comp parse-uuid :id))
-                                  set))))))))))))))
+                        (is (= (:title org)
+                               (-> res :org :title)))
+
+                        (is (= 0 (count (:members res)))
+                            "They shouldn't see the other org members")
+                        (is (= #{(:id pro-app)}
+                               (->> res
+                                    :apps
+                                    (map (comp parse-uuid :id))
+                                    set))))
+
+                      (let [res (-> (http/get dash-path
+                                              {:headers {:Authorization (str "Bearer " (:refresh-token outside-user))
+                                                         :Content-Type "application/json"}
+                                               :as :json})
+                                    :body)]
+
+                        (is (= [] (:apps res)))
+                        (is (= #{(:id org)}
+                               (->> res
+                                    :orgs
+                                    (map (comp parse-uuid :id))
+                                    set)))))))))))))))
