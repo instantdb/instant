@@ -196,14 +196,14 @@ function UptimeDetails({ uptime }: { uptime: UptimeResponse }) {
           Uptime last 90 days
         </span>
         <div className="shadow-sm bg-white border-gray-200 border-2 p-3 md:p-4 mt-2">
-          <MonitorDisplay monitor={backendMonitor} title="Instant backend" />
+          <MonitorDisplay monitor={backendMonitor} title="Instant API" />
           <div className="flex py-6">
             <div
               className="h-0.5 w-full"
               style={{ backgroundColor: DIVIDER_COLOR }}
             ></div>
           </div>
-          <MonitorDisplay monitor={walMonitor} title="Instant WAL" />
+          <MonitorDisplay monitor={walMonitor} title="Instant Reactivity" />
         </div>
       </div>
     </div>
