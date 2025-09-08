@@ -27,7 +27,7 @@ $$ language plpgsql;
 create or replace function triples_column_size(t public.triples)
 returns int as $$
   select pg_column_size(t) + case when t.pg_size is null then 4 else 0 end;
-$$ language sql;
+$$ language sql stable;
 
 create or replace function triples_insert_batch_trigger()
 returns trigger as $$
