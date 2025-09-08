@@ -27,8 +27,9 @@ $$ language plpgsql;
 
 create or replace function triples_column_size(t public.triples)
 returns int as $$
+  -- add the extra 4 bytes for the pg_size column
   select pg_column_size(t) + case when t.pg_size is null then 4 else 0 end;
-$$ language sql;
+$$ language sql stable;
 
 create or replace function triples_insert_batch_trigger()
 returns trigger as $$
@@ -41,9 +42,12 @@ begin
   -- Update pg_size on triples
   update triples t
      set pg_size = triples_column_size(t)
-   from newrows n
-  where (t.app_id, t.entity_id, t.attr_id, t.value_md5) = (n.app_id, n.entity_id, n.attr_id, n.value_md5)
-    and (t.pg_size is distinct from triples_column_size(t));
+    from newrows n
+   where t.app_id = n.app_id
+     and t.entity_id = n.entity_id
+     and t.attr_id = n.attr_id
+     and t.value_md5 = n.value_md5;
+
   return null;
 end;
 $$ language plpgsql;
@@ -75,12 +79,16 @@ begin
         where o.location_id is not null and n.location_id is null
     on conflict do nothing;
 
-  -- Update pg_size on triples
   update triples t
      set pg_size = triples_column_size(t)
-   from newrows n
-  where (t.app_id, t.entity_id, t.attr_id, t.value_md5) = (n.app_id, n.entity_id, n.attr_id, n.value_md5)
-    and (t.pg_size is distinct from triples_column_size(t));
+    from newrows s
+  where s.app_id = t.app_id
+    and s.entity_id = t.entity_id
+    and s.attr_id = t.attr_id
+    and s.value_md5 = t.value_md5
+    and triples_column_size(t) is distinct from t.pg_size;
+
+
   return null;
 end;
 $$ language plpgsql;

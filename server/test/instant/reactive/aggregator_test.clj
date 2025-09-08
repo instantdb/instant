@@ -23,7 +23,7 @@
 (defn copy-sql-for-app-ids
   "copy command that only copies the app we are interested in"
   [app-ids]
-  (format "copy (select app_id, attr_id, entity_id, value, checked_data_type, created_at, eav, ea from triples where app_id = ANY('{%s}'::uuid[]) order by app_id, attr_id) to stdout with (format binary)"
+  (format "copy (select app_id, attr_id, entity_id, value, checked_data_type, created_at, eav, ea, pg_size from triples where app_id = ANY('{%s}'::uuid[]) order by app_id, attr_id) to stdout with (format binary)"
           (string/join "," (map #(UUID/.toString %) app-ids))))
 
 (defn check-sketches [app r]
@@ -59,7 +59,17 @@
              (cms/check (:reverse-sketch (get sketches attr_id))
                         nil
                         entity_id))
-          (str "count mismatch for reverse ref " (resolvers/->friendly r attr_id) " entity_id=" entity_id)))))
+          (str "count mismatch for reverse ref " (resolvers/->friendly r attr_id) " entity_id=" entity_id)))
+
+    (testing "triples_pg_size is correct"
+      (doseq [attr (attr-model/get-by-app-id (:id app))]
+        (tool/def-locals)
+        (is (= (:sum (sql/select-one (aurora/conn-pool :read)
+                                    ["select sum(pg_column_size(triples)) sum from triples where app_id = ?::uuid and attr_id = ?::uuid"
+                                     (:id app)
+                                     (:id attr)]))
+               (get-in sketches [(:id attr) :triples-pg-size]))
+            (str "pg_size mismatch for " (resolvers/->friendly r (:id attr))))))))
 
 (deftest bootstrap
   (with-empty-app

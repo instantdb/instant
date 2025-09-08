@@ -18,12 +18,14 @@
    (org.postgresql.jdbc PgConnection)
    (org.postgresql.replication LogSequenceNumber)))
 
+(set! *warn-on-reflection* true)
+
 (declare shutdown)
 
 ;; --------------
 ;; Initialization
 
-(def triples-copy-sql "copy (select app_id, attr_id, entity_id, value, checked_data_type, created_at, eav, ea from triples order by app_id, attr_id) to stdout with (format binary)")
+(def triples-copy-sql "copy (select app_id, attr_id, entity_id, value, checked_data_type, created_at, eav, ea, pg_size from triples order by app_id, attr_id) to stdout with (format binary)")
 
 ;; XXX: Get pg_size here also
 (defn initial-sketch-seq
@@ -47,7 +49,9 @@
                                  {:name :eav
                                   :pgtype "boolean"}
                                  {:name :ea
-                                  :pgtype "boolean"}]
+                                  :pgtype "boolean"}
+                                 {:name :pg-size
+                                  :pgtype "integer"}]
                                 {:handle-json-parse-error (fn [e _props]
                                                             ;; Replace objects that are too large to read
                                                             ;; with an empty object. That will keep it out
@@ -97,7 +101,8 @@
                              triples (transient {})
                              reverse-triples (transient {})
                              sketch base-sketch
-                             reverse-sketch base-sketch]
+                             reverse-sketch base-sketch
+                             triples-pg-size 0]
                         (if (and (= app-id (:app-id (first s)))
                                  (= attr-id (:attr-id (first s))))
                           (let [triple (update-triple (first s))
@@ -114,7 +119,8 @@
                                      (cond-> (transient {})
                                        ref-k (assoc! ref-k 1))
                                      (cms/add-batch sketch (persistent! triples))
-                                     (cms/add-batch reverse-sketch (persistent! reverse-triples)))
+                                     (cms/add-batch reverse-sketch (persistent! reverse-triples))
+                                     (+ triples-pg-size (:pg-size triple)))
                               (recur (rest s)
                                      app-id
                                      attr-id
@@ -122,7 +128,8 @@
                                      (cond-> reverse-triples
                                        ref-k (assoc! ref-k (inc (get reverse-triples ref-k 0))))
                                      sketch
-                                     reverse-sketch)))
+                                     reverse-sketch
+                                     (+ triples-pg-size (:pg-size triple)))))
                           (let [forward-sketch (cms/add-batch sketch (persistent! triples))
                                 reverse-sketch (cms/add-batch reverse-sketch (persistent! reverse-triples))]
                             (vswap! sketch-count inc)
@@ -130,7 +137,8 @@
                                    :attr-id attr-id
                                    :sketch forward-sketch
                                    :reverse-sketch (when (pos? (:total reverse-sketch))
-                                                     reverse-sketch)}
+                                                     reverse-sketch)
+                                   :triples-pg-size triples-pg-size}
                                   (collect s)))))
                       (end-span true))))]
     (collect copy-seq)))
@@ -304,7 +312,7 @@
                             pg-size (:pg-size triples-data)]
                         (cond-> acc
                           true (update-in [key :records record] (fnil + 0) incr)
-                          pg-size (update-in [key :pg-size] (fnil + 0) (* incr pg-size))
+                          pg-size (update-in [key :triples-pg-size] (fnil + 0) (* incr pg-size))
                           true (update-in [key :max-lsn] max-lsn lsn)
                           reverse-record (update-in [key :reverse-records reverse-record] (fnil + 0) incr))))
                     changes
@@ -339,13 +347,13 @@
           _ (tracer/add-data! {:attributes {:deleted-count (- (count changes)
                                                               (count sketches))}})
           sketches (reduce-kv
-                     (fn [acc k {:keys [pg-size records reverse-records max-lsn]}]
+                     (fn [acc k {:keys [triples-pg-size records reverse-records max-lsn]}]
                        ;; attr may have been deleted in the interim
                        (if-let [sketch (get sketches k)]
                          (conj acc (cond-> sketch
                                      true (update :sketch cms/add-batch records)
                                      true (assoc :max-lsn max-lsn)
-                                     pg-size (update :pg-size (fnil + 0) pg-size)
+                                     triples-pg-size (update :triples-pg-size (fnil + 0) triples-pg-size)
                                      (seq reverse-records)
                                      (update :reverse-sketch (fnil cms/add-batch (cms/make-sketch)) reverse-records)))
                          acc))
