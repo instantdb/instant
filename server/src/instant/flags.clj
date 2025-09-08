@@ -17,16 +17,11 @@
             :storage-migration {}
             :team-emails {}
             :test-emails {}
-            :use-patch-presence {}
-            :refresh-skip-attrs {}
-            :store-fair-lock {}
-            :drop-refresh-spam {}
             :promo-emails {}
             :rate-limited-apps {}
             :log-sampled-apps {}
             :welcome-email-config {}
             :e2e-logging {}
-            :threading {}
             :query-flags {}
             :app-deletion-sweeper {}
             :rule-wheres {}
@@ -69,76 +64,9 @@
                        (get o "appId")))
                    (get result "storage-block-list")))
 
-        use-patch-presence (when-let [hz-flag (-> (get result "use-patch-presence")
-                                                  first)]
-                             (let [disabled-apps (-> hz-flag
-                                                     (get "disabled-apps")
-                                                     (#(map parse-uuid %))
-                                                     set)
-                                   enabled-apps (-> hz-flag
-                                                    (get "enabled-apps")
-                                                    (#(map parse-uuid %))
-                                                    set)
-                                   default-value (get hz-flag "default-value" false)
-                                   disabled? (get hz-flag "disabled" false)]
-                               {:disabled-apps disabled-apps
-                                :enabled-apps enabled-apps
-                                :default-value default-value
-                                :disabled? disabled?}))
-
-        refresh-skip-attrs (when-let [hz-flag (-> (get result "refresh-skip-attrs")
-                                                  first)]
-                             (let [disabled-apps (-> hz-flag
-                                                     (get "disabled-apps")
-                                                     (#(map parse-uuid %))
-                                                     set)
-                                   enabled-apps (-> hz-flag
-                                                    (get "enabled-apps")
-                                                    (#(map parse-uuid %))
-                                                    set)
-                                   default-value (get hz-flag "default-value" false)
-                                   disabled? (get hz-flag "disabled" false)]
-                               {:disabled-apps disabled-apps
-                                :enabled-apps enabled-apps
-                                :default-value default-value
-                                :disabled? disabled?}))
-
-
-        store-fair-lock
-        (when-let [hz-flag (-> (get result "store-fair-lock")
-                               first)]
-          (let [disabled-apps (-> hz-flag
-                                  (get "disabled-apps")
-                                  (#(map parse-uuid %))
-                                  set)
-                enabled-apps (-> hz-flag
-                                 (get "enabled-apps")
-                                 (#(map parse-uuid %))
-                                 set)
-                default-value (get hz-flag "default-value" false)
-                disabled? (get hz-flag "disabled" false)]
-            {:disabled-apps disabled-apps
-             :enabled-apps enabled-apps
-             :default-value default-value
-             :disabled? disabled?}))
-
         promo-code-emails (set (keep (fn [o]
                                        (get o "email"))
                                      (get result "promo-emails")))
-        drop-refresh-spam (when-let [hz-flag (-> (get result "drop-refresh-spam")
-                                                 first)]
-                            (let [disabled-apps (-> hz-flag
-                                                    (get "disabled-apps")
-                                                    (#(map parse-uuid %))
-                                                    set)
-                                  enabled-apps (-> hz-flag
-                                                   (get "enabled-apps")
-                                                   (#(map parse-uuid %))
-                                                   set)
-                                  default-value (get hz-flag "default-value" false)]
-                              {:disabled-apps disabled-apps
-                               :enabled-apps enabled-apps
-                               :default-value default-value}))
         rate-limited-apps (reduce (fn [acc {:strs [appId]}]
                                     (conj acc (parse-uuid appId)))
                                   #{}
@@ -158,8 +86,6 @@
                                                  (catch Exception _e
                                                    10000))})
         welcome-email-config (-> result (get "welcome-email-config") first w/keywordize-keys)
-        threading (let [flag (first (get result "threading"))]
-                    {:use-vfutures? (get flag "use-vfutures" true)})
         storage-migration (-> result (get "storage-migration") first w/keywordize-keys)
         query-flags (reduce (fn [acc {:strs [query-hash setting value]}]
                               (update acc query-hash (fnil conj []) {:setting setting
@@ -204,16 +130,11 @@
     {:emails emails
      :storage-enabled-whitelist storage-enabled-whitelist
      :storage-block-list storage-block-list
-     :use-patch-presence use-patch-presence
-     :refresh-skip-attrs refresh-skip-attrs
-     :store-fair-lock store-fair-lock
      :promo-code-emails promo-code-emails
-     :drop-refresh-spam drop-refresh-spam
      :rate-limited-apps rate-limited-apps
      :log-sampled-apps log-sampled-apps
      :e2e-logging e2e-logging
      :welcome-email-config welcome-email-config
-     :threading threading
      :storage-migration storage-migration
      :query-flags query-flags
      :app-deletion-sweeper app-deletion-sweeper
@@ -263,76 +184,6 @@
   (let [app-id (str app-id)]
     (get-in (query-result) [:log-sampled-apps app-id] nil)))
 
-(defn use-patch-presence? [app-id]
-  (let [flag (:use-patch-presence (query-result))
-        {:keys [disabled-apps enabled-apps default-value disabled?]} flag]
-    (cond
-      (nil? flag)
-      true
-
-      disabled?
-      false
-
-      (contains? disabled-apps app-id)
-      false
-
-      (contains? enabled-apps app-id)
-      true
-
-      :else
-      default-value)))
-
-(defn refresh-skip-attrs? [app-id]
-  (let [flag (:refresh-skip-attrs (query-result))
-        {:keys [disabled-apps enabled-apps default-value disabled?]} flag]
-    (cond
-      (nil? flag)
-      true
-
-      disabled?
-      false
-
-      (contains? disabled-apps app-id)
-      false
-
-      (contains? enabled-apps app-id)
-      true
-
-      :else
-      default-value)))
-
-
-(defn store-fair-lock? [app-id]
-  (let [flag (:store-fair-lock (query-result))
-        {:keys [disabled-apps enabled-apps default-value disabled?]} flag]
-    (cond
-      (nil? flag)
-      false
-
-      disabled?
-      false
-
-      (contains? disabled-apps app-id)
-      false
-
-      (contains? enabled-apps app-id)
-      true
-
-      :else
-      (boolean default-value))))
-
-(defn drop-refresh-spam? [app-id]
-  (if-let [flag (get (query-result) :drop-refresh-spam)]
-    (let [{:keys [disabled-apps enabled-apps default-value]} flag]
-      (cond (contains? disabled-apps app-id)
-            false
-
-            (contains? enabled-apps app-id)
-            true
-
-            :else default-value))
-    ;; Default false
-    false))
 
 (defn app-rate-limited? [app-id]
   (contains? (:rate-limited-apps (query-result))
@@ -343,11 +194,6 @@
        (zero? (mod tx-id (or (get-in (query-result)
                                      [:e2e-logging :invalidator-every-n])
                              10000)))))
-
-(defn use-vfutures? []
-  (-> (query-result)
-      :threading
-      (:use-vfutures? true)))
 
 (defn query-flags
   "Takes a query hash and returns the query settings that we should apply

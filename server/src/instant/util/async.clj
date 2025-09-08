@@ -4,7 +4,6 @@
    [clojure.core.async :as a]
    [clojure.core.async.impl.buffers]
    [clojure.core.async.impl.protocols :as a-impl]
-   [instant.flags :as flags]
    [instant.gauges :as gauges]
    [instant.util.tracer :as tracer])
   (:import
@@ -170,9 +169,7 @@
   [f coll]
   (->> coll
        ;; mapv to force entire seq
-       (mapv #(if (flags/use-vfutures?)
-                (vfuture (f %))
-                (tracked-future (f %))))
+       (mapv #(vfuture (f %)))
        (mapv deref)))
 
 (defmacro vfut-bg

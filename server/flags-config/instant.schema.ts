@@ -14,15 +14,6 @@ const _schema = i.schema({
     $users: i.entity({
       email: i.string().unique().indexed().optional(),
     }),
-    "app-users-to-triples-migration": i.entity({
-      appId: i.string().optional(),
-      processId: i.string().optional(),
-    }),
-    "drop-refresh-spam": i.entity({
-      "default-value": i.boolean(),
-      "disabled-apps": i.any().optional(),
-      "enabled-apps": i.any().optional(),
-    }),
     "e2e-logging": i.entity({
       "invalidator-rate": i.number(),
     }),
@@ -38,21 +29,9 @@ const _schema = i.schema({
       appId: i.string().unique(),
       timeoutMs: i.number(),
     }),
-    hazelcast: i.entity({
-      "default-value": i.boolean().optional(),
-      disabled: i.boolean().optional(),
-      "disabled-apps": i.any().optional(),
-      "enabled-apps": i.any().optional(),
-    }),
     "log-sampled-apps": i.entity({
       appId: i.string().unique(),
       sampleRate: i.number(),
-    }),
-    "store-fair-lock": i.entity({
-      "default-value": i.boolean().optional(),
-      disabled: i.boolean().optional(),
-      "disabled-apps": i.any().optional(),
-      "enabled-apps": i.any().optional(),
     }),
     "power-user-emails": i.entity({
       email: i.string().unique(),
@@ -68,12 +47,6 @@ const _schema = i.schema({
     }),
     "rate-limited-apps": i.entity({
       appId: i.string().unique(),
-    }),
-    "refresh-skip-attrs": i.entity({
-      "default-value": i.boolean().optional(),
-      disabled: i.boolean().optional(),
-      "disabled-apps": i.any().optional(),
-      "enabled-apps": i.any().optional(),
     }),
     "rule-where-testing": i.entity({
       enabled: i.boolean(),
@@ -103,23 +76,9 @@ const _schema = i.schema({
     "test-emails": i.entity({
       email: i.string(),
     }),
-    threading: i.entity({
-      "use-vfutures": i.boolean(),
-    }),
     toggles: i.entity({
       setting: i.string().unique(),
       toggled: i.boolean(),
-    }),
-    "use-patch-presence": i.entity({
-      "default-value": i.boolean(),
-      disabled: i.boolean(),
-      "disabled-apps": i.any(),
-      "enabled-apps": i.any(),
-    }),
-    "view-checks": i.entity({
-      "default-value": i.boolean().optional(),
-      "disabled-apps": i.any().optional(),
-      "enabled-apps": i.any().optional(),
     }),
     "welcome-email-config": i.entity({
       "enabled?": i.boolean(),

@@ -17,7 +17,6 @@
   (:require
    [clojure.string :as string]
    [datascript.core :as d]
-   [instant.flags :as flags]
    [instant.jdbc.sql :as sql]
    [instant.lib.ring.websocket :as ws]
    [instant.lib.ring.sse :as sse]
@@ -96,22 +95,12 @@
 (defn create-conn [schema app-id]
   (doto (d/create-conn schema)
     (alter-meta! assoc
-                 :lock   (ReentrantLock. (flags/store-fair-lock? app-id))
+                 :lock   (ReentrantLock. false)
                  :app-id app-id)))
 
-(defn ensure-lock-fairness [conn]
-  (let [{:keys [^ReentrantLock lock app-id]} (meta conn)
-        should-be-fair? (flags/store-fair-lock? app-id)]
-    (when (not= (.isFair lock) should-be-fair?)
-      (lang/with-reentrant-lock lock
-        (let [{:keys [^ReentrantLock lock]} (meta conn)]
-          (when (not= (.isFair lock) should-be-fair?)
-            (alter-meta! conn assoc :lock (ReentrantLock. should-be-fair?))))))
-    conn))
 
 (defn app-conn [store app-id]
-  (-> (Map/.computeIfAbsent (:conns store) app-id #(create-conn schema %))
-      ensure-lock-fairness))
+  (Map/.computeIfAbsent (:conns store) app-id #(create-conn schema %)))
 
 ;; -----
 ;; misc
@@ -126,7 +115,6 @@
 
 (defn transact! [span-name conn tx-data]
   (let [t0 (System/nanoTime)
-        _  (ensure-lock-fairness conn)
         t1 (System/nanoTime)]
     (tracer/with-span! {:name span-name}
       (try
@@ -359,8 +347,7 @@
 
 (defn remove-session! [store app-id sess-id]
   ;; sync so new sessions are not added while we clean up this one
-  (let [conn (-> (:sessions store)
-                 ensure-lock-fairness)]
+  (let [conn (:sessions store)]
     (lang/with-reentrant-lock (:lock (meta conn))
       (let [{:keys [db-after]} (transact! "store/remove-session!"
                                           (:sessions store)
@@ -489,8 +476,7 @@
     [[:db/add [:session/id sess-id] :session/datalog-loader (make-loader-fn)]]))
 
 (defn upsert-datalog-loader! [store sess-id make-loader-fn]
-  (let [conn (-> (:sessions store)
-                 ensure-lock-fairness)]
+  (let [conn (:sessions store)]
     (if-some [loader (:session/datalog-loader (d/entity @conn [:session/id sess-id]))]
       loader
       (let [{:keys [db-after]}
