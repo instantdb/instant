@@ -105,11 +105,6 @@ create or replace trigger triples_batched_after_update
   referencing new table as newrows old table as oldrows
   for each statement
   execute function triples_update_batch_trigger();
-create or replace trigger triples_batched_after_update
-  after update on triples
-  referencing new table as newrows old table as oldrows
-  for each statement
-  execute function triples_update_batch_trigger();
 
 create or replace trigger triples_batched_after_delete
   after delete on triples
