@@ -37,7 +37,8 @@
 (defn get-if-present
   "Returns the value associated with the key in this cache, or null if there is no cached value for the key."
   [^Cache cache key]
-  (.getIfPresent cache key))
+  (when (some? key)
+    (.getIfPresent cache key)))
 
 (defn get-all
   "Returns a map of the values associated with the keys, creating or retrieving
@@ -48,7 +49,8 @@
    not already present in the cache. All entries returned by mappingFunction will
    be stored in the cache, over-writing any previously cached values."
   [^Cache cache keys values-fn]
-  (.getAll cache keys values-fn))
+  (when-some [keys' (not-empty (filter some? keys))]
+    (.getAll cache keys' values-fn)))
 
 (defn invalidate
   "Discards any cached value for the key. The behavior of this operation is
@@ -64,14 +66,16 @@
   ([^Cache cache]
    (.invalidateAll cache))
   ([^Cache cache keys]
-   (.invalidateAll cache (filter some? keys))))
+   (when-some [keys' (not-empty (filter some? keys))]
+     (.invalidateAll cache keys'))))
 
 (defn put
   "Associates the value with the key in this cache. If the cache previously
    contained a value associated with the key, the old value is replaced
    by the new value"
   [^Cache cache key value]
-  (.put cache key value))
+  (when (some? key)
+    (.put cache key value)))
 
 (defn as-map
   "Snapshot of a cache as an immutable map. Creates a shallow copy just in case"
