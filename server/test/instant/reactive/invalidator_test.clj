@@ -508,7 +508,8 @@
                 (is (= (set (map (fn [change]
                                    (-> change
                                        xform-change
-                                       (dissoc "created_at")))
+                                       (dissoc "created_at")
+                                       (dissoc "pg_size")))
                                  (:triple-changes rec)))
                        #{{"eav" false,
                           "av" true,
