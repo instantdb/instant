@@ -56,6 +56,7 @@ import { EditNamespaceDialog } from '@/components/dash/explorer/EditNamespaceDia
 import { EditRowDialog } from '@/components/dash/explorer/EditRowDialog';
 import { useRouter } from 'next/router';
 import { formatBytes } from '@/lib/format';
+import { useRecentlyDeletedAttrs } from './RecentlyDeletedAttrs';
 
 // Helper functions for handling search filters in URLs
 function filtersToQueryString(filters: SearchFilter[]): string | null {
@@ -658,6 +659,9 @@ export function Explorer({
   // auth
   const token = useContext(TokenContext);
 
+  // pre-fetch recently deleted attrs before user opens the edit schema modal
+  useRecentlyDeletedAttrs(appId);
+
   const isSystemCatalogNs = selectedNamespace?.name?.startsWith('$') ?? false;
   const sanitizedNsName = selectedNamespace?.name ?? '';
   const readOnlyNs =
@@ -927,7 +931,7 @@ export function Explorer({
       <div
         ref={nsRef}
         className={clsx(
-          'absolute top-0 left-0 bottom-0 z-50 flex flex-col gap-1 border-r bg-white p-2 shadow-md md:static md:flex md:shadow-none',
+          'absolute top-0 left-0 bottom-0 z-50 flex flex-col gap-1 border-r bg-white p-2 min-w-[200px] shadow-md md:static md:flex md:shadow-none',
           {
             hidden: !isNsOpen,
           },

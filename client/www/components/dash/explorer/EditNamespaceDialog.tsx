@@ -55,6 +55,9 @@ import {
   PendingJob,
   useEditBlobConstraints,
 } from '@/lib/hooks/useEditBlobConstraints';
+import { mutate } from 'swr';
+import { RecentlyDeletedAttrs } from './RecentlyDeletedAttrs';
+import { useAttrNotes } from '@/lib/hooks/useAttrNotes';
 
 export function EditNamespaceDialog({
   db,
@@ -87,6 +90,8 @@ export function EditNamespaceDialog({
     await db._core._reactor.pushOps(ops);
     onClose({ ok: true });
   }
+
+  const notes = useAttrNotes();
 
   const screenAttr = useMemo(() => {
     return (
@@ -131,19 +136,29 @@ export function EditNamespaceDialog({
                 key={attr.id + '-' + attr.name}
                 className="flex justify-between"
               >
-                <span className="py-0.5 font-bold">{attr.name}</span>
+                <div className="flex gap-3 items-center">
+                  <span className="py-0.5 font-bold">{attr.name}</span>
+                  {notes.notes[attr.id]?.message && (
+                    <InfoTip>
+                      <div className="text-xs px-2 text-gray-500">
+                        {notes.notes[attr.id].message}
+                      </div>
+                    </InfoTip>
+                  )}
+                </div>
                 {attr.name !== 'id' ? (
                   <Button
                     className="px-2"
                     size="mini"
                     variant="subtle"
-                    onClick={() =>
+                    onClick={() => {
+                      notes.removeNote(attr.id);
                       setScreen({
                         type: 'edit',
                         attrId: attr.id,
                         isForward: attr.isForward,
-                      })
-                    }
+                      });
+                    }}
                   >
                     Edit
                   </Button>
@@ -168,6 +183,12 @@ export function EditNamespaceDialog({
               New attribute
             </Button>
           </div>
+          <RecentlyDeletedAttrs
+            notes={notes}
+            db={db}
+            appId={appId}
+            namespace={namespace}
+          />
         </div>
       ) : screen.type === 'add' ? (
         <AddAttrForm
@@ -205,8 +226,6 @@ function DeleteForm({
   onClose: () => void;
   onConfirm: () => void;
 }) {
-  const [ok, setOk] = useState(false);
-
   return (
     <ActionForm className="min flex flex-col gap-4">
       <h5 className="flex items-center gap-2 text-lg font-bold">
@@ -219,21 +238,11 @@ function DeleteForm({
       </h5>
 
       <div className="flex flex-col gap-2">
-        <p>
-          Deleting is an <strong>irreversible operation</strong> and will{' '}
-          <strong>delete all data</strong> associated with{' '}
-          <strong>{name}.</strong>
-        </p>
-        <p className="flex gap-2">
-          <Checkbox
-            checked={ok}
-            onChange={(_ok) => setOk(_ok)}
-            label="I understand"
-          />
+        <p className="pb-2">
+          Are you sure you want to delete the <strong>{name}</strong> attribute?
         </p>
         <ActionButton
           variant="destructive"
-          disabled={!ok}
           label={`Delete ${name}`}
           submitLabel="Deleting..."
           errorMessage="Failed to delete"
@@ -1563,7 +1572,11 @@ function EditAttrForm({
   }
 
   async function deleteAttr() {
+    // update the recently deleted attr cache
     await db._core._reactor.pushOps([['delete-attr', attr.id]]);
+    setTimeout(() => {
+      mutate(['recently-deleted', appId]);
+    }, 500);
     onClose();
   }
 

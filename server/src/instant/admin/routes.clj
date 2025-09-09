@@ -27,6 +27,7 @@
    [instant.util.string :as string-util]
    [instant.util.token :as token-util]
    [instant.util.uuid :as uuid-util]
+   [instant.hard-deletion-sweeper :as sweeper]
    [ring.util.http-response :as response]
    [instant.model.schema :as schema-model]
    [clojure.string :as string]
@@ -601,7 +602,7 @@
         soft-deleted-attrs (attr-model/get-soft-deleted-by-app-id
                             (aurora/conn-pool :read)
                             app-id)]
-    (response/ok {:attrs soft-deleted-attrs})))
+    (response/ok {:attrs soft-deleted-attrs :grace-period-days sweeper/grace-period-days})))
 
 (defroutes routes
   (POST "/admin/query" []

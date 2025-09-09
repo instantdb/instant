@@ -189,6 +189,7 @@ export interface DBAttr {
   'checked-data-type'?: CheckedDataType;
   'on-delete'?: 'cascade';
   'on-delete-reverse'?: 'cascade';
+  metadata?: any;
 }
 
 export interface SchemaNamespace {
