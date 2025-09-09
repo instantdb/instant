@@ -367,7 +367,13 @@
         lookup-refs               (map :eid lookup-ref-deletes)
         resolved                  (resolve-lookups conn app-id lookup-refs)]
     (concat
-     rest
+     ;; Update rule-params ops to use resolved eids
+     (map (fn [tx-step]
+            (if (and (= :rule-params (:op tx-step))
+                     (get resolved (:eid tx-step)))
+              (assoc tx-step :eid (get resolved (:eid tx-step)))
+              tx-step))
+          rest)
      (for [{:keys [eid] :as tx-step} lookup-ref-deletes
            :let [eid' (get resolved eid)]
            :when (uuid? eid')]
@@ -496,31 +502,28 @@
               "?ids+etypes"           (->json ids+etypes)
               "?attrs+etypes"         (->json attrs+etypes)
               "?reverse-attrs+etypes" (->json reverse-attrs+etypes)})
-            res         (sql/execute! conn query+args)
-            ;; Build a map from parent-id to its ruleParams
-            parent-id->rule-params (reduce (fn [acc {:keys [op eid value]}]
-                                             (if (= :rule-params op)
-                                               (assoc acc eid value)
-                                               acc))
-                                           {}
-                                           tx-step-maps)
-            ;; Keep all non-delete operations as-is
-            other-ops (remove #(#{:delete-entity :rule-params} (:op %)) tx-step-maps)
-            ;; Build all delete operations with appropriate ruleParams
-            all-delete-ops (for [{:keys [entity_id etype parent_id]} res
-                                 :let [parent-rule-params (get parent-id->rule-params parent_id)]]
-                             [(when entity_id
-                                {:op :delete-entity
-                                 :eid entity_id
-                                 :etype etype})
-                              (when (and entity_id parent-rule-params)
-                                {:op :rule-params
-                                 :eid entity_id
-                                 :etype etype
-                                 :value parent-rule-params})])]
+            res (sql/execute! conn query+args)
+            parent-id->rule-params (into {}
+                                         (for [{:keys [op eid value]} tx-step-maps
+                                               :when (and (= :rule-params op) (uuid? eid))]
+                                           [eid value]))
+            ;; Only get the cascaded entities (where parent_id != entity_id)
+            cascaded-entities (filter #(not= (:parent_id %) (:entity_id %)) res)]
         (concat
-         other-ops
-         (remove nil? (flatten all-delete-ops)))))))
+         tx-step-maps
+         ;; Add delete operations for cascaded entities only
+         (for [{:keys [entity_id etype]} cascaded-entities]
+           {:op :delete-entity
+            :eid entity_id
+            :etype etype})
+         ;; Add rule-params for cascaded entities that have a parent with rule-params
+         (for [{:keys [entity_id etype parent_id]} cascaded-entities
+               :let [rule-params (get parent-id->rule-params parent_id)]
+               :when rule-params]
+           {:op :rule-params
+            :eid entity_id
+            :etype etype
+            :value rule-params}))))))
 
 (defn validate-value-lookup-etypes
   "Check that in the case of
