@@ -282,7 +282,8 @@
      :id (:id record)
      :app-id (:app_id record)
      :attr-id (:attr_id record)
-     :max-lsn (:max_lsn record)}))
+     :max-lsn (:max_lsn record)
+     :triples-pg-size (:triples_pg_size record)}))
 
 (defn- find-sketch-rows
   "Takes a set of {:app-id :attr-id} maps and returns a list of sketch
@@ -439,7 +440,7 @@
                 lsn
                 process-id
                 slot-name]}]
-  (let [params (reduce (fn [acc {:keys [id sketch reverse-sketch]}]
+  (let [params (reduce (fn [acc {:keys [id sketch reverse-sketch triples-pg-size]}]
                          (let [{:keys [width depth total total-not-binned]} sketch]
                            (-> acc
                                (update :id conj id)
@@ -452,7 +453,8 @@
                                (update :reverse-depth conj (:depth reverse-sketch))
                                (update :reverse-total conj (:total reverse-sketch))
                                (update :reverse-bins conj (when reverse-sketch
-                                                            (compress-bins reverse-sketch))))))
+                                                            (compress-bins reverse-sketch)))
+                               (update :triples-pg-size conj triples-pg-size))))
                        {:id (with-meta [] {:pgtype "uuid[]"})
                         :width (with-meta [] {:pgtype "integer[]"})
                         :depth (with-meta [] {:pgtype "integer[]"})
@@ -463,6 +465,7 @@
                         :reverse-depth (with-meta [] {:pgtype "integer[]"})
                         :reverse-total (with-meta [] {:pgtype "bigint[]"})
                         :reverse-bins (with-meta [] {:pgtype "bytea[]"})
+                        :triples-pg-size (with-meta [] {:pgtype "bigint[]"})
                         :lsn lsn
                         :previous-lsn previous-lsn
                         :slot-name slot-name
@@ -481,6 +484,7 @@
                                    [[:unnest :?reverse-depth] :reverse-depth]
                                    [[:unnest :?reverse-total] :reverse-total]
                                    [[:unnest :?reverse-bins] :reverse-bins]
+                                   [[:unnest :?triples-pg-size] :triples-pg-size]
                                    [:?lsn :max-lsn]]}]
                   [:update-sketches
                    {:update :attr_sketches
@@ -494,7 +498,8 @@
                           :reverse-width :data.reverse-width
                           :reverse-depth :data.reverse-depth
                           :reverse-total :data.reverse-total
-                          :reverse-bins :data.reverse-bins}
+                          :reverse-bins :data.reverse-bins
+                          :triples-pg-size :data.triples-pg-size}
                     :where [:= :attr_sketches.id :data.id]}]
                   [:update-wal-aggregator-status
                    {:update :wal-aggregator-status
@@ -526,7 +531,7 @@
    add attr sketches to the database."
   [conn {:keys [sketches
                 lsn]}]
-  (let [params (reduce (fn [acc {:keys [app-id attr-id sketch reverse-sketch]}]
+  (let [params (reduce (fn [acc {:keys [app-id attr-id sketch reverse-sketch triples-pg-size]}]
                          (let [{:keys [width depth total total-not-binned]} sketch]
                            (-> acc
                                (update :app-id conj app-id)
@@ -540,7 +545,8 @@
                                (update :reverse-depth conj (:depth reverse-sketch))
                                (update :reverse-total conj (:total reverse-sketch))
                                (update :reverse-bins conj (when reverse-sketch
-                                                            (compress-bins reverse-sketch))))))
+                                                            (compress-bins reverse-sketch)))
+                               (update :triples-pg-size conj triples-pg-size))))
                        {:app-id (with-meta [] {:pgtype "uuid[]"})
                         :attr-id (with-meta [] {:pgtype "uuid[]"})
                         :width (with-meta [] {:pgtype "integer[]"})
@@ -551,11 +557,12 @@
                         :reverse-width (with-meta [] {:pgtype "integer[]"})
                         :reverse-depth (with-meta [] {:pgtype "integer[]"})
                         :reverse-total (with-meta [] {:pgtype "bigint[]"})
-                        :reverse-bins (with-meta [] {:pgtype "bytea[]"})}
+                        :reverse-bins (with-meta [] {:pgtype "bytea[]"})
+                        :triples-pg-size (with-meta [] {:pgtype "bigint[]"})}
                        sketches)
         cols [:id :max-lsn :app-id :attr-id
               :width :depth :total :total-not-binned :bins
-              :reverse-width :reverse-depth :reverse-total :reverse-bins]
+              :reverse-width :reverse-depth :reverse-total :reverse-bins :triples-pg-size]
         q (hsql/format {:with [[:setting
                                 {:select [[[:set_config [:inline "auto_explain.log_min_duration"] [:inline "-1"] :true] :config]]}
                                 :materialized]
@@ -571,7 +578,8 @@
                                                 [[:unnest :?reverse-width] :reverse-width]
                                                 [[:unnest :?reverse-depth] :reverse-depth]
                                                 [[:unnest :?reverse-total] :reverse-total]
-                                                [[:unnest :?reverse-bins] :reverse-bins]]}]
+                                                [[:unnest :?reverse-bins] :reverse-bins]
+                                                [[:unnest :?triples-pg-size] :triples-pg-size]]}]
                                [:changes {:insert-into [[:attr-sketches cols]
                                                         {:select (qualify-cols :data cols)
                                                          :from :data

@@ -25,6 +25,7 @@
    [instant.machine-summaries]
    [instant.nrepl :as nrepl]
    [instant.oauth-apps.routes :as oauth-app-routes]
+   [instant.pg-size-migration :as pg-size-migration]
    [instant.reactive.aggregator :as agg]
    [instant.reactive.ephemeral :as eph]
    [instant.reactive.invalidator :as inv]
@@ -222,7 +223,10 @@
           (eph/stop)))
       (future
         (tracer/with-span! {:name "stop-indexing-jobs"}
-          (indexing-jobs/stop)))))
+          (indexing-jobs/stop)))
+      (future
+        (tracer/with-span! {:name "stop-pg-size-migration"}
+          (pg-size-migration/start-global)))))
   (tracer/shutdown))
 
 (defn add-shutdown-hook []
@@ -313,6 +317,8 @@
         (hint-testing/start))
       (with-log-init :web-server
         (start))
+      (with-log-init :pg-size-migration
+        (pg-size-migration/start-global))
       (log/info "Finished initializing"))
     (catch Throwable t
       (log/error t "Error in startup")

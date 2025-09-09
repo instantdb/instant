@@ -67,21 +67,39 @@ prod-tunnel:
 prod-connect:
 	clj -M:repl-connect
 
+define migration_source
+	if [ -n "$$GITHUB_USER" ] && [ -n "$$GITHUB_TOKEN" ]; then \
+		echo "github://$${GITHUB_USER}:$${GITHUB_TOKEN}@instantdb/instant/server/resources/migrations#main"; \
+	else \
+		echo "github://instantdb/instant/server/resources/migrations#main"; \
+	fi
+endef
+
 prod-version:
 	@DATABASE_URL=$$(./scripts/prod_connection_string.sh); \
-	migrate -database "$${DATABASE_URL}" -source github://instantdb/instant/server/resources/migrations#main version
+	SOURCE_URL=$$($(migration_source)); \
+	migrate -verbose -database "$${DATABASE_URL}" -source "$${SOURCE_URL}" version
 
 prod-up:
 	@DATABASE_URL=$$(./scripts/prod_connection_string.sh); \
+	SOURCE_URL=$$($(migration_source)); \
 	echo "[IMPORTANT] Migrating prod up to latest -- are you sure you want to do this? [y/N]" && \
 		read ans && [ $$ans = y ] && \
-		migrate -verbose -database "$${DATABASE_URL}" -source github://instantdb/instant/server/resources/migrations#main up
+		migrate -verbose -database "$${DATABASE_URL}" -source "$${SOURCE_URL}" up
+
+prod-up-one:
+	@DATABASE_URL=$$(./scripts/prod_connection_string.sh); \
+	SOURCE_URL=$$($(migration_source)); \
+	echo "[IMPORTANT] Migrating prod up 1 -- are you sure you want to do this? [y/N]" && \
+		read ans && [ $$ans = y ] && \
+		migrate -verbose -database "$${DATABASE_URL}" -source "$${SOURCE_URL}" up 1
 
 prod-down:
 	@DATABASE_URL=$$(./scripts/prod_connection_string.sh); \
+	SOURCE_URL=$$($(migration_source)); \
 	echo "[IMPORTANT] Migrating prod db down by 1 -- are you sure you want to do this? [y/N]" && \
 		read ans && [ $$ans = y ] && \
-		migrate -database "$${DATABASE_URL}" -source github://instantdb/instant/server/resources/migrations#main down 1
+		migrate -verbose -database "$${DATABASE_URL}" -source "$${SOURCE_URL}" down 1
 
 psql:
 	@echo "Connecting to local db..."
