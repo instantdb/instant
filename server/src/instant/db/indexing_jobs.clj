@@ -50,7 +50,8 @@
                          :ms-since-creation (ms-since (:created_at job) now)
                          :ms-since-update (ms-since (:updated_at job) now)}
                         (when (and (= "completed" (:job_status job))
-                                   (:done_at job))
+                                   (:done_at job)
+                                   (:created_at job))
                           {:run-time-ms (ms-since (:created_at job)
                                                   (.toInstant ^Timestamp (:done_at job)))}))}))
 
