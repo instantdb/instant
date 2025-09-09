@@ -37,7 +37,7 @@ begin
 
   -- Update pg_size on triples
   update triples t
-     set pg_size = triples_column_size(t)
+     set pg_size = public.triples_column_size(t)
     from newrows n
    where t.app_id = n.app_id
      and t.entity_id = n.entity_id
@@ -82,13 +82,13 @@ begin
   end if;
 
   update triples t
-     set pg_size = triples_column_size(t)
+     set pg_size = public.triples_column_size(t)
     from newrows s
   where s.app_id = t.app_id
     and s.entity_id = t.entity_id
     and s.attr_id = t.attr_id
     and s.value_md5 = t.value_md5
-    and triples_column_size(t) is distinct from t.pg_size;
+    and public.triples_column_size(t) is distinct from t.pg_size;
 
   return null;
 end;
