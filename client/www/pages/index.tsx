@@ -95,7 +95,7 @@ function LandingHero() {
                   <div className="flex-1">
                     <p className="text-gray-800 mb-4">
                       Instant is the easy to use backend for your frontend. With
-                      Instant you can build delighful apps in less than 10
+                      Instant you can build delightful apps in less than 10
                       minutes.
                     </p>
                     <Button
