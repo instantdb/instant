@@ -367,7 +367,13 @@
         lookup-refs               (map :eid lookup-ref-deletes)
         resolved                  (resolve-lookups conn app-id lookup-refs)]
     (concat
-     rest
+     ;; Update rule-params ops to use resolved eids
+     (map (fn [tx-step]
+            (if (and (= :rule-params (:op tx-step))
+                     (get resolved (:eid tx-step)))
+              (assoc tx-step :eid (get resolved (:eid tx-step)))
+              tx-step))
+          rest)
      (for [{:keys [eid] :as tx-step} lookup-ref-deletes
            :let [eid' (get resolved eid)]
            :when (uuid? eid')]
@@ -428,10 +434,12 @@
                   jsonb_array_elements(cast(?reverse-attrs+etypes AS jsonb)) AS elem
               ),
 
-              entids (entity_id, etype) AS (
+              entids (entity_id, etype, parent_id) AS (
+                -- Starting entities (the parents being deleted)
                 SELECT
-                  cast(elem ->> 0 AS uuid),
-                  cast(elem ->> 1 AS text)
+                  cast(elem ->> 0 AS uuid) as entity_id,
+                  cast(elem ->> 1 AS text) as etype,
+                  cast(elem ->> 0 AS uuid) as parent_id  -- parent_id is itself for root entities
                 FROM
                   jsonb_array_elements(cast(?ids+etypes AS jsonb)) AS elem
 
@@ -440,19 +448,21 @@
                 SELECT
                   *
                 FROM (
-                  -- can’t reference entids twice, but can bind it to entids_inner and then it’s okay
+                  -- can't reference entids twice, but can bind it to entids_inner and then it's okay
                   WITH entids_inner AS (
                     SELECT
                       entity_id,
-                      etype
+                      etype,
+                      parent_id
                     FROM
                       entids
                   )
 
-                  -- follow forward refs → entid
+                  -- follow forward refs → entid (cascaded children inherit parent_id)
                   SELECT
                     triples.entity_id AS entity_id,
-                    attrs_forward.forward_etype AS etype
+                    attrs_forward.forward_etype AS etype,
+                    entids_inner.parent_id AS parent_id  -- inherit parent_id from the entity that triggered cascade
                   FROM
                     entids_inner
                   JOIN triples
@@ -466,10 +476,11 @@
 
                   UNION
 
-                  -- follow entid → reverse refs
+                  -- follow entid → reverse refs (cascaded children inherit parent_id)
                   SELECT
                     json_uuid_to_uuid(triples.value) AS entity_id,
-                    attrs_reverse.reverse_etype AS etype
+                    attrs_reverse.reverse_etype AS etype,
+                    entids_inner.parent_id AS parent_id  -- inherit parent_id from the entity that triggered cascade
                   FROM
                     entids_inner
                   JOIN triples
@@ -484,21 +495,35 @@
               )
 
               SELECT
-                entity_id, etype
+                entity_id, etype, parent_id
               FROM
                 entids"
              {"?app-id"               app-id
               "?ids+etypes"           (->json ids+etypes)
               "?attrs+etypes"         (->json attrs+etypes)
               "?reverse-attrs+etypes" (->json reverse-attrs+etypes)})
-            res         (sql/execute! conn query+args)
-            ids+etypes' (map (juxt :entity_id :etype) res)]
+            res (sql/execute! conn query+args)
+            parent-id->rule-params (into {}
+                                         (for [{:keys [op eid value]} tx-step-maps
+                                               :when (and (= :rule-params op) (uuid? eid))]
+                                           [eid value]))
+            ;; Only get the cascaded entities (where parent_id != entity_id)
+            cascaded-entities (filter #(not= (:parent_id %) (:entity_id %)) res)]
         (concat
-         (remove #(= :delete-entity (:op %)) tx-step-maps)
-         (for [[entity_id etype] (set (concat ids+etypes ids+etypes'))]
+         tx-step-maps
+         ;; Add delete operations for cascaded entities only
+         (for [{:keys [entity_id etype]} cascaded-entities]
            {:op :delete-entity
             :eid entity_id
-            :etype etype}))))))
+            :etype etype})
+         ;; Add rule-params for cascaded entities that have a parent with rule-params
+         (for [{:keys [entity_id etype parent_id]} cascaded-entities
+               :let [rule-params (get parent-id->rule-params parent_id)]
+               :when rule-params]
+           {:op :rule-params
+            :eid entity_id
+            :etype etype
+            :value rule-params}))))))
 
 (defn validate-value-lookup-etypes
   "Check that in the case of

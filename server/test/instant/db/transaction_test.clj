@@ -2101,6 +2101,221 @@
             (is (not (perm-err? (permissioned-tx/transact! (make-ctx) [[:rule-params lookup "users" {"handle" "stopa"}]
                                                                        [:delete-entity lookup "users"]]))))))))))
 
+(deftest cascade-delete-with-rule-params
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [attr->id (test-util/make-attrs
+                      app-id
+                      [[:posts/id :unique? :index?]
+                       [:posts/localId :index?]
+                       [:posts/text]
+                       [[:comments/post :posts/comments] :on-delete]
+                       [:comments/id :unique? :index?]
+                       [:comments/localId :index?]
+                       [:comments/text]])
+
+            post-id (random-uuid)
+            comment-id (random-uuid)
+            local-id "test-user-123"
+
+              ;; Setup permission rules
+            _ (rule-model/put!
+               (aurora/conn-pool :write)
+               {:app-id app-id
+                :code {:posts {:allow {:delete "isCreator"}
+                               :bind ["isCreator" "data.localId == ruleParams.localId"]}
+                       :comments {:allow {:delete "isCreator"}
+                                  :bind ["isCreator" "data.localId == ruleParams.localId"]}}})
+
+              ;; Create test data
+            _ (test-util/insert-entities
+               app-id
+               attr->id
+               [{:db/id post-id
+                 :posts/id post-id
+                 :posts/localId local-id
+                 :posts/text "Hello world"}
+                {:db/id comment-id
+                 :comments/id comment-id
+                 :comments/localId local-id
+                 :comments/text "I like turtles"
+                 :comments/post post-id}])
+
+            ctx {:db {:conn-pool (aurora/conn-pool :write)}
+                 :app-id app-id
+                 :attrs (attr-model/get-by-app-id app-id)
+                 :datalog-query-fn d/query
+                 :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                 :current-user nil}]
+
+        (testing "Delete fails without wrong ruleParams"
+          (is (not (perm-pass? (permissioned-tx/transact! ctx
+                                                          [[:delete-entity post-id "posts"]
+                                                           [:rule-params post-id "posts" {:localId "wrong-user"}]])))))
+
+        (testing "Delete succeeds with right ruleParams and cascades to comments"
+          (is (perm-pass? (permissioned-tx/transact! ctx
+                                                     [[:delete-entity post-id "posts"]
+                                                      [:rule-params post-id "posts" {:localId local-id}]]))))))))
+
+(deftest cascade-delete-with-mulitple-rule-params
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [attr->id (test-util/make-attrs
+                      app-id
+                      [[:posts/id :unique? :index?]
+                       [:posts/localId :index?]
+                       [:posts/text]
+                       [[:comments/post :posts/comments] :on-delete]
+                       [:comments/id :unique? :index?]
+                       [:comments/localId :index?]
+                       [:comments/text]])
+
+              ;; Create two posts with different localIds
+            post-a-id (random-uuid)
+            post-b-id (random-uuid)
+            comment-a1-id (random-uuid)
+            comment-a2-id (random-uuid)
+            comment-b1-id (random-uuid)
+            comment-b2-id (random-uuid)
+            local-id-alice "alice-123"
+            local-id-bob "bob-456"
+
+              ;; Setup permission rules
+            _ (rule-model/put!
+               (aurora/conn-pool :write)
+               {:app-id app-id
+                :code {:posts {:allow {:delete "isCreator"}
+                               :bind ["isCreator" "data.localId == ruleParams.localId"]}
+                       :comments {:allow {:delete "isCreator"}
+                                  :bind ["isCreator" "data.localId == ruleParams.localId"]}}})
+
+              ;; Create test data
+            _ (test-util/insert-entities
+               app-id
+               attr->id
+               [;; Alice's post and comments
+                {:db/id post-a-id
+                 :posts/id post-a-id
+                 :posts/localId local-id-alice
+                 :posts/text "Alice's post"}
+                {:db/id comment-a1-id
+                 :comments/id comment-a1-id
+                 :comments/localId local-id-alice
+                 :comments/text "Alice's comment 1"
+                 :comments/post post-a-id}
+                {:db/id comment-a2-id
+                 :comments/id comment-a2-id
+                 :comments/localId local-id-alice
+                 :comments/text "Alice's comment 2"
+                 :comments/post post-a-id}
+                  ;; Bob's post and comments
+                {:db/id post-b-id
+                 :posts/id post-b-id
+                 :posts/localId local-id-bob
+                 :posts/text "Bob's post"}
+                {:db/id comment-b1-id
+                 :comments/id comment-b1-id
+                 :comments/localId local-id-bob
+                 :comments/text "Bob's comment 1"
+                 :comments/post post-b-id}
+                {:db/id comment-b2-id
+                 :comments/id comment-b2-id
+                 :comments/localId local-id-bob
+                 :comments/text "Bob's comment 2"
+                 :comments/post post-b-id}])
+
+            ctx {:db {:conn-pool (aurora/conn-pool :write)}
+                 :app-id app-id
+                 :attrs (attr-model/get-by-app-id app-id)
+                 :datalog-query-fn d/query
+                 :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                 :current-user nil}]
+
+          ;; Test that wrong ruleParams fail appropriately
+        (testing "Delete posts with incorrect ruleParams fails"
+          (is (not (perm-pass? (permissioned-tx/transact!
+                                ctx
+                                [[:delete-entity post-a-id "posts"]
+                                 [:rule-params post-a-id "posts" {:localId local-id-alice}]
+                                 [:delete-entity post-b-id "posts"]
+                                 [:rule-params post-b-id "posts" {:localId local-id-alice}]])))))
+
+        (testing "Delete posts with correct ruleParams succeeds"
+          (is (perm-pass? (permissioned-tx/transact!
+                           ctx
+                           [[:delete-entity post-a-id "posts"]
+                            [:rule-params post-a-id "posts" {:localId local-id-alice}]
+                            [:delete-entity post-b-id "posts"]
+                            [:rule-params post-b-id "posts" {:localId local-id-bob}]]))))))))
+
+(deftest cascade-delete-with-lookup-ref-rule-params
+  (testing "Cascade delete with lookup ref and ruleParams propagates correctly"
+    (with-empty-app
+      (fn [{app-id :id}]
+        (let [attr->id (test-util/make-attrs
+                        app-id
+                        [[:posts/id :unique? :index?]
+                         [:posts/handle :unique? :index?]
+                         [:posts/localId :index?]
+                         [:posts/text]
+                         [[:comments/post :posts/comments] :on-delete]
+                         [:comments/id :unique? :index?]
+                         [:comments/localId :index?]
+                         [:comments/text]])
+
+              post-id (random-uuid)
+              post-handle "unique-post-handle"
+              comment-id (random-uuid)
+              local-id "test-user-123"
+
+              ;; Setup permission rules
+              _ (rule-model/put!
+                 (aurora/conn-pool :write)
+                 {:app-id app-id
+                  :code {:posts {:allow {:delete "isCreator"}
+                                 :bind ["isCreator" "data.localId == ruleParams.localId"]}
+                         :comments {:allow {:delete "isCreator"}
+                                    :bind ["isCreator" "data.localId == ruleParams.localId"]}}})
+
+              ;; Create test data
+              _ (test-util/insert-entities
+                 app-id
+                 attr->id
+                 [{:db/id post-id
+                   :posts/id post-id
+                   :posts/handle post-handle
+                   :posts/localId local-id
+                   :posts/text "Post with unique handle"}
+                  {:db/id comment-id
+                   :comments/id comment-id
+                   :comments/localId local-id
+                   :comments/text "Comment on post"
+                   :comments/post post-id}])
+
+              ctx {:db {:conn-pool (aurora/conn-pool :write)}
+                   :app-id app-id
+                   :attrs (attr-model/get-by-app-id app-id)
+                   :datalog-query-fn d/query
+                   :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                   :current-user nil}
+
+              lookup-ref [(:posts/handle attr->id) post-handle]]
+
+          (testing "Delete with lookup ref and wrong ruleParams fails"
+            (is (not (perm-pass?
+                      (permissioned-tx/transact!
+                       ctx
+                       [[:delete-entity lookup-ref "posts"]
+                        [:rule-params lookup-ref "posts" {:localId "wrong-user"}]])))))
+
+          (testing "Delete with lookup ref and correct ruleParams succeeds and cascades"
+            (is (perm-pass?
+                 (permissioned-tx/transact!
+                  ctx
+                  [[:delete-entity lookup-ref "posts"]
+                   [:rule-params lookup-ref "posts" {:localId local-id}]])))))))))
+
 (deftest rule-params-view-check-on-link
   (with-zeneca-app
     (fn [{app-id :id} r]
@@ -4740,7 +4955,6 @@
           (timeout-err? (permissioned-tx/transact!
                          (assoc (make-ctx) :db {:conn-pool conn})
                          [[:add-triple book-id title-aid "Test"]])))))))
-
 
 (deftest deadlock
   (with-zeneca-app
