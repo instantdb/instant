@@ -2249,6 +2249,73 @@
                             [:delete-entity post-b-id "posts"]
                             [:rule-params post-b-id "posts" {:localId local-id-bob}]]))))))))
 
+(deftest cascade-delete-with-lookup-ref-rule-params
+  (testing "Cascade delete with lookup ref and ruleParams propagates correctly"
+    (with-empty-app
+      (fn [{app-id :id}]
+        (let [attr->id (test-util/make-attrs
+                        app-id
+                        [[:posts/id :unique? :index?]
+                         [:posts/handle :unique? :index?]
+                         [:posts/localId :index?]
+                         [:posts/text]
+                         [[:comments/post :posts/comments] :on-delete]
+                         [:comments/id :unique? :index?]
+                         [:comments/localId :index?]
+                         [:comments/text]])
+
+              post-id (random-uuid)
+              post-handle "unique-post-handle"
+              comment-id (random-uuid)
+              local-id "test-user-123"
+
+              ;; Setup permission rules
+              _ (rule-model/put!
+                 (aurora/conn-pool :write)
+                 {:app-id app-id
+                  :code {:posts {:allow {:delete "isCreator"}
+                                 :bind ["isCreator" "data.localId == ruleParams.localId"]}
+                         :comments {:allow {:delete "isCreator"}
+                                    :bind ["isCreator" "data.localId == ruleParams.localId"]}}})
+
+              ;; Create test data
+              _ (test-util/insert-entities
+                 app-id
+                 attr->id
+                 [{:db/id post-id
+                   :posts/id post-id
+                   :posts/handle post-handle
+                   :posts/localId local-id
+                   :posts/text "Post with unique handle"}
+                  {:db/id comment-id
+                   :comments/id comment-id
+                   :comments/localId local-id
+                   :comments/text "Comment on post"
+                   :comments/post post-id}])
+
+              ctx {:db {:conn-pool (aurora/conn-pool :write)}
+                   :app-id app-id
+                   :attrs (attr-model/get-by-app-id app-id)
+                   :datalog-query-fn d/query
+                   :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                   :current-user nil}
+
+              lookup-ref [(:posts/handle attr->id) post-handle]]
+
+          (testing "Delete with lookup ref and wrong ruleParams fails"
+            (is (not (perm-pass?
+                      (permissioned-tx/transact!
+                       ctx
+                       [[:delete-entity lookup-ref "posts"]
+                        [:rule-params lookup-ref "posts" {:localId "wrong-user"}]])))))
+
+          (testing "Delete with lookup ref and correct ruleParams succeeds and cascades"
+            (is (perm-pass?
+                 (permissioned-tx/transact!
+                  ctx
+                  [[:delete-entity lookup-ref "posts"]
+                   [:rule-params lookup-ref "posts" {:localId local-id}]])))))))))
+
 (deftest rule-params-view-check-on-link
   (with-zeneca-app
     (fn [{app-id :id} r]
