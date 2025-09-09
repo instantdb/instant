@@ -379,7 +379,7 @@
 
   Usage is comprised of both raw data and overhead data (indexes, toast tables, etc.).
 
-  sum(pg_column_size(t)) calculates the total data size for the specified app_id.
+  sum(pg_triples_size) calculates the total data size for the specified app_id.
   pg_total_relation_size('triples') / pg_relation_size('triples') calculates
   the ratio of the total table size to the actual data size. This ratio
   represents the overhead factor.
@@ -392,12 +392,12 @@
     ::app-usage
     conn
     ["SELECT
-     (sum(pg_column_size(t)) *
+     (sum(s.triples_pg_size) *
         CASE
             WHEN pg_relation_size('triples') = 0 THEN 1
             ELSE pg_total_relation_size('triples') / pg_relation_size('triples')
         END) as num_bytes
-     FROM triples t WHERE t.app_id = ?::uuid" app-id])))
+     FROM attr_sketches s WHERE s.app_id = ?::uuid" app-id])))
 
 (defn decrypt-connection-string [app-id encrypted-connection-string]
   (-> (crypt-util/aead-decrypt {:ciphertext encrypted-connection-string
