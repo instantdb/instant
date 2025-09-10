@@ -75,8 +75,17 @@
                     iu.*
                     FROM instant_users iu
                     JOIN apps a
-                    ON iu.id = a.creator_id
+                        ON iu.id = a.creator_id
+                        or iu.id = (select m.user_id
+                                      from org_members m
+                                      join orgs o on o.id = m.org_id
+                                      join apps a on o.id = a.org_id
+                                     where a.id = ?::uuid
+                                       and m.role = 'owner'
+                                  order by m.created_at asc
+                                     limit 1)
                     WHERE a.id = ?::uuid"
+                   app-id
                    app-id]))
 
 (defn get-by-app-id

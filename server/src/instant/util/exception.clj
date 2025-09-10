@@ -605,11 +605,21 @@
         (default-psql-throw! e data hint))
 
       :raise-exception
-      (throw+ {::type ::sql-raise
-               ::message (format "Raised Exception: %s" server-message)
-               ::hint hint
-               ::pg-error-data data}
-              e)
+      (case server-message
+        "modify_org_id_on_org_member"
+        (throw+ {::type ::validation-failed
+                 ::message "Org members can not move between orgs."})
+
+        "remove_last_org_owner"
+        (throw+ {::type ::validation-failed
+                 ::message "There must be at least one member of the org that is an owner."})
+
+        #_else
+        (throw+ {::type ::sql-raise
+                 ::message (format "Raised Exception: %s" server-message)
+                 ::hint hint
+                 ::pg-error-data data}
+                e))
 
       (default-psql-throw! e data hint))))
 
