@@ -39,16 +39,15 @@
     (dotimes [_ thread-count]
       (.start (Thread. (fn []
                          (swap! values conj
-                                (cache/get-all
+                                (cache/get-all-sync
                                  cache
                                  ["my-key"]
-                                 (fn [_]
+                                 (fn [keys]
                                    (swap! invocations-counter inc)
                                    (Thread/sleep 1000)
-                                   {"my-key" "some value"})))
+                                   (into {} (for [k keys] [k "some value"])))))
                          (.countDown latch)))))
     (.await latch)
-    ;; FIXME pending get-all do not block other get-all calls
     (is (= 1 (deref invocations-counter)))
     (doseq [v @values]
       (is (= {"my-key" "some value"} v)))))
@@ -101,10 +100,10 @@
         wait1 (promise)
         wait2 (promise)
         f1 (future
-             (cache/get-all cache [:instant] (fn [_]
-                                                 (deliver wait1 true)
-                                                 @wait2
-                                                 (throw (Exception. "oops")))))]
+             (cache/get-all-sync cache [:instant] (fn [_]
+                                                    (deliver wait1 true)
+                                                    @wait2
+                                                    (throw (Exception. "oops")))))]
 
     @wait1
 
@@ -120,7 +119,7 @@
 
     (is (= {:instant :instant}
            (cache/get-all cache [:instant] (fn [_]
-                                               {:instant :new-value}))))))
+                                             {:instant :new-value}))))))
 
 ;; Copy of test in core.cached
 ;; https://github.com/clojure/core.cache/blob/4a043644a0706b6d834ebf890a64d2fdcc9c388b/src/test/clojure/clojure/core/cache/wrapped_test.clj#L30
@@ -138,11 +137,11 @@
   (let [cache (cache/make {:max-size 2})]
     (is (= {:a :a
             :b :b}
-           (cache/get-all cache [:a :b] (fn [xs] (zipmap xs xs)))))
+           (cache/get-all-sync cache [:a :b] (fn [xs] (zipmap xs xs)))))
 
     (is (= {:a :a
             :e :e}
-           (cache/get-all cache [:a :e] (fn [xs] (zipmap xs xs)))))
+           (cache/get-all-sync cache [:a :e] (fn [xs] (zipmap xs xs)))))
 
     ;; FIXME this is not fully determenistic
     (is (cache/get-if-present cache :a))

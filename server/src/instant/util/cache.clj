@@ -52,6 +52,21 @@
   (when-some [keys' (not-empty (filter some? keys))]
     (.getAll cache keys' values-fn)))
 
+(defn get-all-sync
+  "Version of get-all that wraps each key in a delay and getAll in a syncrhonized
+   section to ensure same key is never calculated twice"
+  [^Cache cache keys values-fn]
+  (when-some [keys' (not-empty (filter some? keys))]
+    (->>
+     (locking cache
+       (.getAll cache keys'
+                (fn [keys]
+                  (let [d (delay (values-fn keys))]
+                    (into {} (for [k keys]
+                               [k (delay (clojure.core/get @d k))]))))))
+     (reduce-kv (fn [m k v] (assoc! m k @v)) (transient {}))
+     (persistent!))))
+
 (defn invalidate
   "Discards any cached value for the key. The behavior of this operation is
    undefined for an entry that is being loaded (or reloaded) and is otherwise

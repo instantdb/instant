@@ -364,7 +364,7 @@
    (lookup (aurora/conn-pool :read) keys))
   ([conn keys]
    (if (= conn (aurora/conn-pool :read))
-     (cache/get-all lookup-cache keys #(lookup* conn %))
+     (cache/get-all-sync lookup-cache keys #(lookup* conn %))
      (lookup* conn keys))))
 
 (defn- create-empty-sketch-rows!
