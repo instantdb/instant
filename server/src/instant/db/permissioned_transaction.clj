@@ -200,13 +200,14 @@
   (let [parent-delete-checks (for [{:keys [op eid etype cascade-delete?]} tx-steps
                                    :when (and (= :delete-entity op)
                                               (not cascade-delete?))
-                                   :let [skip-expr (get-in (:code rules)
-                                                           [etype "allow" "skipCascadePermissionCheck"])]
-                                   :when skip-expr]
+                                   :let [skip-program (rule-model/get-program!
+                                                       rules
+                                                       [[etype "allow" "skipCascadePermissionCheck"]
+                                                        ["$default" "allow" "skipCascadePermissionCheck"]])]
+                                   :when skip-program]
                                {:etype    etype
                                 :eid      eid
-                                :program  (rule-model/get-program! rules
-                                                                   [[etype "allow" "skipCascadePermissionCheck"]])
+                                :program  skip-program
                                 :bindings {:data (get entities-map {:eid eid :etype etype})
                                            :rule-params (get rule-params-map {:eid eid :etype etype})}})
         ;; Evaluate the skip rules (but don't throw on failure)
