@@ -1,13 +1,20 @@
 (ns instant.util.json
   (:require [cheshire.core :as cheshire]
-            [cheshire.generate :refer [add-encoder encode-nil encode-str]]
+            [cheshire.generate :refer [encode-nil encode-str]]
             [cheshire.factory :as factory]
             [cheshire.parse :as parse])
   (:import (com.google.protobuf NullValue)
            (dev.cel.expr Value)
            (com.fasterxml.jackson.core JsonGenerator JsonFactory)
            (com.google.protobuf.util JsonFormat)
-           (java.time Instant)))
+           (java.time Instant)
+           (java.util Map List)))
+
+(def add-encoder cheshire.generate/add-encoder)
+(def encode-java-map (fn [^Map m ^JsonGenerator jg]
+                       (cheshire.generate/encode-map (into {} m) jg)))
+(def encode-java-list (fn [^List l ^JsonGenerator jg]
+                       (cheshire.generate/encode-seq (seq l) jg)))
 
 ;; Encode NullValue as nil
 (add-encoder NullValue encode-nil)
