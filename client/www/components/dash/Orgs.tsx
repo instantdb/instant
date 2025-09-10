@@ -61,6 +61,20 @@ async function createPortalSession(orgId: string, token: string) {
     });
 }
 
+async function rename(
+  { orgId, title }: { orgId: string; title: string },
+  token: string,
+) {
+  await jsonFetch(`${config.apiURI}/dash/orgs/${orgId}/rename`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ title: title }),
+  });
+}
+
 async function createCheckoutSession(orgId: string, token: string) {
   const sessionPromise = jsonFetch(
     `${config.apiURI}/dash/orgs/${orgId}/checkout_session`,
@@ -92,21 +106,29 @@ async function createCheckoutSession(orgId: string, token: string) {
 function OrgDetails({ id }: { id: string }) {
   const token = useContext(TokenContext);
   const resp = useAuthedFetch(`${config.apiURI}/dash/orgs/${id}`);
-  if (resp.isLoading) {
+  const billingResp = useAuthedFetch(
+    `${config.apiURI}/dash/orgs/${id}/billing`,
+  );
+
+  if (resp.isLoading || billingResp.isLoading) {
     return <div>Loading...</div>;
   }
 
-  if (resp.error || !resp.data) {
+  if (resp.error || !resp.data || billingResp.error || !billingResp.data) {
     return (
       <div>
-        Error: <pre>{JSON.stringify(resp.error, null, 2)}</pre>
+        Error:{' '}
+        <pre>{JSON.stringify(resp.error || billingResp.error, null, 2)}</pre>
       </div>
     );
   }
 
   return (
     <div className="p-8">
+      <div>Data</div>
       <pre className="text-sm">{JSON.stringify(resp.data, null, 2)}</pre>
+      <div>Billing Data</div>
+      <pre className="text-sm">{JSON.stringify(billingResp.data, null, 2)}</pre>
       <Button
         variant="subtle"
         onClick={async () => {
@@ -145,6 +167,18 @@ function OrgDetails({ id }: { id: string }) {
         }}
       >
         Manage Billing
+      </Button>
+      <Button
+        variant="subtle"
+        onClick={async () => {
+          const title = prompt('What should we call it?');
+          if (title) {
+            await rename({ orgId: id, title }, token);
+            resp.mutate();
+          }
+        }}
+      >
+        Rename
       </Button>
     </div>
   );

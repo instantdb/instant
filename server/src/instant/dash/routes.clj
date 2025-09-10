@@ -923,6 +923,24 @@
                   :members members
                   :invites invites})))
 
+(defn org-get-billing [req]
+  (let [{{org-id :id} :org} (req->org-and-user! :collaborator req)
+        {subscription-name :name stripe-subscription-id :stripe_subscription_id}
+        (instant-subscription-model/get-by-org-id {:org-id org-id})
+        {total-app-bytes :num_bytes} (org-model/org-usage {:org-id org-id})
+        total-storage-bytes (:total_byte_size (app-file-model/get-org-usage org-id))]
+    (response/ok {:subscription-name (or subscription-name default-subscription)
+                  :stripe-subscription-id stripe-subscription-id
+                  :total-app-bytes total-app-bytes
+                  :total-storage-bytes total-storage-bytes})))
+
+(defn org-rename-post [req]
+  (let [{{org-id :id} :org} (req->org-and-user! :admin req)
+        title (ex/get-param! req [:body :title] string-util/coerce-non-blank-str)]
+    (org-model/rename-by-id! {:id org-id
+                              :title title})
+    (response/ok {})))
+
 ;; -------
 ;; Teams
 
@@ -1835,7 +1853,8 @@
   (POST "/dash/orgs/:org_id/members/update" [] team-member-update-post)
   (POST "/dash/orgs/:org_id/checkout_session" [] org-checkout-session-post)
   (POST "/dash/orgs/:org_id/portal_session" [] org-create-portal)
-
+  (GET "/dash/orgs/:org_id/billing" [] org-get-billing)
+  (POST "/dash/orgs/:org_id/rename" [] org-rename-post)
 
   (GET "/dash/ws_playground" [] ws-playground-get)
 

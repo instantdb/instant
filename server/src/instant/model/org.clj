@@ -250,3 +250,49 @@
    (let [params {:org-id org-id}
          query (uhsql/formatp delete-org-q params)]
      (sql/execute-one! ::delete! conn query))))
+
+(def usage-q
+  (uhsql/preformat {:select [[[:coalesce
+                               [:*
+                                [:sum :s.triples_pg_size]
+                                [:case
+                                 [:= :0 [:pg_relation_size [:inline "triples"]]] :1
+                                 :else [:/
+                                        [:pg_total_relation_size [:inline "triples"]]
+                                        [:pg_relation_size [:inline "triples"]]]]]
+                               :0]
+                              :num_bytes]]
+                    :from [[:attr-sketches :s]]
+                    :join [[:apps :a] [:= :s.app_id :a.id]]
+                    :where [:= :a.org_id :?org-id]}))
+
+(defn org-usage
+  "Estimates amount of bytes used for an orgs's triples.
+
+  Usage is comprised of both raw data and overhead data (indexes, toast tables, etc.).
+
+  sum(pg_triples_size) calculates the total data size for the specified app_id.
+  pg_total_relation_size('triples') / pg_relation_size('triples') calculates
+  the ratio of the total table size to the actual data size. This ratio
+  represents the overhead factor.
+
+  Multiplying the org data size by the overhead factor gives an estimate of
+  real usage"
+  ([params] (org-usage (aurora/conn-pool :read) params))
+  ([conn {:keys [org-id]}]
+   (sql/select-one
+    ::org-usage
+    conn
+    (uhsql/formatp usage-q {:org-id org-id}))))
+
+(def rename-q (uhsql/preformat {:update :orgs
+                                :set {:title :?title}
+                                :where [:= :id :?id]}))
+
+(defn rename-by-id!
+  ([params] (rename-by-id! (aurora/conn-pool :write) params))
+  ([conn {:keys [id title]}]
+   (sql/execute-one! ::rename-by-id!
+                     conn
+                     (uhsql/formatp rename-q {:title title
+                                              :id id}))))
