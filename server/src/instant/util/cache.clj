@@ -21,6 +21,23 @@
     value-fn       (.build value-fn)
     (not value-fn) (Caffeine/.build)))
 
+(defn invalidate
+  "Discards any cached value for the key. The behavior of this operation is
+   undefined for an entry that is being loaded (or reloaded) and is otherwise
+   not present"
+  [^Cache cache key]
+  (when (some? key)
+    (.invalidate cache key)))
+
+(defn invalidate-all
+  "invalidate-all/1 invalidates all keys.
+   invalidate-all/2 invalidates only passed keys."
+  ([^Cache cache]
+   (.invalidateAll cache))
+  ([^Cache cache keys]
+   (when-some [keys' (not-empty (filter some? keys))]
+     (.invalidateAll cache keys'))))
+
 (defn get
   "Returns the value associated with the key in this cache, obtaining that value
    from the mappingFunction if necessary. This method provides a simple substitute
@@ -57,32 +74,36 @@
    section to ensure same key is never calculated twice"
   [^Cache cache keys values-fn]
   (when-some [keys' (not-empty (filter some? keys))]
-    (->>
-     (locking cache
-       (.getAll cache keys'
-                (fn [keys]
-                  (let [d (delay (values-fn keys))]
-                    (into {} (for [k keys]
-                               [k (delay (clojure.core/get @d k))]))))))
-     (reduce-kv (fn [m k v] (assoc! m k @v)) (transient {}))
-     (persistent!))))
+    (let [delays (locking cache
+                   (.getAll cache keys'
+                            (fn [keys]
+                              (let [d (delay (values-fn keys))]
+                                (into {} (for [k keys]
+                                           [k (delay (clojure.core/get @d k))]))))))
+          ;; Force all of the delays and evict any errors that we put in the cache
+          res (reduce-kv
+               (fn [acc k v]
+                 (let [result (try
+                                {:type :ok, :result (force v)}
+                                (catch Throwable t
+                                  {:type :error, :error t}))]
+                   (case [(:type acc) (:type result)]
+                     [:ok    :ok]    (update acc :result assoc k (:result result))
+                     [:ok    :error] {:type :error, :error (:error result), :keys [k]}
+                     [:error :ok]    acc
+                     [:error :error] (-> acc
+                                         (update :error Throwable/.addSuppressed (:error result))
+                                         (update :keys conj k)))))
+               {:type :ok, :result {}}
+               delays)]
+      (case (:type res)
+        :error
+        (do
+          (invalidate-all cache (:keys res))
+          (throw (:error res)))
 
-(defn invalidate
-  "Discards any cached value for the key. The behavior of this operation is
-   undefined for an entry that is being loaded (or reloaded) and is otherwise
-   not present"
-  [^Cache cache key]
-  (when (some? key)
-    (.invalidate cache key)))
-
-(defn invalidate-all
-  "invalidate-all/1 invalidates all keys.
-   invalidate-all/2 invalidates only passed keys."
-  ([^Cache cache]
-   (.invalidateAll cache))
-  ([^Cache cache keys]
-   (when-some [keys' (not-empty (filter some? keys))]
-     (.invalidateAll cache keys'))))
+        :ok
+        (:result res)))))
 
 (defn put
   "Associates the value with the key in this cache. If the cache previously
