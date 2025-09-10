@@ -10,6 +10,7 @@
    [instant.util.coll :as ucoll]
    [instant.util.exception :as ex]
    [instant.util.io :as io]
+   [instant.util.json :as json]
    [instant.util.tracer :as tracer]
    [instant.comment :as c]
    [instant.data.resolvers :as resolvers])
@@ -176,6 +177,8 @@
   (iterator [_]
     (java.util.List/.iterator xs)))
 
+(json/add-encoder CelList json/encode-java-list)
+
 (deftype CelMap [m]
   java.util.Map
   (get [_ k]
@@ -193,6 +196,8 @@
     (->> (keys (or m {}))
          (map (fn [k] [k (get-cel-value m k)]))
          set)))
+
+(json/add-encoder CelMap json/encode-java-map)
 
 (defn stringify [x]
   (cond
@@ -252,6 +257,8 @@
   (ref [_ path-str]
     (ref-impl ctx m etype path-str)))
 
+(json/add-encoder DataCelMap json/encode-java-map)
+
 (deftype AuthCelMap [ctx ^CelMap m]
   java.util.Map
   (get [_ k]
@@ -267,6 +274,8 @@
                                        #"^\$user\."
                                        "")]
       (ref-impl ctx m "$users" path))))
+
+(json/add-encoder AuthCelMap json/encode-java-map)
 
 (def ^MapType type-obj (MapType/create SimpleType/STRING SimpleType/DYN))
 
