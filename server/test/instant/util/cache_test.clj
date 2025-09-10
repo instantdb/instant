@@ -63,7 +63,7 @@
 (deftest lookup-or-miss-batch-rejects-errors
   (let [cache (cache/make {:max-size 2})]
     (is (thrown? Exception
-                 (cache/get-all cache [:instant] (fn [_]
+                 (cache/get-all-sync cache [:instant] (fn [_]
                                                    (throw (Exception. "oops"))))))
 
     (is (= {:instant :instant} (cache/get-all cache [:instant] (fn [x] (zipmap x x)))))))
