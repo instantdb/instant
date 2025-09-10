@@ -255,10 +255,28 @@
       conn
       (hsql/format
        {:select [[[:count :t.*] :total_file_count]
-                 [[:sum [[:triples_extract_number_value :t.value]]] :total_byte_size]]
+                 [[:coalesce [:sum [[:triples_extract_number_value :t.value]]] :0] :total_byte_size]]
         :from [[:triples :t]]
         :where [:and
                 [:= :t.app_id app-id]
+                [:= :t.attr_id fm-attr]
+                [:= :t.checked-data-type [:cast "number" :checked_data_type]]
+                :t.ave]})))))
+
+(defn get-org-usage
+  ([org-id] (get-org-usage (aurora/conn-pool :read) org-id))
+  ([conn org-id]
+   (when (not (uuid? org-id))
+     (ex/throw-validation-err! :org-id org-id "app-id must be a uuid"))
+   (let [fm-attr (attr-model/resolve-attr-id $system-attrs "$files" "size")]
+     (sql/select-one
+      conn
+      (hsql/format
+       {:select [[[:count :t.*] :total_file_count]
+                 [[:coalesce [:sum [[:triples_extract_number_value :t.value]]] :0] :total_byte_size]]
+        :from [[:triples :t]]
+        :where [:and
+                [:in :t.app_id {:select :id :from :apps :where [:= :org_id org-id]}]
                 [:= :t.attr_id fm-attr]
                 [:= :t.checked-data-type [:cast "number" :checked_data_type]]
                 :t.ave]})))))

@@ -372,10 +372,7 @@
   (delete-immediately-by-id! (select-keys a [:id])))
 
 (defn app-usage
-  "Estimates amount of bytes used for an app's triples. This is intended to be
-  used as a final step in a transaction to update the app's total_app_bytes.
-  If we want to record this usage elsewhere it's better to read the cached value
-  from the transactions table instead.
+  "Estimates amount of bytes used for an app's triples.
 
   Usage is comprised of both raw data and overhead data (indexes, toast tables, etc.).
 
