@@ -434,12 +434,11 @@
    {:keys [data rule-params new-data linked-data linked-etype]}]
   (try
     (let [bindings (HashMap.)
-
           _ (.put bindings "auth" (AuthCelMap. ctx (CelMap. (:current-user ctx))))
           _ (.put bindings "data" (DataCelMap. ctx etype (CelMap. data)))
           _ (.put bindings "ruleParams" (CelMap. rule-params))
           _ (when new-data
-              (.put bindings "newData" (DataCelMap. ctx etype (CelMap. new-data))))
+              (.put bindings "newData" (CelMap. new-data)))
           _ (when linked-data
               (.put bindings "linkedData" (DataCelMap. ctx linked-etype (CelMap. linked-data))))
           result (.eval ^CelRuntime$Program cel-program
@@ -489,7 +488,7 @@
                                              (CelMap. rule-params))
                                "newData"    (if new-data
                                               (Optional/of
-                                               (DataCelMap. ctx etype (CelMap. new-data)))
+                                               (CelMap. new-data))
                                               (Optional/empty))
                                "linkedData" (if linked-data
                                               (Optional/of
