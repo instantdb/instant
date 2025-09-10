@@ -167,6 +167,7 @@ const rulesSchema = (namespaces: SchemaNamespace[] | null) => {
           create: { type: 'string' },
           update: { type: 'string' },
           delete: { type: 'string' },
+          skipCascadePermissionCheck: { type: 'string' },
           view: { type: 'string' },
           link: {
             type: 'object',
