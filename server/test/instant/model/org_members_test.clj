@@ -12,9 +12,6 @@
       (with-org
         (:id u)
         (fn [org]
-          (tool/def-locals)
-          (println (sql/select (aurora/conn-pool :read)
-                               ["select * from org_members where org_id = ?::uuid" (:id org)]))
           (let [member-id (:id (sql/select-one (aurora/conn-pool :read)
                                                ["select id from org_members where org_id = ?::uuid" (:id org)]))]
             (is member-id)
