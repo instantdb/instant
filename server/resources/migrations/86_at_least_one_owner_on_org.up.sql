@@ -55,7 +55,7 @@ begin
 
   -- Skip the check if the org was deleted.
   if org_id is null then
-    return new;
+    return old;
   end if;
 
   select m.id into owner_member_id
