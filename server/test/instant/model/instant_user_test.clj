@@ -1,4 +1,4 @@
-(ns instant.model.instnat-user-test
+(ns instant.model.instant-user-test
   (:require
    [clojure.test :refer [deftest is testing]]
    [instant.fixtures :refer [with-empty-app with-org with-user]]

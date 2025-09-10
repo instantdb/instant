@@ -1,6 +1,6 @@
-(ns instant.model.org-member-test
+(ns instant.model.org-members-test
   (:require
-   [clojure.test :refer [deftest is testing]]
+   [clojure.test :refer [deftest is]]
    [instant.fixtures :refer [with-org with-user]]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
