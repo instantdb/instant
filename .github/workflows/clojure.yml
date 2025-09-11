@@ -68,6 +68,12 @@ jobs:
     needs: [ detect_changes ]
     if: needs.detect_changes.outputs.clj_did_change == 'true'
 
+    strategy:
+      matrix:
+        # List of indicies from 0 to NODE_COUNT
+        # Make sure this matches NODE_COUNT below
+        node_index: [0, 1, 2, 3, 4]
+
     services:
       postgres:
         image: public.ecr.aws/z9j8u5b3/instant-public:postgresql-16-pg-hint-plan
@@ -135,6 +141,10 @@ jobs:
         DATABASE_URL: "jdbc:postgresql://localhost:5432/test_db?user=test_user&password=test_password"
         TEST: "true"
         STRIPE_API_KEY: ${{ secrets.STRIPE_TEST_KEY }}
+        NODE_INDEX: ${{ matrix.node_index }}
+        # Make sure this matches the length of the matrix
+        NODE_COUNT: "5"
+
       run: clojure -M:test
 
     - name: Publish Test Report

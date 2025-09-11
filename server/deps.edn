@@ -101,6 +101,7 @@
                               criterium/criterium           {:mvn/version "0.4.6"}
                               spec-provider/spec-provider   {:mvn/version "0.4.14"}
                               io.github.tonsky/clj-reload   {:mvn/version "0.9.8"}
+                              org.clojure/tools.namespace {:mvn/version "1.5.0"}
                               ;; https://github.com/kkinnear/zprint/pull/351
                               io.github.tonsky/zprint       {:mvn/version "1.2.10"}}
                  :jvm-opts ["-XX:+UseZGC"
@@ -139,7 +140,8 @@
                    :ns-default build}
            :test {:extra-paths ["test" "dev-resources"]
                   :extra-deps {io.github.tonsky/clj-reload {:mvn/version "0.9.4"}
-                               zprint/zprint               {:mvn/version "1.2.9"}}
+                               zprint/zprint               {:mvn/version "1.2.9"}
+                               org.clojure/tools.namespace {:mvn/version "1.5.0"}}
                   :main-opts ["-m" "instant.test-core"]
                   :jvm-opts ["-XX:+UseZGC"
                              "-enableassertions"

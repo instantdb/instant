@@ -11,7 +11,9 @@
    [instant.stripe :as stripe]
    [instant.system-catalog-migration :as system-catalog-migration]
    [instant.util.crypt :as crypt-util]
-   [instant.util.tracer :as tracer]))
+   [instant.util.tracer :as tracer]
+   [clojure.java.io :as io]
+   [clojure.tools.namespace.find :refer [find-namespaces-in-dir]]))
 
 (defn setup-teardown
   "One-time setup before running our test suite and one-time teardown
@@ -29,8 +31,25 @@
     (core/stop)
     results))
 
+(defn test-segment [node-count node-index]
+  (let [all-nses (sort (find-namespaces-in-dir (io/file "test")))
+        segment-nses (keep-indexed (fn [i ns]
+                                     (when (= node-index (mod i node-count))
+                                       ns))
+                                   all-nses)]
+    (println "Testing nses:")
+    (doseq [ns segment-nses]
+      (println " " ns))
+    (circleci.test/run-tests segment-nses)))
+
 (defn -main [& _args]
-  (circleci.test/dir (str ["test"])))
+  (let [node-count (some-> (System/getenv "NODE_COUNT")
+                           (Integer/parseInt))
+        node-index (some-> (System/getenv "NODE_INDEX")
+                           (Integer/parseInt))]
+    (if (and node-count node-index)
+      (test-segment node-count node-index)
+      (circleci.test/dir (str ["test"])))))
 
 (defn -main+ [_]
   (setup-teardown
