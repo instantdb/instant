@@ -233,7 +233,7 @@ export default function Home() {
     },
   });
 
-  const firstTask = result2.data?.phase[0].task[0];
+  const firstTask = result2.data?.phase[0]?.task.at(0);
 
   const [howLong, setHowLong] = useState<number>(0);
   const [isAnimating, setIsAnimating] = useState<boolean>(true);

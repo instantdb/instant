@@ -1,21 +1,30 @@
 import {
   weakHash,
   coerceQuery,
-  type InstaQLParams,
   type InstaQLOptions,
-  type InstantGraph,
   InstantCoreDatabase,
-  InstaQLLifecycleState,
   InstantSchemaDef,
   ValidQuery,
+  InstaQLSimpleSubscription,
 } from '@instantdb/core';
 import { useCallback, useRef, useSyncExternalStore } from 'react';
 
-const defaultState = {
-  isLoading: true,
-  data: undefined,
-  pageInfo: undefined,
-  error: undefined,
+const ssrCache = new Map<string, any>();
+
+const defaultStateForQuery = (query: any) => {
+  if (ssrCache.has(query)) {
+    return ssrCache.get(query);
+  }
+  const ssrResult = {
+    isLoading: true,
+    data: query
+      ? Object.keys(query)?.reduce((acc, key) => ({ ...acc, [key]: [] }), {})
+      : null,
+    pageInfo: undefined,
+    error: undefined,
+  };
+  ssrCache.set(query, ssrResult);
+  return ssrResult;
 };
 
 function stateForResult(result: any) {
@@ -37,7 +46,7 @@ export function useQueryInternal<
   _query: null | Q,
   _opts?: InstaQLOptions,
 ): {
-  state: InstaQLLifecycleState<Schema, Q, UseDates>;
+  state: InstaQLSimpleSubscription<Schema, Q, UseDates>;
   query: any;
 } {
   if (_query && _opts && 'ruleParams' in _opts) {
@@ -51,8 +60,10 @@ export function useQueryInternal<
   // to compare the previous and next state.
   // If we don't use a ref, the state will always be considered different, so
   // the component will always re-render.
-  const resultCacheRef = useRef<InstaQLLifecycleState<Schema, Q, UseDates>>(
-    stateForResult(_core._reactor.getPreviousResult(query)),
+  const resultCacheRef = useRef<InstaQLSimpleSubscription<Schema, Q, UseDates>>(
+    stateForResult({
+      data: _core._reactor.getPreviousResultOrEmpty(query)?.data,
+    }),
   );
 
   // Similar to `resultCacheRef`, `useSyncExternalStore` will unsubscribe
@@ -60,9 +71,9 @@ export function useQueryInternal<
   const subscribe = useCallback(
     (cb) => {
       // Update the ref when the query changes to avoid showing stale data
-      resultCacheRef.current = stateForResult(
-        _core._reactor.getPreviousResult(query),
-      );
+      resultCacheRef.current = stateForResult({
+        data: _core._reactor.getPreviousResultOrEmpty(query)?.data,
+      });
 
       // Don't subscribe if query is null
       if (!query) {
@@ -73,7 +84,6 @@ export function useQueryInternal<
       const unsubscribe = _core.subscribeQuery<Q, UseDates>(query, (result) => {
         resultCacheRef.current = {
           isLoading: !Boolean(result),
-          data: undefined,
           pageInfo: undefined,
           error: undefined,
           ...result,
@@ -89,11 +99,12 @@ export function useQueryInternal<
   );
 
   const state = useSyncExternalStore<
-    InstaQLLifecycleState<Schema, Q, UseDates>
+    InstaQLSimpleSubscription<Schema, Q, UseDates>
   >(
     subscribe,
     () => resultCacheRef.current,
-    () => defaultState,
+    () => defaultStateForQuery(query),
   );
+
   return { state, query };
 }

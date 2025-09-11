@@ -214,6 +214,13 @@ type InstaQLLifecycleState<
   isLoading: boolean;
 };
 
+type InstaQLSimpleSubscription<Schema, Q, UseDates extends boolean = false> = {
+  data: InstaQLResponse<Schema, Q, UseDates>;
+  isLoading: boolean;
+  error: { message: string } | undefined;
+  pageInfo: PageInfoResponse<Q> | undefined;
+};
+
 type UnsubscribeFn = () => void;
 
 // consts
@@ -871,6 +878,7 @@ export {
   type SubscriptionState,
   type InstaQLSubscriptionState,
   type LifecycleSubscriptionState,
+  type InstaQLSimpleSubscription,
   type InstaQLLifecycleState,
 
   // presence types
