@@ -134,18 +134,6 @@
   (when-some [keys' ^Iterable (not-empty (filter some? keys))]
     (.getAll cache keys' values-fn)))
 
-(defn get-all
-  "Returns a map of the values associated with the keys, creating or retrieving
-   those values if necessary. The returned map contains entries that were already
-   cached, combined with the newly loaded entries; it will never contain null keys or values.
-
-   A single request to the mappingFunction is performed for all keys which are
-   not already present in the cache. All entries returned by mappingFunction will
-   be stored in the cache, over-writing any previously cached values."
-  [^Cache cache keys values-fn]
-  (when-some [keys' (not-empty (filter some? keys))]
-    (.getAll cache keys' values-fn)))
-
 (defn put
   "Associates the value with the key in this cache. If the cache previously
    contained a value associated with the key, the old value is replaced
