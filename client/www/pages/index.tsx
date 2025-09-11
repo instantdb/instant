@@ -117,7 +117,7 @@ function LandingHero() {
             <ActiveSessionsCallout />
           </div>
           <div className="flex flex-1 flex-col items-center justify-center space-y-2">
-            <MuxPlayer {...muxVideos.walkthrough} />
+            <MuxPlayer {...muxVideos.createInstantApp} />
             <Link
               href={'/examples'}
               className="flex items-center text-sm rounded-full border bg-white backdrop-blur-lg px-2.5 py-0.5 gap-1 hover:bg-gray-50 shadow"
