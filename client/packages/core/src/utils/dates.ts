@@ -202,7 +202,14 @@ function jsonStrToInstant(maybeJson: string) {
 }
 
 // Main parse function that handles strings and numbers
-export function coerceToDate(x: unknown): Date {
+export function coerceToDate(x: unknown): Date | null | undefined {
+  if (x === undefined) {
+    return undefined;
+  }
+  if (x === null) {
+    return null;
+  }
+
   if (x instanceof Date) {
     return x;
   }
