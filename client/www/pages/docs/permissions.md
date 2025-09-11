@@ -19,16 +19,10 @@ const rules = {
       "create": "isOwner",
       "update": "isOwner && isStillOwner",
       "delete": "isOwner",
-      "link": {
-        "creator": "isOwner && isStillOwner"
-      },
-      "unlink": {
-        "$default": "isOwner"
-      }
     },
     "bind": [
-      "isOwner", "auth.id != null && auth.id == data.creatorId",
-      "isStillOwner", "auth.id != null && auth.id == newData.creatorId"
+      "isOwner", "auth.id == data.creator",
+      "isStillOwner", "data.creator == newData.creator"
     ]
   }
 } satisfies InstantRules;
@@ -59,7 +53,7 @@ For each app in your dashboard, you’ll see a permissions editor. Permissions a
 
 ## Namespaces
 
-For each namespace you can define `allow` rules for `view`, `create`, `update`, `delete`, `link`, `unlink`. Rules must be boolean expressions.
+For each namespace you can define `allow` rules for `view`, `create`, `update`, `delete`. Rules must be boolean expressions.
 
 If a rule is not set then by default it evaluates to true. The following three rulesets are all equivalent:
 
@@ -72,13 +66,7 @@ In this example we explicitly set each action for `todos` to true
       "view": "true",
       "create": "true",
       "update": "true",
-      "delete": "true",
-      "link": {
-        "$default": "true"
-      },
-      "unlink": {
-        "$default": "true"
-      }
+      "delete": "true"
     }
   }
 }
@@ -121,47 +109,6 @@ a user executes, they’ll _only_ see data that they are allowed to see.
 Similarly, for each object in a transaction, we make sure to evaluate the respective `create`, `update`, and `delete` rule.
 
 Transactions will fail if a user does not have adequate permission.
-
-### Link, Unlink
-
-You can add checks per link attribute for cases when link is added and removed. For example:
-
-```json
-{
-  "posts": {
-    "allow": {
-      "link": {
-        // linkedData here is user, same as data.author
-        "author": "linkedData.id == auth.id",
-        "reviewer": "..."
-      },
-      "unlink": {
-        "author": "linkedData.id == auth.id"
-      }
-    }
-  },
-  "users": {
-    "allow": {
-      "link": {
-        // data & newData here are user
-        // linkedData is post, same as data.posts
-        "posts": "newData.id == auth.id && linkedData.text != null"
-      },
-      "unlink": {
-        "posts": "data.id == auth.id && linkedData.text != null"
-      }
-    }
-  }
-}
-```
-
-Few things to note:
-
-1. Unlike other permissions, value for `link`/`unlink` is a map, not a string. Keys in that map are attribute labels.
-2. Permission checks can be defined either on both sides, on one side or at neither.
-3. If `link`/`unlink` permissions are not defined for an attribute in either direction, it falls back to `update` check in forward direction and `view` check in reverse direction.
-4. Inside `link`/`unlink` permissions you have access to `linkedData` object which is a shorthand for the other side of the relation.
-5. You still have access to `data` and `newData`, with the same logic as in `create`/`update` checks.
 
 ### Default permissions
 
@@ -222,21 +169,6 @@ You can use `$default` as the namespace:
 }
 ```
 
-You can specify default link/unlink permission (these will apply to all attributes) and override it for specific attributes:
-
-```json
-{
-  "users": {
-    "allow": {
-      "link": {
-        "$default": "false",
-        "posts": "true"
-      }
-    }
-  }
-}
-```
-
 Finally, the ultimate default:
 
 ```json
@@ -252,7 +184,7 @@ Finally, the ultimate default:
 ## Attrs
 
 Attrs are a special kind of namespace for creating new types of data on the fly.
-Currently we only support creating attrs. During development you likely don't
+Currently we only support create rules on attrs. During development you likely don't
 need to lock this rule down, but once you ship you will likely want to set this
 permission to `false`
 
@@ -295,13 +227,7 @@ Inside each rule, you can write CEL code that evaluates to either `true` or `fal
       "view": "auth.id != null",
       "create": "auth.id in data.ref('creator.id')",
       "update": "!(newData.title == data.title)",
-      "delete": "'joe@instantdb.com' in data.ref('users.email')",
-      "link": {
-        "author": "linkedData.id == auth.id"
-      },
-      "unlink": {
-        "$default": "false"
-      }
+      "delete": "'joe@instantdb.com' in data.ref('users.email')"
     }
   }
 }
@@ -311,45 +237,11 @@ The above example shows a taste of the kind of rules you can write :)
 
 ### data
 
-`data` refers to the object you have saved. This will be populated when used for `view`, `create`, `update`, `delete`, `link` and `unlink` rules.
+`data` refers to the object you have saved. This will be populated when used for `view`, `create`, `update`, `delete` rules.
 
 ### newData
 
 In `update`, you'll also have access to `newData`. This refers to the changes that are being made to the object.
-
-### linkedData
-
-In `link`/`unlink`, you have access to `linkedData` object which is just a shorthand for the other side of the relation.
-
-For example, if posts have authors and you only want to allow to link posts to the currently authenticated user, you can write:
-
-```json
-{
-  "posts": {
-    "allow": {
-      "link": {
-        "author": "auth.id in newData.ref(author.id)"
-      }
-    }
-  }
-}
-```
-
-or the same but using linkedData:
-
-```json
-{
-  "posts": {
-    "allow": {
-      "link": {
-        "author": "auth.id == linkedData.id"
-      }
-    }
-  }
-}
-```
-
-In this example, `linkedData` in `link.author` permission is the same as `data.ref(author)`.
 
 ### bind
 
@@ -361,7 +253,7 @@ In this example, `linkedData` in `link.author` permission is the same as `data.r
     "allow": {
       "create": "isOwner"
     },
-    "bind": ["isOwner", "auth.id != null && auth.id == data.creatorId"]
+    "bind": ["isOwner", "auth.id == data.creator"]
   }
 }
 ```
@@ -370,7 +262,7 @@ In this example, `linkedData` in `link.author` permission is the same as `data.r
 {
   "todos": {
     "allow": {
-      "create": "auth.id != null && auth.id == data.creatorId"
+      "create": "auth.id == data.creator"
     }
   }
 }
@@ -386,7 +278,7 @@ In this example, `linkedData` in `link.author` permission is the same as `data.r
     },
     "bind": [
       "isOwner",
-      "auth.id != null && auth.id == data.creatorId",
+      "auth.id == data.creator",
       "isAdmin",
       "auth.email in ['joe@instantdb.com', 'stopa@instantdb.com']"
     ]
