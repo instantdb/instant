@@ -119,7 +119,7 @@
                                        ref-k (assoc! ref-k 1))
                                      (cms/add-batch sketch (persistent! triples))
                                      (cms/add-batch reverse-sketch (persistent! reverse-triples))
-                                     (+ triples-pg-size (:pg-size triple)))
+                                     (+ triples-pg-size (long (:pg-size triple))))
                               (recur (rest s)
                                      app-id
                                      attr-id
@@ -128,7 +128,7 @@
                                        ref-k (assoc! ref-k (inc (get reverse-triples ref-k 0))))
                                      sketch
                                      reverse-sketch
-                                     (+ triples-pg-size (:pg-size triple)))))
+                                     (+ triples-pg-size (long (:pg-size triple))))))
                           (let [forward-sketch (cms/add-batch sketch (persistent! triples))
                                 reverse-sketch (cms/add-batch reverse-sketch (persistent! reverse-triples))]
                             (vswap! sketch-count inc)
