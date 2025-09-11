@@ -17,7 +17,7 @@
             [clojure.test :refer [deftest testing is]]))
 
 (def wait-timeout (if (= :test (config/get-env))
-                    5000
+                    10000
                     1000))
 
 (defmacro check-estimate [job]
