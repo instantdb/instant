@@ -30,7 +30,7 @@
 
 (deftest cache-stampede-batch
   (let [thread-count        100
-        cache               (cache/make
+        cache               (cache/make-async
                              {:ttl 120000
                               :max-size 100})
         latch               (java.util.concurrent.CountDownLatch. thread-count)
@@ -39,7 +39,7 @@
     (dotimes [_ thread-count]
       (.start (Thread. (fn []
                          (swap! values conj
-                                (cache/get-all-sync
+                                @(cache/get-all-async
                                  cache
                                  ["my-key"]
                                  (fn [keys]
@@ -61,12 +61,12 @@
     (is (= :instant (cache/get cache :instant (fn [x] x))))))
 
 (deftest lookup-or-miss-batch-rejects-errors
-  (let [cache (cache/make {:max-size 2})]
+  (let [cache (cache/make-async {:max-size 2})]
     (is (thrown? Exception
-                 (cache/get-all-sync cache [:instant] (fn [_]
-                                                   (throw (Exception. "oops"))))))
+                 @(cache/get-all-async cache [:instant] (fn [_]
+                                                          (throw (Exception. "oops"))))))
 
-    (is (= {:instant :instant} (cache/get-all cache [:instant] (fn [x] (zipmap x x)))))))
+    (is (= {:instant :instant} @(cache/get-all-async cache [:instant] (fn [x] (zipmap x x)))))))
 
 (deftest lookup-or-miss-only-evicts-its-own-errors
   (let [cache (cache/make {:max-size 2})
@@ -96,20 +96,20 @@
                                                   :new-value)))))))
 
 (deftest lookup-or-miss-batch-only-evicts-its-own-errors
-  (let [cache (cache/make {:max-size 5})
+  (let [cache (cache/make-async {:max-size 5})
         wait1 (promise)
         wait2 (promise)
         f1 (future
-             (cache/get-all-sync cache [:instant] (fn [_]
-                                                    (deliver wait1 true)
-                                                    @wait2
-                                                    (throw (Exception. "oops")))))]
+             @(cache/get-all-async cache [:instant] (fn [_]
+                                                      (deliver wait1 true)
+                                                      @wait2
+                                                      (throw (Exception. "oops")))))]
 
     @wait1
 
-    (cache/invalidate cache :instant)
+    (cache/invalidate-async cache :instant)
 
-    (is (= {:instant :instant} (cache/get-all cache [:instant] (fn [x] (zipmap x x)))))
+    (is (= {:instant :instant} @(cache/get-all-async cache [:instant] (fn [x] (zipmap x x)))))
 
     (is (not (realized? f1)))
 
@@ -118,8 +118,8 @@
     (is (thrown? Exception @f1))
 
     (is (= {:instant :instant}
-           (cache/get-all cache [:instant] (fn [_]
-                                             {:instant :new-value}))))))
+           @(cache/get-all-async cache [:instant] (fn [_]
+                                                    {:instant :new-value}))))))
 
 ;; Copy of test in core.cached
 ;; https://github.com/clojure/core.cache/blob/4a043644a0706b6d834ebf890a64d2fdcc9c388b/src/test/clojure/clojure/core/cache/wrapped_test.clj#L30
@@ -134,15 +134,15 @@
     (is true)))
 
 (deftest lookup-or-miss-batch-works
-  (let [cache (cache/make {:max-size 2})]
+  (let [cache (cache/make-async {:max-size 2})]
     (is (= {:a :a
             :b :b}
-           (cache/get-all-sync cache [:a :b] (fn [xs] (zipmap xs xs)))))
+           @(cache/get-all-async cache [:a :b] (fn [xs] (zipmap xs xs)))))
 
     (is (= {:a :a
             :e :e}
-           (cache/get-all-sync cache [:a :e] (fn [xs] (zipmap xs xs)))))
+           @(cache/get-all-async cache [:a :e] (fn [xs] (zipmap xs xs)))))
 
     ;; FIXME this is not fully determenistic
-    (is (cache/get-if-present cache :a))
-    (is (not (cache/get-if-present cache :b)))))
+    (is @(cache/get-if-present-async cache :a))
+    (is (not (cache/get-if-present-async cache :b)))))

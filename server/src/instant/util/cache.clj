@@ -1,8 +1,11 @@
 (ns instant.util.cache
   (:refer-clojure :exclude [get])
   (:import
-   [com.github.benmanes.caffeine.cache Cache Caffeine LoadingCache]
-   [java.time Duration]))
+   [com.github.benmanes.caffeine.cache AsyncLoadingCache AsyncCache Cache Caffeine LoadingCache]
+   [java.lang Iterable]
+   [java.time Duration]
+   [java.util.concurrent CompletableFuture]
+   [java.util.function Function]))
 
 (defn make
   ":max-size   <number>
@@ -21,6 +24,21 @@
     value-fn       (.build value-fn)
     (not value-fn) (Caffeine/.build)))
 
+(defn make-async
+  ":max-size   <number>
+   :max-weight <number>          must be used with :weigher
+   :weigher    <fn [k v]>        must be used with :max-weight
+   :ttl        <number>          eviction time, ms
+   :on-remove  <fn [k v cause]>  removal listener"
+  ^AsyncLoadingCache [{:keys [max-size max-weight weigher ttl on-remove]}]
+  (cond-> (Caffeine/newBuilder)
+    max-size   (.maximumSize max-size)
+    max-weight (.maximumWeight max-weight)
+    weigher    (.weigher weigher)
+    ttl        (.expireAfterWrite (Duration/ofMillis ttl))
+    on-remove  (.removalListener on-remove)
+    true       (Caffeine/.buildAsync)))
+
 (defn invalidate
   "Discards any cached value for the key. The behavior of this operation is
    undefined for an entry that is being loaded (or reloaded) and is otherwise
@@ -28,6 +46,14 @@
   [^Cache cache key]
   (when (some? key)
     (.invalidate cache key)))
+
+(defn invalidate-async
+  "Discards any cached value for the key. The behavior of this operation is
+   undefined for an entry that is being loaded (or reloaded) and is otherwise
+   not present"
+  [^AsyncCache cache key]
+  (when (some? key)
+    (.invalidate (.synchronous cache) key)))
 
 (defn invalidate-all
   "invalidate-all/1 invalidates all keys.
@@ -37,6 +63,15 @@
   ([^Cache cache keys]
    (when-some [keys' (not-empty (filter some? keys))]
      (.invalidateAll cache keys'))))
+
+(defn invalidate-all-async
+  "invalidate-all/1 invalidates all keys.
+   invalidate-all/2 invalidates only passed keys."
+  ([^AsyncCache cache]
+   (.invalidateAll (.synchronous cache)))
+  ([^AsyncCache cache keys]
+   (when-some [keys' (not-empty (filter some? keys))]
+     (.invalidateAll (.synchronous cache) keys'))))
 
 (defn get
   "Returns the value associated with the key in this cache, obtaining that value
@@ -51,9 +86,25 @@
    (when (some? key)
      (.get cache key value-fn))))
 
+(defn get-async
+  "Returns a completeable future with the value associated with the key
+   in this async cache. This method provides a simple substitute for the
+   conventional “if cached, return; otherwise create, cache and return”
+   pattern."
+  [^AsyncLoadingCache cache key ^Function value-fn]
+  (when (some? key)
+    (.get cache key value-fn)))
+
 (defn get-if-present
   "Returns the value associated with the key in this cache, or null if there is no cached value for the key."
   [^Cache cache key]
+  (when (some? key)
+    (.getIfPresent cache key)))
+
+(defn get-if-present-async
+  "Returns a completeable future with the value associated with the key
+   in this cache, or null if there is no cached value for the key."
+  [^AsyncLoadingCache cache key]
   (when (some? key)
     (.getIfPresent cache key)))
 
@@ -69,41 +120,31 @@
   (when-some [keys' (not-empty (filter some? keys))]
     (.getAll cache keys' values-fn)))
 
-(defn get-all-sync
-  "Version of get-all that wraps each key in a delay and getAll in a syncrhonized
-   section to ensure same key is never calculated twice"
+(defn get-all-async
+  "Returns a completeable future with a map of the values associated
+   with the keys, creating or retrieving those values if necessary. The
+   returned map contains entries that were already cached, combined
+   with the newly loaded entries; it will never contain null keys or
+   values.
+
+   A single request to the mappingFunction is performed for all keys which are
+   not already present in the cache. All entries returned by mappingFunction will
+   be stored in the cache, over-writing any previously cached values."
+  [^AsyncCache cache ^Iterable keys ^Function values-fn]
+  (when-some [keys' ^Iterable (not-empty (filter some? keys))]
+    (.getAll cache keys' values-fn)))
+
+(defn get-all
+  "Returns a map of the values associated with the keys, creating or retrieving
+   those values if necessary. The returned map contains entries that were already
+   cached, combined with the newly loaded entries; it will never contain null keys or values.
+
+   A single request to the mappingFunction is performed for all keys which are
+   not already present in the cache. All entries returned by mappingFunction will
+   be stored in the cache, over-writing any previously cached values."
   [^Cache cache keys values-fn]
   (when-some [keys' (not-empty (filter some? keys))]
-    (let [delays (locking cache
-                   (.getAll cache keys'
-                            (fn [keys]
-                              (let [d (delay (values-fn keys))]
-                                (into {} (for [k keys]
-                                           [k (delay (clojure.core/get @d k))]))))))
-          ;; Force all of the delays and evict any errors that we put in the cache
-          res (reduce-kv
-               (fn [acc k v]
-                 (let [result (try
-                                {:type :ok, :result (force v)}
-                                (catch Throwable t
-                                  {:type :error, :error t}))]
-                   (case [(:type acc) (:type result)]
-                     [:ok    :ok]    (update acc :result assoc k (:result result))
-                     [:ok    :error] {:type :error, :error (:error result), :keys [k]}
-                     [:error :ok]    acc
-                     [:error :error] (-> acc
-                                         (update :error Throwable/.addSuppressed (:error result))
-                                         (update :keys conj k)))))
-               {:type :ok, :result {}}
-               delays)]
-      (case (:type res)
-        :error
-        (do
-          (invalidate-all cache (:keys res))
-          (throw (:error res)))
-
-        :ok
-        (:result res)))))
+    (.getAll cache keys' values-fn)))
 
 (defn put
   "Associates the value with the key in this cache. If the cache previously
@@ -113,7 +154,20 @@
   (when (some? key)
     (.put cache key value)))
 
+(defn put-async
+  "Associates the value with the key in this cache. If the cache previously
+   contained a value associated with the key, the old value is replaced
+   by the new value"
+  [^AsyncCache cache key value]
+  (when (some? key)
+    (.put cache key (CompletableFuture/completedFuture value))))
+
 (defn as-map
   "Snapshot of a cache as an immutable map. Creates a shallow copy just in case"
   [^Cache cache]
   (into {} (Cache/.asMap cache)))
+
+(defn as-map-async
+  "Snapshot of a cache as an immutable map. Creates a shallow copy just in case"
+  [^AsyncCache cache]
+  (into {} (Cache/.asMap (.synchronous cache))))

@@ -334,7 +334,7 @@
       (record->Sketch row))))
 
 (def lookup-cache
-  (cache/make
+  (cache/make-async
    {:max-size 4096
     :ttl      (* 1000 60 5)}))
 
@@ -364,7 +364,7 @@
    (lookup (aurora/conn-pool :read) keys))
   ([conn keys]
    (if (= conn (aurora/conn-pool :read))
-     (cache/get-all-sync lookup-cache keys #(lookup* conn %))
+     @(cache/get-all-async lookup-cache keys #(lookup* conn %))
      (lookup* conn keys))))
 
 (defn- create-empty-sketch-rows!
