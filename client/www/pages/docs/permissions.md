@@ -22,7 +22,7 @@ const rules = {
     },
     "bind": [
       "isOwner", "auth.id != null && == data.creatorId",
-      "isStillOwner", "auth.id != null && data.creatorId == newData.creatorId"
+      "isStillOwner", "auth.id != null && auth.id == newData.creatorId"
     ]
   }
 } satisfies InstantRules;
