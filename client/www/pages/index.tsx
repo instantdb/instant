@@ -82,32 +82,61 @@ const ActiveSessionsCallout = () => {
     </div>
   );
 };
+
+function CreateInstantApp() {
+  const [showCopySuccess, setShowCopySuccess] = useState(false);
+  const command = 'npx create-instant-app';
+
+  return (
+    <div
+      className="relative bg-transparent border border-black font-mono text-lg cursor-pointer hover:bg-gray-50/30 transition-colors inline-flex items-center px-4 py-2 w-full"
+      onClick={() => {
+        navigator.clipboard.writeText(command);
+        setShowCopySuccess(true);
+        setTimeout(() => setShowCopySuccess(false), 2000);
+      }}
+      title="Click to copy"
+    >
+      <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-800 transition-colors">
+        <svg className={`w-5 h-5 ${showCopySuccess ? 'text-orange-600' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d={showCopySuccess
+              ? "M5 13l4 4L19 7"
+              : "M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+            }
+          />
+        </svg>
+      </div>
+      $ {command}
+    </div>
+  );
+}
+
 function LandingHero() {
   return (
     <div className="pb-16 pt-8">
       <SectionWide>
         <TwoColResponsive>
-          <div className="flex flex-1 flex-col gap-8">
+          <div className="flex flex-1 flex-col gap-6">
             <H2>Write your frontend and we handle the rest</H2>
-            <div className="mb-6 max-w-md">
-              <div className="bg-gradient-to-br from-orange-50 to-red-50 border border-orange-200 rounded-lg p-6">
-                <div className="flex items-start gap-4">
-                  <div className="flex-1">
-                    <p className="text-gray-800 mb-4">
-                      Instant is the easy to use backend for your frontend. With
-                      Instant you can build delightful apps in less than 10
-                      minutes.
-                    </p>
-                    <Button
-                      type="link"
-                      variant="cta"
-                      size="large"
-                      href="/tutorial"
-                    >
-                      Try the tutorial
-                    </Button>
-                  </div>
-                </div>
+            <div className="mb-2 max-w-md">
+              <p className="text-gray-800 mb-4">
+                Instant is the easy to use backend for your frontend. With
+                Instant you can build delightful apps in less than 10
+                minutes.
+              </p>
+              <CreateInstantApp />
+              <div className="mt-4">
+                <Button
+                  type="link"
+                  variant="cta"
+                  href="/docs"
+                >
+                  Read the docs
+                </Button>
               </div>
             </div>
             <div className="flex items-center justify-start space-x-2">
