@@ -92,8 +92,9 @@
    conventional “if cached, return; otherwise create, cache and return”
    pattern."
   [^AsyncLoadingCache cache key ^Function value-fn]
-  (when (some? key)
-    (.get cache key value-fn)))
+  (if (some? key)
+    (.get cache key value-fn)
+    (CompletableFuture/completedFuture nil)))
 
 (defn get-if-present
   "Returns the value associated with the key in this cache, or null if there is no cached value for the key."
@@ -105,8 +106,9 @@
   "Returns a completeable future with the value associated with the key
    in this cache, or null if there is no cached value for the key."
   [^AsyncLoadingCache cache key]
-  (when (some? key)
-    (.getIfPresent cache key)))
+  (if (some? key)
+    (.getIfPresent cache key)
+    (CompletableFuture/completedFuture nil)))
 
 (defn get-all
   "Returns a map of the values associated with the keys, creating or retrieving
@@ -131,8 +133,9 @@
    not already present in the cache. All entries returned by mappingFunction will
    be stored in the cache, over-writing any previously cached values."
   [^AsyncCache cache ^Iterable keys ^Function values-fn]
-  (when-some [keys' ^Iterable (not-empty (filter some? keys))]
-    (.getAll cache keys' values-fn)))
+  (if-some [keys' ^Iterable (not-empty (filter some? keys))]
+    (.getAll cache keys' values-fn)
+    (CompletableFuture/completedFuture nil)))
 
 (defn put
   "Associates the value with the key in this cache. If the cache previously
