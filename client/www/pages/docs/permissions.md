@@ -21,8 +21,8 @@ const rules = {
       "delete": "isOwner",
     },
     "bind": [
-      "isOwner", "auth.id == data.creator",
-      "isStillOwner", "data.creator == newData.creator"
+      "isOwner", "auth.id == data.creatorId",
+      "isStillOwner", "data.creatorId == newData.creatorId"
     ]
   }
 } satisfies InstantRules;
@@ -253,7 +253,7 @@ In `update`, you'll also have access to `newData`. This refers to the changes th
     "allow": {
       "create": "isOwner"
     },
-    "bind": ["isOwner", "auth.id == data.creator"]
+    "bind": ["isOwner", "auth.id == data.creatorId"]
   }
 }
 ```
@@ -262,7 +262,7 @@ In `update`, you'll also have access to `newData`. This refers to the changes th
 {
   "todos": {
     "allow": {
-      "create": "auth.id == data.creator"
+      "create": "auth.id == data.creatorId"
     }
   }
 }
@@ -278,7 +278,7 @@ In `update`, you'll also have access to `newData`. This refers to the changes th
     },
     "bind": [
       "isOwner",
-      "auth.id == data.creator",
+      "auth.id == data.creatorId",
       "isAdmin",
       "auth.email in ['joe@instantdb.com', 'stopa@instantdb.com']"
     ]
