@@ -72,7 +72,7 @@ jobs:
       matrix:
         # List of indicies from 0 to NODE_COUNT
         # Make sure this matches NODE_COUNT below
-        node_index: [0, 1, 2, 3, 4]
+        node_index: [0, 1, 2]
 
     services:
       postgres:
@@ -143,7 +143,7 @@ jobs:
         STRIPE_API_KEY: ${{ secrets.STRIPE_TEST_KEY }}
         NODE_INDEX: ${{ matrix.node_index }}
         # Make sure this matches the length of the matrix
-        NODE_COUNT: "5"
+        NODE_COUNT: "3"
 
       run: clojure -M:test
 
