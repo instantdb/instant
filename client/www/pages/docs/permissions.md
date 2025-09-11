@@ -21,7 +21,7 @@ const rules = {
       "delete": "isOwner",
     },
     "bind": [
-      "isOwner", "auth.id != null && == data.creatorId",
+      "isOwner", "auth.id != null && auth.id == data.creatorId",
       "isStillOwner", "auth.id != null && auth.id == newData.creatorId"
     ]
   }
@@ -262,7 +262,7 @@ In `update`, you'll also have access to `newData`. This refers to the changes th
 {
   "todos": {
     "allow": {
-      "create": "auth.id == data.creatorId"
+      "create": "auth.id != null && auth.id == data.creatorId"
     }
   }
 }
