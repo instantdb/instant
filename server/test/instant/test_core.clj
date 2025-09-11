@@ -40,7 +40,9 @@
     (println "Testing nses:")
     (doseq [ns segment-nses]
       (println " " ns))
-    (apply circleci.test/run-tests segment-nses)))
+    (apply require :reload segment-nses)
+    (let [summary (apply circleci.test/run-tests segment-nses)]
+      (System/exit (+ (:error summary) (:fail summary))))))
 
 (defn -main [& _args]
   (let [node-count (some-> (System/getenv "NODE_COUNT")
