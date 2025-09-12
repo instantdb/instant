@@ -403,32 +403,6 @@ function AppPermsSection({
         apps with abandon — they (or really you) don’t worry about a giant
         compute bill.
       </p>
-      <>
-        <div className="bg-white rounded border border-orange-200 p-4 -mx-4">
-          <div className="not-prose">
-            <h2 className="m-0 font-medium text-xl">Try it yourself</h2>
-          </div>
-          <p>
-            We've written up a guide so you do this with your own workflow.
-            Follow along to build out a full stack app in about 5 minutes. Just
-            Claude, Cursor, or your favorite agent and Instant.
-          </p>
-          <div className="not-prose">
-            <Button type="link" variant="cta" size="large" href="/tutorial">
-              Build an app
-            </Button>
-          </div>
-        </div>
-        <p>
-          And heck, if you are the founder of an app builder platform, Instant
-          could be a great use-case for you, too. We’d be thrilled to work with
-          you directly. Simply send us an{' '}
-          <a href="mailto:founders@instantdb.com?subject=InstantDB%20Platform%20Plan%20Inquiry">
-            email
-          </a>
-          .
-        </p>
-      </>
     </>
   );
 }

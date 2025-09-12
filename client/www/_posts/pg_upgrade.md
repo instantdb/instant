@@ -5,7 +5,7 @@ authors: stopachka, dww
 ---
 
 <div class="text-lg font-medium">
-We’re Instant, a modern Firebase. <a href="https://www.instantdb.com/tutorial">Try out the demo</a>, you can spin up a database and make queries within a minute — no login required.
+We’re Instant, a modern Firebase. You can spin up a database and make queries within a minute — no login required.
 </div>
 
 Right before Christmas we discovered that our Aurora Postgres instance needed a major version upgrade. We found a great essay by the [Lyft team](https://eng.lyft.com/postgres-aurora-db-major-version-upgrade-with-minimal-downtime-4e26178f07a0), showing how they ran their upgrade with about 7 minutes of downtime.

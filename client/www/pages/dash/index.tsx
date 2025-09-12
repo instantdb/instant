@@ -804,13 +804,8 @@ function Home() {
         Welcome to Instant! Here are some resources to help you get started.
       </Content>
       <div className="grid grid-cols-2 gap-4">
-        <HomeButton href="/tutorial" title="Try the Demo">
-          Follow our tutorial to build a full-stack app with Instant in less
-          than 10 minutes.
-        </HomeButton>
         <HomeButton href="/docs" title="Read the Docs">
-          After the tutorial, jump into our docs to start learning how to use
-          Instant.
+          Jump into our docs to start learning how to use Instant.
         </HomeButton>
         <HomeButton
           href="https://discord.com/invite/VU53p7uQcE"
