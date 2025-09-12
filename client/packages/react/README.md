@@ -14,10 +14,9 @@
 </p>
 
 <p align="center">
-   <a href="https://instantdb.com/dash">Get Started</a> · 
-   <a href="https://instantdb.com/examples">Examples</a> · 
-   <a href="https://instantdb.com/tutorial">Try the Demo</a> · 
-   <a href="https://instantdb.com/docs">Docs</a> · 
+   <a href="https://instantdb.com/dash">Get Started</a> ·
+   <a href="https://instantdb.com/examples">Examples</a> ·
+   <a href="https://instantdb.com/docs">Docs</a> ·
    <a href="https://discord.com/invite/VU53p7uQcE">Discord</a>
 <p>
 
@@ -47,7 +46,7 @@ function Chat() {
 
 # Get Started
 
-Follow the [getting started](https://www.instantdb.com/docs) tutorial to set up a live React app in under 5 minutes! Or you can try an [interactive demo](https://instantdb.com/tutorial) in your browser :).
+Follow the [getting started](https://www.instantdb.com/docs) tutorial to set up a live React app in under 5 minutes!
 
 # Questions?
 

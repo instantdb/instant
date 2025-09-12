@@ -18,8 +18,7 @@ function HiringContent() {
           Instant is a real-time database you can use on the frontend. We give
           you the best of both Firebase and Supabase, a sync-engine with support
           for relations. This is the kind of tech that companies like Figma,
-          Notion, and Linear build internally to power their products (
-          <a href="https://www.instantdb.com/tutorial">Try out the demo</a>)
+          Notion, and Linear build internally to power their products
         </em>
       </p>
       <p>

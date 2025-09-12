@@ -14,10 +14,9 @@
 </p>
 
 <p align="center">
-   <a href="https://www.instantdb.com/docs/backend">Get Started</a> · 
-   <a href="https://instantdb.com/examples">Examples</a> · 
-   <a href="https://instantdb.com/tutorial">Try the Demo</a> · 
-   <a href="https://www.instantdb.com/docs/backend">Docs</a> · 
+   <a href="https://www.instantdb.com/docs/backend">Get Started</a> ·
+   <a href="https://instantdb.com/examples">Examples</a> ·
+   <a href="https://www.instantdb.com/docs/backend">Docs</a> ·
    <a href="https://discord.com/invite/VU53p7uQcE">Discord</a>
 <p>
 
