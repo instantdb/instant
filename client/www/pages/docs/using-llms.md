@@ -3,11 +3,59 @@ title: Using Instant with LLMs
 description: How to use Instant with LLMs
 ---
 
-You can supercharge your Instant experience by using it with LLMs. For best
+You can supercharge your Instant experience by using it with LLMs.For best
 results we recommend doing two things:
 
-- Use the Instant MCP server to enable LLMs to create and update your apps
 - Add rules or context to your LLM to help it understand how Instant works
+- Use the Instant MCP server to enable LLMs to create and update your apps
+
+## Instant Rules
+
+We've created a set of rules to help LLMs understand how Instant works. If you
+start a new project with `create-instant-app` you'll get these rules
+automatically. If you have an existing project you can add the rules manually by
+reading below.
+
+You can verify you set up the rules correctly by asking your LLM "How do you
+make queries and transactions in InstantDB?" If everything is set up correctly,
+you should see a response with information about `db.useQuery` and `transact`
+
+### Cursor
+
+Save [these rules](/mcp-tutorial/cursor-rules.md) at the root of your project in
+`.cursor/rules/instant.mdc` You may need to restart Cursor for them to take
+effect.
+
+When using Cursor we recommend turning off "Auto" and using at least Claude
+Sonnet 4
+
+### Claude Code
+
+Save [these instructions](/mcp-tutorial/claude.md) at the root of your
+project in `CLAUDE.md` and [these rules](/mcp-tutorial/claude-rules.md) in `instant-rules.md`. If you already had claude running, restart it for the rules to take effect.
+
+### Windsurf
+
+Save [these rules](/mcp-tutorial/windsurf-rules.md) at the root of your project in `.windsurf/rules/instant.md`. You may need to restart Windsurf for them to take effect.
+
+### Zed
+
+Save [these rules](/mcp-tutorial/other-rules.md) at the root of your project in `AGENT.md`. You may need to restart Zed for them to take effect.
+
+### Other Tools
+
+Use [these rules](/mcp-tutorial/other-rules.md) to give context on how to use
+Instant. If want to manually add in more documentation, you can also append
+`.md` to the end of any doc page url to get the raw markdown
+
+### Markdown Docs and llms.txt
+
+You can attach `.md` to the end of any doc page url to get raw markdown. This can be helpful to paste into your LLM if you're stuck on
+particular functionality. For example, here's the recommended docs for [adding auth](/docs/auth/magic-codes.md.md)
+
+We recommend starting with the rules files above and adding more docs as needed.
+If you want though you can get all our docs at once in markdown format via
+[llms-full.txt](https://www.instantdb.com/llms-full.txt)
 
 ## Instant MCP Server
 
@@ -133,50 +181,6 @@ Or our SSE endpoint
 ```text {% showCopy="true" %}
 https://mcp.instantdb.com/sse
 ```
-
-## Instant Rules
-
-We've created a set of rules to help LLMs understand how Instant works. After setting up your MCP server, add these rules to your tool of choice.
-
-You can verify you set up the rules correctly by asking your LLM "How do you
-make queries and transactions in InstantDB?" If everything is set up correctly,
-you should see a response with information about `db.useQuery` and `transact`
-
-{% callout type="note" %}
-
-You can also attach `.md` to the end of any doc page url to get the raw markdown
-you can copy and paste into your LLM. This can be helpful if you're stuck on
-particular functionality. For example, here's the docs for [using cursors](/docs/presence-and-topics.md)
-
-{% /callout %}
-
-### Cursor
-
-Save [these rules](/mcp-tutorial/cursor-rules.md) at the root of your project in
-`.cursor/rules/instant.mdc` You may need to restart Cursor for them to take
-effect.
-
-When using Cursor we recommend turning off "Auto" and using at least Claude
-Sonnet 4
-
-### Claude Code
-
-Save [these instructions](/mcp-tutorial/claude.md) at the root of your
-project in `CLAUDE.md` and [these rules](/mcp-tutorial/claude-rules.md) in `instant-rules.md`. If you already had claude running, restart it for the rules to take effect.
-
-### Windsurf
-
-Save [these rules](/mcp-tutorial/windsurf-rules.md) at the root of your project in `.windsurf/rules/instant.md`. You may need to restart Windsurf for them to take effect.
-
-### Zed
-
-Save [these rules](/mcp-tutorial/other-rules.md) at the root of your project in `AGENT.md`. You may need to restart Zed for them to take effect.
-
-### Other Tools
-
-Use [these rules](/mcp-tutorial/other-rules.md) to give context on how to use
-Instant. If want to manually add in more documentation, you can also append
-`.md` to the end of any doc page url to get the raw markdown
 
 ## Local MCP server
 
