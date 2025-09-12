@@ -169,12 +169,6 @@ function LandingProblemStatement() {
                   `transact`
                 </code>
               </p>
-              <p>
-                Want to try it yourself?{' '}
-                <TextLink href="/tutorial">
-                  Build a full-stack app in less than 10 minutes.
-                </TextLink>
-              </p>
             </div>
             <div className="flex flex-1 flex-col gap-4">
               <div className="overflow-auto rounded border bg-prism font-mono text-sm">

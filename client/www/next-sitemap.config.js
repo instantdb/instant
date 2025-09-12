@@ -22,7 +22,7 @@ module.exports = {
   },
 
   transform: async (config, path) => {
-    const exactPaths = ['/', '/privacy', '/terms', '/tutorial'];
+    const exactPaths = ['/', '/privacy', '/terms'];
 
     if (exactPaths.includes(path)) {
       return {
