@@ -154,15 +154,12 @@ jobs:
       with:
         report_paths: '**/server/target/test-results/*.xml'
 
-    - name: Zip junit
-      run: tar -cvf junit-test-results.tar server/target/test-results/
-
     # XXX: Only upload on main
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: test-results-${{ matrix.node_index }}
-        path: junit-test-results.tar
+        name: junit-test-results-${{ matrix.node_index }}
+        path: server/target/test-results
         overwrite: true
 
 
