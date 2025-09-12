@@ -62,6 +62,16 @@ jobs:
 
           console.log('output', output);
           return output;
+    - name: Collect artifacts
+      uses: actions/download-artifact@v4
+      with:
+        pattern: junit-test-results-*
+        merge-multiple: true
+        path: junit-test-results
+    - name: Log
+      run: |
+        find junit-test-results
+
 
   clj-check:
     runs-on: ubuntu-latest
