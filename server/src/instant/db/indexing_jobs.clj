@@ -47,8 +47,10 @@
                          :job-stage (:job_stage job)
                          :work-estimate (:work_estimate job)
                          :work-completed (:work_completed job)
-                         :ms-since-creation (ms-since (:created_at job) now)
-                         :ms-since-update (ms-since (:updated_at job) now)}
+                         :ms-since-creation (when-let [created-at (:created_at job)]
+                                              (ms-since created-at now))
+                         :ms-since-update (when-let [updated-at (:updated_at job)]
+                                            (ms-since updated-at now))}
                         (when (and (= "completed" (:job_status job))
                                    (:done_at job)
                                    (:created_at job))
