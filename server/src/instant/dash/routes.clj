@@ -1093,7 +1093,7 @@
 
 (defn team-member-remove-delete [req]
   (let [member-id-param (ex/get-param! req [:body :id] uuid-util/coerce)
-        {:keys [type foreign-key member-id]}
+        {:keys [type member-id]}
         (cond (get-in req [:params :app_id])
               {:type :app
                :foreign-key (-> (req->app-and-user! :admin req)
