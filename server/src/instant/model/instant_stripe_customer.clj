@@ -1,16 +1,16 @@
 (ns instant.model.instant-stripe-customer
   (:require
    [instant.jdbc.aurora :as aurora]
-   [instant.jdbc.sql :as sql])
+   [instant.jdbc.sql :as sql]
+   [instant.stripe :as stripe])
   (:import
-   (com.stripe.model Customer)
    (java.util Map)))
 
 (defn- create-stripe-customer
   "Creates a customer on Stripe, returns the customer id.
    opts should be a map."
   [^Map opts]
-  (.getId (Customer/create opts)))
+  (stripe/create-customer opts))
 
 (defn- create-for-user!
   ([params] (create-for-user! (aurora/conn-pool :write) params))

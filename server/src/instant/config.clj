@@ -31,6 +31,8 @@
     (= "true" (System/getenv "TEST"))       :test
     :else                                   :dev))
 
+(defn prod? [] (= :prod (get-env)))
+
 (defn aws-env? []
   (contains? #{:prod :staging} (get-env)))
 

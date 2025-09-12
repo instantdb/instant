@@ -11,6 +11,7 @@
                              with-pro-app]]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
+   [instant.model.app :as app-model]
    [instant.model.instant-stripe-customer :as stripe-customer-model]
    [instant.util.crypt :as crypt-util]
    [instant.util.json :refer [->json]]
@@ -404,6 +405,7 @@
 
 (deftest app-access-works-through-orgs
   (with-startup-org
+    true
     (fn [{:keys [app owner collaborator admin outside-user]}]
       ;; Check a path available to all members of the app
       (let [auth-path (format "%s/dash/apps/%s/auth" config/server-origin (:id app))]
@@ -488,6 +490,7 @@
 
 (deftest you-are-an-app-member-of-the-org-if-you-are-a-member-of-an-app
   (with-startup-org
+    true
     (fn [{:keys [app org collaborator outside-user]}]
       (with-empty-app
         (fn [app-2]
@@ -576,8 +579,10 @@
   (with-redefs [stripe-customer-model/create-stripe-customer (fn [_]
                                                                (str "test_" (crypt-util/random-hex 8)))]
     (with-startup-org
+      true
       (fn [{:keys [app org owner outside-user]}]
         (with-pro-app
+          true
           owner
           (fn [{pro-app :app}]
             ;; Add the second app to the org
@@ -673,3 +678,48 @@
                                   :orgs
                                   (map (comp parse-uuid :id))
                                   set))))))))))))))
+
+(defn with-org-user-and-app [f]
+  (with-user
+    (fn [u]
+      (with-org
+        (:id u)
+        (fn [org]
+          (with-empty-app
+            (:id u)
+            (fn [app]
+              (f {:org org :user u :app app}))))))))
+
+(deftest transfer-app-to-org
+  (with-org-user-and-app
+    (fn [{:keys [org user app]}]
+      (is (= (:creator_id app)
+             (:id user)))
+      (http/post (format "%s/dash/apps/%s/transfer_to_org/%s"
+                         config/server-origin
+                         (:id app)
+                         (:id org))
+                 {:headers {:Authorization (str "Bearer " (:refresh-token user))
+                            :Content-Type "application/json"}
+                  :as :json})
+      (let [app (app-model/get-by-id! {:id (:id app)})]
+        (is (nil? (:creator_id app)))
+        (is (= (:org_id app)
+               (:id org)))))))
+
+#_(deftest transfer-paid-app-to-paid-org
+  (time (with-startup-org
+          true
+          (fn [{:keys [org owner outside-user]}]
+            (with-pro-app
+              true
+              owner
+              (fn [{:keys [app stripe-customer-id]}]
+                (http/post (tool/inspect (format "%s/dash/apps/%s/transfer_to_org/%s"
+                                                 config/server-origin
+                                                 (:id app)
+                                                 (:id org)))
+                           {:headers {:Authorization (str "Bearer " (:refresh-token owner))
+                                      :Content-Type "application/json"}
+                            :as :json})
+                ))))))

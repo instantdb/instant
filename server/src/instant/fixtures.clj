@@ -19,6 +19,7 @@
             [instant.model.org-members :as instant-org-members]
             [instant.model.rule :as rule-model]
             [instant.plans :as plans]
+            [instant.stripe :as stripe]
             [instant.db.pg-introspect :as pg-introspect]
             [instant.jdbc.sql :as sql]
             [instant.jdbc.aurora :as aurora]
@@ -212,108 +213,121 @@
      (fn [app#]
        (run-zeneca-byop app# ~f))))
 
-(defn with-pro-app [owner f]
-  (let [app-id (random-uuid)
-        app (app-model/create!
-             {:title "test team app"
-              :creator-id (:id owner)
-              :id app-id
-              :admin-token (random-uuid)})
-        stripe-customer (instant-stripe-customer-model/get-or-create-for-user! {:user owner})
-        owner-req (mock-app-req app owner)
-        _ (instant-subscription-model/create!
-           {:user-id (:id owner)
-            :app-id app-id
-            :subscription-type-id 2 ;; Pro
-            :stripe-customer-id (:id stripe-customer)
-            :stripe-subscription-id (str "fake_sub_" (random-uuid))
-            :stripe-event-id (str "fake_evt_" (random-uuid))})]
-    (try
-      (f {:app app
-          :owner owner
-          :owner-req owner-req})
-      (finally
-        (app-model/delete-immediately-by-id! {:id app-id})))))
+(defn with-pro-app [create-fake-objects? owner f]
+  (binding [stripe/*create-fake-objects* create-fake-objects?]
+    (let [app-id (random-uuid)
+          app (app-model/create!
+               {:title "test team app"
+                :creator-id (:id owner)
+                :id app-id
+                :admin-token (random-uuid)})
+          stripe-customer (instant-stripe-customer-model/get-or-create-for-user! {:user owner})
+          _ (stripe/add-payment-method-for-test-customer (:id stripe-customer))
+          stripe-subscription-id (stripe/create-pro-subscription {:customer-id (:id stripe-customer)
+                                                                  :app app
+                                                                  :user owner})
+          owner-req (mock-app-req app owner)
+          _ (tool/def-locals)
+          _ (instant-subscription-model/create!
+             {:user-id (:id owner)
+              :app-id app-id
+              :subscription-type-id 2 ;; Pro
+              :stripe-customer-id (:id stripe-customer)
+              :stripe-subscription-id stripe-subscription-id
+              :stripe-event-id (str "fake_evt_" (random-uuid))})]
+      (try
+        (f {:app app
+            :owner owner
+            :owner-req owner-req
+            :stripe-customer-id (:id stripe-customer)})
+        (finally
+          (app-model/delete-immediately-by-id! {:id app-id}))))))
 
-(defn with-team-app [owner invitee role f]
-  (let [app-id (random-uuid)
-        app (app-model/create!
-             {:title "test team app"
-              :creator-id (:id owner)
-              :id app-id
-              :admin-token (random-uuid)})
-        invite (member-invites/create!
-                {:app-id app-id
-                 :inviter-id (:creator_id app)
-                 :role role
-                 :email (:email invitee)})
-        member (instant-app-members/create!
-                {:app-id app-id
-                 :user-id (:id invitee)
-                 :role role})
-        owner-req (mock-app-req app owner)
-        invitee-req (mock-app-req app invitee)
-        stripe-customer (instant-stripe-customer-model/get-or-create-for-user! {:user owner})
-        _ (instant-subscription-model/create!
-           {:user-id (:id owner)
-            :app-id app-id
-            :subscription-type-id plans/PRO_SUBSCRIPTION_TYPE
-            :stripe-customer-id (:id stripe-customer)
-            :stripe-subscription-id (str "fake_sub_" (random-uuid))
-            :stripe-event-id (str "fake_evt_" (random-uuid))})
-        _ (member-invites/accept-by-id! {:id (:id invite)})]
-    (try
-      (f {:app app
-          :owner owner
-          :invitee invitee
-          :invite invite
-          :member member
-          :owner-req owner-req
-          :invitee-req invitee-req})
-      (finally
-        (app-model/delete-immediately-by-id! {:id app-id})
-        (instant-app-members/delete-by-id! {:id (:id member)})
-        (member-invites/delete-by-id! {:id (:id invite)})))))
+(defn with-team-app [create-fake-objects? owner invitee role f]
+  (binding [stripe/*create-fake-objects* create-fake-objects?]
+    (let [app-id (random-uuid)
+          app (app-model/create!
+               {:title "test team app"
+                :creator-id (:id owner)
+                :id app-id
+                :admin-token (random-uuid)})
+          invite (member-invites/create!
+                  {:app-id app-id
+                   :inviter-id (:creator_id app)
+                   :role role
+                   :email (:email invitee)})
+          member (instant-app-members/create!
+                  {:app-id app-id
+                   :user-id (:id invitee)
+                   :role role})
+          owner-req (mock-app-req app owner)
+          invitee-req (mock-app-req app invitee)
+          stripe-customer (instant-stripe-customer-model/get-or-create-for-user! {:user owner})
+          _ (instant-subscription-model/create!
+             {:user-id (:id owner)
+              :app-id app-id
+              :subscription-type-id plans/PRO_SUBSCRIPTION_TYPE
+              :stripe-customer-id (:id stripe-customer)
+              :stripe-subscription-id (str "fake_sub_" (random-uuid))
+              :stripe-event-id (str "fake_evt_" (random-uuid))})
+          _ (member-invites/accept-by-id! {:id (:id invite)})]
+      (try
+        (f {:app app
+            :owner owner
+            :invitee invitee
+            :invite invite
+            :member member
+            :owner-req owner-req
+            :invitee-req invitee-req})
+        (finally
+          (app-model/delete-immediately-by-id! {:id app-id})
+          (instant-app-members/delete-by-id! {:id (:id member)})
+          (member-invites/delete-by-id! {:id (:id invite)}))))))
 
-(defn with-startup-org [f]
-  (with-user
-    (fn [owner]
-      (with-user
-        (fn [collaborator]
-          (with-user
-            (fn [admin]
-              (with-user
-                (fn [outside-user]
-                  (with-org
-                    (:id owner)
-                    (fn [org]
-                      (with-empty-app
-                        (fn [app]
-                          (let [stripe-customer (sql/execute-one! (aurora/conn-pool :write)
-                                                                  ["insert into instant_stripe_customers (id, org_id) values (?::text, ?::uuid) returning *"
-                                                                   (str "test_" (crypt-util/random-hex 8))
-                                                                   (:id org)])
-                                subscription (instant-subscription-model/create! {:user-id (:id owner)
-                                                                                  :org-id (:id org)
-                                                                                  :subscription-type-id plans/STARTUP_SUBSCRIPTION_TYPE
-                                                                                  :stripe-customer-id (:id stripe-customer)
-                                                                                  :stripe-subscription-id (str "fake_sub_" (random-uuid))
-                                                                                  :stripe-event-id (str "fake_evt_" (random-uuid))})]
-                            (sql/do-execute! (aurora/conn-pool :write) ["update apps set org_id = ?::uuid where id = ?::uuid"
-                                                                        (:id org)
-                                                                        (:id app)])
-                            (sql/do-execute! (aurora/conn-pool :write) ["update orgs set subscription_id = ?::uuid where id = ?::uuid"
-                                                                        (:id subscription)
-                                                                        (:id org)])
-                            (instant-org-members/create! {:org-id (:id org)
-                                                          :user-id (:id collaborator)
-                                                          :role "collaborator"})
-                            (instant-org-members/create! {:org-id (:id org)
-                                                          :user-id (:id admin)
-                                                          :role "admin"}))
-                          (f {:app app
-                              :org org
-                              :owner owner
-                              :collaborator collaborator
-                              :admin admin
-                              :outside-user outside-user}))))))))))))))
+(defn with-startup-org [create-fake-objects? f]
+  (binding [stripe/*create-fake-objects* create-fake-objects?]
+    (with-user
+      (fn [owner]
+        (with-user
+          (fn [collaborator]
+            (with-user
+              (fn [admin]
+                (with-user
+                  (fn [outside-user]
+                    (with-org
+                      (:id owner)
+                      (fn [org]
+                        (with-empty-app
+                          (fn [app]
+                            (let [_ (println "create customer")
+                                  stripe-customer (instant-stripe-customer-model/get-or-create-for-user! {:user owner})
+                                  _ (println "create intent")
+                                  _ (stripe/add-payment-method-for-test-customer (:id stripe-customer))
+                                  _ (println "create pro sub")
+                                  stripe-subscription-id (time (stripe/create-pro-subscription {:customer-id (:id stripe-customer)
+                                                                                                :app app
+                                                                                                :user owner}))
+                                  subscription (instant-subscription-model/create! {:user-id (:id owner)
+                                                                                    :org-id (:id org)
+                                                                                    :subscription-type-id plans/STARTUP_SUBSCRIPTION_TYPE
+                                                                                    :stripe-customer-id (:id stripe-customer)
+                                                                                    :stripe-subscription-id stripe-subscription-id
+                                                                                    :stripe-event-id (str "fake_evt_" (random-uuid))})]
+                              (sql/do-execute! (aurora/conn-pool :write) ["update apps set org_id = ?::uuid where id = ?::uuid"
+                                                                          (:id org)
+                                                                          (:id app)])
+                              (sql/do-execute! (aurora/conn-pool :write) ["update orgs set subscription_id = ?::uuid where id = ?::uuid"
+                                                                          (:id subscription)
+                                                                          (:id org)])
+                              (instant-org-members/create! {:org-id (:id org)
+                                                            :user-id (:id collaborator)
+                                                            :role "collaborator"})
+                              (instant-org-members/create! {:org-id (:id org)
+                                                            :user-id (:id admin)
+                                                            :role "admin"}))
+                            (f {:app app
+                                :org org
+                                :owner owner
+                                :collaborator collaborator
+                                :admin admin
+                                :outside-user outside-user})))))))))))))))

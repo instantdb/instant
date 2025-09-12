@@ -78,7 +78,7 @@
 
         com.auth0/java-jwt {:mvn/version "4.4.0"}
         com.auth0/jwks-rsa {:mvn/version "0.22.1"}
-        com.stripe/stripe-java {:mvn/version "25.1.0"}
+        com.stripe/stripe-java {:mvn/version "29.5.0"}
         inflections/inflections {:mvn/version "0.14.1" :exclusions [noencore/noencore]}
         noencore/noencore {:mvn/version "0.3.8"}
         org.apache.tika/tika-core {:mvn/version "3.2.1"}

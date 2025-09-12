@@ -38,6 +38,7 @@
    [instant.session-counter :as session-counter]
    [instant.storage.routes :as storage-routes]
    [instant.stripe :as stripe]
+   [instant.stripe-webhook :as stripe-webhook]
    [instant.superadmin.routes :as superadmin-routes]
    [instant.system-catalog-migration :refer [ensure-attrs-on-system-catalog-app]]
    [instant.util.async :as ua]
@@ -90,7 +91,7 @@
        (.format rfc822Formatter date))}))
 
 (defroutes stripe-webhook-routes
-  (POST "/hooks/stripe" [] stripe/webhook))
+  (POST "/hooks/stripe" [] stripe-webhook/webhook))
 
 (defroutes generic-webhook-routes
   (POST "/hooks/honeycomb/exceptions" [] honeycomb-api/webhook))
