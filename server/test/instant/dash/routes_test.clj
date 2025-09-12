@@ -698,11 +698,11 @@
 (deftest transfer-paid-app-to-paid-org
   (with-startup-org
     false
-    (fn [{:keys [org owner outside-user]}]
+    (fn [{:keys [org owner]}]
       (with-pro-app
         false
         owner
-        (fn [{:keys [app stripe-customer-id stripe-subscription-id]}]
+        (fn [{:keys [app stripe-subscription-id]}]
           (http/post (format "%s/dash/apps/%s/transfer_to_org/%s"
                              config/server-origin
                              (:id app)
@@ -716,7 +716,6 @@
 
           (is (= "canceled" (.getStatus (stripe/subscription stripe-subscription-id))))
 
-          (Thread/sleep 2000)
           ;; does the customer have a credit
           (let [sub-id (:stripe_subscription_id
                         (sql/select-one (aurora/conn-pool :read)

@@ -9,7 +9,7 @@
    (com.stripe Stripe StripeClient)
    (com.stripe.model Customer Discount Subscription SubscriptionItem)
    (com.stripe.net RequestOptions)
-   (com.stripe.param CustomerBalanceTransactionCollectionCreateParams CustomerUpdateParams CustomerUpdateParams$InvoiceSettings InvoiceCreatePreviewParams InvoiceCreatePreviewParams$SubscriptionDetails InvoiceCreatePreviewParams$SubscriptionDetails$ProrationBehavior SetupIntentConfirmParams SetupIntentCreateParams SetupIntentCreateParams$AutomaticPaymentMethods SetupIntentCreateParams$AutomaticPaymentMethods$AllowRedirects SubscriptionCancelParams SubscriptionCancelParams$CancellationDetails SubscriptionCreateParams SubscriptionCreateParams$Item SubscriptionListParams SubscriptionRetrieveParams SubscriptionUpdateParams)
+   (com.stripe.param CustomerBalanceTransactionCollectionCreateParams CustomerUpdateParams CustomerUpdateParams$InvoiceSettings InvoiceCreatePreviewParams InvoiceCreatePreviewParams$SubscriptionDetails InvoiceCreatePreviewParams$SubscriptionDetails$ProrationBehavior SetupIntentConfirmParams SetupIntentCreateParams SetupIntentCreateParams$AutomaticPaymentMethods SetupIntentCreateParams$AutomaticPaymentMethods$AllowRedirects SubscriptionCancelParams SubscriptionCreateParams SubscriptionCreateParams$Item SubscriptionListParams SubscriptionRetrieveParams SubscriptionUpdateParams)
    (java.util HashMap Map)))
 
 (set! *warn-on-reflection* true)
@@ -79,8 +79,6 @@
                                                           (build)))]
                           {:amount (.getTotal preview)
                            :currency (.getCurrency preview)}))
-        org-customer (.retrieve (.customers client)
-                                org-customer-id)
         cancel-metadata (map->metadata {"cancel-reason" "transfer-app-to-org"
                                         "transfer-org-id" (str org-id)
                                         "transfer-org-customer-id" org-customer-id
