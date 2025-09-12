@@ -18,7 +18,7 @@ reading below.
 
 You can verify you set up the rules correctly by asking your LLM "How do you
 make queries and transactions in InstantDB?" If everything is set up correctly,
-you should see a response with information about `db.useQuery` and `transact`
+you should see a response with information about `db.useQuery` and `db.transact`
 
 ### Cursor
 
