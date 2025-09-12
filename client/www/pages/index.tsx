@@ -20,12 +20,17 @@ import {
   Link,
 } from '@/components/marketingUi';
 
-import { ChevronRightIcon } from '@heroicons/react/24/solid';
+import {
+  ChevronRightIcon,
+  ClipboardDocumentIcon,
+  CheckIcon,
+} from '@heroicons/react/24/solid';
 import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import MuxPlayer from '@mux/mux-player-react';
 import * as muxVideos from '@/lib/muxVideos';
 import useTotalSessionsCount from '@/lib/hooks/useTotalSessionsCount';
 import AnimatedCounter from '@/components/AnimatedCounter';
+import CopyToClipboard from 'react-copy-to-clipboard';
 
 const appId = 'fc5a4977-910a-43d9-ac28-39c7837c1eb5';
 
@@ -82,32 +87,52 @@ const ActiveSessionsCallout = () => {
     </div>
   );
 };
+
+function CreateInstantApp() {
+  const [showCopySuccess, setShowCopySuccess] = useState(false);
+  const command = 'npx create-instant-app';
+
+  return (
+    <CopyToClipboard
+      text={command}
+      onCopy={() => {
+        setShowCopySuccess(true);
+        setTimeout(() => setShowCopySuccess(false), 2000);
+      }}
+    >
+      <div
+        className="relative bg-transparent border border-black font-mono text-lg cursor-pointer hover:bg-gray-50/30 transition-colors inline-flex items-center px-4 py-2 w-full"
+      >
+        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-800 transition-colors">
+          {showCopySuccess ? (
+            <CheckIcon className="w-5 h-5 text-orange-600" />
+          ) : (
+            <ClipboardDocumentIcon className="w-5 h-5" />
+          )}
+        </div>
+        $ {command}
+      </div>
+    </CopyToClipboard>
+  );
+}
+
 function LandingHero() {
   return (
     <div className="pb-16 pt-8">
       <SectionWide>
         <TwoColResponsive>
-          <div className="flex flex-1 flex-col gap-8">
+          <div className="flex flex-1 flex-col gap-6">
             <H2>Write your frontend and we handle the rest</H2>
-            <div className="mb-6 max-w-md">
-              <div className="bg-gradient-to-br from-orange-50 to-red-50 border border-orange-200 rounded-lg p-6">
-                <div className="flex items-start gap-4">
-                  <div className="flex-1">
-                    <p className="text-gray-800 mb-4">
-                      Instant is the easy to use backend for your frontend. With
-                      Instant you can build delightful apps in less than 10
-                      minutes.
-                    </p>
-                    <Button
-                      type="link"
-                      variant="cta"
-                      size="large"
-                      href="/tutorial"
-                    >
-                      Try the tutorial
-                    </Button>
-                  </div>
-                </div>
+            <div className="mb-2 max-w-md">
+              <p className="text-gray-800 mb-4">
+                Instant is the easy to use backend for your frontend. With
+                Instant you can build delightful apps in less than 10 minutes.
+              </p>
+              <CreateInstantApp />
+              <div className="mt-4">
+                <Button type="link" variant="cta" href="/docs">
+                  Read the docs
+                </Button>
               </div>
             </div>
             <div className="flex items-center justify-start space-x-2">
