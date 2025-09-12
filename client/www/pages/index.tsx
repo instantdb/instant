@@ -98,14 +98,20 @@ function CreateInstantApp() {
       title="Click to copy"
     >
       <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-800 transition-colors">
-        <svg className={`w-5 h-5 ${showCopySuccess ? 'text-orange-600' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg
+          className={`w-5 h-5 ${showCopySuccess ? 'text-orange-600' : ''}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
             strokeWidth={2}
-            d={showCopySuccess
-              ? "M5 13l4 4L19 7"
-              : "M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+            d={
+              showCopySuccess
+                ? 'M5 13l4 4L19 7'
+                : 'M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z'
             }
           />
         </svg>
@@ -125,16 +131,11 @@ function LandingHero() {
             <div className="mb-2 max-w-md">
               <p className="text-gray-800 mb-4">
                 Instant is the easy to use backend for your frontend. With
-                Instant you can build delightful apps in less than 10
-                minutes.
+                Instant you can build delightful apps in less than 10 minutes.
               </p>
               <CreateInstantApp />
               <div className="mt-4">
-                <Button
-                  type="link"
-                  variant="cta"
-                  href="/docs"
-                >
+                <Button type="link" variant="cta" href="/docs">
                   Read the docs
                 </Button>
               </div>
