@@ -3,7 +3,7 @@ title: Using Instant with LLMs
 description: How to use Instant with LLMs
 ---
 
-You can supercharge your Instant experience by using it with LLMs.For best
+You can supercharge your Instant experience by using it with LLMs. For best
 results we recommend doing two things:
 
 - Add rules or context to your LLM to help it understand how Instant works
