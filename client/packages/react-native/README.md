@@ -46,7 +46,7 @@ function Chat() {
 
 # Get Started
 
-Follow the [getting started](https://www.instantdb.com/docs/start-rn) tutorial to set up a live React Native app in under 5 minutes! Or you can try a [demo](https://instantdb.com/tutorial) in your browser :).
+Follow the [getting started](https://www.instantdb.com/docs/start-rn) tutorial to set up a live React Native app in under 5 minutes!
 
 # Questions?
 
