@@ -227,7 +227,6 @@
                                                                   :app app
                                                                   :user owner})
           owner-req (mock-app-req app owner)
-          _ (tool/def-locals)
           _ (instant-subscription-model/create!
              {:user-id (:id owner)
               :app-id app-id
