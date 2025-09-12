@@ -299,11 +299,8 @@
                       (fn [org]
                         (with-empty-app
                           (fn [app]
-                            (let [_ (println "create customer")
-                                  stripe-customer (instant-stripe-customer-model/get-or-create-for-user! {:user owner})
-                                  _ (println "create intent")
+                            (let [stripe-customer (instant-stripe-customer-model/get-or-create-for-user! {:user owner})
                                   _ (stripe/add-payment-method-for-test-customer (:id stripe-customer))
-                                  _ (println "create pro sub")
                                   stripe-subscription-id (time (stripe/create-pro-subscription {:customer-id (:id stripe-customer)
                                                                                                 :app app
                                                                                                 :user owner}))

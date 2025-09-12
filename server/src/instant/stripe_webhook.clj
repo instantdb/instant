@@ -101,8 +101,7 @@
              <p>Looks like one of our customers churned!</p>
              <p>Email: " email "</p>
              <p>Maybe we should send them a ping to learn why they churned?</p>
-           </div>")})))
-  )
+           </div>")}))))
 
 (defn ping-on-balance-changed [{:keys [org-id previous-balance new-balance email]}]
   (let [org-title (when org-id

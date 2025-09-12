@@ -10,7 +10,7 @@
    (com.stripe.exception InvalidRequestException)
    (com.stripe.model Customer CustomerBalanceTransaction Discount Subscription SubscriptionItem)
    (com.stripe.net RequestOptions)
-   (com.stripe.param CustomerBalanceTransactionCollectionCreateParams CustomerUpdateParams CustomerUpdateParams$InvoiceSettings InvoiceCreatePreviewParams InvoiceCreatePreviewParams$SubscriptionDetails InvoiceCreatePreviewParams$SubscriptionDetails$ProrationBehavior SetupIntentConfirmParams SetupIntentCreateParams SetupIntentCreateParams$AutomaticPaymentMethods SetupIntentCreateParams$AutomaticPaymentMethods$AllowRedirects SubscriptionCancelParams SubscriptionCreateParams SubscriptionCreateParams$Item SubscriptionListParams SubscriptionRetrieveParams SubscriptionUpdateParams)
+   (com.stripe.param CustomerBalanceTransactionCollectionCreateParams CustomerUpdateParams CustomerUpdateParams$InvoiceSettings InvoiceCreatePreviewParams InvoiceCreatePreviewParams$SubscriptionDetails InvoiceCreatePreviewParams$SubscriptionDetails$ProrationBehavior SetupIntentConfirmParams SetupIntentCreateParams SetupIntentCreateParams$AutomaticPaymentMethods SetupIntentCreateParams$AutomaticPaymentMethods$AllowRedirects SubscriptionCancelParams SubscriptionCreateParams SubscriptionCreateParams$Item SubscriptionListParams SubscriptionListParams$Status SubscriptionRetrieveParams SubscriptionUpdateParams)
    (java.util HashMap Map)))
 
 (set! *warn-on-reflection* true)
@@ -108,7 +108,6 @@
                                    :metadata {"credit-reason" "transfer-app-to-org"
                                               "app-subscription-id" (str app-subscription-id)
                                               "app-customer-id" (str app-customer-id)}}))]
-    (tool/def-locals)
     {:credit (some-> credit (.getAmount))
      :canceled-subscription canceled-subscription}))
 
@@ -166,10 +165,10 @@
       (.subscriptions)
       (.retrieve subscription-id)))
 
-;; XXX: only get active
 (defn subscriptions []
   (let [params (-> (SubscriptionListParams/builder)
                    (.addExpand "data.discounts")
+                   (.setStatus SubscriptionListParams$Status/ACTIVE)
                    (.setLimit 100)
                    (.build))]
     (-> (stripe-client)
