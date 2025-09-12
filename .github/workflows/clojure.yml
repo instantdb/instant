@@ -164,7 +164,7 @@ jobs:
         cli: 1.11.3.1463
 
     - name: Cache Clojure Dependencies
-      uses: actions/cache@v3
+      uses: actions/cache/restore@v4
       with:
         path: |
           ~/.m2/repository
@@ -202,7 +202,7 @@ jobs:
         cli: 1.11.3.1463
 
     - name: Cache Clojure Dependencies
-      uses: actions/cache@v3
+      uses: actions/cache/restore@v4
       with:
         path: |
           ~/.m2/repository
