@@ -7,6 +7,7 @@
    [instant.util.tracer :as tracer])
   (:import
    (com.stripe Stripe StripeClient)
+   (com.stripe.exception InvalidRequestException)
    (com.stripe.model Customer CustomerBalanceTransaction Discount Subscription SubscriptionItem)
    (com.stripe.net RequestOptions)
    (com.stripe.param CustomerBalanceTransactionCollectionCreateParams CustomerUpdateParams CustomerUpdateParams$InvoiceSettings InvoiceCreatePreviewParams InvoiceCreatePreviewParams$SubscriptionDetails InvoiceCreatePreviewParams$SubscriptionDetails$ProrationBehavior SetupIntentConfirmParams SetupIntentCreateParams SetupIntentCreateParams$AutomaticPaymentMethods SetupIntentCreateParams$AutomaticPaymentMethods$AllowRedirects SubscriptionCancelParams SubscriptionCreateParams SubscriptionCreateParams$Item SubscriptionListParams SubscriptionRetrieveParams SubscriptionUpdateParams)
@@ -57,6 +58,19 @@
                      (putAllMetadata (map->metadata metadata))
                      (build))))))
 
+(defn remaining-credit-on-subscription [subscription-id]
+  (try
+    (let [preview (.createPreview (.invoices (stripe-client))
+                                  (.. (InvoiceCreatePreviewParams/builder)
+                                      (setSubscription subscription-id)
+                                      (setSubscriptionDetails cancel-now-preview-details)
+                                      (build)))]
+      {:amount (.getTotal preview)
+       :currency (.getCurrency preview)})
+    (catch InvalidRequestException e
+      (when (not= (.getCode e) "invoice_upcoming_none")
+        (throw e)))))
+
 (defn cancel-subscription-and-credit-customer
   "Cancels the app's subscription and gives a credit to the org
    for the remaining prorated balance of the app subscription."
@@ -70,15 +84,8 @@
                                 app-subscription-id)
         ;; The prorated credit the user would get if we canceled their app subscription
         ;; A credit will return a negative number.
-        credit-amount (when (or true  (= "active" (.getStatus subscription)))
-                        ;; XXX: catch error if no upcoming invoices
-                        (let [preview (.createPreview (.invoices client)
-                                                      (.. (InvoiceCreatePreviewParams/builder)
-                                                          (setSubscription (.getId subscription))
-                                                          (setSubscriptionDetails cancel-now-preview-details)
-                                                          (build)))]
-                          {:amount (.getTotal preview)
-                           :currency (.getCurrency preview)}))
+        credit-amount (when (= "active" (.getStatus subscription))
+                        (remaining-credit-on-subscription (.getId subscription)))
         cancel-metadata (map->metadata {"cancel-reason" "transfer-app-to-org"
                                         "transfer-org-id" (str org-id)
                                         "transfer-org-customer-id" org-customer-id
