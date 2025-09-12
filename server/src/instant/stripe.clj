@@ -7,7 +7,7 @@
    [instant.util.tracer :as tracer])
   (:import
    (com.stripe Stripe StripeClient)
-   (com.stripe.model Customer Discount Subscription SubscriptionItem)
+   (com.stripe.model Customer CustomerBalanceTransaction Discount Subscription SubscriptionItem)
    (com.stripe.net RequestOptions)
    (com.stripe.param CustomerBalanceTransactionCollectionCreateParams CustomerUpdateParams CustomerUpdateParams$InvoiceSettings InvoiceCreatePreviewParams InvoiceCreatePreviewParams$SubscriptionDetails InvoiceCreatePreviewParams$SubscriptionDetails$ProrationBehavior SetupIntentConfirmParams SetupIntentCreateParams SetupIntentCreateParams$AutomaticPaymentMethods SetupIntentCreateParams$AutomaticPaymentMethods$AllowRedirects SubscriptionCancelParams SubscriptionCreateParams SubscriptionCreateParams$Item SubscriptionListParams SubscriptionRetrieveParams SubscriptionUpdateParams)
    (java.util HashMap Map)))
@@ -41,7 +41,7 @@
       (.put metadata (name k) (str v)))
     metadata))
 
-(defn credit-customer [{:keys [customer-id amount currency description metadata]}]
+(defn credit-customer ^CustomerBalanceTransaction [{:keys [customer-id amount currency description metadata]}]
   (tracer/with-span! {:name "stripe/credit-customer"
                       :attributes {:customer-id customer-id
                                    :amount amount
@@ -101,7 +101,8 @@
                                    :metadata {"credit-reason" "transfer-app-to-org"
                                               "app-subscription-id" (str app-subscription-id)
                                               "app-customer-id" (str app-customer-id)}}))]
-    {:credit credit
+    (tool/def-locals)
+    {:credit (some-> credit (.getAmount))
      :canceled-subscription canceled-subscription}))
 
 (defn customer-balance-by-subscription [^String subscription-id]

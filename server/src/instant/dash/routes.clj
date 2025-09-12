@@ -1263,10 +1263,10 @@
 
 (defn app-transfer-to-org [req]
   (let [{{app-id :id} :app} (req->app-and-user! :owner req)
-        {{org-id :id} :org} (req->org-and-user! :admin req)]
-    (org-model/transfer-app-to-org! {:app-id app-id
-                                     :org-id org-id})
-    (response/ok {})))
+        {{org-id :id} :org} (req->org-and-user! :admin req)
+        {:keys [credit]} (org-model/transfer-app-to-org! {:app-id app-id
+                                                          :org-id org-id})]
+    (response/ok {:credit credit})))
 
 ;; ---
 ;; Storage

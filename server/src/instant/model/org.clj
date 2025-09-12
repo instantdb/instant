@@ -341,11 +341,12 @@
            (sql/select-one ::transfer-app-to-org!
                            conn
                            (uhsql/formatp transfer-q {:org-id org-id
-                                                      :app-id app-id})))]
-     (when (and paid_org paid_app)
-       (tracer/with-span! {:name "transfer-app/cancel-subscription-and-credit-customer"}
-         (stripe/cancel-subscription-and-credit-customer {:app-customer-id app_stripe_customer_id
-                                                          :app-subscription-id app_stripe_subscription_id
-                                                          :org-id org-id
-                                                          :org-customer-id org_stripe_customer_id
-                                                          :org-subscription-id org_stripe_subscription_id}))))))
+                                                      :app-id app-id})))
+         credit (when (and paid_org paid_app)
+                  (tracer/with-span! {:name "transfer-app/cancel-subscription-and-credit-customer"}
+                    (stripe/cancel-subscription-and-credit-customer {:app-customer-id app_stripe_customer_id
+                                                                     :app-subscription-id app_stripe_subscription_id
+                                                                     :org-id org-id
+                                                                     :org-customer-id org_stripe_customer_id
+                                                                     :org-subscription-id org_stripe_subscription_id})))]
+     {:credit (:credit credit)})))

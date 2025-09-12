@@ -683,13 +683,16 @@
     (fn [{:keys [org user app]}]
       (is (= (:creator_id app)
              (:id user)))
-      (http/post (format "%s/dash/apps/%s/transfer_to_org/%s"
-                         config/server-origin
-                         (:id app)
-                         (:id org))
-                 {:headers {:Authorization (str "Bearer " (:refresh-token user))
-                            :Content-Type "application/json"}
-                  :as :json})
+      (is (nil? (-> (http/post (format "%s/dash/apps/%s/transfer_to_org/%s"
+                                       config/server-origin
+                                       (:id app)
+                                       (:id org))
+                               {:headers {:Authorization (str "Bearer " (:refresh-token user))
+                                          :Content-Type "application/json"}
+                                :as :json})
+                    :body
+                    tool/inspect
+                    :credit)))
       (let [app (app-model/get-by-id! {:id (:id app)})]
         (is (nil? (:creator_id app)))
         (is (= (:org_id app)
@@ -703,13 +706,15 @@
         false
         owner
         (fn [{:keys [app stripe-subscription-id]}]
-          (http/post (format "%s/dash/apps/%s/transfer_to_org/%s"
-                             config/server-origin
-                             (:id app)
-                             (:id org))
-                     {:headers {:Authorization (str "Bearer " (:refresh-token owner))
-                                :Content-Type "application/json"}
-                      :as :json})
+          (is (neg? (-> (http/post (format "%s/dash/apps/%s/transfer_to_org/%s"
+                                           config/server-origin
+                                           (:id app)
+                                           (:id org))
+                                   {:headers {:Authorization (str "Bearer " (:refresh-token owner))
+                                              :Content-Type "application/json"}
+                                    :as :json})
+                        :body
+                        :credit)))
           ;; is app transfered
           (is (nil? (:creator_id (app-model/get-by-id! {:id (:id app)}))))
           (is (= (:id org) (:org_id (app-model/get-by-id! {:id (:id app)}))))
@@ -730,13 +735,15 @@
         false
         user
         (fn [{:keys [app stripe-subscription-id]}]
-          (http/post (format "%s/dash/apps/%s/transfer_to_org/%s"
-                             config/server-origin
-                             (:id app)
-                             (:id org))
-                     {:headers {:Authorization (str "Bearer " (:refresh-token user))
-                                :Content-Type "application/json"}
-                      :as :json})
+          (is (nil? (-> (http/post (format "%s/dash/apps/%s/transfer_to_org/%s"
+                                           config/server-origin
+                                           (:id app)
+                                           (:id org))
+                                   {:headers {:Authorization (str "Bearer " (:refresh-token user))
+                                              :Content-Type "application/json"}
+                                    :as :json})
+                        :body
+                        :credit)))
           (is (nil? (:creator_id (app-model/get-by-id! {:id (:id app)}))))
           (is (= (:id org) (:org_id (app-model/get-by-id! {:id (:id app)}))))
 
