@@ -372,77 +372,78 @@
                            :indexing))))))))))
 
 (deftest unique-works
-  (with-indexing-job-queue job-queue
-    (with-empty-app
-      (fn [app]
-        (let [attr-id (random-uuid)
+  (with-redefs [jobs/batch-size 10]
+    (with-indexing-job-queue job-queue
+      (with-empty-app
+        (fn [app]
+          (let [attr-id (random-uuid)
 
-              _ (tx/transact! (aurora/conn-pool :write)
-                              (attr-model/get-by-app-id (:id app))
-                              (:id app)
-                              [[:add-attr {:id attr-id
-                                           :forward-identity [(random-uuid) "etype" "label"]
-                                           :unique? false
-                                           :index? false
-                                           :value-type :blob
-                                           :cardinality :one}]])
-              _ (dotimes [x 10]
-                  (tx/transact! (aurora/conn-pool :write)
+                _ (tx/transact! (aurora/conn-pool :write)
                                 (attr-model/get-by-app-id (:id app))
                                 (:id app)
-                                (for [i (range 1002)]
-                                  [:add-triple (random-uuid) attr-id (format "%s-%s" x i)])))
-              job (jobs/create-job!
-                   {:app-id (:id app)
-                    :attr-id attr-id
-                    :job-type "unique"})
+                                [[:add-attr {:id attr-id
+                                             :forward-identity [(random-uuid) "etype" "label"]
+                                             :unique? false
+                                             :index? false
+                                             :value-type :blob
+                                             :cardinality :one}]])
+                _ (dotimes [x 10]
+                    (tx/transact! (aurora/conn-pool :write)
+                                  (attr-model/get-by-app-id (:id app))
+                                  (:id app)
+                                  (for [i (range 12)]
+                                    [:add-triple (random-uuid) attr-id (format "%s-%s" x i)])))
+                job (jobs/create-job!
+                     {:app-id (:id app)
+                      :attr-id attr-id
+                      :job-type "unique"})
 
-              _ (jobs/enqueue-job job-queue job)
-              _ (wait-for (fn []
-                            (every? (fn [{:keys [id]}]
-                                      (= "completed" (:job_status (jobs/get-by-id id))))
-                                    [job]))
-                          wait-timeout)
-              triples (triple-model/fetch (aurora/conn-pool :read)
-                                          (:id app)
-                                          [[:= :attr-id attr-id]])]
-          (testing "unique"
-            (check-estimate job)
-            (is (pos? (count triples)))
-
-            (is (every? (fn [{:keys [index]}]
-                          (contains? index :av))
-                        triples))
-            (let [attrs (attr-model/get-by-app-id (:id app))]
-              (is (-> (attr-model/seek-by-id attr-id attrs)
-                      :unique?))
-              (is (not (-> (attr-model/seek-by-id attr-id attrs)
-                           :setting-unique?)))))
-          (testing "remove-unique"
-            (let [remove-unique-job (jobs/create-job!
-                                     {:app-id (:id app)
-                                      :attr-id attr-id
-                                      :job-type "remove-unique"})
-                  _ (jobs/enqueue-job job-queue remove-unique-job)
-                  _ (wait-for (fn []
-                                (every? (fn [{:keys [id]}]
-                                          (= "completed" (:job_status (jobs/get-by-id id))))
-                                        [remove-unique-job]))
-                              wait-timeout)
-                  triples (triple-model/fetch (aurora/conn-pool :read)
-                                              (:id app)
-                                              [[:= :attr-id attr-id]])]
-
-              (check-estimate remove-unique-job)
+                _ (jobs/enqueue-job job-queue job)
+                _ (wait-for (fn []
+                              (every? (fn [{:keys [id]}]
+                                        (= "completed" (:job_status (jobs/get-by-id id))))
+                                      [job]))
+                            wait-timeout)
+                triples (triple-model/fetch (aurora/conn-pool :read)
+                                            (:id app)
+                                            [[:= :attr-id attr-id]])]
+            (testing "unique"
+              (check-estimate job)
               (is (pos? (count triples)))
+
               (is (every? (fn [{:keys [index]}]
-                            (not (contains? index :av)))
+                            (contains? index :av))
                           triples))
               (let [attrs (attr-model/get-by-app-id (:id app))]
+                (is (-> (attr-model/seek-by-id attr-id attrs)
+                        :unique?))
                 (is (not (-> (attr-model/seek-by-id attr-id attrs)
-                             :unique?)))
-                (is (not (-> (attr-model/seek-by-id attr-id attrs)
-                             :setting-unique?)))))))))))
+                             :setting-unique?)))))
+            (testing "remove-unique"
+              (let [remove-unique-job (jobs/create-job!
+                                       {:app-id (:id app)
+                                        :attr-id attr-id
+                                        :job-type "remove-unique"})
+                    _ (jobs/enqueue-job job-queue remove-unique-job)
+                    _ (wait-for (fn []
+                                  (every? (fn [{:keys [id]}]
+                                            (= "completed" (:job_status (jobs/get-by-id id))))
+                                          [remove-unique-job]))
+                                wait-timeout)
+                    triples (triple-model/fetch (aurora/conn-pool :read)
+                                                (:id app)
+                                                [[:= :attr-id attr-id]])]
+
+                (check-estimate remove-unique-job)
+                (is (pos? (count triples)))
+                (is (every? (fn [{:keys [index]}]
+                              (not (contains? index :av)))
+                            triples))
+                (let [attrs (attr-model/get-by-app-id (:id app))]
+                  (is (not (-> (attr-model/seek-by-id attr-id attrs)
+                               :unique?)))
+                  (is (not (-> (attr-model/seek-by-id attr-id attrs)
+                               :setting-unique?))))))))))))
 
 (deftest rejects-not-unique-values
   (with-redefs [jobs/batch-size 10]
