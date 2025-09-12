@@ -9,9 +9,6 @@ results we recommend doing two things:
 - Use the Instant MCP server to enable LLMs to create and update your apps
 - Add rules or context to your LLM to help it understand how Instant works
 
-To get set up quickly, check out our [whirlwind tutorial](https://instantdb.com/tutorial).
-Otherwise read on for more detailed setup instructions.
-
 ## Instant MCP Server
 
 We built [`@instantdb/mcp`](https://github.com/instantdb/instant/tree/main/client/packages/mcp) to enable creating, managing, and updating your Instant apps.
