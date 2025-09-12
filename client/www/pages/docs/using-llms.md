@@ -193,7 +193,7 @@ access token.
 If you haven't already, make sure to get a personal access token from your
 [Instant dashboard](https://www.instantdb.com/dash?s=personal-access-tokens)
 
-Once you have your token, you can set up the Instant MCP server in your
+Once you have your token, you can set up the local Instant MCP server in your
 favorite editor with MCP support.
 
 ### Cursor/Windsurf/Cline
