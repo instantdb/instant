@@ -10,9 +10,14 @@
    (com.stripe.model Customer Discount Subscription SubscriptionItem)
    (com.stripe.net RequestOptions)
    (com.stripe.param CustomerBalanceTransactionCollectionCreateParams CustomerUpdateParams CustomerUpdateParams$InvoiceSettings InvoiceCreatePreviewParams InvoiceCreatePreviewParams$SubscriptionDetails InvoiceCreatePreviewParams$SubscriptionDetails$ProrationBehavior SetupIntentConfirmParams SetupIntentCreateParams SetupIntentCreateParams$AutomaticPaymentMethods SetupIntentCreateParams$AutomaticPaymentMethods$AllowRedirects SubscriptionCancelParams SubscriptionCancelParams$CancellationDetails SubscriptionCreateParams SubscriptionCreateParams$Item SubscriptionListParams SubscriptionRetrieveParams SubscriptionUpdateParams)
-   (java.util Map)))
+   (java.util HashMap Map)))
 
 (set! *warn-on-reflection* true)
+
+(def stripe-client* (delay (StripeClient. ^String (config/stripe-secret))))
+
+(defn stripe-client ^StripeClient []
+  @stripe-client*)
 
 (def ^:dynamic *create-fake-objects* false)
 
@@ -24,28 +29,43 @@
     (str "cus_fake_" (crypt-util/random-hex 8))
     (.getId (Customer/create opts))))
 
-(defn transfer-app-cancel-details [{:keys [org-customer-id
-                                           org-subscription-id]}]
-  (.. (SubscriptionCancelParams$CancellationDetails/builder)
-      (putExtraParam "reason" "transfer-app-to-org")
-      (putExtraParam "org-customer-id" org-customer-id)
-      (putExtraParam "org-subscription-id" org-subscription-id)
-      (build)))
-
 (def cancel-now-preview-details
   (.. (InvoiceCreatePreviewParams$SubscriptionDetails/builder)
       (setCancelNow true)
       (setProrationBehavior InvoiceCreatePreviewParams$SubscriptionDetails$ProrationBehavior/CREATE_PRORATIONS)
       (build)))
 
+(defn map->metadata ^Map [m]
+  (let [metadata (HashMap.)]
+    (doseq [[k v] m]
+      (.put metadata (name k) (str v)))
+    metadata))
+
+(defn credit-customer [{:keys [customer-id amount currency description metadata]}]
+  (tracer/with-span! {:name "stripe/credit-customer"
+                      :attributes {:customer-id customer-id
+                                   :amount amount
+                                   :currency currency}}
+    (-> (stripe-client)
+        (.customers)
+        (.retrieve customer-id)
+        (.balanceTransactions)
+        (.create (.. (CustomerBalanceTransactionCollectionCreateParams/builder)
+                     (setAmount amount)
+                     (setCurrency currency)
+                     (setDescription description)
+                     (putAllMetadata (map->metadata metadata))
+                     (build))))))
+
 (defn cancel-subscription-and-credit-customer
   "Cancels the app's subscription and gives a credit to the org
    for the remaining prorated balance of the app subscription."
   [{:keys [app-customer-id
            app-subscription-id
+           org-id
            org-customer-id
            org-subscription-id]}]
-  (let [client (StripeClient. ^String (config/stripe-secret))
+  (let [client (stripe-client)
         subscription (.retrieve (.subscriptions client)
                                 app-subscription-id)
         ;; The prorated credit the user would get if we canceled their app subscription
@@ -61,32 +81,33 @@
                            :currency (.getCurrency preview)}))
         org-customer (.retrieve (.customers client)
                                 org-customer-id)
-        _ (.update subscription
-                   (.. (SubscriptionUpdateParams/builder)
-                       (putMetadata "cancel-reason" "transfer-app-to-org")
-                       (putMetadata "org-customer-id" (str org-customer-id))
-                       (putMetadata "org-subscription-id" (str org-subscription-id))
-                       (build)))]
-    (tool/def-locals)
-    (.cancel subscription
-             (-> (SubscriptionCancelParams/builder)
-                 (.setProrate false)
-                 (.build)))
-
-    (when (and credit-amount
-               (neg? (:amount credit-amount)))
-      (.create (.balanceTransactions org-customer)
-               (.. (CustomerBalanceTransactionCollectionCreateParams/builder)
-                   (setAmount (:amount credit-amount))
-                   (setCurrency (:currency credit-amount))
-                   (setDescription (str "Credit from " (.getDescription subscription)))
-                   (putMetadata "credit-reason" "transfer-app-to-org")
-                   (putMetadata "app-subscription-id" (str app-subscription-id))
-                   (putMetadata "app-customer-id" (str app-customer-id))
-                   (build))))))
+        cancel-metadata (map->metadata {"cancel-reason" "transfer-app-to-org"
+                                        "transfer-org-id" (str org-id)
+                                        "transfer-org-customer-id" org-customer-id
+                                        "transfer-org-subscription-id" org-subscription-id})
+        canceled-subscription (tracer/with-span! {:name "stripe/cancel-app-subscription"}
+                                (.update subscription
+                                         (.. (SubscriptionUpdateParams/builder)
+                                             (putAllMetadata cancel-metadata)
+                                             (build)))
+                                (.cancel subscription
+                                         (-> (SubscriptionCancelParams/builder)
+                                             (.setProrate false)
+                                             (.build))))
+        credit (when (and credit-amount
+                          (neg? (:amount credit-amount)))
+                 (credit-customer {:customer-id org-customer-id
+                                   :amount (:amount credit-amount)
+                                   :currency (:currency credit-amount)
+                                   :description (str "Credit from " (.getDescription subscription))
+                                   :metadata {"credit-reason" "transfer-app-to-org"
+                                              "app-subscription-id" (str app-subscription-id)
+                                              "app-customer-id" (str app-customer-id)}}))]
+    {:credit credit
+     :canceled-subscription canceled-subscription}))
 
 (defn customer-balance-by-subscription [^String subscription-id]
-  (let [client (StripeClient. ^String (config/stripe-secret))]
+  (let [client (stripe-client)]
     (-> (.subscriptions client)
         (.retrieve subscription-id (.. (SubscriptionRetrieveParams/builder)
                                        (addExpand "customer")
@@ -134,12 +155,18 @@
      :monthly-revenue (max 0 (- items-revenue discount))
      :start-timestamp (.getStartDate subscription)}))
 
+(defn subscription ^Subscription [subscription-id]
+  (-> (stripe-client)
+      (.subscriptions)
+      (.retrieve subscription-id)))
+
+;; XXX: only get active
 (defn subscriptions []
   (let [params (-> (SubscriptionListParams/builder)
                    (.addExpand "data.discounts")
                    (.setLimit 100)
                    (.build))]
-    (-> (StripeClient. ^String (config/stripe-secret))
+    (-> (stripe-client)
         (.subscriptions)
         (.list params (RequestOptions/getDefault))
         (.autoPagingIterable)
@@ -156,7 +183,7 @@
   [{:keys [customer-id user app]}]
   (if (create-fake-objects?)
     (str "sub_fake_" (crypt-util/random-hex 8))
-    (let [sub (-> (StripeClient. ^String (config/stripe-secret))
+    (let [sub (-> (stripe-client)
                   (.subscriptions)
                   (.create (.. (SubscriptionCreateParams/builder)
                                (setCustomer customer-id)
@@ -178,7 +205,7 @@
   [customer-id]
   (when-not (create-fake-objects?)
     (assert (not (config/prod?)))
-    (let [client (StripeClient. ^String (config/stripe-secret))
+    (let [client (stripe-client)
           setup-intent (-> client
                            (.setupIntents)
                            (.create (.. (SetupIntentCreateParams/builder)

@@ -18,6 +18,13 @@
    (com.stripe.model Event)
    (com.stripe.net Webhook)))
 
+(defn send-discord! [msg]
+  (if (config/prod?)
+    (discord/send! config/discord-signups-channel-id
+                   (str (:instateam discord/mention-constants) " " msg))
+    (discord/send! config/discord-debug-channel-id
+                   msg)))
+
 (defn ping-js-on-new-customer [{:keys [user-id org-id app-id]}]
   (let [{email :email} (instant-user-model/get-by-id {:id user-id})
         title (cond app-id
@@ -30,19 +37,19 @@
                               :else "unknown")
                         title
                         email)]
-    (discord/send! config/discord-signups-channel-id
-                   (str (:instateam discord/mention-constants) " " message))
-    (postmark/send!
-     {:from "Instant Assistant <hello@pm.instantdb.com>"
-      :to "founders@instantdb.com"
-      :subject message
-      :html
-      (str
-       "<div>
+    (send-discord! message)
+    (when (config/prod?)
+      (postmark/send!
+       {:from "Instant Assistant <hello@pm.instantdb.com>"
+        :to "founders@instantdb.com"
+        :subject message
+        :html
+        (str
+         "<div>
              <p>Hey hey! We just got a new paying customer!</p>
              <p>Email: " email "</p>
              <p>Woohoo! Send them a ping as a token of appreciation!</p>
-           </div>")})))
+           </div>")}))))
 
 (comment
   (def u (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
@@ -54,25 +61,59 @@
                     (:title (app-model/get-by-id {:id app-id}))
                     org-id
                     (:title (org-model/get-by-id {:id org-id})))
-        message (format "🪣 Churned customer for %s `%s`! %s"
+        message (format "🪣 Churned customer for %s `%s`! `%s`"
                         (cond org-id "org"
                               app-id "app"
                               :else "unknown")
                         title
                         email)]
-    (discord/send! config/discord-signups-channel-id
-                   (str (:instateam discord/mention-constants) " " message))
-    (postmark/send!
-     {:from "Instant Assistant <hello@pm.instantdb.com>"
-      :to "founders@instantdb.com"
-      :subject message
-      :html
-      (str
-       "<div>
+    (send-discord! message)
+    (when (config/prod?)
+      (postmark/send!
+       {:from "Instant Assistant <hello@pm.instantdb.com>"
+        :to "founders@instantdb.com"
+        :subject message
+        :html
+        (str
+         "<div>
+             <p>Looks like one of our customers churned!</p>
+             <p>Email: " email "</p>
+             <p>Maybe we should send them a ping to learn why they churned?</p>
+           </div>")}))))
+
+(defn ping-on-paid-app-tranferred-to-org [{:keys [user-id transfer-org-id app-id]}]
+  (let [{email :email} (instant-user-model/get-by-id {:id user-id})
+        app-title (:title (app-model/get-by-id {:id app-id}))
+        org-title (:title (org-model/get-by-id {:id transfer-org-id}))
+        message (format "Paid app `%s` by `%s` transferred to unpaid app in paid org `%s`."
+                        app-title
+                        email
+                        org-title)]
+    (send-discord! message)
+    (when (config/prod?)
+      (postmark/send!
+       {:from "Instant Assistant <hello@pm.instantdb.com>"
+        :to "founders@instantdb.com"
+        :subject message
+        :html
+        (str
+         "<div>
              <p>Looks like one of our customers churned!</p>
              <p>Email: " email "</p>
              <p>Maybe we should send them a ping to learn why they churned?</p>
            </div>")})))
+  )
+
+(defn ping-on-balance-changed [{:keys [org-id previous-balance new-balance email]}]
+  (let [org-title (when org-id
+                    (when-let [org (org-model/get-by-id {:id org-id})]
+                      (format "organization `%s`" (:title org))))
+        message (format "Cutomer balance for %s `%s` went from %s to %s (negative numbers are credits)."
+                        (or org-title "")
+                        email
+                        previous-balance
+                        new-balance)]
+    (send-discord! message)))
 
 (comment
   (def u (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
@@ -105,7 +146,7 @@
 
             subscription-type-id (when (string? (:subscription-type-id metadata))
                                    (parse-long (:subscription-type-id metadata)))]
-        (condp = type
+        (case type
           "checkout.session.completed"
           (let [{:keys [user-id app-id org-id]} shared
                 opts (assoc shared :subscription-type-id (or subscription-type-id
@@ -113,25 +154,45 @@
                                                              ;;             is fully deployed
                                                              plans/PRO_SUBSCRIPTION_TYPE))]
             (instant-subscription-model/create! opts)
-            (when (= :prod (config/get-env))
-              (ping-js-on-new-customer {:user-id user-id
-                                        :app-id app-id
-                                        :org-id org-id}))
+            (ping-js-on-new-customer {:user-id user-id
+                                      :app-id app-id
+                                      :org-id org-id})
             (tracer/add-data! {:attributes opts}))
 
           "customer.subscription.deleted"
           (let [opts (assoc shared :subscription-type-id plans/FREE_SUBSCRIPTION_TYPE)
                 {:keys [user-id app-id org-id]} opts]
-            (tool/def-locals)
             (when (and app-id (app-model/get-by-id {:id app-id}))
               (instant-subscription-model/create! opts))
             (when (and org-id (org-model/get-by-id  {:id org-id}))
               (instant-subscription-model/create! opts))
-            (when (= :prod (config/get-env))
+            (case (get-in data [:object :metadata :cancel-reason])
+              "transfer-app-to-org"
+              (ping-on-paid-app-tranferred-to-org {:user-id user-id
+                                                   :app-id app-id
+                                                   :transfer-org-id (some-> data
+                                                                            :object
+                                                                            :metadata
+                                                                            :transfer-org-id
+                                                                            parse-uuid)})
+
               (ping-js-on-churned-customer {:user-id user-id
                                             :app-id app-id
                                             :org-id org-id}))
             (tracer/add-data! {:attributes opts}))
+
+          "customer.updated"
+          (when-let [previous-balance (get-in data [:previous_attributes :balance])]
+            (let [opts {:previous-balance previous-balance
+                        :new-balance (get-in data [:object :balance])
+                        :org-id (some-> data
+                                        :object
+                                        :metadata
+                                        :instant_org_id
+                                        (parse-uuid))
+                        :email (get-in data [:object :email])}]
+              (tracer/add-data! {:attributes opts})
+              (ping-on-balance-changed opts)))
 
           (tracer/add-data! {:attributes {:skipped-event? true}}))))))
 

@@ -3,19 +3,15 @@
    [clj-http.client :as http]
    [clojure.test :refer [deftest is testing]]
    [instant.config :as config]
-   [instant.fixtures :refer [random-email
-                             with-empty-app
-                             with-org
-                             with-user
-                             with-startup-org
-                             with-pro-app]]
+   [instant.dash.routes :as route]
+   [instant.fixtures :refer [random-email with-empty-app with-org with-pro-app with-startup-org with-user]]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
    [instant.model.instant-stripe-customer :as stripe-customer-model]
+   [instant.stripe :as stripe]
    [instant.util.crypt :as crypt-util]
-   [instant.util.json :refer [->json]]
-   [instant.dash.routes :as route]))
+   [instant.util.json :refer [->json]]))
 
 (deftest app-invites-work
   (with-redefs [config/postmark-send-enabled? (constantly false)]
@@ -137,7 +133,6 @@
                       (is (= 400 (:status resp)))
                       (is (= "pending" (:status invite)))))))
 
-
               (let [_res (http/delete (str config/server-origin "/dash/apps/" (:id app) "/invite/revoke")
                                       {:headers {:Authorization (str "Bearer " (:refresh-token u))
                                                  :Content-Type "application/json"}
@@ -190,7 +185,6 @@
 
               (is (= "pending" (:status invite)))
               (is (= "admin" (:invitee_role invite)))
-
 
               (with-user
                 {:email invitee-email}
@@ -330,7 +324,6 @@
                       (is (= 400 (:status resp)))
                       (is (= "pending" (:status invite)))))))
 
-
               (let [_res (http/delete (str config/server-origin "/dash/orgs/" (:id org) "/invite/revoke")
                                       {:headers {:Authorization (str "Bearer " (:refresh-token u))
                                                  :Content-Type "application/json"}
@@ -383,7 +376,6 @@
 
               (is (= "pending" (:status invite)))
               (is (= "admin" (:invitee_role invite)))
-
 
               (with-user
                 {:email invitee-email}
@@ -543,8 +535,6 @@
                                 (:id outside-user)
                                 (:id app)])
 
-
-
               (let [res (-> (http/get org-path
                                       {:headers {:Authorization (str "Bearer " (:refresh-token outside-user))
                                                  :Content-Type "application/json"}
@@ -647,8 +637,6 @@
                                       (:id outside-user)
                                       (:id pro-app)])
 
-
-
                     (let [res (-> (http/get org-path
                                             {:headers {:Authorization (str "Bearer " (:refresh-token outside-user))
                                                        :Content-Type "application/json"}
@@ -707,19 +695,50 @@
         (is (= (:org_id app)
                (:id org)))))))
 
-#_(deftest transfer-paid-app-to-paid-org
-  (time (with-startup-org
-          true
-          (fn [{:keys [org owner outside-user]}]
-            (with-pro-app
-              true
-              owner
-              (fn [{:keys [app stripe-customer-id]}]
-                (http/post (tool/inspect (format "%s/dash/apps/%s/transfer_to_org/%s"
-                                                 config/server-origin
-                                                 (:id app)
-                                                 (:id org)))
-                           {:headers {:Authorization (str "Bearer " (:refresh-token owner))
-                                      :Content-Type "application/json"}
-                            :as :json})
-                ))))))
+(deftest transfer-paid-app-to-paid-org
+  (with-startup-org
+    false
+    (fn [{:keys [org owner outside-user]}]
+      (with-pro-app
+        false
+        owner
+        (fn [{:keys [app stripe-customer-id stripe-subscription-id]}]
+          (http/post (format "%s/dash/apps/%s/transfer_to_org/%s"
+                             config/server-origin
+                             (:id app)
+                             (:id org))
+                     {:headers {:Authorization (str "Bearer " (:refresh-token owner))
+                                :Content-Type "application/json"}
+                      :as :json})
+          ;; is app transfered
+          (is (nil? (:creator_id (app-model/get-by-id! {:id (:id app)}))))
+          (is (= (:id org) (:org_id (app-model/get-by-id! {:id (:id app)}))))
+
+          (is (= "canceled" (.getStatus (stripe/subscription stripe-subscription-id))))
+
+          (Thread/sleep 2000)
+          ;; does the customer have a credit
+          (let [sub-id (:stripe_subscription_id
+                        (sql/select-one (aurora/conn-pool :read)
+                                        ["select * from instant_subscriptions s join orgs o on o.subscription_id = s.id where o.id = ?::uuid" (:id org)]))]
+            ;; If this fails around midnight on the last day of the month, just try again
+            (is (neg? (stripe/customer-balance-by-subscription sub-id)))))))))
+
+(deftest transfer-paid-app-to-unpaid-org
+  (with-org-user-and-app
+    (fn [{:keys [org user]}]
+      (with-pro-app
+        false
+        user
+        (fn [{:keys [app stripe-subscription-id]}]
+          (http/post (format "%s/dash/apps/%s/transfer_to_org/%s"
+                             config/server-origin
+                             (:id app)
+                             (:id org))
+                     {:headers {:Authorization (str "Bearer " (:refresh-token user))
+                                :Content-Type "application/json"}
+                      :as :json})
+          (is (nil? (:creator_id (app-model/get-by-id! {:id (:id app)}))))
+          (is (= (:id org) (:org_id (app-model/get-by-id! {:id (:id app)}))))
+
+          (is (= "active" (.getStatus (stripe/subscription stripe-subscription-id)))))))))

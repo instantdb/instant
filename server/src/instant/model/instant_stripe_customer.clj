@@ -29,7 +29,8 @@
 (defn- create-for-org!
   ([params] (create-for-org! (aurora/conn-pool :write) params))
   ([conn {:keys [org user-email]}]
-   (let [opts {"metadata" {"instant_org_id" (:id org)}}
+   (let [opts {"metadata" {"instant_org_id" (:id org)}
+               "name" (str "Org: " (:title org))}
          email (or (:billing_email org) user-email)
          with-email (if email
                       (assoc opts "email" email)

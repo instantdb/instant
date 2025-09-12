@@ -75,7 +75,7 @@
      ~@body))
 
 (defn random-email []
-  (str "test-user-" (crypt-util/random-hex 16) "@example.com"))
+  (str "test-user-" (crypt-util/random-hex 8) "@example.com"))
 
 (defmacro with-user [& args]
   (let [user-params (if (= 1 (count args))
@@ -239,7 +239,8 @@
         (f {:app app
             :owner owner
             :owner-req owner-req
-            :stripe-customer-id (:id stripe-customer)})
+            :stripe-customer-id (:id stripe-customer)
+            :stripe-subscription-id stripe-subscription-id})
         (finally
           (app-model/delete-immediately-by-id! {:id app-id}))))))
 
