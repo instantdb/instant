@@ -1092,7 +1092,7 @@
        (assoc owner-req :body {:invite-id (:id invite)})))))
 
 (defn team-member-remove-delete [req]
-  (let [member-id (ex/get-param! req [:body :id] uuid-util/coerce)
+  (let [invite-id (ex/get-param! req [:body :id] uuid-util/coerce)
 
         {:keys [type foreign-key]}
         (cond (get-in req [:params :app_id])
@@ -1110,7 +1110,7 @@
               :else (ex/throw-missing-param! [:params :app_id]))]
     (member-invites-model/delete-by-id-and-foreign-key! {:type type
                                                          :foreign-key foreign-key
-                                                         :id member-id})
+                                                         :id invite-id})
     (response/ok {})))
 
 (comment
