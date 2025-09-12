@@ -100,9 +100,7 @@ function CreateInstantApp() {
         setTimeout(() => setShowCopySuccess(false), 2000);
       }}
     >
-      <div
-        className="relative bg-transparent border border-black font-mono text-lg cursor-pointer hover:bg-gray-50/30 transition-colors inline-flex items-center px-4 py-2 w-full"
-      >
+      <div className="relative bg-transparent border border-black font-mono text-lg cursor-pointer hover:bg-gray-50/30 transition-colors inline-flex items-center px-4 py-2 w-full">
         <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-800 transition-colors">
           {showCopySuccess ? (
             <CheckIcon className="w-5 h-5 text-orange-600" />
