@@ -23,6 +23,7 @@ import {
 } from '@headlessui/react';
 
 import { StyledToastContainer, errorToast, successToast } from '@/lib/toast';
+import { DarkModeToggle } from '@/components/DarkModeToggle';
 import config, { cliOauthParamName } from '@/lib/config';
 import { jsonFetch, jsonMutate } from '@/lib/fetch';
 import {
@@ -226,7 +227,7 @@ function DashV2() {
           open={cliAuthCompleteDialog.open}
           onClose={cliAuthCompleteDialog.onClose}
         >
-          <div className="flex flex-col p-4 gap-4">
+          <div className="flex flex-col p-4 gap-4 bg-white dark:bg-slate-800 text-gray-900 dark:text-white rounded-lg">
             <SectionHeading>Instant CLI verification complete!</SectionHeading>
             <Content>
               You can close this window and return to the terminal.
@@ -253,7 +254,7 @@ function DashV2() {
             setLoginTicket(undefined);
           }}
         >
-          <div className="flex flex-col p-4 gap-4">
+          <div className="flex flex-col p-4 gap-4 bg-white dark:bg-slate-800 text-gray-900 dark:text-white rounded-lg">
             <SectionHeading>Instant CLI login</SectionHeading>
             <Content>
               Do you want to grant Instant CLI access to your account?
@@ -465,7 +466,7 @@ function Dashboard() {
   }
   if (screen === 'personal-access-tokens') {
     return (
-      <div className="flex h-full w-full flex-col overflow-hidden md:flex-row">
+      <div className="flex h-full w-full flex-col overflow-hidden md:flex-row bg-white dark:bg-slate-900">
         <Head>
           <title>Instant - Personal Access Tokens</title>
         </Head>
@@ -476,7 +477,7 @@ function Dashboard() {
   }
   if (screen === 'org') {
     return (
-      <div className="flex h-full w-full flex-col overflow-hidden md:flex-row">
+      <div className="flex h-full w-full flex-col overflow-hidden md:flex-row bg-white dark:bg-slate-900">
         <Head>
           <title>Instant - Orgs playground</title>
         </Head>
@@ -487,7 +488,7 @@ function Dashboard() {
   }
   if (screen === 'user-settings') {
     return (
-      <div className="flex h-full w-full flex-col overflow-hidden md:flex-row">
+      <div className="flex h-full w-full flex-col overflow-hidden md:flex-row bg-white dark:bg-slate-900">
         <Head>
           <title>Instant - User Settings</title>
         </Head>
@@ -504,7 +505,7 @@ function Dashboard() {
           screen={screen}
           title={'User Settings'}
         />
-        <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="flex flex-1 flex-col overflow-hidden bg-white dark:bg-slate-900">
           <div className="flex w-full flex-1 flex-col overflow-hidden">
             <div className="flex flex-1 flex-col overflow-hidden">
               <div className="flex flex-col flex-1 overflow-y-scroll">
@@ -542,7 +543,7 @@ function Dashboard() {
     });
 
   return (
-    <div className="flex h-full w-full flex-col overflow-hidden md:flex-row">
+    <div className="flex h-full w-full flex-col overflow-hidden md:flex-row bg-white dark:bg-slate-900">
       <Head>
         <title>Instant - {mainTabIndex.get(tab as MainTabId)?.title}</title>
       </Head>
@@ -558,7 +559,7 @@ function Dashboard() {
           screen={screen}
         />
       ) : null}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex flex-1 flex-col overflow-hidden bg-white dark:bg-slate-900">
         {screen === 'new' ? (
           <CreateApp onDone={onCreateApp} />
         ) : dashResponse.isLoading ? (
@@ -588,9 +589,11 @@ function Dashboard() {
                 nav({ s: 'main', app: app.id, t: t.id });
               }}
             />
-            <div className="border-b">
+            <div className="border-b border-gray-200 dark:border-slate-700">
               <div className="flex max-w-2xl flex-col gap-2 p-3">
-                <h2 className="font-mono text-lg font-bold">{app.title}</h2>
+                <h2 className="font-mono text-lg font-bold text-gray-900 dark:text-white">
+                  {app.title}
+                </h2>
                 <Copyable
                   label="Public App ID"
                   value={app.id}
@@ -694,11 +697,13 @@ export function HomeButton({
   return (
     <NextLink
       href={formatRouteParams(href)}
-      className="justify-start p-4 border shadow-sm rounded space-y-2 bg-white hover:bg-gray-50 disabled:text-gray-400 cursor-pointer"
+      className="justify-start p-4 border border-gray-200 dark:border-gray-600 shadow-sm rounded space-y-2 bg-white dark:bg-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-700/50 disabled:text-gray-400 dark:disabled:text-gray-500 cursor-pointer transition-colors"
     >
       <div>
-        <div className="font-mono font-bold text-xl">{title}</div>
-        <div className="text-gray-500">{children}</div>
+        <div className="font-mono font-bold text-xl text-gray-900 dark:text-white">
+          {title}
+        </div>
+        <div className="text-gray-600 dark:text-gray-300">{children}</div>
       </div>
     </NextLink>
   );
@@ -725,7 +730,7 @@ function Invites({
               key={invite.id}
               className="flex flex-col justify-between gap-2"
             >
-              <div>
+              <div className="text-gray-900 dark:text-white">
                 <strong>{invite.inviter_email}</strong> invited you to{' '}
                 <strong>
                   {'type' in invite ? invite.title : invite.app_title}
@@ -787,7 +792,7 @@ function Invites({
             </div>
           ))
         ) : (
-          <Content className="text-gray-400 italic">
+          <Content className="text-gray-500 dark:text-gray-400 italic">
             You have no pending invites.
           </Content>
         )}
@@ -799,8 +804,10 @@ function Invites({
 function Home() {
   return (
     <TabContent className="text-sm md:text-base">
-      <SectionHeading>Getting Started</SectionHeading>
-      <Content>
+      <SectionHeading className="text-gray-900 dark:text-white">
+        Getting Started
+      </SectionHeading>
+      <Content className="text-gray-600 dark:text-gray-300">
         Welcome to Instant! Here are some resources to help you get started.
       </Content>
       <div className="grid grid-cols-2 gap-4">
@@ -958,7 +965,7 @@ function AppCombobox({
         <ComboboxInput
           ref={comboboxInputRef}
           className={clsx(
-            'w-0 basis-[35%] md:w-full md:basis-full truncate text-sm rounded-sm border-gray-300 py-1',
+            'w-0 basis-[35%] md:w-full md:basis-full truncate text-sm rounded-sm border-gray-300 dark:border-slate-600 dark:bg-slate-700 text-gray-900 dark:text-white py-1',
             'pr-8 pl-3 text-sm/6',
             'focus:outline-none data-[focus]:outline-2 data-[focus]:-outline-offset-2 data-[focus]:outline-white/25',
           )}
@@ -976,7 +983,7 @@ function AppCombobox({
         anchor="bottom"
         transition
         className={clsx(
-          'min-w-[var(--input-width)] bg-white shadow-lg border border-gray-300 divide-y empty:invisible z-50',
+          'min-w-[var(--input-width)] bg-white dark:bg-slate-800 shadow-lg border border-gray-300 dark:border-slate-600 divide-y divide-gray-200 dark:divide-slate-700 empty:invisible z-50',
           'border p-1 mx-2 my-1 [--anchor-gap:var(--spacing-1)] ',
           'transition duration-100 ease-in data-[leave]:data-[closed]:opacity-0',
         )}
@@ -985,7 +992,7 @@ function AppCombobox({
           <ComboboxOption
             key={app.id}
             value={app}
-            className="group cursor-pointer px-3 py-1 data-[focus]:bg-blue-100"
+            className="group cursor-pointer px-3 py-1 data-[focus]:bg-blue-100 dark:data-[focus]:bg-slate-700 text-gray-900 dark:text-gray-200"
           >
             <div className="">{app.title}</div>
           </ComboboxOption>
@@ -1017,14 +1024,14 @@ function Nav({
   const router = useRouter();
   const showAppNav = apps;
   return (
-    <div className="flex flex-col gap-2 border-b border-gray-300 md:w-40 md:gap-0 md:border-b-0 md:border-r bg-gray-50">
+    <div className="flex flex-col gap-2 border-b border-gray-300 dark:border-slate-700 md:w-40 md:gap-0 md:border-b-0 md:border-r bg-gray-50 dark:bg-slate-800/80">
       {title ? (
-        <div className="flex flex-row justify-between gap-2 p-2 md:flex-col md:justify-start bg-gray-50">
-          <h2>{title}</h2>
+        <div className="flex flex-row justify-between gap-2 p-2 md:flex-col md:justify-start bg-gray-50 dark:bg-slate-800/80">
+          <h2 className="text-gray-900 dark:text-white">{title}</h2>
         </div>
       ) : null}
       {showAppNav ? (
-        <div className="flex flex-row justify-between gap-2 p-2 md:flex-col md:justify-start bg-gray-50">
+        <div className="flex flex-row justify-between gap-2 p-2 md:flex-col md:justify-start bg-gray-50 dark:bg-slate-800/80">
           <AppCombobox
             apps={apps}
             appId={appId}
@@ -1048,7 +1055,7 @@ function Nav({
           </div>
         </div>
       ) : null}
-      <div className="hidden md:visible md:static flex-row overflow-auto md:flex md:flex-col bg-gray-50 h-full">
+      <div className="hidden md:visible md:static flex-row overflow-auto md:flex md:flex-col bg-gray-50 dark:bg-slate-800/80 h-full">
         <ToggleCollection
           className="gap-0 text-sm"
           buttonClassName="rounded-none py-2"
@@ -1067,7 +1074,8 @@ function Nav({
           }))}
         />
       </div>
-      <div className="p-2 border-t bg-gray-50 flex flex-row items-center justify-center gap-2">
+      <div className="p-2 border-t border-gray-300 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/80 flex flex-row items-center justify-center gap-2">
+        <DarkModeToggle />
         <Button
           size="nano"
           variant="subtle"
@@ -1271,7 +1279,7 @@ function Admin({
   });
 
   return (
-    <TabContent className="h-full">
+    <TabContent className="h-full text-gray-900 dark:text-gray-100">
       <Dialog open={inviteDialog.open} onClose={inviteDialog.onClose}>
         <InviteTeamMemberDialog
           app={app}
@@ -1361,8 +1369,10 @@ function Admin({
                     className="flex justify-between items-center gap-3"
                   >
                     <div className="flex justify-between flex-1">
-                      <div>{member.email}</div>
-                      <div className="text-gray-400">
+                      <div className="text-gray-900 dark:text-gray-200">
+                        {member.email}
+                      </div>
+                      <div className="text-gray-500 dark:text-gray-400">
                         {capitalize(member.role)}
                       </div>
                     </div>
@@ -1379,7 +1389,9 @@ function Admin({
                 ))}
               </div>
             ) : (
-              <div className="text-gray-400">No team members</div>
+              <div className="text-gray-400 dark:text-gray-500">
+                No team members
+              </div>
             )}
           </div>
           {displayedInvites?.length ? (
@@ -1392,8 +1404,10 @@ function Admin({
                     className="flex justify-between items-center gap-3"
                   >
                     <div className="flex flex-1 justify-between gap-2 overflow-hidden">
-                      <div className="truncate">{invite.email}</div>
-                      <div className="text-gray-400">
+                      <div className="truncate text-gray-900 dark:text-gray-200">
+                        {invite.email}
+                      </div>
+                      <div className="text-gray-500 dark:text-gray-400">
                         {capitalize(invite.role)}
                       </div>
                     </div>
@@ -1444,7 +1458,7 @@ function Admin({
               </Button>
             ) : (
               <>
-                <Content className="italic">
+                <Content className="italic text-gray-600 dark:text-gray-300">
                   Team member management is a Pro feature.
                 </Content>
                 <Button
@@ -1590,8 +1604,8 @@ function CreateApp({ onDone }: { onDone: (o: { name: string }) => void }) {
   const [name, setName] = useState('');
 
   return (
-    <div className="flex flex-1 items-center justify-center">
-      <ActionForm className="flex max-w-sm flex-col gap-4">
+    <div className="flex flex-1 items-center justify-center bg-white dark:bg-slate-900">
+      <ActionForm className="flex max-w-sm flex-col gap-4 bg-white dark:bg-slate-800/50 rounded-lg p-6 border dark:border-slate-700">
         <div className="mb-2 flex justify-center text-4xl">🔥</div>
         <ScreenHeading>Time for a new app?</ScreenHeading>
         <Content>We can do that. What would you like to call it?</Content>
@@ -1615,8 +1629,10 @@ function CreateApp({ onDone }: { onDone: (o: { name: string }) => void }) {
 
 function FullscreenErrorMessage({ message }: { message: string }) {
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-2">
-      <div className="rounded bg-red-100 p-4 text-red-700">{message}</div>
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-2 bg-white dark:bg-slate-900">
+      <div className="rounded bg-red-100 dark:bg-red-900/30 p-4 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800">
+        {message}
+      </div>
     </div>
   );
 }

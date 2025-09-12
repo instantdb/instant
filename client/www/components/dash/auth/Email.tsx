@@ -165,7 +165,7 @@ export function Email({
     <form {...form.formProps()} className="flex flex-col gap-2">
       <SectionHeading>Custom Magic Code Email</SectionHeading>
 
-      <div className="border p-3 bg-gray-50 rounded flex flex-col gap-1">
+      <div className="border border-gray-300 dark:border-slate-700 p-3 bg-gray-50 dark:bg-slate-800 rounded flex flex-col gap-1">
         <BlockHeading>Template variables</BlockHeading>
         <Content className="text-sm">
           We provide a few dynamic variables for you to use in your email:
@@ -205,20 +205,23 @@ export function Email({
       <div className="flex flex-col gap-1">
         <Label>Body (HTML or plain-text)</Label>
         <div
-          className={clsx('h-64 border rounded', {
-            'border-red-500': form.getError('bodyHtml'),
-          })}
+          className={clsx(
+            'h-64 border border-gray-300 dark:border-slate-600 rounded',
+            {
+              'border-red-500': form.getError('bodyHtml'),
+            },
+          )}
         >
           <CodeEditor language="html" {...form.inputProps('bodyHtml')} />
         </div>
         {form.getError('bodyHtml') ? (
-          <div className="text-sm text-red-600">
+          <div className="text-sm text-red-600 dark:text-red-400">
             {form.getError('bodyHtml')}
           </div>
         ) : null}
       </div>
 
-      <div className="flex flex-col gap-2 border p-3 bg-gray-50 rounded">
+      <div className="flex flex-col gap-2 border border-gray-300 dark:border-slate-700 p-3 bg-gray-50 dark:bg-slate-800 rounded">
         <SubsectionHeading>
           Use a custom 'From' address (optional)
         </SubsectionHeading>
@@ -236,7 +239,7 @@ export function Email({
       </div>
 
       {verification && (
-        <div className="flex flex-col gap-2 border p-3 bg-gray-50 rounded">
+        <div className="flex flex-col gap-2 border border-gray-300 dark:border-slate-700 p-3 bg-gray-50 dark:bg-slate-800 rounded">
           <div className="flex items-center justify-between">
             <SubsectionHeading>
               Verify {verification.EmailAddress}
@@ -376,7 +379,7 @@ export function Email({
 
 function VariableName({ children }: { children: React.ReactNode }) {
   return (
-    <span className="font-mono text-sm bg-white rounded px-1 border">
+    <span className="font-mono text-sm bg-white dark:bg-slate-700 text-gray-900 dark:text-gray-200 rounded px-1 border border-gray-300 dark:border-slate-600">
       {'{'}
       {children}
       {'}'}

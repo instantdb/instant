@@ -35,7 +35,7 @@ export function Perms({
 
   return (
     <div className="flex flex-1 flex-col md:flex-row min-h-0">
-      <div className="flex flex-col gap-4 border-r p-4 text-sm md:basis-96 md:text-base min-h-0">
+      <div className="flex flex-col gap-4 border-r border-gray-300 dark:border-slate-700 p-4 text-sm md:basis-96 md:text-base min-h-0">
         <SectionHeading>Permissions</SectionHeading>
         <Content>
           <p>
@@ -54,12 +54,14 @@ export function Perms({
       </div>
       <div className="flex w-full flex-1 flex-col justify-start">
         {errorRes && (
-          <div className="bg-red-100 p-4 text-sm">
+          <div className="bg-red-100 dark:bg-red-900/30 p-4 text-sm border border-red-200 dark:border-red-800">
             <div className="max-w-sm">
-              <h4 className="font-bold text-red-700">
+              <h4 className="font-bold text-red-700 dark:text-red-400">
                 There was an error in {errorRes.in.join('->')}
               </h4>
-              <pre className="whitespace-pre-wrap">{errorRes.message}</pre>
+              <pre className="whitespace-pre-wrap text-red-600 dark:text-red-300">
+                {errorRes.message}
+              </pre>
             </div>
           </div>
         )}
@@ -67,7 +69,7 @@ export function Perms({
           label={
             <>
               <span
-                className="text-sm font-bold text-yellow-600"
+                className="text-sm font-bold text-yellow-600 dark:text-yellow-400"
                 style={{ letterSpacing: '4px' }}
               >
                 {'{}'}

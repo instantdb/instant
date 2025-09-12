@@ -183,9 +183,11 @@ export function QueryInspector({
   return (
     <div className={cn('flex-1 flex', className)}>
       <div className="max-w-lg flex flex-col flex-1">
-        <h2 className="px-3 text-sm font-semibold mt-4 mb-1">InstaQL query</h2>
+        <h2 className="px-3 text-sm font-semibold mt-4 mb-1 text-gray-900 dark:text-white">
+          InstaQL query
+        </h2>
 
-        <div className="h-64 border-y rounded overflow-hidden relative">
+        <div className="h-64 border-y border-gray-300 dark:border-slate-700 rounded overflow-hidden relative">
           <CodeEditor
             language="json"
             value={draft}
@@ -228,7 +230,7 @@ export function QueryInspector({
         </div>
 
         <div className="">
-          <h2 className="px-3 text-sm font-semibold mt-4 mb-1">
+          <h2 className="px-3 text-sm font-semibold mt-4 mb-1 text-gray-900 dark:text-white">
             Saved queries
           </h2>
 
@@ -238,7 +240,7 @@ export function QueryInspector({
                 return (
                   <div
                     key={item.ts}
-                    className="group text-gray-700 mb-1 flex items-center justify-between gap-2"
+                    className="group text-gray-700 dark:text-gray-300 mb-1 flex items-center justify-between gap-2"
                   >
                     <Tooltip.Provider>
                       <Tooltip.Root delayDuration={200}>
@@ -249,7 +251,7 @@ export function QueryInspector({
                         </Tooltip.Trigger>
                         <Tooltip.Portal>
                           <Tooltip.Content
-                            className="z-50 overflow-hidden rounded-md border bg-white px-3 py-1 text-sm text-gray-900 shadow-md animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2"
+                            className="z-50 overflow-hidden rounded-md border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-1 text-sm text-gray-900 dark:text-gray-100 shadow-md animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2"
                             side="top"
                             align="start"
                             sideOffset={8}
@@ -283,13 +285,17 @@ export function QueryInspector({
                 );
               })
             ) : (
-              <div className="py-1 text-gray-400">Nothing here yet!</div>
+              <div className="py-1 text-gray-400 dark:text-gray-500">
+                Nothing here yet!
+              </div>
             )}
           </div>
         </div>
 
-        <div className="mt-4 py-4 border-t">
-          <h2 className="px-3 text-sm font-semibold mb-1">Query history</h2>
+        <div className="mt-4 py-4 border-t border-gray-300 dark:border-slate-700">
+          <h2 className="px-3 text-sm font-semibold mb-1 text-gray-900 dark:text-white">
+            Query history
+          </h2>
 
           <div className="px-3 text-sm">
             {history.length > 0 ? (
@@ -297,7 +303,7 @@ export function QueryInspector({
                 return (
                   <div
                     key={item.ts}
-                    className="group text-gray-700 mb-1 flex items-center justify-between gap-2"
+                    className="group text-gray-700 dark:text-gray-300 mb-1 flex items-center justify-between gap-2"
                   >
                     <Tooltip.Provider>
                       <Tooltip.Root delayDuration={200}>
@@ -308,7 +314,7 @@ export function QueryInspector({
                         </Tooltip.Trigger>
                         <Tooltip.Portal>
                           <Tooltip.Content
-                            className="z-50 overflow-hidden rounded-md border bg-white px-3 py-1 text-sm text-gray-900 shadow-md animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2"
+                            className="z-50 overflow-hidden rounded-md border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-1 text-sm text-gray-900 dark:text-gray-100 shadow-md animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2"
                             side="top"
                             align="start"
                             sideOffset={8}
@@ -342,14 +348,18 @@ export function QueryInspector({
                 );
               })
             ) : (
-              <div className="py-1 text-gray-400">Nothing here yet!</div>
+              <div className="py-1 text-gray-400 dark:text-gray-500">
+                Nothing here yet!
+              </div>
             )}
           </div>
         </div>
       </div>
-      <div className="border-l flex flex-col flex-1 max-h-full overflow-scroll">
-        <h2 className="px-3 text-sm font-semibold mt-4 mb-1">Query results</h2>
-        <div className="flex-1 border-y rounded overflow-hidden">
+      <div className="border-l border-gray-300 dark:border-slate-700 flex flex-col flex-1 max-h-full overflow-scroll">
+        <h2 className="px-3 text-sm font-semibold mt-4 mb-1 text-gray-900 dark:text-white">
+          Query results
+        </h2>
+        <div className="flex-1 border-y border-gray-300 dark:border-slate-700 rounded overflow-hidden">
           <CodeEditor
             loading={isLoading}
             language={'json'}

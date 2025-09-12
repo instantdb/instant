@@ -85,10 +85,10 @@ async function createPortalSession(appId: string, token: string) {
 
 function ProgressBar({ width }: { width: number }) {
   return (
-    <div className="h-1.5 relative overflow-hidden rounded-full bg-neutral-200">
+    <div className="h-1.5 relative overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
       <div
         style={{ width: `${width}%` }}
-        className="absolute top-0 left-0 h-full bg-indigo-500"
+        className="absolute top-0 left-0 h-full bg-indigo-500 dark:bg-indigo-400"
       />
     </div>
   );
@@ -152,7 +152,7 @@ export default function Billing({ appId }: { appId: string }) {
   const progress = Math.round((totalUsageBytes / progressDen) * 100);
 
   return (
-    <div className="flex flex-col p-4 gap-4 max-w-md">
+    <div className="flex flex-col p-4 gap-4 max-w-md text-gray-900 dark:text-gray-100">
       <SectionHeading>Billing</SectionHeading>
       <div className="flex items-center gap-2">
         <h1 className="font-bold">Current plan</h1>
@@ -186,22 +186,22 @@ export default function Billing({ appId }: { appId: string }) {
         )}
       </div>
 
-      <div className="flex flex-col gap px-2 pt-1 pb-3 rounded border">
+      <div className="flex flex-col gap px-2 pt-1 pb-3 rounded border border-gray-300 dark:border-slate-700">
         <h2 className="flex gap-2 p-2 justify-between">
-          <span className="font-bold">Usage</span>{' '}
-          <span className="font-mono text-sm">
+          <span className="font-bold text-gray-900 dark:text-white">Usage</span>{' '}
+          <span className="font-mono text-sm text-gray-700 dark:text-gray-300">
             {friendlyUsage(totalUsageBytes)} / {friendlyUsage(progressDen)}
           </span>
         </h2>
         <ProgressBar width={progress} />
         <div className="flex justify-start text-sm pt-3 space-x-2 pl-2">
           {totalAppBytes > 0 && (
-            <span className="text-sm font-mono text-gray-500">
+            <span className="text-sm font-mono text-gray-500 dark:text-gray-400">
               DB ({friendlyUsage(totalAppBytes)})
             </span>
           )}
           {totalStorageBytes > 0 && (
-            <span className="text-sm font-mono text-gray-500">
+            <span className="text-sm font-mono text-gray-500 dark:text-gray-400">
               Storage ({friendlyUsage(totalStorageBytes)})
             </span>
           )}
@@ -212,7 +212,7 @@ export default function Billing({ appId }: { appId: string }) {
           <Button variant="primary" onClick={onUpgrade}>
             Upgrade to Pro
           </Button>
-          <Content className="italic text-sm bg-purple-100 text-purple-800 rounded border border-purple-400 px-2 py-1">
+          <Content className="italic text-sm bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 rounded border border-purple-400 dark:border-purple-600 px-2 py-1">
             Pro offers 10GB of storage, backups, multiple team members for apps,
             and priority support.
           </Content>
