@@ -1,25 +1,17 @@
 import { intro } from '@clack/prompts';
 import chalk from 'chalk';
-import { Theme } from '~/terminalTheme.js';
 
-const darkTitle = `            _           _               _
- ████████  (_)         | |             | |
- ████   █   _ _ __  ___| |_ __ _ _ _  _| |_
- ████   █  | | '_ \\/ __| __/ _\\\`| '_ \\| __|
- ████   █  | | | | \\__ \\ || (_| | | | | |_
- ████████  |_|_| |_|___/\\__\\__,_|_| |_|\\__|`;
-
-const lightTitle = `            _           _               _
+const title = `            _           _               _
  ████████  (_)         | |             | |
  █   ████   _ _ __  ___| |_ __ _ _ _  _| |_
  █   ████  | | '_ \\/ __| __/ _\\\`| '_ \\| __|
  █   ████  | | | | \\__ \\ || (_| | | | | |_
  ████████  |_|_| |_|___/\\__\\__,_|_| |_|\\__|`;
 
-export const renderTitle = (theme: Theme) => {
+export const renderTitle = () => {
   intro(
     '\n' +
-      (theme === 'dark' ? darkTitle : lightTitle)
+      title
         .split('\n')
         .map(
           (line) =>

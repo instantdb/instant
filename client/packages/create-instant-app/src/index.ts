@@ -30,7 +30,7 @@ const main = async () => {
       ['-h', '--help', '--version', '-V'].includes(arg),
     )
   ) {
-    renderTitle(theme);
+    renderTitle();
   }
 
   const project = await runCli();
