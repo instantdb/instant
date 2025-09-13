@@ -68,7 +68,11 @@ export function AddClerkProviderForm({
         onClick={addClerkProvider}
       >
         <span className="flex items-center space-x-2">
-          <Image alt="clerk logo" src={clerkLogoSvg} />
+          <Image
+            alt="clerk logo"
+            src={clerkLogoSvg}
+            className="dark:invert dark:opacity-80"
+          />
           <span>Setup Clerk</span>
         </span>
       </Button>
@@ -257,7 +261,11 @@ export function ClerkClient({
           <div className="flex flex-1 justify-between items-center">
             <div className="flex gap-2">
               {' '}
-              <Image alt="clerk logo" src={clerkLogoSvg} />
+              <Image
+                alt="clerk logo"
+                src={clerkLogoSvg}
+                className="dark:invert dark:opacity-80"
+              />
               <SectionHeading>
                 {client.client_name}{' '}
                 <span className="text-gray-400">(Clerk)</span>
@@ -425,7 +433,7 @@ export function AddClerkClientForm({
 
   return (
     <form
-      className="flex flex-col gap-2 p-4 rounded border"
+      className="flex flex-col gap-2 p-4 rounded border dark:border-slate-600 bg-white dark:bg-slate-800"
       onSubmit={onSubmit}
       autoComplete="off"
       data-lpignore="true"
@@ -457,7 +465,7 @@ export function AddClerkClientForm({
         }
         placeholder=""
       />
-      <div className="rounded border p-4 flex flex-col gap-2 bg-gray-50">
+      <div className="rounded border dark:border-slate-600 p-4 flex flex-col gap-2 bg-gray-50 dark:bg-slate-700">
         <Content>
           Navigate to your{' '}
           <a

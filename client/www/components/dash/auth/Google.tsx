@@ -35,7 +35,7 @@ import {
 
 function NonceCheckNotice() {
   return (
-    <p className="text-sm text-gray-500">
+    <p className="text-sm text-gray-500 dark:text-gray-400">
       This option skips nonce checks for ID tokens. This is useful in iOS
       environments, because libraries like `react-native-google-signin` do not
       let you pass a nonce over to google.
@@ -132,14 +132,14 @@ export function AddClientForm({
 
   return (
     <form
-      className="flex flex-col gap-2 p-4 rounded border"
+      className="flex flex-col gap-2 p-4 rounded border dark:border-slate-600 bg-white dark:bg-slate-800"
       onSubmit={onSubmit}
       autoComplete="off"
       data-lpignore="true"
     >
       <SubsectionHeading>Add a new Google client</SubsectionHeading>
       <div className="mb-4">
-        <label className="block text-sm font-bold text-gray-700 mb-2">
+        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
           Type
         </label>
         <ToggleGroup
@@ -203,8 +203,8 @@ export function AddClientForm({
         />
       )}
       {appType === 'web' && (
-        <div className="rounded border p-4 flex flex-col gap-2 bg-gray-50">
-          <p className="overflow-hidden">
+        <div className="rounded border dark:border-slate-600 p-4 flex flex-col gap-2 bg-gray-50 dark:bg-slate-700">
+          <p className="overflow-hidden text-gray-700 dark:text-gray-200">
             Add{' '}
             <Copytext value="https://api.instantdb.com/runtime/oauth/callback" />{' '}
             to the "Authorized redirect URIs" on your{' '}
@@ -230,7 +230,7 @@ export function AddClientForm({
         </div>
       )}
       {isNative(appType) && (
-        <div className="rounded border p-4 flex flex-col gap-2 bg-gray-50">
+        <div className="rounded border dark:border-slate-600 p-4 flex flex-col gap-2 bg-gray-50 dark:bg-slate-700">
           <Checkbox
             checked={skipNonceChecks}
             onChange={setSkipNonceChecks}
@@ -415,7 +415,7 @@ const url = db.auth.createAuthorizationURL({
             <Copyable label="Google client ID" value={client.client_id || ''} />
 
             {didSkipNonceChecks ? (
-              <div className="rounded border p-4 flex flex-col gap-2 bg-gray-50">
+              <div className="rounded border dark:border-slate-600 p-4 flex flex-col gap-2 bg-gray-50 dark:bg-slate-700">
                 <Checkbox
                   checked={client.meta?.skipNonceChecks || false}
                   onChange={() => {}}

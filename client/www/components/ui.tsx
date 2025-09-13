@@ -12,6 +12,7 @@ import {
   PropsWithChildren,
 } from 'react';
 import { Editor, Monaco, OnMount } from '@monaco-editor/react';
+import { useDarkMode } from '@/lib/hooks/useDarkMode';
 import {
   Dialog as HeadlessDialog,
   Popover,
@@ -47,14 +48,29 @@ import Link from 'next/link';
 export const Stack = twel('div', 'flex flex-col gap-2');
 export const Group = twel('div', 'flex flex-col gap-2 md:flex-row');
 
-export const Content = twel('div', 'prose');
-export const ScreenHeading = twel('div', 'text-2xl font-bold');
-export const SectionHeading = twel('div', 'text-xl font-bold');
-export const SubsectionHeading = twel('div', 'text-lg');
-export const BlockHeading = twel('div', 'text-md font-bold');
+export const Content = twel('div', 'prose dark:prose-invert');
+export const ScreenHeading = twel(
+  'div',
+  'text-2xl font-bold text-gray-900 dark:text-white',
+);
+export const SectionHeading = twel(
+  'div',
+  'text-xl font-bold text-gray-900 dark:text-white',
+);
+export const SubsectionHeading = twel(
+  'div',
+  'text-lg text-gray-800 dark:text-gray-200',
+);
+export const BlockHeading = twel(
+  'div',
+  'text-md font-bold text-gray-800 dark:text-gray-200',
+);
 
-export const Hint = twel('div', 'text-sm text-gray-400');
-export const Label = twel('div', 'text-sm font-bold text-gray-700');
+export const Hint = twel('div', 'text-sm text-gray-500 dark:text-gray-400');
+export const Label = twel(
+  'div',
+  'text-sm font-bold text-gray-700 dark:text-gray-300',
+);
 
 export const LogoIcon = ({ size = 'mini' }: { size?: 'mini' | 'normal' }) => {
   const sizeToClass = {
@@ -98,9 +114,9 @@ export function ToggleCollection({
             {...a.link}
             rel="noopener noreferer"
             className={clsx(
-              'block cursor-pointer truncate whitespace-nowrap rounded bg-none px-3 py-1 text-left hover:bg-gray-100 disabled:text-gray-400',
+              'block cursor-pointer truncate whitespace-nowrap rounded bg-none px-3 py-1 text-left text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-700 disabled:text-gray-400 dark:disabled:text-gray-500 transition-colors',
               {
-                'bg-gray-200': selectedId === a.id,
+                'bg-gray-200 dark:bg-slate-700': selectedId === a.id,
               },
               buttonClassName,
             )}
@@ -115,9 +131,9 @@ export function ToggleCollection({
               onChange(a);
             }}
             className={clsx(
-              'block cursor-pointer truncate whitespace-nowrap rounded bg-none px-3 py-1 text-left hover:bg-gray-100 disabled:text-gray-400',
+              'block cursor-pointer truncate whitespace-nowrap rounded bg-none px-3 py-1 text-left text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-700 disabled:text-gray-400 dark:disabled:text-gray-500 transition-colors',
               {
-                'bg-gray-200': selectedId === a.id,
+                'bg-gray-200 dark:bg-slate-700': selectedId === a.id,
               },
               buttonClassName,
             )}
@@ -152,7 +168,7 @@ export function ToggleGroup({
 
         onChange(item);
       }}
-      className="flex gap-1 rounded-sm border bg-gray-200 p-0.5 text-sm"
+      className="flex gap-1 rounded-sm border dark:border-slate-600 bg-gray-200 dark:bg-slate-700 p-0.5 text-sm"
       type="single"
       defaultValue="center"
       aria-label={ariaLabel}
@@ -160,12 +176,13 @@ export function ToggleGroup({
       {items.map((item) => (
         <HeadlessToggleGroup.Item
           key={item.id}
-          className="flex-1 rounded-sm p-0.5"
+          className={cn(
+            'flex-1 rounded-sm p-0.5 text-gray-700 dark:text-gray-200',
+            'hover:bg-gray-300 dark:hover:bg-slate-600 transition-colors',
+            selectedId === item.id && 'bg-white dark:bg-slate-800 shadow-sm',
+          )}
           value={item.id}
           aria-label={item.label}
-          style={{
-            backgroundColor: selectedId === item.id ? 'white' : undefined,
-          }}
         >
           {item.label}
         </HeadlessToggleGroup.Item>
@@ -231,7 +248,7 @@ export function TextInput({
         placeholder={placeholder}
         value={value ?? ''}
         className={cn(
-          'flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 disabled:text-gray-400',
+          'flex w-full flex-1 rounded-sm border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white px-3 py-1 placeholder:text-gray-400 dark:placeholder:text-gray-500 disabled:text-gray-400 dark:disabled:text-gray-500',
           className,
           {
             'border-red-500': error,
@@ -300,7 +317,7 @@ export function TextArea({
         placeholder={placeholder}
         value={value ?? ''}
         className={cn(
-          'flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 disabled:text-gray-400',
+          'flex w-full flex-1 rounded-sm border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white px-3 py-1 placeholder:text-gray-400 dark:placeholder:text-gray-500 disabled:text-gray-400 dark:disabled:text-gray-500',
           className,
           {
             'border-red-500': error,
@@ -347,7 +364,9 @@ export function Checkbox({
     <label
       className={cn(
         'flex cursor-pointer items-top gap-2',
-        disabled ? 'text-gray-400 cursor-default' : '',
+        disabled
+          ? 'text-gray-400 dark:text-gray-500 cursor-default'
+          : 'text-gray-700 dark:text-gray-200',
         labelClassName,
       )}
       title={title}
@@ -357,7 +376,15 @@ export function Checkbox({
         title={title}
         required={required}
         className={cn(
-          'align-middle mt-0.5 font-medium text-gray-900 disabled:border-gray-300 disabled:bg-gray-200',
+          'h-4 w-4 rounded border-gray-300 dark:border-slate-600',
+          'bg-white dark:bg-slate-800',
+          'text-blue-600 dark:text-blue-500',
+          'focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-offset-0',
+          'checked:bg-blue-600 dark:checked:bg-blue-500',
+          'disabled:border-gray-300 dark:disabled:border-gray-600',
+          'disabled:bg-gray-200 dark:disabled:bg-gray-700',
+          'transition-colors cursor-pointer',
+          'mt-0.5',
           className,
         )}
         type="checkbox"
@@ -365,7 +392,9 @@ export function Checkbox({
         onChange={(e) => onChange(e.target.checked, e)}
       />{' '}
       {label}
-      {error ? <div className="text-sm text-red-600">{error}</div> : null}
+      {error ? (
+        <div className="text-sm text-red-600 dark:text-red-400">{error}</div>
+      ) : null}
     </label>
   );
 }
@@ -398,7 +427,7 @@ export function Select<
       value={value ?? undefined}
       disabled={disabled}
       className={cn(
-        'rounded-sm border-gray-300 py-1 disabled:text-gray-400',
+        'rounded-sm border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white py-1 disabled:text-gray-400 dark:disabled:text-gray-500',
         className,
       )}
       onChange={(e) => {
@@ -438,7 +467,7 @@ export function TabBar({
   return (
     <div
       className={clsx(
-        'flex flex-row gap-0.5 overflow-x-auto border-b px-2 py-1 no-scrollbar',
+        'flex flex-row gap-0.5 overflow-x-auto border-b border-gray-300 dark:border-slate-700 px-2 py-1 no-scrollbar',
         className,
       )}
     >
@@ -449,9 +478,10 @@ export function TabBar({
             {...t.link}
             rel="noopener noreferer"
             className={clsx(
-              'flex cursor-pointer whitespace-nowrap bg-none px-4 py-0.5 disabled:text-gray-400 rounded hover:bg-gray-100',
+              'flex cursor-pointer whitespace-nowrap bg-none px-4 py-0.5 text-gray-700 dark:text-gray-200 disabled:text-gray-400 dark:disabled:text-gray-500 rounded hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors',
               {
-                'bg-gray-200': selectedId === t.id && !disabled,
+                'bg-gray-200 dark:bg-slate-700':
+                  selectedId === t.id && !disabled,
               },
             )}
           >
@@ -463,9 +493,10 @@ export function TabBar({
             disabled={disabled}
             onClick={() => onSelect(t)}
             className={clsx(
-              'flex cursor-pointer whitespace-nowrap bg-none px-4 py-0.5 disabled:text-gray-400 rounded hover:bg-gray-100',
+              'flex cursor-pointer whitespace-nowrap bg-none px-4 py-0.5 text-gray-700 dark:text-gray-200 disabled:text-gray-400 dark:disabled:text-gray-500 rounded hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors',
               {
-                'bg-gray-200': selectedId === t.id && !disabled,
+                'bg-gray-200 dark:bg-slate-700':
+                  selectedId === t.id && !disabled,
               },
             )}
           >
@@ -527,22 +558,25 @@ export function Button({
       'hover:enabled:text-slate-100 hover:enabled:bg-orange-500':
         variant === 'cta' && !isATag,
       // secondary
-      'border text-gray-500 bg-gray-50 shadow-sm ': variant === 'secondary',
-      'hover:text-gray-600 hover:bg-gray-50/30':
+      'border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-slate-700/50 shadow-sm ':
+        variant === 'secondary',
+      'hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-700':
         variant === 'secondary' && isATag,
-      'hover:enabled:text-gray-600 hover:enabled:bg-gray-50/30 disabled:text-gray-400':
+      'hover:enabled:text-gray-900 dark:hover:enabled:text-white hover:enabled:bg-gray-100 dark:hover:enabled:bg-slate-700 disabled:text-gray-400 dark:disabled:text-gray-500':
         variant === 'secondary' && !isATag,
       // subtle
-      'text-gray-500 bg-white font-normal': variant === 'subtle',
-      'hover:text-gray-600 hover:bg-gray-200/30':
+      'text-gray-600 dark:text-gray-300 bg-white dark:bg-transparent font-normal':
+        variant === 'subtle',
+      'hover:text-gray-800 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-slate-700/50':
         variant === 'subtle' && isATag,
-      'hover:enabled:text-gray-600 hover:enabled:bg-gray-200/30':
+      'hover:enabled:text-gray-800 dark:hover:enabled:text-white hover:enabled:bg-gray-100 dark:hover:enabled:bg-slate-700/50':
         variant === 'subtle' && !isATag,
       // destructive
-      'text-red-500 bg-white border border-red-200': variant === 'destructive',
-      'hover:text-red-600 hover:text-red-600 hover:border-red-300':
+      'text-red-500 dark:text-red-400 bg-white dark:bg-slate-800 border border-red-200 dark:border-red-800':
+        variant === 'destructive',
+      'hover:text-red-600 dark:hover:text-red-300 hover:border-red-300 dark:hover:border-red-700':
         variant === 'destructive' && isATag,
-      'hover:enabled:text-red-600 hover:enabled:text-red-600 hover:enabled:border-red-300 disabled:border-red-50 disabled:text-red-300':
+      'hover:enabled:text-red-600 dark:hover:enabled:text-red-300 hover:enabled:border-red-300 dark:hover:enabled:border-red-700 disabled:border-red-50 dark:disabled:border-red-900 disabled:text-red-300 dark:disabled:text-red-600':
         variant === 'destructive' && !isATag,
       'text-lg': size === 'large',
       'text-xl': size === 'xl',
@@ -621,9 +655,9 @@ export function Dialog({
     <HeadlessDialog as="div" open={open} onClose={onClose}>
       <div className="fixed inset-0 z-50 bg-black/50" aria-hidden="true" />
       <div className="fixed inset-4 z-50 flex flex-col items-center justify-center">
-        <HeadlessDialog.Panel className="relative w-full max-w-xl overflow-y-auto rounded bg-white p-3 text-sm shadow">
+        <HeadlessDialog.Panel className="relative w-full max-w-xl overflow-y-auto rounded bg-white dark:bg-slate-800 p-3 text-sm text-gray-900 dark:text-gray-100 shadow border border-gray-200 dark:border-slate-700">
           <XMarkIcon
-            className="absolute right-3 top-[18px] h-4 w-4 cursor-pointer"
+            className="absolute right-3 top-[18px] h-4 w-4 cursor-pointer text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
             onClick={onClose}
           />
           {children}
@@ -751,14 +785,17 @@ export function Copyable({
 
   return (
     <div
-      className={cn('flex items-center rounded border bg-white font-mono', {
-        'text-sm': size === 'normal',
-        'text-base': size === 'large',
-      })}
+      className={cn(
+        'flex items-center rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100 font-mono',
+        {
+          'text-sm': size === 'normal',
+          'text-base': size === 'large',
+        },
+      )}
     >
       {label ? (
         <div
-          className="border-r bg-gray-50 px-3 py-1.5"
+          className="border-r border-gray-300 dark:border-slate-600 bg-gray-50 dark:bg-slate-700 text-gray-700 dark:text-gray-300 px-3 py-1.5"
           style={{
             borderTopLeftRadius: 'calc(0.25rem - 1px)',
             borderBottomLeftRadius: 'calc(0.25rem - 1px)',
@@ -789,7 +826,7 @@ export function Copyable({
           <button
             onClick={handleChangeHideValue}
             className={cn(
-              'flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-inset ring-gray-300 hover:bg-gray-50',
+              'flex items-center gap-x-1 rounded-sm bg-white dark:bg-slate-700 text-gray-700 dark:text-gray-200 px-2 py-1 ring-1 ring-inset ring-gray-300 dark:ring-slate-600 hover:bg-gray-50 dark:hover:bg-slate-600',
               { 'text-xs': size === 'normal', 'text-sm': size === 'large' },
             )}
           >
@@ -809,7 +846,7 @@ export function Copyable({
               }, 2500);
             }}
             className={cn(
-              'flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-inset ring-gray-300 hover:bg-gray-50',
+              'flex items-center gap-x-1 rounded-sm bg-white dark:bg-slate-700 text-gray-700 dark:text-gray-200 px-2 py-1 ring-1 ring-inset ring-gray-300 dark:ring-slate-600 hover:bg-gray-50 dark:hover:bg-slate-600',
               { 'text-xs': size === 'normal', 'text-sm': size === 'large' },
             )}
           >
@@ -878,9 +915,12 @@ export function CodeEditor(props: {
   loading?: boolean;
   readOnly?: boolean;
 }) {
+  const isDarkMode = useDarkMode();
+
   return (
     <Editor
       className={props.loading ? 'animate-pulse' : undefined}
+      theme={isDarkMode ? 'vs-dark' : 'vs-light'}
       height={'100%'}
       language={props.language}
       value={props.value ?? ''}
@@ -937,8 +977,10 @@ export function JSONEditor(props: {
 
   return (
     <div className="flex flex-col gap-2 h-full min-h-0">
-      <div className="flex items-center gap-4 border-b px-4 py-2">
-        <div className="font-mono">{props.label}</div>
+      <div className="flex items-center gap-4 border-b border-gray-300 dark:border-slate-700 px-4 py-2">
+        <div className="font-mono text-gray-900 dark:text-white">
+          {props.label}
+        </div>
         <Button onClick={() => props.onSave(draft)}>Save</Button>
       </div>
       <div className="flex-grow min-h-0">
@@ -991,7 +1033,11 @@ export function Fence({
     >
       {({ className, style, tokens, getTokenProps }) => (
         <pre
-          className={clsx(className, _className)}
+          className={clsx(
+            className,
+            _className,
+            'bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-gray-100',
+          )}
           style={{
             ...style,
             ..._style,
@@ -1010,7 +1056,7 @@ export function Fence({
                   e.preventDefault();
                   e.stopPropagation();
                 }}
-                className="flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 text-xs"
+                className="flex items-center gap-x-1 rounded-sm bg-white dark:bg-slate-700 px-2 py-1 ring-1 ring-inset ring-gray-300 dark:ring-slate-600 hover:bg-gray-50 dark:hover:bg-slate-600 text-gray-900 dark:text-gray-200 text-xs"
               >
                 <ClipboardDocumentIcon
                   className="-ml-0.5 h-4 w-4"
@@ -1077,7 +1123,7 @@ export const InfoTip = ({ children }: PropsWithChildren) => {
 
       <PopoverPanel
         anchor="bottom start"
-        className="bg-white p-2 rounded-lg shadow-lg z-50"
+        className="bg-white dark:bg-slate-800 text-gray-900 dark:text-gray-100 p-2 rounded-lg shadow-lg border border-gray-200 dark:border-slate-700 z-50"
       >
         {children}
       </PopoverPanel>

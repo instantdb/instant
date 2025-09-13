@@ -195,3 +195,18 @@ div.Toastify__toast-body {
 div.Toastify__toast-icon {
   margin-top: 3px;
 }
+
+/* Dark mode toast overrides */
+.dark .Toastify__toast-theme--dark {
+  background: #334155; /* slate-700 */
+  color: #f1f5f9; /* slate-100 */
+}
+
+.dark .Toastify__close-button--dark {
+  color: #cbd5e1; /* slate-300 */
+  opacity: 0.7;
+}
+
+.dark .Toastify__close-button--dark:hover {
+  opacity: 1;
+}
