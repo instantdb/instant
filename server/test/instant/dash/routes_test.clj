@@ -1,8 +1,9 @@
 (ns instant.dash.routes-test
   (:require
    [clj-http.client :as http]
-   [clojure.test :refer [deftest is testing]]
+   [clojure.test :refer [deftest is testing use-fixtures]]
    [instant.config :as config]
+   [instant.dash.routes :as routes]
    [instant.fixtures :refer [random-email
                              with-empty-app
                              with-org
@@ -14,7 +15,13 @@
    [instant.model.instant-stripe-customer :as stripe-customer-model]
    [instant.util.crypt :as crypt-util]
    [instant.util.json :refer [->json]]
-   [instant.dash.routes :as route]))
+   [instant.util.tracer :as tracer]))
+
+(defn silence-routes-exceptions [f]
+  (with-redefs [tracer/*silence-exceptions?* (atom true)]
+    (f)))
+
+(use-fixtures :each silence-routes-exceptions)
 
 (deftest app-invites-work
   (with-redefs [config/postmark-send-enabled? (constantly false)]
@@ -483,8 +490,8 @@
                        :headers {"authorization" (str "Bearer " (:refresh-token user))}}]
               (case expected
                 :ok (is (= (:id app)
-                           (:id (:app (route/req->app-and-user! role req)))))
-                :error (is (thrown? Exception (route/req->app-and-user! role req)))))))))))
+                           (:id (:app (routes/req->app-and-user! role req)))))
+                :error (is (thrown? Exception (routes/req->app-and-user! role req)))))))))))
 
 (deftest you-are-an-app-member-of-the-org-if-you-are-a-member-of-an-app
   (with-startup-org
