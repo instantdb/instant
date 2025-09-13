@@ -103,6 +103,22 @@ async function createCheckoutSession(orgId: string, token: string) {
     });
 }
 
+async function transfer(
+  { appId, orgId }: { appId: string; orgId: string },
+  token: string,
+) {
+  await jsonFetch(
+    `${config.apiURI}/dash/apps/${appId}/transfer_to_org/${orgId}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+}
+
 function OrgDetails({ id }: { id: string }) {
   const token = useContext(TokenContext);
   const resp = useAuthedFetch(`${config.apiURI}/dash/orgs/${id}`);
@@ -123,10 +139,65 @@ function OrgDetails({ id }: { id: string }) {
     );
   }
 
+  const { apps, members, invites, org } = resp.data;
+
   return (
     <div className="p-8">
       <div>Data</div>
-      <pre className="text-sm">{JSON.stringify(resp.data, null, 2)}</pre>
+      <pre className="text-sm">{JSON.stringify(org, null, 2)}</pre>
+      <details open={true}>
+        <summary>Apps</summary>
+        <div className="ml-4 mb-4">
+          {apps.map((app: any) => (
+            <details key={app.id}>
+              <summary>
+                {app.title}{' '}
+                <Button
+                  onClick={async () => {
+                    const orgId = prompt('Enter the org id to transfer to.');
+                    if (!orgId) {
+                      return;
+                    }
+                    try {
+                      await transfer({ orgId, appId: app.id }, token);
+                      resp.mutate();
+                    } catch (e) {
+                      console.log('Error in transfer', e);
+                    }
+                  }}
+                  variant="subtle"
+                >
+                  Transfer to org
+                </Button>
+              </summary>
+
+              <pre className="text-sm">{JSON.stringify(app, null, 2)}</pre>
+            </details>
+          ))}
+        </div>
+      </details>
+      <details open={true}>
+        <summary>Members</summary>
+        <div className="ml-4 mb-4">
+          {members.map((member: any) => (
+            <details key={member.id}>
+              <summary>{member.email}</summary>
+              <pre className="text-sm">{JSON.stringify(member, null, 2)}</pre>
+            </details>
+          ))}
+        </div>
+      </details>
+      <details open={true}>
+        <summary>Invites</summary>
+        <div className="ml-4 mb-4">
+          {invites.map((invite: any) => (
+            <details key={invite.id}>
+              <summary>{invite.email}</summary>
+              <pre className="text-sm">{JSON.stringify(invite, null, 2)}</pre>
+            </details>
+          ))}
+        </div>
+      </details>
       <div>Billing Data</div>
       <pre className="text-sm">{JSON.stringify(billingResp.data, null, 2)}</pre>
       <Button
@@ -217,9 +288,7 @@ export default function Orgs({
     );
   }
 
-  const orgs = dashResponse.data.orgs;
-
-  console.log(expandedOrgs);
+  const { apps, orgs } = dashResponse.data;
 
   return (
     <div className="flex-1 flex flex-col p-4 max-w-2xl mx-auto overflow-scroll">
@@ -278,6 +347,38 @@ export default function Orgs({
         >
           Create new org
         </Button>
+      </div>
+      <div className="mt-8">
+        <details>
+          <summary>Apps</summary>
+          <div className="ml-4 mb-4">
+            {apps?.map((app: any) => (
+              <details key={app.id}>
+                <summary>
+                  {app.title}{' '}
+                  <Button
+                    onClick={async () => {
+                      const orgId = prompt('Enter the org id to transfer to.');
+                      if (!orgId) {
+                        return;
+                      }
+                      try {
+                        await transfer({ orgId, appId: app.id }, token);
+                        dashResponse.mutate();
+                      } catch (e) {
+                        console.log('Error in transfer', e);
+                      }
+                    }}
+                    variant="subtle"
+                  >
+                    Transfer to org
+                  </Button>
+                </summary>
+                <pre className="text-sm">{JSON.stringify(app, null, 2)}</pre>
+              </details>
+            ))}
+          </div>
+        </details>
       </div>
     </div>
   );

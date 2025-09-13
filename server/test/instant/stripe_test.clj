@@ -8,7 +8,7 @@
    [instant.model.instant-subscription :as instant-subscription-model]
    [instant.model.org :as org-model]
    [instant.plans :as plans]
-   [instant.stripe :as stripe]))
+   [instant.stripe-webhook :as stripe-webhook]))
 
 (defn event-data [{:keys [app-id org-id user-id customer subscription-type-id]}]
   {:object {:customer customer,
@@ -60,21 +60,21 @@
         (is (nil? (instant-subscription-model/get-by-app-id {:app-id app-id})))
 
         ;; Subscription is created
-        (stripe/handle-stripe-webhook-event upgrade-event)
+        (stripe-webhook/handle-stripe-webhook-event upgrade-event)
         (let [sub (instant-subscription-model/get-by-app-id {:app-id app-id})]
           (is (= "Pro" (:name sub)))
           (is (= (:id sub)
                  (:subscription_id (app-model/get-by-id! {:id app-id})))))
 
         ;; Subscription is downgraded
-        (stripe/handle-stripe-webhook-event downgrade-event)
+        (stripe-webhook/handle-stripe-webhook-event downgrade-event)
         (let [sub (instant-subscription-model/get-by-app-id {:app-id app-id})]
           (is (= "Free" (:name sub)))
           (is (= (:id sub)
                  (:subscription_id (app-model/get-by-id! {:id app-id})))))
 
         ;; Re-processing the upgrade event should not create a new subscription
-        (stripe/handle-stripe-webhook-event upgrade-event)
+        (stripe-webhook/handle-stripe-webhook-event upgrade-event)
         (is (= "Free"
                (:name (instant-subscription-model/get-by-app-id {:app-id app-id}))))))))
 
@@ -93,21 +93,21 @@
         (is (nil? (instant-subscription-model/get-by-org-id {:org-id org-id})))
 
         ;; Subscription is created
-        (stripe/handle-stripe-webhook-event upgrade-event)
+        (stripe-webhook/handle-stripe-webhook-event upgrade-event)
         (let [sub (instant-subscription-model/get-by-org-id {:org-id org-id})]
           (is (= "Startup" (:name sub)))
           (is (= (:id sub)
                  (:subscription_id (org-model/get-by-id! {:id org-id})))))
 
         ;; Subscription is downgraded
-        (stripe/handle-stripe-webhook-event downgrade-event)
+        (stripe-webhook/handle-stripe-webhook-event downgrade-event)
         (let [sub (instant-subscription-model/get-by-org-id {:org-id org-id})]
           (is (= "Free" (:name sub)))
           (is (= (:id sub)
                  (:subscription_id (org-model/get-by-id! {:id org-id})))))
 
         ;; Re-processing the upgrade event should not create a new subscription
-        (stripe/handle-stripe-webhook-event upgrade-event)
+        (stripe-webhook/handle-stripe-webhook-event upgrade-event)
         (is (= "Free"
                (:name (instant-subscription-model/get-by-org-id {:org-id org-id}))))))))
 (comment
