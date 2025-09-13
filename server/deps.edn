@@ -12,9 +12,7 @@
         org.clojure/clojure {:mvn/version "1.12.0"}
         org.clojure/core.async {:mvn/version "1.6.673"}
         org.clojure/tools.logging {:mvn/version "1.3.0"}
-        org.clojure/core.cache {:git/url "https://github.com/clojure/core.cache.git"
-                                ;; Includes fix for concurrent miss
-                                :sha "4a043644a0706b6d834ebf890a64d2fdcc9c388b"}
+        com.github.ben-manes.caffeine/caffeine {:mvn/version "3.2.2"}
         org.postgresql/postgresql {:mvn/version "42.7.3"}
         ring-cors/ring-cors {:mvn/version "0.1.13"}
         ring/ring {:mvn/version "1.13.0"}

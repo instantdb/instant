@@ -2,10 +2,9 @@
   (:require
    [chime.core :as chime-core]
    [clj-http.client :as clj-http]
-   [clojure.core.cache.wrapped :as cache]
    [clojure.string :as string]
    [instant.auth.jwt :as jwt]
-   [instant.util.cache :refer [lookup-or-miss]]
+   [instant.util.cache :as cache]
    [instant.util.crypt :as crypt-util]
    [instant.util.exception :as ex]
    [instant.util.lang :as lang]
@@ -166,10 +165,6 @@
       {:email email
        :sub   sub})))
 
-;; Map of endpoint to JSON results
-;; {"google.com/.well-known/..." {:data {...}, :date #obj[java.time.Instant...]}
-(defonce discovery-endpoint-cache (cache/lru-cache-factory {} :threshold 32))
-
 (defn fetch-discovery [endpoint]
   (let [resp (clj-http/get endpoint {:throw-exceptions false
                                      :as :json
@@ -186,8 +181,14 @@
                                        {:name "oauth/fetch-discovery-error"})
         (ex/throw-oauth-err! "Unable to fetch OAuth configuration.")))))
 
+;; Map of endpoint to JSON results
+;; {"google.com/.well-known/..." {:data {...}, :date #obj[java.time.Instant...]}
+(defonce discovery-endpoint-cache
+  (cache/make {:max-size 32
+               :value-fn fetch-discovery}))
+
 (defn get-discovery [endpoint]
-  (:data (lookup-or-miss discovery-endpoint-cache endpoint fetch-discovery)))
+  (:data (cache/get discovery-endpoint-cache endpoint)))
 
 (defn generic-oauth-client-from-discovery-url [{:keys [app-id
                                                        provider-id
@@ -283,12 +284,12 @@
      (-> (chime-core/periodic-seq (Instant/now) (Duration/ofHours 1))
          rest)
      (fn [_time]
-       (for [endpoint (keys @discovery-endpoint-cache)]
+       (doseq [[endpoint _] (cache/as-map discovery-endpoint-cache)]
          (tracer/with-span! {:name "oauth/updating-discovery-endpoint"
                              :endpoint endpoint}
            (try
              (let [data (fetch-discovery endpoint)]
-               (swap! discovery-endpoint-cache assoc endpoint data))
+               (cache/put discovery-endpoint-cache endpoint data))
 
              (catch Exception e
                (tracer/record-exception-span! e {:name "oauth/refresh-error"})))))))))

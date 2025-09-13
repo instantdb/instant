@@ -1,11 +1,10 @@
 (ns instant.db.attr-sketch
   (:require
-   [clojure.core.cache.wrapped :as cache]
    [clojure.pprint]
    [honey.sql :as hsql]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
-   [instant.util.cache :as ucache]
+   [instant.util.cache :as cache]
    [instant.util.coll :as ucoll]
    [instant.util.tracer :as tracer])
   (:import
@@ -334,11 +333,15 @@
     (when row
       (record->Sketch row))))
 
-(def lookup-cache (-> (cache/lru-cache-factory {} :threshold 4096)
-                      deref
-                      (cache/ttl-cache-factory :ttl (* 1000 60 5))))
+(def lookup-cache
+  (cache/make-async
+   {:max-size 4096
+    :ttl      (* 1000 60 5)}))
 
-(defn lookup* [conn keys]
+(def in-flight-keys
+  (atom #{}))
+
+(defn lookup*-impl [conn keys]
   (if-not (seq keys)
     {}
     (let [params {:params {:app-ids (with-meta (mapv :app-id keys) {:pgtype "uuid[]"})
@@ -350,11 +353,18 @@
                      {:select [[[:unnest :?app-ids] :app-id]
                                [[:unnest :?attr-ids] :attr-id]]}]}
           rows (sql/select ::lookup conn (hsql/format q params))]
-      (ucoll/reduce-tr (fn [acc row]
-                         (let [sketch (record->Sketch row)]
-                           (assoc! acc (select-keys sketch [:app-id :attr-id]) sketch)))
-                       {}
-                       rows))))
+      (ucoll/reduce-tr
+       (fn [acc row]
+         (let [sketch (record->Sketch row)]
+           (assoc! acc (select-keys sketch [:app-id :attr-id]) sketch)))
+       {}
+       rows))))
+
+(defn lookup* [conn keys]
+  (swap! in-flight-keys into keys)
+  (let [res (lookup*-impl conn keys)]
+    (swap! in-flight-keys #(reduce disj % keys))
+    res))
 
 (defn lookup
   "Takes a set of {:app-id attr-id} maps and fetches sketches, if they exist.
@@ -363,7 +373,13 @@
    (lookup (aurora/conn-pool :read) keys))
   ([conn keys]
    (if (= conn (aurora/conn-pool :read))
-     (ucache/lookup-or-miss-batch lookup-cache keys (partial lookup* conn))
+     (do
+       (tracer/with-new-trace-root
+         (tracer/with-span! {:name "attr-sketch/in-flight-keys"
+                             :attributes {:count     (count keys)
+                                          :in-flight (count (filter @in-flight-keys keys))}}
+           nil))
+       @(cache/get-all-async lookup-cache keys #(lookup* conn %)))
      (lookup* conn keys))))
 
 (defn- create-empty-sketch-rows!
