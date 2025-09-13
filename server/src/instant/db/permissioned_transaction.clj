@@ -211,6 +211,7 @@
               rev-entity         (when ref?
                                    (get entities-map rev-key))
               rule-params        (get rule-params-map key)
+              rev-rule-params    (get rule-params-map rev-key)
               link-program       (when ref?
                                    (rule-model/get-program! rules [[etype "allow" "link" fwd-label]
                                                                    [etype "allow" "link" "$default"]]))
@@ -257,7 +258,7 @@
                                 :new-data     (get updated-entities-map key)
                                 :linked-data  rev-entity
                                 :linked-etype rev-etype
-                                :rule-params  rule-params}}])
+                                :rule-params  (merge rev-rule-params rule-params)}}])
                  (when (and rev-entity rev-link-program)
                    [{:scope    :object
                      :action   :link
@@ -268,8 +269,7 @@
                                 :new-data     (get updated-entities-map rev-key)
                                 :linked-data  (get updated-entities-map key)
                                 :linked-etype etype
-                                :rule-params  (merge rule-params
-                                                     (get rule-params-map rev-key))}}]))
+                                :rule-params  (merge rule-params rev-rule-params)}}]))
 
                 ;; fallback when link isn´t defined on either side
                 (and (= :add-triple op)
@@ -284,7 +284,7 @@
                                    {:result true})
                      :bindings {:data        entity
                                 :new-data    (get updated-entities-map key)
-                                :rule-params rule-params}}])
+                                :rule-params (merge rev-rule-params rule-params)}}])
                  (when rev-entity
                    [{:scope    :object
                      :action   :view
@@ -294,8 +294,7 @@
                                    {:result true})
                      :bindings {:data        rev-entity
                                 :new-data    (get updated-entities-map rev-key)
-                                :rule-params (merge rule-params
-                                                    (get rule-params-map rev-key))}}]))
+                                :rule-params (merge rule-params rev-rule-params)}}]))
 
                 ;; if unlink is defined on at least one side
                 (and (= :retract-triple op)
@@ -312,7 +311,7 @@
                                 :new-data     (get updated-entities-map key)
                                 :linked-data  rev-entity
                                 :linked-etype rev-etype
-                                :rule-params  rule-params}}])
+                                :rule-params  (merge rev-rule-params rule-params)}}])
                  (when (and rev-entity rev-unlink-program)
                    [{:scope    :object
                      :action   :unlink
@@ -323,8 +322,7 @@
                                 :new-data     (get updated-entities-map rev-key)
                                 :linked-data  entity
                                 :linked-etype etype
-                                :rule-params  (merge rule-params
-                                                    (get rule-params-map rev-key))}}]))
+                                :rule-params  (merge rule-params rev-rule-params)}}]))
 
                 ;; fallback when unlink isn´t defined on either side
                 (and (= :retract-triple op)
@@ -339,7 +337,7 @@
                                    {:result true})
                      :bindings {:data        entity
                                 :new-data    (get updated-entities-map key)
-                                :rule-params rule-params}}])
+                                :rule-params (merge rev-rule-params rule-params)}}])
                  (when rev-entity
                    [{:scope    :object
                      :action   :view
@@ -349,8 +347,7 @@
                                    {:result true})
                      :bindings {:data        rev-entity
                                 :new-data    (get updated-entities-map rev-key)
-                                :rule-params (merge rule-params
-                                                    (get rule-params-map rev-key))}}]))
+                                :rule-params (merge rule-params rev-rule-params)}}]))
 
                 (and (#{:add-triple :deep-merge-triple} op)
                      entity)
@@ -401,6 +398,7 @@
                                    (some-> (get updated-entities-map rev-key)
                                            (update "id" #(or (get create-lookups-map %) (:eid rev-key) %))))
               rule-params        (get rule-params-map key)
+              rev-rule-params    (get rule-params-map rev-key)
               link-program       (when ref?
                                    (rule-model/get-program! rules [[etype "allow" "link" fwd-label]
                                                                    [etype "allow" "link" "$default"]]))
@@ -431,7 +429,7 @@
                                 :new-data     updated-entity
                                 :linked-data  updated-rev-entity
                                 :linked-etype rev-etype
-                                :rule-params  rule-params}}])
+                                :rule-params  (merge rev-rule-params rule-params)}}])
                  (when (and updated-rev-entity
                             (nil? (get entities-map rev-key))
                             rev-link-program)
@@ -444,8 +442,7 @@
                                 :new-data     updated-rev-entity
                                 :linked-data  updated-entity
                                 :linked-etype etype
-                                :rule-params  (merge rule-params
-                                                     (get rule-params-map rev-key))}}]))
+                                :rule-params  (merge rule-params rev-rule-params)}}]))
 
                 ;; fallback when link isn´t defined on either side
                 (and (= :add-triple op)
@@ -462,7 +459,7 @@
                                 :new-data     updated-entity
                                 :linked-data  updated-rev-entity
                                 :linked-etype rev-etype
-                                :rule-params  rule-params}}])
+                                :rule-params  (merge rev-rule-params rule-params)}}])
                  (when (and updated-rev-entity
                             (nil? (get entities-map rev-key)))
                    [{:scope    :object
@@ -475,8 +472,7 @@
                                 :new-data     updated-rev-entity
                                 :linked-data  updated-entity
                                 :linked-etype etype
-                                :rule-params  (merge rule-params
-                                                    (get rule-params-map rev-key))}}]))
+                                :rule-params  (merge rule-params rev-rule-params)}}]))
 
                 (and (#{:add-triple :deep-merge-triple} op)
                      create?)
