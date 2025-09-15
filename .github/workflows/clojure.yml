@@ -138,7 +138,7 @@ jobs:
 
         psql -d $DATABASE_URL -c "select version()"
         psql -d $DATABASE_URL -v ON_ERROR_STOP=1 <<'SQL'
-        ALTER SYSTEM SET session_preload_libraries = 'auto_explain,';
+        ALTER SYSTEM SET session_preload_libraries = 'auto_explain';
         SELECT pg_reload_conf();
         SQL
 
