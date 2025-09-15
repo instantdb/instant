@@ -4,8 +4,10 @@
    [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
    [instant.plans :as plans]
+   [instant.stripe :as stripe]
    [instant.util.exception :as ex]
    [instant.util.hsql :as uhsql]
+   [instant.util.tracer :as tracer]
    [medley.core :refer [update-existing]]))
 
 (def by-id-q
@@ -296,3 +298,55 @@
                      conn
                      (uhsql/formatp rename-q {:title title
                                               :id id}))))
+
+(def transfer-q
+  (uhsql/preformat
+   {:with [[:update {:update [:apps :a]
+                     :set {:creator-id nil
+                           :org_id :?org-id}
+                     :where [:= :a.id :?app-id]
+                     :returning :*}]]
+    :select [[[:coalesce
+               [:= :app-s.subscription_type_id [:inline plans/PRO_SUBSCRIPTION_TYPE]]
+               :false]
+              :paid-app]
+             [:app-s.stripe-customer-id :app-stripe-customer-id]
+             [:app-s.stripe-subscription-id :app-stripe-subscription-id]
+             [[:coalesce
+               [:= :org-s.subscription_type_id [:inline plans/STARTUP_SUBSCRIPTION_TYPE]]
+               :false]
+              :paid-org]
+             [:org-s.stripe-customer-id :org-stripe-customer-id]
+             [:org-s.stripe-subscription-id :org-stripe-subscription-id]]
+    :from :update
+    :join [[:apps :a] [:= :a.id :update.id]
+           [:orgs :o] [:= :o.id :update.org_id]]
+    :left-join [[:instant_subscriptions :app-s] [:= :a.id :app-s.app_id]
+                [:instant_subscriptions :org-s] [:= :o.id :org-s.org_id]]}))
+
+(defn transfer-app-to-org!
+  "Transfers app to the given org. Does not do a permission check,
+   expects the caller to check that the user has access to both the
+   org and the app."
+  ([params] (transfer-app-to-org! (aurora/conn-pool :write) params))
+  ([conn {:keys [app-id org-id]}]
+   ;; NEXTUP: transfer members
+   (let [{:keys [paid_app
+                 paid_org
+                 app_stripe_customer_id
+                 app_stripe_subscription_id
+                 org_stripe_customer_id
+                 org_stripe_subscription_id]}
+         (app-model/with-cache-invalidation app-id
+           (sql/select-one ::transfer-app-to-org!
+                           conn
+                           (uhsql/formatp transfer-q {:org-id org-id
+                                                      :app-id app-id})))
+         credit (when (and paid_org paid_app)
+                  (tracer/with-span! {:name "transfer-app/cancel-subscription-and-credit-customer"}
+                    (stripe/cancel-subscription-and-credit-customer {:app-customer-id app_stripe_customer_id
+                                                                     :app-subscription-id app_stripe_subscription_id
+                                                                     :org-id org-id
+                                                                     :org-customer-id org_stripe_customer_id
+                                                                     :org-subscription-id org_stripe_subscription_id})))]
+     {:credit (:credit credit)})))

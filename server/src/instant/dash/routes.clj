@@ -48,6 +48,7 @@
             [instant.reactive.ephemeral :as eph]
             [instant.session-counter :as session-counter]
             [instant.storage.coordinator :as storage-coordinator]
+            [instant.stripe :as stripe]
             [instant.superadmin.routes :refer [req->superadmin-user-and-app!]]
             [instant.system-catalog :as system-catalog]
             [instant.util.async :refer [fut-bg]]
@@ -184,11 +185,13 @@
 
 (defn with-team-app-fixtures [role f]
   (fixtures/with-team-app
+    true
     (instant-user-model/get-by-email {:email "marky@instantdb.com"})
     (instant-user-model/get-by-email {:email "stopa@instantdb.com"}) role f))
 
 (defn with-pro-app-fixtures [f]
   (fixtures/with-pro-app
+    true
     (instant-user-model/get-by-email {:email "marky@instantdb.com"}) f))
 
 (defn req->org-and-user!
@@ -927,11 +930,14 @@
         {subscription-name :name stripe-subscription-id :stripe_subscription_id}
         (instant-subscription-model/get-by-org-id {:org-id org-id})
         {total-app-bytes :num_bytes} (org-model/org-usage {:org-id org-id})
-        total-storage-bytes (:total_byte_size (app-file-model/get-org-usage org-id))]
+        total-storage-bytes (:total_byte_size (app-file-model/get-org-usage org-id))
+        customer-balance (when stripe-subscription-id
+                           (stripe/customer-balance-by-subscription stripe-subscription-id))]
     (response/ok {:subscription-name (or subscription-name default-subscription)
                   :stripe-subscription-id stripe-subscription-id
                   :total-app-bytes total-app-bytes
-                  :total-storage-bytes total-storage-bytes})))
+                  :total-storage-bytes total-storage-bytes
+                  :customer-balance customer-balance})))
 
 (defn org-rename-post [req]
   (let [{{org-id :id} :org} (req->org-and-user! :admin req)
@@ -1254,6 +1260,13 @@
     (app-model/rename-by-id! {:id app-id
                               :title title})
     (response/ok {})))
+
+(defn app-transfer-to-org [req]
+  (let [{{app-id :id} :app} (req->app-and-user! :owner req)
+        {{org-id :id} :org} (req->org-and-user! :admin req)
+        {:keys [credit]} (org-model/transfer-app-to-org! {:app-id app-id
+                                                          :org-id org-id})]
+    (response/ok {:credit credit})))
 
 ;; ---
 ;; Storage
@@ -1827,6 +1840,7 @@
   (DELETE "/dash/personal_access_tokens/:id" [] personal-access-tokens-delete)
 
   (POST "/dash/apps/:app_id/rename" [] app-rename-post)
+  (POST "/dash/apps/:app_id/transfer_to_org/:org_id" [] app-transfer-to-org)
 
   ;; Storage
   (PUT "/dash/apps/:app_id/storage/upload", [] upload-put)
