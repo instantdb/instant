@@ -7,10 +7,101 @@ on:
     types: [opened, synchronize]
 
 jobs:
+  detect_changes:
+    runs-on: ubuntu-latest
+    outputs:
+      client_did_change: ${{ fromJSON(steps.detect_changes.outputs.result).docs_did_change }}
+      docs_did_change: ${{ fromJSON(steps.detect_changes.outputs.result).docs_did_change }}
+      mcp_did_change: ${{ fromJSON(steps.detect_changes.outputs.result).mcp_did_change }}
+      packages_did_change: ${{ fromJSON(steps.detect_changes.outputs.result).packages_did_change }}
+      version_did_change: ${{ fromJSON(steps.detect_changes.outputs.result).version_did_change }}
+    steps:
+    - name: Detect changes
+      id: detect_changes
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const base = context.payload.before || context.payload.pull_request?.base.sha;
+          const head = context.payload.after || context.payload.pull_request?.head.sha;
+          const owner = context.repo.owner;
+          const repo = context.repo.repo;
+          const { data } = await (base === '0000000000000000000000000000000000000000'
+            ? github.rest.repos.getCommit({
+                owner,
+                repo,
+                ref: head,
+              })
+            : github.rest.repos.compareCommits({
+                owner,
+                repo,
+                base,
+                head,
+              }));
+
+          const files = data.files.map((f) => f.filename);
+
+          const output = {
+            client_did_change: false,
+            docs_did_change: false,
+            mcp_did_change: false,
+            packages_did_change: false,
+            version_did_change: false
+          };
+
+          for (const file of files) {
+            const changes = {
+              client: file.startsWith('client'),
+              docs: /docs/.test(file),
+              mcpPackages: /^client\/packages\/(mcp|core|platform|admin)/.test(file),
+              mcpDockerfile: file === 'client/Dockerfile.mcp',
+              mcpFly: file === 'client/fly.toml',
+              workflowFile: file === '.github/workflows/js.yml',
+              packages: file.startsWith('client/packages'),
+              version: file === 'client/packages/version/src/version.ts',
+            };
+            console.log('file', file);
+            console.log('changes', changes);
+
+            if (changes.client) {
+              console.log('client_did_change', true);
+              output.client_did_change = true;
+            }
+
+            if (changes.docs) {
+              console.log('docs_did_change', true);
+              output.docs_did_change = true;
+            }
+
+            if (
+              changes.mcpPackages ||
+              changes.mcpDockerfile ||
+              changes.mcpFly ||
+              changes.workflowFile
+            ) {
+              console.log('mcp_did_change', true);
+              output.mcp_did_change = true;
+            }
+
+            if (changes.packages || changes.workflowFile) {
+              console.log('packages_did_change', true);
+              output.packages_did_change = true;
+            }
+
+            if (changes.version) {
+              console.log('version_did_change', true);
+              output.version_did_change = true;
+            }
+          }
+
+          console.log('output', output);
+          return output;
+
   build:
     name: Build & Test packages
     timeout-minutes: 15
     runs-on: ubuntu-latest
+    needs: [ detect_changes ]
+    if: needs.detect_changes.outputs.client_did_change == 'true'
     steps:
       - name: Check out code
         uses: actions/checkout@v4
@@ -60,6 +151,8 @@ jobs:
     name: Check formatting
     timeout-minutes: 15
     runs-on: ubuntu-latest
+    needs: [ detect_changes ]
+    if: needs.detect_changes.outputs.client_did_change == 'true'
     steps:
       - name: Check out code
         uses: actions/checkout@v4
@@ -92,86 +185,6 @@ jobs:
       - name: Check prettier formatting
         working-directory: client
         run: pnpm run check-format
-
-  detect_changes:
-    runs-on: ubuntu-latest
-    outputs:
-      docs_did_change: ${{ fromJSON(steps.detect_changes.outputs.result).docs_did_change }}
-      mcp_did_change: ${{ fromJSON(steps.detect_changes.outputs.result).mcp_did_change }}
-      packages_did_change: ${{ fromJSON(steps.detect_changes.outputs.result).packages_did_change }}
-      version_did_change: ${{ fromJSON(steps.detect_changes.outputs.result).version_did_change }}
-    steps:
-    - name: Detect changes
-      id: detect_changes
-      uses: actions/github-script@v7
-      with:
-        script: |
-          const base = context.payload.before || context.payload.pull_request?.base.sha;
-          const head = context.payload.after || context.payload.pull_request?.head.sha;
-          const owner = context.repo.owner;
-          const repo = context.repo.repo;
-          const { data } = await (base === '0000000000000000000000000000000000000000'
-            ? github.rest.repos.getCommit({
-                owner,
-                repo,
-                ref: head,
-              })
-            : github.rest.repos.compareCommits({
-                owner,
-                repo,
-                base,
-                head,
-              }));
-
-          const files = data.files.map((f) => f.filename);
-
-          const output = {
-            docs_did_change: false,
-            mcp_did_change: false,
-            packages_did_change: false,
-            version_did_change: false
-          };
-
-          for (const file of files) {
-            const changes = {
-              docs: /docs/.test(file),
-              mcpPackages: /^client\/packages\/(mcp|core|platform|admin)/.test(file),
-              mcpDockerfile: file === 'client/Dockerfile.mcp',
-              mcpFly: file === 'client/fly.toml',
-              workflowFile: file === '.github/workflows/js.yml',
-              packages: file.startsWith('client/packages'),
-              version: file === 'client/packages/version/src/version.ts',
-            };
-            console.log('file', file);
-            console.log('changes', changes);
-            if (changes.docs) {
-              console.log('docs_did_change', true);
-              output.docs_did_change = true;
-            }
-
-            if (
-              changes.mcpPackages ||
-              changes.mcpDockerfile ||
-              changes.mcpFly ||
-              changes.workflowFile
-            ) {
-              console.log('mcp_did_change', true);
-              output.mcp_did_change = true;
-            }
-
-            if (changes.packages || changes.workflowFile) {
-              console.log('packages_did_change', true);
-              output.packages_did_change = true;
-            }
-
-            if (changes.version) {
-              console.log('version_did_change', true);
-              output.version_did_change = true;
-            }
-          }
-
-          console.log('output', output);
-          return output;
 
   publish-docs:
     name: Publish algolia changes
@@ -349,7 +362,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_API_KEY }}
           NPM_CONFIG_PROVENANCE: true
-          
+
       - name: Debug
         if: failure()
         uses: actions/upload-artifact@v4
@@ -360,7 +373,8 @@ jobs:
   vercel-preview:
     name: Deploy to vercel preview
     runs-on: ubuntu-latest
-    if: github.ref != 'refs/heads/main'
+    needs: [ detect_changes ]
+    if: github.ref != 'refs/heads/main' && needs.detect_changes.outputs.client_did_change == 'true'
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -440,7 +454,8 @@ jobs:
   vercel-prod-deploy:
     name: Deploy to vercel production
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    needs: [ detect_changes ]
+    if: github.ref == 'refs/heads/main' && needs.detect_changes.outputs.client_did_change == 'true'
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
