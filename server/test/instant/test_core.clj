@@ -137,7 +137,7 @@
               (assoc acc (:var row) (:elapsed row)))
             {}
             (:timings
-              (<-json (tool/inspect (slurp "timings.json")) true)))
+              (<-json (slurp "timings/timings.json") true)))
     (catch FileNotFoundException _e
       (println "no timings.json file")
       nil)))

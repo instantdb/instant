@@ -84,7 +84,7 @@ jobs:
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: timings.json
+        name: timings
         path: timings.json
 
 
@@ -156,13 +156,13 @@ jobs:
     - name: Get timings
       uses: actions/download-artifact@v4
       with:
-        pattern: timings.json
+        pattern: timings
         path: server
 
     - name: Debug
       run: |
         find server
-        cat server/timings.json || true
+        cat server/timings/timings.json || true
 
     - name: Install Clojure dependencies
       working-directory: server
