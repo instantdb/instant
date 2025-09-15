@@ -147,10 +147,16 @@ jobs:
         psql -d $DATABASE_URL -v ON_ERROR_STOP=1 <<'SQL'
         ALTER SYSTEM SET auto_explain.log_min_duration = '100ms';
         ALTER SYSTEM SET auto_explain.log_analyze = on;
+        ALTER SYSTEM SET auto_explain.log_nested_statements = on;
+        ALTER SYSTEM SET auto_explain.log_timing = on;
+        ALTER SYSTEM SET auto_explain.log_triggers = on;
+        ALTER SYSTEM SET auto_explain.log_verbose = on;
         ALTER SYSTEM SET auto_explain.log_buffers = on;
-        ALTER SYSTEM SET auto_explain.log_timing = off;
+        ALTER SYSTEM SET auto_explain.log_parameter_max_length = 0;
         SELECT pg_reload_conf();
         SQL
+
+        psql -d $DATABASE_URL -c "show data_directory;"
 
 
     - name: Install clojure tools
