@@ -110,7 +110,7 @@ jobs:
           POSTGRES_PASSWORD: test_password
           POSTGRES_DB: test_db
         options: >-
-          --tmpfs /var/lib/postgresql/data:rw
+          --mount type=tmpfs,destination=/var/lib/postgresql/data
 
     steps:
     - name: Checkout
