@@ -137,8 +137,9 @@
               (assoc acc (:var row) (:elapsed row)))
             {}
             (:timings
-              (<-json (slurp "timings.json") true)))
+              (<-json (tool/inspect (slurp "timings.json")) true)))
     (catch FileNotFoundException _e
+      (println "no timings.json file")
       nil)))
 
 (defn make-test-var-sort [timings]
@@ -197,10 +198,10 @@
 
     (binding [clojure.test/*report-counters* counters]
       (global-fixture-fn
-       (fn []
-         (doseq [v test-vars]
-           (println "Testing" (str (symbol v)))
-           (circleci.test/test-var v config))))
+        (fn []
+          (doseq [v test-vars]
+            (println "Testing" (str (symbol v)))
+            (circleci.test/test-var v config))))
       (let [summary (assoc @counters :type :summary)
             exit-code (+ (:fail summary) (:error summary))]
         (clojure.test/do-report summary)
