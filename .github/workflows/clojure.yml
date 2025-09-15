@@ -109,15 +109,6 @@ jobs:
           POSTGRES_USER: test_user
           POSTGRES_PASSWORD: test_password
           POSTGRES_DB: test_db
-        options: >-
-          --entrypoint '
-          -c wal_level=logical
-          -c max_replication_slots=4
-          -c max_wal_senders=4
-          -c shared_preload_libraries=pg_hint_plan,auto_explain
-          -c random_page_cost=1.1
-          -c auto_explain.log_min_duration=100ms
-          -c auto_explain.log_analyze=true'
 
     steps:
     - name: Checkout
@@ -146,6 +137,14 @@ jobs:
            up
 
         psql -d $DATABASE_URL -c "select version()"
+        psql -d $DATABASE_URL -v ON_ERROR_STOP=1 <<'SQL'
+        ALTER SYSTEM SET session_preload_libraries = 'auto_explain,';
+        ALTER SYSTEM SET auto_explain.log_min_duration = '100ms';
+        ALTER SYSTEM SET auto_explain.log_analyze = on;
+        ALTER SYSTEM SET auto_explain.log_buffers = on;
+        ALTER SYSTEM SET auto_explain.log_timing = off;
+        SELECT pg_reload_conf();
+        SQL
 
     - name: Install clojure tools
       uses: DeLaGuardo/setup-clojure@13.1
