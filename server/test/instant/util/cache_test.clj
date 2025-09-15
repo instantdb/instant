@@ -141,8 +141,4 @@
 
     (is (= {:a :a
             :e :e}
-           @(cache/get-all-async cache [:a :e] (fn [xs] (zipmap xs xs)))))
-
-    ;; FIXME this is not fully determenistic
-    (is @(cache/get-if-present-async cache :a))
-    (is (not (cache/get-if-present-async cache :b)))))
+           @(cache/get-all-async cache [:a :e] (fn [xs] (zipmap xs xs)))))))

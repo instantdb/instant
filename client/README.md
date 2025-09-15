@@ -105,7 +105,7 @@ complex pages or apps we separate logic across
 - `www/components` for React components
 - `www/pages` for Next.js pages
 
-To illustrate a concrete example, providing feedback for the docs is powered by it's own Instant
+To illustrate a concrete example, providing feedback for the docs is powered by its own Instant
 app! We also have an internal dashboard to view feedback. Some notes on how this
 is structured:
 
