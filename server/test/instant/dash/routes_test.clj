@@ -9,6 +9,8 @@
    [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
    [instant.model.instant-stripe-customer :as stripe-customer-model]
+   [instant.model.org-members :as org-members]
+   [instant.model.app-members :as app-members]
    [instant.stripe :as stripe]
    [instant.util.crypt :as crypt-util]
    [instant.util.json :refer [->json]]
@@ -698,7 +700,6 @@
                                           :Content-Type "application/json"}
                                 :as :json})
                     :body
-                    tool/inspect
                     :credit)))
       (let [app (app-model/get-by-id! {:id (:id app)})]
         (is (nil? (:creator_id app)))
@@ -713,27 +714,88 @@
         false
         owner
         (fn [{:keys [app stripe-subscription-id]}]
-          (is (neg? (-> (http/post (format "%s/dash/apps/%s/transfer_to_org/%s"
-                                           config/server-origin
-                                           (:id app)
-                                           (:id org))
-                                   {:headers {:Authorization (str "Bearer " (:refresh-token owner))
-                                              :Content-Type "application/json"}
-                                    :as :json})
-                        :body
-                        :credit)))
-          ;; is app transfered
-          (is (nil? (:creator_id (app-model/get-by-id! {:id (:id app)}))))
-          (is (= (:id org) (:org_id (app-model/get-by-id! {:id (:id app)}))))
 
-          (is (= "canceled" (.getStatus (stripe/subscription stripe-subscription-id))))
+          (let [resp (http/post (format "%s/dash/apps/%s/transfer_to_org/%s"
+                                        config/server-origin
+                                        (:id app)
+                                        (:id org))
+                                {:headers {:Authorization (str "Bearer " (:refresh-token owner))
+                                           :Content-Type "application/json"}
+                                 :as :json})]
+            (is (neg? (-> resp
+                          :body
+                          :credit)))
+            ;; is app transfered
+            (is (nil? (:creator_id (app-model/get-by-id! {:id (:id app)}))))
+            (is (= (:id org) (:org_id (app-model/get-by-id! {:id (:id app)}))))
 
-          ;; does the customer have a credit
-          (let [sub-id (:stripe_subscription_id
-                        (sql/select-one (aurora/conn-pool :read)
-                                        ["select * from instant_subscriptions s join orgs o on o.subscription_id = s.id where o.id = ?::uuid" (:id org)]))]
-            ;; If this fails around midnight on the last day of the month, just try again
-            (is (neg? (stripe/customer-balance-by-subscription sub-id)))))))))
+            (is (= "canceled" (.getStatus (stripe/subscription stripe-subscription-id))))
+
+            ;; does the customer have a credit
+            (let [sub-id (:stripe_subscription_id
+                          (sql/select-one (aurora/conn-pool :read)
+                                          ["select * from instant_subscriptions s join orgs o on o.subscription_id = s.id where o.id = ?::uuid" (:id org)]))]
+              ;; If this fails around midnight on the last day of the month, just try again
+              (is (neg? (stripe/customer-balance-by-subscription sub-id))))))))))
+
+(deftest members-transfer-for-paid-orgs
+  (with-startup-org
+    true
+    (fn [{:keys [org owner]}]
+      (doseq [{:keys [app-role org-role expected]} [{:app-role "admin"
+                                                     :org-role "admin"
+                                                     :expected {:status 200
+                                                                :org-role "admin"
+                                                                :app-role nil}}
+                                                    {:app-role "collaborator"
+                                                     :org-role "admin"
+                                                     :expected {:status 200
+                                                                :org-role "admin"
+                                                                :app-role nil}}
+                                                    {:app-role "admin"
+                                                     :org-role "collaborator"
+                                                     :expected {:status 200
+                                                                :org-role "collaborator"
+                                                                :app-role "admin"}}
+                                                    {:app-role "collaborator"
+                                                     :org-role "collaborator"
+                                                     :expected {:status 200
+                                                                :org-role "collaborator"
+                                                                :app-role nil}}]]
+        (testing (format "app-role=%s, org-role=%s" app-role org-role)
+          (with-user
+            (fn [app-member]
+              (with-empty-app
+                (:id owner)
+                (fn [app]
+                  (is (app-members/create! {:app-id (:id app)
+                                            :user-id (:id app-member)
+                                            :role app-role}))
+                  (is (org-members/create! {:org-id (:id org)
+                                            :user-id (:id app-member)
+                                            :role org-role}))
+                  (let [resp (http/post (format "%s/dash/apps/%s/transfer_to_org/%s"
+                                                config/server-origin
+                                                (:id app)
+                                                (:id org))
+                                        {:headers {:Authorization (str "Bearer " (:refresh-token owner))
+                                                   :Content-Type "application/json"}
+                                         :as :json})]
+
+                    (is (= (:status expected)
+                           (:status resp)))
+
+                    (is (= (:app-role expected)
+                           (:member_role
+                            (app-members/get-by-app-and-user {:app-id (:id app)
+                                                              :user-id (:id app-member)})))
+                        (format "user has role `%s` on app after transfer" (:app-role expected)))
+
+                    (is (= (:org-role expected)
+                           (:role
+                            (org-members/get-by-org-and-user {:org-id (:id org)
+                                                              :user-id (:id app-member)})))
+                        (format "user has role `%s` on org after transfer" (:org-role expected)))))))))))))
 
 (deftest transfer-paid-app-to-unpaid-org
   (with-org-user-and-app
