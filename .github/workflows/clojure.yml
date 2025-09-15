@@ -66,23 +66,26 @@ jobs:
           console.log('output', output);
           return output;
     - name: Fetch timings
-      if: ${{ secrets.INSTANT_TIMINGS_ADMIN_TOKEN != '' && fromJSON(steps.detect_changes.outputs.result) }}
+      if: ${{ fromJSON(steps.detect_changes.outputs.result) }}
       env:
         INSTANT_TIMINGS_ADMIN_TOKEN: ${{ secrets.INSTANT_TIMINGS_ADMIN_TOKEN }}
       continue-on-error: true
       run: |
-        curl 'https://api.instantdb.com/admin/query' \
-          -H "app-id: $INSTANT_TIMINGS_APP_ID" \
-          -H "Authorization: Bearer $INSTANT_TIMINGS_ADMIN_TOKEN" \
-          -H "Content-Type: application/json" \
-          --data-raw '{"query": {"timings": {}}}' \
-          -o timings.json
+        if [ -n "$INSTANT_TIMINGS_ADMIN_TOKEN" ]; then
+          curl 'https://api.instantdb.com/admin/query' \
+            -H "app-id: $INSTANT_TIMINGS_APP_ID" \
+            -H "Authorization: Bearer $INSTANT_TIMINGS_ADMIN_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data-raw '{"query": {"timings": {}}}' \
+            -o timings.json
+        else
+          echo "No admin token, skipping timings fetch"
+        fi
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
         name: timings.json
         path: timings.json
-        overwrite: true
 
 
   clj-check:
