@@ -1,6 +1,6 @@
 (ns instant.model.orgs-test
   (:require
-   [clojure.test :refer [deftest is testing]]
+   [clojure.test :refer [deftest is]]
    [instant.fixtures :refer [with-startup-org]]
    [instant.model.app :as app-model]
    [instant.model.org :as org-model]))
