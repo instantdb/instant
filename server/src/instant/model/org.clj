@@ -63,6 +63,7 @@
                                                        [:instant-subscriptions :app-s] [:= :app-s.app_id :a.id]]
                                            :where [:and
                                                    [:= :m.user-id :?user-id]
+                                                   [:= nil :a.deletion-marked-at]
                                                    [:or
                                                     [:= :org-s.subscription_type_id [:inline plans/STARTUP_SUBSCRIPTION_TYPE]]
                                                     [:= :app-s.subscription_type_id [:inline plans/PRO_SUBSCRIPTION_TYPE]]]]}]
@@ -98,6 +99,7 @@
                                    :where [:and
                                            [:= :m.user-id :?user-id]
                                            [:= :o.id :?org-id]
+                                           [:= nil :a.deletion-marked-at]
                                            [:or
                                             [:= :org-s.subscription_type_id [:inline plans/STARTUP_SUBSCRIPTION_TYPE]]
                                             [:= :app-s.subscription_type_id [:inline plans/PRO_SUBSCRIPTION_TYPE]]]]}]}))
@@ -195,6 +197,7 @@
                                            :where [:and
                                                    [:= :o.id :?org-id]
                                                    [:= :m.user-id :?user-id]
+                                                   [:= nil :a.deletion-marked-at]
                                                    [:or
                                                     [:= :org-s.subscription_type_id [:inline plans/STARTUP_SUBSCRIPTION_TYPE]]
                                                     [:= :app-s.subscription_type_id [:inline plans/PRO_SUBSCRIPTION_TYPE]]]]
@@ -267,7 +270,9 @@
                               :num_bytes]]
                     :from [[:attr-sketches :s]]
                     :join [[:apps :a] [:= :s.app_id :a.id]]
-                    :where [:= :a.org_id :?org-id]}))
+                    :where [:and
+                            [:= :a.org_id :?org-id]
+                            [:= nil :a.deletion-marked-at]]}))
 
 (defn org-usage
   "Estimates amount of bytes used for an orgs's triples.
