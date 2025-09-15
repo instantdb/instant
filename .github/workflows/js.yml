@@ -10,7 +10,7 @@ jobs:
   detect_changes:
     runs-on: ubuntu-latest
     outputs:
-      client_did_change: ${{ fromJSON(steps.detect_changes.outputs.result).docs_did_change }}
+      client_did_change: ${{ fromJSON(steps.detect_changes.outputs.result).client_did_change }}
       docs_did_change: ${{ fromJSON(steps.detect_changes.outputs.result).docs_did_change }}
       mcp_did_change: ${{ fromJSON(steps.detect_changes.outputs.result).mcp_did_change }}
       packages_did_change: ${{ fromJSON(steps.detect_changes.outputs.result).packages_did_change }}
