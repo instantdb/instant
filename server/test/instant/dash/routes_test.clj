@@ -781,7 +781,6 @@
                                         {:headers {:Authorization (str "Bearer " (:refresh-token owner))
                                                    :Content-Type "application/json"}
                                          :as :json})]
-                    (println (:body resp))
 
                     (is (= (:status expected)
                            (:status resp)))
