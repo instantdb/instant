@@ -1,5 +1,8 @@
 name: Clojure CI
 
+env:
+  INSTANT_TIMINGS_APP_ID: 'b6003065-8152-4b15-8bcd-09a70e322854'
+
 on:
   pull_request:
   push:
@@ -62,6 +65,25 @@ jobs:
 
           console.log('output', output);
           return output;
+    - name: Fetch timings
+      if: secrets.INSTANT_TIMINGS_ADMIN_TOKEN != '' && fromJSON(steps.detect_changes.outputs.result) == 'true'
+      env:
+        INSTANT_TIMINGS_ADMIN_TOKEN: ${{ secrets.INSTANT_TIMINGS_ADMIN_TOKEN }}
+      continue-on-error: true
+      run: |
+        curl 'https://api.instantdb.com/admin/query' \
+          -H "app-id: $INSTANT_TIMINGS_APP_ID" \
+          -H "Authorization: Bearer $INSTANT_TIMINGS_ADMIN_TOKEN" \
+          -H "Content-Type: application/json" \
+          --data-raw '{"query": {"timings": {}}}' \
+          -o timings.json
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: timings.json
+        path: timings.json
+        overwrite: true
+
 
   clj-check:
     runs-on: ubuntu-latest
@@ -120,6 +142,12 @@ jobs:
           ~/.deps.clj
         key: cljdeps-${{ hashFiles('server/deps.edn') }}
         restore-keys: cljdeps
+
+    - name: Get timings
+      uses: actions/download-artifact@v4
+      with:
+        pattern: timings.json
+        path: server/timings.json
 
     - name: Install Clojure dependencies
       working-directory: server
