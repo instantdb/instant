@@ -149,7 +149,7 @@
         (compare a b)
         t-compare))))
 
-(defn -main [_]
+(defn -main [& _args]
   (let [nses (find-namespaces-in-dir (io/file "test"))
         _ (apply require :reload nses)
         test-vars (for [ns nses
