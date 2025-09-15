@@ -150,7 +150,7 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         pattern: timings.json
-        path: server/timings.json
+        path: server
 
     - name: Install Clojure dependencies
       working-directory: server
