@@ -164,12 +164,12 @@
             _ (println "Timings" timings)
             sort-fn (make-test-var-sort timings)
             sorted-vars (sort sort-fn vars)
-            test-vars (-> (keep-indexed (fn [i ns]
-                                          (when (= node-index (mod i node-count))
-                                            ns))
-                                        sorted-vars)
-                          ;; sort to keep the vars in the same ns together
-                          sort)]
+            test-vars (->> (keep-indexed (fn [i ns]
+                                           (when (= node-index (mod i node-count))
+                                             ns))
+                                         sorted-vars)
+                           ;; sort to keep the vars in the same ns together
+                           (sort-by #(-> % symbol str)))]
         (println "Testing vars:")
         (doseq [v test-vars]
           (println " " v))

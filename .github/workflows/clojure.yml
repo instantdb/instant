@@ -159,6 +159,11 @@ jobs:
         pattern: timings.json
         path: server
 
+    - name: Debug
+      run: |
+        find server
+        cat server/timings.json || true
+
     - name: Install Clojure dependencies
       working-directory: server
       run: clojure -P
