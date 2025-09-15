@@ -5,7 +5,7 @@ authors: stopachka
 ---
 
 > We're InstantDB, we make it easy to add a backend with auth, file storage, and
-> real-time updates to your web and mobile apps. <a href="/tutorial" target="_blank">Try us out and get a live app deployed in minutes.</a>
+> real-time updates to your web and mobile apps.
 
 I've been seeing posts comparing GPT-5 and Sonnet, but thought comparing GPT-5
 and Opus 4.1 would be more interesting!

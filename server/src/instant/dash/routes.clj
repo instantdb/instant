@@ -1,6 +1,5 @@
 (ns instant.dash.routes
   (:require [clj-http.client :as clj-http]
-            [clojure.core.cache.wrapped :as cache]
             [clojure.string :as string]
             [clojure.tools.logging :as log]
             [clojure.walk :as w]
@@ -53,7 +52,7 @@
             [instant.superadmin.routes :refer [req->superadmin-user-and-app!]]
             [instant.system-catalog :as system-catalog]
             [instant.util.async :refer [fut-bg]]
-            [instant.util.cache :refer [lookup-or-miss]]
+            [instant.util.cache :as cache]
             [instant.util.coll :as ucoll]
             [instant.util.crypt :as crypt-util]
             [instant.util.date :as date]
@@ -1098,25 +1097,26 @@
        (assoc owner-req :body {:invite-id (:id invite)})))))
 
 (defn team-member-remove-delete [req]
-  (let [invite-id (ex/get-param! req [:body :id] uuid-util/coerce)
-
-        {:keys [type foreign-key]}
+  (let [member-id-param (ex/get-param! req [:body :id] uuid-util/coerce)
+        {:keys [type member-id]}
         (cond (get-in req [:params :app_id])
               {:type :app
                :foreign-key (-> (req->app-and-user! :admin req)
                                 :app
-                                :id)}
+                                :id)
+               :member-id member-id-param}
 
               (get-in req [:params :org_id])
               {:type :org
                :foreign-key (-> (req->org-and-user! :admin req)
                                 :org
-                                :id)}
+                                :id)
+               :member-id member-id-param}
 
               :else (ex/throw-missing-param! [:params :app_id]))]
-    (member-invites-model/delete-by-id-and-foreign-key! {:type type
-                                                         :foreign-key foreign-key
-                                                         :id invite-id})
+    (case type
+      :app (instant-app-members/delete-by-id! {:id member-id})
+      :org (instant-org-members/delete-by-id! {:id member-id}))
     (response/ok {})))
 
 (comment
@@ -1491,18 +1491,16 @@
     (instant-user-refresh-token-model/delete-by-id! {:id token})
     (response/ok {})))
 
-(def active-session-cache (cache/ttl-cache-factory {} :ttl 5000))
-
-(defn get-total-count-cached []
-  (lookup-or-miss active-session-cache
-                  :total-count
-                  (fn [_]
-                    (->> (machine-summaries/get-all-num-sessions (eph/get-hz))
-                         vals
-                         (reduce +)))))
+(def active-session-cache
+  (cache/make
+   {:ttl      5000
+    :value-fn (fn [_]
+                (->> (machine-summaries/get-all-num-sessions (eph/get-hz))
+                     vals
+                     (reduce +)))}))
 
 (defn active-sessions-get [_]
-  (response/ok {:total-count (get-total-count-cached)}))
+  (response/ok {:total-count (cache/get active-session-cache :total-count)}))
 
 (defn oauth-apps-get [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)]

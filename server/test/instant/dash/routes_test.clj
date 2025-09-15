@@ -1,17 +1,24 @@
 (ns instant.dash.routes-test
   (:require
    [clj-http.client :as http]
-   [clojure.test :refer [deftest is testing]]
+   [clojure.test :refer [deftest is testing use-fixtures]]
    [instant.config :as config]
-   [instant.dash.routes :as route]
    [instant.fixtures :refer [random-email with-empty-app with-org with-pro-app with-startup-org with-user]]
+   [instant.dash.routes :as routes]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
    [instant.model.instant-stripe-customer :as stripe-customer-model]
    [instant.stripe :as stripe]
    [instant.util.crypt :as crypt-util]
-   [instant.util.json :refer [->json]]))
+   [instant.util.json :refer [->json]]
+   [instant.util.tracer :as tracer]))
+
+(defn silence-routes-exceptions [f]
+  (with-redefs [tracer/*silence-exceptions?* (atom true)]
+    (f)))
+
+(use-fixtures :each silence-routes-exceptions)
 
 (deftest app-invites-work
   (with-redefs [config/postmark-send-enabled? (constantly false)]
@@ -86,17 +93,17 @@
                         (is (= "collaborator" (:member_role member)))))
 
                     (testing "members can be removed"
-                      (let [_res (http/post (str config/server-origin "/dash/apps/" (:id app) "/members/update")
-                                            {:headers {:Authorization (str "Bearer " (:refresh-token u))
-                                                       :Content-Type "application/json"}
-                                             :as :json
-                                             :body (->json {:id (:id member)
-                                                            :role "collaborator"})})
+                      (let [_res (http/delete (str config/server-origin "/dash/apps/" (:id app) "/members/remove")
+                                              {:headers {:Authorization (str "Bearer " (:refresh-token u))
+                                                         :Content-Type "application/json"}
+                                               :as :json
+                                               :body (->json {:id (:id member)
+                                                              :role "collaborator"})})
                             member (sql/select-one (aurora/conn-pool :read)
                                                    ["select * from app_members where app_id = ? and user_id = ?"
                                                     (:id app)
                                                     (:id invitee)])]
-                        (is (= "collaborator" (:member_role member)))))))))))))))
+                        (is (nil? member))))))))))))))
 
 (deftest app-invites-can-be-revoked
   (with-redefs [config/postmark-send-enabled? (constantly false)]
@@ -277,17 +284,17 @@
                         (is (= "collaborator" (:role member)))))
 
                     (testing "members can be removed"
-                      (let [_res (http/post (str config/server-origin "/dash/orgs/" (:id org) "/members/update")
-                                            {:headers {:Authorization (str "Bearer " (:refresh-token u))
-                                                       :Content-Type "application/json"}
-                                             :as :json
-                                             :body (->json {:id (:id member)
-                                                            :role "collaborator"})})
+                      (let [_res (http/delete (str config/server-origin "/dash/orgs/" (:id org) "/members/remove")
+                                              {:headers {:Authorization (str "Bearer " (:refresh-token u))
+                                                         :Content-Type "application/json"}
+                                               :as :json
+                                               :body (->json {:id (:id member)
+                                                              :role "collaborator"})})
                             member (sql/select-one (aurora/conn-pool :read)
                                                    ["select * from org_members where org_id = ? and user_id = ?"
                                                     (:id org)
                                                     (:id invitee)])]
-                        (is (= "collaborator" (:role member)))))))))))))))
+                        (is (nil? member))))))))))))))
 
 (deftest org-invites-can-be-revoked
   (with-redefs [config/postmark-send-enabled? (constantly false)]
@@ -477,8 +484,8 @@
                        :headers {"authorization" (str "Bearer " (:refresh-token user))}}]
               (case expected
                 :ok (is (= (:id app)
-                           (:id (:app (route/req->app-and-user! role req)))))
-                :error (is (thrown? Exception (route/req->app-and-user! role req)))))))))))
+                           (:id (:app (routes/req->app-and-user! role req)))))
+                :error (is (thrown? Exception (routes/req->app-and-user! role req)))))))))))
 
 (deftest you-are-an-app-member-of-the-org-if-you-are-a-member-of-an-app
   (with-startup-org
