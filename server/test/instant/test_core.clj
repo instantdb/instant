@@ -143,7 +143,9 @@
 
 (defn make-test-var-sort [timings]
   (fn [a b]
-    (let [ta (get timings (str (symbol a)))
+    (let [a (str (symbol a))
+          b (str (symbol b))
+          ta (get timings (str (symbol a)))
           tb (get timings (str (symbol b)))
           t-compare (compare ta tb)]
       (if (zero? t-compare)
