@@ -166,6 +166,7 @@ jobs:
         DATABASE_URL: "jdbc:postgresql://localhost:5432/test_db?user=test_user&password=test_password"
         TEST: "true"
         STRIPE_API_KEY: ${{ secrets.STRIPE_TEST_KEY }}
+        INSTANT_TIMINGS_ADMIN_TOKEN: ${{ secrets.INSTANT_TIMINGS_ADMIN_TOKEN }}
       run: clojure -M:test
 
     - name: Publish Test Report

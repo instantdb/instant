@@ -113,22 +113,23 @@
   (->TimingsReporter timing-state))
 
 (defn record-test-timings [timings-app-id timings-admin-token timings]
-  (clj-http.client/post "https://api.instantdb.com/admin/transact"
-                        {:headers {"app-id" timings-app-id
-                                   "Authorization" (str "Bearer " timings-admin-token)
-                                   "Content-Type" "application/json"}
-                         :as :json
-                         :body (->json {:steps (for [[var elapsed] timings
-                                                     :let [var-name (str (symbol var))
-                                                           _ (tool/def-locals)
-                                                           ns (str (:ns (meta (tool/inspect var))))
-                                                           name (str (:name (meta var)))]]
-                                                 ["update"
-                                                  "timings"
-                                                  ["var" var-name]
-                                                  {"namespace" ns
-                                                   "name" name
-                                                   "elapsed" elapsed}])})}))
+  (tracer/with-span! {:name "upload-test-timings"}
+    (clj-http.client/post "https://api.instantdb.com/admin/transact"
+                          {:headers {"app-id" timings-app-id
+                                     "Authorization" (str "Bearer " timings-admin-token)
+                                     "Content-Type" "application/json"}
+                           :as :json
+                           :body (->json {:steps (for [[var elapsed] timings
+                                                       :let [var-name (str (symbol var))
+                                                             _ (tool/def-locals)
+                                                             ns (str (:ns (meta (tool/inspect var))))
+                                                             name (str (:name (meta var)))]]
+                                                   ["update"
+                                                    "timings"
+                                                    ["var" var-name]
+                                                    {"namespace" ns
+                                                     "name" name
+                                                     "elapsed" elapsed}])})})))
 
 (defn get-timings []
   (try
