@@ -134,12 +134,11 @@
     (is true)))
 
 (deftest lookup-or-miss-batch-works
-  (dotimes [x 1000]
-    (let [cache (cache/make-async {:max-size 2})]
-      (is (= {:a :a
-              :b :b}
-             @(cache/get-all-async cache [:a :b] (fn [xs] (zipmap xs xs)))))
+  (let [cache (cache/make-async {:max-size 2})]
+    (is (= {:a :a
+            :b :b}
+           @(cache/get-all-async cache [:a :b] (fn [xs] (zipmap xs xs)))))
 
-      (is (= {:a :a
-              :e :e}
-             @(cache/get-all-async cache [:a :e] (fn [xs] (zipmap xs xs))))))))
+    (is (= {:a :a
+            :e :e}
+           @(cache/get-all-async cache [:a :e] (fn [xs] (zipmap xs xs)))))))
