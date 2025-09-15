@@ -121,7 +121,6 @@
                            :as :json
                            :body (->json {:steps (for [[var elapsed] timings
                                                        :let [var-name (str (symbol var))
-                                                             _ (tool/def-locals)
                                                              ns (str (:ns (meta var)))
                                                              name (str (:name (meta var)))]]
                                                    ["update"
@@ -161,7 +160,6 @@
     (if-not (and node-count node-index)
       vars
       (let [timings (get-timings)
-            _ (println "Timings" timings)
             sort-fn (make-test-var-sort timings)
             sorted-vars (sort sort-fn vars)
             test-vars (->> (keep-indexed (fn [i ns]

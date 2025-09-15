@@ -109,6 +109,15 @@ jobs:
           POSTGRES_USER: test_user
           POSTGRES_PASSWORD: test_password
           POSTGRES_DB: test_db
+        command: >-
+          postgres
+          -c wal_level=logical
+          -c max_replication_slots=4
+          -c max_wal_senders=4
+          -c shared_preload_libraries=pg_hint_plan,auto_explain
+          -c random_page_cost=1.1
+          -c auto_explain.log_min_duration=100ms
+          -c auto_explain.log_analyze=true
 
     steps:
     - name: Checkout
