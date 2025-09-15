@@ -166,13 +166,16 @@
                             timings-reporter
                             junit/reporter]
                 :test-results-dir "target/test-results"}
+        global-fixture-fn (circleci.test/make-global-fixture config)
         timings-app-id (System/getenv "INSTANT_TIMINGS_APP_ID")
         timings-admin-token (System/getenv "INSTANT_TIMINGS_ADMIN_TOKEN")]
 
     (binding [clojure.test/*report-counters* counters]
-      (doseq [v test-vars]
-        (println "Testing" (str (symbol v)))
-        (circleci.test/test-var v config))
+      (global-fixture-fn
+        (fn []
+          (doseq [v test-vars]
+            (println "Testing" (str (symbol v)))
+            (circleci.test/test-var v config))))
       (let [summary (assoc @counters :type :summary)
             exit-code (+ (:fail summary) (:error summary))]
         (clojure.test/do-report summary)
