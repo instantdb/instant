@@ -62,7 +62,7 @@ jobs:
             console.log('file', file);
             console.log('changes', changes);
 
-            if (changes.client) {
+            if (changes.client || changes.workflowFile) {
               console.log('client_did_change', true);
               output.client_did_change = true;
             }
