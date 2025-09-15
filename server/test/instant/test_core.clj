@@ -122,7 +122,7 @@
                            :body (->json {:steps (for [[var elapsed] timings
                                                        :let [var-name (str (symbol var))
                                                              _ (tool/def-locals)
-                                                             ns (str (:ns (meta (tool/inspect var))))
+                                                             ns (str (:ns (meta var)))
                                                              name (str (:name (meta var)))]]
                                                    ["update"
                                                     "timings"
@@ -158,6 +158,7 @@
     (if-not (and node-count node-index)
       vars
       (let [timings (get-timings)
+            _ (println "Timings" timings)
             sort-fn (make-test-var-sort timings)
             sorted-vars (sort sort-fn vars)
             test-vars (-> (keep-indexed (fn [i ns]
@@ -174,10 +175,11 @@
 (defn -main [& _args]
   (let [nses (find-namespaces-in-dir (io/file "test"))
         _ (apply require :reload nses)
-        test-vars (for [ns nses
-                        var (vals (ns-interns ns))
-                        :when (:test (meta var))]
-                    var)
+        all-test-vars (for [ns nses
+                            var (vals (ns-interns ns))
+                            :when (:test (meta var))]
+                        var)
+        test-vars (select-vars all-test-vars)
         counters (ref clojure.test/*initial-report-counters*)
         timing-state (atom {})
         config {:global-fixture setup-teardown
