@@ -107,7 +107,7 @@ async function transfer(
   { appId, orgId }: { appId: string; orgId: string },
   token: string,
 ) {
-  await jsonFetch(
+  return await jsonFetch(
     `${config.apiURI}/dash/apps/${appId}/transfer_to_org/${orgId}`,
     {
       method: 'POST',
@@ -159,7 +159,14 @@ function OrgDetails({ id }: { id: string }) {
                       return;
                     }
                     try {
-                      await transfer({ orgId, appId: app.id }, token);
+                      const resp = await transfer(
+                        { orgId, appId: app.id },
+                        token,
+                      );
+                      console.log('transfer resp', resp);
+                      if (resp.credit) {
+                        alert(`You get a credit! ${resp.credit * -1}`);
+                      }
                       resp.mutate();
                     } catch (e) {
                       console.log('Error in transfer', e);
@@ -363,7 +370,14 @@ export default function Orgs({
                         return;
                       }
                       try {
-                        await transfer({ orgId, appId: app.id }, token);
+                        const resp = await transfer(
+                          { orgId, appId: app.id },
+                          token,
+                        );
+                        console.log('transfer resp', resp);
+                        if (resp.credit) {
+                          alert(`You get a credit! ${resp.credit * -1}`);
+                        }
                         dashResponse.mutate();
                       } catch (e) {
                         console.log('Error in transfer', e);
