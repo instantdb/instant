@@ -150,6 +150,27 @@
         (compare a b)
         t-compare))))
 
+(defn select-vars [vars]
+  (let [node-count (some-> (System/getenv "NODE_COUNT")
+                           (Integer/parseInt))
+        node-index (some-> (System/getenv "NODE_INDEX")
+                           (Integer/parseInt))]
+    (if-not (and node-count node-index)
+      vars
+      (let [timings (get-timings)
+            sort-fn (make-test-var-sort timings)
+            sorted-vars (sort sort-fn vars)
+            test-vars (-> (keep-indexed (fn [i ns]
+                                          (when (= node-index (mod i node-count))
+                                            ns))
+                                        sorted-vars)
+                          ;; sort to keep the vars in the same ns together
+                          sort)]
+        (println "Testing vars:")
+        (doseq [v test-vars]
+          (println " " v))
+        test-vars))))
+
 (defn -main [& _args]
   (let [nses (find-namespaces-in-dir (io/file "test"))
         _ (apply require :reload nses)
@@ -172,10 +193,10 @@
 
     (binding [clojure.test/*report-counters* counters]
       (global-fixture-fn
-        (fn []
-          (doseq [v test-vars]
-            (println "Testing" (str (symbol v)))
-            (circleci.test/test-var v config))))
+       (fn []
+         (doseq [v test-vars]
+           (println "Testing" (str (symbol v)))
+           (circleci.test/test-var v config))))
       (let [summary (assoc @counters :type :summary)
             exit-code (+ (:fail summary) (:error summary))]
         (clojure.test/do-report summary)
