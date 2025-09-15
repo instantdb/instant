@@ -300,29 +300,61 @@
                                               :id id}))))
 
 (def transfer-q
-  (uhsql/preformat
-   {:with [[:update {:update [:apps :a]
-                     :set {:creator-id nil
-                           :org_id :?org-id}
-                     :where [:= :a.id :?app-id]
-                     :returning :*}]]
-    :select [[[:coalesce
-               [:= :app-s.subscription_type_id [:inline plans/PRO_SUBSCRIPTION_TYPE]]
-               :false]
-              :paid-app]
-             [:app-s.stripe-customer-id :app-stripe-customer-id]
-             [:app-s.stripe-subscription-id :app-stripe-subscription-id]
-             [[:coalesce
-               [:= :org-s.subscription_type_id [:inline plans/STARTUP_SUBSCRIPTION_TYPE]]
-               :false]
-              :paid-org]
-             [:org-s.stripe-customer-id :org-stripe-customer-id]
-             [:org-s.stripe-subscription-id :org-stripe-subscription-id]]
-    :from :update
-    :join [[:apps :a] [:= :a.id :update.id]
-           [:orgs :o] [:= :o.id :update.org_id]]
-    :left-join [[:instant_subscriptions :app-s] [:= :a.id :app-s.app_id]
-                [:instant_subscriptions :org-s] [:= :o.id :org-s.org_id]]}))
+  (let [role-level (fn [role-col]
+                     [:case-expr role-col
+                      [:inline "owner"] :1
+                      [:inline "admin"] :2
+                      [:inline "collaborator"] :3
+                      :else [:case [:raise_exception_message [:|| [:inline "Unknown role "] role-col]] :999 :else :999]])]
+    (uhsql/preformat
+     {:with [[:app-members-already-on-paid-org
+              {:select :am.*
+               :from [[:app_members :am]]
+               :join [[:org_members :om] [:= :am.user_id :om.user_id]
+                      [:orgs :o] [:= :om.org_id :o.id]
+                      [:instant_subscriptions :org-s] [:= :o.subscription-id :org-s.id]]
+               :where [:and
+                       [:= :am.app_id :?app-id]
+                       [:= :om.org_id :?org-id]
+                       [:= :org-s.subscription_type_id [:inline plans/STARTUP_SUBSCRIPTION_TYPE]]
+                       ;; Lower level has more permissions
+                       [:<= (role-level :om.role) (role-level :am.member_role)]]}]
+
+             [:app-member-dedupe-deletes
+              {:delete-from :app_members
+               :where [:in :id {:select :id :from :app-members-already-on-paid-org}]
+               :returning :*}]
+
+             [:app-update {:update [:apps :a]
+                           :set {:creator-id nil
+                                 :org_id :?org-id}
+                           :where [:= :a.id :?app-id]
+                           :returning :*}]]
+      :select [[[:coalesce
+                 [:= :app-s.subscription_type_id [:inline plans/PRO_SUBSCRIPTION_TYPE]]
+                 :false]
+                :paid-app]
+               [:app-s.stripe-customer-id :app-stripe-customer-id]
+               [:app-s.stripe-subscription-id :app-stripe-subscription-id]
+               [[:coalesce
+                 [:= :org-s.subscription_type_id [:inline plans/STARTUP_SUBSCRIPTION_TYPE]]
+                 :false]
+                :paid-org]
+               [:org-s.stripe-customer-id :org-stripe-customer-id]
+               [:org-s.stripe-subscription-id :org-stripe-subscription-id]
+               [{:select [[[:json_agg [:json_build_object
+                                       [:inline "id"] :m.id
+                                       [:inline "email"] {:select :email
+                                                          :from :instant_users
+                                                          :where [:= :instant_users.id :m.user_id]}
+                                       [:inline "role"] :m.member_role]]]]
+                 :from [[:app-member-dedupe-deletes :m]]}
+                :removed-app-members-already-on-paid-org]]
+      :from :app-update
+      :join [[:apps :a] [:= :a.id :app-update.id]
+             [:orgs :o] [:= :o.id :app-update.org_id]]
+      :left-join [[:instant_subscriptions :app-s] [:= :a.subscription_id :app-s.id]
+                  [:instant_subscriptions :org-s] [:= :o.subscription-id :org-s.id]]})))
 
 (defn transfer-app-to-org!
   "Transfers app to the given org. Does not do a permission check,
@@ -336,7 +368,8 @@
                  app_stripe_customer_id
                  app_stripe_subscription_id
                  org_stripe_customer_id
-                 org_stripe_subscription_id]}
+                 org_stripe_subscription_id
+                 removed_app_members_already_on_paid_org]}
          (app-model/with-cache-invalidation app-id
            (sql/select-one ::transfer-app-to-org!
                            conn
@@ -349,4 +382,5 @@
                                                                      :org-id org-id
                                                                      :org-customer-id org_stripe_customer_id
                                                                      :org-subscription-id org_stripe_subscription_id})))]
-     {:credit (:credit credit)})))
+     {:credit (:credit credit)
+      :removed_app_members_already_on_paid_org removed_app_members_already_on_paid_org})))

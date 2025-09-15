@@ -1114,10 +1114,10 @@
     (doseq [attr attrs]
       (loop [total 0]
         (println "Starting" (str "app_id=" (:app_id attr)) (str "attr_id=" (:id attr)))
-        (let [update-count (time (index--insert-nulls (aurora/conn-pool :write)
-                                                      {:attr_id (:id attr)
-                                                       :app_id (:app_id attr)
-                                                       :job_type "index"}))]
+        (let [update-count (index--insert-nulls (aurora/conn-pool :write)
+                                                {:attr_id (:id attr)
+                                                 :app_id (:app_id attr)
+                                                 :job_type "index"})]
           (println "Updated" (+ total update-count) "for" (str "app_id=" (:app_id attr)) (str "attr_id=" (:id attr)))
           (when (pos? update-count)
             (recur (long (+ total update-count)))))))))

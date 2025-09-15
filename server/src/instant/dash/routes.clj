@@ -1264,9 +1264,13 @@
 (defn app-transfer-to-org [req]
   (let [{{app-id :id} :app} (req->app-and-user! :owner req)
         {{org-id :id} :org} (req->org-and-user! :admin req)
-        {:keys [credit]} (org-model/transfer-app-to-org! {:app-id app-id
+        {:keys [credit removed_app_members_already_on_paid_org]} (org-model/transfer-app-to-org! {:app-id app-id
                                                           :org-id org-id})]
-    (response/ok {:credit credit})))
+    (response/ok {:credit credit
+                  :app_member_changes {:removed (map (fn [member]
+                                                       {:member member
+                                                        :reason "user_is_member_of_org"})
+                                                     removed_app_members_already_on_paid_org)}})))
 
 ;; ---
 ;; Storage
