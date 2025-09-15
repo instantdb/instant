@@ -91,6 +91,7 @@
              :where [:and
                      [:= :i.invitee-email :?email]
                      [:= :i.status [:inline "pending"]]
+                     [:= nil :a.deletion-marked-at]
                      [:>= :i.sent_at [:- :%now [:interval [:inline "3 days"]]]]]}
             {:select [[[:inline "org"] :type]
                       :i.id
