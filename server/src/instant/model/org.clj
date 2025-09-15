@@ -86,7 +86,8 @@
                                           [:org-members :m] [:= :m.org-id :o.id]]
                                    :where [:and
                                            [:= :m.user-id :?user-id]
-                                           [:= :o.id :?org-id]]}
+                                           [:= :o.id :?org-id]
+                                           [:= nil :a.deletion-marked-at]]}
 
                                   {:select :a.id
                                    :from [[:apps :a]]
