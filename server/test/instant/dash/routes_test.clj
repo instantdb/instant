@@ -26,9 +26,10 @@
   (with-redefs [config/postmark-send-enabled? (constantly false)]
     (with-user
       (fn [u]
-        (with-empty-app
-          (:id u)
-          (fn [app]
+        (with-pro-app
+          true
+          u
+          (fn [{:keys [app]}]
             (let [invitee-email (random-email)
                   resp (http/post (str config/server-origin "/dash/apps/" (:id app) "/invite/send")
                                   {:headers {:Authorization (str "Bearer " (:refresh-token u))
@@ -82,6 +83,18 @@
                     (is (= "accepted" (:status invite)))
 
                     (testing "roles can be updated"
+                      (testing "but you can't improve your own role"
+                        (let [res (http/post (str config/server-origin "/dash/apps/" (:id app) "/members/update")
+                                             {:throw-exceptions false
+                                              :headers {:Authorization (str "Bearer " (:refresh-token invitee))
+                                                        :Content-Type "application/json"}
+                                              :as :json
+                                              :body (->json {:id (:id member)
+                                                             :role "owner"})})]
+                          (is (= 400 (:status res)))
+                          (is (= "permission-denied" (-> res :body <-json (get "type"))))))
+
+
                       (let [_res (http/post (str config/server-origin "/dash/apps/" (:id app) "/members/update")
                                             {:headers {:Authorization (str "Bearer " (:refresh-token u))
                                                        :Content-Type "application/json"}
@@ -93,6 +106,7 @@
                                                     (:id app)
                                                     (:id invitee)])]
                         (is (= "collaborator" (:member_role member))))
+
 
                       (testing "but not by someone with a lesser role"
                         (let [res (http/post (str config/server-origin "/dash/apps/" (:id app) "/members/update")
@@ -299,6 +313,17 @@
                     (is (= "accepted" (:status invite)))
 
                     (testing "roles can be updated"
+                      (testing "but you can't update yourself"
+                        (let [res (http/post (str config/server-origin "/dash/orgs/" (:id org) "/members/update")
+                                             {:throw-exceptions false
+                                              :headers {:Authorization (str "Bearer " (:refresh-token invitee))
+                                                        :Content-Type "application/json"}
+                                              :as :json
+                                              :body (->json {:id (:id member)
+                                                             :role "owner"})})]
+                          (is (= 400 (:status res)))
+                          (is (= "permission-denied" (-> res :body <-json (get "type"))))))
+
                       (let [_res (http/post (str config/server-origin "/dash/orgs/" (:id org) "/members/update")
                                             {:headers {:Authorization (str "Bearer " (:refresh-token u))
                                                        :Content-Type "application/json"}
@@ -312,12 +337,14 @@
                         (is (= "collaborator" (:role member)))
 
                         (testing "but not by someone with a lesser role"
-                          (let [res (http/post (str config/server-origin "/dash/orgs/" (:id org) "/members/update")
+                          (let [owner-member (org-members/get-by-org-and-user {:org-id (:id org)
+                                                                               :user-id (:id u)})
+                                res (http/post (str config/server-origin "/dash/orgs/" (:id org) "/members/update")
                                                {:throw-exceptions false
                                                 :headers {:Authorization (str "Bearer " (:refresh-token invitee))
                                                           :Content-Type "application/json"}
                                                 :as :json
-                                                :body (->json {:id (:id u)
+                                                :body (->json {:id (:id owner-member)
                                                                :role "collaborator"})})]
                             (is (= 400 (:status res)))
                             (is (= "permission-denied" (-> res :body <-json (get "type"))))))))
