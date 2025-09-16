@@ -828,8 +828,9 @@
                   "user-id" user-id
                   "subscription-type-id" plans/PRO_SUBSCRIPTION_TYPE}
         description (str "App name: " app-title)
-        session-params {"success_url" (str (config/stripe-success-url) "&app=" app-id)
-                        "cancel_url" (str (config/stripe-cancel-url) "&app=" app-id)
+        return-url (config/stripe-return-url :app app-id)
+        session-params {"success_url" return-url
+                        "cancel_url" return-url
                         "customer" customer-id
                         "metadata" metadata
                         "allow_promotion_codes" (or (flags/promo-code-email? user-email)
@@ -857,8 +858,9 @@
                   "user-id" user-id
                   "subscription-type-id" plans/STARTUP_SUBSCRIPTION_TYPE}
         description (str "Org name: " org-title)
-        session-params {"success_url" (str (config/stripe-success-url) "&org=" org-id)
-                        "cancel_url" (str (config/stripe-cancel-url) "&org=" org-id)
+        return-url (config/stripe-return-url :org org-id)
+        session-params {"success_url" return-url
+                        "cancel_url" return-url
                         "customer" customer-id
                         "metadata" metadata
                         "allow_promotion_codes" (or (flags/promo-code-email? user-email)
@@ -877,7 +879,7 @@
 (defn create-portal [req]
   (let [{{app-id :id} :app user :user} (req->app-and-user! req)
         {customer-id :id} (instant-stripe-customer-model/get-or-create-for-user! {:user user})
-        session-params {"return_url" (str (config/stripe-success-url) "&app=" app-id)
+        session-params {"return_url" (config/stripe-return-url :app app-id)
                         "customer" customer-id}
         session (com.stripe.model.billingportal.Session/create ^Map session-params)]
     (response/ok {:url (.getUrl session)})))
@@ -887,7 +889,7 @@
         {customer-id :id} (instant-stripe-customer-model/get-or-create-for-org!
                            {:org org
                             :user-email (:email user)})
-        session-params {"return_url" (str (config/stripe-success-url) "&org=" org-id)
+        session-params {"return_url" (config/stripe-return-url :org org-id)
                         "customer" customer-id}
         session (com.stripe.model.billingportal.Session/create ^Map session-params)]
     (response/ok {:url (.getUrl session)})))
