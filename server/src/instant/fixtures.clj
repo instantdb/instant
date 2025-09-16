@@ -313,7 +313,7 @@
                                                                                     :stripe-customer-id (:id stripe-customer)
                                                                                     :stripe-subscription-id stripe-subscription-id
                                                                                     :stripe-event-id (str "fake_evt_" (random-uuid))})]
-                              (sql/do-execute! (aurora/conn-pool :write) ["update apps set org_id = ?::uuid where id = ?::uuid"
+                              (sql/do-execute! (aurora/conn-pool :write) ["update apps set org_id = ?::uuid, creator_id = null where id = ?::uuid"
                                                                           (:id org)
                                                                           (:id app)])
                               (sql/do-execute! (aurora/conn-pool :write) ["update orgs set subscription_id = ?::uuid where id = ?::uuid"
