@@ -209,7 +209,7 @@
   "Used when the sketches are first initialized. Keeps track of where
    we are in the WAL."
   [conn {:keys [lsn slot-name process-id]}]
-  (let [status (sql/execute-one! ::intialize-wal-aggregator-status
+  (let [status (sql/execute-one! ::initialize-wal-aggregator-status
                                  conn
                                  (hsql/format {:insert-into :wal-aggregator-status
                                                :values [{:lsn lsn
