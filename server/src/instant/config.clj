@@ -31,6 +31,8 @@
     (= "true" (System/getenv "TEST"))       :test
     :else                                   :dev))
 
+(defn prod? [] (= :prod (get-env)))
+
 (defn aws-env? []
   (contains? #{:prod :staging} (get-env)))
 
@@ -175,13 +177,14 @@
 (defn stripe-webhook-secret []
   (-> @config-map :stripe-webhook-secret crypt-util/secret-value))
 
-(defn stripe-success-url []
-  (str (dashboard-origin)
-       "/dash?t=billing"))
-
-(defn stripe-cancel-url []
-  (str (dashboard-origin)
-       "/dash?t=billing"))
+(defn stripe-return-url [type obj-id]
+  (case type
+    :app (str (dashboard-origin)
+              "/dash?t=billing&app="
+              obj-id)
+    :org (str (dashboard-origin)
+              "/dash/org?tab=billing&org="
+              obj-id)))
 
 (def test-pro-subscription "price_1P4ocVL5BwOwpxgU8Fe6oRWy")
 (def prod-pro-subscription "price_1P4nokL5BwOwpxgUpWoidzdL")

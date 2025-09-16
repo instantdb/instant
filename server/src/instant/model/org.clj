@@ -4,8 +4,10 @@
    [instant.jdbc.sql :as sql]
    [instant.model.app :as app-model]
    [instant.plans :as plans]
+   [instant.stripe :as stripe]
    [instant.util.exception :as ex]
    [instant.util.hsql :as uhsql]
+   [instant.util.tracer :as tracer]
    [medley.core :refer [update-existing]]))
 
 (def by-id-q
@@ -61,6 +63,7 @@
                                                        [:instant-subscriptions :app-s] [:= :app-s.app_id :a.id]]
                                            :where [:and
                                                    [:= :m.user-id :?user-id]
+                                                   [:= nil :a.deletion-marked-at]
                                                    [:or
                                                     [:= :org-s.subscription_type_id [:inline plans/STARTUP_SUBSCRIPTION_TYPE]]
                                                     [:= :app-s.subscription_type_id [:inline plans/PRO_SUBSCRIPTION_TYPE]]]]}]
@@ -84,7 +87,8 @@
                                           [:org-members :m] [:= :m.org-id :o.id]]
                                    :where [:and
                                            [:= :m.user-id :?user-id]
-                                           [:= :o.id :?org-id]]}
+                                           [:= :o.id :?org-id]
+                                           [:= nil :a.deletion-marked-at]]}
 
                                   {:select :a.id
                                    :from [[:apps :a]]
@@ -95,6 +99,7 @@
                                    :where [:and
                                            [:= :m.user-id :?user-id]
                                            [:= :o.id :?org-id]
+                                           [:= nil :a.deletion-marked-at]
                                            [:or
                                             [:= :org-s.subscription_type_id [:inline plans/STARTUP_SUBSCRIPTION_TYPE]]
                                             [:= :app-s.subscription_type_id [:inline plans/PRO_SUBSCRIPTION_TYPE]]]]}]}))
@@ -192,6 +197,7 @@
                                            :where [:and
                                                    [:= :o.id :?org-id]
                                                    [:= :m.user-id :?user-id]
+                                                   [:= nil :a.deletion-marked-at]
                                                    [:or
                                                     [:= :org-s.subscription_type_id [:inline plans/STARTUP_SUBSCRIPTION_TYPE]]
                                                     [:= :app-s.subscription_type_id [:inline plans/PRO_SUBSCRIPTION_TYPE]]]]
@@ -264,7 +270,9 @@
                               :num_bytes]]
                     :from [[:attr-sketches :s]]
                     :join [[:apps :a] [:= :s.app_id :a.id]]
-                    :where [:= :a.org_id :?org-id]}))
+                    :where [:and
+                            [:= :a.org_id :?org-id]
+                            [:= nil :a.deletion-marked-at]]}))
 
 (defn org-usage
   "Estimates amount of bytes used for an orgs's triples.
@@ -296,3 +304,107 @@
                      conn
                      (uhsql/formatp rename-q {:title title
                                               :id id}))))
+
+(def transfer-q
+  (let [role-level (fn [role-col]
+                     [:case-expr role-col
+                      [:inline "owner"] :1
+                      [:inline "admin"] :2
+                      [:inline "collaborator"] :3
+                      :else [:case [:raise_exception_message [:|| [:inline "Unknown role "] role-col]] :999 :else :999]])]
+    (uhsql/preformat
+     {:with [[:app-members-already-on-paid-org
+              {:select :am.*
+               :from [[:app_members :am]]
+               :join [[:org_members :om] [:= :am.user_id :om.user_id]
+                      [:orgs :o] [:= :om.org_id :o.id]
+                      [:instant_subscriptions :org-s] [:= :o.subscription-id :org-s.id]]
+               :where [:and
+                       [:= :am.app_id :?app-id]
+                       [:= :om.org_id :?org-id]
+                       [:= :org-s.subscription_type_id [:inline plans/STARTUP_SUBSCRIPTION_TYPE]]
+                       ;; Lower level has more permissions
+                       [:<= (role-level :om.role) (role-level :am.member_role)]]}]
+
+             [:app-member-dedupe-deletes
+              {:delete-from :app_members
+               :where [:in :id {:select :id :from :app-members-already-on-paid-org}]
+               :returning :*}]
+
+             [:app-update {:update [:apps :a]
+                           :set {:creator-id nil
+                                 :org_id :?org-id}
+                           :where [:= :a.id :?app-id]
+                           :returning :*}]]
+      :select [[[:coalesce
+                 [:= :app-s.subscription_type_id [:inline plans/PRO_SUBSCRIPTION_TYPE]]
+                 :false]
+                :paid-app]
+               [:app-s.stripe-customer-id :app-stripe-customer-id]
+               [:app-s.stripe-subscription-id :app-stripe-subscription-id]
+               [[:coalesce
+                 [:= :org-s.subscription_type_id [:inline plans/STARTUP_SUBSCRIPTION_TYPE]]
+                 :false]
+                :paid-org]
+               [:org-s.stripe-customer-id :org-stripe-customer-id]
+               [:org-s.stripe-subscription-id :org-stripe-subscription-id]
+               [{:select [[[:json_agg [:json_build_object
+                                       [:inline "id"] :m.id
+                                       [:inline "email"] {:select :email
+                                                          :from :instant_users
+                                                          :where [:= :instant_users.id :m.user_id]}
+                                       [:inline "role"] :m.member_role]]]]
+                 :from [[:app-member-dedupe-deletes :m]]}
+                :removed-app-members-already-on-paid-org]]
+      :from :app-update
+      :join [[:apps :a] [:= :a.id :app-update.id]
+             [:orgs :o] [:= :o.id :app-update.org_id]]
+      :left-join [[:instant_subscriptions :app-s] [:= :a.subscription_id :app-s.id]
+                  [:instant_subscriptions :org-s] [:= :o.subscription-id :org-s.id]]})))
+
+(defn transfer-app-to-org!
+  "Transfers app to the given org. Does not do a permission check,
+   expects the caller to check that the user has access to both the
+   org and the app."
+  ([params] (transfer-app-to-org! (aurora/conn-pool :write) params))
+  ([conn {:keys [app-id org-id]}]
+   ;; NEXTUP: transfer members
+   (let [{:keys [paid_app
+                 paid_org
+                 app_stripe_customer_id
+                 app_stripe_subscription_id
+                 org_stripe_customer_id
+                 org_stripe_subscription_id
+                 removed_app_members_already_on_paid_org]}
+         (app-model/with-cache-invalidation app-id
+           (sql/select-one ::transfer-app-to-org!
+                           conn
+                           (uhsql/formatp transfer-q {:org-id org-id
+                                                      :app-id app-id})))
+         credit (when (and paid_org paid_app)
+                  (tracer/with-span! {:name "transfer-app/cancel-subscription-and-credit-customer"}
+                    (stripe/cancel-subscription-and-credit-customer {:app-customer-id app_stripe_customer_id
+                                                                     :app-subscription-id app_stripe_subscription_id
+                                                                     :org-id org-id
+                                                                     :org-customer-id org_stripe_customer_id
+                                                                     :org-subscription-id org_stripe_subscription_id})))]
+     {:credit (:credit credit)
+      :removed_app_members_already_on_paid_org removed_app_members_already_on_paid_org})))
+
+(def pro-apps-subscriptions-q
+  (uhsql/preformat
+   {:select :app-s.*
+    :from [[:instant_subscriptions :app-s]]
+    :join [[:apps :a] [:= :a.subscription_id :app-s.id]
+           [:orgs :o] [:= :a.org_id :o.id]]
+    :where [:and
+            [:= :o.id :?org-id]
+            [:= :app-s.subscription_type_id [:inline plans/PRO_SUBSCRIPTION_TYPE]]]}))
+
+(defn pro-app-subscriptions
+  "Gets the apps on the org that have a pro plan."
+  ([params] (pro-app-subscriptions (aurora/conn-pool :read) params))
+  ([conn {:keys [org-id]}]
+   (sql/select ::pro-app-subscriptions
+               conn
+               (uhsql/formatp pro-apps-subscriptions-q {:org-id org-id}))))

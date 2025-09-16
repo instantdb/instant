@@ -1,155 +1,124 @@
 (ns instant.stripe
   (:require
    [instant.config :as config]
-   [instant.discord :as discord]
-   [instant.model.app :as app-model]
-   [instant.model.instant-subscription :as instant-subscription-model]
-   [instant.model.instant-user :as instant-user-model]
-   [instant.model.org :as org-model]
    [instant.plans :as plans]
-   [instant.postmark :as postmark]
-   [instant.util.exception :as ex]
-   [instant.util.json :refer [<-json]]
-   [instant.util.tracer :as tracer]
-   [instant.util.uuid :as uuid-util]
-   [ring.util.http-response :as response]
-   [ring.util.request :refer [body-string]])
+   [instant.util.crypt :as crypt-util]
+   [instant.util.date :as date]
+   [instant.util.tracer :as tracer])
   (:import
    (com.stripe Stripe StripeClient)
-   (com.stripe.model Discount Event Subscription SubscriptionItem)
-   (com.stripe.net RequestOptions Webhook)
-   (com.stripe.param SubscriptionListParams)))
+   (com.stripe.exception InvalidRequestException)
+   (com.stripe.model Customer CustomerBalanceTransaction Discount Subscription SubscriptionItem)
+   (com.stripe.net RequestOptions)
+   (com.stripe.param CustomerBalanceTransactionCollectionCreateParams CustomerUpdateParams CustomerUpdateParams$InvoiceSettings InvoiceCreatePreviewParams InvoiceCreatePreviewParams$SubscriptionDetails InvoiceCreatePreviewParams$SubscriptionDetails$ProrationBehavior SetupIntentConfirmParams SetupIntentCreateParams SetupIntentCreateParams$AutomaticPaymentMethods SetupIntentCreateParams$AutomaticPaymentMethods$AllowRedirects SubscriptionCancelParams SubscriptionCreateParams SubscriptionCreateParams$Discount SubscriptionCreateParams$Item SubscriptionListParams SubscriptionListParams$Status SubscriptionRetrieveParams SubscriptionUpdateParams)
+   (java.util HashMap Map)))
 
-(defn ping-js-on-new-customer [{:keys [user-id org-id app-id]}]
-  (let [{email :email} (instant-user-model/get-by-id {:id user-id})
-        title (cond app-id
-                    (:title (app-model/get-by-id {:id app-id}))
-                    org-id
-                    (:title (org-model/get-by-id {:id org-id})))
-        message (format "💖 A user subscribed for %s `%s`! Say thank you to `%s`"
-                        (cond org-id "org"
-                              app-id "app"
-                              :else "unknown")
-                        title
-                        email)]
-    (discord/send! config/discord-signups-channel-id
-                   (str (:instateam discord/mention-constants) " " message))
-    (postmark/send!
-     {:from "Instant Assistant <hello@pm.instantdb.com>"
-      :to "founders@instantdb.com"
-      :subject message
-      :html
-      (str
-       "<div>
-             <p>Hey hey! We just got a new paying customer!</p>
-             <p>Email: " email "</p>
-             <p>Woohoo! Send them a ping as a token of appreciation!</p>
-           </div>")})))
+(set! *warn-on-reflection* true)
 
-(comment
-  (def u (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
-  (ping-js-on-new-customer (:id u)))
+(def stripe-client* (delay (StripeClient. ^String (config/stripe-secret))))
 
-(defn ping-js-on-churned-customer [{:keys [user-id org-id app-id]}]
-  (let [{email :email} (instant-user-model/get-by-id {:id user-id})
-        title (cond app-id
-                    (:title (app-model/get-by-id {:id app-id}))
-                    org-id
-                    (:title (org-model/get-by-id {:id org-id})))
-        message (format "🪣 Churned customer for %s `%s`! %s"
-                        (cond org-id "org"
-                              app-id "app"
-                              :else "unknown")
-                        title
-                        email)]
-    (discord/send! config/discord-signups-channel-id
-                   (str (:instateam discord/mention-constants) " " message))
-    (postmark/send!
-     {:from "Instant Assistant <hello@pm.instantdb.com>"
-      :to "founders@instantdb.com"
-      :subject message
-      :html
-      (str
-       "<div>
-             <p>Looks like one of our customers churned!</p>
-             <p>Email: " email "</p>
-             <p>Maybe we should send them a ping to learn why they churned?</p>
-           </div>")})))
+(defn stripe-client ^StripeClient []
+  @stripe-client*)
 
-(comment
-  (def u (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
-  (ping-js-on-churned-customer (:id u)))
+(def ^:dynamic *create-fake-objects* false)
 
-(defn- processed-event?
-  [event-id]
-  (instant-subscription-model/get-by-event-id {:event-id event-id}))
+(defn create-fake-objects? []
+  (and *create-fake-objects* (not (config/prod?))))
 
-(defn handle-stripe-webhook-event
-  [{:keys [id type data] :as _event}]
-  (tracer/with-span! {:name "stripe-webhook/handle-event"
-                      :attributes {:event-id id
-                                   :event-type type}}
-    (if (processed-event? id)
-      (tracer/add-data! {:attributes {:already-processed? true}})
-      (let [{customer-id :customer
-             subscription-id :subscription
-             metadata :metadata}
-            (:object data)
+(defn create-customer [^Map opts]
+  (if (create-fake-objects?)
+    (str "cus_fake_" (crypt-util/random-hex 8))
+    (.getId (Customer/create opts))))
 
-            shared {:user-id (uuid-util/coerce (:user-id metadata))
-                    :app-id (uuid-util/coerce (:app-id metadata))
-                    :org-id (uuid-util/coerce (:org-id metadata))
-                    :stripe-customer-id customer-id
-                    :stripe-subscription-id subscription-id
-                    :stripe-event-id id}
+(def cancel-now-preview-details
+  (.. (InvoiceCreatePreviewParams$SubscriptionDetails/builder)
+      (setCancelNow true)
+      (setProrationBehavior InvoiceCreatePreviewParams$SubscriptionDetails$ProrationBehavior/CREATE_PRORATIONS)
+      (build)))
 
-            subscription-type-id (when (string? (:subscription-type-id metadata))
-                                   (parse-long (:subscription-type-id metadata)))]
-        (condp = type
-          "checkout.session.completed"
-          (let [{:keys [user-id app-id org-id]} shared
-                opts (assoc shared :subscription-type-id (or subscription-type-id
-                                                             ;; TODO(orgs): remove when backend
-                                                             ;;             is fully deployed
-                                                             plans/PRO_SUBSCRIPTION_TYPE))]
-            (instant-subscription-model/create! opts)
-            (when (= :prod (config/get-env))
-              (ping-js-on-new-customer {:user-id user-id
-                                        :app-id app-id
-                                        :org-id org-id}))
-            (tracer/add-data! {:attributes opts}))
+(defn map->metadata ^Map [m]
+  (let [metadata (HashMap.)]
+    (doseq [[k v] m]
+      (.put metadata (name k) (str v)))
+    metadata))
 
-          "customer.subscription.deleted"
-          (let [opts (assoc shared :subscription-type-id plans/FREE_SUBSCRIPTION_TYPE)
-                {:keys [user-id app-id org-id]} opts]
-            (when (and app-id (app-model/get-by-id {:id app-id}))
-              (instant-subscription-model/create! opts))
-            (when (and org-id (org-model/get-by-id  {:id org-id}))
-              (instant-subscription-model/create! opts))
-            (when (= :prod (config/get-env))
-              (ping-js-on-churned-customer {:user-id user-id
-                                            :app-id app-id
-                                            :org-id org-id}))
-            (tracer/add-data! {:attributes opts}))
+(defn credit-customer ^CustomerBalanceTransaction [{:keys [customer-id amount currency description metadata]}]
+  (tracer/with-span! {:name "stripe/credit-customer"
+                      :attributes {:customer-id customer-id
+                                   :amount amount
+                                   :currency currency}}
+    (-> (stripe-client)
+        (.customers)
+        (.retrieve customer-id)
+        (.balanceTransactions)
+        (.create (.. (CustomerBalanceTransactionCollectionCreateParams/builder)
+                     (setAmount amount)
+                     (setCurrency currency)
+                     (setDescription description)
+                     (putAllMetadata (map->metadata metadata))
+                     (build))))))
 
-          (tracer/add-data! {:attributes {:skipped-event? true}}))))))
+(defn remaining-credit-on-subscription [subscription-id]
+  (try
+    (let [preview (.createPreview (.invoices (stripe-client))
+                                  (.. (InvoiceCreatePreviewParams/builder)
+                                      (setSubscription subscription-id)
+                                      (setSubscriptionDetails cancel-now-preview-details)
+                                      (build)))]
+      {:amount (.getTotal preview)
+       :currency (.getCurrency preview)})
+    (catch InvalidRequestException e
+      (when (not= (.getCode e) "invoice_upcoming_none")
+        (throw e)))))
 
-(defn webhook
-  [{:keys [headers] :as req}]
-  (let [sig (get headers "stripe-signature")
-        body-str (body-string req)
-        ^Event event (Webhook/constructEvent
-                      body-str
-                      sig
-                      (config/stripe-webhook-secret))]
-    (when-not event
-      (ex/throw-validation-err! :stripe-webhook-body
-                                {:sig sig
-                                 :body-str body-str}
-                                [{:message "Could not construct event"}]))
-    (let [clj-event (<-json body-str true)]
-      (handle-stripe-webhook-event clj-event)
-      (response/ok {:received true}))))
+(defn cancel-subscription-and-credit-customer
+  "Cancels the app's subscription and gives a credit to the org
+   for the remaining prorated balance of the app subscription."
+  [{:keys [app-customer-id
+           app-subscription-id
+           org-id
+           org-customer-id
+           org-subscription-id]}]
+  (let [client (stripe-client)
+        subscription (.retrieve (.subscriptions client)
+                                app-subscription-id)
+        ;; The prorated credit the user would get if we canceled their app subscription
+        ;; A credit will return a negative number.
+        credit-amount (when (= "active" (.getStatus subscription))
+                        (remaining-credit-on-subscription (.getId subscription)))
+        cancel-metadata (map->metadata {"cancel-reason" "transfer-app-to-org"
+                                        "transfer-org-id" (str org-id)
+                                        "transfer-org-customer-id" org-customer-id
+                                        "transfer-org-subscription-id" org-subscription-id})
+        canceled-subscription (tracer/with-span! {:name "stripe/cancel-app-subscription"}
+                                (.update subscription
+                                         (.. (SubscriptionUpdateParams/builder)
+                                             (putAllMetadata cancel-metadata)
+                                             (build)))
+                                (.cancel subscription
+                                         (-> (SubscriptionCancelParams/builder)
+                                             (.setProrate false)
+                                             (.build))))
+        credit (when (and credit-amount
+                          (neg? (:amount credit-amount)))
+                 (credit-customer {:customer-id org-customer-id
+                                   :amount (:amount credit-amount)
+                                   :currency (:currency credit-amount)
+                                   :description (str "Credit from " (.getDescription subscription))
+                                   :metadata {"credit-reason" "transfer-app-to-org"
+                                              "app-subscription-id" (str app-subscription-id)
+                                              "app-customer-id" (str app-customer-id)}}))]
+    {:credit (some-> credit (.getAmount))
+     :canceled-subscription canceled-subscription}))
+
+(defn customer-balance-by-subscription [^String subscription-id]
+  (let [client (stripe-client)]
+    (-> (.subscriptions client)
+        (.retrieve subscription-id (.. (SubscriptionRetrieveParams/builder)
+                                       (addExpand "customer")
+                                       (build)))
+        (.getCustomerObject)
+        (.getBalance))))
 
 ;; Admin Helpers
 
@@ -191,11 +160,23 @@
      :monthly-revenue (max 0 (- items-revenue discount))
      :start-timestamp (.getStartDate subscription)}))
 
+(defn customer ^Customer [customer-id]
+  (-> (stripe-client)
+      (.customers)
+      (.retrieve customer-id)))
+
+(defn subscription ^Subscription [subscription-id]
+  (-> (stripe-client)
+      (.subscriptions)
+      (.retrieve subscription-id)))
+
 (defn subscriptions []
   (let [params (-> (SubscriptionListParams/builder)
                    (.addExpand "data.discounts")
+                   (.setStatus SubscriptionListParams$Status/ACTIVE)
+                   (.setLimit 100)
                    (.build))]
-    (-> (StripeClient. ^String (config/stripe-secret))
+    (-> (stripe-client)
         (.subscriptions)
         (.list params (RequestOptions/getDefault))
         (.autoPagingIterable)
@@ -203,11 +184,96 @@
         (iterator-seq)
         (#(map format-subscription %)))))
 
+;; Test and dev helpers
+
+(defn create-pro-subscription
+  "Intended for use in dev and tests, will create a stripe subscription
+  for a customer that matches the subscription that would have been created
+  through the checkout process."
+  [{:keys [customer-id user app free?]}]
+  (if (create-fake-objects?)
+    {:id (str "sub_fake_" (crypt-util/random-hex 8))}
+    (let [sub (-> (stripe-client)
+                  (.subscriptions)
+                  (.create (let [builder (.. (SubscriptionCreateParams/builder)
+                                             (setCustomer customer-id)
+                                             (setDescription (str "App name: " (:title app)))
+                                             (addItem (.. (SubscriptionCreateParams$Item/builder)
+                                                          (setPrice (config/stripe-pro-subscription))
+                                                          (setQuantity 1)
+                                                          (build)))
+                                             (setBillingCycleAnchor (.toEpochSecond (date/first-of-next-month-est)))
+                                             (putMetadata "app-id" (str (:id app)))
+                                             (putMetadata "user-id" (str (:id user)))
+                                             (putMetadata "subscription-type-id" (str plans/PRO_SUBSCRIPTION_TYPE))
+                                             (putMetadata "source" "backend"))]
+                             (when free?
+                               (.addDiscount builder (.. (SubscriptionCreateParams$Discount/builder)
+                                                         (setCoupon "i33t1l5x")
+                                                         (build))))
+                             (.build builder))))]
+      {:id (.getId sub)
+       :subscription sub})))
+
+(defn create-startup-subscription
+  "Intended for use in dev and tests, will create a stripe subscription
+  for a customer that matches the subscription that would have been created
+  through the checkout process."
+  [{:keys [customer-id org free?]}]
+  (if (create-fake-objects?)
+    {:id (str "sub_fake_" (crypt-util/random-hex 8))}
+    (let [sub (-> (stripe-client)
+                  (.subscriptions)
+                  (.create (let [builder (.. (SubscriptionCreateParams/builder)
+                                             (setCustomer customer-id)
+                                             (setDescription (str "Org name: " (:title org)))
+                                             (addItem (.. (SubscriptionCreateParams$Item/builder)
+                                                          (setPrice (config/stripe-startup-subscription))
+                                                          (setQuantity 1)
+                                                          (build)))
+                                             (setBillingCycleAnchor (.toEpochSecond (date/first-of-next-month-est)))
+                                             (putMetadata "org-id" (str (:id org)))
+                                             (putMetadata "subscription-type-id" (str plans/STARTUP_SUBSCRIPTION_TYPE))
+                                             (putMetadata "source" "backend"))]
+                             (when free?
+                               (.addDiscount builder (.. (SubscriptionCreateParams$Discount/builder)
+                                                         (setCoupon "i33t1l5x")
+                                                         (build))))
+                             (.build builder))))]
+      {:id (.getId sub)
+       :subscription sub})))
+
+(defn add-payment-method-for-test-customer
+  "Adds a default payment method for a customer in test mode."
+  [customer-id]
+  (when-not (create-fake-objects?)
+    (assert (not (config/prod?)))
+    (let [client (stripe-client)
+          setup-intent (-> client
+                           (.setupIntents)
+                           (.create (.. (SetupIntentCreateParams/builder)
+                                        (setCustomer customer-id)
+                                        (setAutomaticPaymentMethods (.. (SetupIntentCreateParams$AutomaticPaymentMethods/builder)
+                                                                        (setAllowRedirects SetupIntentCreateParams$AutomaticPaymentMethods$AllowRedirects/NEVER)
+                                                                        (setEnabled true)
+                                                                        (build)))
+                                        (build)))
+                           (.confirm (.. (SetupIntentConfirmParams/builder)
+                                         (setPaymentMethod "pm_card_visa")
+                                         (build))))]
+      (-> (.customers client)
+          (.update ^String customer-id
+                   (.. (CustomerUpdateParams/builder)
+                       (setInvoiceSettings (.. (CustomerUpdateParams$InvoiceSettings/builder)
+                                               (setDefaultPaymentMethod (.getPaymentMethod setup-intent))
+                                               (build)))
+                       (build)))))))
+
 ;; Init
 
 (defn init []
   (if-let [stripe-secret (config/stripe-secret)]
     (set! (. Stripe -apiKey) stripe-secret)
     (tracer/record-info!
-     {:name "missing-stripe-secret"
-      :attributes {:msg "There is no stripe-secret in config, Stripe will be disabled."}})))
+      {:name "missing-stripe-secret"
+       :attributes {:msg "There is no stripe-secret in config, Stripe will be disabled."}})))

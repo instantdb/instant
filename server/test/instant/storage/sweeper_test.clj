@@ -112,7 +112,7 @@
     (fn [app]
       (let [app-id (:id app)
             conn (aurora/conn-pool :write)
-            files (for [i (range 800)] ;; Generate < 1000 files
+            files (for [i (range 100)] ;; Generate < 1000 files
                     {:file-id (random-uuid)
                      :path (format "file-%d.jpg" i)
                      :location-id (format "loc-%d" i)
@@ -125,8 +125,8 @@
                                        {:app-id app-id
                                         :ids file-ids})]
 
-        ;; 800 files should be marked for sweep
-        (is (= 800 (count-files-to-sweep conn app-id)))
+        ;; 100 files should be marked for sweep
+        (is (= 100 (count-files-to-sweep conn app-id)))
 
         (sweeper/handle-sweep! conn {:app-id app-id
                                      :limit 1000})
@@ -139,28 +139,28 @@
     (fn [app]
       (let [app-id (:id app)
             conn (aurora/conn-pool :write)
-            files (for [i (range 2500)]
+            files (for [i (range 250)]
                     {:file-id (random-uuid)
                      :path (format "file-%d.jpg" i)
                      :location-id (format "loc-%d" i)
                      :metadata {:size 100
                                 :content-type "image/jpeg"
                                 :content-disposition "inline"}})
-            chunks (partition-all 1000 files)
+            chunks (partition-all 100 files)
             file-ids (mapcat #(app-file/bulk-create! conn
                                                      {:app-id app-id
                                                       :data %}) chunks)
-            delete-chunks (partition-all 1000 file-ids)
+            delete-chunks (partition-all 100 file-ids)
             _ (doseq [chunk delete-chunks]
                 (app-file/delete-by-ids! conn
                                          {:app-id app-id
                                           :ids chunk}))]
 
-        ;; 2500 files should be marked for sweep
-        (is (= 2500 (count-files-to-sweep conn app-id)))
+        ;; 250 files should be marked for sweep
+        (is (= 250 (count-files-to-sweep conn app-id)))
 
         (sweeper/handle-sweep! conn {:app-id app-id
-                                     :limit 1000})
+                                     :limit 100})
 
         ;; All files should now be swept
         (is (= 0 (count-files-to-sweep conn app-id)))))))

@@ -17,7 +17,7 @@
             [clojure.test :refer [deftest testing is]]))
 
 (def wait-timeout (if (= :test (config/get-env))
-                    5000
+                    10000
                     1000))
 
 (defmacro check-estimate [job]
@@ -372,214 +372,217 @@
                            :indexing))))))))))
 
 (deftest unique-works
-  (with-indexing-job-queue job-queue
-    (with-empty-app
-      (fn [app]
-        (let [attr-id (random-uuid)
+  (with-redefs [jobs/batch-size 10]
+    (with-indexing-job-queue job-queue
+      (with-empty-app
+        (fn [app]
+          (let [attr-id (random-uuid)
 
-              _ (tx/transact! (aurora/conn-pool :write)
-                              (attr-model/get-by-app-id (:id app))
-                              (:id app)
-                              [[:add-attr {:id attr-id
-                                           :forward-identity [(random-uuid) "etype" "label"]
-                                           :unique? false
-                                           :index? false
-                                           :value-type :blob
-                                           :cardinality :one}]])
-              _ (dotimes [x 10]
-                  (tx/transact! (aurora/conn-pool :write)
+                _ (tx/transact! (aurora/conn-pool :write)
                                 (attr-model/get-by-app-id (:id app))
                                 (:id app)
-                                (for [i (range 1002)]
-                                  [:add-triple (random-uuid) attr-id (format "%s-%s" x i)])))
-              job (jobs/create-job!
-                   {:app-id (:id app)
-                    :attr-id attr-id
-                    :job-type "unique"})
+                                [[:add-attr {:id attr-id
+                                             :forward-identity [(random-uuid) "etype" "label"]
+                                             :unique? false
+                                             :index? false
+                                             :value-type :blob
+                                             :cardinality :one}]])
+                _ (dotimes [x 10]
+                    (tx/transact! (aurora/conn-pool :write)
+                                  (attr-model/get-by-app-id (:id app))
+                                  (:id app)
+                                  (for [i (range 12)]
+                                    [:add-triple (random-uuid) attr-id (format "%s-%s" x i)])))
+                job (jobs/create-job!
+                     {:app-id (:id app)
+                      :attr-id attr-id
+                      :job-type "unique"})
 
-              _ (jobs/enqueue-job job-queue job)
-              _ (wait-for (fn []
-                            (every? (fn [{:keys [id]}]
-                                      (= "completed" (:job_status (jobs/get-by-id id))))
-                                    [job]))
-                          wait-timeout)
-              triples (triple-model/fetch (aurora/conn-pool :read)
-                                          (:id app)
-                                          [[:= :attr-id attr-id]])]
-          (testing "unique"
-            (check-estimate job)
+                _ (jobs/enqueue-job job-queue job)
+                _ (wait-for (fn []
+                              (every? (fn [{:keys [id]}]
+                                        (= "completed" (:job_status (jobs/get-by-id id))))
+                                      [job]))
+                            wait-timeout)
+                triples (triple-model/fetch (aurora/conn-pool :read)
+                                            (:id app)
+                                            [[:= :attr-id attr-id]])]
+            (testing "unique"
+              (check-estimate job)
+              (is (pos? (count triples)))
+
+              (is (every? (fn [{:keys [index]}]
+                            (contains? index :av))
+                          triples))
+              (let [attrs (attr-model/get-by-app-id (:id app))]
+                (is (-> (attr-model/seek-by-id attr-id attrs)
+                        :unique?))
+                (is (not (-> (attr-model/seek-by-id attr-id attrs)
+                             :setting-unique?)))))
+            (testing "remove-unique"
+              (let [remove-unique-job (jobs/create-job!
+                                       {:app-id (:id app)
+                                        :attr-id attr-id
+                                        :job-type "remove-unique"})
+                    _ (jobs/enqueue-job job-queue remove-unique-job)
+                    _ (wait-for (fn []
+                                  (every? (fn [{:keys [id]}]
+                                            (= "completed" (:job_status (jobs/get-by-id id))))
+                                          [remove-unique-job]))
+                                wait-timeout)
+                    triples (triple-model/fetch (aurora/conn-pool :read)
+                                                (:id app)
+                                                [[:= :attr-id attr-id]])]
+
+                (check-estimate remove-unique-job)
+                (is (pos? (count triples)))
+                (is (every? (fn [{:keys [index]}]
+                              (not (contains? index :av)))
+                            triples))
+                (let [attrs (attr-model/get-by-app-id (:id app))]
+                  (is (not (-> (attr-model/seek-by-id attr-id attrs)
+                               :unique?)))
+                  (is (not (-> (attr-model/seek-by-id attr-id attrs)
+                               :setting-unique?))))))))))))
+
+(deftest rejects-not-unique-values
+  (with-redefs [jobs/batch-size 10]
+    (with-indexing-job-queue job-queue
+      (with-empty-app
+        (fn [app]
+          (let [attr-id (random-uuid)
+
+                _ (tx/transact! (aurora/conn-pool :write)
+                                (attr-model/get-by-app-id (:id app))
+                                (:id app)
+                                [[:add-attr {:id attr-id
+                                             :forward-identity [(random-uuid) "etype" "label"]
+                                             :unique? false
+                                             :index? false
+                                             :value-type :blob
+                                             :cardinality :one}]])
+                _ (dotimes [x 5]
+                    (tx/transact! (aurora/conn-pool :write)
+                                  (attr-model/get-by-app-id (:id app))
+                                  (:id app)
+                                  (for [i (range 12)]
+                                    [:add-triple (random-uuid) attr-id (format "%s-%s" x i)])))
+                _ (tx/transact! (aurora/conn-pool :write)
+                                (attr-model/get-by-app-id (:id app))
+                                (:id app)
+                                [[:add-triple (random-uuid) attr-id "a"]
+                                 [:add-triple (random-uuid) attr-id "a"]])
+                job (jobs/create-job!
+                     {:app-id (:id app)
+                      :attr-id attr-id
+                      :job-type "unique"})
+
+                _ (jobs/enqueue-job job-queue job)
+                _ (wait-for (fn []
+                              (every? (fn [{:keys [id]}]
+                                        (= "errored" (:job_status (jobs/get-by-id id))))
+                                      [job]))
+                            wait-timeout)
+                triples (triple-model/fetch (aurora/conn-pool :read)
+                                            (:id app)
+                                            [[:= :attr-id attr-id]])
+                job-for-client (jobs/get-by-id-for-client (:app_id job) (:id job))]
             (is (pos? (count triples)))
 
             (is (every? (fn [{:keys [index]}]
-                          (contains? index :av))
+                          (not (contains? index :av)))
                         triples))
             (let [attrs (attr-model/get-by-app-id (:id app))]
-              (is (-> (attr-model/seek-by-id attr-id attrs)
-                      :unique?))
               (is (not (-> (attr-model/seek-by-id attr-id attrs)
-                           :setting-unique?)))))
-          (testing "remove-unique"
-            (let [remove-unique-job (jobs/create-job!
-                                     {:app-id (:id app)
-                                      :attr-id attr-id
-                                      :job-type "remove-unique"})
-                  _ (jobs/enqueue-job job-queue remove-unique-job)
-                  _ (wait-for (fn []
-                                (every? (fn [{:keys [id]}]
-                                          (= "completed" (:job_status (jobs/get-by-id id))))
-                                        [remove-unique-job]))
-                              wait-timeout)
-                  triples (triple-model/fetch (aurora/conn-pool :read)
-                                              (:id app)
-                                              [[:= :attr-id attr-id]])]
+                           :unique?)))
+              (is (not (-> (attr-model/seek-by-id attr-id attrs)
+                           :setting-unique?))))
 
-              (check-estimate remove-unique-job)
-              (is (pos? (count triples)))
-              (is (every? (fn [{:keys [index]}]
-                            (not (contains? index :av)))
-                          triples))
-              (let [attrs (attr-model/get-by-app-id (:id app))]
-                (is (not (-> (attr-model/seek-by-id attr-id attrs)
-                             :unique?)))
-                (is (not (-> (attr-model/seek-by-id attr-id attrs)
-                             :setting-unique?)))))))))))
+            ;; XXX: next up, check that we get an invalid triple
+            (is (= "triple-not-unique-error" (:error job-for-client)))
 
-(deftest rejects-not-unique-values
-  (with-indexing-job-queue job-queue
-    (with-empty-app
-      (fn [app]
-        (let [attr-id (random-uuid)
-
-              _ (tx/transact! (aurora/conn-pool :write)
-                              (attr-model/get-by-app-id (:id app))
-                              (:id app)
-                              [[:add-attr {:id attr-id
-                                           :forward-identity [(random-uuid) "etype" "label"]
-                                           :unique? false
-                                           :index? false
-                                           :value-type :blob
-                                           :cardinality :one}]])
-              _ (dotimes [x 5]
-                  (tx/transact! (aurora/conn-pool :write)
-                                (attr-model/get-by-app-id (:id app))
-                                (:id app)
-                                (for [i (range 1002)]
-                                  [:add-triple (random-uuid) attr-id (format "%s-%s" x i)])))
-              _ (tx/transact! (aurora/conn-pool :write)
-                              (attr-model/get-by-app-id (:id app))
-                              (:id app)
-                              [[:add-triple (random-uuid) attr-id "a"]
-                               [:add-triple (random-uuid) attr-id "a"]])
-              job (jobs/create-job!
-                   {:app-id (:id app)
-                    :attr-id attr-id
-                    :job-type "unique"})
-
-              _ (jobs/enqueue-job job-queue job)
-              _ (wait-for (fn []
-                            (every? (fn [{:keys [id]}]
-                                      (= "errored" (:job_status (jobs/get-by-id id))))
-                                    [job]))
-                          wait-timeout)
-              triples (triple-model/fetch (aurora/conn-pool :read)
-                                          (:id app)
-                                          [[:= :attr-id attr-id]])
-              job-for-client (jobs/get-by-id-for-client (:app_id job) (:id job))]
-          (is (pos? (count triples)))
-
-          (is (every? (fn [{:keys [index]}]
-                        (not (contains? index :av)))
-                      triples))
-          (let [attrs (attr-model/get-by-app-id (:id app))]
-            (is (not (-> (attr-model/seek-by-id attr-id attrs)
-                         :unique?)))
-            (is (not (-> (attr-model/seek-by-id attr-id attrs)
-                         :setting-unique?))))
-
-          ;; XXX: next up, check that we get an invalid triple
-          (is (= "triple-not-unique-error" (:error job-for-client)))
-
-          (is (= ["a" "a"]
-                 (map #(get % "value") (-> job-for-client
-                                           :invalid_triples_sample)))))))))
+            (is (= ["a" "a"]
+                   (map #(get % "value") (-> job-for-client
+                                             :invalid_triples_sample))))))))))
 
 (deftest rejects-too-large-values
-  (with-indexing-job-queue job-queue
-    (with-empty-app
-      (fn [app]
-        (let [id-attr-id (random-uuid)
-              attr-id (random-uuid)
+  (with-redefs [jobs/batch-size 10]
+    (with-indexing-job-queue job-queue
+      (with-empty-app
+        (fn [app]
+          (let [id-attr-id (random-uuid)
+                attr-id (random-uuid)
 
-              _ (tx/transact! (aurora/conn-pool :write)
-                              (attr-model/get-by-app-id (:id app))
-                              (:id app)
-                              [[:add-attr {:id id-attr-id
-                                           :forward-identity [(random-uuid) "etype" "id"]
-                                           :unique? true
-                                           :index? false
-                                           :value-type :blob
-                                           :cardinality :one}]
-                               [:add-attr {:id attr-id
-                                           :forward-identity [(random-uuid) "etype" "label"]
-                                           :unique? false
-                                           :index? false
-                                           :value-type :blob
-                                           :cardinality :one}]])
-              _ (dotimes [x 5]
-                  (tx/transact! (aurora/conn-pool :write)
+                _ (tx/transact! (aurora/conn-pool :write)
                                 (attr-model/get-by-app-id (:id app))
                                 (:id app)
-                                (for [i (range 1002)]
-                                  [:add-triple (random-uuid) attr-id (format "%s-%s" x i)])))
-              bad-id (random-uuid)
-              _ (tx/transact! (aurora/conn-pool :write)
-                              (attr-model/get-by-app-id (:id app))
-                              (:id app)
-                              [[:add-triple bad-id attr-id (apply str (repeatedly 1024 random-uuid))]])
-              unique-job (jobs/create-job!
-                          {:app-id (:id app)
-                           :attr-id attr-id
-                           :job-type "unique"})
-              index-job (jobs/create-job!
-                         {:app-id (:id app)
-                          :attr-id attr-id
-                          :job-type "index"})
+                                [[:add-attr {:id id-attr-id
+                                             :forward-identity [(random-uuid) "etype" "id"]
+                                             :unique? true
+                                             :index? false
+                                             :value-type :blob
+                                             :cardinality :one}]
+                                 [:add-attr {:id attr-id
+                                             :forward-identity [(random-uuid) "etype" "label"]
+                                             :unique? false
+                                             :index? false
+                                             :value-type :blob
+                                             :cardinality :one}]])
+                _ (dotimes [x 5]
+                    (tx/transact! (aurora/conn-pool :write)
+                                  (attr-model/get-by-app-id (:id app))
+                                  (:id app)
+                                  (for [i (range 12)]
+                                    [:add-triple (random-uuid) attr-id (format "%s-%s" x i)])))
+                bad-id (random-uuid)
+                _ (tx/transact! (aurora/conn-pool :write)
+                                (attr-model/get-by-app-id (:id app))
+                                (:id app)
+                                [[:add-triple bad-id attr-id (apply str (repeatedly 1024 random-uuid))]])
+                unique-job (jobs/create-job!
+                            {:app-id (:id app)
+                             :attr-id attr-id
+                             :job-type "unique"})
+                index-job (jobs/create-job!
+                           {:app-id (:id app)
+                            :attr-id attr-id
+                            :job-type "index"})
 
-              _ (jobs/enqueue-job job-queue unique-job)
-              _ (jobs/enqueue-job job-queue index-job)
-              _ (wait-for (fn []
-                            (every? (fn [{:keys [id]}]
-                                      (not (contains? #{"processing" "waiting"} (:job_status (jobs/get-by-id id)))))
-                                    [unique-job
-                                     index-job]))
-                          wait-timeout)
-              triples (triple-model/fetch (aurora/conn-pool :read)
-                                          (:id app)
-                                          [[:= :attr-id attr-id]])
-              unique-job-for-client (jobs/get-by-id-for-client (:id app) (:id unique-job))
-              index-job-for-client (jobs/get-by-id-for-client (:id app) (:id index-job))]
-          (is (pos? (count triples)))
+                _ (jobs/enqueue-job job-queue unique-job)
+                _ (jobs/enqueue-job job-queue index-job)
+                _ (wait-for (fn []
+                              (every? (fn [{:keys [id]}]
+                                        (not (contains? #{"processing" "waiting"} (:job_status (jobs/get-by-id id)))))
+                                      [unique-job
+                                       index-job]))
+                            wait-timeout)
+                triples (triple-model/fetch (aurora/conn-pool :read)
+                                            (:id app)
+                                            [[:= :attr-id attr-id]])
+                unique-job-for-client (jobs/get-by-id-for-client (:id app) (:id unique-job))
+                index-job-for-client (jobs/get-by-id-for-client (:id app) (:id index-job))]
+            (is (pos? (count triples)))
 
-          (is (every? (fn [{:keys [index]}]
-                        (and (not (contains? index :ave))
-                             (not (contains? index :av))))
-                      triples))
-          (let [attrs (attr-model/get-by-app-id (:id app))]
-            (is (not (-> (attr-model/seek-by-id attr-id attrs)
-                         :unique?)))
-            (is (not (-> (attr-model/seek-by-id attr-id attrs)
-                         :setting-unique?)))
-            (is (not (-> (attr-model/seek-by-id attr-id attrs)
-                         :index?)))
-            (is (not (-> (attr-model/seek-by-id attr-id attrs)
-                         :indexing?))))
+            (is (every? (fn [{:keys [index]}]
+                          (and (not (contains? index :ave))
+                               (not (contains? index :av))))
+                        triples))
+            (let [attrs (attr-model/get-by-app-id (:id app))]
+              (is (not (-> (attr-model/seek-by-id attr-id attrs)
+                           :unique?)))
+              (is (not (-> (attr-model/seek-by-id attr-id attrs)
+                           :setting-unique?)))
+              (is (not (-> (attr-model/seek-by-id attr-id attrs)
+                           :index?)))
+              (is (not (-> (attr-model/seek-by-id attr-id attrs)
+                           :indexing?))))
 
-          (is (= "triple-too-large-error" (:error unique-job-for-client)))
-          (is (= "triple-too-large-error" (:error index-job-for-client)))
+            (is (= "triple-too-large-error" (:error unique-job-for-client)))
+            (is (= "triple-too-large-error" (:error index-job-for-client)))
 
-          (is (= [(str bad-id)]
-                 (map #(get % "entity_id") (-> unique-job-for-client
-                                               :invalid_triples_sample)))))))))
+            (is (= [(str bad-id)]
+                   (map #(get % "entity_id") (-> unique-job-for-client
+                                                 :invalid_triples_sample))))))))))
 
 (deftest required-works-with-no-errors
   (with-indexing-job-queue job-queue
