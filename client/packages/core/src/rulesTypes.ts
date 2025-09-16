@@ -6,6 +6,7 @@ type InstantRulesAttrsAllowBlock = {
   create?: string | null | undefined;
   update?: string | null | undefined;
   delete?: string | null | undefined;
+  skipCascadePermissionCheck?: string | null | undefined;
 };
 
 export type InstantRulesAllowBlock = InstantRulesAttrsAllowBlock & {

@@ -512,10 +512,12 @@
         (concat
          tx-step-maps
          ;; Add delete operations for cascaded entities only
-         (for [{:keys [entity_id etype]} cascaded-entities]
+         (for [{:keys [entity_id etype parent_id]} cascaded-entities]
            {:op :delete-entity
             :eid entity_id
-            :etype etype})
+            :etype etype
+            :cascade-delete? true
+            :cascade-parent-id parent_id})
          ;; Add rule-params for cascaded entities that have a parent with rule-params
          (for [{:keys [entity_id etype parent_id]} cascaded-entities
                :let [rule-params (get parent-id->rule-params parent_id)]
