@@ -17,7 +17,6 @@
   (:require
    [clojure.string :as string]
    [datascript.core :as d]
-   [instant.flags :as flags]
    [instant.jdbc.sql :as sql]
    [instant.lib.ring.websocket :as ws]
    [instant.lib.ring.sse :as sse]
@@ -792,8 +791,7 @@
           (ex/throw-socket-error! sess-id e))))
     (when-let [ws-conn (:ws-conn socket)]
       (try
-        (ws/send-json! app-id event (assoc ws-conn
-                                           :send-timeout (flags/flag :ws-send-timeout)))
+        (ws/send-json! app-id event ws-conn)
         (catch java.io.IOException e
           (ex/throw-socket-error! sess-id e))))))
 

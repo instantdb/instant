@@ -191,7 +191,7 @@
 
 (defn send-json!
   "Serializes `obj` to json, and sends over a websocket."
-  [app-id obj {:keys [websocket-stub undertow-websocket ^ReentrantLock send-lock send-timeout]}]
+  [app-id obj {:keys [websocket-stub undertow-websocket ^ReentrantLock send-lock]}]
   ;; Websockets/sendText _should_ be thread-safe
   ;; But, t becomes thread-unsafe when we use per-message-deflate
   ;; Using a `send-lock` to make `send-json!` thread-safe
@@ -211,9 +211,7 @@
              (complete [ws-conn context]
                (deliver p nil))
              (onError [ws-conn context throwable]
-               (deliver p throwable)))
-           ;; -1 is same as no timeout
-           (or send-timeout -1))
+               (deliver p throwable))))
           (finally
             (.unlock send-lock)))
         (let [ret @p]
