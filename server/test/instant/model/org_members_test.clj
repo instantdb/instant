@@ -18,6 +18,7 @@
             (is (thrown-with-msg? clojure.lang.ExceptionInfo
                                   #"There must be at least one member of the org that is an owner"
                                   (org-members/update-role {:role "admin"
+                                                            :org-id (:id org)
                                                             :id member-id})))
             (is (thrown-with-msg? clojure.lang.ExceptionInfo
                                   #"There must be at least one member of the org that is an owner"

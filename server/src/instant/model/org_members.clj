@@ -17,14 +17,23 @@
 
 (defn update-role
   ([params] (update-role (aurora/conn-pool :write) params))
-  ([conn {:keys [role id]}]
+  ([conn {:keys [role org-id id]}]
    (sql/execute-one! ::update-role
                      conn
                      ["UPDATE org_members
                        SET role = ?
-                       WHERE id = ?::uuid"
+                       WHERE id = ?::uuid and org_id = ?::uuid"
                       role
-                      id])))
+                      id
+                      org-id])))
+
+(defn get-by-id
+  ([params] (get-by-id (aurora/conn-pool :read) params))
+  ([conn {:keys [org-id id]}]
+   (sql/select-one ::get
+                   conn
+                   ["SELECT * FROM org_members WHERE org_id = ?::uuid AND id = ?::uuid"
+                    org-id id])))
 
 (defn get-by-org-and-user
   ([params] (get-by-org-and-user (aurora/conn-pool :read) params))
@@ -34,10 +43,11 @@
                    ["SELECT * FROM org_members WHERE org_id = ?::uuid AND user_id = ?::uuid"
                     org-id user-id])))
 
-(defn delete-by-id!
-  ([params] (delete-by-id! (aurora/conn-pool :write) params))
-  ([conn {:keys [id]}]
+(defn delete!
+  ([params] (delete! (aurora/conn-pool :write) params))
+  ([conn {:keys [id org-id]}]
    (sql/execute-one! ::delete-by-id!
                      conn
-                     ["DELETE FROM org_members WHERE id = ?::uuid"
-                      id])))
+                     ["DELETE FROM org_members WHERE id = ?::uuid and org_id = ?::uuid"
+                      id
+                      org-id])))
