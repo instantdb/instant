@@ -84,6 +84,12 @@
 (def member-role-hierarchy [:collaborator :admin :owner])
 (def member-roles (set member-role-hierarchy))
 
+(defn max-role [a b]
+  (if (> (or (ucoll/index-of a member-role-hierarchy) -1)
+         (or (ucoll/index-of b member-role-hierarchy) -1))
+    a
+    b))
+
 (defn req->auth-user! [req]
   (let [refresh-token (http-util/req->bearer-token! req)]
     (instant-user-model/get-by-refresh-token! {:refresh-token refresh-token
@@ -100,17 +106,22 @@
   (assert-valid-member-role! :admin)
   (assert-valid-member-role! :owner)
   (assert-valid-member-role! nil)
-  (assert-valid-member-role! 1))
+  (assert-valid-member-role! 1)
+  (max-role :collaborator :admin)
+  (max-role :collaborator :collaborator)
+  (max-role :owner :collaborator))
 
 (defn has-at-least-role? [least-privilege-role user-role]
-  (assert (contains? member-roles least-privilege-role) "Expected valid least-privilege-role")
+  (assert (contains? member-roles least-privilege-role)
+          (str "Expected valid least-privilege-role, got " least-privilege-role))
   (and user-role
        (contains? member-roles user-role)
        (<= (ucoll/index-of least-privilege-role member-role-hierarchy)
            (ucoll/index-of user-role member-role-hierarchy))))
 
 (defn assert-least-privilege! [least-privilege-role user-role]
-  (assert (contains? member-roles least-privilege-role) "Expected valid least-privilege-role")
+  (assert (contains? member-roles least-privilege-role)
+          (str "Expected valid least-privilege-role, got " least-privilege-role))
   (ex/assert-valid!
    :user-role
    user-role
@@ -160,7 +171,8 @@
                         (instant-subscription-model/plan-supports-members? org-subscription))))
            ;; This is the only success case. The user has access through
            ;; either the app or the org.
-           {:app app :user user}
+           {:app app :user user :role (max-role app-member-role
+                                                org-member-role)}
 
            ;; Has no role
            (and (not app-member-role)
@@ -205,7 +217,7 @@
      (assert-least-privilege!
       least-privilege
       (:role org-with-role))
-     {:org org-with-role :user user})))
+     {:org org-with-role :user user :role (:role org-with-role)})))
 
 (comment
   (with-team-app-fixtures
@@ -1098,25 +1110,35 @@
 
 (defn team-member-remove-delete [req]
   (let [member-id-param (ex/get-param! req [:body :id] uuid-util/coerce)
-        {:keys [type member-id]}
+        {:keys [type member-id member-role user-role foreign-key]}
         (cond (get-in req [:params :app_id])
-              {:type :app
-               :foreign-key (-> (req->app-and-user! :admin req)
-                                :app
-                                :id)
-               :member-id member-id-param}
+              (let [{:keys [app role]} (req->app-and-user! :admin req)
+                    member (-> (instant-app-members/get-by-id {:app-id (:id app)
+                                                               :id member-id-param})
+                               (ex/assert-record! :app-member {:params {:id member-id-param}}))]
+                {:type :app
+                 :foreign-key (:id app)
+                 :member-role (:member_role member)
+                 :member-id (:id member)
+                 :user-role role})
 
               (get-in req [:params :org_id])
-              {:type :org
-               :foreign-key (-> (req->org-and-user! :admin req)
-                                :org
-                                :id)
-               :member-id member-id-param}
+              (let [{:keys [org role]} (req->org-and-user! :admin req)
+                    member (-> (instant-org-members/get-by-id {:org-id (:id org)
+                                                               :id member-id-param})
+                               (ex/assert-record! :org-member {:params {:id member-id-param}}))]
+                {:type :org
+                 :foreign-key (:id org)
+                 :member-id (:id member)
+                 :member-role (:role member)
+                 :user-role role})
 
               :else (ex/throw-missing-param! [:params :app_id]))]
+
+    (assert-least-privilege! (keyword member-role) (keyword user-role))
     (case type
-      :app (instant-app-members/delete-by-id! {:id member-id})
-      :org (instant-org-members/delete-by-id! {:id member-id}))
+      :app (instant-app-members/delete! {:id member-id :app-id foreign-key})
+      :org (instant-org-members/delete! {:id member-id :org-id foreign-key}))
     (response/ok {})))
 
 (comment
@@ -1127,28 +1149,42 @@
        (assoc owner-req :body {:id (:id member)})))))
 
 (defn team-member-update-post [req]
-  (let [member-id (ex/get-param! req [:body :id] uuid-util/coerce)
-        role (ex/get-param! req [:body :role] string-util/coerce-non-blank-str)]
-    (assert-valid-member-role! role)
-    (let [{:keys [type]}
+  (let [member-id-param (ex/get-param! req [:body :id] uuid-util/coerce)
+        role-param (ex/get-param! req [:body :role] string-util/coerce-non-blank-str)]
+    (assert-valid-member-role! role-param)
+    (let [{:keys [type foreign-key member-id member-role user-role]}
           (cond (get-in req [:params :app_id])
-                (let [app-id (-> (req->app-and-user! :admin req)
-                                 :app
-                                 :id)]
+                (let [{:keys [app role]} (req->app-and-user! :admin req)
+                      member (-> (instant-app-members/get-by-id {:app-id (:id app)
+                                                                 :id member-id-param})
+                                 (ex/assert-record! :app-member {:params {:id member-id-param}}))]
                   {:type :app
-                   :foreign-key app-id})
+                   :foreign-key (:id app)
+                   :member-role (:member_role member)
+                   :member-id (:id member)
+                   :user-role role})
 
                 (get-in req [:params :org_id])
-                (let [org-id (-> (req->org-and-user! :admin req)
-                                 :org
-                                 :id)]
+                (let [{:keys [org role]} (req->org-and-user! :admin req)
+                      member (-> (instant-org-members/get-by-id {:org-id (:id org)
+                                                                 :id member-id-param})
+                                 (ex/assert-record! :org-member {:params {:id member-id-param}}))]
                   {:type :org
-                   :foreign-key org-id})
+                   :foreign-key (:id org)
+                   :member-id (:id member)
+                   :member-role (:role member)
+                   :user-role role})
 
                 :else (ex/throw-missing-param! [:params :app_id]))]
+      (assert-least-privilege! (keyword role-param) (tool/inspect (keyword user-role)))
+      (assert-least-privilege! (keyword member-role) (keyword user-role))
       (case type
-        :app (instant-app-members/update-role {:id member-id :role role})
-        :org (instant-org-members/update-role {:id member-id :role role}))
+        :app (instant-app-members/update-role {:id member-id
+                                               :role role-param
+                                               :app-id foreign-key})
+        :org (instant-org-members/update-role {:id member-id
+                                               :role role-param
+                                               :org-id foreign-key}))
       (response/ok {}))))
 
 (comment

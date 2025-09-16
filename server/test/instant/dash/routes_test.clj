@@ -13,7 +13,7 @@
    [instant.model.app-members :as app-members]
    [instant.stripe :as stripe]
    [instant.util.crypt :as crypt-util]
-   [instant.util.json :refer [->json]]
+   [instant.util.json :refer [->json <-json]]
    [instant.util.tracer :as tracer]))
 
 (defn silence-routes-exceptions [f]
@@ -92,15 +92,41 @@
                                                    ["select * from app_members where app_id = ? and user_id = ?"
                                                     (:id app)
                                                     (:id invitee)])]
-                        (is (= "collaborator" (:member_role member)))))
+                        (is (= "collaborator" (:member_role member))))
+
+                      (testing "but not by someone with a lesser role"
+                        (let [res (http/post (str config/server-origin "/dash/apps/" (:id app) "/members/update")
+                                             {:throw-exceptions false
+                                              :headers {:Authorization (str "Bearer " (:refresh-token invitee))
+                                                        :Content-Type "application/json"}
+                                              :as :json
+                                              :body (->json {:id (:id u)
+                                                             :role "collaborator"})})]
+                          (is (= 400 (:status res)))
+                          (is (= "permission-denied" (-> res :body <-json (get "type")))))))
 
                     (testing "members can be removed"
+                      (testing "but not by users with lesser roles"
+                        (with-user
+                          (fn [u2]
+                            (app-members/create! {:app-id (:id app)
+                                                  :user-id (:id u2)
+                                                  :role "admin"})
+                            (let [resp (http/delete (str config/server-origin "/dash/apps/" (:id app) "/members/remove")
+                                                    {:throw-exceptions false
+                                                     :headers {:Authorization (str "Bearer " (:refresh-token invitee))
+                                                               :Content-Type "application/json"}
+                                                     :as :json
+                                                     :body (->json {:id (:id member)})})]
+                              (is (= 400 (:status resp)))
+                              (is (= "permission-denied" (-> resp :body <-json (get "type"))))
+                              (is (= "admin" (:member_role (app-members/get-by-app-and-user {:app-id (:id app)
+                                                                                             :user-id (:id u2)}))))))))
                       (let [_res (http/delete (str config/server-origin "/dash/apps/" (:id app) "/members/remove")
                                               {:headers {:Authorization (str "Bearer " (:refresh-token u))
                                                          :Content-Type "application/json"}
                                                :as :json
-                                               :body (->json {:id (:id member)
-                                                              :role "collaborator"})})
+                                               :body (->json {:id (:id member)})})
                             member (sql/select-one (aurora/conn-pool :read)
                                                    ["select * from app_members where app_id = ? and user_id = ?"
                                                     (:id app)
@@ -283,9 +309,33 @@
                                                    ["select * from org_members where org_id = ? and user_id = ?"
                                                     (:id org)
                                                     (:id invitee)])]
-                        (is (= "collaborator" (:role member)))))
+                        (is (= "collaborator" (:role member)))
+
+                        (testing "but not by someone with a lesser role"
+                          (let [res (http/post (str config/server-origin "/dash/orgs/" (:id org) "/members/update")
+                                               {:throw-exceptions false
+                                                :headers {:Authorization (str "Bearer " (:refresh-token invitee))
+                                                          :Content-Type "application/json"}
+                                                :as :json
+                                                :body (->json {:id (:id u)
+                                                               :role "collaborator"})})]
+                            (is (= 400 (:status res)))
+                            (is (= "permission-denied" (-> res :body <-json (get "type"))))))))
 
                     (testing "members can be removed"
+                      (testing "but not by users with lesser roles"
+                        (let [member-id (:id (org-members/get-by-org-and-user {:org-id (:id org)
+                                                                               :user-id (:id u)}))
+                              resp (http/delete (str config/server-origin "/dash/orgs/" (:id org) "/members/remove")
+                                                {:throw-exceptions false
+                                                 :headers {:Authorization (str "Bearer " (:refresh-token invitee))
+                                                           :Content-Type "application/json"}
+                                                 :as :json
+                                                 :body (->json {:id member-id})})]
+                          (is (= 400 (:status resp)))
+                          (is (= "permission-denied" (-> resp :body <-json (get "type"))))
+                          (is (= "owner" (:role (org-members/get-by-org-and-user {:org-id (:id org)
+                                                                                  :user-id (:id u)}))))))
                       (let [_res (http/delete (str config/server-origin "/dash/orgs/" (:id org) "/members/remove")
                                               {:headers {:Authorization (str "Bearer " (:refresh-token u))
                                                          :Content-Type "application/json"}

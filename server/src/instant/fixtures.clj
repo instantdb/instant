@@ -281,7 +281,8 @@
             :invitee-req invitee-req})
         (finally
           (app-model/delete-immediately-by-id! {:id app-id})
-          (instant-app-members/delete-by-id! {:id (:id member)})
+          (instant-app-members/delete! {:id (:id member)
+                                        :app-id app-id})
           (member-invites/delete-by-id! {:id (:id invite)}))))))
 
 (defn with-startup-org [create-fake-objects? f]
