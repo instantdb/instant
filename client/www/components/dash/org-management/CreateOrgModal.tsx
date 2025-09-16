@@ -15,11 +15,13 @@ export const CreateOrgModal = () => {
   const dash = useFetchedDash();
   const dialog = useDialog();
   const token = useContext(TokenContext);
+  const [errorText, setErrorText] = useState<null | string>(null);
   const [value, setValue] = useState('');
 
   const submit = async () => {
-    if (!value) {
-      throw new Error('New name cannot be empty');
+    if (!value.trim()) {
+      setErrorText('Organization name can not be empty');
+      return;
     }
     dash.optimisticUpdate(
       await jsonFetch(`${config.apiURI}/dash/orgs`, {
@@ -41,6 +43,8 @@ export const CreateOrgModal = () => {
         return prev;
       },
     );
+
+    dialog.onClose();
   };
 
   return (
@@ -57,13 +61,13 @@ export const CreateOrgModal = () => {
           onSubmit={async (e) => {
             e.preventDefault();
             await submit();
-            dialog.onClose();
           }}
         >
           <SubsectionHeading className="pb-4">
             Create Organization
           </SubsectionHeading>
           <TextInput
+            error={errorText}
             value={value}
             label="Name"
             placeholder="My Organization"
