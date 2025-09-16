@@ -223,10 +223,10 @@
                 :admin-token (random-uuid)})
           stripe-customer (instant-stripe-customer-model/get-or-create-for-user! {:user owner})
           _ (stripe/add-payment-method-for-test-customer (:id stripe-customer))
-          stripe-subscription-id (.getId (stripe/create-pro-subscription {:customer-id (:id stripe-customer)
-                                                                          :app app
-                                                                          :user owner
-                                                                          :free? free?}))
+          stripe-subscription-id (:id (stripe/create-pro-subscription {:customer-id (:id stripe-customer)
+                                                                       :app app
+                                                                       :user owner
+                                                                       :free? free?}))
           owner-req (mock-app-req app owner)
           _ (instant-subscription-model/create!
              {:user-id (:id owner)
@@ -303,9 +303,9 @@
                             (let [stripe-customer (instant-stripe-customer-model/get-or-create-for-org! {:org org
                                                                                                          :user-email (:email owner)})
                                   _ (stripe/add-payment-method-for-test-customer (:id stripe-customer))
-                                  stripe-subscription-id (.getId (stripe/create-pro-subscription {:customer-id (:id stripe-customer)
-                                                                                                  :app app
-                                                                                                  :user owner}))
+                                  stripe-subscription-id (:id (stripe/create-pro-subscription {:customer-id (:id stripe-customer)
+                                                                                               :app app
+                                                                                               :user owner}))
                                   subscription (instant-subscription-model/create! {:user-id (:id owner)
                                                                                     :org-id (:id org)
                                                                                     :subscription-type-id plans/STARTUP_SUBSCRIPTION_TYPE

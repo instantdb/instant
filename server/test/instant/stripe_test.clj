@@ -15,7 +15,8 @@
    [instant.plans :as plans]
    [instant.stripe :as stripe]
    [instant.stripe-webhook :as stripe-webhook])
-  (:import (io.undertow.io UndertowInputStream)
+  (:import (com.stripe.model Subscription)
+           (io.undertow.io UndertowInputStream)
            (java.io InputStreamReader)))
 
 (defn event-data [{:keys [app-id org-id user-id customer subscription-type-id]}]
@@ -161,8 +162,11 @@
                         {:org org
                          :user-email (:email user)})
               _ (stripe/add-payment-method-for-test-customer (:id customer))
-              subscription (stripe/create-startup-subscription {:customer-id (:id customer)
-                                                                :org org})
+
+              {:keys [^Subscription subscription]}
+              (stripe/create-startup-subscription {:customer-id (:id customer)
+                                                   :org org})
+
               event (-> {:data {:object {:customer (:id customer)
                                          :subscription (.getId subscription)
                                          :metadata (.getMetadata subscription)}}

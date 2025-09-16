@@ -190,9 +190,9 @@
   "Intended for use in dev and tests, will create a stripe subscription
   for a customer that matches the subscription that would have been created
   through the checkout process."
-  ^Subscription [{:keys [customer-id user app free?]}]
+  [{:keys [customer-id user app free?]}]
   (if (create-fake-objects?)
-    (str "sub_fake_" (crypt-util/random-hex 8))
+    {:id (str "sub_fake_" (crypt-util/random-hex 8))}
     (let [sub (-> (stripe-client)
                   (.subscriptions)
                   (.create (let [builder (.. (SubscriptionCreateParams/builder)
@@ -212,15 +212,16 @@
                                                          (setCoupon "i33t1l5x")
                                                          (build))))
                              (.build builder))))]
-      sub)))
+      {:id (.getId sub)
+       :subscription sub})))
 
 (defn create-startup-subscription
   "Intended for use in dev and tests, will create a stripe subscription
   for a customer that matches the subscription that would have been created
   through the checkout process."
-  ^Subscription [{:keys [customer-id org free?]}]
+  [{:keys [customer-id org free?]}]
   (if (create-fake-objects?)
-    (str "sub_fake_" (crypt-util/random-hex 8))
+    {:id (str "sub_fake_" (crypt-util/random-hex 8))}
     (let [sub (-> (stripe-client)
                   (.subscriptions)
                   (.create (let [builder (.. (SubscriptionCreateParams/builder)
@@ -239,7 +240,8 @@
                                                          (setCoupon "i33t1l5x")
                                                          (build))))
                              (.build builder))))]
-      sub)))
+      {:id (.getId sub)
+       :subscription sub})))
 
 (defn add-payment-method-for-test-customer
   "Adds a default payment method for a customer in test mode."
