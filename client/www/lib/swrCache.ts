@@ -1,6 +1,5 @@
 export function localStorageProvider() {
   if (typeof window === 'undefined') {
-    console.log('localStorageProvider: window is undefined');
     return new Map();
   }
   const map = new Map(

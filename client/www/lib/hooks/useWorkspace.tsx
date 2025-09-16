@@ -3,6 +3,7 @@ import { APIResponse, optimisticUpdate, useAuthToken } from '../auth';
 import config from '../config';
 import { InstantApp } from '../types';
 import { useDashFetch } from './useDashFetch';
+import { Role } from '@/pages/dash';
 
 export type OrgInvite = {
   id: string;
@@ -26,7 +27,7 @@ type ApiOrgResponse = {
   members: {
     id: string;
     email: string;
-    role: string;
+    role: Role;
   }[];
   invites: OrgInvite[];
 };
