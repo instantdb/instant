@@ -5,7 +5,6 @@ import {
   TextInput,
   useDialog,
 } from '@/components/ui';
-import { PencilIcon } from '@heroicons/react/24/outline';
 import { useContext, useState } from 'react';
 import { useFetchedDash } from '../MainDashLayout';
 import { jsonFetch } from '@/lib/fetch';
@@ -19,9 +18,6 @@ export const CreateOrgModal = () => {
   const [value, setValue] = useState('');
 
   const submit = async () => {
-    if (dash.data.workspace.type !== 'org') {
-      throw new Error('Workspace is not an organization');
-    }
     if (!value) {
       throw new Error('New name cannot be empty');
     }
