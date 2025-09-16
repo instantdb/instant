@@ -879,7 +879,7 @@
 (defn create-portal [req]
   (let [{{app-id :id} :app user :user} (req->app-and-user! req)
         {customer-id :id} (instant-stripe-customer-model/get-or-create-for-user! {:user user})
-        session-params {"return_url" (str (config/stripe-success-url) "&app=" app-id)
+        session-params {"return_url" (config/stripe-return-url :app app-id)
                         "customer" customer-id}
         session (com.stripe.model.billingportal.Session/create ^Map session-params)]
     (response/ok {:url (.getUrl session)})))
@@ -889,7 +889,7 @@
         {customer-id :id} (instant-stripe-customer-model/get-or-create-for-org!
                            {:org org
                             :user-email (:email user)})
-        session-params {"return_url" (str (config/stripe-success-url) "&org=" org-id)
+        session-params {"return_url" (config/stripe-return-url :org org-id)
                         "customer" customer-id}
         session (com.stripe.model.billingportal.Session/create ^Map session-params)]
     (response/ok {:url (.getUrl session)})))
