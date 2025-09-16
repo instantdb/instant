@@ -191,7 +191,7 @@
 
 (defn with-pro-app-fixtures [f]
   (fixtures/with-pro-app
-    true
+    {:create-fake-objects? true}
     (instant-user-model/get-by-email {:email "marky@instantdb.com"}) f))
 
 (defn req->org-and-user!

@@ -390,3 +390,21 @@
                                                                      :org-subscription-id org_stripe_subscription_id})))]
      {:credit (:credit credit)
       :removed_app_members_already_on_paid_org removed_app_members_already_on_paid_org})))
+
+(def pro-apps-subscriptions-q
+  (uhsql/preformat
+   {:select :app-s.*
+    :from [[:instant_subscriptions :app-s]]
+    :join [[:apps :a] [:= :a.subscription_id :app-s.id]
+           [:orgs :o] [:= :a.org_id :o.id]]
+    :where [:and
+            [:= :o.id :?org-id]
+            [:= :app-s.subscription_type_id [:inline plans/PRO_SUBSCRIPTION_TYPE]]]}))
+
+(defn pro-app-subscriptions
+  "Gets the apps on the org that have a pro plan."
+  ([params] (pro-app-subscriptions (aurora/conn-pool :read) params))
+  ([conn {:keys [org-id]}]
+   (sql/select ::pro-app-subscriptions
+               conn
+               (uhsql/formatp pro-apps-q {:org-id org-id}))))
