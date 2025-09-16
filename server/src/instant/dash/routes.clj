@@ -1176,7 +1176,7 @@
                    :user-role role})
 
                 :else (ex/throw-missing-param! [:params :app_id]))]
-      (assert-least-privilege! (keyword role-param) (tool/inspect (keyword user-role)))
+      (assert-least-privilege! (keyword role-param) (keyword user-role))
       (assert-least-privilege! (keyword member-role) (keyword user-role))
       (case type
         :app (instant-app-members/update-role {:id member-id
