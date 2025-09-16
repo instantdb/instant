@@ -8,6 +8,7 @@
    [instant.model.org :as org-model]
    [instant.plans :as plans]
    [instant.postmark :as postmark]
+   [instant.stripe :as stripe]
    [instant.util.exception :as ex]
    [instant.util.json :refer [<-json]]
    [instant.util.tracer :as tracer]
@@ -102,11 +103,25 @@
                         new-balance)]
     (send-discord! message)))
 
+(defn credit-org-for-paid-apps [{:keys [org-id org-subscription-id org-customer-id]}]
+  (doseq [{:keys [app_id
+                  stripe_customer_id
+                  stripe_subscription_id]} (org-model/pro-app-subscriptions {:org-id org-id})]
+    (tracer/with-span! {:name "stripe-webhook/credit-org-for-paid-apps"
+                        :attributes {:org-id org-id
+                                     :app-customer-id stripe_customer_id
+                                     :app-subscription-id stripe_subscription_id
+                                     :app-id app_id}}
+      (stripe/cancel-subscription-and-credit-customer
+       {:app-customer-id stripe_customer_id
+        :app-subscription-id stripe_subscription_id
+        :org-id org-id
+        :org-customer-id org-customer-id
+        :org-subscription-id org-subscription-id}))))
+
 (comment
   (def u (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
   (ping-js-on-churned-customer (:id u)))
-
-
 
 (defn- processed-event?
   [event-id]
@@ -136,14 +151,15 @@
         (case type
           "checkout.session.completed"
           (let [{:keys [user-id app-id org-id]} shared
-                opts (assoc shared :subscription-type-id (or subscription-type-id
-                                                             ;; TODO(orgs): remove when backend
-                                                             ;;             is fully deployed
-                                                             plans/PRO_SUBSCRIPTION_TYPE))]
+                opts (assoc shared :subscription-type-id subscription-type-id)]
             (instant-subscription-model/create! opts)
             (ping-js-on-new-customer {:user-id user-id
                                       :app-id app-id
                                       :org-id org-id})
+            (when (and org-id (= subscription-type-id plans/STARTUP_SUBSCRIPTION_TYPE))
+              (credit-org-for-paid-apps {:org-id org-id
+                                         :org-subscription-id subscription-id
+                                         :org-customer-id customer-id}))
             (tracer/add-data! {:attributes opts}))
 
           "customer.subscription.deleted"

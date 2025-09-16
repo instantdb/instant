@@ -10,7 +10,7 @@
    (com.stripe.exception InvalidRequestException)
    (com.stripe.model Customer CustomerBalanceTransaction Discount Subscription SubscriptionItem)
    (com.stripe.net RequestOptions)
-   (com.stripe.param CustomerBalanceTransactionCollectionCreateParams CustomerUpdateParams CustomerUpdateParams$InvoiceSettings InvoiceCreatePreviewParams InvoiceCreatePreviewParams$SubscriptionDetails InvoiceCreatePreviewParams$SubscriptionDetails$ProrationBehavior SetupIntentConfirmParams SetupIntentCreateParams SetupIntentCreateParams$AutomaticPaymentMethods SetupIntentCreateParams$AutomaticPaymentMethods$AllowRedirects SubscriptionCancelParams SubscriptionCreateParams SubscriptionCreateParams$Item SubscriptionListParams SubscriptionListParams$Status SubscriptionRetrieveParams SubscriptionUpdateParams)
+   (com.stripe.param CustomerBalanceTransactionCollectionCreateParams CustomerUpdateParams CustomerUpdateParams$InvoiceSettings InvoiceCreatePreviewParams InvoiceCreatePreviewParams$SubscriptionDetails InvoiceCreatePreviewParams$SubscriptionDetails$ProrationBehavior SetupIntentConfirmParams SetupIntentCreateParams SetupIntentCreateParams$AutomaticPaymentMethods SetupIntentCreateParams$AutomaticPaymentMethods$AllowRedirects SubscriptionCancelParams SubscriptionCreateParams SubscriptionCreateParams$Discount SubscriptionCreateParams$Item SubscriptionListParams SubscriptionListParams$Status SubscriptionRetrieveParams SubscriptionUpdateParams)
    (java.util HashMap Map)))
 
 (set! *warn-on-reflection* true)
@@ -160,6 +160,11 @@
      :monthly-revenue (max 0 (- items-revenue discount))
      :start-timestamp (.getStartDate subscription)}))
 
+(defn customer ^Customer [customer-id]
+  (-> (stripe-client)
+      (.customers)
+      (.retrieve customer-id)))
+
 (defn subscription ^Subscription [subscription-id]
   (-> (stripe-client)
       (.subscriptions)
@@ -185,25 +190,58 @@
   "Intended for use in dev and tests, will create a stripe subscription
   for a customer that matches the subscription that would have been created
   through the checkout process."
-  [{:keys [customer-id user app]}]
+  [{:keys [customer-id user app free?]}]
   (if (create-fake-objects?)
-    (str "sub_fake_" (crypt-util/random-hex 8))
+    {:id (str "sub_fake_" (crypt-util/random-hex 8))}
     (let [sub (-> (stripe-client)
                   (.subscriptions)
-                  (.create (.. (SubscriptionCreateParams/builder)
-                               (setCustomer customer-id)
-                               (setDescription (str "App name: " (:title app)))
-                               (addItem (.. (SubscriptionCreateParams$Item/builder)
-                                            (setPrice (config/stripe-pro-subscription))
-                                            (setQuantity 1)
-                                            (build)))
-                               (setBillingCycleAnchor (.toEpochSecond (date/first-of-next-month-est)))
-                               (putMetadata "app-id" (str (:id app)))
-                               (putMetadata "user-id" (str (:id user)))
-                               (putMetadata "subscription-type-id" (str plans/PRO_SUBSCRIPTION_TYPE))
-                               (putMetadata "source" "backend")
-                               (build))))]
-      (.getId sub))))
+                  (.create (let [builder (.. (SubscriptionCreateParams/builder)
+                                             (setCustomer customer-id)
+                                             (setDescription (str "App name: " (:title app)))
+                                             (addItem (.. (SubscriptionCreateParams$Item/builder)
+                                                          (setPrice (config/stripe-pro-subscription))
+                                                          (setQuantity 1)
+                                                          (build)))
+                                             (setBillingCycleAnchor (.toEpochSecond (date/first-of-next-month-est)))
+                                             (putMetadata "app-id" (str (:id app)))
+                                             (putMetadata "user-id" (str (:id user)))
+                                             (putMetadata "subscription-type-id" (str plans/PRO_SUBSCRIPTION_TYPE))
+                                             (putMetadata "source" "backend"))]
+                             (when free?
+                               (.addDiscount builder (.. (SubscriptionCreateParams$Discount/builder)
+                                                         (setCoupon "i33t1l5x")
+                                                         (build))))
+                             (.build builder))))]
+      {:id (.getId sub)
+       :subscription sub})))
+
+(defn create-startup-subscription
+  "Intended for use in dev and tests, will create a stripe subscription
+  for a customer that matches the subscription that would have been created
+  through the checkout process."
+  [{:keys [customer-id org free?]}]
+  (if (create-fake-objects?)
+    {:id (str "sub_fake_" (crypt-util/random-hex 8))}
+    (let [sub (-> (stripe-client)
+                  (.subscriptions)
+                  (.create (let [builder (.. (SubscriptionCreateParams/builder)
+                                             (setCustomer customer-id)
+                                             (setDescription (str "Org name: " (:title org)))
+                                             (addItem (.. (SubscriptionCreateParams$Item/builder)
+                                                          (setPrice (config/stripe-startup-subscription))
+                                                          (setQuantity 1)
+                                                          (build)))
+                                             (setBillingCycleAnchor (.toEpochSecond (date/first-of-next-month-est)))
+                                             (putMetadata "org-id" (str (:id org)))
+                                             (putMetadata "subscription-type-id" (str plans/STARTUP_SUBSCRIPTION_TYPE))
+                                             (putMetadata "source" "backend"))]
+                             (when free?
+                               (.addDiscount builder (.. (SubscriptionCreateParams$Discount/builder)
+                                                         (setCoupon "i33t1l5x")
+                                                         (build))))
+                             (.build builder))))]
+      {:id (.getId sub)
+       :subscription sub})))
 
 (defn add-payment-method-for-test-customer
   "Adds a default payment method for a customer in test mode."

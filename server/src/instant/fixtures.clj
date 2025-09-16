@@ -213,7 +213,7 @@
      (fn [app#]
        (run-zeneca-byop app# ~f))))
 
-(defn with-pro-app [create-fake-objects? owner f]
+(defn with-pro-app [{:keys [create-fake-objects? free?]} owner f]
   (binding [stripe/*create-fake-objects* create-fake-objects?]
     (let [app-id (random-uuid)
           app (app-model/create!
@@ -223,9 +223,10 @@
                 :admin-token (random-uuid)})
           stripe-customer (instant-stripe-customer-model/get-or-create-for-user! {:user owner})
           _ (stripe/add-payment-method-for-test-customer (:id stripe-customer))
-          stripe-subscription-id (stripe/create-pro-subscription {:customer-id (:id stripe-customer)
-                                                                  :app app
-                                                                  :user owner})
+          stripe-subscription-id (:id (stripe/create-pro-subscription {:customer-id (:id stripe-customer)
+                                                                       :app app
+                                                                       :user owner
+                                                                       :free? free?}))
           owner-req (mock-app-req app owner)
           _ (instant-subscription-model/create!
              {:user-id (:id owner)
@@ -300,11 +301,12 @@
                       (fn [org]
                         (with-empty-app
                           (fn [app]
-                            (let [stripe-customer (instant-stripe-customer-model/get-or-create-for-user! {:user owner})
+                            (let [stripe-customer (instant-stripe-customer-model/get-or-create-for-org! {:org org
+                                                                                                         :user-email (:email owner)})
                                   _ (stripe/add-payment-method-for-test-customer (:id stripe-customer))
-                                  stripe-subscription-id (stripe/create-pro-subscription {:customer-id (:id stripe-customer)
-                                                                                          :app app
-                                                                                          :user owner})
+                                  stripe-subscription-id (:id (stripe/create-pro-subscription {:customer-id (:id stripe-customer)
+                                                                                               :app app
+                                                                                               :user owner}))
                                   subscription (instant-subscription-model/create! {:user-id (:id owner)
                                                                                     :org-id (:id org)
                                                                                     :subscription-type-id plans/STARTUP_SUBSCRIPTION_TYPE

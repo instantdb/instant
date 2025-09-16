@@ -658,7 +658,7 @@
       true
       (fn [{:keys [app org owner outside-user]}]
         (with-pro-app
-          true
+          {:create-fake-objects? true}
           owner
           (fn [{pro-app :app}]
             ;; Add the second app to the org
@@ -787,33 +787,63 @@
   (with-startup-org
     false
     (fn [{:keys [org owner]}]
-      (with-pro-app
-        false
-        owner
-        (fn [{:keys [app stripe-subscription-id]}]
+      (testing "the org gets a credit for the amount they have paid"
+        (with-pro-app
+          {:create-fake-objects? false}
+          owner
+          (fn [{:keys [app stripe-subscription-id]}]
 
-          (let [resp (http/post (format "%s/dash/apps/%s/transfer_to_org/%s"
-                                        config/server-origin
-                                        (:id app)
-                                        (:id org))
-                                {:headers {:Authorization (str "Bearer " (:refresh-token owner))
-                                           :Content-Type "application/json"}
-                                 :as :json})]
-            (is (neg? (-> resp
-                          :body
-                          :credit)))
-            ;; is app transfered
-            (is (nil? (:creator_id (app-model/get-by-id! {:id (:id app)}))))
-            (is (= (:id org) (:org_id (app-model/get-by-id! {:id (:id app)}))))
+            (let [resp (http/post (format "%s/dash/apps/%s/transfer_to_org/%s"
+                                          config/server-origin
+                                          (:id app)
+                                          (:id org))
+                                  {:headers {:Authorization (str "Bearer " (:refresh-token owner))
+                                             :Content-Type "application/json"}
+                                   :as :json})]
+              (is (neg? (-> resp
+                            :body
+                            :credit)))
+              ;; is app transfered
+              (is (nil? (:creator_id (app-model/get-by-id! {:id (:id app)}))))
+              (is (= (:id org) (:org_id (app-model/get-by-id! {:id (:id app)}))))
 
-            (is (= "canceled" (.getStatus (stripe/subscription stripe-subscription-id))))
+              (is (= "canceled" (.getStatus (stripe/subscription stripe-subscription-id))))
 
-            ;; does the customer have a credit
-            (let [sub-id (:stripe_subscription_id
-                          (sql/select-one (aurora/conn-pool :read)
-                                          ["select * from instant_subscriptions s join orgs o on o.subscription_id = s.id where o.id = ?::uuid" (:id org)]))]
-              ;; If this fails around midnight on the last day of the month, just try again
-              (is (neg? (stripe/customer-balance-by-subscription sub-id))))))))))
+              ;; does the customer have a credit
+              (let [sub-id (:stripe_subscription_id
+                            (sql/select-one (aurora/conn-pool :read)
+                                            ["select * from instant_subscriptions s join orgs o on o.subscription_id = s.id where o.id = ?::uuid" (:id org)]))]
+                ;; If this fails around midnight on the last day of the month, just try again
+                (is (neg? (stripe/customer-balance-by-subscription sub-id))))))))
+      (testing "the org gets no credit if they haven't paid anything"
+        (with-pro-app
+          {:create-fake-objects? false
+           :free? true}
+          owner
+          (fn [{:keys [app stripe-subscription-id]}]
+
+            (let [resp (http/post (format "%s/dash/apps/%s/transfer_to_org/%s"
+                                          config/server-origin
+                                          (:id app)
+                                          (:id org))
+                                  {:headers {:Authorization (str "Bearer " (:refresh-token owner))
+                                             :Content-Type "application/json"}
+                                   :as :json})]
+              (is (nil? (-> resp
+                            :body
+                            :credit)))
+              ;; is app transfered
+              (is (nil? (:creator_id (app-model/get-by-id! {:id (:id app)}))))
+              (is (= (:id org) (:org_id (app-model/get-by-id! {:id (:id app)}))))
+
+              (is (= "canceled" (.getStatus (stripe/subscription stripe-subscription-id))))
+
+              ;; does the customer have a credit
+              (let [sub-id (:stripe_subscription_id
+                            (sql/select-one (aurora/conn-pool :read)
+                                            ["select * from instant_subscriptions s join orgs o on o.subscription_id = s.id where o.id = ?::uuid" (:id org)]))]
+                ;; If this fails around midnight on the last day of the month, just try again
+                (is (neg? (stripe/customer-balance-by-subscription sub-id)))))))))))
 
 (deftest members-transfer-for-paid-orgs
   (with-startup-org
@@ -878,7 +908,7 @@
   (with-org-user-and-app
     (fn [{:keys [org user]}]
       (with-pro-app
-        false
+        {:create-fake-objects? false}
         user
         (fn [{:keys [app stripe-subscription-id]}]
           (is (nil? (-> (http/post (format "%s/dash/apps/%s/transfer_to_org/%s"

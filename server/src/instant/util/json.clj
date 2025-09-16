@@ -38,8 +38,11 @@
   "Converts a JSON string to a Clojure data structure."
   cheshire/parse-string)
 
+(def <-json-stream
+  cheshire/parse-stream)
+
 (def big-factory (factory/make-json-factory
-                              ;; default is 20000000
+                               ;; default is 20000000
                   {:max-input-string-length 200000000}))
 
 (defn <-json-big
