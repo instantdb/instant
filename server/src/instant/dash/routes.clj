@@ -978,8 +978,9 @@
           [:p
            (:email user)
            " invited you to collaborate on their "
-           (case :org "organization"
-                 :app "app")
+           (case type
+             :org "organization"
+             :app "app")
            " " title "."]
           [:p "Navigate to "
            [:a {:href "https://instantdb.com/dash?s=invites"}
