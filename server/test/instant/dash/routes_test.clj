@@ -752,7 +752,6 @@
                                   {:headers {:Authorization (str "Bearer " (:refresh-token owner))
                                              :Content-Type "application/json"}
                                    :as :json})]
-              (tool/def-locals)
               (is (nil? (-> resp
                             :body
                             :credit)))

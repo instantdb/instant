@@ -156,8 +156,7 @@
             (ping-js-on-new-customer {:user-id user-id
                                       :app-id app-id
                                       :org-id org-id})
-            (tool/def-locals)
-            (when (and (tool/inspect org-id) (tool/inspect (= subscription-type-id plans/STARTUP_SUBSCRIPTION_TYPE)))
+            (when (and org-id (= subscription-type-id plans/STARTUP_SUBSCRIPTION_TYPE))
               (credit-org-for-paid-apps {:org-id org-id
                                          :org-subscription-id subscription-id
                                          :org-customer-id customer-id}))
