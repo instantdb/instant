@@ -12,11 +12,13 @@ import { useFetchedDash } from '../MainDashLayout';
 import { jsonFetch } from '@/lib/fetch';
 import config from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
+import { useReadyRouter } from '@/components/clientOnlyPage';
 
 export const RenameOrg = () => {
   const dash = useFetchedDash();
   const token = useContext(TokenContext);
   const [value, setValue] = useState('');
+  const router = useReadyRouter();
 
   const submit = async () => {
     if (dash.data.workspace.type !== 'org') {
@@ -45,10 +47,14 @@ export const RenameOrg = () => {
         return prev;
       },
     );
+
+    // Refetch the main dash so it updates there too
+    dash.mutate();
   };
 
   if (dash.data.workspace.type === 'personal') {
-    throw new Error('Personal workspaces cannot be renamed'); // should never happen
+    router.replace('/dash');
+    return;
   }
 
   return (

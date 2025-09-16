@@ -1,11 +1,30 @@
 import { useReadyRouter } from '@/components/clientOnlyPage';
 import { useFetchedDash } from '../MainDashLayout';
-import { Badge, Button, SubsectionHeading, useDialog } from '@/components/ui';
+import {
+  Badge,
+  Button,
+  SubsectionHeading,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  useDialog,
+} from '@/components/ui';
 import { InviteToOrgDialog } from './InviteToOrgDialog';
 import { isMinRole, Role } from '@/pages/dash';
 import config from '@/lib/config';
 import { useAuthToken } from '@/lib/auth';
 import { MemberMenu } from './MemberMenu';
+import { useOrgPaid } from '@/lib/hooks/useOrgPaid';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/DropdownMenu';
+import {
+  ArrowUturnLeftIcon,
+  EllipsisHorizontalIcon,
+} from '@heroicons/react/24/solid';
 
 const READABLE_ROLES: Record<string, string> = {
   admin: 'Admin',
@@ -17,6 +36,8 @@ export const Members = () => {
   const dashResponse = useFetchedDash();
   const router = useReadyRouter();
   const org = dashResponse.data.workspace;
+
+  const paid = useOrgPaid();
 
   const dialog = useDialog();
   const token = useAuthToken();
@@ -73,9 +94,22 @@ export const Members = () => {
       <div className="flex items-end py-2 justify-between">
         <SubsectionHeading>Current Members</SubsectionHeading>
         {isMinRole('admin', myRole) && (
-          <Button onClick={() => dialog.onOpen()} size="mini">
-            Invite
-          </Button>
+          <Tooltip>
+            <TooltipTrigger>
+              <Button
+                disabled={!paid}
+                onClick={() => dialog.onOpen()}
+                size="mini"
+              >
+                Invite
+              </Button>
+            </TooltipTrigger>
+            {!paid && (
+              <TooltipContent>
+                Invitations are only available for paid orgs
+              </TooltipContent>
+            )}
+          </Tooltip>
         )}
       </div>
       <InviteToOrgDialog dialog={dialog} />
@@ -111,19 +145,25 @@ export const Members = () => {
                 key={invite.id}
               >
                 <div>{invite.email}</div>
-                <div className="flex items-center gap-2">
-                  {isMinRole('admin', myRole) && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        revoke(invite.id);
-                      }}
-                      className="bg-red-400 p-1 text-sm text-white transition-colors hover:bg-red-500 font-semibold rounded"
-                    >
-                      Revoke
-                    </button>
-                  )}
-                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger>
+                    <EllipsisHorizontalIcon opacity={'50%'} width={20} />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          revoke(invite.id);
+                        }}
+                        className="flex gap-2"
+                      >
+                        <ArrowUturnLeftIcon width={14} />
+                        Revoke Invite
+                      </button>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             ))}
           </div>

@@ -35,7 +35,7 @@ export const ProfilePanel = () => {
       {({ close }) => (
         <>
           <PopoverButton>
-            <button
+            <div
               className={clsx(
                 'flex gap-9 items-center justify-between basis-[35%] truncate text-sm rounded-sm border border-gray-300 py-1',
                 'px-2 text-sm/6',
@@ -47,7 +47,7 @@ export const ProfilePanel = () => {
                 <div className="">{displayName}</div>
               </div>
               <ChevronDownIcon width={15} />
-            </button>
+            </div>
           </PopoverButton>
           <PopoverPanel className="absolute shadow bg-white top-[calc(100%+5px)] left-2 z-50 border border-gray-300 rounded-sm min-w-[300px]">
             <div
