@@ -7,6 +7,11 @@ import {
 } from '@/components/ui';
 import config from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
+import { jsonFetch } from '@/lib/fetch';
+import { OrgWorkspace } from '@/lib/hooks/useWorkspace';
+import { getAssignableRoles } from '@/lib/orgRoles';
+import { errorToast } from '@/lib/toast';
+import { Role } from '@/pages/dash';
 import { LockOpenIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { EllipsisHorizontalIcon } from '@heroicons/react/24/solid';
 import { useContext, useState } from 'react';
@@ -17,11 +22,6 @@ import {
   DropdownMenuTrigger,
 } from '../../DropdownMenu';
 import { useFetchedDash } from '../MainDashLayout';
-import { OrgWorkspace } from '@/lib/hooks/useWorkspace';
-import { isMinRole, Role } from '@/pages/dash';
-import { getAssignableRoles } from '@/lib/orgRoles';
-import { jsonFetch } from '@/lib/fetch';
-import { errorToast } from '@/lib/toast';
 
 interface Member {
   id: string;
