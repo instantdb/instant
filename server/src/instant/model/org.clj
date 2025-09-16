@@ -407,4 +407,4 @@
   ([conn {:keys [org-id]}]
    (sql/select ::pro-app-subscriptions
                conn
-               (uhsql/formatp pro-apps-q {:org-id org-id}))))
+               (uhsql/formatp pro-apps-subscriptions-q {:org-id org-id}))))
