@@ -12,7 +12,11 @@ import { OrgWorkspace } from '@/lib/hooks/useWorkspace';
 import { getAssignableRoles } from '@/lib/orgRoles';
 import { errorToast } from '@/lib/toast';
 import { Role } from '@/pages/dash';
-import { LockOpenIcon, TrashIcon } from '@heroicons/react/24/outline';
+import {
+  ArrowLeftStartOnRectangleIcon,
+  LockOpenIcon,
+  UserMinusIcon,
+} from '@heroicons/react/24/outline';
 import { EllipsisHorizontalIcon } from '@heroicons/react/24/solid';
 import { useContext, useState } from 'react';
 import {
@@ -46,6 +50,7 @@ const getNiceNameForRole = (role: Role) => {
 export const MemberMenu = ({ member }: MemberMenuProps) => {
   const deleteDialog = useDialog();
   const changeRoleDialog = useDialog();
+  const leaveOrgDialog = useDialog();
   const [newRole, setNewRole] = useState(member.role);
   const token = useContext(TokenContext);
   const dash = useFetchedDash();
@@ -97,7 +102,7 @@ export const MemberMenu = ({ member }: MemberMenuProps) => {
     }
   };
 
-  const handleRemoveMember = () => {
+  const handleRemoveMember = (memberId: string) => {
     return dash.optimisticUpdateWorkspace(
       fetch(
         `${config.apiURI}/dash/orgs/${
@@ -105,7 +110,7 @@ export const MemberMenu = ({ member }: MemberMenuProps) => {
         }/members/remove`,
         {
           body: JSON.stringify({
-            id: member.id,
+            id: memberId,
             'org-id': dash.data.currentWorkspaceId,
           }),
           headers: {
@@ -133,18 +138,30 @@ export const MemberMenu = ({ member }: MemberMenuProps) => {
           <EllipsisHorizontalIcon opacity={'50%'} width={20} />
         </DropdownMenuTrigger>
         <DropdownMenuContent>
-          <DropdownMenuItem
-            className="group"
-            disabled={member.email === myEmail}
-          >
-            <button
-              className="flex text-red-500 group-disabled:text-gray-400 gap-2 items-center"
-              onClick={() => deleteDialog.onOpen()}
+          {member.email === myEmail ? (
+            <DropdownMenuItem
+              disabled={org.members.length === 1}
+              className="group"
             >
-              <TrashIcon width={14} />
-              <div>Remove Member</div>
-            </button>
-          </DropdownMenuItem>
+              <button
+                className="flex text-red-500 group-disabled:text-gray-400 gap-2 items-center"
+                onClick={() => leaveOrgDialog.onOpen()}
+              >
+                <ArrowLeftStartOnRectangleIcon width={14} />
+                <div>Leave Organization</div>
+              </button>
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem className="group">
+              <button
+                className="flex text-red-500 group-disabled:text-gray-400 gap-2 items-center"
+                onClick={() => deleteDialog.onOpen()}
+              >
+                <UserMinusIcon width={14} />
+                <div>Remove Member</div>
+              </button>
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem
             className="group"
             disabled={assignableRoles.length === 0}
@@ -176,7 +193,28 @@ export const MemberMenu = ({ member }: MemberMenuProps) => {
             submitLabel="Removing..."
             successMessage="Member removed!"
             errorMessage="Failed to remove member."
-            onClick={handleRemoveMember}
+            onClick={() => handleRemoveMember(member.id)}
+          />
+        </div>
+      </Dialog>
+      <Dialog open={leaveOrgDialog.open} onClose={leaveOrgDialog.onClose}>
+        <div className="flex flex-col gap-4">
+          <h5 className="flex items-center text-lg font-bold">
+            Leave Organization
+          </h5>
+
+          <p>
+            Are you sure you want to leave <strong>{org.org.title}</strong>?
+          </p>
+
+          <ActionButton
+            type="submit"
+            variant="destructive"
+            label="Leave Organization"
+            submitLabel="Removing..."
+            successMessage="Member removed!"
+            errorMessage="Failed to remove member."
+            onClick={() => handleRemoveMember(member.id)}
           />
         </div>
       </Dialog>

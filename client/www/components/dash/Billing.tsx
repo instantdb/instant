@@ -12,6 +12,7 @@ import { errorToast } from '@/lib/toast';
 import confetti from 'canvas-confetti';
 import { useOrgPaid } from '@/lib/hooks/useOrgPaid';
 import { useReadyRouter } from '../clientOnlyPage';
+import Link from 'next/link';
 
 export const GB_1 = 1024 * 1024 * 1024;
 export const GB_10 = 10 * GB_1;
@@ -114,7 +115,6 @@ export default function Billing({ appId }: { appId: string }) {
   };
 
   const orgIsPaid = useOrgPaid();
-  const router = useReadyRouter();
 
   const authResponse = useAuthedFetch<AppsSubscriptionResponse>(
     `${config.apiURI}/dash/apps/${appId}/billing`,
@@ -125,8 +125,16 @@ export default function Billing({ appId }: { appId: string }) {
   }
 
   if (orgIsPaid) {
-    router.replace('/dash');
-    return;
+    return (
+      <div className="">
+        <div className="bg-white p-3 rounded">
+          <div className="p-2">This app is part of a paid organization.</div>
+          <Link href={'/dash/org?tab=billing'}>
+            <Button>Manage Organization Billing</Button>
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   const data = authResponse.data;

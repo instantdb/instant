@@ -21,7 +21,6 @@ import { successToast } from '@/lib/toast';
 import { InstantApp, SchemaNamespace } from '@/lib/types';
 
 import { Explorer } from '@/components/dash/explorer/Explorer';
-import { Onboarding } from '@/components/dash/Onboarding';
 import { Perms } from '@/components/dash/Perms';
 import { Schema } from '@/components/dash/Schema';
 
@@ -92,13 +91,7 @@ type Screen =
   | 'user-settings'
   | 'personal-access-tokens';
 
-function defaultTab(screen: 'main'): MainTabId;
-function defaultTab(screen: 'user-settings'): UserSettingsTabId;
-function defaultTab(screen: Screen): MainTabId | UserSettingsTabId;
 function defaultTab(screen: Screen): MainTabId | UserSettingsTabId {
-  if (screen === 'user-settings') {
-    return 'oauth-apps';
-  }
   return 'home';
 }
 
@@ -152,11 +145,7 @@ function DashV2() {
   return <Dashboard key="root" />;
 }
 
-function isTabAvailable(tab: Tab<MainTabId>, role: Role, orgIsPaid: boolean) {
-  if (tab.id === 'billing') {
-    return !orgIsPaid;
-  }
-
+function isTabAvailable(tab: Tab<MainTabId>, role: Role) {
   return tab.minRole ? role && isMinRole(tab.minRole, role) : true;
 }
 
@@ -164,11 +153,11 @@ function screenTab(screen: Screen, tab: string | null | undefined) {
   return tab && mainTabIndex.has(tab as MainTabId) ? tab : defaultTab(screen);
 }
 
-const getInitialApp = (apps: InstantApp[]) => {
+const getInitialApp = (apps: InstantApp[], workspaceId: string) => {
   const firstApp = apps?.[0];
   if (!firstApp) return;
 
-  const lastApp = getLocallySavedApp();
+  const lastApp = getLocallySavedApp(workspaceId);
   const lastAppId =
     lastApp && Boolean(apps.find((a) => a.id === lastApp.id))
       ? lastApp.id
@@ -209,7 +198,9 @@ function Dashboard() {
   const fetchedDash = useFetchedDash();
   const apps = fetchedDash.data.apps;
 
-  const appId = (router.query.app as string) || getInitialApp(apps);
+  const appId =
+    (router.query.app as string) ||
+    getInitialApp(apps, fetchedDash.data.currentWorkspaceId);
   const screen = ((router.query.s as string) || 'main') as Screen;
   const tab = screenTab(screen, router.query.t as string);
 
@@ -250,11 +241,22 @@ function Dashboard() {
   const orgIsPaid = useOrgPaid();
 
   // ui
-  const showAppOnboarding = !apps.length && !dashResponse.data.invites?.length;
-  const showNav = !showAppOnboarding;
   const showApp = app && connection && screen === 'main';
   const hasInvites = Boolean(dashResponse.data.invites?.length);
-  const showInvitesOnboarding = hasInvites && !apps?.length;
+
+  // set the query params if there are none
+  useEffect(() => {
+    if (!app) return;
+    if (!router.query.app || !router.query.t) {
+      router.replace({
+        query: {
+          s: 'main',
+          app: app.id,
+          t: tab,
+        },
+      });
+    }
+  }, [app, router.query.app]);
 
   useEffect(() => {
     if (screen && screen !== 'main') return;
@@ -265,7 +267,7 @@ function Dashboard() {
     const firstApp = apps?.[0];
     if (!firstApp) return;
 
-    const lastApp = getLocallySavedApp();
+    const lastApp = getLocallySavedApp(dashResponse.data.currentWorkspaceId);
     const lastAppId =
       lastApp && Boolean(apps.find((a) => a.id === lastApp.id))
         ? lastApp.id
@@ -282,7 +284,10 @@ function Dashboard() {
       },
     });
 
-    setLocallySavedApp({ id: defaultAppId });
+    setLocallySavedApp({
+      id: defaultAppId,
+      orgId: dashResponse.data.currentWorkspaceId,
+    });
   }, [dashResponse.data?.currentWorkspaceId, appId]);
 
   useEffect(() => {
@@ -305,7 +310,11 @@ function Dashboard() {
 
   function nav(q: { s: string; app?: string; t?: string }, cb?: () => void) {
     // TODO: update for orgs
-    if (q.app) setLocallySavedApp({ id: q.app });
+    if (q.app)
+      setLocallySavedApp({
+        id: q.app,
+        orgId: dashResponse.data.currentWorkspaceId,
+      });
 
     router
       .push({
@@ -338,6 +347,25 @@ function Dashboard() {
     nav({ s: 'main', app: _appId, t: 'hello' });
   }
 
+  if (
+    apps.length === 0 &&
+    dashResponse.data.invites &&
+    dashResponse.data.invites.length >= 1
+  ) {
+    router.replace('/dash/user-settings?tab=invites', undefined, {
+      shallow: true,
+    });
+  }
+
+  if (
+    apps.length === 0 &&
+    (dashResponse.data.orgs || []).length === 0 &&
+    dashResponse.data.invites?.length == 0
+  ) {
+    router.replace('/dash/onboarding', undefined, { shallow: true });
+    return;
+  }
+
   if (apps.length === 0) {
     router.replace('/dash/new', undefined, { shallow: true });
     return;
@@ -350,7 +378,7 @@ function Dashboard() {
   // Role is the max between the org and the app
   const role = getRole(dashResponse.data, app);
   const availableTabs: TabItem[] = mainTabs
-    .filter((t) => isTabAvailable(t, role, orgIsPaid))
+    .filter((t) => isTabAvailable(t, role))
     .map((t) => {
       return {
         id: t.id,
@@ -384,25 +412,16 @@ function Dashboard() {
         <Head>
           <title>Instant - {mainTabIndex.get(tab as MainTabId)?.title}</title>
         </Head>
-        {showNav ? (
-          <Nav
-            apps={apps}
-            appId={appId}
-            tab={tab as MainTabId}
-            availableTabs={availableTabs}
-            nav={(params) => nav({ s: 'main', app: appId, ...params })}
-            screen={screen}
-          />
-        ) : null}
+        <Nav
+          apps={apps}
+          appId={appId}
+          tab={tab as MainTabId}
+          availableTabs={availableTabs}
+          nav={(params) => nav({ s: 'main', app: appId, ...params })}
+          screen={screen}
+        />
         <>
-          {showAppOnboarding ? (
-            <Onboarding
-              onCreate={async (p) => {
-                await dashResponse.mutate();
-                nav({ s: 'main', app: p.id, t: defaultTab('main') });
-              }}
-            />
-          ) : showApp ? (
+          {showApp ? (
             <div
               key={appId} // Important! Re-mount all main content and reset UI state when the app id changes
               className="flex w-full flex-1 flex-col overflow-hidden"

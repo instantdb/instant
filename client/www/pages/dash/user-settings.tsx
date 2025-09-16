@@ -12,6 +12,7 @@ import { useRouter } from 'next/router';
 import { signOut } from '@/lib/auth';
 import { BackToAppsButton } from '@/components/dash/BackToAppsButton';
 import { Invites } from '@/components/dash/Invites';
+import Head from 'next/head';
 
 const UserSettingsPage: NextPageWithLayout = () => {
   const [tab, setTab] = useQueryState(
@@ -73,6 +74,9 @@ const UserSettingsPage: NextPageWithLayout = () => {
 UserSettingsPage.getLayout = (page) => {
   return (
     <ClientOnly>
+      <Head>
+        <title>User Settings</title>
+      </Head>
       <MainDashLayout>{page}</MainDashLayout>
     </ClientOnly>
   );

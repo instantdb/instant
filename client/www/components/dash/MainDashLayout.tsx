@@ -8,7 +8,7 @@ import Auth from './Auth';
 import { TokenContext } from '@/lib/contexts';
 import { CLILoginDialog } from './CLILoginDialog';
 import { useTicketSystem } from '@/lib/hooks/useTicketSystem';
-import { createInitializedContext } from '@/lib/createInitalizedContext';
+import { createInitializedContext } from '@/lib/createInitializedContext';
 import { StyledToastContainer } from '@/lib/toast';
 import { TopBar } from './TopBar';
 import { useWorkspace } from '@/lib/hooks/useWorkspace';
