@@ -1,15 +1,17 @@
 import { Popover, PopoverButton, PopoverPanel } from '@headlessui/react';
 import {
+  BuildingOffice2Icon,
   BuildingOfficeIcon,
   ChevronDownIcon,
   Cog6ToothIcon,
   UserIcon,
 } from '@heroicons/react/24/outline';
 import clsx from 'clsx';
-import { Button, cn, Tooltip, TooltipContent, TooltipTrigger } from '../ui';
-import { useFetchedDash } from './MainDashLayout';
 import Link from 'next/link';
 import { useReadyRouter } from '../clientOnlyPage';
+import { UserSettingsIcon } from '../icons/UserSettingsIcon';
+import { cn, Tooltip, TooltipContent, TooltipTrigger } from '../ui';
+import { useFetchedDash } from './MainDashLayout';
 import { CreateOrgModal } from './org-management/CreateOrgModal';
 
 export const ProfilePanel = () => {
@@ -66,7 +68,7 @@ export const ProfilePanel = () => {
                 }}
                 className="py-2 text-left grow px-2"
               >
-                <div className="flex gap-2 text-sm font-[500] items-center">
+                <div className="flex gap-2 text-sm items-center">
                   <UserIcon className="w-4 h-4 ml-1" />
                   {email}
                 </div>
@@ -74,9 +76,9 @@ export const ProfilePanel = () => {
               <Tooltip>
                 <TooltipTrigger onClick={() => {}}>
                   <Link href="/dash/user-settings" onClick={() => close()}>
-                    <button className="p-3 hover:bg-gray-200 transition-colors">
-                      <Cog6ToothIcon height={16} width={16} />
-                    </button>
+                    <div className="p-3 hover:bg-gray-200 transition-colors">
+                      <UserSettingsIcon />
+                    </div>
                   </Link>
                 </TooltipTrigger>
                 <TooltipContent side="right">User Settings</TooltipContent>
@@ -101,7 +103,11 @@ export const ProfilePanel = () => {
                   className="py-2 text-left grow px-2"
                 >
                   <div className="flex gap-2 text-sm items-center">
-                    <BuildingOfficeIcon className="w-4 h-4 ml-1" />
+                    {org.paid ? (
+                      <BuildingOffice2Icon className="w-4 h-4 ml-1" />
+                    ) : (
+                      <BuildingOfficeIcon className="w-4 h-4 ml-1" />
+                    )}
                     {org.title}
                   </div>
                 </button>
@@ -116,9 +122,9 @@ export const ProfilePanel = () => {
                           close();
                         }}
                       >
-                        <button className="p-3 hover:bg-gray-200 transition-colors">
+                        <div className="p-3 hover:bg-gray-200 transition-colors">
                           <Cog6ToothIcon height={16} width={16} />
-                        </button>
+                        </div>
                       </Link>
                     </TooltipTrigger>
                     <TooltipContent side="right">

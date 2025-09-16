@@ -121,6 +121,7 @@ export type DashResponse = {
     title: string;
     created_at: string;
     role: 'owner' | 'admin' | 'collaborator' | 'app-member';
+    paid: boolean;
   }[];
 };
 

@@ -10,6 +10,8 @@ import { useFetchedDash } from '../MainDashLayout';
 import { jsonFetch } from '@/lib/fetch';
 import config from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
+import { useReadyRouter } from '@/components/clientOnlyPage';
+import { infoToast, successToast } from '@/lib/toast';
 
 export const CreateOrgModal = () => {
   const dash = useFetchedDash();
@@ -17,13 +19,14 @@ export const CreateOrgModal = () => {
   const token = useContext(TokenContext);
   const [errorText, setErrorText] = useState<null | string>(null);
   const [value, setValue] = useState('');
+  const router = useReadyRouter();
 
   const submit = async () => {
     if (!value.trim()) {
       setErrorText('Organization name can not be empty');
       return;
     }
-    dash.optimisticUpdate(
+    const createdOrg = (await dash.optimisticUpdate(
       await jsonFetch(`${config.apiURI}/dash/orgs`, {
         method: 'POST',
         headers: {
@@ -35,6 +38,7 @@ export const CreateOrgModal = () => {
       (prev) => {
         if (!prev.orgs) return prev;
         prev.orgs.push({
+          paid: false,
           id: 'new',
           title: value,
           created_at: new Date().toISOString(),
@@ -42,7 +46,15 @@ export const CreateOrgModal = () => {
         });
         return prev;
       },
-    );
+    )) as {
+      org: {
+        // more fields
+        id: string;
+      };
+    };
+
+    dash.setWorkspace(createdOrg.org.id);
+    router.push('/dash/org?org=' + createdOrg.org.id);
 
     dialog.onClose();
   };

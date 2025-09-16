@@ -139,7 +139,7 @@ export const OrgBilling = () => {
         </div>
       ) : (
         <Button variant="primary" onClick={onManageBilling}>
-          Manage Pro subscription
+          Manage Startup subscription
         </Button>
       )}
     </div>

@@ -134,7 +134,7 @@ export const Members = () => {
       <div className="mt-6">
         <SubsectionHeading>Pending Invites</SubsectionHeading>
         {invites.length === 0 ? (
-          <div className="w-full text-center opacity-50 py-8">
+          <div className="w-full text-sm text-center opacity-50 py-8">
             No pending invites
           </div>
         ) : (

@@ -30,6 +30,7 @@ import {
 } from '@/components/ui';
 import { useForm } from '@/lib/hooks/useForm';
 import { HomeButton, isMinRole, Role, TabContent } from '@/pages/dash';
+import { useOrgPaid } from '@/lib/hooks/useOrgPaid';
 
 export function Admin({
   app,
@@ -53,6 +54,8 @@ export function Admin({
   const clearDialog = useDialog();
   const deleteDialog = useDialog();
   const inviteDialog = useDialog();
+
+  const isPaidOrg = useOrgPaid();
 
   const displayedInvites = app.invites?.filter(
     (invite) => invite.status !== 'accepted',
@@ -225,7 +228,7 @@ export function Admin({
           <Button {...appNameForm.submitButtonProps()}>Update app name</Button>
         </form>
       ) : null}
-      {app.pro ? (
+      {app.pro || isPaidOrg ? (
         <>
           <div className="flex flex-col gap-1">
             <SectionHeading>Team Members</SectionHeading>
@@ -311,7 +314,7 @@ export function Admin({
             </div>
           ) : null}
           <div className="flex flex-col gap-1">
-            {app.pro ? (
+            {app.pro || isPaidOrg ? (
               <Button
                 onClick={() => {
                   inviteDialog.onOpen();

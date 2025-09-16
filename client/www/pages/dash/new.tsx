@@ -15,6 +15,7 @@ import config from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
 import { jsonFetch } from '@/lib/fetch';
 import { InstantApp } from '@/lib/types';
+import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { ReactElement, useContext, useState } from 'react';
 import { v4 } from 'uuid';
@@ -93,6 +94,9 @@ function NewApp() {
 Page.getLayout = function getLayout(page: ReactElement) {
   return (
     <ClientOnly>
+      <Head>
+        <title>Create App</title>
+      </Head>
       <MainDashLayout>{page}</MainDashLayout>
     </ClientOnly>
   );
