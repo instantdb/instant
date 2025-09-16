@@ -23,6 +23,7 @@ module.exports = [
       },
       {
         title: 'Create Instant App',
+        prevHref: null,
         href: '/docs/create-instant-app',
         nextHref: '/docs/workflow',
         optionalLLM: true,
