@@ -69,6 +69,7 @@ export const LogoIcon = ({ size = 'mini' }: { size?: 'mini' | 'normal' }) => {
 export type TabItem = {
   id: string;
   label: ReactNode;
+  icon?: ReactNode;
   link?: { href: string; target?: '_blank' };
 };
 
