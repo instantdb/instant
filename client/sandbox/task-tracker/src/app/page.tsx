@@ -401,7 +401,7 @@ function generateInviteSecret(): string {
 function processInvite(projectId: string, secret: string, userId: string) {
   db.transact(
     db.tx.projects[projectId]
-      .update({ id: projectId })
+      // .update({ id: projectId })
       .link({ members: userId })
       .ruleParams({ secret }),
   ).catch((e) => {

@@ -38,12 +38,12 @@ const rules = {
       link: {
         // if I create a project I should be admin
         // if this runs after tx then you can make yourself admin
-        members: 'ruleParams.secret in data.ref(invites.secret)',
-        admins: 'isAdmin',
+        members: 'ruleParams.secret in data.ref(\'invites.secret\')',
+        admins: 'isAdmin || (newData == null && linkedData.id == auth.id)',
       },
       unlink: {
-        members: 'isAdmin || linkedData.id == auth.id',
-        admins: 'isAdmin || linkedData.id == auth.id',
+        members: 'isAdmin', //  || linkedData.id == auth.id',
+        admins: 'isAdmin', // || linkedData.id == auth.id',
       },
     },
   },

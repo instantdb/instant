@@ -27,6 +27,9 @@
 (defn extract-rev-etype [{:keys [attrs]} attr-id]
   (attr-model/rev-etype (attr-model/seek-by-id attr-id attrs)))
 
+(defn printable-check [check]
+  (update check :program dissoc :cel-ast :cel-program))
+
 (defn validate-reserved-names!
   "Throws a validation error if the users tries to add triples to the $users table"
   [{:keys [admin?]} tx-step-maps]
@@ -186,7 +189,7 @@
                     (ucoll/update! acc' key update label deep-merge-and-delete value)
 
                     :retract-triple
-                    (ucoll/update! acc' key assoc label nil)
+                    (ucoll/update! acc' key dissoc label)
 
                     acc')]
         acc''))
@@ -307,7 +310,7 @@
                      :etype    etype
                      :eid      eid
                      :program  unlink-program
-                     :bindings {:data         entity
+                     :bindings #p {:data         entity
                                 :new-data     (get updated-entities-map key)
                                 :linked-data  rev-entity
                                 :linked-etype rev-etype
@@ -318,7 +321,7 @@
                      :etype    rev-etype
                      :eid      value
                      :program  rev-unlink-program
-                     :bindings {:data         rev-entity
+                     :bindings #p {:data         rev-entity
                                 :new-data     (get updated-entities-map rev-key)
                                 :linked-data  entity
                                 :linked-etype etype
@@ -425,7 +428,7 @@
                      :etype    etype
                      :eid      (get create-lookups-map eid eid)
                      :program  link-program
-                     :bindings {:data         updated-entity
+                     :bindings {; :data         updated-entity
                                 :new-data     updated-entity
                                 :linked-data  updated-rev-entity
                                 :linked-etype rev-etype
@@ -438,7 +441,7 @@
                      :etype    rev-etype
                      :eid      (get updated-rev-entity "id")
                      :program  rev-link-program
-                     :bindings {:data         updated-rev-entity
+                     :bindings {; :data         updated-rev-entity
                                 :new-data     updated-rev-entity
                                 :linked-data  updated-entity
                                 :linked-etype etype
@@ -505,6 +508,8 @@
     (doall
      (for [{:keys [scope etype result] :as check} results]
        (do
+         (when-not result
+           #p (printable-check check))
          (when-not (:admin-check? ctx)
            (ex/assert-permitted! :perms-pass? [etype scope] result))
          (-> check
