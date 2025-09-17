@@ -134,7 +134,7 @@ export const ProfilePanel = () => {
                 )}
               </div>
             ))}
-            <div className="pt-2">
+            <div>
               <CreateOrgModal />
             </div>
           </PopoverPanel>
