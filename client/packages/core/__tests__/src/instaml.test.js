@@ -166,9 +166,9 @@ test('lookup creates unique attrs for custom lookups', () => {
 
 test('lookup creates unique attrs for lookups in link values', () => {
   const uid = uuid();
-  const ops = instatx.tx.users[uid]
-    .update({})
-    .link({ posts: instatx.lookup('slug', 'life-is-good') });
+  const ops = instatx.tx.users[uid].link({
+    posts: instatx.lookup('slug', 'life-is-good'),
+  });
 
   const result = instaml.transform({ attrs: {} }, ops);
 
@@ -222,7 +222,7 @@ test('lookup creates unique attrs for lookups in link values', () => {
 
 test('lookup creates unique attrs for lookups in link values with arrays', () => {
   const uid = uuid();
-  const ops = instatx.tx.users[uid].update({}).link({
+  const ops = instatx.tx.users[uid].link({
     posts: [
       instatx.lookup('slug', 'life-is-good'),
       instatx.lookup('slug', 'check-this-out'),
@@ -292,9 +292,9 @@ test('lookup creates unique attrs for lookups in link values with arrays', () =>
 
 test('lookup creates unique attrs for lookups in link values when fwd-ident exists', () => {
   const uid = uuid();
-  const ops = instatx.tx.users[uid]
-    .update({})
-    .link({ posts: instatx.lookup('slug', 'life-is-good') });
+  const ops = instatx.tx.users[uid].link({
+    posts: instatx.lookup('slug', 'life-is-good'),
+  });
 
   const attrId = uuid();
   const existingRefAttr = {
@@ -349,9 +349,9 @@ test('lookup creates unique attrs for lookups in link values when fwd-ident exis
 
 test('lookup creates unique attrs for lookups in link values when rev-ident exists', () => {
   const uid = uuid();
-  const ops = instatx.tx.users[uid]
-    .update({})
-    .link({ posts: instatx.lookup('slug', 'life-is-good') });
+  const ops = instatx.tx.users[uid].link({
+    posts: instatx.lookup('slug', 'life-is-good'),
+  });
 
   const attrId = uuid();
   const existingRefAttr = {
@@ -406,9 +406,9 @@ test('lookup creates unique attrs for lookups in link values when rev-ident exis
 
 test("lookup doesn't override attrs for lookups in link values", () => {
   const uid = uuid();
-  const ops = instatx.tx.users[uid]
-    .update({})
-    .link({ posts: instatx.lookup('slug', 'life-is-good') });
+  const ops = instatx.tx.users[uid].link({
+    posts: instatx.lookup('slug', 'life-is-good'),
+  });
 
   const refAttrId = uuid();
   const userIdAttrId = uuid();
@@ -565,9 +565,7 @@ test('lookup creates unique ref attrs for ref lookup', () => {
 test('lookup creates unique ref attrs for ref lookup in link value', () => {
   const uid = uuid();
   const ops = [
-    instatx.tx.users[uid]
-      .update({})
-      .link({ user_prefs: instatx.lookup('users.id', uid) }),
+    instatx.tx.users[uid].link({ user_prefs: instatx.lookup('users.id', uid) }),
   ];
 
   const lookup = [
@@ -771,8 +769,8 @@ test("it doesn't create duplicate ref attrs", () => {
   const aid = uuid();
   const bid = uuid();
   const ops = [
-    instatx.tx.nsA[aid].update({}).link({ nsB: bid }),
-    instatx.tx.nsB[bid].update({}).link({ nsA: aid }),
+    instatx.tx.nsA[aid].link({ nsB: bid }),
+    instatx.tx.nsB[bid].link({ nsA: aid }),
   ];
 
   const result = instaml.transform({ attrs: {} }, ops);
@@ -910,6 +908,7 @@ test('Schema: uses info in `attrs` and `links`', () => {
     ],
     ['add-triple', commentId, expect.any(String), commentId],
     ['add-triple', commentId, expect.any(String), 'test-slug'],
+    ['add-triple', commentId, expect.any(String), commentId],
     ['add-triple', commentId, expect.any(String), bookId],
   ];
   expect(result).toHaveLength(expected.length);
@@ -943,8 +942,8 @@ test("Schema: doesn't create duplicate ref attrs", () => {
   const commentId = uuid();
   const bookId = uuid();
   const ops = [
-    instatx.tx.comments[commentId].update({}).link({ book: bookId }),
-    instatx.tx.books[bookId].update({}).link({ comments: commentId }),
+    instatx.tx.comments[commentId].link({ book: bookId }),
+    instatx.tx.books[bookId].link({ comments: commentId }),
   ];
 
   const result = instaml.transform({ attrs: zenecaAttrs, schema }, ops);
@@ -1057,9 +1056,9 @@ test('Schema: lookup creates unique attrs for lookups in link values', () => {
   });
 
   const uid = uuid();
-  const ops = instatx.tx.users[uid]
-    .update({})
-    .link({ authoredPosts: instatx.lookup('slug', 'life-is-good') });
+  const ops = instatx.tx.users[uid].link({
+    authoredPosts: instatx.lookup('slug', 'life-is-good'),
+  });
 
   const result = instaml.transform({ attrs: {}, schema }, ops);
 
@@ -1138,7 +1137,7 @@ test('Schema: lookup creates unique attrs for lookups in link values with arrays
   });
 
   const uid = uuid();
-  const ops = instatx.tx.users[uid].update({}).link({
+  const ops = instatx.tx.users[uid].link({
     authoredPosts: [
       instatx.lookup('slug', 'life-is-good'),
       instatx.lookup('slug', 'check-this-out'),
@@ -1313,9 +1312,7 @@ test('Schema: lookup creates unique ref attrs for ref lookup in link value', () 
   });
   const uid = uuid();
   const ops = [
-    instatx.tx.users[uid]
-      .update({})
-      .link({ user_pref: instatx.lookup('user.id', uid) }),
+    instatx.tx.users[uid].link({ user_pref: instatx.lookup('user.id', uid) }),
   ];
 
   const lookup = [
