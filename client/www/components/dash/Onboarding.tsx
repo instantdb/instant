@@ -350,7 +350,6 @@ export function Onboarding() {
 
     createApp(token, toCreate).then(
       async () => {
-        // onCreate({ id: toCreate.id });
         await dash.mutate();
         router.replace('/dash');
         console.log('App created successfully');
