@@ -9,7 +9,8 @@ import { InstantIssue } from '@instantdb/core';
 import { errorToast } from '@/lib/toast';
 import { friendlyUsage, GB_1, GB_10, ProgressBar } from '../Billing';
 import { useFetchedDash } from '../MainDashLayout';
-import { Button, Content, SectionHeading } from '@/components/ui';
+import { Button, cn, Content, SectionHeading } from '@/components/ui';
+import { OrgWorkspace } from '@/lib/hooks/useWorkspace';
 
 async function createPortalSession(orgId: string, token: string) {
   const sessionPromise = jsonFetch(
@@ -89,6 +90,9 @@ export const OrgBilling = () => {
   if (fetchResult.error) {
     return <div>Error fetching data</div>;
   }
+  const org = fetchedDash.data.workspace as OrgWorkspace;
+
+  const isPaid = org.org.paid;
 
   if (!fetchResult.data) {
     return <div>Loading...</div>;
@@ -101,19 +105,25 @@ export const OrgBilling = () => {
   const isFreeTier = data['subscription-name'] === 'Free';
   const progressDen = isFreeTier ? GB_1 : GB_10;
   const progress = Math.round((totalUsageBytes / progressDen) * 100);
-  const subscriptionName = data['subscription-name'];
 
   return (
     <div className="pt-2">
       <div className="flex flex-col bg-white gap px-2 pt-1 rounded border">
         <div className="flex gap-2 items-end p-2 justify-between">
           <span className="font-bold">Usage (all apps)</span>{' '}
-          <span className="font-mono text-sm">
-            {friendlyUsage(totalUsageBytes)} / {friendlyUsage(progressDen)}
-          </span>
+          {!isPaid && (
+            <span className="font-mono text-sm">
+              {friendlyUsage(totalUsageBytes)} / {friendlyUsage(progressDen)}
+            </span>
+          )}
         </div>
-        <ProgressBar width={progress} />
-        <div className="flex justify-start text-sm pt-3 space-x-2 pl-2">
+        {!isPaid && <ProgressBar width={progress} />}
+        <div
+          className={cn(
+            'flex justify-start text-sm space-x-2 pl-2',
+            !isPaid && 'pt-3',
+          )}
+        >
           {totalAppBytes > 0 && (
             <span className="text-sm font-mono text-gray-500">
               DB ({friendlyUsage(totalAppBytes)})
@@ -130,11 +140,11 @@ export const OrgBilling = () => {
       {isFreeTier ? (
         <div className="flex flex-col gap-2">
           <Button variant="primary" onClick={onUpgrade}>
-            Upgrade to Pro
+            Upgrade to Startup
           </Button>
           <div className="italic text-sm w-full bg-purple-100 text-purple-800 rounded border border-purple-400 px-2 py-1">
-            Pro offers 10GB of storage, backups, multiple team members for apps,
-            and priority support.
+            Startup offer 250GB of storage across all apps, multiple team
+            members for apps, and priority support.
           </div>
         </div>
       ) : (
