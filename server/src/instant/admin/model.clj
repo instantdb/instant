@@ -92,23 +92,26 @@
       [(:id attr) value])
     eid))
 
+(defn- with-id-attr [attrs etype eid steps]
+  (let [lookup  (extract-lookup attrs etype eid)
+        attr-id (:id (attr-model/seek-by-fwd-ident-name [etype "id"] attrs))]
+    (concat
+     [[:add-triple lookup attr-id lookup]]
+     steps)))
+
 (defn- with-id-attr-for-lookup [attrs etype eid steps]
-  (let [lookup (extract-lookup attrs etype  eid)]
-    (if-not (sequential? lookup)
-      steps
-      (into [[:add-triple
-              lookup
-              (:id (attr-model/seek-by-fwd-ident-name [etype "id"] attrs))
-              lookup]]
-            steps))))
+  (let [lookup (extract-lookup attrs etype eid)]
+    (if (sequential? lookup)
+      (with-id-attr attrs etype eid steps)
+      steps)))
 
 (defn expand-link [attrs [etype eid-a obj]]
-  (with-id-attr-for-lookup
+  (with-id-attr
     attrs etype eid-a
     (mapcat (fn [[label eid-or-eids]]
               (let [fwd-attr (attr-model/seek-by-fwd-ident-name [etype label] attrs)
                     rev-attr (attr-model/seek-by-rev-ident-name [etype label] attrs)
-                    eid-bs (if (coll? eid-or-eids) eid-or-eids [eid-or-eids])
+                    eid-bs   (if (coll? eid-or-eids) eid-or-eids [eid-or-eids])
                     tx-steps (map (fn [eid-b]
                                     (if fwd-attr
                                       [:add-triple
@@ -219,14 +222,14 @@
 (defn to-tx-steps [attrs step]
   (let [[action & args] (remove-id-from-step step)]
     (case action
-      "create" (expand-create attrs args)
-      "update" (expand-update attrs args)
-      "merge" (expand-merge attrs args)
-      "link"   (expand-link attrs args)
-      "unlink" (expand-unlink attrs args)
-      "delete" (expand-delete attrs args)
-      "ruleParams" (expand-rule-params attrs args)
-      "add-attr" (expand-add-attr attrs args)
+      "create"      (expand-create attrs args)
+      "update"      (expand-update attrs args)
+      "merge"       (expand-merge attrs args)
+      "link"        (expand-link attrs args)
+      "unlink"      (expand-unlink attrs args)
+      "delete"      (expand-delete attrs args)
+      "ruleParams"  (expand-rule-params attrs args)
+      "add-attr"    (expand-add-attr attrs args)
       "delete-attr" (expand-delete-attr attrs args)
       (ex/throw-validation-err!
        :action
@@ -276,26 +279,32 @@
 
 (defn add-attrs-for-obj [acc op]
   (let [[action etype _eid obj] op
-        labels (conj (keys obj) "id")]
-    (reduce (fn [{:keys [attrs] :as acc} label]
-              (let [fwd-attr (attr-model/seek-by-fwd-ident-name [etype label] attrs)
-                    rev-attr (when (contains? ref-actions action)
-                               (attr-model/seek-by-rev-ident-name [etype label] attrs))]
-                (cond (and (contains? update-actions action)
-                           (not fwd-attr))
-                      (add-attr acc (create-object-attr etype
-                                                        label
-                                                        (when (= label "id")
-                                                          {:unique? true})))
+        acc (if (attr-model/seek-by-fwd-ident-name [etype "id"] (:attrs acc))
+              acc
+              (add-attr acc (create-object-attr etype
+                                                "id"
+                                                {:unique? true})))]
+    (reduce
+     (fn [{:keys [attrs] :as acc} label]
+       (let [fwd-attr (attr-model/seek-by-fwd-ident-name [etype label] attrs)
+             rev-attr (when (contains? ref-actions action)
+                        (attr-model/seek-by-rev-ident-name [etype label] attrs))]
+         (cond
+           (and (contains? update-actions action)
+                (not fwd-attr))
+           (add-attr acc (create-object-attr etype
+                                             label
+                                             (when (= label "id")
+                                               {:unique? true})))
 
-                      (and (contains? ref-actions action)
-                           (not fwd-attr)
-                           (not rev-attr))
-                      (add-attr acc (create-ref-attr etype label))
+           (and (contains? ref-actions action)
+                (not fwd-attr)
+                (not rev-attr))
+           (add-attr acc (create-ref-attr etype label))
 
-                      :else acc)))
-            acc
-            labels)))
+           :else acc)))
+     acc
+     (keys obj))))
 
 (defn add-attrs-for-ref-lookup [{:keys [attrs] :as acc} label etype]
   (let [fwd-attr (attr-model/seek-by-fwd-ident-name [etype label] attrs)

@@ -124,11 +124,8 @@ function extractLookup(attrs, etype, eid) {
   return [attr.id, value];
 }
 
-function withIdAttrForLookup(attrs, etype, eidA, txSteps) {
+function withIdAttr(attrs, etype, eidA, txSteps) {
   const lookup = extractLookup(attrs, etype, eidA);
-  if (!Array.isArray(lookup)) {
-    return txSteps;
-  }
   const idTuple = [
     'add-triple',
     lookup,
@@ -160,7 +157,7 @@ function expandLink({ attrs }, [etype, eidA, obj]) {
       return txStep;
     });
   });
-  return withIdAttrForLookup(attrs, etype, eidA, addTriples);
+  return withIdAttr(attrs, etype, eidA, addTriples);
 }
 
 function expandUnlink({ attrs }, [etype, eidA, obj]) {
@@ -185,7 +182,13 @@ function expandUnlink({ attrs }, [etype, eidA, obj]) {
       return txStep;
     });
   });
-  return withIdAttrForLookup(attrs, etype, eidA, retractTriples);
+
+  const lookup = extractLookup(attrs, etype, eidA);
+  if (Array.isArray(lookup)) {
+    return withIdAttr(attrs, etype, eidA, retractTriples);
+  } else {
+    return retractTriples;
+  }
 }
 
 function checkEntityExists(stores, etype, eid) {
@@ -565,9 +568,13 @@ function createMissingAttrs({ attrs: existingAttrs, schema }, ops) {
   for (const op of ops) {
     const [action, etype, eid, obj] = op;
     if (OBJ_ACTIONS.has(action)) {
-      const labels = Object.keys(obj);
-      labels.push('id');
-      for (const label of labels) {
+      const idAttr = getAttrByFwdIdentName(attrs, etype, 'id');
+      addUnsynced(idAttr);
+      if (!idAttr) {
+        addAttr(createObjectAttr(schema, etype, 'id', { 'unique?': true }));
+      }
+
+      for (const label of Object.keys(obj)) {
         const fwdAttr = getAttrByFwdIdentName(attrs, etype, label);
         addUnsynced(fwdAttr);
         if (UPDATE_ACTIONS.has(action)) {
