@@ -4,7 +4,6 @@ import { ProfilePanel } from './ProfilePanel';
 import Link from 'next/link';
 import {
   ArrowTopRightOnSquareIcon,
-  BellAlertIcon,
   EnvelopeIcon,
 } from '@heroicons/react/24/outline';
 import { useFetchedDash } from './MainDashLayout';
