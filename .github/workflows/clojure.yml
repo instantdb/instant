@@ -97,7 +97,7 @@ jobs:
       matrix:
         # List of indicies from 0 to NODE_COUNT
         # Make sure this matches NODE_COUNT below
-        node_index: [0, 1, 2]
+        node_index: [0, 1, 2, 3, 4]
 
     services:
       postgres:
@@ -202,7 +202,7 @@ jobs:
         INSTANT_TIMINGS_ADMIN_TOKEN: ${{ secrets.INSTANT_TIMINGS_ADMIN_TOKEN }}
         NODE_INDEX: ${{ matrix.node_index }}
         # Make sure this matches the length of the matrix
-        NODE_COUNT: "3"
+        NODE_COUNT: "5"
       run: clojure -M:test
 
     - name: Publish Test Report
