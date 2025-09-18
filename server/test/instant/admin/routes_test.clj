@@ -861,30 +861,57 @@
                    first
                    (get "pref_b"))))))))
 
+(deftest link-without-update
+  (with-empty-app
+    (fn [{app-id :id admin-token :admin-token}]
+      (let [headers {"app-id" (str app-id)
+                     "authorization" (str "Bearer " admin-token)}
+            user-id (random-uuid)
+            task-id (random-uuid)
+            _       (is (transact-ok?
+                         (transact-post
+                          {:body {:steps [["create" "tasks" task-id {}]]}
+                           :headers headers})))
+            _       (is (transact-ok?
+                         (transact-post
+                          {:body {:steps [["link" "users" user-id {"tasks" task-id}]]}
+                           :headers headers})))
+            res     (-> (query-post
+                         {:body {:query {:users {:$ {:where {:id user-id}}
+                                                 :tasks {}}}}
+                          :headers headers})
+                        :body)
+            user    (-> res
+                        (get "users")
+                        first)
+            tasks   (-> user
+                        (get "tasks"))]
+        (is (= (str user-id) (get user "id")))
+        (is (= #{(str task-id)} (set (map #(get % "id") tasks))))))))
+
 (deftest lookups-in-links-create-attrs
   (with-empty-app
     (fn [{app-id :id admin-token :admin-token}]
-      (testing "update"
-        (is (transact-ok?
-             (transact-post
-              {:body {:steps [["update" "users" ["handle" "stopa"] {"name" "Stepan"}]
-                              ["update" "tasks" ["slug" "task-a"] {}]
-                              ["link" "users" ["handle" "stopa"] {"tasks" {"slug" "task-a"}}]]}
-               :headers {"app-id" (str app-id)
-                         "authorization" (str "Bearer " admin-token)}})))
-        (let [query-result (-> (query-post
-                                {:body {:query {:users {:$ {:where {:handle "stopa"}}
-                                                        :tasks {}}}}
-                                 :headers {"app-id" (str app-id)
-                                           "authorization" (str "Bearer " admin-token)}})
-                               :body)
-              user (-> query-result
-                       (get "users")
-                       first)
-              tasks (-> user
-                        (get "tasks"))]
-          (is (= "Stepan" (get user "name")))
-          (is (= #{"task-a"} (set (map #(get % "slug") tasks)))))))))
+      (is (transact-ok?
+           (transact-post
+            {:body {:steps [["update" "users" ["handle" "stopa"] {"name" "Stepan"}]
+                            ["update" "tasks" ["slug" "task-a"] {}]
+                            ["link" "users" ["handle" "stopa"] {"tasks" {"slug" "task-a"}}]]}
+             :headers {"app-id" (str app-id)
+                       "authorization" (str "Bearer " admin-token)}})))
+      (let [query-result (-> (query-post
+                              {:body {:query {:users {:$ {:where {:handle "stopa"}}
+                                                      :tasks {}}}}
+                               :headers {"app-id" (str app-id)
+                                         "authorization" (str "Bearer " admin-token)}})
+                             :body)
+            user (-> query-result
+                     (get "users")
+                     first)
+            tasks (-> user
+                      (get "tasks"))]
+        (is (= "Stepan" (get user "name")))
+        (is (= #{"task-a"} (set (map #(get % "slug") tasks))))))))
 
 (deftest lookups-in-links-dont-override-attrs
   (with-empty-app
