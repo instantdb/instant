@@ -182,7 +182,13 @@ function expandUnlink({ attrs }, [etype, eidA, obj]) {
       return txStep;
     });
   });
-  return withIdAttr(attrs, etype, eidA, retractTriples);
+
+  const lookup = extractLookup(attrs, etype, eidA);
+  if (Array.isArray(lookup)) {
+    return withIdAttr(attrs, etype, eidA, retractTriples);
+  } else {
+    return retractTriples;
+  }
 }
 
 function checkEntityExists(stores, etype, eid) {

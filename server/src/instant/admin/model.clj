@@ -92,18 +92,21 @@
       [(:id attr) value])
     eid))
 
+(defn- with-id-attr [attrs etype eid steps]
+  (let [lookup  (extract-lookup attrs etype  eid)
+        attr-id (:id (attr-model/seek-by-fwd-ident-name [etype "id"] attrs))]
+    (concat
+     [[:add-triple lookup attr-id lookup]]
+     steps)))
+
 (defn- with-id-attr-for-lookup [attrs etype eid steps]
   (let [lookup (extract-lookup attrs etype  eid)]
-    (if-not (sequential? lookup)
-      steps
-      (into [[:add-triple
-              lookup
-              (:id (attr-model/seek-by-fwd-ident-name [etype "id"] attrs))
-              lookup]]
-            steps))))
+    (if (sequential? lookup)
+      (with-id-attr attrs etype eid steps)
+      steps)))
 
 (defn expand-link [attrs [etype eid-a obj]]
-  (with-id-attr-for-lookup
+  (with-id-attr
     attrs etype eid-a
     (mapcat (fn [[label eid-or-eids]]
               (let [fwd-attr (attr-model/seek-by-fwd-ident-name [etype label] attrs)
@@ -219,14 +222,14 @@
 (defn to-tx-steps [attrs step]
   (let [[action & args] (remove-id-from-step step)]
     (case action
-      "create" (expand-create attrs args)
-      "update" (expand-update attrs args)
-      "merge" (expand-merge attrs args)
-      "link"   (expand-link attrs args)
-      "unlink" (expand-unlink attrs args)
-      "delete" (expand-delete attrs args)
-      "ruleParams" (expand-rule-params attrs args)
-      "add-attr" (expand-add-attr attrs args)
+      "create"      (expand-create attrs args)
+      "update"      (expand-update attrs args)
+      "merge"       (expand-merge attrs args)
+      "link"        (expand-link attrs args)
+      "unlink"      (expand-unlink attrs args)
+      "delete"      (expand-delete attrs args)
+      "ruleParams"  (expand-rule-params attrs args)
+      "add-attr"    (expand-add-attr attrs args)
       "delete-attr" (expand-delete-attr attrs args)
       (ex/throw-validation-err!
        :action
