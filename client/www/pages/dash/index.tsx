@@ -89,6 +89,8 @@ type UserSettingsTabId = 'pat' | 'oauth-apps';
 type Screen =
   | 'main' // app details
   | 'user-settings'
+  | 'invites'
+  | 'new'
   | 'personal-access-tokens';
 
 function defaultTab(screen: Screen): MainTabId | UserSettingsTabId {
@@ -219,6 +221,25 @@ function Dashboard() {
     claimed?: boolean;
   }>('agents-essay-demo', {});
 
+  // backwards compatible routing
+  useEffect(() => {
+    if (screen === 'new') {
+      router.replace('/dash/new');
+      return;
+    }
+    if (screen === 'invites') {
+      router.replace('/dash/user-settings?tab=invites');
+      return;
+    }
+    if (screen === 'user-settings' || screen === 'personal-access-tokens') {
+      if (tab === 'oauth-apps') {
+        router.replace('/dash/user-settings?tab=oauth');
+        return;
+      }
+      router.replace('/dash/user-settings');
+    }
+  }, []);
+
   useEffect(() => {
     if (!token) return;
     if (agentEssayDemo.claimed) return;
@@ -238,11 +259,8 @@ function Dashboard() {
 
   const app = apps?.find((a) => a.id === appId);
 
-  const orgIsPaid = useOrgPaid();
-
   // ui
   const showApp = app && connection && screen === 'main';
-  const hasInvites = Boolean(dashResponse.data.invites?.length);
 
   // set the query params if there are none
   useEffect(() => {
