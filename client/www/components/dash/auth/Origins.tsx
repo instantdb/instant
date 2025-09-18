@@ -187,7 +187,7 @@ export function AuthorizedOriginsForm({
   return (
     <form
       onSubmit={onSubmit}
-      className="flex flex-col gap-4 border rounded p-4"
+      className="flex bg-white flex-col gap-4 border rounded p-4"
     >
       <div className="flex flex-row gap-2">
         <div className="flex flex-col gap-2">

@@ -203,7 +203,7 @@ export default function Billing({ appId }: { appId: string }) {
         )}
       </div>
 
-      <div className="flex flex-col gap px-2 pt-1 pb-3 rounded border">
+      <div className="flex flex-col bg-white gap px-2 pt-1 pb-3 rounded border">
         <h2 className="flex gap-2 p-2 justify-between">
           <span className="font-bold">Usage</span>{' '}
           <span className="font-mono text-sm">

@@ -992,7 +992,7 @@ export function Explorer({
         </button>
       </div>
       {selectedNamespace && currentNav && allItems ? (
-        <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="flex bg-white flex-1 flex-col overflow-hidden">
           <div className="flex items-center border-b overflow-hidden">
             <div className="flex flex-1 flex-col justify-between md:flex-row md:items-center">
               <div className="flex items-center border-b px-2 py-1 md:border-b-0 overflow-hidden">
@@ -1464,7 +1464,7 @@ export function Explorer({
         </div>
       ) : userNamespaces?.length === 0 ? (
         <div className="flex flex-1 flex-col md:items-center md:justify-center">
-          <div className="flex flex-1 flex-col gap-4 bg-gray-100 p-6 md:max-w-[320px] md:flex-none md:border">
+          <div className="flex flex-1 flex-col gap-4 bg-white p-6 md:max-w-[320px] md:flex-none md:border">
             <SectionHeading>This is your Data Explorer</SectionHeading>
             <Content className="text-sm">
               This is the place where you can explore all your data. Create a

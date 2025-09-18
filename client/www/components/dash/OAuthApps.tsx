@@ -1258,7 +1258,7 @@ function CreateAppForm({ onClose }: { onClose: () => void }) {
 
   return (
     <form
-      className="flex flex-col gap-2 p-4 rounted border"
+      className="flex flex-col gap-2 p-4 rounded bg-white border"
       onSubmit={onSubmit}
       autoComplete="off"
       data-lpignore="true"
