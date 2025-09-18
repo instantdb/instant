@@ -430,9 +430,9 @@ function Dashboard() {
   return (
     <>
       <div className="bg-gray-50">
-        <div className="flex border-b border-b-gray-300 justify-between gap-4 py-2 px-3">
+        <div className="flex md:flex-row flex-col border-b border-b-gray-300 justify-between md:gap-4 py-2 px-3">
           <div className="flex gap-2 items-center">
-            <h2 className="font-mono text-xl font-bold">{app.title}</h2>
+            <h2 className="font-mono md:text-xl font-bold">{app.title}</h2>
             {dashResponse.data.workspace.type === 'org' && (
               <Badge>{capitalize(dashResponse.data.workspace.org.role)}</Badge>
             )}
@@ -581,12 +581,12 @@ export function HomeButton({
 
 function Home() {
   return (
-    <div className="text-sm max-w-2xl mx-auto pt-14 md:text-base">
+    <div className="text-sm p-4 max-w-2xl mx-auto md:pt-14 md:text-base">
       <SectionHeading>Getting Started</SectionHeading>
       <div className="pt-1">
         Welcome to Instant! Here are some resources to help you get started.
       </div>
-      <div className="grid grid-cols-2 pt-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 pt-4 gap-4">
         <HomeButton href="/docs" title="Read the Docs">
           Jump into our docs to start learning how to use Instant.
         </HomeButton>
@@ -731,7 +731,7 @@ function AppCombobox({
         <ComboboxInput
           ref={comboboxInputRef}
           className={clsx(
-            'w-0 basis-[35%] md:w-full md:basis-full truncate text-sm rounded-sm border-gray-300 py-1',
+            'basis-[35%] w-full !min-w-0 md:w-full md:basis-full truncate text-sm rounded-sm border-gray-300 py-1',
             'pr-8 pl-3 text-sm/6',
             'focus:outline-none data-[focus]:outline-2 data-[focus]:-outline-offset-2 data-[focus]:outline-white/25',
           )}
@@ -749,7 +749,7 @@ function AppCombobox({
         anchor="bottom"
         transition
         className={clsx(
-          'min-w-[var(--input-width)] bg-white shadow-lg border border-gray-300 divide-y empty:invisible z-50',
+          'md:min-w-[var(--input-width)] bg-white shadow-lg border border-gray-300 divide-y empty:invisible z-50',
           'border p-1 mx-2 my-1 [--anchor-gap:var(--spacing-1)] ',
           'transition duration-100 ease-in data-[leave]:data-[closed]:opacity-0',
         )}

@@ -58,7 +58,7 @@ export const RenameOrg = () => {
       }}
     >
       <SectionHeading className="pb-2">Rename Organization</SectionHeading>
-      <div className="flex gap-2 items-end justify-stretch">
+      <div className="flex flex-col md:flex-row items-start md:gap-2 md:items-end md:justify-stretch">
         <TextInput
           value={value}
           label="New Name"
@@ -67,7 +67,7 @@ export const RenameOrg = () => {
           onChange={(e) => setValue(e)}
         />
 
-        <div className="flex justify-end gap-2 pt-4">
+        <div className="flex justify-end gap-2 pt-2 md:pt-4">
           <Button
             disabled={!value || value === dash.data.workspace.org.title}
             variant="secondary"
