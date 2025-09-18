@@ -21,7 +21,8 @@
    [instant.util.json :refer [->json <-json]]
    [instant.util.tracer :as tracer])
   (:import
-   (java.io File FileNotFoundException)))
+   (java.io File FileNotFoundException)
+   (java.time Instant)))
 
 (defn setup-teardown
   "One-time setup before running our test suite and one-time teardown
@@ -114,21 +115,23 @@
 
 (defn record-test-timings [timings-app-id timings-admin-token timings]
   (tracer/with-span! {:name "upload-test-timings"}
-    (clj-http.client/post "https://api.instantdb.com/admin/transact"
-                          {:headers {"app-id" timings-app-id
-                                     "Authorization" (str "Bearer " timings-admin-token)
-                                     "Content-Type" "application/json"}
-                           :as :json
-                           :body (->json {:steps (for [[var elapsed] timings
-                                                       :let [var-name (str (symbol var))
-                                                             ns (str (:ns (meta var)))
-                                                             name (str (:name (meta var)))]]
-                                                   ["update"
-                                                    "timings"
-                                                    ["var" var-name]
-                                                    {"namespace" ns
-                                                     "name" name
-                                                     "elapsed" elapsed}])})})))
+    (let [updated-at (.toString (Instant/now))]
+      (clj-http.client/post "https://api.instantdb.com/admin/transact"
+                            {:headers {"app-id" timings-app-id
+                                       "Authorization" (str "Bearer " timings-admin-token)
+                                       "Content-Type" "application/json"}
+                             :as :json
+                             :body (->json {:steps (for [[var elapsed] timings
+                                                         :let [var-name (str (symbol var))
+                                                               ns (str (:ns (meta var)))
+                                                               name (str (:name (meta var)))]]
+                                                     ["update"
+                                                      "timings"
+                                                      ["var" var-name]
+                                                      {"namespace" ns
+                                                       "name" name
+                                                       "elapsed" elapsed
+                                                       "updated-at" updated-at}])})}))))
 
 (defn get-timings []
   (try
