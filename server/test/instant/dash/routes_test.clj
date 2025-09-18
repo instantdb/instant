@@ -574,7 +574,7 @@
         (fn [app-2]
           ;; Add the second app to the org
           (sql/do-execute! (aurora/conn-pool :write)
-                           ["update apps set org_id = ?::uuid where id = ?::uuid"
+                           ["update apps set org_id = ?::uuid, creator_id = null where id = ?::uuid"
                             (:id org)
                             (:id app-2)])
 
@@ -663,7 +663,7 @@
           (fn [{pro-app :app}]
             ;; Add the second app to the org
             (sql/do-execute! (aurora/conn-pool :write)
-                             ["update apps set org_id = ?::uuid where id = ?::uuid"
+                             ["update apps set org_id = ?::uuid, creator_id = null where id = ?::uuid"
                               (:id org)
                               (:id pro-app)])
             (dotimes [x 2]
