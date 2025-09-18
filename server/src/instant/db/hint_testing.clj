@@ -113,19 +113,8 @@
                       (catch Exception e
                         (tracer/add-exception! e {:escaping? false})
                         e))))
-            new (tracer/with-span! {:name "test-pg-hints-for-datalog/with-hint-plan"}
-                  (binding [d/*enable-pg-hints* true
-                            d/*estimate-with-sketch* false]
-                    (try
-                      (let [res (explain-datalog ctx patterns)]
-                        (tracer/add-data! {:attributes res})
-                        res)
-                      (catch Exception e
-                        (tracer/add-exception! e {:escaping? false})
-                        e))))
             sketches (tracer/with-span! {:name "test-pg-hints-for-datalog/with-sketches"}
-                       (binding [d/*enable-pg-hints* true
-                                 d/*estimate-with-sketch* true]
+                       (binding [d/*enable-pg-hints* true]
                          (try
                            (let [res (explain-datalog ctx patterns)]
                              (tracer/add-data! {:attributes res})
@@ -134,23 +123,13 @@
                              (tracer/add-exception! e {:escaping? false})
                              e))))]
         (tracer/add-data! {:attributes {:without.ms (:time old)
-                                        :with.ms (:time new)
                                         :with-sketch.ms (:time sketches)
                                         :without.error (instance? Exception old)
-                                        :with.error (instance? Exception new)
                                         :with-sketch.error (instance? Exception sketches)
-                                        :improvement (- (or (:time sketches)
-                                                            (* 1000 10))
-                                                        (or (:time new)
-                                                            (* 1000 10)))
                                         :base-improvement (- (or (:time sketches)
                                                                  (* 1000 10))
                                                              (or (:time old)
                                                                  (* 1000 10)))
-                                        :index-diff (when (and (:indexes new)
-                                                               (:indexes sketches))
-                                                      (->json (diff-indexes (:indexes new)
-                                                                            (:indexes sketches))))
                                         :base-index-diff (when (and (:indexes old)
                                                                     (:indexes sketches))
                                                            (->json (diff-indexes (:indexes old)
