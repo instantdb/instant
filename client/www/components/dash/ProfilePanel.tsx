@@ -13,12 +13,15 @@ import { UserSettingsIcon } from '../icons/UserSettingsIcon';
 import { cn, Tooltip, TooltipContent, TooltipTrigger } from '../ui';
 import { useFetchedDash } from './MainDashLayout';
 import { CreateOrgModal } from './org-management/CreateOrgModal';
+import { useFlag } from '@/lib/hooks/useFlag';
 
 export const ProfilePanel = () => {
   const dashResponse = useFetchedDash();
   const router = useReadyRouter();
 
   const email = dashResponse.data.user.email;
+
+  const useCreateOrg = useFlag('createOrgs');
 
   const displayName =
     dashResponse.data.workspace.type === 'personal'
@@ -134,9 +137,11 @@ export const ProfilePanel = () => {
                 )}
               </div>
             ))}
-            <div>
-              <CreateOrgModal />
-            </div>
+            {useCreateOrg && (
+              <div>
+                <CreateOrgModal />
+              </div>
+            )}
           </PopoverPanel>
         </>
       )}
