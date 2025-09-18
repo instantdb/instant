@@ -2768,8 +2768,7 @@
              ("eid-stepan-parunashvili" :users/id "eid-stepan-parunashvili"))}))))))
 
 (deftest comparators
-  (binding [d/*enable-pg-hints* true
-            d/*estimate-with-sketch* true]
+  (binding [d/*enable-pg-hints* true]
     (with-zeneca-checked-data-app
       (fn [app _r]
         (with-sketches app
@@ -3015,8 +3014,7 @@
                                     ("eid-nonfiction" :bookshelves/order 1))}))))))
 
 (deftest lookup-unique-uses-the-av-index
-  (binding [d/*enable-pg-hints* true
-            d/*estimate-with-sketch* true]
+  (binding [d/*enable-pg-hints* true]
     (with-zeneca-app
       (fn [app _r]
         (let [attr-ids {:id (random-uuid)
@@ -4733,8 +4731,7 @@
   (with-zeneca-app
     (fn [app _r]
       (with-sketches app
-        (binding [d/*enable-pg-hints* true
-                  d/*estimate-with-sketch* true]
+        (binding [d/*enable-pg-hints* true]
           (next-jdbc/with-transaction [conn (aurora/conn-pool :read)]
             (next-jdbc/execute! conn ["select set_config('pg_hint_plan.debug_print', 'verbose', true)"])
             (next-jdbc/execute! conn ["select set_config('pg_hint_plan.message_level', 'warning', true)"])
