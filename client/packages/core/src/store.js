@@ -674,34 +674,36 @@ function findTriple(store, rawTriple) {
 }
 
 export function transact(store, txSteps) {
-  const txStepsFiltered = txSteps.filter(([action, eid, attrId, value, opts]) => {
-    if (action !== 'add-triple' && action !== 'deep-merge-triple') {
+  const txStepsFiltered = txSteps.filter(
+    ([action, eid, attrId, value, opts]) => {
+      if (action !== 'add-triple' && action !== 'deep-merge-triple') {
+        return true;
+      }
+
+      const mode = opts?.mode;
+      if (mode !== 'create' && mode !== 'update') {
+        return true;
+      }
+
+      let exists = false;
+
+      const attr = getAttr(store.attrs, attrId);
+      if (attr) {
+        const idAttr = getPrimaryKeyAttr(store, attr['forward-identity'][1]);
+        exists = undefined !== findTriple(store, [eid, idAttr.id, eid]);
+      }
+
+      if (mode === 'create' && exists) {
+        return false;
+      }
+
+      if (mode === 'update' && !exists) {
+        return false;
+      }
+
       return true;
-    }
-
-    const mode = opts?.mode;
-    if (mode !== 'create' && mode !== 'update') {
-      return true;
-    }
-
-    let exists = false;
-
-    const attr = getAttr(store.attrs, attrId);
-    if (attr) {
-      const idAttr = getPrimaryKeyAttr(store, attr['forward-identity'][1]);
-      exists = undefined !== findTriple(store, [eid, idAttr.id, eid]);
-    }
-
-    if (mode === 'create' && exists) {
-      return false;
-    }
-
-    if (mode === 'update' && !exists) {
-      return false;
-    }
-
-    return true;
-  });
+    },
+  );
 
   return create(store, (draft) => {
     txStepsFiltered.forEach((txStep) => {
