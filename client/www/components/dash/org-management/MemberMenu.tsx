@@ -11,7 +11,7 @@ import { jsonFetch } from '@/lib/fetch';
 import { OrgWorkspace } from '@/lib/hooks/useWorkspace';
 import { getAssignableRoles } from '@/lib/orgRoles';
 import { errorToast } from '@/lib/toast';
-import { Role } from '@/pages/dash';
+import { isMinRole, Role } from '@/pages/dash';
 import {
   ArrowLeftStartOnRectangleIcon,
   LockOpenIcon,
@@ -152,7 +152,10 @@ export const MemberMenu = ({ member }: MemberMenuProps) => {
               </button>
             </DropdownMenuItem>
           ) : (
-            <DropdownMenuItem className="group">
+            <DropdownMenuItem
+              disabled={!isMinRole('admin', myRole)}
+              className="group"
+            >
               <button
                 className="flex text-red-500 group-disabled:text-gray-400 gap-2 items-center"
                 onClick={() => deleteDialog.onOpen()}
