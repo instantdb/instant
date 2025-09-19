@@ -405,29 +405,27 @@
                         (is (nil? member))))))))))))))
 
 (deftest members-can-remove-themselves-from-orgs
-  (with-user
-    (fn [owner]
-      (with-startup-org
-        true
-        (fn [{:keys [org]}]
-          (doseq [role [:collaborator :admin :owner]]
-            (with-user
-              (fn [u2]
-                (let [member-id (:id (org-members/create! {:org-id (:id org)
-                                                           :user-id (:id u2)
-                                                           :role (name role)}))
-                      _ (is (= (name role)
-                               (:role (org-members/get-by-org-and-user {:org-id (:id org)
-                                                                        :user-id (:id u2)}))))
-                      resp (http/delete (str config/server-origin "/dash/orgs/" (:id org) "/members/remove")
-                                        {:throw-exceptions false
-                                         :headers {:Authorization (str "Bearer " (:refresh-token u2))
-                                                   :Content-Type "application/json"}
-                                         :as :json
-                                         :body (->json {:id member-id})})]
-                  (is (= 200 (:status resp)))
-                  (is (nil? (org-members/get-by-org-and-user {:org-id (:id org)
-                                                              :user-id (:id u2)}))))))))))))
+  (with-startup-org
+    true
+    (fn [{:keys [org]}]
+      (doseq [role [:collaborator :admin :owner]]
+        (with-user
+          (fn [u2]
+            (let [member-id (:id (org-members/create! {:org-id (:id org)
+                                                       :user-id (:id u2)
+                                                       :role (name role)}))
+                  _ (is (= (name role)
+                           (:role (org-members/get-by-org-and-user {:org-id (:id org)
+                                                                    :user-id (:id u2)}))))
+                  resp (http/delete (str config/server-origin "/dash/orgs/" (:id org) "/members/remove")
+                                    {:throw-exceptions false
+                                     :headers {:Authorization (str "Bearer " (:refresh-token u2))
+                                               :Content-Type "application/json"}
+                                     :as :json
+                                     :body (->json {:id member-id})})]
+              (is (= 200 (:status resp)))
+              (is (nil? (org-members/get-by-org-and-user {:org-id (:id org)
+                                                          :user-id (:id u2)}))))))))))
 
 (deftest org-invites-can-be-revoked
   (with-redefs [config/postmark-send-enabled? (constantly false)]
