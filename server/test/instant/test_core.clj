@@ -92,7 +92,7 @@
         file-map (reduce (fn [acc ^File file]
                            (assoc acc
                                   (.getName file)
-                                  (str "server/test" (.getPath file))))
+                                  (str "server/" (.getPath file))))
                          {}
                          files)]
     (->ActionsTestReporter (atom {}) file-map)))
@@ -195,14 +195,22 @@
                 :test-results-dir "target/test-results"}
         global-fixture-fn (circleci.test/make-global-fixture config)
         timings-app-id (System/getenv "INSTANT_TIMINGS_APP_ID")
-        timings-admin-token (System/getenv "INSTANT_TIMINGS_ADMIN_TOKEN")]
+        timings-admin-token (System/getenv "INSTANT_TIMINGS_ADMIN_TOKEN")
+        test-vars (conj (take 3 test-vars) #'instant.config-edn-test/demonstrate-failure )
+        ns-groups (group-by (comp :ns meta) test-vars)]
 
-    (binding [clojure.test/*report-counters* counters]
+    (binding [clojure.test/*report-counters* counters
+              clojure.test/report report/report
+              report/*reporters* (#'circleci.test/get-reporters config)]
       (global-fixture-fn
-        (fn []
-          (doseq [v test-vars]
-            (println "Testing" (str (symbol v)))
-            (circleci.test/test-var v config))))
+       (fn []
+         (doseq [[ns test-vars] ns-groups]
+           (println "Testing tests in namespace" (str ns))
+           (clojure.test/do-report {:type :begin-test-ns :ns ns})
+           (doseq [v test-vars]
+             (println "Testing" (str (symbol v)))
+             (circleci.test/test-var v config))
+           (clojure.test/do-report {:type :end-test-ns :ns ns}))))
       (let [summary (assoc @counters :type :summary)
             exit-code (+ (:fail summary) (:error summary))]
         (clojure.test/do-report summary)
