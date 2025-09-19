@@ -92,9 +92,7 @@
         file-map (reduce (fn [acc ^File file]
                            (assoc acc
                                   (.getName file)
-                                  (.getPath file)
-                                  ;;(str "server/" (.getPath file))
-                                  ))
+                                  (str "server/" (.getPath file))))
                          {}
                          files)]
     (->ActionsTestReporter (atom {}) file-map)))
