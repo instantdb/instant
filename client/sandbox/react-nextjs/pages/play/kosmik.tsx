@@ -12,6 +12,8 @@ const schema = i.schema({
     stickers: i.entity({
       v: i.number(),
       w: i.number(),
+      x: i.number(),
+      y: i.number(),
       resizable: i.boolean(),
       stretchable: i.boolean(),
     }),
@@ -41,18 +43,6 @@ const schema = i.schema({
         on: 'stickers',
         has: 'one',
         label: 'inbox',
-      },
-    },
-    stickersFiles: {
-      forward: {
-        on: 'stickers',
-        has: 'many',
-        label: 'files',
-      },
-      reverse: {
-        on: '$files',
-        has: 'many',
-        label: 'stickers',
       },
     },
     usersStickers: {
@@ -103,19 +93,18 @@ const db = init({ ...config, schema });
 
 function Main() {
   useEffect(() => {
-    db.transact(
+    db.transact([
       db.tx.inboxes[inbox_id].update({}),
       db.tx.users[user_id].update({ email: 'niki@tonsky.me', name: 'Niki' }),
       db.tx.users[user2_id].update({ email: 'user@a', name: 'User A' }),
       db.tx.universes[universe_id].update({}),
-    );
+    ]);
   }, []);
 
   const { isLoading, error, data } = db.useQuery({
     universes: {
       stickers: {
         inbox: {},
-        files: {},
         creator: {},
         user: {},
       },
