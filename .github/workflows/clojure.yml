@@ -72,11 +72,12 @@ jobs:
       run: |
         if [ -n "$INSTANT_TIMINGS_ADMIN_TOKEN" ]; then
           curl 'https://api.instantdb.com/admin/query' \
+            -v \
             -H "app-id: $INSTANT_TIMINGS_APP_ID" \
             -H "Authorization: Bearer $INSTANT_TIMINGS_ADMIN_TOKEN" \
             -H "Content-Type: application/json" \
             --data-raw '{"query": {"timings": {}}}' \
-            -o timings.json
+            -o timings.json || echo "curl failed to fetch timings"
         else
           echo "No admin token, skipping timings fetch"
         fi
