@@ -92,21 +92,18 @@
       [(:id attr) value])
     eid))
 
-(defn- with-id-attr [attrs etype eid steps]
-  (let [lookup  (extract-lookup attrs etype eid)
-        attr-id (:id (attr-model/seek-by-fwd-ident-name [etype "id"] attrs))]
-    (concat
-     [[:add-triple lookup attr-id lookup]]
-     steps)))
-
 (defn- with-id-attr-for-lookup [attrs etype eid steps]
-  (let [lookup (extract-lookup attrs etype eid)]
-    (if (sequential? lookup)
-      (with-id-attr attrs etype eid steps)
-      steps)))
+  (let [lookup (extract-lookup attrs etype  eid)]
+    (if-not (sequential? lookup)
+      steps
+      (into [[:add-triple
+              lookup
+              (:id (attr-model/seek-by-fwd-ident-name [etype "id"] attrs))
+              lookup]]
+            steps))))
 
 (defn expand-link [attrs [etype eid-a obj]]
-  (with-id-attr
+  (with-id-attr-for-lookup
     attrs etype eid-a
     (mapcat (fn [[label eid-or-eids]]
               (let [fwd-attr (attr-model/seek-by-fwd-ident-name [etype label] attrs)
@@ -136,7 +133,8 @@
             obj)))
 
 (defn expand-unlink [attrs [etype eid-a obj]]
-  (with-id-attr-for-lookup attrs etype eid-a
+  (with-id-attr-for-lookup
+    attrs etype eid-a
     (mapcat (fn [[label eid-or-eids]]
               (let [fwd-attr (attr-model/seek-by-fwd-ident-name [etype label] attrs)
                     rev-attr (attr-model/seek-by-rev-ident-name [etype label] attrs)
