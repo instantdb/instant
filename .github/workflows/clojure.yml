@@ -187,9 +187,9 @@ jobs:
       working-directory: server
       run: clojure -T:build compile-java
 
-      - name: Check annotations
-        run: |
-          echo "::error file=server/test/instant/config_edn_test.clj,line=24::FAIL in demonstrate-failure-check (config_edn_test.clj:24)%0Aexpected: {:hello :world, :large :data, :struct :ture, :that [:takes :multiple :lines]}%0A  actual: {:something-else {:hello :world, :large :data, :struct :ture, :that [:takes :multiple :lines]}}"
+    - name: Check annotations
+      run: |
+        echo "::error file=server/test/instant/config_edn_test.clj,line=24::FAIL in demonstrate-failure-check (config_edn_test.clj:24)%0Aexpected: {:hello :world, :large :data, :struct :ture, :that [:takes :multiple :lines]}%0A  actual: {:something-else {:hello :world, :large :data, :struct :ture, :that [:takes :multiple :lines]}}"
 
 
     - name: Run Clojure tests
