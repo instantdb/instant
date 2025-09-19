@@ -18,14 +18,3 @@
     ;; with the types in instant.config-edn or with the config in
     ;; resources/config/staging.edn
     (is (config-edn/valid-config? true (config-edn/read-config :staging)))))
-
-
-(deftest demonstrate-failure
-  (is (= {:hello :world
-          :large :data
-          :struct :ture
-          :that [:takes :multiple :lines]}
-         {:something-else {:hello :world
-                           :large :data
-                           :struct :ture
-                           :that [:takes :multiple :lines]}})))
