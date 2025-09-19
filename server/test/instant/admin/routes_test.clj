@@ -870,7 +870,8 @@
             task-id (random-uuid)
             _       (is (transact-ok?
                          (transact-post
-                          {:body {:steps [["create" "tasks" task-id {}]]}
+                          {:body {:steps [["create" "users" user-id {}]
+                                          ["create" "tasks" task-id {}]]}
                            :headers headers})))
             _       (is (transact-ok?
                          (transact-post
