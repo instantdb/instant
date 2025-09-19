@@ -217,7 +217,10 @@
                    timings-app-id
                    timings-admin-token
                    (= "true" (System/getenv "SAVE_TIMINGS")))
-          (record-test-timings timings-app-id timings-admin-token @timing-state))
+          (try
+            (record-test-timings timings-app-id timings-admin-token @timing-state)
+            (catch Throwable t
+              (println "Error saving test timings" t))))
         (System/exit exit-code)))))
 
 (defn -main+ [_]
