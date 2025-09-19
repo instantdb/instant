@@ -188,7 +188,6 @@ jobs:
       run: clojure -T:build compile-java
 
     - name: Check annotations
-      working-directory: server
       run: |
         echo "::error file=.github/workflows/clojure.yml,line=193::error"
         echo "::error file=server/test/instant/config_edn_test.clj,line=24::test failure"
