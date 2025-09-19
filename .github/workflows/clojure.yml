@@ -138,6 +138,8 @@ jobs:
            up
 
         psql -d $DATABASE_URL -c "select version()"
+
+        # Uncomment to see auto explain logs at the end of tests in the stop containers step
         # psql -d $DATABASE_URL -v ON_ERROR_STOP=1 <<'SQL'
         # ALTER SYSTEM SET session_preload_libraries = 'auto_explain';
         # SELECT pg_reload_conf();
@@ -154,9 +156,6 @@ jobs:
         # ALTER SYSTEM SET auto_explain.log_parameter_max_length = 0;
         # SELECT pg_reload_conf();
         # SQL
-
-        # psql -d $DATABASE_URL -c "show data_directory;"
-
 
     - name: Install clojure tools
       uses: DeLaGuardo/setup-clojure@13.1
@@ -180,11 +179,6 @@ jobs:
         pattern: timings
         path: server
 
-    - name: Debug
-      run: |
-        find server
-        cat server/timings/timings.json || true
-
     - name: Install Clojure dependencies
       working-directory: server
       run: clojure -P
@@ -200,6 +194,7 @@ jobs:
         TEST: "true"
         STRIPE_API_KEY: ${{ secrets.STRIPE_TEST_KEY }}
         INSTANT_TIMINGS_ADMIN_TOKEN: ${{ secrets.INSTANT_TIMINGS_ADMIN_TOKEN }}
+        SAVE_TIMINGS: ${{ github.ref == 'refs/heads/main' }}
         NODE_INDEX: ${{ matrix.node_index }}
         # Make sure this matches the length of the matrix
         NODE_COUNT: "5"

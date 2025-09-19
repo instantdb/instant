@@ -208,7 +208,8 @@
         (clojure.test/do-report summary)
         (when (and (zero? exit-code)
                    timings-app-id
-                   timings-admin-token)
+                   timings-admin-token
+                   (= "true" (System/getenv "SAVE_TIMINGS")))
           (record-test-timings timings-app-id timings-admin-token @timing-state))
         (System/exit exit-code)))))
 
