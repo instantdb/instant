@@ -187,7 +187,7 @@ export function AuthorizedOriginsForm({
   return (
     <form
       onSubmit={onSubmit}
-      className="flex bg-white flex-col gap-4 border rounded p-4"
+      className="flex dark:bg-neutral-800/50 bg-white dark:border-neutral-700 flex-col gap-4 border rounded p-4"
     >
       <div className="flex flex-row gap-2">
         <div className="flex flex-col gap-2">
@@ -398,7 +398,7 @@ export function AuthorizedOrigins({
     <div className="flex gap-2 flex-col">
       <div>
         <SectionHeading>Redirect Origins </SectionHeading>
-        <Content className="text-gray-500 text-sm">
+        <Content className="text-gray-500 dark:text-neutral-500 text-sm">
           Add your site's url so that you can initiate the OAuth flow from your
           site.
         </Content>

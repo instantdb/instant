@@ -153,7 +153,7 @@ export const MainDashLayout: React.FC<{
         <div className={`h-full flex flex-col w-full`}>
           <TopBar />
           <div
-            className={`flex grow w-full flex-col overflow-hidden ${className}`}
+            className={`flex grow dark:text-white dark:bg-neutral-900 w-full flex-col overflow-hidden ${className}`}
           >
             {children}
           </div>

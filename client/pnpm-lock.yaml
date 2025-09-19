@@ -862,6 +862,9 @@ importers:
       immer:
         specifier: ^9.0.14
         version: 9.0.21
+      jotai:
+        specifier: ^2.14.0
+        version: 2.14.0(@babel/core@7.26.7)(@babel/template@7.27.2)(@types/react@18.3.1)(react@18.3.1)
       js-cookie:
         specifier: ^3.0.1
         version: 3.0.5
@@ -9094,6 +9097,24 @@ packages:
 
   join-component@1.1.0:
     resolution: {integrity: sha512-bF7vcQxbODoGK1imE2P9GS9aw4zD0Sd+Hni68IMZLj7zRnquH7dXUmMw9hDI5S/Jzt7q+IyTXN0rSg2GI0IKhQ==}
+
+  jotai@2.14.0:
+    resolution: {integrity: sha512-JQkNkTnqjk1BlSUjHfXi+pGG/573bVN104gp6CymhrWDseZGDReTNniWrLhJ+zXbM6pH+82+UNJ2vwYQUkQMWQ==}
+    engines: {node: '>=12.20.0'}
+    peerDependencies:
+      '@babel/core': '>=7.0.0'
+      '@babel/template': '>=7.0.0'
+      '@types/react': '>=17.0.0'
+      react: '>=17.0.0'
+    peerDependenciesMeta:
+      '@babel/core':
+        optional: true
+      '@babel/template':
+        optional: true
+      '@types/react':
+        optional: true
+      react:
+        optional: true
 
   joycon@3.1.1:
     resolution: {integrity: sha512-34wB/Y7MW7bzjKRjUKTa46I2Z7eV62Rkhva+KkopW7Qvv/OSWBqvkSY7vusOPrNuZcUG3tApvdVgNB8POj3SPw==}
@@ -22876,6 +22897,13 @@ snapshots:
       '@sideway/pinpoint': 2.0.0
 
   join-component@1.1.0: {}
+
+  jotai@2.14.0(@babel/core@7.26.7)(@babel/template@7.27.2)(@types/react@18.3.1)(react@18.3.1):
+    optionalDependencies:
+      '@babel/core': 7.26.7
+      '@babel/template': 7.27.2
+      '@types/react': 18.3.1
+      react: 18.3.1
 
   joycon@3.1.1: {}
 

@@ -159,7 +159,9 @@ export default Dash;
 Dash.getLayout = function getLayout(page: ReactElement) {
   return (
     <ClientOnly>
-      <MainDashLayout className="bg-gray-100">{page}</MainDashLayout>
+      <MainDashLayout className="bg-gray-100 dark:text-white dark:bg-neutral-800">
+        {page}
+      </MainDashLayout>
     </ClientOnly>
   );
 };
@@ -470,8 +472,8 @@ function Dashboard() {
 
   return (
     <>
-      <div className="bg-gray-50">
-        <div className="flex md:flex-row flex-col border-b border-b-gray-300 justify-between md:gap-4 py-2 px-3">
+      <div className="bg-gray-50 dark:bg-neutral-800/90">
+        <div className="flex md:flex-row flex-col border-b dark:border-b-neutral-700 border-b-gray-300 justify-between md:gap-4 py-2 px-3">
           <div className="flex gap-2 items-center">
             <h2 className="font-mono md:text-xl font-bold">{app.title}</h2>
             {dashResponse.data.workspace.type === 'org' && (
@@ -610,11 +612,13 @@ export function HomeButton({
   return (
     <NextLink
       href={formatRouteParams(href)}
-      className="justify-start p-4 border shadow-sm rounded space-y-2 bg-white hover:bg-gray-50 disabled:text-gray-400 cursor-pointer"
+      className="justify-start p-4 border shadow-sm rounded space-y-2 dark:bg-neutral-800 dark:border-neutral-700 bg-white hover:bg-gray-50 dark:hover:bg-neutral-700/50 transition-colors disabled:text-gray-400 cursor-pointer"
     >
       <div>
         <div className="font-mono font-bold">{title}</div>
-        <div className="text-gray-500 text-sm">{children}</div>
+        <div className="text-gray-500 dark:text-neutral-400 text-sm">
+          {children}
+        </div>
       </div>
     </NextLink>
   );
@@ -774,7 +778,7 @@ function AppCombobox({
         <ComboboxInput
           ref={comboboxInputRef}
           className={clsx(
-            'basis-[35%] w-full !min-w-0 md:w-full md:basis-full truncate text-sm rounded-sm border-gray-300 py-1',
+            'basis-[35%] w-full !min-w-0 md:w-full md:basis-full truncate dark:bg-neutral-800 dark:border-neutral-700 text-sm rounded-sm border-gray-300 py-1',
             'pr-8 pl-3 text-sm/6',
             'focus:outline-none data-[focus]:outline-2 data-[focus]:-outline-offset-2 data-[focus]:outline-white/25',
           )}
@@ -792,8 +796,8 @@ function AppCombobox({
         anchor="bottom"
         transition
         className={clsx(
-          'md:min-w-[var(--input-width)] bg-white shadow-lg border border-gray-300 empty:invisible z-50',
-          'border mx-2 my-1 [--anchor-gap:var(--spacing-1)] ',
+          'md:min-w-[var(--input-width)] dark:bg-neutral-800 dark:text-white bg-white dark:border-neutral-700 shadow-lg border border-gray-300 divide-y dark:divide-neutral-600 empty:invisible z-50',
+          'border p-1 mx-2 my-1 [--anchor-gap:var(--spacing-1)] ',
           'transition duration-100 ease-in data-[leave]:data-[closed]:opacity-0',
         )}
       >
@@ -801,10 +805,7 @@ function AppCombobox({
           <ComboboxOption
             key={app.id}
             value={app}
-            className={clsx(
-              'group cursor-pointer px-3 py-2 text-sm data-[focus]:bg-gray-100',
-              app.id === appId && 'bg-gray-200 data-[focus]:bg-gray-200',
-            )}
+            className="group cursor-pointer px-3 py-1 dark:data-[focus]:bg-neutral-700/80 data-[focus]:bg-gray-100"
           >
             <div className="">{app.title}</div>
           </ComboboxOption>
@@ -828,10 +829,9 @@ function Nav({
   availableTabs: TabItem[];
   screen: string;
 }) {
-  const router = useRouter();
   const showAppNav = apps;
   return (
-    <div className="flex flex-col gap-2 border-b border-gray-300 md:w-48 md:gap-0 md:border-b-0 md:border-r bg-gray-50">
+    <div className="flex flex-col gap-2 border-b dark:border-neutral-700/80 border-gray-300 md:w-48 md:gap-0 md:border-b-0 dark:bg-neutral-800/40 md:border-r bg-gray-50">
       {showAppNav ? (
         <>
           {createPortal(
@@ -845,7 +845,7 @@ function Nav({
           )}
         </>
       ) : null}
-      <div className="hidden md:visible md:static flex-row overflow-auto md:flex md:flex-col bg-gray-50 h-full">
+      <div className="hidden md:visible md:static flex-row overflow-auto md:flex md:flex-col bg-gray-50 dark:bg-neutral-800/40 h-full">
         <ToggleCollection
           className="gap-0 text-sm"
           buttonClassName="rounded-none py-2"

@@ -113,10 +113,10 @@ export const Members = () => {
         )}
       </div>
       <InviteToOrgDialog dialog={dialog} />
-      <div className="bg-white border rounded-sm divide-y">
+      <div className="bg-white dark:bg-neutral-800 dark:border-neutral-700 border dark:divide-neutral-700 rounded-sm divide-y">
         {org.members.map((member) => (
           <div
-            className="p-2 hover:bg-gray-50 rounded-sm w-full flex gap-2 justify-between items-center transition-colors"
+            className="p-2 hover:bg-gray-50 dark:hover:bg-neutral-700/40 rounded-sm w-full flex gap-2 justify-between items-center transition-colors"
             key={member.id}
           >
             <div className="flex gap-3 items-center">
@@ -138,10 +138,10 @@ export const Members = () => {
             No pending invites
           </div>
         ) : (
-          <div className="bg-white border divide-y">
+          <div className="bg-white dark:bg-neutral-800 border dark:border-neutral-700 divide-y">
             {invites.map((invite) => (
               <div
-                className="p-2 hover:bg-gray-50 w-full flex gap-2 justify-between items-center transition-colors"
+                className="p-2 hover:bg-gray-50 dark:hover:bg-neutral-700/40 w-full flex gap-2 justify-between items-center transition-colors"
                 key={invite.id}
               >
                 <div>{invite.email}</div>

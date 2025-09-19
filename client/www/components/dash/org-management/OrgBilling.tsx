@@ -108,7 +108,7 @@ export const OrgBilling = () => {
 
   return (
     <div className="pt-2">
-      <div className="flex flex-col bg-white gap px-2 pt-1 rounded border">
+      <div className="flex dark:bg-neutral-800 dark:border-neutral-700 flex-col bg-white gap px-2 pt-1 rounded border">
         <div className="flex gap-2 items-end p-2 justify-between">
           <span className="font-bold">Usage (all apps)</span>{' '}
           <span className="font-mono text-sm">

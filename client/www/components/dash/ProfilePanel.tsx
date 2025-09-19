@@ -70,7 +70,7 @@ export const ProfilePanel = () => {
                   'hover:bg-gray-100 flex items-center gap-2 justify-between text-left w-full',
                   dashResponse.data.currentWorkspaceId === 'personal'
                     ? 'border-l-4 border-l-[#606AF4]'
-                    : 'border-l-4',
+                    : 'border-l-4 dark:border-l-neutral-700',
                 )}
               >
                 <button

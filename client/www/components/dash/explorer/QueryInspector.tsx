@@ -182,10 +182,10 @@ export function QueryInspector({
 
   return (
     <div className={cn('flex-1 flex', className)}>
-      <div className="max-w-lg flex flex-col flex-1">
+      <div className="max-w-lg dark:bg-neutral-800 flex flex-col flex-1">
         <h2 className="px-3 text-sm font-semibold mt-4 mb-1">InstaQL query</h2>
 
-        <div className="h-64 border-y rounded overflow-hidden relative">
+        <div className="h-64 dark:border-y-neutral-800 border-y rounded overflow-hidden relative">
           <CodeEditor
             language="json"
             value={draft}
@@ -249,7 +249,7 @@ export function QueryInspector({
                         </Tooltip.Trigger>
                         <Tooltip.Portal>
                           <Tooltip.Content
-                            className="z-50 overflow-hidden rounded-md border bg-white px-3 py-1 text-sm text-gray-900 shadow-md animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2"
+                            className="z-50 overflow-hidden rounded-md dark:border-neutral-800 border bg-white px-3 py-1 text-sm text-gray-900 shadow-md animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2"
                             side="top"
                             align="start"
                             sideOffset={8}
@@ -288,7 +288,7 @@ export function QueryInspector({
           </div>
         </div>
 
-        <div className="mt-4 py-4 border-t">
+        <div className="mt-4 py-4 dark:border-t-neutral-700 border-t">
           <h2 className="px-3 text-sm font-semibold mb-1">Query history</h2>
 
           <div className="px-3 text-sm">
@@ -297,7 +297,7 @@ export function QueryInspector({
                 return (
                   <div
                     key={item.ts}
-                    className="group text-gray-700 mb-1 flex items-center justify-between gap-2"
+                    className="group text-gray-700 dark:text-neutral-300 mb-1 flex items-center justify-between gap-2"
                   >
                     <Tooltip.Provider>
                       <Tooltip.Root delayDuration={200}>
@@ -347,9 +347,9 @@ export function QueryInspector({
           </div>
         </div>
       </div>
-      <div className="border-l flex flex-col flex-1 max-h-full overflow-scroll">
+      <div className="border-l dark:border-l-neutral-700 dark:bg-neutral-800 flex flex-col flex-1 max-h-full overflow-scroll">
         <h2 className="px-3 text-sm font-semibold mt-4 mb-1">Query results</h2>
-        <div className="flex-1 border-y rounded overflow-hidden">
+        <div className="flex-1 dark:border-y-neutral-700 border-y rounded overflow-hidden">
           <CodeEditor
             loading={isLoading}
             language={'json'}

@@ -68,7 +68,7 @@ export function AddClerkProviderForm({
         onClick={addClerkProvider}
       >
         <span className="flex items-center space-x-2">
-          <Image alt="clerk logo" src={clerkLogoSvg} />
+          <Image className="dark:invert" alt="clerk logo" src={clerkLogoSvg} />
           <span>Setup Clerk</span>
         </span>
       </Button>
@@ -425,7 +425,7 @@ export function AddClerkClientForm({
 
   return (
     <form
-      className="flex flex-col gap-2 p-4 rounded border"
+      className="flex flex-col gap-2 p-4 rounded border dark:border-neutral-700"
       onSubmit={onSubmit}
       autoComplete="off"
       data-lpignore="true"
@@ -457,20 +457,22 @@ export function AddClerkClientForm({
         }
         placeholder=""
       />
-      <div className="rounded border p-4 flex flex-col gap-2 bg-gray-50">
+      <div className="rounded border dark:border-neutral-700 p-4 flex flex-col dark:bg-neutral-800 gap-2 bg-gray-50">
         <Content>
           Navigate to your{' '}
           <a
-            className="underline"
+            className="underline dark:text-white"
             href={'https://dashboard.clerk.com/last-active?path=sessions'}
             target="_blank"
             rel="noopener noreferer"
           >
             Clerk dashboard
           </a>
-          . On the <code>Sessions</code> page, click the <code>Edit</code>{' '}
-          button in the <code>Customize session token</code> section. Ensure
-          your <code>Claims</code> field has the email claim:
+          . On the <code className="dark:text-white">Sessions</code> page, click
+          the <code className="dark:text-white">Edit</code> button in the{' '}
+          <code className="dark:text-white">Customize session token</code>{' '}
+          section. Ensure your <code className="dark:text-white">Claims</code>{' '}
+          field has the email claim:
           <div className="border rounded text-sm overflow-auto">
             <Fence
               copyable

@@ -159,27 +159,29 @@ export function Email({ app }: { app: InstantApp }) {
     <form {...form.formProps()} className="flex flex-col gap-2">
       <SectionHeading>Custom Magic Code Email</SectionHeading>
 
-      <div className="border p-3 bg-gray-50 rounded flex flex-col gap-1">
+      <div className="border dark:bg-neutral-800 dark:border-neutral-700 p-3 bg-gray-50 rounded flex flex-col gap-1">
         <BlockHeading>Template variables</BlockHeading>
         <Content className="text-sm">
           We provide a few dynamic variables for you to use in your email:
           <ul>
             <li>
               <VariableName>code</VariableName>, the magic code e.g.{' '}
-              <strong>123456</strong>
+              <strong className="dark:text-white">123456</strong>
             </li>
             <li>
               <VariableName>app_title</VariableName>, your app's title, i.e.{' '}
-              <strong>{app.title}</strong>
+              <strong className="dark:text-white">{app.title}</strong>
             </li>
             <li>
               <VariableName>user_email</VariableName>, the user's email address,
-              e.g. <strong>happyuser@gmail.com</strong>
+              e.g.{' '}
+              <strong className="dark:text-white">happyuser@gmail.com</strong>
             </li>
           </ul>
         </Content>
         <Content className="text-sm">
-          <strong>Note:</strong> <VariableName>code</VariableName>
+          <strong className="dark:text-white">Note:</strong>{' '}
+          <VariableName>code</VariableName>
           is required in both the subject and body.
         </Content>
       </div>
@@ -199,11 +201,15 @@ export function Email({ app }: { app: InstantApp }) {
       <div className="flex flex-col gap-1">
         <Label>Body (HTML or plain-text)</Label>
         <div
-          className={clsx('h-64 border rounded', {
+          className={clsx('h-64 border dark:border-neutral-700 rounded', {
             'border-red-500': form.getError('bodyHtml'),
           })}
         >
-          <CodeEditor language="html" {...form.inputProps('bodyHtml')} />
+          <CodeEditor
+            className="dark:border-neutral-600"
+            language="html"
+            {...form.inputProps('bodyHtml')}
+          />
         </div>
         {form.getError('bodyHtml') ? (
           <div className="text-sm text-red-600">
@@ -212,7 +218,7 @@ export function Email({ app }: { app: InstantApp }) {
         ) : null}
       </div>
 
-      <div className="flex flex-col gap-2 border p-3 bg-gray-50 rounded">
+      <div className="flex flex-col gap-2 border p-3 dark:border-neutral-700 dark:bg-neutral-800 bg-gray-50 rounded">
         <SubsectionHeading>
           Use a custom 'From' address (optional)
         </SubsectionHeading>
@@ -370,7 +376,7 @@ export function Email({ app }: { app: InstantApp }) {
 
 function VariableName({ children }: { children: React.ReactNode }) {
   return (
-    <span className="font-mono text-sm bg-white rounded px-1 border">
+    <span className="font-mono text-sm bg-white dark:bg-neutral-800 dark:border-neutral-700 rounded px-1 border">
       {'{'}
       {children}
       {'}'}

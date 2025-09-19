@@ -249,15 +249,20 @@ export default function PersonalAccessTokensTab({
       ) : null}
       <div className="flex justify-between flex-row items-center">
         <div className="pt-1 pb-4">
-          <div className="prose">
+          <div className="prose dark:text-neutral-300">
             <SectionHeading className="font-bold">
               Personal Access Tokens <sup className="text-sm">[BETA]</sup>
             </SectionHeading>
             <p>
               Welcome to the Platform Beta! You can create{' '}
-              <code>Personal Access Tokens</code> here. <br />
-              <a href="/labs/platform_demo">Take a look at this guide</a> to see
-              how to use the platform API, and create apps on demand!
+              <code className="dark:text-white dark:bg-neutral-800">
+                Personal Access Tokens
+              </code>{' '}
+              here. <br />
+              <a className="dark:text-white" href="/labs/platform_demo">
+                Take a look at this guide
+              </a>{' '}
+              to see how to use the platform API, and create apps on demand!
             </p>
           </div>
         </div>
@@ -291,7 +296,7 @@ export default function PersonalAccessTokensTab({
                 </div>
                 <div className="flex gap-1 flex-col">
                   <input
-                    className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400"
+                    className="flex w-full flex-1 rounded-sm border-gray-200 bg-white dark:border-neutral-700 dark:bg-neutral-800 px-3 py-1 placeholder:text-gray-400"
                     placeholder="My default token"
                     value={newPersonalAccessTokenName ?? ''}
                     onChange={(e) =>
@@ -336,15 +341,15 @@ export const TokensTable = ({
 }) => {
   if (tokens.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-8 text-gray-500">
+      <div className="flex flex-col items-center justify-center py-8 dark:text-neutral-400 text-gray-500">
         <p className="text-sm">No personal access tokens created yet.</p>
       </div>
     );
   }
 
   return (
-    <table className="z-0 w-full flex-1 text-left font-mono text-xs text-gray-500">
-      <thead className="sticky top-0 z-20 border-b">
+    <table className="z-0 w-full flex-1 text-left font-mono text-xs dark:text-neutral-300 text-gray-500">
+      <thead className="sticky top-0 z-20 border-b dark:border-b-neutral-600">
         <tr>
           <th
             className={cn(
@@ -369,7 +374,10 @@ export const TokensTable = ({
       </thead>
       <tbody className="font-mono">
         {tokens.map(({ id, name, created_at }) => (
-          <tr key={id} className="group border-b bg-white">
+          <tr
+            key={id}
+            className="group border-b dark:bg-neutral-800 dark:border-b-neutral-700 bg-white"
+          >
             <td className="whitespace-nowrap px-4 py-1">{name}</td>
             <td className="whitespace-nowrap px-4 py-1">
               {format(new Date(created_at), 'MMM dd, h:mma')}

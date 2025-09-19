@@ -152,7 +152,7 @@ export default function OAuthAppsTab({ className }: { className?: string }) {
         </Button>
       </div>
       {error ? <div>{error.message}</div> : null}
-      <Content>
+      <Content className="dark:text-neutral-400">
         <p>
           Below are any OAuth apps that you have granted access to your Instant
           Account.

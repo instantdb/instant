@@ -144,7 +144,13 @@ export function Admin({
         {isMinRole('admin', role) ? (
           <>
             If need be, you can regenerate it by{' '}
-            <a onClick={onClickReset}>clicking here</a>.
+            <a
+              className="dark:text-white hover:cursor-pointer"
+              onClick={onClickReset}
+            >
+              clicking here
+            </a>
+            .
           </>
         ) : null}
       </Content>
@@ -339,7 +345,7 @@ export function Admin({
           </div>
         </>
       ) : (
-        <div className="bg-gray-100 flex gap-2 items-center p-2 rounded border">
+        <div className="bg-gray-100 dark:bg-neutral-800 dark:border-neutral-700 flex gap-2 items-center p-2 rounded border">
           <InformationCircleIcon width={18}></InformationCircleIcon>
           Upgrade to a paid app to manage members.
         </div>

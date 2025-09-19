@@ -34,9 +34,9 @@ export function Perms({
 
   return (
     <div className="flex flex-1 flex-col md:flex-row min-h-0">
-      <div className="flex flex-col gap-4 border-r min-w-[260px] p-4 text-sm md:basis-96 md:text-base min-h-0">
+      <div className="flex flex-col gap-4 dark:border-r-neutral-700 border-r min-w-[260px] p-4 text-sm md:basis-96 md:text-base min-h-0">
         <SectionHeading>Permissions</SectionHeading>
-        <Content>
+        <Content className="dark:text-neutral-300">
           <p>
             Ready to share your app with the world? You likely need to add some
             permissions. You can define them here
@@ -51,7 +51,7 @@ export function Perms({
           Learn how to use CEL expressions to secure your app
         </HomeButton>
       </div>
-      <div className="flex bg-white w-full flex-1 flex-col justify-start">
+      <div className="flex dark:bg-neutral-800 bg-white w-full flex-1 flex-col justify-start">
         {errorRes && (
           <div className="bg-red-100 p-4 text-sm">
             <div className="max-w-sm">

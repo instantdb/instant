@@ -67,7 +67,9 @@ function NewApp() {
           {dashResponse.data.workspace.type === 'org' && (
             <Content className="w-full">
               This app will be created in the{' '}
-              <strong>{dashResponse.data.workspace.org.title}</strong>{' '}
+              <strong className="dark:text-white">
+                {dashResponse.data.workspace.org.title}
+              </strong>{' '}
               organization.
             </Content>
           )}

@@ -86,7 +86,7 @@ function ResizingTextArea({
   return (
     <textarea
       ref={textareaRef}
-      className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 resize-none min-h-[34px] overflow-hidden"
+      className="flex w-full flex-1 dark:bg-neutral-800 rounded-sm dark:border-neutral-700 border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 dark:placeholder:text-neutral-500 resize-none min-h-[34px] overflow-hidden"
       rows={1}
       placeholder="hello world (Shift+Enter for new line)"
       {...props}
@@ -938,7 +938,7 @@ export function EditRowDialog({
             </div>
             <div className="flex gap-1 flex-col">
               <input
-                className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400"
+                className="flex w-full flex-1 rounded-sm border-gray-200 bg-white dark:bg-neutral-800 dark:border-neutral-700 px-3 py-1 placeholder:text-gray-400"
                 value={blobUpdates.id?.value ?? ''}
                 onChange={(e) =>
                   handleUpdateFieldValue('id', e.target.value, uuidValidate)
@@ -977,7 +977,7 @@ export function EditRowDialog({
                           handleNullToggle(attr.name, checked)
                         }
                         label={
-                          <span className="text-[10px] text-gray-600 uppercase">
+                          <span className="text-[10px] text-gray-600 dark:text-neutral-600 uppercase">
                             null
                           </span>
                         }
@@ -1028,7 +1028,7 @@ export function EditRowDialog({
                         <input
                           tabIndex={tabIndex}
                           type="number"
-                          className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400"
+                          className="flex w-full flex-1 rounded-sm border-gray-200 bg-white dark:bg-neutral-800 dark:border-neutral-700 px-3 py-1 placeholder:text-gray-400"
                           value={value ?? ''}
                           onChange={(num) =>
                             handleUpdateFieldValue(attr.name, num.target.value)
@@ -1070,7 +1070,7 @@ export function EditRowDialog({
                       handleNullToggle(attr.name, false);
                       focusElementAtTabIndex(tabIndex);
                     }}
-                    className="flex-1 text-left rounded-sm border border-gray-200 bg-gray-50 px-3 py-1 text-gray-500 italic"
+                    className="flex-1 text-left rounded-sm border border-gray-200 bg-gray-50 dark:bg-neutral-800 dark:border-neutral-700 dark:text-neutral-400 px-3 py-1 text-gray-500 italic"
                   >
                     null
                   </button>

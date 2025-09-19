@@ -7,6 +7,7 @@ import {
   EnvelopeIcon,
 } from '@heroicons/react/24/outline';
 import { useFetchedDash } from './MainDashLayout';
+import { DarkModeToggle } from './DarkModeToggle';
 
 export const TopBar: React.FC<{}> = () => {
   // get from app query param
@@ -17,7 +18,7 @@ export const TopBar: React.FC<{}> = () => {
   const hasInvites = (dash.data.invites || []).length > 0;
 
   return (
-    <div className="py-2 md:px-4 px-2 flex-col md:flex-row flex gap-2 border-b justify-between border-b-gray-300">
+    <div className="py-2 dark:text-white dark:bg-neutral-800 md:px-4 px-2 flex-col md:flex-row flex gap-2 border-b justify-between border-b-gray-300 dark:border-b-neutral-700">
       <div className="flex justify-between flex-row md:justify-start gap-2 items-center">
         <ProfilePanel />
         <div id="left-top-bar"></div>
@@ -31,6 +32,7 @@ export const TopBar: React.FC<{}> = () => {
             </div>
           </Link>
         )}
+        <DarkModeToggle />
         <Link
           className="flex hover:underline opacity-50 gap-1 items-center text-sm"
           href={docsUrl}

@@ -17,6 +17,7 @@ import {
   ComboboxOptions,
 } from '@headlessui/react';
 import { InstantReactWebDatabase } from '@instantdb/react';
+import { useDarkMode } from './DarkModeToggle';
 
 let cachedSandboxValue = '';
 
@@ -53,6 +54,8 @@ export function Sandbox({
   const [output, setOutput] = useState<any[]>([]);
   const [showRunning, setShowRunning] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
+
+  const { darkMode } = useDarkMode();
 
   function out(
     type: 'log' | 'error' | 'query' | 'transaction' | 'eval',
@@ -195,9 +198,9 @@ export function Sandbox({
 
   return (
     <div className="flex flex-1 h-full overflow-y-hidden">
-      <div className="flex flex-col flex-1 border-r min-w-[24em]">
-        <div className="flex flex-col flex-1 border-b">
-          <div className="py-1 px-2 bg-gray-50 border-b text-xs flex gap-2 items-center justify-between">
+      <div className="flex flex-col flex-1 dark:border-r-neutral-600 border-r min-w-[24em]">
+        <div className="flex flex-col flex-1 dark:border-b-neutral-800 border-b">
+          <div className="py-1 px-2 bg-gray-50 dark:bg-neutral-800 dark:border-b-neutral-600 border-b text-xs flex gap-2 items-center justify-between">
             <div className="flex gap-2 items-center">
               JS Sandbox
               <Button
@@ -222,13 +225,14 @@ export function Sandbox({
               your app's DB!
             </div>
           ) : (
-            <div className="text-xs py-1 px-2  border-b bg-sky-50 text-sky-600 border-b-sky-200">
+            <div className="text-xs py-1 px-2 dark:bg-sky-900/80 dark:border-b-neutral-600 dark:text-sky-400/90 border-b bg-sky-50 text-sky-600 border-b-sky-200">
               <strong>Debug mode.</strong> Transactions will not update your
               app's DB.
             </div>
           )}
           <div className="flex-1">
             <Editor
+              theme={darkMode ? 'vs-dark' : 'light'}
               height={'100%'}
               path="sandbox.ts"
               language="typescript"
@@ -279,13 +283,16 @@ export function Sandbox({
             />
           </div>
         </div>
-        <div className="flex flex-col border-b">
-          <div className="flex flex-col px-2 py-1 gap-1 bg-gray-50 border-b text-xs">
+        <div className="flex flex-col dark:border-b-neutral-700 border-b">
+          <div className="flex flex-col px-2 py-1 gap-1 dark:bg-neutral-800 bg-gray-50 dark:border-b-neutral-700 border-b text-xs">
             Context
           </div>
           <div className="px-2 py-1 flex gap-2 items-center">
             <Label className="text-xs font-normal">
-              Set <code className="px-2 border bg-white">auth.email</code>
+              Set{' '}
+              <code className="px-2 border dark:border-neutral-600 dark:bg-neutral-800 bg-white">
+                auth.email
+              </code>
             </Label>
             <EmailInput
               key={app.id}
@@ -298,7 +305,7 @@ export function Sandbox({
         </div>
 
         <div className="flex flex-col flex-1">
-          <div className="py-1 px-2 bg-gray-50 border-b text-xs flex gap-2 items-center">
+          <div className="py-1 px-2 dark:bg-neutral-800 dark:border-b-neutral-700 bg-gray-50 border-b text-xs flex gap-2 items-center">
             Permissions
             <div>
               <Checkbox
@@ -314,10 +321,11 @@ export function Sandbox({
               with these rules.
             </div>
           )}
-          <div className="flex flex-1 overflow-hidden bg-white">
+          <div className="flex flex-1 overflow-hidden dark:bg-neutral-800 bg-white">
             <div className={clsx('flex-1', useAppPerms ? 'opacity-50' : '')}>
               {useAppPerms ? (
                 <Editor
+                  theme={darkMode ? 'vs-dark' : 'light'}
                   key="app"
                   path="app-permissions.json"
                   value={app.rules ? JSON.stringify(app.rules, null, 2) : ''}
@@ -330,6 +338,7 @@ export function Sandbox({
                 />
               ) : (
                 <Editor
+                  theme={darkMode ? 'vs-dark' : 'light'}
                   key="custom"
                   path="custom-permissions.json"
                   value={permsValue}
@@ -350,7 +359,7 @@ export function Sandbox({
         </div>
       </div>
       <div className="flex flex-col flex-1 overflow-hidden min-w-[24em]">
-        <div className="py-1 px-2 bg-gray-50 border-b text-xs flex flex-col gap-1">
+        <div className="py-1 px-2 dark:bg-neutral-700/80 dark:border-b-neutral-800 bg-gray-50 border-b text-xs flex flex-col gap-1">
           <div className="flex gap-2">
             Output
             <Button size="nano" onClick={() => setOutput([])}>
@@ -392,20 +401,24 @@ export function Sandbox({
         </div>
         <div
           ref={consoleRef}
-          className="flex flex-col flex-1 gap-4 p-4 bg-gray-100 text-xs w-full overflow-y-auto overflow-x-hidden "
+          className="flex flex-col flex-1 gap-4 p-4 dark:bg-neutral-800 bg-gray-100 text-xs w-full overflow-y-auto overflow-x-hidden "
         >
           {output.map((o, i) =>
             o.type === 'eval' ? (
-              <div key={i} className="my-6 border-b border-gray-300"></div>
+              <div
+                key={i}
+                className="my-6 border-b dark:border-b-neutral-600 border-gray-300"
+              ></div>
             ) : (
               <div
                 className={clsx(
-                  'transition-all border rounded bg-gray-50 shadow-sm hover:shadow',
+                  'transition-all border rounded bg-gray-50 dark:bg-neutral-800 shadow-sm hover:shadow',
                   {
-                    'border-sky-200': o.type === 'log',
-                    'border-red-200': o.type === 'error',
-                    'border-teal-200': o.type === 'query',
-                    'border-purple-200': o.type === 'transaction',
+                    'border-sky-200 dark:border-sky-600': o.type === 'log',
+                    'border-red-200 dark:border-red-600': o.type === 'error',
+                    'border-teal-200 dark:border-teal-600': o.type === 'query',
+                    'border-purple-200 dark:border-purple-600':
+                      o.type === 'transaction',
                   },
                 )}
               >
@@ -435,7 +448,7 @@ export function Sandbox({
                 )}
                 {o.type === 'error' && (
                   <div className="p-3 flex">
-                    <pre className="p-1 bg-white w-full overflow-x-auto">
+                    <pre className="p-1 bg-white dark:bg-neutral-800 w-full overflow-x-auto">
                       {o.data.message}
                     </pre>
                   </div>
@@ -620,7 +633,7 @@ function EmailInput({
     >
       <ComboboxInput
         size={32}
-        className="text-xs px-2 py-0.5"
+        className="text-xs px-2 py-0.5 dark:bg-neutral-800"
         value={email}
         onChange={(e) => {
           setEmail(e.target.value);
@@ -630,12 +643,13 @@ function EmailInput({
             onEnter();
           }
         }}
+        autoComplete="off"
         placeholder="happyuser@instantdb.com"
       />
       <ComboboxOptions
         anchor="bottom start"
         modal={false}
-        className="mt-1 w-[var(--input-width)] overflow-auto bg-white shadow-lg z-10 border border-gray-300 divide-y"
+        className="mt-1 w-[var(--input-width)] dark:bg-neutral-700 overflow-auto bg-white shadow-lg z-10 border border-gray-300 divide-y"
       >
         {!email ? (
           <ComboboxOption
@@ -671,7 +685,7 @@ function Data({
   const isObject = typeof data === 'object' && data !== null;
 
   return (
-    <div className="p-1 bg-white rounded">
+    <div className="p-1 bg-white dark:bg-neutral-700 rounded">
       {isObject ? (
         <Json
           value={data}
