@@ -276,17 +276,16 @@
   (let [auth (get-auth! store sess-id)
         app-id (-> auth :app :id)
         coerced (tx/coerce! tx-steps)
-        _ (tx/validate! coerced)
+        ctx {:db {:conn-pool (aurora/conn-pool :write)}
+             :rules (rule-model/get-by-app-id {:app-id app-id})
+             :app-id app-id
+             :current-user (:user auth)
+             :admin? (:admin? auth)
+             :datalog-query-fn d/query
+             :attrs (attr-model/get-by-app-id app-id)}
+        _ (tx/validate! ctx coerced)
         {tx-id :id}
-        (permissioned-tx/transact!
-         {:db {:conn-pool (aurora/conn-pool :write)}
-          :rules (rule-model/get-by-app-id {:app-id app-id})
-          :app-id app-id
-          :current-user (:user auth)
-          :admin? (:admin? auth)
-          :datalog-query-fn d/query
-          :attrs (attr-model/get-by-app-id app-id)}
-         coerced)]
+        (permissioned-tx/transact! ctx coerced)]
     (rs/send-event! store app-id sess-id
                     {:op :transact-ok
                      :tx-id tx-id

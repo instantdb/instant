@@ -481,7 +481,7 @@
               (s/explain-data ::ops steps))))
         tx-steps (transform ctx coerced-admin-steps)
         coerced (tx/coerce! tx-steps)
-        _ (tx/validate! coerced)]
+        _ (tx/validate! ctx coerced)]
     coerced))
 
 (comment
