@@ -515,8 +515,7 @@
 
 (defn admin-tokens-regenerate [req]
   (let [{{app-id :id} :app} (req->app-and-user! :admin req)
-        admin-token (or (ex/get-optional-param! req [:body :admin-token] uuid-util/coerce)
-                        (random-uuid))]
+        admin-token (ex/get-param! req [:body :admin-token] uuid-util/coerce)]
     (response/ok (app-admin-token-model/recreate! {:app-id app-id
                                                    :token admin-token}))))
 
@@ -899,7 +898,7 @@
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         {subscription-name :name stripe-subscription-id :stripe_subscription_id}
         (instant-subscription-model/get-by-app-id {:app-id app-id})
-        {total-app-bytes :bytes} (app-model/app-usage {:app-id app-id})
+        {total-app-bytes :num_bytes} (app-model/app-usage {:app-id app-id})
         total-storage-bytes (:total_byte_size (app-file-model/get-app-usage app-id))]
     (response/ok {:subscription-name (or subscription-name default-subscription)
                   :stripe-subscription-id stripe-subscription-id
