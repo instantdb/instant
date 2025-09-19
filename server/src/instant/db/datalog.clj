@@ -42,7 +42,8 @@
             [instant.util.json :refer [->json]]
             [instant.util.pg-hint-plan :as pg-hint]
             [instant.util.string :refer [safe-name]]
-            [instant.util.uuid :as uuid-util])
+            [instant.util.uuid :as uuid-util]
+            [medley.core :refer [update-existing]])
   (:import (javax.sql DataSource)
            (java.util UUID)))
 
@@ -1569,6 +1570,37 @@
                                                             pattern-group)))
                      groups))))
 
+(declare optimize-pattern-order)
+
+(defn annotate-pattern-with-base-cost [ctx [tag pattern]]
+  (let [cost (case tag
+               :pattern (estimate-rows ctx pattern))]
+    [tag (assoc pattern :base-cost cost)]))
+
+(defn optimize-pattern-group-pattern-order [ctx pattern-group]
+  (cond-> pattern-group
+    true (update-existing :patterns
+                          (fn [patterns]
+                            (let [annotated (mapv (partial annotate-pattern-with-base-cost ctx)
+                                                  patterns)
+                                  sorted (tool/inspect (sort-by (comp :base-cost second) annotated))]
+                              (into (empty patterns) sorted))))
+
+    (seq (get-in pattern-group [:children :pattern-groups]))
+    (#(optimize-pattern-order ctx %))))
+
+(defn optimize-pattern-order [ctx nested-named-patterns]
+  (update-in nested-named-patterns
+             [:children :pattern-groups]
+             (fn [groups]
+               (mapv (fn [pattern-group]
+                       (if (:missing-attr? pattern-group)
+                         pattern-group
+                         (optimize-pattern-group-pattern-order ctx pattern-group)))
+                     groups))))
+
+(def ^:dynamic *optimize-order* false)
+
 (defn annotate-with-hints
   "Annotates the named-patterns with the best index to use.  It uses
   counts to choose better indexes than Postgres would choose on its
@@ -1582,11 +1614,17 @@
   (tool/def-locals)
   (try
     (let [sketch-keys (all-required-sketch-keys ctx nested-named-patterns)
-          sketches (cms/lookup (:conn-pool (:db ctx)) sketch-keys)]
+          sketches (cms/lookup (:conn-pool (:db ctx)) sketch-keys)
+          optimized-order (if *optimize-order*
+                            (optimize-pattern-order (assoc ctx
+                                                           :sketches sketches)
+                                                    nested-named-patterns)
+                            nested-named-patterns)]
+      (tool/def-locals)
       (annotate-with-hints-impl (assoc ctx
                                        :sketches sketches)
                                 {}
-                                nested-named-patterns))
+                                optimized-order))
     (catch Exception e
       (tracer/record-exception-span! e {:name "annotate-with-hints-error"
                                         :escaping? false
