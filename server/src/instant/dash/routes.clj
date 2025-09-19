@@ -1115,7 +1115,7 @@
   (let [member-id-param (ex/get-param! req [:body :id] uuid-util/coerce)
         {:keys [type member-id member-role user-role foreign-key]}
         (cond (get-in req [:params :app_id])
-              (let [{:keys [app role]} (req->app-and-user! :admin req)
+              (let [{:keys [app role]} (req->app-and-user! :collaborator req)
                     member (-> (instant-app-members/get-by-id {:app-id (:id app)
                                                                :id member-id-param})
                                (ex/assert-record! :app-member {:params {:id member-id-param}}))]
@@ -1126,7 +1126,7 @@
                  :user-role role})
 
               (get-in req [:params :org_id])
-              (let [{:keys [org role]} (req->org-and-user! :admin req)
+              (let [{:keys [org role]} (req->org-and-user! :collaborator req)
                     member (-> (instant-org-members/get-by-id {:org-id (:id org)
                                                                :id member-id-param})
                                (ex/assert-record! :org-member {:params {:id member-id-param}}))]

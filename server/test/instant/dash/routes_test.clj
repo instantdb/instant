@@ -23,128 +23,158 @@
 (use-fixtures :each silence-routes-exceptions)
 
 (deftest app-invites-work
-  (when (config/stripe-secret)
-    (with-redefs [config/postmark-send-enabled? (constantly false)]
-      (with-user
-        (fn [u]
-          (with-pro-app
-            true
-            u
-            (fn [{:keys [app]}]
-              (let [invitee-email (random-email)
-                    resp (http/post (str config/server-origin "/dash/apps/" (:id app) "/invite/send")
-                                    {:headers {:Authorization (str "Bearer " (:refresh-token u))
-                                               :Content-Type "application/json"}
-                                     :as :json
-                                     :body (->json {:invitee-email invitee-email
-                                                    :role "admin"})})
-                    _ (is (= 200 (:status resp)))
-                    invite (sql/select-one (aurora/conn-pool :read)
-                                           ["select * from app_member_invites where invitee_email = ?" invitee-email])]
+  (with-redefs [config/postmark-send-enabled? (constantly false)]
+    (with-user
+      (fn [u]
+        (with-pro-app
+          {:create-fake-objects? true}
+          u
+          (fn [{:keys [app]}]
+            (let [invitee-email (random-email)
+                  resp (http/post (str config/server-origin "/dash/apps/" (:id app) "/invite/send")
+                                  {:headers {:Authorization (str "Bearer " (:refresh-token u))
+                                             :Content-Type "application/json"}
+                                   :as :json
+                                   :body (->json {:invitee-email invitee-email
+                                                  :role "admin"})})
+                  _ (is (= 200 (:status resp)))
+                  invite (sql/select-one (aurora/conn-pool :read)
+                                         ["select * from app_member_invites where invitee_email = ?" invitee-email])]
 
-                (is (= "pending" (:status invite)))
-                (is (= "admin" (:invitee_role invite)))
+              (is (= "pending" (:status invite)))
+              (is (= "admin" (:invitee_role invite)))
 
-                (testing "random users can't accept"
-                  (with-user
-                    (fn [u2]
-                      (let [resp (http/post (str config/server-origin "/dash/invites/accept")
-                                            {:throw-exceptions false
-                                             :headers {:Authorization (str "Bearer " (:refresh-token u2))
-                                                       :Content-Type "application/json"}
-                                             :as :json
-                                             :body (->json {:invite-id (:id invite)})})
-                            member (sql/select-one (aurora/conn-pool :read)
-                                                   ["select * from app_members where app_id = ? and user_id = ?"
-                                                    (:id app)
-                                                    (:id u2)])
-                            invite (sql/select-one (aurora/conn-pool :read)
-                                                   ["select * from app_member_invites where invitee_email = ?" invitee-email])]
-                        (is (= 400 (:status resp)))
-                        (is (not member))
-                        (is (= "pending" (:status invite)))))))
-
+              (testing "random users can't accept"
                 (with-user
-                  {:email invitee-email}
-                  (fn [invitee]
-                    (let [_res (http/post (str config/server-origin "/dash/invites/accept")
-                                          {:headers {:Authorization (str "Bearer " (:refresh-token invitee))
+                  (fn [u2]
+                    (let [resp (http/post (str config/server-origin "/dash/invites/accept")
+                                          {:throw-exceptions false
+                                           :headers {:Authorization (str "Bearer " (:refresh-token u2))
                                                      :Content-Type "application/json"}
                                            :as :json
                                            :body (->json {:invite-id (:id invite)})})
                           member (sql/select-one (aurora/conn-pool :read)
                                                  ["select * from app_members where app_id = ? and user_id = ?"
                                                   (:id app)
-                                                  (:id invitee)])
+                                                  (:id u2)])
                           invite (sql/select-one (aurora/conn-pool :read)
                                                  ["select * from app_member_invites where invitee_email = ?" invitee-email])]
+                      (is (= 400 (:status resp)))
+                      (is (not member))
+                      (is (= "pending" (:status invite)))))))
 
-                      (is member)
-                      (is (= "admin" (:member_role member)))
-                      (is (= "accepted" (:status invite)))
+              (with-user
+                {:email invitee-email}
+                (fn [invitee]
+                  (let [_res (http/post (str config/server-origin "/dash/invites/accept")
+                                        {:headers {:Authorization (str "Bearer " (:refresh-token invitee))
+                                                   :Content-Type "application/json"}
+                                         :as :json
+                                         :body (->json {:invite-id (:id invite)})})
+                        member (sql/select-one (aurora/conn-pool :read)
+                                               ["select * from app_members where app_id = ? and user_id = ?"
+                                                (:id app)
+                                                (:id invitee)])
+                        invite (sql/select-one (aurora/conn-pool :read)
+                                               ["select * from app_member_invites where invitee_email = ?" invitee-email])]
 
-                      (testing "roles can be updated"
-                        (testing "but you can't improve your own role"
-                          (let [res (http/post (str config/server-origin "/dash/apps/" (:id app) "/members/update")
-                                               {:throw-exceptions false
-                                                :headers {:Authorization (str "Bearer " (:refresh-token invitee))
-                                                          :Content-Type "application/json"}
-                                                :as :json
-                                                :body (->json {:id (:id member)
-                                                               :role "owner"})})]
-                            (is (= 400 (:status res)))
-                            (is (= "permission-denied" (-> res :body <-json (get "type"))))))
+                    (is member)
+                    (is (= "admin" (:member_role member)))
+                    (is (= "accepted" (:status invite)))
 
-                        (let [_res (http/post (str config/server-origin "/dash/apps/" (:id app) "/members/update")
+                    (testing "roles can be updated"
+                      (testing "but you can't improve your own role"
+                        (let [res (http/post (str config/server-origin "/dash/apps/" (:id app) "/members/update")
+                                             {:throw-exceptions false
+                                              :headers {:Authorization (str "Bearer " (:refresh-token invitee))
+                                                        :Content-Type "application/json"}
+                                              :as :json
+                                              :body (->json {:id (:id member)
+                                                             :role "owner"})})]
+                          (is (= 400 (:status res)))
+                          (is (= "permission-denied" (-> res :body <-json (get "type"))))))
+
+                      (let [_res (http/post (str config/server-origin "/dash/apps/" (:id app) "/members/update")
+                                            {:headers {:Authorization (str "Bearer " (:refresh-token u))
+                                                       :Content-Type "application/json"}
+                                             :as :json
+                                             :body (->json {:id (:id member)
+                                                            :role "collaborator"})})
+                            member (sql/select-one (aurora/conn-pool :read)
+                                                   ["select * from app_members where app_id = ? and user_id = ?"
+                                                    (:id app)
+                                                    (:id invitee)])]
+                        (is (= "collaborator" (:member_role member))))
+
+                      (testing "but not by someone with a lesser role"
+                        (let [res (http/post (str config/server-origin "/dash/apps/" (:id app) "/members/update")
+                                             {:throw-exceptions false
+                                              :headers {:Authorization (str "Bearer " (:refresh-token invitee))
+                                                        :Content-Type "application/json"}
+                                              :as :json
+                                              :body (->json {:id (:id u)
+                                                             :role "collaborator"})})]
+                          (is (= 400 (:status res)))
+                          (is (= "permission-denied" (-> res :body <-json (get "type")))))))
+
+                    (testing "members can be removed"
+                      (testing "but not by users with lesser roles"
+                        (with-user
+                          (fn [u2]
+
+                            (let [admin-member-id (:id (app-members/create! {:app-id (:id app)
+                                                                             :user-id (:id u2)
+                                                                             :role "admin"}))
+                                  resp (http/delete (str config/server-origin "/dash/apps/" (:id app) "/members/remove")
+                                                    {:throw-exceptions false
+                                                     :headers {:Authorization (str "Bearer " (:refresh-token invitee))
+                                                               :Content-Type "application/json"}
+                                                     :as :json
+                                                     :body (->json {:id admin-member-id})})]
+                              (is (= 400 (:status resp)))
+                              (is (= "permission-denied" (-> resp :body <-json (get "type"))))
+                              (is (= "admin" (:member_role (app-members/get-by-app-and-user {:app-id (:id app)
+                                                                                             :user-id (:id u2)}))))))))
+                      (let [_res (http/delete (str config/server-origin "/dash/apps/" (:id app) "/members/remove")
                                               {:headers {:Authorization (str "Bearer " (:refresh-token u))
                                                          :Content-Type "application/json"}
                                                :as :json
-                                               :body (->json {:id (:id member)
-                                                              :role "collaborator"})})
-                              member (sql/select-one (aurora/conn-pool :read)
-                                                     ["select * from app_members where app_id = ? and user_id = ?"
-                                                      (:id app)
-                                                      (:id invitee)])]
-                          (is (= "collaborator" (:member_role member))))
+                                               :body (->json {:id (:id member)})})
+                            member (sql/select-one (aurora/conn-pool :read)
+                                                   ["select * from app_members where app_id = ? and user_id = ?"
+                                                    (:id app)
+                                                    (:id invitee)])]
+                        (println (sql/select (aurora/conn-pool :read)
+                                             ["select * from app_members where app_id = ?"
+                                              (:id app)]))
+                        (is (nil? member))))))))))))))
 
-                        (testing "but not by someone with a lesser role"
-                          (let [res (http/post (str config/server-origin "/dash/apps/" (:id app) "/members/update")
-                                               {:throw-exceptions false
-                                                :headers {:Authorization (str "Bearer " (:refresh-token invitee))
-                                                          :Content-Type "application/json"}
-                                                :as :json
-                                                :body (->json {:id (:id u)
-                                                               :role "collaborator"})})]
-                            (is (= 400 (:status res)))
-                            (is (= "permission-denied" (-> res :body <-json (get "type")))))))
-
-                      (testing "members can be removed"
-                        (testing "but not by users with lesser roles"
-                          (with-user
-                            (fn [u2]
-                              (app-members/create! {:app-id (:id app)
-                                                    :user-id (:id u2)
-                                                    :role "admin"})
-                              (let [resp (http/delete (str config/server-origin "/dash/apps/" (:id app) "/members/remove")
-                                                      {:throw-exceptions false
-                                                       :headers {:Authorization (str "Bearer " (:refresh-token invitee))
-                                                                 :Content-Type "application/json"}
-                                                       :as :json
-                                                       :body (->json {:id (:id member)})})]
-                                (is (= 400 (:status resp)))
-                                (is (= "permission-denied" (-> resp :body <-json (get "type"))))
-                                (is (= "admin" (:member_role (app-members/get-by-app-and-user {:app-id (:id app)
-                                                                                               :user-id (:id u2)}))))))))
-                        (let [_res (http/delete (str config/server-origin "/dash/apps/" (:id app) "/members/remove")
-                                                {:headers {:Authorization (str "Bearer " (:refresh-token u))
-                                                           :Content-Type "application/json"}
-                                                 :as :json
-                                                 :body (->json {:id (:id member)})})
-                              member (sql/select-one (aurora/conn-pool :read)
-                                                     ["select * from app_members where app_id = ? and user_id = ?"
-                                                      (:id app)
-                                                      (:id invitee)])]
-                          (is (nil? member)))))))))))))))
+(deftest members-can-remove-themselves-from-apps
+  (with-redefs [config/postmark-send-enabled? (constantly false)]
+    (with-user
+      (fn [owner]
+        (with-pro-app
+          {:create-fake-objects? true}
+          owner
+          (fn [{:keys [app]}]
+            (doseq [role [:collaborator :admin]]
+              (with-user
+                (fn [u2]
+                  (let [member-id (:id (app-members/create! {:app-id (:id app)
+                                                             :user-id (:id u2)
+                                                             :role (name role)}))
+                        _ (is (= (name role)
+                                 (:member_role (app-members/get-by-app-and-user {:app-id (:id app)
+                                                                                 :user-id (:id u2)}))))
+                        resp (http/delete (str config/server-origin "/dash/apps/" (:id app) "/members/remove")
+                                          {:throw-exceptions false
+                                           :headers {:Authorization (str "Bearer " (:refresh-token u2))
+                                                     :Content-Type "application/json"}
+                                           :as :json
+                                           :body (->json {:id member-id})})]
+                    (is (= 200 (:status resp)))
+                    (is (nil? (app-members/get-by-app-and-user {:app-id (:id app)
+                                                                :user-id (:id u2)})))))))))))))
 
 (deftest app-invites-can-be-revoked
   (with-redefs [config/postmark-send-enabled? (constantly false)]
@@ -373,6 +403,29 @@
                                                     (:id org)
                                                     (:id invitee)])]
                         (is (nil? member))))))))))))))
+
+(deftest members-can-remove-themselves-from-orgs
+  (with-startup-org
+    true
+    (fn [{:keys [org]}]
+      (doseq [role [:collaborator :admin :owner]]
+        (with-user
+          (fn [u2]
+            (let [member-id (:id (org-members/create! {:org-id (:id org)
+                                                       :user-id (:id u2)
+                                                       :role (name role)}))
+                  _ (is (= (name role)
+                           (:role (org-members/get-by-org-and-user {:org-id (:id org)
+                                                                    :user-id (:id u2)}))))
+                  resp (http/delete (str config/server-origin "/dash/orgs/" (:id org) "/members/remove")
+                                    {:throw-exceptions false
+                                     :headers {:Authorization (str "Bearer " (:refresh-token u2))
+                                               :Content-Type "application/json"}
+                                     :as :json
+                                     :body (->json {:id member-id})})]
+              (is (= 200 (:status resp)))
+              (is (nil? (org-members/get-by-org-and-user {:org-id (:id org)
+                                                          :user-id (:id u2)}))))))))))
 
 (deftest org-invites-can-be-revoked
   (with-redefs [config/postmark-send-enabled? (constantly false)]
