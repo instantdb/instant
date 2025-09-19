@@ -71,16 +71,22 @@ export function AppleClient({
       <Collapsible.Root
         open={open}
         onOpenChange={setOpen}
-        className="flex flex-col border rounded"
+        className="flex flex-col border dark:border-slate-600 rounded"
       >
-        <Collapsible.Trigger className="flex p-4 hover:bg-gray-100 bg-gray-50">
+        <Collapsible.Trigger className="flex p-4 hover:bg-gray-100 dark:hover:bg-slate-700 bg-gray-50 dark:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-inset">
           <div className="flex flex-1 justify-between items-center">
             <div className="flex gap-2">
               {' '}
-              <Image alt="apple logo" src={logo} />
+              <Image
+                alt="apple logo"
+                src={logo}
+                className="dark:invert dark:opacity-80"
+              />
               <SectionHeading>
                 {client.client_name}{' '}
-                <span className="text-gray-400">(Apple)</span>
+                <span className="text-gray-400 dark:text-gray-500">
+                  (Apple)
+                </span>
               </SectionHeading>
             </div>
             {open ? (
@@ -91,7 +97,7 @@ export function AppleClient({
           </div>
         </Collapsible.Trigger>
         <Collapsible.Content className="">
-          <div className="p-4 flex flex-col gap-4 border-t">
+          <div className="p-4 flex flex-col gap-4 border-t dark:border-slate-600">
             <Copyable label="Client Name" value={client.client_name} />
 
             <Copyable label="Services ID" value={client.client_id || ''} />
@@ -239,7 +245,7 @@ export function AddClientExpanded({
 
   return (
     <form
-      className="flex flex-col gap-2 p-4 rounded border"
+      className="flex flex-col gap-2 p-4 rounded border dark:border-slate-600 bg-white dark:bg-slate-800"
       onSubmit={onSubmit}
       autoComplete="off"
       data-lpignore="true"
@@ -274,9 +280,9 @@ export function AddClientExpanded({
       <Collapsible.Root
         open={redirectOpen}
         onOpenChange={setRedirectOpen}
-        className="flex flex-col border rounded"
+        className="flex flex-col border dark:border-slate-600 rounded"
       >
-        <Collapsible.Trigger className="flex p-4 hover:bg-gray-100 bg-gray-50">
+        <Collapsible.Trigger className="flex p-4 hover:bg-gray-100 dark:hover:bg-slate-700 bg-gray-50 dark:bg-slate-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-inset">
           <div className="flex flex-1 justify-between items-center">
             Redirect flow for Web (optional)
             {redirectOpen ? (

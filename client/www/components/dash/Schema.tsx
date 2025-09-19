@@ -109,7 +109,7 @@ export function Schema({
 
   return (
     <div className="flex flex-1 flex-col md:flex-row min-h-0">
-      <div className="flex flex-col gap-4 border-r p-4 text-sm md:basis-96 md:text-base min-h-0">
+      <div className="flex flex-col gap-4 border-r border-gray-300 dark:border-slate-700 p-4 text-sm md:basis-96 md:text-base min-h-0">
         <SectionHeading>Schema</SectionHeading>
         <Content>
           <p>This is the schema for your app in code form.</p>
@@ -118,7 +118,7 @@ export function Schema({
             changes to your schema:
           </p>
           <p>
-            <div className="border rounded text-sm overflow-auto">
+            <div className="border border-gray-300 dark:border-slate-600 rounded text-sm overflow-auto bg-gray-50 dark:bg-slate-800">
               <Fence
                 copyable
                 code={`npx instant-cli@latest pull`}
@@ -135,8 +135,10 @@ export function Schema({
       </div>
       <div className="flex w-full flex-1 flex-col justify-start">
         <div className="flex flex-col gap-2 h-full min-h-0">
-          <div className="flex items-center gap-4 border-b px-4 py-2">
-            <div className="font-mono">instant.schema.ts</div>
+          <div className="flex items-center gap-4 border-b border-gray-300 dark:border-slate-700 px-4 py-2">
+            <div className="font-mono text-gray-900 dark:text-white">
+              instant.schema.ts
+            </div>
 
             <Label>Package</Label>
             <Select<Pkg>

@@ -40,7 +40,7 @@ export function Dev() {
   if (!isHydrated || !open) return null;
 
   return (
-    <div className="fixed font-mono z-50 shadow-lg border bottom-2 right-2 top-2 bg-gray-50 max-w-md w-full overflow-auto p-5 gap-4 flex flex-col">
+    <div className="fixed font-mono z-50 shadow-lg border dark:border-slate-600 bottom-2 right-2 top-2 bg-gray-50 dark:bg-slate-800 max-w-md w-full overflow-auto p-5 gap-4 flex flex-col text-gray-900 dark:text-gray-100">
       <h2 className="font-bold text-lg">Instant WWW Devtools</h2>
 
       <div>
@@ -49,7 +49,7 @@ export function Dev() {
         <div className="flex gap-2">
           {isDevBackend ? (
             <button
-              className="bg-red-400 text-white py-0.5 px-2"
+              className="bg-red-400 dark:bg-red-600 text-white py-0.5 px-2"
               onClick={() => {
                 setTokenAndReload(undefined, false);
               }}
@@ -58,7 +58,7 @@ export function Dev() {
             </button>
           ) : (
             <button
-              className="bg-emerald-400 text-white py-0.5 px-2"
+              className="bg-emerald-400 dark:bg-emerald-600 text-white py-0.5 px-2"
               onClick={() => {
                 setTokenAndReload(undefined, true);
               }}
@@ -97,7 +97,9 @@ export function Dev() {
             </div>
           ))
         ) : (
-          <div className="italic text-gray-400">No flags</div>
+          <div className="italic text-gray-400 dark:text-gray-500">
+            No flags
+          </div>
         )}
       </div>
 
@@ -109,13 +111,13 @@ export function Dev() {
               <div key={p.name} className="flex justify-between items-center">
                 <div>
                   {p.name}{' '}
-                  <span className="italic text-gray-400">
+                  <span className="italic text-gray-400 dark:text-gray-500">
                     ({p.prod ? 'Prod' : 'Dev'})
                   </span>
                 </div>
                 <div className="flex gap-1">
                   <button
-                    className="bg-black text-white py-0.5 px-2"
+                    className="bg-black dark:bg-slate-700 text-white py-0.5 px-2"
                     onClick={() => {
                       setTokenAndReload(p.token, p.prod);
                     }}
@@ -123,7 +125,7 @@ export function Dev() {
                     Switch
                   </button>
                   <button
-                    className="bg-black text-white py-0.5 px-2"
+                    className="bg-black dark:bg-slate-700 text-white py-0.5 px-2"
                     onClick={() => {
                       const nextTokens = authTokens.filter(
                         (t) => t.token !== p.token,
@@ -143,7 +145,9 @@ export function Dev() {
               </div>
             ))
           ) : (
-            <div className="italic text-gray-400">No auth tokens</div>
+            <div className="italic text-gray-400 dark:text-gray-500">
+              No auth tokens
+            </div>
           )}
         </div>
       </div>
@@ -153,7 +157,7 @@ export function Dev() {
           <div className="flex space-x-2">
             <h3 className="font-bold">Current auth token</h3>
             <button
-              className="bg-red-400 text-white py-0.5 px-2"
+              className="bg-red-400 dark:bg-red-600 text-white py-0.5 px-2"
               onClick={() => {
                 setToken(undefined);
                 location.reload();
@@ -162,7 +166,9 @@ export function Dev() {
               Clear
             </button>
           </div>
-          <span className="text-gray-800">{currentToken}</span>
+          <span className="text-gray-800 dark:text-gray-300">
+            {currentToken}
+          </span>
         </div>
       ) : null}
 
@@ -203,9 +209,12 @@ export function Dev() {
               type="text"
               name="name"
               placeholder="Name"
-              className="w-full px-2 py-0.5 border-gray-400"
+              className="w-full px-2 py-0.5 border border-gray-400 dark:border-slate-600 bg-white dark:bg-slate-700"
             />
-            <button type="submit" className="bg-black text-white p-1 w-full">
+            <button
+              type="submit"
+              className="bg-black dark:bg-slate-700 text-white p-1 w-full"
+            >
               Save token
             </button>
           </form>

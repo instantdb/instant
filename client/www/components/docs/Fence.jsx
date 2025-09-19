@@ -28,8 +28,8 @@ export function Fence({ children, language, showCopy }) {
       theme={undefined}
     >
       {({ className, style, tokens, getTokenProps }) => (
-        <div className="relative text-sm">
-          <pre className={className} style={style}>
+        <div className="relative text-sm bg-gray-50 dark:bg-slate-800 rounded">
+          <pre className={`${className} bg-transparent`} style={style}>
             {tokens.map((line, lineIndex) => (
               <Fragment key={lineIndex}>
                 {line
@@ -53,7 +53,7 @@ export function Fence({ children, language, showCopy }) {
                     }, 2500);
                   }}
                   className="flex items-center gap-x-1
-             bg-white px-2 py-1 text-xs font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+             bg-white dark:bg-slate-700 px-2 py-1 text-xs font-semibold text-gray-900 dark:text-gray-200 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-slate-600 hover:bg-gray-50 dark:hover:bg-slate-600"
                 >
                   <ClipboardDocumentIcon
                     className="-ml-0.5 h-4 w-4"

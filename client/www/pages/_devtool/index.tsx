@@ -38,13 +38,44 @@ export default Devtool;
 function DevtoolComp() {
   const router = useReadyRouter();
   const authToken = useAuthToken();
+
+  // Detect dark mode from localStorage and listen for changes
+  useEffect(() => {
+    const savedMode = localStorage.getItem('darkMode');
+    const prefersDark = window.matchMedia(
+      '(prefers-color-scheme: dark)',
+    ).matches;
+    const shouldBeDark = savedMode ? savedMode === 'true' : prefersDark;
+
+    if (shouldBeDark) {
+      document.documentElement.classList.add('dark');
+    }
+
+    // Listen for messages from parent about dark mode changes
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'darkModeChange') {
+        if (event.data.darkMode) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+
+    return () => {
+      window.removeEventListener('message', handleMessage);
+    };
+  }, []);
+
   if (!authToken) {
     return (
       <DevtoolWindow>
         <Auth
           emailOnly
           info={
-            <div className="bg-gray-100 p-4 border rounded">
+            <div className="bg-gray-100 dark:bg-slate-800 p-4 border dark:border-slate-600 rounded">
               <Help />
             </div>
           }
@@ -105,7 +136,7 @@ function DevtoolAuthorized({ appId }: { appId: string }) {
             <ScreenHeading>🤕 Failed to load your app</ScreenHeading>
             {message ? (
               <div className="mx-auto flex w-full max-w-2xl flex-col">
-                <div className="rounded bg-red-100 p-4 text-red-700">
+                <div className="rounded bg-red-100 dark:bg-red-900/20 p-4 text-red-700 dark:text-red-400">
                   {message}
                 </div>
               </div>
@@ -113,7 +144,7 @@ function DevtoolAuthorized({ appId }: { appId: string }) {
             <p>
               We had some trouble loading your app. Please ping us on{' '}
               <a
-                className="font-bold text-blue-500"
+                className="font-bold text-blue-500 dark:text-blue-400"
                 href="https://discord.com/invite/VU53p7uQcE"
                 target="_blank"
               >
@@ -230,7 +261,7 @@ function DevtoolWithData({
               ) : null}
               We tried to access your app but couldn't.
             </p>
-            <div className="bg-gray-50 p-2">
+            <div className="bg-gray-50 dark:bg-slate-800 p-2">
               <AppIdLabel appId={appId} />
             </div>
             <p>
@@ -264,7 +295,7 @@ function DevtoolWithData({
             </ScreenHeading>
             {message ? (
               <div className="mx-auto flex w-full max-w-2xl flex-col">
-                <div className="rounded bg-red-100 p-4 text-red-700">
+                <div className="rounded bg-red-100 dark:bg-red-900/20 p-4 text-red-700 dark:text-red-400">
                   {message}
                 </div>
               </div>
@@ -274,7 +305,7 @@ function DevtoolWithData({
               We had some trouble connecting to Instant's backend. Please ping
               us on{' '}
               <a
-                className="font-bold text-blue-500"
+                className="font-bold text-blue-500 dark:text-blue-400"
                 href="https://discord.com/invite/VU53p7uQcE"
                 target="_blank"
               >
@@ -300,7 +331,7 @@ function DevtoolWithData({
 
   if (connection.state === 'pending') {
     return (
-      <div className="h-full w-full flex justify-center items-center">
+      <div className="h-full w-full flex justify-center items-center text-gray-900 dark:text-gray-100">
         Connecting...
       </div>
     );
@@ -309,7 +340,7 @@ function DevtoolWithData({
   return (
     <DevtoolWindow app={app}>
       <div className="flex flex-col h-full w-full">
-        <div className="bg-gray-50 border-b">
+        <div className="bg-gray-50 dark:bg-slate-800 border-b dark:border-slate-600">
           <AppIdLabel appId={app.id} />
         </div>
         <TabBar
@@ -364,9 +395,9 @@ function DevtoolWindow({
     false;
 
   return (
-    <div className="h-full w-full">
+    <div className="h-full w-full bg-white dark:bg-slate-900">
       <div className="flex flex-col h-full w-full">
-        <div className="flex p-2 text-xs bg-gray-100 border-b">
+        <div className="flex p-2 text-xs bg-gray-100 dark:bg-slate-800 border-b dark:border-slate-600 text-gray-900 dark:text-gray-100">
           <div className="flex-1 font-mono">
             Instant Devtools {app?.title ? `• ${app?.title}` : ''}
             {isLocalHost ? ' • localhost' : ''}
@@ -392,10 +423,10 @@ function DevtoolWindow({
 
 function AppIdLabel({ appId }: { appId: string }) {
   return (
-    <div className="flex gap-2 px-2 py-1 text-xs font-mono">
+    <div className="flex gap-2 px-2 py-1 text-xs font-mono text-gray-900 dark:text-gray-100">
       <span>App ID</span>
       <code
-        className="bg-white rounded border px-2"
+        className="bg-white dark:bg-slate-700 rounded border dark:border-slate-600 px-2"
         onClick={(e) => {
           const node = e.currentTarget;
           const selection = window.getSelection();
@@ -473,7 +504,7 @@ function Admin({
   const clearDialog = useDialog();
 
   return (
-    <Stack className="gap-2 text-sm max-w-sm">
+    <Stack className="gap-2 text-sm max-w-sm text-gray-900 dark:text-gray-200">
       {isMinRole('owner', app.user_app_role) ? (
         <div className="space-y-2">
           <SectionHeading>Danger zone</SectionHeading>
@@ -551,7 +582,7 @@ function Admin({
 
 function Help() {
   return (
-    <Stack className="gap-2 text-sm max-w-sm">
+    <Stack className="gap-2 text-sm max-w-sm text-gray-900 dark:text-gray-200">
       <SectionHeading>Instant Devtools</SectionHeading>
       <p>
         This widget embeds a data explorer and sandbox for your Instant app. We
@@ -559,10 +590,10 @@ function Help() {
         operations.
       </p>
       <p>
-        You can toggle this view with the keyboard shortcut
+        You can toggle this view with the keyboard shortcut{' '}
         <Code>ctrl + shift + 0</Code>. To learn more, check out the{' '}
         <a
-          className="font-bold text-blue-500"
+          className="font-bold text-blue-500 dark:text-blue-400"
           href="https://instantdb.com/docs/devtool"
           target="_blank"
         >
@@ -573,7 +604,10 @@ function Help() {
   );
 }
 
-const Code = twel('code', 'bg-gray-200 px-1 rounded text-xs font-mono');
+const Code = twel(
+  'code',
+  'bg-gray-200 dark:bg-slate-700 px-1 rounded text-xs font-mono',
+);
 
 function isEmptyObj(obj: object) {
   return Object.keys(obj).length === 0;

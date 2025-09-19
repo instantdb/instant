@@ -252,7 +252,10 @@ export default function PersonalAccessTokensTab({
   };
   return (
     <div
-      className={cn('flex-1 flex flex-col p-4 max-w-2xl mx-auto', className)}
+      className={cn(
+        'flex-1 flex flex-col p-4 max-w-2xl mx-auto text-gray-900 dark:text-gray-100',
+        className,
+      )}
     >
       {newTokenValue ? (
         <CopyTokenDialog
@@ -262,15 +265,23 @@ export default function PersonalAccessTokensTab({
       ) : null}
       <div className="flex justify-between flex-row items-center">
         <div className="pt-1 pb-4">
-          <div className="prose">
+          <div className="prose dark:prose-invert">
             <SectionHeading className="font-bold">
               Personal Access Tokens <sup className="text-sm">[BETA]</sup>
             </SectionHeading>
-            <p>
+            <p className="text-gray-600 dark:text-gray-300">
               Welcome to the Platform Beta! You can create{' '}
-              <code>Personal Access Tokens</code> here. <br />
-              <a href="/labs/platform_demo">Take a look at this guide</a> to see
-              how to use the platform API, and create apps on demand!
+              <code className="bg-gray-100 dark:bg-slate-700 text-gray-900 dark:text-gray-200 px-1 rounded">
+                Personal Access Tokens
+              </code>{' '}
+              here. <br />
+              <a
+                href="/labs/platform_demo"
+                className="text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                Take a look at this guide
+              </a>{' '}
+              to see how to use the platform API, and create apps on demand!
             </p>
           </div>
         </div>
@@ -284,35 +295,40 @@ export default function PersonalAccessTokensTab({
           <PlusIcon className="h-4 w-4 mr-1" />
           New access token
         </Button>
-        <table className="z-0 w-full flex-1 text-left font-mono text-xs text-gray-500">
-          <thead className="sticky top-0 z-20 border-b">
+        <table className="z-0 w-full flex-1 text-left font-mono text-xs text-gray-500 dark:text-gray-400">
+          <thead className="sticky top-0 z-20 border-b border-gray-300 dark:border-slate-700 bg-white dark:bg-slate-900">
             <tr>
               <th
                 className={cn(
-                  'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1',
+                  'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1 text-gray-700 dark:text-gray-300',
                 )}
               >
                 Name
               </th>
               <th
                 className={cn(
-                  'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1',
+                  'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1 text-gray-700 dark:text-gray-300',
                 )}
               >
                 Created
               </th>
               <th
                 className={cn(
-                  'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1',
+                  'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1 text-gray-700 dark:text-gray-300',
                 )}
               ></th>
             </tr>
           </thead>
           <tbody className="font-mono">
             {personalAccessTokens.map(({ id, name, created_at }) => (
-              <tr key={id} className="group border-b bg-white">
-                <td className="whitespace-nowrap px-4 py-1">{name}</td>
-                <td className="whitespace-nowrap px-4 py-1">
+              <tr
+                key={id}
+                className="group border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900"
+              >
+                <td className="whitespace-nowrap px-4 py-1 text-gray-700 dark:text-gray-300">
+                  {name}
+                </td>
+                <td className="whitespace-nowrap px-4 py-1 text-gray-700 dark:text-gray-300">
                   {format(new Date(created_at), 'MMM dd, h:mma')}
                 </td>
                 <td className="px-4 py-1" style={{}}>
@@ -328,15 +344,15 @@ export default function PersonalAccessTokensTab({
                 </td>
               </tr>
             ))}
-            <tr className="h-full"></tr>
+            <tr className="h-full bg-transparent"></tr>
           </tbody>
         </table>
         <Dialog
           open={isCreatingNewToken}
           onClose={() => setIsCreatingNewToken(false)}
         >
-          <ActionForm className="max-w-2xl">
-            <h5 className="flex text-lg font-bold">
+          <ActionForm className="max-w-2xl text-gray-900 dark:text-gray-100">
+            <h5 className="flex text-lg font-bold text-gray-900 dark:text-white">
               Create personal access token
             </h5>
 
@@ -347,7 +363,7 @@ export default function PersonalAccessTokensTab({
                 </div>
                 <div className="flex gap-1 flex-col">
                   <input
-                    className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400"
+                    className="flex w-full flex-1 rounded-sm border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-900 dark:text-white px-3 py-1 placeholder:text-gray-400 dark:placeholder:text-gray-500"
                     placeholder="My default token"
                     value={newPersonalAccessTokenName ?? ''}
                     onChange={(e) =>
