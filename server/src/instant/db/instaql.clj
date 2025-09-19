@@ -2150,7 +2150,7 @@
         rule-params (:$$ruleParams o)
         o (dissoc o :$$ruleParams)
         rules (or (when rules-override {:app_id app-id :code rules-override})
-                  (rule-model/get-by-app-id {:app-id app-id}))
+                  (rule-model/get-by-app-id (:conn-pool (:db ctx)) {:app-id app-id}))
 
         rule-wheres (get-rule-wheres ctx rule-params rules o)
         ctx (assoc ctx :rule-wheres rule-wheres)
