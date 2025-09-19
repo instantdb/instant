@@ -970,17 +970,19 @@ export function EditRowDialog({
                 <Label className="font-mono">{attr.name}</Label>
                 <div className="flex items-center gap-2">
                   <div className="flex items-center">
-                    <Checkbox
-                      checked={isNullField}
-                      onChange={(checked) =>
-                        handleNullToggle(attr.name, checked)
-                      }
-                      label={
-                        <span className="text-[10px] text-gray-600 uppercase">
-                          null
-                        </span>
-                      }
-                    />
+                    {!attr.isRequired && (
+                      <Checkbox
+                        checked={isNullField}
+                        onChange={(checked) =>
+                          handleNullToggle(attr.name, checked)
+                        }
+                        label={
+                          <span className="text-[10px] text-gray-600 uppercase">
+                            null
+                          </span>
+                        }
+                      />
+                    )}
                   </div>
                   <Select
                     className="w-24 rounded text-sm py-0.5 px-2"
