@@ -100,20 +100,22 @@
    (s/explain (config-spec prod?) config-edn)))
 
 (defn read-config [env]
-  (let [override (when (= :dev env)
-                   (io/resource "config/override.edn"))
-        overlay (some-> (io/resource "config/overlay.edn")
-                        slurp
-                        edn/read-string)]
-    (when override
-      ;; Can't use tracer because it requires config to be decoded before
-      ;; it is initialized
-      (log/infof "Using config at resources/config/override.edn"))
-    (-> (or override
-            (io/resource (format "config/%s.edn" (name env))))
-        slurp
-        edn/read-string
-        (merge overlay))))
+  (if (= env :staging)
+    false
+    (let [override (when (= :dev env)
+                     (io/resource "config/override.edn"))
+          overlay (some-> (io/resource "config/overlay.edn")
+                          slurp
+                          edn/read-string)]
+      (when override
+        ;; Can't use tracer because it requires config to be decoded before
+        ;; it is initialized
+        (log/infof "Using config at resources/config/override.edn"))
+      (-> (or override
+              (io/resource (format "config/%s.edn" (name env))))
+          slurp
+          edn/read-string
+          (merge overlay)))))
 
 (def associated-data (.getBytes "config"))
 
