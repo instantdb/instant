@@ -196,7 +196,6 @@
         global-fixture-fn (circleci.test/make-global-fixture config)
         timings-app-id (System/getenv "INSTANT_TIMINGS_APP_ID")
         timings-admin-token (System/getenv "INSTANT_TIMINGS_ADMIN_TOKEN")
-        test-vars (conj (take 3 test-vars) #'instant.config-edn-test/demonstrate-failure )
         ns-groups (group-by (comp :ns meta) test-vars)]
 
     (binding [clojure.test/*report-counters* counters
