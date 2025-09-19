@@ -194,7 +194,7 @@ jobs:
         TEST: "true"
         STRIPE_API_KEY: ${{ secrets.STRIPE_TEST_KEY }}
         INSTANT_TIMINGS_ADMIN_TOKEN: ${{ secrets.INSTANT_TIMINGS_ADMIN_TOKEN }}
-        SAVE_TIMINGS: ${{ github.ref == 'refs/heads/main' }}
+        SAVE_TIMINGS: ${{ github.ref == 'refs/heads/parallel' }}
         NODE_INDEX: ${{ matrix.node_index }}
         # Make sure this matches the length of the matrix
         NODE_COUNT: "5"
