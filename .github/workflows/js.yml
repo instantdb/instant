@@ -157,6 +157,11 @@ jobs:
         working-directory: client
         run: pnpm run bench
 
+      - name: Prune cache
+        if: github.ref == 'refs/heads/only-cache-on-main' # XXX: TESTING
+        working-directory: client
+        run: pnpm prune
+
       - uses: actions/cache/save@v4
         if: github.ref == 'refs/heads/only-cache-on-main' # XXX: TESTING
         with:
