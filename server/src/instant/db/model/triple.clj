@@ -277,9 +277,7 @@
         enhanced-lookup-refs
         {:select
          [[[:cast :ilr.app_id :uuid] :app-id]
-          [[:case [:= [:inline "id"] :a.label]
-            [:cast :ilr.value :uuid]
-            :else [:gen_random_uuid]] :entity-id]
+          [[:gen_random_uuid] :entity-id]
           [(hsql-attr-id-or-raise :ilr.attr-id :a.id)
            :attr-id]
           [[:cast :ilr.value :jsonb] :value]
@@ -429,9 +427,7 @@
         enhanced-lookup-refs
         {:select
          [[[:cast :ilr.app_id :uuid] :app-id]
-          [[:case [:= [:inline "id"] :a.label]
-            [:cast :ilr.value :uuid]
-            :else [:gen_random_uuid]] :entity-id]
+          [[:gen_random_uuid] :entity-id]
           [(hsql-attr-id-or-raise :ilr.attr-id :a.id)
            :attr-id]
           [[:cast :ilr.value :jsonb] :value]
