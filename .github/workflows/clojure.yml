@@ -206,7 +206,7 @@ jobs:
         report_paths: '**/server/target/test-results/*.xml'
 
     - name: Save Clojure Dependencies Cache
-      if: github.ref == 'refs/heads/only-cache-on-main' # XXX: TESTING
+      if: github.ref == 'refs/heads/main'
       uses: actions/cache/save@v4
       with:
         path: |
