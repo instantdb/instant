@@ -124,8 +124,11 @@ function extractLookup(attrs, etype, eid) {
   return [attr.id, value];
 }
 
-function withIdAttr(attrs, etype, eidA, txSteps) {
+function withIdAttrForLookup(attrs, etype, eidA, txSteps) {
   const lookup = extractLookup(attrs, etype, eidA);
+  if (!Array.isArray(lookup)) {
+    return txSteps;
+  }
   const idTuple = [
     'add-triple',
     lookup,
@@ -157,7 +160,7 @@ function expandLink({ attrs }, [etype, eidA, obj]) {
       return txStep;
     });
   });
-  return withIdAttr(attrs, etype, eidA, addTriples);
+  return withIdAttrForLookup(attrs, etype, eidA, addTriples);
 }
 
 function expandUnlink({ attrs }, [etype, eidA, obj]) {
@@ -182,13 +185,7 @@ function expandUnlink({ attrs }, [etype, eidA, obj]) {
       return txStep;
     });
   });
-
-  const lookup = extractLookup(attrs, etype, eidA);
-  if (Array.isArray(lookup)) {
-    return withIdAttr(attrs, etype, eidA, retractTriples);
-  } else {
-    return retractTriples;
-  }
+  return withIdAttrForLookup(attrs, etype, eidA, retractTriples);
 }
 
 function checkEntityExists(stores, etype, eid) {
