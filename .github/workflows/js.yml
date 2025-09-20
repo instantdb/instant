@@ -133,7 +133,7 @@ jobs:
       - uses: actions/cache/restore@v4
         with:
           path: ${{ steps.pnpm-cache-dir-path.outputs.dir }}
-          key: ${{ runner.os }}-pnpm-{{ hashFiles('client/pnpm-lock.yaml') }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('client/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-
 
@@ -161,9 +161,7 @@ jobs:
         if: github.ref == 'refs/heads/only-cache-on-main' # XXX: TESTING
         with:
           path: ${{ steps.pnpm-cache-dir-path.outputs.dir }}
-          key: ${{ runner.os }}-pnpm-{{ hashFiles('client/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('client/pnpm-lock.yaml') }}
 
   check_formatting:
     name: Check formatting
@@ -203,7 +201,7 @@ jobs:
       - uses: actions/cache/restore@v4
         with:
           path: ${{ steps.pnpm-cache-dir-path.outputs.dir }}
-          key: ${{ runner.os }}-pnpm-{{ hashFiles('client/pnpm-lock.yaml') }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('client/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-
 
@@ -246,7 +244,7 @@ jobs:
     - uses: actions/cache/restore@v4
       with:
         path: ${{ steps.pnpm-cache-dir-path.outputs.dir }}
-        key: ${{ runner.os }}-pnpm-{{ hashFiles('client/pnpm-lock.yaml') }}
+        key: ${{ runner.os }}-pnpm-${{ hashFiles('client/pnpm-lock.yaml') }}
         restore-keys: |
           ${{ runner.os }}-pnpm-
 
@@ -308,7 +306,7 @@ jobs:
       - uses: actions/cache/restore@v4
         with:
           path: ${{ steps.pnpm-cache-dir-path.outputs.dir }}
-          key: ${{ runner.os }}-pnpm-{{ hashFiles('client/pnpm-lock.yaml') }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('client/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-
 
@@ -399,7 +397,7 @@ jobs:
       - uses: actions/cache/restore@v4
         with:
           path: ${{ steps.pnpm-cache-dir-path.outputs.dir }}
-          key: ${{ runner.os }}-pnpm-{{ hashFiles('client/pnpm-lock.yaml') }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('client/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-
 
@@ -464,7 +462,7 @@ jobs:
     - uses: actions/cache/restore@v4
       with:
         path: ${{ steps.pnpm-cache-dir-path.outputs.dir }}
-        key: ${{ runner.os }}-pnpm-{{ hashFiles('client/pnpm-lock.yaml') }}
+        key: ${{ runner.os }}-pnpm-${{ hashFiles('client/pnpm-lock.yaml') }}
         restore-keys: |
           ${{ runner.os }}-pnpm-
 
@@ -555,7 +553,7 @@ jobs:
     - uses: actions/cache/restore@v4
       with:
         path: ${{ steps.pnpm-cache-dir-path.outputs.dir }}
-        key: ${{ runner.os }}-pnpm-{{ hashFiles('client/pnpm-lock.yaml') }}
+        key: ${{ runner.os }}-pnpm-${{ hashFiles('client/pnpm-lock.yaml') }}
         restore-keys: |
           ${{ runner.os }}-pnpm-
 
@@ -601,7 +599,7 @@ jobs:
     - uses: actions/cache/restore@v4
       with:
         path: ${{ steps.pnpm-cache-dir-path.outputs.dir }}
-        key: ${{ runner.os }}-pnpm-{{ hashFiles('client/pnpm-lock.yaml') }}
+        key: ${{ runner.os }}-pnpm-${{ hashFiles('client/pnpm-lock.yaml') }}
         restore-keys: |
           ${{ runner.os }}-pnpm-
 

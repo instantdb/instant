@@ -214,8 +214,6 @@ jobs:
           ~/.gitlibs
           ~/.deps.clj
         key: cljdeps-${{ hashFiles('server/deps.edn') }}
-        restore-keys: |
-          cljdeps-
 
 
   clj-build-check:
