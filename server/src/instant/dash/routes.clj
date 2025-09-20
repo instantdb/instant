@@ -479,7 +479,7 @@
         owner-fields (if org-id-input
                        (let [org-id (-> (req->org-and-user! :collaborator (assoc-in req
                                                                                     [:params :org_id]
-                                                                                     org-id-input))
+                                                                                    org-id-input))
                                         :org
                                         :id)]
                          {:org-id org-id})
@@ -974,20 +974,20 @@
      :html
      (postmark/standard-body
       (h/html
-          [:p [:strong "Hey there!"]]
-          [:p
-           (:email user)
-           " invited you to collaborate on their "
-           (case type
-             :org "organization"
-             :app "app")
-           " " title "."]
-          [:p "Navigate to "
-           [:a {:href "https://instantdb.com/dash?s=invites"}
-            "Instant"]
-           " to accept the invite."]
-          [:p "Note: this invite will expire in 3 days. "
-           "If you don't know the user inviting you, please reply to this email."]))}))
+       [:p [:strong "Hey there!"]]
+       [:p
+        (:email user)
+        " invited you to collaborate on their "
+        (case type
+          :org "organization"
+          :app "app")
+        " " title "."]
+       [:p "Navigate to "
+        [:a {:href "https://instantdb.com/dash?s=invites"}
+         "Instant"]
+        " to accept the invite."]
+       [:p "Note: this invite will expire in 3 days. "
+        "If you don't know the user inviting you, please reply to this email."]))}))
 
 (comment
   (with-pro-app-fixtures
@@ -1068,9 +1068,9 @@
       (let [e "stopa@instantdb.com"
             u (instant-user-model/get-by-email {:email e})
             i  (member-invites-model/create! {:app-id (:id app)
-                                                          :inviter-id (:id owner)
-                                                          :email e
-                                                          :role "collaborator"})]
+                                              :inviter-id (:id owner)
+                                              :email e
+                                              :role "collaborator"})]
         (team-member-invite-accept-post
          (assoc (fixtures/mock-app-req {:id "not used"} u) :body {:invite-id (:id i)}))))))
 
@@ -1304,7 +1304,7 @@
   (let [{{app-id :id} :app} (req->app-and-user! :owner req)
         {{org-id :id} :org} (req->org-and-user! :admin req)
         {:keys [credit removed_app_members_already_on_paid_org]} (org-model/transfer-app-to-org! {:app-id app-id
-                                                          :org-id org-id})]
+                                                                                                  :org-id org-id})]
     (response/ok {:credit credit
                   :app_member_changes {:removed (map (fn [member]
                                                        {:member member

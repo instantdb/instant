@@ -422,6 +422,62 @@ export function Select<
   );
 }
 
+export function NavTabBar({
+  className,
+  selectedId,
+  tabs,
+  disabled,
+  onSelect,
+}: {
+  className?: string;
+  tabs: TabItem[];
+  selectedId: string;
+  disabled?: boolean;
+  onSelect: (tab: TabButton) => void;
+}) {
+  return (
+    <div
+      className={clsx(
+        'flex flex-row gap-4 overflow-x-auto border-b py-1 no-scrollbar',
+        className,
+      )}
+    >
+      {tabs.map((t) =>
+        t.link ? (
+          <Link
+            key={t.id}
+            {...t.link}
+            rel="noopener noreferer"
+            className={clsx(
+              'flex cursor-pointer rounded p-2 whitespace-nowrap bg-none py-0.5 disabled:text-gray-400',
+              {
+                'bg-gray-200': selectedId === t.id && !disabled,
+              },
+            )}
+          >
+            {t.label}
+          </Link>
+        ) : (
+          <button
+            key={t.id}
+            disabled={disabled}
+            onClick={() => onSelect(t)}
+            className={clsx(
+              'flex cursor-pointer transition-colors rounded hover:underline decoration-gray-400 whitespace-nowrap bg-none disabled:text-gray-400',
+              {
+                'underline decoration-2 !decoration-[#606AF4]':
+                  selectedId === t.id && !disabled,
+              },
+            )}
+          >
+            {t.label}
+          </button>
+        ),
+      )}
+    </div>
+  );
+}
+
 export function TabBar({
   className,
   selectedId,
@@ -447,7 +503,7 @@ export function TabBar({
           <Link
             key={t.id}
             {...t.link}
-            rel="noopener noreferer"
+            rel=""
             className={clsx(
               'flex cursor-pointer whitespace-nowrap bg-none px-4 py-0.5 disabled:text-gray-400 rounded hover:bg-gray-100',
               {
@@ -612,20 +668,28 @@ export function Dialog({
   open,
   children,
   onClose,
+  className,
+  hideCloseButton = false,
 }: {
   open: boolean;
   children: React.ReactNode;
   onClose: () => void;
+  className?: string;
+  hideCloseButton?: boolean;
 }) {
   return (
     <HeadlessDialog as="div" open={open} onClose={onClose}>
       <div className="fixed inset-0 z-50 bg-black/50" aria-hidden="true" />
       <div className="fixed inset-4 z-50 flex flex-col items-center justify-center">
-        <HeadlessDialog.Panel className="relative w-full max-w-xl overflow-y-auto rounded bg-white p-3 text-sm shadow">
-          <XMarkIcon
-            className="absolute right-3 top-[18px] h-4 w-4 cursor-pointer"
-            onClick={onClose}
-          />
+        <HeadlessDialog.Panel
+          className={`relative w-full max-w-xl overflow-y-auto rounded bg-white p-3 text-sm shadow ${className}`}
+        >
+          {!hideCloseButton && (
+            <XMarkIcon
+              className="absolute right-3 top-[18px] h-4 w-4 cursor-pointer"
+              onClick={onClose}
+            />
+          )}
           {children}
         </HeadlessDialog.Panel>
       </div>
@@ -725,6 +789,91 @@ export function redactedValue(v: string): string {
     return v.replaceAll(/[^-]/g, '*');
   }
   return v.replaceAll(/./g, '*');
+}
+
+export function SmallCopyable({
+  value,
+  label,
+  size = 'normal',
+  defaultHidden,
+  hideValue,
+  onChangeHideValue,
+  multiline = false,
+}: {
+  value: string;
+  label?: string;
+  size?: 'normal' | 'large';
+  defaultHidden?: boolean;
+  hideValue?: boolean;
+  onChangeHideValue?: () => void;
+  multiline?: boolean;
+}) {
+  const [hidden, setHidden] = useState(defaultHidden);
+  const handleChangeHideValue =
+    onChangeHideValue || (defaultHidden ? () => setHidden(!hidden) : null);
+  const [tooltipOpen, setTooltipOpen] = useState(false);
+
+  return (
+    <div
+      className={cn(
+        'flex opacity-70 items-center rounded font-mono text-xs',
+        {},
+      )}
+    >
+      {label ? (
+        <div
+          className="opacity-50 py-1.5"
+          style={{
+            borderTopLeftRadius: 'calc(0.25rem - 1px)',
+            borderBottomLeftRadius: 'calc(0.25rem - 1px)',
+          }}
+        >
+          {label}:
+        </div>
+      ) : null}
+      <Tooltip open={tooltipOpen}>
+        <TooltipTrigger asChild>
+          <pre
+            className={clsx('flex-1 px-2 py-1.5 cursor-pointer select-text', {
+              truncate: !multiline,
+              'whitespace-pre-wrap break-all': multiline,
+            })}
+            title={value}
+            onClick={(e) => {
+              // Only copy if no text is selected
+              const selection = window.getSelection();
+              if (!selection || selection.toString().length === 0) {
+                window.navigator.clipboard.writeText(value);
+                setTooltipOpen(true);
+                setTimeout(() => setTooltipOpen(false), 1000);
+              }
+            }}
+          >
+            {hideValue || hidden ? redactedValue(value) : value}
+          </pre>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">Copied!</TooltipContent>
+      </Tooltip>
+
+      <div className="">
+        {!!handleChangeHideValue && (
+          <button
+            onClick={handleChangeHideValue}
+            className={cn(
+              'flex opacity-50 items-center gap-x-1 rounded-sm px-2 py-1  hover:bg-gray-50',
+              { 'text-xs': size === 'normal', 'text-sm': size === 'large' },
+            )}
+          >
+            {hideValue || hidden ? (
+              <EyeSlashIcon className="h-4 w-4" aria-hidden="true" />
+            ) : (
+              <EyeIcon className="h-4 w-4" aria-hidden="true" />
+            )}
+          </button>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function Copyable({
@@ -1085,6 +1234,22 @@ export const InfoTip = ({ children }: PropsWithChildren) => {
   );
 };
 
+export const Badge = ({
+  children,
+  className,
+}: PropsWithChildren & { className?: string }) => {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800',
+        className,
+      )}
+    >
+      {children}
+    </span>
+  );
+};
+
 export function ProgressButton({
   percentage = 0,
   loading,
@@ -1129,6 +1294,62 @@ export function ProgressButton({
     </Button>
   );
 }
+
+import * as TooltipPrimitive from '@radix-ui/react-tooltip';
+
+function TooltipProvider({
+  delayDuration = 100,
+  ...props
+}: React.ComponentProps<typeof TooltipPrimitive.Provider>) {
+  return (
+    <TooltipPrimitive.Provider
+      data-slot="tooltip-provider"
+      delayDuration={delayDuration}
+      {...props}
+    />
+  );
+}
+
+function Tooltip({
+  ...props
+}: React.ComponentProps<typeof TooltipPrimitive.Root>) {
+  return (
+    <TooltipProvider>
+      <TooltipPrimitive.Root data-slot="tooltip" {...props} />
+    </TooltipProvider>
+  );
+}
+
+function TooltipTrigger({
+  ...props
+}: React.ComponentProps<typeof TooltipPrimitive.Trigger>) {
+  return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props} />;
+}
+
+function TooltipContent({
+  className,
+  sideOffset = 0,
+  children,
+  ...props
+}: React.ComponentProps<typeof TooltipPrimitive.Content>) {
+  return (
+    <TooltipPrimitive.Portal>
+      <TooltipPrimitive.Content
+        data-slot="tooltip-content"
+        sideOffset={sideOffset}
+        className={cn(
+          'bg-white border gorder-gray-100 text-primary-foreground animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 w-fit origin-(--radix-tooltip-content-transform-origin) px-3 py-1.5 text-xs text-balance',
+          className,
+        )}
+        {...props}
+      >
+        {children}
+      </TooltipPrimitive.Content>
+    </TooltipPrimitive.Portal>
+  );
+}
+
+export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider };
 
 // utils
 

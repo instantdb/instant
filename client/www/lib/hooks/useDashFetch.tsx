@@ -7,7 +7,7 @@ import useLocalStorage from './useLocalStorage';
 import { subDays } from 'date-fns';
 
 // FNV-1a algorithm
-function stringHash(input: string) {
+export function stringHash(input: string) {
   let hash = 0x811c9dc5; // FNV offset basis (32 bit)
   for (let i = 0; i < input.length; i++) {
     hash ^= input.charCodeAt(i);
@@ -18,7 +18,7 @@ function stringHash(input: string) {
   return hash.toString(16);
 }
 
-type CachedEntry<T> = {
+export type CachedEntry<T> = {
   item: T;
   updatedAt: number;
 };
@@ -40,6 +40,7 @@ export function useDashFetch(): CachedAPIResponse<DashResponse> {
       : undefined;
 
   const dashResponse = useAuthedFetch<DashResponse>(`${config.apiURI}/dash`);
+
   useEffect(() => {
     if (dashResponse.data) {
       setCachedEntry({

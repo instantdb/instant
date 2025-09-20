@@ -3,14 +3,12 @@ import { TokenContext } from '@/lib/contexts';
 import { jsonFetch } from '@/lib/fetch';
 import { useContext, useEffect, useState } from 'react';
 import { Button } from '../ui';
-import { useDashFetch } from '@/lib/hooks/useDashFetch';
 import { friendlyErrorMessage, useAuthedFetch } from '@/lib/auth';
-import { createApp } from '@/pages/dash';
-import { v4 } from 'uuid';
 import { loadStripe } from '@stripe/stripe-js';
 import { messageFromInstantError } from '@/lib/errors';
 import { InstantIssue } from '@instantdb/core';
 import { errorToast } from '@/lib/toast';
+import { useFetchedDash } from './MainDashLayout';
 
 function createOrg(token: string, params: { title: string }) {
   return jsonFetch(`${config.apiURI}/dash/orgs`, {
@@ -210,28 +208,6 @@ function OrgDetails({ id }: { id: string }) {
       <Button
         variant="subtle"
         onClick={async () => {
-          const appTitle = prompt('Give your app a name');
-          if (!appTitle) {
-            return;
-          }
-          try {
-            await createApp(token, {
-              id: v4(),
-              title: appTitle,
-              admin_token: v4(),
-              org_id: id,
-            });
-            resp.mutate();
-          } catch (e) {
-            console.error('Error creating app', e);
-          }
-        }}
-      >
-        Add App
-      </Button>
-      <Button
-        variant="subtle"
-        onClick={async () => {
           createCheckoutSession(id, token);
         }}
       >
@@ -269,7 +245,7 @@ export default function Orgs({
 }) {
   const token = useContext(TokenContext);
 
-  const dashResponse = useDashFetch();
+  const dashResponse = useFetchedDash();
 
   const [expandedOrgs, setExpandedOrgs] = useState<string[]>(
     orgId && typeof orgId === 'string' ? [orgId] : [],
@@ -282,18 +258,6 @@ export default function Orgs({
       setExpandedOrgs((ids) => (ids.includes(orgId) ? ids : [...ids, orgId]));
     }
   }, [orgId]);
-
-  if (dashResponse.isLoading) {
-    return <div>Loading...</div>;
-  }
-
-  if (dashResponse.error || !dashResponse.data) {
-    return (
-      <div>
-        Error: <pre>{JSON.stringify(dashResponse.error, null, 2)}</pre>
-      </div>
-    );
-  }
 
   const { apps, orgs } = dashResponse.data;
 

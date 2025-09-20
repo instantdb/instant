@@ -110,7 +110,7 @@ export type InstantIndexingJob = {
 };
 
 export type DashResponse = {
-  apps?: InstantApp[];
+  apps: InstantApp[];
   invites?: InstantMemberInvite[];
   user: {
     email: string;
@@ -120,7 +120,8 @@ export type DashResponse = {
     id: string;
     title: string;
     created_at: string;
-    role: 'owner' | 'admin' | 'collaborator';
+    role: 'owner' | 'admin' | 'collaborator' | 'app-member';
+    paid: boolean;
   }[];
 };
 
