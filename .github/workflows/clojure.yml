@@ -161,8 +161,8 @@ jobs:
       with:
         cli: 1.11.3.1463
 
-    - name: Cache Clojure Dependencies
-      uses: actions/cache@v4
+    - name: Restore Clojure Dependencies Cache
+      uses: actions/cache/restore@v4
       with:
         path: |
           ~/.m2/repository
@@ -204,6 +204,17 @@ jobs:
       if: success() || failure() # always run even if the previous step fails
       with:
         report_paths: '**/server/target/test-results/*.xml'
+
+    - name: Save Clojure Dependencies Cache
+      if: github.ref == 'refs/heads/main'
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          ~/.m2/repository
+          ~/.gitlibs
+          ~/.deps.clj
+        key: cljdeps-${{ hashFiles('server/deps.edn') }}
+
 
   clj-build-check:
     runs-on: ubuntu-latest
