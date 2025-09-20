@@ -124,8 +124,18 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 23
-          cache: 'pnpm'
-          cache-dependency-path: client/pnpm-lock.yaml
+          package-manager-cache: false
+
+      - name: Get pnpm cache directory path
+        id: pnpm-cache-dir-path
+        run: echo "dir=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache/restore@v4
+        with:
+          path: ${{ steps.pnpm-cache-dir-path.outputs.dir }}
+          key: ${{ runner.os }}-pnpm-{{ hashFiles('client/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
 
       - name: Install dependencies
         working-directory: client
@@ -146,6 +156,14 @@ jobs:
       - name: Run benchmarks
         working-directory: client
         run: pnpm run bench
+
+      - uses: actions/cache/save@v4
+        if: github.ref == 'refs/heads/only-cache-on-main' # XXX: TESTING
+        with:
+          path: ${{ steps.pnpm-cache-dir-path.outputs.dir }}
+          key: ${{ runner.os }}-pnpm-{{ hashFiles('client/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
 
   check_formatting:
     name: Check formatting
@@ -175,8 +193,19 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 23
-          cache: 'pnpm'
+          package-manager-cache: false
           cache-dependency-path: client/pnpm-lock.yaml
+
+      - name: Get pnpm cache directory path
+        id: pnpm-cache-dir-path
+        run: echo "dir=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache/restore@v4
+        with:
+          path: ${{ steps.pnpm-cache-dir-path.outputs.dir }}
+          key: ${{ runner.os }}-pnpm-{{ hashFiles('client/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
 
       - name: Install dependencies
         working-directory: client
@@ -208,8 +237,19 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: 23
-        cache: 'pnpm'
-        cache-dependency-path: client
+        package-manager-cache: false
+
+    - name: Get pnpm cache directory path
+      id: pnpm-cache-dir-path
+      run: echo "dir=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+    - uses: actions/cache/restore@v4
+      with:
+        path: ${{ steps.pnpm-cache-dir-path.outputs.dir }}
+        key: ${{ runner.os }}-pnpm-{{ hashFiles('client/pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-
+
     - name: Install dependencies
       working-directory: 'client'
       run: pnpm i --frozen-lockfile
@@ -257,10 +297,20 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 23
-          cache: 'pnpm'
-          cache-dependency-path: client/pnpm-lock.yaml
+          package-manager-cache: false
           registry-url: 'https://registry.npmjs.org'
           always-auth: true
+
+      - name: Get pnpm cache directory path
+        id: pnpm-cache-dir-path
+        run: echo "dir=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache/restore@v4
+        with:
+          path: ${{ steps.pnpm-cache-dir-path.outputs.dir }}
+          key: ${{ runner.os }}-pnpm-{{ hashFiles('client/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
 
       - name: Install dependencies
         working-directory: client
@@ -338,10 +388,20 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 23
-          cache: 'pnpm'
-          cache-dependency-path: client/pnpm-lock.yaml
+          package-manager-cache: false
           registry-url: 'https://registry.npmjs.org'
           always-auth: true
+
+      - name: Get pnpm cache directory path
+        id: pnpm-cache-dir-path
+        run: echo "dir=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache/restore@v4
+        with:
+          path: ${{ steps.pnpm-cache-dir-path.outputs.dir }}
+          key: ${{ runner.os }}-pnpm-{{ hashFiles('client/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
 
       - name: Install dependencies
         working-directory: client
@@ -395,8 +455,19 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: 23
-        cache: 'pnpm'
-        cache-dependency-path: client
+        package-manager-cache: false
+
+    - name: Get pnpm cache directory path
+      id: pnpm-cache-dir-path
+      run: echo "dir=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+    - uses: actions/cache/restore@v4
+      with:
+        path: ${{ steps.pnpm-cache-dir-path.outputs.dir }}
+        key: ${{ runner.os }}-pnpm-{{ hashFiles('client/pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-
+
     - name: Install Vercel CLI
       run: npm install --g vercel@canary
     - name: Pull Vercel Environment Information
@@ -476,8 +547,18 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: 23
-        cache: 'pnpm'
-        cache-dependency-path: client
+        package-manager-cache: false
+    - name: Get pnpm cache directory path
+      id: pnpm-cache-dir-path
+      run: echo "dir=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+    - uses: actions/cache/restore@v4
+      with:
+        path: ${{ steps.pnpm-cache-dir-path.outputs.dir }}
+        key: ${{ runner.os }}-pnpm-{{ hashFiles('client/pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-
+
     - name: Install Vercel CLI
       run: npm install --g vercel@canary
     - name: Pull Vercel Environment Information
@@ -511,8 +592,19 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: 23
-        cache: 'pnpm'
-        cache-dependency-path: client
+        package-manager-cache: false
+
+    - name: Get pnpm cache directory path
+      id: pnpm-cache-dir-path
+      run: echo "dir=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+    - uses: actions/cache/restore@v4
+      with:
+        path: ${{ steps.pnpm-cache-dir-path.outputs.dir }}
+        key: ${{ runner.os }}-pnpm-{{ hashFiles('client/pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-pnpm-
+
     - name: Install Vercel CLI
       run: npm install --g vercel@canary
     - name: Pull Vercel Environment Information
