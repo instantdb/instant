@@ -98,19 +98,11 @@
                     [:or
                      [:= :app-id app-id]
                      [:= :app-id system-catalog-app-id]]
+                    [:= :id a]
+                    [:= :deletion-marked-at nil]
                     [:or
-                     [:and
-                      [:= :id a]
-                      [:= :value-type [:inline "ref"]]
-                      [:= :deletion-marked-at nil]]
-                     [:exists {:select :*
-                               :from :idents
-                               :where [:and
-                                       [:or
-                                        [:= :app-id app-id]
-                                        [:= :app-id system-catalog-app-id]]
-                                       [:= :attr-id a]
-                                       [:= :label "id"]]}]]]}])
+                     [:= :value-type [:inline "ref"]]
+                     [:= :label [:inline "id"]]]]}])
 
 (defn insert-attr-inferred-types-cte [app-id triples]
   (let [values (->> (reduce (fn [acc [_e a v]]
