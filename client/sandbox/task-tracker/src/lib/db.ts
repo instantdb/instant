@@ -5,6 +5,6 @@ import config from '../../config';
 export const db = init({
   schema,
   useDateObjects: true,
-  devtool: false,
+  // devtool: false,
   ...config,
 });
