@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
 import { SunIcon, MoonIcon } from '@heroicons/react/24/solid';
 import { Button } from '@/components/ui';
 import { atom, useAtom } from 'jotai';
+import { useRouter } from 'next/router';
 
 export const getDefaultDarkMode = () => {
   if (typeof window !== 'undefined') {
@@ -17,15 +17,8 @@ export const getDefaultDarkMode = () => {
 const darkModeAtom = atom(getDefaultDarkMode());
 
 export function useDarkMode() {
+  const router = useRouter();
   const [darkMode, setDarkMode] = useAtom(darkModeAtom);
-
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [darkMode]);
 
   const toggleDarkMode = () => {
     const newMode = !darkMode;
@@ -50,7 +43,11 @@ export function useDarkMode() {
     });
   };
 
-  return { darkMode, toggleDarkMode };
+  return {
+    // we use this hook outside of tailwind for things like monaco
+    darkMode: router.pathname.startsWith('/dash') ? darkMode : false,
+    toggleDarkMode,
+  };
 }
 
 export function DarkModeToggle() {

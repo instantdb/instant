@@ -1,7 +1,7 @@
 import { useDashFetch } from '@/lib/hooks/useDashFetch';
 import Head from 'next/head';
 import { ReactNode, useEffect, useState } from 'react';
-import { FullscreenLoading } from '../ui';
+import { cn, FullscreenLoading } from '../ui';
 import { FullscreenErrorMessage } from '@/pages/dash';
 import { useAuthToken } from '@/lib/auth';
 import Auth from './Auth';
@@ -14,6 +14,7 @@ import { TopBar } from './TopBar';
 import { useWorkspace } from '@/lib/hooks/useWorkspace';
 import { InstantApp } from '@/lib/types';
 import { useReadyRouter } from '../clientOnlyPage';
+import { useDarkMode } from './DarkModeToggle';
 
 export type FetchedDash = ReturnType<typeof useFetchedDash>;
 
@@ -120,7 +121,20 @@ export const MainDashLayout: React.FC<{
   className?: string;
 }> = ({ children, className }) => {
   const token = useAuthToken();
+
   const tickets = useTicketSystem();
+  const { darkMode } = useDarkMode();
+
+  useEffect(() => {
+    if (darkMode && token) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    return () => {
+      document.documentElement.classList.remove('dark');
+    };
+  }, [darkMode]);
 
   if (!token) {
     return (
@@ -150,7 +164,9 @@ export const MainDashLayout: React.FC<{
         loading={<FullscreenLoading />}
         error={<FullscreenErrorMessage message={'An error occurred.'} />}
       >
-        <div className={`h-full flex flex-col w-full`}>
+        <div
+          className={cn('h-full flex flex-col w-full', darkMode ? 'dark' : '')}
+        >
           <TopBar />
           <div
             className={`flex grow dark:text-white dark:bg-neutral-900 w-full flex-col overflow-hidden ${className}`}

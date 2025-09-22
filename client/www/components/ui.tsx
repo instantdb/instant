@@ -609,11 +609,11 @@ export function Button({
       'hover:enabled:text-gray-600 hover:enabled:bg-gray-200/30 dark:hover:enabled:text-neutral-300 dark:hover:enabled:bg-neutral-700/30':
         variant === 'subtle' && !isATag,
       // destructive
-      'text-red-500 dark:bg-red-500/10 bg-white border border-red-200 dark:text-red-400 dark:border-red-900/60':
+      'text-red-500 dark:bg-red-500/10 bg-white border border-red-200 dark:border-red-900/60':
         variant === 'destructive',
-      'hover:text-red-600 hover:text-red-600 hover:border-red-300 dark:hover:text-red-300 dark:hover:border-red-800':
+      'hover:text-red-600 hover:text-red-600 hover:border-red-300 dark:hover:border-red-800':
         variant === 'destructive' && isATag,
-      'hover:enabled:text-red-600 hover:enabled:text-red-600 hover:enabled:border-red-300 disabled:border-red-50 disabled:text-red-300 dark:hover:enabled:text-red-300 dark:hover:enabled:border-red-800 dark:disabled:border-red-950 dark:disabled:text-red-800':
+      'hover:enabled:text-red-600 hover:enabled:text-red-600 hover:enabled:border-red-300 disabled:border-red-50 disabled:text-red-300 dark:hover:enabled:text-red-500 dark:hover:enabled:border-red-800 dark:disabled:border-red-950 dark:disabled:text-red-800':
         variant === 'destructive' && !isATag,
       'text-lg': size === 'large',
       'text-xl': size === 'xl',
