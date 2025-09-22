@@ -87,7 +87,7 @@ const plans = [
     name: 'Enterprise',
     variant: 'default',
     description: 'For teams building large-scale applications',
-    featuresDescription: 'Everything in the Startups plan, plus:',
+    featuresDescription: 'Everything in the Startup plan, plus:',
     price: 'Custom',
     features: [
       'Premium Support',
