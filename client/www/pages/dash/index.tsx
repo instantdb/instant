@@ -581,12 +581,12 @@ export function HomeButton({
 
 function Home() {
   return (
-    <TabContent className="text-sm md:text-base">
+    <div className="text-sm max-w-2xl mx-auto pt-14 md:text-base">
       <SectionHeading>Getting Started</SectionHeading>
-      <Content>
+      <div className="pt-1">
         Welcome to Instant! Here are some resources to help you get started.
-      </Content>
-      <div className="grid grid-cols-2 gap-4">
+      </div>
+      <div className="grid grid-cols-2 pt-4 gap-4">
         <HomeButton href="/docs" title="Read the Docs">
           Jump into our docs to start learning how to use Instant.
         </HomeButton>
@@ -598,7 +598,7 @@ function Home() {
           too!
         </HomeButton>
       </div>
-    </TabContent>
+    </div>
   );
 }
 
