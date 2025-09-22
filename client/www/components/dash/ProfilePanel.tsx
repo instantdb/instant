@@ -100,7 +100,7 @@ export const ProfilePanel = () => {
                 <button
                   onClick={() => {
                     dashResponse.setWorkspace(org.id);
-                    router.push({ pathname: 'dash', query: { org: org.id } });
+                    router.push({ pathname: '/dash', query: { org: org.id } });
                     close();
                   }}
                   className="py-2 text-left grow px-2"
