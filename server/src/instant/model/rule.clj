@@ -198,7 +198,7 @@
                (catch CelValidationException e
                  (ex/throw-validation-err!
                   :permission
-                  [etype action]
+                  (first paths)
                   (->> (.getErrors e)
                        (map (fn [^CelIssue cel-issue]
                               {:message (.getMessage cel-issue)})))))))

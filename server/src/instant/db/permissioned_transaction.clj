@@ -2,6 +2,7 @@
   (:require
    [clojure.string :as string]
    [clojure+.core :as clojure+]
+   [instant.config :as config]
    [instant.db.cel :as cel]
    [instant.db.datalog :as d]
    [instant.db.model.attr :as attr-model]
@@ -257,9 +258,11 @@
                      :etype    etype
                      :eid      eid
                      :program  link-program
-                     :bindings {:data         entity
+                     :bindings {:data         (assoc entity :$action "update")
                                 :new-data     (get updated-entities-map key)
-                                :linked-data  rev-entity
+                                :linked-data  (if rev-entity
+                                                (assoc rev-entity :$action "update")
+                                                {:$action "create"})
                                 :linked-etype rev-etype
                                 :rule-params  (merge rev-rule-params rule-params)}}])
                  (when (and rev-entity rev-link-program)
@@ -268,9 +271,10 @@
                      :etype    rev-etype
                      :eid      value
                      :program  rev-link-program
-                     :bindings {:data         rev-entity
+                     :bindings {:data         (assoc rev-entity :$action "update")
                                 :new-data     (get updated-entities-map rev-key)
-                                :linked-data  (get updated-entities-map key)
+                                :linked-data  (assoc (get updated-entities-map key)
+                                                     :$action "update")
                                 :linked-etype etype
                                 :rule-params  (merge rule-params rev-rule-params)}}]))
 
@@ -310,7 +314,7 @@
                      :etype    etype
                      :eid      eid
                      :program  unlink-program
-                     :bindings #p {:data         entity
+                     :bindings {:data         entity
                                 :new-data     (get updated-entities-map key)
                                 :linked-data  rev-entity
                                 :linked-etype rev-etype
@@ -321,7 +325,7 @@
                      :etype    rev-etype
                      :eid      value
                      :program  rev-unlink-program
-                     :bindings #p {:data         rev-entity
+                     :bindings {:data         rev-entity
                                 :new-data     (get updated-entities-map rev-key)
                                 :linked-data  entity
                                 :linked-etype etype
@@ -428,9 +432,11 @@
                      :etype    etype
                      :eid      (get create-lookups-map eid eid)
                      :program  link-program
-                     :bindings {; :data         updated-entity
+                     :bindings {:data         (assoc updated-entity :$action "create")
                                 :new-data     updated-entity
-                                :linked-data  updated-rev-entity
+                                :linked-data  (if (get entities-map rev-key)
+                                                (assoc updated-rev-entity :$action "update")
+                                                (assoc updated-rev-entity :$action "create"))
                                 :linked-etype rev-etype
                                 :rule-params  (merge rev-rule-params rule-params)}}])
                  (when (and updated-rev-entity
@@ -441,9 +447,11 @@
                      :etype    rev-etype
                      :eid      (get updated-rev-entity "id")
                      :program  rev-link-program
-                     :bindings {; :data         updated-rev-entity
+                     :bindings {:data         (assoc updated-rev-entity :$action "create")
                                 :new-data     updated-rev-entity
-                                :linked-data  updated-entity
+                                :linked-data  (if create?
+                                                (assoc updated-entity :$action "create")
+                                                (assoc updated-entity :$action "update"))
                                 :linked-etype etype
                                 :rule-params  (merge rule-params rev-rule-params)}}]))
 
@@ -508,8 +516,9 @@
     (doall
      (for [{:keys [scope etype result] :as check} results]
        (do
-         (when-not result
-           #p (printable-check check))
+         (when (and (= :dev (config/get-env))
+                    (not result))
+           (println (printable-check check)))
          (when-not (:admin-check? ctx)
            (ex/assert-permitted! :perms-pass? [etype scope] result))
          (-> check

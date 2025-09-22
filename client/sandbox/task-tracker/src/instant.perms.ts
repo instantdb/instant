@@ -29,21 +29,32 @@ const rules = {
     bind: [
       'isAdmin',
       "auth.id in data.ref('admins.id')",
+
       'isMember',
       "auth.id in data.ref('members.id')",
+
+      'isNewProject',
+      'data["$action"] == "create"',
+
+      'linkingMyself',
+      'linkedData.id == auth.id',
     ],
     allow: {
       create: 'true',
       $default: 'isMember',
       link: {
-        // if I create a project I should be admin
-        // if this runs after tx then you can make yourself admin
-        members: 'ruleParams.secret in data.ref(\'invites.secret\')',
-        admins: 'isAdmin || (newData == null && linkedData.id == auth.id)',
+        // admin can't add members directly, only via invite
+        // I can only join as myself
+        // I must know invite secret
+        members: 'linkingMyself && ruleParams.secret in data.ref(\'invites.secret\')',
+
+        // On new projects, I must set myself as admin
+        // Otherwise, admin can promote
+        admins: 'isNewProject ? linkingMyself : isAdmin',
       },
       unlink: {
-        members: 'isAdmin', //  || linkedData.id == auth.id',
-        admins: 'isAdmin', // || linkedData.id == auth.id',
+        members: 'isAdmin || linkingMyself',
+        admins: 'isAdmin || linkingMyself',
       },
     },
   },
