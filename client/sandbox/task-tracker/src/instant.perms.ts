@@ -46,7 +46,7 @@ const rules = {
         // admin can't add members directly, only via invite
         // I can only join as myself
         // I must know invite secret
-        members: 'linkingMyself && ruleParams.secret in data.ref(\'invites.secret\')',
+        members: 'linkingMyself && (isNewProject || ruleParams.secret in data.ref("invites.secret"))',
 
         // On new projects, I must set myself as admin
         // Otherwise, admin can promote

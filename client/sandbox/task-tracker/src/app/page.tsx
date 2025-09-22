@@ -221,7 +221,7 @@ function TaskTrackerApp() {
         <header className="bg-white border-b border-gray-200 px-6 py-4">
           <div className="flex justify-between items-center">
             <h1 className="text-xl font-bold text-gray-900">
-              {selectedProject ? selectedProject.name : 'Injira'}
+              {selectedProject ? selectedProject.name : 'Instant Task Tracker'}
             </h1>
           </div>
         </header>
@@ -238,7 +238,7 @@ function TaskTrackerApp() {
           ) : (
             <div className="p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                Welcome to Injira
+                Welcome to Instant Task Tracker
               </h2>
               <p className="text-gray-600 mb-6">
                 Select a project from the panel or create a new one to get
@@ -564,7 +564,7 @@ function LeftPanel({
                   </option>
                 ))}
               </select>
-              {selectedProject && isAdmin && (
+              {selectedProject && (
                 <button
                   onClick={() => setShowManageMembers(true)}
                   className="p-2 text-gray-400 hover:text-gray-600"
@@ -794,7 +794,7 @@ function LeftPanel({
         />
       )}
 
-      {showManageMembers && selectedProject && isAdmin && (
+      {showManageMembers && selectedProject && (
         <ManageMembersModal
           project={selectedProject}
           onClose={() => setShowManageMembers(false)}
@@ -1386,12 +1386,12 @@ function ManageMembersModal({
                       </span>
                     )}
                   </div>
-                  {member.id !== user.id && isCurrentUserAdmin && (
+                  {((member.id !== user.id && isCurrentUserAdmin) || member.id === user.id) && (
                     <button
                       onClick={() => removeProjectMember(project.id, member.id)}
                       className="text-red-600 hover:text-red-800 text-sm"
                     >
-                      Remove
+                      {member.id === user.id ? 'Leave' : 'Remove'}
                     </button>
                   )}
                 </div>
@@ -1399,53 +1399,55 @@ function ManageMembersModal({
             })}
           </div>
 
-          <div className="pt-4 border-t">
-            <h4 className="font-medium text-gray-900 mb-4">Project Invite</h4>
-            {!inviteLoading && (
-              <div className="space-y-3">
-                <label className="block text-sm font-medium text-gray-700">
-                  Invite Link
-                </label>
-                <div className="flex space-x-2">
-                  <input
-                    type="text"
-                    value={getInviteLink()}
-                    readOnly
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-sm focus:outline-none"
-                    placeholder={existingInvite ? '' : 'No invite created yet'}
-                  />
-                  {existingInvite ? (
-                    <>
+          {isCurrentUserAdmin && (
+            <div className="pt-4 border-t">
+              <h4 className="font-medium text-gray-900 mb-4">Project Invite</h4>
+              {!inviteLoading && (
+                <div className="space-y-3">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Invite Link
+                  </label>
+                  <div className="flex space-x-2">
+                    <input
+                      type="text"
+                      value={getInviteLink()}
+                      readOnly
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-sm focus:outline-none"
+                      placeholder={existingInvite ? '' : 'No invite created yet'}
+                    />
+                    {existingInvite ? (
+                      <>
+                        <button
+                          onClick={handleCopyInviteLink}
+                          className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
+                          title="Copy invite link"
+                        >
+                          Copy
+                        </button>
+                        <button
+                          onClick={handleRegenerateInvite}
+                          className="px-3 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-sm"
+                        >
+                          Regenerate
+                        </button>
+                      </>
+                    ) : (
                       <button
-                        onClick={handleCopyInviteLink}
-                        className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
-                        title="Copy invite link"
+                        onClick={handleCreateInvite}
+                        className="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
                       >
-                        Copy
+                        Create Invite
                       </button>
-                      <button
-                        onClick={handleRegenerateInvite}
-                        className="px-3 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-sm"
-                      >
-                        Regenerate
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      onClick={handleCreateInvite}
-                      className="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
-                    >
-                      Create Invite
-                    </button>
-                  )}
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Share this link with people you want to invite to the project.
+                    They can use it to join once they sign up.
+                  </p>
                 </div>
-                <p className="text-xs text-gray-500">
-                  Share this link with people you want to invite to the project.
-                  They can use it to join once they sign up.
-                </p>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex justify-end mt-6">

@@ -49,6 +49,7 @@ const _schema = i.schema({
         on: 'projects',
         has: 'many',
         label: 'admins',
+        required: true
       },
       reverse: {
         on: '$users',
@@ -61,6 +62,7 @@ const _schema = i.schema({
         on: 'projects',
         has: 'many',
         label: 'members',
+        required: true
       },
       reverse: {
         on: '$users',
@@ -86,6 +88,7 @@ const _schema = i.schema({
         has: 'one',
         label: 'project',
         onDelete: 'cascade',
+        required: true
       },
       reverse: {
         on: 'projects',

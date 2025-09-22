@@ -1,5 +1,6 @@
 (ns instant.db.permissioned-transaction
   (:require
+   [clojure.pprint :as pprint]
    [clojure.string :as string]
    [clojure+.core :as clojure+]
    [instant.config :as config]
@@ -29,7 +30,8 @@
   (attr-model/rev-etype (attr-model/seek-by-id attr-id attrs)))
 
 (defn printable-check [check]
-  (update check :program dissoc :cel-ast :cel-program))
+  (-> check
+      (update :program :display-code)))
 
 (defn validate-reserved-names!
   "Throws a validation error if the users tries to add triples to the $users table"
@@ -518,7 +520,7 @@
        (do
          (when (and (= :dev (config/get-env))
                     (not result))
-           (println (printable-check check)))
+           (pprint/pprint (printable-check check)))
          (when-not (:admin-check? ctx)
            (ex/assert-permitted! :perms-pass? [etype scope] result))
          (-> check

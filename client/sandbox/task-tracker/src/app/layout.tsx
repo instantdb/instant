@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Injira',
+  title: 'Instant Task Tracker',
   description: 'Instant DB Starter App',
   icons: {
     icon: '/favicon.svg',
