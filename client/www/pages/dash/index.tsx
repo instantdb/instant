@@ -312,7 +312,7 @@ function Dashboard() {
 
     const firstApp = apps?.[0];
 
-    const defaultAppId = lastAppId ?? firstApp.id;
+    const defaultAppId = lastAppId ?? firstApp?.id;
 
     const replaceDefault = () => {
       if (!defaultAppId) return;
