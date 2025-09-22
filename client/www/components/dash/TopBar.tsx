@@ -17,12 +17,12 @@ export const TopBar: React.FC<{}> = () => {
   const hasInvites = (dash.data.invites || []).length > 0;
 
   return (
-    <div className="py-2 px-4 flex gap-2 border-b justify-between border-b-gray-300">
-      <div className="flex gap-2 items-center">
+    <div className="py-2 md:px-4 px-2 flex-col md:flex-row flex gap-2 border-b justify-between border-b-gray-300">
+      <div className="flex justify-between flex-row md:justify-start gap-2 items-center">
         <ProfilePanel />
         <div id="left-top-bar"></div>
       </div>
-      <div className="flex gap-6 items-center">
+      <div className="flex gap-6 justify-between md:justify-start items-center">
         {hasInvites && (
           <Link className="ml-3" href={'/dash/user-settings?tab=invites'}>
             <div className="text-sm animate-bounce flex gap-2">
