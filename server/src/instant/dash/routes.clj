@@ -61,6 +61,9 @@
             [instant.util.http :as http-util]
             [instant.util.json :as json]
             [instant.util.number :as number-util]
+            [instant.util.roles :refer [assert-least-privilege!
+                                        assert-valid-member-role!
+                                        get-app-with-role!]]
             [instant.util.semver :as semver]
             [instant.util.string :as string-util]
             [instant.util.token :as token-util]
@@ -81,118 +84,24 @@
 ;; ---
 ;; Auth helpers
 
-(def member-role-hierarchy [:collaborator :admin :owner])
-(def member-roles (set member-role-hierarchy))
-
-(defn max-role [a b]
-  (if (> (or (ucoll/index-of a member-role-hierarchy) -1)
-         (or (ucoll/index-of b member-role-hierarchy) -1))
-    a
-    b))
-
 (defn req->auth-user! [req]
   (let [refresh-token (http-util/req->bearer-token! req)]
     (instant-user-model/get-by-refresh-token! {:refresh-token refresh-token
                                                :auth? true})))
 
-(defn assert-valid-member-role! [role]
-  (ex/assert-valid! :role
-                    role
-                    (when-not (contains? member-roles (keyword role))
-                      ["Invalid role"])))
-
-(comment
-  (assert-valid-member-role! :collaborator)
-  (assert-valid-member-role! :admin)
-  (assert-valid-member-role! :owner)
-  (assert-valid-member-role! nil)
-  (assert-valid-member-role! 1)
-  (max-role :collaborator :admin)
-  (max-role :collaborator :collaborator)
-  (max-role :owner :collaborator))
-
-(defn has-at-least-role? [least-privilege-role user-role]
-  (assert (contains? member-roles least-privilege-role)
-          (str "Expected valid least-privilege-role, got " least-privilege-role))
-  (and user-role
-       (contains? member-roles user-role)
-       (<= (ucoll/index-of least-privilege-role member-role-hierarchy)
-           (ucoll/index-of user-role member-role-hierarchy))))
-
-(defn assert-least-privilege! [least-privilege-role user-role]
-  (assert (contains? member-roles least-privilege-role)
-          (str "Expected valid least-privilege-role, got " least-privilege-role))
-  (ex/assert-valid!
-   :user-role
-   user-role
-   (or (when-not user-role
-         [{:message (format "User is missing role %s."
-                            (name least-privilege-role))}])
-       (when-not (contains? member-roles user-role)
-         [{:message "This is not a valid role"
-           :expected member-roles}])))
-  (ex/assert-permitted! :allowed-member-role? user-role
-                        (has-at-least-role? least-privilege-role user-role)))
-
-(defn get-app-member-role [app user-id]
-  (keyword (:member_role (instant-app-members/get-by-app-and-user {:app-id (:id app)
-                                                                   :user-id user-id}))))
-
-(defn get-org-member-role [app user-id]
-  (when-let [org-id (:org_id app)]
-    (keyword (:role (instant-org-members/get-by-org-and-user {:org-id org-id
-                                                              :user-id user-id})))))
-
 (defn req->app-and-user!
   ([req] (req->app-and-user! :owner req))
   ([least-privilege req]
    (let [app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)
-         {app-creator-id :creator_id :as app} (app-model/get-by-id! {:id app-id})
-         {user-id :id :as user} (req->auth-user! req)
-         app-subscription (instant-subscription-model/get-by-app-id {:app-id app-id})
-         org-subscription (when-let [org-id (:org_id app)]
-                            (instant-subscription-model/get-by-org-id {:org-id org-id}))
-         app-member-role (if (= user-id app-creator-id)
-                           :owner
-                           (get-app-member-role app user-id))
-         good-app-role? (has-at-least-role? least-privilege app-member-role)
-         org-member-role (get-org-member-role app user-id)
-         good-org-role? (has-at-least-role? least-privilege org-member-role)]
-
-     (cond (or (and app-member-role
-                    good-app-role?
-                    (or (= :owner app-member-role)
-                        (instant-subscription-model/plan-supports-members? app-subscription)
-                        (instant-subscription-model/plan-supports-members? org-subscription)))
-
-               (and org-member-role
-                    good-org-role?
-                    (or (= :owner org-member-role)
-                        (instant-subscription-model/plan-supports-members? org-subscription))))
-           ;; This is the only success case. The user has access through
-           ;; either the app or the org.
-           {:app app :user user :role (max-role app-member-role
-                                                org-member-role)}
-
-           ;; Has no role
-           (and (not app-member-role)
-                (not org-member-role))
-           (ex/throw-validation-err! :user-role nil [{:message (format "User is missing role %s."
-                                                                       (name least-privilege))}])
-
-           ;; Has a role, but not one good enough to get access
-           (and (not good-app-role?)
-                (not good-org-role?))
-           (ex/assert-permitted! :allowed-member-role? (or app-member-role org-member-role) false)
-
-           ;; Has a role, but plan doesn't support members
-           :else
-           (ex/throw-insufficient-plan! {:capability "multiple members"})))))
+         user (req->auth-user! req)]
+     (get-app-with-role! {:user user
+                          :app-id app-id
+                          :role least-privilege}))))
 
 (defn req->app-and-user-accepting-platform-tokens! [least-privilege scope req]
   (let [token (http-util/req->bearer-token! req)]
     (if (token-util/is-platform-token? token)
-      (req->superadmin-user-and-app! scope req)
+      (req->superadmin-user-and-app! scope least-privilege req)
       (req->app-and-user! least-privilege req))))
 
 (defn with-team-app-fixtures [role f]
@@ -504,7 +413,15 @@
   (app-model/delete-immediately-by-id! {:id app-id}))
 
 (defn apps-delete [req]
-  (let [{{app-id :id} :app} (req->app-and-user! req)]
+  (let [{:keys [app user]} (req->app-and-user! :admin req)
+        app-id (:id app)]
+    (when (and (:creator_id app)
+               (not= (:creator_id app)
+                     (:id user)))
+      ;; Require owner to delete a personal app, but
+      ;; just admin to delete an org app
+      (ex/assert-permitted! :allowed-member-role? :owner false))
+
     (app-model/mark-for-deletion! {:id app-id})
     (response/ok {:ok true})))
 
