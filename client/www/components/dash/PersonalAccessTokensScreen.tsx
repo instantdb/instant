@@ -271,53 +271,10 @@ export default function PersonalAccessTokensTab({
           <PlusIcon className="h-4 w-4 mr-1" />
           New access token
         </Button>
-        <table className="z-0 w-full flex-1 text-left font-mono text-xs text-gray-500">
-          <thead className="sticky top-0 z-20 border-b">
-            <tr>
-              <th
-                className={cn(
-                  'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1',
-                )}
-              >
-                Name
-              </th>
-              <th
-                className={cn(
-                  'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1',
-                )}
-              >
-                Created
-              </th>
-              <th
-                className={cn(
-                  'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1',
-                )}
-              ></th>
-            </tr>
-          </thead>
-          <tbody className="font-mono">
-            {personalAccessTokens.map(({ id, name, created_at }) => (
-              <tr key={id} className="group border-b bg-white">
-                <td className="whitespace-nowrap px-4 py-1">{name}</td>
-                <td className="whitespace-nowrap px-4 py-1">
-                  {format(new Date(created_at), 'MMM dd, h:mma')}
-                </td>
-                <td className="px-4 py-1" style={{}}>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="destructive"
-                      size="mini"
-                      onClick={() => handleDeleteToken(id)}
-                    >
-                      Delete
-                    </Button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            <tr className="h-full"></tr>
-          </tbody>
-        </table>
+        <TokensTable
+          tokens={personalAccessTokens}
+          handleDeleteToken={handleDeleteToken}
+        />
         <Dialog
           open={isCreatingNewToken}
           onClose={() => setIsCreatingNewToken(false)}
@@ -369,3 +326,69 @@ export default function PersonalAccessTokensTab({
     </div>
   );
 }
+
+export const TokensTable = ({
+  tokens,
+  handleDeleteToken,
+}: {
+  tokens: PersonalAccessToken[];
+  handleDeleteToken: (id: string) => Promise<void>;
+}) => {
+  if (tokens.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-8 text-gray-500">
+        <p className="text-sm">No personal access tokens created yet.</p>
+      </div>
+    );
+  }
+
+  return (
+    <table className="z-0 w-full flex-1 text-left font-mono text-xs text-gray-500">
+      <thead className="sticky top-0 z-20 border-b">
+        <tr>
+          <th
+            className={cn(
+              'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1',
+            )}
+          >
+            Name
+          </th>
+          <th
+            className={cn(
+              'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1',
+            )}
+          >
+            Created
+          </th>
+          <th
+            className={cn(
+              'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1',
+            )}
+          ></th>
+        </tr>
+      </thead>
+      <tbody className="font-mono">
+        {tokens.map(({ id, name, created_at }) => (
+          <tr key={id} className="group border-b bg-white">
+            <td className="whitespace-nowrap px-4 py-1">{name}</td>
+            <td className="whitespace-nowrap px-4 py-1">
+              {format(new Date(created_at), 'MMM dd, h:mma')}
+            </td>
+            <td className="px-4 py-1" style={{}}>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="destructive"
+                  size="mini"
+                  onClick={() => handleDeleteToken(id)}
+                >
+                  Delete
+                </Button>
+              </div>
+            </td>
+          </tr>
+        ))}
+        <tr className="h-full"></tr>
+      </tbody>
+    </table>
+  );
+};
