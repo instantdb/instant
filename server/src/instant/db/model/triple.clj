@@ -13,7 +13,8 @@
    [instant.util.pgtime :as pgtime]
    [instant.util.spec :as uspec]
    [instant.util.string :refer [multiline->single-line]]
-   [instant.util.tracer :as tracer])
+   [instant.util.tracer :as tracer]
+   [instant.util.uuid :as uuid-util])
   (:import
    (java.time Duration Instant LocalDate LocalDateTime ZoneOffset ZonedDateTime)
    (java.time.format DateTimeFormatter DateTimeFormatterBuilder SignStyle)
@@ -385,6 +386,8 @@
            :from :ea-index-inserts}]
     (sql/execute! ::deep-merge-mult! conn (hsql/format q))))
 
+(def value-lookup-error-prefix "missing-lookup-value")
+
 (defn insert-multi!
   "Given a set of raw triples, we enhance each triple with metadata based on
    the triple's underlying attr and then insert these enhanced triples into
@@ -405,7 +408,7 @@
    if the value is the same. In this case we simply do nothing and ignore the
    write. So if [1 user/pet 2] already exists, inserting [1 user/pet 3] will
    not trigger a conflict, but trying to insert [1 user/pet 2] will no-op"
-  [conn _attrs app-id triples]
+  [conn attrs app-id triples]
   (let [lookup-refs
         (distinct
          (keep (fn [[e]]
@@ -490,37 +493,39 @@
                     value (if-not (value-lookup-ref? v)
                             (->json v)
                             [[[:case (value-lookupable-sql app-id a)
-                               {:select [[[:cast [:to_jsonb :entity-id] :text]]]
-                                :from (if (seq lookup-refs)
-                                        [[{:union-all [{:select :entity-id
-                                                        :from :lookup-ref-lookups
-                                                        :where [:and
-                                                                [:= :app-id app-id]
-                                                                [:= :attr-id (first v)]
-                                                                [:= :value [:cast (->json (second v)) :jsonb]]]}
-                                                       {:select :entity-id
-                                                        :from :triples
-                                                        :where [:and
-                                                                :av
-                                                                [:= :app-id app-id]
-                                                                [:= :attr-id (first v)]
-                                                                [:=
-                                                                 ;; Make sure it can lookup just from the av_index
-                                                                 [:json_null_to_null :value]
-                                                                 [:cast (->json (second v)) :jsonb]]]}]}
-                                          :lookups]]
-                                        [[{:select :entity-id
-                                           :from :triples
-                                           :where [:and
-                                                   :av
-                                                   [:= :app-id app-id]
-                                                   [:= :attr-id (first v)]
-                                                   [:=
-                                                    ;; Make sure it can lookup just from the av_index
-                                                    [:json_null_to_null :value]
-                                                    [:cast (->json (second v)) :jsonb]]]}
-                                          :lookups]])
-                                :limit 1}
+                               [:coalesce
+                                {:select [[[:cast [:to_jsonb :entity-id] :text]]]
+                                 :from (if (seq lookup-refs)
+                                         [[{:union-all [{:select :entity-id
+                                                         :from :lookup-ref-lookups
+                                                         :where [:and
+                                                                 [:= :app-id app-id]
+                                                                 [:= :attr-id (first v)]
+                                                                 [:= :value [:cast (->json (second v)) :jsonb]]]}
+                                                        {:select :entity-id
+                                                         :from :triples
+                                                         :where [:and
+                                                                 :av
+                                                                 [:= :app-id app-id]
+                                                                 [:= :attr-id (first v)]
+                                                                 [:=
+                                                                  ;; Make sure it can lookup just from the av_index
+                                                                  [:json_null_to_null :value]
+                                                                  [:cast (->json (second v)) :jsonb]]]}]}
+                                           :lookups]]
+                                         [[{:select :entity-id
+                                            :from :triples
+                                            :where [:and
+                                                    :av
+                                                    [:= :app-id app-id]
+                                                    [:= :attr-id (first v)]
+                                                    [:=
+                                                     ;; Make sure it can lookup just from the av_index
+                                                     [:json_null_to_null :value]
+                                                     [:cast (->json (second v)) :jsonb]]]}
+                                           :lookups]])
+                                 :limit 1}
+                                [:cast [:raise_exception_message [:|| [:inline value-lookup-error-prefix] (->json v)]] :text]]
                                :else (->json v)]]])]]
           [idx app-id eid a value])
 
@@ -693,8 +698,9 @@
                                     ex-data
                                     ::ex/pg-error-data
                                     :server-message)]
-          (if (and (seq lookup-refs)
-                   (= pg-server-message "ON CONFLICT DO UPDATE command cannot affect row a second time"))
+          (cond
+            (and (seq lookup-refs)
+                 (= pg-server-message "ON CONFLICT DO UPDATE command cannot affect row a second time"))
             ;; We may be able to avoid this with `merge`, but we'd need
             ;; to upgrade postgres to version 17
             ;; https://www.postgresql.org/docs/current/sql-merge.html
@@ -705,6 +711,20 @@
                          "Updates with lookups can only update
                              the lookup attribute if an entity with
                              the unique attribute value already exists.")}])
+            (str/starts-with? pg-server-message value-lookup-error-prefix)
+            (let [[aid value] (<-json (str/trim (subs pg-server-message (count value-lookup-error-prefix))))
+                  attr (some-> aid
+                               (uuid-util/coerce)
+                               (attr-model/seek-by-id attrs))]
+              (ex/throw-validation-err!
+               :lookup
+               {:attribute-id aid
+                :namespace (attr-model/fwd-etype attr)
+                :label (attr-model/fwd-label attr)
+                :value value}
+               [{:message "The entity for the lookup does not exist."}]))
+
+            :else
             (throw e)))))))
 
 (defn delete-entity-multi!
