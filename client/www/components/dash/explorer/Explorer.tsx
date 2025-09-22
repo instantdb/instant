@@ -37,6 +37,7 @@ import {
   ActionForm,
   Button,
   Checkbox,
+  cn,
   Content,
   Dialog,
   Fence,
@@ -965,7 +966,7 @@ export function Explorer({
             <Button
               variant="secondary"
               size="mini"
-              className="justify-start"
+              className="justify-center"
               onClick={newNsDialog.onOpen}
             >
               <PlusIcon height="1rem" /> Create
@@ -1047,6 +1048,7 @@ export function Explorer({
               </div>
               <div className="flex gap-2 px-2 py-1 justify-between md:justify-start">
                 <Button
+                  className="rounded"
                   variant="secondary"
                   size="mini"
                   onClick={() => {
@@ -1071,7 +1073,7 @@ export function Explorer({
                   <input
                     ref={fileInputRef}
                     type="file"
-                    className="flex rounded-sm border border-zinc-200 bg-transparent px-1 py-1 text-sm shadow-sm transition-colors file:text-sm placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-950 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex file:font-[500] cursor-pointer file:bg-transparent file:border-none file:rounded-sm file:text-sm file:border-gray-200 file:shadow-none rounded border border-zinc-200 bg-transparent px-1 pt-[6px] text-sm shadow-sm transition-colors placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-950 disabled:cursor-not-allowed disabled:opacity-50"
                     onChange={(e: React.ChangeEvent<any>) => {
                       const files = e.target.files;
                       setSelectedFiles(files);
@@ -1086,12 +1088,13 @@ export function Explorer({
                     size="mini"
                     loading={uploadingFile}
                     onClick={handleUploadFile}
+                    className="rounded"
                   >
                     {uploadingFile ? 'Uploading...' : 'Upload file'}
                   </Button>
                 </div>
                 <div className="relative flex flex-1 max-w-[67vw] min-w-0">
-                  <span className="absolute inset-y-0 left-0 flex items-center px-3 text-sm text-zinc-500 bg-gray-100 rounded-l-md ">
+                  <span className="absolute inset-y-0 left-0 flex items-center px-3 text-sm text-zinc-500 bg-gray-100 rounded-l">
                     File Path:
                   </span>
                   <input
@@ -1099,7 +1102,7 @@ export function Explorer({
                     placeholder="Enter a custom path (optional)"
                     value={customPath}
                     onChange={(e) => setCustomPath(e.target.value)}
-                    className="w-full h-9 rounded-md bg-transparent pl-24 pr-3 py-1 text-sm placeholder:text-zinc-500 outline outline-1 outline-zinc-200 focus:ring-2 focus:ring-blue-700 border-0"
+                    className="w-full h-9 rounded bg-transparent pl-24 pr-3 py-1 text-sm placeholder:text-zinc-500 outline outline-1 outline-zinc-200 focus:ring-2 focus:ring-blue-700 border-0"
                   />
                 </div>
               </div>
@@ -1120,12 +1123,18 @@ export function Explorer({
                   setAddItemDialogOpen(true);
                 }}
               >
+                <PlusIcon width={12} />
                 Add row
               </Button>
             ) : null}
-            <div>
+            <div
+              className={cn(
+                'px-1',
+                selectedNamespace.name === '$files' && 'pb-1',
+              )}
+            >
               <Select
-                className="text-xs"
+                className="text-xs rounded"
                 onChange={(opt) => {
                   if (!opt) return;
 
