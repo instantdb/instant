@@ -46,6 +46,7 @@ type AppResponseJSON<Opts extends AppDataOpts | undefined> = Simplify<
     id: string;
     title: string;
     created_at: Date;
+    org_id: string | null;
     'admin-token'?: string;
   } & (NonNullable<Opts>['includePerms'] extends true
     ? { perms: InstantRules }
@@ -57,12 +58,19 @@ type AppResponseJSON<Opts extends AppDataOpts | undefined> = Simplify<
       : {})
 >;
 
+type OrgResponseJSON = {
+  id: string;
+  title: string;
+  created_at: Date;
+};
+
 export type InstantAPIAppDetails<Opts extends AppDataOpts | undefined> =
   Simplify<
     {
       id: string;
       title: string;
       createdAt: Date;
+      orgId: string | null;
     } & (NonNullable<Opts>['includePerms'] extends true
       ? { perms: InstantRules }
       : {}) &
@@ -77,6 +85,12 @@ export type InstantAPIAppDetails<Opts extends AppDataOpts | undefined> =
         : {})
   >;
 
+export type InstantAPIOrgDetails = {
+  id: string;
+  title: string;
+  createdAt: Date;
+};
+
 export type InstantAPIGetAppResponse<Opts extends AppDataOpts> = Simplify<{
   app: InstantAPIAppDetails<Opts>;
 }>;
@@ -85,6 +99,10 @@ export type InstantAPIListAppsResponse<Opts extends AppDataOpts | undefined> =
   Simplify<{
     apps: InstantAPIAppDetails<Opts>[];
   }>;
+
+export type InstantAPIListOrgsResponse = {
+  orgs: InstantAPIOrgDetails[];
+};
 
 export type InstantAPIGetAppSchemaResponse = {
   schema: InstantSchemaDef<EntitiesDef, LinksDef<EntitiesDef>, RoomsDef>;
@@ -393,6 +411,7 @@ function coerceApp<Opts extends AppDataOpts>(
     id: app.id,
     title: app.title,
     createdAt: new Date(app.created_at),
+    orgId: app.org_id,
     ...(app['admin-token'] ? { adminToken: app['admin-token'] } : {}),
   };
 
@@ -415,12 +434,67 @@ function coerceApp<Opts extends AppDataOpts>(
   return { ...base, ...permsPart, ...schemaPart };
 }
 
+function coerceOrg(org: OrgResponseJSON): InstantAPIOrgDetails {
+  return {
+    id: org.id,
+    title: org.title,
+    createdAt: new Date(org.created_at),
+  };
+}
+
 async function getApps<Opts extends AppDataOpts>(
   apiURI: string,
   token: string,
   opts?: Opts,
 ): Promise<InstantAPIListAppsResponse<Opts>> {
   const url = new URL(`${apiURI}/superadmin/apps`);
+  const include = [];
+  if (opts?.includePerms) {
+    include.push('perms');
+  }
+  if (opts?.includeSchema) {
+    include.push('schema');
+  }
+
+  if (include.length) {
+    url.searchParams.set('include', include.join(','));
+  }
+  const resp = await jsonFetch<{ apps: AppResponseJSON<typeof opts>[] }>(
+    url.toString(),
+    {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  return { apps: resp.apps.map(coerceApp) };
+}
+
+async function getOrgs(
+  apiURI: string,
+  token: string,
+): Promise<InstantAPIListOrgsResponse> {
+  const url = new URL(`${apiURI}/superadmin/orgs`);
+
+  const resp = await jsonFetch<{ orgs: OrgResponseJSON[] }>(url.toString(), {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  return { orgs: resp.orgs.map(coerceOrg) };
+}
+
+async function getAppsForOrg<Opts extends AppDataOpts>(
+  apiURI: string,
+  token: string,
+  orgId: string,
+  opts?: Opts,
+): Promise<InstantAPIListAppsResponse<Opts>> {
+  const url = new URL(`${apiURI}/superadmin/orgs/${orgId}/apps`);
   const include = [];
   if (opts?.includePerms) {
     include.push('perms');
@@ -1241,6 +1315,45 @@ export class PlatformApi {
     opts?: Opts,
   ): Promise<InstantAPIListAppsResponse<Opts>> {
     return this.withRetry(getApps, [this.#apiURI, this.token(), opts]);
+  }
+
+  /**
+   * List **all orgs** that the auth owner is a member of.
+   *
+   * ```ts
+   * const { orgs } = await api.getOrgs();
+   * ```
+   *
+   * @returns An array of orgs
+   */
+  async getOrgs(): Promise<InstantAPIListOrgsResponse> {
+    return this.withRetry(getOrgs, [this.#apiURI, this.token()]);
+  }
+
+  /**
+   * List **all apps** owned by the auth owner.
+   *
+   * ```ts
+   * const { apps } = await api.getApps({
+   *   includeSchema: true,
+   *   includePerms: true,
+   * });
+   * ```
+   *
+   * @template Opts – Same as {@link getApp}.
+   * @param opts – `{ includeSchema?: boolean; includePerms?: boolean }`
+   * @returns An array wrapper; each element’s shape follows `Opts`.
+   */
+  async getAppsForOrg<Opts extends AppDataOpts>(
+    orgId: string,
+    opts?: Opts,
+  ): Promise<InstantAPIListAppsResponse<Opts>> {
+    return this.withRetry(getAppsForOrg, [
+      this.#apiURI,
+      this.token(),
+      orgId,
+      opts,
+    ]);
   }
 
   /**
