@@ -412,6 +412,10 @@
 
   (app-model/delete-immediately-by-id! {:id app-id}))
 
+(defn apps-get [req]
+  (let [{:keys [app]} (req->app-and-user! :collaborator req)]
+    (response/ok {:app app})))
+
 (defn apps-delete [req]
   (let [{:keys [app user]} (req->app-and-user! :admin req)
         app-id (:id app)]
@@ -1745,6 +1749,7 @@
   (GET "/dash" [] dash-get)
   (POST "/dash/apps" [] apps-post)
   (POST "/dash/profiles" [] profiles-post)
+  (GET "/dash/apps/:app_id" [] apps-get)
   (DELETE "/dash/apps/:app_id" [] apps-delete)
   (POST "/dash/apps/:app_id/clear" [] apps-clear)
   (POST "/dash/apps/:app_id/rules" [] rules-post)

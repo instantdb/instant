@@ -28,7 +28,7 @@ import { ReactElement, useContext, useEffect, useRef, useState } from 'react';
 
 import config from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
-import { jsonMutate } from '@/lib/fetch';
+import { jsonFetch, jsonMutate } from '@/lib/fetch';
 import { successToast } from '@/lib/toast';
 import { InstantApp, SchemaNamespace } from '@/lib/types';
 
@@ -68,7 +68,6 @@ import clsx from 'clsx';
 import { createPortal } from 'react-dom';
 import { NextPageWithLayout } from '../_app';
 import { capitalize } from 'lodash';
-import { useOrgPaid } from '@/lib/hooks/useOrgPaid';
 
 // (XXX): we may want to expose this underlying type
 type InstantReactClient = ReturnType<typeof init>;
@@ -224,6 +223,7 @@ function Dashboard() {
   const appId =
     (router.query.app as string) ||
     getInitialApp(apps, fetchedDash.data.currentWorkspaceId);
+
   const screen = ((router.query.s as string) || 'main') as Screen;
   const tab = screenTab(screen, router.query.t as string);
 
@@ -303,31 +303,71 @@ function Dashboard() {
     const isAppIdValid = Boolean(apps.find((a) => a.id === appId));
     if (appId && isAppIdValid) return;
 
-    const firstApp = apps?.[0];
-    if (!firstApp) return;
-
     const lastApp = getLocallySavedApp(dashResponse.data.currentWorkspaceId);
+
     const lastAppId =
       lastApp && Boolean(apps.find((a) => a.id === lastApp.id))
         ? lastApp.id
         : null;
 
-    const defaultAppId = lastAppId ?? firstApp.id;
-    if (!defaultAppId) return;
+    const firstApp = apps?.[0];
 
-    router.replace({
-      query: {
-        s: 'main',
-        app: defaultAppId,
-        t: tab,
-      },
-    });
+    const defaultAppId = lastAppId ?? firstApp?.id;
 
-    setLocallySavedApp({
-      id: defaultAppId,
-      orgId: dashResponse.data.currentWorkspaceId,
-    });
-  }, [dashResponse.data?.currentWorkspaceId, appId]);
+    const replaceDefault = () => {
+      if (!defaultAppId) return;
+
+      router.replace({
+        query: {
+          s: 'main',
+          app: defaultAppId,
+          t: tab,
+        },
+      });
+
+      setLocallySavedApp({
+        id: defaultAppId,
+        orgId: dashResponse.data.currentWorkspaceId,
+      });
+    };
+
+    if (appId && appId !== lastAppId) {
+      let cancel = false;
+      // If we didn't find the app, check if the app lives on
+      // a different org and redirect to that.
+      jsonFetch(`${config.apiURI}/dash/apps/${appId}`, {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then((res) => {
+          if (cancel) return;
+          if (res?.app?.org_id && res?.app?.org_id !== router.query.org) {
+            dashResponse.setWorkspace(res.app.org_id);
+            router.replace({
+              query: {
+                s: 'main',
+                app: appId,
+                org: res?.app?.org_id,
+                t: tab,
+              },
+            });
+          } else {
+            replaceDefault();
+          }
+        })
+        .catch((e) => {
+          if (!cancel) {
+            replaceDefault();
+          }
+        });
+
+      return () => {
+        cancel = true;
+      };
+    }
+
+    replaceDefault();
+  }, [dashResponse.data?.currentWorkspaceId, appId, router.query.org]);
 
   useEffect(() => {
     if (!app) return;

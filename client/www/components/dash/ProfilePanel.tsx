@@ -64,9 +64,9 @@ export const ProfilePanel = () => {
               )}
             >
               <button
-                onClick={() => {
+                onClick={async () => {
                   dashResponse.setWorkspace('personal');
-                  router.push('/dash/', undefined, { shallow: true });
+                  router.push('/dash');
                   close();
                 }}
                 className="py-2 text-left grow px-2"
@@ -100,7 +100,7 @@ export const ProfilePanel = () => {
                 <button
                   onClick={() => {
                     dashResponse.setWorkspace(org.id);
-                    router.push('/dash/', undefined, { shallow: true });
+                    router.push({ pathname: '/dash', query: { org: org.id } });
                     close();
                   }}
                   className="py-2 text-left grow px-2"
