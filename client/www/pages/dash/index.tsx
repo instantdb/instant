@@ -634,11 +634,7 @@ function DashboardContent({
           namespaces={schemaData.namespaces}
         />
       ) : tab === 'schema' ? (
-        <Schema
-          db={connection.db}
-          namespaces={schemaData.namespaces}
-          attrs={schemaData.attrs}
-        />
+        <Schema attrs={schemaData.attrs} />
       ) : tab === 'repl' ? (
         <QueryInspector
           className="flex-1 w-full"
