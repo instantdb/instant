@@ -107,7 +107,7 @@ export function Schema({ attrs }: { attrs: Record<string, DBAttr> | null }) {
           changes to your schema:
         </p>
         <p>
-          <div className="border rounded text-sm overflow-auto">
+          <div className="border bg-white rounded text-sm overflow-auto">
             <Fence
               copyable
               code={`npx instant-cli@latest pull`}

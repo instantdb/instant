@@ -51,7 +51,7 @@ export function Perms({
           Learn how to use CEL expressions to secure your app
         </HomeButton>
       </div>
-      <div className="flex w-full flex-1 flex-col justify-start">
+      <div className="flex bg-white w-full flex-1 flex-col justify-start">
         {errorRes && (
           <div className="bg-red-100 p-4 text-sm">
             <div className="max-w-sm">

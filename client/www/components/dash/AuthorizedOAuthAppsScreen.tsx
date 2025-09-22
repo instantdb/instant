@@ -142,7 +142,12 @@ export default function OAuthAppsTab({ className }: { className?: string }) {
         <SectionHeading className="font-bold">
           Authorized OAuth Apps
         </SectionHeading>
-        <Button onClick={refresh} variant="subtle" size="mini">
+        <Button
+          className="bg-transparent py-2"
+          onClick={refresh}
+          variant="subtle"
+          size="mini"
+        >
           <ArrowPathIcon height={20} />
         </Button>
       </div>

@@ -77,7 +77,7 @@ UserSettingsPage.getLayout = (page) => {
       <Head>
         <title>User Settings</title>
       </Head>
-      <MainDashLayout>{page}</MainDashLayout>
+      <MainDashLayout className="bg-gray-100">{page}</MainDashLayout>
     </ClientOnly>
   );
 };

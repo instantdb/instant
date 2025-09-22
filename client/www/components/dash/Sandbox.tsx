@@ -392,7 +392,7 @@ export function Sandbox({
         </div>
         <div
           ref={consoleRef}
-          className="flex flex-col flex-1 gap-4 p-4 bg-gray-200 text-xs w-full overflow-y-auto overflow-x-hidden "
+          className="flex flex-col flex-1 gap-4 p-4 bg-gray-100 text-xs w-full overflow-y-auto overflow-x-hidden "
         >
           {output.map((o, i) =>
             o.type === 'eval' ? (
