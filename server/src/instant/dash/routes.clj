@@ -413,7 +413,7 @@
   (app-model/delete-immediately-by-id! {:id app-id}))
 
 (defn apps-get [req]
-  (let [{:keys [app user]} (req->app-and-user! :collaborator req)]
+  (let [{:keys [app]} (req->app-and-user! :collaborator req)]
     (response/ok {:app app})))
 
 (defn apps-delete [req]
