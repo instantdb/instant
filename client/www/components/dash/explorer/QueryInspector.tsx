@@ -238,7 +238,7 @@ export function QueryInspector({
                 return (
                   <div
                     key={item.ts}
-                    className="group text-gray-700 mb-1 flex items-center justify-between gap-2"
+                    className="group dark:text-neutral-200 text-gray-700 mb-1 flex items-center justify-between gap-2"
                   >
                     <Tooltip.Provider>
                       <Tooltip.Root delayDuration={200}>

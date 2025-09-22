@@ -466,20 +466,23 @@ export function Sandbox({
                         <div
                           key={cr.entity + '-' + cr.id}
                           className={clsx(
-                            'flex flex-col gap-1 px-2 py-1 bg-gray-100 rounded border',
+                            'flex flex-col gap-1 px-2 py-1 bg-gray-100 dark:bg-neutral-800 rounded border',
                             {
-                              'border-emerald-200': Boolean(cr.check),
-                              'border-rose-200': !Boolean(cr.check),
+                              'border-emerald-200 dark:border-emerald-600':
+                                Boolean(cr.check),
+                              'border-rose-200 dark:border-rose-600': !Boolean(
+                                cr.check,
+                              ),
                             },
                           )}
                         >
                           <div className="flex gap-2">
                             {Boolean(cr.check) ? (
-                              <span className="text-emerald-600 border-emerald-300 px-1 bg-white font-bold border">
+                              <span className="text-emerald-600 border-emerald-300 px-1 bg-white dark:bg-neutral-800 font-bold border">
                                 Pass
                               </span>
                             ) : (
-                              <span className="text-rose-600 border-rose-300 px-1 bg-white font-bold border">
+                              <span className="text-rose-600 border-rose-300 px-1 bg-white dark:bg-neutral-800 font-bold border">
                                 Fail
                               </span>
                             )}
@@ -541,7 +544,7 @@ export function Sandbox({
                       <div
                         key={cr.entity + '-' + cr.id}
                         className={clsx(
-                          'flex flex-col gap-1 px-2 py-1 bg-gray-100 rounded border',
+                          'flex flex-col gap-1 px-2 py-1 bg-gray-100 dark:bg-neutral-800 rounded border',
                           {
                             'border-emerald-200': cr['check-pass?'],
                             'border-rose-200': !cr['check-pass?'],
@@ -550,7 +553,7 @@ export function Sandbox({
                       >
                         <div className="flex gap-2">
                           {cr['check-pass?'] ? (
-                            <span className="text-emerald-600 border-emerald-300 font-bold border px-1 bg-white">
+                            <span className="text-emerald-600 dark:bg-neutral-800 border-emerald-300 font-bold border px-1 bg-white">
                               Pass
                             </span>
                           ) : (
@@ -688,6 +691,7 @@ function Data({
     <div className="p-1 bg-white dark:bg-neutral-700 rounded">
       {isObject ? (
         <Json
+          className="dark:bg-neutral-800"
           value={data}
           collapsed={collapsed}
           displayDataTypes={false}
