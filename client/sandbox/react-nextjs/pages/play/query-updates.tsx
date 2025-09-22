@@ -1,3 +1,8 @@
+/**
+ * See that updates to existing triple and non-existing triple
+ * when transacted together are applied together #1681 #1686
+ */
+
 import { i, init, tx } from '@instantdb/react';
 import { useEffect } from 'react';
 import config from '../../config';
