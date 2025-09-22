@@ -1386,7 +1386,8 @@ function ManageMembersModal({
                       </span>
                     )}
                   </div>
-                  {((member.id !== user.id && isCurrentUserAdmin) || member.id === user.id) && (
+                  {((member.id !== user.id && isCurrentUserAdmin) ||
+                    member.id === user.id) && (
                     <button
                       onClick={() => removeProjectMember(project.id, member.id)}
                       className="text-red-600 hover:text-red-800 text-sm"
@@ -1413,7 +1414,9 @@ function ManageMembersModal({
                       value={getInviteLink()}
                       readOnly
                       className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-sm focus:outline-none"
-                      placeholder={existingInvite ? '' : 'No invite created yet'}
+                      placeholder={
+                        existingInvite ? '' : 'No invite created yet'
+                      }
                     />
                     {existingInvite ? (
                       <>
@@ -1441,8 +1444,8 @@ function ManageMembersModal({
                     )}
                   </div>
                   <p className="text-xs text-gray-500">
-                    Share this link with people you want to invite to the project.
-                    They can use it to join once they sign up.
+                    Share this link with people you want to invite to the
+                    project. They can use it to join once they sign up.
                   </p>
                 </div>
               )}
