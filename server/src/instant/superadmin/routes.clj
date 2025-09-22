@@ -140,7 +140,7 @@
         {:keys [org]} (when org-id-param
                         (get-org-with-role! {:user user
                                              :org-id org-id-param
-                                             :scope "admin"}))
+                                             :role :admin}))
         schema (get-in req [:body :schema])
         rules-code (ex/get-optional-param! req [:body :perms] w/stringify-keys)
         _ (when rules-code
@@ -151,7 +151,7 @@
                                        :admin-token (random-uuid)}
                                       (if org
                                         {:org-id (:id org)}
-                                        {:user-id user-id})))
+                                        {:creator-id user-id})))
         perms (when rules-code
                 (rule-model/put! {:app-id (:id app)
                                   :code rules-code}))]

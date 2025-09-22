@@ -117,6 +117,7 @@ export type InstantAPICreateAppBody = {
     | null
     | undefined;
   perms?: InstantRules | null | undefined;
+  orgId?: string | null | undefined;
 };
 
 export type InstantAPICreateAppResponse = Simplify<{
@@ -598,6 +599,9 @@ async function createApp(
   token: string,
   fields: InstantAPICreateAppBody,
 ): Promise<InstantAPICreateAppResponse> {
+  const apiFields: any = fields;
+  apiFields.org_id = fields.orgId;
+
   const { app } = await jsonFetch<{
     app: AppResponseJSON<{ includePerms: true; includeSchema: true }> & {
       'admin-token': string;
@@ -608,7 +612,7 @@ async function createApp(
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify(fields),
+    body: JSON.stringify(apiFields),
   });
   const withAdminToken = {
     ...coerceApp<{ includePerms: true; includeSchema: true }>(app),

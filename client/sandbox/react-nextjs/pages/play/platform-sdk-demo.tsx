@@ -141,7 +141,7 @@ function ApiDemo({ accessToken }: { accessToken: string }) {
     }
   };
 
-  const createApp = async () => {
+  const createApp = async (params: { orgId?: string | null | undefined }) => {
     try {
       const result = await api.createApp({
         title: 'Test App from Platform SDK Demo',
@@ -153,6 +153,7 @@ function ApiDemo({ accessToken }: { accessToken: string }) {
             }),
           },
         }),
+        ...params,
       });
       setResult(result);
     } catch (e) {
@@ -181,7 +182,10 @@ function ApiDemo({ accessToken }: { accessToken: string }) {
         >
           Get Apps with perms
         </button>
-        <button className="bg-blue-600 text-white m-2 p-2" onClick={createApp}>
+        <button
+          className="bg-blue-600 text-white m-2 p-2"
+          onClick={() => createApp({})}
+        >
           Create App
         </button>
         {orgs.map((org) => {
@@ -204,6 +208,12 @@ function ApiDemo({ accessToken }: { accessToken: string }) {
                 onClick={() => getAppsForOrg(org.id, { includePerms: true })}
               >
                 Get Apps with perms for {org.title}
+              </button>
+              <button
+                className="bg-blue-600 text-white m-2 p-2"
+                onClick={() => createApp({ orgId: org.id })}
+              >
+                Create App in {org.title}
               </button>
             </div>
           );
