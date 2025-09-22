@@ -213,16 +213,13 @@ export default function Billing({ appId }: { appId: string }) {
         </h2>
         <ProgressBar width={progress} />
         <div className="flex justify-start text-sm pt-3 space-x-2 pl-2">
-          {totalAppBytes > 0 && (
-            <span className="text-sm font-mono text-gray-500">
-              DB ({friendlyUsage(totalAppBytes)})
-            </span>
-          )}
-          {totalStorageBytes > 0 && (
-            <span className="text-sm font-mono text-gray-500">
-              Storage ({friendlyUsage(totalStorageBytes)})
-            </span>
-          )}
+          <span className="text-sm font-mono text-gray-500">
+            DB ({friendlyUsage(totalAppBytes)})
+          </span>
+
+          <span className="text-sm font-mono text-gray-500">
+            Storage ({friendlyUsage(totalStorageBytes)})
+          </span>
         </div>
       </div>
       {isFreeTier ? (
