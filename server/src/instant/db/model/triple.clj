@@ -711,7 +711,9 @@
                          "Updates with lookups can only update
                              the lookup attribute if an entity with
                              the unique attribute value already exists.")}])
-            (str/starts-with? pg-server-message value-lookup-error-prefix)
+
+            (and pg-server-message
+                 (str/starts-with? pg-server-message value-lookup-error-prefix))
             (let [[aid value] (<-json (str/trim (subs pg-server-message (count value-lookup-error-prefix))))
                   attr (some-> aid
                                (uuid-util/coerce)
