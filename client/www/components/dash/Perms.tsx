@@ -1,25 +1,23 @@
-import { useContext, useMemo, useState } from 'react';
-import { SWRResponse } from 'swr';
 import JsonParser from 'json5';
+import { useContext, useMemo, useState } from 'react';
 
-import { errorToast, successToast } from '@/lib/toast';
+import { Content, JSONEditor, SectionHeading } from '@/components/ui';
 import config from '@/lib/config';
-import { jsonFetch } from '@/lib/fetch';
 import { TokenContext } from '@/lib/contexts';
-import { InstantApp, DashResponse, SchemaNamespace } from '@/lib/types';
-import { Button, Content, JSONEditor, SectionHeading } from '@/components/ui';
+import { jsonFetch } from '@/lib/fetch';
+import { errorToast, successToast } from '@/lib/toast';
+import { InstantApp, SchemaNamespace } from '@/lib/types';
 import { HomeButton } from '@/pages/dash';
 import { InstantReactWebDatabase } from '@instantdb/react';
+import { FetchedDash, useFetchedDash } from './MainDashLayout';
 
 export function Perms({
   app,
   db,
-  dashResponse,
   namespaces,
 }: {
   app: InstantApp;
   db: InstantReactWebDatabase<any>;
-  dashResponse: SWRResponse<DashResponse>;
   namespaces: SchemaNamespace[] | null;
 }) {
   const [errorRes, setErrorRes] = useState<{
@@ -32,6 +30,7 @@ export function Perms({
   }, [app]);
 
   const schema = rulesSchema(namespaces);
+  const dashResponse = useFetchedDash();
 
   return (
     <div className="flex flex-1 flex-col md:flex-row min-h-0">
@@ -90,14 +89,11 @@ export function Perms({
 }
 
 async function onEditRules(
-  dashResponse: SWRResponse<any, any, any>,
+  dashResponse: FetchedDash,
   appId: string,
   newRules: string,
   token: string,
 ): Promise<void> {
-  if (dashResponse.error || dashResponse.isLoading) {
-    return Promise.reject(null);
-  }
   const prevApps = dashResponse.data.apps;
   const currentApp = prevApps.find((x: any) => x.id === appId);
   if (!currentApp) {

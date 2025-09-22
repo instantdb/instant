@@ -195,3 +195,7 @@ div.Toastify__toast-body {
 div.Toastify__toast-icon {
   margin-top: 3px;
 }
+
+.debug {
+  outline: solid red 1px;
+}

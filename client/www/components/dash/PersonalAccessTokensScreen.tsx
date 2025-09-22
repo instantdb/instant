@@ -1,15 +1,5 @@
-import React, {
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
-import {
-  ChevronRightIcon,
-  ClipboardDocumentIcon,
-  PlusIcon,
-} from '@heroicons/react/24/outline';
+import React, { useCallback, useContext, useEffect, useState } from 'react';
+import { ClipboardDocumentIcon, PlusIcon } from '@heroicons/react/24/outline';
 import format from 'date-fns/format';
 import CopyToClipboard from 'react-copy-to-clipboard';
 
@@ -19,7 +9,6 @@ import {
   ActionButton,
   ActionForm,
   Button,
-  Checkbox,
   cn,
   Content,
   Copyable,
@@ -251,9 +240,7 @@ export default function PersonalAccessTokensTab({
     }
   };
   return (
-    <div
-      className={cn('flex-1 flex flex-col p-4 max-w-2xl mx-auto', className)}
-    >
+    <div className={cn('flex-1 flex flex-col mx-auto', className)}>
       {newTokenValue ? (
         <CopyTokenDialog
           onClose={() => setNewTokenValue(null)}
