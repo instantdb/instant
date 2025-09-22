@@ -260,11 +260,11 @@
                      :etype    etype
                      :eid      eid
                      :program  link-program
-                     :bindings {:data         (assoc entity :$action "update")
+                     :bindings {:data         (-> entity
+                                                  (assoc "$action" "update"))
                                 :new-data     (get updated-entities-map key)
-                                :linked-data  (if rev-entity
-                                                (assoc rev-entity :$action "update")
-                                                {:$action "create"})
+                                :linked-data  (-> rev-entity
+                                                  (assoc "$action" (if rev-entity "update" "create")))
                                 :linked-etype rev-etype
                                 :rule-params  (merge rev-rule-params rule-params)}}])
                  (when (and rev-entity rev-link-program)
@@ -273,10 +273,10 @@
                      :etype    rev-etype
                      :eid      value
                      :program  rev-link-program
-                     :bindings {:data         (assoc rev-entity :$action "update")
+                     :bindings {:data         (assoc rev-entity "$action" "update")
                                 :new-data     (get updated-entities-map rev-key)
-                                :linked-data  (assoc (get updated-entities-map key)
-                                                     :$action "update")
+                                :linked-data  (-> (get updated-entities-map key)
+                                                  (assoc "$action" (if entity "update" "create")))
                                 :linked-etype etype
                                 :rule-params  (merge rule-params rev-rule-params)}}]))
 
@@ -434,11 +434,11 @@
                      :etype    etype
                      :eid      (get create-lookups-map eid eid)
                      :program  link-program
-                     :bindings {:data         (assoc updated-entity :$action "create")
+                     :bindings {:data         (-> updated-entity
+                                                  (assoc "$action" "create"))
                                 :new-data     updated-entity
-                                :linked-data  (if (get entities-map rev-key)
-                                                (assoc updated-rev-entity :$action "update")
-                                                (assoc updated-rev-entity :$action "create"))
+                                :linked-data  (-> updated-rev-entity
+                                                  (assoc "$action" (if (get entities-map rev-key) "update" "create")))
                                 :linked-etype rev-etype
                                 :rule-params  (merge rev-rule-params rule-params)}}])
                  (when (and updated-rev-entity
@@ -449,11 +449,11 @@
                      :etype    rev-etype
                      :eid      (get updated-rev-entity "id")
                      :program  rev-link-program
-                     :bindings {:data         (assoc updated-rev-entity :$action "create")
+                     :bindings {:data         (-> updated-rev-entity
+                                                  (assoc "$action" "create"))
                                 :new-data     updated-rev-entity
-                                :linked-data  (if create?
-                                                (assoc updated-entity :$action "create")
-                                                (assoc updated-entity :$action "update"))
+                                :linked-data  (-> updated-entity
+                                                  (assoc "$action" (if create? "create" "update")))
                                 :linked-etype etype
                                 :rule-params  (merge rule-params rev-rule-params)}}]))
 
@@ -470,8 +470,6 @@
                                    {:result true})
                      :bindings {:data         updated-entity
                                 :new-data     updated-entity
-                                :linked-data  updated-rev-entity
-                                :linked-etype rev-etype
                                 :rule-params  (merge rev-rule-params rule-params)}}])
                  (when (and updated-rev-entity
                             (nil? (get entities-map rev-key)))
@@ -483,8 +481,6 @@
                                    {:result true})
                      :bindings {:data         updated-rev-entity
                                 :new-data     updated-rev-entity
-                                :linked-data  updated-entity
-                                :linked-etype etype
                                 :rule-params  (merge rule-params rev-rule-params)}}]))
 
                 (and (#{:add-triple :deep-merge-triple} op)

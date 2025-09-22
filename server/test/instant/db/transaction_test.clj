@@ -2980,6 +2980,7 @@
              (is (perm-pass? (transact! [[:delete-entity user-ref "users"]
                                          [:rule-params   user-ref "users" {"users_delete" true}]]))))))))))
 
+;; Check that during link/unlink `linkedData` contains object from other side of relation
 (deftest linked-data-perm
   (with-empty-app
     (fn [{app-id   :id
@@ -3040,6 +3041,64 @@
             (is (not (perm-err?
                       (transact!
                        [[:retract-triple post-id :posts/ref user-id]]))))))))))
+
+;; Test data['$action'] and linkedData['$action'] in link permission checks
+(deftest link-$action-perm
+  (with-empty-app
+    (fn [{app-id   :id
+          make-ctx :make-ctx}]
+      (let [attrs
+            (test-util/make-attrs
+             app-id
+             [[:users/id    :required? :index? :unique?]
+              [:users/email :unique?]
+              [:posts/id    :required? :index? :unique?]
+              [:posts/title :unique?]
+              [[:posts/ref :users/rev-ref]]])
+            transact! #(permissioned-tx/transact!
+                        (make-ctx)
+                        (test-util/resolve-attrs attrs %))]
+        (rule-model/put!
+         (aurora/conn-pool :write)
+         {:app-id app-id
+          :code {:posts
+                 {:allow
+                  {:link {"ref" "data['$action'] == ruleParams.post_post_action && linkedData['$action'] == ruleParams.post_user_action"}}}
+                 :users
+                 {:allow
+                  {:link {"rev-ref" "data['$action'] == ruleParams.user_user_action && linkedData['$action'] == ruleParams.user_post_action"}}}}})
+
+        (test-util/test-matrix
+         [post-action      [:create :update]
+          user-action      [:create :update]
+          post-post-action [:create :update]
+          post-user-action [:create :update]
+          user-post-action [:create :update]
+          user-user-action [:create :update]]
+         (let [user-id     (random-uuid)
+               user-email  (test-util/rand-email)
+               post-id     (random-uuid)
+               post-title  user-email
+               user-tx     [[:add-triple user-id :users/id user-id]
+                            [:add-triple user-id :users/email user-email]]
+               post-tx      [[:add-triple post-id :posts/id    post-id]
+                             [:add-triple post-id :posts/title post-title]]
+               _            (transact!
+                             (concat
+                              (when (= :update post-action) post-tx)
+                              (when (= :update user-action) user-tx)))
+               tx           (concat
+                             (when (= :create post-action) post-tx)
+                             (when (= :create user-action) user-tx)
+                             [[:add-triple post-id :posts/ref user-id]
+                              [:rule-params post-id "posts" {:post_post_action post-post-action
+                                                             :post_user_action post-user-action}]
+                              [:rule-params user-id "users" {:user_post_action user-post-action
+                                                             :user_user_action user-user-action}]])
+               expected     (and
+                             (= post-action post-post-action user-post-action)
+                             (= user-action post-user-action user-user-action))]
+           (is (= expected (perm-pass? (transact! tx))))))))))
 
 (deftest lookup-perms
   (with-empty-app
