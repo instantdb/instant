@@ -1387,7 +1387,10 @@ export class PlatformApi {
   }
 
   /**
-   * Create a new app in the authenticated user's account.
+   * Create a new app.
+   *
+   * The app will be placed in the authenticated user's account
+   * if no orgId is provided.
    *
    * Optionally set permissions and schema.
    *
@@ -1407,6 +1410,7 @@ export class PlatformApi {
    * @param fields.title -- Title for app
    * @param fields.schema -- Optional schema for the app
    * @param fields.perms -- Optional permissions for the app
+   * @param fields.orgId -- Optional id of the org that the app will be placed in
    */
   async createApp(
     fields: InstantAPICreateAppBody,
