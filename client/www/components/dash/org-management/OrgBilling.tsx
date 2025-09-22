@@ -7,7 +7,7 @@ import { loadStripe } from '@stripe/stripe-js';
 import { messageFromInstantError } from '@/lib/errors';
 import { InstantIssue } from '@instantdb/core';
 import { errorToast } from '@/lib/toast';
-import { friendlyUsage, GB_1, GB_10, ProgressBar } from '../Billing';
+import { friendlyUsage, GB_1, GB_10, GB_250, ProgressBar } from '../Billing';
 import { useFetchedDash } from '../MainDashLayout';
 import { Button, cn, Content, SectionHeading } from '@/components/ui';
 import { OrgWorkspace } from '@/lib/hooks/useWorkspace';
@@ -103,7 +103,7 @@ export const OrgBilling = () => {
   const totalStorageBytes = data['total-storage-bytes'] || 0;
   const totalUsageBytes = totalAppBytes + totalStorageBytes;
   const isFreeTier = data['subscription-name'] === 'Free';
-  const progressDen = isFreeTier ? GB_1 : GB_10;
+  const progressDen = isFreeTier ? GB_1 : GB_250;
   const progress = Math.round((totalUsageBytes / progressDen) * 100);
 
   return (
@@ -111,18 +111,13 @@ export const OrgBilling = () => {
       <div className="flex flex-col bg-white gap px-2 pt-1 rounded border">
         <div className="flex gap-2 items-end p-2 justify-between">
           <span className="font-bold">Usage (all apps)</span>{' '}
-          {!isPaid && (
-            <span className="font-mono text-sm">
-              {friendlyUsage(totalUsageBytes)} / {friendlyUsage(progressDen)}
-            </span>
-          )}
+          <span className="font-mono text-sm">
+            {friendlyUsage(totalUsageBytes)} / {friendlyUsage(progressDen)}
+          </span>
         </div>
-        {!isPaid && <ProgressBar width={progress} />}
+        <ProgressBar width={progress} />
         <div
-          className={cn(
-            'flex justify-start text-sm space-x-2 pl-2',
-            !isPaid && 'pt-3',
-          )}
+          className={cn('flex justify-start text-sm space-x-2 pl-2', 'pt-3')}
         >
           {totalAppBytes > 0 && (
             <span className="text-sm font-mono text-gray-500">

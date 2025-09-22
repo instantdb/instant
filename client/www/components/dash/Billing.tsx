@@ -16,6 +16,7 @@ import Link from 'next/link';
 
 export const GB_1 = 1024 * 1024 * 1024;
 export const GB_10 = 10 * GB_1;
+export const GB_250 = 250 * GB_1;
 
 export function roundToDecimal(num: number, decimalPlaces: number) {
   const factor = Math.pow(10, decimalPlaces);
