@@ -340,11 +340,8 @@ function Dashboard() {
         headers: { Authorization: `Bearer ${token}` },
       })
         .then((res) => {
-          if (
-            res?.app?.org_id &&
-            !cancel &&
-            res?.app?.org_id !== router.query.org
-          ) {
+          if (cancel) return;
+          if (res?.app?.org_id && res?.app?.org_id !== router.query.org) {
             dashResponse.setWorkspace(res.app.org_id);
             router.replace({
               query: {
@@ -359,7 +356,6 @@ function Dashboard() {
           }
         })
         .catch((e) => {
-          console.error('e', e);
           if (!cancel) {
             replaceDefault();
           }
