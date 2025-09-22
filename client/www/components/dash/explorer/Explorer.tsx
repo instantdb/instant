@@ -1255,7 +1255,7 @@ export function Explorer({
           </div>
           <div className="relative flex flex-1 dark:bg-neutral-900/50 overflow-x-auto overflow-y-scroll">
             <table className="z-0 w-full flex-1 text-left font-mono text-xs text-neutral-500 dark:text-neutral-400">
-              <thead className="sticky top-0 z-20 bg-white dark:bg-neutral-700/50 text-neutral-700 dark:text-neutral-300 shadow">
+              <thead className="sticky top-0 z-20 bg-white dark:bg-[#303030] text-neutral-700 dark:text-neutral-300 shadow">
                 <tr>
                   <th
                     colSpan={selectedNamespace.attrs.length + 1}
