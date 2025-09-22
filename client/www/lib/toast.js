@@ -34,14 +34,14 @@ export function errorToast(text, options) {
   });
 }
 
-export function StyledToastContainer() {
+export function StyledToastContainer(props) {
   return (
     <ToastContainer
+      theme={props.theme || 'light'}
       position="top-right"
       autoClose={3000}
       hideProgressBar
       draggablePercent={30}
-      theme="light"
       limit={3}
       closeButton={false}
     />

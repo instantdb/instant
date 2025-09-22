@@ -159,7 +159,7 @@ export const MainDashLayout: React.FC<{
           `
         }</style>
       </Head>
-      <StyledToastContainer />
+      <StyledToastContainer theme={darkMode ? 'dark' : 'light'} />
       <DashFetchProvider
         loading={<FullscreenLoading />}
         error={<FullscreenErrorMessage message={'An error occurred.'} />}
