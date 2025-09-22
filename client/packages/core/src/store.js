@@ -690,7 +690,7 @@ export function transact(store, txSteps) {
       const attr = getAttr(store.attrs, attrId);
       if (attr) {
         const idAttr = getPrimaryKeyAttr(store, attr['forward-identity'][1]);
-        exists = undefined !== findTriple(store, [eid, idAttr.id, eid]);
+        exists = !!findTriple(store, [eid, idAttr.id, eid]);
       }
 
       if (mode === 'create' && exists) {

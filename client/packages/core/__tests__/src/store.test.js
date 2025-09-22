@@ -214,6 +214,39 @@ test('link/unlink multi', () => {
   checkIndexIntegrity(secondStore);
 });
 
+test('link/unlink without update', () => {
+  const bookshelfId = uuid();
+  const userId = uuid();
+  const userChunk = tx.users[userId].update({ handle: 'bobby' });
+  const bookshelfChunk = tx.bookshelves[bookshelfId].update({
+    name: 'my books',
+  });
+  const txSteps = instaml.transform({ attrs: store.attrs }, [
+    userChunk,
+    bookshelfChunk,
+  ]);
+  const store2 = transact(store, txSteps);
+
+  const linkChunk = tx.users[userId].link({ bookshelves: bookshelfId });
+  const store3 = transact(
+    store2,
+    instaml.transform({ attrs: store2.attrs }, [linkChunk]),
+  );
+
+  expect(
+    query(
+      { store: store3 },
+      {
+        users: {
+          $: { where: { handle: 'bobby' } },
+          bookshelves: {},
+        },
+      },
+    ).data.users.map((x) => [x.handle, x.bookshelves.map((x) => x.name)]),
+  ).toEqual([['bobby', ['my books']]]);
+  checkIndexIntegrity(store3);
+});
+
 test('delete entity', () => {
   const bookshelfId = uuid();
   const userId = uuid();
