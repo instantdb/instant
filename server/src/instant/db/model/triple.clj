@@ -277,10 +277,9 @@
         enhanced-lookup-refs
         {:select
          [[[:cast :ilr.app_id :uuid] :app-id]
-          [[:triples_extract_uuid_value
-            [:case [:= [:inline "id"] :a.label]
-             [:cast :ilr.value :jsonb]
-             :else [:to_jsonb [:gen_random_uuid]]]]
+          [[:case [:= [:inline "id"] :a.label]
+            [:triples_extract_uuid_value [:cast :ilr.value :jsonb]]
+            :else [:gen_random_uuid]]
            :entity-id]
           [(hsql-attr-id-or-raise :ilr.attr-id :a.id)
            :attr-id]
@@ -431,10 +430,9 @@
         enhanced-lookup-refs
         {:select
          [[[:cast :ilr.app_id :uuid] :app-id]
-          [[:triples_extract_uuid_value
-            [:case [:= [:inline "id"] :a.label]
-             [:cast :ilr.value :jsonb]
-             :else [:to_jsonb [:gen_random_uuid]]]]
+          [[:case [:= [:inline "id"] :a.label]
+            [:triples_extract_uuid_value [:cast :ilr.value :jsonb]]
+            :else [:gen_random_uuid]]
            :entity-id]
           [(hsql-attr-id-or-raise :ilr.attr-id :a.id)
            :attr-id]
