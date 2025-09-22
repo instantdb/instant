@@ -225,7 +225,7 @@ function FourPlanGrid() {
           <div className="text-black text-lg space-y-4">
             <p>
               Whether you're building a side project or your next big thing, you
-              can get started with Instant <strong>for free</strong>.
+              can get started with Instant for free.
             </p>
             <p>
               We don't pause projects, we don't limit number of active
