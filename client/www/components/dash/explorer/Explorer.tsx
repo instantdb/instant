@@ -1,4 +1,4 @@
-import { id, tx } from '@instantdb/core';
+import { id, lookup, tx } from '@instantdb/core';
 import { InstantReactWebDatabase } from '@instantdb/react';
 import { isObject, debounce, last } from 'lodash';
 import {
@@ -1667,6 +1667,7 @@ function _dev(db: InstantReactWebDatabase<any>) {
       db,
       id,
       tx,
+      lookup,
       dummy: (ns: string = 'dummy', o?: any) =>
         db.transact([tx[ns][id()].update({ ts: Date.now(), ...o })]),
     };
