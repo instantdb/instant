@@ -18,7 +18,6 @@ const getVariantStyles = (variant: string) => {
         background: 'bg-white',
         textColor: 'text-black',
         iconColor: 'text-orange-500',
-        badge: null,
       };
     default:
       return {
@@ -27,7 +26,6 @@ const getVariantStyles = (variant: string) => {
         background: 'bg-white',
         textColor: 'text-black',
         iconColor: 'text-gray-500',
-        badge: null,
       };
   }
 };
@@ -170,13 +168,6 @@ function Plan({ plan }: { plan: any }) {
           >
             {name}
           </h5>
-          {styles.badge && (
-            <span
-              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-md font-medium ${styles.badge.bgColor} ${styles.badge.textColor}`}
-            >
-              {styles.badge.text}
-            </span>
-          )}
         </div>
         <div className={`opacity-70 ${styles.textColor}`}>{description}</div>
         {price && (
