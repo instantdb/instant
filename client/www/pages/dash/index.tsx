@@ -5,7 +5,19 @@ import {
   ComboboxOption,
   ComboboxOptions,
 } from '@headlessui/react';
-import { ArrowTopRightOnSquareIcon } from '@heroicons/react/24/outline';
+import {
+  ArrowTopRightOnSquareIcon,
+  BeakerIcon,
+  CodeBracketIcon,
+  CreditCardIcon,
+  CubeIcon,
+  FunnelIcon,
+  HomeIcon,
+  IdentificationIcon,
+  LockClosedIcon,
+  MagnifyingGlassIcon,
+  ShieldCheckIcon,
+} from '@heroicons/react/24/outline';
 import { ChevronDownIcon } from '@heroicons/react/24/solid';
 import { init } from '@instantdb/react';
 import produce from 'immer';
@@ -104,17 +116,26 @@ interface Tab<TabId> {
   minRole?: 'admin' | 'owner';
 }
 
+const makeIcon = (Icon: typeof HomeIcon) => {
+  return <Icon width={14} />;
+};
+
 const mainTabs: Tab<MainTabId>[] = [
-  { id: 'home', title: 'Home' },
-  { id: 'explorer', title: 'Explorer' },
-  { id: 'schema', title: 'Schema' },
-  { id: 'perms', title: 'Permissions' },
-  { id: 'auth', title: 'Auth' },
-  { id: 'repl', title: 'Query Inspector' },
-  { id: 'sandbox', title: 'Sandbox' },
-  { id: 'admin', title: 'Admin', minRole: 'admin' },
-  { id: 'billing', title: 'Billing' },
-  { id: 'oauth-apps', title: 'OAuth Apps' },
+  { id: 'home', title: 'Home', icon: makeIcon(HomeIcon) },
+  { id: 'explorer', title: 'Explorer', icon: makeIcon(FunnelIcon) },
+  { id: 'schema', title: 'Schema', icon: makeIcon(CodeBracketIcon) },
+  { id: 'perms', title: 'Permissions', icon: makeIcon(LockClosedIcon) },
+  { id: 'auth', title: 'Auth', icon: makeIcon(IdentificationIcon) },
+  { id: 'repl', title: 'Query Inspector', icon: makeIcon(MagnifyingGlassIcon) },
+  { id: 'sandbox', title: 'Sandbox', icon: makeIcon(BeakerIcon) },
+  {
+    id: 'admin',
+    title: 'Admin',
+    minRole: 'admin',
+    icon: makeIcon(ShieldCheckIcon),
+  },
+  { id: 'billing', title: 'Billing', icon: makeIcon(CreditCardIcon) },
+  { id: 'oauth-apps', title: 'OAuth Apps', icon: makeIcon(CubeIcon) },
 ];
 
 const userTabs: Tab<UserSettingsTabId>[] = [
@@ -402,6 +423,7 @@ function Dashboard() {
         id: t.id,
         label: t.title,
         link: { href: `/dash?s=main&app=${appId}&t=${t.id}` },
+        icon: t.icon,
       };
     });
 
@@ -791,6 +813,7 @@ function Nav({
             ...t,
             label: (
               <div className="flex gap-2 items-center">
+                {t.icon !== undefined && <span>{t.icon}</span>}
                 <span>{t.label}</span>
                 {t.id === 'docs' && (
                   <ArrowTopRightOnSquareIcon className="h-4 w-4" />
