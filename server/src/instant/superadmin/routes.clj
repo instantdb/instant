@@ -7,18 +7,27 @@
             [instant.model.instant-user :as instant-user-model]
             [instant.model.member-invites :as member-invites-model]
             [instant.model.oauth-app :as oauth-app-model]
+            [instant.model.org :as org-model]
             [instant.model.rule :as rule-model]
             [instant.model.schema :as schema-model]
             [instant.postmark :as postmark]
             [instant.util.email :as email]
             [instant.util.exception :as ex]
             [instant.util.http :as http-util]
+            [instant.util.roles :refer [assert-least-privilege!
+                                        get-app-with-role!]]
             [instant.util.string :as string-util]
             [instant.util.token :as token-util]
             [instant.util.uuid :as uuid-util]
             [ring.util.http-response :as response])
   (:import
    (java.util UUID)))
+
+(defn get-org-with-role! [{:keys [user org-id role]}]
+  (let [org-with-role (org-model/get-org-for-user! {:org-id org-id
+                                                    :user-id (:id user)})]
+    (assert-least-privilege! role (:role org-with-role))
+    {:org org-with-role}))
 
 (defn req->superadmin-user!
   "We're reusing some of the superadmin routes for the OAuth app platform routes.
@@ -51,70 +60,98 @@
         (instant-user-model/get-by-personal-access-token!
          {:personal-access-token personal-access-token})))))
 
-(defn req->superadmin-user-and-app! [scope req]
-  (let [{user-id :id :as user} (req->superadmin-user! scope req)
-        id (ex/get-param! req [:params :app_id] uuid-util/coerce)
-        app (app-model/get-by-id-and-creator! {:user-id user-id
-                                               :app-id id})]
-    {:user user :app app}))
+(defn req->superadmin-user-and-app! [scope role req]
+  (let [user (req->superadmin-user! scope req)
+        app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)]
+    (get-app-with-role! {:user user
+                         :app-id app-id
+                         :role role})))
 
-(defn req->superadmin-app! [scope req]
+(defn req->superadmin-app! [scope role req]
   (let [token (http-util/req->bearer-token! req)]
     (if (or (token-util/is-platform-access-token? token)
             (token-util/is-personal-access-token? token)
             (instant-user-model/get-by-personal-access-token
              {:personal-access-token
               (token-util/->PersonalAccessToken (str token))}))
-      (:app (req->superadmin-user-and-app! scope req))
+      (:app (req->superadmin-user-and-app! scope role req))
 
       (if-let [app (app-model/get-by-admin-token {:token token})]
         app
         (ex/throw+ {::ex/type ::ex/record-not-found
                     ::ex/message "Record not found: token"})))))
 
+(defn enhance-apps
+  "Adds schema and perms to apps if the request asked for them."
+  [req body-with-apps]
+  (let [includes (some-> (ex/get-optional-param! req
+                                                 [:params :include]
+                                                 string-util/coerce-non-blank-str)
+                         (String/.split ",")
+                         set)]
+    (cond-> body-with-apps
+      (contains? includes "schema")
+      (update :apps
+              (fn [apps]
+                (let [attrs-by-app (attr-model/get-by-app-ids (map :id apps))]
+                  (map (fn [app]
+                         (assoc app :schema (schema-model/attrs->schema
+                                             (get attrs-by-app (:id app)))))
+                       apps))))
+
+      (contains? includes "perms")
+      (update :apps
+              (fn [apps]
+                (let [rules-by-app (rule-model/get-by-app-ids
+                                    {:app-ids (map :id apps)})]
+                  (map (fn [app]
+                         (assoc app :perms (get-in rules-by-app
+                                                   [(:id app) :code])))
+                       apps)))))))
+
+;; --------
+;; Org crud
+
+(defn orgs-list-get [req]
+  (let [{user-id :id} (req->superadmin-user! :apps/read req)
+        orgs (org-model/get-all-for-user {:user-id user-id})]
+    (response/ok {:orgs orgs})))
+
+(defn orgs-list-apps-get [req]
+  (let [{user-id :id} (req->superadmin-user! :apps/read req)
+        org-id-param (ex/get-param! req [:params :org_id] uuid-util/coerce)
+        org (org-model/get-org-for-user! {:org-id org-id-param
+                                          :user-id user-id})
+        apps (org-model/apps-for-org {:org-id (:id org) :user-id user-id})]
+    (response/ok (enhance-apps req {:apps apps}))))
+
 ;; --------
 ;; App crud
 
 (defn apps-list-get [req]
   (let [{user-id :id} (req->superadmin-user! :apps/read req)
-        apps (app-model/list-by-creator-id user-id)
-        includes (some-> (ex/get-optional-param! req
-                                                 [:params :include]
-                                                 string-util/coerce-non-blank-str)
-                         (String/.split ",")
-                         set)]
-    (response/ok (cond-> {:apps apps}
-                   (contains? includes "schema")
-                   (update :apps
-                           (fn [apps]
-                             (let [attrs-by-app (attr-model/get-by-app-ids (map :id apps))]
-                               (map (fn [app]
-                                      (assoc app :schema (schema-model/attrs->schema
-                                                          (get attrs-by-app (:id app)))))
-                                    apps))))
-
-                   (contains? includes "perms")
-                   (update :apps
-                           (fn [apps]
-                             (let [rules-by-app (rule-model/get-by-app-ids
-                                                 {:app-ids (map :id apps)})]
-                               (map (fn [app]
-                                      (assoc app :perms (get-in rules-by-app
-                                                                [(:id app) :code])))
-                                    apps))))))))
+        apps (app-model/list-by-creator-id user-id)]
+    (response/ok (enhance-apps req {:apps apps}))))
 
 (defn apps-create-post [req]
-  (let [{user-id :id} (req->superadmin-user! :apps/write req)
+  (let [{user-id :id :as user} (req->superadmin-user! :apps/write req)
         title (ex/get-param! req [:body :title] string-util/coerce-non-blank-str)
+        org-id-param (ex/get-optional-param! req [:body :org_id] uuid-util/coerce)
+        {:keys [org]} (when org-id-param
+                        (get-org-with-role! {:user user
+                                             :org-id org-id-param
+                                             :scope "admin"}))
         schema (get-in req [:body :schema])
         rules-code (ex/get-optional-param! req [:body :perms] w/stringify-keys)
         _ (when rules-code
             (ex/assert-valid! :perms rules-code (rule-model/validation-errors
                                                  rules-code)))
-        app (app-model/create! {:id (random-uuid)
-                                :title title
-                                :creator-id user-id
-                                :admin-token (random-uuid)})
+        app (app-model/create! (merge {:id (random-uuid)
+                                       :title title
+                                       :admin-token (random-uuid)}
+                                      (if org
+                                        {:org-id (:id org)}
+                                        {:user-id user-id})))
         perms (when rules-code
                 (rule-model/put! {:app-id (:id app)
                                   :code rules-code}))]
@@ -132,18 +169,24 @@
                                        (attr-model/get-by-app-id (:id app))))})))
 
 (defn app-details-get [req]
-  (let [app (req->superadmin-app! :apps/read req)]
+  (let [app (req->superadmin-app! :apps/read :collaborator req)]
     (response/ok {:app app})))
 
 (defn app-update-post [req]
-  (let [{app-id :id} (req->superadmin-app! :apps/write req)
+  (let [{app-id :id} (req->superadmin-app! :apps/write :admin req)
         title (ex/get-param! req [:body :title] string-util/coerce-non-blank-str)
         app (app-model/rename-by-id! {:id app-id :title title})]
     (response/ok {:app app})))
 
 (defn app-delete [req]
-  (let [{app-id :id} (req->superadmin-app! :apps/write req)
-        app (app-model/mark-for-deletion! {:id app-id})]
+  (let [{:keys [app user]} (req->superadmin-user-and-app! :apps/write :admin req)
+        _ (when (and (:creator_id app)
+                     (not= (:creator_id app)
+                           (:id user)))
+            ;; Require owner to delete a personal app, but
+            ;; just admin to delete an org app
+            (ex/assert-permitted! :allowed-member-role? :owner false))
+        app (app-model/mark-for-deletion! {:id (:id app)})]
     (response/ok {:app app})))
 
 ;; ---------
@@ -169,7 +212,7 @@
        </p>")}))
 
 (defn app-transfer-send-invite-post [req]
-  (let [{:keys [app user]} (req->superadmin-user-and-app! :apps/transfer req)
+  (let [{:keys [app user]} (req->superadmin-user-and-app! :apps/transfer :owner req)
         invitee-email (ex/get-param! req [:body :dest_email] email/coerce)
         {app-id :id} app
         {user-id :id} user
@@ -184,7 +227,7 @@
     (response/ok {:id invite-id})))
 
 (defn app-transfer-revoke-post [req]
-  (let [{{user-id :id} :user {app-id :id} :app} (req->superadmin-user-and-app! :apps/transfer req)
+  (let [{{user-id :id} :user {app-id :id} :app} (req->superadmin-user-and-app! :apps/transfer :owner req)
         dest-email (ex/get-param! req [:body :dest_email] email/coerce)
         rejected-count (count (member-invites-model/reject-by-email-and-role
                                {:inviter-id user-id
@@ -199,12 +242,12 @@
 ;; Rules
 
 (defn app-rules-get [req]
-  (let [{app-id :id} (req->superadmin-app! :apps/read req)
+  (let [{app-id :id} (req->superadmin-app! :apps/read :collaborator req)
         {:keys [code]} (rule-model/get-by-app-id {:app-id app-id})]
     (response/ok {:perms code})))
 
 (defn app-rules-post [req]
-  (let [{app-id :id} (req->superadmin-app! :apps/write req)
+  (let [{app-id :id} (req->superadmin-app! :apps/write :collaborator req)
         code (ex/get-param! req [:body :code] w/stringify-keys)]
     (ex/assert-valid! :rule code (rule-model/validation-errors code))
     (response/ok {:rules (rule-model/put! {:app-id app-id
@@ -214,13 +257,13 @@
 ;; Schema
 
 (defn app-schema-get [req]
-  (let [{app-id :id} (req->superadmin-app! :apps/read req)
+  (let [{app-id :id} (req->superadmin-app! :apps/read :collaborator req)
         attrs (attr-model/get-by-app-id app-id)
         schema (schema-model/attrs->schema attrs)]
     (response/ok {:schema schema})))
 
 (defn app-schema-plan-post [req]
-  (let [{app-id :id} (req->superadmin-app! :apps/read req)
+  (let [{app-id :id} (req->superadmin-app! :apps/read :collaborator req)
         client-defs (-> req :body :schema)
         check-types? (-> req :body :check_types)
         background-updates? (-> req :body :supports_background_updates)]
@@ -230,7 +273,7 @@
                                      client-defs))))
 
 (defn app-schema-apply-post [req]
-  (let [{app-id :id} (req->superadmin-app! :apps/write req)
+  (let [{app-id :id} (req->superadmin-app! :apps/write :collaborator req)
         client-defs (-> req :body :schema)
         check-types? (-> req :body :check_types)
         background-updates? (-> req :body :supports_background_updates)
@@ -264,6 +307,8 @@
 
 (defroutes routes
   (GET "/superadmin/apps" [] apps-list-get)
+  (GET "/superadmin/orgs" [] orgs-list-get)
+  (GET "/superadmin/orgs/:org_id/apps" [] orgs-list-apps-get)
   (POST "/superadmin/apps" [] apps-create-post)
   (GET "/superadmin/apps/:app_id" [] app-details-get)
   (POST "/superadmin/apps/:app_id" [] app-update-post)
