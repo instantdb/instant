@@ -18,6 +18,7 @@ type ApiOrgResponse = {
   id: string;
   apps: InstantApp[];
   org: {
+    id: string;
     title: string;
     created_at: string;
     updated_at: string;
