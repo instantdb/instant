@@ -236,7 +236,7 @@ export function Email({ app }: { app: InstantApp }) {
       </div>
 
       {verification && (
-        <div className="flex flex-col gap-2 border p-3 bg-gray-50 rounded">
+        <div className="flex flex-col gap-2 dark:bg-neutral-800 dark:border-neutral-700 border p-3 bg-gray-50 rounded">
           <div className="flex items-center justify-between">
             <SubsectionHeading>
               Verify {verification.EmailAddress}
@@ -251,7 +251,7 @@ export function Email({ app }: { app: InstantApp }) {
             </Button>
           </div>
 
-          <div className="border rounded-lg p-4 bg-white">
+          <div className="border rounded p-4 dark:bg-neutral-700/60 dark:border-neutral-700 bg-white">
             <div className="flex items-center justify-between mb-2">
               <div className="font-medium text-sm">Email Confirmation</div>
               <div className="flex items-center gap-2">
@@ -264,7 +264,7 @@ export function Email({ app }: { app: InstantApp }) {
                     Confirmed
                   </div>
                 ) : (
-                  <div className="text-gray-500 text-xs">
+                  <div className="text-gray-500 dark:text-neutral-400 text-xs">
                     Pending confirmation
                   </div>
                 )}
@@ -278,7 +278,7 @@ export function Email({ app }: { app: InstantApp }) {
           </div>
 
           {/* Domain Verification */}
-          <div className="border rounded-lg p-4 bg-white">
+          <div className="border rounded p-4 dark:border-neutral-700 dark:bg-neutral-700/60 bg-white">
             <div className="flex items-center justify-between mb-2">
               <div className="font-medium text-sm">
                 Bonus: Domain Verification
@@ -290,27 +290,33 @@ export function Email({ app }: { app: InstantApp }) {
               filters.
             </Content>
 
-            <div className="border rounded-lg overflow-hidden mb-3">
-              <div className="grid grid-cols-[1fr_80px_2fr] bg-gray-50 border-b text-sm font-medium text-gray-700 px-4 py-3">
+            <div className="border dark:border-neutral-600 rounded overflow-hidden mb-3">
+              <div className="grid grid-cols-[1fr_80px_2fr] dark:bg-neutral-600/50 dark:text-white dark:border-b-neutral-600 bg-gray-50 border-b text-sm font-medium text-gray-700 px-4 py-3">
                 <div>Record</div>
                 <div>Type</div>
                 <div>Value</div>
               </div>
-              <div className="grid grid-cols-[1fr_80px_2fr] border-b px-4 py-3 text-sm">
+              <div className="grid grid-cols-[1fr_80px_2fr] border-b dark:border-b-neutral-600 px-4 py-3 text-sm">
                 <div className="flex gap-3">
                   <div className="font-medium">DKIM</div>
                 </div>
-                <div className="flex text-gray-600 text-sm">TXT</div>
+                <div className="flex text-gray-600 dark:text-gray-400 text-sm">
+                  TXT
+                </div>
                 <div className="flex flex-col gap-2">
                   <div>
-                    <div className="text-xs text-gray-600 mb-1">Hostname:</div>
-                    <code className="text-xs bg-gray-100 px-2 py-1 rounded break-all select-all block">
+                    <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">
+                      Hostname:
+                    </div>
+                    <code className="text-xs bg-gray-100 dark:bg-neutral-700 px-2 py-1 rounded break-all select-all block">
                       {verification.DKIMPendingHost || verification.DKIMHost}
                     </code>
                   </div>
                   <div>
-                    <div className="text-xs text-gray-600 mb-1">Value:</div>
-                    <code className="text-xs bg-gray-100 px-2 py-1 rounded break-all select-all block">
+                    <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">
+                      Value:
+                    </div>
+                    <code className="text-xs bg-gray-100 dark:bg-neutral-700 px-2 py-1 rounded break-all select-all block">
                       {verification.DKIMPendingTextValue ||
                         verification.DKIMTextValue}
                     </code>
@@ -321,19 +327,23 @@ export function Email({ app }: { app: InstantApp }) {
                 <div className="flex items-center gap-3">
                   <div className="font-medium">Return-Path</div>
                 </div>
-                <div className="flex items-center text-gray-600 text-sm">
+                <div className="flex items-center text-gray-600 dark:text-neutral-400 text-sm">
                   CNAME
                 </div>
                 <div className="flex flex-col gap-2">
                   <div>
-                    <div className="text-xs text-gray-600 mb-1">Hostname:</div>
-                    <code className="text-xs bg-gray-100 px-2 py-1 rounded break-all select-all block">
+                    <div className="text-xs text-gray-600 dark:text-neutral-400 mb-1">
+                      Hostname:
+                    </div>
+                    <code className="text-xs bg-gray-100 dark:bg-neutral-700 px-2 py-1 rounded break-all select-all block">
                       {verification.ReturnPathDomain}
                     </code>
                   </div>
                   <div>
-                    <div className="text-xs text-gray-600 mb-1">Value:</div>
-                    <code className="text-xs bg-gray-100 px-2 py-1 rounded break-all select-all block">
+                    <div className="text-xs text-gray-600 dark:text-neutral-400 mb-1">
+                      Value:
+                    </div>
+                    <code className="text-xs bg-gray-100 dark:bg-neutral-700 px-2 py-1 rounded break-all select-all block">
                       {verification.ReturnPathDomainCNAMEValue}
                     </code>
                   </div>
