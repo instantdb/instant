@@ -105,7 +105,7 @@ export function ToggleCollection({
             className={clsx(
               'block cursor-pointer truncate whitespace-nowrap rounded bg-none px-3 py-1 dark:hover:bg-neutral-700/80 dark:bg-neutral-800/40 text-left hover:bg-gray-100 disabled:text-gray-400',
               {
-                'bg-gray-200 dark:bg-neutral-500/50': selectedId === a.id,
+                'bg-gray-200 dark:bg-neutral-400/40': selectedId === a.id,
               },
               buttonClassName,
             )}

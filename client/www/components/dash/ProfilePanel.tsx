@@ -52,7 +52,7 @@ export const ProfilePanel = () => {
             <PopoverButton>
               <div
                 className={clsx(
-                  'flex gap-9 items-center justify-between dark:data-[focus]:outline-neutral-400 basis-[35%] truncate text-sm rounded-sm dark:border-neutral-700 border border-gray-300 py-1',
+                  'flex gap-9 items-center justify-between dark:data-[focus]:outline-neutral-400 basis-[35%] truncate text-sm rounded-sm dark:border-neutral-700 dark:bg-neutral-700/40 border border-gray-300 py-1',
                   'px-2 text-sm/6',
                   'focus:outline-none data-[focus]:outline-2 data-[focus]:-outline-offset-2 data-[focus]:outline-white/25',
                 )}

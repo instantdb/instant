@@ -81,7 +81,7 @@ export function Invites() {
             </div>
           ))
         ) : (
-          <Content className="text-gray-400 italic">
+          <Content className="text-gray-400 dark:text-netural-400 italic">
             You have no pending invites.
           </Content>
         )}

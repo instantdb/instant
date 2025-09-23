@@ -778,9 +778,9 @@ function AppCombobox({
         <ComboboxInput
           ref={comboboxInputRef}
           className={clsx(
-            'basis-[35%] w-full !min-w-0 md:w-full md:basis-full truncate dark:bg-neutral-800 dark:border-neutral-700 text-sm rounded-sm border-gray-300 py-1',
+            'basis-[35%] w-full !min-w-0 md:w-full md:basis-full truncate dark:bg-neutral-700/40 dark:border-neutral-700 text-sm rounded-sm border-gray-300 py-1',
             'pr-8 pl-3 text-sm/6',
-            'focus:outline-none data-[focus]:outline-2 data-[focus]:-outline-offset-2 data-[focus]:outline-white/25',
+            'focus:outline-none ring-0 data-[focus]:outline-2 data-[focus]:-outline-offset-2 data-[focus]:outline-white/25',
           )}
           displayValue={(app: InstantApp | null) => (app ? app.title : '')}
           onChange={(e) => setAppQuery(e.target.value)}
