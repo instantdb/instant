@@ -656,7 +656,7 @@ const TransferApp = ({ app }: { app: InstantApp }) => {
       if (resp.credit < 0) {
         successToast(
           `${org.title} received a ${formatCredit(resp.credit)} credit for the app's unused balance.`,
-          { delay: 10000 },
+          { autoClose: 10000 },
         );
       }
       dash.setWorkspace(org.id);
@@ -707,7 +707,7 @@ const TransferApp = ({ app }: { app: InstantApp }) => {
                 );
               }}
             >
-              Transfer
+              Transfer{isLoading ? 'ing...' : ''}
             </Button>
           </div>
         </Dialog>
