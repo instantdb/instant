@@ -3,7 +3,8 @@ import { ReactNode, createContext, useContext } from 'react';
 export function createInitializedContext<
   Name extends string,
   T extends { ready: boolean; error?: any },
->(name: Name, cb: () => T) {
+  InitArgs = undefined,
+>(name: Name, cb: (args: InitArgs | undefined) => T) {
   const ctx = createContext<T | undefined>(undefined);
 
   return {
@@ -16,15 +17,17 @@ export function createInitializedContext<
       children,
       loading,
       error,
+      init,
     }: {
       children: ReactNode;
       loading?: ReactNode;
-      error?: ReactNode;
+      error?: (error: any) => ReactNode;
+      init?: InitArgs;
     }) => {
-      const value = cb();
+      const value = cb(init);
 
       if (value.error && error) {
-        return <>{error}</>;
+        return <>{error(value.error)}</>;
       }
 
       if (!value.ready && loading) {

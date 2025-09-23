@@ -127,8 +127,8 @@ export function Schema({ attrs }: { attrs: Record<string, DBAttr> | null }) {
         </p>
       </div>
       <div className="flex w-full flex-1 flex-col justify-start">
-        <div className="flex items-center justify-between gap-4 border-b px-4 py-2 dark:border-b-neutral-600 dark:bg-neutral-800">
-          <div className="font-mono text-sm font-[600]">instant.schema.ts</div>
+        <div className="flex items-center justify-between gap-4 border-b bg-gray-50 px-4 py-2 dark:border-b-neutral-600 dark:bg-neutral-800">
+          <div className="font-mono text-sm">instant.schema.ts</div>
 
           <div className="flex items-center gap-2">
             <Label>Package</Label>

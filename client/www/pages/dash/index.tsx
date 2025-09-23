@@ -196,7 +196,7 @@ const getInitialApp = (apps: InstantApp[], workspaceId: string) => {
 
 const roleIndexed: Role[] = ['collaborator', 'admin', 'owner'];
 
-const getRole = (
+export const getRole = (
   dataFromDash: ReturnType<typeof useFetchedDash>['data'],
   app: InstantApp,
 ): Role => {
