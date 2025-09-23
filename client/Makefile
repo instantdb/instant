@@ -3,7 +3,7 @@ MAKE = make $(MAKEFLAGS)
 
 dev:
 	@echo "Booting up frontend..."
-	pnpm run dev --ui tui
+	pnpm run dev --ui tui $(filter --filter%,$(MAKECMDGOALS))
 
 lint:
 	pnpm run check-format
