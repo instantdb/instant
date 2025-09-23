@@ -1110,10 +1110,12 @@ export function JSONEditor(props: {
   }, [monacoInstance, props.schema]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-2 dark:bg-[#1E1E1E]">
-      <div className="flex items-center gap-4 border-b px-4 py-2 dark:border-b-neutral-700">
+    <div className="flex h-full min-h-0 flex-col bg-gray-50 dark:bg-[#252525]">
+      <div className="flex items-center justify-between gap-4 border-b px-4 py-2 dark:border-b-neutral-700">
         <div className="font-mono">{props.label}</div>
-        <Button onClick={() => props.onSave(draft)}>Save</Button>
+        <Button size="mini" onClick={() => props.onSave(draft)}>
+          Save
+        </Button>
       </div>
       <div className="min-h-0 flex-grow">
         <CodeEditor
