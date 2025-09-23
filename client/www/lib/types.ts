@@ -109,6 +109,14 @@ export type InstantIndexingJob = {
   invalid_triples_sample: InstantIndexingJobInvalidTriple[] | null | undefined;
 };
 
+export type OrgSummary = {
+  id: string;
+  title: string;
+  created_at: string;
+  role: 'owner' | 'admin' | 'collaborator' | 'app-member';
+  paid: boolean;
+};
+
 export type DashResponse = {
   apps: InstantApp[];
   invites?: InstantMemberInvite[];
@@ -116,13 +124,7 @@ export type DashResponse = {
     email: string;
     id: string;
   };
-  orgs?: {
-    id: string;
-    title: string;
-    created_at: string;
-    role: 'owner' | 'admin' | 'collaborator' | 'app-member';
-    paid: boolean;
-  }[];
+  orgs?: OrgSummary[];
 };
 
 export type AppError = { body: { message: string } | undefined };
