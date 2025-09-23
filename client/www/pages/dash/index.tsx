@@ -31,6 +31,7 @@ import { TokenContext } from '@/lib/contexts';
 import { jsonFetch, jsonMutate } from '@/lib/fetch';
 import { successToast } from '@/lib/toast';
 import { InstantApp, SchemaNamespace } from '@/lib/types';
+import { titleComparator } from '@/lib/app';
 
 import { Explorer } from '@/components/dash/explorer/Explorer';
 import { Perms } from '@/components/dash/Perms';
@@ -731,13 +732,6 @@ function ExplorerTab({
   );
 }
 
-function compareAppTitles(a: InstantApp, b: InstantApp): number {
-  return a.title.localeCompare(b.title, undefined, {
-    sensitivity: 'base',
-    numeric: true,
-  });
-}
-
 function AppCombobox({
   apps,
   appId,
@@ -758,7 +752,7 @@ function AppCombobox({
     ? apps.filter((a) => a.title.toLowerCase().includes(appQuery))
     : apps;
 
-  const sortedApps = filteredApps.toSorted(compareAppTitles);
+  const sortedApps = filteredApps.toSorted(titleComparator);
 
   return (
     <Combobox
