@@ -126,9 +126,15 @@ function PaidTable({ data }: { data: any }) {
             </th>
             <th
               className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm uppercase font-medium cursor-pointer hover:bg-gray-100"
-              onClick={() => handleSort('app_title')}
+              onClick={() => handleSort('type')}
             >
-              App Title{getSortIndicator('app_title')}
+              Type{getSortIndicator('type')}
+            </th>
+            <th
+              className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm uppercase font-medium cursor-pointer hover:bg-gray-100"
+              onClick={() => handleSort('title')}
+            >
+              Title{getSortIndicator('title')}
             </th>
             <th
               className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm uppercase font-medium cursor-pointer hover:bg-gray-100"
@@ -162,8 +168,9 @@ function PaidTable({ data }: { data: any }) {
               <td className="py-2 px-4 border-b border-gray-200">
                 {row.user_email}
               </td>
+              <td className="py-2 px-4 border-b border-gray-200">{row.type}</td>
               <td className="py-2 px-4 border-b border-gray-200">
-                {row.app_title}
+                {row.title}
               </td>
               <td className="py-2 px-4 border-b border-gray-200">
                 <span className="ml-2">{formatMoney(row.monthly_revenue)}</span>
