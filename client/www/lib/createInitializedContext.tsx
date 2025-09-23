@@ -21,13 +21,13 @@ export function createInitializedContext<
     }: {
       children: ReactNode;
       loading?: ReactNode;
-      error?: ReactNode;
+      error?: (error: any) => ReactNode;
       init?: InitArgs;
     }) => {
       const value = cb(init);
 
       if (value.error && error) {
-        return <>{error}</>;
+        return <>{error(value.error)}</>;
       }
 
       if (!value.ready && loading) {

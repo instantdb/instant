@@ -167,7 +167,11 @@ export const MainDashLayout: React.FC<{
       <StyledToastContainer theme={darkMode ? 'dark' : 'light'} />
       <DashFetchProvider
         loading={<FullscreenLoading />}
-        error={<FullscreenErrorMessage message={'An error occurred.'} />}
+        error={(error) => (
+          <FullscreenErrorMessage
+            message={`An error occurred. ${error.message}`}
+          />
+        )}
       >
         <div
           className={cn('flex h-full w-full flex-col', darkMode ? 'dark' : '')}

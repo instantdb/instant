@@ -26,7 +26,6 @@ import {
 import Auth from '@/components/dash/Auth';
 import { FullscreenErrorMessage, getRole, isMinRole } from '@/pages/dash/index';
 import { TrashIcon, XMarkIcon } from '@heroicons/react/24/solid';
-import { CachedAPIResponse, useDashFetch } from '@/lib/hooks/useDashFetch';
 import { asClientOnlyPage, useReadyRouter } from '@/components/clientOnlyPage';
 import {
   DashFetchProvider,
@@ -125,11 +124,46 @@ function DevtoolComp() {
             <FullscreenLoading />
           </DevtoolWindow>
         }
-        error={
-          <DevtoolWindow>
-            <FullscreenErrorMessage message={'An error occurred.'} />
-          </DevtoolWindow>
-        }
+        error={(error) => {
+          const message = error?.message;
+          return (
+            <DevtoolWindow>
+              <div className="flex h-full w-full items-center justify-center">
+                <div className="mx-auto max-w-md space-y-4">
+                  <ScreenHeading>🤕 Failed to load your app</ScreenHeading>
+                  {message ? (
+                    <div className="mx-auto flex w-full max-w-2xl flex-col">
+                      <div className="rounded bg-red-100 p-4 text-red-700">
+                        {message}
+                      </div>
+                    </div>
+                  ) : null}
+                  <p>
+                    We had some trouble loading your app. Please ping us on{' '}
+                    <a
+                      className="font-bold text-blue-500"
+                      href="https://discord.com/invite/VU53p7uQcE"
+                      target="_blank"
+                    >
+                      discord
+                    </a>{' '}
+                    with details.
+                  </p>
+                  <Button
+                    className="w-full"
+                    size="mini"
+                    variant="secondary"
+                    onClick={() => {
+                      signOut();
+                    }}
+                  >
+                    Sign out
+                  </Button>
+                </div>
+              </div>
+            </DevtoolWindow>
+          );
+        }}
         init={{ workspaceId }}
       >
         <DevtoolAuthorized appId={appId} />
@@ -140,51 +174,6 @@ function DevtoolComp() {
 
 function DevtoolAuthorized({ appId }: { appId: string }) {
   const dashResponse = useFetchedDash();
-
-  if (dashResponse.error) {
-    const message = dashResponse.error.message;
-    return (
-      <DevtoolWindow>
-        <div className="flex h-full w-full items-center justify-center">
-          <div className="mx-auto max-w-md space-y-4">
-            <ScreenHeading>🤕 Failed to load your app</ScreenHeading>
-            {message ? (
-              <div className="mx-auto flex w-full max-w-2xl flex-col">
-                <div className="rounded bg-red-100 p-4 text-red-700">
-                  {message}
-                </div>
-              </div>
-            ) : null}
-            <p>
-              We had some trouble loading your app. Please ping us on{' '}
-              <a
-                className="font-bold text-blue-500"
-                href="https://discord.com/invite/VU53p7uQcE"
-                target="_blank"
-              >
-                discord
-              </a>{' '}
-              with details.
-            </p>
-            <Button
-              className="w-full"
-              size="mini"
-              variant="secondary"
-              onClick={() => {
-                signOut();
-              }}
-            >
-              Sign out
-            </Button>
-          </div>
-        </div>
-      </DevtoolWindow>
-    );
-  }
-
-  if (!dashResponse.ready) {
-    return <FullscreenLoading />;
-  }
 
   return <DevtoolWithData dashResponse={dashResponse} appId={appId} />;
 }
