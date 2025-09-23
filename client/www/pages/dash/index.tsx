@@ -751,6 +751,13 @@ function AppCombobox({
     ? apps.filter((a) => a.title.toLowerCase().includes(appQuery))
     : apps;
 
+  const sortedApps = filteredApps.toSorted((a, b) =>
+    a.title.localeCompare(b.title, undefined, {
+      sensitivity: 'base',
+      numeric: true,
+    }),
+  );
+
   return (
     <Combobox
       immediate={true}
@@ -789,16 +796,16 @@ function AppCombobox({
         anchor="bottom"
         transition
         className={clsx(
-          'md:min-w-[var(--input-width)] bg-white shadow-lg border border-gray-300 divide-y empty:invisible z-50',
-          'border p-1 mx-2 my-1 [--anchor-gap:var(--spacing-1)] ',
+          'md:min-w-[var(--input-width)] bg-white shadow-lg border border-gray-300 empty:invisible z-50',
+          'border mx-2 my-1 [--anchor-gap:var(--spacing-1)] ',
           'transition duration-100 ease-in data-[leave]:data-[closed]:opacity-0',
         )}
       >
-        {filteredApps.map((app) => (
+        {sortedApps.map((app) => (
           <ComboboxOption
             key={app.id}
             value={app}
-            className="group cursor-pointer px-3 py-1 data-[focus]:bg-blue-100"
+            className="group cursor-pointer px-3 py-2 text-sm data-[focus]:bg-gray-100"
           >
             <div className="">{app.title}</div>
           </ComboboxOption>
