@@ -24,7 +24,7 @@ import {
   FullscreenLoading,
 } from '@/components/ui';
 import Auth from '@/components/dash/Auth';
-import { FullscreenErrorMessage, isMinRole } from '@/pages/dash/index';
+import { FullscreenErrorMessage, getRole, isMinRole } from '@/pages/dash/index';
 import { TrashIcon, XMarkIcon } from '@heroicons/react/24/solid';
 import { CachedAPIResponse, useDashFetch } from '@/lib/hooks/useDashFetch';
 import { asClientOnlyPage, useReadyRouter } from '@/components/clientOnlyPage';
@@ -525,9 +525,11 @@ function Admin({
   const [clearAppOk, updateClearAppOk] = useState(false);
   const clearDialog = useDialog();
 
+  const role = getRole(dashResponse.data, app);
+
   return (
     <Stack className="max-w-sm gap-2 text-sm">
-      {isMinRole('owner', app.user_app_role) ? (
+      {isMinRole('owner', role) ? (
         <div className="space-y-2">
           <SectionHeading>Danger zone</SectionHeading>
           <Content>
