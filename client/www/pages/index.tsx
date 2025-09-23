@@ -45,14 +45,12 @@ function Switch({
     <HeadlessSwitch
       checked={enabled}
       onChange={onChange}
-      className={`${enabled ? 'bg-emerald-500' : 'bg-gray-600'}
-          relative inline-flex h-[19px] w-[37px] shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2  focus-visible:ring-white/75`}
+      className={`${enabled ? 'bg-emerald-500' : 'bg-gray-600'} relative inline-flex h-[19px] w-[37px] shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-white/75`}
     >
       <span className="sr-only">Use setting</span>
       <span
         aria-hidden="true"
-        className={`${enabled ? 'translate-x-[18px]' : 'translate-x-0'}
-            pointer-events-none inline-block h-[15px] w-[15px] transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out`}
+        className={`${enabled ? 'translate-x-[18px]' : 'translate-x-0'} pointer-events-none inline-block h-[15px] w-[15px] transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out`}
       />
     </HeadlessSwitch>
   );
@@ -100,12 +98,12 @@ function CreateInstantApp() {
         setTimeout(() => setShowCopySuccess(false), 2000);
       }}
     >
-      <div className="relative bg-transparent border border-black font-mono text-lg cursor-pointer hover:bg-gray-50/30 transition-colors inline-flex items-center px-4 py-2 w-full">
+      <div className="relative inline-flex w-full cursor-pointer items-center border border-black bg-transparent px-4 py-2 font-mono text-lg transition-colors hover:bg-gray-50/30">
         <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-800 transition-colors">
           {showCopySuccess ? (
-            <CheckIcon className="w-5 h-5 text-orange-600" />
+            <CheckIcon className="h-5 w-5 text-orange-600" />
           ) : (
-            <ClipboardDocumentIcon className="w-5 h-5" />
+            <ClipboardDocumentIcon className="h-5 w-5" />
           )}
         </div>
         $ {command}
@@ -122,7 +120,7 @@ function LandingHero() {
           <div className="flex flex-1 flex-col gap-6">
             <H2>Write your frontend and we handle the rest</H2>
             <div className="mb-2 max-w-md">
-              <p className="text-gray-800 mb-4">
+              <p className="mb-4 text-gray-800">
                 Instant is the easy to use backend for your frontend. With
                 Instant you can build delightful apps in less than 10 minutes.
               </p>
@@ -180,21 +178,21 @@ function LandingProblemStatement() {
               </p>
               <p>
                 Here we implement chat using three functions:{' '}
-                <code className="font-mono text-orange-600 text-sm">
+                <code className="font-mono text-sm text-orange-600">
                   `init`
                 </code>
                 ,{' '}
-                <code className="font-mono text-orange-600 text-sm">
+                <code className="font-mono text-sm text-orange-600">
                   `useQuery`
                 </code>
                 , and{' '}
-                <code className="font-mono text-orange-600 text-sm">
+                <code className="font-mono text-sm text-orange-600">
                   `transact`
                 </code>
               </p>
             </div>
             <div className="flex flex-1 flex-col gap-4">
-              <div className="overflow-auto rounded border bg-prism font-mono text-sm">
+              <div className="bg-prism overflow-auto rounded border font-mono text-sm">
                 <Fence language="javascript" code={queryExampleComponentCode} />
               </div>
             </div>
@@ -238,7 +236,7 @@ function LandingMulti() {
           <div className="md:mx-auto md:max-w-md md:text-center">
             <H3>Built for humans and agents</H3>
           </div>
-          <div className="md:mx-auto md:max-w-2xl md:text-left space-y-2">
+          <div className="space-y-2 md:mx-auto md:max-w-2xl md:text-left">
             <p>
               When we started building Instant we wanted something great for
               builders. We wanted to offer a generous free tier where projects
@@ -291,9 +289,9 @@ const ThemedTab = ({
     <Tab
       className={({ selected }) =>
         clsx(
-          'relative z-10 translate-x-1 px-5 py-2 last:translate-x-0 outline-none',
+          'relative z-10 translate-x-1 px-5 py-2 outline-none last:translate-x-0',
           className,
-          selected ? 'z-20 bg-prism-dark' : 'bg-prism',
+          selected ? 'bg-prism-dark z-20' : 'bg-prism',
         )
       }
     >
@@ -342,7 +340,7 @@ function LandingCoreFeatures() {
                   </Tab.List>
                   <Tab.Panels>
                     <Tab.Panel>
-                      <div className="h-80 overflow-auto rounded border bg-prism text-sm">
+                      <div className="bg-prism h-80 overflow-auto rounded border text-sm">
                         <Fence
                           language="javascript"
                           code={mutationExampleCode}
@@ -350,7 +348,7 @@ function LandingCoreFeatures() {
                       </div>
                     </Tab.Panel>
                     <Tab.Panel>
-                      <div className="h-80 overflow-auto rounded border bg-prism text-sm">
+                      <div className="bg-prism h-80 overflow-auto rounded border text-sm">
                         <Fence
                           language="javascript"
                           code={mutationWithoutInstantExampleCode}
@@ -377,7 +375,7 @@ function LandingCoreFeatures() {
                 transactions, and updates relevant queries.
               </p>
             </div>
-            <div className="flex-1 shrink-0 basis-1/2 flex gap-2 flex-col">
+            <div className="flex flex-1 shrink-0 basis-1/2 flex-col gap-2">
               <ExampleMultiPreview
                 appId={appId}
                 pathName="5-reactions"
@@ -445,7 +443,7 @@ function Testimonial({
 
 function LandingTestimonials() {
   return (
-    <div className="hiddenscrollbar flex my-16 overflow-auto mx-8 xl:justify-center ">
+    <div className="hiddenscrollbar mx-8 my-16 flex overflow-auto xl:justify-center">
       <div className="hiddenscrollbar flex gap-12 xl:grid xl:grid-cols-3">
         {testimonials.map((t) => (
           <Testimonial key={t.person} {...t} />
@@ -522,7 +520,7 @@ function LandingTeam() {
 const SeeTheCodeButton = ({ href }: { href: string }) => (
   <Link
     href={href}
-    className="flex items-center text-sm rounded-full border bg-white backdrop-blur-lg px-2.5 py-0.5 gap-1 hover:bg-gray-50 shadow"
+    className="flex items-center gap-1 rounded-full border bg-white px-2.5 py-0.5 text-sm shadow backdrop-blur-lg hover:bg-gray-50"
   >
     See the code <ChevronRightIcon height="1rem" />
   </Link>
@@ -578,7 +576,7 @@ function LandingOfflineGraphic() {
             onChangeOnline(!state.online);
           }}
           className={clsx(
-            'flex w-36 items-center space-x-2 rounded px-2 py-2 shadow-sm transition-colors cursor-pointer',
+            'flex w-36 cursor-pointer items-center space-x-2 rounded px-2 py-2 shadow-sm transition-colors',
             state.online
               ? 'bg-emerald-500/10 text-emerald-700'
               : 'bg-gray-500/20 text-gray-900',
@@ -682,14 +680,14 @@ export function ExampleMultiPreview({
       {Array(numViews)
         .fill(null)
         .map((_, i) => (
-          <div key={i} className="flex h-36 bg-white rounded border shadow-sm">
+          <div key={i} className="flex h-36 rounded border bg-white shadow-sm">
             {appId ? (
               <iframe
                 className="flex-1"
                 src={'/examples/' + pathName + '?__appId=' + appId}
               />
             ) : (
-              <div className="flex-1 animate-slow-pulse bg-gray-300"></div>
+              <div className="animate-slow-pulse flex-1 bg-gray-300"></div>
             )}
           </div>
         ))}

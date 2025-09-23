@@ -30,7 +30,7 @@ export default function InstantAvatarStack() {
   });
 
   return (
-    <div className="flex h-screen justify-center items-center">
+    <div className="flex h-screen items-center justify-center">
       {presence.user ? (
         <Avatar
           key={'user'}
@@ -55,7 +55,7 @@ function Avatar({ name, color }: { name: string; color: string }) {
       }}
     >
       {name?.slice(0, 1)}
-      <div className="hidden group-hover:flex absolute z-10 bottom-10 text-sm text-gray-800 bg-gray-200 rounded px-2">
+      <div className="absolute bottom-10 z-10 hidden rounded bg-gray-200 px-2 text-sm text-gray-800 group-hover:flex">
         {name}
       </div>
     </div>

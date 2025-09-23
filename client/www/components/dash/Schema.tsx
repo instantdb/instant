@@ -97,8 +97,8 @@ export function Schema({ attrs }: { attrs: Record<string, DBAttr> | null }) {
   };
 
   return (
-    <div className="flex flex-1 flex-col lg:flex-row min-h-0">
-      <div className="flex flex-col gap-4 dark:border-r-neutral-600 border-r p-4 text-sm lg:basis-96 md:text-base min-h-0">
+    <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+      <div className="flex min-h-0 flex-col gap-4 border-r p-4 text-sm dark:border-r-neutral-600 md:text-base lg:basis-96">
         <SectionHeading>Schema</SectionHeading>
         <p>This is the schema for your app in code form.</p>
         <p>
@@ -107,7 +107,7 @@ export function Schema({ attrs }: { attrs: Record<string, DBAttr> | null }) {
           changes to your schema:
         </p>
         <p>
-          <div className="border dark:bg-neutral-800 dark:border-neutral-600 bg-white rounded text-sm overflow-auto">
+          <div className="overflow-auto rounded border bg-white text-sm dark:border-neutral-600 dark:bg-neutral-800">
             <Fence
               copyable
               code={`npx instant-cli@latest pull`}
@@ -117,7 +117,7 @@ export function Schema({ attrs }: { attrs: Record<string, DBAttr> | null }) {
         </p>
         <p>
           <a
-            className="underline flex gap-1 items-baseline"
+            className="flex items-baseline gap-1 underline"
             target="_blank"
             href="https://www.instantdb.com/docs/modeling-data#schema-as-code"
           >
@@ -127,10 +127,10 @@ export function Schema({ attrs }: { attrs: Record<string, DBAttr> | null }) {
         </p>
       </div>
       <div className="flex w-full flex-1 flex-col justify-start">
-        <div className="flex items-center justify-between dark:bg-neutral-800 gap-4 dark:border-b-neutral-600 border-b px-4 py-2">
+        <div className="flex items-center justify-between gap-4 border-b px-4 py-2 dark:border-b-neutral-600 dark:bg-neutral-800">
           <div className="font-mono text-sm font-[600]">instant.schema.ts</div>
 
-          <div className="flex gap-2 items-center">
+          <div className="flex items-center gap-2">
             <Label>Package</Label>
             <Select<Pkg>
               options={[

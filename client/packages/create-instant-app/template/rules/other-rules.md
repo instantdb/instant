@@ -304,7 +304,7 @@ function Login() {
   const [sentEmail, setSentEmail] = useState('');
 
   return (
-    <div className="flex justify-center items-center min-h-screen">
+    <div className="flex min-h-screen items-center justify-center">
       <div className="max-w-sm">
         {!sentEmail ? (
           <EmailStep onSendEmail={setSentEmail} />
@@ -345,14 +345,14 @@ function EmailStep({ onSendEmail }: { onSendEmail: (email: string) => void }) {
       <input
         ref={inputRef}
         type="email"
-        className="border border-gray-300 px-3 py-1  w-full"
+        className="w-full border border-gray-300 px-3 py-1"
         placeholder="Enter your email"
         required
         autoFocus
       />
       <button
         type="submit"
-        className="px-3 py-1 bg-blue-600 text-white font-bold hover:bg-blue-700 w-full"
+        className="w-full bg-blue-600 px-3 py-1 font-bold text-white hover:bg-blue-700"
       >
         Send Code
       </button>
@@ -386,14 +386,14 @@ function CodeStep({ sentEmail }: { sentEmail: string }) {
       <input
         ref={inputRef}
         type="text"
-        className="border border-gray-300 px-3 py-1  w-full"
+        className="w-full border border-gray-300 px-3 py-1"
         placeholder="123456..."
         required
         autoFocus
       />
       <button
         type="submit"
-        className="px-3 py-1 bg-blue-600 text-white font-bold hover:bg-blue-700 w-full"
+        className="w-full bg-blue-600 px-3 py-1 font-bold text-white hover:bg-blue-700"
       >
         Verify Code
       </button>
@@ -443,7 +443,7 @@ function Main() {
     return;
   }
   if (error) {
-    return <div className="text-red-500 p-4">Error: {error.message}</div>;
+    return <div className="p-4 text-red-500">Error: {error.message}</div>;
   }
 
   const loadNextPage = () => {
@@ -456,8 +456,8 @@ function Main() {
 
   return (
     <div className="min-h-screen p-4">
-      <div className="max-w-4xl mx-auto bg-white rounded-lg p-6">
-        <div className="flex justify-between items-start mb-6">
+      <div className="mx-auto max-w-4xl rounded-lg bg-white p-6">
+        <div className="mb-6 flex items-start justify-between">
           <ProfileAvatar />
           <button
             onClick={() => db.auth.signOut()}
@@ -474,12 +474,12 @@ function Main() {
         <div className="space-y-4">
           <PostList posts={posts} />
         </div>
-        <div className="flex justify-between items-center mt-6">
+        <div className="mt-6 flex items-center justify-between">
           <button
             onClick={loadPreviousPage}
             disabled={pageNumber <= 1}
-            className={`px-4 py-2 bg-gray-200 rounded ${
-              pageNumber <= 1 ? 'opacity-50 cursor-not-allowed' : ''
+            className={`rounded bg-gray-200 px-4 py-2 ${
+              pageNumber <= 1 ? 'cursor-not-allowed opacity-50' : ''
             }`}
           >
             Previous
@@ -487,14 +487,14 @@ function Main() {
           <button
             onClick={loadNextPage}
             disabled={posts.length < pageSize}
-            className={`px-4 py-2 bg-gray-200 rounded ${
-              posts.length < pageSize ? 'opacity-50 cursor-not-allowed' : ''
+            className={`rounded bg-gray-200 px-4 py-2 ${
+              posts.length < pageSize ? 'cursor-not-allowed opacity-50' : ''
             }`}
           >
             Next
           </button>
         </div>
-        <div className="text-xs text-gray-500 mt-4 text-center">
+        <div className="mt-4 text-center text-xs text-gray-500">
           {numUsers} user{numUsers > 1 ? 's' : ''} online
         </div>
       </div>
@@ -534,17 +534,17 @@ function ProfileAvatar() {
           <img
             src={profile.avatar.url}
             alt={profile.handle}
-            className="w-16 h-16 rounded-full object-cover border-2 border-gray-800"
+            className="h-16 w-16 rounded-full border-2 border-gray-800 object-cover"
           />
         ) : (
-          <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center text-gray-800 font-bold text-xl border-2 border-gray-800">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-gray-800 bg-white text-xl font-bold text-gray-800">
             {profile.handle[0].toUpperCase()}
           </div>
         )}
 
         {isUploading && (
-          <div className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center">
-            <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black bg-opacity-50">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-white border-t-transparent" />
           </div>
         )}
 
@@ -561,7 +561,7 @@ function ProfileAvatar() {
         <div className="text-sm">email: {user.email}</div>
         <button
           onClick={handleAvatarDelete}
-          className="text-gray-500 text-sm text-left hover:text-gray-700 disabled:text-gray-400"
+          className="text-left text-sm text-gray-500 hover:text-gray-700 disabled:text-gray-400"
           disabled={!profile.avatar || isUploading}
         >
           Delete Avatar
@@ -593,7 +593,7 @@ function PostForm() {
   return (
     <div className="space-y-3">
       <input
-        className="w-full px-4 py-3 border-2 border-gray-800 rounded-lg focus:outline-none focus:border-gray-600"
+        className="w-full rounded-lg border-2 border-gray-800 px-4 py-3 focus:border-gray-600 focus:outline-none"
         autoFocus
         placeholder="What's on your mind?"
         type="text"
@@ -603,13 +603,13 @@ function PostForm() {
       />
       <div className="flex gap-3">
         <button
-          className="px-6 py-2 bg-white border-2 border-gray-800 rounded-full hover:bg-gray-100 font-medium"
+          className="rounded-full border-2 border-gray-800 bg-white px-6 py-2 font-medium hover:bg-gray-100"
           onClick={() => handleSubmit('post')}
         >
           Add to wall
         </button>
         <button
-          className="px-6 py-2 bg-white border-2 border-gray-800 rounded-full hover:bg-gray-100 font-medium"
+          className="rounded-full border-2 border-gray-800 bg-white px-6 py-2 font-medium hover:bg-gray-100"
           onClick={() => handleSubmit('shout')}
         >
           Shout to void
@@ -626,13 +626,13 @@ function PostList({ posts }: { posts: PostsWithProfile[] }) {
       {posts.map((post) => (
         <div
           key={post.id}
-          className="border-2 border-gray-800 rounded-lg p-4 bg-white"
+          className="rounded-lg border-2 border-gray-800 bg-white p-4"
         >
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-gray-800 font-bold border-2 border-gray-800 flex-shrink-0">
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border-2 border-gray-800 bg-white font-bold text-gray-800">
               {post.author?.avatar ? (
                 <img
-                  className="w-full h-full rounded-full object-cover"
+                  className="h-full w-full rounded-full object-cover"
                   src={post.author.avatar.url}
                   alt={post.author.handle}
                 />
@@ -641,7 +641,7 @@ function PostList({ posts }: { posts: PostsWithProfile[] }) {
               )}
             </div>
             <div className="flex-1">
-              <div className="flex justify-between items-start">
+              <div className="flex items-start justify-between">
                 <div>
                   <div className="font-medium">
                     {post.author?.handle || 'Unknown'}
@@ -653,7 +653,7 @@ function PostList({ posts }: { posts: PostsWithProfile[] }) {
                 {post.author?.id === user?.id && (
                   <button
                     onClick={() => deletePost(post.id)}
-                    className="text-gray-400 hover:text-gray-600 text-sm"
+                    className="text-sm text-gray-400 hover:text-gray-600"
                   >
                     ×
                   </button>

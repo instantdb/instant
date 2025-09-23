@@ -127,7 +127,7 @@ export function AppAuth({
   }
 
   return (
-    <div className="flex flex-col p-4 gap-6 max-w-xl">
+    <div className="flex max-w-xl flex-col gap-6 p-4">
       <div className="flex flex-col gap-4">
         <SectionHeading>Google Clients</SectionHeading>
 

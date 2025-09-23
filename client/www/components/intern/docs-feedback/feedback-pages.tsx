@@ -74,14 +74,14 @@ export function FeedbackPages({ onPageClick }: FeedbackPagesProps) {
 
   if (isLoading) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">
+      <div className="rounded-lg bg-white p-6 shadow-md">
+        <h2 className="mb-4 text-xl font-semibold text-gray-900">
           Feedback Pages
         </h2>
         <div className="animate-pulse">
           <div className="space-y-3">
             {[...Array(5)].map((_, i) => (
-              <div key={i} className="bg-gray-200 h-16 rounded"></div>
+              <div key={i} className="h-16 rounded bg-gray-200"></div>
             ))}
           </div>
         </div>
@@ -91,8 +91,8 @@ export function FeedbackPages({ onPageClick }: FeedbackPagesProps) {
 
   if (error) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">
+      <div className="rounded-lg bg-white p-6 shadow-md">
+        <h2 className="mb-4 text-xl font-semibold text-gray-900">
           Feedback Pages
         </h2>
         <div className="text-red-600">
@@ -104,11 +104,11 @@ export function FeedbackPages({ onPageClick }: FeedbackPagesProps) {
 
   if (!pageMetrics.length) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">
+      <div className="rounded-lg bg-white p-6 shadow-md">
+        <h2 className="mb-4 text-xl font-semibold text-gray-900">
           Feedback Pages
         </h2>
-        <div className="text-gray-500 text-center py-8">
+        <div className="py-8 text-center text-gray-500">
           No feedback data available yet
         </div>
       </div>
@@ -116,9 +116,9 @@ export function FeedbackPages({ onPageClick }: FeedbackPagesProps) {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <h2 className="text-xl font-semibold text-gray-900 mb-6">All Pages</h2>
-      <div className="text-sm text-gray-600 mb-4">
+    <div className="rounded-lg bg-white p-6 shadow-md">
+      <h2 className="mb-6 text-xl font-semibold text-gray-900">All Pages</h2>
+      <div className="mb-4 text-sm text-gray-600">
         Pages ranked by priority (low satisfaction + high volume)
       </div>
 
@@ -196,18 +196,18 @@ function PageRow({
 
   return (
     <tr
-      className={`border-b border-gray-100 ${isClickable ? 'hover:bg-gray-50 cursor-pointer' : ''}`}
+      className={`border-b border-gray-100 ${isClickable ? 'cursor-pointer hover:bg-gray-50' : ''}`}
       onClick={() => onClick?.(page.pageId)}
     >
-      <td className="py-3 px-4">
+      <td className="px-4 py-3">
         <div
-          className="font-medium text-gray-900 truncate max-w-xs"
+          className="max-w-xs truncate font-medium text-gray-900"
           title={page.pageId}
         >
           {page.pageId}
         </div>
       </td>
-      <td className="py-3 px-4">
+      <td className="px-4 py-3">
         <div className="flex items-center space-x-2">
           <span
             className={`font-medium ${getSatisfactionColor(page.satisfactionRate)}`}
@@ -215,19 +215,19 @@ function PageRow({
             {page.satisfactionRate.toFixed(1)}%
           </span>
           {page.commentsCount > 0 && (
-            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+            <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-800">
               {page.commentsCount} 💬
             </span>
           )}
         </div>
       </td>
-      <td className="py-3 px-4">
-        <span className="text-gray-900 font-medium">{page.totalFeedback}</span>
+      <td className="px-4 py-3">
+        <span className="font-medium text-gray-900">{page.totalFeedback}</span>
       </td>
-      <td className="py-3 px-4">
+      <td className="px-4 py-3">
         <span className="text-green-600">{page.helpfulCount}</span>
       </td>
-      <td className="py-3 px-4">
+      <td className="px-4 py-3">
         <span className="text-red-600">{page.unhelpfulCount}</span>
       </td>
     </tr>
@@ -251,14 +251,14 @@ function SortableHeader({
 
   return (
     <th
-      className="text-left py-3 px-4 font-medium text-gray-900 cursor-pointer hover:bg-gray-50 select-none"
+      className="cursor-pointer select-none px-4 py-3 text-left font-medium text-gray-900 hover:bg-gray-50"
       onClick={() => onSort(field)}
     >
       <div className="flex items-center space-x-1">
         <span>{children}</span>
         <div className="flex flex-col">
           <svg
-            className={`w-3 h-3 ${isActive && sortDirection === 'asc' ? 'text-gray-900' : 'text-gray-400'}`}
+            className={`h-3 w-3 ${isActive && sortDirection === 'asc' ? 'text-gray-900' : 'text-gray-400'}`}
             fill="currentColor"
             viewBox="0 0 20 20"
           >
@@ -269,7 +269,7 @@ function SortableHeader({
             />
           </svg>
           <svg
-            className={`w-3 h-3 -mt-1 ${isActive && sortDirection === 'desc' ? 'text-gray-900' : 'text-gray-400'}`}
+            className={`-mt-1 h-3 w-3 ${isActive && sortDirection === 'desc' ? 'text-gray-900' : 'text-gray-400'}`}
             fill="currentColor"
             viewBox="0 0 20 20"
           >

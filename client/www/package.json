@@ -8,6 +8,8 @@
     "gen-docs": "pnpm exec tsx scripts/gen-md-docs.ts",
     "gen-rss": "pnpm exec tsx scripts/gen-rss.ts",
     "gen-llm-rules": "pnpm exec tsx scripts/gen-llm-rules.ts",
+    "format": "prettier --write --ignore-path .prettierignore --ignore-path ../.gitignore --ignore-path ../../.gitignore \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "check-format": "prettier --check --ignore-path .prettierignore --ignore-path ../.gitignore --ignore-path ../../.gitignore \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "prebuild": "pnpm gen-llm-rules",
     "postbuild": "pnpm gen-docs && pnpm gen-llms && pnpm gen-rss && next-sitemap",
     "start": "next start",
@@ -90,11 +92,20 @@
     "jest-environment-jsdom": "29.7.0",
     "next-sitemap": "^4.2.3",
     "postcss": "^8.4.5",
-    "prettier-plugin-tailwindcss": "^0.1.1",
+    "prettier": "3.6.2",
+    "prettier-plugin-tailwindcss": "^0.6.14",
     "tailwindcss": "^3.0.7",
     "typescript": "5.5.4"
   },
   "engines": {
     "node": "22.x"
+  },
+  "prettier": {
+    "plugins": [
+      "prettier-plugin-tailwindcss"
+    ],
+    "semi": true,
+    "singleQuote": true,
+    "trailingComma": "all"
   }
 }

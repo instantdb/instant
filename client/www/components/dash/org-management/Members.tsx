@@ -91,7 +91,7 @@ export const Members = () => {
 
   return (
     <div className="">
-      <div className="flex items-end py-2 justify-between">
+      <div className="flex items-end justify-between py-2">
         <SubsectionHeading>Current Members</SubsectionHeading>
         {isMinRole('admin', myRole) && (
           <Tooltip>
@@ -113,17 +113,17 @@ export const Members = () => {
         )}
       </div>
       <InviteToOrgDialog dialog={dialog} />
-      <div className="bg-white dark:bg-neutral-800 dark:border-neutral-700 border dark:divide-neutral-700 rounded-sm divide-y">
+      <div className="divide-y rounded-sm border bg-white dark:divide-neutral-700 dark:border-neutral-700 dark:bg-neutral-800">
         {org.members.map((member) => (
           <div
-            className="p-2 hover:bg-gray-50 dark:hover:bg-neutral-700/40 rounded-sm w-full flex gap-2 justify-between items-center transition-colors"
+            className="flex w-full items-center justify-between gap-2 rounded-sm p-2 transition-colors hover:bg-gray-50 dark:hover:bg-neutral-700/40"
             key={member.id}
           >
-            <div className="flex gap-3 items-center">
+            <div className="flex items-center gap-3">
               {member.email}
               {member.email === myEmail && <Badge>Me</Badge>}
             </div>
-            <div className="flex gap-3 items-center">
+            <div className="flex items-center gap-3">
               <div className="text-sm">{READABLE_ROLES[member.role]}</div>
               <MemberMenu member={member} />
             </div>
@@ -134,14 +134,14 @@ export const Members = () => {
       <div className="mt-6">
         <SubsectionHeading>Pending Invites</SubsectionHeading>
         {invites.length === 0 ? (
-          <div className="w-full text-sm text-center opacity-50 py-8">
+          <div className="w-full py-8 text-center text-sm opacity-50">
             No pending invites
           </div>
         ) : (
-          <div className="bg-white dark:bg-neutral-800 border dark:border-neutral-700 divide-y">
+          <div className="divide-y border bg-white dark:border-neutral-700 dark:bg-neutral-800">
             {invites.map((invite) => (
               <div
-                className="p-2 hover:bg-gray-50 dark:hover:bg-neutral-700/40 w-full flex gap-2 justify-between items-center transition-colors"
+                className="flex w-full items-center justify-between gap-2 p-2 transition-colors hover:bg-gray-50 dark:hover:bg-neutral-700/40"
                 key={invite.id}
               >
                 <div>{invite.email}</div>

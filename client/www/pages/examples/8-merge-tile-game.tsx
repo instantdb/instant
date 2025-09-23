@@ -67,7 +67,7 @@ export default function App() {
           <div className="flex items-center gap-2">
             Me:
             <div
-              className="flex w-8 h-8 rounded-full border border-black"
+              className="flex h-8 w-8 rounded-full border border-black"
               style={{ backgroundColor: myPresence?.color }}
             ></div>
           </div>
@@ -76,7 +76,7 @@ export default function App() {
             {Object.entries(peers).map(([peerId, presence]) => (
               <div
                 key={peerId}
-                className="flex w-8 h-8 rounded-full border border-black"
+                className="flex h-8 w-8 rounded-full border border-black"
                 style={{ backgroundColor: presence.color }}
               ></div>
             ))}
@@ -88,7 +88,7 @@ export default function App() {
               {Array.from({ length: boardSize }).map((sq, c) => (
                 <div
                   key={`idx-${r}-${c}`}
-                  className={`flex justify-center w-12 h-12 text-lg hover:cursor-pointer hover:bg-gray-300 outline outline-black`}
+                  className={`flex h-12 w-12 justify-center text-lg outline outline-black hover:cursor-pointer hover:bg-gray-300`}
                   style={{
                     backgroundColor:
                       hoveredSquare === `${r}-${c}`
@@ -112,7 +112,7 @@ export default function App() {
           ))}
         </div>
         <button
-          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-4 rounded my-4"
+          className="my-4 rounded bg-blue-500 px-4 py-1 font-bold text-white hover:bg-blue-700"
           onClick={() => {
             db.transact([
               db.tx.boards[boardId].update({

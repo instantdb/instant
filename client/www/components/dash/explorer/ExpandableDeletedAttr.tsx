@@ -117,10 +117,10 @@ export const ExpandableDeletedAttr: React.FC<ExpandableDeletedAttrProps> = ({
   return (
     <div>
       <div
-        className="flex justify-between cursor-pointer items-center"
+        className="flex cursor-pointer items-center justify-between"
         onClick={toggleExpanded}
       >
-        <div className="flex gap-3 items-center">
+        <div className="flex items-center gap-3">
           {isExpanded ? (
             <ChevronDownIcon width={14} className="text-gray-400" />
           ) : (
@@ -148,8 +148,8 @@ export const ExpandableDeletedAttr: React.FC<ExpandableDeletedAttrProps> = ({
       </div>
 
       {isExpanded && (
-        <div className="pl-6 pb-3">
-          <table className="w-full text-left font-mono text-xs text-gray-500 mt-2">
+        <div className="pb-3 pl-6">
+          <table className="mt-2 w-full text-left font-mono text-xs text-gray-500">
             <tbody>
               {tableRows.map((row, index) => (
                 <tr
@@ -160,7 +160,7 @@ export const ExpandableDeletedAttr: React.FC<ExpandableDeletedAttrProps> = ({
                       : 'border-b border-gray-200'
                   }
                 >
-                  <td className="py-1 pl-2 pr-4 text-gray-700 font-medium">
+                  <td className="py-1 pl-2 pr-4 font-medium text-gray-700">
                     {row.label}
                   </td>
                   <td className="py-1 text-gray-600">{row.value}</td>

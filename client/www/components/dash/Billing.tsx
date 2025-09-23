@@ -87,10 +87,10 @@ async function createPortalSession(appId: string, token: string) {
 
 export function ProgressBar({ width }: { width: number }) {
   return (
-    <div className="h-1.5 relative overflow-hidden rounded-full dark:bg-neutral-700 bg-neutral-200">
+    <div className="relative h-1.5 overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
       <div
         style={{ width: `${width}%` }}
-        className="absolute top-0 left-0 h-full bg-indigo-500"
+        className="absolute left-0 top-0 h-full bg-indigo-500"
       />
     </div>
   );
@@ -127,7 +127,7 @@ export default function Billing({ appId }: { appId: string }) {
   if (orgIsPaid) {
     return (
       <div className="">
-        <div className="parent p-3 rounded">
+        <div className="parent rounded p-3">
           <div className="p-2">This app is part of a paid organization.</div>
           <Link href={'/dash/org?tab=billing'}>
             <Button>Manage Organization Billing</Button>
@@ -169,19 +169,19 @@ export default function Billing({ appId }: { appId: string }) {
   const progress = Math.round((totalUsageBytes / progressDen) * 100);
 
   return (
-    <div className="flex flex-col p-4 gap-4 max-w-md">
+    <div className="flex max-w-md flex-col gap-4 p-4">
       <SectionHeading>Billing</SectionHeading>
       <div className="flex items-center gap-2">
         <h1 className="font-bold">Current plan</h1>
         {isFreeTier ? (
-          <div className="font-mono dark:border-neutral-600 font-bold rounded border px-2 py-1">
+          <div className="rounded border px-2 py-1 font-mono font-bold dark:border-neutral-600">
             {subscriptionName}
           </div>
         ) : (
           <div style={{ animation: 'wiggle 5s infinite' }}>
             <div
               ref={confettiRef}
-              className="font-mono font-bold rounded border px-2 py-1 transition-all active:scale-90 translate-y-0 hover:-translate-y-1 border-purple-400 dark:border-purple-400/50 dark:bg-purple-800/40 dark:text-purple-100 text-purple-800 bg-purple-100 select-none cursor-pointer"
+              className="translate-y-0 cursor-pointer select-none rounded border border-purple-400 bg-purple-100 px-2 py-1 font-mono font-bold text-purple-800 transition-all hover:-translate-y-1 active:scale-90 dark:border-purple-400/50 dark:bg-purple-800/40 dark:text-purple-100"
               onClick={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
 
@@ -203,20 +203,20 @@ export default function Billing({ appId }: { appId: string }) {
         )}
       </div>
 
-      <div className="flex flex-col dark:bg-neutral-800 dark:border-neutral-700 bg-white gap px-2 pt-1 pb-3 rounded border">
-        <h2 className="flex gap-2 p-2 justify-between">
+      <div className="gap flex flex-col rounded border bg-white px-2 pb-3 pt-1 dark:border-neutral-700 dark:bg-neutral-800">
+        <h2 className="flex justify-between gap-2 p-2">
           <span className="font-bold">Usage</span>{' '}
           <span className="font-mono text-sm">
             {friendlyUsage(totalUsageBytes)} / {friendlyUsage(progressDen)}
           </span>
         </h2>
         <ProgressBar width={progress} />
-        <div className="flex justify-start text-sm pt-3 gap-4 pl-2">
-          <span className="text-sm font-mono dark:text-neutral-400 text-gray-500">
+        <div className="flex justify-start gap-4 pl-2 pt-3 text-sm">
+          <span className="font-mono text-sm text-gray-500 dark:text-neutral-400">
             DB ({friendlyUsage(totalAppBytes)})
           </span>
 
-          <span className="text-sm font-mono dark:text-neutral-400 text-gray-500">
+          <span className="font-mono text-sm text-gray-500 dark:text-neutral-400">
             Storage ({friendlyUsage(totalStorageBytes)})
           </span>
         </div>
@@ -226,7 +226,7 @@ export default function Billing({ appId }: { appId: string }) {
           <Button variant="primary" onClick={onUpgrade}>
             Upgrade to Pro
           </Button>
-          <Content className="italic text-sm dark:bg-purple-500/20 dark:text-white bg-purple-100 text-purple-800 dark:border-purple-500/50 rounded border border-purple-400 px-2 py-1">
+          <Content className="rounded border border-purple-400 bg-purple-100 px-2 py-1 text-sm italic text-purple-800 dark:border-purple-500/50 dark:bg-purple-500/20 dark:text-white">
             Pro offers 10GB of storage, backups, multiple team members for apps,
             and priority support.
           </Content>

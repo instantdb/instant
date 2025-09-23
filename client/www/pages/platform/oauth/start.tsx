@@ -26,7 +26,7 @@ function InvalidRedirect({
     : null;
   return (
     <div className="flex h-full items-center justify-center p-4">
-      <div className="max-w-sm flex flex-col gap-4">
+      <div className="flex max-w-sm flex-col gap-4">
         <span className="inline-flex items-center space-x-2">
           <LogoIcon />
           <span className="font-mono text-sm lowercase text-gray-400">
@@ -40,7 +40,7 @@ function InvalidRedirect({
             your Instant account, but {explanation}.
           </p>
           {instantError ? (
-            <p className="pl-2 border-l-4">{instantError}</p>
+            <p className="border-l-4 pl-2">{instantError}</p>
           ) : null}
           <p>
             Please go back and try again, or ping us on{' '}
@@ -155,17 +155,17 @@ function OAuthForm({ redirectId }: { redirectId: string }) {
 
   return (
     <div className="flex h-full items-center justify-center p-4">
-      <div className="max-w-sm flex flex-col gap-4">
+      <div className="flex max-w-sm flex-col gap-4">
         <span className="inline-flex items-center space-x-2">
           <LogoIcon />
           <span className="font-mono text-sm lowercase text-gray-400">
             Instant
           </span>
         </span>
-        <span className="text-gray-700 italic text-sm">
+        <span className="text-sm italic text-gray-700">
           Logged in as <span className="font-semibold">{data.userEmail}</span>
         </span>
-        <div className="flex flex-row gap-4 items-center">
+        <div className="flex flex-row items-center gap-4">
           <div className="flex h-full">
             <AppLogo app={data} />
           </div>

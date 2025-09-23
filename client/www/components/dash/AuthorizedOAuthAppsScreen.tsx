@@ -137,7 +137,7 @@ export default function OAuthAppsTab({ className }: { className?: string }) {
     }
   };
   return (
-    <div className={cn('flex-1 flex flex-col p-4 max-w-2xl', className)}>
+    <div className={cn('flex max-w-2xl flex-1 flex-col p-4', className)}>
       <div className="flex flex-row items-center gap-4 pb-4">
         <SectionHeading className="font-bold">
           Authorized OAuth Apps
@@ -158,10 +158,10 @@ export default function OAuthAppsTab({ className }: { className?: string }) {
           Account.
         </p>
       </Content>
-      <div className="space-y-4 mt-4">
+      <div className="mt-4 space-y-4">
         {(oAuthApps || []).map(
           ({ id, name, logo, homePage, privacyPolicyLink, tosLink }) => (
-            <div className="flex dark:text-white flex-row gap-4 items-center group">
+            <div className="group flex flex-row items-center gap-4 dark:text-white">
               <div key={id} className="flex h-full">
                 <AppLogo app={{ appLogo: logo, appName: name }} />
               </div>
@@ -211,7 +211,7 @@ export default function OAuthAppsTab({ className }: { className?: string }) {
                 </p>
               </Content>
               <Button
-                className="group-hover:block hidden text-sm ml-4"
+                className="ml-4 hidden text-sm group-hover:block"
                 variant="destructive"
                 onClick={() => handleRevokeAccess({ id, name })}
               >

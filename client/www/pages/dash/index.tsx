@@ -160,7 +160,7 @@ export default Dash;
 Dash.getLayout = function getLayout(page: ReactElement) {
   return (
     <ClientOnly>
-      <MainDashLayout className="bg-gray-100 dark:text-white dark:bg-neutral-800">
+      <MainDashLayout className="bg-gray-100 dark:bg-neutral-800 dark:text-white">
         {page}
       </MainDashLayout>
     </ClientOnly>
@@ -474,9 +474,9 @@ function Dashboard() {
   return (
     <>
       <div className="bg-gray-50 dark:bg-neutral-800/90">
-        <div className="flex md:flex-row flex-col border-b dark:border-b-neutral-700 border-b-gray-300 justify-between md:gap-4 py-2 px-3">
-          <div className="flex gap-2 items-center">
-            <h2 className="font-mono md:text-xl font-bold">{app.title}</h2>
+        <div className="flex flex-col justify-between border-b border-b-gray-300 px-3 py-2 dark:border-b-neutral-700 md:flex-row md:gap-4">
+          <div className="flex items-center gap-2">
+            <h2 className="font-mono font-bold md:text-xl">{app.title}</h2>
             {dashResponse.data.workspace.type === 'org' && (
               <Badge>{capitalize(dashResponse.data.workspace.org.role)}</Badge>
             )}
@@ -492,7 +492,7 @@ function Dashboard() {
           />
         </div>
       </div>
-      <div className="flex grow w-full flex-col overflow-hidden md:flex-row">
+      <div className="flex w-full grow flex-col overflow-hidden md:flex-row">
         <Head>
           <title>Instant - {mainTabIndex.get(tab as MainTabId)?.title}</title>
         </Head>
@@ -520,7 +520,7 @@ function Dashboard() {
                 }}
               />
               <div className="flex flex-1 flex-col overflow-hidden">
-                <div className="flex flex-col flex-1 overflow-y-scroll">
+                <div className="flex flex-1 flex-col overflow-y-scroll">
                   {connection ? (
                     <DashboardContent
                       role={role}
@@ -614,11 +614,11 @@ export function HomeButton({
   return (
     <NextLink
       href={formatRouteParams(href)}
-      className="justify-start p-4 border shadow-sm rounded space-y-2 dark:bg-neutral-800 dark:border-neutral-700 bg-white hover:bg-gray-50 dark:hover:bg-neutral-700/50 transition-colors disabled:text-gray-400 cursor-pointer"
+      className="cursor-pointer justify-start space-y-2 rounded border bg-white p-4 shadow-sm transition-colors hover:bg-gray-50 disabled:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800 dark:hover:bg-neutral-700/50"
     >
       <div>
         <div className="font-mono font-bold">{title}</div>
-        <div className="text-gray-500 dark:text-neutral-400 text-sm">
+        <div className="text-sm text-gray-500 dark:text-neutral-400">
           {children}
         </div>
       </div>
@@ -628,12 +628,12 @@ export function HomeButton({
 
 function Home() {
   return (
-    <div className="text-sm p-4 max-w-2xl mx-auto md:pt-14 md:text-base">
+    <div className="mx-auto max-w-2xl p-4 text-sm md:pt-14 md:text-base">
       <SectionHeading>Getting Started</SectionHeading>
       <div className="pt-1">
         Welcome to Instant! Here are some resources to help you get started.
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 pt-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 pt-4 md:grid-cols-2">
         <HomeButton href="/docs" title="Read the Docs">
           Jump into our docs to start learning how to use Instant.
         </HomeButton>
@@ -686,7 +686,7 @@ function DashboardContent({
         <Schema attrs={schemaData.attrs} />
       ) : tab === 'repl' ? (
         <QueryInspector
-          className="flex-1 w-full"
+          className="w-full flex-1"
           appId={appId}
           db={connection.db}
           namespaces={schemaData.namespaces}
@@ -728,7 +728,7 @@ function ExplorerTab({
   namespaces: SchemaNamespace[] | null;
 }) {
   return (
-    <div className="flex-1 overflow-hidden flex flex-col">
+    <div className="flex flex-1 flex-col overflow-hidden">
       <div className="flex flex-1 flex-col overflow-hidden">
         <Explorer
           db={db}
@@ -783,9 +783,9 @@ function AppCombobox({
         <ComboboxInput
           ref={comboboxInputRef}
           className={clsx(
-            'basis-[35%] w-full !min-w-0 md:w-full md:basis-full truncate dark:bg-neutral-700/40 dark:border-neutral-700 text-sm rounded-sm border-gray-300 py-1',
-            'pr-8 pl-3 text-sm/6',
-            'focus:outline-none ring-0 data-[focus]:outline-2 data-[focus]:-outline-offset-2 data-[focus]:outline-white/25',
+            'w-full !min-w-0 basis-[35%] truncate rounded-sm border-gray-300 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-700/40 md:w-full md:basis-full',
+            'pl-3 pr-8 text-sm/6',
+            'ring-0 focus:outline-none data-[focus]:outline-2 data-[focus]:-outline-offset-2 data-[focus]:outline-white/25',
           )}
           displayValue={(app: InstantApp | null) => (app ? app.title : '')}
           onChange={(e) => setAppQuery(e.target.value)}
@@ -801,8 +801,8 @@ function AppCombobox({
         anchor="bottom"
         transition
         className={clsx(
-          'md:min-w-[var(--input-width)] dark:bg-neutral-800 dark:text-white bg-white dark:border-neutral-700 shadow-lg border border-gray-300 divide-y dark:divide-neutral-600 empty:invisible z-50',
-          'border p-1 mx-2 my-1 [--anchor-gap:var(--spacing-1)] ',
+          'z-50 divide-y border border-gray-300 bg-white shadow-lg empty:invisible dark:divide-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white md:min-w-[var(--input-width)]',
+          'mx-2 my-1 border p-1 [--anchor-gap:var(--spacing-1)]',
           'transition duration-100 ease-in data-[leave]:data-[closed]:opacity-0',
         )}
       >
@@ -810,7 +810,7 @@ function AppCombobox({
           <ComboboxOption
             key={app.id}
             value={app}
-            className="group cursor-pointer px-3 py-1 dark:data-[focus]:bg-neutral-700/80 data-[focus]:bg-gray-100"
+            className="group cursor-pointer px-3 py-1 data-[focus]:bg-gray-100 dark:data-[focus]:bg-neutral-700/80"
           >
             <div className="">{app.title}</div>
           </ComboboxOption>
@@ -836,7 +836,7 @@ function Nav({
 }) {
   const showAppNav = apps;
   return (
-    <div className="flex flex-col gap-2 border-b dark:border-neutral-700/80 border-gray-300 md:w-48 md:gap-0 md:border-b-0 dark:bg-neutral-800/40 md:border-r bg-gray-50">
+    <div className="flex flex-col gap-2 border-b border-gray-300 bg-gray-50 dark:border-neutral-700/80 dark:bg-neutral-800/40 md:w-48 md:gap-0 md:border-b-0 md:border-r">
       {showAppNav ? (
         <>
           {createPortal(
@@ -850,7 +850,7 @@ function Nav({
           )}
         </>
       ) : null}
-      <div className="hidden md:visible md:static flex-row overflow-auto md:flex md:flex-col bg-gray-50 dark:bg-neutral-800/40 h-full">
+      <div className="hidden h-full flex-row overflow-auto bg-gray-50 dark:bg-neutral-800/40 md:visible md:static md:flex md:flex-col">
         <ToggleCollection
           className="gap-0 text-sm"
           buttonClassName="rounded-none py-2"
@@ -859,7 +859,7 @@ function Nav({
           items={availableTabs.map((t) => ({
             ...t,
             label: (
-              <div className="flex gap-2 items-center">
+              <div className="flex items-center gap-2">
                 {t.icon !== undefined && <span>{t.icon}</span>}
                 <span>{t.label}</span>
                 {t.id === 'docs' && (

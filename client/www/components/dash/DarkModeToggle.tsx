@@ -57,7 +57,7 @@ export function DarkModeToggle() {
     <Button
       size="nano"
       variant="subtle"
-      className="bg-transparent py-2 rounded"
+      className="rounded bg-transparent py-2"
       onClick={toggleDarkMode}
       aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
     >

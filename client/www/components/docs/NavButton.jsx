@@ -79,7 +79,7 @@ export function NavButton({
   };
   const Component = (
     <div
-      className="group h-full flex flex-col relative rounded-xl border border-slate-200 dark:border-slate-800 max-w-sm cursor-pointer"
+      className="group relative flex h-full max-w-sm cursor-pointer flex-col rounded-xl border border-slate-200 dark:border-slate-800"
       onClick={() => !href && handleClick()}
     >
       <div
@@ -90,7 +90,7 @@ export function NavButton({
       />
       <div className="relative rounded-xl p-6">
         {recommended && (
-          <span className=" rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/10 absolute top-2 right-2">
+          <span className="absolute right-2 top-2 rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/10">
             RECOMMENDED
           </span>
         )}

@@ -8,7 +8,7 @@ export async function getStaticProps() {
 
 export default function Page({ slugs }: { slugs: String[] }) {
   return (
-    <div className="p-2 space-y-2">
+    <div className="space-y-2 p-2">
       <p className="font-bold">Slugs</p>
       <div className="flex-col space-y-2">
         {slugs.map((e) => (
