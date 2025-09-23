@@ -9,7 +9,13 @@ import { InstantIssue } from '@instantdb/core';
 import { errorToast } from '@/lib/toast';
 import { friendlyUsage, GB_1, GB_10, GB_250, ProgressBar } from '../Billing';
 import { useFetchedDash } from '../MainDashLayout';
-import { Button, cn, Content, SectionHeading } from '@/components/ui';
+import {
+  Button,
+  cn,
+  Content,
+  SectionHeading,
+  SubsectionHeading,
+} from '@/components/ui';
 import { OrgWorkspace } from '@/lib/hooks/useWorkspace';
 
 async function createPortalSession(orgId: string, token: string) {
@@ -68,6 +74,15 @@ async function createCheckoutSession(orgId: string, token: string) {
     });
 }
 
+export function formatCredit(credit: number) {
+  const dollars = (credit / 100) * -1;
+  // Format as currency (you can customize the locale and currency)
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(dollars);
+}
+
 export const OrgBilling = () => {
   const token = useContext(TokenContext);
   const fetchedDash = useFetchedDash();
@@ -86,6 +101,7 @@ export const OrgBilling = () => {
     'total-storage-bytes': number;
     'subscription-name': string;
     'stripe-subscription-id': string | null;
+    'customer-balance': number | null;
   }>(`${config.apiURI}/dash/orgs/${orgId}/billing`);
   if (fetchResult.error) {
     return <div>Error fetching data</div>;
@@ -103,6 +119,7 @@ export const OrgBilling = () => {
   const totalStorageBytes = data['total-storage-bytes'] || 0;
   const totalUsageBytes = totalAppBytes + totalStorageBytes;
   const isFreeTier = data['subscription-name'] === 'Free';
+  const credit = data['customer-balance'] || 0;
   const progressDen = isFreeTier ? GB_1 : GB_250;
   const progress = Math.round((totalUsageBytes / progressDen) * 100);
 
@@ -129,7 +146,7 @@ export const OrgBilling = () => {
           </span>
         </div>
       </div>
-      <SectionHeading className="pt-8">Billing</SectionHeading>
+      <SectionHeading className="pt-8 pb-2">Billing</SectionHeading>
       {isFreeTier ? (
         <div className="flex flex-col gap-2">
           <Button variant="primary" onClick={onUpgrade}>
@@ -145,6 +162,15 @@ export const OrgBilling = () => {
           Manage Startup subscription
         </Button>
       )}
+      {credit < 0 ? (
+        <div className="pt-4">
+          <SubsectionHeading>Credit</SubsectionHeading>
+          <Content>
+            You have a {formatCredit(credit)} credit that will be applied to
+            your next invoice.
+          </Content>
+        </div>
+      ) : null}
     </div>
   );
 };

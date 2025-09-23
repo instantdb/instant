@@ -8,7 +8,12 @@ import config from '@/lib/config';
 import { TokenContext } from '@/lib/contexts';
 import { jsonFetch, jsonMutate } from '@/lib/fetch';
 import { errorToast, successToast } from '@/lib/toast';
-import { InstantApp, InstantMember } from '@/lib/types';
+import {
+  InstantApp,
+  InstantIssue,
+  InstantMember,
+  OrgSummary,
+} from '@/lib/types';
 
 import { useFetchedDash } from '@/components/dash/MainDashLayout';
 import {
@@ -20,7 +25,6 @@ import {
   Copyable,
   Dialog,
   Divider,
-  InfoTip,
   Label,
   SectionHeading,
   Select,
@@ -32,6 +36,8 @@ import { useForm } from '@/lib/hooks/useForm';
 import { HomeButton, isMinRole, Role, TabContent } from '@/pages/dash';
 import { Workspace } from '@/lib/hooks/useWorkspace';
 import Link from 'next/link';
+import { formatCredit } from '../dash/org-management/OrgBilling';
+import { messageFromInstantError } from '@/lib/errors';
 
 export function Admin({
   app,
@@ -623,17 +629,19 @@ const TransferApp = ({ app }: { app: InstantApp }) => {
   const orgs =
     dash.data.orgs?.filter((org) => org.id !== dash.data.currentWorkspaceId) ||
     [];
-  const [orgId, setOrgId] = useState<string | undefined>(orgs[0]?.id);
+  const [org, setOrg] = useState<OrgSummary | undefined>(orgs[0]);
+  const [isLoading, setIsLoading] = useState(false);
   const confirmationModal = useDialog();
   const token = useContext(TokenContext);
 
   async function transfer(
-    { appId, orgId }: { appId: string; orgId: string },
+    { app, org }: { app: InstantApp; org: OrgSummary },
     token: string,
   ) {
-    dash.optimisticUpdateWorkspace(
-      jsonFetch(
-        `${config.apiURI}/dash/apps/${appId}/transfer_to_org/${orgId}`,
+    try {
+      setIsLoading(true);
+      const resp = await jsonFetch(
+        `${config.apiURI}/dash/apps/${app.id}/transfer_to_org/${org.id}`,
         {
           method: 'POST',
           headers: {
@@ -641,57 +649,67 @@ const TransferApp = ({ app }: { app: InstantApp }) => {
             Authorization: `Bearer ${token}`,
           },
         },
-      ),
-      (prev) => {
-        prev.apps.push({
-          ...app,
-          org: {
-            id: orgId,
-            title: orgs.find((o) => o.id === orgId)?.title || 'Unknown',
-          },
-        });
-      },
-    );
-
-    dash.setWorkspace(orgId);
-    dash.mutate();
-    confirmationModal.onClose();
+      );
+      successToast(`${app.title} was transferred to ${org.title}.`);
+      if (resp.credit < 0) {
+        successToast(
+          `${org.title} received a ${formatCredit(resp.credit)} credit for the app's unused balance.`,
+          { autoClose: 10000 },
+        );
+      }
+      dash.setWorkspace(org.id);
+      dash.mutate();
+      confirmationModal.onClose();
+    } catch (e) {
+      errorToast(
+        `Error transferring app. ${messageFromInstantError(e as InstantIssue)}`,
+      );
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
     <div>
-      <Dialog className="pt-5" {...confirmationModal}>
-        <div className="-translate-y-1 bg-white text-[15px]">
-          Are you sure you want to transfer <strong>{app.title}</strong> to{' '}
-          <strong>
-            {orgs.find((o) => o.id === orgId)?.title || 'Unknown'}
-          </strong>
-          ?
-        </div>
-        <div className="flex w-full items-end justify-end gap-2 pt-4">
-          <Button
-            variant="subtle"
-            onClick={() => {
-              confirmationModal.onClose();
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={() => {
-              transfer(
-                {
-                  appId: app.id,
-                  orgId: orgId!,
-                },
-                token,
-              );
-            }}
-          >
-            Transfer
-          </Button>
-        </div>
-      </Dialog>
+      {org ? (
+        <Dialog className="pt-5" {...confirmationModal}>
+          <div className="-translate-y-1 bg-white text-[15px]">
+            Are you sure you want to transfer <strong>{app.title}</strong> to{' '}
+            <strong>{org.title}</strong>?
+          </div>
+          {org.paid && app.pro ? (
+            <Content className="pt-4">
+              <strong>{org.title}</strong> is a paid organization. After you
+              transfer the app, you will get a credit on the org for any
+              remaining balance on the app's plan.
+            </Content>
+          ) : null}
+          <div className="flex w-full items-end justify-end gap-2 pt-4">
+            <Button
+              variant="subtle"
+              onClick={() => {
+                confirmationModal.onClose();
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              loading={isLoading}
+              onClick={() => {
+                transfer(
+                  {
+                    app: app,
+                    org: org,
+                  },
+                  token,
+                );
+              }}
+            >
+              Transfer{isLoading ? 'ing...' : ''}
+            </Button>
+          </div>
+        </Dialog>
+      ) : null}
       <SectionHeading className="pt-4">Transfer App</SectionHeading>
       {orgs.length === 0 && (
         <p className="py-2 text-center">No organizations to transfer to.</p>
@@ -702,12 +720,14 @@ const TransferApp = ({ app }: { app: InstantApp }) => {
             <Label className="font-normal opacity-70">
               Destination Organization
             </Label>
-            <Select
+            <Select<string>
               disabled={orgs.length === 0}
-              value={orgId}
-              onChange={(o) => {
-                if (!o) return;
-                setOrgId(o.value as string);
+              value={org?.id}
+              onChange={(option) => {
+                if (!option) return;
+                const org = orgs.find((o) => o.id === option.value);
+                if (!org) return;
+                setOrg(org);
               }}
               options={orgs.map((o) => ({ value: o.id, label: o.title }))}
             ></Select>
