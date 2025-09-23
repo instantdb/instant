@@ -1,5 +1,5 @@
 {
-  "name": "instant-www",
+  "name": "www",
   "private": true,
   "scripts": {
     "dev": "next dev",

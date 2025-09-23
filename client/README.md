@@ -34,6 +34,28 @@ make dev
 
 With that, all frontend code should be up and running!
 
+## Running more packages in dev mode
+
+When you `make dev`, we start up the most common packages you'll want to hack on:
+
+- The client libraries: `@instantdb/core`, `@instantdb/react`, `@instantdb/react-native`, `@instantdb/admin`
+- A few services that use them: `www`, `sandbox/react-nextjs`, `sandbox/admin-sdk-express`
+
+What should you do if you want to work on other packages that we haven't included? For example, if you wanted to make a change to expo?
+
+You can either add `--filter` to make dev:
+
+```bash
+# Run dev for a sandbox app
+make dev --filter react-native-expo
+```
+
+Or cd into the package and run a separate command there:
+
+```bash
+cd sandbox/react-native-expo && make dev
+```
+
 ## Dashboard & Docs
 
 Visit [localhost:3000](http://localhost:3000), and you'll see Instant's homepage. You can make changes to the marketing pages, dashboard, or docs here.

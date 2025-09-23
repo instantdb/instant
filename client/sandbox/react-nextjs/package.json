@@ -1,5 +1,5 @@
 {
-  "name": "sandbox/react-nextjs",
+  "name": "sb-react-nextjs",
   "private": true,
   "scripts": {
     "dev": "next dev -p 4000",
