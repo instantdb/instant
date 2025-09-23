@@ -24,10 +24,14 @@ import {
   FullscreenLoading,
 } from '@/components/ui';
 import Auth from '@/components/dash/Auth';
-import { isMinRole } from '@/pages/dash/index';
+import { FullscreenErrorMessage, getRole, isMinRole } from '@/pages/dash/index';
 import { TrashIcon, XMarkIcon } from '@heroicons/react/24/solid';
-import { CachedAPIResponse, useDashFetch } from '@/lib/hooks/useDashFetch';
 import { asClientOnlyPage, useReadyRouter } from '@/components/clientOnlyPage';
+import {
+  DashFetchProvider,
+  FetchedDash,
+  useFetchedDash,
+} from '@/components/dash/MainDashLayout';
 
 type InstantReactClient = ReturnType<typeof init>;
 
@@ -38,6 +42,30 @@ export default Devtool;
 function DevtoolComp() {
   const router = useReadyRouter();
   const authToken = useAuthToken();
+  const appId = router.query.appId as string | undefined;
+  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (appId && authToken) {
+      let cancel = false;
+      jsonFetch(`${config.apiURI}/dash/apps/${appId}`, {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${authToken}` },
+      })
+        .then((res) => {
+          if (cancel) return;
+          setWorkspaceId(res?.app?.org_id || 'personal');
+        })
+        .catch((e) => {
+          if (cancel) return;
+          setWorkspaceId('personal');
+        });
+
+      return () => {
+        cancel = true;
+      };
+    }
+  }, [appId, authToken]);
   if (!authToken) {
     return (
       <DevtoolWindow>
@@ -52,8 +80,6 @@ function DevtoolComp() {
       </DevtoolWindow>
     );
   }
-
-  const appId = router.query.appId as string | undefined;
 
   if (!appId) {
     return (
@@ -82,60 +108,72 @@ function DevtoolComp() {
     );
   }
 
+  if (!workspaceId) {
+    return (
+      <DevtoolWindow>
+        <FullscreenLoading />
+      </DevtoolWindow>
+    );
+  }
+
   return (
     <TokenContext.Provider value={authToken}>
-      <DevtoolAuthorized appId={appId} />
+      <DashFetchProvider
+        loading={
+          <DevtoolWindow>
+            <FullscreenLoading />
+          </DevtoolWindow>
+        }
+        error={(error) => {
+          const message = error?.message;
+          return (
+            <DevtoolWindow>
+              <div className="flex h-full w-full items-center justify-center">
+                <div className="mx-auto max-w-md space-y-4">
+                  <ScreenHeading>🤕 Failed to load your app</ScreenHeading>
+                  {message ? (
+                    <div className="mx-auto flex w-full max-w-2xl flex-col">
+                      <div className="rounded bg-red-100 p-4 text-red-700">
+                        {message}
+                      </div>
+                    </div>
+                  ) : null}
+                  <p>
+                    We had some trouble loading your app. Please ping us on{' '}
+                    <a
+                      className="font-bold text-blue-500"
+                      href="https://discord.com/invite/VU53p7uQcE"
+                      target="_blank"
+                    >
+                      discord
+                    </a>{' '}
+                    with details.
+                  </p>
+                  <Button
+                    className="w-full"
+                    size="mini"
+                    variant="secondary"
+                    onClick={() => {
+                      signOut();
+                    }}
+                  >
+                    Sign out
+                  </Button>
+                </div>
+              </div>
+            </DevtoolWindow>
+          );
+        }}
+        init={{ workspaceId }}
+      >
+        <DevtoolAuthorized appId={appId} />
+      </DashFetchProvider>
     </TokenContext.Provider>
   );
 }
 
 function DevtoolAuthorized({ appId }: { appId: string }) {
-  const dashResponse = useDashFetch();
-
-  if (dashResponse.isLoading) {
-    return <FullscreenLoading />;
-  }
-
-  if (dashResponse.error) {
-    const message = dashResponse.error.message;
-    return (
-      <DevtoolWindow>
-        <div className="flex h-full w-full items-center justify-center">
-          <div className="mx-auto max-w-md space-y-4">
-            <ScreenHeading>🤕 Failed to load your app</ScreenHeading>
-            {message ? (
-              <div className="mx-auto flex w-full max-w-2xl flex-col">
-                <div className="rounded bg-red-100 p-4 text-red-700">
-                  {message}
-                </div>
-              </div>
-            ) : null}
-            <p>
-              We had some trouble loading your app. Please ping us on{' '}
-              <a
-                className="font-bold text-blue-500"
-                href="https://discord.com/invite/VU53p7uQcE"
-                target="_blank"
-              >
-                discord
-              </a>{' '}
-              with details.
-            </p>
-            <Button
-              className="w-full"
-              size="mini"
-              variant="secondary"
-              onClick={() => {
-                signOut();
-              }}
-            >
-              Sign out
-            </Button>
-          </div>
-        </div>
-      </DevtoolWindow>
-    );
-  }
+  const dashResponse = useFetchedDash();
 
   return <DevtoolWithData dashResponse={dashResponse} appId={appId} />;
 }
@@ -144,7 +182,7 @@ function DevtoolWithData({
   dashResponse,
   appId,
 }: {
-  dashResponse: CachedAPIResponse<DashResponse>;
+  dashResponse: FetchedDash;
   appId: string;
 }) {
   const app = dashResponse.data?.apps?.find((a) => a.id === appId);
@@ -212,7 +250,11 @@ function DevtoolWithData({
   if (!app && dashResponse.fromCache) {
     // We couldn't find this app. Perhaps the cache is stale. Let's
     // wait for fresh data.
-    return <FullscreenLoading />;
+    return (
+      <DevtoolWindow>
+        <FullscreenLoading />
+      </DevtoolWindow>
+    );
   }
 
   if (!app) {
@@ -423,7 +465,7 @@ function DevtoolContent({
   app: InstantApp;
   appId: string;
   tab: string;
-  dashResponse: APIResponse<DashResponse>;
+  dashResponse: FetchedDash;
 }) {
   const schemaData = useSchemaQuery(connection.db);
 
@@ -465,16 +507,18 @@ function Admin({
   dashResponse,
   app,
 }: {
-  dashResponse: APIResponse<DashResponse>;
+  dashResponse: FetchedDash;
   app: InstantApp;
 }) {
   const token = useContext(TokenContext);
   const [clearAppOk, updateClearAppOk] = useState(false);
   const clearDialog = useDialog();
 
+  const role = getRole(dashResponse.data, app);
+
   return (
     <Stack className="max-w-sm gap-2 text-sm">
-      {isMinRole('owner', app.user_app_role) ? (
+      {isMinRole('owner', role) ? (
         <div className="space-y-2">
           <SectionHeading>Danger zone</SectionHeading>
           <Content>

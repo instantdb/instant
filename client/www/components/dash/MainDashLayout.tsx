@@ -32,89 +32,94 @@ const getInitialWorkspace = () => {
 };
 
 export const { use: useFetchedDash, provider: DashFetchProvider } =
-  createInitializedContext('dashResponse', () => {
-    const dashResult = useDashFetch();
-    const [currentWorkspaceId, setWorkspace] = useState<string | 'personal'>(
-      getInitialWorkspace(),
-    );
-    const workspace = useWorkspace(dashResult, currentWorkspaceId);
+  createInitializedContext(
+    'dashResponse',
+    (args?: { workspaceId?: string | null | undefined }) => {
+      const dashResult = useDashFetch();
+      const [currentWorkspaceId, setWorkspace] = useState<string | 'personal'>(
+        args?.workspaceId || getInitialWorkspace(),
+      );
 
-    const refetch = async () => {
-      await dashResult.mutate();
-      await workspace.mutate();
-    };
+      const workspace = useWorkspace(dashResult, currentWorkspaceId);
 
-    const router = useReadyRouter();
+      const refetch = async () => {
+        await dashResult.mutate();
+        await workspace.mutate();
+      };
 
-    useEffect(() => {
-      if (workspace.error) {
-        setWorkspace('personal');
-      }
-    }, [workspace.error]);
+      const router = useReadyRouter();
 
-    useEffect(() => {
-      if (typeof window === 'undefined') return;
-
-      window.localStorage.setItem('workspace', currentWorkspaceId);
-
-      // Use Next.js router for navigation instead of direct history manipulation
-      const currentUrl = new URL(window.location.href);
-
-      // set the query param
-      // if its personal remove the query param
-      if (currentWorkspaceId === 'personal') {
-        if (currentUrl.searchParams.has('org')) {
-          const newUrl = new URL(window.location.href);
-          newUrl.searchParams.delete('org');
-          router.replace(newUrl.pathname + newUrl.search, undefined, {
-            shallow: true,
-          });
+      useEffect(() => {
+        if (workspace.error) {
+          setWorkspace('personal');
         }
-      } else {
-        if (currentUrl.searchParams.get('org') !== currentWorkspaceId) {
-          const newUrl = new URL(window.location.href);
-          newUrl.searchParams.set('org', currentWorkspaceId);
-          router.replace(newUrl.pathname + newUrl.search, undefined, {
-            shallow: true,
-          });
+      }, [workspace.error]);
+
+      useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        window.localStorage.setItem('workspace', currentWorkspaceId);
+
+        // Use Next.js router for navigation instead of direct history manipulation
+        const currentUrl = new URL(window.location.href);
+
+        // set the query param
+        // if its personal remove the query param
+        if (currentWorkspaceId === 'personal') {
+          if (currentUrl.searchParams.has('org')) {
+            const newUrl = new URL(window.location.href);
+            newUrl.searchParams.delete('org');
+            router.replace(newUrl.pathname + newUrl.search, undefined, {
+              shallow: true,
+            });
+          }
+        } else {
+          if (currentUrl.searchParams.get('org') !== currentWorkspaceId) {
+            const newUrl = new URL(window.location.href);
+            newUrl.searchParams.set('org', currentWorkspaceId);
+            router.replace(newUrl.pathname + newUrl.search, undefined, {
+              shallow: true,
+            });
+          }
         }
-      }
-    }, [currentWorkspaceId, router.pathname]);
+      }, [currentWorkspaceId, router.pathname]);
 
-    const addNewAppOptimistically = (
-      promise: Promise<any>,
-      app: InstantApp,
-    ) => {
-      if (currentWorkspaceId === 'personal') {
-        dashResult.optimisticUpdate(promise, (draft) => ({
-          ...draft,
-          apps: [...draft.apps, app],
-        }));
-      } else {
-        workspace.optimisticUpdate(promise, (draft) => ({
-          ...draft,
-          apps: [...draft.apps, app],
-        }));
-      }
-    };
+      const addNewAppOptimistically = (
+        promise: Promise<any>,
+        app: InstantApp,
+      ) => {
+        if (currentWorkspaceId === 'personal') {
+          dashResult.optimisticUpdate(promise, (draft) => ({
+            ...draft,
+            apps: [...draft.apps, app],
+          }));
+        } else {
+          workspace.optimisticUpdate(promise, (draft) => ({
+            ...draft,
+            apps: [...draft.apps, app],
+          }));
+        }
+      };
 
-    return {
-      ready: !!dashResult.data && !!workspace.data,
-      refetch,
-      addNewAppOptimistically,
-      setWorkspace,
-      data: {
-        ...dashResult.data!,
-        currentWorkspaceId,
-        workspace: workspace.data!,
-        apps: workspace.data ? workspace.data.apps : [],
-      },
-      error: dashResult.error,
-      mutate: dashResult.mutate,
-      optimisticUpdate: dashResult.optimisticUpdate,
-      optimisticUpdateWorkspace: workspace.optimisticUpdate,
-    };
-  });
+      return {
+        ready: !!dashResult.data && !!workspace.data,
+        refetch,
+        addNewAppOptimistically,
+        setWorkspace,
+        data: {
+          ...dashResult.data!,
+          currentWorkspaceId,
+          workspace: workspace.data!,
+          apps: workspace.data ? workspace.data.apps : [],
+        },
+        error: dashResult.error,
+        mutate: dashResult.mutate,
+        optimisticUpdate: dashResult.optimisticUpdate,
+        optimisticUpdateWorkspace: workspace.optimisticUpdate,
+        fromCache: dashResult.fromCache,
+      };
+    },
+  );
 
 export const MainDashLayout: React.FC<{
   children: ReactNode;
@@ -162,7 +167,11 @@ export const MainDashLayout: React.FC<{
       <StyledToastContainer theme={darkMode ? 'dark' : 'light'} />
       <DashFetchProvider
         loading={<FullscreenLoading />}
-        error={<FullscreenErrorMessage message={'An error occurred.'} />}
+        error={(error) => (
+          <FullscreenErrorMessage
+            message={`An error occurred. ${error.message}`}
+          />
+        )}
       >
         <div
           className={cn('flex h-full w-full flex-col', darkMode ? 'dark' : '')}
