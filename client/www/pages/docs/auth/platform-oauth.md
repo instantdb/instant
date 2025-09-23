@@ -312,6 +312,7 @@ https://api.instantdb.com/platform/oauth/revoke?token=YOUR_TOKEN
 - **Authentication:** Required (Bearer Token)
 - **Required OAuth Scope:** `apps-write`
 - **Request Body:**
+
   ```json
   {
     "title": "New App Name"
@@ -319,6 +320,7 @@ https://api.instantdb.com/platform/oauth/revoke?token=YOUR_TOKEN
   ```
 
   - `title` (string, required): The desired name for the new application. Must not be blank.
+
 - **Success Response:**
   - Code: `200 OK`
   - Body:
@@ -343,6 +345,7 @@ https://api.instantdb.com/platform/oauth/revoke?token=YOUR_TOKEN
 - **Path Parameters:**
   - `app_id` (UUID, required): The ID of the application to update. The authenticated user must be the creator.
 - **Request Body:**
+
   ```json
   {
     "title": "New App Name"
@@ -350,6 +353,7 @@ https://api.instantdb.com/platform/oauth/revoke?token=YOUR_TOKEN
   ```
 
   - `title` (string, required): The new desired name for the application. Must not be blank.
+
 - **Success Response:**
   - Code: `200 OK`
   - Body:
@@ -423,6 +427,7 @@ https://api.instantdb.com/platform/oauth/revoke?token=YOUR_TOKEN
 - **Path Parameters:**
   - `app_id` (UUID, required): The ID of the application.
 - **Request Body:**
+
   ```json
   {
     "code": {
@@ -433,6 +438,7 @@ https://api.instantdb.com/platform/oauth/revoke?token=YOUR_TOKEN
   ```
 
   - `code` (object, required): The complete permission rules definition.
+
 - **Success Response:**
   - Code: `200 OK`
   - Body:
@@ -506,6 +512,7 @@ https://api.instantdb.com/platform/oauth/revoke?token=YOUR_TOKEN
 - **Path Parameters:**
   - `app_id` (UUID, required): The ID of the application.
 - **Request Body:**
+
   ```json
   {
     "schema": {
@@ -542,6 +549,7 @@ https://api.instantdb.com/platform/oauth/revoke?token=YOUR_TOKEN
   ```
 
   - `schema` (object, required): An object with `entities` and `links` that matches the structure of [instant.schema.ts](/docs/modeling-data#instant-schema-ts)
+
 - **Success Response:**
   - Code: `200 OK`
   - Body:
@@ -629,6 +637,7 @@ https://api.instantdb.com/platform/oauth/revoke?token=YOUR_TOKEN
 - **Path Parameters:**
   - `app_id` (UUID, required): The ID of the application.
 - **Request Body:** Same as "Plan Schema Push".
+
   ```json
   {
     "schema": {
@@ -665,6 +674,7 @@ https://api.instantdb.com/platform/oauth/revoke?token=YOUR_TOKEN
   ```
 
   - `schema` (object, required): An object with `entities` and `links` that matches the structure of [instant.schema.ts](/docs/modeling-data#instant-schema-ts)
+
 - **Success Response:**
   - Code: `200 OK`
   - Body:

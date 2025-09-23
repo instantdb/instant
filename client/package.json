@@ -23,7 +23,7 @@
     "build-sandbox": "turbo run build --filter=\"./sandbox/*\" --cache-dir=.turbo --no-update-notifier"
   },
   "devDependencies": {
-    "prettier": "^3.3.3",
+    "prettier": "3.6.2",
     "tsx": "^4.19.3",
     "turbo": "^2.5.4"
   }

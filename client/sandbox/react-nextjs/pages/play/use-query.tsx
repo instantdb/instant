@@ -54,7 +54,9 @@ export default function () {
       </select>
       <strong>Cats</strong>
       <ul>
-        {catsRes.data?.cats.map((cat) => <li key={cat.id}>{cat.name}</li>)}
+        {catsRes.data?.cats.map((cat) => (
+          <li key={cat.id}>{cat.name}</li>
+        ))}
       </ul>
     </div>
   );
