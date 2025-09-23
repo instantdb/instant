@@ -14,7 +14,13 @@ function setItem<T>(k: string, v: T | undefined) {
     throw new Error('useLocalStorage/setState needs to run on the client');
   }
   const stringified = JSON.stringify(v);
-  window.localStorage.setItem(k, stringified);
+
+  try {
+    window.localStorage.setItem(k, stringified);
+  } catch (e) {
+    console.log("[localStorage] can't set k");
+    return;
+  }
   // localStorage.setItem does not dispatch events to the current
   window.dispatchEvent(
     new StorageEvent('storage', { key: k, newValue: stringified }),
