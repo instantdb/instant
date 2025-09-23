@@ -211,12 +211,12 @@ export default function Billing({ appId }: { appId: string }) {
           </span>
         </h2>
         <ProgressBar width={progress} />
-        <div className="flex justify-start text-sm pt-3 space-x-2 pl-2">
-          <span className="text-sm font-mono text-gray-500">
+        <div className="flex justify-start text-sm pt-3 gap-4 pl-2">
+          <span className="text-sm font-mono dark:text-neutral-400 text-gray-500">
             DB ({friendlyUsage(totalAppBytes)})
           </span>
 
-          <span className="text-sm font-mono text-gray-500">
+          <span className="text-sm font-mono dark:text-neutral-400 text-gray-500">
             Storage ({friendlyUsage(totalStorageBytes)})
           </span>
         </div>
@@ -226,7 +226,7 @@ export default function Billing({ appId }: { appId: string }) {
           <Button variant="primary" onClick={onUpgrade}>
             Upgrade to Pro
           </Button>
-          <Content className="italic text-sm dark:bg-purple-500/20 dark:text-white bg-purple-100 text-purple-800 rounded border border-purple-400 px-2 py-1">
+          <Content className="italic text-sm dark:bg-purple-500/20 dark:text-white bg-purple-100 text-purple-800 dark:border-purple-500/50 rounded border border-purple-400 px-2 py-1">
             Pro offers 10GB of storage, backups, multiple team members for apps,
             and priority support.
           </Content>

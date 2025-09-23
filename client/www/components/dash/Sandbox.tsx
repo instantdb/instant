@@ -202,7 +202,7 @@ export function Sandbox({
     <div className="flex flex-1 h-full overflow-y-hidden">
       <div className="flex flex-col flex-1 dark:border-r-neutral-600 border-r min-w-[24em]">
         <div className="flex flex-col flex-1 dark:border-b-neutral-800 border-b">
-          <div className="py-1 px-2 bg-gray-50 dark:bg-neutral-800 dark:border-b-neutral-600 border-b text-xs flex gap-2 items-center justify-between">
+          <div className="py-1 px-2 bg-gray-50 dark:bg-neutral-800 dark:border-b-neutral-700 border-b text-xs flex gap-2 items-center justify-between">
             <div className="flex gap-2 items-center">
               JS Sandbox
               <Button
@@ -227,7 +227,7 @@ export function Sandbox({
               your app's DB!
             </div>
           ) : (
-            <div className="text-xs py-1 px-2 dark:bg-sky-900/80 dark:border-b-neutral-600 dark:text-sky-400/90 border-b bg-sky-50 text-sky-600 border-b-sky-200">
+            <div className="text-xs py-1 px-2 dark:bg-sky-900/80 dark:border-b-neutral-700 dark:text-sky-400/90 border-b bg-sky-50 text-sky-600 border-b-sky-200">
               <strong>Debug mode.</strong> Transactions will not update your
               app's DB.
             </div>
@@ -361,7 +361,7 @@ export function Sandbox({
         </div>
       </div>
       <div className="flex flex-col flex-1 overflow-hidden min-w-[24em]">
-        <div className="py-1 px-2 dark:bg-neutral-700/80 dark:border-b-neutral-800 bg-gray-50 border-b text-xs flex flex-col gap-1">
+        <div className="py-1 px-2 dark:bg-neutral-800 dark:border-b-neutral-700 bg-gray-50 border-b text-xs flex flex-col gap-1">
           <div className="flex gap-2">
             Output
             <Button size="nano" onClick={() => setOutput([])}>
@@ -403,7 +403,7 @@ export function Sandbox({
         </div>
         <div
           ref={consoleRef}
-          className="flex flex-col flex-1 gap-4 p-4 dark:bg-neutral-800 bg-gray-100 text-xs w-full overflow-y-auto overflow-x-hidden "
+          className="flex flex-col flex-1 gap-4 p-4 dark:bg-neutral-800/40 bg-gray-100 text-xs w-full overflow-y-auto overflow-x-hidden "
         >
           {output.map((o, i) =>
             o.type === 'eval' ? (
@@ -416,20 +416,21 @@ export function Sandbox({
                 className={clsx(
                   'transition-all border rounded bg-gray-50 dark:bg-neutral-800 shadow-sm hover:shadow',
                   {
-                    'border-sky-200 dark:border-sky-800': o.type === 'log',
-                    'border-red-200 dark:border-red-800': o.type === 'error',
-                    'border-teal-200 dark:border-teal-800': o.type === 'query',
-                    'border-purple-200 dark:border-purple-800':
+                    'border-sky-200 dark:border-sky-600/50': o.type === 'log',
+                    'border-red-200 dark:border-red-600/50': o.type === 'error',
+                    'border-teal-200 dark:border-teal-600/50':
+                      o.type === 'query',
+                    'border-purple-200 dark:border-purple-600/50':
                       o.type === 'transaction',
                   },
                 )}
               >
                 <div
                   className={clsx('px-2 pt-1 font-mono text-center font-bold', {
-                    'text-sky-600 dark:text-sky-800': o.type === 'log',
-                    'text-red-600 dark:text-red-800': o.type === 'error',
-                    'text-teal-600 dark:text-teal-800': o.type === 'query',
-                    'text-purple-600 dark:text-purple-800':
+                    'text-sky-600 dark:text-sky-400': o.type === 'log',
+                    'text-red-600 dark:text-red-400': o.type === 'error',
+                    'text-teal-600 dark:text-teal-400': o.type === 'query',
+                    'text-purple-600 dark:text-purple-400':
                       o.type === 'transaction',
                   })}
                 >
