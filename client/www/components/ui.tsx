@@ -103,7 +103,7 @@ export function ToggleCollection({
             {...a.link}
             rel="noopener noreferer"
             className={clsx(
-              'block cursor-pointer truncate whitespace-nowrap rounded bg-none px-3 py-1 dark:hover:bg-neutral-700/80 dark:bg-neutral-800/40 text-left hover:bg-gray-100 disabled:text-gray-400',
+              'block cursor-pointer truncate whitespace-nowrap rounded bg-none px-3 py-1 text-left hover:bg-gray-100 disabled:text-gray-400 dark:bg-neutral-800/40 dark:hover:bg-neutral-700/80',
               {
                 'bg-gray-200 dark:bg-neutral-400/40': selectedId === a.id,
               },
@@ -120,7 +120,7 @@ export function ToggleCollection({
               onChange(a);
             }}
             className={clsx(
-              'block cursor-pointer truncate whitespace-nowrap rounded bg-none px-3 py-1 text-left dark:hover:bg-neutral-700/80 hover:bg-gray-100 disabled:text-gray-400',
+              'block cursor-pointer truncate whitespace-nowrap rounded bg-none px-3 py-1 text-left hover:bg-gray-100 disabled:text-gray-400 dark:hover:bg-neutral-700/80',
               {
                 'bg-gray-200 dark:bg-neutral-600/50': selectedId === a.id,
               },
@@ -157,7 +157,7 @@ export function ToggleGroup({
 
         onChange(item);
       }}
-      className="flex gap-1 dark:bg-neutral-800 rounded-sm border dark:border-neutral-700 bg-gray-200 p-0.5 text-sm"
+      className="flex gap-1 rounded-sm border bg-gray-200 p-0.5 text-sm dark:border-neutral-700 dark:bg-neutral-800"
       type="single"
       defaultValue="center"
       aria-label={ariaLabel}
@@ -238,7 +238,7 @@ export function TextInput({
         placeholder={placeholder}
         value={value ?? ''}
         className={cn(
-          'flex w-full flex-1 rounded-sm border-gray-200 dark:bg-neutral-800 dark:border-neutral-700 bg-white px-3 py-1 dark:placeholder:text-neutral-500 dark:disabled:text-neutral-700 placeholder:text-gray-400 disabled:text-gray-400',
+          'flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 disabled:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800 dark:placeholder:text-neutral-500 dark:disabled:text-neutral-700',
           className,
           {
             'border-red-500': error,
@@ -307,7 +307,7 @@ export function TextArea({
         placeholder={placeholder}
         value={value ?? ''}
         className={cn(
-          'flex w-full flex-1 rounded-sm border-gray-200 dark:border-neutral-700 dark:bg-neutral-800 bg-white px-3 py-1 placeholder:text-gray-400 disabled:text-gray-400',
+          'flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 disabled:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800',
           className,
           {
             'border-red-500': error,
@@ -353,8 +353,8 @@ export function Checkbox({
   return (
     <label
       className={cn(
-        'flex cursor-pointer dark:disabled:opacity-40 items-top gap-2',
-        disabled ? 'text-gray-400 opacity-60 cursor-default' : '',
+        'items-top flex cursor-pointer gap-2 dark:disabled:opacity-40',
+        disabled ? 'cursor-default text-gray-400 opacity-60' : '',
         labelClassName,
       )}
       title={title}
@@ -364,7 +364,7 @@ export function Checkbox({
         title={title}
         required={required}
         className={cn(
-          'align-middle dark:ring-neutral-500 dark:border-neutral-500 dark:bg-neutral-600/40 mt-0.5 font-medium text-gray-900 dark:disabled:opacity-50 disabled:border-gray-300 dark:disabled:border-neutral-400 disabled:bg-gray-200',
+          'mt-0.5 align-middle font-medium text-gray-900 disabled:border-gray-300 disabled:bg-gray-200 dark:border-neutral-500 dark:bg-neutral-600/40 dark:ring-neutral-500 dark:disabled:border-neutral-400 dark:disabled:opacity-50',
           className,
         )}
         type="checkbox"
@@ -405,7 +405,7 @@ export function Select<
       value={value ?? undefined}
       disabled={disabled}
       className={cn(
-        'rounded-sm border-gray-300 dark:border-neutral-700 dark:bg-neutral-800 py-1 disabled:text-gray-400',
+        'rounded-sm border-gray-300 py-1 disabled:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800',
         className,
       )}
       onChange={(e) => {
@@ -445,7 +445,7 @@ export function NavTabBar({
   return (
     <div
       className={clsx(
-        'flex flex-row gap-4 overflow-x-auto border-b py-1 no-scrollbar',
+        'no-scrollbar flex flex-row gap-4 overflow-x-auto border-b py-1',
         className,
       )}
     >
@@ -456,7 +456,7 @@ export function NavTabBar({
             {...t.link}
             rel="noopener noreferer"
             className={clsx(
-              'flex cursor-pointer rounded p-2 whitespace-nowrap bg-none py-0.5 disabled:text-gray-400',
+              'flex cursor-pointer whitespace-nowrap rounded bg-none p-2 py-0.5 disabled:text-gray-400',
               {
                 'bg-gray-200': selectedId === t.id && !disabled,
               },
@@ -470,9 +470,9 @@ export function NavTabBar({
             disabled={disabled}
             onClick={() => onSelect(t)}
             className={clsx(
-              'flex cursor-pointer transition-colors rounded hover:underline decoration-gray-400 whitespace-nowrap bg-none disabled:text-gray-400',
+              'flex cursor-pointer whitespace-nowrap rounded bg-none decoration-gray-400 transition-colors hover:underline disabled:text-gray-400',
               {
-                'underline decoration-2 !decoration-[#606AF4]':
+                'underline !decoration-[#606AF4] decoration-2':
                   selectedId === t.id && !disabled,
               },
             )}
@@ -501,7 +501,7 @@ export function TabBar({
   return (
     <div
       className={clsx(
-        'flex flex-row gap-0.5 overflow-x-auto dark:border-b-neutral-700 border-b px-2 py-1 no-scrollbar',
+        'no-scrollbar flex flex-row gap-0.5 overflow-x-auto border-b px-2 py-1 dark:border-b-neutral-700',
         className,
       )}
     >
@@ -512,7 +512,7 @@ export function TabBar({
             {...t.link}
             rel=""
             className={clsx(
-              'flex cursor-pointer whitespace-nowrap bg-none px-4 py-0.5 disabled:text-gray-400 dark:hover:bg-neutral-600 rounded hover:bg-gray-100',
+              'flex cursor-pointer whitespace-nowrap rounded bg-none px-4 py-0.5 hover:bg-gray-100 disabled:text-gray-400 dark:hover:bg-neutral-600',
               {
                 'bg-gray-200 dark:bg-neutral-700':
                   selectedId === t.id && !disabled,
@@ -527,7 +527,7 @@ export function TabBar({
             disabled={disabled}
             onClick={() => onSelect(t)}
             className={clsx(
-              'flex cursor-pointer whitespace-nowrap bg-none px-4 py-0.5 disabled:text-gray-400 rounded dark:hover:bg-neutral-600 hover:bg-gray-100',
+              'flex cursor-pointer whitespace-nowrap rounded bg-none px-4 py-0.5 hover:bg-gray-100 disabled:text-gray-400 dark:hover:bg-neutral-600',
               {
                 'bg-gray-200 dark:bg-neutral-700':
                   selectedId === t.id && !disabled,
@@ -698,7 +698,7 @@ export function Dialog({
       <div className="fixed inset-0 z-50 bg-black/50" aria-hidden="true" />
       <div className="fixed inset-4 z-50 flex flex-col items-center justify-center">
         <DialogPanel
-          className={`relative w-full max-w-xl overflow-y-auto rounded dark:bg-neutral-800 dark:text-white bg-white p-3 text-sm shadow ${className}`}
+          className={`relative w-full max-w-xl overflow-y-auto rounded bg-white p-3 text-sm shadow dark:bg-neutral-800 dark:text-white ${className}`}
         >
           {!hideCloseButton && (
             <XMarkIcon
@@ -832,13 +832,13 @@ export function SmallCopyable({
   return (
     <div
       className={cn(
-        'flex opacity-70 items-center rounded font-mono text-xs',
+        'flex items-center rounded font-mono text-xs opacity-70',
         {},
       )}
     >
       {label ? (
         <div
-          className="opacity-50 py-1.5"
+          className="py-1.5 opacity-50"
           style={{
             borderTopLeftRadius: 'calc(0.25rem - 1px)',
             borderBottomLeftRadius: 'calc(0.25rem - 1px)',
@@ -850,7 +850,7 @@ export function SmallCopyable({
       <Tooltip open={tooltipOpen}>
         <TooltipTrigger asChild>
           <pre
-            className={clsx('flex-1 px-2 py-1.5 cursor-pointer select-text', {
+            className={clsx('flex-1 cursor-pointer select-text px-2 py-1.5', {
               truncate: !multiline,
               'whitespace-pre-wrap break-all': multiline,
             })}
@@ -876,7 +876,7 @@ export function SmallCopyable({
           <button
             onClick={handleChangeHideValue}
             className={cn(
-              'flex opacity-50 items-center gap-x-1 rounded-sm px-2 py-1 dark:hover:bg-neutral-700 transition-colors hover:bg-gray-50',
+              'flex items-center gap-x-1 rounded-sm px-2 py-1 opacity-50 transition-colors hover:bg-gray-50 dark:hover:bg-neutral-700',
               { 'text-xs': size === 'normal', 'text-sm': size === 'large' },
             )}
           >
@@ -917,7 +917,7 @@ export function Copyable({
   return (
     <div
       className={cn(
-        'flex items-center dark:border-neutral-700 rounded border dark:bg-neutral-800 bg-white font-mono',
+        'flex items-center rounded border bg-white font-mono dark:border-neutral-700 dark:bg-neutral-800',
         {
           'text-sm': size === 'normal',
           'text-base': size === 'large',
@@ -926,7 +926,7 @@ export function Copyable({
     >
       {label ? (
         <div
-          className="border-r dark:border-r-neutral-700 dark:bg-neutral-700 bg-gray-50 px-3 py-1.5"
+          className="border-r bg-gray-50 px-3 py-1.5 dark:border-r-neutral-700 dark:bg-neutral-700"
           style={{
             borderTopLeftRadius: 'calc(0.25rem - 1px)',
             borderBottomLeftRadius: 'calc(0.25rem - 1px)',
@@ -957,7 +957,7 @@ export function Copyable({
           <button
             onClick={handleChangeHideValue}
             className={cn(
-              'flex items-center gap-x-1 rounded-sm dark:bg-neutral-600/20 dark:ring-neutral-600 bg-white px-2 py-1 ring-1 ring-inset ring-gray-300 hover:bg-gray-50',
+              'flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-neutral-600/20 dark:ring-neutral-600',
               { 'text-xs': size === 'normal', 'text-sm': size === 'large' },
             )}
           >
@@ -977,7 +977,7 @@ export function Copyable({
               }, 2500);
             }}
             className={cn(
-              'flex items-center gap-x-1 rounded-sm dark:bg-neutral-600/20 dark:ring-neutral-600 bg-white px-2 py-1 ring-1 ring-inset ring-gray-300 hover:bg-gray-50',
+              'flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-neutral-600/20 dark:ring-neutral-600',
               { 'text-xs': size === 'normal', 'text-sm': size === 'large' },
             )}
           >
@@ -997,7 +997,7 @@ export function Copytext({ value }: { value: string }) {
   const [showCopied, setShowCopied] = useState(false);
 
   return (
-    <span className="inline-flex items-center text-sm bg-gray-500 text-white px-2 rounded-sm">
+    <span className="inline-flex items-center rounded-sm bg-gray-500 px-2 text-sm text-white">
       <code
         className="truncate"
         onClick={(e) => {
@@ -1110,12 +1110,12 @@ export function JSONEditor(props: {
   }, [monacoInstance, props.schema]);
 
   return (
-    <div className="flex flex-col gap-2 dark:bg-[#1E1E1E] h-full min-h-0">
-      <div className="flex items-center gap-4 dark:border-b-neutral-700 border-b px-4 py-2">
+    <div className="flex h-full min-h-0 flex-col gap-2 dark:bg-[#1E1E1E]">
+      <div className="flex items-center gap-4 border-b px-4 py-2 dark:border-b-neutral-700">
         <div className="font-mono">{props.label}</div>
         <Button onClick={() => props.onSave(draft)}>Save</Button>
       </div>
-      <div className="flex-grow min-h-0">
+      <div className="min-h-0 flex-grow">
         <CodeEditor
           language="json"
           value={props.value}
@@ -1184,7 +1184,7 @@ export function Fence({
           }}
         >
           {copyable ? (
-            <div className="absolute top-0 right-0 px-2 flex items-center">
+            <div className="absolute right-0 top-0 flex items-center px-2">
               <button
                 onClick={(e) => {
                   copy(code);
@@ -1195,7 +1195,7 @@ export function Fence({
                   e.preventDefault();
                   e.stopPropagation();
                 }}
-                className="flex items-center gap-x-1 dark:ring-neutral-700 rounded-sm dark:bg-neutral-800 bg-white px-2 py-1 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 text-xs"
+                className="flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 text-xs ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-neutral-800 dark:ring-neutral-700"
               >
                 <ClipboardDocumentIcon
                   className="-ml-0.5 h-4 w-4"
@@ -1231,14 +1231,14 @@ export const Divider = ({
   <div className={cn('flex items-center justify-center', className)}>
     <div
       aria-hidden="true"
-      className="h-px w-full dark:bg-neutral-700 bg-gray-200"
+      className="h-px w-full bg-gray-200 dark:bg-neutral-700"
       data-orientation="horizontal"
       role="separator"
     ></div>
     {children}
     <div
       aria-hidden="true"
-      className="h-px w-full dark:bg-neutral-700 bg-gray-200"
+      className="h-px w-full bg-gray-200 dark:bg-neutral-700"
       data-orientation="horizontal"
       role="separator"
     ></div>
@@ -1249,7 +1249,7 @@ export const InfoTip = ({ children }: PropsWithChildren) => {
   return (
     <Popover
       as="span"
-      className="inline-flex align-middle relative"
+      className="relative inline-flex align-middle"
       data-open="true"
     >
       <PopoverButton className="inline">
@@ -1262,7 +1262,7 @@ export const InfoTip = ({ children }: PropsWithChildren) => {
 
       <PopoverPanel
         anchor="bottom start"
-        className="bg-white dark:bg-neutral-800 p-2 rounded-lg shadow-lg z-50"
+        className="z-50 rounded-lg bg-white p-2 shadow-lg dark:bg-neutral-800"
       >
         {children}
       </PopoverPanel>
@@ -1277,7 +1277,7 @@ export const Badge = ({
   return (
     <span
       className={cn(
-        'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium dark:bg-blue-700/30 dark:text-blue-100 bg-blue-100 text-blue-800',
+        'inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-700/30 dark:text-blue-100',
         className,
       )}
     >
@@ -1375,7 +1375,7 @@ function TooltipContent({
         data-slot="tooltip-content"
         sideOffset={sideOffset}
         className={cn(
-          'bg-white border dark:hover:bg-neutral-700/50 dark:bg-neutral-800 dark:border-neutral-600 dark:text-white border-gray-100 text-primary-foreground animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 w-fit origin-(--radix-tooltip-content-transform-origin) px-3 py-1.5 text-xs text-balance',
+          'text-primary-foreground origin-(--radix-tooltip-content-transform-origin) text-balance z-50 w-fit border border-gray-100 bg-white px-3 py-1.5 text-xs animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 dark:border-neutral-600 dark:bg-neutral-800 dark:text-white dark:hover:bg-neutral-700/50',
           className,
         )}
         {...props}

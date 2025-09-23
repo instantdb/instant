@@ -317,6 +317,7 @@ https://api.instantdb.com/platform/oauth/revoke?token=YOUR_TOKEN
     "title": "New App Name"
   }
   ```
+
   - `title` (string, required): The desired name for the new application. Must not be blank.
 - **Success Response:**
   - Code: `200 OK`
@@ -347,6 +348,7 @@ https://api.instantdb.com/platform/oauth/revoke?token=YOUR_TOKEN
     "title": "New App Name"
   }
   ```
+
   - `title` (string, required): The new desired name for the application. Must not be blank.
 - **Success Response:**
   - Code: `200 OK`
@@ -429,9 +431,9 @@ https://api.instantdb.com/platform/oauth/revoke?token=YOUR_TOKEN
     }
   }
   ```
+
   - `code` (object, required): The complete permission rules definition.
 - **Success Response:**
-
   - Code: `200 OK`
   - Body:
 
@@ -538,6 +540,7 @@ https://api.instantdb.com/platform/oauth/revoke?token=YOUR_TOKEN
     }
   }
   ```
+
   - `schema` (object, required): An object with `entities` and `links` that matches the structure of [instant.schema.ts](/docs/modeling-data#instant-schema-ts)
 - **Success Response:**
   - Code: `200 OK`
@@ -660,6 +663,7 @@ https://api.instantdb.com/platform/oauth/revoke?token=YOUR_TOKEN
     }
   }
   ```
+
   - `schema` (object, required): An object with `entities` and `links` that matches the structure of [instant.schema.ts](/docs/modeling-data#instant-schema-ts)
 - **Success Response:**
   - Code: `200 OK`

@@ -169,7 +169,7 @@ function Main({ files }: { files: File[] }) {
       <MainNav />
       <div className="mx-auto flex max-w-5xl flex-col px-4 py-12">
         <div className="flex flex-col gap-12" ref={examplesContainerElRef}>
-          <div className="flex flex-col items-center gap-6 max-w-md mx-auto">
+          <div className="mx-auto flex max-w-md flex-col items-center gap-6">
             <H3>Instant Code Examples</H3>
             <div className="flex flex-col gap-2">
               <p>
@@ -180,7 +180,7 @@ function Main({ files }: { files: File[] }) {
                 <p>
                   To get rolling, create a free account, grab your app ID, and
                   install{' '}
-                  <code className="text-sm bg-gray-500 text-white px-3 rounded-sm whitespace-nowrap">
+                  <code className="whitespace-nowrap rounded-sm bg-gray-500 px-3 text-sm text-white">
                     @instantdb/react
                   </code>
                   .
@@ -188,7 +188,7 @@ function Main({ files }: { files: File[] }) {
               )}
             </div>
             {isHydrated && !isAuthed && (
-              <div className="flex gap-3 items-center flex-col md:flex-row">
+              <div className="flex flex-col items-center gap-3 md:flex-row">
                 <Button size="large" variant="cta" type="link" href="/dash">
                   Sign up
                 </Button>
@@ -206,7 +206,7 @@ function Main({ files }: { files: File[] }) {
 
           <div
             ref={topInViewRef}
-            className="max-w-2xl md:mx-auto rounded border p-4 overflow-hidden bg-white border-gray-300 text-gray-700"
+            className="max-w-2xl overflow-hidden rounded border border-gray-300 bg-white p-4 text-gray-700 md:mx-auto"
           >
             <div className="flex flex-col gap-2">
               <h3 className="text-md font-bold">
@@ -221,7 +221,7 @@ function Main({ files }: { files: File[] }) {
                 label="URL"
                 value={isHydrated && appId ? examplesUrl(appId) : 'Loading...'}
               />
-              <p className="italic text-sm">
+              <p className="text-sm italic">
                 <strong>Please note:</strong> this app will automatically expire
                 and be deleted in 2 weeks.
               </p>
@@ -283,8 +283,8 @@ function Example({
       className="flex flex-col py-2"
     >
       <div className="flex flex-col overflow-hidden rounded-sm border">
-        <div className="flex gap-2 border-b bg-gray-50 px-4 py-2 items-center">
-          <h3 className="font-mono font-bold truncate">{file.name}</h3>
+        <div className="flex items-center gap-2 border-b bg-gray-50 px-4 py-2">
+          <h3 className="truncate font-mono font-bold">{file.name}</h3>
           <Button
             size="mini"
             onClick={() => {
@@ -294,8 +294,8 @@ function Example({
             Copy
           </Button>
 
-          <span className="text-sm whitespace-nowrap">
-            <span className="bg-white border px-1 rounded-sm">{numViews}</span>{' '}
+          <span className="whitespace-nowrap text-sm">
+            <span className="rounded-sm border bg-white px-1">{numViews}</span>{' '}
             previews
           </span>
           <Button
@@ -319,17 +319,17 @@ function Example({
             +
           </Button>
         </div>
-        <div className="flex flex-col md:flex-row overflow-hidden gap-2 bg-gray-100">
-          <div className="flex md:flex-1 flex-col h-[50vh] md:h-[61vh] overflow-auto text-xs bg-prism">
+        <div className="flex flex-col gap-2 overflow-hidden bg-gray-100 md:flex-row">
+          <div className="bg-prism flex h-[50vh] flex-col overflow-auto text-xs md:h-[61vh] md:flex-1">
             <Fence code={file.code} language="tsx" />
           </div>
-          <div className="flex md:flex-1 flex-col gap-[1vh]">
+          <div className="flex flex-col gap-[1vh] md:flex-1">
             {Array(numViews)
               .fill(null)
               .map((_, i) => (
                 <div
                   key={i}
-                  className="flex h-[30vh] bg-white rounded border shadow-sm"
+                  className="flex h-[30vh] rounded border bg-white shadow-sm"
                 >
                   {appId ? (
                     <iframe
@@ -338,7 +338,7 @@ function Example({
                       loading={lazy ? 'lazy' : undefined}
                     />
                   ) : (
-                    <div className="flex-1 animate-slow-pulse bg-gray-300"></div>
+                    <div className="animate-slow-pulse flex-1 bg-gray-300"></div>
                   )}
                 </div>
               ))}
@@ -358,10 +358,10 @@ function RoomStatus({ db, appId }: { db: InstantDB; appId: string }) {
   if (presence.isLoading) return null;
 
   return (
-    <div className="fixed z-10 bottom-0 right-0 left-0 flex first-letter justify-center mb-3">
+    <div className="first-letter fixed bottom-0 left-0 right-0 z-10 mb-3 flex justify-center">
       <div
         key={numPeers}
-        className="bg-black/60 py-1 px-4 backdrop-blur text-white rounded-full shadow-lg text-sm"
+        className="rounded-full bg-black/60 px-4 py-1 text-sm text-white shadow-lg backdrop-blur"
         style={{
           animation: 'bounce 0.5s',
         }}

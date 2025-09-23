@@ -159,17 +159,17 @@ function ToolCall({
   const [running, setRunning] = useState(false);
   return (
     <>
-      <div className="not-prose my-4 bg-white rounded p-4 flex items-baseline space-x-2">
+      <div className="not-prose my-4 flex items-baseline space-x-2 rounded bg-white p-4">
         <div className="">
-          <div className="w-2 h-2 bg-green-600 rounded-full"></div>
+          <div className="h-2 w-2 rounded-full bg-green-600"></div>
         </div>
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center space-x-2 text-sm">
             <div className="font-mono font-bold">instant</div>
             <div className="font-mono font-bold">-</div>
             <div className="font-mono font-bold">{name}</div>
           </div>
-          <div className="text-xs max-h-20 overflow-y-auto overflow-x-auto [&_pre]:!p-0">
+          <div className="max-h-20 overflow-x-auto overflow-y-auto text-xs [&_pre]:!p-0">
             <Fence code={argsString} language="javascript" />
           </div>
         </div>
@@ -194,8 +194,8 @@ function ToolCall({
       {out ? (
         <ToolOutput outString={out.str} timeTaken={out.timeTaken} />
       ) : (
-        <div className="relative not-prose">
-          <div className="absolute inset-0 bg-white/90 flex justify-center items-center flex-col space-y-2">
+        <div className="not-prose relative">
+          <div className="absolute inset-0 flex flex-col items-center justify-center space-y-2 bg-white/90">
             <div className="font-mono text-sm font-bold text-gray-500">
               Click 'Run tool' to see the result.
             </div>
@@ -223,16 +223,16 @@ function ToolOutput({
   timeTaken?: number;
 }) {
   return (
-    <div className="not-prose my-4 bg-white rounded p-4 flex items-baseline space-x-2">
+    <div className="not-prose my-4 flex items-baseline space-x-2 rounded bg-white p-4">
       <div className="">⎿</div>
-      <div className="flex-1 min-w-0">
-        <div className="text-xs [&_pre]:!p-0 max-h-20 overflow-y-auto overflow-x-auto">
+      <div className="min-w-0 flex-1">
+        <div className="max-h-20 overflow-x-auto overflow-y-auto text-xs [&_pre]:!p-0">
           <Fence code={outString} language="javascript" />
         </div>
       </div>
       {Number.isFinite(timeTaken) ? (
         <div>
-          <div className="font-bold font-mono bg-gray-100 px-2">
+          <div className="bg-gray-100 px-2 font-mono font-bold">
             {timeTaken} ms
           </div>
         </div>
@@ -250,7 +250,7 @@ function AppCreatedSection({
 }) {
   return (
     <div>
-      <p className="text-sm italic px-8 not-prose">
+      <p className="not-prose px-8 text-sm italic">
         Note: The database created in this essay will last about 2 weeks (since
         there’s no sign up required). If you{' '}
         <a href="/dash" target="_blank" className="underline">
@@ -418,25 +418,25 @@ function DemoApp({
   const fullURI = `${isDev ? 'http://localhost:3000' : 'https://instantdb.com'}${uri}`;
   return (
     <div className="pointer-events-none" style={{ height: '750px' }}>
-      <div className="not-prose absolute left-0 right-0 p-4 pointer-events-auto">
-        <div className="max-w-4xl mx-auto">
+      <div className="not-prose pointer-events-auto absolute left-0 right-0 p-4">
+        <div className="mx-auto max-w-4xl">
           <div className="space-y-2">
             <div
-              className="border border-gray-200 rounded-lg p-2 flex flex-col"
+              className="flex flex-col rounded-lg border border-gray-200 p-2"
               style={{
                 minHeight: '750px',
                 maxHeight: '750px',
               }}
             >
               <div>
-                <div className="text-black p-2 rounded-lg bg-gray-200 flex justify-between items-center">
-                  <div className="text-xs truncate">{fullURI}</div>
+                <div className="flex items-center justify-between rounded-lg bg-gray-200 p-2 text-black">
+                  <div className="truncate text-xs">{fullURI}</div>
                   <a href={fullURI} target="_blank">
                     <ArrowTopRightOnSquareIcon className="h-4 w-4 text-gray-500" />
                   </a>
                 </div>
               </div>
-              <iframe src={uri} className="w-full h-full flex-1" />
+              <iframe src={uri} className="h-full w-full flex-1" />
             </div>
           </div>
         </div>

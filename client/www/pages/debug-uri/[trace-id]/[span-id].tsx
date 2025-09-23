@@ -24,7 +24,7 @@ function fetchDebugUriInfo(
 
 function AdminInfo({ urls }: { urls: { label: string; url: string }[] }) {
   return (
-    <div className="flex flex-col gap-4 items-center">
+    <div className="flex flex-col items-center gap-4">
       <div>Admin URLs</div>
       {urls.map((u) => (
         <a
@@ -63,7 +63,7 @@ function Page() {
   }, []);
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col px-4 py-12 flex flex-col items-center justify-center gap-4 p-8">
+    <div className="mx-auto flex max-w-5xl flex-col items-center justify-center gap-4 p-8 px-4 py-12">
       <div className="text-4xl">🐞</div>
       {adminInfo ? (
         <AdminInfo urls={adminInfo.urls} />

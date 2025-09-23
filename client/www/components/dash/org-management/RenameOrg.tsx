@@ -58,7 +58,7 @@ export const RenameOrg = () => {
       }}
     >
       <SectionHeading className="pb-2">Rename Organization</SectionHeading>
-      <div className="flex flex-col md:flex-row items-start md:gap-2 md:items-end md:justify-stretch">
+      <div className="flex flex-col items-start md:flex-row md:items-end md:justify-stretch md:gap-2">
         <TextInput
           value={value}
           label="New Name"

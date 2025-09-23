@@ -92,7 +92,7 @@ export const RecentlyDeletedAttrs: React.FC<{
   return (
     <div className="pb-2">
       <Divider className="pb-2">
-        <div className="opacity-60 items-center justify-center flex gap-2 grow w-full text-center">
+        <div className="flex w-full grow items-center justify-center gap-2 text-center opacity-60">
           <ClockIcon width={16} />
           Recently Deleted
         </div>

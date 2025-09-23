@@ -136,11 +136,11 @@ export function EditNamespaceDialog({
                 key={attr.id + '-' + attr.name}
                 className="flex justify-between"
               >
-                <div className="flex gap-3 items-center">
+                <div className="flex items-center gap-3">
                   <span className="py-0.5 font-bold">{attr.name}</span>
                   {notes.notes[attr.id]?.message && (
                     <InfoTip>
-                      <div className="text-xs px-2 text-gray-500 dark:text-neutral-400">
+                      <div className="px-2 text-xs text-gray-500 dark:text-neutral-400">
                         {notes.notes[attr.id].message}
                       </div>
                     </InfoTip>
@@ -553,11 +553,11 @@ function InvalidTriplesSample({
   return (
     <div>
       Here are the first few invalid entities we found:
-      <table className="mx-2 my-2 flex-1 text-left font-mono text-xs dark:text-netural-500 text-gray-500">
-        <thead className="bg-white dark:bg-neutral-800 dark:text-white text-gray-700">
+      <table className="dark:text-netural-500 mx-2 my-2 flex-1 text-left font-mono text-xs text-gray-500">
+        <thead className="bg-white text-gray-700 dark:bg-neutral-800 dark:text-white">
           <tr>
             <th className="pr-2">id</th>
-            <th className="pr-2 max-w-fit">{attr.name}</th>
+            <th className="max-w-fit pr-2">{attr.name}</th>
             <th className="pr-2">type</th>
           </tr>
         </thead>
@@ -571,7 +571,7 @@ function InvalidTriplesSample({
               <td className="pr-2">
                 <pre>{t.entity_id}</pre>
               </td>
-              <td className="pr-2 truncate" style={{ maxWidth: '12rem' }}>
+              <td className="truncate pr-2" style={{ maxWidth: '12rem' }}>
                 {JSON.stringify(t.value)}
               </td>
               <td className="pr-2">{t.json_type}</td>
@@ -598,7 +598,7 @@ function IndexingJobError({
 
   if (indexingJob.error === 'missing-required-error') {
     return (
-      <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
+      <div className="mb-2 mt-2 border-l-2 border-l-red-500 pl-2">
         <div>
           {indexingJob.error_data?.count} <code>{attr.namespace}</code>{' '}
           {indexingJob.error_data?.count === 1 ? 'entity does' : 'entities do'}{' '}
@@ -631,7 +631,7 @@ function IndexingJobError({
 
   if (indexingJob.error === 'triple-too-large-error') {
     return (
-      <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
+      <div className="mb-2 mt-2 border-l-2 border-l-red-500 pl-2">
         <div>Some of the existing data is too large to index. </div>
         <InvalidTriplesSample
           indexingJob={indexingJob}
@@ -651,7 +651,7 @@ function IndexingJobError({
 
   if (indexingJob.error === 'invalid-triple-error') {
     return (
-      <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
+      <div className="mb-2 mt-2 border-l-2 border-l-red-500 pl-2">
         <div>
           The type can't be set to {indexingJob?.checked_data_type} because some
           data is the wrong type.
@@ -674,7 +674,7 @@ function IndexingJobError({
 
   if (indexingJob.error === 'triple-not-unique-error') {
     return (
-      <div className="mt-2 mb-2 pl-2 border-l-2 border-l-red-500">
+      <div className="mb-2 mt-2 border-l-2 border-l-red-500 pl-2">
         <div>Some of the existing data is not unique. </div>
         {indexingJob.invalid_unique_value != null ? (
           <div>
@@ -768,7 +768,7 @@ function RelationshipConfigurator({
         <div className="flex flex-1 flex-col gap-1">
           <h6 className="text-md font-bold">Forward attribute name</h6>
           <TextInput value={attrName} onChange={(n) => setAttrName(n)} />
-          <div className="rounded-sm py-0.5 text-xs dark:text-neutral-400 text-gray-500">
+          <div className="rounded-sm py-0.5 text-xs text-gray-500 dark:text-neutral-400">
             {isFullLink ? (
               <>
                 <strong>
@@ -1081,7 +1081,7 @@ const EditCheckedDataTypeControl: BlobConstraintControlComponent<
         <h6 className="text-md font-bold">
           Enforce type{' '}
           <InfoTip>
-            <div className="text-sm w-48">
+            <div className="w-48 text-sm">
               Checks the type on all existing entities and enforces the type
               when entities are created or updated.
             </div>
@@ -1591,7 +1591,7 @@ function EditAttrForm({
   return (
     <div className="flex flex-col gap-4">
       <div className="mr-8 flex gap-4">
-        <div className="flex gap-2 items-center">
+        <div className="flex items-center gap-2">
           <ArrowLeftIcon className="h-4 w-4 cursor-pointer" onClick={onClose} />
           <h5 className="flex items-center text-lg font-bold">
             Edit {attr.namespace}.{attr.name}

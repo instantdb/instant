@@ -115,47 +115,47 @@ function PaidTable({ data }: { data: any }) {
 
   return (
     <div>
-      <table className="min-w-full bg-white border border-gray-200">
+      <table className="min-w-full border border-gray-200 bg-white">
         <thead>
           <tr>
             <th
-              className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm uppercase font-medium cursor-pointer hover:bg-gray-100"
+              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium uppercase text-gray-800 hover:bg-gray-100"
               onClick={() => handleSort('user_email')}
             >
               User email{getSortIndicator('user_email')}
             </th>
             <th
-              className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm uppercase font-medium cursor-pointer hover:bg-gray-100"
+              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium uppercase text-gray-800 hover:bg-gray-100"
               onClick={() => handleSort('type')}
             >
               Type{getSortIndicator('type')}
             </th>
             <th
-              className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm uppercase font-medium cursor-pointer hover:bg-gray-100"
+              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium uppercase text-gray-800 hover:bg-gray-100"
               onClick={() => handleSort('title')}
             >
               Title{getSortIndicator('title')}
             </th>
             <th
-              className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm uppercase font-medium cursor-pointer hover:bg-gray-100"
+              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium uppercase text-gray-800 hover:bg-gray-100"
               onClick={() => handleSort('monthly_revenue')}
             >
               Monthly prevenue{getSortIndicator('monthly_revenue')}
             </th>
             <th
-              className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm uppercase font-medium cursor-pointer hover:bg-gray-100"
+              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium uppercase text-gray-800 hover:bg-gray-100"
               onClick={() => handleSort('start_timestamp')}
             >
               Subscribed since{getSortIndicator('start_timestamp')}
             </th>
             <th
-              className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm uppercase font-medium cursor-pointer hover:bg-gray-100"
+              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium uppercase text-gray-800 hover:bg-gray-100"
               onClick={() => handleSort('usage')}
             >
               DB size{getSortIndicator('usage')}
             </th>
             <th
-              className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm uppercase font-medium cursor-pointer hover:bg-gray-100"
+              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium uppercase text-gray-800 hover:bg-gray-100"
               onClick={() => handleSort('triple_count')}
             >
               Triple count{getSortIndicator('triple_count')}
@@ -165,27 +165,27 @@ function PaidTable({ data }: { data: any }) {
         <tbody>
           {sortedData.map((row: any) => (
             <tr key={row.user_email + row.app_title}>
-              <td className="py-2 px-4 border-b border-gray-200">
+              <td className="border-b border-gray-200 px-4 py-2">
                 {row.user_email}
               </td>
-              <td className="py-2 px-4 border-b border-gray-200">{row.type}</td>
-              <td className="py-2 px-4 border-b border-gray-200">
+              <td className="border-b border-gray-200 px-4 py-2">{row.type}</td>
+              <td className="border-b border-gray-200 px-4 py-2">
                 {row.title}
               </td>
-              <td className="py-2 px-4 border-b border-gray-200">
+              <td className="border-b border-gray-200 px-4 py-2">
                 <span className="ml-2">{formatMoney(row.monthly_revenue)}</span>
               </td>
-              <td className="py-2 px-4 border-b border-gray-200">
+              <td className="border-b border-gray-200 px-4 py-2">
                 <span
                   title={new Date(row.start_timestamp * 1000).toLocaleString()}
                 >
                   {formatStartTimestamp(row.start_timestamp)}
                 </span>
               </td>
-              <td className="py-2 px-4 border-b border-gray-200">
+              <td className="border-b border-gray-200 px-4 py-2">
                 {humanBytes(row.usage)}
               </td>
-              <td className="py-2 px-4 border-b border-gray-200">
+              <td className="border-b border-gray-200 px-4 py-2">
                 {row.triple_count
                   ? Intl.NumberFormat().format(row.triple_count)
                   : null}
@@ -219,7 +219,7 @@ function Page() {
         <title>Instant Paid Apps</title>
         <meta name="description" content="Welcome to Instant." />
       </Head>
-      <div className="flex space-x-0 space-y-4 md:space-x-8 md:space-y-0 m-4 flex-wrap md:flex-nowrap">
+      <div className="m-4 flex flex-wrap space-x-0 space-y-4 md:flex-nowrap md:space-x-8 md:space-y-0">
         <div className="flex flex-col space-y-2">
           <span className="font-xl font-bold">Paid Apps</span>
           <PaidTable data={data} />

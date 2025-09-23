@@ -61,10 +61,10 @@ const OrgSettingsPage: NextPageWithLayout = () => {
     <>
       <BackToAppsButton />
       <div className="bg-gray-50 dark:bg-neutral-800">
-        <div className="flex md:flex-row flex-col dark:border-b-neutral-800 border-b border-b-gray-300 justify-between md:gap-4 py-2 px-3">
-          <div className="flex gap-2 items-center">
-            <h2 className="font-mono md:text-xl font-bold">
-              <div className="flex gap-4 items-center">
+        <div className="flex flex-col justify-between border-b border-b-gray-300 px-3 py-2 dark:border-b-neutral-800 md:flex-row md:gap-4">
+          <div className="flex items-center gap-2">
+            <h2 className="font-mono font-bold md:text-xl">
+              <div className="flex items-center gap-4">
                 <BuildingOffice2Icon className="opacity-40" width={20} />
                 <div className="text-lg font-bold">{org.org.title}</div>
               </div>
@@ -85,7 +85,7 @@ const OrgSettingsPage: NextPageWithLayout = () => {
         </div>
       </div>
 
-      <div className="overflow-scroll w-full px-4 max-w-[680px] lg:px-12 mx-auto pt-6">
+      <div className="mx-auto w-full max-w-[680px] overflow-scroll px-4 pt-6 lg:px-12">
         <NavTabBar
           className="border-transparent"
           tabs={tabs}

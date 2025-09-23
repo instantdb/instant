@@ -45,19 +45,19 @@ function useStorageMetrics(token: string | undefined) {
 function StorageMetricsTable({ data }: { data: any }) {
   return (
     <div>
-      <table className="min-w-full bg-white border border-gray-200">
+      <table className="min-w-full border border-gray-200 bg-white">
         <thead>
           <tr>
-            <th className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm tracking-wide uppercase font-medium">
+            <th className="border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium uppercase tracking-wide text-gray-800">
               User email
             </th>
-            <th className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm tracking-wide uppercase font-medium">
+            <th className="border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium uppercase tracking-wide text-gray-800">
               App Title
             </th>
-            <th className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-right text-sm tracking-wide uppercase font-medium">
+            <th className="border-b border-gray-200 bg-gray-50 px-4 py-2 text-right text-sm font-medium uppercase tracking-wide text-gray-800">
               File count
             </th>
-            <th className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-right text-sm tracking-wide uppercase font-medium">
+            <th className="border-b border-gray-200 bg-gray-50 px-4 py-2 text-right text-sm font-medium uppercase tracking-wide text-gray-800">
               Space used
             </th>
           </tr>
@@ -65,17 +65,17 @@ function StorageMetricsTable({ data }: { data: any }) {
         <tbody>
           {data.map((row: any, index: number) => (
             <tr key={index}>
-              <td className="py-2 px-4 border-b border-gray-200">
+              <td className="border-b border-gray-200 px-4 py-2">
                 {row.creator_email || '-'}
               </td>
-              <td className="py-2 px-4 border-b border-gray-200">
+              <td className="border-b border-gray-200 px-4 py-2">
                 {row.title || '-'}
               </td>
-              <td className="py-2 px-4 border-b border-gray-200 text-right">
+              <td className="border-b border-gray-200 px-4 py-2 text-right">
                 {row.total_file_count || 0}
               </td>
 
-              <td className="py-2 px-4 border-b border-gray-200 text-right">
+              <td className="border-b border-gray-200 px-4 py-2 text-right">
                 {formatBytes(row.total_byte_size)}
               </td>
             </tr>
@@ -104,9 +104,9 @@ function Page() {
       <Head>
         <title>Instant Storage Usage</title>
       </Head>
-      <div className="p-8 max-w-4xl">
+      <div className="max-w-4xl p-8">
         <div className="">
-          <h2 className="text-xl font-bold mb-4">Storage Usage</h2>
+          <h2 className="mb-4 text-xl font-bold">Storage Usage</h2>
           <StorageMetricsTable data={data} />
         </div>
       </div>

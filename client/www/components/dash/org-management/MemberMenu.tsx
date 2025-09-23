@@ -144,7 +144,7 @@ export const MemberMenu = ({ member }: MemberMenuProps) => {
               className="group"
             >
               <button
-                className="flex text-red-500 group-disabled:text-gray-400 gap-2 items-center"
+                className="flex items-center gap-2 text-red-500 group-disabled:text-gray-400"
                 onClick={() => leaveOrgDialog.onOpen()}
               >
                 <ArrowLeftStartOnRectangleIcon width={14} />
@@ -157,7 +157,7 @@ export const MemberMenu = ({ member }: MemberMenuProps) => {
               className="group"
             >
               <button
-                className="flex text-red-500 group-disabled:text-gray-400 gap-2 items-center"
+                className="flex items-center gap-2 text-red-500 group-disabled:text-gray-400"
                 onClick={() => deleteDialog.onOpen()}
               >
                 <UserMinusIcon width={14} />
@@ -170,7 +170,7 @@ export const MemberMenu = ({ member }: MemberMenuProps) => {
             disabled={assignableRoles.length === 0}
           >
             <button
-              className="flex group-disabled:text-gray-400 gap-2 items-center"
+              className="flex items-center gap-2 group-disabled:text-gray-400"
               onClick={() => changeRoleDialog.onOpen()}
             >
               <LockOpenIcon width={14} />

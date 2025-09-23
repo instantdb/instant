@@ -148,7 +148,7 @@ export function Admin({
           <>
             If need be, you can regenerate it by{' '}
             <a
-              className="dark:text-white hover:cursor-pointer"
+              className="hover:cursor-pointer dark:text-white"
               onClick={onClickReset}
             >
               clicking here
@@ -250,9 +250,9 @@ export function Admin({
                   {workspace.members.map((member) => (
                     <div
                       key={member.id}
-                      className="flex justify-between items-center gap-3"
+                      className="flex items-center justify-between gap-3"
                     >
-                      <div className="flex justify-between flex-1">
+                      <div className="flex flex-1 justify-between">
                         <div>{member.email}</div>
                         <div className="text-gray-400">
                           {capitalize(member.role)}
@@ -277,15 +277,15 @@ export function Admin({
                 {app.members.map((member) => (
                   <div
                     key={member.id}
-                    className="flex justify-between items-center gap-3"
+                    className="flex items-center justify-between gap-3"
                   >
-                    <div className="flex justify-between flex-1">
+                    <div className="flex flex-1 justify-between">
                       <div>{member.email}</div>
                       <div className="text-gray-400">
                         {capitalize(member.role)}
                       </div>
                     </div>
-                    <div className="w-28 flex">
+                    <div className="flex w-28">
                       <Button
                         className="w-full"
                         variant="secondary"
@@ -308,7 +308,7 @@ export function Admin({
                 {displayedInvites.map((invite) => (
                   <div
                     key={invite.id}
-                    className="flex justify-between items-center gap-3"
+                    className="flex items-center justify-between gap-3"
                   >
                     <div className="flex flex-1 justify-between gap-2 overflow-hidden">
                       <div className="truncate">{invite.email}</div>
@@ -316,7 +316,7 @@ export function Admin({
                         {capitalize(invite.role)}
                       </div>
                     </div>
-                    <div className="w-28 flex">
+                    <div className="flex w-28">
                       {!invite.expired && invite.status === 'pending' ? (
                         <ActionButton
                           className="w-full"
@@ -366,7 +366,7 @@ export function Admin({
         </>
       ) : (
         <div className="flex flex-col gap-2">
-          <div className="bg-gray-100 dark:bg-neutral-800 dark:border-neutral-700 flex gap-2 items-center p-2 rounded border">
+          <div className="flex items-center gap-2 rounded border bg-gray-100 p-2 dark:border-neutral-700 dark:bg-neutral-800">
             <InformationCircleIcon width={18}></InformationCircleIcon>
             Upgrade to a paid app to manage members.{' '}
             <Link className="underline" href="/pricing">
@@ -668,7 +668,7 @@ const TransferApp = ({ app }: { app: InstantApp }) => {
           </strong>
           ?
         </div>
-        <div className="w-full pt-4 flex gap-2 justify-end items-end">
+        <div className="flex w-full items-end justify-end gap-2 pt-4">
           <Button
             variant="subtle"
             onClick={() => {
@@ -694,12 +694,12 @@ const TransferApp = ({ app }: { app: InstantApp }) => {
       </Dialog>
       <SectionHeading className="pt-4">Transfer App</SectionHeading>
       {orgs.length === 0 && (
-        <p className="text-center py-2">No organizations to transfer to.</p>
+        <p className="py-2 text-center">No organizations to transfer to.</p>
       )}
       {orgs.length > 0 && (
-        <div className="flex gap-2 flex-col">
+        <div className="flex flex-col gap-2">
           <div className="flex flex-col gap-1 pt-2">
-            <Label className="opacity-70 font-normal">
+            <Label className="font-normal opacity-70">
               Destination Organization
             </Label>
             <Select

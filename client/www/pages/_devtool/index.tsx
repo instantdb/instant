@@ -44,7 +44,7 @@ function DevtoolComp() {
         <Auth
           emailOnly
           info={
-            <div className="bg-gray-100 p-4 border rounded">
+            <div className="rounded border bg-gray-100 p-4">
               <Help />
             </div>
           }
@@ -58,8 +58,8 @@ function DevtoolComp() {
   if (!appId) {
     return (
       <DevtoolWindow>
-        <div className="h-full w-full flex justify-center items-center">
-          <div className="max-w-md mx-auto space-y-4">
+        <div className="flex h-full w-full items-center justify-center">
+          <div className="mx-auto max-w-md space-y-4">
             <ScreenHeading>No app id provided</ScreenHeading>
             <p>
               We didn't receive an app ID. Double check that you passed an{' '}
@@ -100,8 +100,8 @@ function DevtoolAuthorized({ appId }: { appId: string }) {
     const message = dashResponse.error.message;
     return (
       <DevtoolWindow>
-        <div className="h-full w-full flex justify-center items-center">
-          <div className="max-w-md mx-auto space-y-4">
+        <div className="flex h-full w-full items-center justify-center">
+          <div className="mx-auto max-w-md space-y-4">
             <ScreenHeading>🤕 Failed to load your app</ScreenHeading>
             {message ? (
               <div className="mx-auto flex w-full max-w-2xl flex-col">
@@ -219,8 +219,8 @@ function DevtoolWithData({
     const user = dashResponse.data?.user;
     return (
       <DevtoolWindow>
-        <div className="h-full w-full flex justify-center items-center">
-          <div className="max-w-md mx-auto space-y-4">
+        <div className="flex h-full w-full items-center justify-center">
+          <div className="mx-auto max-w-md space-y-4">
             <ScreenHeading>🔎 We couldn't find your app</ScreenHeading>
             <p>
               {user ? (
@@ -257,8 +257,8 @@ function DevtoolWithData({
     const message = connection.errorMessage;
     return (
       <DevtoolWindow>
-        <div className="h-full w-full flex justify-center items-center">
-          <div className="max-w-md mx-auto space-y-4">
+        <div className="flex h-full w-full items-center justify-center">
+          <div className="mx-auto max-w-md space-y-4">
             <ScreenHeading>
               🤕 Failed connect to Instant's backend
             </ScreenHeading>
@@ -300,7 +300,7 @@ function DevtoolWithData({
 
   if (connection.state === 'pending') {
     return (
-      <div className="h-full w-full flex justify-center items-center">
+      <div className="flex h-full w-full items-center justify-center">
         Connecting...
       </div>
     );
@@ -308,8 +308,8 @@ function DevtoolWithData({
 
   return (
     <DevtoolWindow app={app}>
-      <div className="flex flex-col h-full w-full">
-        <div className="bg-gray-50 border-b">
+      <div className="flex h-full w-full flex-col">
+        <div className="border-b bg-gray-50">
           <AppIdLabel appId={app.id} />
         </div>
         <TabBar
@@ -365,8 +365,8 @@ function DevtoolWindow({
 
   return (
     <div className="h-full w-full">
-      <div className="flex flex-col h-full w-full">
-        <div className="flex p-2 text-xs bg-gray-100 border-b">
+      <div className="flex h-full w-full flex-col">
+        <div className="flex border-b bg-gray-100 p-2 text-xs">
           <div className="flex-1 font-mono">
             Instant Devtools {app?.title ? `• ${app?.title}` : ''}
             {isLocalHost ? ' • localhost' : ''}
@@ -392,10 +392,10 @@ function DevtoolWindow({
 
 function AppIdLabel({ appId }: { appId: string }) {
   return (
-    <div className="flex gap-2 px-2 py-1 text-xs font-mono">
+    <div className="flex gap-2 px-2 py-1 font-mono text-xs">
       <span>App ID</span>
       <code
-        className="bg-white rounded border px-2"
+        className="rounded border bg-white px-2"
         onClick={(e) => {
           const node = e.currentTarget;
           const selection = window.getSelection();
@@ -436,15 +436,15 @@ function DevtoolContent({
           namespaces={schemaData.namespaces}
         />
       ) : tab === 'sandbox' ? (
-        <div className="min-w-[960px] w-full">
+        <div className="w-full min-w-[960px]">
           <Sandbox app={app} db={connection.db} />
         </div>
       ) : tab === 'admin' ? (
-        <div className="min-w-[960px] w-full p-4">
+        <div className="w-full min-w-[960px] p-4">
           <Admin dashResponse={dashResponse} app={app} />
         </div>
       ) : tab === 'help' ? (
-        <div className="min-w-[960px] w-full p-4 space-y-4">
+        <div className="w-full min-w-[960px] space-y-4 p-4">
           <Help />
           <Button
             size="mini"
@@ -473,7 +473,7 @@ function Admin({
   const clearDialog = useDialog();
 
   return (
-    <Stack className="gap-2 text-sm max-w-sm">
+    <Stack className="max-w-sm gap-2 text-sm">
       {isMinRole('owner', app.user_app_role) ? (
         <div className="space-y-2">
           <SectionHeading>Danger zone</SectionHeading>
@@ -551,7 +551,7 @@ function Admin({
 
 function Help() {
   return (
-    <Stack className="gap-2 text-sm max-w-sm">
+    <Stack className="max-w-sm gap-2 text-sm">
       <SectionHeading>Instant Devtools</SectionHeading>
       <p>
         This widget embeds a data explorer and sandbox for your Instant app. We

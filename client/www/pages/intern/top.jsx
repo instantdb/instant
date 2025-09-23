@@ -86,11 +86,11 @@ function TopUsersTable({ data }) {
 
   return (
     <div>
-      <table className="min-w-full bg-white border border-gray-200">
+      <table className="min-w-full border border-gray-200 bg-white">
         <thead>
           <tr>
             <th
-              className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm uppercase font-medium cursor-pointer"
+              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium uppercase text-gray-800"
               onClick={() => handleSort('user_email')}
             >
               User Email ({totalApps}){' '}
@@ -98,7 +98,7 @@ function TopUsersTable({ data }) {
                 (sortConfig.direction === 'asc' ? '↑' : '↓')}
             </th>
             <th
-              className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm uppercase font-medium cursor-pointer"
+              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium uppercase text-gray-800"
               onClick={() => handleSort('app_title')}
             >
               App Title{' '}
@@ -106,7 +106,7 @@ function TopUsersTable({ data }) {
                 (sortConfig.direction === 'asc' ? '↑' : '↓')}
             </th>
             <th
-              className="py-2 px-4 bg-gray-50 border-b border-gray-200 text-gray-800 text-left text-sm uppercase font-medium cursor-pointer"
+              className="cursor-pointer border-b border-gray-200 bg-gray-50 px-4 py-2 text-left text-sm font-medium uppercase text-gray-800"
               onClick={() => handleSort('total_transactions')}
             >
               Transactions ({formatNumber(totalTransactions)}){' '}
@@ -118,13 +118,13 @@ function TopUsersTable({ data }) {
         <tbody>
           {sortedData.map((app) => (
             <tr key={app.user_email + app.app_title}>
-              <td className="py-2 px-4 border-b border-gray-200">
+              <td className="border-b border-gray-200 px-4 py-2">
                 {app.user_email}
               </td>
-              <td className="py-2 px-4 border-b border-gray-200">
+              <td className="border-b border-gray-200 px-4 py-2">
                 {app.app_title}
               </td>
-              <td className="py-2 px-4 border-b border-gray-200 flex items-center">
+              <td className="flex items-center border-b border-gray-200 px-4 py-2">
                 <div
                   className="h-4 bg-green-500"
                   style={{
@@ -163,7 +163,7 @@ function Page() {
       <Head>
         <title>Instant Top Users</title>
       </Head>
-      <div className="flex space-x-0 space-y-4 md:space-x-8 md:space-y-0 m-4 flex-wrap md:flex-nowrap">
+      <div className="m-4 flex flex-wrap space-x-0 space-y-4 md:flex-nowrap md:space-x-8 md:space-y-0">
         <div className="flex flex-col space-y-2">
           <span className="font-xl font-bold">
             Top Users Last {getDays()} Days

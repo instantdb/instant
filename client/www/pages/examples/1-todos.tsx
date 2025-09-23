@@ -12,11 +12,11 @@ export default function InstantTodos() {
   });
 
   if (error)
-    return <p className="p-4 flex items-center">Oops, something broke</p>;
+    return <p className="flex items-center p-4">Oops, something broke</p>;
 
   return (
-    <div className="flex flex-col p-4 gap-2">
-      <h1 className="font-bold text-lg">InsTodo</h1>
+    <div className="flex flex-col gap-2 p-4">
+      <h1 className="text-lg font-bold">InsTodo</h1>
       <form
         className="flex flex-col gap-2"
         onSubmit={(e) => {
@@ -37,8 +37,8 @@ export default function InstantTodos() {
           ]);
         }}
       >
-        <input className="py-1 border-gray-300" type="text" name="todo" />
-        <button type="submit" className="bg-blue-500 text-white p-1 font-bold">
+        <input className="border-gray-300 py-1" type="text" name="todo" />
+        <button type="submit" className="bg-blue-500 p-1 font-bold text-white">
           Add todo
         </button>
       </form>
@@ -66,7 +66,7 @@ export default function InstantTodos() {
                 />{' '}
                 <span
                   className={`align-middle ${
-                    todo.completed ? 'line-through text-gray-400' : ''
+                    todo.completed ? 'text-gray-400 line-through' : ''
                   }`}
                 >
                   {todo.text}

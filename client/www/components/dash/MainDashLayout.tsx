@@ -165,11 +165,11 @@ export const MainDashLayout: React.FC<{
         error={<FullscreenErrorMessage message={'An error occurred.'} />}
       >
         <div
-          className={cn('h-full flex flex-col w-full', darkMode ? 'dark' : '')}
+          className={cn('flex h-full w-full flex-col', darkMode ? 'dark' : '')}
         >
           <TopBar />
           <div
-            className={`flex grow dark:text-white dark:bg-neutral-900 w-full flex-col overflow-hidden ${className}`}
+            className={`flex w-full grow flex-col overflow-hidden dark:bg-neutral-900 dark:text-white ${className}`}
           >
             {children}
           </div>

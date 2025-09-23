@@ -11,7 +11,7 @@ export function Invites() {
   const invites = dashResponse.data.invites ?? [];
 
   return (
-    <div className="flex w-full flex-col gap-4 max-w-2xl px-4 py-8">
+    <div className="flex w-full max-w-2xl flex-col gap-4 px-4 py-8">
       <div className="mb-2 flex text-4xl">📫</div>
       <SectionHeading>Team Invites</SectionHeading>
       <div className="flex flex-1 flex-col gap-4">
@@ -81,7 +81,7 @@ export function Invites() {
             </div>
           ))
         ) : (
-          <Content className="text-gray-400 dark:text-netural-400 italic">
+          <Content className="dark:text-netural-400 italic text-gray-400">
             You have no pending invites.
           </Content>
         )}

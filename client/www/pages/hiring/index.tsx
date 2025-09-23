@@ -55,11 +55,11 @@ export default function HiringIndexPage() {
       </Head>
       <MainNav />
       <Section>
-        <div className="mt-12 mb-8">
+        <div className="mb-8 mt-12">
           <div className="mb-6 text-center">
             <H2>Build the future of front-end tech.</H2>
           </div>
-          <div className="max-w-2xl mx-auto">
+          <div className="mx-auto max-w-2xl">
             <p className="mb-4 text-gray-700">
               We're a YC S22 company building the infrastructure for
               applications of the future. Our team values high-integrity,
@@ -90,11 +90,11 @@ export default function HiringIndexPage() {
           </div>
         </div>
 
-        <div className="mt-12 mb-16">
+        <div className="mb-16 mt-12">
           <div className="mb-6 text-center">
             <H3>Don't see a relevant role?</H3>
           </div>
-          <div className="max-w-2xl mx-auto">
+          <div className="mx-auto max-w-2xl">
             <p className="mb-4 text-gray-700">
               If none of the current roles fit your expertise but you're still
               interested in joining us, we would love to hear from you anyway!

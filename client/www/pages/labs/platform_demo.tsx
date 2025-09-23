@@ -172,11 +172,11 @@ function AppStage({
         <p>
           To define a schema, use <code>i.schema</code> like so:
         </p>
-        <div className="border h-96 overflow-scroll">
+        <div className="h-96 overflow-scroll border">
           <Fence code={exampleSchemaGen()} language="tsx" />
         </div>
         <p>Once you have it, here's the CURL to push:</p>
-        <div className="border h-96 overflow-scroll">
+        <div className="h-96 overflow-scroll border">
           <Fence code={exampleSchemaPushCurl(token, app.id)} language="bash" />
         </div>
         <Button
@@ -198,7 +198,7 @@ function AppStage({
           Try it!
         </Button>
         {schemaPushResult ? (
-          <div className="border h-96 overflow-scroll">
+          <div className="h-96 overflow-scroll border">
             <Fence
               code={JSON.stringify(schemaPushResult, null, 2)}
               language="json"
@@ -290,7 +290,7 @@ function PlatformTokenStage({ token }: { token: string }) {
             <Fence
               code={createAppCurl(token)}
               language="bash"
-              className="overflow-auto h-full w-full p-8 m-0 text-sm"
+              className="m-0 h-full w-full overflow-auto p-8 text-sm"
               style={{ margin: 0 }}
             />
           </div>
@@ -319,7 +319,7 @@ function PlatformTokenStage({ token }: { token: string }) {
                 <Fence
                   code={JSON.stringify(app, null, 2)}
                   language="json"
-                  className="overflow-auto h-full w-full p-8 m-0 text-sm"
+                  className="m-0 h-full w-full overflow-auto p-8 text-sm"
                   style={{ margin: 0 }}
                 />
               </div>
@@ -339,15 +339,15 @@ export default function Page() {
   );
   if (!isHydrated) return;
   return (
-    <div className="max-w-xl mx-auto p-4">
-      <div className="space-y-4 prose">
+    <div className="mx-auto max-w-xl p-4">
+      <div className="prose space-y-4">
         <SectionHeading className="font-bold">
           Here's a demo of the Platform Beta!
         </SectionHeading>
         <p>
           First,{' '}
           <a href="/dash?s=personal-access-tokens" target="_blank">
-            <span className="text-blue-500 font-bold cursor-pointer">
+            <span className="cursor-pointer font-bold text-blue-500">
               go to this page and get a personal access token
             </span>
           </a>

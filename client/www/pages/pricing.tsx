@@ -113,14 +113,14 @@ function Feature({
   const styles = getVariantStyles(variant);
 
   return (
-    <div className="flex flex-row py-2 gap-3 items-center">
+    <div className="flex flex-row items-center gap-3 py-2">
       <svg
         xmlns="http://www.w3.org/2000/svg"
         width="1em"
         height="1em"
         viewBox="0 0 20 20"
         version="1.1"
-        className={`w-5 h-5 ${styles.iconColor} flex-none`}
+        className={`h-5 w-5 ${styles.iconColor} flex-none`}
       >
         <path
           fill="currentColor"
@@ -132,7 +132,7 @@ function Feature({
       {typeof feature === 'object' ? (
         <div className="flex flex-col gap-1">
           <span className="text-black">{feature[0]}</span>
-          <span className="text-gray-500 text-sm">{feature[1]}</span>
+          <span className="text-sm text-gray-500">{feature[1]}</span>
         </div>
       ) : (
         <span className="text-black">{feature}</span>
@@ -159,12 +159,12 @@ function Plan({ plan }: { plan: any }) {
 
   return (
     <div
-      className={`box-border rounded-lg ${styles.background} outline ${styles.outlineWidth} -outline-offset-1 ${styles.outline} flex flex-col justify-between gap-4 p-6 h-full ${opacityStyle(ctaDisabled)}`}
+      className={`box-border rounded-lg ${styles.background} outline ${styles.outlineWidth} -outline-offset-1 ${styles.outline} flex h-full flex-col justify-between gap-4 p-6 ${opacityStyle(ctaDisabled)}`}
     >
       <div>
-        <div className="flex items-center justify-between my-2">
+        <div className="my-2 flex items-center justify-between">
           <h5
-            className={`font-mono text-2xl font-medium tracking-tight mr-2 ${styles.textColor}`}
+            className={`mr-2 font-mono text-2xl font-medium tracking-tight ${styles.textColor}`}
           >
             {name}
           </h5>
@@ -172,10 +172,10 @@ function Plan({ plan }: { plan: any }) {
         <div className={`opacity-70 ${styles.textColor}`}>{description}</div>
         {price && (
           <span
-            className={`inline-flex gap-1 items-baseline my-4 ${styles.textColor}`}
+            className={`my-4 inline-flex items-baseline gap-1 ${styles.textColor}`}
           >
             <h3
-              className={`text-3xl sm:text-4xl tracking-tight font-medium leading-none ${styles.textColor}`}
+              className={`text-3xl font-medium leading-none tracking-tight sm:text-4xl ${styles.textColor}`}
             >
               {price}
             </h3>
@@ -184,7 +184,7 @@ function Plan({ plan }: { plan: any }) {
             )}
           </span>
         )}
-        <div className={`opacity-70 text-sm py-2 ${styles.textColor}`}>
+        <div className={`py-2 text-sm opacity-70 ${styles.textColor}`}>
           {featuresDescription}
         </div>
         <div className="flex flex-col">
@@ -210,9 +210,9 @@ function Plan({ plan }: { plan: any }) {
 function FourPlanGrid() {
   return (
     <div>
-      <div className="flex flex-col flex-1 px-4 py-8 gap-12">
-        <div className="flex flex-col flex-1 max-w-3xl mx-auto">
-          <h1 className="font-mono text-black text-3xl leading-10 font-medium tracking-tighter text-center">
+      <div className="flex flex-1 flex-col gap-12 px-4 py-8">
+        <div className="mx-auto flex max-w-3xl flex-1 flex-col">
+          <h1 className="text-center font-mono text-3xl font-medium leading-10 tracking-tighter text-black">
             Never paused.
             <br />
             Unlimited free projects.
@@ -221,8 +221,8 @@ function FourPlanGrid() {
           </h1>
         </div>
 
-        <div className="flex flex-col flex-1 max-w-3xl mx-auto">
-          <div className="text-black text-lg space-y-4">
+        <div className="mx-auto flex max-w-3xl flex-1 flex-col">
+          <div className="space-y-4 text-lg text-black">
             <p>
               Whether you're building a side project or your next big thing, you
               can get started with Instant for free.
@@ -235,7 +235,7 @@ function FourPlanGrid() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6 max-w-7xl mx-auto w-full">
+        <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-4">
           {plans.map((plan) => (
             <Plan key={plan.name} plan={plan} />
           ))}
@@ -258,7 +258,7 @@ export default function Page() {
           content={og.url({ section: 'pricing' })}
         />
       </Head>
-      <div className="flex min-h-screen justify-between flex-col">
+      <div className="flex min-h-screen flex-col justify-between">
         <div>
           {' '}
           <MainNav />

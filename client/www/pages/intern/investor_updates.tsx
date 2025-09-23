@@ -92,7 +92,7 @@ function Page() {
           Monthly Active Devs M/M Growth:{' '}
           {round(data.metrics['monthly-active-devs-mom'], /* precision = */ 1)}%
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 justify-items-center">
+        <div className="grid grid-cols-1 justify-items-center gap-4 sm:grid-cols-2">
           <img src={data.metrics.charts['monthly-active-apps']} />
           <img src={data.metrics.charts['monthly-active-devs']} />
           <img src={data.metrics.charts['weekly-active-apps']} />
