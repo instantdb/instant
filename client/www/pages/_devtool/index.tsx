@@ -24,10 +24,15 @@ import {
   FullscreenLoading,
 } from '@/components/ui';
 import Auth from '@/components/dash/Auth';
-import { isMinRole } from '@/pages/dash/index';
+import { FullscreenErrorMessage, isMinRole } from '@/pages/dash/index';
 import { TrashIcon, XMarkIcon } from '@heroicons/react/24/solid';
 import { CachedAPIResponse, useDashFetch } from '@/lib/hooks/useDashFetch';
 import { asClientOnlyPage, useReadyRouter } from '@/components/clientOnlyPage';
+import {
+  DashFetchProvider,
+  FetchedDash,
+  useFetchedDash,
+} from '@/components/dash/MainDashLayout';
 
 type InstantReactClient = ReturnType<typeof init>;
 
@@ -38,6 +43,29 @@ export default Devtool;
 function DevtoolComp() {
   const router = useReadyRouter();
   const authToken = useAuthToken();
+  const appId = router.query.appId as string | undefined;
+  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (appId && authToken) {
+      let cancel = false;
+      jsonFetch(`${config.apiURI}/dash/apps/${appId}`, {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${authToken}` },
+      })
+        .then((res) => {
+          if (cancel) return;
+          setWorkspaceId(res?.app?.org_id || 'personal');
+        })
+        .catch((e) => {
+          setWorkspaceId('personal');
+        });
+
+      return () => {
+        cancel = true;
+      };
+    }
+  }, [appId, authToken]);
   if (!authToken) {
     return (
       <DevtoolWindow>
@@ -52,8 +80,6 @@ function DevtoolComp() {
       </DevtoolWindow>
     );
   }
-
-  const appId = router.query.appId as string | undefined;
 
   if (!appId) {
     return (
@@ -82,19 +108,37 @@ function DevtoolComp() {
     );
   }
 
+  if (!workspaceId) {
+    return (
+      <DevtoolWindow>
+        <FullscreenLoading />
+      </DevtoolWindow>
+    );
+  }
+
   return (
     <TokenContext.Provider value={authToken}>
-      <DevtoolAuthorized appId={appId} />
+      <DashFetchProvider
+        loading={
+          <DevtoolWindow>
+            <FullscreenLoading />
+          </DevtoolWindow>
+        }
+        error={
+          <DevtoolWindow>
+            <FullscreenErrorMessage message={'An error occurred.'} />
+          </DevtoolWindow>
+        }
+        init={{ workspaceId }}
+      >
+        <DevtoolAuthorized appId={appId} />
+      </DashFetchProvider>
     </TokenContext.Provider>
   );
 }
 
 function DevtoolAuthorized({ appId }: { appId: string }) {
-  const dashResponse = useDashFetch();
-
-  if (dashResponse.isLoading) {
-    return <FullscreenLoading />;
-  }
+  const dashResponse = useFetchedDash();
 
   if (dashResponse.error) {
     const message = dashResponse.error.message;
@@ -137,6 +181,10 @@ function DevtoolAuthorized({ appId }: { appId: string }) {
     );
   }
 
+  if (!dashResponse.ready) {
+    return <FullscreenLoading />;
+  }
+
   return <DevtoolWithData dashResponse={dashResponse} appId={appId} />;
 }
 
@@ -144,7 +192,7 @@ function DevtoolWithData({
   dashResponse,
   appId,
 }: {
-  dashResponse: CachedAPIResponse<DashResponse>;
+  dashResponse: FetchedDash;
   appId: string;
 }) {
   const app = dashResponse.data?.apps?.find((a) => a.id === appId);
@@ -212,7 +260,11 @@ function DevtoolWithData({
   if (!app && dashResponse.fromCache) {
     // We couldn't find this app. Perhaps the cache is stale. Let's
     // wait for fresh data.
-    return <FullscreenLoading />;
+    return (
+      <DevtoolWindow>
+        <FullscreenLoading />
+      </DevtoolWindow>
+    );
   }
 
   if (!app) {
@@ -423,7 +475,7 @@ function DevtoolContent({
   app: InstantApp;
   appId: string;
   tab: string;
-  dashResponse: APIResponse<DashResponse>;
+  dashResponse: FetchedDash;
 }) {
   const schemaData = useSchemaQuery(connection.db);
 
@@ -465,7 +517,7 @@ function Admin({
   dashResponse,
   app,
 }: {
-  dashResponse: APIResponse<DashResponse>;
+  dashResponse: FetchedDash;
   app: InstantApp;
 }) {
   const token = useContext(TokenContext);
