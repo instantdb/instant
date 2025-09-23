@@ -12,7 +12,7 @@ import config, { getLocal, setLocal } from '@/lib/config';
 import { Select } from '@/components/ui';
 import { BareNav } from '@/components/marketingUi';
 import navigation from '@/data/docsNavigation';
-import { createdAtComparator } from '@/lib/app';
+import { createdAtComparator, titleComparator } from '@/lib/app';
 import RatingBox from './RatingBox';
 import { getLocallySavedApp, setLocallySavedApp } from '@/lib/locallySavedApp';
 
@@ -75,7 +75,7 @@ function useSelectedApp(apps = []) {
 }
 
 function AppPicker({ apps, selectedAppData, updateSelectedAppId }) {
-  const appOptions = apps.map((app) => ({
+  const appOptions = apps.toSorted(titleComparator).map((app) => ({
     label: app.title,
     value: app.id,
   }));
