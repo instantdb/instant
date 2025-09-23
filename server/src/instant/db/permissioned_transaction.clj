@@ -260,12 +260,12 @@
                      :etype    etype
                      :eid      eid
                      :program  link-program
-                     :bindings {:data         (-> entity
-                                                  (assoc "$action" "update"))
+                     :bindings {:data         entity
                                 :new-data     (get updated-entities-map key)
-                                :linked-data  (-> rev-entity
-                                                  (assoc "$action" (if rev-entity "update" "create")))
+                                :linked-data  rev-entity
                                 :linked-etype rev-etype
+                                :actions      {"data" "update"
+                                               "linkedData" (if rev-entity "update" "create")}
                                 :rule-params  (merge rev-rule-params rule-params)}}])
                  (when (and rev-entity rev-link-program)
                    [{:scope    :object
@@ -275,9 +275,10 @@
                      :program  rev-link-program
                      :bindings {:data         (assoc rev-entity "$action" "update")
                                 :new-data     (get updated-entities-map rev-key)
-                                :linked-data  (-> (get updated-entities-map key)
-                                                  (assoc "$action" (if entity "update" "create")))
+                                :linked-data  (get updated-entities-map key)
                                 :linked-etype etype
+                                :actions      {"data" "update"
+                                               "linkedData" (if entity "update" "create")}
                                 :rule-params  (merge rule-params rev-rule-params)}}]))
 
                 ;; fallback when link isn´t defined on either side
@@ -434,12 +435,12 @@
                      :etype    etype
                      :eid      (get create-lookups-map eid eid)
                      :program  link-program
-                     :bindings {:data         (-> updated-entity
-                                                  (assoc "$action" "create"))
+                     :bindings {:data         updated-entity
                                 :new-data     updated-entity
-                                :linked-data  (-> updated-rev-entity
-                                                  (assoc "$action" (if (get entities-map rev-key) "update" "create")))
+                                :linked-data  updated-rev-entity
                                 :linked-etype rev-etype
+                                :actions      {"data" "create"
+                                               "linkedData" (if (get entities-map rev-key) "update" "create")}
                                 :rule-params  (merge rev-rule-params rule-params)}}])
                  (when (and updated-rev-entity
                             (nil? (get entities-map rev-key))
@@ -449,12 +450,12 @@
                      :etype    rev-etype
                      :eid      (get updated-rev-entity "id")
                      :program  rev-link-program
-                     :bindings {:data         (-> updated-rev-entity
-                                                  (assoc "$action" "create"))
+                     :bindings {:data         updated-rev-entity
                                 :new-data     updated-rev-entity
-                                :linked-data  (-> updated-entity
-                                                  (assoc "$action" (if create? "create" "update")))
+                                :linked-data  updated-entity
                                 :linked-etype etype
+                                :actions      {"data" "create"
+                                               "linkedData" (if create? "create" "update")}
                                 :rule-params  (merge rule-params rev-rule-params)}}]))
 
                 ;; fallback when link isn´t defined on either side

@@ -3042,8 +3042,8 @@
                       (transact!
                        [[:retract-triple post-id :posts/ref user-id]]))))))))))
 
-;; Test data['$action'] and linkedData['$action'] in link permission checks
-(deftest link-$action-perm
+;; Test actions.data and actions.linkedData in link permission checks
+(deftest link-actions-perm
   (with-empty-app
     (fn [{app-id   :id
           make-ctx :make-ctx}]
@@ -3063,10 +3063,10 @@
          {:app-id app-id
           :code {:posts
                  {:allow
-                  {:link {"ref" "data['$action'] == ruleParams.post_post_action && linkedData['$action'] == ruleParams.post_user_action"}}}
+                  {:link {"ref" "actions.data == ruleParams.post_post_action && actions.linkedData == ruleParams.post_user_action"}}}
                  :users
                  {:allow
-                  {:link {"rev-ref" "data['$action'] == ruleParams.user_user_action && linkedData['$action'] == ruleParams.user_post_action"}}}}})
+                  {:link {"rev-ref" "actions.data == ruleParams.user_user_action && actions.linkedData == ruleParams.user_post_action"}}}}})
 
         (test-util/test-matrix
          [post-action      [:create :update]

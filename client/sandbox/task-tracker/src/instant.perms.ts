@@ -34,7 +34,7 @@ const rules = {
       "auth.id in data.ref('members.id')",
 
       'isNewProject',
-      'data["$action"] == "create"',
+      'actions.data == "create"',
 
       'linkingMyself',
       'linkedData.id == auth.id',
