@@ -51,7 +51,7 @@ export function Perms({
           Learn how to use CEL expressions to secure your app
         </HomeButton>
       </div>
-      <div className="flex w-full flex-1 flex-col justify-start bg-white dark:bg-neutral-800">
+      <div className="flex w-full flex-1 flex-col justify-start dark:bg-neutral-800">
         {errorRes && (
           <div className="bg-red-100 p-4 text-sm">
             <div className="max-w-sm">
@@ -64,7 +64,7 @@ export function Perms({
         )}
         <JSONEditor
           label={
-            <>
+            <span className="text-sm">
               <span
                 className="text-sm font-bold text-yellow-600"
                 style={{ letterSpacing: '4px' }}
@@ -72,7 +72,7 @@ export function Perms({
                 {'{}'}
               </span>{' '}
               rules.json
-            </>
+            </span>
           }
           value={value}
           schema={schema}
