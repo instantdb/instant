@@ -40,7 +40,6 @@ export const { use: useFetchedDash, provider: DashFetchProvider } =
         args?.workspaceId || getInitialWorkspace(),
       );
 
-      console.log('WSID', currentWorkspaceId);
       const workspace = useWorkspace(dashResult, currentWorkspaceId);
 
       const refetch = async () => {

@@ -58,6 +58,7 @@ function DevtoolComp() {
           setWorkspaceId(res?.app?.org_id || 'personal');
         })
         .catch((e) => {
+          if (cancel) return;
           setWorkspaceId('personal');
         });
 
