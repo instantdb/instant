@@ -112,23 +112,21 @@ export const OrgBilling = () => {
         <div className="flex gap-2 items-end p-2 justify-between">
           <span className="font-bold">Usage (all apps)</span>{' '}
           <span className="font-mono text-sm">
-            {friendlyUsage(totalUsageBytes)} / {friendlyUsage(progressDen)}
+            {friendlyUsage(totalUsageBytes)}{' '}
+            {isPaid && <span>/ {friendlyUsage(progressDen)}</span>}
           </span>
         </div>
-        <ProgressBar width={progress} />
+        {isPaid && <ProgressBar width={progress} />}
         <div
           className={cn('flex justify-start text-sm space-x-2 pl-2', 'pt-3')}
         >
-          {totalAppBytes > 0 && (
-            <span className="text-sm font-mono text-gray-500">
-              DB ({friendlyUsage(totalAppBytes)})
-            </span>
-          )}
-          {totalStorageBytes > 0 && (
-            <span className="text-sm font-mono pb-3 text-gray-500">
-              Storage ({friendlyUsage(totalStorageBytes)})
-            </span>
-          )}
+          <span className="text-sm font-mono text-gray-500">
+            DB ({friendlyUsage(totalAppBytes)})
+          </span>
+
+          <span className="text-sm font-mono pb-3 text-gray-500">
+            Storage ({friendlyUsage(totalStorageBytes)})
+          </span>
         </div>
       </div>
       <SectionHeading className="pt-8">Billing</SectionHeading>
