@@ -1,25 +1,23 @@
-import { useContext, useMemo, useState } from 'react';
-import { SWRResponse } from 'swr';
 import JsonParser from 'json5';
+import { useContext, useMemo, useState } from 'react';
 
-import { errorToast, successToast } from '@/lib/toast';
+import { Content, JSONEditor, SectionHeading } from '@/components/ui';
 import config from '@/lib/config';
-import { jsonFetch } from '@/lib/fetch';
 import { TokenContext } from '@/lib/contexts';
-import { InstantApp, DashResponse, SchemaNamespace } from '@/lib/types';
-import { Button, Content, JSONEditor, SectionHeading } from '@/components/ui';
+import { jsonFetch } from '@/lib/fetch';
+import { errorToast, successToast } from '@/lib/toast';
+import { InstantApp, SchemaNamespace } from '@/lib/types';
 import { HomeButton } from '@/pages/dash';
 import { InstantReactWebDatabase } from '@instantdb/react';
+import { FetchedDash, useFetchedDash } from './MainDashLayout';
 
 export function Perms({
   app,
   db,
-  dashResponse,
   namespaces,
 }: {
   app: InstantApp;
   db: InstantReactWebDatabase<any>;
-  dashResponse: SWRResponse<DashResponse>;
   namespaces: SchemaNamespace[] | null;
 }) {
   const [errorRes, setErrorRes] = useState<{
@@ -32,12 +30,13 @@ export function Perms({
   }, [app]);
 
   const schema = rulesSchema(namespaces);
+  const dashResponse = useFetchedDash();
 
   return (
-    <div className="flex flex-1 flex-col md:flex-row min-h-0">
-      <div className="flex flex-col gap-4 border-r p-4 text-sm md:basis-96 md:text-base min-h-0">
+    <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+      <div className="flex min-h-0 min-w-[260px] flex-col gap-4 border-r p-4 text-sm dark:border-r-neutral-700 md:basis-96 md:text-base">
         <SectionHeading>Permissions</SectionHeading>
-        <Content>
+        <Content className="dark:text-neutral-300">
           <p>
             Ready to share your app with the world? You likely need to add some
             permissions. You can define them here
@@ -52,7 +51,7 @@ export function Perms({
           Learn how to use CEL expressions to secure your app
         </HomeButton>
       </div>
-      <div className="flex w-full flex-1 flex-col justify-start">
+      <div className="flex w-full flex-1 flex-col justify-start bg-white dark:bg-neutral-800">
         {errorRes && (
           <div className="bg-red-100 p-4 text-sm">
             <div className="max-w-sm">
@@ -90,14 +89,11 @@ export function Perms({
 }
 
 async function onEditRules(
-  dashResponse: SWRResponse<any, any, any>,
+  dashResponse: FetchedDash,
   appId: string,
   newRules: string,
   token: string,
 ): Promise<void> {
-  if (dashResponse.error || dashResponse.isLoading) {
-    return Promise.reject(null);
-  }
   const prevApps = dashResponse.data.apps;
   const currentApp = prevApps.find((x: any) => x.id === appId);
   if (!currentApp) {

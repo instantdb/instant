@@ -1,31 +1,28 @@
-import { useState } from 'react';
+import { ErrorMessage, Loading } from '@/components/dash/shared';
 import config from '@/lib/config';
-import { Loading, ErrorMessage } from '@/components/dash/shared';
+import { useState } from 'react';
 
+import { Button, Divider, SectionHeading } from '@/components/ui';
+import { useAuthedFetch } from '@/lib/auth';
 import {
-  InstantApp,
   AppsAuthResponse,
   AuthorizedOrigin,
-  OAuthServiceProvider,
+  InstantApp,
   OAuthClient,
-  DashResponse,
+  OAuthServiceProvider,
 } from '@/lib/types';
-import { Button, Divider, SectionHeading } from '@/components/ui';
-import { APIResponse, useAuthedFetch } from '@/lib/auth';
 
-import { AddGoogleProviderForm, GoogleClients } from './auth/Google';
-import { AddClerkProviderForm, ClerkClients } from './auth/Clerk';
 import { AppleClients } from './auth/Apple';
+import { AddClerkProviderForm, ClerkClients } from './auth/Clerk';
 import { Email } from './auth/Email';
+import { AddGoogleProviderForm, GoogleClients } from './auth/Google';
 import { AuthorizedOrigins } from './auth/Origins';
 
 export function AppAuth({
   app,
-  dashResponse,
   nav,
 }: {
   app: InstantApp;
-  dashResponse: APIResponse<DashResponse>;
   nav: (p: { s: string; t?: string; app?: string }) => void;
 }) {
   const authResponse = useAuthedFetch<AppsAuthResponse>(
@@ -130,7 +127,7 @@ export function AppAuth({
   }
 
   return (
-    <div className="flex flex-col p-4 gap-6 max-w-xl">
+    <div className="flex max-w-xl flex-col gap-6 p-4">
       <div className="flex flex-col gap-4">
         <SectionHeading>Google Clients</SectionHeading>
 
@@ -212,7 +209,7 @@ export function AppAuth({
 
       <Divider />
 
-      <Email app={app} dashResponse={dashResponse} nav={nav} />
+      <Email app={app} />
     </div>
   );
 }

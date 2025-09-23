@@ -57,7 +57,7 @@ export function Search() {
     <>
       <button
         type="button"
-        className="group flex h-auto w-full flex-none py-2.5 my-4 pl-4 pr-3.5 text-sm border border-slate-200 hover:border-slate-300"
+        className="group my-4 flex h-auto w-full flex-none border border-slate-200 py-2.5 pl-4 pr-3.5 text-sm hover:border-slate-300"
         onClick={onOpen}
       >
         <SearchIcon className="h-5 w-5 flex-none fill-slate-400 group-hover:fill-slate-500 dark:fill-slate-500 md:group-hover:fill-slate-400" />

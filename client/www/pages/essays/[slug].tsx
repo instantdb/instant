@@ -42,9 +42,9 @@ const Post = ({ post }: { post: Post }) => {
       </Head>
       <PageProgressBar />
       <MainNav />
-      <div className="mt-6 p-4 space-y-4">
-        <div className="mb-4 py-4 max-w-prose mx-auto">
-          <h1 className="text-4xl font-mono font-bold leading-snug mb-2">
+      <div className="mt-6 space-y-4 p-4">
+        <div className="mx-auto mb-4 max-w-prose py-4">
+          <h1 className="mb-2 font-mono text-4xl font-bold leading-snug">
             {title}
           </h1>
           <div className="flex text-sm text-gray-500">
@@ -69,11 +69,11 @@ const Post = ({ post }: { post: Post }) => {
           </div>
         </div>
         {hero && (
-          <div className="max-w-3xl mx-auto">
+          <div className="mx-auto max-w-3xl">
             <img src={hero} className="w-full rounded" />
           </div>
         )}
-        <div className="prose prose-headings:font-mono prose-headings:leading-snug prose-headings:font-bold prose-h1:mt-8 prose-h1:mb-4 prose-h2:mt-4 prose-h2:mb-2 prose-pre:bg-gray-100 mx-auto">
+        <div className="prose mx-auto prose-headings:font-mono prose-headings:font-bold prose-headings:leading-snug prose-h1:mb-4 prose-h1:mt-8 prose-h2:mb-2 prose-h2:mt-4 prose-pre:bg-gray-100">
           <ReactMarkdown
             rehypePlugins={[rehypeRaw]}
             remarkPlugins={[remarkGfm]}
@@ -84,7 +84,7 @@ const Post = ({ post }: { post: Post }) => {
                 'agents-essay-demo-section': AgentsEssayDemoSection,
 
                 p: ({ children }) => (
-                  <div className="text-base leading-relaxed leading-[1.75] mt-[1.25em] mb-[1.25em] prose">
+                  <div className="prose mb-[1.25em] mt-[1.25em] text-base leading-[1.75] leading-relaxed">
                     {children}
                   </div>
                 ),

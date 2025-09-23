@@ -88,14 +88,14 @@ const categories = ['All', 'KPIs', 'Analytics', 'Comms', 'Other'];
 
 const ToolCard = ({ title, href, description, category }: ToolCard) => (
   <Link href={href} className="no-underline">
-    <div className="relative rounded-md border border-gray-200 bg-white p-6 shadow-sm transition-all hover:shadow-md h-full flex flex-col">
+    <div className="relative flex h-full flex-col rounded-md border border-gray-200 bg-white p-6 shadow-sm transition-all hover:shadow-md">
       <div className="mb-2 flex items-start justify-between">
-        <div className="text-xl font-medium text-gray-900 pr-2">{title}</div>
-        <div className="rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 flex-shrink-0">
+        <div className="pr-2 text-xl font-medium text-gray-900">{title}</div>
+        <div className="flex-shrink-0 rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600">
           {category}
         </div>
       </div>
-      <p className="text-gray-600 flex-1">{description}</p>
+      <p className="flex-1 text-gray-600">{description}</p>
       <div className="mt-4">
         <Button variant="primary" type="button" size="mini">
           View
@@ -121,7 +121,7 @@ export default function InternIndexPage() {
         </Head>
         <MainNav />
         <Section>
-          <div className="flex justify-center items-center min-h-64">
+          <div className="min-h-64 flex items-center justify-center">
             <FullscreenLoading />
           </div>
         </Section>
@@ -138,7 +138,7 @@ export default function InternIndexPage() {
         </Head>
         <MainNav />
         <Section>
-          <div className="mt-12 mb-8 text-center">
+          <div className="mb-8 mt-12 text-center">
             <H2>Access Denied</H2>
             <p className="mt-4 text-gray-600">
               You need to be an Instant admin to access this page.
@@ -179,11 +179,11 @@ export default function InternIndexPage() {
       </Head>
       <MainNav />
       <Section>
-        <div className="mt-12 mb-8">
+        <div className="mb-8 mt-12">
           <div className="mb-6 text-center">
             <H2>Internal Tools</H2>
           </div>
-          <div className="text-gray-700 space-y-2">
+          <div className="space-y-2 text-gray-700">
             <p>
               Below are various dashboards and tools we've built to help us
               manage Instant. We've got things like our main metrics overview, a
@@ -204,7 +204,7 @@ export default function InternIndexPage() {
               placeholder="Search tools..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full rounded-md border border-gray-300 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div className="flex flex-wrap gap-2">
@@ -223,11 +223,11 @@ export default function InternIndexPage() {
         {/* Tools Grid */}
         <div className="mb-16">
           {filteredTools.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
+            <div className="py-12 text-center text-gray-500">
               No tools found matching your search.
             </div>
           ) : (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 items-stretch">
+            <div className="grid items-stretch gap-6 md:grid-cols-2 lg:grid-cols-3">
               {filteredTools.map((tool, index) => (
                 <ToolCard key={index} {...tool} />
               ))}

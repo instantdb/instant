@@ -2,12 +2,13 @@ import { getLocal, setLocal } from './config';
 
 export type LocallySavedApp = {
   id: string;
+  orgId: string;
 };
 
-export function getLocallySavedApp(): LocallySavedApp | undefined {
-  return getLocal('locally-saved-app');
+export function getLocallySavedApp(orgId: string): LocallySavedApp | undefined {
+  return getLocal(`${orgId}-locally-saved-app`);
 }
 
 export function setLocallySavedApp(app: LocallySavedApp) {
-  setLocal('locally-saved-app', app);
+  setLocal(`${app.orgId}-locally-saved-app`, app);
 }

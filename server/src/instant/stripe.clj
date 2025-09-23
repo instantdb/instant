@@ -158,7 +158,10 @@
     {:subscription-id (.getId subscription)
      :customer-id (.getCustomer subscription)
      :monthly-revenue (max 0 (- items-revenue discount))
-     :start-timestamp (.getStartDate subscription)}))
+     :start-timestamp (.getStartDate subscription)
+     :customer-email (some-> subscription
+                             (.getCustomerObject)
+                             (.getEmail))}))
 
 (defn customer ^Customer [customer-id]
   (-> (stripe-client)
@@ -173,6 +176,7 @@
 (defn subscriptions []
   (let [params (-> (SubscriptionListParams/builder)
                    (.addExpand "data.discounts")
+                   (.addExpand "data.customer")
                    (.setStatus SubscriptionListParams$Status/ACTIVE)
                    (.setLimit 100)
                    (.build))]

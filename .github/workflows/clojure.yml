@@ -1,5 +1,8 @@
 name: Clojure CI
 
+env:
+  INSTANT_TIMINGS_APP_ID: 'b6003065-8152-4b15-8bcd-09a70e322854'
+
 on:
   push:
 
@@ -61,11 +64,41 @@ jobs:
 
           console.log('output', output);
           return output;
+    - name: Fetch timings
+      if: ${{ fromJSON(steps.detect_changes.outputs.result) }}
+      env:
+        INSTANT_TIMINGS_ADMIN_TOKEN: ${{ secrets.INSTANT_TIMINGS_ADMIN_TOKEN }}
+      continue-on-error: true
+      run: |
+        if [ -n "$INSTANT_TIMINGS_ADMIN_TOKEN" ]; then
+          curl 'https://api.instantdb.com/admin/query' \
+            -v \
+            -H "app-id: $INSTANT_TIMINGS_APP_ID" \
+            -H "Authorization: Bearer $INSTANT_TIMINGS_ADMIN_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data-raw '{"query": {"timings": {}}}' \
+            -o timings.json || echo "curl failed to fetch timings"
+        else
+          echo "No admin token, skipping timings fetch"
+        fi
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: timings
+        path: timings.json
+
 
   clj-check:
     runs-on: ubuntu-latest
     needs: [ detect_changes ]
     if: needs.detect_changes.outputs.clj_did_change == 'true'
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # List of indicies from 0 to NODE_COUNT
+        # Make sure this matches NODE_COUNT below
+        node_index: [0, 1, 2, 3, 4]
 
     services:
       postgres:
@@ -105,13 +138,31 @@ jobs:
 
         psql -d $DATABASE_URL -c "select version()"
 
+        # Uncomment to see auto explain logs at the end of tests in the stop containers step
+        # psql -d $DATABASE_URL -v ON_ERROR_STOP=1 <<'SQL'
+        # ALTER SYSTEM SET session_preload_libraries = 'auto_explain';
+        # SELECT pg_reload_conf();
+        # SQL
+
+        # psql -d $DATABASE_URL -v ON_ERROR_STOP=1 <<'SQL'
+        # ALTER SYSTEM SET auto_explain.log_min_duration = '100ms';
+        # ALTER SYSTEM SET auto_explain.log_analyze = on;
+        # ALTER SYSTEM SET auto_explain.log_nested_statements = on;
+        # ALTER SYSTEM SET auto_explain.log_timing = on;
+        # ALTER SYSTEM SET auto_explain.log_triggers = on;
+        # ALTER SYSTEM SET auto_explain.log_verbose = on;
+        # ALTER SYSTEM SET auto_explain.log_buffers = on;
+        # ALTER SYSTEM SET auto_explain.log_parameter_max_length = 0;
+        # SELECT pg_reload_conf();
+        # SQL
+
     - name: Install clojure tools
       uses: DeLaGuardo/setup-clojure@13.1
       with:
         cli: 1.11.3.1463
 
-    - name: Cache Clojure Dependencies
-      uses: actions/cache@v4
+    - name: Restore Clojure Dependencies Cache
+      uses: actions/cache/restore@v4
       with:
         path: |
           ~/.m2/repository
@@ -120,6 +171,12 @@ jobs:
         key: cljdeps-${{ hashFiles('server/deps.edn') }}
         restore-keys: |
           cljdeps-
+
+    - name: Get timings
+      uses: actions/download-artifact@v4
+      with:
+        pattern: timings
+        path: server
 
     - name: Install Clojure dependencies
       working-directory: server
@@ -135,6 +192,11 @@ jobs:
         DATABASE_URL: "jdbc:postgresql://localhost:5432/test_db?user=test_user&password=test_password"
         TEST: "true"
         STRIPE_API_KEY: ${{ secrets.STRIPE_TEST_KEY }}
+        INSTANT_TIMINGS_ADMIN_TOKEN: ${{ secrets.INSTANT_TIMINGS_ADMIN_TOKEN }}
+        SAVE_TIMINGS: ${{ github.ref == 'refs/heads/main' }}
+        NODE_INDEX: ${{ matrix.node_index }}
+        # Make sure this matches the length of the matrix
+        NODE_COUNT: "5"
       run: clojure -M:test
 
     - name: Publish Test Report
@@ -142,6 +204,17 @@ jobs:
       if: success() || failure() # always run even if the previous step fails
       with:
         report_paths: '**/server/target/test-results/*.xml'
+
+    - name: Save Clojure Dependencies Cache
+      if: github.ref == 'refs/heads/main'
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          ~/.m2/repository
+          ~/.gitlibs
+          ~/.deps.clj
+        key: cljdeps-${{ hashFiles('server/deps.edn') }}
+
 
   clj-build-check:
     runs-on: ubuntu-latest

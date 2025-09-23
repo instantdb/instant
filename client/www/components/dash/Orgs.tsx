@@ -3,14 +3,12 @@ import { TokenContext } from '@/lib/contexts';
 import { jsonFetch } from '@/lib/fetch';
 import { useContext, useEffect, useState } from 'react';
 import { Button } from '../ui';
-import { useDashFetch } from '@/lib/hooks/useDashFetch';
 import { friendlyErrorMessage, useAuthedFetch } from '@/lib/auth';
-import { createApp } from '@/pages/dash';
-import { v4 } from 'uuid';
 import { loadStripe } from '@stripe/stripe-js';
 import { messageFromInstantError } from '@/lib/errors';
 import { InstantIssue } from '@instantdb/core';
 import { errorToast } from '@/lib/toast';
+import { useFetchedDash } from './MainDashLayout';
 
 function createOrg(token: string, params: { title: string }) {
   return jsonFetch(`${config.apiURI}/dash/orgs`, {
@@ -147,7 +145,7 @@ function OrgDetails({ id }: { id: string }) {
       <pre className="text-sm">{JSON.stringify(org, null, 2)}</pre>
       <details open={true}>
         <summary>Apps</summary>
-        <div className="ml-4 mb-4">
+        <div className="mb-4 ml-4">
           {apps.map((app: any) => (
             <details key={app.id}>
               <summary>
@@ -185,7 +183,7 @@ function OrgDetails({ id }: { id: string }) {
       </details>
       <details open={true}>
         <summary>Members</summary>
-        <div className="ml-4 mb-4">
+        <div className="mb-4 ml-4">
           {members.map((member: any) => (
             <details key={member.id}>
               <summary>{member.email}</summary>
@@ -196,7 +194,7 @@ function OrgDetails({ id }: { id: string }) {
       </details>
       <details open={true}>
         <summary>Invites</summary>
-        <div className="ml-4 mb-4">
+        <div className="mb-4 ml-4">
           {invites.map((invite: any) => (
             <details key={invite.id}>
               <summary>{invite.email}</summary>
@@ -207,28 +205,6 @@ function OrgDetails({ id }: { id: string }) {
       </details>
       <div>Billing Data</div>
       <pre className="text-sm">{JSON.stringify(billingResp.data, null, 2)}</pre>
-      <Button
-        variant="subtle"
-        onClick={async () => {
-          const appTitle = prompt('Give your app a name');
-          if (!appTitle) {
-            return;
-          }
-          try {
-            await createApp(token, {
-              id: v4(),
-              title: appTitle,
-              admin_token: v4(),
-              org_id: id,
-            });
-            resp.mutate();
-          } catch (e) {
-            console.error('Error creating app', e);
-          }
-        }}
-      >
-        Add App
-      </Button>
       <Button
         variant="subtle"
         onClick={async () => {
@@ -269,7 +245,7 @@ export default function Orgs({
 }) {
   const token = useContext(TokenContext);
 
-  const dashResponse = useDashFetch();
+  const dashResponse = useFetchedDash();
 
   const [expandedOrgs, setExpandedOrgs] = useState<string[]>(
     orgId && typeof orgId === 'string' ? [orgId] : [],
@@ -283,22 +259,10 @@ export default function Orgs({
     }
   }, [orgId]);
 
-  if (dashResponse.isLoading) {
-    return <div>Loading...</div>;
-  }
-
-  if (dashResponse.error || !dashResponse.data) {
-    return (
-      <div>
-        Error: <pre>{JSON.stringify(dashResponse.error, null, 2)}</pre>
-      </div>
-    );
-  }
-
   const { apps, orgs } = dashResponse.data;
 
   return (
-    <div className="flex-1 flex flex-col p-4 max-w-2xl mx-auto overflow-scroll">
+    <div className="mx-auto flex max-w-2xl flex-1 flex-col overflow-scroll p-4">
       <div>
         {(orgs || []).map((org) => {
           const expanded = expandedOrgs.includes(org.id);
@@ -336,7 +300,7 @@ export default function Orgs({
           );
         })}
       </div>
-      <div className="flex justify-between flex-row items-center">
+      <div className="flex flex-row items-center justify-between">
         <Button
           onClick={async () => {
             const title = prompt('Give your org a name');
@@ -358,7 +322,7 @@ export default function Orgs({
       <div className="mt-8">
         <details>
           <summary>Apps</summary>
-          <div className="ml-4 mb-4">
+          <div className="mb-4 ml-4">
             {apps?.map((app: any) => (
               <details key={app.id}>
                 <summary>

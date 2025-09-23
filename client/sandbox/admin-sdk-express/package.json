@@ -1,5 +1,5 @@
 {
-  "name": "sandbox/admin-sdk-express",
+  "name": "sb-admin-sdk-express",
   "version": "0.0.1",
   "description": "Test script for admin SDK",
   "type": "module",

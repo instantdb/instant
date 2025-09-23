@@ -716,6 +716,40 @@ test('objects are created by etype', () => {
   expect(newStopa.email).toEqual('stopa@instantdb.com');
 });
 
+test('create and update triples in one tx', () => {
+  const userId = randomUUID();
+
+  const getUser = (store) =>
+    query({ store }, { users: { $: { where: { id: userId } } } }).data.users[0];
+
+  const chunk1 = tx.users[userId].create({
+    email: 'e@mail',
+    handle: 'handle',
+  });
+  const store1 = transact(
+    store,
+    instaml.transform({ attrs: store.attrs }, chunk1),
+  );
+  const user1 = getUser(store1);
+  expect(user1.email).toEqual('e@mail');
+  expect(user1.fullName).toEqual(undefined);
+
+  const chunk2 = tx.users[userId].update(
+    {
+      email: 'e@mail 2',
+      fullName: 'Full Name',
+    },
+    { upsert: false },
+  );
+  const store2 = transact(
+    store1,
+    instaml.transform({ attrs: store.attrs }, chunk2),
+  );
+  const user2 = getUser(store2);
+  expect(user2.email).toEqual('e@mail 2');
+  expect(user2.fullName).toEqual('Full Name');
+});
+
 test('object values', () => {
   const stopa = query(
     { store },

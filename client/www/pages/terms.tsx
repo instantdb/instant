@@ -7,7 +7,7 @@ import {
 
 function TermsContent() {
   return (
-    <div className="prose prose-h1:mt-8 prose-h1:mb-4 prose-h2:mt-4 prose-h2:mb-2 prose-pre:bg-gray-100">
+    <div className="prose prose-h1:mb-4 prose-h1:mt-8 prose-h2:mb-2 prose-h2:mt-4 prose-pre:bg-gray-100">
       <h1 id="terms-and-conditions">Terms and Conditions</h1>
       <p>Effective Date: March 19, 2024</p>
       <p>

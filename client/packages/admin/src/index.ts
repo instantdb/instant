@@ -124,6 +124,11 @@ type ImpersonationOpts =
   | { token: AuthToken }
   | { guest: boolean };
 
+type DebugTransactResult = {
+  'tx-id': number;
+  'all-checks-ok?': boolean;
+};
+
 function configWithDefaults(config: Config): FilledConfig {
   const defaultConfig = {
     apiURI: 'https://api.instantdb.com',
@@ -1012,7 +1017,7 @@ class InstantAdminDatabase<
   debugTransact = (
     inputChunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
     opts?: { rules?: any },
-  ) => {
+  ): Promise<DebugTransactResult> => {
     return jsonFetch(`${this.config.apiURI}/admin/transact_perms_check`, {
       method: 'POST',
       headers: authorizedHeaders(this.config, this.impersonationOpts),

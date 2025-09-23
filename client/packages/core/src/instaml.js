@@ -565,9 +565,13 @@ function createMissingAttrs({ attrs: existingAttrs, schema }, ops) {
   for (const op of ops) {
     const [action, etype, eid, obj] = op;
     if (OBJ_ACTIONS.has(action)) {
-      const labels = Object.keys(obj);
-      labels.push('id');
-      for (const label of labels) {
+      const idAttr = getAttrByFwdIdentName(attrs, etype, 'id');
+      addUnsynced(idAttr);
+      if (!idAttr) {
+        addAttr(createObjectAttr(schema, etype, 'id', { 'unique?': true }));
+      }
+
+      for (const label of Object.keys(obj)) {
         const fwdAttr = getAttrByFwdIdentName(attrs, etype, label);
         addUnsynced(fwdAttr);
         if (UPDATE_ACTIONS.has(action)) {

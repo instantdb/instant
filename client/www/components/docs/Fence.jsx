@@ -43,7 +43,7 @@ export function Fence({ children, language, showCopy }) {
             ))}
           </pre>
           {showCopy && (
-            <div className="absolute top-0 right-0 m-2">
+            <div className="absolute right-0 top-0 m-2">
               <CopyToClipboard text={code}>
                 <button
                   onClick={() => {
@@ -52,8 +52,7 @@ export function Fence({ children, language, showCopy }) {
                       setCopyLabel('Copy');
                     }, 2500);
                   }}
-                  className="flex items-center gap-x-1
-             bg-white px-2 py-1 text-xs font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                  className="flex items-center gap-x-1 bg-white px-2 py-1 text-xs font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
                 >
                   <ClipboardDocumentIcon
                     className="-ml-0.5 h-4 w-4"

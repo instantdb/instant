@@ -68,7 +68,7 @@ export function AddClerkProviderForm({
         onClick={addClerkProvider}
       >
         <span className="flex items-center space-x-2">
-          <Image alt="clerk logo" src={clerkLogoSvg} />
+          <Image className="dark:invert" alt="clerk logo" src={clerkLogoSvg} />
           <span>Setup Clerk</span>
         </span>
       </Button>
@@ -251,10 +251,10 @@ export function ClerkClient({
       <Collapsible.Root
         open={open}
         onOpenChange={setOpen}
-        className="flex flex-col border rounded"
+        className="flex flex-col rounded border"
       >
-        <Collapsible.Trigger className="flex p-4 hover:bg-gray-100 bg-gray-50">
-          <div className="flex flex-1 justify-between items-center">
+        <Collapsible.Trigger className="flex bg-gray-50 p-4 hover:bg-gray-100">
+          <div className="flex flex-1 items-center justify-between">
             <div className="flex gap-2">
               {' '}
               <Image alt="clerk logo" src={clerkLogoSvg} />
@@ -271,7 +271,7 @@ export function ClerkClient({
           </div>
         </Collapsible.Trigger>
         <Collapsible.Content className="">
-          <div className="p-4 flex flex-col gap-4 border-t">
+          <div className="flex flex-col gap-4 border-t p-4">
             <Copyable label="Client name" value={client.client_name} />
             {clerkPublishableKey ? (
               <Copyable
@@ -295,7 +295,7 @@ export function ClerkClient({
               . On the <code>Sessions</code> page, click the <code>Edit</code>{' '}
               button in the <code>Customize session token</code> section. Ensure
               your <code>Claims</code> field has the email claim:
-              <div className="border rounded text-sm overflow-auto">
+              <div className="overflow-auto rounded border text-sm">
                 <Fence
                   copyable
                   code={`{
@@ -310,7 +310,7 @@ export function ClerkClient({
               link your Clerk user to Instant.
             </Content>
 
-            <div className="border rounded text-sm overflow-auto">
+            <div className="overflow-auto rounded border text-sm">
               <Fence copyable code={exampleCode} language="typescript" />
             </div>
 
@@ -425,7 +425,7 @@ export function AddClerkClientForm({
 
   return (
     <form
-      className="flex flex-col gap-2 p-4 rounded border"
+      className="flex flex-col gap-2 rounded border p-4 dark:border-neutral-700"
       onSubmit={onSubmit}
       autoComplete="off"
       data-lpignore="true"
@@ -457,21 +457,23 @@ export function AddClerkClientForm({
         }
         placeholder=""
       />
-      <div className="rounded border p-4 flex flex-col gap-2 bg-gray-50">
+      <div className="flex flex-col gap-2 rounded border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
         <Content>
           Navigate to your{' '}
           <a
-            className="underline"
+            className="underline dark:text-white"
             href={'https://dashboard.clerk.com/last-active?path=sessions'}
             target="_blank"
             rel="noopener noreferer"
           >
             Clerk dashboard
           </a>
-          . On the <code>Sessions</code> page, click the <code>Edit</code>{' '}
-          button in the <code>Customize session token</code> section. Ensure
-          your <code>Claims</code> field has the email claim:
-          <div className="border rounded text-sm overflow-auto">
+          . On the <code className="dark:text-white">Sessions</code> page, click
+          the <code className="dark:text-white">Edit</code> button in the{' '}
+          <code className="dark:text-white">Customize session token</code>{' '}
+          section. Ensure your <code className="dark:text-white">Claims</code>{' '}
+          field has the email claim:
+          <div className="overflow-auto rounded border text-sm">
             <Fence
               copyable
               code={`{

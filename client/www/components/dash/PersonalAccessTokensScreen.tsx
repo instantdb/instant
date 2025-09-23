@@ -1,15 +1,5 @@
-import React, {
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from 'react';
-import {
-  ChevronRightIcon,
-  ClipboardDocumentIcon,
-  PlusIcon,
-} from '@heroicons/react/24/outline';
+import React, { useCallback, useContext, useEffect, useState } from 'react';
+import { ClipboardDocumentIcon, PlusIcon } from '@heroicons/react/24/outline';
 import format from 'date-fns/format';
 import CopyToClipboard from 'react-copy-to-clipboard';
 
@@ -19,7 +9,6 @@ import {
   ActionButton,
   ActionForm,
   Button,
-  Checkbox,
   cn,
   Content,
   Copyable,
@@ -251,26 +240,29 @@ export default function PersonalAccessTokensTab({
     }
   };
   return (
-    <div
-      className={cn('flex-1 flex flex-col p-4 max-w-2xl mx-auto', className)}
-    >
+    <div className={cn('mx-auto flex flex-1 flex-col', className)}>
       {newTokenValue ? (
         <CopyTokenDialog
           onClose={() => setNewTokenValue(null)}
           token={newTokenValue}
         />
       ) : null}
-      <div className="flex justify-between flex-row items-center">
-        <div className="pt-1 pb-4">
-          <div className="prose">
+      <div className="flex flex-row items-center justify-between">
+        <div className="pb-4 pt-1">
+          <div className="prose dark:text-neutral-300">
             <SectionHeading className="font-bold">
               Personal Access Tokens <sup className="text-sm">[BETA]</sup>
             </SectionHeading>
             <p>
               Welcome to the Platform Beta! You can create{' '}
-              <code>Personal Access Tokens</code> here. <br />
-              <a href="/labs/platform_demo">Take a look at this guide</a> to see
-              how to use the platform API, and create apps on demand!
+              <code className="dark:bg-neutral-800 dark:text-white">
+                Personal Access Tokens
+              </code>{' '}
+              here. <br />
+              <a className="dark:text-white" href="/labs/platform_demo">
+                Take a look at this guide
+              </a>{' '}
+              to see how to use the platform API, and create apps on demand!
             </p>
           </div>
         </div>
@@ -281,56 +273,13 @@ export default function PersonalAccessTokensTab({
           size="mini"
           onClick={() => setIsCreatingNewToken(true)}
         >
-          <PlusIcon className="h-4 w-4 mr-1" />
+          <PlusIcon className="mr-1 h-4 w-4" />
           New access token
         </Button>
-        <table className="z-0 w-full flex-1 text-left font-mono text-xs text-gray-500">
-          <thead className="sticky top-0 z-20 border-b">
-            <tr>
-              <th
-                className={cn(
-                  'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1',
-                )}
-              >
-                Name
-              </th>
-              <th
-                className={cn(
-                  'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1',
-                )}
-              >
-                Created
-              </th>
-              <th
-                className={cn(
-                  'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1',
-                )}
-              ></th>
-            </tr>
-          </thead>
-          <tbody className="font-mono">
-            {personalAccessTokens.map(({ id, name, created_at }) => (
-              <tr key={id} className="group border-b bg-white">
-                <td className="whitespace-nowrap px-4 py-1">{name}</td>
-                <td className="whitespace-nowrap px-4 py-1">
-                  {format(new Date(created_at), 'MMM dd, h:mma')}
-                </td>
-                <td className="px-4 py-1" style={{}}>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="destructive"
-                      size="mini"
-                      onClick={() => handleDeleteToken(id)}
-                    >
-                      Delete
-                    </Button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            <tr className="h-full"></tr>
-          </tbody>
-        </table>
+        <TokensTable
+          tokens={personalAccessTokens}
+          handleDeleteToken={handleDeleteToken}
+        />
         <Dialog
           open={isCreatingNewToken}
           onClose={() => setIsCreatingNewToken(false)}
@@ -340,14 +289,14 @@ export default function PersonalAccessTokensTab({
               Create personal access token
             </h5>
 
-            <div className="flex flex-col gap-4 mt-4">
+            <div className="mt-4 flex flex-col gap-4">
               <div className="flex flex-col gap-1">
                 <div className="flex items-center justify-between">
                   <Label className="font-mono">Nickname</Label>
                 </div>
-                <div className="flex gap-1 flex-col">
+                <div className="flex flex-col gap-1">
                   <input
-                    className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400"
+                    className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800"
                     placeholder="My default token"
                     value={newPersonalAccessTokenName ?? ''}
                     onChange={(e) =>
@@ -382,3 +331,72 @@ export default function PersonalAccessTokensTab({
     </div>
   );
 }
+
+export const TokensTable = ({
+  tokens,
+  handleDeleteToken,
+}: {
+  tokens: PersonalAccessToken[];
+  handleDeleteToken: (id: string) => Promise<void>;
+}) => {
+  if (tokens.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-8 text-gray-500 dark:text-neutral-400">
+        <p className="text-sm">No personal access tokens created yet.</p>
+      </div>
+    );
+  }
+
+  return (
+    <table className="z-0 w-full flex-1 text-left font-mono text-xs text-gray-500 dark:text-neutral-300">
+      <thead className="sticky top-0 z-20 border-b dark:border-b-neutral-600">
+        <tr>
+          <th
+            className={cn(
+              'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1',
+            )}
+          >
+            Name
+          </th>
+          <th
+            className={cn(
+              'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1',
+            )}
+          >
+            Created
+          </th>
+          <th
+            className={cn(
+              'z-10 cursor-pointer select-none whitespace-nowrap px-4 py-1',
+            )}
+          ></th>
+        </tr>
+      </thead>
+      <tbody className="font-mono">
+        {tokens.map(({ id, name, created_at }) => (
+          <tr
+            key={id}
+            className="group border-b bg-white dark:border-b-neutral-700 dark:bg-neutral-800"
+          >
+            <td className="whitespace-nowrap px-4 py-1">{name}</td>
+            <td className="whitespace-nowrap px-4 py-1">
+              {format(new Date(created_at), 'MMM dd, h:mma')}
+            </td>
+            <td className="px-4 py-1" style={{}}>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="destructive"
+                  size="mini"
+                  onClick={() => handleDeleteToken(id)}
+                >
+                  Delete
+                </Button>
+              </div>
+            </td>
+          </tr>
+        ))}
+        <tr className="h-full"></tr>
+      </tbody>
+    </table>
+  );
+};

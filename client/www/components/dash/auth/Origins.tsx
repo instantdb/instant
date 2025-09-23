@@ -187,7 +187,7 @@ export function AuthorizedOriginsForm({
   return (
     <form
       onSubmit={onSubmit}
-      className="flex flex-col gap-4 border rounded p-4"
+      className="flex flex-col gap-4 rounded border bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800/50"
     >
       <div className="flex flex-row gap-2">
         <div className="flex flex-col gap-2">
@@ -345,7 +345,7 @@ export function AuthorizedOriginRow({
   const Icon = originIcon(origin);
 
   return (
-    <div className="flex items-center justify-between rounded border p-4 bg-gray-50">
+    <div className="flex items-center justify-between rounded border bg-gray-50 p-4">
       <div className="flex items-center gap-4">
         <Icon height="1.5em" />
         <div className="flex flex-col leading-4">
@@ -395,10 +395,10 @@ export function AuthorizedOrigins({
     origins.length === 0,
   );
   return (
-    <div className="flex gap-2 flex-col">
+    <div className="flex flex-col gap-2">
       <div>
         <SectionHeading>Redirect Origins </SectionHeading>
-        <Content className="text-gray-500 text-sm">
+        <Content className="text-sm text-gray-500 dark:text-neutral-500">
           Add your site's url so that you can initiate the OAuth flow from your
           site.
         </Content>

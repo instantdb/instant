@@ -117,7 +117,11 @@ db.transact(db.tx.games[gameId].merge({ state: { '0-1': 'blue' } }));
 
 `merge` only merges objects. Calling `merge` on **arrays, numbers, or booleans** will overwrite the values.
 
-Sometimes you may want to remove keys from a nested object. You can do so by calling `merge` with a key set to `null` or `undefined`. This will remove the corresponding property from the object.
+Sometimes you may want to remove keys from a nested object. You can do so by calling `merge` with a key set to `null`. This will remove the corresponding property from the object.
+
+{% callout type="note" %}
+Setting a key to `undefined` will have no effect. Set the key to `null` to remove the property.
+{% /callout %}
 
 ```javascript
 // State: {'0-0': 'red', '0-1': 'blue' }

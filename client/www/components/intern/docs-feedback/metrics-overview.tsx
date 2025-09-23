@@ -8,14 +8,14 @@ export function MetricsOverview() {
 
   if (isLoading) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">
+      <div className="rounded-lg bg-white p-6 shadow-md">
+        <h2 className="mb-4 text-xl font-semibold text-gray-900">
           Overall Metrics
         </h2>
         <div className="animate-pulse">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-gray-200 h-20 rounded"></div>
-            <div className="bg-gray-200 h-20 rounded"></div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="h-20 rounded bg-gray-200"></div>
+            <div className="h-20 rounded bg-gray-200"></div>
           </div>
         </div>
       </div>
@@ -24,8 +24,8 @@ export function MetricsOverview() {
 
   if (error) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">
+      <div className="rounded-lg bg-white p-6 shadow-md">
+        <h2 className="mb-4 text-xl font-semibold text-gray-900">
           Overall Metrics
         </h2>
         <div className="text-red-600">
@@ -36,12 +36,12 @@ export function MetricsOverview() {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <h2 className="text-xl font-semibold text-gray-900 mb-6">
+    <div className="rounded-lg bg-white p-6 shadow-md">
+      <h2 className="mb-6 text-xl font-semibold text-gray-900">
         Overall Metrics
       </h2>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <MetricCard
           title="Total Feedback"
           value={totalFeedback.toString()}
@@ -86,9 +86,9 @@ function MetricCard({
   };
 
   return (
-    <div className={`p-4 rounded-lg border-2 ${colorClasses[color]}`}>
-      <div className="text-2xl font-bold mb-1">{value}</div>
-      <div className="text-sm font-medium mb-1">{title}</div>
+    <div className={`rounded-lg border-2 p-4 ${colorClasses[color]}`}>
+      <div className="mb-1 text-2xl font-bold">{value}</div>
+      <div className="mb-1 text-sm font-medium">{title}</div>
       <div className="text-xs opacity-80">{description}</div>
     </div>
   );

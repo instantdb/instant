@@ -50,17 +50,17 @@ export function TabbedSingle({ tabs, defaultTab, storageKey }) {
   };
 
   return (
-    <div className="relative rounded-lg overflow-hidden border border-gray-200 bg-white my-4">
+    <div className="relative my-4 overflow-hidden rounded-lg border border-gray-200 bg-white">
       {/* Tab bar */}
-      <div className="flex bg-gray-50 border-b border-gray-200">
+      <div className="flex border-b border-gray-200 bg-gray-50">
         {Object.entries(tabs).map(([key, tab]) => (
           <button
             key={key}
             onClick={() => setSelectedTab(key)}
             className={`px-4 py-2.5 text-sm font-medium transition-colors ${
               selectedTab === key
-                ? 'bg-white text-gray-900 border-b-2 border-blue-500 -mb-[2px]'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                ? '-mb-[2px] border-b-2 border-blue-500 bg-white text-gray-900'
+                : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
             }`}
           >
             {tab.label}
@@ -69,13 +69,13 @@ export function TabbedSingle({ tabs, defaultTab, storageKey }) {
       </div>
 
       <div className="relative bg-white py-1">
-        <pre className="text-xs text-gray-900 overflow-x-auto whitespace-pre font-mono bg-white m-0">
+        <pre className="m-0 overflow-x-auto whitespace-pre bg-white font-mono text-xs text-gray-900">
           {content}
         </pre>
-        <div className="absolute top-0 right-0 m-2">
+        <div className="absolute right-0 top-0 m-2">
           <button
             onClick={handleCopy}
-            className="flex items-center gap-x-1 bg-white px-2 py-1 text-xs font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 rounded"
+            className="flex items-center gap-x-1 rounded bg-white px-2 py-1 text-xs font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
           >
             <ClipboardDocumentIcon className="h-3.5 w-3.5" aria-hidden="true" />
             {copyLabel}

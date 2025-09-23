@@ -190,11 +190,11 @@ function AppStage({
         <p>
           To define a schema, use <code>i.schema</code> like so:
         </p>
-        <div className="border h-96 overflow-scroll">
+        <div className="h-96 overflow-scroll border">
           <Fence code={exampleSchemaGen()} language="tsx" />
         </div>
         <p>Once you have it, here's the CURL to push:</p>
-        <div className="border h-96 overflow-scroll">
+        <div className="h-96 overflow-scroll border">
           <Fence code={exampleSchemaPushCurl(token, app.id)} language="bash" />
         </div>
         <Button
@@ -216,7 +216,7 @@ function AppStage({
           Try it!
         </Button>
         {schemaPushResult ? (
-          <div className="border h-96 overflow-scroll">
+          <div className="h-96 overflow-scroll border">
             <Fence
               code={JSON.stringify(schemaPushResult, null, 2)}
               language="json"
@@ -535,7 +535,8 @@ function CreateAuthorizationUrlStep({
       </Content>
       <Content>
         The <code>client_id</code> we already have and the{' '}
-        <code>response_type</code> should always be the value <code>code</code>.{' '}
+        <code>response_type</code> should always be the value <code>code</code>
+        .{' '}
       </Content>
       <SubsectionHeading>Scope</SubsectionHeading>
       <Content>
@@ -701,7 +702,7 @@ function CreateAuthorizationUrlStep({
         </>
       ) : null}
       {tokenRes ? (
-        <div className="border overflow-scroll">
+        <div className="overflow-scroll border">
           <Fence code={JSON.stringify(tokenRes, null, 2)} language="json" />
         </div>
       ) : null}
@@ -744,7 +745,7 @@ function CreateAuthorizationUrlStep({
       ) : null}
       {appsRes ? (
         <>
-          <div className="border h-96 overflow-scroll">
+          <div className="h-96 overflow-scroll border">
             <Fence code={JSON.stringify(appsRes, null, 2)} language="json" />
           </div>
           <Content>
@@ -802,7 +803,7 @@ function CreateAuthorizationUrlStep({
       ) : null}
       {refreshTokenRes ? (
         <>
-          <div className="border overflow-scroll">
+          <div className="overflow-scroll border">
             <Fence
               code={JSON.stringify(refreshTokenRes, null, 2)}
               language="json"
@@ -853,7 +854,7 @@ function Authed() {
   };
 
   return (
-    <div className="max-w-xl mx-auto p-4 pb-16">
+    <div className="mx-auto max-w-xl p-4 pb-16">
       <div className="space-y-4">
         <SectionHeading className="font-bold">
           Here's a demo of OAuth apps on Instant!
@@ -884,7 +885,7 @@ function Authed() {
 
 function AuthCallback({ code, state }: { code: string; state: string }) {
   return (
-    <div className="max-w-xl mx-auto p-4 flex flex-col gap-4">
+    <div className="mx-auto flex max-w-xl flex-col gap-4 p-4">
       <Content>Our OAuth app was granted access!</Content>{' '}
       <Content>
         Copy the <code>code</code> and <code>state</code> params from the URL
@@ -898,7 +899,7 @@ function AuthCallback({ code, state }: { code: string; state: string }) {
 
 function AuthRejected({ error }: { error: string }) {
   return (
-    <div className="max-w-xl mx-auto p-4 flex flex-col gap-4">
+    <div className="mx-auto flex max-w-xl flex-col gap-4 p-4">
       <Content>Our auth request failed!</Content>
       <Content>
         The url contains the <code>error</code> param with what went wrong.

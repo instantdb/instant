@@ -8,9 +8,6 @@ import React, {
 
 import { v4 } from 'uuid';
 
-import config from '@/lib/config';
-import { TokenContext } from '@/lib/contexts';
-import { jsonFetch } from '@/lib/fetch';
 import {
   Button,
   Content,
@@ -18,8 +15,13 @@ import {
   ScreenHeading,
   TextInput,
 } from '@/components/ui';
-import { useRouter } from 'next/router';
 import { signOut } from '@/lib/auth';
+import config from '@/lib/config';
+import { TokenContext } from '@/lib/contexts';
+import { jsonFetch } from '@/lib/fetch';
+import { useRouter } from 'next/router';
+import { useFetchedDash } from './MainDashLayout';
+import { useReadyRouter } from '../clientOnlyPage';
 
 type ProfileCreateState = { isLoading: boolean; error?: string };
 type AppError = { body: { message: string } | undefined };
@@ -176,7 +178,7 @@ function ProfileScreen(props: {
           <textarea
             id="build"
             name="build"
-            className="w-full appearance-none rounded border-gray-200 placeholder-gray-400 outline-none font-normal"
+            className="w-full appearance-none rounded border-gray-200 font-normal placeholder-gray-400 outline-none"
             placeholder="Social media for books -- like goodreads, but with a better design. Something like zeneca.io but realtime!"
             value={build}
             onChange={(e) => setBuild(e.target.value)}
@@ -284,35 +286,7 @@ export function OnboardingScreen(props: {
   );
 }
 
-function WithSignOut({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
-  return (
-    <div className="flex h-full w-full">
-      <div className="absolute right-0 top-0 p-4">
-        <Button
-          className="w-full"
-          size="mini"
-          variant="subtle"
-          onClick={() => {
-            router.push('/');
-            setTimeout(() => {
-              signOut();
-            }, 150);
-          }}
-        >
-          Sign out
-        </Button>
-      </div>
-      {children}
-    </div>
-  );
-}
-
-export function Onboarding({
-  onCreate,
-}: {
-  onCreate: (p: { id: string }) => void;
-}) {
+export function Onboarding() {
   const token = useContext(TokenContext);
   const [dashState, setDashState] = useDash();
   const [appCreateState, setAppCreateState] = useState<AppCreateState>({
@@ -328,6 +302,8 @@ export function Onboarding({
   const [selectedPage, setSelectedPage] = useState<
     'create-app' | 'newbie-create-app' | string | undefined
   >(undefined);
+  const dash = useFetchedDash();
+  const router = useReadyRouter();
 
   const onAppNameChange = (appName: string) =>
     setAppCreateState((prev) => ({ ...prev, appName }));
@@ -373,8 +349,10 @@ export function Onboarding({
     });
 
     createApp(token, toCreate).then(
-      () => {
-        onCreate({ id: toCreate.id });
+      async () => {
+        await dash.mutate();
+        router.replace('/dash');
+        console.log('App created successfully');
       },
       (e: AppError) => {
         setAppCreateState((prev) => ({
@@ -392,15 +370,13 @@ export function Onboarding({
   };
 
   return (
-    <WithSignOut>
-      <OnboardingScreen
-        profile={dashState.profile}
-        appCreateState={appCreateState}
-        profileCreateState={profileCreateState}
-        onProfileSubmit={onProfileSubmit}
-        onAppNameChange={onAppNameChange}
-        onAppCreate={onAppCreate}
-      />
-    </WithSignOut>
+    <OnboardingScreen
+      profile={dashState.profile}
+      appCreateState={appCreateState}
+      profileCreateState={profileCreateState}
+      onProfileSubmit={onProfileSubmit}
+      onAppNameChange={onAppNameChange}
+      onAppCreate={onAppCreate}
+    />
   );
 }

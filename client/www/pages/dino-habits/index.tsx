@@ -83,8 +83,8 @@ function Login() {
   const [sentEmail, setSentEmail] = useState('');
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gradient-to-b from-purple-900 to-green-900">
-      <div className="max-w-sm bg-black/50 p-8 rounded-2xl border-2 border-green-400">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-purple-900 to-green-900">
+      <div className="max-w-sm rounded-2xl border-2 border-green-400 bg-black/50 p-8">
         {!sentEmail ? (
           <EmailStep onSendEmail={setSentEmail} />
         ) : (
@@ -109,22 +109,22 @@ function EmailStep({ onSendEmail }: { onSendEmail: (email: string) => void }) {
   };
   return (
     <form onSubmit={handleSubmit} className="flex flex-col space-y-4">
-      <h2 className="text-2xl font-bold text-green-400 text-center">
+      <h2 className="text-center text-2xl font-bold text-green-400">
         🦕 Dino & Alien Habit Tracker 👽
       </h2>
-      <p className="text-green-300 text-center">
+      <p className="text-center text-green-300">
         Enter your email to join the intergalactic habit tracking mission!
       </p>
       <input
         ref={inputRef}
         type="email"
-        className="bg-green-900/50 border-2 border-green-400 text-green-100 px-4 py-2 rounded-lg placeholder-green-600"
+        className="rounded-lg border-2 border-green-400 bg-green-900/50 px-4 py-2 text-green-100 placeholder-green-600"
         placeholder="space-explorer@email.com"
         required
       />
       <button
         type="submit"
-        className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg border-2 border-green-400"
+        className="rounded-lg border-2 border-green-400 bg-green-600 px-4 py-2 font-bold text-white hover:bg-green-700"
       >
         Launch Mission 🚀
       </button>
@@ -146,24 +146,24 @@ function CodeStep({ sentEmail }: { sentEmail: string }) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col space-y-4">
-      <h2 className="text-2xl font-bold text-green-400 text-center">
+      <h2 className="text-center text-2xl font-bold text-green-400">
         Enter Access Code 🔐
       </h2>
-      <p className="text-green-300 text-center">
+      <p className="text-center text-green-300">
         We transmitted a code to{' '}
         <strong className="text-green-400">{sentEmail}</strong>
       </p>
       <input
         ref={inputRef}
         type="text"
-        className="bg-green-900/50 border-2 border-green-400 text-green-100 px-4 py-2 rounded-lg placeholder-green-600"
+        className="rounded-lg border-2 border-green-400 bg-green-900/50 px-4 py-2 text-green-100 placeholder-green-600"
         placeholder="123456"
         required
         autoFocus
       />
       <button
         type="submit"
-        className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg border-2 border-green-400"
+        className="rounded-lg border-2 border-green-400 bg-green-600 px-4 py-2 font-bold text-white hover:bg-green-700"
       >
         Verify Code 👽
       </button>
@@ -265,8 +265,8 @@ function Main() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-900 to-green-900 p-4">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
+      <div className="mx-auto max-w-6xl">
+        <div className="mb-8 flex items-center justify-between">
           <h1 className="text-4xl font-bold text-green-400">
             🦕 Galactic Habit Tracker 👽
           </h1>
@@ -278,7 +278,7 @@ function Main() {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {habits.map((habit) => (
             <HabitCard
               key={habit.id}
@@ -300,10 +300,10 @@ function Main() {
           ))}
           <button
             onClick={() => setShowForm(true)}
-            className="bg-black/50 border-2 border-dashed border-green-400 rounded-xl p-8 flex flex-col items-center justify-center hover:bg-green-900/30 transition-colors"
+            className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-green-400 bg-black/50 p-8 transition-colors hover:bg-green-900/30"
           >
-            <span className="text-6xl mb-2">➕</span>
-            <span className="text-green-400 font-bold">New Mission</span>
+            <span className="mb-2 text-6xl">➕</span>
+            <span className="font-bold text-green-400">New Mission</span>
           </button>
         </div>
 
@@ -372,12 +372,12 @@ function HabitCard({
   return (
     <div
       onClick={onClick}
-      className={`${bgColor} border-2 ${borderColor} rounded-xl p-6 cursor-pointer hover:scale-105 transition-transform`}
+      className={`${bgColor} border-2 ${borderColor} cursor-pointer rounded-xl p-6 transition-transform hover:scale-105`}
     >
-      <div className="flex justify-between items-start mb-4">
+      <div className="mb-4 flex items-start justify-between">
         <div>
-          <span className="text-4xl mr-2">{habit.emoji}</span>
-          <h3 className="text-xl font-bold text-white inline">{habit.name}</h3>
+          <span className="mr-2 text-4xl">{habit.emoji}</span>
+          <h3 className="inline text-xl font-bold text-white">{habit.name}</h3>
         </div>
         <span className="text-2xl">
           {habit.species === 'dino' ? '🦕' : '👽'}
@@ -385,7 +385,7 @@ function HabitCard({
       </div>
 
       <div className="space-y-3">
-        <div className="flex justify-between items-center">
+        <div className="flex items-center justify-between">
           <span className="text-gray-300">Streak</span>
           <span className="text-2xl font-bold text-yellow-400">
             {streak}{' '}
@@ -397,13 +397,13 @@ function HabitCard({
           </span>
         </div>
 
-        <div className="flex justify-between items-center">
+        <div className="flex items-center justify-between">
           <span className="text-gray-300">Progress (30d)</span>
-          <span className="text-green-400 font-bold">{progress}%</span>
+          <span className="font-bold text-green-400">{progress}%</span>
         </div>
 
         <div className="space-y-2">
-          <div className="flex justify-between items-center">
+          <div className="flex items-center justify-between">
             <span className="text-gray-300">
               {habit.frequency === 'daily' ? 'Today' : 'This week'}
             </span>
@@ -411,7 +411,7 @@ function HabitCard({
               {currentCount}/{habit.targetCount}
             </span>
           </div>
-          <div className="bg-black/50 rounded-full h-8 relative overflow-hidden">
+          <div className="relative h-8 overflow-hidden rounded-full bg-black/50">
             <div
               className="absolute h-full bg-gradient-to-r from-green-500 to-green-400 transition-all"
               style={{ width: `${(currentCount / habit.targetCount) * 100}%` }}
@@ -419,7 +419,7 @@ function HabitCard({
             <button
               onClick={handleComplete}
               disabled={currentCount >= habit.targetCount}
-              className="relative w-full h-full flex items-center justify-center text-white font-bold hover:bg-white/10 disabled:cursor-not-allowed"
+              className="relative flex h-full w-full items-center justify-center font-bold text-white hover:bg-white/10 disabled:cursor-not-allowed"
             >
               {currentCount >= habit.targetCount
                 ? 'Complete! 🎉'
@@ -466,29 +466,29 @@ function HabitForm({
   const availableEmojis = species === 'dino' ? DINO_EMOJIS : ALIEN_EMOJIS;
 
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
       <form
         onSubmit={handleSubmit}
-        className="bg-black/90 border-2 border-green-400 rounded-xl p-8 max-w-md w-full space-y-4"
+        className="w-full max-w-md space-y-4 rounded-xl border-2 border-green-400 bg-black/90 p-8"
       >
-        <h2 className="text-2xl font-bold text-green-400 text-center mb-4">
+        <h2 className="mb-4 text-center text-2xl font-bold text-green-400">
           New Galactic Mission 🚀
         </h2>
 
         <div>
-          <label className="text-green-300 block mb-2">Mission Name</label>
+          <label className="mb-2 block text-green-300">Mission Name</label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full bg-green-900/50 border-2 border-green-400 text-white px-4 py-2 rounded-lg"
+            className="w-full rounded-lg border-2 border-green-400 bg-green-900/50 px-4 py-2 text-white"
             placeholder="Exercise on Mars"
             required
           />
         </div>
 
         <div>
-          <label className="text-green-300 block mb-2">Species</label>
+          <label className="mb-2 block text-green-300">Species</label>
           <div className="grid grid-cols-2 gap-4">
             {SPECIES.map((s) => (
               <button
@@ -498,11 +498,11 @@ function HabitForm({
                   setSpecies(s);
                   setEmoji(s === 'dino' ? '🦕' : '👽');
                 }}
-                className={`py-2 px-4 rounded-lg border-2 ${
+                className={`rounded-lg border-2 px-4 py-2 ${
                   species === s
-                    ? 'bg-green-600 border-green-400'
-                    : 'bg-black/50 border-gray-600'
-                } text-white font-bold`}
+                    ? 'border-green-400 bg-green-600'
+                    : 'border-gray-600 bg-black/50'
+                } font-bold text-white`}
               >
                 {s === 'dino' ? '🦕 Dinosaur' : '👽 Alien'}
               </button>
@@ -511,17 +511,17 @@ function HabitForm({
         </div>
 
         <div>
-          <label className="text-green-300 block mb-2">Mission Icon</label>
+          <label className="mb-2 block text-green-300">Mission Icon</label>
           <div className="grid grid-cols-3 gap-2">
             {availableEmojis.map((e) => (
               <button
                 key={e}
                 type="button"
                 onClick={() => setEmoji(e)}
-                className={`text-3xl py-2 rounded-lg border-2 ${
+                className={`rounded-lg border-2 py-2 text-3xl ${
                   emoji === e
-                    ? 'bg-green-600 border-green-400'
-                    : 'bg-black/50 border-gray-600'
+                    ? 'border-green-400 bg-green-600'
+                    : 'border-gray-600 bg-black/50'
                 }`}
               >
                 {e}
@@ -531,18 +531,18 @@ function HabitForm({
         </div>
 
         <div>
-          <label className="text-green-300 block mb-2">Frequency</label>
+          <label className="mb-2 block text-green-300">Frequency</label>
           <div className="grid grid-cols-2 gap-4">
             {FREQUENCIES.map((f) => (
               <button
                 key={f}
                 type="button"
                 onClick={() => setFrequency(f)}
-                className={`py-2 px-4 rounded-lg border-2 ${
+                className={`rounded-lg border-2 px-4 py-2 ${
                   frequency === f
-                    ? 'bg-green-600 border-green-400'
-                    : 'bg-black/50 border-gray-600'
-                } text-white font-bold`}
+                    ? 'border-green-400 bg-green-600'
+                    : 'border-gray-600 bg-black/50'
+                } font-bold text-white`}
               >
                 {f.charAt(0).toUpperCase() + f.slice(1)}
               </button>
@@ -551,7 +551,7 @@ function HabitForm({
         </div>
 
         <div>
-          <label className="text-green-300 block mb-2">
+          <label className="mb-2 block text-green-300">
             Target Count per {frequency === 'daily' ? 'Day' : 'Week'}
           </label>
           <input
@@ -560,7 +560,7 @@ function HabitForm({
             onChange={(e) =>
               setTargetCount(Math.max(1, parseInt(e.target.value) || 1))
             }
-            className="w-full bg-green-900/50 border-2 border-green-400 text-white px-4 py-2 rounded-lg"
+            className="w-full rounded-lg border-2 border-green-400 bg-green-900/50 px-4 py-2 text-white"
             min="1"
             required
           />
@@ -570,13 +570,13 @@ function HabitForm({
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg"
+            className="flex-1 rounded-lg bg-gray-700 px-4 py-2 font-bold text-white hover:bg-gray-600"
           >
             Cancel
           </button>
           <button
             type="submit"
-            className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg"
+            className="flex-1 rounded-lg bg-green-600 px-4 py-2 font-bold text-white hover:bg-green-700"
           >
             Launch Mission 🚀
           </button>
@@ -644,30 +644,30 @@ function HabitDetails({
     habit.species === 'dino' ? 'border-orange-500' : 'border-purple-500';
 
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
       <div
-        className={`bg-black/90 border-2 ${borderColor} rounded-xl p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto`}
+        className={`border-2 bg-black/90 ${borderColor} max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-xl p-8`}
       >
-        <div className="flex justify-between items-start mb-6">
+        <div className="mb-6 flex items-start justify-between">
           <div>
-            <span className="text-5xl mr-3">{habit.emoji}</span>
-            <h2 className="text-3xl font-bold text-white inline">
+            <span className="mr-3 text-5xl">{habit.emoji}</span>
+            <h2 className="inline text-3xl font-bold text-white">
               {habit.name}
             </h2>
-            <span className="text-3xl ml-3">
+            <span className="ml-3 text-3xl">
               {habit.species === 'dino' ? '🦕' : '👽'}
             </span>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white text-2xl"
+            className="text-2xl text-gray-400 hover:text-white"
           >
             ✕
           </button>
         </div>
 
         <div className="mb-8">
-          <h3 className="text-xl font-bold text-green-400 mb-4">
+          <h3 className="mb-4 text-xl font-bold text-green-400">
             30-Day Calendar
           </h3>
           <div className="grid grid-cols-7 gap-2">
@@ -678,7 +678,7 @@ function HabitDetails({
               return (
                 <div
                   key={idx}
-                  className={`aspect-square rounded-lg flex flex-col items-center justify-center text-xs ${
+                  className={`flex aspect-square flex-col items-center justify-center rounded-lg text-xs ${
                     isToday ? 'ring-2 ring-green-400' : ''
                   } ${
                     isComplete
@@ -698,17 +698,17 @@ function HabitDetails({
               );
             })}
           </div>
-          <div className="flex gap-4 mt-4 text-sm">
+          <div className="mt-4 flex gap-4 text-sm">
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-green-600 rounded"></div>
+              <div className="h-4 w-4 rounded bg-green-600"></div>
               <span className="text-gray-400">Complete</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-yellow-600 rounded"></div>
+              <div className="h-4 w-4 rounded bg-yellow-600"></div>
               <span className="text-gray-400">Partial</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-gray-800 rounded"></div>
+              <div className="h-4 w-4 rounded bg-gray-800"></div>
               <span className="text-gray-400">Missed</span>
             </div>
           </div>
@@ -717,7 +717,7 @@ function HabitDetails({
         <div className="flex justify-end">
           <button
             onClick={handleDelete}
-            className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg"
+            className="rounded-lg bg-red-600 px-4 py-2 font-bold text-white hover:bg-red-700"
           >
             Delete Habit 🗑️
           </button>
@@ -733,7 +733,7 @@ function App() {
   const isLocal = router.query.localBackend === '1';
   if (!appId) {
     return (
-      <div className="flex justify-center items-center min-h-screen">
+      <div className="flex min-h-screen items-center justify-center">
         You loaded this screen without an appId.
       </div>
     );

@@ -13,6 +13,7 @@ import {
 } from 'react';
 import { Editor, Monaco, OnMount } from '@monaco-editor/react';
 import {
+  DialogPanel,
   Dialog as HeadlessDialog,
   Popover,
   PopoverButton,
@@ -47,14 +48,17 @@ import Link from 'next/link';
 export const Stack = twel('div', 'flex flex-col gap-2');
 export const Group = twel('div', 'flex flex-col gap-2 md:flex-row');
 
-export const Content = twel('div', 'prose');
+export const Content = twel('div', 'prose dark:text-neutral-400');
 export const ScreenHeading = twel('div', 'text-2xl font-bold');
 export const SectionHeading = twel('div', 'text-xl font-bold');
 export const SubsectionHeading = twel('div', 'text-lg');
 export const BlockHeading = twel('div', 'text-md font-bold');
 
 export const Hint = twel('div', 'text-sm text-gray-400');
-export const Label = twel('div', 'text-sm font-bold text-gray-700');
+export const Label = twel(
+  'div',
+  'text-sm font-bold dark:text-neutral-400 text-gray-700',
+);
 
 export const LogoIcon = ({ size = 'mini' }: { size?: 'mini' | 'normal' }) => {
   const sizeToClass = {
@@ -69,6 +73,7 @@ export const LogoIcon = ({ size = 'mini' }: { size?: 'mini' | 'normal' }) => {
 export type TabItem = {
   id: string;
   label: ReactNode;
+  icon?: ReactNode;
   link?: { href: string; target?: '_blank' };
 };
 
@@ -98,9 +103,9 @@ export function ToggleCollection({
             {...a.link}
             rel="noopener noreferer"
             className={clsx(
-              'block cursor-pointer truncate whitespace-nowrap rounded bg-none px-3 py-1 text-left hover:bg-gray-100 disabled:text-gray-400',
+              'block cursor-pointer truncate whitespace-nowrap rounded bg-none px-3 py-1 text-left hover:bg-gray-100 disabled:text-gray-400 dark:bg-neutral-800/40 dark:hover:bg-neutral-700/80',
               {
-                'bg-gray-200': selectedId === a.id,
+                'bg-gray-200 dark:bg-neutral-400/40': selectedId === a.id,
               },
               buttonClassName,
             )}
@@ -115,9 +120,9 @@ export function ToggleCollection({
               onChange(a);
             }}
             className={clsx(
-              'block cursor-pointer truncate whitespace-nowrap rounded bg-none px-3 py-1 text-left hover:bg-gray-100 disabled:text-gray-400',
+              'block cursor-pointer truncate whitespace-nowrap rounded bg-none px-3 py-1 text-left hover:bg-gray-100 disabled:text-gray-400 dark:hover:bg-neutral-700/80',
               {
-                'bg-gray-200': selectedId === a.id,
+                'bg-gray-200 dark:bg-neutral-600/50': selectedId === a.id,
               },
               buttonClassName,
             )}
@@ -152,7 +157,7 @@ export function ToggleGroup({
 
         onChange(item);
       }}
-      className="flex gap-1 rounded-sm border bg-gray-200 p-0.5 text-sm"
+      className="flex gap-1 rounded-sm border bg-gray-200 p-0.5 text-sm dark:border-neutral-700 dark:bg-neutral-800"
       type="single"
       defaultValue="center"
       aria-label={ariaLabel}
@@ -160,12 +165,14 @@ export function ToggleGroup({
       {items.map((item) => (
         <HeadlessToggleGroup.Item
           key={item.id}
-          className="flex-1 rounded-sm p-0.5"
+          className={cn(
+            'flex-1 rounded-sm p-0.5',
+            selectedId === item.id
+              ? 'bg-white dark:bg-neutral-600/50'
+              : 'bg-gray-200 dark:bg-transparent',
+          )}
           value={item.id}
           aria-label={item.label}
-          style={{
-            backgroundColor: selectedId === item.id ? 'white' : undefined,
-          }}
         >
           {item.label}
         </HeadlessToggleGroup.Item>
@@ -231,7 +238,7 @@ export function TextInput({
         placeholder={placeholder}
         value={value ?? ''}
         className={cn(
-          'flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 disabled:text-gray-400',
+          'flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 disabled:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800 dark:placeholder:text-neutral-500 dark:disabled:text-neutral-700',
           className,
           {
             'border-red-500': error,
@@ -300,7 +307,7 @@ export function TextArea({
         placeholder={placeholder}
         value={value ?? ''}
         className={cn(
-          'flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 disabled:text-gray-400',
+          'flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 disabled:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800',
           className,
           {
             'border-red-500': error,
@@ -346,8 +353,8 @@ export function Checkbox({
   return (
     <label
       className={cn(
-        'flex cursor-pointer items-top gap-2',
-        disabled ? 'text-gray-400 cursor-default' : '',
+        'items-top flex cursor-pointer gap-2 dark:disabled:opacity-40',
+        disabled ? 'cursor-default text-gray-400 opacity-60' : '',
         labelClassName,
       )}
       title={title}
@@ -357,7 +364,7 @@ export function Checkbox({
         title={title}
         required={required}
         className={cn(
-          'align-middle mt-0.5 font-medium text-gray-900 disabled:border-gray-300 disabled:bg-gray-200',
+          'mt-0.5 align-middle font-medium text-gray-900 disabled:border-gray-300 disabled:bg-gray-200 dark:border-neutral-500 dark:bg-neutral-600/40 dark:ring-neutral-500 dark:disabled:border-neutral-400 dark:disabled:opacity-50',
           className,
         )}
         type="checkbox"
@@ -398,7 +405,7 @@ export function Select<
       value={value ?? undefined}
       disabled={disabled}
       className={cn(
-        'rounded-sm border-gray-300 py-1 disabled:text-gray-400',
+        'rounded-sm border-gray-300 py-1 disabled:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800',
         className,
       )}
       onChange={(e) => {
@@ -422,6 +429,62 @@ export function Select<
   );
 }
 
+export function NavTabBar({
+  className,
+  selectedId,
+  tabs,
+  disabled,
+  onSelect,
+}: {
+  className?: string;
+  tabs: TabItem[];
+  selectedId: string;
+  disabled?: boolean;
+  onSelect: (tab: TabButton) => void;
+}) {
+  return (
+    <div
+      className={clsx(
+        'no-scrollbar flex flex-row gap-4 overflow-x-auto border-b py-1',
+        className,
+      )}
+    >
+      {tabs.map((t) =>
+        t.link ? (
+          <Link
+            key={t.id}
+            {...t.link}
+            rel="noopener noreferer"
+            className={clsx(
+              'flex cursor-pointer whitespace-nowrap rounded bg-none p-2 py-0.5 disabled:text-gray-400',
+              {
+                'bg-gray-200': selectedId === t.id && !disabled,
+              },
+            )}
+          >
+            {t.label}
+          </Link>
+        ) : (
+          <button
+            key={t.id}
+            disabled={disabled}
+            onClick={() => onSelect(t)}
+            className={clsx(
+              'flex cursor-pointer whitespace-nowrap rounded bg-none decoration-gray-400 transition-colors hover:underline disabled:text-gray-400',
+              {
+                'underline !decoration-[#606AF4] decoration-2':
+                  selectedId === t.id && !disabled,
+              },
+            )}
+          >
+            {t.label}
+          </button>
+        ),
+      )}
+    </div>
+  );
+}
+
 export function TabBar({
   className,
   selectedId,
@@ -438,7 +501,7 @@ export function TabBar({
   return (
     <div
       className={clsx(
-        'flex flex-row gap-0.5 overflow-x-auto border-b px-2 py-1 no-scrollbar',
+        'no-scrollbar flex flex-row gap-0.5 overflow-x-auto border-b px-2 py-1 dark:border-b-neutral-700',
         className,
       )}
     >
@@ -447,11 +510,12 @@ export function TabBar({
           <Link
             key={t.id}
             {...t.link}
-            rel="noopener noreferer"
+            rel=""
             className={clsx(
-              'flex cursor-pointer whitespace-nowrap bg-none px-4 py-0.5 disabled:text-gray-400 rounded hover:bg-gray-100',
+              'flex cursor-pointer whitespace-nowrap rounded bg-none px-4 py-0.5 hover:bg-gray-100 disabled:text-gray-400 dark:hover:bg-neutral-600',
               {
-                'bg-gray-200': selectedId === t.id && !disabled,
+                'bg-gray-200 dark:bg-neutral-700':
+                  selectedId === t.id && !disabled,
               },
             )}
           >
@@ -463,9 +527,10 @@ export function TabBar({
             disabled={disabled}
             onClick={() => onSelect(t)}
             className={clsx(
-              'flex cursor-pointer whitespace-nowrap bg-none px-4 py-0.5 disabled:text-gray-400 rounded hover:bg-gray-100',
+              'flex cursor-pointer whitespace-nowrap rounded bg-none px-4 py-0.5 hover:bg-gray-100 disabled:text-gray-400 dark:hover:bg-neutral-600',
               {
-                'bg-gray-200': selectedId === t.id && !disabled,
+                'bg-gray-200 dark:bg-neutral-700':
+                  selectedId === t.id && !disabled,
               },
             )}
           >
@@ -516,33 +581,39 @@ export function Button({
     `inline-flex justify-center items-center gap-1 whitespace-nowrap px-8 py-1 font-bold rounded-sm cursor-pointer transition-all disabled:cursor-default`,
     {
       // primary
-      'bg-[#606AF4] text-white ': variant === 'primary',
-      'hover:text-slate-100 hover:bg-[#4543e9]':
+      'bg-[#606AF4] text-white dark:bg-[#606AF4] dark:text-white':
+        variant === 'primary',
+      'hover:text-slate-100 hover:bg-[#4543e9] dark:hover:text-neutral-100 dark:hover:bg-[#4543e9]':
         variant === 'primary' && isATag,
-      'hover:enabled:text-slate-100 hover:enabled:bg-[#4543e9] disabled:bg-[#9197f3]':
+      'hover:enabled:text-slate-100 hover:enabled:bg-[#4543e9] disabled:bg-[#9197f3] dark:hover:enabled:text-neutral-100 dark:hover:enabled:bg-[#4543e9] dark:disabled:bg-[#9197f3]':
         variant === 'primary' && !isATag,
       // cta
-      'bg-orange-600 text-white ': variant === 'cta',
-      'hover:text-slate-100 hover:bg-orange-500': variant === 'cta' && isATag,
-      'hover:enabled:text-slate-100 hover:enabled:bg-orange-500':
+      'bg-orange-600 text-white dark:bg-orange-600 dark:text-white':
+        variant === 'cta',
+      'hover:text-slate-100 hover:bg-orange-500 dark:hover:text-neutral-100 dark:hover:bg-orange-500':
+        variant === 'cta' && isATag,
+      'hover:enabled:text-slate-100 hover:enabled:bg-orange-500 dark:hover:enabled:text-neutral-100 dark:hover:enabled:bg-orange-500':
         variant === 'cta' && !isATag,
       // secondary
-      'border text-gray-500 bg-gray-50 shadow-sm ': variant === 'secondary',
-      'hover:text-gray-600 hover:bg-gray-50/30':
+      'border text-gray-500 bg-gray-50 shadow-sm dark:border-neutral-600 dark:text-neutral-400 dark:bg-neutral-800':
+        variant === 'secondary',
+      'hover:text-gray-600 hover:bg-gray-50/30 dark:hover:text-neutral-300 dark:hover:bg-neutral-700/30':
         variant === 'secondary' && isATag,
-      'hover:enabled:text-gray-600 hover:enabled:bg-gray-50/30 disabled:text-gray-400':
+      'hover:enabled:text-gray-600 hover:enabled:bg-gray-50/30 disabled:text-gray-400 dark:hover:enabled:text-neutral-300 dark:hover:enabled:bg-neutral-700/30 dark:disabled:text-neutral-600':
         variant === 'secondary' && !isATag,
       // subtle
-      'text-gray-500 bg-white font-normal': variant === 'subtle',
-      'hover:text-gray-600 hover:bg-gray-200/30':
+      'text-gray-500 bg-white font-normal dark:text-neutral-400 dark:bg-transparent':
+        variant === 'subtle',
+      'hover:text-gray-600 hover:bg-gray-200/30 dark:hover:text-neutral-300 dark:hover:bg-neutral-700/30':
         variant === 'subtle' && isATag,
-      'hover:enabled:text-gray-600 hover:enabled:bg-gray-200/30':
+      'hover:enabled:text-gray-600 hover:enabled:bg-gray-200/30 dark:hover:enabled:text-neutral-300 dark:hover:enabled:bg-neutral-700/30':
         variant === 'subtle' && !isATag,
       // destructive
-      'text-red-500 bg-white border border-red-200': variant === 'destructive',
-      'hover:text-red-600 hover:text-red-600 hover:border-red-300':
+      'text-red-500 dark:bg-red-500/10 bg-white border border-red-200 dark:border-red-900/60':
+        variant === 'destructive',
+      'hover:text-red-600 hover:text-red-600 hover:border-red-300 dark:hover:border-red-800':
         variant === 'destructive' && isATag,
-      'hover:enabled:text-red-600 hover:enabled:text-red-600 hover:enabled:border-red-300 disabled:border-red-50 disabled:text-red-300':
+      'hover:enabled:text-red-600 hover:enabled:text-red-600 hover:enabled:border-red-300 disabled:border-red-50 disabled:text-red-300 dark:hover:enabled:text-red-500 dark:hover:enabled:border-red-800 dark:disabled:border-red-950 dark:disabled:text-red-800':
         variant === 'destructive' && !isATag,
       'text-lg': size === 'large',
       'text-xl': size === 'xl',
@@ -550,7 +621,8 @@ export function Button({
       'text-xs px-2 py-0': size === 'nano',
       'cursor-not-allowed': disabled,
       'cursor-wait opacity-75': loading, // Apply wait cursor and lower opacity when loading,
-      'bg-gray-200 text-gray-400': variant == 'cta' && disabled,
+      'bg-gray-200 text-gray-400 dark:bg-neutral-700 dark:text-neutral-500':
+        variant == 'cta' && disabled,
     },
     className,
   );
@@ -612,22 +684,30 @@ export function Dialog({
   open,
   children,
   onClose,
+  className,
+  hideCloseButton = false,
 }: {
   open: boolean;
   children: React.ReactNode;
   onClose: () => void;
+  className?: string;
+  hideCloseButton?: boolean;
 }) {
   return (
     <HeadlessDialog as="div" open={open} onClose={onClose}>
       <div className="fixed inset-0 z-50 bg-black/50" aria-hidden="true" />
       <div className="fixed inset-4 z-50 flex flex-col items-center justify-center">
-        <HeadlessDialog.Panel className="relative w-full max-w-xl overflow-y-auto rounded bg-white p-3 text-sm shadow">
-          <XMarkIcon
-            className="absolute right-3 top-[18px] h-4 w-4 cursor-pointer"
-            onClick={onClose}
-          />
+        <DialogPanel
+          className={`relative w-full max-w-xl overflow-y-auto rounded bg-white p-3 text-sm shadow dark:bg-neutral-800 dark:text-white ${className}`}
+        >
+          {!hideCloseButton && (
+            <XMarkIcon
+              className="absolute right-3 top-[18px] h-4 w-4 cursor-pointer"
+              onClick={onClose}
+            />
+          )}
           {children}
-        </HeadlessDialog.Panel>
+        </DialogPanel>
       </div>
     </HeadlessDialog>
   );
@@ -727,6 +807,91 @@ export function redactedValue(v: string): string {
   return v.replaceAll(/./g, '*');
 }
 
+export function SmallCopyable({
+  value,
+  label,
+  size = 'normal',
+  defaultHidden,
+  hideValue,
+  onChangeHideValue,
+  multiline = false,
+}: {
+  value: string;
+  label?: string;
+  size?: 'normal' | 'large';
+  defaultHidden?: boolean;
+  hideValue?: boolean;
+  onChangeHideValue?: () => void;
+  multiline?: boolean;
+}) {
+  const [hidden, setHidden] = useState(defaultHidden);
+  const handleChangeHideValue =
+    onChangeHideValue || (defaultHidden ? () => setHidden(!hidden) : null);
+  const [tooltipOpen, setTooltipOpen] = useState(false);
+
+  return (
+    <div
+      className={cn(
+        'flex items-center rounded font-mono text-xs opacity-70',
+        {},
+      )}
+    >
+      {label ? (
+        <div
+          className="py-1.5 opacity-50"
+          style={{
+            borderTopLeftRadius: 'calc(0.25rem - 1px)',
+            borderBottomLeftRadius: 'calc(0.25rem - 1px)',
+          }}
+        >
+          {label}:
+        </div>
+      ) : null}
+      <Tooltip open={tooltipOpen}>
+        <TooltipTrigger asChild>
+          <pre
+            className={clsx('flex-1 cursor-pointer select-text px-2 py-1.5', {
+              truncate: !multiline,
+              'whitespace-pre-wrap break-all': multiline,
+            })}
+            title={value}
+            onClick={(e) => {
+              // Only copy if no text is selected
+              const selection = window.getSelection();
+              if (!selection || selection.toString().length === 0) {
+                window.navigator.clipboard.writeText(value);
+                setTooltipOpen(true);
+                setTimeout(() => setTooltipOpen(false), 1000);
+              }
+            }}
+          >
+            {hideValue || hidden ? redactedValue(value) : value}
+          </pre>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">Copied!</TooltipContent>
+      </Tooltip>
+
+      <div className="">
+        {!!handleChangeHideValue && (
+          <button
+            onClick={handleChangeHideValue}
+            className={cn(
+              'flex items-center gap-x-1 rounded-sm px-2 py-1 opacity-50 transition-colors hover:bg-gray-50 dark:hover:bg-neutral-700',
+              { 'text-xs': size === 'normal', 'text-sm': size === 'large' },
+            )}
+          >
+            {hideValue || hidden ? (
+              <EyeSlashIcon className="h-4 w-4" aria-hidden="true" />
+            ) : (
+              <EyeIcon className="h-4 w-4" aria-hidden="true" />
+            )}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function Copyable({
   value,
   label,
@@ -751,14 +916,17 @@ export function Copyable({
 
   return (
     <div
-      className={cn('flex items-center rounded border bg-white font-mono', {
-        'text-sm': size === 'normal',
-        'text-base': size === 'large',
-      })}
+      className={cn(
+        'flex items-center rounded border bg-white font-mono dark:border-neutral-700 dark:bg-neutral-800',
+        {
+          'text-sm': size === 'normal',
+          'text-base': size === 'large',
+        },
+      )}
     >
       {label ? (
         <div
-          className="border-r bg-gray-50 px-3 py-1.5"
+          className="border-r bg-gray-50 px-3 py-1.5 dark:border-r-neutral-700 dark:bg-neutral-700"
           style={{
             borderTopLeftRadius: 'calc(0.25rem - 1px)',
             borderBottomLeftRadius: 'calc(0.25rem - 1px)',
@@ -789,7 +957,7 @@ export function Copyable({
           <button
             onClick={handleChangeHideValue}
             className={cn(
-              'flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-inset ring-gray-300 hover:bg-gray-50',
+              'flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-neutral-600/20 dark:ring-neutral-600',
               { 'text-xs': size === 'normal', 'text-sm': size === 'large' },
             )}
           >
@@ -809,7 +977,7 @@ export function Copyable({
               }, 2500);
             }}
             className={cn(
-              'flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-inset ring-gray-300 hover:bg-gray-50',
+              'flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-neutral-600/20 dark:ring-neutral-600',
               { 'text-xs': size === 'normal', 'text-sm': size === 'large' },
             )}
           >
@@ -829,7 +997,7 @@ export function Copytext({ value }: { value: string }) {
   const [showCopied, setShowCopied] = useState(false);
 
   return (
-    <span className="inline-flex items-center text-sm bg-gray-500 text-white px-2 rounded-sm">
+    <span className="inline-flex items-center rounded-sm bg-gray-500 px-2 text-sm text-white">
       <code
         className="truncate"
         onClick={(e) => {
@@ -877,10 +1045,16 @@ export function CodeEditor(props: {
   tabIndex?: number;
   loading?: boolean;
   readOnly?: boolean;
+  className?: string;
 }) {
+  const { darkMode } = useDarkMode();
   return (
     <Editor
-      className={props.loading ? 'animate-pulse' : undefined}
+      theme={darkMode ? 'vs-dark' : 'vs-light'}
+      className={cn(
+        props.loading ? 'animate-pulse' : undefined,
+        props.className,
+      )}
       height={'100%'}
       language={props.language}
       value={props.value ?? ''}
@@ -936,12 +1110,12 @@ export function JSONEditor(props: {
   }, [monacoInstance, props.schema]);
 
   return (
-    <div className="flex flex-col gap-2 h-full min-h-0">
-      <div className="flex items-center gap-4 border-b px-4 py-2">
+    <div className="flex h-full min-h-0 flex-col gap-2 dark:bg-[#1E1E1E]">
+      <div className="flex items-center gap-4 border-b px-4 py-2 dark:border-b-neutral-700">
         <div className="font-mono">{props.label}</div>
         <Button onClick={() => props.onSave(draft)}>Save</Button>
       </div>
-      <div className="flex-grow min-h-0">
+      <div className="min-h-0 flex-grow">
         <CodeEditor
           language="json"
           value={props.value}
@@ -981,13 +1155,24 @@ export function Fence({
   style?: any;
   copyable?: boolean;
 }) {
+  const { darkMode } = useDarkMode();
   const [copyLabel, setCopyLabel] = useState('Copy');
   return (
     <Highlight
       {...defaultProps}
       code={code.trimEnd()}
       language={language}
-      theme={undefined}
+      theme={
+        darkMode
+          ? {
+              plain: {
+                backgroundColor: '#262626',
+                color: 'white',
+              },
+              styles: [],
+            }
+          : undefined
+      }
     >
       {({ className, style, tokens, getTokenProps }) => (
         <pre
@@ -999,7 +1184,7 @@ export function Fence({
           }}
         >
           {copyable ? (
-            <div className="absolute top-0 right-0 px-2 flex items-center">
+            <div className="absolute right-0 top-0 flex items-center px-2">
               <button
                 onClick={(e) => {
                   copy(code);
@@ -1010,7 +1195,7 @@ export function Fence({
                   e.preventDefault();
                   e.stopPropagation();
                 }}
-                className="flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 text-xs"
+                className="flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 text-xs ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-neutral-800 dark:ring-neutral-700"
               >
                 <ClipboardDocumentIcon
                   className="-ml-0.5 h-4 w-4"
@@ -1046,14 +1231,14 @@ export const Divider = ({
   <div className={cn('flex items-center justify-center', className)}>
     <div
       aria-hidden="true"
-      className="h-px w-full bg-gray-200"
+      className="h-px w-full bg-gray-200 dark:bg-neutral-700"
       data-orientation="horizontal"
       role="separator"
     ></div>
     {children}
     <div
       aria-hidden="true"
-      className="h-px w-full bg-gray-200"
+      className="h-px w-full bg-gray-200 dark:bg-neutral-700"
       data-orientation="horizontal"
       role="separator"
     ></div>
@@ -1064,7 +1249,7 @@ export const InfoTip = ({ children }: PropsWithChildren) => {
   return (
     <Popover
       as="span"
-      className="inline-flex align-middle relative"
+      className="relative inline-flex align-middle"
       data-open="true"
     >
       <PopoverButton className="inline">
@@ -1077,11 +1262,27 @@ export const InfoTip = ({ children }: PropsWithChildren) => {
 
       <PopoverPanel
         anchor="bottom start"
-        className="bg-white p-2 rounded-lg shadow-lg z-50"
+        className="z-50 rounded-lg bg-white p-2 shadow-lg dark:bg-neutral-800"
       >
         {children}
       </PopoverPanel>
     </Popover>
+  );
+};
+
+export const Badge = ({
+  children,
+  className,
+}: PropsWithChildren & { className?: string }) => {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-700/30 dark:text-blue-100',
+        className,
+      )}
+    >
+      {children}
+    </span>
   );
 };
 
@@ -1129,6 +1330,63 @@ export function ProgressButton({
     </Button>
   );
 }
+
+import * as TooltipPrimitive from '@radix-ui/react-tooltip';
+import { useDarkMode } from './dash/DarkModeToggle';
+
+function TooltipProvider({
+  delayDuration = 100,
+  ...props
+}: React.ComponentProps<typeof TooltipPrimitive.Provider>) {
+  return (
+    <TooltipPrimitive.Provider
+      data-slot="tooltip-provider"
+      delayDuration={delayDuration}
+      {...props}
+    />
+  );
+}
+
+function Tooltip({
+  ...props
+}: React.ComponentProps<typeof TooltipPrimitive.Root>) {
+  return (
+    <TooltipProvider>
+      <TooltipPrimitive.Root data-slot="tooltip" {...props} />
+    </TooltipProvider>
+  );
+}
+
+function TooltipTrigger({
+  ...props
+}: React.ComponentProps<typeof TooltipPrimitive.Trigger>) {
+  return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props} />;
+}
+
+function TooltipContent({
+  className,
+  sideOffset = 0,
+  children,
+  ...props
+}: React.ComponentProps<typeof TooltipPrimitive.Content>) {
+  return (
+    <TooltipPrimitive.Portal>
+      <TooltipPrimitive.Content
+        data-slot="tooltip-content"
+        sideOffset={sideOffset}
+        className={cn(
+          'text-primary-foreground origin-(--radix-tooltip-content-transform-origin) text-balance z-50 w-fit border border-gray-100 bg-white px-3 py-1.5 text-xs animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 dark:border-neutral-600 dark:bg-neutral-800 dark:text-white dark:hover:bg-neutral-700/50',
+          className,
+        )}
+        {...props}
+      >
+        {children}
+      </TooltipPrimitive.Content>
+    </TooltipPrimitive.Portal>
+  );
+}
+
+export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider };
 
 // utils
 

@@ -66,24 +66,24 @@ function MainStatus({
   lastUpdated: Date;
 }) {
   return (
-    <div className="flex justify-center px-4 sm:px-8 md:px-16 lg:px-32 xl:px-64 z-10 py-4 md:py-8 relative">
-      <div className="relative bg-white w-full max-w-4xl h-32 sm:h-44 md:h-60 border-2 border-gray-200">
-        <div className="absolute top-3 right-4 text-xs md:text-sm font-mono">
+    <div className="relative z-10 flex justify-center px-4 py-4 sm:px-8 md:px-16 md:py-8 lg:px-32 xl:px-64">
+      <div className="relative h-32 w-full max-w-4xl border-2 border-gray-200 bg-white sm:h-44 md:h-60">
+        <div className="absolute right-4 top-3 font-mono text-xs md:text-sm">
           <div className="text-right">
             <span className="text-gray-500">
               Last updated {lastUpdated.toLocaleTimeString()}
             </span>
           </div>
         </div>
-        <div className="flex gap-4 sm:gap-6 md:gap-8 h-full justify-center items-center px-4">
+        <div className="flex h-full items-center justify-center gap-4 px-4 sm:gap-6 md:gap-8">
           <div
-            className={`flex justify-center items-center ${allOperational ? '' : 'w-5 h-5 sm:h-7 sm:w-7'} h-10 w-10 sm:h-12 sm:w-12 rounded-full shadow-2xl flex-shrink-0`}
+            className={`flex items-center justify-center ${allOperational ? '' : 'h-5 w-5 sm:h-7 sm:w-7'} h-10 w-10 flex-shrink-0 rounded-full shadow-2xl sm:h-12 sm:w-12`}
             style={{
               backgroundColor: allOperational ? GOOD_COLOR : ERR_COLOR,
             }}
           >
             <div
-              className={`h-8 w-8 sm:h-10 sm:w-10 absolute rounded-full shadow-2xl ${styles.pulseAnimation}`}
+              className={`absolute h-8 w-8 rounded-full shadow-2xl sm:h-10 sm:w-10 ${styles.pulseAnimation}`}
               style={{
                 backgroundColor: allOperational ? GOOD_COLOR : ERR_COLOR,
               }}
@@ -110,34 +110,34 @@ function MonitorDisplay({
 }) {
   return (
     <>
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3">
+      <div className="mb-3 flex flex-col items-start justify-between sm:flex-row sm:items-center">
         <div className="flex items-center gap-2">
-          <span className="text-sm md:text-base font-semibold">{title}</span>
-          <span className="text-xs md:text-sm text-gray-500">|</span>
+          <span className="text-sm font-semibold md:text-base">{title}</span>
+          <span className="text-xs text-gray-500 md:text-sm">|</span>
           <span
-            className={`text-sm md:text-base font-semibold ${monitor?.uptime_ratio?.['90d'] ? 'text-green-500' : 'text-gray-400'}`}
+            className={`text-sm font-semibold md:text-base ${monitor?.uptime_ratio?.['90d'] ? 'text-green-500' : 'text-gray-400'}`}
           >
             {monitor?.uptime_ratio?.['90d']
               ? `${monitor.uptime_ratio['90d'].toFixed(3)}%`
               : '...'}
           </span>
         </div>
-        <div className="flex items-center gap-2 mt-2 sm:mt-0">
+        <div className="mt-2 flex items-center gap-2 sm:mt-0">
           <div
-            className="relative w-2 h-2 rounded-full flex justify-center items-center"
+            className="relative flex h-2 w-2 items-center justify-center rounded-full"
             style={{
               backgroundColor: monitor?.status === 2 ? GOOD_COLOR : WORST_COLOR,
             }}
           >
             <div
-              className={`absolute w-2 h-2 rounded-full ${styles.pulseAnimation}`}
+              className={`absolute h-2 w-2 rounded-full ${styles.pulseAnimation}`}
               style={{
                 backgroundColor:
                   monitor?.status === 2 ? GOOD_COLOR : WORST_COLOR,
               }}
             ></div>
           </div>
-          <span className="text-xs md:text-sm text-gray-600">
+          <span className="text-xs text-gray-600 md:text-sm">
             {monitor?.status === 2 ? 'Operational' : 'Issues Detected'}
           </span>
         </div>
@@ -156,7 +156,7 @@ function MonitorDisplay({
             return (
               <div
                 key={index}
-                className="flex-1 rounded-sm cursor-pointer hover:opacity-80 transition-opacity"
+                className="flex-1 cursor-pointer rounded-sm transition-opacity hover:opacity-80"
                 style={{
                   backgroundColor:
                     percentage !== null
@@ -169,7 +169,7 @@ function MonitorDisplay({
           },
         )}
       </div>
-      <div className="flex justify-between mt-2">
+      <div className="mt-2 flex justify-between">
         <span className="text-xs text-gray-500">90 days ago</span>
         <span className="text-xs text-gray-500">Today</span>
       </div>
@@ -190,12 +190,12 @@ function UptimeDetails({ uptime }: { uptime: UptimeResponse }) {
   );
 
   return (
-    <div className="flex z-10 justify-center px-4 sm:px-8 md:px-16 lg:px-32 xl:px-64 py-4 relative">
-      <div className="font-mono flex-1 max-w-4xl">
-        <span className="text-sm md:text-base font-semibold">
+    <div className="relative z-10 flex justify-center px-4 py-4 sm:px-8 md:px-16 lg:px-32 xl:px-64">
+      <div className="max-w-4xl flex-1 font-mono">
+        <span className="text-sm font-semibold md:text-base">
           Uptime last 90 days
         </span>
-        <div className="shadow-sm bg-white border-gray-200 border-2 p-3 md:p-4 mt-2">
+        <div className="mt-2 border-2 border-gray-200 bg-white p-3 shadow-sm md:p-4">
           <MonitorDisplay monitor={backendMonitor} title="Instant API" />
           <div className="flex py-6">
             <div
@@ -212,44 +212,44 @@ function UptimeDetails({ uptime }: { uptime: UptimeResponse }) {
 
 function OverallUptime({ uptime }: { uptime: UptimeResponse }) {
   return (
-    <div className="flex z-10 justify-center px-4 sm:px-8 md:px-16 lg:px-32 xl:px-64 py-4 relative">
-      <div className="font-mono flex-1 max-w-4xl">
-        <span className="text-sm md:text-base font-semibold">
+    <div className="relative z-10 flex justify-center px-4 py-4 sm:px-8 md:px-16 lg:px-32 xl:px-64">
+      <div className="max-w-4xl flex-1 font-mono">
+        <span className="text-sm font-semibold md:text-base">
           Overall Uptime
         </span>
-        <div className="flex shadow-sm bg-white border-gray-200 border-2 p-4 sm:p-6 mt-2 h-auto sm:h-48 md:h-64 justify-center items-center">
-          <div className="flex items-center flex-col sm:flex-row gap-6 sm:gap-2.5 py-4 sm:py-0">
-            <div className="flex flex-col flex-1 sm:w-40 text-center">
+        <div className="mt-2 flex h-auto items-center justify-center border-2 border-gray-200 bg-white p-4 shadow-sm sm:h-48 sm:p-6 md:h-64">
+          <div className="flex flex-col items-center gap-6 py-4 sm:flex-row sm:gap-2.5 sm:py-0">
+            <div className="flex flex-1 flex-col text-center sm:w-40">
               <span className="text-2xl font-semibold">
                 {uptime?.overall_uptime?.['24h']?.toFixed(3) || '...'}%
               </span>
               <span className="text-sm text-gray-500">Last 24 Hours</span>
             </div>
             <div
-              className="w-60 h-0.5 sm:w-0.5 sm:h-20"
+              className="h-0.5 w-60 sm:h-20 sm:w-0.5"
               style={{ backgroundColor: DIVIDER_COLOR }}
             ></div>
-            <div className="flex flex-col flex-1 sm:w-40 text-center">
+            <div className="flex flex-1 flex-col text-center sm:w-40">
               <span className="text-2xl font-semibold">
                 {uptime?.overall_uptime?.['7d']?.toFixed(3) || '...'}%
               </span>
               <span className="text-sm text-gray-500">Last 7 Days</span>
             </div>
             <div
-              className="w-60 h-0.5 sm:w-0.5 sm:h-20"
+              className="h-0.5 w-60 sm:h-20 sm:w-0.5"
               style={{ backgroundColor: DIVIDER_COLOR }}
             ></div>
-            <div className="flex flex-col flex-1 sm:w-40 text-center">
+            <div className="flex flex-1 flex-col text-center sm:w-40">
               <span className="text-2xl font-semibold">
                 {uptime?.overall_uptime?.['30d']?.toFixed(3) || '...'}%
               </span>
               <span className="text-sm text-gray-500">Last 30 Days</span>
             </div>
             <div
-              className="w-60 h-0.5 sm:w-0.5 sm:h-20"
+              className="h-0.5 w-60 sm:h-20 sm:w-0.5"
               style={{ backgroundColor: DIVIDER_COLOR }}
             ></div>
-            <div className="flex flex-col flex-1 sm:w-40 text-center">
+            <div className="flex flex-1 flex-col text-center sm:w-40">
               <span className="text-2xl font-semibold">
                 {uptime?.overall_uptime?.['90d']?.toFixed(3) || '...'}%
               </span>
@@ -264,13 +264,13 @@ function OverallUptime({ uptime }: { uptime: UptimeResponse }) {
 
 function SupportSection() {
   return (
-    <div className="flex z-10 justify-center px-4 sm:px-8 md:px-16 lg:px-32 xl:px-64 py-4 relative">
-      <div className="flex-1 max-w-4xl space-y-4 mb-4">
-        <h3 className="font-mono text-sm md:text-base font-semibold text-center">
+    <div className="relative z-10 flex justify-center px-4 py-4 sm:px-8 md:px-16 lg:px-32 xl:px-64">
+      <div className="mb-4 max-w-4xl flex-1 space-y-4">
+        <h3 className="text-center font-mono text-sm font-semibold md:text-base">
           Experiencing issues?
         </h3>
 
-        <p className="text-sm md:text-base text-center">
+        <p className="text-center text-sm md:text-base">
           Reach out to us on{' '}
           <TextLink
             href="https://discord.com/invite/VU53p7uQcE"
@@ -295,7 +295,7 @@ function StatusPage({ uptime }: { uptime: UptimeResponse }) {
     uptime.monitors.every((m: Monitor) => m.status === 2);
 
   return (
-    <div className="flex flex-col relative min-h-screen overflow-y-auto">
+    <div className="relative flex min-h-screen flex-col overflow-y-auto">
       <MainStatus
         allOperational={allOperational}
         lastUpdated={new Date(uptime.last_updated)}
@@ -320,7 +320,7 @@ export default function Page({
           content={og.url({ section: 'status' })}
         />
       </Head>
-      <div className="flex min-h-screen justify-between flex-col">
+      <div className="flex min-h-screen flex-col justify-between">
         <div>
           <MainNav />
         </div>

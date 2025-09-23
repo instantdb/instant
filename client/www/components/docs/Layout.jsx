@@ -12,7 +12,7 @@ import config, { getLocal, setLocal } from '@/lib/config';
 import { Select } from '@/components/ui';
 import { BareNav } from '@/components/marketingUi';
 import navigation from '@/data/docsNavigation';
-import { createdAtComparator } from '@/lib/app';
+import { createdAtComparator, titleComparator } from '@/lib/app';
 import RatingBox from './RatingBox';
 import { getLocallySavedApp, setLocallySavedApp } from '@/lib/locallySavedApp';
 
@@ -75,7 +75,7 @@ function useSelectedApp(apps = []) {
 }
 
 function AppPicker({ apps, selectedAppData, updateSelectedAppId }) {
-  const appOptions = apps.map((app) => ({
+  const appOptions = apps.toSorted(titleComparator).map((app) => ({
     label: app.title,
     value: app.id,
   }));
@@ -87,7 +87,7 @@ function AppPicker({ apps, selectedAppData, updateSelectedAppId }) {
   }
 
   return (
-    <div className="flex flex-col mb-6 p-4 gap-1 bg-white bg-opacity-40 border">
+    <div className="mb-6 flex flex-col gap-1 border bg-white bg-opacity-40 p-4">
       <h4 className="font-bold">Pick your app</h4>
       <p className="text-sm">
         The examples below will be updated with your app ID.
@@ -158,7 +158,7 @@ function PageContent({ title, sectionTitle, allLinks, children }) {
       {(title || sectionTitle) && (
         <header className="mb-4 space-y-1">
           {sectionTitle && (
-            <p className="text-sm text-gray-500 font-medium">{sectionTitle}</p>
+            <p className="text-sm font-medium text-gray-500">{sectionTitle}</p>
           )}
           {title && <h1 className="text-3xl dark:text-white">{title}</h1>}
         </header>
@@ -300,17 +300,17 @@ export function Layout({ children, title, tableOfContents }) {
         {/* Header */}
         <div
           className={clsx(
-            'fixed inset-x-0 top-0 bg-[#F8F9FA] z-10',
+            'fixed inset-x-0 top-0 z-10 bg-[#F8F9FA]',
             adj.hHeader,
           )}
         >
-          <div className="grid h-full w-full px-4 border-b">
+          <div className="grid h-full w-full border-b px-4">
             <BareNav>
               <div className="flex flex-col md:hidden">
                 <Search />
                 <Navigation
                   navigation={navigation}
-                  className="w-64 pr-8 xl:w-72 xl:pr-16 md:hidden"
+                  className="w-64 pr-8 md:hidden xl:w-72 xl:pr-16"
                 />
               </div>
             </BareNav>
@@ -319,7 +319,7 @@ export function Layout({ children, title, tableOfContents }) {
         {/* Body */}
         <div className={clsx('flex', adj.ptHeader)}>
           {/* Left sidebar */}
-          <div className="hidden md:block relative min-w-[20rem] w-[20rem] border-r">
+          <div className="relative hidden w-[20rem] min-w-[20rem] border-r md:block">
             <div className="absolute inset-0">
               <div
                 className={clsx(
@@ -331,17 +331,17 @@ export function Layout({ children, title, tableOfContents }) {
                 <Search />
                 <Navigation
                   navigation={navigation}
-                  className="w-64 pr-8 xl:w-72 xl:pr-16 ml-1"
+                  className="ml-1 w-64 pr-8 xl:w-72 xl:pr-16"
                 />
               </div>
             </div>
           </div>
-          <div className="flex justify-center flex-1 overflow-x-auto">
+          <div className="flex flex-1 justify-center overflow-x-auto">
             {/* Main content */}
             <main
               ref={scrollContainerRef}
               key={router.pathname}
-              className="max-w-prose flex-1 p-4 min-w-0"
+              className="min-w-0 max-w-prose flex-1 p-4"
             >
               <AppPicker {...{ apps, selectedAppData, updateSelectedAppId }} />
               <PageContent
@@ -358,11 +358,11 @@ export function Layout({ children, title, tableOfContents }) {
             </main>
 
             {/* Right sidebar */}
-            <div className="hidden xl:block relative min-w-[16rem] w-[16rem]">
+            <div className="relative hidden w-[16rem] min-w-[16rem] xl:block">
               <div className="absolute inset-0">
                 <div
                   className={clsx(
-                    'fixed overflow-y-auto p-4 w-[16rem]',
+                    'fixed w-[16rem] overflow-y-auto p-4',
                     adj.topHeader,
                     adj.hWithoutHeader,
                   )}

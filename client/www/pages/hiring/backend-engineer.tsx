@@ -9,7 +9,7 @@ import * as og from '@/lib/og';
 
 function HiringContent() {
   return (
-    <div className="prose prose-h1:mt-8 prose-h1:mb-4 prose-h2:mt-4 prose-h2:mb-2 prose-pre:bg-gray-100">
+    <div className="prose prose-h1:mb-4 prose-h1:mt-8 prose-h2:mb-2 prose-h2:mt-4 prose-pre:bg-gray-100">
       <h1 id="instantdb-founding-backend-engineer">
         InstantDB: Founding Backend Engineer
       </h1>
@@ -144,7 +144,7 @@ export default function Page() {
       <MainNav />
       <div className="mx-auto mt-6 p-4 md:max-w-2xl">
         <HiringContent />
-        <div className="flex justify-center mt-8 mb-4">
+        <div className="mb-4 mt-8 flex justify-center">
           <Button type="link" href="/hiring" variant="secondary">
             Back to All Positions
           </Button>

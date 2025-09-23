@@ -11,3 +11,13 @@ export function createdAtComparator(
   }
   return 0;
 }
+
+export function titleComparator(
+  a: { title: string },
+  b: { title: string },
+): number {
+  return a.title.localeCompare(b.title, undefined, {
+    sensitivity: 'base',
+    numeric: true,
+  });
+}

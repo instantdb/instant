@@ -132,14 +132,14 @@ export function AddClientForm({
 
   return (
     <form
-      className="flex flex-col gap-2 p-4 rounded border"
+      className="flex flex-col gap-2 rounded border p-4 dark:border dark:border-neutral-700"
       onSubmit={onSubmit}
       autoComplete="off"
       data-lpignore="true"
     >
       <SubsectionHeading>Add a new Google client</SubsectionHeading>
       <div className="mb-4">
-        <label className="block text-sm font-bold text-gray-700 mb-2">
+        <label className="mb-2 block text-sm font-bold text-gray-700 dark:text-neutral-400">
           Type
         </label>
         <ToggleGroup
@@ -203,7 +203,7 @@ export function AddClientForm({
         />
       )}
       {appType === 'web' && (
-        <div className="rounded border p-4 flex flex-col gap-2 bg-gray-50">
+        <div className="flex flex-col gap-2 rounded border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
           <p className="overflow-hidden">
             Add{' '}
             <Copytext value="https://api.instantdb.com/runtime/oauth/callback" />{' '}
@@ -230,7 +230,7 @@ export function AddClientForm({
         </div>
       )}
       {isNative(appType) && (
-        <div className="rounded border p-4 flex flex-col gap-2 bg-gray-50">
+        <div className="flex flex-col gap-2 rounded border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800">
           <Checkbox
             checked={skipNonceChecks}
             onChange={setSkipNonceChecks}
@@ -384,10 +384,10 @@ const url = db.auth.createAuthorizationURL({
       <Collapsible.Root
         open={open}
         onOpenChange={setOpen}
-        className="flex flex-col border rounded"
+        className="flex flex-col rounded border"
       >
-        <Collapsible.Trigger className="flex p-4 hover:bg-gray-100 bg-gray-50">
-          <div className="flex flex-1 justify-between items-center">
+        <Collapsible.Trigger className="flex bg-gray-50 p-4 hover:bg-gray-100">
+          <div className="flex flex-1 items-center justify-between">
             <div className="flex gap-2">
               {' '}
               <Image alt="google logo" src={googleIconSvg} />
@@ -404,9 +404,9 @@ const url = db.auth.createAuthorizationURL({
           </div>
         </Collapsible.Trigger>
         <Collapsible.Content className="">
-          <div className="p-4 flex flex-col gap-4 border-t">
+          <div className="flex flex-col gap-4 border-t p-4">
             <div className="flex items-center bg-white font-mono text-sm">
-              <span className="font-bold rounded-sm border text-gray-500 bg-gray-50 text-sm px-2 py-0.5">
+              <span className="rounded-sm border bg-gray-50 px-2 py-0.5 text-sm font-bold text-gray-500">
                 {appTypeLabel(appType)}
               </span>
             </div>
@@ -415,7 +415,7 @@ const url = db.auth.createAuthorizationURL({
             <Copyable label="Google client ID" value={client.client_id || ''} />
 
             {didSkipNonceChecks ? (
-              <div className="rounded border p-4 flex flex-col gap-2 bg-gray-50">
+              <div className="flex flex-col gap-2 rounded border bg-gray-50 p-4">
                 <Checkbox
                   checked={client.meta?.skipNonceChecks || false}
                   onChange={() => {}}
@@ -428,7 +428,7 @@ const url = db.auth.createAuthorizationURL({
               <>
                 <SubsectionHeading>
                   <a
-                    className="underline font-bold"
+                    className="font-bold underline"
                     target="_blank"
                     href="/docs/auth/google-oauth"
                   >
@@ -456,7 +456,7 @@ const url = db.auth.createAuthorizationURL({
                   <strong>2.</strong> Use the code below to generate a login
                   link in your app.
                 </Content>
-                <div className="border rounded text-sm overflow-auto">
+                <div className="overflow-auto rounded border text-sm">
                   <Fence code={exampleCode} language="typescript" />
                 </div>
               </>
@@ -465,7 +465,7 @@ const url = db.auth.createAuthorizationURL({
               <>
                 <SubsectionHeading>
                   <a
-                    className="underline font-bold"
+                    className="font-bold underline"
                     target="_blank"
                     href="/docs/auth/google-oauth?method=react-native"
                   >
@@ -476,7 +476,7 @@ const url = db.auth.createAuthorizationURL({
                   <strong>1.</strong> Use the code below to sign in with
                   `react-native-google-signin`:
                 </Content>
-                <div className="border rounded text-sm overflow-auto">
+                <div className="overflow-auto rounded border text-sm">
                   <Fence code={exampleRNCode} language="typescript" />
                 </div>
               </>

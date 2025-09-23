@@ -3351,7 +3351,7 @@
 
 (defn validation-err [input]
   (try
-    (tx/validate! (tx/coerce! input))
+    (tx/validate! {:attrs (attr-model/wrap-attrs [])} (tx/coerce! input))
     (catch clojure.lang.ExceptionInfo e
       (->> e ex-data ::ex/hint :errors first))))
 
@@ -3458,6 +3458,34 @@
         (is (= "" (-> ex
                       ::ex/hint
                       :value)))))))
+
+;; Users could do [:add-triple [:id id-lookup-value] a v] and
+;; put something like {"id" 1} for the id-lookup-value and then
+;; we'd store '{"id" 1}' as the value for the id attr. Check that we
+;; prevent that
+(deftest checks-for-invalid-id-lookups
+  (with-zeneca-app
+    (fn [app r]
+      (let [make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :read)}
+                             :app-id (:id app)
+                             :attrs (attr-model/get-by-app-id (:id app))
+                             :datalog-query-fn d/query
+                             :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id (:id app)})
+                             :current-user nil})]
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                              #"Invalid lookup"
+                              (tx/validate! (make-ctx) [[:add-triple
+                                                         [(resolvers/->uuid r :users/id)
+                                                          {:id (resolvers/->uuid r "eid-alex")}]
+                                                         (resolvers/->uuid r :users/handle)
+                                                         "alex2"]])))
+
+        (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                              #"Invalid lookup"
+                              (tx/validate! (make-ctx) [[:add-triple
+                                                         (resolvers/->uuid r "eid-alex")
+                                                         (resolvers/->uuid r :users/bookshelves)
+                                                         [(resolvers/->uuid r :bookshelves/id) {:id (random-uuid)}]]])))))))
 
 (deftest rejects-invalid-data-for-checked-attrs
   (with-empty-app

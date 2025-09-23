@@ -1,4 +1,4 @@
-import { id, tx } from '@instantdb/core';
+import { id, lookup, tx } from '@instantdb/core';
 import { InstantReactWebDatabase } from '@instantdb/react';
 import { isObject, debounce, last } from 'lodash';
 import {
@@ -37,6 +37,7 @@ import {
   ActionForm,
   Button,
   Checkbox,
+  cn,
   Content,
   Dialog,
   Fence,
@@ -368,7 +369,7 @@ function SearchInput({
     >
       <ComboboxInput
         size={32}
-        className="border border-gray-300 rounded-md px-3 py-2 text-sm"
+        className="rounded-md border border-neutral-300 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800 dark:text-white dark:placeholder:text-neutral-500"
         value={query}
         onChange={(e) => {
           setQuery(e.target.value);
@@ -394,13 +395,16 @@ function SearchInput({
       <ComboboxOptions
         anchor="bottom start"
         modal={false}
-        className="mt-1 w-[var(--input-width)] overflow-auto rounded-md bg-white shadow-lg z-10 border border-gray-300 divide-y"
+        className="z-10 mt-1 w-[var(--input-width)] divide-y overflow-auto rounded-md border border-neutral-300 bg-white shadow-lg dark:divide-neutral-700 dark:border-neutral-700 dark:bg-neutral-800"
       >
         {comboOptions.map((o, i) => (
           <ComboboxOption
             key={i}
             value={o.display}
-            className={clsx('px-3 py-1 data-[focus]:bg-blue-100', {})}
+            className={clsx(
+              'px-3 py-1 data-[focus]:bg-blue-100 dark:text-white dark:data-[focus]:bg-neutral-700',
+              {},
+            )}
           >
             {({ focus }) => {
               if (focus) {
@@ -812,7 +816,7 @@ export function Explorer({
   };
 
   return (
-    <div className="relative flex w-full flex-1 overflow-hidden">
+    <div className="relative flex w-full flex-1 overflow-hidden dark:bg-neutral-800">
       <Dialog
         open={deleteDataConfirmationOpen}
         onClose={() => setDeleteDataConfirmationOpen(false)}
@@ -822,11 +826,18 @@ export function Explorer({
             <h5 className="flex text-lg font-bold">Delete {rowText}</h5>
 
             <Content>
-              Deleting is an <strong>irreversible operation</strong> and will{' '}
-              <strong>
+              Deleting is an{' '}
+              <strong className="dark:text-neutral-500">
+                irreversible operation
+              </strong>{' '}
+              and will{' '}
+              <strong className="dark:text-neutral-500">
                 delete {numItemsSelected} {rowText}{' '}
               </strong>
-              associated with <strong>{selectedNamespace.name}</strong>
+              associated with{' '}
+              <strong className="dark:text-neutral-500">
+                {selectedNamespace.name}
+              </strong>
             </Content>
 
             <ActionButton
@@ -931,16 +942,16 @@ export function Explorer({
       <div
         ref={nsRef}
         className={clsx(
-          'absolute top-0 left-0 bottom-0 z-50 flex flex-col gap-1 border-r bg-white p-2 min-w-[200px] shadow-md md:static md:flex md:shadow-none',
+          'absolute bottom-0 left-0 top-0 z-40 flex min-w-[200px] flex-col gap-1 border-r bg-white p-2 shadow-md dark:border-neutral-700 dark:bg-neutral-800 md:static md:flex md:shadow-none',
           {
             hidden: !isNsOpen,
           },
         )}
       >
-        <div className="flex items-center gap-1 text-sm font-semibold">
+        <div className="flex items-center gap-1 text-sm font-semibold dark:text-white">
           <ChevronLeftIcon
             height="1rem"
-            className="cursor-pointer md:hidden"
+            className="cursor-pointer dark:text-white md:hidden"
             onClick={() => setIsNsOpen(false)}
           />
           Namespaces
@@ -965,36 +976,39 @@ export function Explorer({
             <Button
               variant="secondary"
               size="mini"
-              className="justify-start"
+              className="justify-center"
               onClick={newNsDialog.onOpen}
             >
               <PlusIcon height="1rem" /> Create
             </Button>
           </>
         ) : (
-          <div className="flex w-full animate-slow-pulse flex-col gap-2">
+          <div className="animate-slow-pulse flex w-full flex-col gap-2">
             {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="h-4 w-full rounded-md bg-gray-300"></div>
+              <div
+                key={i}
+                className="h-4 w-full rounded-md bg-neutral-300 dark:bg-neutral-700"
+              ></div>
             ))}
           </div>
         )}
       </div>
-      <div className="flex flex-col gap-2 overflow-hidden border-r bg-gray-100 p-1 md:hidden">
+      <div className="flex flex-col gap-2 overflow-hidden border-r bg-neutral-100 p-1 dark:border-neutral-700 dark:bg-neutral-800 md:hidden">
         <button
-          className="flex cursor-pointer select-none items-center gap-1 rounded px-1 py-0.5 hover:bg-gray-300"
+          className="flex cursor-pointer select-none items-center gap-1 rounded px-1 py-0.5 hover:bg-neutral-300 dark:hover:bg-neutral-700"
           onClick={(e) => {
             e.stopPropagation();
             setIsNsOpen(true);
           }}
         >
-          <Bars3Icon height="1rem" />
+          <Bars3Icon height="1rem" className="dark:text-white" />
         </button>
       </div>
       {selectedNamespace && currentNav && allItems ? (
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <div className="flex items-center border-b overflow-hidden">
+        <div className="flex flex-1 flex-col overflow-hidden bg-white dark:bg-neutral-800">
+          <div className="flex items-center overflow-hidden border-b dark:border-neutral-700">
             <div className="flex flex-1 flex-col justify-between md:flex-row md:items-center">
-              <div className="flex items-center border-b px-2 py-1 md:border-b-0 overflow-hidden">
+              <div className="flex items-center overflow-hidden border-b px-2 py-1 dark:border-neutral-700 md:border-b-0">
                 {showBackButton ? (
                   <ArrowLeftIcon
                     className="mr-4 inline cursor-pointer"
@@ -1013,13 +1027,13 @@ export function Explorer({
                     }}
                   />
                 ) : null}
-                <div className="truncate overflow-hidden text-ellipses whitespace-nowrap font-mono text-xs flex-shrink">
+                <div className="text-ellipses flex-shrink overflow-hidden truncate whitespace-nowrap font-mono text-xs dark:text-white">
                   <strong>{selectedNamespace.name}</strong>{' '}
                   {currentNav.where ? (
                     <>
                       {' '}
                       where <strong>{currentNav.where[0]}</strong> ={' '}
-                      <em className="rounded-sm border bg-white px-1">
+                      <em className="rounded-sm border bg-white px-1 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white">
                         {JSON.stringify(currentNav.where[1])}
                       </em>
                     </>
@@ -1032,7 +1046,7 @@ export function Explorer({
                     >
                       {currentNav.filters.map(([attr, op, search], i) => (
                         <span key={attr}>
-                          <em className="rounded-sm border bg-white px-1">
+                          <em className="rounded-sm border bg-white px-1 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white">
                             {attr} {op} {search}
                           </em>
                           {currentNav?.filters?.length &&
@@ -1045,8 +1059,9 @@ export function Explorer({
                   ) : null}
                 </div>
               </div>
-              <div className="flex gap-2 px-2 py-1 justify-between md:justify-start">
+              <div className="flex justify-between gap-2 px-2 py-1 md:justify-start">
                 <Button
+                  className="rounded dark:bg-neutral-700/50"
                   variant="secondary"
                   size="mini"
                   onClick={() => {
@@ -1065,13 +1080,13 @@ export function Explorer({
             </div>
           </div>
           {selectedNamespace.name === '$files' ? (
-            <div className="flex py-2 px-2 gap-2">
-              <div className="flex gap-2 w-full">
-                <div className="flex gap-2 flex-shrink-0">
+            <div className="flex gap-2 px-2 py-2">
+              <div className="flex w-full gap-2">
+                <div className="flex flex-shrink-0 gap-2">
                   <input
                     ref={fileInputRef}
                     type="file"
-                    className="flex rounded-sm border border-zinc-200 bg-transparent px-1 py-1 text-sm shadow-sm transition-colors file:text-sm placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-950 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex cursor-pointer rounded border border-neutral-200 bg-transparent px-1 pt-[6px] text-sm shadow-sm transition-colors file:rounded-sm file:border-none file:border-neutral-200 file:bg-transparent file:text-sm file:font-[500] file:shadow-none placeholder:text-neutral-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-neutral-950 disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white dark:file:border-neutral-700 dark:file:text-white dark:placeholder:text-neutral-400 dark:focus-visible:ring-neutral-400"
                     onChange={(e: React.ChangeEvent<any>) => {
                       const files = e.target.files;
                       setSelectedFiles(files);
@@ -1086,12 +1101,13 @@ export function Explorer({
                     size="mini"
                     loading={uploadingFile}
                     onClick={handleUploadFile}
+                    className="rounded"
                   >
                     {uploadingFile ? 'Uploading...' : 'Upload file'}
                   </Button>
                 </div>
-                <div className="relative flex flex-1 max-w-[67vw] min-w-0">
-                  <span className="absolute inset-y-0 left-0 flex items-center px-3 text-sm text-zinc-500 bg-gray-100 rounded-l-md ">
+                <div className="relative flex min-w-0 max-w-[67vw] flex-1">
+                  <span className="absolute inset-y-0 left-0 flex items-center rounded-l bg-neutral-100 px-3 text-sm text-neutral-500 dark:bg-neutral-700 dark:text-neutral-400">
                     File Path:
                   </span>
                   <input
@@ -1099,13 +1115,13 @@ export function Explorer({
                     placeholder="Enter a custom path (optional)"
                     value={customPath}
                     onChange={(e) => setCustomPath(e.target.value)}
-                    className="w-full h-9 rounded-md bg-transparent pl-24 pr-3 py-1 text-sm placeholder:text-zinc-500 outline outline-1 outline-zinc-200 focus:ring-2 focus:ring-blue-700 border-0"
+                    className="h-9 w-full rounded border-0 bg-transparent py-1 pl-24 pr-3 text-sm outline outline-1 outline-neutral-200 placeholder:text-neutral-500 focus:ring-2 focus:ring-blue-700 dark:bg-neutral-800 dark:text-white dark:outline-neutral-700 dark:placeholder:text-neutral-400 dark:focus:ring-blue-500"
                   />
                 </div>
               </div>
             </div>
           ) : null}
-          <div className="flex items-center justify-start space-x-2 p-1 text-xs border-b">
+          <div className="flex items-center justify-start space-x-2 border-b p-1 text-xs dark:border-neutral-700 dark:text-white">
             {selectedNamespace.name !== '$files' ? (
               <Button
                 disabled={readOnlyNs}
@@ -1120,12 +1136,18 @@ export function Explorer({
                   setAddItemDialogOpen(true);
                 }}
               >
+                <PlusIcon width={12} />
                 Add row
               </Button>
             ) : null}
-            <div>
+            <div
+              className={cn(
+                'px-1',
+                selectedNamespace.name === '$files' && 'pb-1',
+              )}
+            >
               <Select
-                className="text-xs"
+                className="rounded text-xs"
                 onChange={(opt) => {
                   if (!opt) return;
 
@@ -1189,10 +1211,10 @@ export function Explorer({
                   <button
                     key={page}
                     className={clsx(
-                      'px-3 py-1 text-gray-600 rounded-md',
+                      'rounded-md px-3 py-1 text-neutral-600 dark:text-neutral-300',
                       page === currentPage
-                        ? 'bg-gray-200'
-                        : 'hover:bg-gray-100',
+                        ? 'bg-neutral-200 dark:bg-neutral-700'
+                        : 'hover:bg-neutral-100 dark:hover:bg-neutral-800',
                     )}
                     onClick={() => {
                       setOffsets({
@@ -1231,14 +1253,14 @@ export function Explorer({
               />
             </button>
           </div>
-          <div className="relative flex flex-1 overflow-x-auto overflow-y-scroll">
-            <table className="z-0 w-full flex-1 text-left font-mono text-xs text-gray-500">
-              <thead className="sticky top-0 z-20 bg-white text-gray-700 shadow">
+          <div className="relative flex flex-1 overflow-x-auto overflow-y-scroll dark:bg-neutral-900/50">
+            <table className="z-0 w-full flex-1 text-left font-mono text-xs text-neutral-500 dark:text-neutral-400">
+              <thead className="sticky top-0 z-20 bg-white text-neutral-700 shadow dark:bg-[#303030] dark:text-neutral-300">
                 <tr>
                   <th
                     colSpan={selectedNamespace.attrs.length + 1}
                     className={clsx(
-                      'absolute top-0 right-0 left-[48px] z-30 flex items-center gap-1.5 overflow-hidden bg-white px-4 py-2',
+                      'absolute left-[48px] right-0 top-0 z-30 flex items-center gap-1.5 overflow-hidden bg-white px-4 py-2 dark:bg-[#2F2F2F]',
                       {
                         hidden: !numItemsSelected,
                       },
@@ -1294,7 +1316,7 @@ export function Explorer({
                       className={clsx(
                         'z-10 select-none whitespace-nowrap px-4 py-1',
                         {
-                          'bg-gray-200':
+                          'bg-neutral-200 dark:bg-neutral-700':
                             // Only highlight if one of the columns was clicked,
                             // not if we're just doing our default sort
                             currentNav?.sortAttr &&
@@ -1345,7 +1367,7 @@ export function Explorer({
                                 '↓'
                               )
                             ) : (
-                              <span className="text-gray-400">↓</span>
+                              <span className="text-neutral-400">↓</span>
                             )}
                           </span>
                         ) : null}
@@ -1358,10 +1380,10 @@ export function Explorer({
                 {allItems.map((item) => (
                   <tr
                     key={item.id as string}
-                    className="group border-b bg-white"
+                    className="group border-b bg-white dark:border-neutral-700 dark:bg-neutral-800"
                   >
                     <td
-                      className="px-2 py-2 flex gap-2 items-center"
+                      className="flex items-center gap-2 px-2 py-2"
                       style={{ width: '48px' }}
                     >
                       <Checkbox
@@ -1393,10 +1415,10 @@ export function Explorer({
                       />
                       {readOnlyNs ? null : (
                         <button
-                          className="opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="opacity-0 transition-opacity group-hover:opacity-100"
                           onClick={() => setEditableRowId(item.id)}
                         >
-                          <PencilSquareIcon className="h-4 w-4 text-gray-500" />
+                          <PencilSquareIcon className="h-4 w-4 text-neutral-500 dark:text-neutral-400" />
                         </button>
                       )}
                     </td>
@@ -1450,12 +1472,12 @@ export function Explorer({
           </div>
         </div>
       ) : userNamespaces?.length ? (
-        <div className="px-4 py-2 text-sm italic text-gray-500">
+        <div className="px-4 py-2 text-sm italic text-neutral-500 dark:text-neutral-400">
           Select a namespace
         </div>
       ) : userNamespaces?.length === 0 ? (
         <div className="flex flex-1 flex-col md:items-center md:justify-center">
-          <div className="flex flex-1 flex-col gap-4 bg-gray-100 p-6 md:max-w-[320px] md:flex-none md:border">
+          <div className="flex flex-1 flex-col gap-4 bg-white p-6 dark:border-neutral-700 dark:bg-neutral-800 md:max-w-[320px] md:flex-none md:border">
             <SectionHeading>This is your Data Explorer</SectionHeading>
             <Content className="text-sm">
               This is the place where you can explore all your data. Create a
@@ -1466,9 +1488,12 @@ export function Explorer({
           </div>
         </div>
       ) : (
-        <div className="flex w-full animate-slow-pulse flex-col gap-2 p-4">
+        <div className="animate-slow-pulse flex w-full flex-col gap-2 p-4">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-4 w-full rounded-md bg-gray-300"></div>
+            <div
+              key={i}
+              className="h-4 w-full rounded-md bg-neutral-300 dark:bg-neutral-700"
+            ></div>
           ))}
         </div>
       )}
@@ -1505,20 +1530,20 @@ function ExplorerItemVal({
 
     if (!linksLen) {
       return (
-        <div className="whitespace-nowrap px-2 text-gray-400">0 links</div>
+        <div className="whitespace-nowrap px-2 text-neutral-400">0 links</div>
       );
     }
 
     return (
       <div
-        className="inline-block cursor-pointer whitespace-nowrap rounded-md px-2 hover:bg-gray-200"
+        className="inline-block cursor-pointer whitespace-nowrap rounded-md px-2 hover:bg-neutral-200 dark:hover:bg-neutral-700"
         onClick={onClickLink}
       >
         {linksLen} link{linksLen === 1 ? '' : 's'}
       </div>
     );
   } else if (val === null || val === undefined) {
-    return <div className="truncate text-gray-400">-</div>;
+    return <div className="truncate text-neutral-400">-</div>;
   } else {
     return (
       <Tooltip.Provider>
@@ -1562,7 +1587,7 @@ function ExplorerItemVal({
                 align="start"
               >
                 <div
-                  className="max-w-md overflow-auto whitespace-pre border bg-white bg-opacity-80 p-2 font-mono text-xs shadow-md backdrop-blur-sm"
+                  className="max-w-md overflow-auto whitespace-pre border bg-white bg-opacity-80 p-2 font-mono text-xs shadow-md backdrop-blur-sm dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
                   style={{
                     maxHeight: `var(--radix-popper-available-height)`,
                   }}
@@ -1667,6 +1692,7 @@ function _dev(db: InstantReactWebDatabase<any>) {
       db,
       id,
       tx,
+      lookup,
       dummy: (ns: string = 'dummy', o?: any) =>
         db.transact([tx[ns][id()].update({ ts: Date.now(), ...o })]),
     };

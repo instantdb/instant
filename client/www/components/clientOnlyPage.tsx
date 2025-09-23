@@ -27,3 +27,17 @@ export function asClientOnlyPage<Props extends JSX.IntrinsicAttributes>(
     return <Component {...props} />;
   };
 }
+
+export const ClientOnly: React.FC<{
+  children: React.ReactNode;
+}> = ({ children }) => {
+  const isHydrated = useIsHydrated();
+  const router = useRouter();
+  if (!isHydrated) {
+    return null;
+  }
+  if (!router.isReady) {
+    return null;
+  }
+  return <>{children}</>;
+};

@@ -34,6 +34,10 @@ export const parseNameAndPath = (rawInput: string) => {
   return [appName, path] as const;
 };
 
+export const coerceAppName = (rawInput: string): string => {
+  return rawInput.trim();
+};
+
 /** Validate a string against allowed package.json names */
 export const validateAppName = (rawInput: string): string | undefined => {
   const input = removeTrailingSlash(rawInput);

@@ -71,10 +71,10 @@ export function AppleClient({
       <Collapsible.Root
         open={open}
         onOpenChange={setOpen}
-        className="flex flex-col border rounded"
+        className="flex flex-col rounded border"
       >
-        <Collapsible.Trigger className="flex p-4 hover:bg-gray-100 bg-gray-50">
-          <div className="flex flex-1 justify-between items-center">
+        <Collapsible.Trigger className="flex bg-gray-50 p-4 hover:bg-gray-100">
+          <div className="flex flex-1 items-center justify-between">
             <div className="flex gap-2">
               {' '}
               <Image alt="apple logo" src={logo} />
@@ -91,7 +91,7 @@ export function AppleClient({
           </div>
         </Collapsible.Trigger>
         <Collapsible.Content className="">
-          <div className="p-4 flex flex-col gap-4 border-t">
+          <div className="flex flex-col gap-4 border-t p-4">
             <Copyable label="Client Name" value={client.client_name} />
 
             <Copyable label="Services ID" value={client.client_id || ''} />
@@ -239,7 +239,7 @@ export function AddClientExpanded({
 
   return (
     <form
-      className="flex flex-col gap-2 p-4 rounded border"
+      className="flex flex-col gap-2 rounded border p-4 dark:border-neutral-700 dark:bg-neutral-800/50"
       onSubmit={onSubmit}
       autoComplete="off"
       data-lpignore="true"
@@ -274,10 +274,10 @@ export function AddClientExpanded({
       <Collapsible.Root
         open={redirectOpen}
         onOpenChange={setRedirectOpen}
-        className="flex flex-col border rounded"
+        className="flex flex-col rounded border dark:border-neutral-700 dark:bg-neutral-800"
       >
-        <Collapsible.Trigger className="flex p-4 hover:bg-gray-100 bg-gray-50">
-          <div className="flex flex-1 justify-between items-center">
+        <Collapsible.Trigger className="flex bg-gray-50 p-4 hover:bg-gray-100 dark:bg-neutral-800">
+          <div className="flex flex-1 items-center justify-between">
             Redirect flow for Web (optional)
             {redirectOpen ? (
               <ChevronDownIcon height={24} />

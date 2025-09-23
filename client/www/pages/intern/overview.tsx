@@ -197,8 +197,8 @@ const OriginColumn = ({ origins }: { origins: any }) => {
 const DailyStatsSection = ({ daily }: { daily: any }) => {
   if (daily.isLoading) {
     return (
-      <div className="flex-1 p-2 space-y-2">
-        <div className="flex items-center justify-center h-64">
+      <div className="flex-1 space-y-2 p-2">
+        <div className="flex h-64 items-center justify-center">
           <div className="text-gray-500">Loading daily stats...</div>
         </div>
       </div>
@@ -207,9 +207,9 @@ const DailyStatsSection = ({ daily }: { daily: any }) => {
 
   if (daily.error) {
     return (
-      <div className="flex-1 p-2 space-y-2">
-        <div className="bg-red-50 border border-red-200 rounded p-4">
-          <h3 className="text-red-600 font-semibold mb-2">Daily Stats Error</h3>
+      <div className="flex-1 space-y-2 p-2">
+        <div className="rounded border border-red-200 bg-red-50 p-4">
+          <h3 className="mb-2 font-semibold text-red-600">Daily Stats Error</h3>
           <pre className="text-sm text-red-500">
             {JSON.stringify(daily.error.body || daily.error.message, null, 2)}
           </pre>
@@ -220,8 +220,8 @@ const DailyStatsSection = ({ daily }: { daily: any }) => {
 
   if (!daily.data) {
     return (
-      <div className="flex-1 p-2 space-y-2">
-        <div className="bg-yellow-50 border border-yellow-200 rounded p-4">
+      <div className="flex-1 space-y-2 p-2">
+        <div className="rounded border border-yellow-200 bg-yellow-50 p-4">
           <p className="text-yellow-600">No daily data available</p>
         </div>
       </div>
@@ -234,7 +234,7 @@ const DailyStatsSection = ({ daily }: { daily: any }) => {
   const subInfo = daily.data?.['subscription-info'];
 
   return (
-    <div className="flex-1 p-2 space-y-2">
+    <div className="flex-1 space-y-2 p-2">
       <div>
         <div className="inline-flex items-baseline space-x-4">
           <h1 className="leading-none" style={{ fontSize: 120 }}>
@@ -284,8 +284,8 @@ const DailyStatsSection = ({ daily }: { daily: any }) => {
 const MinuteStatsSection = ({ minute }: { minute: any }) => {
   if (minute.isLoading) {
     return (
-      <div className="flex-1 p-4 space-y-2 flex flex-col min-h-0 w-1/2">
-        <div className="flex items-center justify-center h-64">
+      <div className="flex min-h-0 w-1/2 flex-1 flex-col space-y-2 p-4">
+        <div className="flex h-64 items-center justify-center">
           <div className="text-gray-500">Loading minute stats...</div>
         </div>
       </div>
@@ -294,9 +294,9 @@ const MinuteStatsSection = ({ minute }: { minute: any }) => {
 
   if (minute.error) {
     return (
-      <div className="flex-1 p-4 space-y-2 flex flex-col min-h-0 w-1/2">
-        <div className="bg-red-50 border border-red-200 rounded p-4">
-          <h3 className="text-red-600 font-semibold mb-2">
+      <div className="flex min-h-0 w-1/2 flex-1 flex-col space-y-2 p-4">
+        <div className="rounded border border-red-200 bg-red-50 p-4">
+          <h3 className="mb-2 font-semibold text-red-600">
             Minute Stats Error
           </h3>
           <pre className="text-sm text-red-500">
@@ -309,8 +309,8 @@ const MinuteStatsSection = ({ minute }: { minute: any }) => {
 
   if (!minute.data) {
     return (
-      <div className="flex-1 p-4 space-y-2 flex flex-col min-h-0 w-1/2">
-        <div className="bg-yellow-50 border border-yellow-200 rounded p-4">
+      <div className="flex min-h-0 w-1/2 flex-1 flex-col space-y-2 p-4">
+        <div className="rounded border border-yellow-200 bg-yellow-50 p-4">
           <p className="text-yellow-600">No minute data available</p>
         </div>
       </div>
@@ -328,14 +328,14 @@ const MinuteStatsSection = ({ minute }: { minute: any }) => {
   const totalApps = Object.keys(sessions).length;
 
   return (
-    <div className="flex-1 p-4 space-y-2 flex flex-col min-h-0 w-1/2">
-      <div className="flex justify-between items-baseline">
+    <div className="flex min-h-0 w-1/2 flex-1 flex-col space-y-2 p-4">
+      <div className="flex items-baseline justify-between">
         <div className="inline-flex items-baseline space-x-4">
           <h1 className="leading-none" style={{ fontSize: 120 }}>
             {totalSessions}
           </h1>
 
-          <div className="flex flex-col justify-between self-stretch m-4">
+          <div className="m-4 flex flex-col justify-between self-stretch">
             <div>
               {Object.entries(machineSummary).map(([machine, count]) => (
                 <div key={machine}>
@@ -354,7 +354,7 @@ const MinuteStatsSection = ({ minute }: { minute: any }) => {
           <div>Active Apps</div>
         </div>
       </div>
-      <div className="mt-4 border overflow-y-scroll">
+      <div className="mt-4 overflow-y-scroll border">
         <table className="w-full">
           <tbody>
             {sessions.map((session: any, i) => (
@@ -390,10 +390,10 @@ export function Main() {
     : new Date();
 
   return (
-    <div className="flex flex-col font-mono h-full overflow-auto">
-      <div className="p-2 space-x-4 flex items-center border-b">
+    <div className="flex h-full flex-col overflow-auto font-mono">
+      <div className="flex items-center space-x-4 border-b p-2">
         <LogoIcon size="normal" />
-        <h3 className="text-lg space-x-4">
+        <h3 className="space-x-4 text-lg">
           <span>
             <span className="font-bold">instant</span> metrics
           </span>

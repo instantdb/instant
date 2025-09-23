@@ -78,38 +78,69 @@
          query {:with [[[:stripe-subs
                          {:columns [:subscription-id
                                     :monthly-revenue
-                                    :start-timestamp]}]
+                                    :start-timestamp
+                                    :customer-email]}]
                         {:values (map (fn [s]
                                         [(:subscription-id s)
                                          (:monthly-revenue s)
-                                         (:start-timestamp s)])
-                                      subscriptions)}]]
-                :select [[:apps.title :app_title]
-                         [:i_users.email :user_email]
-                         :monthly-revenue
-                         :start-timestamp
-                         [{:select [[[:coalesce
-                                      [:*
-                                       [:sum :s.triples_pg_size]
-                                       [:case
-                                        [:= [:pg_relation_size "triples"] 0] 1
-                                        :else [:/
-                                               [:pg_total_relation_size "triples"]
-                                               [:pg_relation_size "triples"]]]]
-                                      0]]]
-                           :from [[:attr-sketches :s]]
-                           :where [:= :s.app_id :apps.id]}
-                          :usage]
-                         [{:select [[[:coalesce [:sum :s.total] 0]]]
-                           :from [[:attr_sketches :s]]
-                           :where [:= :s.app_id :apps.id]}
-                          :triple-count]]
-                :from :stripe-subs
-                :join [[:instant_subscriptions :i_subs] [:=
-                                                         :stripe-subs.subscription-id
-                                                         :i_subs.stripe-subscription-id]
-                       :apps [:= :i_subs.app_id :apps.id]
-                       [:instant_users :i_users] [:= :i_subs.user_id :i_users.id]]
+                                         (:start-timestamp s)
+                                         (:customer-email s)])
+                                      subscriptions)}]
+                       [:app-paid {:select [[[:inline "app"] :type]
+                                            [:apps.title :title]
+                                            [:customer-email :user_email]
+                                            :monthly-revenue
+                                            :start-timestamp
+                                            [{:select [[[:coalesce
+                                                         [:*
+                                                          [:sum :s.triples_pg_size]
+                                                          [:case
+                                                           [:= [:pg_relation_size "triples"] 0] 1
+                                                           :else [:/
+                                                                  [:pg_total_relation_size "triples"]
+                                                                  [:pg_relation_size "triples"]]]]
+                                                         0]]]
+                                              :from [[:attr-sketches :s]]
+                                              :where [:= :s.app_id :apps.id]}
+                                             :usage]
+                                            [{:select [[[:coalesce [:sum :s.total] 0]]]
+                                              :from [[:attr_sketches :s]]
+                                              :where [:= :s.app_id :apps.id]}
+                                             :triple-count]]
+                                   :from :stripe-subs
+                                   :join [[:instant_subscriptions :i_subs] [:=
+                                                                            :stripe-subs.subscription-id
+                                                                            :i_subs.stripe-subscription-id]
+                                          :apps [:= :i_subs.app_id :apps.id]]}]
+                       [:org-paid {:select [[[:inline "org"] :type]
+                                            [:orgs.title :title]
+                                            [:customer-email :user_email]
+                                            :monthly-revenue
+                                            :start-timestamp
+                                            [{:select [[[:coalesce
+                                                         [:*
+                                                          [:sum :s.triples_pg_size]
+                                                          [:case
+                                                           [:= [:pg_relation_size "triples"] 0] 1
+                                                           :else [:/
+                                                                  [:pg_total_relation_size "triples"]
+                                                                  [:pg_relation_size "triples"]]]]
+                                                         0]]]
+                                              :from [[:attr-sketches :s]]
+                                              :where [:in :s.app_id {:select :id :from :apps :where [:= :apps.org_id :orgs.id]}]}
+                                             :usage]
+                                            [{:select [[[:coalesce [:sum :s.total] 0]]]
+                                              :from [[:attr_sketches :s]]
+                                              :where [:in :s.app_id {:select :id :from :apps :where [:= :apps.org_id :orgs.id]}]}
+                                             :triple-count]]
+                                   :from :stripe-subs
+                                   :join [[:instant_subscriptions :i_subs] [:=
+                                                                            :stripe-subs.subscription-id
+                                                                            :i_subs.stripe-subscription-id]
+                                          :orgs [:= :i_subs.org_id :orgs.id]]}]]
+                :select :*
+                :from {:union [{:select :* :from :app-paid}
+                               {:select :* :from :org-paid}]}
                 :order-by [[:start-timestamp :desc]]}]
      (sql/select ::get-paid
                  conn

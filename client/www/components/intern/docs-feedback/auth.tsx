@@ -8,7 +8,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   if (isLoading)
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex min-h-screen items-center justify-center">
         Loading...
       </div>
     );
@@ -23,8 +23,8 @@ function Login() {
   const [sentEmail, setSentEmail] = useState('');
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gray-50">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
+    <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <div className="w-full max-w-md rounded-lg bg-white p-8 shadow-md">
         {!sentEmail ? (
           <EmailStep onSendEmail={setSentEmail} />
         ) : (
@@ -52,7 +52,7 @@ function EmailStep({ onSendEmail }: { onSendEmail: (email: string) => void }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">
+        <h2 className="mb-2 text-2xl font-bold text-gray-900">
           Feedback Analytics
         </h2>
         <p className="text-gray-600">
@@ -63,7 +63,7 @@ function EmailStep({ onSendEmail }: { onSendEmail: (email: string) => void }) {
       <div>
         <label
           htmlFor="email"
-          className="block text-sm font-medium text-gray-700 mb-2"
+          className="mb-2 block text-sm font-medium text-gray-700"
         >
           Email address
         </label>
@@ -73,14 +73,14 @@ function EmailStep({ onSendEmail }: { onSendEmail: (email: string) => void }) {
           type="email"
           required
           autoFocus
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
           placeholder="Enter your email"
         />
       </div>
 
       <button
         type="submit"
-        className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+        className="flex w-full justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
       >
         Send Magic Code
       </button>
@@ -104,7 +104,7 @@ function CodeStep({ sentEmail }: { sentEmail: string }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">
+        <h2 className="mb-2 text-2xl font-bold text-gray-900">
           Enter verification code
         </h2>
         <p className="text-gray-600">
@@ -116,7 +116,7 @@ function CodeStep({ sentEmail }: { sentEmail: string }) {
       <div>
         <label
           htmlFor="code"
-          className="block text-sm font-medium text-gray-700 mb-2"
+          className="mb-2 block text-sm font-medium text-gray-700"
         >
           Verification code
         </label>
@@ -126,14 +126,14 @@ function CodeStep({ sentEmail }: { sentEmail: string }) {
           type="text"
           required
           autoFocus
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
           placeholder="Enter verification code"
         />
       </div>
 
       <button
         type="submit"
-        className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+        className="flex w-full justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
       >
         Verify Code
       </button>

@@ -113,6 +113,7 @@ function ApiDemo({ accessToken }: { accessToken: string }) {
   // @ts-ignore: dev helper for testing in console
   globalThis._dev.api = api;
   const [result, setResult] = useState<any>(null);
+  const [orgs, setOrgs] = useState<any[]>([]);
 
   const getApps = async (opts: any) => {
     try {
@@ -122,7 +123,25 @@ function ApiDemo({ accessToken }: { accessToken: string }) {
     }
   };
 
-  const createApp = async () => {
+  const getAppsForOrg = async (orgId: string, opts: any) => {
+    try {
+      setResult(await api.getAppsForOrg(orgId, opts));
+    } catch (e) {
+      setResult(e);
+    }
+  };
+
+  const getOrgs = async () => {
+    try {
+      const res = await api.getOrgs();
+      setResult(res);
+      setOrgs(res.orgs);
+    } catch (e) {
+      setResult(e);
+    }
+  };
+
+  const createApp = async (params: { orgId?: string | null | undefined }) => {
     try {
       const result = await api.createApp({
         title: 'Test App from Platform SDK Demo',
@@ -134,6 +153,7 @@ function ApiDemo({ accessToken }: { accessToken: string }) {
             }),
           },
         }),
+        ...params,
       });
       setResult(result);
     } catch (e) {
@@ -147,6 +167,9 @@ function ApiDemo({ accessToken }: { accessToken: string }) {
         <button className="bg-black text-white m-2 p-2" onClick={getApps}>
           Get Apps
         </button>
+        <button className="bg-black text-white m-2 p-2" onClick={getOrgs}>
+          Get Orgs
+        </button>
         <button
           className="bg-black text-white m-2 p-2"
           onClick={() => getApps({ includeSchema: true })}
@@ -159,9 +182,42 @@ function ApiDemo({ accessToken }: { accessToken: string }) {
         >
           Get Apps with perms
         </button>
-        <button className="bg-blue-600 text-white m-2 p-2" onClick={createApp}>
+        <button
+          className="bg-blue-600 text-white m-2 p-2"
+          onClick={() => createApp({})}
+        >
           Create App
         </button>
+        {orgs.map((org) => {
+          return (
+            <div key={org.id}>
+              <button
+                className="bg-black text-white m-2 p-2"
+                onClick={() => getAppsForOrg(org.id, {})}
+              >
+                Get Apps for {org.title}
+              </button>
+              <button
+                className="bg-black text-white m-2 p-2"
+                onClick={() => getAppsForOrg(org.id, { includeSchema: true })}
+              >
+                Get Apps with schema for {org.title}
+              </button>
+              <button
+                className="bg-black text-white m-2 p-2"
+                onClick={() => getAppsForOrg(org.id, { includePerms: true })}
+              >
+                Get Apps with perms for {org.title}
+              </button>
+              <button
+                className="bg-blue-600 text-white m-2 p-2"
+                onClick={() => createApp({ orgId: org.id })}
+              >
+                Create App in {org.title}
+              </button>
+            </div>
+          );
+        })}
       </div>
       {result ? (
         <div>

@@ -2,7 +2,7 @@ import { Command, Option } from 'commander';
 import * as p from '@clack/prompts';
 import { findClaudePath } from './claude.js';
 import { version } from '@instantdb/version';
-import { validateAppName } from './utils/validateAppName.js';
+import { coerceAppName, validateAppName } from './utils/validateAppName.js';
 
 export type Project = {
   base: 'next-js-app-dir' | 'vite-vanilla' | 'expo';
@@ -61,10 +61,11 @@ export const runCli = async (): Promise<Project> => {
     )
     .version(version)
     .parse(process.argv);
-  const cliProvidedName = program.args[0];
+  const cliProvidedName = program.args[0] && coerceAppName(program.args[0]);
   if (cliProvidedName) {
-    if (validateAppName(cliProvidedName)) {
-      throw new Error('Invalid app name: ' + validateAppName(cliProvidedName));
+    const validationErr = validateAppName(cliProvidedName);
+    if (validationErr) {
+      throw new Error('Invalid app name: ' + validationErr);
     }
 
     results.appName = cliProvidedName;
@@ -93,10 +94,11 @@ export const runCli = async (): Promise<Project> => {
             message: 'What will your project/folder be called?',
             placeholder: 'awesome-todos',
             defaultValue: 'awesome-todos',
-            validate: validateAppName,
+            validate: (x) => validateAppName(coerceAppName(x)),
           }),
         );
-        return promptedName.trim();
+        const coercedName = coerceAppName(promptedName);
+        return coercedName;
       },
       prompt: async () => {
         if (flags.ai) {
