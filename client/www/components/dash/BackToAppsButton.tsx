@@ -9,7 +9,7 @@ export const BackToAppsButton = () => {
   }
   return createPortal(
     <Link
-      className="text-sm flex gap-2 items-center ml-4 opacity-70"
+      className="text-sm flex p-1 rounded-sm hover:bg-gray-200/50 px-2 transition-colors dark:hover:bg-neutral-700/60 gap-2 items-center ml-4 opacity-70"
       href="/dash"
     >
       <ArrowUturnLeftIcon width={12} />

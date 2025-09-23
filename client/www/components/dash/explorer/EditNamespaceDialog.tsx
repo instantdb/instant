@@ -140,7 +140,7 @@ export function EditNamespaceDialog({
                   <span className="py-0.5 font-bold">{attr.name}</span>
                   {notes.notes[attr.id]?.message && (
                     <InfoTip>
-                      <div className="text-xs px-2 text-gray-500">
+                      <div className="text-xs px-2 text-gray-500 dark:text-neutral-400">
                         {notes.notes[attr.id].message}
                       </div>
                     </InfoTip>
@@ -553,8 +553,8 @@ function InvalidTriplesSample({
   return (
     <div>
       Here are the first few invalid entities we found:
-      <table className="mx-2 my-2 flex-1 text-left font-mono text-xs text-gray-500">
-        <thead className="bg-white text-gray-700">
+      <table className="mx-2 my-2 flex-1 text-left font-mono text-xs dark:text-netural-500 text-gray-500">
+        <thead className="bg-white dark:bg-neutral-800 dark:text-white text-gray-700">
           <tr>
             <th className="pr-2">id</th>
             <th className="pr-2 max-w-fit">{attr.name}</th>
@@ -768,7 +768,7 @@ function RelationshipConfigurator({
         <div className="flex flex-1 flex-col gap-1">
           <h6 className="text-md font-bold">Forward attribute name</h6>
           <TextInput value={attrName} onChange={(n) => setAttrName(n)} />
-          <div className="rounded-sm py-0.5 text-xs text-gray-500">
+          <div className="rounded-sm py-0.5 text-xs dark:text-neutral-400 text-gray-500">
             {isFullLink ? (
               <>
                 <strong>
@@ -788,7 +788,7 @@ function RelationshipConfigurator({
             value={reverseAttrName}
             onChange={(n) => setReverseAttrName(n)}
           />
-          <div className="rounded-sm py-0.5 text-xs text-gray-500">
+          <div className="rounded-sm py-0.5 text-xs text-gray-500 dark:text-neutral-400">
             {isFullLink ? (
               <>
                 <strong>
@@ -816,7 +816,9 @@ function RelationshipConfigurator({
           attr={attrName}
           reverseAttr={reverseAttrName}
         />
-        <div className={'break-words text-xs text-gray-500'}>
+        <div
+          className={'break-words text-xs text-gray-500 dark:text-neutral-400'}
+        >
           {isFullLink ? (
             relationshipDescriptions[relationship](
               namespaceName,
@@ -836,7 +838,7 @@ function RelationshipConfigurator({
           disabled={!isCascadeAllowed}
           onChange={setIsCascade}
           label={
-            <span>
+            <span className="dark:text-neutral-200">
               <div>
                 <strong>
                   Cascade Delete {reverseNamespaceName} → {namespaceName}
@@ -856,7 +858,7 @@ function RelationshipConfigurator({
           disabled={!isCascadeReverseAllowed}
           onChange={setIsCascadeReverse}
           label={
-            <span>
+            <span className="dark:text-neutral-200">
               <div>
                 <strong>
                   Cascade Delete {namespaceName} → {reverseNamespaceName}
@@ -1627,7 +1629,8 @@ function EditAttrForm({
             <h6 className="text-md font-bold">Rename</h6>
             <Content className="text-sm">
               This will immediately rename the attribute. You'll need to{' '}
-              <strong>update your code</strong> to the new name.
+              <strong className="dark:text-white">update your code</strong> to
+              the new name.
             </Content>
             <TextInput
               disabled={isSystemCatalogNs}

@@ -803,7 +803,7 @@ function CreateClientForm({
 
   return (
     <form
-      className="flex flex-col gap-2 p-4 rounted border"
+      className="flex flex-col gap-2 p-4 rounted border dark:border-neutral-700"
       onSubmit={onSubmit}
       autoComplete="off"
       data-lpignore="true"
@@ -1114,7 +1114,7 @@ function AppSummaryRow({ app }: { app: OAuthApp }) {
   return (
     <Link
       href={href}
-      className="flex flex-row gap-4 items-center w-full cursor-pointer hover:bg-gray-100 transition-colors duration-200 p-2"
+      className="flex flex-row gap-4 items-center w-full cursor-pointer dark:hover:bg-neutral-700 hover:bg-gray-100 transition-colors duration-200 p-2"
     >
       <AppLogo app={app} />
       <SectionHeading>{app.appName}</SectionHeading>
@@ -1151,7 +1151,7 @@ function UploadLogoInput({
       className={clsx(
         'flex place-content-center w-12 h-12 items-center text-center cursor-pointer',
         {
-          'bg-gray-100 border-dashed border-2 border-gray-400 rounded-lg':
+          'bg-gray-100 dark:bg-neutral-700 dark:border-neutral-600 border-dashed border-2 border-gray-400 rounded-lg':
             !simple,
         },
       )}
@@ -1258,7 +1258,7 @@ function CreateAppForm({ onClose }: { onClose: () => void }) {
 
   return (
     <form
-      className="flex flex-col gap-2 p-4 rounded bg-white border"
+      className="flex flex-col gap-2 p-4 rounded dark:bg-neutral-800 dark:border-neutral-700 bg-white border"
       onSubmit={onSubmit}
       autoComplete="off"
       data-lpignore="true"
@@ -1612,7 +1612,7 @@ export default function OAuthApps({ appId }: { appId: string }) {
             <App app={focusedApp} />
           ) : (
             <div className="flex flex-col gap-4 ">
-              <Content className="max-w-md">
+              <Content className="dark:text-neutral-400 max-w-md">
                 OAuth apps allow you to perform actions on behalf of an Instant
                 user, like creating apps in their account or managing their
                 schema.

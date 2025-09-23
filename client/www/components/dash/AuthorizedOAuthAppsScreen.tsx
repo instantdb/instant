@@ -152,7 +152,7 @@ export default function OAuthAppsTab({ className }: { className?: string }) {
         </Button>
       </div>
       {error ? <div>{error.message}</div> : null}
-      <Content>
+      <Content className="dark:text-neutral-400">
         <p>
           Below are any OAuth apps that you have granted access to your Instant
           Account.
@@ -161,7 +161,7 @@ export default function OAuthAppsTab({ className }: { className?: string }) {
       <div className="space-y-4 mt-4">
         {(oAuthApps || []).map(
           ({ id, name, logo, homePage, privacyPolicyLink, tosLink }) => (
-            <div className="flex flex-row gap-4 items-center group">
+            <div className="flex dark:text-white flex-row gap-4 items-center group">
               <div key={id} className="flex h-full">
                 <AppLogo app={{ appLogo: logo, appName: name }} />
               </div>
@@ -171,6 +171,7 @@ export default function OAuthAppsTab({ className }: { className?: string }) {
                     <a
                       href={homePage}
                       target="_blank"
+                      className="dark:text-white"
                       rel="noopener noreferrer"
                     >
                       {name}
@@ -187,6 +188,7 @@ export default function OAuthAppsTab({ className }: { className?: string }) {
                             <a
                               href={tosLink}
                               target="_blank"
+                              className="dark:text-white"
                               rel="noopener noreferrer"
                             >
                               Terms of Service
@@ -196,6 +198,7 @@ export default function OAuthAppsTab({ className }: { className?: string }) {
                             <a
                               href={privacyPolicyLink}
                               target="_blank"
+                              className="dark:text-white"
                               rel="noopener noreferrer"
                             >
                               Privacy Policy

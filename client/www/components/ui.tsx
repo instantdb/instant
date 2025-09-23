@@ -13,6 +13,7 @@ import {
 } from 'react';
 import { Editor, Monaco, OnMount } from '@monaco-editor/react';
 import {
+  DialogPanel,
   Dialog as HeadlessDialog,
   Popover,
   PopoverButton,
@@ -47,14 +48,17 @@ import Link from 'next/link';
 export const Stack = twel('div', 'flex flex-col gap-2');
 export const Group = twel('div', 'flex flex-col gap-2 md:flex-row');
 
-export const Content = twel('div', 'prose');
+export const Content = twel('div', 'prose dark:text-neutral-400');
 export const ScreenHeading = twel('div', 'text-2xl font-bold');
 export const SectionHeading = twel('div', 'text-xl font-bold');
 export const SubsectionHeading = twel('div', 'text-lg');
 export const BlockHeading = twel('div', 'text-md font-bold');
 
 export const Hint = twel('div', 'text-sm text-gray-400');
-export const Label = twel('div', 'text-sm font-bold text-gray-700');
+export const Label = twel(
+  'div',
+  'text-sm font-bold dark:text-neutral-400 text-gray-700',
+);
 
 export const LogoIcon = ({ size = 'mini' }: { size?: 'mini' | 'normal' }) => {
   const sizeToClass = {
@@ -99,9 +103,9 @@ export function ToggleCollection({
             {...a.link}
             rel="noopener noreferer"
             className={clsx(
-              'block cursor-pointer truncate whitespace-nowrap rounded bg-none px-3 py-1 text-left hover:bg-gray-100 disabled:text-gray-400',
+              'block cursor-pointer truncate whitespace-nowrap rounded bg-none px-3 py-1 dark:hover:bg-neutral-700/80 dark:bg-neutral-800/40 text-left hover:bg-gray-100 disabled:text-gray-400',
               {
-                'bg-gray-200': selectedId === a.id,
+                'bg-gray-200 dark:bg-neutral-400/40': selectedId === a.id,
               },
               buttonClassName,
             )}
@@ -116,9 +120,9 @@ export function ToggleCollection({
               onChange(a);
             }}
             className={clsx(
-              'block cursor-pointer truncate whitespace-nowrap rounded bg-none px-3 py-1 text-left hover:bg-gray-100 disabled:text-gray-400',
+              'block cursor-pointer truncate whitespace-nowrap rounded bg-none px-3 py-1 text-left dark:hover:bg-neutral-700/80 hover:bg-gray-100 disabled:text-gray-400',
               {
-                'bg-gray-200': selectedId === a.id,
+                'bg-gray-200 dark:bg-neutral-600/50': selectedId === a.id,
               },
               buttonClassName,
             )}
@@ -153,7 +157,7 @@ export function ToggleGroup({
 
         onChange(item);
       }}
-      className="flex gap-1 rounded-sm border bg-gray-200 p-0.5 text-sm"
+      className="flex gap-1 dark:bg-neutral-800 rounded-sm border dark:border-neutral-700 bg-gray-200 p-0.5 text-sm"
       type="single"
       defaultValue="center"
       aria-label={ariaLabel}
@@ -161,12 +165,14 @@ export function ToggleGroup({
       {items.map((item) => (
         <HeadlessToggleGroup.Item
           key={item.id}
-          className="flex-1 rounded-sm p-0.5"
+          className={cn(
+            'flex-1 rounded-sm p-0.5',
+            selectedId === item.id
+              ? 'bg-white dark:bg-neutral-600/50'
+              : 'bg-gray-200 dark:bg-transparent',
+          )}
           value={item.id}
           aria-label={item.label}
-          style={{
-            backgroundColor: selectedId === item.id ? 'white' : undefined,
-          }}
         >
           {item.label}
         </HeadlessToggleGroup.Item>
@@ -232,7 +238,7 @@ export function TextInput({
         placeholder={placeholder}
         value={value ?? ''}
         className={cn(
-          'flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 disabled:text-gray-400',
+          'flex w-full flex-1 rounded-sm border-gray-200 dark:bg-neutral-800 dark:border-neutral-700 bg-white px-3 py-1 dark:placeholder:text-neutral-500 dark:disabled:text-neutral-700 placeholder:text-gray-400 disabled:text-gray-400',
           className,
           {
             'border-red-500': error,
@@ -301,7 +307,7 @@ export function TextArea({
         placeholder={placeholder}
         value={value ?? ''}
         className={cn(
-          'flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 disabled:text-gray-400',
+          'flex w-full flex-1 rounded-sm border-gray-200 dark:border-neutral-700 dark:bg-neutral-800 bg-white px-3 py-1 placeholder:text-gray-400 disabled:text-gray-400',
           className,
           {
             'border-red-500': error,
@@ -347,8 +353,8 @@ export function Checkbox({
   return (
     <label
       className={cn(
-        'flex cursor-pointer items-top gap-2',
-        disabled ? 'text-gray-400 cursor-default' : '',
+        'flex cursor-pointer dark:disabled:opacity-40 items-top gap-2',
+        disabled ? 'text-gray-400 opacity-60 cursor-default' : '',
         labelClassName,
       )}
       title={title}
@@ -358,7 +364,7 @@ export function Checkbox({
         title={title}
         required={required}
         className={cn(
-          'align-middle mt-0.5 font-medium text-gray-900 disabled:border-gray-300 disabled:bg-gray-200',
+          'align-middle dark:ring-neutral-500 dark:border-neutral-500 dark:bg-neutral-600/40 mt-0.5 font-medium text-gray-900 dark:disabled:opacity-50 disabled:border-gray-300 dark:disabled:border-neutral-400 disabled:bg-gray-200',
           className,
         )}
         type="checkbox"
@@ -399,7 +405,7 @@ export function Select<
       value={value ?? undefined}
       disabled={disabled}
       className={cn(
-        'rounded-sm border-gray-300 py-1 disabled:text-gray-400',
+        'rounded-sm border-gray-300 dark:border-neutral-700 dark:bg-neutral-800 py-1 disabled:text-gray-400',
         className,
       )}
       onChange={(e) => {
@@ -495,7 +501,7 @@ export function TabBar({
   return (
     <div
       className={clsx(
-        'flex flex-row gap-0.5 overflow-x-auto border-b px-2 py-1 no-scrollbar',
+        'flex flex-row gap-0.5 overflow-x-auto dark:border-b-neutral-700 border-b px-2 py-1 no-scrollbar',
         className,
       )}
     >
@@ -506,9 +512,10 @@ export function TabBar({
             {...t.link}
             rel=""
             className={clsx(
-              'flex cursor-pointer whitespace-nowrap bg-none px-4 py-0.5 disabled:text-gray-400 rounded hover:bg-gray-100',
+              'flex cursor-pointer whitespace-nowrap bg-none px-4 py-0.5 disabled:text-gray-400 dark:hover:bg-neutral-600 rounded hover:bg-gray-100',
               {
-                'bg-gray-200': selectedId === t.id && !disabled,
+                'bg-gray-200 dark:bg-neutral-700':
+                  selectedId === t.id && !disabled,
               },
             )}
           >
@@ -520,9 +527,10 @@ export function TabBar({
             disabled={disabled}
             onClick={() => onSelect(t)}
             className={clsx(
-              'flex cursor-pointer whitespace-nowrap bg-none px-4 py-0.5 disabled:text-gray-400 rounded hover:bg-gray-100',
+              'flex cursor-pointer whitespace-nowrap bg-none px-4 py-0.5 disabled:text-gray-400 rounded dark:hover:bg-neutral-600 hover:bg-gray-100',
               {
-                'bg-gray-200': selectedId === t.id && !disabled,
+                'bg-gray-200 dark:bg-neutral-700':
+                  selectedId === t.id && !disabled,
               },
             )}
           >
@@ -573,33 +581,39 @@ export function Button({
     `inline-flex justify-center items-center gap-1 whitespace-nowrap px-8 py-1 font-bold rounded-sm cursor-pointer transition-all disabled:cursor-default`,
     {
       // primary
-      'bg-[#606AF4] text-white ': variant === 'primary',
-      'hover:text-slate-100 hover:bg-[#4543e9]':
+      'bg-[#606AF4] text-white dark:bg-[#606AF4] dark:text-white':
+        variant === 'primary',
+      'hover:text-slate-100 hover:bg-[#4543e9] dark:hover:text-neutral-100 dark:hover:bg-[#4543e9]':
         variant === 'primary' && isATag,
-      'hover:enabled:text-slate-100 hover:enabled:bg-[#4543e9] disabled:bg-[#9197f3]':
+      'hover:enabled:text-slate-100 hover:enabled:bg-[#4543e9] disabled:bg-[#9197f3] dark:hover:enabled:text-neutral-100 dark:hover:enabled:bg-[#4543e9] dark:disabled:bg-[#9197f3]':
         variant === 'primary' && !isATag,
       // cta
-      'bg-orange-600 text-white ': variant === 'cta',
-      'hover:text-slate-100 hover:bg-orange-500': variant === 'cta' && isATag,
-      'hover:enabled:text-slate-100 hover:enabled:bg-orange-500':
+      'bg-orange-600 text-white dark:bg-orange-600 dark:text-white':
+        variant === 'cta',
+      'hover:text-slate-100 hover:bg-orange-500 dark:hover:text-neutral-100 dark:hover:bg-orange-500':
+        variant === 'cta' && isATag,
+      'hover:enabled:text-slate-100 hover:enabled:bg-orange-500 dark:hover:enabled:text-neutral-100 dark:hover:enabled:bg-orange-500':
         variant === 'cta' && !isATag,
       // secondary
-      'border text-gray-500 bg-gray-50 shadow-sm ': variant === 'secondary',
-      'hover:text-gray-600 hover:bg-gray-50/30':
+      'border text-gray-500 bg-gray-50 shadow-sm dark:border-neutral-600 dark:text-neutral-400 dark:bg-neutral-800':
+        variant === 'secondary',
+      'hover:text-gray-600 hover:bg-gray-50/30 dark:hover:text-neutral-300 dark:hover:bg-neutral-700/30':
         variant === 'secondary' && isATag,
-      'hover:enabled:text-gray-600 hover:enabled:bg-gray-50/30 disabled:text-gray-400':
+      'hover:enabled:text-gray-600 hover:enabled:bg-gray-50/30 disabled:text-gray-400 dark:hover:enabled:text-neutral-300 dark:hover:enabled:bg-neutral-700/30 dark:disabled:text-neutral-600':
         variant === 'secondary' && !isATag,
       // subtle
-      'text-gray-500 bg-white font-normal': variant === 'subtle',
-      'hover:text-gray-600 hover:bg-gray-200/30':
+      'text-gray-500 bg-white font-normal dark:text-neutral-400 dark:bg-transparent':
+        variant === 'subtle',
+      'hover:text-gray-600 hover:bg-gray-200/30 dark:hover:text-neutral-300 dark:hover:bg-neutral-700/30':
         variant === 'subtle' && isATag,
-      'hover:enabled:text-gray-600 hover:enabled:bg-gray-200/30':
+      'hover:enabled:text-gray-600 hover:enabled:bg-gray-200/30 dark:hover:enabled:text-neutral-300 dark:hover:enabled:bg-neutral-700/30':
         variant === 'subtle' && !isATag,
       // destructive
-      'text-red-500 bg-white border border-red-200': variant === 'destructive',
-      'hover:text-red-600 hover:text-red-600 hover:border-red-300':
+      'text-red-500 dark:bg-red-500/10 bg-white border border-red-200 dark:border-red-900/60':
+        variant === 'destructive',
+      'hover:text-red-600 hover:text-red-600 hover:border-red-300 dark:hover:border-red-800':
         variant === 'destructive' && isATag,
-      'hover:enabled:text-red-600 hover:enabled:text-red-600 hover:enabled:border-red-300 disabled:border-red-50 disabled:text-red-300':
+      'hover:enabled:text-red-600 hover:enabled:text-red-600 hover:enabled:border-red-300 disabled:border-red-50 disabled:text-red-300 dark:hover:enabled:text-red-500 dark:hover:enabled:border-red-800 dark:disabled:border-red-950 dark:disabled:text-red-800':
         variant === 'destructive' && !isATag,
       'text-lg': size === 'large',
       'text-xl': size === 'xl',
@@ -607,7 +621,8 @@ export function Button({
       'text-xs px-2 py-0': size === 'nano',
       'cursor-not-allowed': disabled,
       'cursor-wait opacity-75': loading, // Apply wait cursor and lower opacity when loading,
-      'bg-gray-200 text-gray-400': variant == 'cta' && disabled,
+      'bg-gray-200 text-gray-400 dark:bg-neutral-700 dark:text-neutral-500':
+        variant == 'cta' && disabled,
     },
     className,
   );
@@ -682,8 +697,8 @@ export function Dialog({
     <HeadlessDialog as="div" open={open} onClose={onClose}>
       <div className="fixed inset-0 z-50 bg-black/50" aria-hidden="true" />
       <div className="fixed inset-4 z-50 flex flex-col items-center justify-center">
-        <HeadlessDialog.Panel
-          className={`relative w-full max-w-xl overflow-y-auto rounded bg-white p-3 text-sm shadow ${className}`}
+        <DialogPanel
+          className={`relative w-full max-w-xl overflow-y-auto rounded dark:bg-neutral-800 dark:text-white bg-white p-3 text-sm shadow ${className}`}
         >
           {!hideCloseButton && (
             <XMarkIcon
@@ -692,7 +707,7 @@ export function Dialog({
             />
           )}
           {children}
-        </HeadlessDialog.Panel>
+        </DialogPanel>
       </div>
     </HeadlessDialog>
   );
@@ -861,7 +876,7 @@ export function SmallCopyable({
           <button
             onClick={handleChangeHideValue}
             className={cn(
-              'flex opacity-50 items-center gap-x-1 rounded-sm px-2 py-1  hover:bg-gray-50',
+              'flex opacity-50 items-center gap-x-1 rounded-sm px-2 py-1 dark:hover:bg-neutral-700 transition-colors hover:bg-gray-50',
               { 'text-xs': size === 'normal', 'text-sm': size === 'large' },
             )}
           >
@@ -901,14 +916,17 @@ export function Copyable({
 
   return (
     <div
-      className={cn('flex items-center rounded border bg-white font-mono', {
-        'text-sm': size === 'normal',
-        'text-base': size === 'large',
-      })}
+      className={cn(
+        'flex items-center dark:border-neutral-700 rounded border dark:bg-neutral-800 bg-white font-mono',
+        {
+          'text-sm': size === 'normal',
+          'text-base': size === 'large',
+        },
+      )}
     >
       {label ? (
         <div
-          className="border-r bg-gray-50 px-3 py-1.5"
+          className="border-r dark:border-r-neutral-700 dark:bg-neutral-700 bg-gray-50 px-3 py-1.5"
           style={{
             borderTopLeftRadius: 'calc(0.25rem - 1px)',
             borderBottomLeftRadius: 'calc(0.25rem - 1px)',
@@ -939,7 +957,7 @@ export function Copyable({
           <button
             onClick={handleChangeHideValue}
             className={cn(
-              'flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-inset ring-gray-300 hover:bg-gray-50',
+              'flex items-center gap-x-1 rounded-sm dark:bg-neutral-600/20 dark:ring-neutral-600 bg-white px-2 py-1 ring-1 ring-inset ring-gray-300 hover:bg-gray-50',
               { 'text-xs': size === 'normal', 'text-sm': size === 'large' },
             )}
           >
@@ -959,7 +977,7 @@ export function Copyable({
               }, 2500);
             }}
             className={cn(
-              'flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-inset ring-gray-300 hover:bg-gray-50',
+              'flex items-center gap-x-1 rounded-sm dark:bg-neutral-600/20 dark:ring-neutral-600 bg-white px-2 py-1 ring-1 ring-inset ring-gray-300 hover:bg-gray-50',
               { 'text-xs': size === 'normal', 'text-sm': size === 'large' },
             )}
           >
@@ -1027,10 +1045,16 @@ export function CodeEditor(props: {
   tabIndex?: number;
   loading?: boolean;
   readOnly?: boolean;
+  className?: string;
 }) {
+  const { darkMode } = useDarkMode();
   return (
     <Editor
-      className={props.loading ? 'animate-pulse' : undefined}
+      theme={darkMode ? 'vs-dark' : 'vs-light'}
+      className={cn(
+        props.loading ? 'animate-pulse' : undefined,
+        props.className,
+      )}
       height={'100%'}
       language={props.language}
       value={props.value ?? ''}
@@ -1086,8 +1110,8 @@ export function JSONEditor(props: {
   }, [monacoInstance, props.schema]);
 
   return (
-    <div className="flex flex-col gap-2 h-full min-h-0">
-      <div className="flex items-center gap-4 border-b px-4 py-2">
+    <div className="flex flex-col gap-2 dark:bg-[#1E1E1E] h-full min-h-0">
+      <div className="flex items-center gap-4 dark:border-b-neutral-700 border-b px-4 py-2">
         <div className="font-mono">{props.label}</div>
         <Button onClick={() => props.onSave(draft)}>Save</Button>
       </div>
@@ -1131,13 +1155,24 @@ export function Fence({
   style?: any;
   copyable?: boolean;
 }) {
+  const { darkMode } = useDarkMode();
   const [copyLabel, setCopyLabel] = useState('Copy');
   return (
     <Highlight
       {...defaultProps}
       code={code.trimEnd()}
       language={language}
-      theme={undefined}
+      theme={
+        darkMode
+          ? {
+              plain: {
+                backgroundColor: '#262626',
+                color: 'white',
+              },
+              styles: [],
+            }
+          : undefined
+      }
     >
       {({ className, style, tokens, getTokenProps }) => (
         <pre
@@ -1160,7 +1195,7 @@ export function Fence({
                   e.preventDefault();
                   e.stopPropagation();
                 }}
-                className="flex items-center gap-x-1 rounded-sm bg-white px-2 py-1 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 text-xs"
+                className="flex items-center gap-x-1 dark:ring-neutral-700 rounded-sm dark:bg-neutral-800 bg-white px-2 py-1 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 text-xs"
               >
                 <ClipboardDocumentIcon
                   className="-ml-0.5 h-4 w-4"
@@ -1196,14 +1231,14 @@ export const Divider = ({
   <div className={cn('flex items-center justify-center', className)}>
     <div
       aria-hidden="true"
-      className="h-px w-full bg-gray-200"
+      className="h-px w-full dark:bg-neutral-700 bg-gray-200"
       data-orientation="horizontal"
       role="separator"
     ></div>
     {children}
     <div
       aria-hidden="true"
-      className="h-px w-full bg-gray-200"
+      className="h-px w-full dark:bg-neutral-700 bg-gray-200"
       data-orientation="horizontal"
       role="separator"
     ></div>
@@ -1227,7 +1262,7 @@ export const InfoTip = ({ children }: PropsWithChildren) => {
 
       <PopoverPanel
         anchor="bottom start"
-        className="bg-white p-2 rounded-lg shadow-lg z-50"
+        className="bg-white dark:bg-neutral-800 p-2 rounded-lg shadow-lg z-50"
       >
         {children}
       </PopoverPanel>
@@ -1242,7 +1277,7 @@ export const Badge = ({
   return (
     <span
       className={cn(
-        'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800',
+        'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium dark:bg-blue-700/30 dark:text-blue-100 bg-blue-100 text-blue-800',
         className,
       )}
     >
@@ -1297,6 +1332,7 @@ export function ProgressButton({
 }
 
 import * as TooltipPrimitive from '@radix-ui/react-tooltip';
+import { useDarkMode } from './dash/DarkModeToggle';
 
 function TooltipProvider({
   delayDuration = 100,
@@ -1339,7 +1375,7 @@ function TooltipContent({
         data-slot="tooltip-content"
         sideOffset={sideOffset}
         className={cn(
-          'bg-white border gorder-gray-100 text-primary-foreground animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 w-fit origin-(--radix-tooltip-content-transform-origin) px-3 py-1.5 text-xs text-balance',
+          'bg-white border dark:hover:bg-neutral-700/50 dark:bg-neutral-800 dark:border-neutral-600 dark:text-white border-gray-100 text-primary-foreground animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 w-fit origin-(--radix-tooltip-content-transform-origin) px-3 py-1.5 text-xs text-balance',
           className,
         )}
         {...props}

@@ -132,14 +132,14 @@ export function AddClientForm({
 
   return (
     <form
-      className="flex flex-col gap-2 p-4 rounded border"
+      className="flex flex-col gap-2 p-4 dark:border dark:border-neutral-700 rounded border"
       onSubmit={onSubmit}
       autoComplete="off"
       data-lpignore="true"
     >
       <SubsectionHeading>Add a new Google client</SubsectionHeading>
       <div className="mb-4">
-        <label className="block text-sm font-bold text-gray-700 mb-2">
+        <label className="block text-sm font-bold dark:text-neutral-400 text-gray-700 mb-2">
           Type
         </label>
         <ToggleGroup
@@ -203,7 +203,7 @@ export function AddClientForm({
         />
       )}
       {appType === 'web' && (
-        <div className="rounded border p-4 flex flex-col gap-2 bg-gray-50">
+        <div className="rounded border p-4 flex flex-col dark:bg-neutral-800 dark:border-neutral-700 gap-2 bg-gray-50">
           <p className="overflow-hidden">
             Add{' '}
             <Copytext value="https://api.instantdb.com/runtime/oauth/callback" />{' '}
@@ -230,7 +230,7 @@ export function AddClientForm({
         </div>
       )}
       {isNative(appType) && (
-        <div className="rounded border p-4 flex flex-col gap-2 bg-gray-50">
+        <div className="rounded border p-4 flex flex-col dark:bg-neutral-800 dark:border-neutral-700 gap-2 bg-gray-50">
           <Checkbox
             checked={skipNonceChecks}
             onChange={setSkipNonceChecks}

@@ -239,7 +239,7 @@ export function AddClientExpanded({
 
   return (
     <form
-      className="flex flex-col gap-2 p-4 rounded border"
+      className="flex flex-col gap-2 p-4 dark:bg-neutral-800/50 rounded dark:border-neutral-700 border"
       onSubmit={onSubmit}
       autoComplete="off"
       data-lpignore="true"
@@ -274,9 +274,9 @@ export function AddClientExpanded({
       <Collapsible.Root
         open={redirectOpen}
         onOpenChange={setRedirectOpen}
-        className="flex flex-col border rounded"
+        className="flex flex-col border dark:bg-neutral-800 dark:border-neutral-700 rounded"
       >
-        <Collapsible.Trigger className="flex p-4 hover:bg-gray-100 bg-gray-50">
+        <Collapsible.Trigger className="flex p-4 dark:bg-neutral-800 hover:bg-gray-100 bg-gray-50">
           <div className="flex flex-1 justify-between items-center">
             Redirect flow for Web (optional)
             {redirectOpen ? (
