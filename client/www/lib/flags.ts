@@ -1,4 +1,4 @@
 export const flags = {
   emails: false,
-  createOrgs: false,
+  createOrgs: true,
 } as const;

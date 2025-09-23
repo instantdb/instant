@@ -13,9 +13,12 @@ import { TokenContext } from '@/lib/contexts';
 import { useReadyRouter } from '@/components/clientOnlyPage';
 import { infoToast, successToast } from '@/lib/toast';
 
-export const CreateOrgModal = () => {
+export const CreateOrgModal = ({
+  dialog,
+}: {
+  dialog: ReturnType<typeof useDialog>;
+}) => {
   const dash = useFetchedDash();
-  const dialog = useDialog();
   const token = useContext(TokenContext);
   const [errorText, setErrorText] = useState<null | string>(null);
   const [value, setValue] = useState('');
@@ -61,13 +64,6 @@ export const CreateOrgModal = () => {
 
   return (
     <>
-      <Button
-        onClick={() => dialog.onOpen()}
-        variant="secondary"
-        className="hover:bg-gray-200 text-left w-full px-2"
-      >
-        Create Org
-      </Button>
       <Dialog {...dialog}>
         <form
           onSubmit={async (e) => {
