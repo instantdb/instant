@@ -9,7 +9,6 @@ import { TokenContext } from '@/lib/contexts';
 import { jsonFetch, jsonMutate } from '@/lib/fetch';
 import { errorToast, successToast } from '@/lib/toast';
 import {
-  DashResponse,
   InstantApp,
   InstantIssue,
   InstantMember,
@@ -26,7 +25,6 @@ import {
   Copyable,
   Dialog,
   Divider,
-  InfoTip,
   Label,
   SectionHeading,
   Select,
