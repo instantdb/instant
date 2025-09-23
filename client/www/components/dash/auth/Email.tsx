@@ -159,7 +159,7 @@ export function Email({ app }: { app: InstantApp }) {
     <form {...form.formProps()} className="flex flex-col gap-2">
       <SectionHeading>Custom Magic Code Email</SectionHeading>
 
-      <div className="border dark:bg-neutral-800 dark:border-neutral-700 p-3 bg-gray-50 rounded flex flex-col gap-1">
+      <div className="flex flex-col gap-1 rounded border bg-gray-50 p-3 dark:border-neutral-700 dark:bg-neutral-800">
         <BlockHeading>Template variables</BlockHeading>
         <Content className="text-sm">
           We provide a few dynamic variables for you to use in your email:
@@ -201,7 +201,7 @@ export function Email({ app }: { app: InstantApp }) {
       <div className="flex flex-col gap-1">
         <Label>Body (HTML or plain-text)</Label>
         <div
-          className={clsx('h-64 border dark:border-neutral-700 rounded', {
+          className={clsx('h-64 rounded border dark:border-neutral-700', {
             'border-red-500': form.getError('bodyHtml'),
           })}
         >
@@ -218,7 +218,7 @@ export function Email({ app }: { app: InstantApp }) {
         ) : null}
       </div>
 
-      <div className="flex flex-col gap-2 border p-3 dark:border-neutral-700 dark:bg-neutral-800 bg-gray-50 rounded">
+      <div className="flex flex-col gap-2 rounded border bg-gray-50 p-3 dark:border-neutral-700 dark:bg-neutral-800">
         <SubsectionHeading>
           Use a custom 'From' address (optional)
         </SubsectionHeading>
@@ -236,7 +236,7 @@ export function Email({ app }: { app: InstantApp }) {
       </div>
 
       {verification && (
-        <div className="flex flex-col gap-2 dark:bg-neutral-800 dark:border-neutral-700 border p-3 bg-gray-50 rounded">
+        <div className="flex flex-col gap-2 rounded border bg-gray-50 p-3 dark:border-neutral-700 dark:bg-neutral-800">
           <div className="flex items-center justify-between">
             <SubsectionHeading>
               Verify {verification.EmailAddress}
@@ -251,20 +251,20 @@ export function Email({ app }: { app: InstantApp }) {
             </Button>
           </div>
 
-          <div className="border rounded p-4 dark:bg-neutral-700/60 dark:border-neutral-700 bg-white">
-            <div className="flex items-center justify-between mb-2">
-              <div className="font-medium text-sm">Email Confirmation</div>
+          <div className="rounded border bg-white p-4 dark:border-neutral-700 dark:bg-neutral-700/60">
+            <div className="mb-2 flex items-center justify-between">
+              <div className="text-sm font-medium">Email Confirmation</div>
               <div className="flex items-center gap-2">
                 <StatusCircle
                   isLoading={isVerifying}
                   isSuccess={verification.Confirmed}
                 />
                 {verification.Confirmed ? (
-                  <div className="text-green-600 text-xs font-medium">
+                  <div className="text-xs font-medium text-green-600">
                     Confirmed
                   </div>
                 ) : (
-                  <div className="text-gray-500 dark:text-neutral-400 text-xs">
+                  <div className="text-xs text-gray-500 dark:text-neutral-400">
                     Pending confirmation
                   </div>
                 )}
@@ -278,45 +278,45 @@ export function Email({ app }: { app: InstantApp }) {
           </div>
 
           {/* Domain Verification */}
-          <div className="border rounded p-4 dark:border-neutral-700 dark:bg-neutral-700/60 bg-white">
-            <div className="flex items-center justify-between mb-2">
-              <div className="font-medium text-sm">
+          <div className="rounded border bg-white p-4 dark:border-neutral-700 dark:bg-neutral-700/60">
+            <div className="mb-2 flex items-center justify-between">
+              <div className="text-sm font-medium">
                 Bonus: Domain Verification
               </div>
             </div>
 
-            <Content className="text-sm text-gray-600 mb-3">
+            <Content className="mb-3 text-sm text-gray-600">
               Add DNS records to improve email deliverability and avoid spam
               filters.
             </Content>
 
-            <div className="border dark:border-neutral-600 rounded overflow-hidden mb-3">
-              <div className="grid grid-cols-[1fr_80px_2fr] dark:bg-neutral-600/50 dark:text-white dark:border-b-neutral-600 bg-gray-50 border-b text-sm font-medium text-gray-700 px-4 py-3">
+            <div className="mb-3 overflow-hidden rounded border dark:border-neutral-600">
+              <div className="grid grid-cols-[1fr_80px_2fr] border-b bg-gray-50 px-4 py-3 text-sm font-medium text-gray-700 dark:border-b-neutral-600 dark:bg-neutral-600/50 dark:text-white">
                 <div>Record</div>
                 <div>Type</div>
                 <div>Value</div>
               </div>
-              <div className="grid grid-cols-[1fr_80px_2fr] border-b dark:border-b-neutral-600 px-4 py-3 text-sm">
+              <div className="grid grid-cols-[1fr_80px_2fr] border-b px-4 py-3 text-sm dark:border-b-neutral-600">
                 <div className="flex gap-3">
                   <div className="font-medium">DKIM</div>
                 </div>
-                <div className="flex text-gray-600 dark:text-gray-400 text-sm">
+                <div className="flex text-sm text-gray-600 dark:text-gray-400">
                   TXT
                 </div>
                 <div className="flex flex-col gap-2">
                   <div>
-                    <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">
+                    <div className="mb-1 text-xs text-gray-600 dark:text-gray-400">
                       Hostname:
                     </div>
-                    <code className="text-xs bg-gray-100 dark:bg-neutral-700 px-2 py-1 rounded break-all select-all block">
+                    <code className="block select-all break-all rounded bg-gray-100 px-2 py-1 text-xs dark:bg-neutral-700">
                       {verification.DKIMPendingHost || verification.DKIMHost}
                     </code>
                   </div>
                   <div>
-                    <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">
+                    <div className="mb-1 text-xs text-gray-600 dark:text-gray-400">
                       Value:
                     </div>
-                    <code className="text-xs bg-gray-100 dark:bg-neutral-700 px-2 py-1 rounded break-all select-all block">
+                    <code className="block select-all break-all rounded bg-gray-100 px-2 py-1 text-xs dark:bg-neutral-700">
                       {verification.DKIMPendingTextValue ||
                         verification.DKIMTextValue}
                     </code>
@@ -327,23 +327,23 @@ export function Email({ app }: { app: InstantApp }) {
                 <div className="flex items-center gap-3">
                   <div className="font-medium">Return-Path</div>
                 </div>
-                <div className="flex items-center text-gray-600 dark:text-neutral-400 text-sm">
+                <div className="flex items-center text-sm text-gray-600 dark:text-neutral-400">
                   CNAME
                 </div>
                 <div className="flex flex-col gap-2">
                   <div>
-                    <div className="text-xs text-gray-600 dark:text-neutral-400 mb-1">
+                    <div className="mb-1 text-xs text-gray-600 dark:text-neutral-400">
                       Hostname:
                     </div>
-                    <code className="text-xs bg-gray-100 dark:bg-neutral-700 px-2 py-1 rounded break-all select-all block">
+                    <code className="block select-all break-all rounded bg-gray-100 px-2 py-1 text-xs dark:bg-neutral-700">
                       {verification.ReturnPathDomain}
                     </code>
                   </div>
                   <div>
-                    <div className="text-xs text-gray-600 dark:text-neutral-400 mb-1">
+                    <div className="mb-1 text-xs text-gray-600 dark:text-neutral-400">
                       Value:
                     </div>
-                    <code className="text-xs bg-gray-100 dark:bg-neutral-700 px-2 py-1 rounded break-all select-all block">
+                    <code className="block select-all break-all rounded bg-gray-100 px-2 py-1 text-xs dark:bg-neutral-700">
                       {verification.ReturnPathDomainCNAMEValue}
                     </code>
                   </div>
@@ -386,7 +386,7 @@ export function Email({ app }: { app: InstantApp }) {
 
 function VariableName({ children }: { children: React.ReactNode }) {
   return (
-    <span className="font-mono text-sm bg-white dark:bg-neutral-800 dark:border-neutral-700 rounded px-1 border">
+    <span className="rounded border bg-white px-1 font-mono text-sm dark:border-neutral-700 dark:bg-neutral-800">
       {'{'}
       {children}
       {'}'}
@@ -452,16 +452,16 @@ function StatusCircle({
   isSuccess: boolean;
 }) {
   if (isLoading) {
-    return <div className="w-3 h-3 rounded-full bg-gray-400"></div>;
+    return <div className="h-3 w-3 rounded-full bg-gray-400"></div>;
   }
 
   if (isSuccess) {
     return (
-      <div className="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center">
-        <span className="text-white text-xs">✓</span>
+      <div className="flex h-3 w-3 items-center justify-center rounded-full bg-green-500">
+        <span className="text-xs text-white">✓</span>
       </div>
     );
   }
 
-  return <div className="w-3 h-3 rounded-full bg-red-500"></div>;
+  return <div className="h-3 w-3 rounded-full bg-red-500"></div>;
 }

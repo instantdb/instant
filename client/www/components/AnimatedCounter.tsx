@@ -28,7 +28,7 @@ function Digit({ value, height }: { value: number; height: number }) {
   const fontSize = height - padding;
   return (
     <div
-      className="font-mono border border-black leading-none flex items-center justify-center"
+      className="flex items-center justify-center border border-black font-mono leading-none"
       style={{ width: 28, height: height, fontSize, padding }}
     >
       <div style={{ height }} className="relative w-[1ch] tabular-nums">

@@ -33,8 +33,8 @@ export function Perms({
   const dashResponse = useFetchedDash();
 
   return (
-    <div className="flex flex-1 flex-col md:flex-row min-h-0">
-      <div className="flex flex-col gap-4 dark:border-r-neutral-700 border-r min-w-[260px] p-4 text-sm md:basis-96 md:text-base min-h-0">
+    <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+      <div className="flex min-h-0 min-w-[260px] flex-col gap-4 border-r p-4 text-sm dark:border-r-neutral-700 md:basis-96 md:text-base">
         <SectionHeading>Permissions</SectionHeading>
         <Content className="dark:text-neutral-300">
           <p>
@@ -51,7 +51,7 @@ export function Perms({
           Learn how to use CEL expressions to secure your app
         </HomeButton>
       </div>
-      <div className="flex dark:bg-neutral-800 bg-white w-full flex-1 flex-col justify-start">
+      <div className="flex w-full flex-1 flex-col justify-start bg-white dark:bg-neutral-800">
         {errorRes && (
           <div className="bg-red-100 p-4 text-sm">
             <div className="max-w-sm">

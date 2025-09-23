@@ -52,7 +52,7 @@ export const ProfilePanel = () => {
             <PopoverButton>
               <div
                 className={clsx(
-                  'flex gap-9 items-center justify-between dark:data-[focus]:outline-neutral-400 basis-[35%] truncate text-sm rounded-sm dark:border-neutral-700 dark:bg-neutral-700/40 border border-gray-300 py-1',
+                  'flex basis-[35%] items-center justify-between gap-9 truncate rounded-sm border border-gray-300 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-700/40 dark:data-[focus]:outline-neutral-400',
                   'px-2 text-sm/6',
                   'focus:outline-none data-[focus]:outline-2 data-[focus]:-outline-offset-2 data-[focus]:outline-white/25',
                 )}
@@ -64,10 +64,10 @@ export const ProfilePanel = () => {
                 <ChevronDownIcon width={15} />
               </div>
             </PopoverButton>
-            <PopoverPanel className="absolute shadow dark:bg-neutral-800 dark:border-neutral-700 bg-white top-[calc(100%+5px)] left-2 z-50 border border-gray-300 rounded-sm min-w-[300px]">
+            <PopoverPanel className="absolute left-2 top-[calc(100%+5px)] z-50 min-w-[300px] rounded-sm border border-gray-300 bg-white shadow dark:border-neutral-700 dark:bg-neutral-800">
               <div
                 className={cn(
-                  'hover:bg-gray-100 dark:hover:bg-neutral-700 flex items-center gap-2 justify-between text-left w-full',
+                  'flex w-full items-center justify-between gap-2 text-left hover:bg-gray-100 dark:hover:bg-neutral-700',
                   dashResponse.data.currentWorkspaceId === 'personal'
                     ? 'border-l-4 border-l-[#606AF4]'
                     : 'border-l-4 dark:border-l-neutral-700',
@@ -79,17 +79,17 @@ export const ProfilePanel = () => {
                     router.push('/dash');
                     close();
                   }}
-                  className="py-2 text-left grow px-2"
+                  className="grow px-2 py-2 text-left"
                 >
-                  <div className="flex gap-2 text-sm items-center">
-                    <UserIcon className="w-4 h-4 ml-1" />
+                  <div className="flex items-center gap-2 text-sm">
+                    <UserIcon className="ml-1 h-4 w-4" />
                     {email}
                   </div>
                 </button>
                 <Tooltip>
                   <TooltipTrigger onClick={() => {}}>
                     <Link href="/dash/user-settings" onClick={() => close()}>
-                      <div className="p-3 dark:invert dark:hover:bg-neutral-500 hover:bg-gray-200 transition-colors">
+                      <div className="p-3 transition-colors hover:bg-gray-200 dark:invert dark:hover:bg-neutral-500">
                         <UserSettingsIcon />
                       </div>
                     </Link>
@@ -100,7 +100,7 @@ export const ProfilePanel = () => {
               {dashResponse.data.orgs?.map((org) => (
                 <div
                   className={cn(
-                    'hover:bg-gray-100 dark:hover:bg-neutral-700 flex items-center gap-2 justify-between text-left w-full',
+                    'flex w-full items-center justify-between gap-2 text-left hover:bg-gray-100 dark:hover:bg-neutral-700',
                     dashResponse.data.currentWorkspaceId === org.id
                       ? 'border-l-4 border-l-[#606AF4]'
                       : 'border-l-4 dark:border-l-neutral-700',
@@ -116,13 +116,13 @@ export const ProfilePanel = () => {
                       });
                       close();
                     }}
-                    className="py-2 text-left grow px-2"
+                    className="grow px-2 py-2 text-left"
                   >
-                    <div className="flex gap-2 text-sm items-center">
+                    <div className="flex items-center gap-2 text-sm">
                       {org.paid ? (
-                        <BuildingOffice2Icon className="w-4 h-4 ml-1" />
+                        <BuildingOffice2Icon className="ml-1 h-4 w-4" />
                       ) : (
-                        <BuildingOfficeIcon className="w-4 h-4 ml-1" />
+                        <BuildingOfficeIcon className="ml-1 h-4 w-4" />
                       )}
                       {org.title}
                     </div>
@@ -138,7 +138,7 @@ export const ProfilePanel = () => {
                             close();
                           }}
                         >
-                          <div className="p-3 hover:bg-gray-200 dark:hover:bg-neutral-600 transition-colors">
+                          <div className="p-3 transition-colors hover:bg-gray-200 dark:hover:bg-neutral-600">
                             <Cog6ToothIcon height={16} width={16} />
                           </div>
                         </Link>
@@ -158,7 +158,7 @@ export const ProfilePanel = () => {
                       createOrgDialog.onOpen();
                     }}
                     variant="secondary"
-                    className="hover:bg-gray-200 text-left w-full px-2"
+                    className="w-full px-2 text-left hover:bg-gray-200"
                   >
                     Create Org
                   </Button>

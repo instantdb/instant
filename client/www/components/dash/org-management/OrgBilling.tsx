@@ -125,8 +125,8 @@ export const OrgBilling = () => {
 
   return (
     <div className="pt-2">
-      <div className="flex dark:bg-neutral-800 dark:border-neutral-700 flex-col bg-white gap px-2 pt-1 rounded border">
-        <div className="flex gap-2 items-end p-2 justify-between">
+      <div className="gap flex flex-col rounded border bg-white px-2 pt-1 dark:border-neutral-700 dark:bg-neutral-800">
+        <div className="flex items-end justify-between gap-2 p-2">
           <span className="font-bold">Usage (all apps)</span>{' '}
           <span className="font-mono text-sm">
             {friendlyUsage(totalUsageBytes)}{' '}
@@ -135,13 +135,13 @@ export const OrgBilling = () => {
         </div>
         {isPaid && <ProgressBar width={progress} />}
         <div
-          className={cn('flex justify-start text-sm space-x-2 pl-2', 'pt-3')}
+          className={cn('flex justify-start space-x-2 pl-2 text-sm', 'pt-3')}
         >
-          <span className="text-sm font-mono text-gray-500">
+          <span className="font-mono text-sm text-gray-500">
             DB ({friendlyUsage(totalAppBytes)})
           </span>
 
-          <span className="text-sm font-mono pb-3 text-gray-500">
+          <span className="pb-3 font-mono text-sm text-gray-500">
             Storage ({friendlyUsage(totalStorageBytes)})
           </span>
         </div>
@@ -152,7 +152,7 @@ export const OrgBilling = () => {
           <Button variant="primary" onClick={onUpgrade}>
             Upgrade to Startup
           </Button>
-          <div className="italic text-sm w-full bg-purple-100 text-purple-800 rounded border border-purple-400 px-2 py-1">
+          <div className="w-full rounded border border-purple-400 bg-purple-100 px-2 py-1 text-sm italic text-purple-800">
             Startup offer 250GB of storage across all apps, multiple team
             members for apps, and priority support.
           </div>

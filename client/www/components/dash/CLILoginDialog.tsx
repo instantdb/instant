@@ -31,7 +31,7 @@ export const CLILoginDialog = ({ tickets }: { tickets: TicketSystem }) => {
         open={cliAuthCompleteDialog.open}
         onClose={cliAuthCompleteDialog.onClose}
       >
-        <div className="flex flex-col p-4 gap-4">
+        <div className="flex flex-col gap-4 p-4">
           <SectionHeading>Instant CLI verification complete!</SectionHeading>
           <Content>
             You can close this window and return to the terminal.
@@ -58,7 +58,7 @@ export const CLILoginDialog = ({ tickets }: { tickets: TicketSystem }) => {
           setLoginTicket(undefined);
         }}
       >
-        <div className="flex flex-col p-4 gap-4">
+        <div className="flex flex-col gap-4 p-4">
           <SectionHeading>Instant CLI login</SectionHeading>
           <Content>
             Do you want to grant Instant CLI access to your account?

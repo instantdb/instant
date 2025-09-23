@@ -7,7 +7,7 @@ import {
 
 function PrivacyPolicyContent() {
   return (
-    <div className="prose prose-h1:mt-8 prose-h1:mb-4 prose-h2:mt-4 prose-h2:mb-2 prose-pre:bg-gray-100">
+    <div className="prose prose-h1:mb-4 prose-h1:mt-8 prose-h2:mb-2 prose-h2:mt-4 prose-pre:bg-gray-100">
       <h1 id="privacy-policy-of-instantdbcom">
         Privacy Policy of <strong>instantdb.com</strong>
       </h1>
@@ -67,7 +67,8 @@ function PrivacyPolicyContent() {
       <h3 id="place">Place</h3>
       <p>
         The Data is processed at the Owner&#39;s operating offices and in any
-        other places where the parties involved in the processing are located.{' '}
+        other places where the parties involved in the processing are
+        located.{' '}
       </p>
       <p>
         Depending on the User&#39;s location, data transfers may involve

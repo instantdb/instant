@@ -59,7 +59,7 @@ function RatingBox({
     : undefined;
   return (
     <div className="space-y-2">
-      <div className="inline-flex space-x-4 items-center">
+      <div className="inline-flex items-center space-x-4">
         <BlockHeading>Was this page helpful?</BlockHeading>
         <div className="w-20">
           <ToggleGroup

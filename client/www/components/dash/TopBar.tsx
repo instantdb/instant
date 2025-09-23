@@ -18,22 +18,22 @@ export const TopBar: React.FC<{}> = () => {
   const hasInvites = (dash.data.invites || []).length > 0;
 
   return (
-    <div className="py-2 dark:text-white dark:bg-neutral-800 md:px-4 px-2 flex-col flex-wrap md:flex-row flex gap-2 border-b justify-between border-b-gray-300 dark:border-b-neutral-700">
-      <div className="flex justify-between flex-row md:justify-start gap-2 items-center">
+    <div className="flex flex-col flex-wrap justify-between gap-2 border-b border-b-gray-300 px-2 py-2 dark:border-b-neutral-700 dark:bg-neutral-800 dark:text-white md:flex-row md:px-4">
+      <div className="flex flex-row items-center justify-between gap-2 md:justify-start">
         <ProfilePanel />
         <div id="left-top-bar"></div>
       </div>
-      <div className="flex gap-6 justify-end md:justify-start items-center">
+      <div className="flex items-center justify-end gap-6 md:justify-start">
         {hasInvites && (
           <Link className="ml-3" href={'/dash/user-settings?tab=invites'}>
-            <div className="text-sm animate-bounce flex gap-2">
+            <div className="flex animate-bounce gap-2 text-sm">
               <EnvelopeIcon width={14} />
               Pending Invites ({(dash.data.invites || []).length})
             </div>
           </Link>
         )}
         <Link
-          className="flex hover:underline opacity-50 gap-1 items-center text-sm"
+          className="flex items-center gap-1 text-sm opacity-50 hover:underline"
           href={docsUrl}
         >
           Docs

@@ -109,10 +109,10 @@ export function AdminRatingsSection() {
 
   if (isLoading) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Ratings</h2>
+      <div className="rounded-lg bg-white p-6 shadow-md">
+        <h2 className="mb-4 text-xl font-semibold text-gray-900">Ratings</h2>
         <div className="animate-pulse">
-          <div className="bg-gray-200 h-96 rounded"></div>
+          <div className="h-96 rounded bg-gray-200"></div>
         </div>
       </div>
     );
@@ -120,8 +120,8 @@ export function AdminRatingsSection() {
 
   if (error) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Ratings</h2>
+      <div className="rounded-lg bg-white p-6 shadow-md">
+        <h2 className="mb-4 text-xl font-semibold text-gray-900">Ratings</h2>
         <div className="text-red-600">
           Error loading ratings: {error.message}
         </div>
@@ -130,16 +130,16 @@ export function AdminRatingsSection() {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <h2 className="text-xl font-semibold text-gray-900 mb-6">Ratings</h2>
+    <div className="rounded-lg bg-white p-6 shadow-md">
+      <h2 className="mb-6 text-xl font-semibold text-gray-900">Ratings</h2>
 
       {/* Archive toggle and action buttons */}
-      <div className="flex justify-between items-center mb-4">
+      <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
             <button
               onClick={() => setShowArchived(false)}
-              className={`px-4 py-2 rounded-md text-sm font-medium ${
+              className={`rounded-md px-4 py-2 text-sm font-medium ${
                 !showArchived
                   ? 'bg-blue-100 text-blue-700'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -149,7 +149,7 @@ export function AdminRatingsSection() {
             </button>
             <button
               onClick={() => setShowArchived(true)}
-              className={`px-4 py-2 rounded-md text-sm font-medium ${
+              className={`rounded-md px-4 py-2 text-sm font-medium ${
                 showArchived
                   ? 'bg-blue-100 text-blue-700'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -168,9 +168,9 @@ export function AdminRatingsSection() {
             <button
               onClick={handleArchiveSelected}
               disabled={isUpdating}
-              className={`px-4 py-2 text-sm font-medium rounded-md ${
+              className={`rounded-md px-4 py-2 text-sm font-medium ${
                 isUpdating
-                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  ? 'cursor-not-allowed bg-gray-300 text-gray-500'
                   : showArchived
                     ? 'bg-green-600 text-white hover:bg-green-700'
                     : 'bg-red-600 text-white hover:bg-red-700'
@@ -191,7 +191,7 @@ export function AdminRatingsSection() {
         <table className="w-full table-fixed">
           <thead>
             <tr className="border-b border-gray-200">
-              <th className="text-left py-3 px-4 w-12">
+              <th className="w-12 px-4 py-3 text-left">
                 <input
                   type="checkbox"
                   checked={
@@ -202,16 +202,16 @@ export function AdminRatingsSection() {
                   className="rounded border-gray-300"
                 />
               </th>
-              <th className="text-left py-3 px-4 font-medium text-gray-900 w-44">
+              <th className="w-44 px-4 py-3 text-left font-medium text-gray-900">
                 Date
               </th>
-              <th className="text-left py-3 px-4 font-medium text-gray-900 w-64">
+              <th className="w-64 px-4 py-3 text-left font-medium text-gray-900">
                 Page
               </th>
-              <th className="text-left py-3 px-4 font-medium text-gray-900 w-36">
+              <th className="w-36 px-4 py-3 text-left font-medium text-gray-900">
                 Rating
               </th>
-              <th className="text-left py-3 px-4 font-medium text-gray-900 max-w-xs">
+              <th className="max-w-xs px-4 py-3 text-left font-medium text-gray-900">
                 Comment
               </th>
             </tr>
@@ -222,7 +222,7 @@ export function AdminRatingsSection() {
                 key={rating.id}
                 className="border-b border-gray-100 hover:bg-gray-50"
               >
-                <td className="py-3 px-4">
+                <td className="px-4 py-3">
                   <input
                     type="checkbox"
                     checked={selectedRatings.has(rating.id)}
@@ -230,22 +230,22 @@ export function AdminRatingsSection() {
                     className="rounded border-gray-300"
                   />
                 </td>
-                <td className="py-3 px-4">
-                  <span className="text-sm text-gray-600 whitespace-nowrap">
+                <td className="px-4 py-3">
+                  <span className="whitespace-nowrap text-sm text-gray-600">
                     {formatDate(rating.createdAt)}
                   </span>
                 </td>
-                <td className="py-3 px-4">
+                <td className="px-4 py-3">
                   <div
-                    className="text-sm font-medium text-gray-900 truncate"
+                    className="truncate text-sm font-medium text-gray-900"
                     title={rating.pageId}
                   >
                     {rating.pageId}
                   </div>
                 </td>
-                <td className="py-3 px-4">
+                <td className="px-4 py-3">
                   <span
-                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
                       rating.wasHelpful
                         ? 'bg-green-100 text-green-800'
                         : 'bg-red-100 text-red-800'
@@ -254,9 +254,9 @@ export function AdminRatingsSection() {
                     {rating.wasHelpful ? '👍 Helpful' : '👎 Not Helpful'}
                   </span>
                 </td>
-                <td className="py-3 px-4">
+                <td className="px-4 py-3">
                   {rating.extraComment ? (
-                    <div className="text-sm text-gray-700 max-w-xs">
+                    <div className="max-w-xs text-sm text-gray-700">
                       <div
                         className={
                           expandedRows.has(rating.id)
@@ -269,7 +269,7 @@ export function AdminRatingsSection() {
                       {rating.extraComment.length > 100 && (
                         <button
                           onClick={() => toggleRowExpansion(rating.id)}
-                          className="text-blue-600 hover:text-blue-800 text-sm font-medium mt-1"
+                          className="mt-1 text-sm font-medium text-blue-600 hover:text-blue-800"
                         >
                           {expandedRows.has(rating.id)
                             ? 'Show less'
@@ -289,7 +289,7 @@ export function AdminRatingsSection() {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex justify-between items-center mt-4">
+        <div className="mt-4 flex items-center justify-between">
           <div className="text-sm text-gray-600">
             Showing {startIndex + 1} to{' '}
             {Math.min(endIndex, filteredRatings.length)} of{' '}
@@ -299,10 +299,10 @@ export function AdminRatingsSection() {
             <button
               onClick={() => setCurrentPage(currentPage - 1)}
               disabled={currentPage === 1}
-              className={`px-3 py-1 text-sm font-medium rounded-md ${
+              className={`rounded-md px-3 py-1 text-sm font-medium ${
                 currentPage === 1
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                  ? 'cursor-not-allowed bg-gray-100 text-gray-400'
+                  : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
               }`}
             >
               Previous
@@ -313,10 +313,10 @@ export function AdminRatingsSection() {
             <button
               onClick={() => setCurrentPage(currentPage + 1)}
               disabled={currentPage === totalPages}
-              className={`px-3 py-1 text-sm font-medium rounded-md ${
+              className={`rounded-md px-3 py-1 text-sm font-medium ${
                 currentPage === totalPages
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                  ? 'cursor-not-allowed bg-gray-100 text-gray-400'
+                  : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
               }`}
             >
               Next

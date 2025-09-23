@@ -1,5 +1,5 @@
 {
-  "name": "sandbox/react-native-expo",
+  "name": "sb-react-native-expo",
   "version": "1.0.0",
   "main": "expo-router/entry",
   "scripts": {

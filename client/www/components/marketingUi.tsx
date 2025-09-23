@@ -60,7 +60,7 @@ const NavLink: React.FC<PropsWithChildren<{ href: string }>> = ({
   href,
   children,
 }) => (
-  <NextLink href={href} className="hover:text-blue-500 whitespace-nowrap">
+  <NextLink href={href} className="whitespace-nowrap hover:text-blue-500">
     {children}
   </NextLink>
 );
@@ -87,7 +87,7 @@ function NavItems() {
       <NavLink href="/hiring">Hiring</NavLink>
       <NavLink href="https://discord.com/invite/VU53p7uQcE">
         <span className="hidden md:inline">
-          <img src="/marketing/discord-icon.svg" className="w-5 h-5" />
+          <img src="/marketing/discord-icon.svg" className="h-5 w-5" />
         </span>
         <span className="md:hidden">Discord</span>
       </NavLink>
@@ -128,7 +128,7 @@ export function BareNav({ children }: PropsWithChildren) {
   }, [isOpen]);
 
   return (
-    <div className="flex justify-between items-center flex-row gap-4 text-lg md:text-base">
+    <div className="flex flex-row items-center justify-between gap-4 text-lg md:text-base">
       <LogoType />
       <button className="md:hidden" onClick={() => setIsOpen(true)}>
         <Bars3Icon height={'1em'} />
@@ -143,9 +143,9 @@ export function BareNav({ children }: PropsWithChildren) {
           // scroll
           'overflow-y-scroll md:overflow-y-auto',
           // size
-          'w-full md:w-auto h-full md:h-12',
+          'h-full w-full md:h-12 md:w-auto',
           // layout
-          'flex-col md:flex-row md:items-center items-start gap-6 md:gap-4 px-8 py-4 md:p-0',
+          'flex-col items-start gap-6 px-8 py-4 md:flex-row md:items-center md:gap-4 md:p-0',
           // look and feel
           'bg-white/90 backdrop-blur-xl md:bg-transparent',
           {
@@ -153,7 +153,7 @@ export function BareNav({ children }: PropsWithChildren) {
           },
         )}
       >
-        <div className="md:hidden flex self-stretch justify-between">
+        <div className="flex justify-between self-stretch md:hidden">
           <LogoType />
           <button className="z-50 mt-0.5" onClick={() => setIsOpen(false)}>
             <XMarkIcon height="1em" />
@@ -170,7 +170,7 @@ export function BareNav({ children }: PropsWithChildren) {
 export function MainNav({ children }: PropsWithChildren) {
   return (
     <div className="py-4">
-      <div className="px-8 max-w-7xl mx-auto">
+      <div className="mx-auto max-w-7xl px-8">
         <BareNav>{children}</BareNav>
       </div>
     </div>
@@ -200,7 +200,7 @@ export function LandingFooter() {
               `flex flex-col gap-6 md:flex-row md:justify-between`,
             )}
           >
-            <div className="flex flex-col md:gap-0 gap-2 font-mono">
+            <div className="flex flex-col gap-2 font-mono md:gap-0">
               <div>Instant</div>
               <div>Engineered in San Francisco</div>
             </div>
@@ -242,7 +242,7 @@ export function PageProgressBar() {
   }, []);
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 h-0.5 bg-gray-200">
+    <div className="fixed left-0 right-0 top-0 z-50 h-0.5 bg-gray-200">
       <div
         className="h-full bg-orange-600 transition-all duration-150 ease-out"
         style={{ width: `${progress}%` }}

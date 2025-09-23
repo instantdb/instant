@@ -31,9 +31,9 @@ const UserSettingsPage: NextPageWithLayout = () => {
   return (
     <>
       <BackToAppsButton />
-      <div className="mx-auto dark:text-white md:max-w-4xl px-8 pt-8 w-full">
-        <div className="flex justify-between items-center">
-          <div className="flex flex-col md:flex-row md:gap-4 pb-4 items-baseline">
+      <div className="mx-auto w-full px-8 pt-8 dark:text-white md:max-w-4xl">
+        <div className="flex items-center justify-between">
+          <div className="flex flex-col items-baseline pb-4 md:flex-row md:gap-4">
             <div className="text-lg font-semibold">User Settings</div>
             <div className="text-gray-600 dark:text-neutral-400">
               {dashResponse.data.user.email}

@@ -240,22 +240,22 @@ export default function PersonalAccessTokensTab({
     }
   };
   return (
-    <div className={cn('flex-1 flex flex-col mx-auto', className)}>
+    <div className={cn('mx-auto flex flex-1 flex-col', className)}>
       {newTokenValue ? (
         <CopyTokenDialog
           onClose={() => setNewTokenValue(null)}
           token={newTokenValue}
         />
       ) : null}
-      <div className="flex justify-between flex-row items-center">
-        <div className="pt-1 pb-4">
+      <div className="flex flex-row items-center justify-between">
+        <div className="pb-4 pt-1">
           <div className="prose dark:text-neutral-300">
             <SectionHeading className="font-bold">
               Personal Access Tokens <sup className="text-sm">[BETA]</sup>
             </SectionHeading>
             <p>
               Welcome to the Platform Beta! You can create{' '}
-              <code className="dark:text-white dark:bg-neutral-800">
+              <code className="dark:bg-neutral-800 dark:text-white">
                 Personal Access Tokens
               </code>{' '}
               here. <br />
@@ -273,7 +273,7 @@ export default function PersonalAccessTokensTab({
           size="mini"
           onClick={() => setIsCreatingNewToken(true)}
         >
-          <PlusIcon className="h-4 w-4 mr-1" />
+          <PlusIcon className="mr-1 h-4 w-4" />
           New access token
         </Button>
         <TokensTable
@@ -289,14 +289,14 @@ export default function PersonalAccessTokensTab({
               Create personal access token
             </h5>
 
-            <div className="flex flex-col gap-4 mt-4">
+            <div className="mt-4 flex flex-col gap-4">
               <div className="flex flex-col gap-1">
                 <div className="flex items-center justify-between">
                   <Label className="font-mono">Nickname</Label>
                 </div>
-                <div className="flex gap-1 flex-col">
+                <div className="flex flex-col gap-1">
                   <input
-                    className="flex w-full flex-1 rounded-sm border-gray-200 bg-white dark:border-neutral-700 dark:bg-neutral-800 px-3 py-1 placeholder:text-gray-400"
+                    className="flex w-full flex-1 rounded-sm border-gray-200 bg-white px-3 py-1 placeholder:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800"
                     placeholder="My default token"
                     value={newPersonalAccessTokenName ?? ''}
                     onChange={(e) =>
@@ -341,14 +341,14 @@ export const TokensTable = ({
 }) => {
   if (tokens.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-8 dark:text-neutral-400 text-gray-500">
+      <div className="flex flex-col items-center justify-center py-8 text-gray-500 dark:text-neutral-400">
         <p className="text-sm">No personal access tokens created yet.</p>
       </div>
     );
   }
 
   return (
-    <table className="z-0 w-full flex-1 text-left font-mono text-xs dark:text-neutral-300 text-gray-500">
+    <table className="z-0 w-full flex-1 text-left font-mono text-xs text-gray-500 dark:text-neutral-300">
       <thead className="sticky top-0 z-20 border-b dark:border-b-neutral-600">
         <tr>
           <th
@@ -376,7 +376,7 @@ export const TokensTable = ({
         {tokens.map(({ id, name, created_at }) => (
           <tr
             key={id}
-            className="group border-b dark:bg-neutral-800 dark:border-b-neutral-700 bg-white"
+            className="group border-b bg-white dark:border-b-neutral-700 dark:bg-neutral-800"
           >
             <td className="whitespace-nowrap px-4 py-1">{name}</td>
             <td className="whitespace-nowrap px-4 py-1">

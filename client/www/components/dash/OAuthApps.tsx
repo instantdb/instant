@@ -373,7 +373,7 @@ function DeleteClientSecret({
             Be sure that you've removed any reference to this secret in your
             code before deleting.
           </Content>
-          <div className="flex flex-row gap-2 w-full">
+          <div className="flex w-full flex-row gap-2">
             <Button
               loading={loading}
               variant="destructive"
@@ -535,9 +535,9 @@ function Client({ client }: { client: OAuthAppClient }) {
   };
 
   return (
-    <div className="flex flex-col gap-4 relative group/delete-parent">
+    <div className="group/delete-parent relative flex flex-col gap-4">
       <Button
-        className="absolute top-0 right-0 hidden group-hover/delete-parent:block"
+        className="absolute right-0 top-0 hidden group-hover/delete-parent:block"
         variant="destructive"
         size="mini"
         onClick={() => setShowDeleteClientDialog(true)}
@@ -602,7 +602,7 @@ function Client({ client }: { client: OAuthAppClient }) {
                     <td className="pr-2">
                       {format(new Date(clientSecret.createdAt), 'MMM dd, yyyy')}
                     </td>
-                    <td className="pr-2 mr-2 w-12">
+                    <td className="mr-2 w-12 pr-2">
                       <div className="hidden group-hover:block">
                         <DeleteClientSecret clientSecret={clientSecret} />
                       </div>
@@ -718,7 +718,7 @@ function AuthorizedRedirectUrlsInput({
         ))}
       </label>
       <div className="flex flex-row gap-2">
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1">
           <TextInput
             value={url}
             onChange={setUrl}
@@ -803,7 +803,7 @@ function CreateClientForm({
 
   return (
     <form
-      className="flex flex-col gap-2 p-4 rounted border dark:border-neutral-700"
+      className="rounted flex flex-col gap-2 border p-4 dark:border-neutral-700"
       onSubmit={onSubmit}
       autoComplete="off"
       data-lpignore="true"
@@ -862,9 +862,9 @@ export function AppLogo({
   app: { appLogo: string | null; appName: string };
 }) {
   return app.appLogo ? (
-    <img className="w-12 h-12" src={app.appLogo} />
+    <img className="h-12 w-12" src={app.appLogo} />
   ) : (
-    <div className="flex items-center justify-center w-12 h-12 bg-gray-200">
+    <div className="flex h-12 w-12 items-center justify-center bg-gray-200">
       <span className="text-2xl font-semibold text-gray-700">
         {app.appName.substring(0, 1).toUpperCase()}
       </span>
@@ -919,7 +919,7 @@ function EditableAppInput({
       <Label>{labelOfEditableAppField(field)}</Label>
       {editing ? (
         <TextInput
-          className="p-0 border-0 border-b border-gray-300 max-w-sm outline-none focus:shadow-none focus:ring-0 focus:outline-none rounded-none"
+          className="max-w-sm rounded-none border-0 border-b border-gray-300 p-0 outline-none focus:shadow-none focus:outline-none focus:ring-0"
           value={value || ''}
           onChange={setValue}
           autoFocus={true}
@@ -1006,7 +1006,7 @@ function App({ app }: { app: OAuthApp }) {
   return (
     <>
       {app.isPublic ? null : (
-        <div className="max-w-md flex bg-sky-50 dark:bg-slate-800/60 dark:ring-1 dark:ring-slate-300/10">
+        <div className="flex max-w-md bg-sky-50 dark:bg-slate-800/60 dark:ring-1 dark:ring-slate-300/10">
           <Content className="m-4 text-sm text-sky-800 [--tw-prose-background:theme(colors.sky.50)] prose-a:text-sky-900 prose-code:text-sky-900 dark:text-slate-300 dark:prose-code:text-slate-300">
             This app is in test mode. Only members of this Instant app will be
             allowed to auth with it. Once you've built your integration, ping us
@@ -1022,10 +1022,10 @@ function App({ app }: { app: OAuthApp }) {
           </Content>
         </div>
       )}
-      <div className="flex flex-col gap-4 max-w-md relative">
-        <div className="flex flex-col gap-4 group/delete-parent">
+      <div className="relative flex max-w-md flex-col gap-4">
+        <div className="group/delete-parent flex flex-col gap-4">
           <Button
-            className="absolute top-0 right-0 hidden group-hover/delete-parent:block"
+            className="absolute right-0 top-0 hidden group-hover/delete-parent:block"
             variant="destructive"
             size="mini"
             onClick={() => setShowDeleteAppDialog(true)}
@@ -1063,9 +1063,9 @@ function App({ app }: { app: OAuthApp }) {
             {' '}
             <Label>Logo</Label>
             {app.appLogo ? (
-              <div className="relative group w-12 h-12">
+              <div className="group relative h-12 w-12">
                 <AppLogo app={app} />
-                <div className="absolute top-0 group-hover:block hidden bg-white/75">
+                <div className="absolute top-0 hidden bg-white/75 group-hover:block">
                   <UploadLogoInput onDataUrl={onDataUrl} simple={true} />
                 </div>
               </div>
@@ -1114,7 +1114,7 @@ function AppSummaryRow({ app }: { app: OAuthApp }) {
   return (
     <Link
       href={href}
-      className="flex flex-row gap-4 items-center w-full cursor-pointer dark:hover:bg-neutral-700 hover:bg-gray-100 transition-colors duration-200 p-2"
+      className="flex w-full cursor-pointer flex-row items-center gap-4 p-2 transition-colors duration-200 hover:bg-gray-100 dark:hover:bg-neutral-700"
     >
       <AppLogo app={app} />
       <SectionHeading>{app.appName}</SectionHeading>
@@ -1128,7 +1128,7 @@ function Apps({ apps }: { apps: OAuthApp[] }) {
   }
 
   return (
-    <div className="flex flex-col gap-6 max-w-md">
+    <div className="flex max-w-md flex-col gap-6">
       {apps.map((a) => (
         <div key={a.id} className="flex flex-col gap-4">
           <AppSummaryRow app={a} />
@@ -1149,9 +1149,9 @@ function UploadLogoInput({
   return (
     <div
       className={clsx(
-        'flex place-content-center w-12 h-12 items-center text-center cursor-pointer',
+        'flex h-12 w-12 cursor-pointer place-content-center items-center text-center',
         {
-          'bg-gray-100 dark:bg-neutral-700 dark:border-neutral-600 border-dashed border-2 border-gray-400 rounded-lg':
+          'rounded-lg border-2 border-dashed border-gray-400 bg-gray-100 dark:border-neutral-600 dark:bg-neutral-700':
             !simple,
         },
       )}
@@ -1258,7 +1258,7 @@ function CreateAppForm({ onClose }: { onClose: () => void }) {
 
   return (
     <form
-      className="flex flex-col gap-2 p-4 rounded dark:bg-neutral-800 dark:border-neutral-700 bg-white border"
+      className="flex flex-col gap-2 rounded border bg-white p-4 dark:border-neutral-700 dark:bg-neutral-800"
       onSubmit={onSubmit}
       autoComplete="off"
       data-lpignore="true"
@@ -1273,13 +1273,13 @@ function CreateAppForm({ onClose }: { onClose: () => void }) {
         /* n.b. if you change the dimensions here, make sure to also
            change them in pages/platform/oauth/start.tsx (and make sure
            they work with all existing images) */
-        <div className="w-12 h-12 relative">
-          <div className="absolute w-full h-full group">
-            <div className="hidden group-hover:block transition duration-300 w-full h-full place-content-center text-center bg-black/50">
+        <div className="relative h-12 w-12">
+          <div className="group absolute h-full w-full">
+            <div className="hidden h-full w-full place-content-center bg-black/50 text-center transition duration-300 group-hover:block">
               <Button
                 variant="destructive"
                 size="mini"
-                className="p-0 m-0 bg-transparent border-none"
+                className="m-0 border-none bg-transparent p-0"
                 onClick={() => {
                   setLogoDataUrl(null);
                 }}
@@ -1288,7 +1288,7 @@ function CreateAppForm({ onClose }: { onClose: () => void }) {
               </Button>
             </div>
           </div>
-          <img className="w-12 h-12" src={logoDataUrl} />
+          <img className="h-12 w-12" src={logoDataUrl} />
         </div>
       ) : (
         <UploadLogoInput onDataUrl={setLogoDataUrl} />
@@ -1359,7 +1359,7 @@ function Layout({
   const href = `${router.pathname}?${params.toString()}`;
 
   return (
-    <div className="flex flex-col p-4 gap-4">
+    <div className="flex flex-col gap-4 p-4">
       {focusedApp ? (
         <div className="flex flex-row gap-1">
           <Link href={href} className="underline">
@@ -1576,7 +1576,7 @@ export default function OAuthApps({ appId }: { appId: string }) {
       }}
     >
       <Layout focusedApp={focusedApp}>
-        <div className="flex flex-col p-4 gap-4">
+        <div className="flex flex-col gap-4 p-4">
           {secretToCopy ? (
             <Dialog
               open={Boolean(secretToCopy)}
@@ -1611,8 +1611,8 @@ export default function OAuthApps({ appId }: { appId: string }) {
           {focusedApp ? (
             <App app={focusedApp} />
           ) : (
-            <div className="flex flex-col gap-4 ">
-              <Content className="dark:text-neutral-400 max-w-md">
+            <div className="flex flex-col gap-4">
+              <Content className="max-w-md dark:text-neutral-400">
                 OAuth apps allow you to perform actions on behalf of an Instant
                 user, like creating apps in their account or managing their
                 schema.
