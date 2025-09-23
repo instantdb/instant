@@ -731,6 +731,13 @@ function ExplorerTab({
   );
 }
 
+function compareAppTitles(a: InstantApp, b: InstantApp): number {
+  return a.title.localeCompare(b.title, undefined, {
+    sensitivity: 'base',
+    numeric: true,
+  });
+}
+
 function AppCombobox({
   apps,
   appId,
@@ -751,12 +758,7 @@ function AppCombobox({
     ? apps.filter((a) => a.title.toLowerCase().includes(appQuery))
     : apps;
 
-  const sortedApps = filteredApps.toSorted((a, b) =>
-    a.title.localeCompare(b.title, undefined, {
-      sensitivity: 'base',
-      numeric: true,
-    }),
-  );
+  const sortedApps = filteredApps.toSorted(compareAppTitles);
 
   return (
     <Combobox
@@ -805,7 +807,10 @@ function AppCombobox({
           <ComboboxOption
             key={app.id}
             value={app}
-            className="group cursor-pointer px-3 py-2 text-sm data-[focus]:bg-gray-100"
+            className={clsx(
+              'group cursor-pointer px-3 py-2 text-sm data-[focus]:bg-gray-100',
+              app.id === appId && 'bg-gray-200 data-[focus]:bg-gray-200',
+            )}
           >
             <div className="">{app.title}</div>
           </ComboboxOption>
