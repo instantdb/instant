@@ -230,7 +230,7 @@ export function AddClientForm({
         </div>
       )}
       {isNative(appType) && (
-        <div className="rounded border p-4 flex flex-col gap-2 bg-gray-50">
+        <div className="rounded border p-4 flex flex-col dark:bg-neutral-800 dark:border-neutral-700 gap-2 bg-gray-50">
           <Checkbox
             checked={skipNonceChecks}
             onChange={setSkipNonceChecks}
