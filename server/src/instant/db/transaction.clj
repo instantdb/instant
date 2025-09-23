@@ -164,24 +164,46 @@
    (range)
    tx-steps))
 
-(defn check-for-invalid-entity-ids! [tx-steps]
+(defn throw-on-invalid-id-lookup! [attrs tx-steps in lookup]
+  (let [attr (-> lookup
+                 first
+                 (attr-model/seek-by-id attrs))]
+    (when (and (= "id" (attr-model/fwd-label attr))
+               (not (uuid? (second lookup))))
+      (ex/throw-validation-err!
+       :tx-steps
+       tx-steps
+       [{:message (format "Invalid lookup '%s'. The lookup attribute is '%s.%s', but the lookup value is not a valid UUID."
+                          lookup
+                          (attr-model/fwd-etype attr)
+                          (attr-model/fwd-label attr))
+         :in in}]))))
+
+(defn check-for-invalid-entity-ids! [attrs tx-steps]
   (doseq [[idx tx-step] (map-indexed vector tx-steps)
           :when (and (coll? tx-step)
-                     (>= (count tx-step) 2))]
-    (let [[op e] tx-step]
-      (when (and (contains? #{:add-triple :deep-merge-triple :retract-triple :delete-entity} op)
-                 (not (uuid? e))
+                     (>= (count tx-step) 2)
+                     (contains? #{:add-triple :deep-merge-triple :retract-triple :delete-entity}
+                                (first tx-step)))]
+    (let [[_op e _a v] tx-step]
+      (when (and (not (uuid? e))
                  (not (triple-model/eid-lookup-ref? e)))
         (ex/throw-validation-err!
          :tx-steps
          tx-steps
          [{:message (format "Invalid entity ID '%s'. Entity IDs must be UUIDs. Use id() or lookup() to generate a valid UUID." e)
-           :in [idx 1]}])))))
+           :in [idx 1]}]))
 
-(defn validate! [tx-steps]
+      (when (triple-model/eid-lookup-ref? e)
+        (throw-on-invalid-id-lookup! attrs tx-step [idx 1] e))
+
+      (when (triple-model/value-lookup-ref? v)
+        (throw-on-invalid-id-lookup! attrs tx-step [idx 3] v)))))
+
+(defn validate! [ctx tx-steps]
   (let [valid? (s/valid? ::tx-steps tx-steps)]
+    (check-for-invalid-entity-ids! (:attrs ctx) tx-steps)
     (when-not valid?
-      (check-for-invalid-entity-ids! tx-steps)
       ;; Fall back to generic spec error
       (ex/throw-validation-err!
        :tx-steps
