@@ -347,7 +347,7 @@ export function Admin({
 
       <TransferApp app={app} />
 
-      {isMinRole('owner', role) ? (
+      {isMinRole(app.org ? 'admin' : 'owner', role) ? (
         // mt-auto pushes the danger zone to the bottom of the page
         <div className="space-y-2 pb-4">
           <SectionHeading className="pt-4">Danger zone</SectionHeading>
@@ -357,9 +357,11 @@ export function Admin({
           </Content>
           <div>
             <div className="flex flex-col space-y-6">
-              <Button variant="destructive" onClick={clearDialog.onOpen}>
-                <TrashIcon height={'1rem'} /> Clear app
-              </Button>
+              {isMinRole('owner', role) && (
+                <Button variant="destructive" onClick={clearDialog.onOpen}>
+                  <TrashIcon height={'1rem'} /> Clear app
+                </Button>
+              )}
               <Button variant="destructive" onClick={deleteDialog.onOpen}>
                 <TrashIcon height={'1rem'} /> Delete app
               </Button>
