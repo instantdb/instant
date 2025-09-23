@@ -69,6 +69,7 @@ import clsx from 'clsx';
 import { createPortal } from 'react-dom';
 import { NextPageWithLayout } from '../_app';
 import { capitalize } from 'lodash';
+import { Workspace } from '@/lib/hooks/useWorkspace';
 
 // (XXX): we may want to expose this underlying type
 type InstantReactClient = ReturnType<typeof init>;
@@ -529,6 +530,7 @@ function Dashboard() {
                       tab={tab}
                       nav={nav}
                       onDeleteApp={onDeleteApp}
+                      workspace={dashResponse.data.workspace}
                     />
                   ) : null}
                 </div>
@@ -656,6 +658,7 @@ function DashboardContent({
   nav,
   role,
   onDeleteApp,
+  workspace,
 }: {
   connection: { db: InstantReactClient };
   app: InstantApp;
@@ -664,6 +667,7 @@ function DashboardContent({
   role: Role;
   nav: (q: { s: string; app?: string; t?: string }, cb?: () => void) => void;
   onDeleteApp: (app: InstantApp) => void;
+  workspace: Workspace;
 }) {
   // Subscribe to schema changes at the dashboard level
   const schemaData = useSchemaQuery(connection.db);
@@ -703,6 +707,7 @@ function DashboardContent({
           app={app}
           onDelete={() => onDeleteApp(app)}
           nav={nav}
+          workspace={workspace}
         />
       ) : tab === 'billing' && isMinRole('collaborator', role) ? (
         <Billing appId={appId} />

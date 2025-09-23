@@ -37,7 +37,7 @@ export type OrgWorkspace = {
   type: 'org';
 } & ApiOrgResponse;
 
-type Workspace = { type: 'personal'; apps: InstantApp[] } | OrgWorkspace;
+export type Workspace = { type: 'personal'; apps: InstantApp[] } | OrgWorkspace;
 
 const getOrgDetails = async (params: {
   orgId: string;

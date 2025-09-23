@@ -30,18 +30,21 @@ import {
 } from '@/components/ui';
 import { useForm } from '@/lib/hooks/useForm';
 import { HomeButton, isMinRole, Role, TabContent } from '@/pages/dash';
-import { useOrgPaid } from '@/lib/hooks/useOrgPaid';
+import { Workspace } from '@/lib/hooks/useWorkspace';
+import Link from 'next/link';
 
 export function Admin({
   app,
   onDelete,
   role,
   nav,
+  workspace,
 }: {
   app: InstantApp;
   onDelete: () => void;
   role: Role;
   nav: (p: { s: string; t?: string; app?: string }) => void;
+  workspace: Workspace;
 }) {
   const dashResponse = useFetchedDash();
   const token = useContext(TokenContext);
@@ -55,7 +58,7 @@ export function Admin({
   const deleteDialog = useDialog();
   const inviteDialog = useDialog();
 
-  const isPaidOrg = useOrgPaid();
+  const isPaidOrg = workspace.type === 'org' && workspace.org.paid;
 
   const displayedInvites = app.invites?.filter(
     (invite) => invite.status !== 'accepted',
@@ -231,13 +234,44 @@ export function Admin({
             label="App name"
             placeholder="My awesome app"
           />
-          <Button {...appNameForm.submitButtonProps()}>Update app name</Button>
+          <Button variant="secondary" {...appNameForm.submitButtonProps()}>
+            Update app name
+          </Button>
         </form>
       ) : null}
       {app.pro || isPaidOrg ? (
         <>
           <div className="flex flex-col gap-1">
             <SectionHeading>Team Members</SectionHeading>
+            {workspace.type === 'org' && (
+              <div className="my-2">
+                <SubsectionHeading>Organization members</SubsectionHeading>
+                <div className="flex flex-col gap-1">
+                  {workspace.members.map((member) => (
+                    <div
+                      key={member.id}
+                      className="flex justify-between items-center gap-3"
+                    >
+                      <div className="flex justify-between flex-1">
+                        <div>{member.email}</div>
+                        <div className="text-gray-400">
+                          {capitalize(member.role)}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  <Content className="text-sm">
+                    Modify organization members from the{' '}
+                    <Link href={`/dash/org?org=${workspace.org.id}`}>
+                      Organization settings
+                    </Link>
+                  </Content>
+                </div>
+              </div>
+            )}
+            {workspace.type === 'org' && (
+              <SubsectionHeading>App-only members</SubsectionHeading>
+            )}
             {app.members?.length ? (
               <div className="flex flex-col gap-1">
                 {app.members.map((member) => (
@@ -320,38 +354,50 @@ export function Admin({
             </div>
           ) : null}
           <div className="flex flex-col gap-1">
-            {app.pro || isPaidOrg ? (
-              <Button
-                onClick={() => {
-                  inviteDialog.onOpen();
-                }}
-              >
-                Invite a team member
-              </Button>
-            ) : (
-              <>
-                <Content className="italic">
-                  Team member management is a Pro feature.
-                </Content>
-                <Button
-                  onClick={() => {
-                    nav({ s: 'main', app: app.id, t: 'billing' });
-                  }}
-                >
-                  Upgrade to Pro
-                </Button>
-              </>
-            )}
+            <Button
+              variant="secondary"
+              onClick={() => {
+                inviteDialog.onOpen();
+              }}
+            >
+              Invite a team member {isPaidOrg ? 'to this app only' : null}
+            </Button>
           </div>
         </>
       ) : (
-        <div className="bg-gray-100 dark:bg-neutral-800 dark:border-neutral-700 flex gap-2 items-center p-2 rounded border">
-          <InformationCircleIcon width={18}></InformationCircleIcon>
-          Upgrade to a paid app to manage members.
+        <div className="flex flex-col gap-2">
+          <div className="bg-gray-100 dark:bg-neutral-800 dark:border-neutral-700 flex gap-2 items-center p-2 rounded border">
+            <InformationCircleIcon width={18}></InformationCircleIcon>
+            Upgrade to a paid app to manage members.{' '}
+            <Link className="underline" href="/pricing">
+              View pricing.
+            </Link>
+          </div>
+          <div className="flex justify-between">
+            {workspace.type === 'org' ? (
+              <Button
+                type="link"
+                variant="secondary"
+                href={`/dash/org?org=${workspace.org.id}&tab=billing`}
+              >
+                Upgrade the org to the startup plan
+              </Button>
+            ) : null}
+            <Button
+              variant="secondary"
+              onClick={() => {
+                nav({ s: 'main', app: app.id, t: 'billing' });
+              }}
+            >
+              Upgrade the app to Pro
+            </Button>
+          </div>
         </div>
       )}
 
-      <TransferApp app={app} />
+      {isMinRole(app.org ? 'admin' : 'owner', role) && (
+        <TransferApp app={app} />
+      )}
 
       {isMinRole(app.org ? 'admin' : 'owner', role) ? (
         // mt-auto pushes the danger zone to the bottom of the page
@@ -667,6 +713,7 @@ const TransferApp = ({ app }: { app: InstantApp }) => {
             ></Select>
           </div>
           <Button
+            variant="secondary"
             onClick={() => {
               confirmationModal.onOpen();
             }}
