@@ -11,31 +11,13 @@ import * as og from '@/lib/og';
 // ------------------
 const getVariantStyles = (variant: string) => {
   switch (variant) {
-    case 'teams':
+    case 'startup':
       return {
         outline: 'outline-orange-600/80',
         outlineWidth: 'outline-2',
         background: 'bg-white',
         textColor: 'text-black',
         iconColor: 'text-orange-500',
-        badge: {
-          text: 'For teams',
-          bgColor: 'bg-orange-200/20',
-          textColor: 'text-orange-600',
-        },
-      };
-    case 'platform':
-      return {
-        outline: 'outline-blue-600/60',
-        outlineWidth: 'outline-3',
-        background: 'bg-white',
-        textColor: 'text-black',
-        iconColor: 'text-blue-500',
-        badge: {
-          text: 'Agents',
-          bgColor: 'bg-blue-200/30',
-          textColor: 'text-blue-700',
-        },
       };
     default:
       return {
@@ -43,8 +25,7 @@ const getVariantStyles = (variant: string) => {
         outlineWidth: 'outline-2',
         background: 'bg-white',
         textColor: 'text-black',
-        iconColor: 'text-orange-500',
-        badge: null,
+        iconColor: 'text-gray-500',
       };
   }
 };
@@ -72,7 +53,7 @@ const plans = [
   },
   {
     name: 'Pro',
-    variant: 'teams',
+    variant: 'default',
     description: 'For production apps with the ability to scale',
     price: '$30',
     featuresDescription: 'Everything in the Free plan, plus:',
@@ -87,36 +68,36 @@ const plans = [
     ctaLink: '/dash?t=billing',
   },
   {
+    name: 'Startup',
+    variant: 'startup',
+    description: 'For teams with multiple environments and apps',
+    price: '$600',
+    featuresDescription: 'Everything in the Pro plan, plus:',
+    features: [
+      ['250GB database space', 'then $0.125 per GB'],
+      'Slack support',
+      'Unlimited team members per app',
+      'Unlimited pro apps',
+    ],
+    footer: 'Perfect for growing teams building multiple apps.',
+    cta: 'Get started',
+    ctaLink: '/dash?t=billing',
+  },
+  {
     name: 'Enterprise',
     variant: 'default',
     description: 'For teams building large-scale applications',
-    featuresDescription: 'Everything in the Pro plan, plus:',
+    featuresDescription: 'Everything in the Startup plan, plus:',
     price: 'Custom',
     features: [
       'Premium Support',
       'Uptime SLAs',
-      'Unlimited team members per app',
       'Daily backups for last 30 days',
     ],
     ctaDisabled: false,
     cta: 'Contact us',
     ctaLink:
       'mailto:founders@instantdb.com?subject=InstantDB%20Enterprise%20Plan%20Inquiry',
-  },
-  {
-    name: 'Platform',
-    variant: 'platform',
-    description: 'For teams making app builders and agents.',
-    price: 'Custom',
-    featuresDescription: 'Includes:',
-    features: [
-      'On-demand database creation in <100ms',
-      'White-glove onboarding',
-      'Dedicated support',
-    ],
-    cta: 'Contact us',
-    ctaLink:
-      'mailto:founders@instantdb.com?subject=InstantDB%20Platform%20Plan%20Inquiry',
   },
 ];
 
@@ -187,13 +168,6 @@ function Plan({ plan }: { plan: any }) {
           >
             {name}
           </h5>
-          {styles.badge && (
-            <span
-              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-md font-medium ${styles.badge.bgColor} ${styles.badge.textColor}`}
-            >
-              {styles.badge.text}
-            </span>
-          )}
         </div>
         <div className={`opacity-70 ${styles.textColor}`}>{description}</div>
         {price && (
@@ -224,13 +198,7 @@ function Plan({ plan }: { plan: any }) {
         disabled={ctaDisabled}
         className="py-2 font-medium"
         type="link"
-        variant={
-          variant === 'teams'
-            ? 'cta'
-            : variant === 'platform'
-              ? 'primary'
-              : 'secondary'
-        }
+        variant={variant === 'startup' ? 'cta' : 'secondary'}
         href={ctaLink}
       >
         {cta}
@@ -257,7 +225,7 @@ function FourPlanGrid() {
           <div className="text-black text-lg space-y-4">
             <p>
               Whether you're building a side project or your next big thing, you
-              can get started with Instant <strong>for free</strong>.
+              can get started with Instant for free.
             </p>
             <p>
               We don't pause projects, we don't limit number of active
