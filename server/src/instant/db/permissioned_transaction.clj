@@ -1,7 +1,9 @@
 (ns instant.db.permissioned-transaction
   (:require
+   [clojure.pprint :as pprint]
    [clojure.string :as string]
    [clojure+.core :as clojure+]
+   [instant.config :as config]
    [instant.db.cel :as cel]
    [instant.db.datalog :as d]
    [instant.db.model.attr :as attr-model]
@@ -26,6 +28,10 @@
 
 (defn extract-rev-etype [{:keys [attrs]} attr-id]
   (attr-model/rev-etype (attr-model/seek-by-id attr-id attrs)))
+
+(defn printable-check [check]
+  (-> check
+      (update :program :display-code)))
 
 (defn validate-reserved-names!
   "Throws a validation error if the users tries to add triples to the $users table"
@@ -186,7 +192,7 @@
                     (ucoll/update! acc' key update label deep-merge-and-delete value)
 
                     :retract-triple
-                    (ucoll/update! acc' key assoc label nil)
+                    (ucoll/update! acc' key dissoc label)
 
                     acc')]
         acc''))
@@ -258,6 +264,8 @@
                                 :new-data     (get updated-entities-map key)
                                 :linked-data  rev-entity
                                 :linked-etype rev-etype
+                                :actions      {"data" "update"
+                                               "linkedData" (if rev-entity "update" "create")}
                                 :rule-params  (merge rev-rule-params rule-params)}}])
                  (when (and rev-entity rev-link-program)
                    [{:scope    :object
@@ -265,10 +273,12 @@
                      :etype    rev-etype
                      :eid      value
                      :program  rev-link-program
-                     :bindings {:data         rev-entity
+                     :bindings {:data         (assoc rev-entity "$action" "update")
                                 :new-data     (get updated-entities-map rev-key)
                                 :linked-data  (get updated-entities-map key)
                                 :linked-etype etype
+                                :actions      {"data" "update"
+                                               "linkedData" (if entity "update" "create")}
                                 :rule-params  (merge rule-params rev-rule-params)}}]))
 
                 ;; fallback when link isn´t defined on either side
@@ -429,6 +439,8 @@
                                 :new-data     updated-entity
                                 :linked-data  updated-rev-entity
                                 :linked-etype rev-etype
+                                :actions      {"data" "create"
+                                               "linkedData" (if (get entities-map rev-key) "update" "create")}
                                 :rule-params  (merge rev-rule-params rule-params)}}])
                  (when (and updated-rev-entity
                             (nil? (get entities-map rev-key))
@@ -442,6 +454,8 @@
                                 :new-data     updated-rev-entity
                                 :linked-data  updated-entity
                                 :linked-etype etype
+                                :actions      {"data" "create"
+                                               "linkedData" (if create? "create" "update")}
                                 :rule-params  (merge rule-params rev-rule-params)}}]))
 
                 ;; fallback when link isn´t defined on either side
@@ -457,8 +471,6 @@
                                    {:result true})
                      :bindings {:data         updated-entity
                                 :new-data     updated-entity
-                                :linked-data  updated-rev-entity
-                                :linked-etype rev-etype
                                 :rule-params  (merge rev-rule-params rule-params)}}])
                  (when (and updated-rev-entity
                             (nil? (get entities-map rev-key)))
@@ -470,8 +482,6 @@
                                    {:result true})
                      :bindings {:data         updated-rev-entity
                                 :new-data     updated-rev-entity
-                                :linked-data  updated-entity
-                                :linked-etype etype
                                 :rule-params  (merge rule-params rev-rule-params)}}]))
 
                 (and (#{:add-triple :deep-merge-triple} op)
@@ -505,6 +515,9 @@
     (doall
      (for [{:keys [scope etype result] :as check} results]
        (do
+         (when (and (= :dev (config/get-env))
+                    (not result))
+           (pprint/pprint (printable-check check)))
          (when-not (:admin-check? ctx)
            (ex/assert-permitted! :perms-pass? [etype scope] result))
          (-> check
