@@ -132,7 +132,8 @@ export function Schema({ attrs }: { attrs: Record<string, DBAttr> | null }) {
 
           <div className="flex items-center gap-2">
             <Label>Package</Label>
-            <Select<Pkg>
+            <Select
+              value={pkg}
               options={[
                 { label: '@instantdb/core', value: '@instantdb/core' },
                 { label: '@instantdb/react', value: '@instantdb/react' },
