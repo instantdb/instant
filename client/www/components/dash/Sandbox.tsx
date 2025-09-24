@@ -25,6 +25,7 @@ import {
 } from '../resizable';
 import { useDarkMode } from './DarkModeToggle';
 import { createParser, parseAsBoolean, useQueryState } from 'nuqs';
+import { ArrowPathIcon, PlayIcon } from '@heroicons/react/24/solid';
 
 const base64Parser = createParser({
   parse(value) {
@@ -218,23 +219,25 @@ export function Sandbox({
 
   return (
     <>
-      <div className="flex border-b bg-white p-2 dark:border-b-neutral-600 dark:bg-neutral-800">
+      <div className="flex w-full justify-between border-b bg-white p-2 px-3 dark:border-b-neutral-600 dark:bg-neutral-800">
         <div className="flex items-center gap-2">
           <div className="pr-4 font-mono">JS Sandbox</div>
-          <Button
-            size="mini"
-            onClick={() => execRef.current()}
-            disabled={showRunning}
-          >
+        </div>
+        <div className="flex items-center gap-8">
+          <Checkbox
+            label={<div className="text-sm">Write to DB</div>}
+            checked={dangerouslyCommitTx}
+            onChange={setDangerouslyCommitTx}
+          />
+          <Button onClick={() => execRef.current()} disabled={showRunning}>
+            {showRunning ? (
+              <ArrowPathIcon className="animate-spin" width={18} />
+            ) : (
+              <PlayIcon width={18} />
+            )}
+
             {showRunning ? 'Running...' : 'Run'}
           </Button>
-          <div className="ml-3">
-            <Checkbox
-              label="Write to DB"
-              checked={dangerouslyCommitTx}
-              onChange={setDangerouslyCommitTx}
-            />
-          </div>
         </div>
       </div>
       {dangerouslyCommitTx ? (
