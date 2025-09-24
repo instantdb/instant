@@ -1723,11 +1723,14 @@ export default class Reactor {
     this.notifyAuthSubs(newV);
   }
 
-  sendMagicCode({ email }) {
+  async sendMagicCode({ email }) {
+    const currentUser = await this.getCurrentUser();
+    const isAnonymous = currentUser && currentUser.user && !currentUser.user.email;
     return authAPI.sendMagicCode({
       apiURI: this.config.apiURI,
       appId: this.config.appId,
       email: email,
+      userId: isAnonymous ? currentUser.user.id : undefined,
     });
   }
 
@@ -1747,6 +1750,15 @@ export default class Reactor {
       apiURI: this.config.apiURI,
       appId: this.config.appId,
       refreshToken: authToken,
+    });
+    await this.changeCurrentUser(res.user);
+    return res;
+  }
+
+  async signInAnonymously() {
+    const res = await authAPI.signInAnonymously({
+      apiURI: this.config.apiURI,
+      appId: this.config.appId,
     });
     await this.changeCurrentUser(res.user);
     return res;

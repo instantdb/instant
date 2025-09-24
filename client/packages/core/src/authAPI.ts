@@ -6,7 +6,10 @@ type SharedInput = {
   appId: string;
 };
 
-export type SendMagicCodeParams = { email: string };
+export type SendMagicCodeParams = {
+  email: string,
+  userId?: string | undefined,
+};
 export type SendMagicCodeResponse = {
   sent: true;
 };
@@ -15,11 +18,12 @@ export function sendMagicCode({
   apiURI,
   appId,
   email,
+  userId,
 }: SharedInput & SendMagicCodeParams): Promise<SendMagicCodeResponse> {
   return jsonFetch(`${apiURI}/runtime/auth/send_magic_code`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ 'app-id': appId, email }),
+    body: JSON.stringify({ 'app-id': appId, email, ...(userId ? {'user-id': userId} : {}) }),
   });
 }
 
@@ -53,6 +57,20 @@ export async function verifyRefreshToken({
     body: JSON.stringify({
       'app-id': appId,
       'refresh-token': refreshToken,
+    }),
+  });
+  return res;
+}
+
+export async function signInAnonymously({
+  apiURI,
+  appId,
+}: SharedInput): Promise<VerifyResponse> {
+  const res = await jsonFetch(`${apiURI}/runtime/auth/sign_in_anonymously`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      'app-id': appId,
     }),
   });
   return res;

@@ -5,6 +5,7 @@
             [hiccup2.core :as h]
             [instant.auth.oauth :as oauth]
             [instant.config :as config]
+            [instant.jdbc.aurora :as aurora]
             [instant.model.app :as app-model]
             [instant.model.app-authorized-redirect-origin :as app-authorized-redirect-origin-model]
             [instant.model.app-oauth-client :as app-oauth-client-model]
@@ -19,6 +20,7 @@
             [instant.reactive.receive-queue :as receive-queue]
             [instant.reactive.session :as session]
             [instant.reactive.store :as rs]
+            [instant.system-catalog-ops :refer [update-op]]
             [instant.util.coll :as ucoll]
             [instant.util.crypt :as crypt-util]
             [instant.util.email :as email]
@@ -44,9 +46,12 @@
 ;; Magic codes
 
 (defn send-magic-code-post [req]
-  (let [email (ex/get-param! req [:body :email] email/coerce)
-        app-id (ex/get-param! req [:body :app-id] uuid-util/coerce)]
-    (magic-code-auth/send! {:app-id app-id :email email})
+  (let [email   (ex/get-param!          req [:body :email]   email/coerce)
+        app-id  (ex/get-param!          req [:body :app-id]  uuid-util/coerce)
+        user-id (ex/get-optional-param! req [:body :user-id] uuid-util/coerce)]
+    (magic-code-auth/send! {:app-id  app-id
+                            :email   email
+                            :user-id user-id})
     (response/ok {:sent true})))
 
 (comment
@@ -61,12 +66,12 @@
   (send-magic-code-post {:body {:email "stopa@instantdb.com" :app-id (:id app)}}))
 
 (defn verify-magic-code-post [req]
-  (let [email (ex/get-param! req [:body :email] email/coerce)
-        code (ex/get-param! req [:body :code] string-util/safe-trim)
+  (let [email  (ex/get-param! req [:body :email]  email/coerce)
+        code   (ex/get-param! req [:body :code]   string-util/safe-trim)
         app-id (ex/get-param! req [:body :app-id] uuid-util/coerce)
-        user (magic-code-auth/verify! {:app-id app-id
-                                       :email email
-                                       :code code})]
+        user   (magic-code-auth/verify! {:app-id app-id
+                                         :email  email
+                                         :code   code})]
     (response/ok {:user user})))
 
 (comment
@@ -83,6 +88,28 @@
   (verify-magic-code-post {:body {:email "stopa@instantdb.com" :code (:code m)}})
   (verify-magic-code-post {:body {:email "stopa@instantdb.com" :code "0" :app-id (:id app)}})
   (verify-magic-code-post {:body {:email "stopa@instantdb.com" :code (:code m) :app-id (:id app)}}))
+
+;; -----
+;; Anonymous sign in
+
+(defn sign-in-anonymously-post [req]
+  (let [app-id        (ex/get-param! req [:body :app-id] uuid-util/coerce)
+        ;; create anonymous user
+        user-id       (random-uuid)
+        user          (update-op
+                       (aurora/conn-pool :write)
+                       {:app-id app-id
+                        :etype app-user-model/etype}
+                       (fn [{:keys [transact! resolve-id get-entity]}]
+                         (transact! [[:add-triple user-id (resolve-id :id) user-id]])
+                         (get-entity user-id)))
+        ;; create refresh-token for user
+        refresh-token (random-uuid)
+        _             (app-user-refresh-token-model/create!
+                       {:app-id  app-id
+                        :id      refresh-token
+                        :user-id user-id})]
+    (response/ok {:user (assoc user :refresh_token refresh-token)})))
 
 ;; -----
 ;; Refresh Tokens
@@ -494,6 +521,7 @@
   (POST "/runtime/auth/send_magic_code" [] send-magic-code-post)
   (POST "/runtime/auth/verify_magic_code" [] verify-magic-code-post)
   (POST "/runtime/auth/verify_refresh_token" [] verify-refresh-token-post)
+  (POST "/runtime/auth/sign_in_anonymously" [] sign-in-anonymously-post)
   (GET "/runtime/oauth/start" [] (wrap-cookies oauth-start
                                                {:decoder parse-cookie}))
   (GET "/runtime/:app_id/oauth/start" [] (wrap-cookies oauth-start
