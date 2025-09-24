@@ -2,7 +2,7 @@
 // Use https://blurup.vercel.app/
 // to generate one for new videos
 
-import { MuxPlayerProps } from '@mux/mux-player-react/.';
+import type { MuxPlayerProps } from '@mux/mux-player-react';
 
 export const goingOffline: MuxPlayerProps = {
   streamType: 'on-demand',
