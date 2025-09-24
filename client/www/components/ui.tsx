@@ -1,6 +1,13 @@
 import type { ClassValue } from 'clsx';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import {
+  Select as BaseSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/select';
 
 import {
   MouseEventHandler,
@@ -378,9 +385,7 @@ export function Checkbox({
   );
 }
 
-export function Select<
-  Value extends string | number | readonly string[] = string,
->({
+export function Select<Value extends string>({
   value,
   options,
   className,
@@ -391,42 +396,34 @@ export function Select<
   title,
 }: {
   value?: string;
-  options: { label: string; value: Value }[];
+  options: { label: string | ReactNode; value: Value }[];
   className?: string;
-  onChange: (option?: { label: string; value: Value }) => void;
+  onChange: (option?: { label: string | ReactNode; value: Value }) => void;
   disabled?: boolean;
   emptyLabel?: string;
   tabIndex?: number;
   title?: string | undefined;
 }) {
   return (
-    <select
-      title={title}
-      tabIndex={tabIndex}
-      value={value ?? undefined}
+    <BaseSelect
       disabled={disabled}
-      className={cn(
-        'rounded-sm border-gray-300 py-1 disabled:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800',
-        className,
-      )}
-      onChange={(e) => {
-        const v = e.target.value;
-        const o = options.find((o) => o.value === v);
+      onValueChange={(value) => {
+        const o = options.find((o) => o.value === value);
         onChange(o);
       }}
+      value={value}
     >
-      {options.length ? (
-        options.map((option) => (
-          <option key={option.label} value={option.value}>
+      <SelectTrigger className={className} title={title} tabIndex={tabIndex}>
+        <SelectValue placeholder={emptyLabel} />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
             {option.label}
-          </option>
-        ))
-      ) : emptyLabel ? (
-        <option value="" key="">
-          {emptyLabel}
-        </option>
-      ) : null}
-    </select>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </BaseSelect>
   );
 }
 
