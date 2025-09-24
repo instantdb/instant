@@ -1,17 +1,14 @@
-import { init as initAdmin, tx, id, lookup } from '@instantdb/admin';
+import { id, init as initAdmin, lookup, tx } from '@instantdb/admin';
 import { init as initCore, InstantUnknownSchema } from '@instantdb/core';
 import Json from '@uiw/react-json-view';
-import { lightTheme } from '@uiw/react-json-view/light';
 import { darkTheme } from '@uiw/react-json-view/dark';
+import { lightTheme } from '@uiw/react-json-view/light';
 
-import config, { getLocal, setLocal } from '@/lib/config';
-import { InstantApp } from '@/lib/types';
-import { Editor } from '@monaco-editor/react';
-import { useEffect, useRef, useState } from 'react';
-import { Button, Checkbox, Label, TextInput } from '@/components/ui';
-import { dbAttrsToExplorerSchema } from '@/lib/schema';
-import clsx from 'clsx';
+import { Button, Checkbox, Label } from '@/components/ui';
+import config, { getLocal } from '@/lib/config';
 import useLocalStorage from '@/lib/hooks/useLocalStorage';
+import { dbAttrsToExplorerSchema } from '@/lib/schema';
+import { InstantApp } from '@/lib/types';
 import {
   Combobox,
   ComboboxInput,
@@ -19,6 +16,14 @@ import {
   ComboboxOptions,
 } from '@headlessui/react';
 import { InstantReactWebDatabase } from '@instantdb/react';
+import { Editor } from '@monaco-editor/react';
+import clsx from 'clsx';
+import { useEffect, useRef, useState } from 'react';
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from '../resizable';
 import { useDarkMode } from './DarkModeToggle';
 
 let cachedSandboxValue = '';
@@ -199,168 +204,185 @@ export function Sandbox({
   execRef.current = exec;
 
   return (
-    <div className="flex h-full flex-1 overflow-y-hidden">
-      <div className="flex min-w-[24em] flex-1 flex-col border-r dark:border-r-neutral-600">
-        <div className="flex flex-1 flex-col border-b dark:border-b-neutral-800">
-          <div className="flex items-center justify-between gap-2 border-b bg-gray-50 px-2 py-1 text-xs dark:border-b-neutral-700 dark:bg-neutral-800">
-            <div className="flex items-center gap-2">
-              JS Sandbox
-              <Button
-                size="nano"
-                onClick={() => execRef.current()}
-                disabled={showRunning}
-              >
-                {showRunning ? 'Running...' : 'Run'}
-              </Button>
-              <div className="ml-3">
-                <Checkbox
-                  label="Write to DB"
-                  checked={dangerouslyCommitTx}
-                  onChange={setDangerouslyCommitTx}
-                />
+    <ResizablePanelGroup
+      direction="horizontal"
+      className="flex h-full flex-1 overflow-y-hidden"
+    >
+      <ResizablePanel className="flex min-w-[24em] flex-1 flex-col border-r dark:border-r-neutral-600">
+        <ResizablePanelGroup direction="vertical">
+          <ResizablePanel
+            minSize={20}
+            className="flex flex-1 flex-col border-b dark:border-b-neutral-600"
+          >
+            <div className="flex items-center justify-between gap-2 border-b bg-gray-50 px-2 py-1 text-xs dark:border-b-neutral-700 dark:bg-neutral-800">
+              <div className="flex items-center gap-2">
+                JS Sandbox
+                <Button
+                  size="nano"
+                  onClick={() => execRef.current()}
+                  disabled={showRunning}
+                >
+                  {showRunning ? 'Running...' : 'Run'}
+                </Button>
+                <div className="ml-3">
+                  <Checkbox
+                    label="Write to DB"
+                    checked={dangerouslyCommitTx}
+                    onChange={setDangerouslyCommitTx}
+                  />
+                </div>
               </div>
             </div>
-          </div>
-          {dangerouslyCommitTx ? (
-            <div className="border-b border-b-amber-100 bg-amber-50 px-2 py-1 text-xs text-amber-600 dark:border-b-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
-              <strong>Use caution!</strong> Successful transactions will update
-              your app's DB!
-            </div>
-          ) : (
-            <div className="border-b border-b-sky-200 bg-sky-50 px-2 py-1 text-xs text-sky-600 dark:border-b-neutral-700 dark:bg-sky-900/80 dark:text-sky-400/90">
-              <strong>Debug mode.</strong> Transactions will not update your
-              app's DB.
-            </div>
-          )}
-          <div className="flex-1">
-            <Editor
-              theme={darkMode ? 'vs-dark' : 'light'}
-              height={'100%'}
-              path="sandbox.ts"
-              language="typescript"
-              value={sandboxCodeValue}
-              onChange={(v) => {
-                setSandboxValue(v ?? '');
-              }}
-              options={{
-                scrollBeyondLastLine: false,
-                overviewRulerLanes: 0,
-                hideCursorInOverviewRuler: true,
-                minimap: { enabled: false },
-                automaticLayout: true,
-                lineNumbers: 'off',
-              }}
-              onMount={(editor, monaco) => {
-                editor.addCommand(
-                  monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
-                  () => execRef.current(),
-                );
+            {dangerouslyCommitTx ? (
+              <div className="border-b border-b-amber-100 bg-amber-50 px-2 py-1 text-xs text-amber-600 dark:border-b-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                <strong>Use caution!</strong> Successful transactions will
+                update your app's DB!
+              </div>
+            ) : (
+              <div className="border-b border-b-sky-200 bg-sky-50 px-2 py-1 text-xs text-sky-600 dark:border-b-neutral-600 dark:bg-sky-900/80 dark:text-sky-400/90">
+                <strong>Debug mode.</strong> Transactions will not update your
+                app's DB.
+              </div>
+            )}
+            <div className="flex-1">
+              <Editor
+                theme={darkMode ? 'vs-dark' : 'light'}
+                height={'100%'}
+                path="sandbox.ts"
+                language="typescript"
+                value={sandboxCodeValue}
+                onChange={(v) => {
+                  setSandboxValue(v ?? '');
+                }}
+                options={{
+                  scrollBeyondLastLine: false,
+                  overviewRulerLanes: 0,
+                  hideCursorInOverviewRuler: true,
+                  minimap: { enabled: false },
+                  automaticLayout: true,
+                  lineNumbers: 'off',
+                }}
+                onMount={(editor, monaco) => {
+                  editor.addCommand(
+                    monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
+                    () => execRef.current(),
+                  );
 
-                editor.addCommand(
-                  monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
-                  () => {},
-                );
+                  editor.addCommand(
+                    monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
+                    () => {},
+                  );
 
-                monaco.languages.typescript.typescriptDefaults.addExtraLib(
-                  tsTypes,
-                  'ts:filename/global.d.ts',
-                );
+                  monaco.languages.typescript.typescriptDefaults.addExtraLib(
+                    tsTypes,
+                    'ts:filename/global.d.ts',
+                  );
 
-                monaco.languages.typescript.typescriptDefaults.setCompilerOptions(
-                  {
-                    module: monaco.languages.typescript.ModuleKind.ESNext,
-                    target: monaco.languages.typescript.ScriptTarget.ESNext,
-                  },
-                );
+                  monaco.languages.typescript.typescriptDefaults.setCompilerOptions(
+                    {
+                      module: monaco.languages.typescript.ModuleKind.ESNext,
+                      target: monaco.languages.typescript.ScriptTarget.ESNext,
+                    },
+                  );
 
-                monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions(
-                  {
-                    diagnosticCodesToIgnore: [
-                      // top-level await without export
-                      1375,
-                    ],
-                  },
-                );
-              }}
-            />
-          </div>
-        </div>
-        <div className="flex flex-col border-b dark:border-b-neutral-700">
-          <div className="flex flex-col gap-1 border-b bg-gray-50 px-2 py-1 text-xs dark:border-b-neutral-700 dark:bg-neutral-800">
-            Context
-          </div>
-          <div className="flex items-center gap-2 px-2 py-1">
-            <Label className="text-xs font-normal">
-              Set{' '}
-              <code className="border bg-white px-2 dark:border-neutral-600 dark:bg-neutral-800">
-                auth.email
-              </code>
-            </Label>
-            <EmailInput
-              key={app.id}
-              db={db}
-              email={runAsUserEmail}
-              setEmail={setRunAsUserEmail}
-              onEnter={execRef.current}
-            />
-          </div>
-        </div>
-
-        <div className="flex flex-1 flex-col">
-          <div className="flex items-center gap-2 border-b bg-gray-50 px-2 py-1 text-xs dark:border-b-neutral-700 dark:bg-neutral-800">
-            Permissions
-            <div>
-              <Checkbox
-                label="Use saved app rules"
-                checked={useAppPerms}
-                onChange={setUseAppPerms}
+                  monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions(
+                    {
+                      diagnosticCodesToIgnore: [
+                        // top-level await without export
+                        1375,
+                      ],
+                    },
+                  );
+                }}
               />
             </div>
-          </div>
-          {useAppPerms ? null : (
-            <div className="border-b border-b-amber-100 bg-amber-50 px-2 py-1 text-xs text-amber-600 dark:border-b-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
-              <strong>Use caution!</strong> Transactions above will be evaluated
-              with these rules.
+          </ResizablePanel>
+          <ResizableHandle />
+          <ResizablePanel
+            minSize={10}
+            className="flex flex-col border-b dark:border-b-neutral-700"
+          >
+            <div className="flex flex-col gap-1 border-b bg-gray-50 px-2 py-1 text-xs dark:border-b-neutral-700 dark:bg-neutral-800">
+              Context
             </div>
-          )}
-          <div className="flex flex-1 overflow-hidden bg-white dark:bg-neutral-800">
-            <div className={clsx('flex-1', useAppPerms ? 'opacity-50' : '')}>
-              {useAppPerms ? (
-                <Editor
-                  theme={darkMode ? 'vs-dark' : 'light'}
-                  key="app"
-                  path="app-permissions.json"
-                  value={app.rules ? JSON.stringify(app.rules, null, 2) : ''}
-                  height={'100%'}
-                  language="json"
-                  options={{
-                    ...editorOptions,
-                    readOnly: true,
-                  }}
-                />
-              ) : (
-                <Editor
-                  theme={darkMode ? 'vs-dark' : 'light'}
-                  key="custom"
-                  path="custom-permissions.json"
-                  value={permsValue}
-                  onChange={(v) => setPermsValue(v ?? '')}
-                  height={'100%'}
-                  language="json"
-                  options={editorOptions}
-                  onMount={(editor, monaco) => {
-                    editor.addCommand(
-                      monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
-                      () => execRef.current(),
-                    );
-                  }}
-                />
+            <div className="flex items-center gap-2 px-2 py-1">
+              <Label className="text-xs font-normal">
+                Set{' '}
+                <code className="border bg-white px-2 dark:border-neutral-600 dark:bg-neutral-800">
+                  auth.email
+                </code>
+              </Label>
+              <EmailInput
+                key={app.id}
+                db={db}
+                email={runAsUserEmail}
+                setEmail={setRunAsUserEmail}
+                onEnter={execRef.current}
+              />
+            </div>
+
+            <div className="flex flex-1 flex-col">
+              <div className="flex items-center gap-2 border-b bg-gray-50 px-2 py-1 text-xs dark:border-b-neutral-700 dark:bg-neutral-800">
+                Permissions
+                <div>
+                  <Checkbox
+                    label="Use saved app rules"
+                    checked={useAppPerms}
+                    onChange={setUseAppPerms}
+                  />
+                </div>
+              </div>
+              {useAppPerms ? null : (
+                <div className="border-b border-b-amber-100 bg-amber-50 px-2 py-1 text-xs text-amber-600 dark:border-b-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                  <strong>Use caution!</strong> Transactions above will be
+                  evaluated with these rules.
+                </div>
               )}
+              <div className="flex flex-1 overflow-hidden bg-white dark:bg-neutral-800">
+                <div
+                  className={clsx('flex-1', useAppPerms ? 'opacity-50' : '')}
+                >
+                  {useAppPerms ? (
+                    <Editor
+                      theme={darkMode ? 'vs-dark' : 'light'}
+                      key="app"
+                      path="app-permissions.json"
+                      value={
+                        app.rules ? JSON.stringify(app.rules, null, 2) : ''
+                      }
+                      height={'100%'}
+                      language="json"
+                      options={{
+                        ...editorOptions,
+                        readOnly: true,
+                      }}
+                    />
+                  ) : (
+                    <Editor
+                      theme={darkMode ? 'vs-dark' : 'light'}
+                      key="custom"
+                      path="custom-permissions.json"
+                      value={permsValue}
+                      onChange={(v) => setPermsValue(v ?? '')}
+                      height={'100%'}
+                      language="json"
+                      options={editorOptions}
+                      onMount={(editor, monaco) => {
+                        editor.addCommand(
+                          monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
+                          () => execRef.current(),
+                        );
+                      }}
+                    />
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      </div>
-      <div className="flex min-w-[24em] flex-1 flex-col overflow-hidden">
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      </ResizablePanel>
+      <ResizableHandle></ResizableHandle>
+      <ResizablePanel className="flex min-w-[24em] flex-1 flex-col overflow-hidden">
         <div className="flex flex-col gap-1 border-b bg-gray-50 px-2 py-1 text-xs dark:border-b-neutral-700 dark:bg-neutral-800">
           <div className="flex gap-2">
             Output
@@ -605,8 +627,8 @@ export function Sandbox({
             ),
           )}
         </div>
-      </div>
-    </div>
+      </ResizablePanel>
+    </ResizablePanelGroup>
   );
 }
 
