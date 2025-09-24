@@ -47,7 +47,7 @@ You can either add `--filter` to make dev:
 
 ```bash
 # Run dev for a sandbox app
-make dev --- --filter create-instant-app
+make dev -- --filter create-instant-app
 ```
 
 Or cd into the package and run a separate command there:
