@@ -314,6 +314,18 @@ class Auth {
   };
 
   /**
+   * Sign in anonymously, creating a new user without email
+   *
+   * @see https://instantdb.com/docs/auth
+   *
+   * @example
+   *   db.auth.signInAnonymously();
+   */
+  signInAnonymously = (): Promise<VerifyResponse> => {
+    return this.db.signInAnonymously();
+  };
+
+  /**
    * Create an authorization url to sign in with an external provider
    *
    * @see https://instantdb.com/docs/auth
