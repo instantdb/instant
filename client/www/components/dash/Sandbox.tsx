@@ -4,19 +4,38 @@ import Json from '@uiw/react-json-view';
 import { darkTheme } from '@uiw/react-json-view/dark';
 import { lightTheme } from '@uiw/react-json-view/light';
 
-import { Button, Checkbox, Label } from '@/components/ui';
-import config, { getLocal } from '@/lib/config';
+import {
+  Button,
+  Checkbox,
+  cn,
+  Dialog,
+  IconButton,
+  Label,
+  Select,
+  TextInput,
+  useDialog,
+} from '@/components/ui';
+import config from '@/lib/config';
+import useLocalStorage from '@/lib/hooks/useLocalStorage';
 import { dbAttrsToExplorerSchema } from '@/lib/schema';
-import { InstantApp } from '@/lib/types';
+import { DBAttr, InstantApp } from '@/lib/types';
 import {
   Combobox,
   ComboboxInput,
   ComboboxOption,
   ComboboxOptions,
 } from '@headlessui/react';
+import {
+  ArchiveBoxArrowDownIcon,
+  ArrowPathIcon,
+  PlayIcon,
+  PlusIcon,
+  TrashIcon,
+} from '@heroicons/react/24/outline';
 import { InstantReactWebDatabase } from '@instantdb/react';
 import { Editor } from '@monaco-editor/react';
 import clsx from 'clsx';
+import { createParser, parseAsBoolean, useQueryState } from 'nuqs';
 import { useEffect, useRef, useState } from 'react';
 import {
   ResizableHandle,
@@ -24,8 +43,7 @@ import {
   ResizablePanelGroup,
 } from '../resizable';
 import { useDarkMode } from './DarkModeToggle';
-import { createParser, parseAsBoolean, useQueryState } from 'nuqs';
-import { ArrowPathIcon, PlayIcon } from '@heroicons/react/24/solid';
+import { ArrowUpToLine, Save } from 'lucide-react';
 
 const base64Parser = createParser({
   parse(value) {
@@ -40,6 +58,15 @@ const base64Parser = createParser({
   },
 });
 
+type SavedSandbox = {
+  name: string;
+  code: string;
+  perms: string;
+  runAsUser: string | null;
+  useAppPerms: boolean;
+  lastSavedAt: string;
+};
+
 export function Sandbox({
   app,
   db,
@@ -48,6 +75,13 @@ export function Sandbox({
   db: InstantReactWebDatabase<any>;
 }) {
   const consoleRef = useRef<HTMLDivElement>(null);
+
+  const [selectedSandbox, setSelectedSandbox] = useState<string | null>(null);
+
+  const [savedSandboxes, setSavedSandboxes] = useLocalStorage<SavedSandbox[]>(
+    `sandboxes:${app.id}`,
+    [],
+  );
 
   const [sandboxCodeValue, setSandboxValue] = useQueryState(`code`, {
     ...base64Parser,
@@ -65,6 +99,9 @@ export function Sandbox({
   });
 
   const [runAsUserEmail, setRunAsUserEmail] = useQueryState('runAsUser');
+  const [hasUnsavedWork, setHasUnsavedWork] = useState(false);
+  const saveCurrentDialog = useDialog();
+  const [newSaveName, setNewSaveName] = useState('');
 
   const [dangerouslyCommitTx, setDangerouslyCommitTx] = useState(false);
   const [appendResults, setAppendResults] = useState(false);
@@ -77,6 +114,112 @@ export function Sandbox({
   const [isExecuting, setIsExecuting] = useState(false);
 
   const { darkMode } = useDarkMode();
+
+  /**
+   * Saves the current sandbox as a new preset.
+   * @throws Error if a preset with the same name already exists.
+   */
+  const saveCurrent = (name: string) => {
+    if (savedSandboxes.find((sb) => sb.name === name)) {
+      const existingPreset = savedSandboxes.find((sb) => sb.name === name);
+      if (existingPreset) {
+        setSavedSandboxes([
+          ...savedSandboxes.filter((sb) => sb.name !== name),
+          {
+            name,
+            code: sandboxCodeValue,
+            perms: permsValue,
+            lastSavedAt: new Date().toString(),
+            runAsUser: runAsUserEmail,
+            useAppPerms,
+          },
+        ]);
+      }
+    } else {
+      setSavedSandboxes([
+        ...savedSandboxes,
+        {
+          name,
+          code: sandboxCodeValue,
+          perms: permsValue,
+          lastSavedAt: new Date().toString(),
+          runAsUser: runAsUserEmail,
+          useAppPerms,
+        },
+      ]);
+    }
+    setHasUnsavedWork(false);
+  };
+
+  const loadPreset = (name: string) => {
+    console.log('loading preset', name);
+    setSelectedSandbox(name);
+    const saved = savedSandboxes.find((sb) => sb.name === name);
+    if (!saved) {
+      return;
+    }
+    setHasUnsavedWork(false);
+    setSandboxValue(saved.code);
+    setPermsValue(saved.perms);
+    setRunAsUserEmail(saved.runAsUser);
+    setUseAppPerms(saved.useAppPerms);
+  };
+
+  const deleteSandbox = (name: string) => {
+    setSavedSandboxes(savedSandboxes.filter((sb) => sb.name !== name));
+    if (selectedSandbox === name) {
+      setSelectedSandbox(null);
+    }
+  };
+
+  // if loading code from base64 query param, check if it matches
+  // a saved sandbox
+  useEffect(() => {
+    if (!sandboxCodeValue) return;
+
+    const matchingSandbox = savedSandboxes.find(
+      (sb) =>
+        sb.code === sandboxCodeValue &&
+        sb.perms === permsValue &&
+        sb.runAsUser === runAsUserEmail &&
+        sb.useAppPerms === useAppPerms,
+    );
+
+    if (matchingSandbox) {
+      setSelectedSandbox(matchingSandbox.name);
+      setHasUnsavedWork(false);
+    } else {
+      setSelectedSandbox(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!selectedSandbox) {
+      setHasUnsavedWork(false);
+    }
+    const saved = savedSandboxes.find((sb) => sb.name === selectedSandbox);
+    if (!saved) {
+      return;
+    }
+
+    if (JSON.stringify(sandboxCodeValue) !== JSON.stringify(saved.code)) {
+      setHasUnsavedWork(true);
+      return;
+    }
+    if (JSON.stringify(permsValue) !== JSON.stringify(saved.perms)) {
+      setHasUnsavedWork(true);
+      return;
+    }
+    if (runAsUserEmail !== saved.runAsUser) {
+      setHasUnsavedWork(true);
+      return;
+    }
+    if (useAppPerms !== saved.useAppPerms) {
+      setHasUnsavedWork(true);
+      return;
+    }
+    setHasUnsavedWork(false);
+  }, [selectedSandbox, permsValue, sandboxCodeValue]);
 
   function out(
     type: 'log' | 'error' | 'query' | 'transaction' | 'eval',
@@ -92,6 +235,8 @@ export function Sandbox({
       apiURI: config.apiURI,
     });
 
+    console.log('CORE DB INITIALIZED', coreDb);
+
     const unsubAttrs = coreDb._reactor.subscribeAttrs((_oAttrs: any) => {
       let unsubImmediately = setInterval(() => {
         if (unsubAttrs) {
@@ -100,10 +245,18 @@ export function Sandbox({
         }
       }, 10);
       if (sandboxCodeValue) return;
+      console.log('USER EFFECT', JSON.stringify(sandboxCodeValue));
       const schema = dbAttrsToExplorerSchema(_oAttrs);
       const ns = schema.at(0);
+      console.log('hihi', ns);
       setSandboxValue(initialSandboxValue(ns?.name || 'example'));
     });
+
+    return () => {
+      if (unsubAttrs) {
+        unsubAttrs();
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -217,12 +370,94 @@ export function Sandbox({
   const execRef = useRef<() => void>(exec);
   execRef.current = exec;
 
+  const PresetManager = () => {
+    return (
+      <div className="flex items-center gap-2">
+        <Select
+          contentClassName="bg-white"
+          onChange={(val) => {
+            if (val) {
+              loadPreset(val.value);
+            }
+          }}
+          className="min-w-[200px]"
+          visibleValue={
+            hasUnsavedWork ? selectedSandbox + '*' : selectedSandbox
+          }
+          value={selectedSandbox || undefined}
+          emptyLabel={<div className="opacity-50">Saved Sandboxes...</div>}
+          noOptionsLabel={
+            <div className="p-2 text-sm opacity-60">No Sandboxes Found</div>
+          }
+          options={savedSandboxes.map((sandbox) => ({
+            label: sandbox.name,
+            value: sandbox.name,
+          }))}
+        ></Select>
+        {selectedSandbox && (
+          <>
+            <IconButton
+              variant="subtle"
+              className="text-red-400 dark:text-red-300"
+              onClick={() => {
+                deleteSandbox(selectedSandbox);
+              }}
+              label="Delete Sandbox"
+              icon={<TrashIcon />}
+            />
+
+            <IconButton
+              disabled={!hasUnsavedWork}
+              onClick={() => {
+                saveCurrent(selectedSandbox.trim());
+              }}
+              icon={<Save strokeWidth={1.5} width={18} />}
+              label={`Save "${selectedSandbox}" with current sandbox`}
+              variant="subtle"
+            />
+          </>
+        )}
+        <IconButton
+          icon={<PlusIcon />}
+          label="Save As..."
+          onClick={() => {
+            saveCurrentDialog.onOpen();
+          }}
+          variant="subtle"
+        ></IconButton>
+      </div>
+    );
+  };
+
   return (
     <>
+      <Dialog {...saveCurrentDialog}>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            saveCurrent(newSaveName.trim());
+            saveCurrentDialog.onClose();
+            setSelectedSandbox(newSaveName);
+            setNewSaveName('');
+          }}
+        >
+          <div className="pb-2">
+            Enter a name to save the current sandbox as.
+          </div>
+          <TextInput
+            autoFocus
+            className="mt-0"
+            label={<div className="pb-0 pt-2 font-[400]">Sandbox Name</div>}
+            value={newSaveName}
+            onChange={setNewSaveName}
+          />
+          <div className="flex justify-end pt-2">
+            <Button type="submit">Save</Button>
+          </div>
+        </form>
+      </Dialog>
       <div className="flex w-full justify-between border-b bg-white p-2 px-3 dark:border-b-neutral-600 dark:bg-neutral-800">
-        <div className="flex items-center gap-2">
-          <div className="pr-4 font-mono">JS Sandbox</div>
-        </div>
+        <PresetManager />
         <div className="flex items-center gap-8">
           <Checkbox
             label={<div className="text-sm">Write to DB</div>}
@@ -452,6 +687,7 @@ export function Sandbox({
                 ></div>
               ) : (
                 <div
+                  key={i}
                   className={clsx(
                     'rounded border bg-gray-50 shadow-sm transition-all hover:shadow dark:bg-neutral-800',
                     {

@@ -18,6 +18,7 @@ import {
   useState,
   Fragment,
   PropsWithChildren,
+  ComponentProps,
 } from 'react';
 import { Editor, Monaco, OnMount } from '@monaco-editor/react';
 import {
@@ -231,7 +232,7 @@ export function TextInput({
   }, []);
 
   return (
-    <label className="flex flex-col gap-2">
+    <label className="flex flex-col gap-1">
       {label ? <Label>{label}</Label> : null}
       <input
         disabled={disabled}
@@ -394,15 +395,21 @@ export function Select<Value extends string>({
   emptyLabel,
   tabIndex,
   title,
+  noOptionsLabel,
+  contentClassName,
+  visibleValue,
 }: {
   value?: string;
   options: { label: string | ReactNode; value: Value }[];
   className?: string;
   onChange: (option?: { label: string | ReactNode; value: Value }) => void;
   disabled?: boolean;
-  emptyLabel?: string;
+  emptyLabel?: string | ReactNode;
+  noOptionsLabel?: string | ReactNode;
   tabIndex?: number;
   title?: string | undefined;
+  contentClassName?: string;
+  visibleValue?: ReactNode;
 }) {
   return (
     <BaseSelect
@@ -414,14 +421,15 @@ export function Select<Value extends string>({
       value={value}
     >
       <SelectTrigger className={className} title={title} tabIndex={tabIndex}>
-        <SelectValue placeholder={emptyLabel} />
+        <SelectValue placeholder={emptyLabel}>{visibleValue}</SelectValue>
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent className={contentClassName}>
         {options.map((option) => (
           <SelectItem key={option.value} value={option.value}>
             {option.label}
           </SelectItem>
         ))}
+        {options.length === 0 && noOptionsLabel}
       </SelectContent>
     </BaseSelect>
   );
@@ -658,6 +666,52 @@ export function Button({
     </button>
   );
 }
+
+interface IconButtonProps {
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  labelDirection?: ComponentProps<typeof TooltipContent>['side'];
+  variant?: 'primary' | 'secondary' | 'subtle';
+  className?: string;
+}
+
+export const IconButton = ({
+  icon,
+  label,
+  onClick,
+  disabled,
+  labelDirection,
+  variant,
+  className,
+}: IconButtonProps) => {
+  return (
+    <Tooltip>
+      <TooltipTrigger>
+        <button
+          title={label}
+          disabled={disabled}
+          onClick={onClick}
+          className={cn(
+            'flex h-9 w-9 items-center justify-center rounded-sm p-2',
+            variant === 'primary' &&
+              'bg-[#616AF4] text-white hover:bg-[#4543E9]',
+            variant === 'secondary' &&
+              'border border-gray-300 bg-white text-gray-800 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700/50',
+            variant === 'subtle' &&
+              'text-gray-800 hover:bg-gray-200/30 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700/50',
+            disabled && 'cursor-not-allowed opacity-40',
+            className,
+          )}
+        >
+          {icon}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side={labelDirection}>{label}</TooltipContent>
+    </Tooltip>
+  );
+};
 
 // interactions
 
