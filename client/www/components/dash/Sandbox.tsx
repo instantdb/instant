@@ -6,7 +6,6 @@ import { lightTheme } from '@uiw/react-json-view/light';
 
 import { Button, Checkbox, Label } from '@/components/ui';
 import config, { getLocal } from '@/lib/config';
-import useLocalStorage from '@/lib/hooks/useLocalStorage';
 import { dbAttrsToExplorerSchema } from '@/lib/schema';
 import { InstantApp } from '@/lib/types';
 import {
@@ -25,12 +24,20 @@ import {
   ResizablePanelGroup,
 } from '../resizable';
 import { useDarkMode } from './DarkModeToggle';
+import { createParser, parseAsBoolean, useQueryState } from 'nuqs';
 
-let cachedSandboxValue = '';
-
-try {
-  cachedSandboxValue = getLocal('__instant_sandbox_value') ?? '';
-} catch (error) {}
+const base64Parser = createParser({
+  parse(value) {
+    try {
+      return JSON.parse(atob(value));
+    } catch {
+      return '';
+    }
+  },
+  serialize(value) {
+    return btoa(JSON.stringify(value));
+  },
+});
 
 export function Sandbox({
   app,
@@ -40,24 +47,30 @@ export function Sandbox({
   db: InstantReactWebDatabase<any>;
 }) {
   const consoleRef = useRef<HTMLDivElement>(null);
-  const [sandboxCodeValue, setSandboxValue] = useLocalStorage(
-    `__instant_sandbox_value:${app.id}`,
-    cachedSandboxValue,
+
+  const [sandboxCodeValue, setSandboxValue] = useQueryState(`code`, {
+    ...base64Parser,
+  });
+
+  const [useAppPerms, setUseAppPerms] = useQueryState(
+    'useAppPerms',
+    parseAsBoolean.withDefault(true),
   );
-  const [runAsUserEmail, setRunAsUserEmail] = useLocalStorage(
-    `__instant_sandbox_email:${app.id}`,
-    '',
-  );
+
+  const [permsValue, setPermsValue] = useQueryState('perms', {
+    ...base64Parser.withDefault(
+      app.rules ? JSON.stringify(app.rules, null, 2) : '',
+    ),
+  });
+
+  const [runAsUserEmail, setRunAsUserEmail] = useQueryState('runAsUser');
+
   const [dangerouslyCommitTx, setDangerouslyCommitTx] = useState(false);
   const [appendResults, setAppendResults] = useState(false);
   const [collapseQuery, setHideQuery] = useState(false);
   const [collapseLog, setCollapseLog] = useState(false);
   const [collapseTransaction, setCollapseTransaction] = useState(false);
   const [defaultCollapsed, setDefaultCollapsed] = useState(false);
-  const [useAppPerms, setUseAppPerms] = useState(true);
-  const [permsValue, setPermsValue] = useState(() =>
-    app.rules ? JSON.stringify(app.rules, null, 2) : '',
-  );
   const [output, setOutput] = useState<any[]>([]);
   const [showRunning, setShowRunning] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
@@ -204,323 +217,412 @@ export function Sandbox({
   execRef.current = exec;
 
   return (
-    <ResizablePanelGroup
-      direction="horizontal"
-      className="flex h-full flex-1 overflow-y-hidden"
-    >
-      <ResizablePanel className="flex min-w-[24em] flex-1 flex-col border-r dark:border-r-neutral-600">
-        <ResizablePanelGroup direction="vertical">
-          <ResizablePanel
-            minSize={20}
-            className="flex flex-1 flex-col border-b dark:border-b-neutral-600"
+    <>
+      <div className="flex border-b bg-white p-2 dark:border-b-neutral-600 dark:bg-neutral-800">
+        <div className="flex items-center gap-2">
+          <div className="pr-4 font-mono">JS Sandbox</div>
+          <Button
+            size="mini"
+            onClick={() => execRef.current()}
+            disabled={showRunning}
           >
-            <div className="flex items-center justify-between gap-2 border-b bg-gray-50 px-2 py-1 text-xs dark:border-b-neutral-700 dark:bg-neutral-800">
-              <div className="flex items-center gap-2">
-                JS Sandbox
-                <Button
-                  size="nano"
-                  onClick={() => execRef.current()}
-                  disabled={showRunning}
-                >
-                  {showRunning ? 'Running...' : 'Run'}
-                </Button>
-                <div className="ml-3">
-                  <Checkbox
-                    label="Write to DB"
-                    checked={dangerouslyCommitTx}
-                    onChange={setDangerouslyCommitTx}
-                  />
-                </div>
-              </div>
-            </div>
-            {dangerouslyCommitTx ? (
-              <div className="border-b border-b-amber-100 bg-amber-50 px-2 py-1 text-xs text-amber-600 dark:border-b-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
-                <strong>Use caution!</strong> Successful transactions will
-                update your app's DB!
-              </div>
-            ) : (
-              <div className="border-b border-b-sky-200 bg-sky-50 px-2 py-1 text-xs text-sky-600 dark:border-b-neutral-600 dark:bg-sky-900/80 dark:text-sky-400/90">
-                <strong>Debug mode.</strong> Transactions will not update your
-                app's DB.
-              </div>
-            )}
-            <div className="flex-1">
-              <Editor
-                theme={darkMode ? 'vs-dark' : 'light'}
-                height={'100%'}
-                path="sandbox.ts"
-                language="typescript"
-                value={sandboxCodeValue}
-                onChange={(v) => {
-                  setSandboxValue(v ?? '');
-                }}
-                options={{
-                  scrollBeyondLastLine: false,
-                  overviewRulerLanes: 0,
-                  hideCursorInOverviewRuler: true,
-                  minimap: { enabled: false },
-                  automaticLayout: true,
-                  lineNumbers: 'off',
-                }}
-                onMount={(editor, monaco) => {
-                  editor.addCommand(
-                    monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
-                    () => execRef.current(),
-                  );
-
-                  editor.addCommand(
-                    monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
-                    () => {},
-                  );
-
-                  monaco.languages.typescript.typescriptDefaults.addExtraLib(
-                    tsTypes,
-                    'ts:filename/global.d.ts',
-                  );
-
-                  monaco.languages.typescript.typescriptDefaults.setCompilerOptions(
-                    {
-                      module: monaco.languages.typescript.ModuleKind.ESNext,
-                      target: monaco.languages.typescript.ScriptTarget.ESNext,
-                    },
-                  );
-
-                  monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions(
-                    {
-                      diagnosticCodesToIgnore: [
-                        // top-level await without export
-                        1375,
-                      ],
-                    },
-                  );
-                }}
-              />
-            </div>
-          </ResizablePanel>
-          <ResizableHandle />
-          <ResizablePanel
-            minSize={10}
-            className="flex flex-col border-b dark:border-b-neutral-700"
-          >
-            <div className="flex flex-col gap-1 border-b bg-gray-50 px-2 py-1 text-xs dark:border-b-neutral-700 dark:bg-neutral-800">
-              Context
-            </div>
-            <div className="flex items-center gap-2 px-2 py-1">
-              <Label className="text-xs font-normal">
-                Set{' '}
-                <code className="border bg-white px-2 dark:border-neutral-600 dark:bg-neutral-800">
-                  auth.email
-                </code>
-              </Label>
-              <EmailInput
-                key={app.id}
-                db={db}
-                email={runAsUserEmail}
-                setEmail={setRunAsUserEmail}
-                onEnter={execRef.current}
-              />
-            </div>
-
-            <div className="flex flex-1 flex-col">
-              <div className="flex items-center gap-2 border-b bg-gray-50 px-2 py-1 text-xs dark:border-b-neutral-700 dark:bg-neutral-800">
-                Permissions
-                <div>
-                  <Checkbox
-                    label="Use saved app rules"
-                    checked={useAppPerms}
-                    onChange={setUseAppPerms}
-                  />
-                </div>
-              </div>
-              {useAppPerms ? null : (
-                <div className="border-b border-b-amber-100 bg-amber-50 px-2 py-1 text-xs text-amber-600 dark:border-b-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
-                  <strong>Use caution!</strong> Transactions above will be
-                  evaluated with these rules.
-                </div>
-              )}
-              <div className="flex flex-1 overflow-hidden bg-white dark:bg-neutral-800">
-                <div
-                  className={clsx('flex-1', useAppPerms ? 'opacity-50' : '')}
-                >
-                  {useAppPerms ? (
-                    <Editor
-                      theme={darkMode ? 'vs-dark' : 'light'}
-                      key="app"
-                      path="app-permissions.json"
-                      value={
-                        app.rules ? JSON.stringify(app.rules, null, 2) : ''
-                      }
-                      height={'100%'}
-                      language="json"
-                      options={{
-                        ...editorOptions,
-                        readOnly: true,
-                      }}
-                    />
-                  ) : (
-                    <Editor
-                      theme={darkMode ? 'vs-dark' : 'light'}
-                      key="custom"
-                      path="custom-permissions.json"
-                      value={permsValue}
-                      onChange={(v) => setPermsValue(v ?? '')}
-                      height={'100%'}
-                      language="json"
-                      options={editorOptions}
-                      onMount={(editor, monaco) => {
-                        editor.addCommand(
-                          monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
-                          () => execRef.current(),
-                        );
-                      }}
-                    />
-                  )}
-                </div>
-              </div>
-            </div>
-          </ResizablePanel>
-        </ResizablePanelGroup>
-      </ResizablePanel>
-      <ResizableHandle></ResizableHandle>
-      <ResizablePanel className="flex min-w-[24em] flex-1 flex-col overflow-hidden">
-        <div className="flex flex-col gap-1 border-b bg-gray-50 px-2 py-1 text-xs dark:border-b-neutral-700 dark:bg-neutral-800">
-          <div className="flex gap-2">
-            Output
-            <Button size="nano" onClick={() => setOutput([])}>
-              Clear
-            </Button>
-          </div>
-          <div className="no-scrollbar flex gap-2 overflow-y-auto">
+            {showRunning ? 'Running...' : 'Run'}
+          </Button>
+          <div className="ml-3">
             <Checkbox
-              labelClassName="whitespace-nowrap"
-              label="Append results"
-              checked={appendResults}
-              onChange={setAppendResults}
-            />
-            <Checkbox
-              labelClassName="whitespace-nowrap"
-              label="Collapse data"
-              checked={defaultCollapsed}
-              onChange={setDefaultCollapsed}
-            />
-            <Checkbox
-              labelClassName="whitespace-nowrap"
-              label="Collapse query"
-              checked={collapseQuery}
-              onChange={setHideQuery}
-            />
-            <Checkbox
-              labelClassName="whitespace-nowrap"
-              label="Collapse log"
-              checked={collapseLog}
-              onChange={setCollapseLog}
-            />
-            <Checkbox
-              labelClassName="whitespace-nowrap"
-              label="Collapse transact"
-              checked={collapseTransaction}
-              onChange={setCollapseTransaction}
+              label="Write to DB"
+              checked={dangerouslyCommitTx}
+              onChange={setDangerouslyCommitTx}
             />
           </div>
         </div>
-        <div
-          ref={consoleRef}
-          className="flex w-full flex-1 flex-col gap-4 overflow-y-auto overflow-x-hidden bg-gray-100 p-4 text-xs dark:bg-neutral-800/40"
-        >
-          {output.map((o, i) =>
-            o.type === 'eval' ? (
-              <div
-                key={i}
-                className="my-6 border-b border-gray-300 dark:border-b-neutral-600"
-              ></div>
-            ) : (
-              <div
-                className={clsx(
-                  'rounded border bg-gray-50 shadow-sm transition-all hover:shadow dark:bg-neutral-800',
-                  {
-                    'border-sky-200 dark:border-sky-600/50': o.type === 'log',
-                    'border-red-200 dark:border-red-600/50': o.type === 'error',
-                    'border-teal-200 dark:border-teal-600/50':
-                      o.type === 'query',
-                    'border-purple-200 dark:border-purple-600/50':
-                      o.type === 'transaction',
-                  },
-                )}
-              >
-                <div
-                  className={clsx('px-2 pt-1 text-center font-mono font-bold', {
-                    'text-sky-600 dark:text-sky-400': o.type === 'log',
-                    'text-red-600 dark:text-red-400': o.type === 'error',
-                    'text-teal-600 dark:text-teal-400': o.type === 'query',
-                    'text-purple-600 dark:text-purple-400':
-                      o.type === 'transaction',
-                  })}
-                >
-                  {o.type}{' '}
-                  {o.execTimeMs != null
-                    ? ` - (${o.execTimeMs.toFixed(1)} ms)`
-                    : ''}
+      </div>
+      {dangerouslyCommitTx ? (
+        <div className="border-b border-b-amber-100 bg-amber-50 px-2 py-1 text-xs text-amber-600 dark:border-b-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+          <strong>Use caution!</strong> Successful transactions will update your
+          app's DB!
+        </div>
+      ) : (
+        <div className="border-b border-b-sky-200 bg-sky-50 px-2 py-1 text-xs text-sky-600 dark:border-b-neutral-600 dark:bg-sky-900/80 dark:text-sky-400/90">
+          <strong>Debug mode.</strong> Transactions will not update your app's
+          DB.
+        </div>
+      )}
+      <ResizablePanelGroup
+        direction="horizontal"
+        className="flex h-full flex-1 overflow-y-hidden"
+      >
+        <ResizablePanel className="flex min-w-[24em] flex-1 flex-col border-r dark:border-r-neutral-600">
+          <ResizablePanelGroup direction="vertical">
+            <ResizablePanel
+              minSize={20}
+              className="flex flex-1 flex-col border-b dark:border-b-neutral-600"
+            >
+              <div className="flex-1">
+                <Editor
+                  theme={darkMode ? 'vs-dark' : 'light'}
+                  height={'100%'}
+                  path="sandbox.ts"
+                  language="typescript"
+                  value={sandboxCodeValue}
+                  onChange={(v) => {
+                    setSandboxValue(v ?? '');
+                  }}
+                  options={{
+                    scrollBeyondLastLine: false,
+                    overviewRulerLanes: 0,
+                    hideCursorInOverviewRuler: true,
+                    minimap: { enabled: false },
+                    automaticLayout: true,
+                    lineNumbers: 'off',
+                  }}
+                  onMount={(editor, monaco) => {
+                    editor.addCommand(
+                      monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
+                      () => execRef.current(),
+                    );
+
+                    editor.addCommand(
+                      monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
+                      () => {},
+                    );
+
+                    monaco.languages.typescript.typescriptDefaults.addExtraLib(
+                      tsTypes,
+                      'ts:filename/global.d.ts',
+                    );
+
+                    monaco.languages.typescript.typescriptDefaults.setCompilerOptions(
+                      {
+                        module: monaco.languages.typescript.ModuleKind.ESNext,
+                        target: monaco.languages.typescript.ScriptTarget.ESNext,
+                      },
+                    );
+
+                    monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions(
+                      {
+                        diagnosticCodesToIgnore: [
+                          // top-level await without export
+                          1375,
+                        ],
+                      },
+                    );
+                  }}
+                />
+              </div>
+            </ResizablePanel>
+            <ResizableHandle />
+            <ResizablePanel
+              minSize={10}
+              className="flex flex-col border-b dark:border-b-neutral-700"
+            >
+              <div className="flex flex-col gap-1 border-b bg-gray-50 px-2 py-1 text-xs dark:border-b-neutral-700 dark:bg-neutral-800">
+                Context
+              </div>
+              <div className="flex items-center gap-2 px-2 py-1">
+                <Label className="text-xs font-normal">
+                  Set{' '}
+                  <code className="border bg-white px-2 dark:border-neutral-600 dark:bg-neutral-800">
+                    auth.email
+                  </code>
+                </Label>
+                <EmailInput
+                  key={app.id}
+                  db={db}
+                  email={runAsUserEmail || ''}
+                  setEmail={setRunAsUserEmail}
+                  onEnter={execRef.current}
+                />
+              </div>
+
+              <div className="flex flex-1 flex-col">
+                <div className="flex items-center gap-2 border-b bg-gray-50 px-2 py-1 text-xs dark:border-b-neutral-700 dark:bg-neutral-800">
+                  Permissions
+                  <div>
+                    <Checkbox
+                      label="Use saved app rules"
+                      checked={useAppPerms}
+                      onChange={(val) => setUseAppPerms(val)}
+                    />
+                  </div>
                 </div>
-                {o.type === 'log' && !collapseLog && (
-                  <div className="flex flex-col gap-1 p-3">
-                    {o.data.map((d: any, i: number) => (
+                {useAppPerms ? null : (
+                  <div className="border-b border-b-amber-100 bg-amber-50 px-2 py-1 text-xs text-amber-600 dark:border-b-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                    <strong>Use caution!</strong> Transactions above will be
+                    evaluated with these rules.
+                  </div>
+                )}
+                <div className="flex flex-1 overflow-hidden bg-white dark:bg-neutral-800">
+                  <div
+                    className={clsx('flex-1', useAppPerms ? 'opacity-50' : '')}
+                  >
+                    {useAppPerms ? (
+                      <Editor
+                        theme={darkMode ? 'vs-dark' : 'light'}
+                        key="app"
+                        path="app-permissions.json"
+                        value={
+                          app.rules ? JSON.stringify(app.rules, null, 2) : ''
+                        }
+                        height={'100%'}
+                        language="json"
+                        options={{
+                          ...editorOptions,
+                          readOnly: true,
+                        }}
+                      />
+                    ) : (
+                      <Editor
+                        theme={darkMode ? 'vs-dark' : 'light'}
+                        key="custom"
+                        path="custom-permissions.json"
+                        value={permsValue}
+                        onChange={(v) => setPermsValue(v ?? '')}
+                        height={'100%'}
+                        language="json"
+                        options={editorOptions}
+                        onMount={(editor, monaco) => {
+                          editor.addCommand(
+                            monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
+                            () => execRef.current(),
+                          );
+                        }}
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        </ResizablePanel>
+        <ResizableHandle></ResizableHandle>
+        <ResizablePanel className="flex min-w-[24em] flex-1 flex-col overflow-hidden">
+          <div className="flex flex-col gap-1 border-b bg-gray-50 px-2 py-1 text-xs dark:border-b-neutral-700 dark:bg-neutral-800">
+            <div className="flex gap-2">
+              Output
+              <Button size="nano" onClick={() => setOutput([])}>
+                Clear
+              </Button>
+            </div>
+            <div className="no-scrollbar flex gap-2 overflow-y-auto">
+              <Checkbox
+                labelClassName="whitespace-nowrap"
+                label="Append results"
+                checked={appendResults}
+                onChange={setAppendResults}
+              />
+              <Checkbox
+                labelClassName="whitespace-nowrap"
+                label="Collapse data"
+                checked={defaultCollapsed}
+                onChange={setDefaultCollapsed}
+              />
+              <Checkbox
+                labelClassName="whitespace-nowrap"
+                label="Collapse query"
+                checked={collapseQuery}
+                onChange={setHideQuery}
+              />
+              <Checkbox
+                labelClassName="whitespace-nowrap"
+                label="Collapse log"
+                checked={collapseLog}
+                onChange={setCollapseLog}
+              />
+              <Checkbox
+                labelClassName="whitespace-nowrap"
+                label="Collapse transact"
+                checked={collapseTransaction}
+                onChange={setCollapseTransaction}
+              />
+            </div>
+          </div>
+          <div
+            ref={consoleRef}
+            className="flex w-full flex-1 flex-col gap-4 overflow-y-auto overflow-x-hidden bg-gray-100 p-4 text-xs dark:bg-neutral-800/40"
+          >
+            {output.map((o, i) =>
+              o.type === 'eval' ? (
+                <div
+                  key={i}
+                  className="my-6 border-b border-gray-300 dark:border-b-neutral-600"
+                ></div>
+              ) : (
+                <div
+                  className={clsx(
+                    'rounded border bg-gray-50 shadow-sm transition-all hover:shadow dark:bg-neutral-800',
+                    {
+                      'border-sky-200 dark:border-sky-600/50': o.type === 'log',
+                      'border-red-200 dark:border-red-600/50':
+                        o.type === 'error',
+                      'border-teal-200 dark:border-teal-600/50':
+                        o.type === 'query',
+                      'border-purple-200 dark:border-purple-600/50':
+                        o.type === 'transaction',
+                    },
+                  )}
+                >
+                  <div
+                    className={clsx(
+                      'px-2 pt-1 text-center font-mono font-bold',
+                      {
+                        'text-sky-600 dark:text-sky-400': o.type === 'log',
+                        'text-red-600 dark:text-red-400': o.type === 'error',
+                        'text-teal-600 dark:text-teal-400': o.type === 'query',
+                        'text-purple-600 dark:text-purple-400':
+                          o.type === 'transaction',
+                      },
+                    )}
+                  >
+                    {o.type}{' '}
+                    {o.execTimeMs != null
+                      ? ` - (${o.execTimeMs.toFixed(1)} ms)`
+                      : ''}
+                  </div>
+                  {o.type === 'log' && !collapseLog && (
+                    <div className="flex flex-col gap-1 p-3">
+                      {o.data.map((d: any, i: number) => (
+                        <Data
+                          key={i}
+                          data={d}
+                          collapsed={defaultCollapsed ? 1 : undefined}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  {o.type === 'error' && (
+                    <div className="flex p-3">
+                      <pre className="w-full overflow-x-auto bg-white p-1 dark:bg-neutral-800">
+                        {o.data.message}
+                      </pre>
+                    </div>
+                  )}
+                  {o.type === 'query' && !collapseQuery && (
+                    <div className="flex flex-col gap-2 p-3">
+                      <div className="">Result</div>
                       <Data
-                        key={i}
-                        data={d}
+                        data={o.data.response.result}
                         collapsed={defaultCollapsed ? 1 : undefined}
                       />
-                    ))}
-                  </div>
-                )}
-                {o.type === 'error' && (
-                  <div className="flex p-3">
-                    <pre className="w-full overflow-x-auto bg-white p-1 dark:bg-neutral-800">
-                      {o.data.message}
-                    </pre>
-                  </div>
-                )}
-                {o.type === 'query' && !collapseQuery && (
-                  <div className="flex flex-col gap-2 p-3">
-                    <div className="">Result</div>
-                    <Data
-                      data={o.data.response.result}
-                      collapsed={defaultCollapsed ? 1 : undefined}
-                    />
-                    <div className="">Permissions Check</div>
-                    <div className="flex flex-col gap-1">
-                      {o.data.response.checkResults.map((cr: any) => (
+                      <div className="">Permissions Check</div>
+                      <div className="flex flex-col gap-1">
+                        {o.data.response.checkResults.map((cr: any) => (
+                          <div
+                            key={cr.entity + '-' + cr.id}
+                            className={clsx(
+                              'flex flex-col gap-1 rounded border bg-gray-100 px-2 py-1 dark:bg-neutral-800',
+                              {
+                                'border-emerald-200 dark:border-emerald-600':
+                                  Boolean(cr.check),
+                                'border-rose-200 dark:border-rose-600':
+                                  !Boolean(cr.check),
+                              },
+                            )}
+                          >
+                            <div className="flex gap-2">
+                              {Boolean(cr.check) ? (
+                                <span className="border border-emerald-300 bg-white px-1 font-bold text-emerald-600 dark:border-emerald-800 dark:bg-neutral-800">
+                                  Pass
+                                </span>
+                              ) : (
+                                <span className="border border-rose-300 bg-white px-1 font-bold text-rose-600 dark:bg-neutral-800">
+                                  Fail
+                                </span>
+                              )}
+                              <strong>{cr.entity}</strong>
+                              <code>{cr.id}</code>
+                            </div>
+                            <div>Record</div>
+                            <Data data={cr.record} collapsed={0} />
+                            <div>Check</div>
+                            <div className="border bg-white dark:border-neutral-600 dark:bg-neutral-800">
+                              <span className="border-r bg-gray-50 px-2 font-bold dark:border-neutral-600 dark:bg-neutral-700">
+                                view
+                              </span>
+                              <code className="bg-white px-2 dark:bg-neutral-800">
+                                {cr.program?.['display-code'] ?? (
+                                  <span className="text-gray-400 dark:text-neutral-500">
+                                    none
+                                  </span>
+                                )}
+                              </code>
+                            </div>
+                            <Data
+                              data={cr.check}
+                              collapsed={defaultCollapsed ? 1 : undefined}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {o.type === 'transaction' && !collapseTransaction && (
+                    <div className="flex flex-col gap-2 p-3">
+                      {o.data.response['all-checks-ok?'] ? (
+                        <p className="rounded border border-emerald-200 bg-white px-1 py-1 dark:border-emerald-600 dark:bg-neutral-800">
+                          <span className="border border-emerald-200 bg-white px-1 font-bold text-emerald-600 dark:border-emerald-600 dark:bg-neutral-800">
+                            Success
+                          </span>{' '}
+                          All checks passed!
+                        </p>
+                      ) : (
+                        <p className="rounded border border-rose-200 bg-white px-1 py-1 dark:border-rose-600 dark:bg-neutral-800">
+                          <span className="border border-rose-300 bg-white px-1 font-bold text-rose-600 dark:border-rose-600 dark:bg-neutral-800">
+                            Failed
+                          </span>{' '}
+                          Some checks did not pass.
+                        </p>
+                      )}
+
+                      {o.data.response['committed?'] ? null : (
+                        <p className="rounded border border-amber-200 bg-white px-1 py-1 dark:border-amber-600 dark:bg-neutral-800">
+                          <span className="border border-amber-300 bg-white px-1 font-bold text-amber-600 dark:border-amber-600 dark:bg-neutral-800">
+                            Dry run
+                          </span>{' '}
+                          Changes were not written to the database.
+                        </p>
+                      )}
+
+                      <div className="">Permissions Check</div>
+                      {o.data.response['check-results'].map((cr: any) => (
                         <div
                           key={cr.entity + '-' + cr.id}
                           className={clsx(
                             'flex flex-col gap-1 rounded border bg-gray-100 px-2 py-1 dark:bg-neutral-800',
                             {
                               'border-emerald-200 dark:border-emerald-600':
-                                Boolean(cr.check),
-                              'border-rose-200 dark:border-rose-600': !Boolean(
-                                cr.check,
-                              ),
+                                cr['check-pass?'],
+                              'border-rose-200 dark:border-rose-600':
+                                !cr['check-pass?'],
                             },
                           )}
                         >
                           <div className="flex gap-2">
-                            {Boolean(cr.check) ? (
-                              <span className="border border-emerald-300 bg-white px-1 font-bold text-emerald-600 dark:border-emerald-800 dark:bg-neutral-800">
+                            {cr['check-pass?'] ? (
+                              <span className="border border-emerald-300 bg-white px-1 font-bold text-emerald-600 dark:border-emerald-800 dark:bg-neutral-800 dark:text-emerald-800">
                                 Pass
                               </span>
                             ) : (
-                              <span className="border border-rose-300 bg-white px-1 font-bold text-rose-600 dark:bg-neutral-800">
+                              <span className="border border-rose-300 bg-white px-1 font-bold text-rose-600 dark:border-rose-600 dark:bg-neutral-800">
                                 Fail
                               </span>
                             )}
-                            <strong>{cr.entity}</strong>
-                            <code>{cr.id}</code>
+                            <strong className="rountded border bg-white px-1 text-gray-700 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
+                              {cr.action}
+                            </strong>
+                            <strong>{cr.etype}</strong>
+                            <code>{cr.eid}</code>
                           </div>
-                          <div>Record</div>
-                          <Data data={cr.record} collapsed={0} />
+                          <div>Value</div>
+                          <Data
+                            data={cr.bindings?.['new-data'] || cr.data?.updated}
+                            collapsed={0}
+                          />
                           <div>Check</div>
                           <div className="border bg-white dark:border-neutral-600 dark:bg-neutral-800">
                             <span className="border-r bg-gray-50 px-2 font-bold dark:border-neutral-600 dark:bg-neutral-700">
-                              view
+                              {cr.action}
                             </span>
                             <code className="bg-white px-2 dark:bg-neutral-800">
                               {cr.program?.['display-code'] ?? (
@@ -531,104 +633,20 @@ export function Sandbox({
                             </code>
                           </div>
                           <Data
-                            data={cr.check}
+                            data={cr['check-result']}
                             collapsed={defaultCollapsed ? 1 : undefined}
                           />
                         </div>
                       ))}
                     </div>
-                  </div>
-                )}
-
-                {o.type === 'transaction' && !collapseTransaction && (
-                  <div className="flex flex-col gap-2 p-3">
-                    {o.data.response['all-checks-ok?'] ? (
-                      <p className="rounded border border-emerald-200 bg-white px-1 py-1 dark:border-emerald-600 dark:bg-neutral-800">
-                        <span className="border border-emerald-200 bg-white px-1 font-bold text-emerald-600 dark:border-emerald-600 dark:bg-neutral-800">
-                          Success
-                        </span>{' '}
-                        All checks passed!
-                      </p>
-                    ) : (
-                      <p className="rounded border border-rose-200 bg-white px-1 py-1 dark:border-rose-600 dark:bg-neutral-800">
-                        <span className="border border-rose-300 bg-white px-1 font-bold text-rose-600 dark:border-rose-600 dark:bg-neutral-800">
-                          Failed
-                        </span>{' '}
-                        Some checks did not pass.
-                      </p>
-                    )}
-
-                    {o.data.response['committed?'] ? null : (
-                      <p className="rounded border border-amber-200 bg-white px-1 py-1 dark:border-amber-600 dark:bg-neutral-800">
-                        <span className="border border-amber-300 bg-white px-1 font-bold text-amber-600 dark:border-amber-600 dark:bg-neutral-800">
-                          Dry run
-                        </span>{' '}
-                        Changes were not written to the database.
-                      </p>
-                    )}
-
-                    <div className="">Permissions Check</div>
-                    {o.data.response['check-results'].map((cr: any) => (
-                      <div
-                        key={cr.entity + '-' + cr.id}
-                        className={clsx(
-                          'flex flex-col gap-1 rounded border bg-gray-100 px-2 py-1 dark:bg-neutral-800',
-                          {
-                            'border-emerald-200 dark:border-emerald-600':
-                              cr['check-pass?'],
-                            'border-rose-200 dark:border-rose-600':
-                              !cr['check-pass?'],
-                          },
-                        )}
-                      >
-                        <div className="flex gap-2">
-                          {cr['check-pass?'] ? (
-                            <span className="border border-emerald-300 bg-white px-1 font-bold text-emerald-600 dark:border-emerald-800 dark:bg-neutral-800 dark:text-emerald-800">
-                              Pass
-                            </span>
-                          ) : (
-                            <span className="border border-rose-300 bg-white px-1 font-bold text-rose-600 dark:border-rose-600 dark:bg-neutral-800">
-                              Fail
-                            </span>
-                          )}
-                          <strong className="rountded border bg-white px-1 text-gray-700 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
-                            {cr.action}
-                          </strong>
-                          <strong>{cr.etype}</strong>
-                          <code>{cr.eid}</code>
-                        </div>
-                        <div>Value</div>
-                        <Data
-                          data={cr.bindings?.['new-data'] || cr.data?.updated}
-                          collapsed={0}
-                        />
-                        <div>Check</div>
-                        <div className="border bg-white dark:border-neutral-600 dark:bg-neutral-800">
-                          <span className="border-r bg-gray-50 px-2 font-bold dark:border-neutral-600 dark:bg-neutral-700">
-                            {cr.action}
-                          </span>
-                          <code className="bg-white px-2 dark:bg-neutral-800">
-                            {cr.program?.['display-code'] ?? (
-                              <span className="text-gray-400 dark:text-neutral-500">
-                                none
-                              </span>
-                            )}
-                          </code>
-                        </div>
-                        <Data
-                          data={cr['check-result']}
-                          collapsed={defaultCollapsed ? 1 : undefined}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ),
-          )}
-        </div>
-      </ResizablePanel>
-    </ResizablePanelGroup>
+                  )}
+                </div>
+              ),
+            )}
+          </div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
+    </>
   );
 }
 
