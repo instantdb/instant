@@ -399,7 +399,7 @@ export function Select<Value extends string>({
   contentClassName,
   visibleValue,
 }: {
-  value?: string;
+  value?: Value;
   options: { label: string | ReactNode; value: Value }[];
   className?: string;
   onChange: (option?: { label: string | ReactNode; value: Value }) => void;
