@@ -387,7 +387,7 @@ export function Sandbox({
           value={selectedSandbox || undefined}
           emptyLabel={<div className="opacity-50">Saved Sandboxes...</div>}
           noOptionsLabel={
-            <div className="p-2 text-sm opacity-60">No Sandboxes Found</div>
+            <div className="p-2 text-sm opacity-60">No Saved Sandboxes</div>
           }
           options={savedSandboxes.map((sandbox) => ({
             label: sandbox.name,
