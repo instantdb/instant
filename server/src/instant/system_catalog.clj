@@ -165,7 +165,7 @@
               :unique? false
               :index? true
               :checked-data-type :string)
-   ;; TODO remove
+   ;; TODO remove after migrating to $magicCodes.email
    (make-attr "$magicCodes" "$user"
               :reverse-identity (get-ident-spec "$users" "$magicCodes")
               :index? true

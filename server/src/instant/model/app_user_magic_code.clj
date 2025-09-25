@@ -60,6 +60,7 @@
                            (get-entity-where
                             {:codeHash code-hash
                              :email    email})
+                           ;; TODO remove after migrating to $magicCodes.email
                            (get-entity-where
                             {:codeHash code-hash
                              :$user.email email}))]
