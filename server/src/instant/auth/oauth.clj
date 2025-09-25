@@ -34,7 +34,8 @@
                                jwks-uri
                                issuer
                                ^PersistentHashSet id-token-signing-alg-values-supported
-                               meta]
+                               meta
+                               userinfo-endpoint]
   OAuthClient
   (create-authorization-url [_ state redirect-url extra-params]
     (let [base-params {:scope "email"
@@ -83,7 +84,22 @@
                                  (json/<-json true))
                          (catch IllegalArgumentException _e
                            (tracer/with-span! {:name "oauth/invalid-id_token"
-                                               :attributes {:id_token (-> resp :body :id_token)}})))]
+                                               :attributes {:id_token (-> resp :body :id_token)}})))
+              access-token (-> resp
+                               :body
+                               :access_token)
+
+              id-token (or id-token
+                           (when (and access-token userinfo-endpoint)
+                             (try
+                               (-> (clj-http/get userinfo-endpoint
+                                                 {:headers {:Authorization (str "Bearer " access-token)}
+                                                  :as :json
+                                                  :coerce :always})
+                                   :body)
+                               (catch Exception e
+                                 (tracer/record-exception-span! e {:name "oauth/invalid-user-info-from-endpoint"})
+                                 nil))))]
           (if-not id-token
             {:type :error :message "Invalid token exchanging code for token."}
             (let [email (when (:email_verified id-token) (:email id-token))
@@ -103,15 +119,15 @@
 
     (let [verified-jwt (jwt/verify-jwt {:jwks-uri jwks-uri
                                         :jwt jwt})
-            ;; verify lets us know that the jwk was issued by
-            ;; e.g. google but we still need to make sure it was
-            ;; issued by our client and has all of the fields we need
-            ;; https://developers.google.com/identity/sign-in/ios/backend-auth#verify-the-integrity-of-the-id-token
+          ;; verify lets us know that the jwk was issued by
+          ;; e.g. google but we still need to make sure it was
+          ;; issued by our client and has all of the fields we need
+          ;; https://developers.google.com/identity/sign-in/ios/backend-auth#verify-the-integrity-of-the-id-token
           jwt-issuer (.getIssuer verified-jwt)
-            ;; Handle Apple's issuer inconsistency: discovery endpoint and JWT tokens
-            ;; use different issuer URLs (account.apple.com vs appleid.apple.com)
+          ;; Handle Apple's issuer inconsistency: discovery endpoint and JWT tokens
+          ;; use different issuer URLs (account.apple.com vs appleid.apple.com)
           issuer-mismatch (not (or (= jwt-issuer issuer)
-                                     ;; Allow both Apple issuer URLs to match each other
+                                   ;; Allow both Apple issuer URLs to match each other
                                    (and (or (= issuer "https://account.apple.com")
                                             (= issuer "https://appleid.apple.com"))
                                         (or (= jwt-issuer "https://account.apple.com")
@@ -200,7 +216,9 @@
                 token_endpoint
                 jwks_uri
                 issuer
-                id_token_signing_alg_values_supported]} (get-discovery discovery-endpoint)]
+                id_token_signing_alg_values_supported
+
+                userinfo_endpoint]} (get-discovery discovery-endpoint)]
     (map->GenericOAuthClient {:app-id app-id
                               :provider-id provider-id
                               :client-id client-id
@@ -212,7 +230,8 @@
                               :id-token-signing-alg-values-supported (if (empty? id_token_signing_alg_values_supported)
                                                                        #{"RS256" "HS256"}
                                                                        (set id_token_signing_alg_values_supported))
-                              :meta meta})))
+                              :meta meta
+                              :userinfo-endpoint userinfo_endpoint})))
 
 (defn verify-pkce!
   "Verifies that the code verifier matches the code challenge, if it was

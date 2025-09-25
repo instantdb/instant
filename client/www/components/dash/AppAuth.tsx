@@ -16,6 +16,7 @@ import { AppleClients } from './auth/Apple';
 import { AddClerkProviderForm, ClerkClients } from './auth/Clerk';
 import { Email } from './auth/Email';
 import { AddGoogleProviderForm, GoogleClients } from './auth/Google';
+import { AddLinkedInProviderForm, LinkedInClients } from './auth/LinkedIn';
 import { AuthorizedOrigins } from './auth/Origins';
 
 export function AppAuth({
@@ -117,6 +118,10 @@ export function AppAuth({
     (p) => p.provider_name === 'google',
   );
 
+  const linkedinProvider = data.oauth_service_providers?.find(
+    (p) => p.provider_name === 'linkedin',
+  );
+
   const clerkProvider = data.oauth_service_providers?.find(
     (p) => p.provider_name === 'clerk',
   );
@@ -196,6 +201,36 @@ export function AppAuth({
           usedClientNames={usedClientNames}
           lastCreatedClientId={lastCreatedClientId}
         />
+
+        <Divider />
+        <SectionHeading>LinkedIn Clients</SectionHeading>
+
+        {linkedinProvider ? (
+          <LinkedInClients
+            key={
+              lastCreatedProviderId === linkedinProvider.id
+                ? `${linkedinProvider.id}-last`
+                : linkedinProvider.id
+            }
+            app={app}
+            provider={linkedinProvider}
+            clients={
+              data.oauth_clients?.filter(
+                (c) => c.provider_id === linkedinProvider.id,
+              ) || []
+            }
+            onAddClient={handleAddClient}
+            onDeleteClient={handleDeleteClient}
+            usedClientNames={usedClientNames}
+            lastCreatedClientId={lastCreatedClientId}
+            defaultOpen={lastCreatedProviderId === linkedinProvider.id}
+          />
+        ) : (
+          <AddLinkedInProviderForm
+            app={app}
+            onAddProvider={handleAddProvider}
+          />
+        )}
       </div>
 
       <Divider />
