@@ -59,6 +59,11 @@ module.exports = [
         optionalLLM: true,
       },
       {
+        title: 'LinkedIn OAuth',
+        href: '/docs/auth/linkedin-oauth',
+        optionalLLM: true,
+      },
+      {
         title: 'Sign In with Apple',
         href: '/docs/auth/apple',
         optionalLLM: true,
