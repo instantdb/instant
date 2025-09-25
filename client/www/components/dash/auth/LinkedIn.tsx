@@ -40,38 +40,14 @@ function exampleCode({
   appId: string;
   clientName: string;
 }) {
-  return /* replace-me-with-js-to-format */ `import { init } from "@instantdb/react";
-import { useEffect } from "react";
+  return /* js */ `// Create the authorization URL:
+const url = db.auth.createAuthorizationURL({
+  clientName: "${clientName}",
+  redirectURL: window.location.href,
+});
 
-const db = init({ appId: "${appId}" });
-
-async function handleLinkedInRedirect(params: URLSearchParams) {
-  if (!params.get("code")) {
-    return;
-  }
-
-  // Exchange the authorization code for an id_token with your server.
-  // Once you have the LinkedIn id_token, sign the user in to Instant.
-  const { id_token } = await fetch("/api/linkedin/token", {
-    method: "POST",
-    body: JSON.stringify({
-      code: params.get("code"),
-      redirectUri: window.location.origin + "/linkedin/callback",
-    }),
-    headers: { "content-type": "application/json" },
-  }).then((r) => r.json());
-
-  await db.auth.signInWithIdToken({
-    clientName: "${clientName}",
-    idToken: id_token,
-  });
-}
-
-export function useInstantAuthFromLinkedIn(redirectParams: URLSearchParams) {
-  useEffect(() => {
-    handleLinkedInRedirect(redirectParams);
-  }, [redirectParams]);
-}
+// Create a link with the url
+<a href={url}>Log in with LinkedIn</a>
 `;
 }
 
@@ -357,9 +333,8 @@ export function Client({
               value="https://api.instantdb.com/runtime/oauth/callback"
             />
             <Content>
-              <strong>2.</strong> Exchange LinkedIn&apos;s authorization code
-              for an id_token and pass it to{' '}
-              <code>db.auth.signInWithIdToken</code> as shown below.
+              <strong>2.</strong> Use the code below to generate a login link in
+              your app.
             </Content>
             <div className="overflow-auto rounded border text-sm">
               <Fence
