@@ -980,13 +980,14 @@
           attrs))
 
 (defn resolve-attr-id [attrs etype label]
-  {:post [(uuid? %)]}
   (let [wrapped-attrs (if (instance? Attrs attrs)
                         attrs
                         (wrap-attrs attrs))
-        n [(name etype) (name label)]]
-    (:id (or (seek-by-fwd-ident-name n wrapped-attrs)
-             (seek-by-rev-ident-name n wrapped-attrs)))))
+        n             [(name etype) (name label)]
+        attr          (or (seek-by-fwd-ident-name n wrapped-attrs)
+                          (seek-by-rev-ident-name n wrapped-attrs))]
+    (assert (uuid? (:id attr)) (str "Expceted uuid, got: " (pr-str (:id attr))))
+    (:id attr)))
 
 (defn get-attr-details
   "Used in exception to construct nicer error messages."

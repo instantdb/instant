@@ -9,8 +9,6 @@
    [instant.util.exception :as ex]
    [instant.util.string :refer [rand-num-str]])
   (:import
-   (java.time Instant)
-   (java.time.temporal ChronoUnit)
    (java.util Date UUID)))
 
 (def etype "$magicCodes")
@@ -18,30 +16,37 @@
 (defn rand-code []
   (rand-num-str 6))
 
-(defn create!
-  ([params] (create! (aurora/conn-pool :write) params))
-  ([conn {:keys [app-id id code user-id email]}]
-   (update-op
-    conn
-    {:app-id app-id
-     :etype etype}
-    (fn [{:keys [resolve-id transact! get-entity]}]
-      (transact! [[:add-triple id (resolve-id :id) id]
-                  [:add-triple id (resolve-id :codeHash) (-> code
-                                                             crypt-util/str->sha256
-                                                             crypt-util/bytes->hex-string)]
-                  [:add-triple id (resolve-id :$user) user-id]
-                  [:add-triple id (resolve-id :email) email]])
-      (assoc (get-entity id)
-             :code code)))))
+(def ttl-ms
+  (* 24 60 60 1000))
 
-(defn expired?
-  ([magic-code] (expired? (Instant/now) magic-code))
-  ([now {created-at :created_at}]
-   (> (.between ChronoUnit/HOURS (Date/.toInstant created-at) now) 24)))
+(defn expired? [magic-code]
+  (when magic-code
+    (let [created-at ^Date (:created_at magic-code)]
+      (< (+ (.getTime created-at) ttl-ms) (System/currentTimeMillis)))))
+
+(defn create!
+  ([params]
+   (create! (aurora/conn-pool :write) params))
+  ([conn {:keys [app-id email id code]}]
+   (let [id   (or id (random-uuid))
+         code (or code (rand-code))]
+     (update-op
+      conn
+      {:app-id app-id
+       :etype etype}
+      (fn [{:keys [transact! get-entity]}]
+        (transact! [{:id       id
+                     :etype    etype
+                     :codeHash (-> code
+                                   crypt-util/str->sha256
+                                   crypt-util/bytes->hex-string)
+                     :email    email}])
+        (assoc (get-entity id)
+               :code code))))))
 
 (defn consume!
-  ([params] (consume! (aurora/conn-pool :write) params))
+  ([params]
+   (consume! (aurora/conn-pool :write) params))
   ([conn {:keys [email code app-id] :as params}]
    (update-op
     conn
@@ -51,8 +56,13 @@
       (let [code-hash (-> code
                           crypt-util/str->sha256
                           crypt-util/bytes->hex-string)
-            {code-id :id} (get-entity-where {:codeHash code-hash
-                                             :$user.email email})]
+            {code-id :id} (or
+                           (get-entity-where
+                            {:codeHash code-hash
+                             :email    email})
+                           (get-entity-where
+                            {:codeHash code-hash
+                             :$user.email email}))]
         (ex/assert-record! code-id :app-user-magic-code {:args [params]})
         (let [code (delete-entity! code-id)]
           (ex/assert-record! code :app-user-magic-code {:args [params]})
@@ -71,8 +81,6 @@
                    :code (rand-code)
                    :user-id (:id runtime-user)}))
 
-  (expired? (.plus (Instant/now) 1 ChronoUnit/HOURS) m)
-  (expired? (.plus (Instant/now) 25 ChronoUnit/HOURS) m)
   (consume! {:email "stopa@instantdb.com"
              :app-id (:id app)
              :code (:code m)}))

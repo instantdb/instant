@@ -12,16 +12,18 @@
 (def etype "$users")
 
 (defn create!
-  ([params] (create! (aurora/conn-pool :write) params))
-  ([conn {:keys [id app-id email]}]
-   (update-op
-    conn
-    {:app-id app-id
-     :etype etype}
-    (fn [{:keys [transact! resolve-id get-entity]}]
-      (transact! [[:add-triple id (resolve-id :id) id]
-                  [:add-triple id (resolve-id :email) email]])
-      (get-entity id)))))
+  ([params]
+   (create! (aurora/conn-pool :write) params))
+  ([conn {:keys [app-id email id]}]
+   (let [id (or id (random-uuid))]
+     (update-op
+      conn
+      {:app-id app-id
+       :etype etype}
+      (fn [{:keys [transact! resolve-id get-entity]}]
+        (transact! [[:add-triple id (resolve-id :id) id]
+                    [:add-triple id (resolve-id :email) email]])
+        (get-entity id))))))
 
 (defn get-by-id
   ([params] (get-by-id (aurora/conn-pool :read) params))
@@ -56,7 +58,8 @@
   (ex/assert-record! (get-by-refresh-token params) :app-user {:args [params]}))
 
 (defn get-by-email
-  ([params] (get-by-email (aurora/conn-pool :read) params))
+  ([params]
+   (get-by-email (aurora/conn-pool :read) params))
   ([conn {:keys [app-id email]}]
    (query-op conn
              {:app-id app-id
