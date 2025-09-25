@@ -225,7 +225,7 @@
                          ")")]]]]})
 
 (defn format-preprocess [sql]
-  (let [re   #"\?[\p{Alpha}*!_?$%&=<>.|''\-+#:0-9]+"
+  (let [re   #"\?[\p{Alpha}*!_?$%&=<>.|''\-+#0-9]+"
         args (re-seq re sql)]
     [(string/replace sql re "?") args]))
 
