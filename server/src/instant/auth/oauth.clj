@@ -98,11 +98,10 @@
                                                   :coerce :always})
                                    :body)
                                (catch Exception e
-                                 (tracer/record-exception-span! e {:name "oauth/invalid-user-info-from-endpoint"})))))]
+                                 (tracer/record-exception-span! e {:name "oauth/invalid-user-info-from-endpoint"})
+                                 nil))))]
           (if-not id-token
-            (if (and access-token userinfo-endpoint)
-
-              {:type :error :message "Invalid token exchanging code for token."})
+            {:type :error :message "Invalid token exchanging code for token."}
             (let [email (when (:email_verified id-token) (:email id-token))
                   sub (:sub id-token)]
               (if (and email sub)
