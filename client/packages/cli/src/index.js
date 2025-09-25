@@ -334,6 +334,10 @@ program
   .command('create-app')
   .description('Generate an app ID and admin token for a new app.')
   .option('-t --title', 'Title for the created app')
+  .option(
+    '-o --org <org-id>',
+    'The (optional) id of the organization to create the app in.',
+  )
   .action(async (opts) => {
     await checkVersion();
     const authToken = await readAuthTokenOrLoginWithErrorLogging();
@@ -753,7 +757,7 @@ async function promptCreateApp(opts) {
 
   const allowedOrgs = res.data.orgs.filter((org) => org.role !== 'app-member');
 
-  let org_id = opts.orgId;
+  let org_id = opts.org;
 
   if (!org_id && allowedOrgs.length) {
     const choices = [{ name: '(No organization)', value: null }];
@@ -834,14 +838,14 @@ async function promptImportAppOrCreateApp() {
       /*defaultAnswer=*/ true,
     );
     if (!ok) return { ok: false };
-    return await promptCreateApp({ orgId });
+    return await promptCreateApp({ org: orgId });
   }
 
   apps.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
 
   const choice = await select({
     message: 'Which app would you like to import?',
-    choices: res.data.apps.map((app) => {
+    choices: apps.map((app) => {
       return { name: `${app.title} (${app.id})`, value: app.id };
     }),
   }).catch(() => null);
