@@ -154,9 +154,19 @@
   (let [items (.getData (.getItems subscription))
         items-revenue (reduce + (map item-monthly-revenue items))
         discount (reduce + (map (partial discount-amount items-revenue)
-                                (.getDiscountObjects subscription)))]
+                                (.getDiscountObjects subscription)))
+        price-id (some-> items
+                         ^SubscriptionItem first
+                         (.getPrice)
+                         (.getId))
+        product-name (condp = price-id
+                       (config/stripe-pro-subscription) "Pro"
+                       (config/stripe-startup-subscription) "Startup"
+                       "Other")]
     {:subscription-id (.getId subscription)
      :customer-id (.getCustomer subscription)
+     :price-id price-id
+     :product-name product-name
      :monthly-revenue (max 0 (- items-revenue discount))
      :start-timestamp (.getStartDate subscription)
      :customer-email (some-> subscription

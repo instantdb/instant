@@ -265,11 +265,27 @@ const DailyStatsSection = ({ daily }: { daily: any }) => {
           <div>Monthly Active Devs</div>
         </div>
         <div>
-          <h3 className="font-bold" style={{ fontSize: 30 }}>
-            {subInfo?.['num-subs']}
+          <h3
+            className="flex items-baseline gap-2 font-bold"
+            style={{ fontSize: 30 }}
+          >
+            <span>{subInfo?.['num-subs']}</span>
+            <span className="text-lg font-normal text-gray-500">
+              (
+              {Object.entries(subInfo?.['sub-breakdown'] || {}).map(
+                ([name, count], idx, arr) => (
+                  <span key={name}>
+                    {count as number} {name.toLowerCase()}
+                    {idx < arr.length - 1 ? ', ' : ''}
+                  </span>
+                ),
+              )}
+              )
+            </span>
           </h3>
-          <div>Pro Subscriptions</div>
+          <div>Subscriptions</div>
         </div>
+
         <div>
           <h3 className="font-bold" style={{ fontSize: 30 }}>
             ${Math.round(subInfo?.['total-monthly-revenue'] / 100)}
