@@ -12,7 +12,10 @@
    [instant.util.coll :as coll]
    [instant.util.crypt :as crypt-util]
    [instant.util.json :refer [->json]]
-   [instant.util.tracer :as tracer]))
+   [instant.util.test :as test-util]
+   [instant.util.tracer :as tracer])
+  (:import
+   [clojure.lang ExceptionInfo]))
 
 (defn request [opts]
   (with-redefs [tracer/*silence-exceptions?* (atom true)]
@@ -25,177 +28,166 @@
           (coll/update-when :url #(str config/server-origin %))
           (coll/update-when :body ->json))))))
 
+(defn send-code-runtime [app email]
+  (let [letter (atom nil)]
+    (with-redefs [postmark/send-structured! #(reset! letter %)]
+      (request {:method :post
+                :url    "/runtime/auth/send_magic_code"
+                :body   {:email  email
+                         :app-id (:id app)}}))
+    (re-find #"\d+" (-> @letter :subject))))
+
+(defn post-code-admin [app email]
+  (-> (request {:method :post
+                :url     "/admin/magic_code"
+                :headers {"app-id"        (:id app)
+                          "authorization" (str "Bearer " (:admin-token app))}
+                :body    {:email email}})
+      :body
+      :code))
+
+(defn send-code-admin [app email]
+  (let [letter (atom nil)]
+    (with-redefs [postmark/send-structured! #(reset! letter %)]
+      (let [resp (request {:method  :post
+                           :url     "/admin/send_magic_code"
+                           :headers {"app-id"        (:id app)
+                                     "authorization" (str "Bearer " (:admin-token app))}
+                           :body    {:email email}})
+            code-email (re-find #"\d+" (-> @letter :subject))
+            code-resp  (-> resp :body :code)]
+        (is (= code-email code-resp))
+        code-email))))
+
+(defn verify-code-runtime [app email code]
+  (-> (request {:method :post
+                :url    "/runtime/auth/verify_magic_code"
+                :body   {:email  email
+                         :code   code
+                         :app-id (:id app)}})
+      :body
+      :user))
+
+(defn verify-code-admin [app email code]
+  (-> (request {:method :post
+                :url     "/admin/verify_magic_code"
+                :headers {"app-id"        (:id app)
+                          "authorization" (str "Bearer " (:admin-token app))}
+                :body    {:email email
+                          :code  code}})
+      :body
+      :user))
+
 (deftest magic-codes-test
-  (let [email (atom nil)]
-    (with-redefs [postmark/send-structured! #(reset! email %)]
-      (with-empty-app
-        (fn [{app-id :id}]
-          (testing "auth for new user"
-            (request {:method :post
-                      :url    "/runtime/auth/send_magic_code"
-                      :body   {:email  "a@b.c"
-                               :app-id app-id}})
-            (is (= "a@b.c" (-> @email :to first :email)))
-            (let [code (re-find #"\d+" (-> @email :subject))
+  (test-util/test-matrix
+   [[send-code verify-code]
+    [[send-code-runtime verify-code-runtime]
+     [post-code-admin   verify-code-admin]
+     [send-code-admin   verify-code-admin]]]
+   (with-empty-app
+     (fn [{app-id :id :as app}]
+       (testing "auth for new user"
+         (let [code  (send-code app "a@b.c")
+               code2 (send-code app "a@b.c")]
 
-                  _    (request {:method :post
-                                 :url    "/runtime/auth/send_magic_code"
-                                 :body   {:email  "a@b.c"
-                                          :app-id app-id}})
+           (testing "can generate two codes"
+             (is (not= code code2)))
 
-                  code2 (re-find #"\d+" (-> @email :subject))]
+           (testing "can't use different code"
+             (is (thrown-with-msg? ExceptionInfo #"status 400" (verify-code app "a@b.c" "000000"))))
 
-              (testing "can generate two codes"
-                (is (not= code code2)))
+           (testing "can't use different email"
+             (is (thrown-with-msg? ExceptionInfo #"status 400" (verify-code app "wrong-email" code))))
 
-              (testing "can't use different code"
-                (is (= 400 (:status (request {:method :post
-                                              :url    "/runtime/auth/verify_magic_code"
-                                              :body   {:email  "a@b.c"
-                                                       :code   "000000"
-                                                       :app-id app-id}
-                                              :throw-exceptions false})))))
+           (testing "happy path"
+             (let [user (verify-code app "a@b.c" code)]
+               (is (= (str app-id) (:app_id user)))
+               (is (= "a@b.c" (:email user)))
+               (is (some? (:refresh_token user)))))
 
-              (testing "can't use different email"
-                (is (= 400 (:status (request {:method :post
-                                              :url    "/runtime/auth/verify_magic_code"
-                                              :body   {:email  "wrong-email"
-                                                       :code   code
-                                                       :app-id app-id}
-                                              :throw-exceptions false})))))
+           (testing "can't reuse code"
+             (is (thrown-with-msg? ExceptionInfo #"status 400" (verify-code app "a@b.c" code))))
 
-              (testing "happy path"
-                (let [user (-> (request {:method :post
-                                         :url    "/runtime/auth/verify_magic_code"
-                                         :body   {:email  "a@b.c"
-                                                  :code   code
-                                                  :app-id app-id}})
-                               :body
-                               :user)]
-                  (is (= (str app-id) (:app_id user)))
-                  (is (= "a@b.c" (:email user)))
-                  (is (some? (:refresh_token user)))))
+           (testing "can use second unused code"
+             (let [user (verify-code app "a@b.c" code2)]
+               (is (= (str app-id) (:app_id user)))
+               (is (= "a@b.c" (:email user)))
+               (is (some? (:refresh_token user)))))
 
-              (testing "can't reuse code"
-                (is (= 400 (:status (request {:method :post
-                                              :url    "/runtime/auth/verify_magic_code"
-                                              :body   {:email  "a@b.c"
-                                                       :code   code
-                                                       :app-id app-id}
-                                              :throw-exceptions false})))))
+           (testing "auth for existing user"
+             (let [code3 (send-code app "a@b.c")
+                   _     (is (not= code code3))
+                   _     (is (not= code2 code3))
+                   user  (verify-code app "a@b.c" code3)]
+               (is (= (str app-id) (:app_id user)))
+               (is (= "a@b.c" (:email user)))
+               (is (some? (:refresh_token user)))))))))))
 
-              (testing "can use second unused code"
-                (let [user (-> (request {:method :post
-                                         :url    "/runtime/auth/verify_magic_code"
-                                         :body   {:email  "a@b.c"
-                                                  :code   code2
-                                                  :app-id app-id}})
-                               :body
-                               :user)]
-                  (is (= (str app-id) (:app_id user)))
-                  (is (= "a@b.c" (:email user)))
-                  (is (some? (:refresh_token user)))))))
-
-          (testing "auth for existing user"
-            (request {:method :post
-                      :url    "/runtime/auth/send_magic_code"
-                      :body   {:email  "a@b.c"
-                               :app-id app-id}})
-            (is (= "a@b.c" (-> @email :to first :email)))
-            (let [code (re-find #"\d+" (-> @email :subject))
-                  user (-> (request {:method :post
-                                     :url    "/runtime/auth/verify_magic_code"
-                                     :body   {:email  "a@b.c"
-                                              :code   code
-                                              :app-id app-id}})
-                           :body
-                           :user)]
-              (is (= (str app-id) (:app_id user)))
-              (is (= "a@b.c" (:email user)))
-              (is (some? (:refresh_token user))))))))))
+(defn update-created-at [app-id code created-at]
+  (sql/execute!
+   (aurora/conn-pool :write)
+   (sql/format
+    "UPDATE
+       triples
+     SET
+       created_at = ?created-at
+     WHERE
+       app_id = ?app-id
+     AND entity_id = (
+       SELECT
+         entity_id
+       FROM
+         triples
+       WHERE
+         app_id = ?app-id
+         AND value = ?code-hash::jsonb
+     )"
+    {"?created-at" created-at
+     "?app-id"     app-id
+     "?code-hash"  (-> code
+                       crypt-util/str->sha256
+                       crypt-util/bytes->hex-string
+                       ->json)})))
 
 (deftest magic-codes-expire-test
-  (let [email (atom nil)]
-    (with-redefs [postmark/send-structured! #(reset! email %)]
-      (with-empty-app
-        (fn [{app-id :id}]
-          (let [update-created-at (fn [code created-at]
-                                    (sql/execute!
-                                     (aurora/conn-pool :write)
-                                     (sql/format
-                                      "UPDATE
-                                         triples
-                                       SET
-                                         created_at = ?created-at
-                                       WHERE
-                                         app_id = ?app-id
-                                       AND entity_id = (
-                                         SELECT
-                                           entity_id
-                                         FROM
-                                           triples
-                                         WHERE
-                                           app_id = ?app-id
-                                           AND value = ?code-hash::jsonb
-                                       )"
-                                      {"?created-at" created-at
-                                       "?app-id"     app-id
-                                       "?code-hash"  (-> code
-                                                         crypt-util/str->sha256
-                                                         crypt-util/bytes->hex-string
-                                                         ->json)})))]
-            (request {:method :post
-                      :url    "/runtime/auth/send_magic_code"
-                      :body   {:email  "a@b.d"
-                               :app-id app-id}})
-            (let [code (re-find #"\d+" (-> @email :subject))]
-              (update-created-at code (- (System/currentTimeMillis) (* 25 60 60 1000)))
-              (is (= 400 (:status (request {:method :post
-                                            :url    "/runtime/auth/verify_magic_code"
-                                            :body   {:email  "a@b.d"
-                                                     :code   code
-                                                     :app-id app-id}
-                                            :throw-exceptions false})))))
+  (test-util/test-matrix
+   [[send-code verify-code]
+    [[send-code-runtime verify-code-runtime]
+     [post-code-admin   verify-code-admin]
+     [send-code-admin   verify-code-admin]]]
+   (with-empty-app
+     (fn [{app-id :id :as app}]
+       (let [code (send-code app "a@b.c")]
+         (update-created-at app-id code (- (System/currentTimeMillis) (* 25 60 60 1000)))
+         (is (thrown-with-msg? ExceptionInfo #"status 400" (verify-code app "a@b.c" code))))
 
-            (request {:method :post
-                      :url    "/runtime/auth/send_magic_code"
-                      :body   {:email  "a@b.d"
-                               :app-id app-id}})
-            (let [code (re-find #"\d+" (-> @email :subject))]
-              (update-created-at code (- (System/currentTimeMillis) (* 23 60 60 1000)))
-              (is (= 200 (:status (request {:method :post
-                                            :url    "/runtime/auth/verify_magic_code"
-                                            :body   {:email  "a@b.d"
-                                                     :code   code
-                                                     :app-id app-id}})))))))))))
+       (let [code (send-code app "a@b.c")]
+         (update-created-at app-id code (- (System/currentTimeMillis) (* 23 60 60 1000)))
+         (is (= "a@b.c" (:email (verify-code app "a@b.c" code)))))))))
 
 ;; TODO remove after migrating to $magicCodes.email
 (deftest magic-code-$user-test-legacy
-  (let [email (atom nil)]
-    (with-redefs [postmark/send-structured! #(reset! email %)]
-      (with-empty-app
-        (fn [{app-id :id
-              make-ctx :make-ctx}]
-          (let [user-id (random-uuid)
-                code    (app-user-magic-code-model/rand-code)
-                _       (permissioned-tx/transact!
-                         (make-ctx {:admin? true})
-                         [{:id    user-id
-                           :etype "$users"
-                           :email "a@b.c"}
-                          {:id    (random-uuid)
-                           :etype "$magicCodes"
-                           :$user user-id
-                           :codeHash (-> code
-                                         crypt-util/str->sha256
-                                         crypt-util/bytes->hex-string)}])
-                user    (-> (request {:method :post
-                                      :url    "/runtime/auth/verify_magic_code"
-                                      :body   {:email  "a@b.c"
-                                               :code   code
-                                               :app-id app-id}})
-                            :body
-                            :user)]
-            (is (= (str app-id) (:app_id user)))
-            (is (= "a@b.c" (:email user)))
-            (is (some? (:refresh_token user)))))))))
+  (test-util/test-matrix
+   [verify-code [verify-code-runtime
+                 verify-code-admin]]
+   (with-empty-app
+     (fn [{app-id :id
+           make-ctx :make-ctx
+           :as app}]
+       (let [user-id (random-uuid)
+             code    (app-user-magic-code-model/rand-code)
+             _       (permissioned-tx/transact!
+                      (make-ctx {:admin? true})
+                      [{:id    user-id
+                        :etype "$users"
+                        :email "a@b.c"}
+                       {:id    (random-uuid)
+                        :etype "$magicCodes"
+                        :$user user-id
+                        :codeHash (-> code
+                                      crypt-util/str->sha256
+                                      crypt-util/bytes->hex-string)}])
+             user    (verify-code app "a@b.c" code)]
+         (is (= (str app-id) (:app_id user)))
+         (is (= "a@b.c" (:email user)))
+         (is (some? (:refresh_token user))))))))
