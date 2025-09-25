@@ -334,6 +334,10 @@ program
   .command('create-app')
   .description('Generate an app ID and admin token for a new app.')
   .option('-t --title', 'Title for the created app')
+  .option(
+    '-o --org <org-id>',
+    'The (optional) id of the organization to create the app in.',
+  )
   .action(async (opts) => {
     await checkVersion();
     const authToken = await readAuthTokenOrLoginWithErrorLogging();
@@ -740,7 +744,36 @@ async function promptCreateApp(opts) {
     error('No name provided.');
     return { ok: false };
   }
-  const app = { id, title, admin_token: token };
+
+  const res = await fetchJson({
+    debugName: 'Fetching orgs',
+    method: 'GET',
+    path: '/dash',
+    errorMessage: 'Failed to fetch apps.',
+  });
+  if (!res.ok) {
+    return { ok: false };
+  }
+
+  const allowedOrgs = res.data.orgs.filter((org) => org.role !== 'app-member');
+
+  let org_id = opts.org;
+
+  if (!org_id && allowedOrgs.length) {
+    const choices = [{ name: '(No organization)', value: null }];
+    for (const org of allowedOrgs) {
+      choices.push({ name: org.title, value: org.id });
+    }
+    const choice = await select({
+      message: 'Would you like to create the app in an organization?',
+      choices,
+    });
+    if (choice) {
+      org_id = choice;
+    }
+  }
+
+  const app = { id, title, admin_token: token, org_id };
   const appRes = await fetchJson({
     method: 'POST',
     path: '/dash/apps',
@@ -769,21 +802,50 @@ async function promptImportAppOrCreateApp() {
   if (!res.ok) {
     return { ok: false };
   }
-  const { apps } = res.data;
+  const { orgs } = res.data;
+  let apps;
+  let orgName;
+  let orgId;
+  if (orgs.length) {
+    const choices = [{ name: '(No organization)', value: null }];
+    for (const org of orgs) {
+      choices.push({ name: org.title, value: org.id });
+    }
+    const choice = await select({
+      message: 'Would you like to import an app from an organization?',
+      choices,
+    });
+    if (choice) {
+      const orgsRes = await fetchJson({
+        debugName: 'Fetching apps',
+        method: 'GET',
+        path: `/dash/orgs/${choice}`,
+        errorMessage: 'Failed to fetch apps.',
+      });
+      if (!orgsRes.ok) {
+        return { ok: false };
+      }
+      apps = orgsRes.data.apps;
+      orgName = orgsRes.data.org.title;
+      orgId = choice;
+    } else {
+      apps = res.data.apps;
+    }
+  }
   if (!apps.length) {
     const ok = await promptOk(
-      "You don't have any apps. Want to create a new one?",
+      `You don't have any apps${orgName ? ` in ${orgName}` : ''}. Want to create a new one?`,
       /*defaultAnswer=*/ true,
     );
     if (!ok) return { ok: false };
-    return await promptCreateApp();
+    return await promptCreateApp({ org: orgId });
   }
 
   apps.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
 
   const choice = await select({
     message: 'Which app would you like to import?',
-    choices: res.data.apps.map((app) => {
+    choices: apps.map((app) => {
       return { name: `${app.title} (${app.id})`, value: app.id };
     }),
   }).catch(() => null);
