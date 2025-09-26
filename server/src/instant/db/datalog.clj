@@ -823,21 +823,6 @@
           :idx-key :ave
           :data-type :date}]))
 
-(defn pg-hint-index [[tag v :as idx]]
-  (if (and (= tag :map)
-           (= (:idx-key v) :ave))
-    (case (:data-type v)
-      :string :triples_string_trgm_gist_idx
-      :number :triples_number_type_idx
-      :boolean :triples_boolean_type_idx
-      :date :triples_date_type_idx)
-    (case (idx-key idx)
-      :ea :ea_index
-      :eav :eav_index
-      :av :av_index
-      :ave :ave_index
-      :vae :vae_index)))
-
 (defn- where-clause
   "
     Given a named pattern, return a where clause with the constants:
