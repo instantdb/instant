@@ -414,7 +414,7 @@ export function AppleClients({
     data.oauth_clients?.filter((c) => c.provider_id === provider?.id) || [];
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2 bg-white dark:bg-neutral-800">
       {clients.map((c) => (
         <AppleClient
           // Update the key because the mutate somehow takes effect before
