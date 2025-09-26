@@ -770,52 +770,58 @@
              clause))
          clauses)))
 
-(def index-configs
-  [{:name :ea_index
-    :cols [:e :a]
-    :idx-key :ea}
+(defn index-configs []
+  (keep identity
+        [{:name :ea_index
+          :cols [:e :a]
+          :idx-key :ea}
 
-   {:name :triples_pkey
-    :cols [:e :a]}
+         {:name :triples_pkey
+          :cols [:e :a]}
 
-   {:name :ave_index
-    :cols [:a :v]
-    :idx-key :ave}
+         {:name :ave_index
+          :cols [:a :v]
+          :idx-key :ave}
 
-   {:name :eav_uuid_index
-    :cols [:e :a :v]
-    :idx-key :eav}
+         (when (flags/toggled? :ave-with-e-index)
+           {:name :ave_with_e_index
+            :cols [:a :v :e]
+            :idx-key :ave})
 
-   {:name :triples_string_trgm_gist_idx
-    :cols [:a :v]
-    :idx-key :ave
-    :data-type :string}
+         {:name :eav_uuid_index
+          :cols [:e :a :v]
+          :idx-key :eav}
 
-   {:name :vae_uuid_index
-    :cols [:v :a :e]
-    :idx-key :vae}
+         {:name :triples_string_trgm_gist_idx
+          :cols [:a :v]
+          :idx-key :ave
+          :data-type :string}
 
-   {:name :triples_created_at_idx
-    :cols [:a :created-at]}
+         {:name :vae_uuid_index
+          :cols [:v :a :e]
+          :idx-key :vae}
 
-   {:name :av_index
-    :cols [:a :v :e]
-    :idx-key :av}
+         {:name :triples_created_at_idx
+          :cols [:a :created-at]}
 
-   {:name :triples_number_type_idx
-    :cols [:a :v]
-    :idx-key :ave
-    :data-type :number}
+         {:name :av_index
+          :cols [:a :v :e]
+          :idx-key :av}
 
-   {:name :triples_boolean_type_idx
-    :cols [:a :v]
-    :idx-key :ave
-    :data-type :boolean}
+         {:name :triples_number_type_idx
+          :cols [:a :v]
+          :idx-key :ave
+          :data-type :number}
 
-   {:name :triples_date_type_idx
-    :cols [:a :v]
-    :idx-key :ave
-    :data-type :date}])
+         {:name :triples_boolean_type_idx
+          :cols [:a :v]
+          :idx-key :ave
+          :data-type :boolean}
+
+         {:name :triples_date_type_idx
+          :cols [:a :v]
+          :idx-key :ave
+          :data-type :date}]))
 
 (defn pg-hint-index [[tag v :as idx]]
   (if (and (= tag :map)
@@ -1330,7 +1336,7 @@
                                                             second
                                                             :$comparator
                                                             :op)))))))))
-                index-configs)
+                (index-configs))
 
         ;; Gets the components that we know (either constants or defined
         ;; in the symbol map by a previous CTE)
