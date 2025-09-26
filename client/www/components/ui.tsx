@@ -386,7 +386,7 @@ export function Checkbox({
   );
 }
 
-export function Select<Value extends string>({
+export function Select<Value extends string | boolean>({
   value,
   options,
   className,
@@ -418,14 +418,17 @@ export function Select<Value extends string>({
         const o = options.find((o) => o.value === value);
         onChange(o);
       }}
-      value={value}
+      value={value?.toString()}
     >
       <SelectTrigger className={className} title={title} tabIndex={tabIndex}>
         <SelectValue placeholder={emptyLabel}>{visibleValue}</SelectValue>
       </SelectTrigger>
       <SelectContent className={contentClassName}>
         {options.map((option) => (
-          <SelectItem key={option.value} value={option.value}>
+          <SelectItem
+            key={option.value?.toString()}
+            value={option.value?.toString()}
+          >
             {option.label}
           </SelectItem>
         ))}
