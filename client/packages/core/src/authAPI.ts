@@ -7,8 +7,7 @@ type SharedInput = {
 };
 
 export type SendMagicCodeParams = {
-  email: string,
-  userId?: string | undefined,
+  email: string;
 };
 export type SendMagicCodeResponse = {
   sent: true;
@@ -17,17 +16,20 @@ export type SendMagicCodeResponse = {
 export function sendMagicCode({
   apiURI,
   appId,
-  email,
-  userId,
+  email
 }: SharedInput & SendMagicCodeParams): Promise<SendMagicCodeResponse> {
   return jsonFetch(`${apiURI}/runtime/auth/send_magic_code`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ 'app-id': appId, email, ...(userId ? {'user-id': userId} : {}) }),
+    body: JSON.stringify({ 'app-id': appId, email }),
   });
 }
 
-export type VerifyMagicCodeParams = { email: string; code: string };
+export type VerifyMagicCodeParams = {
+  email: string;
+  code: string;
+  userId?: string | undefined;
+};
 export type VerifyResponse = {
   user: User;
 };
@@ -36,11 +38,12 @@ export async function verifyMagicCode({
   appId,
   email,
   code,
+  userId,
 }: SharedInput & VerifyMagicCodeParams): Promise<VerifyResponse> {
   const res = await jsonFetch(`${apiURI}/runtime/auth/verify_magic_code`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ 'app-id': appId, email, code }),
+    body: JSON.stringify({ 'app-id': appId, email, code, ...(userId ? {'user-id': userId} : {}) }),
   });
   return res;
 }

@@ -1723,23 +1723,23 @@ export default class Reactor {
     this.notifyAuthSubs(newV);
   }
 
-  async sendMagicCode({ email }) {
-    const currentUser = await this.getCurrentUser();
-    const isAnonymous = currentUser && currentUser.user && !currentUser.user.email;
+  sendMagicCode({ email }) {
     return authAPI.sendMagicCode({
       apiURI: this.config.apiURI,
       appId: this.config.appId,
       email: email,
-      userId: isAnonymous ? currentUser.user.id : undefined,
     });
   }
 
   async signInWithMagicCode({ email, code }) {
+    const currentUser = await this.getCurrentUser();
+    const isAnonymous = currentUser && currentUser.user && !currentUser.user.email;
     const res = await authAPI.verifyMagicCode({
       apiURI: this.config.apiURI,
       appId: this.config.appId,
       email,
       code,
+      userId: isAnonymous ? currentUser.user.id : undefined,
     });
     await this.changeCurrentUser(res.user);
     return res;

@@ -98,15 +98,18 @@
 
   (send! {:app-id (:id app) :email "stopa@instantdb.com"}))
 
-(defn verify! [{:keys [app-id email code]}]
+(defn verify! [{:keys [app-id email code user-id]}]
   (app-user-magic-code-model/consume!
    {:app-id app-id
     :code   code
     :email  email})
-  (let [user (or (app-user-model/get-by-email {:app-id app-id
-                                               :email email})
-                 (app-user-model/create! {:app-id app-id
-                                          :email  email}))
+  (let [user (or (app-user-model/get-by-email
+                  {:app-id app-id
+                   :email email})
+                 (app-user-model/create!
+                  {:id     user-id
+                   :app-id app-id
+                   :email  email}))
         refresh-token-id (random-uuid)]
     (app-user-refresh-token-model/create!
      {:app-id  app-id
