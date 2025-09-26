@@ -28,6 +28,7 @@ import {
 import {
   ArchiveBoxArrowDownIcon,
   ArrowPathIcon,
+  ClipboardIcon,
   PlayIcon,
   PlusIcon,
   TrashIcon,
@@ -45,6 +46,7 @@ import {
 } from '../resizable';
 import { useDarkMode } from './DarkModeToggle';
 import { ArrowUpToLine, Save } from 'lucide-react';
+import { infoToast } from '@/lib/toast';
 
 const base64Parser = createParser({
   parse(value) {
@@ -469,6 +471,16 @@ export function Sandbox({
       <div className="flex w-full justify-between border-b bg-white p-2 px-3 dark:border-b-neutral-600 dark:bg-neutral-800">
         <PresetManager />
         <div className="flex items-center gap-8">
+          <IconButton
+            variant="subtle"
+            label="Copy link to sandbox"
+            onClick={() => {
+              navigator.clipboard.writeText(window.location.toString());
+              infoToast('Copied permalink to code and permissions!');
+            }}
+            icon={<ClipboardIcon width={18} />}
+          />
+
           <Checkbox
             label={<div className="text-sm">Write to DB</div>}
             checked={dangerouslyCommitTx}
