@@ -261,10 +261,8 @@ export function Sandbox({
         }
       }, 10);
       if (sandboxCodeValue) return;
-      console.log('USER EFFECT', JSON.stringify(sandboxCodeValue));
       const schema = dbAttrsToExplorerSchema(_oAttrs);
       const ns = schema.at(0);
-      console.log('hihi', ns);
       setSandboxValue(initialSandboxValue(ns?.name || 'example'));
     });
 
