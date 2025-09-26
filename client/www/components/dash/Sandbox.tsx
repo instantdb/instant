@@ -36,7 +36,8 @@ import { InstantReactWebDatabase } from '@instantdb/react';
 import { Editor } from '@monaco-editor/react';
 import clsx from 'clsx';
 import { createParser, parseAsBoolean, useQueryState } from 'nuqs';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { debounce } from 'lodash';
 import {
   ResizableHandle,
   ResizablePanel,
@@ -193,33 +194,48 @@ export function Sandbox({
     }
   }, []);
 
-  useEffect(() => {
-    if (!selectedSandbox) {
-      setHasUnsavedWork(false);
-    }
-    const saved = savedSandboxes.find((sb) => sb.name === selectedSandbox);
-    if (!saved) {
-      return;
-    }
+  const checkUnsavedWork = useCallback(
+    debounce(() => {
+      if (!selectedSandbox) {
+        setHasUnsavedWork(false);
+        return;
+      }
+      const saved = savedSandboxes.find((sb) => sb.name === selectedSandbox);
+      if (!saved) {
+        return;
+      }
 
-    if (JSON.stringify(sandboxCodeValue) !== JSON.stringify(saved.code)) {
-      setHasUnsavedWork(true);
-      return;
-    }
-    if (JSON.stringify(permsValue) !== JSON.stringify(saved.perms)) {
-      setHasUnsavedWork(true);
-      return;
-    }
-    if (runAsUserEmail !== saved.runAsUser) {
-      setHasUnsavedWork(true);
-      return;
-    }
-    if (useAppPerms !== saved.useAppPerms) {
-      setHasUnsavedWork(true);
-      return;
-    }
-    setHasUnsavedWork(false);
-  }, [selectedSandbox, permsValue, sandboxCodeValue]);
+      if (JSON.stringify(sandboxCodeValue) !== JSON.stringify(saved.code)) {
+        setHasUnsavedWork(true);
+        return;
+      }
+      if (JSON.stringify(permsValue) !== JSON.stringify(saved.perms)) {
+        setHasUnsavedWork(true);
+        return;
+      }
+      if (runAsUserEmail !== saved.runAsUser) {
+        setHasUnsavedWork(true);
+        return;
+      }
+      if (useAppPerms !== saved.useAppPerms) {
+        setHasUnsavedWork(true);
+        return;
+      }
+      setHasUnsavedWork(false);
+    }, 300),
+    [
+      selectedSandbox,
+      savedSandboxes,
+      sandboxCodeValue,
+      permsValue,
+      runAsUserEmail,
+      useAppPerms,
+    ],
+  );
+
+  useEffect(() => {
+    checkUnsavedWork();
+  }, [checkUnsavedWork]);
 
   function out(
     type: 'log' | 'error' | 'query' | 'transaction' | 'eval',
@@ -234,8 +250,6 @@ export function Sandbox({
       appId: app.id,
       apiURI: config.apiURI,
     });
-
-    console.log('CORE DB INITIALIZED', coreDb);
 
     const unsubAttrs = coreDb._reactor.subscribeAttrs((_oAttrs: any) => {
       let unsubImmediately = setInterval(() => {
@@ -252,11 +266,7 @@ export function Sandbox({
       setSandboxValue(initialSandboxValue(ns?.name || 'example'));
     });
 
-    return () => {
-      if (unsubAttrs) {
-        unsubAttrs();
-      }
-    };
+    return unsubAttrs;
   }, []);
 
   useEffect(() => {
