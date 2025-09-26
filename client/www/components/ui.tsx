@@ -855,7 +855,7 @@ export function SmallCopyable({
               truncate: !multiline,
               'whitespace-pre-wrap break-all': multiline,
             })}
-            title={value}
+            title={hideValue || hidden ? 'Copy App ID to Clipboard' : value}
             onClick={(e) => {
               // Only copy if no text is selected
               const selection = window.getSelection();
