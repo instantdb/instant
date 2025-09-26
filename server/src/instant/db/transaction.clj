@@ -650,11 +650,16 @@
                                                     :name "transact"}))
           (assoc tx :results results))))))
 
+(defn- tx-step-op [tx-step]
+  (if (map? tx-step)
+    :add-triple
+    (first tx-step)))
+
 (defn tx-steps-order
   "For backwards compatibility, we group steps by op but execute groups
    in order they first appeared in tx-steps"
   [tx-step-vecs]
-  (distinct (map first tx-step-vecs)))
+  (distinct (map tx-step-op tx-step-vecs)))
 
 (defn reorder-tx-steps
   [ops-order tx-step-maps]
@@ -664,19 +669,49 @@
 (defn optimistic-attrs [attrs tx-step-vecs]
   (->> tx-step-vecs
        (reduce
-        (fn [acc [op value]]
-          (case op
+        (fn [acc tx-step]
+          (case (tx-step-op tx-step)
             (:add-attr
-             :update-attr) (assoc! acc (:id value) value)
-            :delete-attr   (dissoc! acc value)
+             :update-attr) (let [[_ value] tx-step]
+                             (assoc! acc (:id value) value))
+            :delete-attr   (let [[_ value] tx-step]
+                             (dissoc! acc value))
             acc))
         (transient (attr-model/map-by-id attrs)))
        persistent!
        vals
        attr-model/wrap-attrs))
 
+(defn- expand-maps
+  "Lets you write sequence of :add-triple as a map. Will resolve attributes
+   to their ids. Map must contain :id and :etype keys.
+
+     (transact! [{:id    user-id
+                  :etype \"$users\"
+                  :email \"stopa@instantdb.com\"}])
+
+   is equivalent to
+
+     (let [attr-id (fn [label]
+                     (attr-model/resolve-attr-id attrs \"$users\" label))]
+       (transact! [[:add-triple user-id (attr-id :id) user-id]
+                   [:add-triple user-id (attr-id :email) \"stopa@instantdb.com\"]]))"
+  [attrs tx-step-vecs]
+  (for [tx-step tx-step-vecs
+        tx-step (if (map? tx-step)
+                  (let [{:keys [id etype]} tx-step]
+                    (for [[k v] tx-step
+                          :when (not= :etype k)
+                          :let  [attr-id (if (uuid? k)
+                                           k
+                                           (attr-model/resolve-attr-id attrs etype k))]]
+                      [:add-triple id attr-id v]))
+                  [tx-step])]
+    tx-step))
+
 (defn preprocess-tx-steps [conn attrs app-id tx-step-vecs]
   (->> tx-step-vecs
+       (expand-maps attrs)
        (mapify-tx-steps attrs)
        (resolve-lookups-for-delete-entity conn app-id)
        (resolve-etypes-for-delete-entity conn app-id)

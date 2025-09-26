@@ -670,6 +670,35 @@
                                           [[:= :attr-id name-attr-id]])
                       (map :index)))))))))
 
+;; Test passing map to transact that gets expanded into [:add-triple ...] and resolves attr-ids
+(deftest transact-map-form
+  (with-empty-app
+    (fn [{app-id :id
+          make-ctx :make-ctx}]
+      (let [user-id (random-uuid)]
+        (test-util/make-attrs
+         app-id
+         [[:users/id :required? :index? :unique?]
+          [:users/name]])
+        (permissioned-tx/transact!
+         (make-ctx)
+         [[:add-attr
+           {:id               (random-uuid)
+            :forward-identity [(random-uuid) "users" "age"]
+            :value-type       :blob
+            :cardinality      :one
+            :unique?          false
+            :index?           false}]
+          {:id    user-id
+           :etype "users"
+           :name  "Niki"
+           :age   40}])
+        (is (= #{{:users/age  40
+                  :users/id   (str user-id)
+                  :users/name "Niki"
+                  :db/id      user-id}}
+               (test-util/find-entities-by-ids app-id [user-id])))))))
+
 (deftest obj-normal
   (with-empty-app
     (fn [{app-id :id}]
@@ -4343,7 +4372,7 @@
           [:add-triple user-refresh-token-id (attr-id :$userRefreshTokens/$user) user-id]
           [:add-triple user-refresh-token-id (attr-id :$userRefreshTokens/hashedToken) "abc"]
           [:add-triple magic-code-id (attr-id :$magicCodes/id) magic-code-id]
-          [:add-triple magic-code-id (attr-id :$magicCodes/$user) user-id]
+          [:add-triple magic-code-id (attr-id :$magicCodes/email) "test@example.com"]
           [:add-triple magic-code-id (attr-id :$magicCodes/codeHash) "abc"]])
 
         (is (permissioned-tx/transact!
