@@ -2,7 +2,7 @@ import { init, tx } from '@instantdb/react-native';
 import { View, Text, Button, StyleSheet } from 'react-native';
 import config from '../config';
 
-const { useQuery, transact } = init(config);
+const db = init(config);
 
 function App() {
   return <Main />;
@@ -11,7 +11,8 @@ function App() {
 const selectId = '4d39508b-9ee2-48a3-b70d-8192d9c5a059';
 
 function Main() {
-  const { isLoading, error, data } = useQuery({ colors: {} });
+  console.log('HI!!!', db._core._reactor.config);
+  const { isLoading, error, data } = db.useQuery({ colors: {} });
 
   if (isLoading) return <Text>Loading...</Text>;
   if (error) return <Text>Error: {error.message}</Text>;
@@ -29,7 +30,7 @@ function Main() {
               <Button
                 title={c}
                 onPress={() => {
-                  transact(tx.colors[selectId].update({ color: c }));
+                  db.transact(tx.colors[selectId].update({ color: c }));
                 }}
                 key={c}
               />

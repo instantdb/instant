@@ -181,6 +181,7 @@ export default class Reactor {
     versions,
   ) {
     this.config = { ...defaultConfig, ...config };
+
     this.queryCacheLimit = this.config.queryCacheLimit ?? 10;
 
     this._log = createLogger(
