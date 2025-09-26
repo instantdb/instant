@@ -45,14 +45,12 @@
             [instant.model.schema :as schema-model]
             [instant.plans :as plans]
             [instant.postmark :as postmark]
-            [instant.reactive.ephemeral :as eph]
             [instant.session-counter :as session-counter]
             [instant.storage.coordinator :as storage-coordinator]
             [instant.stripe :as stripe]
             [instant.superadmin.routes :refer [req->superadmin-user-and-app!]]
             [instant.system-catalog :as system-catalog]
             [instant.util.async :refer [fut-bg]]
-            [instant.util.cache :as cache]
             [instant.util.coll :as ucoll]
             [instant.util.crypt :as crypt-util]
             [instant.util.date :as date]
@@ -313,10 +311,18 @@
 (defn admin-overview-minute-get [req]
   (let [{:keys [email]} (req->auth-user! req)
         _ (assert-admin-email! email)
-        hz (eph/get-hz)
-        session-reports (machine-summaries/get-all-session-reports hz)]
+        session-reports (machine-summaries/get-session-reports-cached)]
     (response/ok
      {:session-reports session-reports})))
+
+(defn app-stats-get [req]
+  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+        reports             (->> (machine-summaries/get-session-reports-cached)
+                                 (vals)
+                                 (map #(get % app-id)))]
+    (response/ok
+     {:count   (transduce (keep :count) + 0 reports)
+      :origins (transduce (keep :origins) (completing #(merge-with + %1 %2)) {} reports)})))
 
 (defn admin-paid-get [req]
   (let [{:keys [email]} (req->auth-user! req)]
@@ -1459,16 +1465,8 @@
     (instant-user-refresh-token-model/delete-by-id! {:id token})
     (response/ok {})))
 
-(def active-session-cache
-  (cache/make
-   {:ttl      5000
-    :value-fn (fn [_]
-                (->> (machine-summaries/get-all-num-sessions (eph/get-hz))
-                     vals
-                     (reduce +)))}))
-
 (defn active-sessions-get [_]
-  (response/ok {:total-count (cache/get active-session-cache :total-count)}))
+  (response/ok {:total-count (machine-summaries/get-num-sessions-cached)}))
 
 (defn oauth-apps-get [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)]
@@ -1754,6 +1752,7 @@
   (POST "/dash/apps" [] apps-post)
   (POST "/dash/profiles" [] profiles-post)
   (GET "/dash/apps/:app_id" [] apps-get)
+  (GET "/dash/apps/:app_id/stats" [] app-stats-get)
   (DELETE "/dash/apps/:app_id" [] apps-delete)
   (POST "/dash/apps/:app_id/clear" [] apps-clear)
   (POST "/dash/apps/:app_id/rules" [] rules-post)
