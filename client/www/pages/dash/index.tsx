@@ -945,8 +945,8 @@ function AppCombobox({
         anchor="bottom"
         transition
         className={clsx(
-          'z-50 divide-y border border-gray-300 bg-white shadow-lg empty:invisible dark:divide-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white md:min-w-[var(--input-width)]',
-          'mx-2 my-1 border p-1 [--anchor-gap:var(--spacing-1)]',
+          'z-50 border border-gray-300 bg-white shadow-lg empty:invisible dark:divide-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white md:min-w-[var(--input-width)]',
+          'mx-2 my-1 border [--anchor-gap:var(--spacing-1)]',
           'transition duration-100 ease-in data-[leave]:data-[closed]:opacity-0',
         )}
       >
