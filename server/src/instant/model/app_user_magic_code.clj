@@ -20,7 +20,7 @@
 
 (defn create!
   ([params] (create! (aurora/conn-pool :write) params))
-  ([conn {:keys [app-id id code user-id]}]
+  ([conn {:keys [app-id id code user-id email]}]
    (update-op
     conn
     {:app-id app-id
@@ -30,7 +30,8 @@
                   [:add-triple id (resolve-id :codeHash) (-> code
                                                              crypt-util/str->sha256
                                                              crypt-util/bytes->hex-string)]
-                  [:add-triple id (resolve-id :$user) user-id]])
+                  [:add-triple id (resolve-id :$user) user-id]
+                  [:add-triple id (resolve-id :email) email]])
       (assoc (get-entity id)
              :code code)))))
 

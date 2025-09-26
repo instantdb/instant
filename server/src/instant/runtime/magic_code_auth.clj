@@ -71,7 +71,8 @@
                     {:app-id app-id
                      :id (random-uuid)
                      :code (app-user-magic-code-model/rand-code)
-                     :user-id user-id})]
+                     :user-id user-id
+                     :email   email})]
 
     {:user u
      :created-user? (not existing-u)
