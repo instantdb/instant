@@ -803,7 +803,7 @@ async function promptImportAppOrCreateApp() {
     return { ok: false };
   }
   const { orgs } = res.data;
-  let apps;
+  let apps = res.data.apps;
   let orgName;
   let orgId;
   if (orgs.length) {
