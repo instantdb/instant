@@ -1732,11 +1732,14 @@ export default class Reactor {
   }
 
   async signInWithMagicCode({ email, code }) {
+    const currentUser = await this.getCurrentUser();
+    const isAnonymous = currentUser && currentUser.user && !currentUser.user.email;
     const res = await authAPI.verifyMagicCode({
       apiURI: this.config.apiURI,
       appId: this.config.appId,
       email,
       code,
+      userId: isAnonymous ? currentUser.user.id : undefined,
     });
     await this.changeCurrentUser(res.user);
     return res;
@@ -1747,6 +1750,15 @@ export default class Reactor {
       apiURI: this.config.apiURI,
       appId: this.config.appId,
       refreshToken: authToken,
+    });
+    await this.changeCurrentUser(res.user);
+    return res;
+  }
+
+  async signInAnonymously() {
+    const res = await authAPI.signInAnonymously({
+      apiURI: this.config.apiURI,
+      appId: this.config.appId,
     });
     await this.changeCurrentUser(res.user);
     return res;
