@@ -1,9 +1,10 @@
 (ns instant.machine-summaries
   (:require
-   [instant.util.hazelcast :as hz]
+   [instant.flags :as flags]
    [instant.reactive.ephemeral :as eph]
    [instant.reactive.store :as rs]
-   [instant.util.cache :as cache])
+   [instant.util.cache :as cache]
+   [instant.util.hazelcast :as hz])
   (:import
    (com.hazelcast.cluster Member)
    (com.hazelcast.core HazelcastInstance IExecutorService)))
@@ -44,13 +45,19 @@
   (get-session-reports (eph/get-hz)))
 
 (def session-reports-cache
-  (cache/make
-   {:ttl      30000
-    :value-fn (fn [_]
-                (get-session-reports (eph/get-hz)))}))
+  (atom {:ttl nil
+         :cache nil}))
 
 (defn get-session-reports-cached []
-  (cache/get session-reports-cache :session-reports))
+  (let [target-ttl (flags/flag :session-reports-cache-ttl 5000)]
+    (when-not (= target-ttl (:ttl @session-reports-cache))
+      (reset! session-reports-cache
+              {:ttl   target-ttl
+               :cache (cache/make {:ttl target-ttl})}))
+    (cache/get (:cache @session-reports-cache)
+               :session-reports
+               (fn [_]
+                 (get-session-reports (eph/get-hz))))))
 
 ;; num sessions
 

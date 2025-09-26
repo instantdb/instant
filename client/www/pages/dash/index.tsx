@@ -664,8 +664,8 @@ function useAppConnectionStats(token: string, appId: string) {
 
     fetchConnectionStats();
 
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchConnectionStats, 30000);
+    // Refresh every 5 seconds
+    const interval = setInterval(fetchConnectionStats, 5000);
 
     return () => {
       cancel = true;
