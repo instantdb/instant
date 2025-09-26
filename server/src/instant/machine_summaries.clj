@@ -49,7 +49,7 @@
          :cache nil}))
 
 (defn get-session-reports-cached []
-  (let [target-ttl (flags/flag :session-reports-cache-ttl 5000)]
+  (let [target-ttl (parse-long (flags/flag :session-reports-cache-ttl "5000"))]
     (when-not (= target-ttl (:ttl @session-reports-cache))
       (reset! session-reports-cache
               {:ttl   target-ttl

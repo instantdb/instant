@@ -635,7 +635,6 @@ function formatRouteParams(href: string) {
 // Hook to fetch connection stats for the current app
 function useAppConnectionStats(token: string, appId: string) {
   const [stats, setStats] = useState<AppStatsResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
@@ -645,7 +644,6 @@ function useAppConnectionStats(token: string, appId: string) {
 
     const fetchConnectionStats = async () => {
       try {
-        setIsLoading(true);
         const data = await fetchAppStats(token, appId);
         if (cancel) return;
 
@@ -653,12 +651,8 @@ function useAppConnectionStats(token: string, appId: string) {
         setError(null);
       } catch (err) {
         if (cancel) return;
-        setError(err as Error);
         setStats(null);
-      } finally {
-        if (!cancel) {
-          setIsLoading(false);
-        }
+        setError(err as Error);
       }
     };
 
@@ -672,6 +666,8 @@ function useAppConnectionStats(token: string, appId: string) {
       clearInterval(interval);
     };
   }, [token, appId]);
+
+  const isLoading = stats === null && error === null;
 
   return { stats, isLoading, error };
 }
@@ -734,14 +730,13 @@ function Home({ appId, token }: { appId: string; token: string }) {
         <div className="mt-4 space-y-2 rounded border bg-white p-4 shadow-sm transition-colors dark:border-neutral-700 dark:bg-neutral-800">
           <div className="flex items-center justify-between">
             <div className="mt-1">
-              {isLoading || error || !stats?.count || stats?.count < 0 ? (
-                <div style={{ height: 38 }}></div>
+              {isLoading ? (
+                <div>Loading...</div>
+              ) : error ? (
+                <div>Error: {error.message}</div>
               ) : (
-                <div
-                  className="inline-flex items-center space-x-2"
-                  style={{ height: 38 }}
-                >
-                  <AnimatedCounter number={stats?.count} height={38} />
+                <div className="inline-flex items-center space-x-2">
+                  <AnimatedCounter number={stats?.count || 0} height={38} />
                   <div className="flex-1">sessions are connected right now</div>
                 </div>
               )}
