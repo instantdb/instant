@@ -301,6 +301,10 @@
                                           (fn [chart] (metrics/chart->base64-png chart
                                                                                  500 400))))
         subscription-info {:num-subs (count rev-subs)
+                           :sub-breakdown (reduce (fn [acc sub]
+                                                    (update acc (:product-name sub) (fnil inc 0)))
+                                                  {}
+                                                  rev-subs)
                            :total-monthly-revenue (reduce + (map :monthly-revenue rev-subs))}]
 
     (response/ok (assoc overview-with-b64-charts

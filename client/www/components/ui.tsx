@@ -1,3 +1,4 @@
+import type { ClassValue } from 'clsx';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -1392,10 +1393,7 @@ export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider };
 
 // utils
 
-export function twel<T = {}>(
-  el: string,
-  cls: clsx.ClassValue[] | clsx.ClassValue,
-) {
+export function twel<T = {}>(el: string, cls: ClassValue[] | ClassValue) {
   return function (props: { className?: string; children: ReactNode } & T) {
     return createElement(el, {
       ...props,
@@ -1404,7 +1402,7 @@ export function twel<T = {}>(
   };
 }
 
-export function cn(...inputs: clsx.ClassValue[]) {
+export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 

@@ -368,7 +368,14 @@
       (.addVar "newData" type-obj)
       (.build)))
 
-(def ^:private ^CelCompiler cel-link-unlink-compiler
+(def ^:private ^CelCompiler cel-link-compiler
+  (-> (runtime-compiler-builder)
+      (.addVar "newData" type-obj)
+      (.addVar "linkedData" type-obj)
+      (.addVar "actions" type-obj)
+      (.build)))
+
+(def ^:private ^CelCompiler cel-unlink-compiler
   (-> (runtime-compiler-builder)
       (.addVar "newData" type-obj)
       (.addVar "linkedData" type-obj)
@@ -388,7 +395,8 @@
 (defn action->compiler [action]
   (case (name action)
     ("view" "delete") cel-view-delete-compiler
-    ("link" "unlink") cel-link-unlink-compiler
+    "link"            cel-link-compiler
+    "unlink"          cel-unlink-compiler
     #_else            cel-create-update-compiler))
 
 (defn get-expr ^CelExpr [^CelNavigableExpr node]
@@ -431,7 +439,7 @@
 (defn eval-program!
   [ctx
    {:keys [cel-program etype action]}
-   {:keys [data rule-params new-data linked-data linked-etype]}]
+   {:keys [data rule-params new-data linked-data linked-etype actions]}]
   (try
     (let [bindings (HashMap.)
           _ (.put bindings "auth" (AuthCelMap. ctx (CelMap. (:current-user ctx))))
@@ -441,6 +449,8 @@
               (.put bindings "newData" (CelMap. new-data)))
           _ (when linked-data
               (.put bindings "linkedData" (DataCelMap. ctx linked-etype (CelMap. linked-data))))
+          _ (when actions
+              (.put bindings "actions" (CelMap. actions)))
           result (.eval ^CelRuntime$Program cel-program
                         bindings)]
       (cond
@@ -471,7 +481,7 @@
    {:keys [^CelRuntime$Program cel-program
            etype
            action] :as program}
-   {:keys [resolver data rule-params new-data linked-data linked-etype]}]
+   {:keys [resolver data rule-params new-data linked-data linked-etype actions]}]
   (if (contains? program :result)
     (:result program)
     (try
@@ -493,6 +503,10 @@
                                "linkedData" (if linked-data
                                               (Optional/of
                                                (DataCelMap. ctx linked-etype (CelMap. linked-data)))
+                                              (Optional/empty))
+                               "actions"    (if actions
+                                              (Optional/of
+                                               (CelMap. actions))
                                               (Optional/empty))
                                (Optional/empty)))))
             unknown-ctx (UnknownContext/create resolver (ImmutableList/of))

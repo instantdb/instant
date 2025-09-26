@@ -345,7 +345,16 @@ function Dashboard() {
       })
         .then((res) => {
           if (cancel) return;
-          if (res?.app?.org_id && res?.app?.org_id !== router.query.org) {
+          if (
+            res?.app?.creator_id &&
+            dashResponse.data?.currentWorkspaceId &&
+            dashResponse.data?.currentWorkspaceId !== 'personal'
+          ) {
+            dashResponse.setWorkspace('personal');
+          } else if (
+            res?.app?.org_id &&
+            res?.app?.org_id !== router.query.org
+          ) {
             dashResponse.setWorkspace(res.app.org_id);
             router.replace({
               query: {
