@@ -56,14 +56,9 @@
       (let [code-hash (-> code
                           crypt-util/str->sha256
                           crypt-util/bytes->hex-string)
-            {code-id :id} (or
-                           (get-entity-where
-                            {:codeHash code-hash
-                             :email    email})
-                           ;; TODO remove after migrating to $magicCodes.email
-                           (get-entity-where
-                            {:codeHash code-hash
-                             :$user.email email}))]
+            {code-id :id} (get-entity-where
+                           {:codeHash code-hash
+                            :email    email})]
         (ex/assert-record! code-id :app-user-magic-code {:args [params]})
         (let [code (delete-entity! code-id)]
           (ex/assert-record! code :app-user-magic-code {:args [params]})

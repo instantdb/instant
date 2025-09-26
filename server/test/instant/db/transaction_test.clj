@@ -4372,7 +4372,7 @@
           [:add-triple user-refresh-token-id (attr-id :$userRefreshTokens/$user) user-id]
           [:add-triple user-refresh-token-id (attr-id :$userRefreshTokens/hashedToken) "abc"]
           [:add-triple magic-code-id (attr-id :$magicCodes/id) magic-code-id]
-          [:add-triple magic-code-id (attr-id :$magicCodes/$user) user-id]
+          [:add-triple magic-code-id (attr-id :$magicCodes/email) "test@example.com"]
           [:add-triple magic-code-id (attr-id :$magicCodes/codeHash) "abc"]])
 
         (is (permissioned-tx/transact!
