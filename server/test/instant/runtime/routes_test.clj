@@ -3,11 +3,9 @@
    [clj-http.client :as http]
    [clojure.test :refer [deftest is testing]]
    [instant.config :as config]
-   [instant.db.permissioned-transaction :as permissioned-tx]
    [instant.fixtures :refer [with-empty-app]]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
-   [instant.model.app-user-magic-code :as app-user-magic-code-model]
    [instant.postmark :as postmark]
    [instant.util.coll :as coll]
    [instant.util.crypt :as crypt-util]
@@ -164,30 +162,3 @@
        (let [code (send-code app "a@b.c")]
          (update-created-at app-id code (- (System/currentTimeMillis) (* 23 60 60 1000)))
          (is (= "a@b.c" (:email (verify-code app "a@b.c" code)))))))))
-
-;; TODO remove after migrating to $magicCodes.email
-(deftest magic-code-$user-test-legacy
-  (test-util/test-matrix
-   [verify-code [verify-code-runtime
-                 verify-code-admin]]
-   (with-empty-app
-     (fn [{app-id :id
-           make-ctx :make-ctx
-           :as app}]
-       (let [user-id (random-uuid)
-             code    (app-user-magic-code-model/rand-code)
-             _       (permissioned-tx/transact!
-                      (make-ctx {:admin? true})
-                      [{:id    user-id
-                        :etype "$users"
-                        :email "a@b.c"}
-                       {:id    (random-uuid)
-                        :etype "$magicCodes"
-                        :$user user-id
-                        :codeHash (-> code
-                                      crypt-util/str->sha256
-                                      crypt-util/bytes->hex-string)}])
-             user    (verify-code app "a@b.c" code)]
-         (is (= (str app-id) (:app_id user)))
-         (is (= "a@b.c" (:email user)))
-         (is (some? (:refresh_token user))))))))

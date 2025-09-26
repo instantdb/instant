@@ -164,13 +164,7 @@
    (make-attr "$magicCodes" "email"
               :unique? false
               :index? true
-              :checked-data-type :string)
-   ;; TODO remove after migrating to $magicCodes.email
-   (make-attr "$magicCodes" "$user"
-              :reverse-identity (get-ident-spec "$users" "$magicCodes")
-              :index? true
-              :value-type :ref
-              :on-delete :cascade)])
+              :checked-data-type :string)])
 
 (def $user-refresh-token-attrs
   [(make-attr "$userRefreshTokens" "id"
