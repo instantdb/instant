@@ -1,2 +1,2 @@
---  Run `drop index concurrently ave_index_with_e` in production
-drop index if exists ave_index_with_e;
+--  Run `drop index concurrently ave_with_e_index` in production
+drop index if exists ave_with_e_index;
