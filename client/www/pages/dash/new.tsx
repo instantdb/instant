@@ -87,6 +87,13 @@ function NewApp() {
           >
             Let's go!
           </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => router.back()}
+          >
+            Nevermind
+          </Button>
         </ActionForm>
       </div>
     </>
