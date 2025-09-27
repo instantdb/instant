@@ -2,7 +2,12 @@ import { init, tx } from '@instantdb/react-native';
 import { View, Text, Button, StyleSheet } from 'react-native';
 import config from '../config';
 
-const db = init(config);
+const db = init({
+  appId: process.env.EXPO_PUBLIC_INSTANT_APP_ID,
+  apiURI: 'http://localhost:8888',
+  websocketURI: 'ws://localhost:8888/runtime/session',
+  verbose: false,
+});
 
 function App() {
   return <Main />;
@@ -11,7 +16,6 @@ function App() {
 const selectId = '4d39508b-9ee2-48a3-b70d-8192d9c5a059';
 
 function Main() {
-  console.log('HI!!!', db._core._reactor.config);
   const { isLoading, error, data } = db.useQuery({ colors: {} });
 
   if (isLoading) return <Text>Loading...</Text>;

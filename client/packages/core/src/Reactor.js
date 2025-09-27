@@ -761,7 +761,9 @@ export default class Reactor {
    *  Returns an unsubscribe function
    */
   subscribeQuery(q, cb, opts) {
+    console.log('AIII');
     if (!this.config.disableValidation) {
+      console.log('conf', this.config.schema);
       validateQuery(q, this.config.schema);
     }
     if (opts && 'ruleParams' in opts) {
