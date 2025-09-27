@@ -1,21 +1,18 @@
-import { init, tx } from '@instantdb/react-native';
+import { InstantReactNativeDatabase, InstantUnknownSchema, tx } from '@instantdb/react-native';
 import { View, Text, Button, StyleSheet } from 'react-native';
-import config from '../config';
+import EphemeralAppPage from '../../components/EphemeralAppPage';
 
-const db = init({
-  appId: process.env.EXPO_PUBLIC_INSTANT_APP_ID,
-  apiURI: 'http://localhost:8888',
-  websocketURI: 'ws://localhost:8888/runtime/session',
-  verbose: false,
-});
-
-function App() {
-  return <Main />;
-}
+type Db = InstantReactNativeDatabase<InstantUnknownSchema>;
 
 const selectId = '4d39508b-9ee2-48a3-b70d-8192d9c5a059';
 
-function Main() {
+interface ColorsAppProps {
+  db: Db;
+  appId: string;
+  onReset?: () => void;
+}
+
+function ColorsApp({ db }: ColorsAppProps) {
   const { isLoading, error, data } = db.useQuery({ colors: {} });
 
   if (isLoading) return <Text>Loading...</Text>;
@@ -46,6 +43,10 @@ function Main() {
   );
 }
 
+export default function Page() {
+  return <EphemeralAppPage Component={ColorsApp} />;
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -66,5 +67,3 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 });
-
-export default App;

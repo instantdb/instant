@@ -1,14 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, Alert, ScrollView } from 'react-native';
-import {
-  i,
-  init,
-  tx,
-  id,
-  InstantReactNativeDatabase,
-  User,
-} from '@instantdb/react-native';
-import config from '../config';
+import { i, tx, id, InstantReactNativeDatabase, User } from '@instantdb/react-native';
+import EphemeralAppPage from '../../components/EphemeralAppPage';
 
 const schema = i.schema({
   entities: {
@@ -31,8 +24,6 @@ const schema = i.schema({
 
 type Schema = typeof schema;
 
-const db = init({ ...config, schema });
-
 interface LoginState {
   sentEmail: string;
   email: string;
@@ -44,7 +35,13 @@ interface DemoDataProps {
   db: InstantReactNativeDatabase<Schema>;
 }
 
-function App() {
+interface AuthHelloAppProps {
+  db: InstantReactNativeDatabase<Schema>;
+  appId: string;
+  onReset?: () => void;
+}
+
+function AuthHelloApp({ db }: AuthHelloAppProps) {
   const { isLoading, user, error } = db.useAuth();
   if (isLoading) {
     return <Text>Loading...</Text>;
@@ -55,10 +52,10 @@ function App() {
   if (user) {
     return <DemoData user={user} db={db} />;
   }
-  return <Login />;
+  return <Login db={db} />;
 }
 
-function Login() {
+function Login({ db }: { db: InstantReactNativeDatabase<Schema> }) {
   const [state, setState] = useState<LoginState>({
     sentEmail: '',
     email: '',
@@ -163,4 +160,6 @@ function DemoData({ user, db }: DemoDataProps) {
   );
 }
 
-export default App;
+export default function Page() {
+  return <EphemeralAppPage schema={schema} Component={AuthHelloApp} />;
+}

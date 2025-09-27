@@ -1,19 +1,12 @@
 import React from 'react';
 import { View, Text, Button, ScrollView } from 'react-native';
-import {
-  i,
-  init,
-  tx,
-  id,
-  InstantReactNativeDatabase,
-  User,
-} from '@instantdb/react-native';
+import { i, tx, id, InstantReactNativeDatabase, User } from '@instantdb/react-native';
 import {
   makeRedirectUri,
   useAuthRequest,
   useAutoDiscovery,
 } from 'expo-auth-session';
-import config from '../config';
+import EphemeralAppPage from '../../components/EphemeralAppPage';
 
 const schema = i.schema({
   entities: {
@@ -36,14 +29,18 @@ const schema = i.schema({
 
 type Schema = typeof schema;
 
-const db = init({ ...config, schema });
-
 interface DemoDataProps {
   user: User;
   db: InstantReactNativeDatabase<Schema>;
 }
 
-function App() {
+interface ExpoAuthAppProps {
+  db: InstantReactNativeDatabase<Schema>;
+  appId: string;
+  onReset?: () => void;
+}
+
+function ExpoAuthApp({ db }: ExpoAuthAppProps) {
   const { isLoading, user, error } = db.useAuth();
   if (isLoading) {
     return <Text>Loading...</Text>;
@@ -54,10 +51,10 @@ function App() {
   if (user) {
     return <DemoData user={user} db={db} />;
   }
-  return <Login />;
+  return <Login db={db} />;
 }
 
-function Login() {
+function Login({ db }: { db: InstantReactNativeDatabase<Schema> }) {
   const discovery = useAutoDiscovery(db.auth.issuerURI());
   const [request, _response, promptAsync] = useAuthRequest(
     {
@@ -153,4 +150,6 @@ function DemoData({ user, db }: DemoDataProps) {
   );
 }
 
-export default App;
+export default function Page() {
+  return <EphemeralAppPage schema={schema} Component={ExpoAuthApp} />;
+}
