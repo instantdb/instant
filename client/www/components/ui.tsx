@@ -1,6 +1,13 @@
 import type { ClassValue } from 'clsx';
 import clsx from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import {
+  Select as BaseSelect,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/select';
 
 import {
   MouseEventHandler,
@@ -11,6 +18,7 @@ import {
   useState,
   Fragment,
   PropsWithChildren,
+  ComponentProps,
 } from 'react';
 import { Editor, Monaco, OnMount } from '@monaco-editor/react';
 import {
@@ -224,7 +232,7 @@ export function TextInput({
   }, []);
 
   return (
-    <label className="flex flex-col gap-2">
+    <label className="flex flex-col gap-1">
       {label ? <Label>{label}</Label> : null}
       <input
         disabled={disabled}
@@ -378,9 +386,7 @@ export function Checkbox({
   );
 }
 
-export function Select<
-  Value extends string | number | readonly string[] = string,
->({
+export function Select<Value extends string | boolean>({
   value,
   options,
   className,
@@ -389,44 +395,46 @@ export function Select<
   emptyLabel,
   tabIndex,
   title,
+  noOptionsLabel,
+  contentClassName,
+  visibleValue,
 }: {
-  value?: string;
-  options: { label: string; value: Value }[];
+  value?: Value;
+  options: { label: string | ReactNode; value: Value }[];
   className?: string;
-  onChange: (option?: { label: string; value: Value }) => void;
+  onChange: (option?: { label: string | ReactNode; value: Value }) => void;
   disabled?: boolean;
-  emptyLabel?: string;
+  emptyLabel?: string | ReactNode;
+  noOptionsLabel?: string | ReactNode;
   tabIndex?: number;
   title?: string | undefined;
+  contentClassName?: string;
+  visibleValue?: ReactNode;
 }) {
   return (
-    <select
-      title={title}
-      tabIndex={tabIndex}
-      value={value ?? undefined}
+    <BaseSelect
       disabled={disabled}
-      className={cn(
-        'rounded-sm border-gray-300 py-1 disabled:text-gray-400 dark:border-neutral-700 dark:bg-neutral-800',
-        className,
-      )}
-      onChange={(e) => {
-        const v = e.target.value;
-        const o = options.find((o) => o.value === v);
+      onValueChange={(value) => {
+        const o = options.find((o) => o.value === value);
         onChange(o);
       }}
+      value={value?.toString()}
     >
-      {options.length ? (
-        options.map((option) => (
-          <option key={option.label} value={option.value}>
+      <SelectTrigger className={className} title={title} tabIndex={tabIndex}>
+        <SelectValue placeholder={emptyLabel}>{visibleValue}</SelectValue>
+      </SelectTrigger>
+      <SelectContent className={contentClassName}>
+        {options.map((option) => (
+          <SelectItem
+            key={option.value?.toString()}
+            value={option.value?.toString()}
+          >
             {option.label}
-          </option>
-        ))
-      ) : emptyLabel ? (
-        <option value="" key="">
-          {emptyLabel}
-        </option>
-      ) : null}
-    </select>
+          </SelectItem>
+        ))}
+        {options.length === 0 && noOptionsLabel}
+      </SelectContent>
+    </BaseSelect>
   );
 }
 
@@ -661,6 +669,52 @@ export function Button({
     </button>
   );
 }
+
+interface IconButtonProps {
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  labelDirection?: ComponentProps<typeof TooltipContent>['side'];
+  variant?: 'primary' | 'secondary' | 'subtle';
+  className?: string;
+}
+
+export const IconButton = ({
+  icon,
+  label,
+  onClick,
+  disabled,
+  labelDirection,
+  variant,
+  className,
+}: IconButtonProps) => {
+  return (
+    <Tooltip>
+      <TooltipTrigger>
+        <button
+          title={label}
+          disabled={disabled}
+          onClick={onClick}
+          className={cn(
+            'flex h-9 w-9 items-center justify-center rounded-sm p-2',
+            variant === 'primary' &&
+              'bg-[#616AF4] text-white hover:bg-[#4543E9]',
+            variant === 'secondary' &&
+              'border border-gray-300 bg-white text-gray-800 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700/50',
+            variant === 'subtle' &&
+              'text-gray-800 hover:bg-gray-200/30 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700/50',
+            disabled && 'cursor-not-allowed opacity-40',
+            className,
+          )}
+        >
+          {icon}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side={labelDirection}>{label}</TooltipContent>
+    </Tooltip>
+  );
+};
 
 // interactions
 
