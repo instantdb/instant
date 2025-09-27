@@ -1,17 +1,19 @@
-import { init, tx } from '@instantdb/react-native';
+import { InstantReactNativeDatabase, InstantUnknownSchema, tx } from '@instantdb/react-native';
 import { View, Text, Button, StyleSheet } from 'react-native';
-import config from '../config';
+import EphemeralAppPage from '../../components/EphemeralAppPage';
 
-const { useQuery, transact } = init(config);
-
-function App() {
-  return <Main />;
-}
+type Db = InstantReactNativeDatabase<InstantUnknownSchema>;
 
 const selectId = '4d39508b-9ee2-48a3-b70d-8192d9c5a059';
 
-function Main() {
-  const { isLoading, error, data } = useQuery({ colors: {} });
+interface ColorsAppProps {
+  db: Db;
+  appId: string;
+  onReset?: () => void;
+}
+
+function ColorsApp({ db }: ColorsAppProps) {
+  const { isLoading, error, data } = db.useQuery({ colors: {} });
 
   if (isLoading) return <Text>Loading...</Text>;
   if (error) return <Text>Error: {error.message}</Text>;
@@ -29,7 +31,7 @@ function Main() {
               <Button
                 title={c}
                 onPress={() => {
-                  transact(tx.colors[selectId].update({ color: c }));
+                  db.transact(tx.colors[selectId].update({ color: c }));
                 }}
                 key={c}
               />
@@ -39,6 +41,10 @@ function Main() {
       </View>
     </View>
   );
+}
+
+export default function Page() {
+  return <EphemeralAppPage Component={ColorsApp} />;
 }
 
 const styles = StyleSheet.create({
@@ -61,5 +67,3 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 });
-
-export default App;

@@ -1,4 +1,4 @@
-import { init, i } from '@instantdb/react-native';
+import { i, InstantReactNativeDatabase } from '@instantdb/react-native';
 import {
   View,
   Text,
@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useState } from 'react';
-import config from '../config';
+import EphemeralAppPage from '../../components/EphemeralAppPage';
 
 const schema = i.schema({
   entities: {
@@ -20,21 +20,15 @@ const schema = i.schema({
   //...
 });
 
-const db = init({ ...config, schema });
+type Schema = typeof schema;
 
-function AuthedView() {
-  const user = db.useUser();
-  return (
-    <View>
-      <View style={styles.spaceY4}>
-        <Text>Signed In as {user.email}</Text>
-        <Text>This view requires auth</Text>
-      </View>
-    </View>
-  );
+interface AuthHooksAppProps {
+  db: InstantReactNativeDatabase<Schema>;
+  appId: string;
+  onReset?: () => void;
 }
 
-function Main() {
+function AuthHooksApp({ db }: AuthHooksAppProps) {
   const [codeInput, setCodeInput] = useState('');
   const [emailInput, setEmailInput] = useState('');
 
@@ -56,6 +50,18 @@ function Main() {
   };
 
   const auth = db.useAuth();
+
+  function AuthedView() {
+    const user = db.useUser();
+    return (
+      <View>
+        <View style={styles.spaceY4}>
+          <Text>Signed In as {user.email}</Text>
+          <Text>This view requires auth</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container]}>
@@ -96,6 +102,10 @@ function Main() {
       </View>
     </View>
   );
+}
+
+export default function Page() {
+  return <EphemeralAppPage schema={schema} Component={AuthHooksApp} />;
 }
 
 const styles = StyleSheet.create({
@@ -142,5 +152,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-
-export default Main;

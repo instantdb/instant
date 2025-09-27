@@ -191,7 +191,7 @@ const validateDotNotationAttribute = (
   for (let i = 0; i < pathParts.length - 1; i++) {
     const linkName = pathParts[i];
     const currentEntity = schema.entities[currentEntityName];
-
+    (window as any).x = schema;
     if (!currentEntity) {
       throw new QueryValidationError(
         `Entity '${currentEntityName}' does not exist in schema while traversing dot notation path '${dotPath}'.`,
@@ -511,6 +511,7 @@ export const validateQuery = (
 
     // Check if the key is top level entity
     if (schema) {
+      console.log('WAAAT');
       if (!schema.entities[topLevelKey]) {
         const availableEntities = Object.keys(schema.entities);
         throw new QueryValidationError(
