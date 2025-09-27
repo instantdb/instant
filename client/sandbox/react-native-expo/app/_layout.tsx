@@ -44,6 +44,9 @@ export default function TabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen name="play/ephemeral-demo" options={{ href: null }} />
+      <Tabs.Screen name="play/colors-schema" options={{ href: null }} />
+      <Tabs.Screen name="play/auth-hooks" options={{ href: null }} />
     </Tabs>
   );
 }

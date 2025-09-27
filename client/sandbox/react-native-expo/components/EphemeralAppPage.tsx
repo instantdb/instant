@@ -14,7 +14,7 @@ import {
   Config,
   InstantUnknownSchema,
 } from '@instantdb/react-native';
-import config from '../app/config';
+import config from '../appConfig';
 
 interface ProvisionEphemeralAppParams<
   Schema extends InstantSchemaDef<any, any, any>,
