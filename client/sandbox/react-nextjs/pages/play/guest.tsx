@@ -19,12 +19,10 @@ function SignInWithMagicCode() {
   };
 
   const handleVerifyCode = () => {
-    auth
-      .signInWithMagicCode({ email: sentEmail, code })
-      .catch((err) => {
-        alert('Error: ' + err.body?.message);
-        setCode('');
-      });
+    auth.signInWithMagicCode({ email: sentEmail, code }).catch((err) => {
+      alert('Error: ' + err.body?.message);
+      setCode('');
+    });
   };
 
   return (
@@ -102,9 +100,7 @@ function SignedOut() {
 function SignedInAsGuest({ user }: { user: any }) {
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">
-        Signed in as a guest
-      </h1>
+      <h1 className="text-2xl font-bold mb-6">Signed in as a guest</h1>
 
       <table className="min-w-full border mb-6">
         <tbody className="bg-white divide-y divide-gray-200">
@@ -114,7 +110,9 @@ function SignedInAsGuest({ user }: { user: any }) {
                 {key}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                {typeof value === 'object'
+                  ? JSON.stringify(value)
+                  : String(value)}
               </td>
             </tr>
           ))}
@@ -139,7 +137,7 @@ function SignedInAsGuest({ user }: { user: any }) {
 function SignedIn({ user }: { user: any }) {
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Signed in as { user.email }</h1>
+      <h1 className="text-2xl font-bold mb-6">Signed in as {user.email}</h1>
 
       <table className="min-w-full border mb-6">
         <tbody className="bg-white divide-y divide-gray-200">
@@ -149,7 +147,9 @@ function SignedIn({ user }: { user: any }) {
                 {key}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                {typeof value === 'object'
+                  ? JSON.stringify(value)
+                  : String(value)}
               </td>
             </tr>
           ))}

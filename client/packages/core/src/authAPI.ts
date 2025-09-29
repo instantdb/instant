@@ -26,7 +26,7 @@ export function sendMagicCode({
 export type VerifyMagicCodeParams = {
   email: string;
   code: string;
-  userId?: string | undefined;
+  refreshToken?: string | undefined;
 };
 export type VerifyResponse = {
   user: User;
@@ -36,12 +36,17 @@ export async function verifyMagicCode({
   appId,
   email,
   code,
-  userId,
+  refreshToken,
 }: SharedInput & VerifyMagicCodeParams): Promise<VerifyResponse> {
   const res = await jsonFetch(`${apiURI}/runtime/auth/verify_magic_code`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ 'app-id': appId, email, code, ...(userId ? {'user-id': userId} : {}) }),
+    body: JSON.stringify({
+      'app-id': appId,
+      email,
+      code,
+      ...(refreshToken ? { 'refresh-token': refreshToken } : {}),
+    }),
   });
   return res;
 }

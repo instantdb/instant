@@ -1733,13 +1733,13 @@ export default class Reactor {
 
   async signInWithMagicCode({ email, code }) {
     const currentUser = await this.getCurrentUser();
-    const isGuest = currentUser && currentUser.user && currentUser.user.type === 'guest';
+    const isGuest = currentUser?.user?.type === 'guest';
     const res = await authAPI.verifyMagicCode({
       apiURI: this.config.apiURI,
       appId: this.config.appId,
       email,
       code,
-      userId: isGuest ? currentUser.user.id : undefined,
+      refreshToken: isGuest ? currentUser.user.refresh_token : undefined,
     });
     await this.changeCurrentUser(res.user);
     return res;
