@@ -243,6 +243,7 @@
   (with-open [conn (next.jdbc/get-connection (config/get-aurora-config))]
     (reduce (fn [acc sketch]
               (assoc acc (select-keys sketch [:app-id :attr-id]) sketch))
+            {}
             (aggregator/initial-sketch-seq conn
                                            (format "copy (select app_id, attr_id, entity_id, value, checked_data_type, created_at, eav, ea, pg_size from triples where app_id = '%s'::uuid order by app_id, attr_id) to stdout with (format binary)"
                                                    app-id)))))

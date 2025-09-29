@@ -61,7 +61,12 @@
 (s/def :datalog-entity-id/$not uuid?)
 (s/def ::attr-id uuid?)
 (s/def ::nil? boolean?)
-(s/def ::$isNull (s/keys :req-un [::attr-id ::nil?]))
+(s/def ::ref? boolean?)
+(s/def ::reverse? boolean?)
+(s/def ::indexed? boolean?)
+(s/def ::indexed-checked-type (s/nilable ::data-type))
+(s/def ::$isNull (s/keys :req-un [::attr-id ::nil? ::ref? ::reverse? ::indexed?]
+                         :opt-un [::indexed-checked-type]))
 
 (s/def ::op #{:$gt :$gte :$lt :$lte :$like :$ilike})
 (s/def ::data-type #{:string :number :date :boolean})
@@ -1145,7 +1150,10 @@
                                                 :value body}]
                                         :$isNull [{:type :nil?
                                                    :nil? (:nil? body)
-                                                   :attr-id (:attr-id body)}]
+                                                   :id-attr-id attr-id
+                                                   :indexed? (:indexed? body)
+                                                   :attr-id (:attr-id body)
+                                                   :ref? (:ref? body)}]
                                         ;; No good way to count entity-ids, so plan
                                         ;; for the worst case
                                         :$entityIdStartsWith [{:type :total}]
@@ -1176,11 +1184,30 @@
                                         (:value vs)))
                      :nil? (if-let [sketch (:sketch (get sketches {:app-id app-id
                                                                    :attr-id (:attr-id vs)}))]
-                             ;; This only gives an accurate count on indexed attrs
-                             (if (:nil? vs)
-                               (cms/check sketch nil nil)
-                               (- (:total sketch)
-                                  (cms/check sketch nil nil)))
+                             (let [nil-count (cms/check sketch nil nil)
+                                   undefined-count (if (and (:indexed? vs)
+                                                            (not (:ref? vs)))
+                                                     0
+                                                     (- (get-in sketches
+                                                                [{:app-id app-id
+                                                                  :attr-id (:id-attr-id vs)}
+                                                                 :sketch
+                                                                 :total]
+                                                                0)
+                                                        (:total sketch)))
+                                   total (if (and (:indexed? vs)
+                                                  (not (:ref? vs)))
+                                           (:total sketch)
+                                           (max (get-in sketches
+                                                        [{:app-id app-id
+                                                          :attr-id (:id-attr-id vs)}
+                                                         :sketch
+                                                         :total]
+                                                        0)
+                                                (+ nil-count undefined-count)))]
+                               (if (:nil? vs)
+                                 (+ nil-count undefined-count)
+                                 (- total nil-count undefined-count)))
                              0)
                      ;; We don't have a good way to do comparisions, yet, so we'll
                      ;; just put a default of half the items.
