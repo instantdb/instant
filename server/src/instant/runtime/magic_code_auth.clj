@@ -110,7 +110,7 @@
                   {:id     user-id
                    :app-id app-id
                    :email  email
-                   :type   nil}))
+                   :type   "user"}))
         refresh-token-id (random-uuid)]
     (app-user-refresh-token-model/create!
      {:app-id  app-id

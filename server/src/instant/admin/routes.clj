@@ -375,11 +375,35 @@
 
 (defn verify-magic-code-post [req]
   (let [{:keys [app-id]} (req->app-id-authed! req :data/write)
-        email (ex/get-param! req [:body :email] email/coerce)
-        code (ex/get-param! req [:body :code] string-util/safe-trim)]
-    (response/ok {:user (magic-code-auth/verify! {:app-id app-id
-                                                  :email email
-                                                  :code code})})))
+        email            (ex/get-param! req [:body :email] email/coerce)
+        code             (ex/get-param! req [:body :code] string-util/safe-trim)
+        guest-user       (when-some [refresh-token (ex/get-optional-param! req [:body :refresh-token] uuid-util/coerce)]
+                           (app-user-model/get-by-refresh-token!
+                            {:app-id        app-id
+                             :refresh-token refresh-token}))]
+    (response/ok
+     {:user (magic-code-auth/verify!
+             {:app-id  app-id
+              :email   email
+              :code    code
+              :user-id (:id guest-user)})})))
+
+(defn sign-in-guest-post [req]
+  (let [{:keys [app-id]} (req->app-id-authed! req :data/write)
+        ;; create guest user
+        user-id       (random-uuid)
+        user          (app-user-model/create!
+                       {:app-id app-id
+                        :id     user-id
+                        :type   "guest"})
+        ;; create refresh-token for user
+        refresh-token (random-uuid)
+        _             (app-user-refresh-token-model/create!
+                       {:app-id  app-id
+                        :id      refresh-token
+                        :user-id user-id})]
+    (response/ok
+     {:user (assoc user :refresh_token refresh-token)})))
 
 (comment
   (magic-code-post {:body {:email "hi@marky.fyi"}}))
@@ -620,6 +644,7 @@
   (POST "/admin/magic_code" [] magic-code-post)
   (POST "/admin/send_magic_code" [] send-magic-code-post)
   (POST "/admin/verify_magic_code" [] verify-magic-code-post)
+  (POST "/admin/sign_in_guest" [] sign-in-guest-post)
 
   (GET "/admin/users", [] app-users-get)
   (DELETE "/admin/users", [] app-users-delete)

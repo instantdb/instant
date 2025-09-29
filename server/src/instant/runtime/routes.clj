@@ -5,7 +5,6 @@
             [hiccup2.core :as h]
             [instant.auth.oauth :as oauth]
             [instant.config :as config]
-            [instant.jdbc.aurora :as aurora]
             [instant.model.app :as app-model]
             [instant.model.app-authorized-redirect-origin :as app-authorized-redirect-origin-model]
             [instant.model.app-oauth-client :as app-oauth-client-model]
@@ -20,7 +19,6 @@
             [instant.reactive.receive-queue :as receive-queue]
             [instant.reactive.session :as session]
             [instant.reactive.store :as rs]
-            [instant.system-catalog-ops :refer [update-op]]
             [instant.util.coll :as ucoll]
             [instant.util.crypt :as crypt-util]
             [instant.util.email :as email]
@@ -99,14 +97,10 @@
   (let [app-id        (ex/get-param! req [:body :app-id] uuid-util/coerce)
         ;; create guest user
         user-id       (random-uuid)
-        user          (update-op
-                       (aurora/conn-pool :write)
+        user          (app-user-model/create!
                        {:app-id app-id
-                        :etype app-user-model/etype}
-                       (fn [{:keys [transact! resolve-id get-entity]}]
-                         (transact! [[:add-triple user-id (resolve-id :id) user-id]
-                                     [:add-triple user-id (resolve-id :type) "guest"]])
-                         (get-entity user-id)))
+                        :id     user-id
+                        :type   "guest"})
         ;; create refresh-token for user
         refresh-token (random-uuid)
         _             (app-user-refresh-token-model/create!
