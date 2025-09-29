@@ -8,7 +8,7 @@ import { Prose } from '@/components/docs/Prose';
 import { Search } from '@/components/docs/Search';
 import { SelectedAppContext } from '@/lib/SelectedAppContext';
 import { useAuthToken, useTokenFetch } from '@/lib/auth';
-import config, { getLocal, setLocal } from '@/lib/config';
+import config from '@/lib/config';
 import { Select } from '@/components/ui';
 import { BareNav } from '@/components/marketingUi';
 import navigation from '@/data/docsNavigation';
@@ -289,13 +289,25 @@ export function Layout({ children, title, tableOfContents }) {
     section.links.find((link) => link.href === router.pathname),
   );
 
+  // Get workspace from URL query param
+  const workspaceId = router.query.org || 'personal';
+
   const token = useAuthToken();
-  const dashResponse = useTokenFetch(`${config.apiURI}/dash`, token);
+
+  // Fetch from org-specific endpoint if we have an org
+  const dashEndpoint =
+    workspaceId !== 'personal'
+      ? `${config.apiURI}/dash/orgs/${workspaceId}`
+      : `${config.apiURI}/dash`;
+
+  const dashResponse = useTokenFetch(dashEndpoint, token);
+
+  // Get apps from the response
   const apps = (dashResponse.data?.apps ?? []).toSorted(createdAtComparator);
-  const orgId = dashResponse.data?.currentWorkspaceId;
+
   const { data: selectedAppData, update: updateSelectedAppId } = useSelectedApp(
     apps,
-    orgId,
+    workspaceId,
   );
   const isHydrated = useIsHydrated();
   return (
