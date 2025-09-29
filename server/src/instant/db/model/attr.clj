@@ -986,7 +986,7 @@
         n             [(name etype) (name label)]
         attr          (or (seek-by-fwd-ident-name n wrapped-attrs)
                           (seek-by-rev-ident-name n wrapped-attrs))]
-    (assert (uuid? (:id attr)) (str "Expceted uuid, got: " (pr-str (:id attr))))
+    (assert (uuid? (:id attr)) (str "Expected uuid, got: " (pr-str (:id attr))))
     (:id attr)))
 
 (defn get-attr-details
