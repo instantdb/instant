@@ -4,6 +4,8 @@ date: '2025-09-29'
 authors: stopachka
 ---
 
+::transcript re64AhYrYBY
+
 [!video](https://www.youtube.com/watch?v=re64AhYrYBY 'Founding Firebase with James Tamplin')
 
 [00:00:10] **Stopa:** Hey guys. So we grew up building on fire base. Well, what was it like to build Firebase? In this interview, we talk with James Tamplin, the founder, and we start at the very beginning from all the different startups that led up there to all the lessons learned.
