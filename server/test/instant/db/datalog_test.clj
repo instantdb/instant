@@ -568,7 +568,6 @@
         (testing "$isNull"
           (doseq [{:keys [settings props]} isnull-cases]
             (testing settings
-              (tool/def-locals)
               (is (= 2 (estimate-rows [:ave
                                        '?e
                                        (:id-attr-id props)
