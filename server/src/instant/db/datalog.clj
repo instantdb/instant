@@ -1570,7 +1570,6 @@
   single go. Then we a second pass with the counts and it determines
   the best index."
   [ctx nested-named-patterns]
-  (tool/def-locals)
   (try
     (let [sketch-keys (all-required-sketch-keys ctx nested-named-patterns)
           sketches (cms/lookup (:conn-pool (:db ctx)) sketch-keys)]
