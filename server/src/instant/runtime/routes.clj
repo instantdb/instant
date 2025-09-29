@@ -90,11 +90,11 @@
   (verify-magic-code-post {:body {:email "stopa@instantdb.com" :code (:code m) :app-id (:id app)}}))
 
 ;; -----
-;; Anonymous sign in
+;; Guest sign in
 
-(defn sign-in-anonymously-post [req]
+(defn sign-in-guest-post [req]
   (let [app-id        (ex/get-param! req [:body :app-id] uuid-util/coerce)
-        ;; create anonymous user
+        ;; create guest user
         user-id       (random-uuid)
         user          (update-op
                        (aurora/conn-pool :write)
@@ -521,7 +521,7 @@
   (POST "/runtime/auth/send_magic_code" [] send-magic-code-post)
   (POST "/runtime/auth/verify_magic_code" [] verify-magic-code-post)
   (POST "/runtime/auth/verify_refresh_token" [] verify-refresh-token-post)
-  (POST "/runtime/auth/sign_in_anonymously" [] sign-in-anonymously-post)
+  (POST "/runtime/auth/sign_in_guest" [] sign-in-guest-post)
   (GET "/runtime/oauth/start" [] (wrap-cookies oauth-start
                                                {:decoder parse-cookie}))
   (GET "/runtime/:app_id/oauth/start" [] (wrap-cookies oauth-start

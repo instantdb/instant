@@ -69,9 +69,9 @@ function SignInWithMagicCode() {
   );
 }
 
-function SignInAnonymously() {
-  const handleSignInAnonymously = () => {
-    auth.signInAnonymously().catch((err) => {
+function SignInAsGuest() {
+  const handleSignInAsGuest = () => {
+    auth.signInAsGuest().catch((err) => {
       alert('Error: ' + err.body?.message);
     });
   };
@@ -79,7 +79,7 @@ function SignInAnonymously() {
   return (
     <button
       className="w-full px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
-      onClick={handleSignInAnonymously}
+      onClick={handleSignInAsGuest}
     >
       Sign in as guest
     </button>
@@ -92,14 +92,14 @@ function SignedOut() {
       <h1 className="text-2xl font-bold mb-6">Sign In</h1>
 
       <div className="space-y-4">
-        <SignInAnonymously />
+        <SignInAsGuest />
         <SignInWithMagicCode />
       </div>
     </div>
   );
 }
 
-function SignedInAnonymously({ user }: { user: any }) {
+function SignedInAsGuest({ user }: { user: any }) {
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold mb-6">
@@ -168,8 +168,8 @@ function SignedIn({ user }: { user: any }) {
 
 function UserDashboard() {
   const { user } = useAuth();
-  const isAnonymous = !user.email;
-  return isAnonymous ? <SignedInAnonymously user={user} /> : <SignedIn user={user} />;
+  const isGuest = !user.email;
+  return isGuest ? <SignedInAsGuest user={user} /> : <SignedIn user={user} />;
 }
 
 function App() {

@@ -314,15 +314,15 @@ class Auth {
   };
 
   /**
-   * Sign in anonymously, creating a new user without email
+   * Sign in as guest, creating a new user without email
    *
    * @see https://instantdb.com/docs/auth
    *
    * @example
-   *   db.auth.signInAnonymously();
+   *   db.auth.signInAsGuest();
    */
-  signInAnonymously = (): Promise<VerifyResponse> => {
-    return this.db.signInAnonymously();
+  signInAsGuest = (): Promise<VerifyResponse> => {
+    return this.db.signInAsGuest();
   };
 
   /**

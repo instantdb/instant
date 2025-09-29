@@ -6,9 +6,7 @@ type SharedInput = {
   appId: string;
 };
 
-export type SendMagicCodeParams = {
-  email: string;
-};
+export type SendMagicCodeParams = { email: string };
 export type SendMagicCodeResponse = {
   sent: true;
 };
@@ -16,7 +14,7 @@ export type SendMagicCodeResponse = {
 export function sendMagicCode({
   apiURI,
   appId,
-  email
+  email,
 }: SharedInput & SendMagicCodeParams): Promise<SendMagicCodeResponse> {
   return jsonFetch(`${apiURI}/runtime/auth/send_magic_code`, {
     method: 'POST',
@@ -65,11 +63,11 @@ export async function verifyRefreshToken({
   return res;
 }
 
-export async function signInAnonymously({
+export async function signInAsGuest({
   apiURI,
   appId,
 }: SharedInput): Promise<VerifyResponse> {
-  const res = await jsonFetch(`${apiURI}/runtime/auth/sign_in_anonymously`, {
+  const res = await jsonFetch(`${apiURI}/runtime/auth/sign_in_guest`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
