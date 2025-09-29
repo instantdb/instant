@@ -41,15 +41,52 @@ function getAuthors(authorStr: string): Author[] {
   return authorStr.split(',').map((x) => AUTHORS[x.trim()]);
 }
 
+function transformTranscript(content: string): string {
+  // Check for ::transcript directive
+  const transcriptMatch = content.match(
+    /^::transcript\s+([A-Za-z0-9_-]+)\s*$/m,
+  );
+
+  if (!transcriptMatch) {
+    return content;
+  }
+
+  const videoId = transcriptMatch[1];
+
+  // Remove the ::transcript line from content
+  let transformedContent = content
+    .replace(/^::transcript\s+[A-Za-z0-9_-]+\s*$/m, '')
+    .trim();
+
+  // Replace all timestamp patterns [HH:MM:SS] with YouTube links
+  transformedContent = transformedContent.replace(
+    /\[(\d{2}):(\d{2}):(\d{2})\]/g,
+    (match, hours, minutes, seconds) => {
+      const totalSeconds =
+        parseInt(hours, 10) * 3600 +
+        parseInt(minutes, 10) * 60 +
+        parseInt(seconds, 10);
+
+      return `[${match.slice(1, -1)}](https://youtube.com/watch?v=${videoId}&t=${totalSeconds}s)`;
+    },
+  );
+
+  return transformedContent;
+}
+
 export function getPostBySlug(slug: string): Post {
   const file = fs.readFileSync(`./_posts/${slug}.md`, 'utf-8');
   const { data, content } = matter(file);
+
+  // Transform transcript timestamps if present
+  const transformedContent = transformTranscript(content);
+
   const post: Post = {
     slug,
     title: data.title,
     date: data.date,
     authors: getAuthors(data.authors),
-    content,
+    content: transformedContent,
   };
 
   // Only add optional fields if they exist
