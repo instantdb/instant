@@ -4,7 +4,7 @@ date: '2025-09-29'
 authors: stopachka
 ---
 
-*Many of us built on top of Firebase, what was it like to build Firebase itself? We sat down with James Tamplin, the founder of Firebase, to go over the early days. We recorded the video of the interview. We hope you enjoy it!*
+_Many of us built on top of Firebase, what was it like to build Firebase itself? We sat down with James Tamplin, the founder of Firebase, to go over the early days. We recorded the video of the interview. We hope you enjoy it!_
 
 ::transcript re64AhYrYBY
 
