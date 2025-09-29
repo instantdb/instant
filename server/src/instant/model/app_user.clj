@@ -14,15 +14,16 @@
 (defn create!
   ([params]
    (create! (aurora/conn-pool :write) params))
-  ([conn {:keys [app-id email id]}]
+  ([conn {:keys [app-id email id type]}]
    (let [id (or id (random-uuid))]
      (update-op
       conn
       {:app-id app-id
        :etype etype}
       (fn [{:keys [transact! resolve-id get-entity]}]
-        (transact! [[:add-triple id (resolve-id :id) id]
-                    [:add-triple id (resolve-id :email) email]])
+        (transact! [[:add-triple id (resolve-id :id)    id]
+                    [:add-triple id (resolve-id :email) email]
+                    [:add-triple id (resolve-id :type)  type]])
         (get-entity id))))))
 
 (defn get-by-id

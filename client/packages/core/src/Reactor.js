@@ -1733,7 +1733,7 @@ export default class Reactor {
 
   async signInWithMagicCode({ email, code }) {
     const currentUser = await this.getCurrentUser();
-    const isGuest = currentUser && currentUser.user && !currentUser.user.email;
+    const isGuest = currentUser && currentUser.user && currentUser.user.type === 'guest';
     const res = await authAPI.verifyMagicCode({
       apiURI: this.config.apiURI,
       appId: this.config.appId,

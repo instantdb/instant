@@ -101,7 +101,8 @@
                        {:app-id app-id
                         :etype app-user-model/etype}
                        (fn [{:keys [transact! resolve-id get-entity]}]
-                         (transact! [[:add-triple user-id (resolve-id :id) user-id]])
+                         (transact! [[:add-triple user-id (resolve-id :id) user-id]
+                                     [:add-triple user-id (resolve-id :type) "guest"]])
                          (get-entity user-id)))
         ;; create refresh-token for user
         refresh-token (random-uuid)

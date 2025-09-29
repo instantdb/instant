@@ -50,6 +50,7 @@
 (def label-shortcodes
   {"id" "id"
    "email" "email"
+   "type" "type"
    "codeHash" "codehash"
    "$user" "user"
    "hashedToken" "hashedtok"
@@ -151,6 +152,8 @@
    (make-attr "$users" "email"
               :unique? true
               :index? true
+              :checked-data-type :string)
+   (make-attr "$users" "type"
               :checked-data-type :string)])
 
 (def $magic-code-attrs

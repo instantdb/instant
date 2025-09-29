@@ -105,11 +105,12 @@
     :email  email})
   (let [user (or (app-user-model/get-by-email
                   {:app-id app-id
-                   :email email})
+                   :email  email})
                  (app-user-model/create!
                   {:id     user-id
                    :app-id app-id
-                   :email  email}))
+                   :email  email
+                   :type   nil}))
         refresh-token-id (random-uuid)]
     (app-user-refresh-token-model/create!
      {:app-id  app-id
