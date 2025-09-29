@@ -14,9 +14,10 @@ import { BareNav } from '@/components/marketingUi';
 import navigation from '@/data/docsNavigation';
 import { createdAtComparator, titleComparator } from '@/lib/app';
 import RatingBox from './RatingBox';
+import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { getLocallySavedApp, setLocallySavedApp } from '@/lib/locallySavedApp';
 
-function useSelectedApp(apps = []) {
+function useSelectedApp(apps = [], orgId) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [selectedAppData, setSelectedAppData] = useState(null);
@@ -24,13 +25,14 @@ function useSelectedApp(apps = []) {
   useEffect(() => {
     if (!router.isReady) return;
 
-    const cachedAppData = getLocallySavedApp();
+    const cachedAppData = getLocallySavedApp(orgId);
     const { app: queryAppId, ...remainingQueryParams } = router.query;
 
     const fromParams = queryAppId && apps.find((a) => a.id === queryAppId);
     const fromCache =
       cachedAppData && apps.find((a) => a.id === cachedAppData.id);
     const first = apps[0];
+
     if (fromParams) {
       // We got a match for from a query param. Let's cache it and use it
       const data = {
@@ -38,7 +40,10 @@ function useSelectedApp(apps = []) {
         title: fromParams.title,
       };
       setSelectedAppData(data);
-      setLocallySavedApp(data);
+      setLocallySavedApp({
+        id: fromParams.id,
+        orgId: orgId,
+      });
       // Removes query param after caching
       router.replace(
         {
@@ -58,7 +63,7 @@ function useSelectedApp(apps = []) {
       setSelectedAppData({ id: first.id, title: first.title });
     }
     setIsLoading(false);
-  }, [router.isReady, apps.length]);
+  }, [router.isReady, apps.length, orgId]);
 
   const update = useCallback(
     (appId) => {
@@ -66,9 +71,12 @@ function useSelectedApp(apps = []) {
       const data = { id: app.id, title: app.title };
 
       setSelectedAppData(data);
-      setLocallySavedApp(data);
+      setLocallySavedApp({
+        id: app.id,
+        orgId: orgId,
+      });
     },
-    [apps.length],
+    [apps.length, orgId],
   );
 
   return { loading: isLoading, data: selectedAppData, update };
@@ -284,8 +292,12 @@ export function Layout({ children, title, tableOfContents }) {
   const token = useAuthToken();
   const dashResponse = useTokenFetch(`${config.apiURI}/dash`, token);
   const apps = (dashResponse.data?.apps ?? []).toSorted(createdAtComparator);
-  const { data: selectedAppData, update: updateSelectedAppId } =
-    useSelectedApp(apps);
+  const orgId = dashResponse.data?.currentWorkspaceId;
+  const { data: selectedAppData, update: updateSelectedAppId } = useSelectedApp(
+    apps,
+    orgId,
+  );
+  const isHydrated = useIsHydrated();
   return (
     <SelectedAppContext.Provider value={selectedAppData}>
       <style jsx global>
@@ -343,7 +355,11 @@ export function Layout({ children, title, tableOfContents }) {
               key={router.pathname}
               className="min-w-0 max-w-prose flex-1 p-4"
             >
-              <AppPicker {...{ apps, selectedAppData, updateSelectedAppId }} />
+              {isHydrated && (
+                <AppPicker
+                  {...{ apps, selectedAppData, updateSelectedAppId }}
+                />
+              )}
               <PageContent
                 title={title}
                 sectionTitle={section?.title}

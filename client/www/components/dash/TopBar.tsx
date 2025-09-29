@@ -33,6 +33,7 @@ export const TopBar: React.FC<{}> = () => {
           </Link>
         )}
         <Link
+          target="_blank"
           className="flex items-center gap-1 text-sm opacity-50 hover:underline"
           href={docsUrl}
         >
