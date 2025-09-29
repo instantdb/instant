@@ -4,9 +4,29 @@ date: '2025-09-29'
 authors: stopachka
 ---
 
+*Many of us built on top of Firebase, what was it like to build Firebase itself? We sat down with James Tamplin, the founder of Firebase, to go over the early days. We recorded the video of the interview. We hope you enjoy it!*
+
 ::transcript re64AhYrYBY
 
 [!video](https://www.youtube.com/watch?v=re64AhYrYBY 'Founding Firebase with James Tamplin')
+
+## Table of Contents
+
+- [Origins](#origins)
+- [Meeting Andrew](#meeting-andrew)
+- [College & Acting](#college)
+- [The First startup: Touch ID for iPhones](#touchid)
+- [The Second Startup: Social Media for Things](#things)
+- [Perserverence in Pivots](#perseverance)
+- [The Third Startup: API for Chat](#envolve)
+- [The Firebase Call](#firebase-call)
+- [The First 8 Months](#pmf)
+- [Building Community](#community)
+- [Team & Culture](#team)
+- [Acquisitions](#google)
+- [After Firebase](#after-firebase)
+- [Kradle](#kradle)
+- [Q&A](#qa)
 
 [00:00:10] **Stopa:** Hey guys. So we grew up building on fire base. Well, what was it like to build Firebase? In this interview, we talk with James Tamplin, the founder, and we start at the very beginning from all the different startups that led up there to all the lessons learned.
 
@@ -39,6 +59,10 @@ authors: stopachka
 [00:02:29] **James:** I was, we, we, so we checked in every two weeks.
 
 [00:02:31] **James:** I was like, next two weeks from now, 10, 10 user feedback sessions. And Oppa was like, how about like five? I was like, no, OPPA 10. And that was a big part of fire base. And so I was trying to impart that. So, yeah.
+
+<a name="origins"></a>
+
+## Origins
 
 [00:02:43] **Stopa:** Heck yeah. Alright, well, you know, we, I I, I am actually just genuinely curious 'cause you are from Britain.
 
@@ -114,6 +138,10 @@ authors: stopachka
 
 [00:08:33] **James:** Yeah. Moving countries at age 10.
 
+<a name="meeting-andrew"></a>
+
+## Meeting Andrew
+
 [00:08:34] **Stopa:** Heck yeah. So you met Andrew right? In high school. So those kind of three years after, you're, you're in Minnesota for three years and the first year of high school you met Andrew.
 
 [00:08:46] **James:** Yeah, so Minnesota, then back to England, then back to Minnesota. And I met Andrew on the second trip to Minnesota and we were in French class together in the 10th grade.
@@ -155,6 +183,10 @@ authors: stopachka
 [00:11:45] **Stopa:** Okay. So then you, you, you graduate, right?
 
 [00:11:48] **Stopa:** I did, yes. Nice. Thank you. And then you, and then you went to college? Originally to study psychology.
+
+<a name="college"></a>
+
+## College & Acting
 
 [00:11:57] **James:** I had no idea what I wanted to do. Yeah. Um, one of the things that scared me about England and the British system is they make you pick what you want to do when you're like 16.
 
@@ -284,6 +316,10 @@ authors: stopachka
 
 [00:22:08] **Stopa:** So then you come back from organic farming. What, what happens? What, what's, what's, what was on your mind at the time? Like how were you thinking?
 
+<a name="touchid"></a>
+
+## The First Startup: Touch ID for iPhones
+
 [00:22:15] **James:** So, on my way out of the country Yeah. To go organic farm, I met up with Andrew. Ah, and I, like, if I wasn't going to join somebody, I was gonna like, start my own company, Uhhuh. And I was like, I'm gonna start my own company. And, and we randomly bumped into each other, like total random coincidence. He like, wow.
 
 [00:22:36] **James:** I was dropping my stuff off after grad school. Mm-hmm. And he, um, just happened to be in the town that we could, you know, went to high school in and he called me and we met up and. And he was like, I'm gonna start a company. I was like, I'm gonna start a company. Like we should start a company together.
@@ -375,6 +411,10 @@ authors: stopachka
 [00:28:59] **James:** Yeah.
 
 [00:28:59] **Stopa:** Alright. Okay. So then, then you guys pivot into social media for things, right? Yes, we did. Tell me the beginning of that. I'm just curious. Like, so
+
+<a name="things"></a>
+
+## The Second Startup: Social Media for Things
 
 [00:29:09] **James:** let me picture, picture a vision. Social media for things. Alright. Um, we, so I have a little bit of a, um, what's the word? U utopian or idealistic mm-hmm.
 
@@ -476,6 +516,10 @@ authors: stopachka
 
 [00:36:13] **James:** Yeah. So we were, we were like, there was like a level of desperation to get this thing to work. Yeah. Um, and as a result we worked. Really hard. And we, I mean, our back was to the war, right? Yeah. We had no money. And Andrew wouldn't mind me saying this, but he lost all of our investment capital in the great financial crisis.
 
+<a name="perseverance"></a>
+
+## Perseverance in Pivots
+
 [00:36:32] **James:** Uhhuh, uh, that's our, that's another story. Love you Andrew. Um, uh, so yeah, we, we, like our backs were up against the wall and we really wanted to make it work and we didn't, you know, I had this like
 
 [00:36:46] **Stopa:** Yeah.
@@ -556,6 +600,10 @@ authors: stopachka
 
 [00:42:26] **Stopa:** Yeah. So, okay. This goes on, right. And the way I, I heard it in the official narrative, so I'm curious if this is how it happened is while you guys were doing the social network, you realize that chat is what needs to happen, and that's how the third company got created.
 
+<a name="envolve"></a>
+
+## The Third Startup: API for Chat
+
 [00:42:41] **Stopa:** Was, was that kind of how it happened or was it different? Like what, so you're, you're in, or Orinda, right? You're coming into the office. This third, this one's not working. So you guys moved to this third startup. What was that like? How did you, how did that idea come in? And you with that one you guys went to to yc, right?
 
 [00:42:57] **Stopa:** So yeah, like I'd like to hear the story of it.
@@ -581,6 +629,10 @@ authors: stopachka
 [00:44:45] **James:** Um, and we were trying to like give you course grain choice and that's not what the biggest customers wanted.
 
 [00:44:49] **James:** So we just kind of followed the money. And then there was this insight, Andrew called me. I was at a party, it was like 2:00 AM on a Friday. Wow. I was actually at over in like Debo Triangle. I remember it very clearly. Yeah. And he calls me at like 2:00 AM and he's like, I have this brilliant idea. He's like, we can, you know, take the infrastructure we have for the chat.
+
+<a name="firebase-call"></a>
+
+## The Firebase Call
 
 [00:45:08] **James:** Yeah. And expose it as an API, but like it can be used for way more than chat. Super cool. And I was like, yeah, whatever, Andrew, you are drunk. I'm drunk. Like, let's, yeah, let's talk about this in the morning. And it turned out to be, you know, it's turned out to be like a key insight and you know, but like we inadvertently found ourselves kind of at the, the mega trend of this whole front end becomes a thing like browsers become powerful, phones become powerful.
 
@@ -641,6 +693,10 @@ authors: stopachka
 [00:49:40] **Stopa:** So what I, what I heard right, was there's this eight months that you guys are kind of like. You pick this core group of users, right?
 
 [00:49:48] **Stopa:** And you're iterating what, what becomes firebase? So like what was the, I'm just curious if we just get concrete about that. Like what was the very first usable thing that you guys shipped to somebody and then what did like, iterating on that look like?
+
+<a name="pmf"></a>
+
+## Community and PMF
 
 [00:50:03] **James:** Yeah. So the first, the very first thing we had is like adjacent object that sinks.
 
@@ -704,6 +760,10 @@ authors: stopachka
 
 [00:53:59] **Stopa:** Like maybe you had like a pizza gathering or something. What, how, how did you think about like the intangible marketing and the tangible marketing? Like was everything you guys did tangible marketing? Do, do you see what I'm saying? Like how did you think about that?
 
+<a name="community"></a>
+
+## Building Community
+
 [00:54:14] **James:** Yeah, so when you're building community
 
 [00:54:17] **Stopa:** Yeah.
@@ -762,6 +822,10 @@ authors: stopachka
 
 [00:57:31] **Stopa:** Totally.
 
+<a name="team"></a>
+
+## Team & Culture
+
 [00:57:32] **Stopa:** I have a question on the team. Like, you know, I've, I've, I've heard, you know, you, you mentioned this idea of like, it's everybody's happy place, right? How did you, if you were to advise somebody else to, like, how do you build a really good team and then how do you make sure everyone's happy? And then how do you make sure you don't get burned out?
 
 [00:57:49] **Stopa:** Like, what would be your advice to that?
@@ -805,6 +869,10 @@ authors: stopachka
 [01:00:48] **James:** So like, that's the level of speed we were working with.
 
 [01:00:51] **Stopa:** Wow. Super cool. Alright. You get, you get acquired by Google. Let's, we gotta, we gotta move, move in this, uh, what, what did you learn moving into Google? What was the good things you got out of it? Curious.
+
+<a name="google"></a>
+
+## Acquisitions
 
 [01:01:08] **James:** Google has a great written culture like. In order to operate at that scale, like everything needs to be written down like very precisely and communicated asynchronously.
 
@@ -898,6 +966,10 @@ authors: stopachka
 
 [01:06:43] **James:** Like to be felt until they're too heavy to be broken kind of thing. Yeah,
 
+<a name="after-firebase"></a>
+
+## After Firebase
+
 [01:06:48] **Stopa:** I understand that. Alright, then here's a question I have. Um, you know, you've advised now like hundreds of startups, right?
 
 [01:06:57] **Stopa:** Or like seen this go through. So I'm curious what part. First, like what part of your journey did you think was unique to you that you then you realized actually all the startup founders are going through this. And then the second question I have is like, what do you think are the common, like what, what, what, what do you wish you, if you could put like a billboard to startup founders to give them like three things, like don't do that or do that.
@@ -924,6 +996,10 @@ authors: stopachka
 
 [01:08:41] **Stopa:** Yeah. Okay. Now, you know, you're working on Cradle right now. It's interesting because before I thought, oh, it's totally normal for people to do multiple startups.
 
+<a name="kradle"></a>
+
+## Kradle
+
 [01:08:53] **Stopa:** But doing one startup, I, I'm like, wow. It is a very difficult thing to do. So I am curious what made you do it a second time?
 
 [01:09:03] **James:** I did all of the other things. Yeah. And then realized I didn't want to do any of them. Uh, yeah. I tried, I like helped start a venture firm. I went and worked for somebody else. I worked at Accelerator called HF Zero.
@@ -947,6 +1023,10 @@ authors: stopachka
 [01:10:41] **Stopa:** That's exciting, man. Well, I think we've, uh, we've covered a bunch. Um, is there anything that you wish I asked that I, I have.
 
 [01:10:57] **James:** Uh, I mean, I, I guess I'd turn that over to the audience to what, what they wanna know.
+
+<a name="qa"></a>
+
+## Q&A
 
 [01:11:02] **Stopa:** Heck, yeah. Let's do like three questions and then, and then we can just go and, and chill.
 
