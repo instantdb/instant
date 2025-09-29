@@ -43,7 +43,9 @@ function getAuthors(authorStr: string): Author[] {
 
 function transformTranscript(content: string): string {
   // Check for ::transcript directive
-  const transcriptMatch = content.match(/^::transcript\s+([A-Za-z0-9_-]+)\s*$/m);
+  const transcriptMatch = content.match(
+    /^::transcript\s+([A-Za-z0-9_-]+)\s*$/m,
+  );
 
   if (!transcriptMatch) {
     return content;
@@ -52,7 +54,9 @@ function transformTranscript(content: string): string {
   const videoId = transcriptMatch[1];
 
   // Remove the ::transcript line from content
-  let transformedContent = content.replace(/^::transcript\s+[A-Za-z0-9_-]+\s*$/m, '').trim();
+  let transformedContent = content
+    .replace(/^::transcript\s+[A-Za-z0-9_-]+\s*$/m, '')
+    .trim();
 
   // Replace all timestamp patterns [HH:MM:SS] with YouTube links
   transformedContent = transformedContent.replace(
@@ -64,7 +68,7 @@ function transformTranscript(content: string): string {
         parseInt(seconds, 10);
 
       return `[${match.slice(1, -1)}](https://youtube.com/watch?v=${videoId}&t=${totalSeconds}s)`;
-    }
+    },
   );
 
   return transformedContent;
