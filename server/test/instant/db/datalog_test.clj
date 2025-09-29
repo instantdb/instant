@@ -9,7 +9,7 @@
             [instant.data.resolvers :as resolvers]
             [instant.jdbc.sql :as sql]
             [instant.fixtures :refer [with-movies-app with-zeneca-app with-zeneca-checked-data-app]]
-            [instant.util.test :refer [in-memory-sketches-for-app make-attrs]]))
+            [instant.util.test :refer [in-memory-sketches-for-app]]))
 
 (defn make-ctx [app]
   {:db {:conn-pool (aurora/conn-pool :read)}
@@ -465,8 +465,7 @@
                                   {:keys [ref? indexed? reverse?]} c
                                   id-aid (random-uuid)
                                   aid (random-uuid)
-                                  ref-id-aid (random-uuid)
-                                  ref-aid (random-uuid)]
+                                  ref-id-aid (random-uuid)]
                               (tx/transact! (aurora/conn-pool :write)
                                             (attr-model/get-by-app-id (:id app))
                                             (:id app)
