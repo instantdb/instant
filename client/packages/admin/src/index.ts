@@ -276,8 +276,8 @@ async function jsonFetch(
  *  import { init } from "@instantdb/admin"
  *
  *  const db = init({
- *    appId: "my-app-id",
- *    adminToken: process.env.INSTANT_ADMIN_TOKEN
+ *    appId: process.env.INSTANT_APP_ID!,
+ *    adminToken: process.env.INSTANT_APP_ADMIN_TOKEN
  *  })
  *
  *  // You can also provide a schema for type safety and editor autocomplete!
@@ -286,8 +286,8 @@ async function jsonFetch(
  *  import schema from ""../instant.schema.ts";
  *
  *  const db = init({
- *    appId: "my-app-id",
- *    adminToken: process.env.INSTANT_ADMIN_TOKEN,
+ *    appId: process.env.INSTANT_APP_ID!,
+ *    adminToken: process.env.INSTANT_APP_ADMIN_TOKEN,
  *    schema,
  *  })
  *  // To learn more: https://instantdb.com/docs/modeling-data
