@@ -5,9 +5,11 @@
             [instant.config :as config]
             [instant.db.datalog :as d]
             [instant.db.model.attr :as attr-model]
+            [instant.db.transaction :as tx]
             [instant.data.resolvers :as resolvers]
             [instant.jdbc.sql :as sql]
-            [instant.fixtures :refer [with-movies-app with-zeneca-app]]))
+            [instant.fixtures :refer [with-movies-app with-zeneca-app with-zeneca-checked-data-app]]
+            [instant.util.test :refer [in-memory-sketches-for-app]]))
 
 (defn make-ctx [app]
   {:db {:conn-pool (aurora/conn-pool :read)}
@@ -438,6 +440,142 @@
         (is (= #{[["eid-alex" :users/id "eid-alex" 1610218387993]]}
                (resolvers/walk-friendly r
                                         (:join-rows res))))))))
+
+(deftest sketch-size-test
+  (with-zeneca-checked-data-app
+    (fn [app r]
+      (let [cases (for [indexed? [true false]
+                        ref? [false true]
+                        ;; TODO: cardinality many
+                        cardinality [:one :many]
+                        reverse? [false true]
+                        :when (not (and (not ref?)
+                                        (or (= cardinality :many)
+                                            reverse?)))]
+                    {:indexed? indexed?
+                     :ref? ref?
+                     ;; TODO: test cardinality many
+                     ;;:cardinality cardinality
+                     :reverse? reverse?})
+
+            isnull-cases (mapv
+                          (fn [c i]
+                            (let [ns (str "is-null-" i)
+                                  ref-ns (str ns "-ref")
+                                  {:keys [ref? indexed? reverse?]} c
+                                  id-aid (random-uuid)
+                                  aid (random-uuid)
+                                  ref-id-aid (random-uuid)]
+                              (tx/transact! (aurora/conn-pool :write)
+                                            (attr-model/get-by-app-id (:id app))
+                                            (:id app)
+                                            (concat [[:add-attr {:id id-aid
+                                                                 :forward-identity [(random-uuid) ns "id"]
+                                                                 :unique? true
+                                                                 :index? true
+                                                                 :value-type :blob
+                                                                 :cardinality :one}]]
+                                                    (if-not ref?
+                                                      [[:add-attr {:id aid
+                                                                   :forward-identity [(random-uuid) ns "value"]
+                                                                   :unique? false
+                                                                   :index? indexed?
+                                                                   :value-type :blob
+                                                                   :cardinality :one}]]
+
+                                                      [[:add-attr {:id ref-id-aid
+                                                                   :forward-identity [(random-uuid) ref-ns "id"]
+                                                                   :unique? true
+                                                                   :index? false
+                                                                   :value-type :blob
+                                                                   :cardinality :one}]
+                                                       (if reverse?
+                                                         [:add-attr {:id aid
+                                                                     :forward-identity [(random-uuid) ref-ns "ref"]
+                                                                     :reverse-identity [(random-uuid) ns "reverse-ref"]
+                                                                     :unique? false
+                                                                     :index? indexed?
+                                                                     :value-type :ref
+                                                                     :cardinality :one}]
+                                                         [:add-attr {:id aid
+                                                                     :forward-identity [(random-uuid) ns "ref"]
+                                                                     :reverse-identity [(random-uuid) (str ns "-ref") "reverse-ref"]
+                                                                     :unique? false
+                                                                     :index? indexed?
+                                                                     :value-type :ref
+                                                                     :cardinality :one}])])
+
+                                                    (mapcat (fn [i]
+                                                              (let [id (random-uuid)
+                                                                    ref-id (random-uuid)]
+                                                                (concat (when ref?
+                                                                          [[:add-triple ref-id ref-id-aid ref-id]])
+                                                                        [[:add-triple id id-aid (str id)]]
+                                                                        (case (int i)
+                                                                          0 nil ;; undefined
+                                                                          1 (if ref?
+                                                                              nil ;; no null for a ref
+                                                                              [[:add-triple id aid nil]]) ;; null
+                                                                          2 [[:add-triple id aid (if ref?
+                                                                                                   (str ref-id)
+                                                                                                   "v1")]]))))
+                                                            (range 3))))
+                              {:settings c
+                               :props {:id-attr-id id-aid
+                                       :attr-id aid
+                                       :indexed? indexed?
+                                       :ref? ref?
+                                       :reverse? (:reverse? c)
+                                       :forward-attr-id aid}}))
+                          cases
+                          (range (count cases)))
+            sketches (in-memory-sketches-for-app (:id app))
+            ctx (assoc (make-ctx app)
+                       :sketches sketches)
+            ->pattern (fn [p]
+                        (second (first (d/->named-patterns [p]))))
+            estimate-rows (fn [p]
+                            (d/estimate-rows ctx (->pattern p)))]
+        (testing "values"
+          (is (= 4 (estimate-rows [:ea '?e (resolvers/->uuid r :users/id) '?v])))
+          (is (= 1 (estimate-rows [:av '?e (resolvers/->uuid r :users/handle) "alex"])))
+          (is (= 0 (estimate-rows [:av '?e (resolvers/->uuid r :users/handle) "nobody"]))))
+
+        (testing "eid"
+          (is (= 1 (estimate-rows [:ea
+                                   #{(resolvers/->uuid r "eid-alex")}
+                                   (resolvers/->uuid r :users/id)
+                                   '?v])))
+          ;; We can't do this yet because we don't keep track of eids except
+          ;; for the "id" value (which is why the previous test passes)
+          ;; To implement this, we could look up how many entities exist
+          ;; for the id attr, but we don't have that info in datalog yet
+          #_(is (= 1 (estimate-rows [:ea
+                                     #{(resolvers/->uuid r "eid-alex")}
+                                     (resolvers/->uuid r :users/handle)
+                                     '?v]))))
+
+        (testing "$not"
+          (is (= 3 (estimate-rows [:av '?e (resolvers/->uuid r :users/handle) {:$not "alex"}]))))
+
+        (testing "$gt"
+          ;; comparators just take 1/2 since we don't have a way to do real comparisons
+          (is (= 2 (estimate-rows [:av '?e (resolvers/->uuid r :users/handle) {:$comparator
+                                                                               {:op :$gt
+                                                                                :value "alex"
+                                                                                :data-type :string}}]))))
+
+        (testing "$isNull"
+          (doseq [{:keys [settings props]} isnull-cases]
+            (testing settings
+              (is (= 2 (estimate-rows [:ave
+                                       '?e
+                                       (:id-attr-id props)
+                                       {:$isNull (assoc props :nil? true)}])))
+              (is (= 1 (estimate-rows [:ave
+                                       '?e
+                                       (:id-attr-id props)
+                                       {:$isNull (assoc props :nil? false)}]))))))))))
 
 (comment
   (test/run-tests *ns*))

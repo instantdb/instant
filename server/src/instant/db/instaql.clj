@@ -655,6 +655,8 @@
                 [[(level-sym last-etype last-level)
                   (:id id-attr)
                   {:$isNull {:attr-id (:id value-attr)
+                             :indexed? (and (:index? value-attr)
+                                            (not (:indexing? value-attr)))
                              :indexed-checked-type (when (and (:index? value-attr)
                                                               (not (:indexing? value-attr)))
                                                      (:checked-data-type value-attr))
