@@ -31,6 +31,15 @@ function useWorkspaceData(workspaceId, token) {
       ? (dashResponse.data?.apps ?? [])
       : (orgResponse.data?.apps ?? []);
 
+  // If there's no token, we're not loading - we just don't have data
+  if (!token) {
+    return {
+      apps: [],
+      orgs: [],
+      isLoading: false,
+    };
+  }
+
   return {
     apps,
     orgs: dashResponse.data?.orgs || [],
@@ -170,9 +179,11 @@ function AppPicker({
       <p className="text-sm">
         The examples below will be updated with your app ID.
       </p>
-      <p className="text-xs text-gray-600 mt-1">
-        Current workspace: <strong>{currentWorkspaceName}</strong>
-      </p>
+      {allOrgs.length > 0 && (
+        <p className="text-xs text-gray-600 mt-1">
+          Current workspace: <strong>{currentWorkspaceName}</strong>
+        </p>
+      )}
       <Select
         className="max-w-sm"
         disabled={!allOptions.length}
