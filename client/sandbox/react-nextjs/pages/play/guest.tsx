@@ -157,10 +157,12 @@ function GoogleLoginRedirect() {
   const [url, setUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    auth.createAuthorizationURLAsync({
-      clientName: 'google',
-      redirectURL: window.location.href,
-    }).then(setUrl);
+    auth
+      .createAuthorizationURLAsync({
+        clientName: 'google',
+        redirectURL: window.location.href,
+      })
+      .then(setUrl);
   }, []);
 
   return (
@@ -190,10 +192,12 @@ function LinkedInLoginRedirect() {
   const [url, setUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    auth.createAuthorizationURLAsync({
-      clientName: 'linkedin-web',
-      redirectURL: window.location.href,
-    }).then(setUrl);
+    auth
+      .createAuthorizationURLAsync({
+        clientName: 'linkedin-web',
+        redirectURL: window.location.href,
+      })
+      .then(setUrl);
   }, []);
 
   return (
@@ -300,10 +304,12 @@ function AppleLoginRedirect() {
   const [url, setUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    auth.createAuthorizationURLAsync({
-      clientName: 'apple',
-      redirectURL: window.location.href,
-    }).then(setUrl);
+    auth
+      .createAuthorizationURLAsync({
+        clientName: 'apple',
+        redirectURL: window.location.href,
+      })
+      .then(setUrl);
   }, []);
 
   return (
@@ -317,7 +323,8 @@ function AppleLoginRedirect() {
             href={url}
             className="inline-block px-4 py-2 bg-black text-white rounded hover:bg-gray-800 no-underline"
             style={{
-              fontFamily: 'SF Pro, -apple-system, BlinkMacSystemFont, sans-serif',
+              fontFamily:
+                'SF Pro, -apple-system, BlinkMacSystemFont, sans-serif',
             }}
           >
             􀣺 Sign in with Apple Redirect
@@ -375,7 +382,8 @@ function ClerkLoginInternal() {
 }
 
 function ClerkLogin() {
-  const clerkPublishableKey = 'pk_test_Z3Jvd24tY2FyaWJvdS04NC5jbGVyay5hY2NvdW50cy5kZXYk';
+  const clerkPublishableKey =
+    'pk_test_Z3Jvd24tY2FyaWJvdS04NC5jbGVyay5hY2NvdW50cy5kZXYk';
 
   return (
     <ClerkProvider publishableKey={clerkPublishableKey}>
@@ -414,7 +422,7 @@ function SignedOut() {
 function SignedInAsGuest({ user }: { user: any }) {
   return (
     <div className="max-w-4xl mx-auto">
-      <SignedIn user={ user } />
+      <SignedIn user={user} />
 
       <h2 className="text-lg font-semibold mb-4">Upgrade your account</h2>
       <div className="space-y-4">
