@@ -779,18 +779,24 @@
   (keep identity
         [{:name :ea_index
           :cols [:e :a]
+          :unique-cols #{:e}
           :idx-key :ea}
 
          {:name :triples_pkey
-          :cols [:e :a]}
+          :cols [:e :a]
+          :unique-cols #{:e}}
 
          {:name :ave_index
           :cols [:a :v]
           :idx-key :ave}
 
-         (when (flags/toggled? :ave-with-e-index)
+         (when (and (flags/toggled? :ave-with-e-index)
+                    ;; Can't use this with the old cost
+                    ;; function because it generates bad joins
+                    (flags/toggled? :new-index-cost))
            {:name :ave_with_e_index
             :cols [:a :v :e]
+            :unique-cols #{:e}
             :idx-key :ave})
 
          {:name :eav_uuid_index
@@ -804,13 +810,16 @@
 
          {:name :vae_uuid_index
           :cols [:v :a :e]
+          :unique-cols #{:e}
           :idx-key :vae}
 
          {:name :triples_created_at_idx
-          :cols [:a :created-at]}
+          :cols [:a :created-at]
+          :unique-cols #{}}
 
          {:name :av_index
           :cols [:a :v :e]
+          :unique-cols #{:v :e}
           :idx-key :av}
 
          {:name :triples_number_type_idx
@@ -1223,7 +1232,7 @@
 (defn estimate-rows [ctx named-p]
   (rows-size-from-sketch ctx named-p))
 
-(defn path-cost-with-joins
+(defn path-cost-with-joins-old
   "Tries to estimate the work we'll be doing for an individual index,
   taking into account joins. It should correlate with the cost of a
   nested loop."
@@ -1238,6 +1247,33 @@
        (+ path-cost
           (* 2 filter-cost))
        (max 1 join-cost))))
+
+(defn path-cost-with-joins-new
+  "Tries to estimate the work we'll be doing for an individual index,
+  taking into account joins. It should correlate with the cost of a
+  nested loop."
+  [index]
+  (let [costs (:index-costs index)
+        index-lookup-cost (reduce (fn [acc {:keys [cost col]}]
+                                    (let [next-cost (* acc cost)]
+                                      (if (contains? (:unique-cols index) col)
+                                        (reduced next-cost)
+                                        next-cost)))
+                                  1
+                                  (:path costs))
+        join-cost (reduce + 0 (vals (:join-remaining costs)))
+        filter-cost (reduce + 0 (vals (select-keys (:known-remaining costs)
+                                                   (:filter-components costs))))]
+    (* 1.0
+       (+ index-lookup-cost
+          (* 2 filter-cost))
+       (max 1 (* 1.1 join-cost)))))
+
+(defn path-cost-with-joins
+  [index]
+  (if (flags/toggled? :new-index-cost)
+    (path-cost-with-joins-new index)
+    (path-cost-with-joins-old index)))
 
 (defn index-compare
   "Compares the indexes pairwise to try to pick the best one.
@@ -1427,7 +1463,8 @@
                                     :needed-components needed-components
                                     :filter-components filter-components
                                     :filter-remaining filter-components
-                                    :path []}
+                                    :path []
+                                    :unique-cols (:unique-cols idx-config)}
                                    (:cols idx-config))
                      cfg (assoc idx-config
                                 :index-costs costs
