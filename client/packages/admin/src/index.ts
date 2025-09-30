@@ -164,10 +164,37 @@ function withImpersonation(
   return headers;
 }
 
+function validateConfigAndImpersonation(
+  config: FilledConfig,
+  impersonationOpts: ImpersonationOpts,
+) {
+  if (
+    impersonationOpts &&
+    ('token' in impersonationOpts || 'guest' in impersonationOpts)
+  ) {
+    // adminToken is not required for `token` or `guest` impersonation
+    return;
+  }
+  if (config.adminToken) {
+    // An adminToken is provided.
+    return;
+  }
+  if (impersonationOpts && 'email' in impersonationOpts) {
+    throw new Error(
+      'Admin token required. To impersonate users with an email you must pass `adminToken` to `init`.',
+    );
+  }
+  throw new Error(
+    'Admin token required. To run this operation pass `adminToken` to `init`, or use `db.asUser`.',
+  );
+}
+
 function authorizedHeaders(
   config: FilledConfig,
   impersonationOpts?: ImpersonationOpts,
 ): Record<string, string> {
+  validateConfigAndImpersonation(config, impersonationOpts);
+
   const { adminToken, appId } = config;
   const headers: Record<string, string> = {
     'content-type': 'application/json',

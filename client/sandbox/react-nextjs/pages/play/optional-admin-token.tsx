@@ -188,6 +188,7 @@ function App({ app }: { app: { id: string; 'admin-token': string } }) {
             name: test.name,
             status: 'success',
             message: `✅ Failed as expected`,
+            data: { error: error.toString() },
           });
         } else {
           testResults.push({
