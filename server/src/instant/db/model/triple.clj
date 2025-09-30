@@ -1071,23 +1071,23 @@
    ;; 2025-03-01T16:08:53+0000
    (-> (DateTimeFormatterBuilder.)
        (.appendValue ChronoField/YEAR 1 19 SignStyle/NORMAL)
-       (.appendPattern "-MM-dd'T'HH:mm:ss")
+       (.appendPattern "-M-dd'T'HH:mm:ss")
        (.append optional-nano-or-milli)
        (.appendPattern "[Z][X]")
        (.toFormatter))
    (-> (DateTimeFormatterBuilder.)
        (.appendValue ChronoField/YEAR 1 19 SignStyle/NORMAL)
-       (.appendPattern "-MM-d'T'HH:mm:ss.SSSX")
+       (.appendPattern "-M-d'T'HH:mm:ss.SSSX")
        (.toFormatter))
    (-> (DateTimeFormatterBuilder.)
        (.appendValue ChronoField/YEAR 1 19 SignStyle/NORMAL)
-       (.appendPattern "-MM-dd HH:mm:ss")
+       (.appendPattern "-M-dd HH:mm:ss")
        (.append optional-nano-or-milli)
        (.appendOffset "+HHmm" "Z")
        (.toFormatter))
    (-> (DateTimeFormatterBuilder.)
        (.appendValue ChronoField/YEAR 1 19 SignStyle/NORMAL)
-       (.appendPattern "-MM-dd'T'HH:mm:ss")
+       (.appendPattern "-M-dd'T'HH:mm:ss")
        (.append pgtime/tz-abbrev-formatter)
        (.toFormatter))])
 
@@ -1165,7 +1165,6 @@
          (number? x)
          (Instant/ofEpochMilli x))))
 
-
 (comment
   (parse-date-value "3/12/4444")
   (parse-date-value "3/02/4444")
@@ -1179,6 +1178,7 @@
   (parse-date-value "2025-01-15 20:53:08")
   (parse-date-value "\"2025-01-15 20:53:08\"")
   (parse-date-value "8/4/2025, 11:02:31 PM")
+  (parse-date-value "2025-9-29T23:59:59.999Z")
 
   ;; These should throw an exception
   (parse-date-value "2025-01-0")
