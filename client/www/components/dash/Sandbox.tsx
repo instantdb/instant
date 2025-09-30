@@ -36,7 +36,12 @@ import {
 import { InstantReactWebDatabase } from '@instantdb/react';
 import { Editor } from '@monaco-editor/react';
 import clsx from 'clsx';
-import { createParser, parseAsBoolean, useQueryState } from 'nuqs';
+import {
+  createParser,
+  createSerializer,
+  parseAsBoolean,
+  useQueryState,
+} from 'nuqs';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { debounce } from 'lodash';
 import {
@@ -47,6 +52,7 @@ import {
 import { useDarkMode } from './DarkModeToggle';
 import { ArrowUpToLine, Save } from 'lucide-react';
 import { infoToast } from '@/lib/toast';
+import { useSavedQueryState } from '@/lib/hooks/useSavedQueryState';
 
 const base64Parser = createParser({
   parse(value) {
@@ -86,20 +92,48 @@ export function Sandbox({
     [],
   );
 
-  const [sandboxCodeValue, setSandboxValue] = useQueryState(`code`, {
-    ...base64Parser,
-  });
-
-  const [useAppPerms, setUseAppPerms] = useQueryState(
-    'useAppPerms',
-    parseAsBoolean.withDefault(true),
+  const [sandboxCodeValue, setSandboxValue] = useSavedQueryState<string>(
+    `code`,
+    {
+      ...base64Parser,
+    },
+    `sandboxCode:${app.id}`,
   );
 
-  const [permsValue, setPermsValue] = useQueryState('perms', {
-    ...base64Parser.withDefault(
-      app.rules ? JSON.stringify(app.rules, null, 2) : '',
-    ),
-  });
+  const [useAppPerms, setUseAppPerms] = useSavedQueryState<boolean>(
+    'useAppPerms',
+    parseAsBoolean.withDefault(true),
+    `appPerms:${app.id}`,
+    true,
+  );
+
+  const [permsValue, setPermsValue] = useSavedQueryState<string>(
+    'perms',
+    {
+      ...base64Parser,
+    },
+    `permsCode:${app.id}`,
+  );
+
+  // Make sure we copy the most up to date version of the sandbox
+  // url updates are throttled
+  const copyLink = () => {
+    const serializers = {
+      code: base64Parser,
+      perms: base64Parser,
+      useAppPerms: parseAsBoolean,
+    };
+    const serialize = createSerializer(serializers);
+
+    const url = new URL(window.location.toString());
+    const result = serialize(url, {
+      code: sandboxCodeValue,
+      perms: permsValue,
+      useAppPerms: useAppPerms,
+    });
+    navigator.clipboard.writeText(result);
+    infoToast('Copied permalink to code and permissions!');
+  };
 
   const [runAsUserEmail, setRunAsUserEmail] = useQueryState('runAsUser');
   const [hasUnsavedWork, setHasUnsavedWork] = useState(false);
@@ -155,7 +189,6 @@ export function Sandbox({
   };
 
   const loadPreset = (name: string) => {
-    console.log('loading preset', name);
     setSelectedSandbox(name);
     const saved = savedSandboxes.find((sb) => sb.name === name);
     if (!saved) {
@@ -473,8 +506,7 @@ export function Sandbox({
             variant="subtle"
             label="Copy link to sandbox"
             onClick={() => {
-              navigator.clipboard.writeText(window.location.toString());
-              infoToast('Copied permalink to code and permissions!');
+              copyLink();
             }}
             icon={<ClipboardIcon width={18} />}
           />
