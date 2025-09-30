@@ -213,7 +213,10 @@
      (fn [app#]
        (run-zeneca-byop app# ~f))))
 
-(defn with-pro-app [{:keys [create-fake-objects? free?]} owner f]
+(defn with-pro-app [{:keys [create-fake-objects? free?
+                            skip-billing-cycle-anchor?]}
+                    owner
+                    f]
   (binding [stripe/*create-fake-objects* create-fake-objects?]
     (let [app-id (random-uuid)
           app (app-model/create!
@@ -226,7 +229,8 @@
           stripe-subscription-id (:id (stripe/create-pro-subscription {:customer-id (:id stripe-customer)
                                                                        :app app
                                                                        :user owner
-                                                                       :free? free?}))
+                                                                       :free? free?
+                                                                       :skip-billing-cycle-anchor? skip-billing-cycle-anchor?}))
           owner-req (mock-app-req app owner)
           _ (instant-subscription-model/create!
              {:user-id (:id owner)

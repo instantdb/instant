@@ -842,7 +842,8 @@
       (fn [{:keys [org owner]}]
         (testing "the org gets a credit for the amount they have paid"
           (with-pro-app
-            {:create-fake-objects? false}
+            {:create-fake-objects? false
+             :skip-billing-cycle-anchor? true}
             owner
             (fn [{:keys [app stripe-subscription-id]}]
 
