@@ -204,7 +204,7 @@
   "Intended for use in dev and tests, will create a stripe subscription
   for a customer that matches the subscription that would have been created
   through the checkout process."
-  [{:keys [customer-id user app free?]}]
+  [{:keys [customer-id user app free? skip-billing-cycle-anchor?]}]
   (if (create-fake-objects?)
     {:id (str "sub_fake_" (crypt-util/random-hex 8))}
     (let [sub (-> (stripe-client)
@@ -216,11 +216,13 @@
                                                           (setPrice (config/stripe-pro-subscription))
                                                           (setQuantity 1)
                                                           (build)))
-                                             (setBillingCycleAnchor (.toEpochSecond (date/first-of-next-month-est)))
+
                                              (putMetadata "app-id" (str (:id app)))
                                              (putMetadata "user-id" (str (:id user)))
                                              (putMetadata "subscription-type-id" (str plans/PRO_SUBSCRIPTION_TYPE))
                                              (putMetadata "source" "backend"))]
+                             (when-not skip-billing-cycle-anchor?
+                               (.setBillingCycleAnchor builder (.toEpochSecond (date/first-of-next-month-est))))
                              (when free?
                                (.addDiscount builder (.. (SubscriptionCreateParams$Discount/builder)
                                                          (setCoupon "i33t1l5x")
