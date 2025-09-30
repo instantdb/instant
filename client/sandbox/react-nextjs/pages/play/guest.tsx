@@ -178,12 +178,46 @@ function GoogleLoginRedirect() {
   );
 }
 
+function LinkedInLoginRedirect() {
+  const [url, setUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    auth.createAuthorizationURLAsync({
+      clientName: 'linkedin-web',
+      redirectURL: window.location.href,
+    }).then(setUrl);
+  }, []);
+
+  return (
+    <div className="flex">
+      <div className="w-[200px] flex items-center">
+        <span className="text-sm font-medium">LinkedIn Redirect</span>
+      </div>
+      <div className="w-[500px]">
+        {url ? (
+          <a
+            href={url}
+            className="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 no-underline"
+          >
+            Sign in with LinkedIn
+          </a>
+        ) : (
+          <div className="inline-block px-4 py-2 bg-gray-400 text-white rounded">
+            Loading...
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function UserSignIns() {
   return (
     <>
       <SignInWithMagicCode />
       <GoogleLoginPopup />
       <GoogleLoginRedirect />
+      <LinkedInLoginRedirect />
     </>
   );
 }
