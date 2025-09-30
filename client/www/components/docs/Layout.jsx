@@ -8,15 +8,47 @@ import { Prose } from '@/components/docs/Prose';
 import { Search } from '@/components/docs/Search';
 import { SelectedAppContext } from '@/lib/SelectedAppContext';
 import { useAuthToken, useTokenFetch } from '@/lib/auth';
-import config, { getLocal, setLocal } from '@/lib/config';
+import config from '@/lib/config';
 import { Select } from '@/components/ui';
 import { BareNav } from '@/components/marketingUi';
 import navigation from '@/data/docsNavigation';
 import { createdAtComparator, titleComparator } from '@/lib/app';
 import RatingBox from './RatingBox';
+import { useIsHydrated } from '@/lib/hooks/useIsHydrated';
 import { getLocallySavedApp, setLocallySavedApp } from '@/lib/locallySavedApp';
 
-function useSelectedApp(apps = []) {
+function useWorkspaceData(workspaceId, token) {
+  const dashResponse = useTokenFetch(`${config.apiURI}/dash`, token);
+
+  const orgEndpoint =
+    workspaceId !== 'personal'
+      ? `${config.apiURI}/dash/orgs/${workspaceId}`
+      : null;
+  const orgResponse = useTokenFetch(orgEndpoint, token);
+
+  const apps =
+    workspaceId === 'personal'
+      ? (dashResponse.data?.apps ?? [])
+      : (orgResponse.data?.apps ?? []);
+
+  // If there's no token, we're not loading - we just don't have data
+  if (!token) {
+    return {
+      apps: [],
+      orgs: [],
+      isLoading: false,
+    };
+  }
+
+  return {
+    apps,
+    orgs: dashResponse.data?.orgs || [],
+    isLoading:
+      !dashResponse.data || (workspaceId !== 'personal' && !orgResponse.data),
+  };
+}
+
+function useSelectedApp(apps = [], orgId) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [selectedAppData, setSelectedAppData] = useState(null);
@@ -24,22 +56,24 @@ function useSelectedApp(apps = []) {
   useEffect(() => {
     if (!router.isReady) return;
 
-    const cachedAppData = getLocallySavedApp();
+    const cachedAppData = getLocallySavedApp(orgId);
     const { app: queryAppId, ...remainingQueryParams } = router.query;
 
     const fromParams = queryAppId && apps.find((a) => a.id === queryAppId);
     const fromCache =
       cachedAppData && apps.find((a) => a.id === cachedAppData.id);
     const first = apps[0];
+
     if (fromParams) {
-      // We got a match for from a query param. Let's cache it and use it
       const data = {
         id: fromParams.id,
         title: fromParams.title,
       };
       setSelectedAppData(data);
-      setLocallySavedApp(data);
-      // Removes query param after caching
+      setLocallySavedApp({
+        id: fromParams.id,
+        orgId: orgId,
+      });
       router.replace(
         {
           query: remainingQueryParams,
@@ -51,14 +85,13 @@ function useSelectedApp(apps = []) {
         },
       );
     } else if (fromCache) {
-      // We got a match from the cache. Let's use it
       const data = { id: fromCache.id, title: fromCache.title };
       setSelectedAppData(data);
     } else if (first) {
       setSelectedAppData({ id: first.id, title: first.title });
     }
     setIsLoading(false);
-  }, [router.isReady, apps.length]);
+  }, [router.isReady, apps.length, orgId]);
 
   const update = useCallback(
     (appId) => {
@@ -66,25 +99,79 @@ function useSelectedApp(apps = []) {
       const data = { id: app.id, title: app.title };
 
       setSelectedAppData(data);
-      setLocallySavedApp(data);
+      setLocallySavedApp({
+        id: app.id,
+        orgId: orgId,
+      });
     },
-    [apps.length],
+    [apps.length, orgId],
   );
 
   return { loading: isLoading, data: selectedAppData, update };
 }
 
-function AppPicker({ apps, selectedAppData, updateSelectedAppId }) {
+function AppPicker({
+  apps,
+  selectedAppData,
+  updateSelectedAppId,
+  workspaceId,
+  allOrgs,
+}) {
+  const router = useRouter();
+
   const appOptions = apps.toSorted(titleComparator).map((app) => ({
     label: app.title,
     value: app.id,
   }));
 
-  function onSelectAppId(option) {
-    const id = option?.value;
-    if (!id) return;
-    updateSelectedAppId(id);
+  const workspaceOptions = [];
+
+  if (workspaceId !== 'personal') {
+    workspaceOptions.push({
+      label: 'Personal',
+      value: 'org:personal',
+    });
   }
+
+  allOrgs.forEach((org) => {
+    if (org.id !== workspaceId) {
+      workspaceOptions.push({
+        label: org.title,
+        value: `org:${org.id}`,
+      });
+    }
+  });
+
+  const orgOptions =
+    workspaceOptions.length > 0
+      ? [
+          { label: '── Switch workspace ──', value: null, disabled: true },
+          ...workspaceOptions,
+        ]
+      : [];
+
+  const allOptions = [...appOptions, ...orgOptions];
+
+  function onSelectAppId(option) {
+    const value = option?.value;
+    if (!value) return;
+
+    if (value.startsWith('org:')) {
+      const orgId = value.substring(4);
+      if (orgId === 'personal') {
+        router.push('/docs');
+      } else {
+        router.push(`/docs?org=${orgId}`);
+      }
+    } else {
+      updateSelectedAppId(value);
+    }
+  }
+
+  const currentWorkspaceName =
+    workspaceId === 'personal'
+      ? 'Personal'
+      : allOrgs.find((org) => org.id === workspaceId)?.title || workspaceId;
 
   return (
     <div className="mb-6 flex flex-col gap-1 border bg-white bg-opacity-40 p-4">
@@ -92,11 +179,16 @@ function AppPicker({ apps, selectedAppData, updateSelectedAppId }) {
       <p className="text-sm">
         The examples below will be updated with your app ID.
       </p>
+      {allOrgs.length > 0 && (
+        <p className="text-xs text-gray-600 mt-1">
+          Current workspace: <strong>{currentWorkspaceName}</strong>
+        </p>
+      )}
       <Select
         className="max-w-sm"
-        disabled={!appOptions.length}
+        disabled={!allOptions.length}
         value={selectedAppData?.id}
-        options={appOptions}
+        options={allOptions}
         onChange={onSelectAppId}
         emptyLabel={'No apps - sign in to create one'}
       />
@@ -281,11 +373,19 @@ export function Layout({ children, title, tableOfContents }) {
     section.links.find((link) => link.href === router.pathname),
   );
 
+  const workspaceId = router.query.org || 'personal';
   const token = useAuthToken();
-  const dashResponse = useTokenFetch(`${config.apiURI}/dash`, token);
-  const apps = (dashResponse.data?.apps ?? []).toSorted(createdAtComparator);
-  const { data: selectedAppData, update: updateSelectedAppId } =
-    useSelectedApp(apps);
+  const {
+    apps,
+    orgs,
+    isLoading: isLoadingWorkspace,
+  } = useWorkspaceData(workspaceId, token);
+
+  const { data: selectedAppData, update: updateSelectedAppId } = useSelectedApp(
+    apps,
+    workspaceId,
+  );
+  const isHydrated = useIsHydrated();
   return (
     <SelectedAppContext.Provider value={selectedAppData}>
       <style jsx global>
@@ -343,7 +443,17 @@ export function Layout({ children, title, tableOfContents }) {
               key={router.pathname}
               className="min-w-0 max-w-prose flex-1 p-4"
             >
-              <AppPicker {...{ apps, selectedAppData, updateSelectedAppId }} />
+              {isHydrated && !isLoadingWorkspace && (
+                <AppPicker
+                  {...{
+                    apps,
+                    selectedAppData,
+                    updateSelectedAppId,
+                    workspaceId,
+                    allOrgs: orgs,
+                  }}
+                />
+              )}
               <PageContent
                 title={title}
                 sectionTitle={section?.title}

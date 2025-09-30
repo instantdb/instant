@@ -10,10 +10,13 @@ import { useFetchedDash } from './MainDashLayout';
 import { DarkModeToggle } from './DarkModeToggle';
 
 export const TopBar: React.FC<{}> = () => {
-  // get from app query param
-  const app = new URLSearchParams(window.location.search).get('org');
-  const docsUrl = app ? `/docs?app=${app}` : '/docs';
   const dash = useFetchedDash();
+  // Use the workspace from the dash context
+  const org =
+    dash.data?.currentWorkspaceId !== 'personal'
+      ? dash.data?.currentWorkspaceId
+      : null;
+  const docsUrl = org ? `/docs?org=${org}` : '/docs';
 
   const hasInvites = (dash.data.invites || []).length > 0;
 
@@ -33,6 +36,7 @@ export const TopBar: React.FC<{}> = () => {
           </Link>
         )}
         <Link
+          target="_blank"
           className="flex items-center gap-1 text-sm opacity-50 hover:underline"
           href={docsUrl}
         >
