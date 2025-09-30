@@ -50,13 +50,16 @@ export default abstract class InstantReactAbstractDatabase<
 
   public auth: Auth;
   public storage: Storage;
+  public core: InstantCoreDatabase<Schema, Config['useDateObjects']>;
+
+  /** @deprecated use `core` instead */
   public _core: InstantCoreDatabase<Schema, Config['useDateObjects']>;
 
   static Storage?: any;
   static NetworkListener?: any;
 
   constructor(config: Config, versions?: { [key: string]: string }) {
-    this._core = core_init<Schema, Config['useDateObjects']>(
+    this.core = core_init<Schema, Config['useDateObjects']>(
       config,
       // @ts-expect-error because TS can't resolve subclass statics
       this.constructor.Storage,
@@ -64,8 +67,9 @@ export default abstract class InstantReactAbstractDatabase<
       this.constructor.NetworkListener,
       versions,
     );
-    this.auth = this._core.auth;
-    this.storage = this._core.storage;
+    this._core = this.core;
+    this.auth = this.core.auth;
+    this.storage = this.core.storage;
   }
 
   /**
@@ -78,7 +82,7 @@ export default abstract class InstantReactAbstractDatabase<
    *  const deviceId = await db.getLocalId('device');
    */
   getLocalId = (name: string): Promise<string> => {
-    return this._core.getLocalId(name);
+    return this.core.getLocalId(name);
   };
 
   /**
@@ -125,7 +129,7 @@ export default abstract class InstantReactAbstractDatabase<
     type: RoomType = '_defaultRoomType' as RoomType,
     id: string = '_defaultRoomId',
   ) {
-    return new InstantReactRoom<Schema, Rooms, RoomType>(this._core, type, id);
+    return new InstantReactRoom<Schema, Rooms, RoomType>(this.core, type, id);
   }
 
   /**
@@ -167,7 +171,7 @@ export default abstract class InstantReactAbstractDatabase<
   transact = (
     chunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
   ) => {
-    return this._core.transact(chunks);
+    return this.core.transact(chunks);
   };
 
   /**
@@ -203,7 +207,7 @@ export default abstract class InstantReactAbstractDatabase<
     NonNullable<Config['useDateObjects']>
   > => {
     return useQueryInternal<Q, Schema, Config['useDateObjects']>(
-      this._core,
+      this.core,
       query,
       opts,
     ).state;
@@ -239,13 +243,13 @@ export default abstract class InstantReactAbstractDatabase<
     // If we don't use a ref, the state will always be considered different, so
     // the component will always re-render.
     const resultCacheRef = useRef<AuthState>(
-      this._core._reactor._currentUserCached,
+      this.core._reactor._currentUserCached,
     );
 
     // Similar to `resultCacheRef`, `useSyncExternalStore` will unsubscribe
     // if `subscribe` changes, so we use `useCallback` to memoize the function.
     const subscribe = useCallback((cb: Function) => {
-      const unsubscribe = this._core.subscribeAuth((auth) => {
+      const unsubscribe = this.core.subscribeAuth((auth) => {
         resultCacheRef.current = { isLoading: false, ...auth };
         cb();
       });
@@ -301,7 +305,7 @@ export default abstract class InstantReactAbstractDatabase<
    *   console.log('logged in as', user.email)
    */
   getAuth(): Promise<User | null> {
-    return this._core.getAuth();
+    return this.core.getAuth();
   }
 
   /**
@@ -328,11 +332,11 @@ export default abstract class InstantReactAbstractDatabase<
    */
   useConnectionStatus = (): ConnectionStatus => {
     const statusRef = useRef<ConnectionStatus>(
-      this._core._reactor.status as ConnectionStatus,
+      this.core._reactor.status as ConnectionStatus,
     );
 
     const subscribe = useCallback((cb: Function) => {
-      const unsubscribe = this._core.subscribeConnectionStatus((newStatus) => {
+      const unsubscribe = this.core.subscribeConnectionStatus((newStatus) => {
         if (newStatus !== statusRef.current) {
           statusRef.current = newStatus;
           cb();
@@ -372,7 +376,7 @@ export default abstract class InstantReactAbstractDatabase<
     data: InstaQLResponse<Schema, Q, Config['useDateObjects']>;
     pageInfo: PageInfoResponse<Q>;
   }> => {
-    return this._core.queryOnce(query, opts);
+    return this.core.queryOnce(query, opts);
   };
 
   /**
