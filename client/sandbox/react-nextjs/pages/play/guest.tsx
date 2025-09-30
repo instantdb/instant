@@ -211,12 +211,127 @@ function LinkedInLoginRedirect() {
   );
 }
 
+function loadScript(src: string, id: string, callback: () => void) {
+  if (document.getElementById(id)) {
+    if (callback) {
+      callback();
+    }
+    return;
+  }
+
+  const script = document.createElement('script');
+  script.src = src;
+  script.id = id;
+  script.type = 'text/javascript';
+  script.async = true;
+
+  script.onload = () => {
+    if (callback) {
+      callback();
+    }
+  };
+
+  script.onerror = () => {
+    console.error(`Failed to load script: ${src}`);
+  };
+
+  document.body.appendChild(script);
+}
+
+async function signInApplePopup() {
+  let AppleID = (window as any).AppleID;
+  let nonce = crypto.randomUUID();
+  let resp = await AppleID.auth.signIn({
+    nonce: nonce,
+    usePopup: true,
+  });
+  await auth.signInWithIdToken({
+    clientName: 'apple',
+    idToken: resp.authorization.id_token,
+    nonce: nonce,
+  });
+}
+
+function AppleLoginPopup() {
+  useEffect(() => {
+    const scriptUrl =
+      'https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js';
+    loadScript(scriptUrl, 'appleid_auth', () => {
+      let AppleID = (window as any).AppleID;
+      if (AppleID) {
+        AppleID.auth.init({
+          clientId: 'com.instantdb.signin.test',
+          scope: 'name email',
+          redirectURI: window.location.href,
+        });
+      }
+    });
+  }, []);
+
+  return (
+    <div className="flex">
+      <div className="w-[200px] flex items-center">
+        <span className="text-sm font-medium">Apple Popup</span>
+      </div>
+      <div className="w-[500px]">
+        <button
+          className="inline-block px-4 py-2 bg-black text-white rounded hover:bg-gray-800"
+          style={{
+            fontFamily: 'SF Pro, -apple-system, BlinkMacSystemFont, sans-serif',
+          }}
+          onClick={signInApplePopup}
+        >
+          􀣺 Sign in with Apple Popup
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AppleLoginRedirect() {
+  const [url, setUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    auth.createAuthorizationURLAsync({
+      clientName: 'apple',
+      redirectURL: window.location.href,
+    }).then(setUrl);
+  }, []);
+
+  return (
+    <div className="flex">
+      <div className="w-[200px] flex items-center">
+        <span className="text-sm font-medium">Apple Redirect</span>
+      </div>
+      <div className="w-[500px]">
+        {url ? (
+          <a
+            href={url}
+            className="inline-block px-4 py-2 bg-black text-white rounded hover:bg-gray-800 no-underline"
+            style={{
+              fontFamily: 'SF Pro, -apple-system, BlinkMacSystemFont, sans-serif',
+            }}
+          >
+            􀣺 Sign in with Apple Redirect
+          </a>
+        ) : (
+          <div className="inline-block px-4 py-2 bg-gray-400 text-white rounded">
+            Loading...
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function UserSignIns() {
   return (
     <>
       <SignInWithMagicCode />
       <GoogleLoginPopup />
       <GoogleLoginRedirect />
+      <AppleLoginPopup />
+      <AppleLoginRedirect />
       <LinkedInLoginRedirect />
     </>
   );
