@@ -30,6 +30,12 @@ export type InstantAPISchemaPlanAddAttrStep = {
   attr: InstantDBAttr;
 };
 
+export type InstantAPISchemaPlanDeleteAttrStep = {
+  type: 'delete-attr';
+  friendlyDescription: string;
+  attrId: string;
+};
+
 export type InstantAPISchemaPlanUpdateAttrStep = {
   type: 'update-attr';
   friendlyDescription: string;
@@ -181,6 +187,7 @@ export interface InstantBackgroundSchemaRemoveRequiredJob
 
 export type InstantAPISchemaPlanStep =
   | InstantAPISchemaPlanAddAttrStep
+  | InstantAPISchemaPlanDeleteAttrStep
   | InstantAPISchemaPlanUpdateAttrStep
   | InstantAPISchemaPlanIndexStep
   | InstantAPISchemaPlanRemoveIndexStep

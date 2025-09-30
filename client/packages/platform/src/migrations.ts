@@ -1,0 +1,625 @@
+import {
+  DataAttrDef,
+  id,
+  InstantDBAttr,
+  InstantDBAttrOnDelete,
+  InstantDBCheckedDataType,
+  InstantSchemaDef,
+  LinkDef,
+} from '@instantdb/core';
+import { PlanStep } from './api.ts';
+import { attrDefToNewAttrTx, linkDefToNewAttrTx } from './migrationUtils.ts';
+
+type Identifier = {
+  namespace: string;
+  attrName: string;
+};
+
+type AttrWithIdentifier = {
+  'value-type': 'blob' | 'ref';
+  cardinality: 'many' | 'one';
+  'forward-identity': Identifier;
+  'reverse-identity'?: Identifier | null;
+  'on-delete'?: InstantDBAttrOnDelete | null | undefined;
+  'on-delete-reverse'?: InstantDBAttrOnDelete | null | undefined;
+};
+
+export type MigrationTxTypes = {
+  'delete-attr': Identifier;
+  'update-attr': { partialAttr: AttrWithIdentifier; identifier: Identifier };
+  'add-attr': {
+    identifier: Identifier;
+    'unique?': boolean;
+    'index?': boolean;
+    'required?': boolean;
+    'reverse-identity'?: Identifier | null;
+    'forward-identity': Identifier;
+    cardinality: 'many' | 'one';
+    'value-type': 'blob' | 'ref';
+    'on-delete'?: InstantDBAttrOnDelete | null;
+    'on-delete-reverse'?: InstantDBAttrOnDelete | null;
+    'checked-data-type'?: InstantDBCheckedDataType | null;
+  };
+  index: Identifier;
+  'remove-index': Identifier;
+  unique: Identifier;
+  'remove-unique': Identifier;
+  required: Identifier;
+  'remove-required': Identifier;
+  'check-data-type': {
+    identity: Identifier;
+    'checked-data-type': InstantDBCheckedDataType;
+  };
+  'remove-data-type': Identifier;
+};
+
+type EasyMigrationTypes =
+  | 'index'
+  | 'remove-index'
+  | 'remove-unique'
+  | 'remove-required'
+  | 'unique'
+  | 'remove-data-type'
+  | 'required';
+
+type PlanStepMap = {
+  [K in PlanStep as K[0]]: K[1];
+};
+
+const findAttrFromExisting = (
+  ident: Identifier,
+  existingAttrs: InstantDBAttr[],
+): InstantDBAttr | null => {
+  return (
+    existingAttrs.find((attr) => {
+      return (
+        attr['forward-identity'][1] === ident.namespace &&
+        attr['forward-identity'][2] === ident.attrName
+      );
+    }) || null
+  );
+};
+
+const convertSimpleConstraintUpdate: ConvertPlanStepFn<any> = (
+  from,
+  existing,
+) => {
+  const found = findAttrFromExisting(from, existing);
+  if (!found) {
+    throw new Error(`Attribute ${from.namespace}.${from.attrName} not found`);
+  }
+  return {
+    'attr-id': found.id,
+    'forward-identity': found['forward-identity'],
+  };
+};
+
+// converts migration operations from Identifier (namespace/name) based
+// into transaction steps that use database ids
+const CONVERTERS: AllConvertPlanStepFns = {
+  index: convertSimpleConstraintUpdate,
+  unique: convertSimpleConstraintUpdate,
+  required: convertSimpleConstraintUpdate,
+  'remove-index': convertSimpleConstraintUpdate,
+  'remove-unique': convertSimpleConstraintUpdate,
+  'remove-required': convertSimpleConstraintUpdate,
+
+  'delete-attr': (from, existing) => {
+    const found = findAttrFromExisting(from, existing);
+    if (found) {
+      return found.id;
+    }
+    throw new Error(`Attribute ${from.namespace}.${from.attrName} not found`);
+  },
+  'update-attr': (from, existing) => {
+    const found = findAttrFromExisting(from.identifier, existing);
+    if (!found) {
+      throw new Error(
+        `Attribute ${from.identifier.namespace}.${from.identifier.attrName} not found`,
+      );
+    }
+    return {
+      id: found.id,
+      'forward-identity': from.partialAttr['forward-identity']
+        ? [
+            found.id,
+            from.partialAttr['forward-identity'].namespace,
+            from.partialAttr['forward-identity'].attrName,
+          ]
+        : undefined,
+      'reverse-identity': from.partialAttr['reverse-identity']
+        ? [
+            found.id,
+            from.partialAttr['reverse-identity'].namespace,
+            from.partialAttr['reverse-identity'].attrName,
+          ]
+        : undefined,
+      cardinality: from.partialAttr['cardinality']
+        ? from.partialAttr['cardinality']
+        : undefined,
+
+      'on-delete': from.partialAttr['on-delete']
+        ? from.partialAttr['on-delete']
+        : undefined,
+      'on-delete-reverse': from.partialAttr['on-delete-reverse']
+        ? from.partialAttr['on-delete-reverse']
+        : undefined,
+    };
+  },
+  'add-attr': (from, _existing) => {
+    return {
+      'forward-identity': [
+        id(),
+        from.identifier.namespace,
+        from.identifier.attrName,
+      ],
+      'reverse-identity': from['reverse-identity']
+        ? [
+            id(),
+            from['reverse-identity'].namespace,
+            from['reverse-identity'].attrName,
+          ]
+        : null,
+      'inferred-types': null,
+      'value-type': from['value-type'],
+      id: id(),
+      cardinality: from.cardinality,
+      'index?': from['index?'],
+      'required?': from['required?'],
+      'unique?': from['unique?'],
+      catalog: 'user',
+      'on-delete': from['on-delete'],
+      'on-delete-reverse': from['on-delete-reverse'],
+      'checked-data-type': from['checked-data-type'],
+    };
+  },
+  'remove-data-type': convertSimpleConstraintUpdate,
+  'check-data-type': (from, existing) => {
+    const found = findAttrFromExisting(from.identity, existing);
+    if (!found) {
+      throw new Error(
+        `Attribute ${from.identity.namespace}.${from.identity.attrName} not found`,
+      );
+    }
+    return {
+      'attr-id': found.id,
+      'checked-data-type': from['checked-data-type'],
+      'forward-identity': found['forward-identity'],
+    };
+  },
+};
+
+export const convertTxSteps = (
+  txs: MigrationTx[],
+  existingAttrs: InstantDBAttr[],
+): PlanStep[] => {
+  const result: PlanStep[] = [];
+  txs.forEach((tx) => {
+    const converter = CONVERTERS[tx.type];
+    if (!converter) {
+      throw new Error(`Unknown transaction type: ${tx.type}`);
+    }
+    result.push([tx.type, converter(tx as any, existingAttrs)] as PlanStep);
+  });
+  return result;
+};
+
+type ConvertPlanStepFn<T extends keyof MigrationTxTypes> = (
+  from: MigrationTxTypes[T],
+  existingAttrs: InstantDBAttr[],
+) => PlanStepMap[T];
+
+type AllConvertPlanStepFns = {
+  [K in keyof MigrationTxTypes]: ConvertPlanStepFn<K>;
+};
+
+export type MigrationTx = {
+  [K in keyof MigrationTxTypes]: {
+    type: K;
+  } & MigrationTxTypes[K];
+}[keyof MigrationTxTypes];
+
+export type AnyLink = LinkDef<any, any, any, any, any, any, any>;
+export type AnyBlob = DataAttrDef<any, any, any>;
+
+export const diffSchemas = async (
+  oldSchema: InstantSchemaDef<any, any, any>,
+  newSchema: InstantSchemaDef<any, any, any>,
+  resolveFn: RenameResolveFn<string>,
+): Promise<MigrationTx[]> => {
+  const transactions: MigrationTx[] = [];
+
+  const oldEntities = oldSchema.entities;
+  const newEntities = newSchema.entities;
+
+  const oldEntityNames = Object.keys(oldEntities);
+  const newEntityNames = Object.keys(newEntities);
+
+  const deletedEntityNames = oldEntityNames.filter(
+    (name) => !newEntityNames.includes(name),
+  );
+
+  for (const entityName of deletedEntityNames) {
+    if (entityName.startsWith('$')) {
+      continue;
+    }
+    Object.keys(oldEntities[entityName].attrs).forEach((attrName) => {
+      transactions.push({
+        type: 'delete-attr',
+        attrName,
+        namespace: entityName,
+      });
+    });
+
+    transactions.push({
+      type: 'delete-attr',
+      attrName: 'id',
+      namespace: entityName,
+    });
+
+    Object.keys(oldEntities[entityName].links).forEach((attrName) => {
+      transactions.push({
+        type: 'delete-attr',
+        attrName,
+        namespace: entityName,
+      });
+    });
+  }
+
+  const addedEntityNames = newEntityNames.filter(
+    (name) => !oldEntityNames.includes(name) && !name.startsWith('$'),
+  );
+
+  for (const entityName of addedEntityNames) {
+    for (const attrName of Object.keys(newEntities[entityName].attrs)) {
+      const attrInSchema = newEntities[entityName].attrs[attrName];
+      transactions.push(attrDefToNewAttrTx(attrInSchema, entityName, attrName));
+    }
+    transactions.push({
+      type: 'add-attr',
+      'forward-identity': {
+        namespace: entityName,
+        attrName: 'id',
+      },
+      identifier: {
+        attrName: 'id',
+        namespace: entityName,
+      },
+      'index?': false,
+      'required?': true,
+      cardinality: 'one',
+      'unique?': true,
+      'value-type': 'blob',
+    });
+  }
+
+  const innerEntityNames = oldEntityNames.filter(
+    (name) => newEntityNames.includes(name) && !name.startsWith('$'),
+  );
+
+  for (const entityName of innerEntityNames) {
+    // BLOB ATTRIBUTES
+    console.log(`Entity ${entityName} has been modified`);
+    const addedFields = Object.keys(newEntities[entityName].attrs).filter(
+      (field) => !Object.keys(oldEntities[entityName].attrs).includes(field),
+    );
+    const removedFields = Object.keys(oldEntities[entityName].attrs).filter(
+      (field) => !Object.keys(newEntities[entityName].attrs).includes(field),
+    );
+    console.log(`Added fields: ${addedFields.join(', ')}`);
+    console.log(`Removed fields: ${removedFields.join(', ')}`);
+
+    const resolved = await resolveRenames(
+      addedFields,
+      removedFields,
+      resolveFn,
+    );
+
+    console.log(
+      `Resolved fields for ${entityName}: ${JSON.stringify(resolved)}`,
+    );
+
+    const consistentFields = Object.keys(oldEntities[entityName].attrs).filter(
+      (field) => Object.keys(newEntities[entityName].attrs).includes(field),
+    );
+
+    consistentFields.forEach((fieldName) => {
+      transactions.push(
+        ...compareBlobs(
+          {
+            attrName: fieldName,
+            namespace: entityName,
+          },
+          oldEntities[entityName].attrs[fieldName],
+          newEntities[entityName].attrs[fieldName],
+        ),
+      );
+    });
+
+    resolved.deleted.forEach((attrName) => {
+      transactions.push({
+        type: 'delete-attr',
+        attrName,
+        namespace: entityName,
+      });
+    });
+
+    resolved.created.forEach((createdName) => {
+      const attrInSchema = newSchema.entities[entityName].attrs[
+        createdName
+      ] as AnyBlob;
+      transactions.push(
+        attrDefToNewAttrTx(attrInSchema, entityName, createdName),
+      );
+    });
+
+    resolved.renamed.forEach((renamed) => {
+      transactions.push({
+        type: 'update-attr',
+        identifier: {
+          attrName: renamed.from,
+          namespace: entityName,
+        },
+        partialAttr: {
+          'value-type': 'blob',
+          cardinality: 'one',
+          'forward-identity': {
+            attrName: renamed.to,
+            namespace: entityName,
+          },
+        },
+      });
+
+      transactions.push(
+        ...compareBlobs(
+          {
+            attrName: renamed.from,
+            namespace: entityName,
+          },
+          oldEntities[entityName].attrs[renamed.from],
+          newEntities[entityName].attrs[renamed.to],
+        ),
+      );
+    });
+  }
+
+  const oldLinks = (Object.values(oldSchema.links) as AnyLink[]).filter(
+    (link) => !link.forward.on.startsWith('$'),
+  );
+  const newLinks = (Object.values(newSchema.links) as AnyLink[]).filter(
+    (link) => !link.forward.on.startsWith('$'),
+  );
+
+  // Group links by their forward namespace-label combination for comparison
+  const createLinkKey = (link: AnyLink) =>
+    `${link.forward.on}<->${link.reverse.on}`;
+  const createLinkIdentity = (link: AnyLink) =>
+    `${link.forward.on}.${link.forward.label}<->${link.reverse.on}.${link.reverse.label}`;
+
+  const newLinksByKey = new Map<string, AnyLink[]>();
+  const oldLinksByKey = new Map<string, AnyLink[]>();
+
+  for (const link of newLinks) {
+    const key = createLinkKey(link);
+    const links = newLinksByKey.get(key) || [];
+    links.push(link);
+    newLinksByKey.set(key, links);
+  }
+
+  for (const link of oldLinks) {
+    const key = createLinkKey(link);
+    const links = oldLinksByKey.get(key) || [];
+    links.push(link);
+    oldLinksByKey.set(key, links);
+  }
+
+  const allLinkKeys = new Set([
+    ...oldLinksByKey.keys(),
+    ...newLinksByKey.keys(),
+  ]);
+
+  for (const linkKey of allLinkKeys) {
+    const oldLinksInGroup = oldLinksByKey.get(linkKey) || [];
+    const newLinksInGroup = newLinksByKey.get(linkKey) || [];
+
+    const oldIdentities = oldLinksInGroup.map((link) =>
+      createLinkIdentity(link),
+    );
+    const newIdentities = newLinksInGroup.map((link) =>
+      createLinkIdentity(link),
+    );
+
+    const addedIdentities = newIdentities.filter(
+      (identity) => !oldIdentities.includes(identity),
+    );
+
+    const removedIdentities = oldIdentities.filter(
+      (identity) => !newIdentities.includes(identity),
+    );
+
+    const consistentEntities = oldIdentities.filter((identity) =>
+      newIdentities.includes(identity),
+    );
+
+    console.log(
+      `Link group ${linkKey} - Added: ${addedIdentities.join(', ')}, Removed: ${removedIdentities.join(', ')}`,
+    );
+
+    const resolved = await resolveRenames(
+      addedIdentities,
+      removedIdentities,
+      resolveFn,
+    );
+
+    console.log(`Resolved links for ${linkKey}: ${JSON.stringify(resolved)}`);
+
+    resolved.deleted.forEach((identity) => {
+      const link = oldLinksInGroup.find(
+        (l) => createLinkIdentity(l) === identity,
+      );
+      if (!link) return;
+      transactions.push({
+        type: 'delete-attr',
+        attrName: link.forward.label,
+        namespace: link.forward.on,
+      });
+    });
+
+    resolved.created.forEach((identity) => {
+      const link = newLinksInGroup.find(
+        (l) => createLinkIdentity(l) === identity,
+      );
+      if (!link) return;
+      transactions.push(linkDefToNewAttrTx(link));
+    });
+
+    resolved.renamed.forEach((renamed) => {
+      const oldLink = oldLinksInGroup.find(
+        (l) => createLinkIdentity(l) === renamed.from,
+      );
+      const newLink = newLinksInGroup.find(
+        (l) => createLinkIdentity(l) === renamed.to,
+      );
+      if (!oldLink || !newLink) return;
+
+      transactions.push({
+        type: 'update-attr',
+        identifier: {
+          attrName: oldLink.forward.label,
+          namespace: oldLink.forward.on,
+        },
+        partialAttr: {
+          'value-type': 'ref',
+          cardinality: newLink.forward.has === 'one' ? 'one' : 'many',
+          'forward-identity': {
+            attrName: newLink.forward.label,
+            namespace: newLink.forward.on,
+          },
+          'reverse-identity': {
+            attrName: newLink.reverse.label,
+            namespace: newLink.reverse.on,
+          },
+        },
+      });
+    });
+  }
+
+  return transactions;
+};
+
+export interface RenamePromptItem<T> {
+  from: T;
+  to: T;
+}
+
+export const compareBlobs = (
+  identity: Identifier,
+  oldBlob: AnyBlob,
+  newBlob: AnyBlob,
+): MigrationTx[] => {
+  const results: MigrationTx[] = [];
+  const sendType = <T extends EasyMigrationTypes>(type: T) => {
+    results.push({
+      type,
+      ...identity,
+    });
+  };
+
+  // check if index needs to be added
+  if (oldBlob.isIndexed === false && newBlob.isIndexed === true)
+    sendType('index');
+
+  // check if index needs to be removed
+  if (oldBlob.isIndexed === true && newBlob.isIndexed === false)
+    sendType('remove-index');
+
+  // check if needs to become unique
+  if (oldBlob.config.unique === false && newBlob.config.unique === true)
+    sendType('unique');
+
+  // check if needs to become non-unique
+  if (oldBlob.config.unique === true && newBlob.config.unique === false)
+    sendType('remove-unique');
+
+  // check if needs to become required
+  if (oldBlob.required === false && newBlob.required === true)
+    sendType('required');
+
+  // check if needs to become non-required
+  if (oldBlob.required === true && newBlob.required === false)
+    sendType('remove-required');
+
+  // check if data type needs to be changed / added
+  if (oldBlob.valueType !== newBlob.valueType)
+    results.push({
+      type: 'check-data-type',
+      identity,
+      'checked-data-type': newBlob.valueType,
+    });
+
+  return results;
+};
+
+export const isRenamePromptItem = <T>(
+  item: RenamePromptItem<T> | T,
+): item is RenamePromptItem<T> => {
+  if (typeof item === 'object') return true;
+  return false;
+};
+
+export type RenameResolveFn<T> = (
+  created: T,
+  promptData: (RenamePromptItem<T> | T)[],
+) => Promise<T | RenamePromptItem<T>>;
+
+const resolveRenames = async <T>(
+  newItems: T[],
+  missingItems: T[],
+  resolveFn: RenameResolveFn<T>,
+): Promise<{
+  created: T[];
+  deleted: T[];
+  renamed: {
+    from: T;
+    to: T;
+  }[];
+}> => {
+  if (missingItems.length === 0 || newItems.length === 0) {
+    return {
+      created: newItems,
+      deleted: missingItems,
+      renamed: [],
+    };
+  }
+
+  const result: {
+    created: T[];
+    renamed: { from: T; to: T }[];
+    deleted: T[];
+  } = { created: [], renamed: [], deleted: [] };
+  let index = 0;
+  let leftMissing = [...missingItems];
+
+  do {
+    const created = newItems[index];
+    const renames: RenamePromptItem<T>[] = leftMissing.map((it) => {
+      return { from: it, to: created };
+    });
+    const promptData: (RenamePromptItem<T> | T)[] = [created, ...renames];
+
+    const data = await resolveFn(created, promptData);
+    if (isRenamePromptItem(data)) {
+      if (data.from !== data.to) {
+        result.renamed.push(data);
+      }
+      delete leftMissing[leftMissing.indexOf(data.from)];
+      leftMissing = leftMissing.filter(Boolean);
+    } else {
+      result.created.push(created);
+    }
+    index += 1;
+  } while (index < newItems.length);
+
+  result.deleted.push(...leftMissing);
+  return result;
+};

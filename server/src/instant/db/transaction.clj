@@ -144,11 +144,11 @@
     (coll/update-in-when tx-step [opts-idx :mode] keyword)))
 
 (defn coerce!
-  "Takes an input tx-steps, and: 
-   - converts strings to keywords when needed  
-   - converts string uuids to java uuids when parseable 
+  "Takes an input tx-steps, and:
+   - converts strings to keywords when needed
+   - converts string uuids to java uuids when parseable
 
-   At some point, we may prefer to use a tool like 
+   At some point, we may prefer to use a tool like
    [coax](https://github.com/exoscale/coax)"
   [tx-steps]
   (assert-coll! {:in [] :root tx-steps} tx-steps)
