@@ -91,13 +91,13 @@ function Login() {
 // 5. Make queries to your heart's content!
 // Checkout InstaQL for examples
 // https://paper.dropbox.com/doc/InstaQL--BgBK88TTiSE9OV3a17iCwDjCAg-yVxntbv98aeAovazd9TNL
-function Main({ user }: { user: { id: string; email: string } }) {
+function Main({ user }: { user: { id: string; email?: string | null } }) {
   const { isLoading, error, data } = useQuery({ goals: { todos: {} } });
   if (isLoading) return <div>Loading Query...</div>;
   if (error) return <div>Error: {error.message}</div>;
   return (
     <div className="p-4">
-      <h1>Hi {user.email}!</h1>
+      <h1>Hi {user.email || '<no email>'}!</h1>
       <h2>id: {user.id}</h2>
       <button
         className="px-4 py-2 bg-blue-500 text-white rounded border-2 my-2"

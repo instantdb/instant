@@ -168,7 +168,7 @@ function SignedIn({ user }: { user: any }) {
 
 function UserDashboard() {
   const { user } = useAuth();
-  const isGuest = user.type === 'guest';
+  const isGuest = user?.type === 'guest';
   return isGuest ? <SignedInAsGuest user={user} /> : <SignedIn user={user} />;
 }
 
