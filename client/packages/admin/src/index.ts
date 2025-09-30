@@ -94,7 +94,7 @@ type DebugCheckResult = {
 
 type Config = {
   appId: string;
-  adminToken: string;
+  adminToken?: string;
   apiURI?: string;
   useDateObjects?: boolean;
   disableValidation?: boolean;
@@ -105,7 +105,7 @@ export type InstantConfig<
   UseDates extends boolean = false,
 > = {
   appId: string;
-  adminToken: string;
+  adminToken?: string;
   apiURI?: string;
   schema?: Schema;
   useDateObjects?: UseDates;
@@ -169,11 +169,15 @@ function authorizedHeaders(
   impersonationOpts?: ImpersonationOpts,
 ): Record<string, string> {
   const { adminToken, appId } = config;
-  const headers = {
+  const headers: Record<string, string> = {
     'content-type': 'application/json',
-    authorization: `Bearer ${adminToken}`,
     'app-id': appId,
   };
+
+  if (adminToken) {
+    headers.authorization = `Bearer ${adminToken}`;
+  }
+
   return impersonationOpts
     ? withImpersonation(headers, impersonationOpts)
     : headers;

@@ -1269,5 +1269,75 @@
             _ (is (= #{aid-2}
                      (set (map :id soft-deleted-attrs))))]))))
 
+(deftest optional-admin-token-test
+  (with-empty-app
+    (fn [{app-id :id admin-token :admin-token :as _app}]
+      (let [email "alyssa_p_hacker@instantdb.com"
+            refresh-ret (refresh-tokens-post
+                         {:body {:email email}
+                          :headers {"app-id" app-id
+                                    "authorization" (str "Bearer " admin-token)}})
+            user-token (-> refresh-ret :body :user :refresh_token)]
+
+        (testing "normal-query + null-admin-token = fail"
+          (let [ret (query-post
+                     {:body {:query {:goals {}}}
+                      :headers {"app-id" (str app-id)}})]
+            (is (= 400 (:status ret)))
+            (is (= :param-missing (-> ret :body :type)))))
+
+        (testing "normal-query + admin-token = succ"
+          (let [ret (query-post
+                     {:body {:query {:goals {}}}
+                      :headers {"app-id" (str app-id)
+                                "authorization" (str "Bearer " admin-token)}})]
+            (is (= 200 (:status ret)))))
+
+        (testing "as-token + null-admin-token = succ"
+          (let [ret (query-post
+                     {:body {:query {:goals {}}}
+                      :headers {"app-id" (str app-id)
+                                "as-token" (str user-token)}})]
+            (is (= 200 (:status ret)))))
+
+        (testing "as-token + admin-token = succ"
+          (let [ret (query-post
+                     {:body {:query {:goals {}}}
+                      :headers {"app-id" (str app-id)
+                                "authorization" (str "Bearer " admin-token)
+                                "as-token" (str user-token)}})]
+            (is (= 200 (:status ret)))))
+
+        (testing "as-email + null-admin-token = fail"
+          (let [ret (query-post
+                     {:body {:query {:goals {}}}
+                      :headers {"app-id" (str app-id)
+                                "as-email" email}})]
+            (is (= 400 (:status ret)))
+            (is (= :param-missing (-> ret :body :type)))))
+
+        (testing "as-email + admin-token = succ"
+          (let [ret (query-post
+                     {:body {:query {:goals {}}}
+                      :headers {"app-id" (str app-id)
+                                "authorization" (str "Bearer " admin-token)
+                                "as-email" email}})]
+            (is (= 200 (:status ret)))))
+
+        (testing "as-guest + null-admin-token = succ"
+          (let [ret (query-post
+                     {:body {:query {:goals {}}}
+                      :headers {"app-id" (str app-id)
+                                "as-guest" "true"}})]
+            (is (= 200 (:status ret)))))
+
+        (testing "as-guest + admin-token = succ"
+          (let [ret (query-post
+                     {:body {:query {:goals {}}}
+                      :headers {"app-id" (str app-id)
+                                "authorization" (str "Bearer " admin-token)
+                                "as-guest" "true"}})]
+            (is (= 200 (:status ret)))))))))
+
 (comment
   (test/run-tests *ns*))
