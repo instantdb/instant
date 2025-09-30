@@ -217,7 +217,7 @@
                               ;; matches everything under the subdirectory
                               :path "/runtime/oauth"}))))
 
-(defn upsert-oauth-link! [{:keys [email sub app-id provider-id]}]
+(defn upsert-oauth-link! [{:keys [email sub app-id provider-id user-id]}]
   (let [users (app-user-model/get-by-email-or-oauth-link-qualified
                {:email email
                 :app-id app-id
@@ -240,9 +240,6 @@
 
       (= 1 (count users))
       (let [user (first users)]
-        ;; extra caution because it would be really bad to
-        ;; return users for a different app
-        (assert (= app-id (:app_users/app_id user)))
         (cond (not= (:app_users/email user) email)
               (tracer/with-span! {:name "app-user/update-email"
                                   :attributes {:id (:app_users/id user)
@@ -268,14 +265,15 @@
 
       (= 0 (count users))
       (let [user (app-user-model/create!
-                  {:id (random-uuid)
+                  {:id     user-id
                    :app-id app-id
-                   :email email})]
-        (app-user-oauth-link-model/create! {:id (random-uuid)
-                                            :app-id app-id
+                   :email  email
+                   :type   "user"})]
+        (app-user-oauth-link-model/create! {:id          (random-uuid)
+                                            :app-id      app-id
                                             :provider-id provider-id
-                                            :sub sub
-                                            :user-id (:id user)})))))
+                                            :sub         sub
+                                            :user-id     (:id user)})))))
 
 (defn oauth-callback-landing
   "Used for external apps to prevent a dangling page on redirect.
@@ -506,13 +504,17 @@
                                {:allow-unverified-email? true
                                 :ignore-audience? true}))
         email (email/coerce email)
-        social-login (upsert-oauth-link! {:email email
-                                          :sub sub
-                                          :app-id (:app_id client)
-                                          :provider-id (:provider_id client)})
+
         current-refresh-token (when current-refresh-token-id
-                                (app-user-refresh-token-model/get-by-id {:app-id app-id
-                                                                         :id current-refresh-token-id}))
+                                (app-user-refresh-token-model/get-by-id
+                                 {:app-id app-id
+                                  :id current-refresh-token-id}))
+
+        social-login (upsert-oauth-link! {:email       email
+                                          :sub         sub
+                                          :app-id      (:app_id client)
+                                          :provider-id (:provider_id client)
+                                          :user-id     (:user_id current-refresh-token)})
         {refresh-token-id :id} (if (and current-refresh-token
                                         (= (:user_id social-login)
                                            (:user_id current-refresh-token)))
