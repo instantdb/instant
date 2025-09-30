@@ -64,29 +64,36 @@
         {:app-id (:id app)}))))
 
 (defn get-perms! [{:keys [headers] :as req} oauth-scope]
-  (let [{:keys [app-id]} (req->app-id-authed! req oauth-scope)
+  (let [app-id-untrusted (req->app-id-untrusted! req)
         as-token (get headers "as-token")
         as-email (get headers "as-email")
         as-guest (get headers "as-guest")
         perms (cond
                 as-token
-                {:admin? false
-                 :current-user (app-user-model/get-by-refresh-token!
-                                {:app-id app-id :refresh-token as-token})}
+                (let [app-id app-id-untrusted]
+                  {:app-id app-id
+                   :admin? false
+                   :current-user (app-user-model/get-by-refresh-token!
+                                  {:app-id app-id :refresh-token as-token})})
 
                 as-email
-                {:admin? false
-                 :current-user (app-user-model/get-by-email!
-                                {:app-id app-id :email as-email})}
+                (let [{:keys [app-id]} (req->app-id-authed! req oauth-scope)]
+                  {:app-id app-id
+                   :admin? false
+                   :current-user (app-user-model/get-by-email!
+                                  {:app-id app-id :email as-email})})
 
                 as-guest
-                {:admin? false :current-user nil}
+                (let [app-id app-id-untrusted]
+                  {:app-id app-id
+                   :admin? false
+                   :current-user nil})
 
                 :else
-                {:admin? true})]
-    (assoc perms
-           :app-id app-id
-           :show-cel-errors? true)))
+                (let [{:keys [app-id]} (req->app-id-authed! req oauth-scope)]
+                  {:app-id app-id
+                   :admin? true}))]
+    (assoc perms :show-cel-errors? true)))
 
 (comment
   (def counters-app-id  #uuid "137ace7a-efdd-490f-b0dc-a3c73a14f892")
