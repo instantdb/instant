@@ -110,8 +110,10 @@ jobs:
           POSTGRES_PASSWORD: test_password
           POSTGRES_DB: test_db
         options: >-
-          --no-healthcheck
-
+          --health-cmd "exit 0"
+          --health-interval 1s
+          --health-timeout 1s
+          --health-retries 1
 
     steps:
     - name: Checkout
