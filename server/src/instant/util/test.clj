@@ -158,27 +158,35 @@
 
 (defn find-entities-by-ids
   "Finds entities by ids. Converts attr-ids to attribute keywords, adds :db/id"
-  [app-id attr->id ids]
-  (let [id->attr (set/map-invert attr->id)
-        id->entities (reduce
-                      (fn [m {:keys [triple]}]
-                        (let [[e aid v] triple
-                              a (id->attr aid)]
-                          (update m e assoc a v)))
-                      {}
-                      (triple-model/fetch
-                       (aurora/conn-pool :read)
-                       app-id
-                       [[:in :entity-id ids]]))]
-    (reduce-kv
-     (fn [acc id entity]
-       (conj acc (assoc entity :db/id id)))
-     #{} id->entities)))
+  ([app-id ids]
+   (let [attrs (attr-model/get-by-app-id (aurora/conn-pool :read) app-id)
+         attr->id (into {} (map (fn [{id :id
+                                      [_ etype label] :forward-identity}]
+                                  [(keyword etype label) id]) attrs))]
+     (find-entities-by-ids app-id attr->id ids)))
+  ([app-id attr->id ids]
+   (let [id->attr     (set/map-invert attr->id)
+         id->entities (reduce
+                       (fn [m {:keys [triple]}]
+                         (let [[e aid v] triple
+                               a (id->attr aid)]
+                           (update m e assoc a v)))
+                       {}
+                       (triple-model/fetch
+                        (aurora/conn-pool :read)
+                        app-id
+                        [[:in :entity-id ids]]))]
+     (reduce-kv
+      (fn [acc id entity]
+        (conj acc (assoc entity :db/id id)))
+      #{} id->entities))))
 
 (defn find-entids-by-ids
-  "Finds entities by ids. Converts attr-ids to attribute keywords, adds :db/id"
-  [app-id attr->id ids]
-  (into #{} (map :db/id) (find-entities-by-ids app-id attr->id ids)))
+  "Finds entitiy ids by ids"
+  ([app-id ids]
+   (into #{} (map :db/id) (find-entities-by-ids app-id ids)))
+  ([app-id attr->id ids]
+   (into #{} (map :db/id) (find-entities-by-ids app-id attr->id ids))))
 
 (defn suid
   "Short uuid, can just specify prefix, rest will be filled with 0s
@@ -235,6 +243,7 @@
   (with-open [conn (next.jdbc/get-connection (config/get-aurora-config))]
     (reduce (fn [acc sketch]
               (assoc acc (select-keys sketch [:app-id :attr-id]) sketch))
+            {}
             (aggregator/initial-sketch-seq conn
                                            (format "copy (select app_id, attr_id, entity_id, value, checked_data_type, created_at, eav, ea, pg_size from triples where app_id = '%s'::uuid order by app_id, attr_id) to stdout with (format binary)"
                                                    app-id)))))

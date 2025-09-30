@@ -12,6 +12,7 @@
    [instant.model.app :as app-model]
    [instant.model.app-admin-token :as app-admin-token-model]
    [instant.model.app-user :as app-user-model]
+   [instant.model.app-user-magic-code :as app-user-magic-code-model]
    [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
    [instant.model.rule :as rule-model]
    [instant.model.instant-user :as instant-user-model]
@@ -63,29 +64,36 @@
         {:app-id (:id app)}))))
 
 (defn get-perms! [{:keys [headers] :as req} oauth-scope]
-  (let [{:keys [app-id]} (req->app-id-authed! req oauth-scope)
+  (let [app-id-untrusted (req->app-id-untrusted! req)
         as-token (get headers "as-token")
         as-email (get headers "as-email")
         as-guest (get headers "as-guest")
         perms (cond
                 as-token
-                {:admin? false
-                 :current-user (app-user-model/get-by-refresh-token!
-                                {:app-id app-id :refresh-token as-token})}
+                (let [app-id app-id-untrusted]
+                  {:app-id app-id
+                   :admin? false
+                   :current-user (app-user-model/get-by-refresh-token!
+                                  {:app-id app-id :refresh-token as-token})})
 
                 as-email
-                {:admin? false
-                 :current-user (app-user-model/get-by-email!
-                                {:app-id app-id :email as-email})}
+                (let [{:keys [app-id]} (req->app-id-authed! req oauth-scope)]
+                  {:app-id app-id
+                   :admin? false
+                   :current-user (app-user-model/get-by-email!
+                                  {:app-id app-id :email as-email})})
 
                 as-guest
-                {:admin? false :current-user nil}
+                (let [app-id app-id-untrusted]
+                  {:app-id app-id
+                   :admin? false
+                   :current-user nil})
 
                 :else
-                {:admin? true})]
-    (assoc perms
-           :app-id app-id
-           :show-cel-errors? true)))
+                (let [{:keys [app-id]} (req->app-id-authed! req oauth-scope)]
+                  {:app-id app-id
+                   :admin? true}))]
+    (assoc perms :show-cel-errors? true)))
 
 (comment
   (def counters-app-id  #uuid "137ace7a-efdd-490f-b0dc-a3c73a14f892")
@@ -363,15 +371,13 @@
 (defn magic-code-post [req]
   (let [{:keys [app-id]} (req->app-id-authed! req :data/write)
         email (ex/get-param! req [:body :email] email/coerce)
-        {:keys [magic-code]} (magic-code-auth/create! {:app-id app-id :email email})
-        {:keys [code]} magic-code]
+        {:keys [code]} (app-user-magic-code-model/create! {:app-id app-id :email email})]
     (response/ok {:code code})))
 
 (defn send-magic-code-post [req]
   (let [{:keys [app-id]} (req->app-id-authed! req :data/write)
         email (ex/get-param! req [:body :email] email/coerce)
-        {:keys [magic-code]} (magic-code-auth/send! {:app-id app-id :email email})
-        {:keys [code]} magic-code]
+        {:keys [code]} (magic-code-auth/send! {:app-id app-id :email email})]
     (response/ok {:code code})))
 
 (defn verify-magic-code-post [req]

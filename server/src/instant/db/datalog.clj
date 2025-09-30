@@ -62,7 +62,12 @@
 (s/def :datalog-entity-id/$not uuid?)
 (s/def ::attr-id uuid?)
 (s/def ::nil? boolean?)
-(s/def ::$isNull (s/keys :req-un [::attr-id ::nil?]))
+(s/def ::ref? boolean?)
+(s/def ::reverse? boolean?)
+(s/def ::indexed? boolean?)
+(s/def ::indexed-checked-type (s/nilable ::data-type))
+(s/def ::$isNull (s/keys :req-un [::attr-id ::nil? ::ref? ::reverse? ::indexed?]
+                         :opt-un [::indexed-checked-type]))
 
 (s/def ::op #{:$gt :$gte :$lt :$lte :$like :$ilike})
 (s/def ::data-type #{:string :number :date :boolean})
@@ -771,67 +776,67 @@
              clause))
          clauses)))
 
-(def index-configs
-  [{:name :ea_index
-    :cols [:e :a]
-    :idx-key :ea}
+(defn index-configs []
+  (keep identity
+        [{:name :ea_index
+          :cols [:e :a]
+          :unique-cols #{:e}
+          :idx-key :ea}
 
-   {:name :triples_pkey
-    :cols [:e :a]}
+         {:name :triples_pkey
+          :cols [:e :a]
+          :unique-cols #{:e}}
 
-   {:name :ave_index
-    :cols [:a :v]
-    :idx-key :ave}
+         {:name :ave_index
+          :cols [:a :v]
+          :idx-key :ave}
 
-   {:name :eav_uuid_index
-    :cols [:e :a :v]
-    :idx-key :eav}
+         (when (and (flags/toggled? :ave-with-e-index)
+                    ;; Can't use this with the old cost
+                    ;; function because it generates bad joins
+                    (flags/toggled? :new-index-cost))
+           {:name :ave_with_e_index
+            :cols [:a :v :e]
+            :unique-cols #{:e}
+            :idx-key :ave})
 
-   {:name :triples_string_trgm_gist_idx
-    :cols [:a :v]
-    :idx-key :ave
-    :data-type :string}
+         {:name :eav_uuid_index
+          :cols [:e :a :v]
+          :idx-key :eav}
 
-   {:name :vae_uuid_index
-    :cols [:v :a :e]
-    :idx-key :vae}
+         {:name :triples_string_trgm_gist_idx
+          :cols [:a :v]
+          :idx-key :ave
+          :data-type :string}
 
-   {:name :triples_created_at_idx
-    :cols [:a :created-at]}
+         {:name :vae_uuid_index
+          :cols [:v :a :e]
+          :unique-cols #{:e}
+          :idx-key :vae}
 
-   {:name :av_index
-    :cols [:a :v :e]
-    :idx-key :av}
+         {:name :triples_created_at_idx
+          :cols [:a :created-at]
+          :unique-cols #{}}
 
-   {:name :triples_number_type_idx
-    :cols [:a :v]
-    :idx-key :ave
-    :data-type :number}
+         {:name :av_index
+          :cols [:a :v :e]
+          :unique-cols #{:v :e}
+          :idx-key :av}
 
-   {:name :triples_boolean_type_idx
-    :cols [:a :v]
-    :idx-key :ave
-    :data-type :boolean}
+         {:name :triples_number_type_idx
+          :cols [:a :v]
+          :idx-key :ave
+          :data-type :number}
 
-   {:name :triples_date_type_idx
-    :cols [:a :v]
-    :idx-key :ave
-    :data-type :date}])
+         {:name :triples_boolean_type_idx
+          :cols [:a :v]
+          :idx-key :ave
+          :data-type :boolean}
 
-(defn pg-hint-index [[tag v :as idx]]
-  (if (and (= tag :map)
-           (= (:idx-key v) :ave))
-    (case (:data-type v)
-      :string :triples_string_trgm_gist_idx
-      :number :triples_number_type_idx
-      :boolean :triples_boolean_type_idx
-      :date :triples_date_type_idx)
-    (case (idx-key idx)
-      :ea :ea_index
-      :eav :eav_index
-      :av :av_index
-      :ave :ave_index
-      :vae :vae_index)))
+         {:name :triples_date_type_idx
+          :cols [:a :v]
+          :idx-key :ave
+          :data-type :date}]))
 
 (defn- where-clause
   "
@@ -1155,7 +1160,10 @@
                                                 :value body}]
                                         :$isNull [{:type :nil?
                                                    :nil? (:nil? body)
-                                                   :attr-id (:attr-id body)}]
+                                                   :id-attr-id attr-id
+                                                   :indexed? (:indexed? body)
+                                                   :attr-id (:attr-id body)
+                                                   :ref? (:ref? body)}]
                                         ;; No good way to count entity-ids, so plan
                                         ;; for the worst case
                                         :$entityIdStartsWith [{:type :total}]
@@ -1186,11 +1194,30 @@
                                         (:value vs)))
                      :nil? (if-let [sketch (:sketch (get sketches {:app-id app-id
                                                                    :attr-id (:attr-id vs)}))]
-                             ;; This only gives an accurate count on indexed attrs
-                             (if (:nil? vs)
-                               (cms/check sketch nil nil)
-                               (- (:total sketch)
-                                  (cms/check sketch nil nil)))
+                             (let [nil-count (cms/check sketch nil nil)
+                                   undefined-count (if (and (:indexed? vs)
+                                                            (not (:ref? vs)))
+                                                     0
+                                                     (- (get-in sketches
+                                                                [{:app-id app-id
+                                                                  :attr-id (:id-attr-id vs)}
+                                                                 :sketch
+                                                                 :total]
+                                                                0)
+                                                        (:total sketch)))
+                                   total (if (and (:indexed? vs)
+                                                  (not (:ref? vs)))
+                                           (:total sketch)
+                                           (max (get-in sketches
+                                                        [{:app-id app-id
+                                                          :attr-id (:id-attr-id vs)}
+                                                         :sketch
+                                                         :total]
+                                                        0)
+                                                (+ nil-count undefined-count)))]
+                               (if (:nil? vs)
+                                 (+ nil-count undefined-count)
+                                 (- total nil-count undefined-count)))
                              0)
                      ;; We don't have a good way to do comparisions, yet, so we'll
                      ;; just put a default of half the items.
@@ -1206,7 +1233,7 @@
 (defn estimate-rows [ctx named-p]
   (rows-size-from-sketch ctx named-p))
 
-(defn path-cost-with-joins
+(defn path-cost-with-joins-old
   "Tries to estimate the work we'll be doing for an individual index,
   taking into account joins. It should correlate with the cost of a
   nested loop."
@@ -1221,6 +1248,33 @@
        (+ path-cost
           (* 2 filter-cost))
        (max 1 join-cost))))
+
+(defn path-cost-with-joins-new
+  "Tries to estimate the work we'll be doing for an individual index,
+  taking into account joins. It should correlate with the cost of a
+  nested loop."
+  [index]
+  (let [costs (:index-costs index)
+        index-lookup-cost (reduce (fn [acc {:keys [cost col]}]
+                                    (let [next-cost (* acc cost)]
+                                      (if (contains? (:unique-cols index) col)
+                                        (reduced next-cost)
+                                        next-cost)))
+                                  1
+                                  (:path costs))
+        join-cost (reduce + 0 (vals (:join-remaining costs)))
+        filter-cost (reduce + 0 (vals (select-keys (:known-remaining costs)
+                                                   (:filter-components costs))))]
+    (* 1.0
+       (+ index-lookup-cost
+          (* 2 filter-cost))
+       (max 1 (* 1.1 join-cost)))))
+
+(defn path-cost-with-joins
+  [index]
+  (if (flags/toggled? :new-index-cost)
+    (path-cost-with-joins-new index)
+    (path-cost-with-joins-old index)))
 
 (defn index-compare
   "Compares the indexes pairwise to try to pick the best one.
@@ -1321,7 +1375,7 @@
                                                             second
                                                             :$comparator
                                                             :op)))))))))
-                index-configs)
+                (index-configs))
 
         ;; Gets the components that we know (either constants or defined
         ;; in the symbol map by a previous CTE)
@@ -1410,7 +1464,8 @@
                                     :needed-components needed-components
                                     :filter-components filter-components
                                     :filter-remaining filter-components
-                                    :path []}
+                                    :path []
+                                    :unique-cols (:unique-cols idx-config)}
                                    (:cols idx-config))
                      cfg (assoc idx-config
                                 :index-costs costs

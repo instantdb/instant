@@ -161,11 +161,10 @@
               :unique? false
               :index? true
               :checked-data-type :string)
-   (make-attr "$magicCodes" "$user"
-              :reverse-identity (get-ident-spec "$users" "$magicCodes")
+   (make-attr "$magicCodes" "email"
+              :unique? false
               :index? true
-              :value-type :ref
-              :on-delete :cascade)])
+              :checked-data-type :string)])
 
 (def $user-refresh-token-attrs
   [(make-attr "$userRefreshTokens" "id"

@@ -70,6 +70,7 @@ import { createPortal } from 'react-dom';
 import { NextPageWithLayout } from '../_app';
 import { capitalize } from 'lodash';
 import { Workspace } from '@/lib/hooks/useWorkspace';
+import AnimatedCounter from '@/components/AnimatedCounter';
 
 // (XXX): we may want to expose this underlying type
 type InstantReactClient = ReturnType<typeof init>;
@@ -82,6 +83,26 @@ export const roleOrder = [
   'owner',
   'app-member',
 ] as const;
+
+// Types for connection count
+type AppStatsResponse = {
+  count: number;
+  origins: Record<string, number>;
+};
+
+// API function to fetch app stats
+async function fetchAppStats(
+  token: string,
+  appId: string,
+): Promise<AppStatsResponse> {
+  return jsonFetch(`${config.apiURI}/dash/apps/${appId}/stats`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'content-type': 'application/json',
+    },
+  });
+}
 
 type MainTabId =
   | 'home'
@@ -611,6 +632,46 @@ function formatRouteParams(href: string) {
   return formatDashRoute(formatDocsRoute(href));
 }
 
+// Hook to fetch connection stats for the current app
+function useAppConnectionStats(token: string, appId: string) {
+  const [stats, setStats] = useState<AppStatsResponse | null>(null);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    if (!token || !appId) return;
+
+    let cancel = false;
+
+    const fetchConnectionStats = async () => {
+      try {
+        const data = await fetchAppStats(token, appId);
+        if (cancel) return;
+
+        setStats(data);
+        setError(null);
+      } catch (err) {
+        if (cancel) return;
+        setStats(null);
+        setError(err as Error);
+      }
+    };
+
+    fetchConnectionStats();
+
+    // Refresh every 5 seconds
+    const interval = setInterval(fetchConnectionStats, 5000);
+
+    return () => {
+      cancel = true;
+      clearInterval(interval);
+    };
+  }, [token, appId]);
+
+  const isLoading = stats === null && error === null;
+
+  return { stats, isLoading, error };
+}
+
 export function HomeButton({
   href,
   title,
@@ -635,13 +696,21 @@ export function HomeButton({
   );
 }
 
-function Home() {
+function Home({ appId, token }: { appId: string; token: string }) {
+  const { stats, isLoading, error } = useAppConnectionStats(token, appId);
+
+  // Sort origins by connection count (highest to lowest)
+  const sortedOrigins = stats?.origins
+    ? Object.entries(stats.origins).sort(([, a], [, b]) => b - a)
+    : [];
+
   return (
     <div className="mx-auto max-w-2xl p-4 text-sm md:pt-14 md:text-base">
       <SectionHeading>Getting Started</SectionHeading>
       <div className="pt-1">
         Welcome to Instant! Here are some resources to help you get started.
       </div>
+
       <div className="grid grid-cols-1 gap-4 pt-4 md:grid-cols-2">
         <HomeButton href="/docs" title="Read the Docs">
           Jump into our docs to start learning how to use Instant.
@@ -653,6 +722,67 @@ function Home() {
           Join our Discord to meet like-minded hackers, and to give us feedback
           too!
         </HomeButton>
+      </div>
+
+      {/* Connection Count Display */}
+      <div className="mt-10">
+        <SectionHeading>Your App Statistics</SectionHeading>
+        <div className="mt-4 space-y-2 rounded border bg-white p-4 shadow-sm transition-colors dark:border-neutral-700 dark:bg-neutral-800">
+          <div className="flex items-center justify-between">
+            <div className="mt-1">
+              {isLoading ? (
+                <div>Loading...</div>
+              ) : error ? (
+                <div>Error: {error.message}</div>
+              ) : (
+                <div className="inline-flex items-center space-x-2">
+                  <AnimatedCounter number={stats?.count || 0} height={38} />
+                  <div className="flex-1">sessions are connected right now</div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Origins List */}
+          {!isLoading && !error && sortedOrigins.length > 0 && (
+            <div className="mt-4 border-gray-200 pt-4 dark:border-neutral-600">
+              <div className="mb-2 text-sm font-medium text-gray-500 dark:text-neutral-400">
+                Per Origin
+              </div>
+              <div className="space-y-2">
+                {sortedOrigins.map(([origin, count]) => {
+                  const isLocalhost = origin.includes('localhost');
+                  return (
+                    <div
+                      key={origin}
+                      className="flex items-center justify-between"
+                    >
+                      <div className="flex-1 truncate">
+                        {isLocalhost ? (
+                          <span className="text-sm text-gray-700 dark:text-neutral-300">
+                            {origin}
+                          </span>
+                        ) : (
+                          <a
+                            href={origin}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                          >
+                            {origin}
+                          </a>
+                        )}
+                      </div>
+                      <div className="ml-2 rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-neutral-700 dark:text-neutral-300">
+                        {count.toLocaleString()}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -684,7 +814,7 @@ function DashboardContent({
   return (
     <>
       {tab === 'home' ? (
-        <Home />
+        <Home appId={appId} token={useContext(TokenContext)!} />
       ) : tab === 'explorer' ? (
         <ExplorerTab
           appId={appId}
@@ -810,8 +940,8 @@ function AppCombobox({
         anchor="bottom"
         transition
         className={clsx(
-          'z-50 divide-y border border-gray-300 bg-white shadow-lg empty:invisible dark:divide-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white md:min-w-[var(--input-width)]',
-          'mx-2 my-1 border p-1 [--anchor-gap:var(--spacing-1)]',
+          'z-50 border border-gray-300 bg-white shadow-lg empty:invisible dark:divide-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-white md:min-w-[var(--input-width)]',
+          'mx-2 my-1 border [--anchor-gap:var(--spacing-1)]',
           'transition duration-100 ease-in data-[leave]:data-[closed]:opacity-0',
         )}
       >

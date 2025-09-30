@@ -71,7 +71,7 @@ export function useTopicEffect<
   ) => any,
 ): void {
   useEffect(() => {
-    const unsub = room._core._reactor.subscribeTopic(
+    const unsub = room.core._reactor.subscribeTopic(
       room.id,
       topic,
       (event, peer) => {
@@ -106,11 +106,11 @@ export function usePublishTopic<
   room: InstantReactRoom<any, RoomSchema, RoomType>,
   topic: TopicType,
 ): (data: RoomSchema[RoomType]['topics'][TopicType]) => void {
-  useEffect(() => room._core._reactor.joinRoom(room.id), [room.id]);
+  useEffect(() => room.core._reactor.joinRoom(room.id), [room.id]);
 
   const publishTopic = useCallback(
     (data) => {
-      room._core._reactor.publishTopic({
+      room.core._reactor.publishTopic({
         roomType: room.type,
         roomId: room.id,
         topic,
@@ -152,7 +152,7 @@ export function usePresence<
     PresenceResponse<RoomSchema[RoomType]['presence'], Keys>
   >(() => {
     return (
-      room._core._reactor.getPresence(room.type, room.id, opts) ?? {
+      room.core._reactor.getPresence(room.type, room.id, opts) ?? {
         peers: {},
         isLoading: true,
       }
@@ -160,7 +160,7 @@ export function usePresence<
   });
 
   useEffect(() => {
-    const unsub = room._core._reactor.subscribePresence(
+    const unsub = room.core._reactor.subscribePresence(
       room.type,
       room.id,
       opts,
@@ -174,7 +174,7 @@ export function usePresence<
 
   const publishPresence = useCallback(
     (data) => {
-      room._core._reactor.publishPresence(room.type, room.id, data);
+      room.core._reactor.publishPresence(room.type, room.id, data);
     },
     [room.type, room.id],
   );
@@ -205,9 +205,9 @@ export function useSyncPresence<
   data: Partial<RoomSchema[RoomType]['presence']>,
   deps?: any[],
 ): void {
-  useEffect(() => room._core._reactor.joinRoom(room.id, data), [room.id]);
+  useEffect(() => room.core._reactor.joinRoom(room.id, data), [room.id]);
   useEffect(() => {
-    return room._core._reactor.publishPresence(room.type, room.id, data);
+    return room.core._reactor.publishPresence(room.type, room.id, data);
   }, [room.type, room.id, deps ?? JSON.stringify(data)]);
 }
 
@@ -259,7 +259,7 @@ export function useTypingIndicator<
 
   const setActive = useCallback(
     (isActive: boolean) => {
-      room._core._reactor.publishPresence(room.type, room.id, {
+      room.core._reactor.publishPresence(room.type, room.id, {
         [inputName]: isActive,
       } as unknown as Partial<RoomSchema[RoomType]>);
 
@@ -268,7 +268,7 @@ export function useTypingIndicator<
       if (opts?.timeout === null || opts?.timeout === 0) return;
 
       timeout.set(opts?.timeout ?? defaultActivityStopTimeout, () => {
-        room._core._reactor.publishPresence(room.type, room.id, {
+        room.core._reactor.publishPresence(room.type, room.id, {
           [inputName]: null,
         } as Partial<RoomSchema[RoomType]>);
       });
@@ -318,16 +318,19 @@ export class InstantReactRoom<
   RoomSchema extends RoomSchemaShape,
   RoomType extends keyof RoomSchema,
 > {
+  core: InstantCoreDatabase<Schema, boolean>;
+  /** @deprecated use `core` instead */
   _core: InstantCoreDatabase<Schema, boolean>;
   type: RoomType;
   id: string;
 
   constructor(
-    _core: InstantCoreDatabase<Schema, boolean>,
+    core: InstantCoreDatabase<Schema, boolean>,
     type: RoomType,
     id: string,
   ) {
-    this._core = _core;
+    this.core = core;
+    this._core = this.core;
     this.type = type;
     this.id = id;
   }

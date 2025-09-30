@@ -94,7 +94,7 @@ type DebugCheckResult = {
 
 type Config = {
   appId: string;
-  adminToken: string;
+  adminToken?: string;
   apiURI?: string;
   useDateObjects?: boolean;
   disableValidation?: boolean;
@@ -105,7 +105,7 @@ export type InstantConfig<
   UseDates extends boolean = false,
 > = {
   appId: string;
-  adminToken: string;
+  adminToken?: string;
   apiURI?: string;
   schema?: Schema;
   useDateObjects?: UseDates;
@@ -164,16 +164,47 @@ function withImpersonation(
   return headers;
 }
 
+function validateConfigAndImpersonation(
+  config: FilledConfig,
+  impersonationOpts: ImpersonationOpts,
+) {
+  if (
+    impersonationOpts &&
+    ('token' in impersonationOpts || 'guest' in impersonationOpts)
+  ) {
+    // adminToken is not required for `token` or `guest` impersonation
+    return;
+  }
+  if (config.adminToken) {
+    // An adminToken is provided.
+    return;
+  }
+  if (impersonationOpts && 'email' in impersonationOpts) {
+    throw new Error(
+      'Admin token required. To impersonate users with an email you must pass `adminToken` to `init`.',
+    );
+  }
+  throw new Error(
+    'Admin token required. To run this operation pass `adminToken` to `init`, or use `db.asUser`.',
+  );
+}
+
 function authorizedHeaders(
   config: FilledConfig,
   impersonationOpts?: ImpersonationOpts,
 ): Record<string, string> {
+  validateConfigAndImpersonation(config, impersonationOpts);
+
   const { adminToken, appId } = config;
-  const headers = {
+  const headers: Record<string, string> = {
     'content-type': 'application/json',
-    authorization: `Bearer ${adminToken}`,
     'app-id': appId,
   };
+
+  if (adminToken) {
+    headers.authorization = `Bearer ${adminToken}`;
+  }
+
   return impersonationOpts
     ? withImpersonation(headers, impersonationOpts)
     : headers;
@@ -245,8 +276,8 @@ async function jsonFetch(
  *  import { init } from "@instantdb/admin"
  *
  *  const db = init({
- *    appId: "my-app-id",
- *    adminToken: process.env.INSTANT_ADMIN_TOKEN
+ *    appId: process.env.INSTANT_APP_ID!,
+ *    adminToken: process.env.INSTANT_APP_ADMIN_TOKEN
  *  })
  *
  *  // You can also provide a schema for type safety and editor autocomplete!
@@ -255,8 +286,8 @@ async function jsonFetch(
  *  import schema from ""../instant.schema.ts";
  *
  *  const db = init({
- *    appId: "my-app-id",
- *    adminToken: process.env.INSTANT_ADMIN_TOKEN,
+ *    appId: process.env.INSTANT_APP_ID!,
+ *    adminToken: process.env.INSTANT_APP_ADMIN_TOKEN,
  *    schema,
  *  })
  *  // To learn more: https://instantdb.com/docs/modeling-data

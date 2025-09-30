@@ -31,10 +31,14 @@ export const promptForAppName = async (program: Project) => {
   return title.trim();
 };
 
-export const createApp = async (title: string, authToken: string) => {
+export const createApp = async (
+  title: string,
+  authToken: string,
+  orgId?: string | null,
+) => {
   const id = randomUUID();
   const token = randomUUID();
-  const app = { id, title, admin_token: token };
+  const app = { id, title, admin_token: token, org_id: orgId };
   await fetchJson({
     method: 'POST',
     authToken,
@@ -44,22 +48,53 @@ export const createApp = async (title: string, authToken: string) => {
   return { appID: id, adminToken: token, source: 'created' };
 };
 
-export const fetchApps = async (authToken: string) => {
+type App = {
+  admin_token: string;
+  magic_code_email_template: null;
+  id: string;
+  title: string;
+  created_at: string;
+};
+
+type Org = {
+  id: string;
+  title: string;
+  role: string;
+};
+
+export const fetchDashboard = async (authToken: string) => {
   const res = await fetchJson<{
-    apps: {
-      admin_token: string;
-      magic_code_email_template: null;
-      id: string;
-      title: string;
-      created_at: string;
-    }[];
+    apps: App[];
+    orgs: Org[];
   }>({
     method: 'GET',
     path: '/dash',
     authToken,
   });
-  const { apps } = res;
-  return apps;
+  return res;
+};
+
+export const fetchOrganizationApps = async (
+  authToken: string,
+  orgId: string,
+) => {
+  const res = await fetchJson<{
+    apps: App[];
+    org: {
+      id: string;
+      title: string;
+    };
+  }>({
+    method: 'GET',
+    path: `/dash/orgs/${orgId}`,
+    authToken,
+  });
+  return res;
+};
+
+export const fetchApps = async (authToken: string) => {
+  const res = await fetchDashboard(authToken);
+  return res.apps;
 };
 
 const getAuthToken = async (): Promise<string | null> => {
@@ -109,6 +144,26 @@ const createPermissiveEphemeralApp = async (title: string) => {
   return { appID: response.app.id, adminToken: response.app['admin-token'] };
 };
 
+const selectOrganization = async (
+  orgs: Org[],
+  message: string,
+): Promise<string | null> => {
+  const orgChoice = await unwrapSkippablePrompt(
+    p.select<string | null>({
+      message,
+      options: [
+        { value: null, label: '(No organization)' },
+        ...orgs.map((org) => ({
+          value: org.id,
+          label: org.title,
+        })),
+      ],
+      initialValue: null,
+    }),
+  );
+  return orgChoice;
+};
+
 export const tryConnectApp = async (
   project: Project,
 ): Promise<AppTokenResponse | null> => {
@@ -117,7 +172,23 @@ export const tryConnectApp = async (
   // If doing ai generation
   if (project.prompt) {
     if (authToken) {
-      const { appID, adminToken } = await createApp(project.appName, authToken);
+      const dashData = await fetchDashboard(authToken);
+      const allowedOrgs = dashData.orgs.filter(
+        (org) => org.role !== 'app-member',
+      );
+
+      const orgId = allowedOrgs.length
+        ? await selectOrganization(
+            allowedOrgs,
+            'Would you like to create the app in an organization?',
+          )
+        : null;
+
+      const { appID, adminToken } = await createApp(
+        project.appName,
+        authToken,
+        orgId,
+      );
       return { appID, adminToken, approach: 'create' };
     }
     // Create ephemeral app
@@ -132,7 +203,7 @@ export const tryConnectApp = async (
     return null;
   }
 
-  const currentAppsPromise = fetchApps(authToken);
+  const dashData = await fetchDashboard(authToken);
 
   const action = await unwrapSkippablePrompt(
     p.select({
@@ -149,16 +220,60 @@ export const tryConnectApp = async (
   if (action === 'nothing') {
     return null;
   }
+
   if (action === 'create') {
+    const allowedOrgs = dashData.orgs.filter(
+      (org) => org.role !== 'app-member',
+    );
+
+    const orgId = allowedOrgs.length
+      ? await selectOrganization(
+          allowedOrgs,
+          'Would you like to create the app in an organization?',
+        )
+      : null;
+
     const title = await promptForAppName(project);
     p.log.success(`Creating app "${title}"`);
-    const { appID, adminToken } = await createApp(title, authToken);
+    const { appID, adminToken } = await createApp(title, authToken, orgId);
     return { appID, adminToken, approach: 'create' };
   }
 
   if (action === 'link') {
-    const apps = await currentAppsPromise;
+    const orgChoice = dashData.orgs.length
+      ? await selectOrganization(
+          dashData.orgs,
+          'Would you like to import an app from an organization?',
+        )
+      : null;
+
+    const { apps, orgId, orgName } = orgChoice
+      ? await fetchOrganizationApps(authToken, orgChoice).then((orgData) => ({
+          apps: orgData.apps,
+          orgId: orgChoice,
+          orgName: orgData.org.title,
+        }))
+      : { apps: dashData.apps, orgId: null, orgName: null };
+
     if (apps.length === 0) {
+      if (orgId && orgName) {
+        const ok = await unwrapSkippablePrompt(
+          p.confirm({
+            message: `You don't have any apps in ${orgName}. Want to create a new one?`,
+            initialValue: true,
+          }),
+        );
+        if (ok) {
+          const title = await promptForAppName(project);
+          p.log.success(`Creating app "${title}" in ${orgName}`);
+          const { appID, adminToken } = await createApp(
+            title,
+            authToken,
+            orgId,
+          );
+          return { appID, adminToken, approach: 'create' };
+        }
+      }
       return null;
     }
 

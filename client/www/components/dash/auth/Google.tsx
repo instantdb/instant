@@ -546,7 +546,7 @@ export function GoogleClients({
   };
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2 bg-white dark:bg-neutral-800">
       {clients.map((c) => {
         return (
           <Client

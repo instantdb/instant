@@ -1104,6 +1104,10 @@
    (.. (DateTimeFormatterBuilder.)
        (appendValue ChronoField/YEAR 1 19 SignStyle/NORMAL)
        (appendPattern "-MM-dd")
+       (toFormatter))
+   (.. (DateTimeFormatterBuilder.)
+       (appendPattern "M/d/")
+       (appendValue ChronoField/YEAR 1 19 SignStyle/NORMAL)
        (toFormatter))])
 
 ;; If you update anything here, be sure to also update the client:
@@ -1161,7 +1165,11 @@
          (number? x)
          (Instant/ofEpochMilli x))))
 
+
 (comment
+  (parse-date-value "3/12/4444")
+  (parse-date-value "3/02/4444")
+
   (parse-date-value "Wed Jul 09 2025")
   (parse-date-value "Sat, 05 Apr 2025 18:00:31 GMT")
   (parse-date-value "2025-01-01T00:00:00Z")
