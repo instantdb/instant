@@ -516,3 +516,20 @@
     {:transaction tx-res
      :steps steps
      :indexing-jobs indexing-jobs}))
+
+(defn apply-plan-with-deletes! [app-id steps]
+  (let [ctx {:admin? true
+             :db {:conn-pool (aurora/conn-pool :write)}
+             :app-id app-id
+             :attrs (attr-model/get-by-app-id app-id)
+             :datalog-query-fn d/query
+             :rules (rule-model/get-by-app-id {:app-id app-id})}
+      tx-steps (filter (fn [[action]]
+                      (contains? #{:add-attr :update-attr :delete-attr} action))
+                    steps)
+        tx-res (when (seq tx-steps)
+                 (permissioned-tx/transact! ctx tx-steps))
+        {:keys [indexing-jobs steps]} (create-indexing-jobs app-id steps)]
+    {:transaction tx-res
+     :steps steps
+     :indexing-jobs indexing-jobs}))
