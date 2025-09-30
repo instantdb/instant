@@ -1732,11 +1732,14 @@ export default class Reactor {
   }
 
   async signInWithMagicCode({ email, code }) {
+    const currentUser = await this.getCurrentUser();
+    const isGuest = currentUser?.user?.type === 'guest';
     const res = await authAPI.verifyMagicCode({
       apiURI: this.config.apiURI,
       appId: this.config.appId,
       email,
       code,
+      refreshToken: isGuest ? currentUser.user.refresh_token : undefined,
     });
     await this.changeCurrentUser(res.user);
     return res;
@@ -1747,6 +1750,15 @@ export default class Reactor {
       apiURI: this.config.apiURI,
       appId: this.config.appId,
       refreshToken: authToken,
+    });
+    await this.changeCurrentUser(res.user);
+    return res;
+  }
+
+  async signInAsGuest() {
+    const res = await authAPI.signInAsGuest({
+      apiURI: this.config.apiURI,
+      appId: this.config.appId,
     });
     await this.changeCurrentUser(res.user);
     return res;

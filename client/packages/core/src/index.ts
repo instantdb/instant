@@ -314,6 +314,18 @@ class Auth {
   };
 
   /**
+   * Sign in as guest, creating a new user without email
+   *
+   * @see https://instantdb.com/docs/auth
+   *
+   * @example
+   *   db.auth.signInAsGuest();
+   */
+  signInAsGuest = (): Promise<VerifyResponse> => {
+    return this.db.signInAsGuest();
+  };
+
+  /**
    * Create an authorization url to sign in with an external provider
    *
    * @see https://instantdb.com/docs/auth

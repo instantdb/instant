@@ -23,7 +23,11 @@ export function sendMagicCode({
   });
 }
 
-export type VerifyMagicCodeParams = { email: string; code: string };
+export type VerifyMagicCodeParams = {
+  email: string;
+  code: string;
+  refreshToken?: string | undefined;
+};
 export type VerifyResponse = {
   user: User;
 };
@@ -32,11 +36,17 @@ export async function verifyMagicCode({
   appId,
   email,
   code,
+  refreshToken,
 }: SharedInput & VerifyMagicCodeParams): Promise<VerifyResponse> {
   const res = await jsonFetch(`${apiURI}/runtime/auth/verify_magic_code`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ 'app-id': appId, email, code }),
+    body: JSON.stringify({
+      'app-id': appId,
+      email,
+      code,
+      ...(refreshToken ? { 'refresh-token': refreshToken } : {}),
+    }),
   });
   return res;
 }
@@ -53,6 +63,20 @@ export async function verifyRefreshToken({
     body: JSON.stringify({
       'app-id': appId,
       'refresh-token': refreshToken,
+    }),
+  });
+  return res;
+}
+
+export async function signInAsGuest({
+  apiURI,
+  appId,
+}: SharedInput): Promise<VerifyResponse> {
+  const res = await jsonFetch(`${apiURI}/runtime/auth/sign_in_guest`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      'app-id': appId,
     }),
   });
   return res;

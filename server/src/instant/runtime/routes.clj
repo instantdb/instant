@@ -44,9 +44,10 @@
 ;; Magic codes
 
 (defn send-magic-code-post [req]
-  (let [email (ex/get-param! req [:body :email] email/coerce)
-        app-id (ex/get-param! req [:body :app-id] uuid-util/coerce)]
-    (magic-code-auth/send! {:app-id app-id :email email})
+  (let [email   (ex/get-param! req [:body :email]   email/coerce)
+        app-id  (ex/get-param! req [:body :app-id]  uuid-util/coerce)]
+    (magic-code-auth/send! {:app-id app-id
+                            :email  email})
     (response/ok {:sent true})))
 
 (comment
@@ -61,12 +62,17 @@
   (send-magic-code-post {:body {:email "stopa@instantdb.com" :app-id (:id app)}}))
 
 (defn verify-magic-code-post [req]
-  (let [email (ex/get-param! req [:body :email] email/coerce)
-        code (ex/get-param! req [:body :code] string-util/safe-trim)
-        app-id (ex/get-param! req [:body :app-id] uuid-util/coerce)
-        user (magic-code-auth/verify! {:app-id app-id
-                                       :email email
-                                       :code code})]
+  (let [email      (ex/get-param! req [:body :email]  email/coerce)
+        code       (ex/get-param! req [:body :code]   string-util/safe-trim)
+        app-id     (ex/get-param! req [:body :app-id] uuid-util/coerce)
+        guest-user (when-some [refresh-token (ex/get-optional-param! req [:body :refresh-token] uuid-util/coerce)]
+                     (app-user-model/get-by-refresh-token!
+                      {:app-id        app-id
+                       :refresh-token refresh-token}))
+        user       (magic-code-auth/verify! {:app-id  app-id
+                                             :email   email
+                                             :code    code
+                                             :user-id (:id guest-user)})]
     (response/ok {:user user})))
 
 (comment
@@ -83,6 +89,25 @@
   (verify-magic-code-post {:body {:email "stopa@instantdb.com" :code (:code m)}})
   (verify-magic-code-post {:body {:email "stopa@instantdb.com" :code "0" :app-id (:id app)}})
   (verify-magic-code-post {:body {:email "stopa@instantdb.com" :code (:code m) :app-id (:id app)}}))
+
+;; -----
+;; Guest sign in
+
+(defn sign-in-guest-post [req]
+  (let [app-id        (ex/get-param! req [:body :app-id] uuid-util/coerce)
+        ;; create guest user
+        user-id       (random-uuid)
+        user          (app-user-model/create!
+                       {:app-id app-id
+                        :id     user-id
+                        :type   "guest"})
+        ;; create refresh-token for user
+        refresh-token (random-uuid)
+        _             (app-user-refresh-token-model/create!
+                       {:app-id  app-id
+                        :id      refresh-token
+                        :user-id user-id})]
+    (response/ok {:user (assoc user :refresh_token refresh-token)})))
 
 ;; -----
 ;; Refresh Tokens
@@ -494,6 +519,7 @@
   (POST "/runtime/auth/send_magic_code" [] send-magic-code-post)
   (POST "/runtime/auth/verify_magic_code" [] verify-magic-code-post)
   (POST "/runtime/auth/verify_refresh_token" [] verify-refresh-token-post)
+  (POST "/runtime/auth/sign_in_guest" [] sign-in-guest-post)
   (GET "/runtime/oauth/start" [] (wrap-cookies oauth-start
                                                {:decoder parse-cookie}))
   (GET "/runtime/:app_id/oauth/start" [] (wrap-cookies oauth-start
