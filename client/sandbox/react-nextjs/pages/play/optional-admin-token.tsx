@@ -82,22 +82,35 @@ function App({ app }: { app: { id: string; 'admin-token': string } }) {
         name: 'Normal query WITH admin token',
         fn: async () => {
           const data = await dbWithToken.query({ goals: {} });
-          return { data, message: `sees ${data.goals.length} goals (admin sees all)` };
+          return {
+            data,
+            message: `sees ${data.goals.length} goals (admin sees all)`,
+          };
         },
       },
       {
         name: 'asUser({token}) WITHOUT admin token',
         fn: async () => {
           const dbNoToken = init({ ...config, appId });
-          const data = await dbNoToken.asUser({ token: aliceToken }).query({ goals: {} });
-          return { data, message: `sees ${data.goals.length} goal(s) (Alice's own)` };
+          const data = await dbNoToken
+            .asUser({ token: aliceToken })
+            .query({ goals: {} });
+          return {
+            data,
+            message: `sees ${data.goals.length} goal(s) (Alice's own)`,
+          };
         },
       },
       {
         name: 'asUser({token}) WITH admin token',
         fn: async () => {
-          const data = await dbWithToken.asUser({ token: aliceToken }).query({ goals: {} });
-          return { data, message: `sees ${data.goals.length} goal(s) (Alice's own)` };
+          const data = await dbWithToken
+            .asUser({ token: aliceToken })
+            .query({ goals: {} });
+          return {
+            data,
+            message: `sees ${data.goals.length} goal(s) (Alice's own)`,
+          };
         },
       },
       {
@@ -105,30 +118,47 @@ function App({ app }: { app: { id: string; 'admin-token': string } }) {
         shouldFail: true,
         fn: async () => {
           const dbNoToken = init({ ...config, appId });
-          const data = await dbNoToken.asUser({ email: userEmail }).query({ goals: {} });
+          const data = await dbNoToken
+            .asUser({ email: userEmail })
+            .query({ goals: {} });
           return { data };
         },
       },
       {
         name: 'asUser({email}) WITH admin token',
         fn: async () => {
-          const data = await dbWithToken.asUser({ email: userEmail }).query({ goals: {} });
-          return { data, message: `sees ${data.goals.length} goal(s) (Alice's own)` };
+          const data = await dbWithToken
+            .asUser({ email: userEmail })
+            .query({ goals: {} });
+          return {
+            data,
+            message: `sees ${data.goals.length} goal(s) (Alice's own)`,
+          };
         },
       },
       {
         name: 'asUser({guest: true}) WITHOUT admin token',
         fn: async () => {
           const dbNoToken = init({ ...config, appId });
-          const data = await dbNoToken.asUser({ guest: true }).query({ goals: {} });
-          return { data, message: `sees ${data.goals.length} goals (guests see none)` };
+          const data = await dbNoToken
+            .asUser({ guest: true })
+            .query({ goals: {} });
+          return {
+            data,
+            message: `sees ${data.goals.length} goals (guests see none)`,
+          };
         },
       },
       {
         name: 'asUser({guest: true}) WITH admin token',
         fn: async () => {
-          const data = await dbWithToken.asUser({ guest: true }).query({ goals: {} });
-          return { data, message: `sees ${data.goals.length} goals (guests see none)` };
+          const data = await dbWithToken
+            .asUser({ guest: true })
+            .query({ goals: {} });
+          return {
+            data,
+            message: `sees ${data.goals.length} goals (guests see none)`,
+          };
         },
       },
     ];
