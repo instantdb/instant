@@ -260,15 +260,18 @@ export function Admin({
                     >
                       <div className="flex flex-1 justify-between">
                         <div>{member.email}</div>
-                        <div className="text-gray-400">
+                        <div className="text-gray-400 dark:text-neutral-400">
                           {capitalize(member.role)}
                         </div>
                       </div>
                     </div>
                   ))}
-                  <Content className="text-sm">
+                  <Content className="text-sm dark:text-neutral-300">
                     Modify organization members from the{' '}
-                    <Link href={`/dash/org?org=${workspace.org.id}`}>
+                    <Link
+                      className="dark:text-white"
+                      href={`/dash/org?org=${workspace.org.id}`}
+                    >
                       Organization settings
                     </Link>
                   </Content>
@@ -287,7 +290,7 @@ export function Admin({
                   >
                     <div className="flex flex-1 justify-between">
                       <div>{member.email}</div>
-                      <div className="text-gray-400">
+                      <div className="text-gray-400 dark:text-neutral-400">
                         {capitalize(member.role)}
                       </div>
                     </div>
@@ -304,7 +307,9 @@ export function Admin({
                 ))}
               </div>
             ) : (
-              <div className="text-gray-400">No team members</div>
+              <div className="text-gray-400 dark:text-neutral-400">
+                No team members
+              </div>
             )}
           </div>
           {displayedInvites?.length ? (
@@ -318,7 +323,7 @@ export function Admin({
                   >
                     <div className="flex flex-1 justify-between gap-2 overflow-hidden">
                       <div className="truncate">{invite.email}</div>
-                      <div className="text-gray-400">
+                      <div className="text-gray-400 dark:text-neutral-400">
                         {capitalize(invite.role)}
                       </div>
                     </div>
