@@ -1,4 +1,9 @@
-export type User = { id: string; email: string; refresh_token: string };
+export type User = {
+  id: string;
+  refresh_token: string;
+  email?: string | null | undefined;
+  type?: 'user' | 'guest' | undefined;
+};
 
 export type AuthResult =
   | { user: User | undefined; error: undefined }
