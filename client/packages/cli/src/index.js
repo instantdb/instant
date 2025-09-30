@@ -5,6 +5,9 @@ import {
   apiSchemaToInstantSchemaDef,
   generateSchemaTypescriptFile,
   translatePlanSteps,
+  diffSchemas,
+  convertTxSteps,
+  isRenamePromptItem,
 } from '@instantdb/platform';
 import version from './version.js';
 import { existsSync } from 'fs';
@@ -32,6 +35,7 @@ import {
 import { pathExists, readJsonFile } from './util/fs.js';
 import prettier from 'prettier';
 import toggle from './toggle.js';
+import { renderSchemaPlan } from './renderSchemaPlan.js';
 
 const execAsync = promisify(exec);
 
@@ -353,7 +357,7 @@ program
     console.log(`\n✅ Created app "${chalk.green(appTitle)}"\n`);
     console.log(`App ID: ${chalk.cyan(appId)}`);
     console.log(
-      `App Admin Token (double click first 4 digits to select): ${chalk.dim(appToken.substring(0, 4))}${chalk.hidden(appToken.substring(4))}`,
+      `App Admin Token (double click first 4 digits to select): ${chalk.dim(appToken?.substring(0, 4))}${chalk.hidden(appToken?.substring(4))}`,
     );
     console.log(terminalLink('Dashboard:', appDashUrl(appId)) + '\n');
   });
@@ -384,6 +388,33 @@ program
   .action(async (appIdOrName) => {
     warnDeprecation('push-perms', 'push perms');
     await handlePush('perms', { app: appIdOrName });
+  });
+
+program
+  .command('newpush')
+  .argument(
+    '[schema|perms|all]',
+    'Which configuration to push. Defaults to `all`',
+  )
+  .option(
+    '-a --app <app-id>',
+    'App ID to push too. Defaults to *_INSTANT_APP_ID in .env',
+  )
+  .option(
+    '--skip-check-types',
+    "Don't check types on the server when pushing schema",
+  )
+  .option('-t --title', 'Title for the created app')
+  .option(
+    '-p --package <react|react-native|core|admin>',
+    'Which package to automatically install if there is not one installed already.',
+  )
+  .description('Push schema and perm files to production.')
+  .action(async function (arg, inputOpts) {
+    const ret = convertPushPullToCurrentFormat('push', arg, inputOpts);
+    if (!ret.ok) return process.exit(1);
+    const { bag, opts } = ret;
+    await handleNewPush(bag, opts);
   });
 
 program
@@ -502,6 +533,29 @@ async function handlePush(bag, opts) {
   );
   if (!ok) return process.exit(1);
   await push(bag, appId, opts);
+}
+
+async function handleNewPush(bag, opts) {
+  await checkVersion();
+  const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging(opts);
+  if (!pkgAndAuthInfo) return process.exit(1);
+  const { ok, appId } = await detectOrCreateAppAndWriteToEnv(
+    pkgAndAuthInfo,
+    opts,
+  );
+  if (!ok) return process.exit(1);
+  await newPush(bag, appId, opts);
+}
+
+async function newPush(bag, appId, opts) {
+  if (bag === 'schema' || bag === 'all') {
+    const { ok } = await newPushSchema(appId, opts);
+    if (!ok) return process.exit(1);
+  }
+  if (bag === 'perms' || bag === 'all') {
+    const { ok } = await pushPerms(appId);
+    if (!ok) return process.exit(1);
+  }
 }
 
 async function push(bag, appId, opts) {
@@ -1284,6 +1338,79 @@ function linkOptsPretty(attr) {
   } else {
     return '';
   }
+}
+
+const resolveRenames = async (created, promptData) => {
+  console.log('RESOLVING RENAMES', created, promptData);
+  const answer = await select({
+    message: 'What was your intent?',
+    choices: [
+      ...promptData.map((choice) => {
+        const isRename = isRenamePromptItem(choice);
+        return {
+          value: choice,
+          name: isRename
+            ? `Rename ${choice.from} to ${choice.to}`
+            : `Create ${choice}`,
+        };
+      }),
+    ],
+    default: created,
+  });
+  return answer;
+};
+
+async function newPushSchema(appId, _opts) {
+  const res = await readLocalSchemaFileWithErrorLogging();
+  if (!res) return { ok: false };
+  const { schema } = res;
+  console.log('Planning schema...');
+
+  const pulledSchemaResponse = await fetchJson({
+    method: 'GET',
+    path: `/dash/apps/${appId}/schema/pull`,
+    debugName: 'Schema plan',
+    errorMessage: 'Failed to get old schema.',
+  });
+
+  if (!pulledSchemaResponse.ok) return pulledSchemaResponse;
+
+  console.log(pulledSchemaResponse);
+  const currentAttrs = pulledSchemaResponse.data['attrs'];
+  const currentApiSchema = pulledSchemaResponse.data['schema'];
+
+  const oldSchema = apiSchemaToInstantSchemaDef(currentApiSchema);
+
+  const diffResult = await diffSchemas(oldSchema, schema, resolveRenames);
+
+  renderSchemaPlan(diffResult);
+
+  const txSteps = convertTxSteps(diffResult, currentAttrs);
+
+  console.log(txSteps);
+
+  if (txSteps.length === 0) {
+    console.log(chalk.bgYellow('No schema changes to apply!'));
+    return { ok: true };
+  }
+
+  const result = await promptOk('Push schema?');
+  if (result) {
+    const applyRes = await fetchJson({
+      method: 'POST',
+      path: `/dash/apps/${appId}/schema/steps/apply`,
+      debugName: 'Schema apply',
+      errorMessage: 'Failed to update schema.',
+      body: {
+        steps: txSteps,
+      },
+    });
+    console.log(applyRes.data);
+  }
+
+  console.log(chalk.green('Schema updated!'));
+
+  return { ok: true };
 }
 
 async function pushSchema(appId, opts) {

@@ -41,3 +41,12 @@ export {
   exchangeRefreshToken,
   i,
 };
+
+export {
+  diffSchemas,
+  convertTxSteps,
+  isRenamePromptItem,
+  type RenameResolveFn,
+  type MigrationTx,
+  type MigrationTxTypes,
+} from './migrations.ts';
