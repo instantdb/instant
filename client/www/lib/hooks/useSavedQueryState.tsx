@@ -17,10 +17,8 @@ export const useSavedQueryState = <
 
   useEffect(() => {
     if (!value) {
-      setValue(
-        JSON.parse(window.localStorage.getItem(localStorageKey) || 'null') ||
-          defaultValue,
-      );
+      const saved = window.localStorage.getItem(localStorageKey);
+      setValue(saved ? JSON.parse(saved) : defaultValue);
     }
   }, []);
 
