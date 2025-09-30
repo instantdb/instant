@@ -546,7 +546,7 @@ async function handleEnvFile(pkgAndAuthInfo, { appId, appToken }) {
     `\nLooks like you don't have a ${chalk.green('`.env`')} file yet.`,
   );
   console.log(
-    `If we set ${chalk.green('`' + envName + '`')} & ${chalk.green('INSTANT_ADMIN_TOKEN')}, we can remember the app that you chose for all future commands.`,
+    `If we set ${chalk.green('`' + envName + '`')} & ${chalk.green('INSTANT_APP_ADMIN_TOKEN')}, we can remember the app that you chose for all future commands.`,
   );
   const ok = await promptOk(
     'Want us to create this env file for you?',
