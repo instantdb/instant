@@ -3,6 +3,14 @@ import { init } from '@instantdb/react';
 import config from '../../config';
 // Import Google OAuth components
 import { GoogleLogin, GoogleOAuthProvider } from '@react-oauth/google';
+// Import Clerk components
+import {
+  ClerkProvider,
+  useAuth as useClerkAuth,
+  SignedIn as ClerkSignedIn,
+  SignedOut as ClerkSignedOut,
+  SignInButton,
+} from '@clerk/nextjs';
 
 const db = init(config);
 const { useAuth, auth } = db;
@@ -324,6 +332,58 @@ function AppleLoginRedirect() {
   );
 }
 
+function ClerkLoginInternal() {
+  const { getToken } = useClerkAuth();
+
+  const signInWithClerk = async () => {
+    try {
+      const jwt = await getToken();
+      if (!jwt) {
+        throw new Error('No JWT token available');
+      }
+      await auth.signInWithIdToken({ idToken: jwt, clientName: 'clerk' });
+    } catch (error) {
+      console.error('Clerk sign-in error:', error);
+      alert('Error signing in with Clerk: ' + (error as Error).message);
+    }
+  };
+
+  return (
+    <div className="flex">
+      <div className="w-[200px] flex items-center">
+        <span className="text-sm font-medium">Clerk</span>
+      </div>
+      <div className="w-[500px]">
+        <ClerkSignedOut>
+          <SignInButton mode="modal">
+            <button className="inline-block px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">
+              Sign in with Clerk
+            </button>
+          </SignInButton>
+        </ClerkSignedOut>
+        <ClerkSignedIn>
+          <button
+            onClick={signInWithClerk}
+            className="inline-block px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+          >
+            Connect Clerk to Instant
+          </button>
+        </ClerkSignedIn>
+      </div>
+    </div>
+  );
+}
+
+function ClerkLogin() {
+  const clerkPublishableKey = 'pk_test_Z3Jvd24tY2FyaWJvdS04NC5jbGVyay5hY2NvdW50cy5kZXYk';
+
+  return (
+    <ClerkProvider publishableKey={clerkPublishableKey}>
+      <ClerkLoginInternal />
+    </ClerkProvider>
+  );
+}
+
 function UserSignIns() {
   return (
     <>
@@ -332,6 +392,7 @@ function UserSignIns() {
       <GoogleLoginRedirect />
       <AppleLoginPopup />
       <AppleLoginRedirect />
+      <ClerkLogin />
       <LinkedInLoginRedirect />
     </>
   );
