@@ -193,20 +193,25 @@
                                            ;; 1 hour
                                            (* 1000 60 60)))
         state (random-uuid)
-        state-with-app-id (format "%s%s" app-id state)
 
         redirect-url (oauth/create-authorization-url
                       oauth-client
-                      state-with-app-id
+                      (str app-id state)
                       oauth-redirect-url
-                      extra-params)]
+                      extra-params)
+
+        guest-user (when-some [refresh-token (ex/get-optional-param! req [:params :refresh_token] uuid-util/coerce)]
+                     (app-user-model/get-by-refresh-token!
+                      {:app-id        app-id
+                       :refresh-token refresh-token}))]
     (app-oauth-redirect-model/create! {:app-id app-id
                                        :state state
                                        :cookie cookie-uuid
                                        :oauth-client-id (:id client)
                                        :redirect-url app-redirect-url
                                        :code-challenge code_challenge
-                                       :code-challenge-method code_challenge_method})
+                                       :code-challenge-method code_challenge_method
+                                       :user-id (:id guest-user)})
     (-> (response/found redirect-url)
         (response/set-cookie oauth-cookie-name
                              (format-cookie cookie-uuid)

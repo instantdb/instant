@@ -1794,6 +1794,9 @@ export default class Reactor {
 
   /**
    * Creates an OAuth authorization URL.
+   *
+   * Note: this version doesn't support promotion of guest users. Use createAuthorizationURLAsync instead
+   *
    * @param {Object} params - The parameters to create the authorization URL.
    * @param {string} params.clientName - The name of the client requesting authorization.
    * @param {string} params.redirectURL - The URL to redirect users to after authorization.
@@ -1802,6 +1805,24 @@ export default class Reactor {
   createAuthorizationURL({ clientName, redirectURL }) {
     const { apiURI, appId } = this.config;
     return `${apiURI}/runtime/oauth/start?app_id=${appId}&client_name=${clientName}&redirect_uri=${redirectURL}`;
+  }
+
+  /**
+   * Creates an OAuth authorization URL.
+   * @param {Object} params - The parameters to create the authorization URL.
+   * @param {string} params.clientName - The name of the client requesting authorization.
+   * @param {string} params.redirectURL - The URL to redirect users to after authorization.
+   * @returns {Promise<string>} The created authorization URL.
+   */
+  async createAuthorizationURLAsync({ clientName, redirectURL }) {
+    const { apiURI, appId } = this.config;
+    let url = `${apiURI}/runtime/oauth/start?app_id=${appId}&client_name=${clientName}&redirect_uri=${redirectURL}`;
+    const currentUser = await this.getCurrentUser();
+    const isGuest = currentUser?.user?.type === 'guest';
+    if (isGuest) {
+      url = `${url}&refresh_token=${currentUser.user.refresh_token}`;
+    }
+    return url;
   }
 
   /**

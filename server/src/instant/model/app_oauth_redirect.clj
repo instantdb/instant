@@ -17,20 +17,24 @@
 (defn create!
   ([params] (create! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id state cookie redirect-url oauth-client-id
-                 code-challenge-method code-challenge]}]
+                 code-challenge-method code-challenge user-id]}]
    (update-op
     conn
     {:app-id app-id
      :etype etype}
     (fn [{:keys [transact! resolve-id get-entity]}]
       (let [eid (random-uuid)]
-        (transact! [[:add-triple eid (resolve-id :id) eid]
-                    [:add-triple eid (resolve-id :stateHash) (hash-uuid state)]
-                    [:add-triple eid (resolve-id :cookieHash) (hash-uuid cookie)]
-                    [:add-triple eid (resolve-id :redirectUrl) redirect-url]
-                    [:add-triple eid (resolve-id :$oauthClient) oauth-client-id]
-                    [:add-triple eid (resolve-id :codeChallengeMethod) code-challenge-method]
-                    [:add-triple eid (resolve-id :codeChallenge) code-challenge]])
+        (transact!
+         (concat
+          [[:add-triple eid (resolve-id :id) eid]
+           [:add-triple eid (resolve-id :stateHash) (hash-uuid state)]
+           [:add-triple eid (resolve-id :cookieHash) (hash-uuid cookie)]
+           [:add-triple eid (resolve-id :redirectUrl) redirect-url]
+           [:add-triple eid (resolve-id :$oauthClient) oauth-client-id]
+           [:add-triple eid (resolve-id :codeChallengeMethod) code-challenge-method]
+           [:add-triple eid (resolve-id :codeChallenge) code-challenge]]
+          (when user-id
+            [[:add-triple eid (resolve-id :$user) user-id]])))
         (get-entity eid))))))
 
 (defn consume!

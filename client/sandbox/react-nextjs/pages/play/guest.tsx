@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { init } from '@instantdb/react';
 import config from '../../config';
 // Import Google OAuth components
@@ -146,24 +146,33 @@ function GoogleLoginPopup() {
 }
 
 function GoogleLoginRedirect() {
-  const [url] = useState(() =>
-    auth.createAuthorizationURL({
+  const [url, setUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    auth.createAuthorizationURLAsync({
       clientName: 'google',
       redirectURL: window.location.href,
-    }),
-  );
+    }).then(setUrl);
+  }, []);
+
   return (
     <div className="flex">
       <div className="w-[200px] flex items-center">
         <span className="text-sm font-medium">Google Redirect</span>
       </div>
       <div className="w-[500px]">
-        <a
-          href={url}
-          className="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 no-underline"
-        >
-          Sign in with Google Redirect
-        </a>
+        {url ? (
+          <a
+            href={url}
+            className="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 no-underline"
+          >
+            Sign in with Google Redirect
+          </a>
+        ) : (
+          <div className="inline-block px-4 py-2 bg-gray-400 text-white rounded">
+            Loading...
+          </div>
+        )}
       </div>
     </div>
   );
