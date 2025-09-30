@@ -109,6 +109,9 @@ jobs:
           POSTGRES_USER: test_user
           POSTGRES_PASSWORD: test_password
           POSTGRES_DB: test_db
+        options: >-
+          --no-healthcheck
+
 
     steps:
     - name: Checkout
