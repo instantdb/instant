@@ -35,203 +35,138 @@ function App({ app }: { app: { id: string; 'admin-token': string } }) {
   const [results, setResults] = useState<TestResult[]>([]);
   const [running, setRunning] = useState(false);
   const userEmail = 'alice@instantdb.com';
+  const appId = app.id;
+  const adminToken = app['admin-token'];
 
   const runTests = async () => {
     setRunning(true);
+
+    // Setup: Create test data
+    const aliceGoalId = id();
+    const bobGoalId = id();
+
+    const dbWithToken = init({ ...config, appId, adminToken });
+
+    const bobToken = await dbWithToken.auth.createToken('bob@instantdb.com');
+    const bobUser = await dbWithToken.auth.verifyToken(bobToken);
+    const aliceToken = await dbWithToken.auth.createToken(userEmail);
+    const aliceUser = await dbWithToken.auth.verifyToken(aliceToken);
+
+    await dbWithToken.transact([
+      dbWithToken.tx.goals[aliceGoalId].update({
+        title: "Alice's goal",
+        createdBy: aliceUser.id,
+      }),
+      dbWithToken.tx.goals[bobGoalId].update({
+        title: "Bob's goal",
+        createdBy: bobUser.id,
+      }),
+    ]);
+
+    // Define tests declaratively
+    const tests: Array<{
+      name: string;
+      shouldFail?: boolean;
+      fn: () => Promise<{ data?: any; message?: string }>;
+    }> = [
+      {
+        name: 'Normal query WITHOUT admin token',
+        shouldFail: true,
+        fn: async () => {
+          const dbNoToken = init({ ...config, appId });
+          const data = await dbNoToken.query({ goals: {} });
+          return { data };
+        },
+      },
+      {
+        name: 'Normal query WITH admin token',
+        fn: async () => {
+          const data = await dbWithToken.query({ goals: {} });
+          return { data, message: `sees ${data.goals.length} goals (admin sees all)` };
+        },
+      },
+      {
+        name: 'asUser({token}) WITHOUT admin token',
+        fn: async () => {
+          const dbNoToken = init({ ...config, appId });
+          const data = await dbNoToken.asUser({ token: aliceToken }).query({ goals: {} });
+          return { data, message: `sees ${data.goals.length} goal(s) (Alice's own)` };
+        },
+      },
+      {
+        name: 'asUser({token}) WITH admin token',
+        fn: async () => {
+          const data = await dbWithToken.asUser({ token: aliceToken }).query({ goals: {} });
+          return { data, message: `sees ${data.goals.length} goal(s) (Alice's own)` };
+        },
+      },
+      {
+        name: 'asUser({email}) WITHOUT admin token',
+        shouldFail: true,
+        fn: async () => {
+          const dbNoToken = init({ ...config, appId });
+          const data = await dbNoToken.asUser({ email: userEmail }).query({ goals: {} });
+          return { data };
+        },
+      },
+      {
+        name: 'asUser({email}) WITH admin token',
+        fn: async () => {
+          const data = await dbWithToken.asUser({ email: userEmail }).query({ goals: {} });
+          return { data, message: `sees ${data.goals.length} goal(s) (Alice's own)` };
+        },
+      },
+      {
+        name: 'asUser({guest: true}) WITHOUT admin token',
+        fn: async () => {
+          const dbNoToken = init({ ...config, appId });
+          const data = await dbNoToken.asUser({ guest: true }).query({ goals: {} });
+          return { data, message: `sees ${data.goals.length} goals (guests see none)` };
+        },
+      },
+      {
+        name: 'asUser({guest: true}) WITH admin token',
+        fn: async () => {
+          const data = await dbWithToken.asUser({ guest: true }).query({ goals: {} });
+          return { data, message: `sees ${data.goals.length} goals (guests see none)` };
+        },
+      },
+    ];
+
+    // Run all tests
     const testResults: TestResult[] = [];
-
-    try {
-      const appId = app.id;
-      const adminToken = app['admin-token'];
-
-      // Setup: Create some test data
-      const aliceGoalId = id();
-      const bobGoalId = id();
-
-      const dbWithToken = init({
-        ...config,
-        appId,
-        adminToken,
-      });
-
-      // Create Alice's user and token
-      const bobToken = await dbWithToken.auth.createToken('bob@instantdb.com');
-      const bobUser = await dbWithToken.auth.verifyToken(bobToken);
-      const aliceToken = await dbWithToken.auth.createToken(userEmail);
-      const aliceUser = await dbWithToken.auth.verifyToken(aliceToken);
-
-      // Create test goals
-      await dbWithToken.transact([
-        dbWithToken.tx.goals[aliceGoalId].update({
-          title: "Alice's goal",
-          createdBy: aliceUser.id,
-        }),
-        dbWithToken.tx.goals[bobGoalId].update({
-          title: "Bob's goal",
-          createdBy: bobUser.id,
-        }),
-      ]);
-
-      // Test 1: Normal query WITHOUT admin token (should fail)
+    for (const test of tests) {
       try {
-        const dbNoToken = init({ ...config, appId });
-        await dbNoToken.query({ goals: {} });
-        testResults.push({
-          name: 'Normal query WITHOUT admin token',
-          status: 'error',
-          message: '❌ Expected to fail but succeeded',
-        });
+        const result = await test.fn();
+        if (test.shouldFail) {
+          testResults.push({
+            name: test.name,
+            status: 'error',
+            message: '❌ Expected to fail but succeeded',
+          });
+        } else {
+          testResults.push({
+            name: test.name,
+            status: 'success',
+            message: `✅ ${result.message || 'Succeeded'}`,
+            data: result.data,
+          });
+        }
       } catch (error: any) {
-        testResults.push({
-          name: 'Normal query WITHOUT admin token',
-          status: 'success',
-          message: `✅ Failed as expected`,
-        });
+        if (test.shouldFail) {
+          testResults.push({
+            name: test.name,
+            status: 'success',
+            message: `✅ Failed as expected`,
+          });
+        } else {
+          testResults.push({
+            name: test.name,
+            status: 'error',
+            message: `❌ ${error.message}`,
+          });
+        }
       }
-
-      // Test 2: Normal query WITH admin token (should see all goals)
-      try {
-        const data = await dbWithToken.query({ goals: {} });
-        const goalCount = data.goals.length;
-        testResults.push({
-          name: 'Normal query WITH admin token',
-          status: 'success',
-          message: `✅ Succeeded - sees ${goalCount} goals (admin sees all)`,
-          data,
-        });
-      } catch (error: any) {
-        testResults.push({
-          name: 'Normal query WITH admin token',
-          status: 'error',
-          message: `❌ ${error.message}`,
-        });
-      }
-
-      // Test 3: asUser({token}) WITHOUT admin token (should see Alice's goals only)
-      try {
-        const dbNoToken = init({ ...config, appId });
-        const data = await dbNoToken
-          .asUser({ token: aliceToken })
-          .query({ goals: {} });
-        const goalCount = data.goals.length;
-        testResults.push({
-          name: 'asUser({token}) WITHOUT admin token',
-          status: 'success',
-          message: `✅ Succeeded - sees ${goalCount} goal(s) (Alice's own)`,
-          data,
-        });
-      } catch (error: any) {
-        testResults.push({
-          name: 'asUser({token}) WITHOUT admin token',
-          status: 'error',
-          message: `❌ ${error.message}`,
-        });
-      }
-
-      // Test 4: asUser({token}) WITH admin token (should see Alice's goals only)
-      try {
-        const data = await dbWithToken
-          .asUser({ token: aliceToken })
-          .query({ goals: {} });
-        const goalCount = data.goals.length;
-        testResults.push({
-          name: 'asUser({token}) WITH admin token',
-          status: 'success',
-          message: `✅ Succeeded - sees ${goalCount} goal(s) (Alice's own)`,
-          data,
-        });
-      } catch (error: any) {
-        testResults.push({
-          name: 'asUser({token}) WITH admin token',
-          status: 'error',
-          message: `❌ ${error.message}`,
-        });
-      }
-
-      // Test 5: asUser({email}) WITHOUT admin token (should fail)
-      try {
-        const dbNoToken = init({ ...config, appId });
-        await dbNoToken.asUser({ email: userEmail }).query({ goals: {} });
-        testResults.push({
-          name: 'asUser({email}) WITHOUT admin token',
-          status: 'error',
-          message: '❌ Expected to fail but succeeded',
-        });
-      } catch (error: any) {
-        testResults.push({
-          name: 'asUser({email}) WITHOUT admin token',
-          status: 'success',
-          message: `✅ Failed as expected`,
-        });
-      }
-
-      // Test 6: asUser({email}) WITH admin token (should see Alice's goals only)
-      try {
-        const data = await dbWithToken
-          .asUser({ email: userEmail })
-          .query({ goals: {} });
-        const goalCount = data.goals.length;
-        testResults.push({
-          name: 'asUser({email}) WITH admin token',
-          status: 'success',
-          message: `✅ Succeeded - sees ${goalCount} goal(s) (Alice's own)`,
-          data,
-        });
-      } catch (error: any) {
-        testResults.push({
-          name: 'asUser({email}) WITH admin token',
-          status: 'error',
-          message: `❌ ${error.message}`,
-        });
-      }
-
-      // Test 7: asUser({guest: true}) WITHOUT admin token (should see no goals)
-      try {
-        const dbNoToken = init({ ...config, appId });
-        const data = await dbNoToken
-          .asUser({ guest: true })
-          .query({ goals: {} });
-        const goalCount = data.goals.length;
-        testResults.push({
-          name: 'asUser({guest: true}) WITHOUT admin token',
-          status: 'success',
-          message: `✅ Succeeded - sees ${goalCount} goals (guests see none)`,
-          data,
-        });
-      } catch (error: any) {
-        testResults.push({
-          name: 'asUser({guest: true}) WITHOUT admin token',
-          status: 'error',
-          message: `❌ ${error.message}`,
-        });
-      }
-
-      // Test 8: asUser({guest: true}) WITH admin token (should see no goals)
-      try {
-        const data = await dbWithToken
-          .asUser({ guest: true })
-          .query({ goals: {} });
-        const goalCount = data.goals.length;
-        testResults.push({
-          name: 'asUser({guest: true}) WITH admin token',
-          status: 'success',
-          message: `✅ Succeeded - sees ${goalCount} goals (guests see none)`,
-          data,
-        });
-      } catch (error: any) {
-        testResults.push({
-          name: 'asUser({guest: true}) WITH admin token',
-          status: 'error',
-          message: `❌ ${error.message}`,
-        });
-      }
-    } catch (error: any) {
-      console.error('Error running tests:', error);
-      testResults.push({
-        name: 'Test suite error',
-        status: 'error',
-        message: `❌ ${error.message}`,
-      });
     }
 
     setResults(testResults);
