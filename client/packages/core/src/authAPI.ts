@@ -85,6 +85,7 @@ export async function signInAsGuest({
 export type ExchangeCodeForTokenParams = {
   code: string;
   codeVerifier?: string;
+  refreshToken?: string | undefined;
 };
 
 export async function exchangeCodeForToken({
@@ -92,6 +93,7 @@ export async function exchangeCodeForToken({
   appId,
   code,
   codeVerifier,
+  refreshToken,
 }: SharedInput & ExchangeCodeForTokenParams): Promise<VerifyResponse> {
   const res = await jsonFetch(`${apiURI}/runtime/oauth/token`, {
     method: 'POST',
@@ -100,6 +102,7 @@ export async function exchangeCodeForToken({
       app_id: appId,
       code: code,
       code_verifier: codeVerifier,
+      refresh_token: refreshToken,
     }),
   });
   return res;

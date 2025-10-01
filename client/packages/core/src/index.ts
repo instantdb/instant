@@ -328,9 +328,6 @@ class Auth {
   /**
    * Create an authorization url to sign in with an external provider.
    *
-   * Note: this version doesn't support promoting guest users. Use
-   * createAuthorizationURLAsync instead
-   *
    * @see https://instantdb.com/docs/auth
    *
    * @example
@@ -348,32 +345,6 @@ class Auth {
     redirectURL: string;
   }): string => {
     return this.db.createAuthorizationURL(params);
-  };
-
-  /**
-   * Create an authorization url to sign in with an external provider
-   *
-   * @see https://instantdb.com/docs/auth
-   *
-   * @example
-   *   const [url, setUrl] = useState<string | null>(null);
-   *
-   *   useEffect(() => {
-   *     // Get the authorization url from your backend
-   *     auth.createAuthorizationURLAsync({
-   *       clientName: 'google',
-   *       redirectURL: window.location.href,
-   *     }).then(setUrl);
-   *   }, []);
-   *
-   *   // Put it in a sign in link
-   *   <a href={url}>Log in with Google</a>
-   */
-  createAuthorizationURLAsync = (params: {
-    clientName: string;
-    redirectURL: string;
-  }): Promise<string> => {
-    return this.db.createAuthorizationURLAsync(params);
   };
 
   /**

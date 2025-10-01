@@ -463,10 +463,16 @@
                                 (throw (ex-info "Invalid email" {:type  :oauth-error
                                                                  :email (:email user-info)})))
 
+        guest-user          (when-some [refresh-token (ex/get-optional-param! req [:body :refresh-token] uuid-util/coerce)]
+                              (app-user-model/get-by-refresh-token!
+                               {:app-id        app-id
+                                :refresh-token refresh-token}))
+
         {user-id :user_id}  (upsert-oauth-link! {:email       email
                                                  :sub         (:sub user-info)
                                                  :app-id      app-id
-                                                 :provider-id (:provider_id client)})
+                                                 :provider-id (:provider_id client)
+                                                 :user-id     (:id guest-user)})
 
         refresh-token-id    (random-uuid)
 

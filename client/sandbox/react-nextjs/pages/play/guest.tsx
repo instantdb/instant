@@ -154,17 +154,11 @@ function GoogleLoginPopup() {
 }
 
 function GoogleLoginRedirect() {
-  const [url, setUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    auth
-      .createAuthorizationURLAsync({
-        clientName: 'google',
-        redirectURL: window.location.href,
-      })
-      .then(setUrl);
-  }, []);
-
+  const [url] = useState<string>(() =>
+    auth.createAuthorizationURL({
+      clientName: 'google',
+      redirectURL: window.location.href,
+  }));
   return (
     <div className="flex">
       <div className="w-[200px] flex items-center">
@@ -189,16 +183,13 @@ function GoogleLoginRedirect() {
 }
 
 function LinkedInLoginRedirect() {
-  const [url, setUrl] = useState<string | null>(null);
-
-  useEffect(() => {
+  const [url] = useState<string>(() =>
     auth
-      .createAuthorizationURLAsync({
+      .createAuthorizationURL({
         clientName: 'linkedin-web',
         redirectURL: window.location.href,
       })
-      .then(setUrl);
-  }, []);
+  );
 
   return (
     <div className="flex">
@@ -301,16 +292,13 @@ function AppleLoginPopup() {
 }
 
 function AppleLoginRedirect() {
-  const [url, setUrl] = useState<string | null>(null);
-
-  useEffect(() => {
+  const [url] = useState<string>(() =>
     auth
-      .createAuthorizationURLAsync({
+      .createAuthorizationURL({
         clientName: 'apple',
         redirectURL: window.location.href,
       })
-      .then(setUrl);
-  }, []);
+  );
 
   return (
     <div className="flex">

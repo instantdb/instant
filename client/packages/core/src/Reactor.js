@@ -223,9 +223,9 @@ export default class Reactor {
       });
     }
 
-    this._oauthCallbackResponse = this._oauthLoginInit();
-
     this._initStorage(Storage);
+
+    this._oauthCallbackResponse = this._oauthLoginInit();
 
     // kick off a request to cache it
     this.getCurrentUser();
@@ -1559,10 +1559,13 @@ export default class Reactor {
     }
     this._replaceUrlAfterOAuth();
     try {
+      const currentUser = await this._getCurrentUser();
+      const isGuest = currentUser?.type === 'guest';
       const { user } = await authAPI.exchangeCodeForToken({
         apiURI: this.config.apiURI,
         appId: this.config.appId,
         code,
+        refreshToken: isGuest ? currentUser.refresh_token : undefined,
       });
       this.setCurrentUser(user);
       return null;
@@ -1667,6 +1670,11 @@ export default class Reactor {
     return this._currentUserCached;
   }
 
+  async _getCurrentUser() {
+    const user = await this._persister.getItem(currentUserKey);
+    return JSON.parse(user);
+  }
+
   async getCurrentUser() {
     const oauthResp = await this._waitForOAuthCallbackResponse();
     if (oauthResp?.error) {
@@ -1674,8 +1682,8 @@ export default class Reactor {
       this._currentUserCached = { isLoading: false, ...errorV };
       return errorV;
     }
-    const user = await this._persister.getItem(currentUserKey);
-    const userV = { user: JSON.parse(user), error: undefined };
+    const user = await this._getCurrentUser()
+    const userV = { user: user, error: undefined };
     this._currentUserCached = {
       isLoading: false,
       ...userV,
@@ -1795,8 +1803,6 @@ export default class Reactor {
   /**
    * Creates an OAuth authorization URL.
    *
-   * Note: this version doesn't support promotion of guest users. Use createAuthorizationURLAsync instead
-   *
    * @param {Object} params - The parameters to create the authorization URL.
    * @param {string} params.clientName - The name of the client requesting authorization.
    * @param {string} params.redirectURL - The URL to redirect users to after authorization.
@@ -1808,34 +1814,19 @@ export default class Reactor {
   }
 
   /**
-   * Creates an OAuth authorization URL.
-   * @param {Object} params - The parameters to create the authorization URL.
-   * @param {string} params.clientName - The name of the client requesting authorization.
-   * @param {string} params.redirectURL - The URL to redirect users to after authorization.
-   * @returns {Promise<string>} The created authorization URL.
-   */
-  async createAuthorizationURLAsync({ clientName, redirectURL }) {
-    const { apiURI, appId } = this.config;
-    let url = `${apiURI}/runtime/oauth/start?app_id=${appId}&client_name=${clientName}&redirect_uri=${redirectURL}`;
-    const currentUser = await this.getCurrentUser();
-    const isGuest = currentUser?.user?.type === 'guest';
-    if (isGuest) {
-      url = `${url}&refresh_token=${currentUser.user.refresh_token}`;
-    }
-    return url;
-  }
-
-  /**
    * @param {Object} params
    * @param {string} params.code - The code received from the OAuth service.
    * @param {string} [params.codeVerifier] - The code verifier used to generate the code challenge.
    */
   async exchangeCodeForToken({ code, codeVerifier }) {
+    const currentUser = await this.getCurrentUser();
+    const isGuest = currentUser?.user?.type === 'guest';
     const res = await authAPI.exchangeCodeForToken({
       apiURI: this.config.apiURI,
       appId: this.config.appId,
       code: code,
       codeVerifier,
+      refreshToken: isGuest ? currentUser.user.refresh_token : undefined,
     });
     await this.changeCurrentUser(res.user);
     return res;
