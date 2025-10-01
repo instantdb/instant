@@ -75,7 +75,8 @@
    "content-type" "c-type"
    "content-disposition" "cdisp"
    "location-id" "lid"
-   "key-version" "kv"})
+   "key-version" "kv"
+   "userInfo" "userInfo"})
 
 (def shortcodes-label (map-invert label-shortcodes))
 
@@ -246,12 +247,16 @@
               :unique? true
               :index? true
               :checked-data-type :string)
+   ;; TODO(dww): remove after late user creation deploys
+   (make-attr "$oauthCodes" "$user"
+              :reverse-identity (get-ident-spec "$users" "$oauthCodes")
+              :value-type :ref
+              :on-delete :cascade)
    (make-attr "$oauthCodes" "codeChallengeMethod"
               :checked-data-type :string)
    (make-attr "$oauthCodes" "codeChallenge"
               :checked-data-type :string)
-   (make-attr "$oauthCodes" "authCode"
-              :checked-data-type :string)
+   (make-attr "$oauthCodes" "userInfo")
    (make-attr "$oauthCodes" "$oauthClient"
               :reverse-identity (get-ident-spec "$oauthClients" "$oauthCodes")
               :value-type :ref

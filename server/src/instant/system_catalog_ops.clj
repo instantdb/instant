@@ -53,6 +53,7 @@
                           :cooke-hash :cookie_hash
                           :redirectUrl :redirect_url
                           :authCode :auth_code
+                          :userInfo :user_info
                           :name (case etype
                                   "$oauthProviders" :provider_name
                                   "$oauthClients" :client_name
