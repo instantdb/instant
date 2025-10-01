@@ -17,7 +17,9 @@
                  user-id
                  app-id
                  code-challenge-method
-                 code-challenge]}]
+                 code-challenge
+                 client-id
+                 auth-code]}]
    (update-op
     conn
     {:app-id app-id
@@ -29,9 +31,11 @@
                           crypt-util/bytes->hex-string)]
         (transact! [[:add-triple eid (resolve-id :id) eid]
                     [:add-triple eid (resolve-id :codeHash) code-hash]
-                    [:add-triple eid (resolve-id :$user) user-id]
+                    [:add-triple eid (resolve-id :$user) user-id] ;; TODO remove
                     [:add-triple eid (resolve-id :codeChallengeMethod) code-challenge-method]
-                    [:add-triple eid (resolve-id :codeChallenge) code-challenge]])
+                    [:add-triple eid (resolve-id :codeChallenge) code-challenge]
+                    [:add-triple eid (resolve-id :$oauthClient) client-id]
+                    [:add-triple eid (resolve-id :authCode) auth-code]])
         (get-entity eid))))))
 
 (defn expired?
