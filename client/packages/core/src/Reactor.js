@@ -1682,7 +1682,7 @@ export default class Reactor {
       this._currentUserCached = { isLoading: false, ...errorV };
       return errorV;
     }
-    const user = await this._getCurrentUser()
+    const user = await this._getCurrentUser();
     const userV = { user: user, error: undefined };
     this._currentUserCached = {
       isLoading: false,
