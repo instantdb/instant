@@ -52,6 +52,7 @@
    "email" "email"
    "type" "type"
    "codeHash" "codehash"
+   "authCode" "authcode"
    "$user" "user"
    "hashedToken" "hashedtok"
    "name" "name"
@@ -245,6 +246,7 @@
               :unique? true
               :index? true
               :checked-data-type :string)
+   ;; TODO remove "$user"
    (make-attr "$oauthCodes" "$user"
               :reverse-identity (get-ident-spec "$users" "$oauthCodes")
               :value-type :ref
@@ -252,7 +254,13 @@
    (make-attr "$oauthCodes" "codeChallengeMethod"
               :checked-data-type :string)
    (make-attr "$oauthCodes" "codeChallenge"
-              :checked-data-type :string)])
+              :checked-data-type :string)
+   (make-attr "$oauthCodes" "authCode"
+              :checked-data-type :string)
+   (make-attr "$oauthCodes" "$oauthClient"
+              :reverse-identity (get-ident-spec "$oauthClients" "$oauthCodes")
+              :value-type :ref
+              :on-delete :cascade)])
 
 (def $oauth-redirect-attrs
   [(make-attr "$oauthRedirects" "id"
