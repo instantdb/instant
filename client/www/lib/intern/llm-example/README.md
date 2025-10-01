@@ -29,26 +29,3 @@ Logic is split across four files:
 ## See the example app live
 
 You can see the tool at `/intern/llm-example`.
-
-## Export the app locally
-
-To get the docs feedback app data locally, run our export script from the server
-repo
-
-```
-scripts/export.sh --email 'your-email-address' --app-id f22e6525-c977-4879-8d7d-9b3cbeaa7344
-```
-
-## Updating schema/perms
-
-First update locally to test changes
-
-```
-INSTANT_CLI_DEV=1 pnpx instant-cli@latest push --app f22e6525-c977-4879-8d7d-9b3cbeaa7344
-```
-
-Once everything looks good you can push to prod
-
-```
-pnpx instant-cli@latest push --app f22e6525-c977-4879-8d7d-9b3cbeaa7344
-```
