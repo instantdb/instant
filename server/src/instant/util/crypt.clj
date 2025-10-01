@@ -67,7 +67,7 @@
 (defn bytes->hex-string [^bytes b]
   (String. (Hex/encodeHex b)))
 
-(defn hex-string->bytes [^String s]
+(defn hex-string->bytes ^bytes [^String s]
   (Hex/decodeHex s))
 
 (defn random-bytes [^Long size]
