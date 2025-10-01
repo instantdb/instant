@@ -677,8 +677,8 @@ const TransferApp = ({ app }: { app: InstantApp }) => {
   return (
     <div>
       {org ? (
-        <Dialog className="pt-5" {...confirmationModal}>
-          <div className="-translate-y-1 bg-white text-[15px]">
+        <Dialog hideCloseButton className="pt-5" {...confirmationModal}>
+          <div className="-translate-y-1 text-[15px]">
             Are you sure you want to transfer <strong>{app.title}</strong> to{' '}
             <strong>{org.title}</strong>?
           </div>
