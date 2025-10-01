@@ -19,11 +19,10 @@ The example app demonstrate the following features of Instant:
 - Ephemeral features like who's online and shout
 - File uploads for avatars
 
-Logic is split across four files:
+Logic is split across three files:
 
 - `lib/db.ts`
 - `instant.schema.ts`
-- `instant.perms.ts`
 - `app/page.tsx`
 
 ## See the example app live
