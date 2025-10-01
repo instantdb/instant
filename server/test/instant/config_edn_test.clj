@@ -21,7 +21,7 @@
 (defn ciphertext-key-id [^String cipherhex]
   (let [ciphertext (crypt-util/hex-string->bytes cipherhex)
         version-byte (aget ciphertext 0)]
-    (assert (= version-byte) (byte 1))
+    (assert (= version-byte (byte 1)))
     (key-id->int (byte-array (take 4 (drop 1 ciphertext))))))
 
 (defn check-data-encrypted-with-correct-key [config]
