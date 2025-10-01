@@ -11,14 +11,22 @@ export const useSavedQueryState = <
   defaultValue?: T,
   debounceTime = 300,
 ): UseQueryStateReturn<NonNullable<T>, T> => {
+  const loadedDefault = window.localStorage.getItem(localStorageKey)
+    ? JSON.parse(window.localStorage.getItem(localStorageKey)!)
+    : defaultValue;
+
   const [value, setValue] = useQueryState(queryKey, {
     ...params,
+    defaultValue: loadedDefault,
+    clearOnDefault: false,
   });
 
+  // The "clear on default" option only applies to
+  // subsequent updates that set it BACK to the default
+  // This puts the query param the in the default case on first render
   useEffect(() => {
-    if (!value) {
-      const saved = window.localStorage.getItem(localStorageKey);
-      setValue(saved ? JSON.parse(saved) : defaultValue);
+    if (value === loadedDefault) {
+      setValue(loadedDefault);
     }
   }, []);
 
