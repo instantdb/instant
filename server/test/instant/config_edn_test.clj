@@ -33,7 +33,6 @@
                    (#(map (fn [k] (:keyId k)) %))
                    set)]
     (w/postwalk (fn [x]
-                  ;;(println x)
                   (when (and (map? x)
                              (:enc x))
                     (is (contains? keyids
