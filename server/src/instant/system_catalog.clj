@@ -75,7 +75,9 @@
    "content-type" "c-type"
    "content-disposition" "cdisp"
    "location-id" "lid"
-   "key-version" "kv"})
+   "key-version" "kv"
+   "hash" "hash"
+   "lastModified" "lastmod"})
 
 (def shortcodes-label (map-invert label-shortcodes))
 
@@ -320,7 +322,17 @@
    (make-attr "$files" "url"
               :unique? false
               :index? false
-              :checked-data-type :string)])
+              :checked-data-type :string)
+   (make-attr "$files" "hash"
+              :unique? false
+              :index? false
+              :checked-data-type :string
+              :required? true)
+   (make-attr "$files" "lastModified"
+              :unique? false
+              :index? true
+              :checked-data-type :number
+              :required? true)])
 
 (def all-attrs (concat $users-attrs
                        $magic-code-attrs
