@@ -1,6 +1,5 @@
 // @ts-check
 import weakHash from './utils/weakHash.ts';
-import instaql from './instaql.js';
 import * as instaml from './instaml.js';
 import * as s from './store.js';
 import uuid from './utils/uuid.ts';
@@ -9,25 +8,20 @@ import WindowNetworkListener from './WindowNetworkListener.js';
 import * as authAPI from './authAPI.ts';
 import * as StorageApi from './StorageAPI.ts';
 import * as flags from './utils/flags.ts';
-import { buildPresenceSlice, hasPresenceResponseChanged } from './presence.ts';
 import { Deferred } from './utils/Deferred.js';
 import { PersistedObject } from './utils/PersistedObject.js';
-import { extractTriples } from './model/instaqlResult.js';
-import {
-  areObjectsDeepEqual,
-  assocInMutative,
-  dissocInMutative,
-  insertInMutative,
-} from './utils/object.js';
+import { areObjectsDeepEqual } from './utils/object.js';
 import { createLinkIndex } from './utils/linkIndex.ts';
 import version from './version.ts';
-import { create } from 'mutative';
 import createLogger from './utils/log.ts';
 import { validateQuery } from './queryValidation.ts';
 import { validateTransactions } from './transactionValidation.ts';
 import { InstantError } from './InstantError.ts';
-import { InstantAPIError } from './utils/fetch.ts';
 import { validate as validateUUID } from 'uuid';
+import { QueryManager } from './reactor/queryManager.ts';
+import { MutationManager } from './reactor/mutationManager.ts';
+import { ConnectionManager } from './reactor/connectionManager.ts';
+import { RoomManager } from './reactor/roomManager.ts';
 /** @typedef {import('./utils/log.ts').Logger} Logger */
 
 const STATUS = {
@@ -39,11 +33,6 @@ const STATUS = {
 };
 
 const QUERY_ONCE_TIMEOUT = 30_000;
-const PENDING_TX_CLEANUP_TIMEOUT = 30_000;
-
-const WS_CONNECTING_STATUS = 0;
-const WS_OPEN_STATUS = 1;
-
 const defaultConfig = {
   apiURI: 'https://api.instantdb.com',
   websocketURI: 'wss://api.instantdb.com/runtime/session',
@@ -78,50 +67,6 @@ const ignoreLogging = {
   'patch-presence': true,
 };
 
-function querySubsFromJSON(str, useDateObjects) {
-  const parsed = JSON.parse(str);
-  for (const key in parsed) {
-    const v = parsed[key];
-    if (v?.result?.store) {
-      const storeJSON = v.result.store;
-      v.result.store = s.fromJSON({
-        ...storeJSON,
-        useDateObjects: useDateObjects,
-      });
-    }
-  }
-  return parsed;
-}
-
-function querySubsToJSON(querySubs) {
-  const jsonSubs = {};
-  for (const key in querySubs) {
-    const sub = querySubs[key];
-    const jsonSub = { ...sub };
-    if (sub.result?.store) {
-      jsonSub.result = {
-        ...sub.result,
-        store: s.toJSON(sub.result.store),
-      };
-    }
-    jsonSubs[key] = jsonSub;
-  }
-  return JSON.stringify(jsonSubs);
-}
-
-function sortedMutationEntries(entries) {
-  return [...entries].sort((a, b) => {
-    const [ka, muta] = a;
-    const [kb, mutb] = b;
-    const a_order = muta.order || 0;
-    const b_order = mutb.order || 0;
-    if (a_order == b_order) {
-      return ka < kb ? -1 : ka > kb ? 1 : 0;
-    }
-    return a_order - b_order;
-  });
-}
-
 /**
  * @template {import('./presence.ts').RoomSchemaShape} [RoomSchema = {}]
  */
@@ -131,25 +76,15 @@ export default class Reactor {
   _isShutdown = false;
   status = STATUS.CONNECTING;
 
-  /** @type {PersistedObject} */
-  querySubs;
-  /** @type {PersistedObject} */
-  pendingMutations;
-
-  /** @type {Record<string, Array<{ q: any, cb: (data: any) => any }>>} */
-  queryCbs = {};
-  /** @type {Record<string, Array<{ q: any, eventId: string, dfd: Deferred }>>} */
-  queryOnceDfds = {};
+  queries;
+  mutations;
+  connection;
+  rooms;
   authCbs = [];
   attrsCbs = [];
-  mutationErrorCbs = [];
   connectionStatusCbs = [];
   config;
   _persister;
-  mutationDeferredStore = new Map();
-  _reconnectTimeoutId = null;
-  _reconnectTimeoutMs = 0;
-  _ws;
   _localIdPromises = {};
   _errorMessage = null;
   /** @type {Promise<null | {error: {message: string}}>}**/
@@ -161,16 +96,8 @@ export default class Reactor {
   /** @type BroadcastChannel | undefined */
   _broadcastChannel;
 
-  /** @type {Record<string, {isConnected: boolean; error: any}>} */
-  _rooms = {};
-  /** @type {Record<string, boolean>} */
-  _roomsPendingLeave = {};
-  _presence = {};
-  _broadcastQueue = [];
-  _broadcastSubs = {};
   _currentUserCached = { isLoading: true, error: undefined, user: undefined };
   _beforeUnloadCbs = [];
-  _dataForQueryCache = {};
   /** @type {Logger} */
   _log;
 
@@ -188,6 +115,65 @@ export default class Reactor {
     );
 
     this.versions = { ...(versions || {}), '@instantdb/core': version };
+
+    this.mutations = new MutationManager({
+      config: this.config,
+      getAttrs: () => this.attrs,
+      setAttrs: (attrs) => this._setAttrs(attrs),
+      getQuerySubscriptions: () => this.querySubs?.currentValue || {},
+      notifyQueriesUpdated: () => this.notifyAll(),
+      notifyAttrsSubs: () => this.notifyAttrsSubs(),
+      isOnline: () => this._isOnline,
+      isAuthenticated: () => this.status === STATUS.AUTHENTICATED,
+      send: (eventId, message) => this._send(eventId, message),
+    });
+
+    this.queries = new QueryManager({
+      config: this.config,
+      queryCacheLimit: this.queryCacheLimit,
+      getError: () => this._errorMessage,
+      getPendingMutations: () => this.pendingMutations,
+      rewriteMutationsSorted: (attrs, muts, processedTxId) =>
+        this.mutations.rewriteMutationsSorted(attrs, muts, processedTxId),
+      applyOptimisticUpdates: (store, mutations, processedTxId) =>
+        this.mutations.applyOptimisticUpdates(store, mutations, processedTxId),
+      enableCardinalityInference: () => this._enableCardinalityInference(),
+      getLinkIndex: () => this._linkIndex,
+      getAttrs: () => this.attrs,
+      sendAddQuery: (eventId, message) => this._sendAuthed(eventId, message),
+      sendRemoveQuery: (eventId, message) =>
+        this._sendAuthed(eventId, message),
+      notifyQueriesChanged: () => this.loadedNotifyAll(),
+    });
+
+    this.connection = new ConnectionManager({
+      createSocket: createWebSocket,
+      websocketURI: this.config.websocketURI,
+      appId: this.config.appId,
+      log: this._log,
+      isShutdown: () => this._isShutdown,
+      isOnline: () => this._isOnline,
+      setStatus: (status, err) => this._setStatus(status, err),
+      getCurrentUser: () => this.getCurrentUser(),
+      buildInitMessage: (refreshToken) => ({
+        op: 'init',
+        'app-id': this.config.appId,
+        'refresh-token': refreshToken,
+        versions: this.versions,
+        '__admin-token': this.config.__adminToken,
+      }),
+      generateEventId: () => uuid(),
+      shouldLog: (op) => !ignoreLogging[op],
+      handleReceive: (wsId, msg) => this._handleReceive(wsId, msg),
+      onSocketClosed: () => {
+        this.rooms.handleSocketClosed();
+      },
+    });
+
+    this.rooms = new RoomManager({
+      sendAuthed: (eventId, message) => this._sendAuthed(eventId, message),
+      generateEventId: () => uuid(),
+    });
 
     if (this.config.schema) {
       this._linkIndex = createLinkIndex(this.config.schema);
@@ -232,7 +218,7 @@ export default class Reactor {
 
     NetworkListener.getIsOnline().then((isOnline) => {
       this._isOnline = isOnline;
-      this._startSocket();
+      this.connection.start();
       NetworkListener.listen((isOnline) => {
         // We do this because react native's NetInfo
         // fires multiple online events.
@@ -243,7 +229,7 @@ export default class Reactor {
         this._log.info('[network] online =', isOnline);
         this._isOnline = isOnline;
         if (this._isOnline) {
-          this._startSocket();
+          this.connection.start();
         } else {
           this._log.info(
             'Changing status from',
@@ -252,6 +238,7 @@ export default class Reactor {
             STATUS.CLOSED,
           );
           this._setStatus(STATUS.CLOSED);
+          this.rooms.handleSocketClosed();
         }
       });
     });
@@ -260,6 +247,18 @@ export default class Reactor {
       this._beforeUnload = this._beforeUnload.bind(this);
       addEventListener('beforeunload', this._beforeUnload);
     }
+  }
+
+  get querySubs() {
+    return this.queries?.querySubs;
+  }
+
+  get queryRegistry() {
+    return this.queries?.queryRegistry;
+  }
+
+  get pendingMutations() {
+    return this.mutations?.pendingMutations;
   }
 
   updateSchema(schema) {
@@ -273,26 +272,8 @@ export default class Reactor {
 
   _initStorage(Storage) {
     this._persister = new Storage(`instant_${this.config.appId}_5`);
-    this.querySubs = new PersistedObject(
-      this._persister,
-      'querySubs',
-      {},
-      this._onMergeQuerySubs,
-      querySubsToJSON,
-      (str) => querySubsFromJSON(str, this.config.useDateObjects),
-    );
-    this.pendingMutations = new PersistedObject(
-      this._persister,
-      'pendingMutations',
-      new Map(),
-      this._onMergePendingMutations,
-      (x) => {
-        return JSON.stringify([...x.entries()]);
-      },
-      (x) => {
-        return new Map(JSON.parse(x));
-      },
-    );
+    this.queries.initStorage({ persister: this._persister });
+    this.mutations.initStorage({ persister: this._persister });
     this._beforeUnloadCbs.push(() => {
       this.pendingMutations.flush();
       this.querySubs.flush();
@@ -305,187 +286,54 @@ export default class Reactor {
     }
   }
 
-  /**
-   * @param {'enqueued' | 'pending' | 'synced' | 'timeout' |  'error' } status
-   * @param {string} eventId
-   * @param {{message?: string, type?: string, status?: number, hint?: unknown}} [errorMsg]
-   */
-  _finishTransaction(status, eventId, errorMsg) {
-    const dfd = this.mutationDeferredStore.get(eventId);
-    this.mutationDeferredStore.delete(eventId);
-    const ok = status !== 'error' && status !== 'timeout';
-
-    if (!dfd && !ok) {
-      // console.erroring here, as there are no listeners to let know
-      console.error('Mutation failed', { status, eventId, ...errorMsg });
-    }
-    if (!dfd) {
-      return;
-    }
-    if (ok) {
-      dfd.resolve({ status, eventId });
-    } else {
-      // Check if error comes from server or client
-      if (errorMsg.type) {
-        const { status, ...body } = errorMsg;
-        dfd.reject(
-          new InstantAPIError({
-            // @ts-expect-error body.type is not constant typed
-            body,
-            status,
-          }),
-        );
-      } else {
-        dfd.reject(new InstantError(errorMsg.message, errorMsg.hint));
-      }
-    }
-  }
-
   _setStatus(status, err) {
     this.status = status;
     this._errorMessage = err;
     this.notifyConnectionStatusSubs(status);
   }
 
-  /**
-   *  merge querySubs from storage and in memory. Has the following side
-   *  effects:
-   *  - We notify all queryCbs because results may been added during merge
-   */
-  _onMergeQuerySubs = (_storageSubs, inMemorySubs) => {
-    const storageSubs = _storageSubs || {};
-    const ret = { ...inMemorySubs };
-
-    // Consider an inMemorySub with no result;
-    // If we have a result from storageSubs, let's add it
-    Object.entries(inMemorySubs).forEach(([hash, querySub]) => {
-      const storageResult = storageSubs?.[hash]?.result;
-      const memoryResult = querySub.result;
-      if (storageResult && !memoryResult) {
-        ret[hash].result = storageResult;
-      }
-    });
-
-    // Consider a storageSub with no corresponding inMemorySub
-    // This means that at least at this point,
-    // the user has not asked to subscribe to the query.
-    // We may _still_ want to add it, because in just a
-    // few milliseconds, the user will ask to subscribe to the
-    // query.
-    // For now, we can't really tell if the user will ask to subscribe
-    // or not. So for now let's just add the first 10 queries from storage.
-    // Eventually, we could be smarter about this. For example,
-    // we can keep usage information about which queries are popular.
-    const storageKsToAdd = Object.keys(storageSubs)
-      .filter((k) => !inMemorySubs[k])
-      .sort((a, b) => {
-        // Sort by lastAccessed, newest first
-        const aTime = storageSubs[a]?.lastAccessed || 0;
-        const bTime = storageSubs[b]?.lastAccessed || 0;
-        return bTime - aTime;
-      })
-      .slice(0, this.queryCacheLimit);
-
-    storageKsToAdd.forEach((k) => {
-      ret[k] = storageSubs[k];
-    });
-
-    // Okay, now we have merged our querySubs
-    this.querySubs.set((_) => ret);
-
-    this.loadedNotifyAll();
-  };
-
-  /**
-   * merge pendingMutations from storage and in memory. Has a side effect of
-   * sending mutations that were stored but not acked
-   */
-  _onMergePendingMutations = (storageMuts, inMemoryMuts) => {
-    const ret = new Map([...storageMuts.entries(), ...inMemoryMuts.entries()]);
-    this.pendingMutations.set((_) => ret);
-    this.loadedNotifyAll();
-    const rewrittenStorageMuts = this._rewriteMutationsSorted(
-      this.attrs,
-      storageMuts,
-    );
-    rewrittenStorageMuts.forEach(([k, mut]) => {
-      if (!inMemoryMuts.has(k) && !mut['tx-id']) {
-        this._sendMutation(k, mut);
-      }
-    });
-  };
-
-  _flushEnqueuedRoomData(roomId) {
-    const enqueuedUserPresence = this._presence[roomId]?.result?.user;
-    const enqueuedBroadcasts = this._broadcastQueue[roomId];
-
-    this._broadcastQueue[roomId] = [];
-
-    if (enqueuedUserPresence) {
-      this._trySetPresence(roomId, enqueuedUserPresence);
+  _enableCardinalityInference() {
+    if (!this.config.schema) {
+      return false;
     }
-
-    if (enqueuedBroadcasts) {
-      for (const item of enqueuedBroadcasts) {
-        const { topic, roomType, data } = item;
-        this._tryBroadcast(roomId, roomType, topic, data);
-      }
+    if ('cardinalityInference' in this.config) {
+      return Boolean(this.config.cardinalityInference);
     }
+    return true;
+  }
+
+  _send(eventId, msg) {
+    this.connection.send(eventId, msg);
+  }
+
+  _sendAuthed(eventId, msg) {
+    if (this.status !== STATUS.AUTHENTICATED) {
+      return;
+    }
+    this._send(eventId, msg);
   }
 
   _handleReceive(wsId, msg) {
-    // opt-out, enabled by default if schema
-    const enableCardinalityInference =
-      Boolean(this.config.schema) &&
-      ('cardinalityInference' in this.config
-        ? Boolean(this.config.cardinalityInference)
-        : true);
     if (!ignoreLogging[msg.op]) {
       this._log.info('[receive]', wsId, msg.op, msg);
     }
     switch (msg.op) {
       case 'init-ok':
         this._setStatus(STATUS.AUTHENTICATED);
-        this._reconnectTimeoutMs = 0;
+        this.connection.resetBackoff();
         this._setAttrs(msg.attrs);
         this._flushPendingMessages();
-        // (EPH): set session-id, so we know
-        // which item is us
-        this._sessionId = msg['session-id'];
-
-        for (const roomId of Object.keys(this._rooms)) {
-          const enqueuedUserPresence = this._presence[roomId]?.result?.user;
-          this._tryJoinRoom(roomId, enqueuedUserPresence);
-        }
+        this.rooms.setSessionId(msg['session-id']);
+        this.rooms.resendJoins();
         break;
       case 'add-query-exists':
         this.notifyOneQueryOnce(weakHash(msg.q));
         break;
       case 'add-query-ok':
-        const { q, result } = msg;
-        const hash = weakHash(q);
-        const pageInfo = result?.[0]?.data?.['page-info'];
-        const aggregate = result?.[0]?.data?.['aggregate'];
-        const triples = extractTriples(result);
-        const store = s.createStore(
-          this.attrs,
-          triples,
-          enableCardinalityInference,
-          this._linkIndex,
-          this.config.useDateObjects,
-        );
-        this.querySubs.set((prev) => {
-          prev[hash].result = {
-            store,
-            pageInfo,
-            aggregate,
-            processedTxId: msg['processed-tx-id'],
-          };
-          return prev;
+        this.queries.handleAddQueryOk(msg, {
+          processedTxId: msg['processed-tx-id'],
         });
         this._cleanupPendingMutationsQueries();
-        this.notifyOne(hash);
-        this.notifyOneQueryOnce(hash);
         this._cleanupPendingMutationsTimeout();
         break;
       case 'refresh-ok':
@@ -497,7 +345,7 @@ export default class Reactor {
 
         this._cleanupPendingMutationsTimeout();
 
-        const rewrittenMutations = this._rewriteMutations(
+        const rewrittenMutations = this.mutations.rewriteMutations(
           this.attrs,
           this.pendingMutations.currentValue,
           processedTxId,
@@ -510,147 +358,47 @@ export default class Reactor {
           this.pendingMutations.set(() => rewrittenMutations);
         }
 
-        const mutations = sortedMutationEntries(rewrittenMutations.entries());
+        const mutations = this.mutations.rewriteMutationsSorted(
+          this.attrs,
+          this.pendingMutations.currentValue,
+          processedTxId,
+        );
 
-        const updates = computations.map((x) => {
-          const q = x['instaql-query'];
-          const result = x['instaql-result'];
-          const hash = weakHash(q);
-          const triples = extractTriples(result);
-          const store = s.createStore(
-            this.attrs,
-            triples,
-            enableCardinalityInference,
-            this._linkIndex,
-            this.config.useDateObjects,
-          );
-          const newStore = this._applyOptimisticUpdates(
-            store,
-            mutations,
-            processedTxId,
-          );
-          const pageInfo = result?.[0]?.data?.['page-info'];
-          const aggregate = result?.[0]?.data?.['aggregate'];
-          return { hash, store: newStore, pageInfo, aggregate };
-        });
-
-        updates.forEach(({ hash, store, pageInfo, aggregate }) => {
-          this.querySubs.set((prev) => {
-            prev[hash].result = { store, pageInfo, aggregate, processedTxId };
-            return prev;
-          });
-        });
-
+        this.queries.handleRefreshOk(msg, mutations);
         this._cleanupPendingMutationsQueries();
-
-        updates.forEach(({ hash }) => {
-          this.notifyOne(hash);
-        });
         break;
       case 'transact-ok':
         const { 'client-event-id': eventId, 'tx-id': txId } = msg;
-
-        const muts = this._rewriteMutations(
-          this.attrs,
-          this.pendingMutations.currentValue,
-        );
-        const prevMutation = muts.get(eventId);
-        if (!prevMutation) {
-          break;
-        }
-
-        // update pendingMutation with server-side tx-id
-        this.pendingMutations.set((prev) => {
-          prev.set(eventId, {
-            ...prev.get(eventId),
-            'tx-id': txId,
-            confirmed: Date.now(),
-          });
-          return prev;
-        });
-
-        this._cleanupPendingMutationsTimeout();
-
-        const newAttrs = prevMutation['tx-steps']
-          .filter(([action, ..._args]) => action === 'add-attr')
-          .map(([_action, attr]) => attr)
-          .concat(Object.values(this.attrs));
-
-        this._setAttrs(newAttrs);
-
-        this._finishTransaction('synced', eventId);
+        this.mutations.handleTransactOk(eventId, txId);
         break;
       case 'patch-presence': {
         const roomId = msg['room-id'];
-        this._patchPresencePeers(roomId, msg['edits']);
-        this._notifyPresenceSubs(roomId);
+        this.rooms.handlePatchPresence(roomId, msg['edits']);
         break;
       }
       case 'refresh-presence': {
         const roomId = msg['room-id'];
-        this._setPresencePeers(roomId, msg['data']);
-        this._notifyPresenceSubs(roomId);
+        this.rooms.handleRefreshPresence(roomId, msg['data']);
         break;
       }
       case 'server-broadcast':
         const room = msg['room-id'];
         const topic = msg.topic;
-        this._notifyBroadcastSubs(room, topic, msg);
+        this.rooms.handleServerBroadcast(room, topic, msg);
         break;
       case 'join-room-ok':
         const loadingRoomId = msg['room-id'];
-        const joinedRoom = this._rooms[loadingRoomId];
-
-        if (!joinedRoom) {
-          if (this._roomsPendingLeave[loadingRoomId]) {
-            this._tryLeaveRoom(loadingRoomId);
-            delete this._roomsPendingLeave[loadingRoomId];
-          }
-
-          break;
-        }
-
-        joinedRoom.isConnected = true;
-        this._notifyPresenceSubs(loadingRoomId);
-        this._flushEnqueuedRoomData(loadingRoomId);
+        this.rooms.handleJoinRoomOk(loadingRoomId);
         break;
       case 'join-room-error':
         const errorRoomId = msg['room-id'];
-        const errorRoom = this._rooms[errorRoomId];
-        if (errorRoom) {
-          errorRoom.error = msg['error'];
-        }
-        this._notifyPresenceSubs(errorRoomId);
+        this.rooms.handleJoinRoomError(errorRoomId, msg['error']);
         break;
       case 'error':
         this._handleReceiveError(msg);
         break;
       default:
         break;
-    }
-  }
-
-  /**
-   * @param {'timeout' | 'error'} status
-   * @param {string} eventId
-   * @param {{message: string, type?: string, status?: number, hint?: unknown}} errorMsg
-   */
-  _handleMutationError(status, eventId, errorMsg) {
-    const mut = this.pendingMutations.currentValue.get(eventId);
-
-    if (mut && (status !== 'timeout' || !mut['tx-id'])) {
-      this.pendingMutations.set((prev) => {
-        prev.delete(eventId);
-        return prev;
-      });
-      const errDetails = {
-        message: errorMsg.message,
-        hint: errorMsg.hint,
-      };
-      this.notifyAll();
-      this.notifyAttrsSubs();
-      this.notifyMutationErrorSubs(errDetails);
-      this._finishTransaction(status, eventId, errorMsg);
     }
   }
 
@@ -667,7 +415,7 @@ export default class Reactor {
     }
 
     if (prevMutation) {
-      this._handleMutationError('error', eventId, msg);
+      this.mutations.handleMutationError('error', eventId, msg);
       return;
     }
 
@@ -714,10 +462,7 @@ export default class Reactor {
   }
 
   notifyQueryOnceError(q, hash, eventId, e) {
-    const r = this.queryOnceDfds[hash]?.find((r) => r.eventId === eventId);
-    if (!r) return;
-    r.dfd.reject(e);
-    this._completeQueryOnce(q, hash, r.dfd);
+    this.queries.notifyQueryOnceError(q, hash, eventId, e);
   }
 
   _setAttrs(attrs) {
@@ -733,21 +478,8 @@ export default class Reactor {
   // Queries
 
   getPreviousResult = (q) => {
-    const hash = weakHash(q);
-    return this.dataForQuery(hash);
+    return this.queries.getPreviousResult(q);
   };
-
-  _startQuerySub(q, hash) {
-    const eventId = uuid();
-    this.querySubs.set((prev) => {
-      prev[hash] = prev[hash] || { q, result: null, eventId };
-      prev[hash].lastAccessed = Date.now();
-      return prev;
-    });
-    this._trySendAuthed(eventId, { op: 'add-query', q });
-
-    return eventId;
-  }
 
   /**
    *  When a user subscribes to a query the following side effects occur:
@@ -767,21 +499,7 @@ export default class Reactor {
       q = { $$ruleParams: opts['ruleParams'], ...q };
     }
 
-    const hash = weakHash(q);
-
-    const prevResult = this.getPreviousResult(q);
-    if (prevResult) {
-      cb(prevResult);
-    }
-
-    this.queryCbs[hash] = this.queryCbs[hash] ?? [];
-    this.queryCbs[hash].push({ q, cb });
-
-    this._startQuerySub(q, hash);
-
-    return () => {
-      this._unsubQuery(q, hash, cb);
-    };
+    return this.queries.subscribeQuery(q, cb);
   }
 
   queryOnce(q, opts) {
@@ -813,10 +531,9 @@ export default class Reactor {
 
     const hash = weakHash(q);
 
-    const eventId = this._startQuerySub(q, hash);
+    const eventId = this.queries.startQuerySub(q, hash);
 
-    this.queryOnceDfds[hash] = this.queryOnceDfds[hash] ?? [];
-    this.queryOnceDfds[hash].push({ q, dfd, eventId });
+    this.queries.queryOnce(q, dfd, eventId);
 
     setTimeout(
       () => dfd.reject(new Error('Query timed out')),
@@ -826,34 +543,12 @@ export default class Reactor {
     return dfd.promise;
   }
 
-  _completeQueryOnce(q, hash, dfd) {
-    if (!this.queryOnceDfds[hash]) return;
-
-    this.queryOnceDfds[hash] = this.queryOnceDfds[hash].filter(
-      (r) => r.dfd !== dfd,
-    );
-
-    this._cleanupQuery(q, hash);
+  async _completeQueryOnce(q, hash, dfd) {
+    await this.queries.completeQueryOnce(q, hash, dfd);
   }
 
-  _unsubQuery(q, hash, cb) {
-    if (!this.queryCbs[hash]) return;
-
-    this.queryCbs[hash] = this.queryCbs[hash].filter((r) => r.cb !== cb);
-
-    this._cleanupQuery(q, hash);
-  }
-
-  _cleanupQuery(q, hash) {
-    const hasListeners =
-      this.queryCbs[hash]?.length || this.queryOnceDfds[hash]?.length;
-
-    if (hasListeners) return;
-
-    delete this.queryCbs[hash];
-    delete this.queryOnceDfds[hash];
-
-    this._trySendAuthed(uuid(), { op: 'remove-query', q });
+  async _unsubQuery(q, hash, cb) {
+    await this.queries.unsubQuery(q, hash, cb);
   }
 
   // When we `pushTx`, it's possible that we don't yet have `this.attrs`
@@ -867,222 +562,53 @@ export default class Reactor {
   // We remove `add-attr` commands for attrs that already exist.
   // We update `add-triple` and `retract-triple` commands to use the
   // server attr-ids.
-  _rewriteMutations(attrs, muts, processedTxId) {
-    if (!attrs) return muts;
-    const findExistingAttr = (attr) => {
-      const [_, etype, label] = attr['forward-identity'];
-      const existing = instaml.getAttrByFwdIdentName(attrs, etype, label);
-      return existing;
-    };
-    const findReverseAttr = (attr) => {
-      const [_, etype, label] = attr['forward-identity'];
-      const revAttr = instaml.getAttrByReverseIdentName(attrs, etype, label);
-      return revAttr;
-    };
-    const mapping = { attrIdMap: {}, refSwapAttrIds: new Set() };
-    let mappingChanged = false;
-
-    const rewriteTxSteps = (txSteps, txId) => {
-      const retTxSteps = [];
-      for (const txStep of txSteps) {
-        const [action] = txStep;
-
-        // Handles add-attr
-        // If existing, we drop it, and track it
-        // to update add/retract triples
-        if (action === 'add-attr') {
-          const [_action, attr] = txStep;
-          const existing = findExistingAttr(attr);
-          if (existing && attr.id !== existing.id) {
-            mapping.attrIdMap[attr.id] = existing.id;
-            mappingChanged = true;
-            continue;
-          }
-          if (attr['value-type'] === 'ref') {
-            const revAttr = findReverseAttr(attr);
-            if (revAttr) {
-              mapping.attrIdMap[attr.id] = revAttr.id;
-              mapping.refSwapAttrIds.add(attr.id);
-              mappingChanged = true;
-              continue;
-            }
-          }
-        }
-
-        if (
-          (processedTxId &&
-            txId &&
-            processedTxId >= txId &&
-            action === 'add-attr') ||
-          action === 'update-attr' ||
-          action === 'delete-attr'
-        ) {
-          mappingChanged = true;
-          // Don't add this step because we already have the newer attrs
-          continue;
-        }
-        // Handles add-triple|retract-triple
-        // If in mapping, we update the attr-id
-        const newTxStep = mappingChanged
-          ? instaml.rewriteStep(mapping, txStep)
-          : txStep;
-
-        retTxSteps.push(newTxStep);
-      }
-
-      return mappingChanged ? retTxSteps : txSteps;
-    };
-
-    const rewritten = new Map();
-    for (const [k, mut] of muts.entries()) {
-      rewritten.set(k, {
-        ...mut,
-        'tx-steps': rewriteTxSteps(mut['tx-steps'], mut['tx-id']),
-      });
-    }
-    if (!mappingChanged) {
-      return muts;
-    }
-    return rewritten;
-  }
-
-  _rewriteMutationsSorted(attrs, muts) {
-    return sortedMutationEntries(this._rewriteMutations(attrs, muts).entries());
-  }
-
   // ---------------------------
   // Transact
 
   optimisticAttrs() {
-    const pendingMutationSteps = [
-      ...this.pendingMutations.currentValue.values(),
-    ] // hack due to Map()
-      .flatMap((x) => x['tx-steps']);
-
-    const deletedAttrIds = new Set(
-      pendingMutationSteps
-        .filter(([action, _attr]) => action === 'delete-attr')
-        .map(([_action, id]) => id),
-    );
-
-    const pendingAttrs = [];
-    for (const [_action, attr] of pendingMutationSteps) {
-      if (_action === 'add-attr') {
-        pendingAttrs.push(attr);
-      } else if (
-        _action === 'update-attr' &&
-        attr.id &&
-        this.attrs?.[attr.id]
-      ) {
-        const fullAttr = { ...this.attrs[attr.id], ...attr };
-        pendingAttrs.push(fullAttr);
-      }
-    }
-
-    const attrsWithoutDeleted = [
-      ...Object.values(this.attrs || {}),
-      ...pendingAttrs,
-    ].filter((a) => !deletedAttrIds.has(a.id));
-
-    const attrsRecord = Object.fromEntries(
-      attrsWithoutDeleted.map((a) => [a.id, a]),
-    );
-
-    return attrsRecord;
+    return this.mutations.optimisticAttrs();
   }
 
-  /** Runs instaql on a query and a store */
+  _rewriteMutations(attrs, muts, processedTxId) {
+    return this.mutations.rewriteMutations(attrs, muts, processedTxId);
+  }
+
+  _rewriteMutationsSorted(attrs, muts, processedTxId) {
+    return this.mutations.rewriteMutationsSorted(attrs, muts, processedTxId);
+  }
+
   dataForQuery(hash) {
-    const errorMessage = this._errorMessage;
-    if (errorMessage) {
-      return { error: errorMessage };
-    }
-    if (!this.querySubs) return;
-    if (!this.pendingMutations) return;
-    const querySubVersion = this.querySubs.version();
-    const querySubs = this.querySubs.currentValue;
-    const pendingMutationsVersion = this.pendingMutations.version();
-    const pendingMutations = this.pendingMutations.currentValue;
+    return this.queries.dataForQuery(hash);
+  }
 
-    const { q, result } = querySubs[hash] || {};
-    if (!result) return;
-
-    const cached = this._dataForQueryCache[hash];
-    if (
-      cached &&
-      querySubVersion === cached.querySubVersion &&
-      pendingMutationsVersion === cached.pendingMutationsVersion
-    ) {
-      return cached.data;
-    }
-
-    const { store, pageInfo, aggregate, processedTxId } = result;
-    const mutations = this._rewriteMutationsSorted(
-      store.attrs,
-      pendingMutations,
-    );
-    const newStore = this._applyOptimisticUpdates(
+  _applyOptimisticUpdates(store, mutations, processedTxId) {
+    return this.mutations.applyOptimisticUpdates(
       store,
       mutations,
       processedTxId,
     );
-    const resp = instaql({ store: newStore, pageInfo, aggregate }, q);
-
-    this._dataForQueryCache[hash] = {
-      querySubVersion,
-      pendingMutationsVersion,
-      data: resp,
-    };
-
-    return resp;
-  }
-
-  _applyOptimisticUpdates(store, mutations, processedTxId) {
-    for (const [_, mut] of mutations) {
-      if (!mut['tx-id'] || (processedTxId && mut['tx-id'] > processedTxId)) {
-        store = s.transact(store, mut['tx-steps']);
-      }
-    }
-    return store;
   }
 
   /** Re-run instaql and call all callbacks with new data */
   notifyOne = (hash) => {
-    const cbs = this.queryCbs[hash] ?? [];
-    const prevData = this._dataForQueryCache[hash]?.data;
-    const data = this.dataForQuery(hash);
-
-    if (!data) return;
-    if (areObjectsDeepEqual(data, prevData)) return;
-
-    cbs.forEach((r) => r.cb(data));
+    this.queries.notifyOne(hash);
   };
 
   notifyOneQueryOnce = (hash) => {
-    const dfds = this.queryOnceDfds[hash] ?? [];
-    const data = this.dataForQuery(hash);
-
-    dfds.forEach((r) => {
-      this._completeQueryOnce(r.q, hash, r.dfd);
-      r.dfd.resolve(data);
-    });
+    this.queries.notifyOneQueryOnce(hash);
   };
 
   notifyQueryError = (hash, error) => {
-    const cbs = this.queryCbs[hash] || [];
-    cbs.forEach((r) => r.cb({ error }));
+    this.queries.notifyQueryError(hash, error);
   };
 
   /** Re-compute all subscriptions */
   notifyAll() {
-    Object.keys(this.queryCbs).forEach((hash) => {
-      this.notifyOne(hash);
-    });
+    this.queries.notifyAll();
   }
 
   loadedNotifyAll() {
-    if (this.pendingMutations.isLoading() || this.querySubs.isLoading()) return;
-    this.notifyAll();
+    this.queries.loadedNotifyAll(this.pendingMutations);
   }
 
   /** Applies transactions locally and sends transact message to server */
@@ -1115,76 +641,13 @@ export default class Reactor {
    * @returns
    */
   pushOps = (txSteps, error) => {
-    const eventId = uuid();
-    const mutations = [...this.pendingMutations.currentValue.values()];
-    const order = Math.max(0, ...mutations.map((mut) => mut.order || 0)) + 1;
-    const mutation = {
-      op: 'transact',
-      'tx-steps': txSteps,
-      created: Date.now(),
-      error,
-      order,
-    };
-    this.pendingMutations.set((prev) => {
-      prev.set(eventId, mutation);
-      return prev;
-    });
-
-    const dfd = new Deferred();
-    this.mutationDeferredStore.set(eventId, dfd);
-    this._sendMutation(eventId, mutation);
-
-    this.notifyAll();
-
-    return dfd.promise;
+    return this.mutations.enqueueMutation(txSteps, error);
   };
 
   shutdown() {
     this._log.info('[shutdown]', this.config.appId);
     this._isShutdown = true;
-    this._ws?.close();
-  }
-
-  /**
-   * Sends mutation to server and schedules a timeout to cancel it if
-   * we don't hear back in time.
-   * Note: If we're offline we don't schedule a timeout, we'll schedule it
-   * later once we're back online and send the mutation again
-   *
-   */
-  _sendMutation(eventId, mutation) {
-    if (mutation.error) {
-      this._handleMutationError('error', eventId, {
-        message: mutation.error.message,
-      });
-      return;
-    }
-    if (this.status !== STATUS.AUTHENTICATED) {
-      this._finishTransaction('enqueued', eventId);
-      return;
-    }
-    const timeoutMs = Math.max(
-      5000,
-      this.pendingMutations.currentValue.size * 5000,
-    );
-
-    if (!this._isOnline) {
-      this._finishTransaction('enqueued', eventId);
-    } else {
-      this._trySend(eventId, mutation);
-
-      setTimeout(() => {
-        if (!this._isOnline) {
-          return;
-        }
-        // If we are here, this means that we have sent this mutation, we are online
-        // but we have not received a response. If it's this long, something must be wrong,
-        // so we error with a timeout.
-        this._handleMutationError('timeout', eventId, {
-          message: 'transaction timed out',
-        });
-      }, timeoutMs);
-    }
+    this.connection.shutdown();
   }
 
   // ---------------------------
@@ -1192,52 +655,18 @@ export default class Reactor {
 
   /** Send messages we accumulated while we were connecting */
   _flushPendingMessages() {
-    const subs = Object.keys(this.queryCbs).map((hash) => {
-      return this.querySubs.currentValue[hash];
-    });
-    // Note: we should not have any nulls in subs, but we're
-    // doing this defensively just in case.
-    const safeSubs = subs.filter((x) => x);
-    safeSubs.forEach(({ eventId, q }) => {
-      this._trySendAuthed(eventId, { op: 'add-query', q });
+    this.queries.flushPendingMessages((eventId, payload) => {
+      this._sendAuthed(eventId, payload);
     });
 
-    Object.values(this.queryOnceDfds)
-      .flat()
-      .forEach(({ eventId, q }) => {
-        this._trySendAuthed(eventId, { op: 'add-query', q });
-      });
-
-    const muts = this._rewriteMutationsSorted(
-      this.attrs,
-      this.pendingMutations.currentValue,
-    );
-    muts.forEach(([eventId, mut]) => {
-      if (!mut['tx-id']) {
-        this._sendMutation(eventId, mut);
-      }
-    });
+    this.mutations.sendPendingMutations();
   }
 
   /**
    * Clean up pendingMutations that all queries have seen
    */
   _cleanupPendingMutationsQueries() {
-    let minProcessedTxId = Number.MAX_SAFE_INTEGER;
-    for (const { result } of Object.values(this.querySubs.currentValue)) {
-      if (result?.processedTxId) {
-        minProcessedTxId = Math.min(minProcessedTxId, result?.processedTxId);
-      }
-    }
-
-    this.pendingMutations.set((prev) => {
-      for (const [eventId, mut] of Array.from(prev.entries())) {
-        if (mut['tx-id'] && mut['tx-id'] <= minProcessedTxId) {
-          prev.delete(eventId);
-        }
-      }
-      return prev;
-    });
+    this.mutations.cleanupPendingMutationsQueries();
   }
 
   /**
@@ -1246,209 +675,7 @@ export default class Reactor {
    * unaffected by this mutation and it’s safe to delete it from local queue
    */
   _cleanupPendingMutationsTimeout() {
-    const now = Date.now();
-
-    if (this.pendingMutations.currentValue.size < 200) {
-      return;
-    }
-
-    this.pendingMutations.set((prev) => {
-      let deleted = false;
-      let timeless = false;
-
-      for (const [eventId, mut] of Array.from(prev.entries())) {
-        if (!mut.confirmed) {
-          timeless = true;
-        }
-        if (mut.confirmed && mut.confirmed + PENDING_TX_CLEANUP_TIMEOUT < now) {
-          prev.delete(eventId);
-          deleted = true;
-        }
-      }
-
-      // backwards compat for mutations with no `confirmed`
-      if (deleted && timeless) {
-        for (const [eventId, mut] of Array.from(prev.entries())) {
-          if (!mut.confirmed) {
-            prev.delete(eventId);
-          }
-        }
-      }
-      return prev;
-    });
-  }
-
-  _trySendAuthed(...args) {
-    if (this.status !== STATUS.AUTHENTICATED) {
-      return;
-    }
-    this._trySend(...args);
-  }
-
-  _trySend(eventId, msg, opts) {
-    if (this._ws.readyState !== WS_OPEN_STATUS) {
-      return;
-    }
-    if (!ignoreLogging[msg.op]) {
-      this._log.info('[send]', this._ws._id, msg.op, msg);
-    }
-    this._ws.send(JSON.stringify({ 'client-event-id': eventId, ...msg }));
-  }
-
-  _wsOnOpen = (e) => {
-    const targetWs = e.target;
-    if (this._ws !== targetWs) {
-      this._log.info(
-        '[socket][open]',
-        targetWs._id,
-        'skip; this is no longer the current ws',
-      );
-      return;
-    }
-    this._log.info('[socket][open]', this._ws._id);
-    this._setStatus(STATUS.OPENED);
-    this.getCurrentUser()
-      .then((resp) => {
-        this._trySend(uuid(), {
-          op: 'init',
-          'app-id': this.config.appId,
-          'refresh-token': resp.user?.['refresh_token'],
-          versions: this.versions,
-          // If an admin token is provided for an app, we will
-          // skip all permission checks. This is an advanced feature,
-          // to let users write internal tools
-          // This option is not exposed in `Config`, as it's
-          // not ready for prime time
-          '__admin-token': this.config.__adminToken,
-        });
-      })
-      .catch((e) => {
-        this._log.error('[socket][error]', targetWs._id, e);
-      });
-  };
-
-  _wsOnMessage = (e) => {
-    const targetWs = e.target;
-    const m = JSON.parse(e.data.toString());
-    if (this._ws !== targetWs) {
-      this._log.info(
-        '[socket][message]',
-        targetWs._id,
-        m,
-        'skip; this is no longer the current ws',
-      );
-      return;
-    }
-    this._handleReceive(targetWs._id, JSON.parse(e.data.toString()));
-  };
-
-  _wsOnError = (e) => {
-    const targetWs = e.target;
-    if (this._ws !== targetWs) {
-      this._log.info(
-        '[socket][error]',
-        targetWs._id,
-        'skip; this is no longer the current ws',
-      );
-      return;
-    }
-    this._log.error('[socket][error]', targetWs._id, e);
-  };
-
-  _wsOnClose = (e) => {
-    const targetWs = e.target;
-    if (this._ws !== targetWs) {
-      this._log.info(
-        '[socket][close]',
-        targetWs._id,
-        'skip; this is no longer the current ws',
-      );
-      return;
-    }
-
-    this._setStatus(STATUS.CLOSED);
-
-    for (const room of Object.values(this._rooms)) {
-      room.isConnected = false;
-    }
-
-    if (this._isShutdown) {
-      this._log.info(
-        '[socket][close]',
-        targetWs._id,
-        'Reactor has been shut down and will not reconnect',
-      );
-      return;
-    }
-    this._log.info(
-      '[socket][close]',
-      targetWs._id,
-      'schedule reconnect, ms =',
-      this._reconnectTimeoutMs,
-    );
-    setTimeout(() => {
-      this._reconnectTimeoutMs = Math.min(
-        this._reconnectTimeoutMs + 1000,
-        10000,
-      );
-      if (!this._isOnline) {
-        this._log.info(
-          '[socket][close]',
-          targetWs._id,
-          'we are offline, no need to start socket',
-        );
-        return;
-      }
-      this._startSocket();
-    }, this._reconnectTimeoutMs);
-  };
-
-  _startSocket() {
-    if (this._isShutdown) {
-      this._log.info(
-        '[socket][start]',
-        this.config.appId,
-        'Reactor has been shut down and will not start a new socket',
-      );
-      return;
-    }
-    if (this._ws && this._ws.readyState == WS_CONNECTING_STATUS) {
-      // Our current websocket is in a 'connecting' state.
-      // There's no need to start another one, as the socket is
-      // effectively fresh.
-      this._log.info(
-        '[socket][start]',
-        this._ws._id,
-        'maintained as current ws, we were still in a connecting state',
-      );
-      return;
-    }
-    const prevWs = this._ws;
-    this._ws = createWebSocket(
-      `${this.config.websocketURI}?app_id=${this.config.appId}`,
-    );
-    this._ws.onopen = this._wsOnOpen;
-    this._ws.onmessage = this._wsOnMessage;
-    this._ws.onclose = this._wsOnClose;
-    this._ws.onerror = this._wsOnError;
-    this._log.info('[socket][start]', this._ws._id);
-    if (prevWs?.readyState === WS_OPEN_STATUS) {
-      // When the network dies, it doesn't always mean that our
-      // socket connection will fire a close event.
-      //
-      // We _could_ re-use the old socket, if the network drop was a
-      // few seconds. But, to be safe right now we always create a new socket.
-      //
-      // This means that we have to make sure to kill the previous one ourselves.
-      // c.f https://issues.chromium.org/issues/41343684
-      this._log.info(
-        '[socket][start]',
-        this._ws._id,
-        'close previous ws id = ',
-        prevWs._id,
-      );
-      prevWs.close();
-    }
+    this.mutations.cleanupPendingMutationsTimeout();
   }
 
   /**
@@ -1586,11 +813,7 @@ export default class Reactor {
   }
 
   __subscribeMutationErrors(cb) {
-    this.mutationErrorCbs.push(cb);
-
-    return () => {
-      this.mutationErrorCbs = this.mutationErrorCbs.filter((x) => x !== cb);
-    };
+    return this.mutations.subscribeMutationErrors(cb);
   }
 
   subscribeAuth(cb) {
@@ -1643,10 +866,6 @@ export default class Reactor {
 
   notifyAuthSubs(user) {
     this.authCbs.forEach((cb) => cb(user));
-  }
-
-  notifyMutationErrorSubs(error) {
-    this.mutationErrorCbs.forEach((cb) => cb(error));
   }
 
   notifyAttrsSubs() {
@@ -1710,15 +929,16 @@ export default class Reactor {
   updateUser(newUser) {
     const newV = { error: undefined, user: newUser };
     this._currentUserCached = { isLoading: false, ...newV };
-    this._dataForQueryCache = {};
+    this.queries.clearCache();
     this.querySubs.set((prev) => {
       Object.keys(prev).forEach((k) => {
         delete prev[k].result;
       });
       return prev;
     });
-    this._reconnectTimeoutMs = 0;
-    this._ws.close();
+    this.connection.resetBackoff();
+    this.connection.close();
+    this.rooms.setSessionId(null);
     this._oauthCallbackResponse = null;
     this.notifyAuthSubs(newV);
   }
@@ -1856,45 +1076,7 @@ export default class Reactor {
    * @returns () => void
    */
   joinRoom(roomId, initialData) {
-    if (!this._rooms[roomId]) {
-      this._rooms[roomId] = {
-        isConnected: false,
-        error: undefined,
-      };
-    }
-
-    this._presence[roomId] = this._presence[roomId] || {};
-
-    if (initialData) {
-      this._presence[roomId].result = this._presence[roomId].result || {};
-      this._presence[roomId].result.user = initialData;
-      this._notifyPresenceSubs(roomId);
-    }
-
-    this._tryJoinRoom(roomId, initialData);
-
-    return () => {
-      this._cleanupRoom(roomId);
-    };
-  }
-
-  _cleanupRoom(roomId) {
-    if (
-      !this._presence[roomId]?.handlers?.length &&
-      !Object.keys(this._broadcastSubs[roomId] ?? {}).length
-    ) {
-      const isConnected = this._rooms[roomId]?.isConnected;
-
-      delete this._rooms[roomId];
-      delete this._presence[roomId];
-      delete this._broadcastSubs[roomId];
-
-      if (isConnected) {
-        this._tryLeaveRoom(roomId);
-      } else {
-        this._roomsPendingLeave[roomId] = true;
-      }
-    }
+    return this.rooms.joinRoom(roomId, initialData);
   }
 
   // --------
@@ -1902,203 +1084,28 @@ export default class Reactor {
 
   // TODO: look into typing again
   getPresence(roomType, roomId, opts = {}) {
-    const room = this._rooms[roomId];
-    const presence = this._presence[roomId];
-    if (!room || !presence || !presence.result) return null;
-
-    return {
-      ...buildPresenceSlice(presence.result, opts, this._sessionId),
-      isLoading: !room.isConnected,
-      error: room.error,
-    };
+    return this.rooms.getPresence(roomType, roomId, opts);
   }
 
   // TODO: look into typing again
   publishPresence(roomType, roomId, partialData) {
-    const room = this._rooms[roomId];
-    const presence = this._presence[roomId];
-
-    if (!room || !presence) {
-      return;
-    }
-
-    presence.result = presence.result || {};
-    const data = {
-      ...presence.result.user,
-      ...partialData,
-    };
-
-    presence.result.user = data;
-
-    if (!room.isConnected) {
-      return;
-    }
-
-    this._trySetPresence(roomId, data);
-    this._notifyPresenceSubs(roomId);
-  }
-
-  _trySetPresence(roomId, data) {
-    this._trySendAuthed(uuid(), {
-      op: 'set-presence',
-      'room-id': roomId,
-      data,
-    });
-  }
-
-  _tryJoinRoom(roomId, data) {
-    this._trySendAuthed(uuid(), { op: 'join-room', 'room-id': roomId, data });
-    delete this._roomsPendingLeave[roomId];
-  }
-
-  _tryLeaveRoom(roomId) {
-    this._trySendAuthed(uuid(), { op: 'leave-room', 'room-id': roomId });
+    this.rooms.publishPresence(roomId, partialData);
   }
 
   // TODO: look into typing again
   subscribePresence(roomType, roomId, opts, cb) {
-    const leaveRoom = this.joinRoom(roomId, opts.data);
-
-    const handler = { ...opts, roomId, cb, prev: null };
-
-    this._presence[roomId] = this._presence[roomId] || {};
-    this._presence[roomId].handlers = this._presence[roomId].handlers || [];
-    this._presence[roomId].handlers.push(handler);
-
-    this._notifyPresenceSub(roomId, handler);
-
-    return () => {
-      this._presence[roomId].handlers =
-        this._presence[roomId]?.handlers?.filter((x) => x !== handler) ?? [];
-
-      leaveRoom();
-    };
-  }
-
-  _notifyPresenceSubs(roomId) {
-    this._presence[roomId]?.handlers?.forEach((handler) => {
-      this._notifyPresenceSub(roomId, handler);
-    });
-  }
-
-  _notifyPresenceSub(roomId, handler) {
-    const slice = this.getPresence('', roomId, handler);
-
-    if (!slice) {
-      return;
-    }
-
-    if (handler.prev && !hasPresenceResponseChanged(slice, handler.prev)) {
-      return;
-    }
-
-    handler.prev = slice;
-    handler.cb(slice);
-  }
-
-  _patchPresencePeers(roomId, edits) {
-    const peers = this._presence[roomId]?.result?.peers || {};
-    let sessions = Object.fromEntries(
-      Object.entries(peers).map(([k, v]) => [k, { data: v }]),
-    );
-    const myPresence = this._presence[roomId]?.result;
-    const newSessions = create(sessions, (draft) => {
-      for (let [path, op, value] of edits) {
-        switch (op) {
-          case '+':
-            insertInMutative(draft, path, value);
-            break;
-          case 'r':
-            assocInMutative(draft, path, value);
-            break;
-          case '-':
-            dissocInMutative(draft, path);
-            break;
-        }
-      }
-      // Ignore our own edits
-      delete draft[this._sessionId];
-    });
-
-    this._setPresencePeers(roomId, newSessions);
-  }
-
-  _setPresencePeers(roomId, data) {
-    const sessions = { ...data };
-    // no need to keep track of `user`
-    delete sessions[this._sessionId];
-    const peers = Object.fromEntries(
-      Object.entries(sessions).map(([k, v]) => [k, v.data]),
-    );
-
-    this._presence = create(this._presence, (draft) => {
-      assocInMutative(draft, [roomId, 'result', 'peers'], peers);
-    });
+    return this.rooms.subscribePresence(roomType, roomId, opts, cb);
   }
 
   // --------
   // Broadcast
 
   publishTopic({ roomType, roomId, topic, data }) {
-    const room = this._rooms[roomId];
-
-    if (!room) {
-      return;
-    }
-
-    if (!room.isConnected) {
-      this._broadcastQueue[roomId] = this._broadcastQueue[roomId] ?? [];
-      this._broadcastQueue[roomId].push({ topic, roomType, data });
-
-      return;
-    }
-
-    this._tryBroadcast(roomId, roomType, topic, data);
-  }
-
-  _tryBroadcast(roomId, roomType, topic, data) {
-    this._trySendAuthed(uuid(), {
-      op: 'client-broadcast',
-      'room-id': roomId,
-      roomType,
-      topic,
-      data,
-    });
+    this.rooms.publishTopic({ roomType, roomId, topic, data });
   }
 
   subscribeTopic(roomId, topic, cb) {
-    const leaveRoom = this.joinRoom(roomId);
-
-    this._broadcastSubs[roomId] = this._broadcastSubs[roomId] || {};
-    this._broadcastSubs[roomId][topic] =
-      this._broadcastSubs[roomId][topic] || [];
-    this._broadcastSubs[roomId][topic].push(cb);
-    this._presence[roomId] = this._presence[roomId] || {};
-
-    return () => {
-      this._broadcastSubs[roomId][topic] = this._broadcastSubs[roomId][
-        topic
-      ].filter((x) => x !== cb);
-
-      if (!this._broadcastSubs[roomId][topic].length) {
-        delete this._broadcastSubs[roomId][topic];
-      }
-
-      leaveRoom();
-    };
-  }
-
-  _notifyBroadcastSubs(room, topic, msg) {
-    this._broadcastSubs?.[room]?.[topic]?.forEach((cb) => {
-      const data = msg.data?.data;
-
-      const peer =
-        msg.data['peer-id'] === this._sessionId
-          ? this._presence[room]?.result?.user
-          : this._presence[room]?.result?.peers?.[msg.data['peer-id']];
-
-      return cb(data, peer);
-    });
+    return this.rooms.subscribeTopic(roomId, topic, cb);
   }
 
   // --------
