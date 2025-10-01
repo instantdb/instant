@@ -37,7 +37,8 @@
     {:app-id app-id
      :etype etype}
     (fn [{:keys [transact! resolve-id get-entity]}]
-      (let [entity-id (random-uuid)]
+      (let [id        (or id (random-uuid))
+            entity-id (random-uuid)]
         (transact! [[:add-triple entity-id (resolve-id :id) entity-id]
                     [:add-triple entity-id (resolve-id :hashedToken) (hash-token id)]
                     [:add-triple entity-id (resolve-id :$user) user-id]])

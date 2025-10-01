@@ -282,7 +282,7 @@
    We don't have a way to close the page when opening an external app, so
    this opens the external app when we load the page and shows an \"Open app\"
    button. In case the redirect was dismissed."
-  [email redirect-url]
+  [redirect-url]
   {:status 200
    :headers {"content-type" "text/html"}
    :body (str (h/html (h/raw "<!DOCTYPE html>")
@@ -337,7 +337,6 @@
                              }
                            }"]]
                        [:body
-                        [:p "Logged in as " email]
                         [:p
                          [:a {:class "button"
                               :href redirect-url}
@@ -360,7 +359,6 @@
           state-param    (or (:state params)
                              (return-error "Missing state param in OAuth redirect."))
 
-          ;; _app-id unused for now, but will be used when we have app_oauth_redirects in triples
           app-id         (when (= 72 (count state-param))
                            (uuid-util/coerce (subs state-param 0 36)))
 
@@ -378,7 +376,7 @@
                              (return-error "Missing cookie."))
 
           oauth-redirect (or (app-oauth-redirect-model/consume! {:app-id app-id
-                                                                 :state state})
+                                                                 :state  state})
                              (return-error "Could not find OAuth request."))
 
           _              (when (app-oauth-redirect-model/expired? oauth-redirect)
@@ -391,39 +389,13 @@
           auth-code      (or (:code params)
                              (return-error "Missing code param in OAuth redirect."))
 
-          client         (or (app-oauth-client-model/get-by-id {:app-id app-id
-                                                                :id (:client_id oauth-redirect)})
-                             (return-error "Missing OAuth client."))
-
-          oauth-client   (app-oauth-client-model/->OAuthClient client)
-
-          user-info      (oauth/get-user-info oauth-client auth-code oauth-redirect-url)
-
-          _              (when (= :error (:type user-info))
-                           (return-error (:message user-info) :oauth-redirect oauth-redirect))
-
-          email          (or (email/coerce (:email user-info))
-                             (return-error "Invalid email." :oauth-redirect oauth-redirect))
-
-          sub            (:sub user-info)
-
-          social-login   (upsert-oauth-link! {:email       email
-                                              :sub         sub
-                                              :app-id      (:app_id client)
-                                              :provider-id (:provider_id client)})
-
           code           (random-uuid)
 
           _              (app-oauth-code-model/create!
                           {:code                  code
-                           :app-id                (:app_id social-login)
+                           :app-id                app-id
                            :code-challenge-method (:code_challenge_method oauth-redirect)
                            :code-challenge        (:code_challenge oauth-redirect)
-
-                           ;; TODO remove
-                           :user-id               (:user_id social-login)
-
-                           ;; new attrs
                            :client-id             (:client_id oauth-redirect)
                            :auth-code             auth-code})
 
@@ -434,7 +406,7 @@
 
       (if (some-> redirect-url uri/parse :scheme (string/starts-with? "http"))
         (response/found redirect-url)
-        (oauth-callback-landing email redirect-url)))
+        (oauth-callback-landing redirect-url)))
 
     (catch clojure.lang.ExceptionInfo e
       (let [{:keys [type oauth-redirect message]} (ex-data e)]
@@ -452,26 +424,60 @@
           [:params :body :form-params]))
 
 (defn oauth-token-callback [req]
-  (let [app-id                 (ex/get-some-param! req (param-paths :app_id) uuid-util/coerce)
-        code                   (ex/get-some-param! req (param-paths :code) uuid-util/coerce)
-        code-verifier          (some #(get-in req %) (param-paths :code_verifier))
-        oauth-code             (app-oauth-code-model/consume! {:code     code
-                                                               :app-id   app-id
-                                                               :verifier code-verifier})
-        _                      (when-let [origin (get-in req [:headers "origin"])]
-                                 (let [authorized-origins (app-authorized-redirect-origin-model/get-all-for-app
-                                                           {:app-id app-id})]
-                                   (when-not (app-authorized-redirect-origin-model/find-match
-                                              authorized-origins origin)
-                                     (ex/throw-validation-err! :origin origin [{:message "Unauthorized origin."}]))))
-        {user-id :user_id
-         app-id  :app_id}      oauth-code
-        {refresh-token-id :id} (app-user-refresh-token-model/create! {:app-id  app-id
-                                                                      :id      (random-uuid)
-                                                                      :user-id user-id})
-        user                   (app-user-model/get-by-id {:app-id app-id
-                                                          :id     user-id})]
+  (let [app-id              (ex/get-some-param! req (param-paths :app_id) uuid-util/coerce)
+        code                (ex/get-some-param! req (param-paths :code) uuid-util/coerce)
+        code-verifier       (some #(get-in req %) (param-paths :code_verifier))
+        oauth-code          (app-oauth-code-model/consume! {:code     code
+                                                            :app-id   app-id
+                                                            :verifier code-verifier})
+        _                   (when-let [origin (get-in req [:headers "origin"])]
+                              (let [authorized-origins (app-authorized-redirect-origin-model/get-all-for-app
+                                                        {:app-id app-id})]
+                                (when-not (app-authorized-redirect-origin-model/find-match
+                                           authorized-origins origin)
+                                  (ex/throw-validation-err! :origin origin [{:message "Unauthorized origin."}]))))
+        {:keys [app_id
+                auth_code
+                client_id]} oauth-code
+
+        _                   (assert (= app-id app_id) (str "(= " app-id " " app_id ")"))
+
+        client              (or (app-oauth-client-model/get-by-id {:app-id app-id
+                                                                   :id     client_id})
+                                (throw (ex-info "Missing OAuth client" {:type      :oauth-error
+                                                                        :app-id    app-id
+                                                                        :client-id client_id})))
+
+        oauth-client        (app-oauth-client-model/->OAuthClient client)
+
+        user-info           (oauth/get-user-info oauth-client auth_code oauth-redirect-url)
+
+        _                   (when (= :error (:type user-info))
+                              (throw (ex-info (:message user-info) {:type      :oauth-error
+                                                                    :user-info user-info})))
+
+        email               (or (email/coerce (:email user-info))
+                                (throw (ex-info "Invalid email" {:type  :oauth-error
+                                                                 :email (:email user-info)})))
+
+        {user-id :user_id}  (upsert-oauth-link! {:email       email
+                                                 :sub         (:sub user-info)
+                                                 :app-id      app-id
+                                                 :provider-id (:provider_id client)})
+
+        refresh-token-id    (random-uuid)
+
+        _                   (app-user-refresh-token-model/create!
+                             {:app-id  app-id
+                              :user-id user-id
+                              :id      refresh-token-id})
+
+        user                (app-user-model/get-by-id
+                             {:app-id app-id
+                              :id     user-id})]
+
     (assert (= app-id (:app_id user)) (str "(= " app-id " " (:app_id user) ")"))
+
     (response/ok {:user          (assoc user :refresh_token refresh-token-id)
                   :refresh_token refresh-token-id})))
 

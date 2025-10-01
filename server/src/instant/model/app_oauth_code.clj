@@ -14,7 +14,6 @@
 (defn create!
   ([params] (create! (aurora/conn-pool :write) params))
   ([conn {:keys [code
-                 user-id
                  app-id
                  code-challenge-method
                  code-challenge
@@ -31,7 +30,6 @@
                           crypt-util/bytes->hex-string)]
         (transact! [[:add-triple eid (resolve-id :id) eid]
                     [:add-triple eid (resolve-id :codeHash) code-hash]
-                    [:add-triple eid (resolve-id :$user) user-id] ;; TODO remove
                     [:add-triple eid (resolve-id :codeChallengeMethod) code-challenge-method]
                     [:add-triple eid (resolve-id :codeChallenge) code-challenge]
                     [:add-triple eid (resolve-id :$oauthClient) client-id]
