@@ -59,11 +59,12 @@ Before generating a new expo app you check to see if a next project already exis
 
 Make sure the following expo packages are also installed:
 
+- @instantdb/react-native
+- @instantdb/admin
 - @react-native-async-storage/async-storage
 - @react-native-community/netinfo
 - react-native-get-random-values
 - react-native-safe-area-context
-- expo-image-picker
 
 If the Instant MCP is available use the tools to create apps and manage schema.
 
@@ -134,7 +135,7 @@ CRITICAL: If you are unsure how something works in InstantDB you fetch the relev
 
 # Full Example App
 
-Below is a full demo app built with InstantDB, Next.js, and TailwindCSS with the following features:
+Below is a full demo expo app built with InstantDB with the following features:
 
 - Initiailizes a connection to InstantDB
 - Defines schema for the app
@@ -143,18 +144,16 @@ Below is a full demo app built with InstantDB, Next.js, and TailwindCSS with the
 - Ephemeral features like who's online and shout
 - File uploads for avatars
 
-Logic is split across three files:
+Logic is split across four files:
 
 - `lib/db.ts` -- InstantDB client setup
 - `instant.schema.ts` - InstantDB schema, gives you type safety for your data!
-- `app/page.tsx` - Main logic, mostly UI with some Instant magic :)
+- `app/index.tsx` - Main logic, mostly UI with some Instant magic :)
 
 ```typescript
 /* FILE: lib/db.ts */
-import Constants from 'expo-constants';
-
-import { init } from '@instantdb/react-native';
-import schema from '../instant.schema';
+import { init } from "@instantdb/react-native";
+import schema from "../instant.schema";
 
 export const db = init({
   appId: process.env.EXPO_PUBLIC_INSTANT_APP_ID!,
@@ -213,7 +212,7 @@ const _schema = i.schema({
 
 // This helps Typescript display nicer intellisense
 type _AppSchema = typeof _schema;
-interface AppSchema extends _AppSchema {}
+interface AppSchema extends _AppSchema { }
 const schema: AppSchema = _schema;
 
 export type { AppSchema };
@@ -239,8 +238,8 @@ import {
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { id, lookup, InstaQLEntity } from '@instantdb/react-native';
-import { db } from './lib/db';
-import schema from './instant.schema';
+import { db } from '../lib/db';
+import schema from '../instant.schema';
 
 // Instant utility types for query results
 type PostsWithProfile = InstaQLEntity<
@@ -297,7 +296,7 @@ function makeShout(text: string) {
 // Instant query Hooks
 // ---------
 function useProfile() {
-  // CRITICAL: useUser can only be used inside a db.SignedIn component
+  // CRITICAL: useUser can only be used after user is confirmed to be non-null
   const user = db.useUser();
   const { data, isLoading, error } = db.useQuery({
     profiles: {
@@ -328,7 +327,7 @@ function usePosts(pageNumber: number, pageSize: number) {
       author: { avatar: {} },
     },
   });
-  return { isLoading, error, posts: (data?.posts || []) as PostsWithProfile[] };
+  return { isLoading, error, posts: (data?.posts || []) };
 }
 
 // Auth Components
@@ -337,15 +336,20 @@ function Login() {
   const [sentEmail, setSentEmail] = useState<string>('');
 
   return (
-    <View style={styles.loginContainer}>
-      <View style={styles.loginBox}>
-        {!sentEmail ? (
-          <EmailStep onSendEmail={setSentEmail} />
-        ) : (
-          <CodeStep sentEmail={sentEmail} />
-        )}
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <View style={styles.loginContainer}>
+        <View style={styles.loginBox}>
+          {!sentEmail ? (
+            <EmailStep onSendEmail={setSentEmail} />
+          ) : (
+            <CodeStep sentEmail={sentEmail} />
+          )}
+        </View>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -679,20 +683,21 @@ function PostList({ posts }: { posts: PostsWithProfile[] }) {
 }
 
 function App() {
+  const { isLoading, error, user } = db.useAuth();
+  if (isLoading) return null;
+  if (error) { return <Text>{error.message}</Text> }
+
+  if (!user) { return <Login /> }
+
   return (
     <SafeAreaProvider>
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <db.SignedIn>
-          <EnsureProfile>
-            <Main />
-          </EnsureProfile>
-        </db.SignedIn>
-        <db.SignedOut>
-          <Login />
-        </db.SignedOut>
+        <EnsureProfile>
+          <Main />
+        </EnsureProfile>
       </KeyboardAvoidingView>
     </SafeAreaProvider>
   );

@@ -124,7 +124,7 @@ export const runCli = async (): Promise<Project> => {
                 { value: 'next-js-app-dir', label: 'Next.js' },
                 { value: 'expo', label: 'Expo: React Native' },
               ],
-              initialValue: 'next-js-app-dir' as Project['base'],
+              initialValue: 'next-js-app-dir',
             }),
           );
         }
