@@ -7,7 +7,6 @@ import { lightTheme } from '@uiw/react-json-view/light';
 import {
   Button,
   Checkbox,
-  cn,
   Dialog,
   IconButton,
   Label,
@@ -18,7 +17,7 @@ import {
 import config from '@/lib/config';
 import useLocalStorage from '@/lib/hooks/useLocalStorage';
 import { dbAttrsToExplorerSchema } from '@/lib/schema';
-import { DBAttr, InstantApp } from '@/lib/types';
+import { InstantApp } from '@/lib/types';
 import {
   Combobox,
   ComboboxInput,
@@ -26,7 +25,6 @@ import {
   ComboboxOptions,
 } from '@headlessui/react';
 import {
-  ArchiveBoxArrowDownIcon,
   ArrowPathIcon,
   ClipboardIcon,
   PlayIcon,
@@ -107,12 +105,16 @@ export function Sandbox({
     true,
   );
 
+  const defaultIfNothingSaved = app?.rules
+    ? JSON.stringify(app.rules, null, 2)
+    : '';
   const [permsValue, setPermsValue] = useSavedQueryState<string>(
     'perms',
     {
       ...base64Parser,
     },
     `permsCode:${app.id}`,
+    defaultIfNothingSaved,
   );
 
   // Make sure we copy the most up to date version of the sandbox
