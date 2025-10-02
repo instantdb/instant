@@ -40,7 +40,7 @@ const main = async () => {
   const pkgManager = getUserPkgManager();
 
   const projectDir = await scaffoldBase(project, appDir);
-  addRuleFiles({ projectDir, ruleFilesToAdd: project.ruleFiles });
+  addRuleFiles({ projectDir, base: project.base, ruleFilesToAdd: project.ruleFiles });
   await runInstallCommand(getUserPkgManager(), projectDir);
 
   // Update package.json with app name
