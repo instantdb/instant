@@ -4,10 +4,13 @@ import { InstantAPIPlatformSchema } from '@instantdb/platform';
 
 // We show most attrs in the explorer except for some system attrs
 function isVisibleAttr(attr: DBAttr) {
-  const [, namespace, _] = attr['forward-identity'];
+  const [, namespace, label] = attr['forward-identity'];
   return (
     attr.catalog !== 'system' ||
-    namespace === '$users' ||
+    (namespace === '$users' &&
+      // TODO(dww): show the guest auth fields once we've launched guest auth
+      label !== 'linkedPrimaryUser' &&
+      label !== 'type') ||
     namespace === '$files'
   );
 }
