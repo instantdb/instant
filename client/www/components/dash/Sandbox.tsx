@@ -137,7 +137,10 @@ export function Sandbox({
     infoToast('Copied permalink to code and permissions!');
   };
 
-  const [runAsUserEmail, setRunAsUserEmail] = useQueryState('runAsUser');
+  const [runAsUserEmail, setRunAsUserEmail] = useLocalStorage(
+    `runas:${app.id}`,
+    '',
+  );
   const [hasUnsavedWork, setHasUnsavedWork] = useState(false);
   const saveCurrentDialog = useDialog();
   const [newSaveName, setNewSaveName] = useState('');
