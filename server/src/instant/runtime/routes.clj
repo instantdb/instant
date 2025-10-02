@@ -5,6 +5,7 @@
             [hiccup2.core :as h]
             [instant.auth.oauth :as oauth]
             [instant.config :as config]
+            [instant.flags :as flags]
             [instant.model.app :as app-model]
             [instant.model.app-authorized-redirect-origin :as app-authorized-redirect-origin-model]
             [instant.model.app-oauth-client :as app-oauth-client-model]
@@ -350,87 +351,88 @@
 
 (defn oauth-callback [{:keys [params] :as req}]
   (try
-    (let [return-error   (fn return-error [msg & params]
-                           (throw (ex-info msg (merge {:type :oauth-error :message msg}
-                                                      (apply hash-map params)))))
+    (let [return-error (fn return-error [msg & params]
+                         (throw (ex-info msg (merge {:type :oauth-error :message msg}
+                                                    (apply hash-map params)))))
 
-          _              (when (:error params)
-                           (return-error (:error params)))
+          _ (when (:error params)
+              (return-error (:error params)))
 
-          state-param    (or (:state params)
-                             (return-error "Missing state param in OAuth redirect."))
+          state-param (or (:state params)
+                          (return-error "Missing state param in OAuth redirect."))
 
-          ;; _app-id unused for now, but will be used when we have app_oauth_redirects in triples
-          app-id         (when (= 72 (count state-param))
-                           (uuid-util/coerce (subs state-param 0 36)))
+          app-id (when (= 72 (count state-param))
+                   (uuid-util/coerce (subs state-param 0 36)))
 
-          state          (when (= 72 (count state-param))
-                           (uuid-util/coerce (subs state-param 36)))
+          state (when (= 72 (count state-param))
+                  (uuid-util/coerce (subs state-param 36)))
 
-          _              (when-not (and app-id state)
-                           (return-error "Invalid state param in OAuth redirect."))
+          _ (when-not (and app-id state)
+              (return-error "Invalid state param in OAuth redirect."))
 
-          cookie         (or (-> req
-                                 :cookies
-                                 (get oauth-cookie-name)
-                                 :value
-                                 uuid-util/coerce)
-                             (return-error "Missing cookie."))
+          cookie (or (-> req
+                         :cookies
+                         (get oauth-cookie-name)
+                         :value
+                         uuid-util/coerce)
+                     (return-error "Missing cookie."))
 
           oauth-redirect (or (app-oauth-redirect-model/consume! {:app-id app-id
-                                                                 :state state})
+                                                                 :state  state})
                              (return-error "Could not find OAuth request."))
 
-          _              (when (app-oauth-redirect-model/expired? oauth-redirect)
-                           (return-error "The request is expired."))
+          _ (when (app-oauth-redirect-model/expired? oauth-redirect)
+              (return-error "The request is expired."))
 
-          _              (when-not (crypt-util/constant-bytes= (crypt-util/uuid->sha256 cookie)
-                                                               (:cookie-hash-bytes oauth-redirect))
-                           (return-error "Mismatch in OAuth request cookie."))
+          _ (when-not (crypt-util/constant-bytes= (crypt-util/uuid->sha256 cookie)
+                                                  (:cookie-hash-bytes oauth-redirect))
+              (return-error "Mismatch in OAuth request cookie."))
 
-          auth-code      (or (:code params)
-                             (return-error "Missing code param in OAuth redirect."))
+          auth-code (or (:code params)
+                        (return-error "Missing code param in OAuth redirect."))
 
-          client         (or (app-oauth-client-model/get-by-id {:app-id app-id
-                                                                :id (:client_id oauth-redirect)})
-                             (return-error "Missing OAuth client."))
+          client (or (app-oauth-client-model/get-by-id {:app-id app-id
+                                                        :id (:client_id oauth-redirect)})
+                     (return-error "Missing OAuth client."))
 
-          oauth-client   (app-oauth-client-model/->OAuthClient client)
+          oauth-client (app-oauth-client-model/->OAuthClient client)
 
-          user-info      (oauth/get-user-info oauth-client auth-code oauth-redirect-url)
+          user-info (oauth/get-user-info oauth-client auth-code oauth-redirect-url)
 
-          _              (when (= :error (:type user-info))
-                           (return-error (:message user-info) :oauth-redirect oauth-redirect))
+          _ (when (= :error (:type user-info))
+              (return-error (:message user-info) :oauth-redirect oauth-redirect))
 
-          email          (or (email/coerce (:email user-info))
-                             (return-error "Invalid email." :oauth-redirect oauth-redirect))
+          email (or (email/coerce (:email user-info))
+                    (return-error "Invalid email." :oauth-redirect oauth-redirect))
 
-          sub            (:sub user-info)
+          sub (or (:sub user-info)
+                  (return-error "Missing sub." :oauth-redirect oauth-redirect))
 
-          social-login   (upsert-oauth-link! {:email       email
-                                              :sub         sub
-                                              :app-id      (:app_id client)
-                                              :provider-id (:provider_id client)})
 
-          code           (random-uuid)
+          code (random-uuid)
 
-          _              (app-oauth-code-model/create!
-                          {:code                  code
-                           :app-id                (:app_id social-login)
-                           :code-challenge-method (:code_challenge_method oauth-redirect)
-                           :code-challenge        (:code_challenge oauth-redirect)
 
-                           ;; TODO remove
-                           :user-id               (:user_id social-login)
+          ;; TODO(dww): remove after deploy
+          user-id (when-not (flags/toggled? :delay-user-creation-to-token-exchange)
+                    (:user_id (upsert-oauth-link! {:email email
+                                                   :sub sub
+                                                   :app-id app-id
+                                                   :provider-id (:provider_id client)})))
 
-                           ;; new attrs
-                           :client-id             (:client_id oauth-redirect)
-                           :auth-code             auth-code})
+          _ (app-oauth-code-model/create!
+             (merge
+              {:code code
+               :app-id app-id
+               :code-challenge-method (:code_challenge_method oauth-redirect)
+               :code-challenge (:code_challenge oauth-redirect)
+               :client-id (:client_id oauth-redirect)
+               :user-id user-id
+               :user-info user-info}))
 
-          redirect-url   (url/add-query-params
-                          (:redirect_url oauth-redirect)
-                          {:code                    code
-                           :_instant_oauth_redirect "true"})]
+          redirect-url (url/add-query-params
+                        (:redirect_url oauth-redirect)
+                        {:code code
+                         :_instant_oauth_redirect "true"})]
 
       (if (some-> redirect-url uri/parse :scheme (string/starts-with? "http"))
         (response/found redirect-url)
@@ -443,7 +445,7 @@
         (when-not oauth-redirect
           (ex/throw-oauth-err! message))
         (response/found (url/add-query-params (:redirect_url oauth-redirect)
-                                              {:error                   (-> e ex-data :message)
+                                              {:error (-> e ex-data :message)
                                                :_instant_oauth_redirect "true"}))))))
 
 (defn- param-paths [param]
@@ -452,27 +454,47 @@
           [:params :body :form-params]))
 
 (defn oauth-token-callback [req]
-  (let [app-id                 (ex/get-some-param! req (param-paths :app_id) uuid-util/coerce)
-        code                   (ex/get-some-param! req (param-paths :code) uuid-util/coerce)
-        code-verifier          (some #(get-in req %) (param-paths :code_verifier))
-        oauth-code             (app-oauth-code-model/consume! {:code     code
-                                                               :app-id   app-id
-                                                               :verifier code-verifier})
-        _                      (when-let [origin (get-in req [:headers "origin"])]
-                                 (let [authorized-origins (app-authorized-redirect-origin-model/get-all-for-app
-                                                           {:app-id app-id})]
-                                   (when-not (app-authorized-redirect-origin-model/find-match
-                                              authorized-origins origin)
-                                     (ex/throw-validation-err! :origin origin [{:message "Unauthorized origin."}]))))
-        {user-id :user_id
-         app-id  :app_id}      oauth-code
-        {refresh-token-id :id} (app-user-refresh-token-model/create! {:app-id  app-id
-                                                                      :id      (random-uuid)
-                                                                      :user-id user-id})
-        user                   (app-user-model/get-by-id {:app-id app-id
-                                                          :id     user-id})]
+  (let [app-id (ex/get-some-param! req (param-paths :app_id) uuid-util/coerce)
+        code (ex/get-some-param! req (param-paths :code) uuid-util/coerce)
+        code-verifier (some #(get-in req %) (param-paths :code_verifier))
+        oauth-code (app-oauth-code-model/consume! {:code code
+                                                   :app-id app-id
+                                                   :verifier code-verifier})
+        _ (when-let [origin (get-in req [:headers "origin"])]
+            (let [authorized-origins (app-authorized-redirect-origin-model/get-all-for-app
+                                      {:app-id app-id})]
+              (when-not (app-authorized-redirect-origin-model/find-match
+                         authorized-origins origin)
+                (ex/throw-validation-err! :origin origin [{:message "Unauthorized origin."}]))))
+        {:keys [app_id user_id client_id user_info]} oauth-code
+
+        _ (assert (= app-id app_id) (str "(= " app-id " " app_id ")"))
+
+        ;; TODO(dww): remove check for user_id after deploy (it will always be null)
+        {user-id :user_id} (if-not user_id
+                             (let [client (or (app-oauth-client-model/get-by-id {:app-id app-id
+                                                                                 :id client_id})
+                                              (ex/throw-oauth-err! "Missing OAuth client"))]
+                               (upsert-oauth-link! {:email (get user_info "email")
+                                                    :sub (get user_info "sub")
+                                                    :app-id app-id
+                                                    :provider-id (:provider_id client)}))
+                             {:user_id user_id})
+
+        refresh-token-id (random-uuid)
+
+        _ (app-user-refresh-token-model/create!
+           {:app-id app-id
+            :user-id user-id
+            :id refresh-token-id})
+
+        user (app-user-model/get-by-id
+              {:app-id app-id
+               :id user-id})]
+
     (assert (= app-id (:app_id user)) (str "(= " app-id " " (:app_id user) ")"))
-    (response/ok {:user          (assoc user :refresh_token refresh-token-id)
+
+    (response/ok {:user (assoc user :refresh_token refresh-token-id)
                   :refresh_token refresh-token-id})))
 
 (defn oauth-id-token-callback [{{:keys [nonce]} :body :as req}]

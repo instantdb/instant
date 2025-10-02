@@ -14,12 +14,12 @@
 (defn create!
   ([params] (create! (aurora/conn-pool :write) params))
   ([conn {:keys [code
-                 user-id
                  app-id
                  code-challenge-method
                  code-challenge
                  client-id
-                 auth-code]}]
+                 user-id
+                 user-info]}]
    (update-op
     conn
     {:app-id app-id
@@ -29,13 +29,16 @@
             code-hash (-> code
                           crypt-util/uuid->sha256
                           crypt-util/bytes->hex-string)]
-        (transact! [[:add-triple eid (resolve-id :id) eid]
-                    [:add-triple eid (resolve-id :codeHash) code-hash]
-                    [:add-triple eid (resolve-id :$user) user-id] ;; TODO remove
-                    [:add-triple eid (resolve-id :codeChallengeMethod) code-challenge-method]
-                    [:add-triple eid (resolve-id :codeChallenge) code-challenge]
-                    [:add-triple eid (resolve-id :$oauthClient) client-id]
-                    [:add-triple eid (resolve-id :authCode) auth-code]])
+        (transact! (concat [[:add-triple eid (resolve-id :id) eid]
+                            [:add-triple eid (resolve-id :codeHash) code-hash]
+                            [:add-triple eid (resolve-id :codeChallengeMethod) code-challenge-method]
+                            [:add-triple eid (resolve-id :codeChallenge) code-challenge]
+                            [:add-triple eid (resolve-id :$oauthClient) client-id]]
+                           ;; TODO(dww): remove after oauth callback is deployed
+                           (when user-id
+                             [[:add-triple eid (resolve-id :$user) user-id]])
+                           (when user-info
+                             [[:add-triple eid (resolve-id :userInfo) user-info]])))
         (get-entity eid))))))
 
 (defn expired?
