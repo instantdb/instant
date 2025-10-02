@@ -157,7 +157,10 @@ const platformConfig = {
       '../lib/intern/llm-example/llm-rules-template.md',
     ),
     outputDir: path.join(BASE_PUBLIC_RULES_PATH, 'next'),
-    createInstantAppOutputDir: path.join(BASE_CREATE_INSTANT_APP_PATH, 'next'),
+    createInstantAppOutputDir: path.join(
+      BASE_CREATE_INSTANT_APP_PATH,
+      'next-js-app-dir',
+    ),
   },
   expo: {
     templatePath: path.join(
