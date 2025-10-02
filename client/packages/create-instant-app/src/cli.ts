@@ -112,11 +112,21 @@ export const runCli = async (): Promise<Project> => {
         return null;
       },
       base: async ({ results }) => {
-        if (results.prompt) {
-          return 'next-js-app-dir';
-        }
         if (flags.base) {
           return flags.base as Project['base'];
+        }
+
+        if (results.prompt) {
+          return unwrapSkippablePrompt(
+            p.select({
+              message: 'What framework would you like to use?',
+              options: [
+                { value: 'next-js-app-dir', label: 'Next.js' },
+                { value: 'expo', label: 'Expo: React Native' },
+              ],
+              initialValue: 'next-js-app-dir' as Project['base'],
+            }),
+          );
         }
 
         return unwrapSkippablePrompt(
@@ -136,8 +146,11 @@ export const runCli = async (): Promise<Project> => {
           return 'claude';
         }
 
-        // No rules files for anything besides nextjs (for now)
-        if (results.base !== 'next-js-app-dir') {
+        // Only ask about rule files if the base supports it
+        if (
+          results.base !== 'next-js-app-dir' &&
+          results.base !== 'expo'
+        ) {
           return null;
         }
 
