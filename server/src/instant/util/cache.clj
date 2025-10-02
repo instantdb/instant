@@ -73,6 +73,11 @@
    (when-some [keys' (not-empty (filter some? keys))]
      (.invalidateAll (.synchronous cache) keys'))))
 
+(defn reset
+  "Invalidates the entire cache."
+  [^Cache cache]
+  (.invalidateAll cache))
+
 (defn get
   "Returns the value associated with the key in this cache, obtaining that value
    from the mappingFunction if necessary. This method provides a simple substitute

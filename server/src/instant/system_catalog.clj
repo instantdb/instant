@@ -280,11 +280,7 @@
    (make-attr "$oauthRedirects" "codeChallengeMethod"
               :checked-data-type :string)
    (make-attr "$oauthRedirects" "codeChallenge"
-              :checked-data-type :string)
-   (make-attr "$oauthRedirects" "$user"
-              :reverse-identity (get-ident-spec "$users" "$oauthRedirects")
-              :value-type :ref
-              :on-delete :cascade)])
+              :checked-data-type :string)])
 
 (def $files-attrs
   [(make-attr "$files" "id"

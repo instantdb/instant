@@ -164,7 +164,9 @@
   (cache/make {:max-size 512}))
 
 (defn evict-app-id-from-cache [app-id]
-  (cache/invalidate attr-cache app-id))
+  (if (= app-id system-catalog-app-id)
+    (cache/reset attr-cache)
+    (cache/invalidate attr-cache app-id)))
 
 (defmacro with-cache-invalidation [app-id & body]
   `(do

@@ -198,20 +198,15 @@
                       oauth-client
                       (str app-id state)
                       oauth-redirect-url
-                      extra-params)
+                      extra-params)]
 
-        guest-user (when-some [refresh-token (ex/get-optional-param! req [:params :refresh_token] uuid-util/coerce)]
-                     (app-user-model/get-by-refresh-token!
-                      {:app-id        app-id
-                       :refresh-token refresh-token}))]
     (app-oauth-redirect-model/create! {:app-id app-id
                                        :state state
                                        :cookie cookie-uuid
                                        :oauth-client-id (:id client)
                                        :redirect-url app-redirect-url
                                        :code-challenge code_challenge
-                                       :code-challenge-method code_challenge_method
-                                       :user-id (:id guest-user)})
+                                       :code-challenge-method code_challenge_method})
     (-> (response/found redirect-url)
         (response/set-cookie oauth-cookie-name
                              (format-cookie cookie-uuid)
@@ -245,6 +240,9 @@
 
       (= 1 (count users))
       (let [user (first users)]
+        ;; extra caution because it would be really bad to
+        ;; return users for a different app
+        (assert (= app-id (:app_users/app_id user)))
         (cond (not= (:app_users/email user) email)
               (tracer/with-span! {:name "app-user/update-email"
                                   :attributes {:id (:app_users/id user)
@@ -285,7 +283,7 @@
    We don't have a way to close the page when opening an external app, so
    this opens the external app when we load the page and shows an \"Open app\"
    button. In case the redirect was dismissed."
-  [redirect-url]
+  [email redirect-url]
   {:status 200
    :headers {"content-type" "text/html"}
    :body (str (h/html (h/raw "<!DOCTYPE html>")
@@ -340,6 +338,7 @@
                              }
                            }"]]
                        [:body
+                        [:p "Logged in as " email]
                         [:p
                          [:a {:class "button"
                               :href redirect-url}
@@ -427,7 +426,7 @@
 
       (if (some-> redirect-url uri/parse :scheme (string/starts-with? "http"))
         (response/found redirect-url)
-        (oauth-callback-landing redirect-url)))
+        (oauth-callback-landing email redirect-url)))
 
     (catch clojure.lang.ExceptionInfo e
       (let [{:keys [type oauth-redirect message]} (ex-data e)]
@@ -469,12 +468,6 @@
                      (app-user-model/get-by-refresh-token!
                       {:app-id app-id
                        :refresh-token refresh-token}))
-
-        {user-id :user_id}  (upsert-oauth-link! {:email       email
-                                                 :sub         (:sub user-info)
-                                                 :app-id      app-id
-                                                 :provider-id (:provider_id client)
-                                                 })
 
         {user-id :user_id} (upsert-oauth-link! {:email (get user_info "email")
                                                 :sub (get user_info "sub")
