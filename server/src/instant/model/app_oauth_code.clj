@@ -18,7 +18,7 @@
                  code-challenge-method
                  code-challenge
                  client-id
-                 auth-code]}]
+                 user-info]}]
    (update-op
     conn
     {:app-id app-id
@@ -33,7 +33,7 @@
                     [:add-triple eid (resolve-id :codeChallengeMethod) code-challenge-method]
                     [:add-triple eid (resolve-id :codeChallenge) code-challenge]
                     [:add-triple eid (resolve-id :$oauthClient) client-id]
-                    [:add-triple eid (resolve-id :authCode) auth-code]])
+                    [:add-triple eid (resolve-id :userInfo) user-info]])
         (get-entity eid))))))
 
 (defn expired?

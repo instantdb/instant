@@ -75,7 +75,8 @@
    "content-type" "c-type"
    "content-disposition" "cdisp"
    "location-id" "lid"
-   "key-version" "kv"})
+   "key-version" "kv"
+   "userInfo" "userInfo"})
 
 (def shortcodes-label (map-invert label-shortcodes))
 
@@ -250,8 +251,7 @@
               :checked-data-type :string)
    (make-attr "$oauthCodes" "codeChallenge"
               :checked-data-type :string)
-   (make-attr "$oauthCodes" "authCode"
-              :checked-data-type :string)
+   (make-attr "$oauthCodes" "userInfo")
    (make-attr "$oauthCodes" "$oauthClient"
               :reverse-identity (get-ident-spec "$oauthClients" "$oauthCodes")
               :value-type :ref
