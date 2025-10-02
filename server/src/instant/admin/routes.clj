@@ -393,7 +393,7 @@
              {:app-id  app-id
               :email   email
               :code    code
-              :user-id (:id guest-user)})})))
+              :guest-user-id (:id guest-user)})})))
 
 (defn sign-in-guest-post [req]
   (let [{:keys [app-id]} (req->app-id-authed! req :data/write)
