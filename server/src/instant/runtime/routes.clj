@@ -66,9 +66,11 @@
         code       (ex/get-param! req [:body :code]   string-util/safe-trim)
         app-id     (ex/get-param! req [:body :app-id] uuid-util/coerce)
         guest-user (when-some [refresh-token (ex/get-optional-param! req [:body :refresh-token] uuid-util/coerce)]
-                     (app-user-model/get-by-refresh-token!
-                      {:app-id        app-id
-                       :refresh-token refresh-token}))
+                     (let [user (app-user-model/get-by-refresh-token!
+                                 {:app-id        app-id
+                                  :refresh-token refresh-token})]
+                       (when (= "guest" (:type user))
+                         user)))
         user       (magic-code-auth/verify! {:app-id  app-id
                                              :email   email
                                              :code    code
@@ -469,9 +471,11 @@
                    (ex/throw-oauth-err! "Missing OAuth client"))
 
         guest-user (when-some [refresh-token (ex/get-optional-param! req [:body :refresh_token] uuid-util/coerce)]
-                     (app-user-model/get-by-refresh-token!
-                      {:app-id app-id
-                       :refresh-token refresh-token}))
+                     (let [user (app-user-model/get-by-refresh-token!
+                                 {:app-id app-id
+                                  :refresh-token refresh-token})]
+                       (when (= "guest" (:type user))
+                         user)))
 
         {user-id :user_id} (upsert-oauth-link! {:email (get user_info "email")
                                                 :sub (get user_info "sub")
@@ -526,11 +530,18 @@
                                  {:app-id app-id
                                   :id current-refresh-token-id}))
 
+        guest-user (when current-refresh-token-id
+                     (let [user (app-user-model/get-by-refresh-token!
+                                 {:app-id app-id
+                                  :refresh-token current-refresh-token-id})]
+                       (when (= "guest" (:type user))
+                         user)))
+
         social-login (upsert-oauth-link! {:email       email
                                           :sub         sub
                                           :app-id      (:app_id client)
                                           :provider-id (:provider_id client)
-                                          :guest-user-id (:user_id current-refresh-token)})
+                                          :guest-user-id (:id guest-user)})
 
         {refresh-token-id :id} (if (and current-refresh-token
                                         (= (:user_id social-login)

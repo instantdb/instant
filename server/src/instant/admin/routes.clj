@@ -385,9 +385,11 @@
         email            (ex/get-param! req [:body :email] email/coerce)
         code             (ex/get-param! req [:body :code] string-util/safe-trim)
         guest-user       (when-some [refresh-token (ex/get-optional-param! req [:body :refresh-token] uuid-util/coerce)]
-                           (app-user-model/get-by-refresh-token!
-                            {:app-id        app-id
-                             :refresh-token refresh-token}))]
+                           (let [user (app-user-model/get-by-refresh-token!
+                                       {:app-id        app-id
+                                        :refresh-token refresh-token})]
+                             (when (= "guest" (:type user))
+                               user)))]
     (response/ok
      {:user (magic-code-auth/verify!
              {:app-id  app-id
