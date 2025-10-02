@@ -530,7 +530,8 @@
                                           :sub         sub
                                           :app-id      (:app_id client)
                                           :provider-id (:provider_id client)
-                                          :user-id     (:user_id current-refresh-token)})
+                                          :guest-user-id (:user_id current-refresh-token)})
+
         {refresh-token-id :id} (if (and current-refresh-token
                                         (= (:user_id social-login)
                                            (:user_id current-refresh-token)))

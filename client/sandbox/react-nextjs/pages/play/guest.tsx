@@ -421,7 +421,7 @@ function SignedInAsGuest({ user }: { user: any }) {
 
 function SignedIn({ user }: { user: any }) {
   const { data, isLoading, error } = db.useQuery({
-    guestSandboxData: { $: { where: { creatorId: user.id } } },
+    guestSandbox: { $: { where: { creatorId: user.id } } },
     $users: { $: { where: { id: user.id } }, linkedGuestUsers: {} },
   });
 
@@ -450,8 +450,8 @@ function SignedIn({ user }: { user: any }) {
       {data ? (
         <div className="p-4">
           <div>Data for the user</div>
-          {data.guestSandboxData.map((x) => (
-            <div>{JSON.stringify(x.date)}</div>
+          {data.guestSandbox.map((x) => (
+            <div key={x.id}>{x.num}</div>
           ))}
           <div>Linked Guest Users</div>
           {guestUsers?.map((u) => (
@@ -467,10 +467,9 @@ function SignedIn({ user }: { user: any }) {
       <button
         onClick={() =>
           db.transact(
-            // @ts-ignore: it doesn't like the date, but the date works
-            db.tx.guestSandboxData[id()].create({
+            db.tx.guestSandbox[id()].update({
               creatorId: user.id,
-              date: new Date(),
+              num: Math.floor(Math.random() * 100),
             }),
           )
         }
