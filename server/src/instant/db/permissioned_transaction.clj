@@ -33,25 +33,20 @@
       (update :program :display-code)))
 
 (defn validate-reserved-names!
-  "Throws a validation error if the users tries to add triples to reserved tables"
+  "Throws a validation error if the users tries to add triples to the $users table"
   [{:keys [admin?]} tx-step-maps]
-  (when (not admin?)
-    (doseq [{:keys [op aid etype] :as tx-step} tx-step-maps
-            :when (and (contains? #{:add-triple :deep-merge-triple :retract-triple :delete-entity} op)
-                       (string/starts-with? etype "$")
-                       (not (or
-                             ;; let people change path on files
-                             ;; we'll validate other fields in transaction/prevent-$files-updates
-                             (= etype "$files")
-
-                             ;; Let users remove a link to a primary account
-                             (and (= :retract-triple op)
-                                  (= aid (:id system-catalog/$users-linked-primary-user))))))]
-      (ex/throw-validation-err!
-       :tx-step
-       (tx/vectorize-tx-step tx-step)
-       [{:message (format "The %s namespace is read-only. It can't be modified."
-                          etype)}]))))
+  (doseq [{:keys [op etype] :as tx-step} tx-step-maps
+          :when (#{:add-triple :deep-merge-triple :retract-triple :delete-entity} op)
+          :when (and (string/starts-with? etype "$")
+                     (not admin?)
+                     ;; checking admin? is not enough for $files so we handle
+                     ;; validations later
+                     (not (string/starts-with? etype "$files")))]
+    (ex/throw-validation-err!
+     :tx-step
+     (tx/vectorize-tx-step tx-step)
+     [{:message (format "The %s namespace is read-only. It can't be modified."
+                        etype)}])))
 
 (defn coerce-value-uuids
   "Checks that all ref values are either lookup refs or UUIDs"
