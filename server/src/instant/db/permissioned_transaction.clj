@@ -9,7 +9,6 @@
    [instant.db.transaction :as tx]
    [instant.jdbc.aurora :as aurora]
    [instant.model.rule :as rule-model]
-   [instant.system-catalog :as system-catalog]
    [instant.util.exception :as ex]
    [instant.util.io :as io]
    [instant.util.string :as string-util]
