@@ -28,12 +28,12 @@
             code-hash (-> code
                           crypt-util/uuid->sha256
                           crypt-util/bytes->hex-string)]
-        (transact! (concat [[:add-triple eid (resolve-id :id) eid]
-                            [:add-triple eid (resolve-id :codeHash) code-hash]
-                            [:add-triple eid (resolve-id :codeChallengeMethod) code-challenge-method]
-                            [:add-triple eid (resolve-id :codeChallenge) code-challenge]
-                            [:add-triple eid (resolve-id :$oauthClient) client-id]
-                            [:add-triple eid (resolve-id :userInfo) user-info]]))
+        (transact! [[:add-triple eid (resolve-id :id) eid]
+                    [:add-triple eid (resolve-id :codeHash) code-hash]
+                    [:add-triple eid (resolve-id :codeChallengeMethod) code-challenge-method]
+                    [:add-triple eid (resolve-id :codeChallenge) code-challenge]
+                    [:add-triple eid (resolve-id :$oauthClient) client-id]
+                    [:add-triple eid (resolve-id :userInfo) user-info]])
         (get-entity eid))))))
 
 (defn expired?
