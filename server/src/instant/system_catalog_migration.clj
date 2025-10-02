@@ -33,7 +33,6 @@
   (let [by-id (zipmap (map :id system-catalog/all-attrs)
                       system-catalog/all-attrs)]
     (keep (fn [attr]
-            (tool/def-locals)
             (when-not (get by-id (:id attr))
               {:id (:id attr)
                :etype (attr-model/fwd-etype attr)
