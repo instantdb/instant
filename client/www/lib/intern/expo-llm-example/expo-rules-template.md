@@ -59,11 +59,11 @@ Before generating a new expo app you check to see if a next project already exis
 
 Make sure the following expo packages are also installed:
 
-* @react-native-async-storage/async-storage
-* @react-native-community/netinfo
-* react-native-get-random-values
-* react-native-safe-area-context
-* expo-image-picker
+- @react-native-async-storage/async-storage
+- @react-native-community/netinfo
+- react-native-get-random-values
+- react-native-safe-area-context
+- expo-image-picker
 
 If the Instant MCP is available use the tools to create apps and manage schema.
 

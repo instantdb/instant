@@ -99,7 +99,9 @@ function buildClaudeRules(sections: Sections): string {
     sections.APP_DESCRIPTION,
     sections.APP_CODE,
     sections.DOCUMENTATION,
-  ].filter(x => x != '').join('\n\n');
+  ]
+    .filter((x) => x != '')
+    .join('\n\n');
 }
 
 function buildCursorRules(sections: Sections): string {
@@ -110,7 +112,9 @@ function buildCursorRules(sections: Sections): string {
     sections.APP_DESCRIPTION,
     sections.APP_CODE,
     sections.DOCUMENTATION,
-  ].filter(x => x != '').join('\n\n');
+  ]
+    .filter((x) => x != '')
+    .join('\n\n');
 }
 
 function buildWindsurfRules(sections: Sections): string {
@@ -121,7 +125,9 @@ function buildWindsurfRules(sections: Sections): string {
     sections.APP_DESCRIPTION,
     sections.APP_CODE,
     sections.DOCUMENTATION,
-  ].filter(x => x != '').join('\n\n');
+  ]
+    .filter((x) => x != '')
+    .join('\n\n');
 }
 
 function buildOtherRules(sections: Sections): string {
@@ -131,47 +137,41 @@ function buildOtherRules(sections: Sections): string {
     sections.APP_DESCRIPTION,
     sections.APP_CODE,
     sections.DOCUMENTATION,
-  ].filter(x => x != '').join('\n\n');
+  ]
+    .filter((x) => x != '')
+    .join('\n\n');
 }
 
 type Platform = 'next' | 'expo';
 
-const BASE_PUBLIC_RULES_PATH = path.join(
-  __dirname,
-  '../public/llm-rules',
-);
+const BASE_PUBLIC_RULES_PATH = path.join(__dirname, '../public/llm-rules');
 const BASE_CREATE_INSTANT_APP_PATH = path.join(
   __dirname,
   '../../packages/create-instant-app/template/rules',
 );
 
 const platformConfig = {
-  'next': {
+  next: {
     templatePath: path.join(
       __dirname,
       '../lib/intern/llm-example/llm-rules-template.md',
     ),
     outputDir: path.join(BASE_PUBLIC_RULES_PATH, 'next'),
-    createInstantAppOutputDir: path.join(
-      BASE_CREATE_INSTANT_APP_PATH,
-      'next',
-    ),
+    createInstantAppOutputDir: path.join(BASE_CREATE_INSTANT_APP_PATH, 'next'),
   },
-  'expo': {
+  expo: {
     templatePath: path.join(
       __dirname,
       '../lib/intern/expo-llm-example/expo-rules-template.md',
     ),
     outputDir: path.join(BASE_PUBLIC_RULES_PATH, 'expo'),
-    createInstantAppOutputDir: path.join(
-      BASE_CREATE_INSTANT_APP_PATH,
-      'expo',
-    ),
+    createInstantAppOutputDir: path.join(BASE_CREATE_INSTANT_APP_PATH, 'expo'),
   },
-}
+};
 
 async function generateLLMRuleFiles(platform: Platform) {
-  const { templatePath, outputDir, createInstantAppOutputDir } = platformConfig[platform];
+  const { templatePath, outputDir, createInstantAppOutputDir } =
+    platformConfig[platform];
   console.log(`Parsing template file for ${platform}...`);
   const sections = parseTemplate(templatePath);
 
@@ -202,14 +202,15 @@ async function generateLLMRuleFiles(platform: Platform) {
     fs.writeFileSync(outputPath, content);
     console.log(`  ✅ Generated: ${filename} in ${outputDir}`);
 
-    const createInstantAppOutputPath = path.join(createInstantAppOutputDir, filename);
+    const createInstantAppOutputPath = path.join(
+      createInstantAppOutputDir,
+      filename,
+    );
     fs.writeFileSync(createInstantAppOutputPath, content);
     console.log(`  ✅ Generated: ${filename} in ${createInstantAppOutputDir}`);
   }
 
-  console.log(
-    `Successfully generated LLM rule files for ${platform}`,
-  );
+  console.log(`Successfully generated LLM rule files for ${platform}`);
 }
 
 async function main() {
