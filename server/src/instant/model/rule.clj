@@ -147,7 +147,7 @@
     (let [compiler (cel/action->compiler action)]
       (if (and (= "$users" etype)
                (#{"view" "link" "unlink"} action))
-        (let [code "auth.id == data.id"
+        (let [code "auth.id == data.id || auth.id == data.linkedPrimaryUser"
               ast (cel/->ast compiler code)]
           {:etype etype
            :action action

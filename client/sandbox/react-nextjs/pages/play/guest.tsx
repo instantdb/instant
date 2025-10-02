@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { init } from '@instantdb/react';
+import { init, id } from '@instantdb/react';
 import config from '../../config';
 // Import Google OAuth components
 import { GoogleLogin, GoogleOAuthProvider } from '@react-oauth/google';
@@ -420,6 +420,12 @@ function SignedInAsGuest({ user }: { user: any }) {
 }
 
 function SignedIn({ user }: { user: any }) {
+  const { data, isLoading, error } = db.useQuery({
+    guestSandboxData: { $: { where: { creatorId: user.id } } },
+    $users: { $: { where: { id: user.id } }, linkedGuestUsers: {} },
+  });
+
+  const guestUsers = data?.$users[0]?.linkedGuestUsers;
   return (
     <div className="my-6 max-w-4xl mx-auto">
       <table className="min-w-full border mb-6">
@@ -440,6 +446,38 @@ function SignedIn({ user }: { user: any }) {
             ))}
         </tbody>
       </table>
+
+      {data ? (
+        <div className="p-4">
+          <div>Data for the user</div>
+          {data.guestSandboxData.map((x) => (
+            <div>{JSON.stringify(x.date)}</div>
+          ))}
+          <div>Linked Guest Users</div>
+          {guestUsers?.map((u) => (
+            <div>{u.id}</div>
+          ))}
+        </div>
+      ) : isLoading ? (
+        'Loading'
+      ) : (
+        <div>{error.message}</div>
+      )}
+
+      <button
+        onClick={() =>
+          db.transact(
+            // @ts-ignore: it doesn't like the date, but the date works
+            db.tx.guestSandboxData[id()].create({
+              creatorId: user.id,
+              date: new Date(),
+            }),
+          )
+        }
+        className="px-4 py-2 mr-4 bg-blue-500 text-white rounded hover:bg-blue-600"
+      >
+        Add some data
+      </button>
 
       <button
         onClick={() => auth.signOut()}
