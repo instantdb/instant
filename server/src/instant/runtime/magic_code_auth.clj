@@ -119,7 +119,7 @@
         refresh-token-id (random-uuid)]
     (when (and guest-user-id
                (not= (:id user)
-                      guest-user-id))
+                     guest-user-id))
       (app-user-model/link-guest {:app-id app-id
                                   :primary-user-id (:id user)
                                   :guest-user-id guest-user-id}))

@@ -6,7 +6,9 @@
    [instant.fixtures :refer [with-empty-app]]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
+   [instant.db.model.triple :as triples]
    [instant.postmark :as postmark]
+   [instant.system-catalog :as system-catalog]
    [instant.util.coll :as coll]
    [instant.util.crypt :as crypt-util]
    [instant.util.json :refer [->json]]
@@ -214,5 +216,14 @@
              code2  (send-code app {:email "1@b.c"})
              user2  (verify-code app {:email         "1@b.c"
                                       :code          code2
-                                      :refresh-token (:refresh_token guest2)})
-             _      (is (not= (:id guest2) (:id user2)))])))))
+                                      :refresh-token (:refresh_token guest2)})]
+         (is (not= (:id guest2) (:id user2)))
+         (testing "we link the guest user to the real user"
+           (is (= (parse-uuid (:id user2))
+                  (-> (triples/fetch (aurora/conn-pool :read)
+                                     app-id
+                                     [[:= :entity_id (parse-uuid (:id guest2))]
+                                      [:= :attr_id (:id system-catalog/$users-linked-primary-user)]])
+                      first
+                      :triple
+                      last)))))))))
