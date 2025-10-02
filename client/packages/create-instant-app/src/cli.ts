@@ -147,10 +147,7 @@ export const runCli = async (): Promise<Project> => {
         }
 
         // Only ask about rule files if the base supports it
-        if (
-          results.base !== 'next-js-app-dir' &&
-          results.base !== 'expo'
-        ) {
+        if (results.base !== 'next-js-app-dir' && results.base !== 'expo') {
           return null;
         }
 
