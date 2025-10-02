@@ -407,9 +407,7 @@
           sub (or (:sub user-info)
                   (return-error "Missing sub." :oauth-redirect oauth-redirect))
 
-
           code (random-uuid)
-
 
           _ (app-oauth-code-model/create!
              (merge
@@ -418,7 +416,7 @@
                :code-challenge-method (:code_challenge_method oauth-redirect)
                :code-challenge (:code_challenge oauth-redirect)
                :client-id (:client_id oauth-redirect)
-               :user-info user-info}))
+               :user-info {:email email :sub sub}}))
 
           redirect-url (url/add-query-params
                         (:redirect_url oauth-redirect)
@@ -457,7 +455,7 @@
               (when-not (app-authorized-redirect-origin-model/find-match
                          authorized-origins origin)
                 (ex/throw-validation-err! :origin origin [{:message "Unauthorized origin."}]))))
-        {:keys [app_id user_id client_id user_info]} oauth-code
+        {:keys [app_id client_id user_info]} oauth-code
 
         _ (assert (= app-id app_id) (str "(= " app-id " " app_id ")"))
 
