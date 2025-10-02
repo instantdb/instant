@@ -5,7 +5,9 @@
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.system-catalog :as system-catalog]
-   [instant.util.tracer :as tracer]))
+   [instant.util.json :refer [->json]]
+   [instant.util.tracer :as tracer]
+   [lambdaisland.deep-diff2 :as ddiff]))
 
 (defn missing-attrs [existing-attrs]
   (filter (fn [attr]
@@ -14,6 +16,29 @@
                                       (drop 1))]
               (not (attr-model/seek-by-fwd-ident-name fwd-ident-name existing-attrs))))
           system-catalog/all-attrs))
+
+(defn mismatched-attrs [db-attrs]
+  (keep (fn [attr]
+          (let [db-attr (dissoc (attr-model/seek-by-id (:id attr) db-attrs)
+                                :inferred-types
+                                :catalog)]
+            (when (not= db-attr attr)
+              {:id (:id attr)
+               :etype (attr-model/fwd-etype db-attr)
+               :label (attr-model/fwd-label db-attr)
+               :diff (ddiff/minimize (ddiff/diff attr db-attr))})))
+        system-catalog/all-attrs))
+
+(defn extra-attrs [db-attrs]
+  (let [by-id (zipmap (map :id system-catalog/all-attrs)
+                      system-catalog/all-attrs)]
+    (keep (fn [attr]
+            (tool/def-locals)
+            (when-not (get by-id (:id attr))
+              {:id (:id attr)
+               :etype (attr-model/fwd-etype attr)
+               :label (attr-model/fwd-label attr)}))
+          db-attrs)))
 
 (defn ensure-attrs-on-system-catalog-app
   ([]
@@ -34,7 +59,18 @@
            string-ids (keep (fn [a]
                               (when (not= "meta" (attr-model/fwd-label a))
                                 (:id a)))
-                            new-attrs)]
+                            new-attrs)
+           mismatches (mismatched-attrs existing-attrs)
+           extras (extra-attrs existing-attrs)]
+       (when (seq mismatches)
+         (tracer/record-info! {:name "system-catalog/mismatched-attrs"
+                               :attributes {:mismatches (map (fn [m]
+                                                               (update m :diff ->json))
+                                                             mismatches)}}))
+
+       (when (seq extras)
+         (tracer/record-info! {:name "system-catalog/extra-attrs"
+                               :attributes {:extras extras}}))
        (when (seq json-ids)
          (sql/execute!
           (aurora/conn-pool :write)

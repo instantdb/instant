@@ -5,7 +5,6 @@
             [hiccup2.core :as h]
             [instant.auth.oauth :as oauth]
             [instant.config :as config]
-            [instant.flags :as flags]
             [instant.model.app :as app-model]
             [instant.model.app-authorized-redirect-origin :as app-authorized-redirect-origin-model]
             [instant.model.app-oauth-client :as app-oauth-client-model]
@@ -412,13 +411,6 @@
           code (random-uuid)
 
 
-          ;; TODO(dww): remove after deploy
-          user-id (when-not (flags/toggled? :delay-user-creation-to-token-exchange)
-                    (:user_id (upsert-oauth-link! {:email email
-                                                   :sub sub
-                                                   :app-id app-id
-                                                   :provider-id (:provider_id client)})))
-
           _ (app-oauth-code-model/create!
              (merge
               {:code code
@@ -426,7 +418,6 @@
                :code-challenge-method (:code_challenge_method oauth-redirect)
                :code-challenge (:code_challenge oauth-redirect)
                :client-id (:client_id oauth-redirect)
-               :user-id user-id
                :user-info user-info}))
 
           redirect-url (url/add-query-params
@@ -470,16 +461,14 @@
 
         _ (assert (= app-id app_id) (str "(= " app-id " " app_id ")"))
 
-        ;; TODO(dww): remove check for user_id after deploy (it will always be null)
-        {user-id :user_id} (if-not user_id
-                             (let [client (or (app-oauth-client-model/get-by-id {:app-id app-id
-                                                                                 :id client_id})
-                                              (ex/throw-oauth-err! "Missing OAuth client"))]
-                               (upsert-oauth-link! {:email (get user_info "email")
-                                                    :sub (get user_info "sub")
-                                                    :app-id app-id
-                                                    :provider-id (:provider_id client)}))
-                             {:user_id user_id})
+        client (or (app-oauth-client-model/get-by-id {:app-id app-id
+                                                      :id client_id})
+                   (ex/throw-oauth-err! "Missing OAuth client"))
+
+        {user-id :user_id} (upsert-oauth-link! {:email (get user_info "email")
+                                                :sub (get user_info "sub")
+                                                :app-id app-id
+                                                :provider-id (:provider_id client)})
 
         refresh-token-id (random-uuid)
 
