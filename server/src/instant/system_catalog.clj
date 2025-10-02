@@ -247,11 +247,6 @@
               :unique? true
               :index? true
               :checked-data-type :string)
-   ;; TODO(dww): remove after late user creation deploys
-   (make-attr "$oauthCodes" "$user"
-              :reverse-identity (get-ident-spec "$users" "$oauthCodes")
-              :value-type :ref
-              :on-delete :cascade)
    (make-attr "$oauthCodes" "codeChallengeMethod"
               :checked-data-type :string)
    (make-attr "$oauthCodes" "codeChallenge"
