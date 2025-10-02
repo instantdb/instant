@@ -144,6 +144,9 @@
       (create! {:id (UUID/randomUUID) :email email :app-id app-id})))
 
 (defn link-guest
+  "Links the guest account to a pre-exisiting user.
+   This only happens when a guest upgrades to a user, but the user
+   email already exists."
   ([params] (link-guest (aurora/conn-pool :write) params))
   ([conn {:keys [app-id primary-user-id guest-user-id]}]
    (update-op

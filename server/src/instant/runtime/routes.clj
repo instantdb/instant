@@ -272,15 +272,15 @@
 
       (= 0 (count users))
       (let [user (app-user-model/create!
-                  {:id     guest-user-id
+                  {:id guest-user-id
                    :app-id app-id
-                   :email  email
-                   :type   "user"})]
-        (app-user-oauth-link-model/create! {:id          (random-uuid)
-                                            :app-id      app-id
+                   :email email
+                   :type "user"})]
+        (app-user-oauth-link-model/create! {:id (random-uuid)
+                                            :app-id app-id
                                             :provider-id provider-id
-                                            :sub         sub
-                                            :user-id     (:id user)})))))
+                                            :sub sub
+                                            :user-id (:id user)})))))
 
 (defn oauth-callback-landing
   "Used for external apps to prevent a dangling page on redirect.

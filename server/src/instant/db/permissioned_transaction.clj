@@ -1,9 +1,7 @@
 (ns instant.db.permissioned-transaction
   (:require
-   [clojure.pprint :as pprint]
    [clojure.string :as string]
    [clojure+.core :as clojure+]
-   [instant.config :as config]
    [instant.db.cel :as cel]
    [instant.db.datalog :as d]
    [instant.db.model.attr :as attr-model]
