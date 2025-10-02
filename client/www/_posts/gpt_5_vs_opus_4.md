@@ -81,7 +81,7 @@ Both models made about 2 errors. **All errors were all related to new features.*
 
 But **both models fixed all errors in one shot**. They just needed me to paste an error message and they were able to solve it.
 
-It was interesting to see how GPT-5 made an error with "db.SignedIn". Instructions for how to use it were already included in the <a href="https://www.instantdb.com/mcp-tutorial/cursor-rules.md" target="_blank">rules.md</a> file. I think this is related to how closely the models follow rules.
+It was interesting to see how GPT-5 made an error with "db.SignedIn". Instructions for how to use it were already included in the <a href="https://www.instantdb.com/llm-rules/next/cursor-rules.md" target="_blank">rules.md</a> file. I think this is related to how closely the models follow rules.
 
 **Opus seemed to follow the rule file more closely, while GPT-5 seems to explore more**. Opus used the exact same patterns that provided in the rules file. This let them skip past the "db.SignedIn" bug. On the other hand, GPT-5 seemed to be more free with what it tried. It did get more bugs, but it wrote code that was objectively more "different" then the examples that we provided. In one case, it wrote a simpler schema file.
 

@@ -22,7 +22,7 @@ you should see a response with information about `db.useQuery` and `db.transact`
 
 ### Cursor
 
-Save [these rules](/mcp-tutorial/cursor-rules.md) at the root of your project in
+Save [these rules](/llm-rules/next/cursor-rules.md) at the root of your project in
 `.cursor/rules/instant.mdc` You may need to restart Cursor for them to take
 effect.
 
@@ -31,20 +31,20 @@ Sonnet 4
 
 ### Claude Code
 
-Save [these instructions](/mcp-tutorial/claude.md) at the root of your
-project in `CLAUDE.md` and [these rules](/mcp-tutorial/claude-rules.md) in `instant-rules.md`. If you already had claude running, restart it for the rules to take effect.
+Save [these instructions](/llm-rules/next/claude.md) at the root of your
+project in `CLAUDE.md` and [these rules](/llm-rules/next/claude-rules.md) in `instant-rules.md`. If you already had claude running, restart it for the rules to take effect.
 
 ### Windsurf
 
-Save [these rules](/mcp-tutorial/windsurf-rules.md) at the root of your project in `.windsurf/rules/instant.md`. You may need to restart Windsurf for them to take effect.
+Save [these rules](/llm-rules/next/windsurf-rules.md) at the root of your project in `.windsurf/rules/instant.md`. You may need to restart Windsurf for them to take effect.
 
 ### Zed
 
-Save [these rules](/mcp-tutorial/other-rules.md) at the root of your project in `AGENT.md`. You may need to restart Zed for them to take effect.
+Save [these rules](/llm-rules/next/other-rules.md) at the root of your project in `AGENT.md`. You may need to restart Zed for them to take effect.
 
 ### Other Tools
 
-Use [these rules](/mcp-tutorial/other-rules.md) to give context on how to use
+Use [these rules](/llm-rules/next/other-rules.md) to give context on how to use
 Instant. If want to manually add in more documentation, you can also append
 `.md` to the end of any doc page url to get the raw markdown
 
