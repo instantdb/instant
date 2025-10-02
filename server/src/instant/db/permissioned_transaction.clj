@@ -11,6 +11,7 @@
    [instant.db.transaction :as tx]
    [instant.jdbc.aurora :as aurora]
    [instant.model.rule :as rule-model]
+   [instant.system-catalog :as system-catalog]
    [instant.util.exception :as ex]
    [instant.util.io :as io]
    [instant.util.string :as string-util]
@@ -34,20 +35,25 @@
       (update :program :display-code)))
 
 (defn validate-reserved-names!
-  "Throws a validation error if the users tries to add triples to the $users table"
+  "Throws a validation error if the users tries to add triples to reserved tables"
   [{:keys [admin?]} tx-step-maps]
-  (doseq [{:keys [op etype] :as tx-step} tx-step-maps
-          :when (#{:add-triple :deep-merge-triple :retract-triple :delete-entity} op)
-          :when (and (string/starts-with? etype "$")
-                     (not admin?)
-                     ;; checking admin? is not enough for $files so we handle
-                     ;; validations later
-                     (not (string/starts-with? etype "$files")))]
-    (ex/throw-validation-err!
-     :tx-step
-     (tx/vectorize-tx-step tx-step)
-     [{:message (format "The %s namespace is read-only. It can't be modified."
-                        etype)}])))
+  (when (not admin?)
+    (doseq [{:keys [op aid etype] :as tx-step} tx-step-maps
+            :when (and (contains? #{:add-triple :deep-merge-triple :retract-triple :delete-entity} op)
+                       (string/starts-with? etype "$")
+                       (not (or
+                             ;; let people change path on files
+                             ;; we'll validate other fields in transaction/prevent-$files-updates
+                             (= etype "$files")
+
+                             ;; Let users remove a link to a primary account
+                             (and (= :retract-triple op)
+                                  (= aid (:id system-catalog/$users-linked-primary-user))))))]
+      (ex/throw-validation-err!
+       :tx-step
+       (tx/vectorize-tx-step tx-step)
+       [{:message (format "The %s namespace is read-only. It can't be modified."
+                          etype)}]))))
 
 (defn coerce-value-uuids
   "Checks that all ref values are either lookup refs or UUIDs"
@@ -515,9 +521,6 @@
     (doall
      (for [{:keys [scope etype result] :as check} results]
        (do
-         (when (and (= :dev (config/get-env))
-                    (not result))
-           (pprint/pprint (printable-check check)))
          (when-not (:admin-check? ctx)
            (ex/assert-permitted! :perms-pass? [etype scope] result))
          (-> check

@@ -217,7 +217,7 @@
                               ;; matches everything under the subdirectory
                               :path "/runtime/oauth"}))))
 
-(defn upsert-oauth-link! [{:keys [email sub app-id provider-id user-id]}]
+(defn upsert-oauth-link! [{:keys [email sub app-id provider-id guest-user-id]}]
   (let [users (app-user-model/get-by-email-or-oauth-link-qualified
                {:email email
                 :app-id app-id
@@ -243,6 +243,10 @@
         ;; extra caution because it would be really bad to
         ;; return users for a different app
         (assert (= app-id (:app_users/app_id user)))
+        (when guest-user-id
+          (app-user-model/link-guest {:app-id app-id
+                                      :guest-user-id guest-user-id
+                                      :primary-user-id (:app_users/id user)}))
         (cond (not= (:app_users/email user) email)
               (tracer/with-span! {:name "app-user/update-email"
                                   :attributes {:id (:app_users/id user)
@@ -268,7 +272,7 @@
 
       (= 0 (count users))
       (let [user (app-user-model/create!
-                  {:id     user-id
+                  {:id     guest-user-id
                    :app-id app-id
                    :email  email
                    :type   "user"})]
@@ -464,7 +468,7 @@
                                                       :id client_id})
                    (ex/throw-oauth-err! "Missing OAuth client"))
 
-        guest-user (when-some [refresh-token (ex/get-optional-param! req [:body :refresh-token] uuid-util/coerce)]
+        guest-user (when-some [refresh-token (ex/get-optional-param! req [:body :refresh_token] uuid-util/coerce)]
                      (app-user-model/get-by-refresh-token!
                       {:app-id app-id
                        :refresh-token refresh-token}))
@@ -473,7 +477,7 @@
                                                 :sub (get user_info "sub")
                                                 :app-id app-id
                                                 :provider-id (:provider_id client)
-                                                :user-id (:id guest-user)})
+                                                :guest-user-id (:id guest-user)})
 
         refresh-token-id (random-uuid)
 

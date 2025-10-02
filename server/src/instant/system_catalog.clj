@@ -47,6 +47,7 @@
 (defn reserved? [etype]
   (string/starts-with? etype "$"))
 
+;; Must be 10 chars or shorter
 (def label-shortcodes
   {"id" "id"
    "email" "email"
@@ -76,12 +77,14 @@
    "content-disposition" "cdisp"
    "location-id" "lid"
    "key-version" "kv"
-   "userInfo" "userInfo"})
+   "userInfo" "userInfo"
+   "linkedGuestUsers" "lgu"
+   "linkedPrimaryUser" "lpu"})
 
 (def shortcodes-label (map-invert label-shortcodes))
 
 (defn encode-string->long [input]
-  (assert (< (count input) 13))
+  (assert (< (count input) 13) input)
   (let [base (apply str (map (fn [c] (char->bitstring c)) input))
         padded (apply str base (repeat (- 64 (count base)) "1"))]
     (.getLong (java.nio.ByteBuffer/wrap
@@ -147,6 +150,13 @@
           :cardinality      :one}
          (apply hash-map props)))
 
+(def $users-linked-primary-user
+  (make-attr "$users" "linkedPrimaryUser"
+             :reverse-identity (get-ident-spec "$users" "linkedGuestUsers")
+             :value-type :ref
+             :on-delete-reverse :cascade
+             :cardinality :one))
+
 (def $users-attrs
   [(make-attr "$users" "id"
               :unique? true
@@ -156,7 +166,8 @@
               :index? true
               :checked-data-type :string)
    (make-attr "$users" "type"
-              :checked-data-type :string)])
+              :checked-data-type :string)
+   $users-linked-primary-user])
 
 (def $magic-code-attrs
   [(make-attr "$magicCodes" "id"
