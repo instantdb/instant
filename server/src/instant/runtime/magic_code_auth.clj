@@ -98,7 +98,12 @@
 
   (send! {:app-id (:id app) :email "stopa@instantdb.com"}))
 
-(defn verify! [{:keys [app-id email code user-id]}]
+(defn verify!
+  "Consumes the code and if the code is good, upserts the user.
+
+   If a guest-user-id is passed in, it will either upgrade the guest user
+   or link it to the existing user for the email."
+  [{:keys [app-id email code guest-user-id]}]
   (app-user-magic-code-model/consume!
    {:app-id app-id
     :code   code
@@ -107,11 +112,17 @@
                   {:app-id app-id
                    :email  email})
                  (app-user-model/create!
-                  {:id     user-id
+                  {:id (or guest-user-id (random-uuid))
                    :app-id app-id
                    :email  email
                    :type   "user"}))
         refresh-token-id (random-uuid)]
+    (when (and guest-user-id
+               (not= (:id user)
+                      guest-user-id))
+      (app-user-model/link-guest {:app-id app-id
+                                  :primary-user-id (:id user)
+                                  :guest-user-id guest-user-id}))
     (app-user-refresh-token-model/create!
      {:app-id  app-id
       :id      refresh-token-id

@@ -72,7 +72,7 @@
         user       (magic-code-auth/verify! {:app-id  app-id
                                              :email   email
                                              :code    code
-                                             :user-id (:id guest-user)})]
+                                             :guest-user-id (:id guest-user)})]
     (response/ok {:user user})))
 
 (comment
