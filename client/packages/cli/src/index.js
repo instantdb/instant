@@ -8,7 +8,7 @@ import {
 } from '@instantdb/platform';
 import version from './version.js';
 import { existsSync } from 'fs';
-import { mkdir, writeFile, readFile } from 'fs/promises';
+import { mkdir, writeFile, readFile, unlink } from 'fs/promises';
 import path, { join } from 'path';
 import { randomUUID } from 'crypto';
 import jsonDiff from 'json-diff';
@@ -312,6 +312,13 @@ program
   .action(async (opts) => {
     console.log("Let's log you in!");
     await login(opts);
+  });
+
+program
+  .command('logout')
+  .description('Log out of your Instant account')
+  .action(async () => {
+    await logout();
   });
 
 program
@@ -643,6 +650,23 @@ async function login(options) {
     console.log(chalk.green(`Successfully logged in as ${email}!`));
   }
   return token;
+}
+
+async function logout() {
+  const { authConfigFilePath } = getAuthPaths();
+
+  try {
+    await unlink(authConfigFilePath);
+    console.log(chalk.green('Successfully logged out from Instant!'));
+    return true;
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      console.log(chalk.green('You were already logged out!'));
+    } else {
+      error('Failed to logout: ' + error.message);
+    }
+    return false;
+  }
 }
 
 const packageAliasAndFullNames = {

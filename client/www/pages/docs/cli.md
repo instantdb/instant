@@ -15,6 +15,16 @@ npx instant-cli@latest login
 
 This will open a browser window where you can authenticate with your Instant account. Once authenticated you'll be able to run commands that interact with your Instant apps!
 
+## Logout
+
+To log out of your Instant account and remove your authentication token from your local device, run:
+
+```shell {% showCopy=true %}
+npx instant-cli@latest logout
+```
+
+This will clear your stored credentials. You'll need to login again to interact with your Instant apps.
+
 ## Init
 
 To get started, head on over to your project's root repository, and write:
