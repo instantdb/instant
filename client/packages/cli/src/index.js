@@ -1639,7 +1639,7 @@ async function promptOk(message, defaultAnswer = false) {
  */
 function transformImports(code) {
   return code.replace(
-    /"@instantdb\/react-native"/g,
+    /["']@instantdb\/react-native["']/g,
     '"@instantdb/react-native/dist/cli"',
   );
 }
