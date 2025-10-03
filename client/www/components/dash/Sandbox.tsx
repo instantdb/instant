@@ -202,7 +202,7 @@ export function Sandbox({
     setHasUnsavedWork(false);
     setSandboxValue(saved.code);
     setPermsValue(saved.perms);
-    setRunAsUserEmail(saved.runAsUser);
+    setRunAsUserEmail(saved.runAsUser ?? undefined);
     setUseAppPerms(saved.useAppPerms);
   };
 
