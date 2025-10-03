@@ -9,7 +9,7 @@ Instant supports guest authentication. This allows your users to try your app be
 
 Use `db.auth.signInAsGuest()` to create a new guest user. This will create a new guest user with an id, but no email address.
 
-```tsx
+```tsx {% showCopy=true %}
 'use client';
 
 import React, { useState } from 'react';
