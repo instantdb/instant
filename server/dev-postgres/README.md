@@ -1,4 +1,4 @@
-Builds the image for postgres that is used in the local docker compose setup.
+Builds the image for postgres that is used in the local docker compose setup and in CI.
 
 Log in to GitHub's container registry:
 
