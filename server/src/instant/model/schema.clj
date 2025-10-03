@@ -6,6 +6,7 @@
             [instant.db.indexing-jobs :as indexing-jobs]
             [instant.model.rule :as rule-model]
             [instant.db.permissioned-transaction :as permissioned-tx]
+            [instant.util.coll :as ucoll]
             [instant.util.exception :as ex]
             [instant.system-catalog :as system-catalog])
   (:import (java.util UUID)))
@@ -404,9 +405,43 @@
 ;; ---
 ;; API
 
+(defn remove-system-entities [entities]
+  (ucoll/filter-keys #(not (system-catalog/reserved? (name %)))
+                     entities))
+
+(def system-catalog-links
+  (reduce (fn [acc attr]
+            (if-not (= :ref (:value-type attr))
+              acc
+              (conj acc {:forward {:on (attr-model/fwd-etype attr)
+                                   :has (name (:cardinality attr))
+                                   :label (attr-model/fwd-label attr)}
+                         :reverse {:on (attr-model/rev-etype attr)
+                                   :has (if (:unique? attr)
+                                          "one"
+                                          "many")
+                                   :label (attr-model/rev-label attr)}})))
+          #{}
+          system-catalog/all-attrs))
+
+(defn remove-system-links [links]
+  (reduce-kv (fn [acc k v]
+               (if (contains? system-catalog-links v)
+                 acc
+                 (assoc acc k v)))
+             {}
+             links))
+
+(defn remove-system-namespaces [schema]
+  (-> schema
+      (update :entities remove-system-entities)
+      (update :links remove-system-links)))
+
 (defn plan!
   [{:keys [app-id check-types? background-updates?]} client-defs]
-  (let [new-schema (defs->schema client-defs)
+  (let [new-schema (-> client-defs
+                       remove-system-namespaces
+                       defs->schema)
         current-attrs (attr-model/get-by-app-id app-id)
         current-schema (attrs->schema current-attrs)
         steps (schemas->ops {:check-types? check-types?
