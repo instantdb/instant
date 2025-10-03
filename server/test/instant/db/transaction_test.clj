@@ -2973,6 +2973,7 @@
                            [:add-triple  file-id :$files/id          file-id]
                            [:add-triple  file-id :$files/path        (test-util/rand-string)]
                            [:add-triple  file-id :$files/location-id (random-uuid)]
+                           [:add-triple  file-id :$files/size 100]
                            [:add-triple  post-id :posts/id           post-id]
                            [:add-triple  post-id :posts/$user        user-id]
                            [:add-triple  post-id :posts/$file        file-id]])
