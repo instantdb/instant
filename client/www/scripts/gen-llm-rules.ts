@@ -1,13 +1,8 @@
 /**
- * Script for generating LLM rule files from a template
+ * Script for generating LLM rule files for different platforms (next, expo,
+ * etc.)
  *
- * This script parses the llm-rules-template.md file and generates
- * IDE-specific rule files by composing different sections.
- *
- * The APP_CODE section is dynamically generated from the TypeScript
- * source files in lib/intern/llm-example/
- *
- * Output files are saved to public/mcp-tutorial/ directory
+ * Output files are saved to public/llm-rules/[platform]/
  *
  * Usage: pnpm exec tsx scripts/gen-llm-rules.ts
  */
@@ -104,7 +99,9 @@ function buildClaudeRules(sections: Sections): string {
     sections.APP_DESCRIPTION,
     sections.APP_CODE,
     sections.DOCUMENTATION,
-  ].join('\n\n');
+  ]
+    .filter((x) => x != '')
+    .join('\n\n');
 }
 
 function buildCursorRules(sections: Sections): string {
@@ -115,7 +112,9 @@ function buildCursorRules(sections: Sections): string {
     sections.APP_DESCRIPTION,
     sections.APP_CODE,
     sections.DOCUMENTATION,
-  ].join('\n\n');
+  ]
+    .filter((x) => x != '')
+    .join('\n\n');
 }
 
 function buildWindsurfRules(sections: Sections): string {
@@ -126,7 +125,9 @@ function buildWindsurfRules(sections: Sections): string {
     sections.APP_DESCRIPTION,
     sections.APP_CODE,
     sections.DOCUMENTATION,
-  ].join('\n\n');
+  ]
+    .filter((x) => x != '')
+    .join('\n\n');
 }
 
 function buildOtherRules(sections: Sections): string {
@@ -136,15 +137,45 @@ function buildOtherRules(sections: Sections): string {
     sections.APP_DESCRIPTION,
     sections.APP_CODE,
     sections.DOCUMENTATION,
-  ].join('\n\n');
+  ]
+    .filter((x) => x != '')
+    .join('\n\n');
 }
 
-async function generateLLMRuleFiles() {
-  const templatePath = path.join(
-    __dirname,
-    '../lib/intern/llm-example/llm-rules-template.md',
-  );
-  console.log('Parsing template file...');
+type Platform = 'next' | 'expo';
+
+const BASE_PUBLIC_RULES_PATH = path.join(__dirname, '../public/llm-rules');
+const BASE_CREATE_INSTANT_APP_PATH = path.join(
+  __dirname,
+  '../../packages/create-instant-app/template/rules',
+);
+
+const platformConfig = {
+  next: {
+    templatePath: path.join(
+      __dirname,
+      '../lib/intern/llm-example/llm-rules-template.md',
+    ),
+    outputDir: path.join(BASE_PUBLIC_RULES_PATH, 'next'),
+    createInstantAppOutputDir: path.join(
+      BASE_CREATE_INSTANT_APP_PATH,
+      'next-js-app-dir',
+    ),
+  },
+  expo: {
+    templatePath: path.join(
+      __dirname,
+      '../lib/intern/expo-llm-example/expo-rules-template.md',
+    ),
+    outputDir: path.join(BASE_PUBLIC_RULES_PATH, 'expo'),
+    createInstantAppOutputDir: path.join(BASE_CREATE_INSTANT_APP_PATH, 'expo'),
+  },
+};
+
+async function generateLLMRuleFiles(platform: Platform) {
+  const { templatePath, outputDir, createInstantAppOutputDir } =
+    platformConfig[platform];
+  console.log(`Parsing template file for ${platform}...`);
   const sections = parseTemplate(templatePath);
 
   const files = [
@@ -158,43 +189,38 @@ async function generateLLMRuleFiles() {
     { filename: 'other-rules.md', build: () => buildOtherRules(sections) },
   ];
 
-  const OUTPUT_DIR = path.join(__dirname, '../public/mcp-tutorial');
-  const CREATE_INSTANT_APP_OUTPUT_DIR = path.join(
-    __dirname,
-    '../../packages/create-instant-app/template/rules/',
-  );
-
-  // Ensure output directory exists
-  if (!fs.existsSync(OUTPUT_DIR)) {
-    fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+  // Ensure output directories exists
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
+  if (!fs.existsSync(createInstantAppOutputDir)) {
+    fs.mkdirSync(createInstantAppOutputDir, { recursive: true });
   }
 
   // Generate all files
   console.log('Generating LLM rule files...');
   for (const { filename, build } of files) {
     const content = build();
-    const outputPath = path.join(OUTPUT_DIR, filename);
+    const outputPath = path.join(outputDir, filename);
     fs.writeFileSync(outputPath, content);
-    console.log(`  ✅ Generated: ${filename}`);
+    console.log(`  ✅ Generated: ${filename} in ${outputDir}`);
 
-    // Output to create-instant-app template folder
     const createInstantAppOutputPath = path.join(
-      CREATE_INSTANT_APP_OUTPUT_DIR,
+      createInstantAppOutputDir,
       filename,
     );
     fs.writeFileSync(createInstantAppOutputPath, content);
+    console.log(`  ✅ Generated: ${filename} in ${createInstantAppOutputDir}`);
   }
 
-  console.log(
-    `Successfully generated ${files.length} LLM rule files from template!`,
-  );
+  console.log(`Successfully generated LLM rule files for ${platform}`);
 }
 
 async function main() {
   try {
     console.log('Starting LLM rules generator...');
-    await generateLLMRuleFiles();
-    console.log('Output directory: public/mcp-tutorial/');
+    await generateLLMRuleFiles('next');
+    await generateLLMRuleFiles('expo');
   } catch (error) {
     console.error('Failed to generate LLM rule files:', error);
     process.exit(1);
