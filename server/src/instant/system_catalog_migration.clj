@@ -5,7 +5,6 @@
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.system-catalog :as system-catalog]
-   [instant.util.json :refer [->json]]
    [instant.util.tracer :as tracer]
    [lambdaisland.deep-diff2 :as ddiff]))
 
@@ -64,7 +63,7 @@
        (when (seq mismatches)
          (tracer/record-info! {:name "system-catalog/mismatched-attrs"
                                :attributes {:mismatches (map (fn [m]
-                                                               (update m :diff ->json))
+                                                               (update m :diff vec))
                                                              mismatches)}}))
 
        (when (seq extras)
