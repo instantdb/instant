@@ -66,13 +66,15 @@
         code       (ex/get-param! req [:body :code]   string-util/safe-trim)
         app-id     (ex/get-param! req [:body :app-id] uuid-util/coerce)
         guest-user (when-some [refresh-token (ex/get-optional-param! req [:body :refresh-token] uuid-util/coerce)]
-                     (app-user-model/get-by-refresh-token!
-                      {:app-id        app-id
-                       :refresh-token refresh-token}))
+                     (let [user (app-user-model/get-by-refresh-token!
+                                 {:app-id        app-id
+                                  :refresh-token refresh-token})]
+                       (when (= "guest" (:type user))
+                         user)))
         user       (magic-code-auth/verify! {:app-id  app-id
                                              :email   email
                                              :code    code
-                                             :user-id (:id guest-user)})]
+                                             :guest-user-id (:id guest-user)})]
     (response/ok {:user user})))
 
 (comment
@@ -193,13 +195,13 @@
                                            ;; 1 hour
                                            (* 1000 60 60)))
         state (random-uuid)
-        state-with-app-id (format "%s%s" app-id state)
 
         redirect-url (oauth/create-authorization-url
                       oauth-client
-                      state-with-app-id
+                      (str app-id state)
                       oauth-redirect-url
                       extra-params)]
+
     (app-oauth-redirect-model/create! {:app-id app-id
                                        :state state
                                        :cookie cookie-uuid
@@ -217,7 +219,7 @@
                               ;; matches everything under the subdirectory
                               :path "/runtime/oauth"}))))
 
-(defn upsert-oauth-link! [{:keys [email sub app-id provider-id]}]
+(defn upsert-oauth-link! [{:keys [email sub app-id provider-id guest-user-id]}]
   (let [users (app-user-model/get-by-email-or-oauth-link-qualified
                {:email email
                 :app-id app-id
@@ -243,6 +245,10 @@
         ;; extra caution because it would be really bad to
         ;; return users for a different app
         (assert (= app-id (:app_users/app_id user)))
+        (when guest-user-id
+          (app-user-model/link-guest {:app-id app-id
+                                      :guest-user-id guest-user-id
+                                      :primary-user-id (:app_users/id user)}))
         (cond (not= (:app_users/email user) email)
               (tracer/with-span! {:name "app-user/update-email"
                                   :attributes {:id (:app_users/id user)
@@ -268,9 +274,10 @@
 
       (= 0 (count users))
       (let [user (app-user-model/create!
-                  {:id (random-uuid)
+                  {:id guest-user-id
                    :app-id app-id
-                   :email email})]
+                   :email email
+                   :type "user"})]
         (app-user-oauth-link-model/create! {:id (random-uuid)
                                             :app-id app-id
                                             :provider-id provider-id
@@ -463,10 +470,18 @@
                                                       :id client_id})
                    (ex/throw-oauth-err! "Missing OAuth client"))
 
+        guest-user (when-some [refresh-token (ex/get-optional-param! req [:body :refresh_token] uuid-util/coerce)]
+                     (let [user (app-user-model/get-by-refresh-token!
+                                 {:app-id app-id
+                                  :refresh-token refresh-token})]
+                       (when (= "guest" (:type user))
+                         user)))
+
         {user-id :user_id} (upsert-oauth-link! {:email (get user_info "email")
                                                 :sub (get user_info "sub")
                                                 :app-id app-id
-                                                :provider-id (:provider_id client)})
+                                                :provider-id (:provider_id client)
+                                                :guest-user-id (:id guest-user)})
 
         refresh-token-id (random-uuid)
 
@@ -509,13 +524,25 @@
                                {:allow-unverified-email? true
                                 :ignore-audience? true}))
         email (email/coerce email)
-        social-login (upsert-oauth-link! {:email email
-                                          :sub sub
-                                          :app-id (:app_id client)
-                                          :provider-id (:provider_id client)})
+
         current-refresh-token (when current-refresh-token-id
-                                (app-user-refresh-token-model/get-by-id {:app-id app-id
-                                                                         :id current-refresh-token-id}))
+                                (app-user-refresh-token-model/get-by-id
+                                 {:app-id app-id
+                                  :id current-refresh-token-id}))
+
+        guest-user (when current-refresh-token-id
+                     (let [user (app-user-model/get-by-refresh-token!
+                                 {:app-id app-id
+                                  :refresh-token current-refresh-token-id})]
+                       (when (= "guest" (:type user))
+                         user)))
+
+        social-login (upsert-oauth-link! {:email       email
+                                          :sub         sub
+                                          :app-id      (:app_id client)
+                                          :provider-id (:provider_id client)
+                                          :guest-user-id (:id guest-user)})
+
         {refresh-token-id :id} (if (and current-refresh-token
                                         (= (:user_id social-login)
                                            (:user_id current-refresh-token)))

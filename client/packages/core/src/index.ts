@@ -326,7 +326,7 @@ class Auth {
   };
 
   /**
-   * Create an authorization url to sign in with an external provider
+   * Create an authorization url to sign in with an external provider.
    *
    * @see https://instantdb.com/docs/auth
    *

@@ -143,6 +143,22 @@
   (or (get-by-email {:email email :app-id app-id})
       (create! {:id (UUID/randomUUID) :email email :app-id app-id})))
 
+(defn link-guest
+  "Links the guest account to a pre-exisiting user.
+   This only happens when a guest upgrades to a user, but the user
+   email already exists."
+  ([params] (link-guest (aurora/conn-pool :write) params))
+  ([conn {:keys [app-id primary-user-id guest-user-id]}]
+   (update-op
+    conn
+    {:app-id app-id
+     :etype etype}
+    (fn [{:keys [transact! resolve-id]}]
+      (transact! [[:add-triple
+                   guest-user-id
+                   (resolve-id :linkedPrimaryUser)
+                   (str primary-user-id)]])))))
+
 (comment
   (def u (instant-user-model/get-by-email {:email "stopa@instantdb.com"}))
   (def a (first (app-model/get-all-for-user {:user-id (:id u)})))

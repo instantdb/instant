@@ -5062,9 +5062,9 @@
          [{:db/id book-id :books/id book-id :books/title "Original title"}])
         (with-open [conn (next.jdbc/get-connection (config/get-aurora-config))]
           (sql/execute! conn ["select set_config('idle_in_transaction_session_timeout', '1ms', false)"])
-          (timeout-err? (permissioned-tx/transact!
-                         (assoc (make-ctx) :db {:conn-pool conn})
-                         [[:add-triple book-id title-aid "Test"]])))))))
+          (is (timeout-err? (permissioned-tx/transact!
+                             (assoc (make-ctx) :db {:conn-pool conn})
+                             [[:add-triple book-id title-aid "Test"]]))))))))
 
 (deftest deadlock
   (with-zeneca-app

@@ -1,9 +1,7 @@
 (ns instant.db.permissioned-transaction
   (:require
-   [clojure.pprint :as pprint]
    [clojure.string :as string]
    [clojure+.core :as clojure+]
-   [instant.config :as config]
    [instant.db.cel :as cel]
    [instant.db.datalog :as d]
    [instant.db.model.attr :as attr-model]
@@ -515,9 +513,6 @@
     (doall
      (for [{:keys [scope etype result] :as check} results]
        (do
-         (when (and (= :dev (config/get-env))
-                    (not result))
-           (pprint/pprint (printable-check check)))
          (when-not (:admin-check? ctx)
            (ex/assert-permitted! :perms-pass? [etype scope] result))
          (-> check
