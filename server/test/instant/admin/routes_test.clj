@@ -1021,7 +1021,8 @@
                       {:app_id app-id
                        :id louis-id
                        :created_at louis-created-at
-                       :email louis-email}}}}
+                       :email louis-email
+                       :isGuest false}}}}
                    body))))))))
 
 (deftest storage-impersonation-test

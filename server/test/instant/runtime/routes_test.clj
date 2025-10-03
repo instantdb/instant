@@ -189,6 +189,7 @@
      (fn [{app-id :id :as app}]
        (let [guest  (sign-in-guest app)
              _      (is (= "guest" (:type guest)))
+             _      (is (:isGuest guest))
              _      (is (= nil (:email guest)))
              _      (is (some? (:refresh_token guest)))
 
@@ -207,16 +208,19 @@
              user   (verify-code app {:email         "1@b.c"
                                       :code          code
                                       :refresh-token (:refresh_token guest)})
+             _      (is (not (:isGuest user)))
              _      (is (= (:id guest) (:id user)))
              _      (is (= "user" (:type user)))
              _      (is (= "1@b.c" (:email user)))
 
              ;; can't convert guest to existing user
              guest2 (sign-in-guest app)
+             _ (is (:isGuest guest2))
              code2  (send-code app {:email "1@b.c"})
              user2  (verify-code app {:email         "1@b.c"
                                       :code          code2
                                       :refresh-token (:refresh_token guest2)})
+             _ (is (not (:isGuest user2)))
              _ (is (not= (:id guest2) (:id user2)))
              _ (testing "we link the guest user to the real user"
                  (is (= (parse-uuid (:id user2))
