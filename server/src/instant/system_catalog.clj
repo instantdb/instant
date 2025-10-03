@@ -154,7 +154,7 @@
   (make-attr "$users" "linkedPrimaryUser"
              :reverse-identity (get-ident-spec "$users" "linkedGuestUsers")
              :value-type :ref
-             :on-delete-reverse :cascade
+             :on-delete :cascade
              :cardinality :one))
 
 (def $users-attrs
