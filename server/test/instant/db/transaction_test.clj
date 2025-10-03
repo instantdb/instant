@@ -22,6 +22,7 @@
    [instant.model.app :as app-model]
    [instant.model.app-user :as app-user-model]
    [instant.model.rule :as rule-model]
+   [instant.util.crypt :as crypt-util]
    [instant.util.instaql :refer [instaql-nodes->object-tree]]
    [instant.util.exception :as ex]
    [instant.util.test :as test-util :refer [suid validation-err? perm-err? perm-pass? timeout-err?]]
@@ -4381,6 +4382,57 @@
 
         (is (empty? (app-user-model/get-by-email {:app-id app-id
                                                   :email "test@example.com"})))))))
+
+(deftest cascade-works-with-guests
+  (with-empty-app
+    (fn [app]
+      (let [transact (fn [txes]
+                       (tx/transact! (aurora/conn-pool :write)
+                                     (attr-model/get-by-app-id (:id app))
+                                     (:id app)
+                                     txes))
+            u (app-user-model/create! {:app-id (:id app)
+                                       :email (format "%s@example.com" (crypt-util/random-hex 8))
+                                       :type "user"})
+            guest1 (app-user-model/create! {:app-id (:id app)
+                                            :type "guest"})
+            guest2 (app-user-model/create! {:app-id (:id app)
+                                            :type "guest"})
+            guest3 (app-user-model/create! {:app-id (:id app)
+                                            :type "guest"})]
+
+        (app-user-model/link-guest {:app-id (:id app)
+                                    :primary-user-id (:id u)
+                                    :guest-user-id (:id guest1)})
+        (app-user-model/link-guest {:app-id (:id app)
+                                    :primary-user-id (:id u)
+                                    :guest-user-id (:id guest2)})
+        (app-user-model/link-guest {:app-id (:id app)
+                                    :primary-user-id (:id u)
+                                    :guest-user-id (:id guest3)})
+
+        (testing "deleting a guest does not delete its linked user"
+          (transact [[:delete-entity (:id guest1) "$users"]])
+
+          (is (not (app-user-model/get-by-id {:id (:id guest1)
+                                              :app-id (:id app)})))
+          (is (= u (app-user-model/get-by-id {:id (:id u)
+                                              :app-id (:id app)})))
+          (is (= (:id guest2) (:id (app-user-model/get-by-id {:id (:id guest2)
+                                                              :app-id (:id app)}))))
+          (is (= (:id guest3) (:id (app-user-model/get-by-id {:id (:id guest3)
+                                                              :app-id (:id app)})))))
+
+        (testing "deleting the primary user deletes the guest"
+
+          (transact [[:delete-entity (:id u) "$users"]])
+
+          (is (not (app-user-model/get-by-id {:id (:id u)
+                                              :app-id (:id app)})))
+          (is (not (app-user-model/get-by-id {:id (:id guest2)
+                                              :app-id (:id app)})))
+          (is (not (app-user-model/get-by-id {:id (:id guest3)
+                                              :app-id (:id app)}))))))))
 
 (deftest auth-refs-requires-users
   (with-empty-app
