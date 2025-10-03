@@ -16,14 +16,14 @@ for an example with vanilla JS, check out this [sandbox](https://github.com/inst
 
 Open up your `app/page.tsx` file, and replace the entirety of it with the following code:
 
-```javascript {% showCopy=true %}
-"use client";
+```jsx {% showCopy=true %}
+'use client';
 
-import React, { useState } from "react";
-import { init, User } from "@instantdb/react";
+import React, { useState } from 'react';
+import { init, User } from '@instantdb/react';
 
 // Instant app
-const APP_ID = "__APP_ID__";
+const APP_ID = '__APP_ID__';
 const db = init({ appId: APP_ID });
 
 function App() {
@@ -36,17 +36,17 @@ function App() {
         <Login />
       </db.SignedOut>
     </>
-  )
+  );
 }
 
 function Main() {
   const user = db.useUser();
   return (
-    <div className="p-4 space-y-4">
+    <div className="space-y-4 p-4">
       <h1 className="text-2xl font-bold">Hello {user.email}!</h1>
       <button
         onClick={() => db.auth.signOut()}
-        className="px-3 py-1 bg-blue-600 text-white font-bold hover:bg-blue-700"
+        className="bg-blue-600 px-3 py-1 font-bold text-white hover:bg-blue-700"
       >
         Sign out
       </button>
@@ -55,10 +55,10 @@ function Main() {
 }
 
 function Login() {
-  const [sentEmail, setSentEmail] = useState("");
+  const [sentEmail, setSentEmail] = useState('');
 
   return (
-    <div className="flex justify-center items-center min-h-screen">
+    <div className="flex min-h-screen items-center justify-center">
       <div className="max-w-sm">
         {!sentEmail ? (
           <EmailStep onSendEmail={setSentEmail} />
@@ -78,8 +78,8 @@ function EmailStep({ onSendEmail }: { onSendEmail: (email: string) => void }) {
     const email = inputEl.value;
     onSendEmail(email);
     db.auth.sendMagicCode({ email }).catch((err) => {
-      alert("Uh oh :" + err.body?.message);
-      onSendEmail("");
+      alert('Uh oh :' + err.body?.message);
+      onSendEmail('');
     });
   };
   return (
@@ -96,14 +96,14 @@ function EmailStep({ onSendEmail }: { onSendEmail: (email: string) => void }) {
       <input
         ref={inputRef}
         type="email"
-        className="border border-gray-300 px-3 py-1  w-full"
+        className="w-full border border-gray-300 px-3 py-1"
         placeholder="Enter your email"
         required
         autoFocus
       />
       <button
         type="submit"
-        className="px-3 py-1 bg-blue-600 text-white font-bold hover:bg-blue-700 w-full"
+        className="w-full bg-blue-600 px-3 py-1 font-bold text-white hover:bg-blue-700"
       >
         Send Code
       </button>
@@ -118,8 +118,8 @@ function CodeStep({ sentEmail }: { sentEmail: string }) {
     const inputEl = inputRef.current!;
     const code = inputEl.value;
     db.auth.signInWithMagicCode({ email: sentEmail, code }).catch((err) => {
-      inputEl.value = "";
-      alert("Uh oh :" + err.body?.message);
+      inputEl.value = '';
+      alert('Uh oh :' + err.body?.message);
     });
   };
 
@@ -137,14 +137,14 @@ function CodeStep({ sentEmail }: { sentEmail: string }) {
       <input
         ref={inputRef}
         type="text"
-        className="border border-gray-300 px-3 py-1  w-full"
+        className="w-full border border-gray-300 px-3 py-1"
         placeholder="123456..."
         required
         autoFocus
       />
       <button
         type="submit"
-        className="px-3 py-1 bg-blue-600 text-white font-bold hover:bg-blue-700 w-full"
+        className="w-full bg-blue-600 px-3 py-1 font-bold text-white hover:bg-blue-700"
       >
         Verify Code
       </button>

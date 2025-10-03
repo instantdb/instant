@@ -1272,19 +1272,13 @@
 ;; ---
 ;; CLI
 
-(defn- remove-system-namespaces [entities]
-  (ucoll/filter-keys
-   #(not (system-catalog/reserved? (name %)))
-   entities))
-
 (defn schema-push-plan-post [req]
   (let [{{app-id :id} :app} (req->app-and-user-accepting-platform-tokens! :collaborator
                                                                           :apps/read
                                                                           req)
         client-defs         (-> req
                                 :body
-                                :schema
-                                (update :entities remove-system-namespaces))
+                                :schema)
         check-types?        (-> req :body :check_types)
         background-updates? (-> req :body :supports_background_updates)]
     (response/ok (schema-model/plan! {:app-id app-id
@@ -1298,8 +1292,7 @@
                                                                           req)
         client-defs         (-> req
                                 :body
-                                :schema
-                                (update :entities remove-system-namespaces))
+                                :schema)
         check-types?        (-> req :body :check_types)
         background-updates? (-> req :body :supports_background_updates)
         r (schema-model/plan! {:app-id app-id
