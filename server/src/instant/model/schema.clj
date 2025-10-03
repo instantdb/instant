@@ -1,6 +1,5 @@
 (ns instant.model.schema
   (:require [instant.db.model.attr :as attr-model]
-            [instant.util.coll :as coll]
             [instant.jdbc.aurora :as aurora]
             [instant.db.datalog :as d]
             [instant.db.indexing-jobs :as indexing-jobs]
@@ -162,16 +161,16 @@
         {blobs :blob refs :ref} (group-by :value-type filtered-attrs)
         refs-indexed (into {} (map (fn [{:keys [forward-identity reverse-identity] :as attr}]
                                      [[(second forward-identity)
-                                       (coll/third forward-identity)
+                                       (ucoll/third forward-identity)
                                        (second reverse-identity)
-                                       (coll/third reverse-identity)] attr])
+                                       (ucoll/third reverse-identity)] attr])
                                    refs))
         blobs-indexed (->> blobs
                            (group-by #(-> % attr-model/fwd-etype keyword))
                            (map-map (fn [[_ attrs]]
                                       (into {}
                                             (map (fn [a]
-                                                   [(keyword (-> a :forward-identity coll/third))
+                                                   [(keyword (-> a :forward-identity ucoll/third))
                                                     a])
                                                  attrs)))))]
     {:refs refs-indexed :blobs blobs-indexed}))
