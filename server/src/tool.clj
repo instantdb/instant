@@ -312,6 +312,17 @@
                  [:<>
                   [text/inspect-text (first query)]])})")
 
+(defonce taplist (atom (with-meta (list)
+                         {:portal.viewer/default :portal.viewer/inspector})))
+
+(def taplist-limit 1000)
+(defn add-to-taplist
+  ([v]
+   (add-to-taplist taplist v))
+  ([l v]
+   (swap! l (fn [x]
+              (take taplist-limit (conj x v))))))
+
 (defn start-portal!
   "Lets you inspect data using Portal.
 
@@ -321,11 +332,17 @@
 
    For a guide, see:
    https://www.youtube.com/watch?v=Tj-iyDo3bq0"
-  []
-  (def portal (p/open))
-  (add-tap #'p/submit)
-  (p/register! #'copy-unsafe-sql-format-query)
-  (p/eval-str portal portal-sql-query-viewer))
+  ([]
+   (start-portal! taplist))
+  ([v]
+   (let [s (p/open {:value v})]
+     (when (identical? v taplist)
+       (remove-tap #'add-to-taplist)
+       (add-tap #'add-to-taplist)
+       (def portal s))
+     (p/register! #'copy-unsafe-sql-format-query)
+     (p/eval-str s portal-sql-query-viewer)
+     s)))
 
 (comment
   (start-portal!)
