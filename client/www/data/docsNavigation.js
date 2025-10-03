@@ -52,6 +52,7 @@ module.exports = [
     title: 'Authentication and Permissions',
     links: [
       { title: 'Auth', href: '/docs/auth' },
+      { title: 'Guest Auth', href: '/docs/auth/guest-auth' },
       { title: 'Magic codes', href: '/docs/auth/magic-codes' },
       {
         title: 'Google OAuth',

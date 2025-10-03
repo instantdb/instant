@@ -422,10 +422,10 @@ function SignedInAsGuest({ user }: { user: any }) {
 function SignedIn({ user }: { user: any }) {
   const { data, isLoading, error } = db.useQuery({
     guestSandbox: { $: { where: { creatorId: user.id } } },
-    $users: { $: { where: { id: user.id } }, linkedGuestUsers: {} },
+    $users: { $: { where: { linkedPrimaryUser: user.id } } },
   });
 
-  const guestUsers = data?.$users[0]?.linkedGuestUsers;
+  const guestUsers = data?.$users;
   return (
     <div className="my-6 max-w-4xl mx-auto">
       <table className="min-w-full border mb-6">

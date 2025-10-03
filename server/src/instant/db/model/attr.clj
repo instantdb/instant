@@ -148,6 +148,11 @@
   [attr]
   (-> attr :reverse-identity (nth 1)))
 
+(defn rev-label
+  "Given an attr, return it's reverse label or nil"
+  [attr]
+  (-> attr :reverse-identity (nth 2)))
+
 (defn fwd-friendly-name
   "Given an attr, returns `etype.label`"
   [attr]

@@ -3,7 +3,7 @@ title: Auth
 description: Instant supports magic code, OAuth, Clerk, and custom auth.
 ---
 
-Instant comes with support for auth. We currently offer [magic codes](/docs/auth/magic-codes), [Google OAuth](/docs/auth/google-oauth), [LinkedIn OAuth](/docs/auth/linkedin-oauth), [Sign In with Apple](/docs/auth/apple), and [Clerk](/docs/auth/clerk). If you want to build your own flow, you can use the [Admin SDK](/docs/backend#custom-auth).
+Instant comes with support for auth. We currently offer [magic codes](/docs/auth/magic-codes), [Google OAuth](/docs/auth/google-oauth), [LinkedIn OAuth](/docs/auth/linkedin-oauth), [Sign In with Apple](/docs/auth/apple), [Clerk](/docs/auth/clerk), and [Guest Auth](/docs/auth/guest-auth). If you want to build your own flow, you can use the [Admin SDK](/docs/backend#custom-auth).
 
 ## Auth Overview
 
@@ -124,6 +124,10 @@ To implement a login flow use one of the authentication method guides below.
 {% nav-button href="/docs/backend#custom-auth"
             title="Custom Auth"
             description="Integrate your own auth flow with the Admin SDK."
+            /%}
+{% nav-button href="/docs/auth/guest-auth"
+            title="Guest Auth"
+            description="Allow your users to try your app before they sign up."
             /%}
 
 {% /nav-group %}

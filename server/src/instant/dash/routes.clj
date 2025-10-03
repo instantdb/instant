@@ -49,9 +49,7 @@
             [instant.storage.coordinator :as storage-coordinator]
             [instant.stripe :as stripe]
             [instant.superadmin.routes :refer [req->superadmin-user-and-app!]]
-            [instant.system-catalog :as system-catalog]
             [instant.util.async :refer [fut-bg]]
-            [instant.util.coll :as ucoll]
             [instant.util.crypt :as crypt-util]
             [instant.util.date :as date]
             [instant.util.email :as email]
@@ -1272,19 +1270,13 @@
 ;; ---
 ;; CLI
 
-(defn- remove-system-namespaces [entities]
-  (ucoll/filter-keys
-   #(not (system-catalog/reserved? (name %)))
-   entities))
-
 (defn schema-push-plan-post [req]
   (let [{{app-id :id} :app} (req->app-and-user-accepting-platform-tokens! :collaborator
                                                                           :apps/read
                                                                           req)
         client-defs         (-> req
                                 :body
-                                :schema
-                                (update :entities remove-system-namespaces))
+                                :schema)
         check-types?        (-> req :body :check_types)
         background-updates? (-> req :body :supports_background_updates)]
     (response/ok (schema-model/plan! {:app-id app-id
@@ -1298,8 +1290,7 @@
                                                                           req)
         client-defs         (-> req
                                 :body
-                                :schema
-                                (update :entities remove-system-namespaces))
+                                :schema)
         check-types?        (-> req :body :check_types)
         background-updates? (-> req :body :supports_background_updates)
         r (schema-model/plan! {:app-id app-id
