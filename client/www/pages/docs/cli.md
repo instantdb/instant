@@ -17,7 +17,7 @@ This will open a browser window where you can authenticate with your Instant acc
 
 ## Init
 
-To get started, head on over to your project's root repository, and write:
+After logging in, head on over to your project's root repository, and write:
 
 ```shell {% showCopy=true %}
 npx instant-cli@latest init
