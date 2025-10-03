@@ -102,21 +102,13 @@ function convertArgToBagWithErrorLogging(arg) {
     return { ok: true, bag: arg };
   } else {
     error(
-      `${chalk.red(arg)} must be one of ${chalk.green(Array.from(PUSH_PULL_OPTIONS).join(', '))}`,
+      `${chalk.red(arg)} is not valid. Must be one of ${chalk.green(Array.from(PUSH_PULL_OPTIONS).join(', '))}`,
     );
     return { ok: false };
   }
 }
 
-// Note: Nov 20, 2024
-// We can eventually deprecate this
-// once we're confident that users no longer
-// provide app ID as their first argument
-function convertPushPullToCurrentFormat(cmdName, arg, opts) {
-  if (arg && !PUSH_PULL_OPTIONS.has(arg) && !opts.app) {
-    warnDeprecation(`${cmdName} ${arg}`, `${cmdName} --app ${arg}`);
-    return { ok: true, bag: 'all', opts: { ...opts, app: arg } };
-  }
+function convertPushPullToCurrentFormat(arg, opts) {
   const { ok, bag } = convertArgToBagWithErrorLogging(arg);
   if (!ok) return { ok: false };
   return { ok: true, bag, opts };
@@ -415,7 +407,7 @@ program
   )
   .description('Push schema and perm files to production.')
   .action(async function (arg, inputOpts) {
-    const ret = convertPushPullToCurrentFormat('push', arg, inputOpts);
+    const ret = convertPushPullToCurrentFormat(arg, inputOpts);
     if (!ret.ok) return process.exit(1);
     const { bag, opts } = ret;
     await handlePush(bag, opts);
@@ -462,7 +454,7 @@ program
   )
   .description('Pull schema and perm files from production.')
   .action(async function (arg, inputOpts) {
-    const ret = convertPushPullToCurrentFormat('pull', arg, inputOpts);
+    const ret = convertPushPullToCurrentFormat(arg, inputOpts);
     if (!ret.ok) return process.exit(1);
     const { bag, opts } = ret;
     await handlePull(bag, opts);
