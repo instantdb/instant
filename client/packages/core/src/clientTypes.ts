@@ -3,6 +3,7 @@ export type User = {
   refresh_token: string;
   email?: string | null | undefined;
   type?: 'user' | 'guest' | undefined;
+  isGuest: boolean;
 };
 
 export type AuthResult =
