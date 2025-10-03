@@ -101,12 +101,12 @@ const _schema = i.schema({
         on: "$users",
         has: "one",
         label: "linkedPrimaryUser",
+        onDelete: "cascade",
       },
       reverse: {
         on: "$users",
         has: "many",
         label: "linkedGuestUsers",
-        onDelete: "cascade",
       },
     },
   },
