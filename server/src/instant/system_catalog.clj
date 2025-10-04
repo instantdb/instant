@@ -305,7 +305,8 @@
    (make-attr "$files" "size"
               :unique? false
               :index? true
-              :checked-data-type :number)
+              :checked-data-type :number
+              :required? true)
    (make-attr "$files" "content-type"
               :unique? false
               :index? true
