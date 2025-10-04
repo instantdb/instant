@@ -22,7 +22,7 @@ you should see a response with information about `db.useQuery` and `db.transact`
 
 ### Cursor
 
-Save theses rules for your framework at the root of your project in `.cursor/rules/instant.mdc`:
+Save these rules for your framework at the root of your project in `.cursor/rules/instant.mdc`:
 
 - [Next.js rules](/llm-rules/next/cursor-rules.md)
 - [Expo rules](/llm-rules/expo/cursor-rules.md)
