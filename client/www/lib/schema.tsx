@@ -7,10 +7,7 @@ function isVisibleAttr(attr: DBAttr) {
   const [, namespace, label] = attr['forward-identity'];
   return (
     attr.catalog !== 'system' ||
-    (namespace === '$users' &&
-      // TODO(dww): show the guest auth fields once we've launched guest auth
-      label !== 'linkedPrimaryUser' &&
-      label !== 'type') ||
+    namespace === '$users' ||
     namespace === '$files'
   );
 }
