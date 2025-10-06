@@ -9,6 +9,7 @@ import {
 } from '@instantdb/core';
 import { PlanStep } from './api.ts';
 import { attrDefToNewAttrTx, linkDefToNewAttrTx } from './migrationUtils.ts';
+import { relationshipConstraints, RelationshipKinds } from './relationships.ts';
 
 type Identifier = {
   namespace: string;
@@ -17,8 +18,8 @@ type Identifier = {
 
 type AttrWithIdentifier = {
   'value-type': 'blob' | 'ref';
-  cardinality: 'many' | 'one';
-  'forward-identity': Identifier;
+  cardinality?: 'many' | 'one';
+  'forward-identity'?: Identifier;
   'reverse-identity'?: Identifier | null;
   'on-delete'?: InstantDBAttrOnDelete | null | undefined;
   'on-delete-reverse'?: InstantDBAttrOnDelete | null | undefined;
@@ -437,9 +438,29 @@ export const diffSchemas = async (
       (identity) => !newIdentities.includes(identity),
     );
 
-    const consistentEntities = oldIdentities.filter((identity) =>
+    const consistentIdentities = oldIdentities.filter((identity) =>
       newIdentities.includes(identity),
     );
+
+    consistentIdentities.forEach((identity) => {
+      const oldLink = oldLinksInGroup.find(
+        (l) => createLinkIdentity(l) === identity,
+      );
+      const newLink = newLinksInGroup.find(
+        (l) => createLinkIdentity(l) === identity,
+      );
+      if (!oldLink || !newLink) return;
+      transactions.push(
+        ...compareLinks(
+          {
+            namespace: oldLink.forward.on,
+            attrName: oldLink.forward.label,
+          },
+          oldLink,
+          newLink,
+        ),
+      );
+    });
 
     console.log(
       `Link group ${linkKey} - Added: ${addedIdentities.join(', ')}, Removed: ${removedIdentities.join(', ')}`,
@@ -501,6 +522,16 @@ export const diffSchemas = async (
           },
         },
       });
+      transactions.push(
+        ...compareLinks(
+          {
+            attrName: oldLink.forward.label,
+            namespace: oldLink.forward.on,
+          },
+          oldLink,
+          newLink,
+        ),
+      );
     });
   }
 
@@ -550,12 +581,66 @@ export const compareBlobs = (
     sendType('remove-required');
 
   // check if data type needs to be changed / added
-  if (oldBlob.valueType !== newBlob.valueType)
+  if (oldBlob.valueType !== 'json' && newBlob.valueType === 'json') {
+    results.push({
+      type: 'remove-data-type',
+      ...identity,
+    });
+  } else if (oldBlob.valueType !== newBlob.valueType)
     results.push({
       type: 'check-data-type',
       identity,
       'checked-data-type': newBlob.valueType,
     });
+
+  return results;
+};
+
+export const compareLinks = (
+  identity: Identifier,
+  oldLink: AnyLink,
+  newLink: AnyLink,
+): MigrationTx[] => {
+  const results: MigrationTx[] = [];
+  const oldRelationship =
+    `${oldLink.forward.has}-${oldLink.reverse.has}` as RelationshipKinds;
+  const { cardinality: oldCardinal, 'unique?': oldUnique } =
+    relationshipConstraints[oldRelationship];
+
+  const newRelationship =
+    `${newLink.forward.has}-${newLink.reverse.has}` as RelationshipKinds;
+  const { cardinality: newCardinal, 'unique?': newUnique } =
+    relationshipConstraints[newRelationship];
+
+  if (!oldUnique && newUnique) {
+    results.push({
+      type: 'unique',
+      ...identity,
+    });
+  }
+  if (!newUnique && newUnique !== oldUnique) {
+    results.push({
+      type: 'remove-unique',
+      ...identity,
+    });
+  }
+
+  if (
+    oldLink.reverse.onDelete !== newLink.reverse.onDelete ||
+    oldLink.forward.onDelete !== newLink.forward.onDelete ||
+    oldCardinal !== newCardinal
+  ) {
+    results.push({
+      type: 'update-attr',
+      identifier: identity,
+      partialAttr: {
+        'value-type': 'ref',
+        'on-delete-reverse': newLink.reverse.onDelete,
+        'on-delete': newLink.forward.onDelete,
+        cardinality: newCardinal,
+      },
+    });
+  }
 
   return results;
 };
@@ -570,12 +655,14 @@ export const isRenamePromptItem = <T>(
 export type RenameResolveFn<T> = (
   created: T,
   promptData: (RenamePromptItem<T> | T)[],
+  extraInfo?: any,
 ) => Promise<T | RenamePromptItem<T>>;
 
 const resolveRenames = async <T>(
   newItems: T[],
   missingItems: T[],
   resolveFn: RenameResolveFn<T>,
+  extraInfo?: any,
 ): Promise<{
   created: T[];
   deleted: T[];
@@ -607,7 +694,7 @@ const resolveRenames = async <T>(
     });
     const promptData: (RenamePromptItem<T> | T)[] = [created, ...renames];
 
-    const data = await resolveFn(created, promptData);
+    const data = await resolveFn(created, promptData, extraInfo);
     if (isRenamePromptItem(data)) {
       if (data.from !== data.to) {
         result.renamed.push(data);
