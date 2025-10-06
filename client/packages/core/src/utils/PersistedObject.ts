@@ -21,8 +21,6 @@ function safeIdleCallback(cb) {
   }
 }
 
-let i = 0;
-
 export class PersistedObject<T> {
   _subs = [];
   _persister: Storage;
@@ -130,11 +128,7 @@ export class PersistedObject<T> {
       return;
     }
     this._nextSave = setTimeout(() => {
-      let x = i++;
-      console.time(`idle callback ${x}`);
-
       safeIdleCallback(() => {
-        console.timeEnd(`idle callback ${x}`);
         this._nextSave = null;
         this._writeToStorage();
       });

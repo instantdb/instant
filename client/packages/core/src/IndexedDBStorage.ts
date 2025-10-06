@@ -30,7 +30,7 @@ export default class IndexedDBStorage {
     });
   }
 
-  async getItem(k: string) {
+  async getItem(k: string): Promise<any> {
     const db = await this._dbPromise;
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([this._storeName], 'readonly');
@@ -49,9 +49,8 @@ export default class IndexedDBStorage {
     });
   }
 
-  async setItem(k: string, v: string): Promise<void> {
+  async setItem(k: string, v: any): Promise<void> {
     const db = await this._dbPromise;
-    globalThis.___db = db;
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([this._storeName], 'readwrite');
       const objectStore = transaction.objectStore(this._storeName);

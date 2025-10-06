@@ -1663,7 +1663,7 @@ export default class Reactor {
   }
 
   async setCurrentUser(user) {
-    await this._persister.setItem(currentUserKey, JSON.stringify(user));
+    await this._persister.setItem(currentUserKey, user);
   }
 
   getCurrentUserCached() {
@@ -1672,7 +1672,7 @@ export default class Reactor {
 
   async _getCurrentUser() {
     const user = await this._persister.getItem(currentUserKey);
-    return JSON.parse(user);
+    return typeof user === 'string' ? JSON.parse(user) : user;
   }
 
   async getCurrentUser() {
