@@ -1,6 +1,30 @@
 \set ON_ERROR_STOP on
 BEGIN;
 
+-- Sanity check that new columns haven't been added
+
+select case when (select count(*) from information_schema.columns where table_name = 'triples') <> 13
+  -- If this error was raised, then you should update the columns in `Clone triples` below,
+  -- then update the column count
+  then raise_exception_message('Check for new columns on the triples table and update clone_app.sql')
+  else true
+end as triples_columns_ok;
+
+select case when (select count(*) from information_schema.columns where table_name = 'idents') <> 5
+  -- If this error was raised, then you should update the columns in `Clone idents` below,
+  -- then update the column count
+  then raise_exception_message('Check for new columns on the idents table and update clone_app.sql')
+  else true
+end idents_columns_ok;
+
+select case when (select count(*) from information_schema.columns where table_name = 'attrs') <> 22
+  -- If this error was raised, then you should update the columns in `Clone attrs` below,
+  -- then update the column count
+  then raise_exception_message('Check for new columns on the attrs table and update clone_app.sql')
+  else true
+end attrs_columns_ok;
+
+
 -- Create the new root app
 SELECT gen_random_uuid() AS new_app_id  \gset
 
@@ -43,7 +67,8 @@ INSERT INTO attrs (
     inferred_types, on_delete,
     checked_data_type, checking_data_type,
     indexing, setting_unique, on_delete_reverse, is_required,
-    etype, label, reverse_etype, reverse_label
+    etype, label, reverse_etype, reverse_label,
+    deletion_marked_at, metadata
 )
 SELECT
     am.new_id,
@@ -54,7 +79,8 @@ SELECT
     a.inferred_types, a.on_delete,
     a.checked_data_type, a.checking_data_type,
     a.indexing, a.setting_unique, a.on_delete_reverse, a.is_required,
-    a.etype, a.label, a.reverse_etype, a.reverse_label
+    a.etype, a.label, a.reverse_etype, a.reverse_label,
+    deletion_marked_at, metadata
 FROM   attrs a
 JOIN   attr_map  am       ON am.old_id = a.id
 JOIN   ident_map im_fwd   ON im_fwd.old_id = a.forward_ident
@@ -79,7 +105,7 @@ INSERT INTO triples (
     app_id, entity_id, attr_id,
     value, value_md5,
     ea, eav, av, ave, vae,
-    created_at, checked_data_type
+    created_at, checked_data_type, pg_size
 )
 SELECT
     :'new_app_id',
@@ -89,7 +115,7 @@ SELECT
     t.value_md5,
     t.ea, t.eav, t.av, t.ave, t.vae,
     t.created_at,
-    t.checked_data_type
+    t.checked_data_type, t.pg_size
 FROM   triples t
 LEFT  JOIN attr_map am_attr ON am_attr.old_id = t.attr_id
 WHERE  t.app_id = :'old_app_id';

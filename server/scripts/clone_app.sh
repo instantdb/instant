@@ -45,7 +45,7 @@ done
 [[ -z "$env" || -z "$app_id" ]] && usage
 
 case "$env" in
-  prod) dest_db_url="$prod_url" ;;
+  prod) dest_db_url=$($script_dir/prod_connection_string.sh) ;;
   dev)  dest_db_url="$dev_default_url" ;;
   *)    echo "--env must be 'prod' or 'dev'." >&2; exit 1 ;;
 esac
