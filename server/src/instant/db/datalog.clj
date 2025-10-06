@@ -786,11 +786,6 @@
           :cols [:e :a]
           :unique-cols #{:e}}
 
-         (when-not (flags/toggled? :remove-ave-index)
-           {:name :ave_index
-            :cols [:a :v]
-            :idx-key :ave})
-
          {:name :ave_with_e_index
           :cols [:a :v :e]
           :unique-cols #{:e}
