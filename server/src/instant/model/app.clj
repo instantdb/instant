@@ -391,7 +391,7 @@
      (sum(s.triples_pg_size) *
         CASE
             WHEN pg_relation_size('triples') = 0 THEN 1
-            ELSE pg_total_relation_size('triples') / pg_relation_size('triples')
+            ELSE pg_total_relation_size('triples')::numeric / pg_relation_size('triples')
         END) as num_bytes
      FROM attr_sketches s WHERE s.app_id = ?::uuid" app-id])))
 
