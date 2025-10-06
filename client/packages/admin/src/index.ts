@@ -491,7 +491,7 @@ class Auth {
    */
   getUser = async (
     params: { email: string } | { id: string } | { refresh_token: string },
-  ): Promise<User> => {
+  ): Promise<Omit<User, 'refresh_token'>> => {
     const qs = Object.entries(params)
       .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
       .join('&');
