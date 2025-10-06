@@ -1188,33 +1188,33 @@
                                         (when (instance? java.time.Instant (:value vs))
                                           :date)
                                         (:value vs)))
-                     :nil? (if-let [sketch (:sketch (get sketches {:app-id app-id
-                                                                   :attr-id (:attr-id vs)}))]
-                             (let [nil-count (cms/check sketch nil nil)
-                                   undefined-count (if (and (:indexed? vs)
-                                                            (not (:ref? vs)))
-                                                     0
-                                                     (- (get-in sketches
-                                                                [{:app-id app-id
-                                                                  :attr-id (:id-attr-id vs)}
-                                                                 :sketch
-                                                                 :total]
-                                                                0)
-                                                        (:total sketch)))
-                                   total (if (and (:indexed? vs)
-                                                  (not (:ref? vs)))
-                                           (:total sketch)
-                                           (max (get-in sketches
-                                                        [{:app-id app-id
-                                                          :attr-id (:id-attr-id vs)}
-                                                         :sketch
-                                                         :total]
-                                                        0)
-                                                (+ nil-count undefined-count)))]
-                               (if (:nil? vs)
-                                 (+ nil-count undefined-count)
-                                 (- total nil-count undefined-count)))
-                             0)
+                     :nil? (let [sketch (or (:sketch (get sketches {:app-id app-id
+                                                                    :attr-id (:attr-id vs)}))
+                                            cms/default-empty)
+                                 nil-count (cms/check sketch nil nil)
+                                 undefined-count (if (and (:indexed? vs)
+                                                          (not (:ref? vs)))
+                                                   0
+                                                   (- (get-in sketches
+                                                              [{:app-id app-id
+                                                                :attr-id (:id-attr-id vs)}
+                                                               :sketch
+                                                               :total]
+                                                              0)
+                                                      (:total sketch)))
+                                 total (if (and (:indexed? vs)
+                                                (not (:ref? vs)))
+                                         (:total sketch)
+                                         (max (get-in sketches
+                                                      [{:app-id app-id
+                                                        :attr-id (:id-attr-id vs)}
+                                                       :sketch
+                                                       :total]
+                                                      0)
+                                              (+ nil-count undefined-count)))]
+                             (if (:nil? vs)
+                               (+ nil-count undefined-count)
+                               (- total nil-count undefined-count)))
                      ;; We don't have a good way to do comparisions, yet, so we'll
                      ;; just put a default of half the items.
                      :compare (long (/ (:total sketch) 2)))))]
