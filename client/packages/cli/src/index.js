@@ -1385,7 +1385,7 @@ async function newPushSchema(appId, _opts) {
   console.log(txSteps);
 
   if (txSteps.length === 0) {
-    console.log(chalk.bgYellow('No schema changes to apply!'));
+    console.log(chalk.bgGray('No schema changes to apply!'));
     return { ok: true };
   }
 
@@ -1401,9 +1401,8 @@ async function newPushSchema(appId, _opts) {
       },
     });
     console.log(applyRes.data);
+    console.log(chalk.green('Schema updated!'));
   }
-
-  console.log(chalk.green('Schema updated!'));
 
   return { ok: true };
 }

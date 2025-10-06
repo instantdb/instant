@@ -128,6 +128,117 @@ test('change data type', async () => {
   expectTxType(result, 'check-data-type', 1);
 });
 
+test('make required', async () => {
+  const result = await diffSchemas(
+    i.schema({
+      entities: {
+        albums: i.entity({
+          name: i.string().optional(),
+        }),
+      },
+    }),
+    i.schema({
+      entities: {
+        albums: i.entity({
+          name: i.string(),
+        }),
+      },
+    }),
+    createChooser([]),
+  );
+
+  expectTxType(result, 'required', 1);
+});
+
+test('add index', async () => {
+  const result = await diffSchemas(
+    i.schema({
+      entities: {
+        albums: i.entity({
+          name: i.string(),
+        }),
+      },
+    }),
+    i.schema({
+      entities: {
+        albums: i.entity({
+          name: i.string().indexed(),
+        }),
+      },
+    }),
+    createChooser([]),
+  );
+
+  expectTxType(result, 'index', 1);
+});
+
+test('remove index', async () => {
+  const result = await diffSchemas(
+    i.schema({
+      entities: {
+        albums: i.entity({
+          name: i.string().indexed(),
+        }),
+      },
+    }),
+    i.schema({
+      entities: {
+        albums: i.entity({
+          name: i.string(),
+        }),
+      },
+    }),
+    createChooser([]),
+  );
+
+  expectTxType(result, 'remove-index', 1);
+});
+
+test('rename and make changes', async () => {
+  const result = await diffSchemas(
+    i.schema({
+      entities: {
+        albums: i.entity({
+          name: i.string().indexed(),
+        }),
+      },
+    }),
+    i.schema({
+      entities: {
+        albums: i.entity({
+          name2: i.string(),
+        }),
+      },
+    }),
+    createChooser([{ from: 'name', to: 'name2' }]),
+  );
+
+  expectTxType(result, 'update-attr', 1);
+  expectTxType(result, 'remove-index', 1);
+});
+
+test('make optional', async () => {
+  const result = await diffSchemas(
+    i.schema({
+      entities: {
+        albums: i.entity({
+          name: i.string(),
+        }),
+      },
+    }),
+    i.schema({
+      entities: {
+        albums: i.entity({
+          name: i.string().optional(),
+        }),
+      },
+    }),
+    createChooser([]),
+  );
+
+  expectTxType(result, 'remove-required', 1);
+});
+
 test('create-link', async () => {
   const result = await diffSchemas(
     i.schema({
