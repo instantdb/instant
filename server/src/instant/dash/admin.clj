@@ -97,7 +97,7 @@
                                                           [:case
                                                            [:= [:pg_relation_size "triples"] 0] 1
                                                            :else [:/
-                                                                  [:pg_total_relation_size "triples"]
+                                                                  [:cast [:pg_total_relation_size "triples"] :numeric]
                                                                   [:pg_relation_size "triples"]]]]
                                                          0]]]
                                               :from [[:attr-sketches :s]]
@@ -123,7 +123,7 @@
                                                           [:case
                                                            [:= [:pg_relation_size "triples"] 0] 1
                                                            :else [:/
-                                                                  [:pg_total_relation_size "triples"]
+                                                                  [:cast [:pg_total_relation_size "triples"] :numeric]
                                                                   [:pg_relation_size "triples"]]]]
                                                          0]]]
                                               :from [[:attr-sketches :s]]

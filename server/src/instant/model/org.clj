@@ -264,7 +264,7 @@
                                 [:case
                                  [:= :0 [:pg_relation_size [:inline "triples"]]] :1
                                  :else [:/
-                                        [:pg_total_relation_size [:inline "triples"]]
+                                        [:cast [:pg_total_relation_size [:inline "triples"]] :numeric]
                                         [:pg_relation_size [:inline "triples"]]]]]
                                :0]
                               :num_bytes]]
