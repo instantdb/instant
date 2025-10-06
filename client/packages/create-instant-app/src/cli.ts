@@ -51,6 +51,12 @@ export const runCli = async (): Promise<Project> => {
       ),
     )
     .addOption(
+      new Option('--expo', 'Use the Expo starter template').default(false),
+    )
+    .addOption(
+      new Option('--next', 'Use the NextJS starter template').default(false),
+    )
+    .addOption(
       new Option('--no-git', "Don't create a git repo in the new project"),
     )
     .addOption(
@@ -114,6 +120,12 @@ export const runCli = async (): Promise<Project> => {
       base: async ({ results }) => {
         if (flags.base) {
           return flags.base as Project['base'];
+        }
+        if (flags.next) {
+          return 'next-js-app-dir';
+        }
+        if (flags.expo) {
+          return 'expo';
         }
 
         if (results.prompt) {
