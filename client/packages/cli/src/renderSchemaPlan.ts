@@ -15,9 +15,20 @@ export const renderSchemaPlan = (planSteps: MigrationTx[]) => {
         );
         break;
       case 'update-attr':
-        console.log(
-          `${chalk.bgYellow.black(' * UPDATE ATTR ')} ${step.identifier.namespace}.${step.identifier.attrName}`,
-        );
+        // check for rename
+        if (
+          step.identifier.attrName !==
+          step.partialAttr['forward-identity'].attrName
+        ) {
+          console.log(
+            `${chalk.bgYellow.black(' * RENAME ATTR ')} ${step.identifier.namespace}.${step.identifier.attrName} -> ${step.identifier.namespace}.${step.partialAttr['forward-identity'].attrName}`,
+          );
+        } else {
+          console.log(
+            `${chalk.bgYellow.black(' * UPDATE ATTR ')} ${step.identifier.namespace}.${step.identifier.attrName}`,
+          );
+        }
+
         break;
       case 'index':
         console.log(
@@ -31,22 +42,22 @@ export const renderSchemaPlan = (planSteps: MigrationTx[]) => {
         break;
       case 'required':
         console.log(
-          `${chalk.bgBlue.black(' + CREATE REQUIRED ')} ${step.namespace}.${step.attrName}`,
+          `${chalk.bgBlue.black(' + MAKE REQUIRED ')} ${step.namespace}.${step.attrName}`,
         );
         break;
       case 'unique':
         console.log(
-          `${chalk.bgBlue.black(' + CREATE UNIQUE ')} ${step.namespace}.${step.attrName}`,
+          `${chalk.bgBlue.black(' * MAKE UNIQUE ')} ${step.namespace}.${step.attrName}`,
         );
         break;
       case 'remove-required':
         console.log(
-          `${chalk.bgBlue.black(' - DELETE REQUIRED ')} ${step.namespace}.${step.attrName}`,
+          `${chalk.bgBlue.black(' - MAKE OPTIONAL ')} ${step.namespace}.${step.attrName}`,
         );
         break;
       case 'remove-unique':
         console.log(
-          `${chalk.bgBlue.black(' - DELETE UNIQUE ')} ${step.namespace}.${step.attrName}`,
+          `${chalk.bgBlue.black(' - REMOVE UNIQUE CONSTRAINT')} ${step.namespace}.${step.attrName}`,
         );
         break;
       case 'check-data-type':
@@ -56,7 +67,7 @@ export const renderSchemaPlan = (planSteps: MigrationTx[]) => {
         break;
       case 'remove-data-type':
         console.log(
-          `${chalk.bgBlue.black(' - DELETE DATA TYPE ')} ${step.namespace}.${step.attrName}`,
+          `${chalk.bgBlue.black(' - REMOVE DATA TYPE CONSTRAINT ')} ${step.namespace}.${step.attrName}`,
         );
         break;
 
