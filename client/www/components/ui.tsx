@@ -111,10 +111,10 @@ export function ToggleCollection({
             key={a.id}
             {...a.link}
             rel="noopener noreferer"
-            className={clsx(
+            className={cn(
               'block cursor-pointer truncate whitespace-nowrap rounded bg-none px-3 py-1 text-left hover:bg-gray-100 disabled:text-gray-400 dark:bg-neutral-800/40 dark:hover:bg-neutral-700/80',
               {
-                'bg-gray-200 dark:bg-neutral-600': selectedId === a.id,
+                'bg-gray-200 dark:bg-neutral-600/50': selectedId === a.id,
               },
               buttonClassName,
             )}
@@ -128,10 +128,10 @@ export function ToggleCollection({
             onClick={() => {
               onChange(a);
             }}
-            className={clsx(
+            className={cn(
               'block cursor-pointer truncate whitespace-nowrap rounded bg-none px-3 py-1 text-left hover:bg-gray-100 disabled:text-gray-400 dark:hover:bg-neutral-700/80',
               {
-                'bg-gray-200 dark:bg-neutral-600': selectedId === a.id,
+                'bg-gray-200 dark:bg-neutral-600/50': selectedId === a.id,
               },
               buttonClassName,
             )}
