@@ -57,6 +57,8 @@
                    :total 0
                    :total-not-binned 0}))))
 
+(def default-empty (make-sketch))
+
 (defn data-type-for-hash [checked-data-type x]
   (if (nil? x)
     [:nil nil]
