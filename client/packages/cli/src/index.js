@@ -400,10 +400,6 @@ program
     '-a --app <app-id>',
     'App ID to push too. Defaults to *_INSTANT_APP_ID in .env',
   )
-  .option(
-    '--skip-check-types',
-    "Don't check types on the server when pushing schema",
-  )
   .option('-t --title', 'Title for the created app')
   .option(
     '-p --package <react|react-native|core|admin>',
@@ -1364,7 +1360,6 @@ async function newPushSchema(appId, _opts) {
   const res = await readLocalSchemaFileWithErrorLogging();
   if (!res) return { ok: false };
   const { schema } = res;
-  console.log('Planning schema...');
 
   const pulledSchemaResponse = await fetchJson({
     method: 'GET',

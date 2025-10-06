@@ -1293,9 +1293,7 @@
 
         input-steps (ex/get-param! req [:body :steps] #(when (coll? % ) %))
         coerced (tx/coerce! input-steps)
-        plan-result (schema-model/apply-plan2! app-id coerced)
-        _ (tool/def-locals!)
-
+        plan-result (schema-model/apply-plan-with-deletes! app-id coerced)
        ]
     (response/ok plan-result))
   )

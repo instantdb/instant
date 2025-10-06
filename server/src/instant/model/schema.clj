@@ -517,7 +517,7 @@
      :steps steps
      :indexing-jobs indexing-jobs}))
 
-(defn apply-plan2! [app-id steps]
+(defn apply-plan-with-deletes! [app-id steps]
   (let [ctx {:admin? true
              :db {:conn-pool (aurora/conn-pool :write)}
              :app-id app-id
