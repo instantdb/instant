@@ -12,19 +12,42 @@
 // Each PersistedObject provides it's own `onMerge`
 // function to handle the merge of data from storage and memory
 // on load
-export class PersistedObject {
+
+function safeIdleCallback(cb) {
+  if (typeof requestIdleCallback === 'undefined') {
+    cb();
+  } else {
+    requestIdleCallback(cb);
+  }
+}
+
+let i = 0;
+
+export class PersistedObject<T> {
   _subs = [];
+  _persister: Storage;
+  _key: string;
+  _onMerge: (fromStorage: T, inMemoryValue: T) => any;
+  _loadedCbs: Array<() => void>;
+  _isLoading: boolean;
+  currentValue: T;
+  serialize: (T) => any;
+  parse: (any) => T;
+  _saveThrottleMs: number;
+  _pendingSaveCbs: Array<() => void>;
+  _version: number;
+  _nextSave: null | NodeJS.Timeout = null;
 
   constructor(
-    persister,
-    key,
-    defaultValue,
-    onMerge,
-    toJSON = (x) => {
-      return JSON.stringify(x);
+    persister: Storage,
+    key: string,
+    defaultValue: T,
+    onMerge: (fromStorage: T, inMemoryValue: T) => any,
+    serialize = (x: T): any => {
+      return x;
     },
-    fromJSON = (x) => {
-      return JSON.parse(x);
+    parse = (x: any): T => {
+      return x;
     },
     saveThrottleMs = 100,
   ) {
@@ -36,8 +59,8 @@ export class PersistedObject {
     this._loadedCbs = [];
     this._isLoading = true;
     this.currentValue = defaultValue;
-    this.toJSON = toJSON;
-    this.fromJSON = fromJSON;
+    this.serialize = serialize;
+    this.parse = parse;
     this._saveThrottleMs = saveThrottleMs;
     this._pendingSaveCbs = [];
     this._version = 0;
@@ -46,7 +69,7 @@ export class PersistedObject {
   }
 
   async _load() {
-    const fromStorage = this.fromJSON(await this._persister.getItem(this._key));
+    const fromStorage = this.parse(await this._persister.getItem(this._key));
     this._isLoading = false;
 
     this._onMerge(fromStorage, this.currentValue);
@@ -55,11 +78,11 @@ export class PersistedObject {
     }
   }
 
-  async waitForLoaded() {
+  async waitForLoaded(): Promise<void> {
     if (!this._isLoading) {
       return;
     }
-    const loadedPromise = new Promise((resolve) => {
+    const loadedPromise = new Promise<void>((resolve) => {
       this._loadedCbs.push(resolve);
     });
     await loadedPromise;
@@ -77,14 +100,14 @@ export class PersistedObject {
     if (!this._nextSave) {
       return;
     }
-    const syncedPromise = new Promise((resolve) => {
+    const syncedPromise = new Promise<void>((resolve) => {
       this._pendingSaveCbs.push(resolve);
     });
     await syncedPromise;
   }
 
   _writeToStorage() {
-    this._persister.setItem(this._key, this.toJSON(this.currentValue));
+    this._persister.setItem(this._key, this.serialize(this.currentValue));
     for (const cb of this._pendingSaveCbs) {
       cb();
     }
@@ -107,8 +130,14 @@ export class PersistedObject {
       return;
     }
     this._nextSave = setTimeout(() => {
-      this._nextSave = null;
-      this._writeToStorage();
+      let x = i++;
+      console.time(`idle callback ${x}`);
+
+      safeIdleCallback(() => {
+        console.timeEnd(`idle callback ${x}`);
+        this._nextSave = null;
+        this._writeToStorage();
+      });
     }, this._saveThrottleMs);
   }
 

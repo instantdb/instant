@@ -6,10 +6,11 @@ export default class Storage {
   }
 
   async getItem(k) {
-    return await AsyncStorage.getItem(`${this.dbName}_${k}`);
+    const res = await AsyncStorage.getItem(`${this.dbName}_${k}`);
+    return JSON.parse(res);
   }
 
   async setItem(k, v) {
-    await AsyncStorage.setItem(`${this.dbName}_${k}`, v);
+    await AsyncStorage.setItem(`${this.dbName}_${k}`, JSON.stringify(v));
   }
 }

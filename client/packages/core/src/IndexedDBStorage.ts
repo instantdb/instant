@@ -1,11 +1,15 @@
 export default class IndexedDBStorage {
-  constructor(dbName) {
+  dbName: string;
+  _storeName: string;
+  _dbPromise: Promise<IDBDatabase>;
+
+  constructor(dbName: string) {
     this.dbName = dbName;
     this._storeName = 'kv';
     this._dbPromise = this._init();
   }
 
-  _init() {
+  _init(): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(this.dbName, 1);
 
@@ -14,17 +18,19 @@ export default class IndexedDBStorage {
       };
 
       request.onsuccess = (event) => {
-        resolve(event.target.result);
+        const target = event.target as IDBOpenDBRequest;
+        resolve(target.result);
       };
 
       request.onupgradeneeded = (event) => {
-        const db = event.target.result;
+        const target = event.target as IDBOpenDBRequest;
+        const db = target.result;
         db.createObjectStore(this._storeName);
       };
     });
   }
 
-  async getItem(k) {
+  async getItem(k: string) {
     const db = await this._dbPromise;
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([this._storeName], 'readonly');
@@ -43,8 +49,9 @@ export default class IndexedDBStorage {
     });
   }
 
-  async setItem(k, v) {
+  async setItem(k: string, v: string): Promise<void> {
     const db = await this._dbPromise;
+    globalThis.___db = db;
     return new Promise((resolve, reject) => {
       const transaction = db.transaction([this._storeName], 'readwrite');
       const objectStore = transaction.objectStore(this._storeName);
