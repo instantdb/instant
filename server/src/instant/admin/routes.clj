@@ -65,16 +65,18 @@
 
 (defn get-perms! [{:keys [headers] :as req} oauth-scope]
   (let [app-id-untrusted (req->app-id-untrusted! req)
-        as-token (get headers "as-token")
+        as-token-header (get headers "as-token")
         as-email (get headers "as-email")
         as-guest (get headers "as-guest")
         perms (cond
-                as-token
+                as-token-header
                 (let [app-id app-id-untrusted]
-                  {:app-id app-id
-                   :admin? false
-                   :current-user (app-user-model/get-by-refresh-token!
-                                  {:app-id app-id :refresh-token as-token})})
+                  (if-let [as-token (uuid-util/coerce as-token-header)]
+                    {:app-id app-id
+                     :admin? false
+                     :current-user (app-user-model/get-by-refresh-token!
+                                    {:app-id app-id :refresh-token as-token})}
+                    (ex/throw-malformed-param! [:asUser :token] as-token-header)))
 
                 as-email
                 (let [{:keys [app-id]} (req->app-id-authed! req oauth-scope)]
