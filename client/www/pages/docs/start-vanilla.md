@@ -5,6 +5,8 @@ description: How to use Instant with Vanilla JS
 
 You can use Instant with plain ol' Javascript/Typescript too. You may find this helpful to integrate Instant with a framework that doesn't have an official SDK yet.
 
+{% copy-prompt-box id="vanilla" /%}
+
 To use Instant in a brand new project fire up your terminal set up a new project with Vite.
 
 ```shell {% showCopy=true %}

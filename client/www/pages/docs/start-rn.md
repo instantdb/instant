@@ -3,7 +3,11 @@ title: Getting started with React Native
 description: How to use Instant with React Native
 ---
 
-You can use Instant in React Native projects too! Below is an example using Expo. Open up your terminal and do the following:
+You can use Instant in React Native projects too! Below is an example using Expo.
+
+{% copy-prompt-box id="expo" /%}
+
+Open up your terminal and do the following:
 
 ```shell {% showCopy=true %}
 # Create an app with expo
