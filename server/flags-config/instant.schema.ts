@@ -3,7 +3,7 @@
 import { i } from "@instantdb/core";
 
 const _schema = i.schema({
-  // We inferred 1 attribute!
+  // We inferred 3 attributes!
   // Take a look at this schema, and if everything looks good,
   // run `push schema` again to enforce the types.
   entities: {
@@ -13,6 +13,10 @@ const _schema = i.schema({
     }),
     $users: i.entity({
       email: i.string().unique().indexed().optional(),
+      type: i.string().optional(),
+    }),
+    "app-deletion-sweeper": i.entity({
+      "disabled?": i.boolean(),
     }),
     "e2e-logging": i.entity({
       "invalidator-rate": i.number(),
@@ -20,7 +24,7 @@ const _schema = i.schema({
     flags: i.entity({
       description: i.string().optional(),
       setting: i.string().unique(),
-      value: i.json(),
+      value: i.any(),
     }),
     "friend-emails": i.entity({
       email: i.string().unique(),
@@ -52,9 +56,9 @@ const _schema = i.schema({
       enabled: i.boolean(),
     }),
     "rule-wheres": i.entity({
-      "app-ids": i.any(),
-      "query-hash-blacklist": i.any(),
-      "query-hashes": i.any(),
+      "app-ids": i.json(),
+      "query-hash-blacklist": i.json(),
+      "query-hashes": i.json(),
     }),
     "storage-block-list": i.entity({
       appId: i.string().unique().indexed(),
@@ -85,13 +89,27 @@ const _schema = i.schema({
       limit: i.number(),
     }),
   },
-  links: {},
+  links: {
+    $usersLinkedPrimaryUser: {
+      forward: {
+        on: "$users",
+        has: "one",
+        label: "linkedPrimaryUser",
+        onDelete: "cascade",
+      },
+      reverse: {
+        on: "$users",
+        has: "many",
+        label: "linkedGuestUsers",
+      },
+    },
+  },
   rooms: {},
 });
 
 // This helps Typescript display nicer intellisense
 type _AppSchema = typeof _schema;
-interface AppSchema extends _AppSchema { }
+interface AppSchema extends _AppSchema {}
 const schema: AppSchema = _schema;
 
 export type { AppSchema };
