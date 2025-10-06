@@ -2853,7 +2853,7 @@
               (is (= #{"0" "2" "3" "4"} (run-query :string {:etype {:$ {:where {:string {:$not "1"}}}}})))
 
               (testing "uses index"
-                (is (= "ave_index" (run-explain :string "2"))))
+                (is (= "ave_with_e_index" (run-explain :string "2"))))
 
               (testing "like uses index"
                 (is (= "triples_string_trgm_gist_idx" (run-explain :$like :string "%aaa")))))
