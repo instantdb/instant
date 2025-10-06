@@ -188,9 +188,6 @@ importers:
 
   packages/create-instant-app:
     dependencies:
-      '@anthropic-ai/claude-agent-sdk':
-        specifier: ^0.1.8
-        version: 0.1.8
       '@clack/core':
         specifier: ^0.5.0
         version: 0.5.0
@@ -1212,10 +1209,6 @@ packages:
 
   '@antfu/utils@0.7.10':
     resolution: {integrity: sha512-+562v9k4aI80m1+VuMHehNJWLOFjBnXn3tdOitzD0il5b7smkSBal4+a3oKiQTbrwMmN/TBUMDvbdoWDehgOww==}
-
-  '@anthropic-ai/claude-agent-sdk@0.1.8':
-    resolution: {integrity: sha512-QaylzHEweHI4FOKAfFd8FNzbyFd+WSA8Hb5V8+O0gOi0X1iV5xa+f6lFjBI9AlGP3frfb1ONn6LYmn0d+szV3g==}
-    engines: {node: '>=18.0.0'}
 
   '@anthropic-ai/sdk@0.60.0':
     resolution: {integrity: sha512-9zu/TXaUy8BZhXedDtt1wT3H4LOlpKDO1/ftiFpeR3N1PCr3KJFKkxxlQWWt1NNp08xSwUNJ3JNY8yhl8av6eQ==}
@@ -14004,15 +13997,6 @@ snapshots:
   '@andrewbranch/untar.js@1.0.3': {}
 
   '@antfu/utils@0.7.10': {}
-
-  '@anthropic-ai/claude-agent-sdk@0.1.8':
-    optionalDependencies:
-      '@img/sharp-darwin-arm64': 0.33.5
-      '@img/sharp-darwin-x64': 0.33.5
-      '@img/sharp-linux-arm': 0.33.5
-      '@img/sharp-linux-arm64': 0.33.5
-      '@img/sharp-linux-x64': 0.33.5
-      '@img/sharp-win32-x64': 0.33.5
 
   '@anthropic-ai/sdk@0.60.0': {}
 
@@ -27710,7 +27694,7 @@ snapshots:
       '@tsconfig/node14': 1.0.3
       '@tsconfig/node16': 1.0.4
       '@types/node': 18.19.74
-      acorn: 8.14.0
+      acorn: 8.14.1
       acorn-walk: 8.3.4
       arg: 4.1.3
       create-require: 1.1.1

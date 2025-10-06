@@ -79,11 +79,7 @@ const main = async () => {
   }
 
   if (project.prompt) {
-    const claudeSessionId = await promptClaude(project.prompt, projectDir);
-    if (claudeSessionId) {
-      p.log.info(`Claude session ID: ${claudeSessionId}`);
-    }
-    // show cursor again
+    await promptClaude(project.prompt, projectDir);
     process.stdout.write(SHOW_CURSOR);
   }
 
