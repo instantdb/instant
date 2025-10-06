@@ -790,14 +790,10 @@
           :cols [:a :v]
           :idx-key :ave}
 
-         (when (and (flags/toggled? :ave-with-e-index)
-                    ;; Can't use this with the old cost
-                    ;; function because it generates bad joins
-                    (flags/toggled? :new-index-cost))
-           {:name :ave_with_e_index
-            :cols [:a :v :e]
-            :unique-cols #{:e}
-            :idx-key :ave})
+         {:name :ave_with_e_index
+          :cols [:a :v :e]
+          :unique-cols #{:e}
+          :idx-key :ave}
 
          {:name :eav_uuid_index
           :cols [:e :a :v]
@@ -1238,15 +1234,20 @@
   nested loop."
   [index]
   (let [costs (:index-costs index)
-        path-cost (/ (reduce + (map :cost (:path costs)))
-                     (max (count (:path costs)) 1))
-        join-cost (reduce + 0 (vals (:join-remaining costs)))
+        index-lookup-cost (reduce (fn [acc {:keys [cost col]}]
+                                    (let [next-cost (* acc cost)]
+                                      (if (contains? (:unique-cols index) col)
+                                        (reduced next-cost)
+                                        next-cost)))
+                                  1
+                                  (:path costs))
+        join-cost (reduce + 1 (vals (:join-remaining costs)))
         filter-cost (reduce + 0 (vals (select-keys (:known-remaining costs)
                                                    (:filter-components costs))))]
     (* 1.0
-       (+ path-cost
+       (+ index-lookup-cost
           (* 2 filter-cost))
-       (max 1 join-cost))))
+       (max 1 (* 1.1 join-cost)))))
 
 (defn path-cost-with-joins-new
   "Tries to estimate the work we'll be doing for an individual index,
@@ -1261,7 +1262,7 @@
                                         next-cost)))
                                   1
                                   (:path costs))
-        join-cost (reduce + 0 (vals (:join-remaining costs)))
+        join-cost (reduce * 1 (vals (:join-remaining costs)))
         filter-cost (reduce + 0 (vals (select-keys (:known-remaining costs)
                                                    (:filter-components costs))))]
     (* 1.0
