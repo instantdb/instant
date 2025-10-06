@@ -17,8 +17,9 @@ export const renderSchemaPlan = (planSteps: MigrationTx[]) => {
       case 'update-attr':
         // check for rename
         if (
+          step.partialAttr['forward-identity']?.attrName &&
           step.identifier.attrName !==
-          step.partialAttr['forward-identity'].attrName
+            step.partialAttr['forward-identity'].attrName
         ) {
           console.log(
             `${chalk.bgYellow.black(' * RENAME ATTR ')} ${step.identifier.namespace}.${step.identifier.attrName} -> ${step.identifier.namespace}.${step.partialAttr['forward-identity'].attrName}`,
