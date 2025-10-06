@@ -411,7 +411,7 @@ program
   )
   .description('Push schema and perm files to production.')
   .action(async function (arg, inputOpts) {
-    const ret = convertPushPullToCurrentFormat('push', arg, inputOpts);
+    const ret = convertPushPullToCurrentFormat(arg, inputOpts);
     if (!ret.ok) return process.exit(1);
     const { bag, opts } = ret;
     await handleNewPush(bag, opts);
