@@ -198,3 +198,90 @@ test('delete link', async () => {
   console.log(result);
   expectTxType(result, 'delete-attr', 1);
 });
+
+test('update link cardinality', async () => {
+  const result = await diffSchemas(
+    i.schema({
+      entities: {
+        albums: i.entity({
+          name: i.string(),
+        }),
+        songs: i.entity({
+          name: i.string(),
+        }),
+      },
+      links: {
+        songAlbum: {
+          forward: { on: 'albums', has: 'one', label: 'songs' },
+          reverse: { on: 'songs', has: 'one', label: 'albums' },
+        },
+      },
+    }),
+    i.schema({
+      entities: {
+        albums: i.entity({
+          name: i.string(),
+        }),
+        songs: i.entity({
+          name: i.string(),
+        }),
+      },
+      links: {
+        songAlbum: {
+          forward: { on: 'albums', has: 'many', label: 'songs' },
+          reverse: { on: 'songs', has: 'one', label: 'albums' },
+        },
+      },
+    }),
+    createChooser([]),
+  );
+  console.log(result);
+  expectTxType(result, 'update-attr', 1);
+  expect((result[0] as any).partialAttr.cardinality).toBe('many');
+});
+
+test('update link delete cascade', async () => {
+  const result = await diffSchemas(
+    i.schema({
+      entities: {
+        albums: i.entity({
+          name: i.string(),
+        }),
+        songs: i.entity({
+          name: i.string(),
+        }),
+      },
+      links: {
+        songAlbum: {
+          forward: { on: 'albums', has: 'one', label: 'songs' },
+          reverse: { on: 'songs', has: 'one', label: 'albums' },
+        },
+      },
+    }),
+    i.schema({
+      entities: {
+        albums: i.entity({
+          name: i.string(),
+        }),
+        songs: i.entity({
+          name: i.string(),
+        }),
+      },
+      links: {
+        songAlbum: {
+          forward: {
+            on: 'albums',
+            has: 'one',
+            onDelete: 'cascade',
+            label: 'songs',
+          },
+          reverse: { on: 'songs', has: 'one', label: 'albums' },
+        },
+      },
+    }),
+    createChooser([]),
+  );
+  console.log(result);
+  expectTxType(result, 'update-attr', 1);
+  expect((result[0] as any).partialAttr['on-delete']).toBe('cascade');
+});

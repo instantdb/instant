@@ -4,7 +4,6 @@
   "exclude": ["node_modules", "dist"],
   "compilerOptions": {
     "strict": true,
-    "target": "ESNext",
     "outDir": "dist/tsc",
     "rewriteRelativeImportExtensions": true,
     "rootDir": "src",

@@ -300,24 +300,17 @@ export const diffSchemas = async (
 
   for (const entityName of innerEntityNames) {
     // BLOB ATTRIBUTES
-    console.log(`Entity ${entityName} has been modified`);
     const addedFields = Object.keys(newEntities[entityName].attrs).filter(
       (field) => !Object.keys(oldEntities[entityName].attrs).includes(field),
     );
     const removedFields = Object.keys(oldEntities[entityName].attrs).filter(
       (field) => !Object.keys(newEntities[entityName].attrs).includes(field),
     );
-    console.log(`Added fields: ${addedFields.join(', ')}`);
-    console.log(`Removed fields: ${removedFields.join(', ')}`);
 
     const resolved = await resolveRenames(
       addedFields,
       removedFields,
       resolveFn,
-    );
-
-    console.log(
-      `Resolved fields for ${entityName}: ${JSON.stringify(resolved)}`,
     );
 
     const consistentFields = Object.keys(oldEntities[entityName].attrs).filter(
@@ -462,17 +455,11 @@ export const diffSchemas = async (
       );
     });
 
-    console.log(
-      `Link group ${linkKey} - Added: ${addedIdentities.join(', ')}, Removed: ${removedIdentities.join(', ')}`,
-    );
-
     const resolved = await resolveRenames(
       addedIdentities,
       removedIdentities,
       resolveFn,
     );
-
-    console.log(`Resolved links for ${linkKey}: ${JSON.stringify(resolved)}`);
 
     resolved.deleted.forEach((identity) => {
       const link = oldLinksInGroup.find(
