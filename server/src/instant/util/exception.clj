@@ -327,16 +327,19 @@
            ::message (format "Missing parameter: %s" (mapv safe-name ks))
            ::hint {:in ks}}))
 
+(defn throw-malformed-param! [ks input]
+  (throw+ {::type ::param-malformed
+           ::message (format "Malformed parameter: %s" (mapv safe-name ks))
+           ::hint {:in ks
+                   :original-input input}}))
+
 (defn get-param! [obj ks coercer]
   (let [param (get-in obj ks)
         _ (when-not param
             (throw-missing-param! ks))
         coerced (coercer param)
         _ (when-not coerced
-            (throw+ {::type ::param-malformed
-                     ::message (format "Malformed parameter: %s" (mapv safe-name ks))
-                     ::hint {:in ks
-                             :original-input param}}))]
+            (throw-malformed-param! ks param))]
     coerced))
 
 (defn get-optional-param! [obj ks coercer]
