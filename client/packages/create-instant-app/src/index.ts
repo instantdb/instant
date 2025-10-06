@@ -22,6 +22,7 @@ import {
 import { promptClaude } from './claude.js';
 import { parseNameAndPath } from './utils/validateAppName.js';
 import { execa } from 'execa';
+import * as p from '@clack/prompts';
 
 const main = async () => {
   if (
@@ -78,7 +79,10 @@ const main = async () => {
   }
 
   if (project.prompt) {
-    await promptClaude(project.prompt, projectDir);
+    const claudeSessionId = await promptClaude(project.prompt, projectDir);
+    if (claudeSessionId) {
+      p.log.info(`Claude session ID: ${claudeSessionId}`);
+    }
     // show cursor again
     process.stdout.write(SHOW_CURSOR);
   }

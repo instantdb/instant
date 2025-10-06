@@ -2,9 +2,9 @@ import { spawn } from 'child_process';
 import chalk from 'chalk';
 import ora from 'ora';
 import * as p from '@clack/prompts';
-import type { ContentBlock, ToolUseBlock } from '@anthropic-ai/sdk/resources';
+import type { Beta, ToolUseBlock } from '@anthropic-ai/sdk/resources';
 import { HIDE_CURSOR, wrappedWindowOutput } from './utils/logger.js';
-import { query } from '@anthropic-ai/claude-code';
+import { query } from '@anthropic-ai/claude-agent-sdk';
 
 let currentSpinner: ReturnType<typeof ora> | null = null;
 
@@ -79,7 +79,7 @@ const getSpinnerText = (content: ToolUseBlock) => {
   return output;
 };
 
-const printClaudeMessage = (content: ContentBlock) => {
+const printClaudeMessage = (content: Beta.BetaContentBlock) => {
   if (content.type === 'text' && content.text) {
     // Stop any existing spinner before showing text
     if (currentSpinner) {
@@ -135,26 +135,39 @@ export async function findClaudePath(): Promise<string | null> {
   });
 }
 
-export const promptClaude = async (prompt: string, projectDir: string) => {
+/**
+ *
+ * @returns session id
+ */
+export const promptClaude = async (
+  prompt: string,
+  projectDir: string,
+): Promise<string | null> => {
   p.log.info('Generating with Claude Code...');
   process.stdout.write(HIDE_CURSOR);
   for await (const message of query({
+    prompt: prompt,
     options: {
       cwd: projectDir,
-      appendSystemPrompt:
-        'Do not use the instant mcp server to create a new app, a fresh app id has already been placed in the .env file. Do not attempt to start a dev server.',
+      settingSources: ['user', 'project', 'local'],
+      systemPrompt: {
+        type: 'preset',
+        preset: 'claude_code',
+        append:
+          'Do not use the instant mcp server to create a new app, a fresh app id has already been placed in the .env file. Do not attempt to start a dev server.',
+      },
       permissionMode: 'bypassPermissions', // todo: make more strict
       env: process.env,
       pathToClaudeCodeExecutable: process.env.CLAUDE_CODE_PATH,
     },
-    prompt: prompt,
   })) {
-    if (message.type === 'system') {
-    } else if (message.type === 'assistant') {
+    if (message.type === 'assistant') {
       message.message.content.forEach((content) => {
         printClaudeMessage(content);
       });
     } else if (message.type === 'result') {
+      return message.session_id;
     }
   }
+  return null;
 };
