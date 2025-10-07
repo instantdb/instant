@@ -54,7 +54,9 @@ import OAuthApps from '@/components/dash/OAuthApps';
 import { Sandbox } from '@/components/dash/Sandbox';
 import {
   Badge,
+  Button,
   Content,
+  Copyable,
   SectionHeading,
   SmallCopyable,
   TabBar,
@@ -698,6 +700,7 @@ export function HomeButton({
 
 function Home({ appId, token }: { appId: string; token: string }) {
   const { stats, isLoading, error } = useAppConnectionStats(token, appId);
+  const [hideAppId, setHideAppId] = useLocalStorage('hide_app_id', false);
 
   // Sort origins by connection count (highest to lowest)
   const sortedOrigins = stats?.origins
@@ -722,6 +725,30 @@ function Home({ appId, token }: { appId: string; token: string }) {
           Join our Discord to meet like-minded hackers, and to give us feedback
           too!
         </HomeButton>
+      </div>
+
+      {/* Your Public App ID Section */}
+      <div className="mt-10">
+        <SectionHeading>Your Public App ID</SectionHeading>
+        <div className="pt-1">
+          Use this App ID to connect to your database{' '}
+          <a
+            className="hover:cursor-pointer dark:text-white underline"
+            href="/docs/init"
+            target="_blank"
+          >
+            via init
+          </a>
+          . This ID is safe to use in public-facing applications.
+        </div>
+        <div className="mt-4">
+          <Copyable
+            value={appId}
+            size="large"
+            hideValue={hideAppId}
+            onChangeHideValue={() => setHideAppId(!hideAppId)}
+          />
+        </div>
       </div>
 
       {/* Connection Count Display */}
