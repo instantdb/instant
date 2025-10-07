@@ -1324,7 +1324,6 @@ async function pushSchema(appId, _opts) {
 
   if (!pulledSchemaResponse.ok) return pulledSchemaResponse;
 
-  console.log(pulledSchemaResponse);
   const currentAttrs = pulledSchemaResponse.data['attrs'];
   const currentApiSchema = pulledSchemaResponse.data['schema'];
 
@@ -1335,8 +1334,6 @@ async function pushSchema(appId, _opts) {
   renderSchemaPlan(diffResult);
 
   const txSteps = convertTxSteps(diffResult, currentAttrs);
-
-  console.log(txSteps);
 
   if (txSteps.length === 0) {
     console.log(chalk.bgGray('No schema changes to apply!'));
@@ -1354,7 +1351,6 @@ async function pushSchema(appId, _opts) {
         steps: txSteps,
       },
     });
-    console.log(applyRes.data);
     console.log(chalk.green('Schema updated!'));
     if (!applyRes.ok) return applyRes;
 
