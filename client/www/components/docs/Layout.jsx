@@ -9,7 +9,7 @@ import { Search } from '@/components/docs/Search';
 import { SelectedAppContext } from '@/lib/SelectedAppContext';
 import { useAuthToken, useTokenFetch } from '@/lib/auth';
 import config from '@/lib/config';
-import { Select } from '@/components/ui';
+import { Select, Button } from '@/components/ui';
 import { BareNav } from '@/components/marketingUi';
 import navigation from '@/data/docsNavigation';
 import { createdAtComparator, titleComparator } from '@/lib/app';
@@ -108,6 +108,57 @@ function useSelectedApp(apps = [], orgId) {
   );
 
   return { loading: isLoading, data: selectedAppData, update };
+}
+
+const contentCache = {};
+
+function CopyAsMarkdown({ path, label = 'Copy as markdown' }) {
+  const [copyLabel, setCopyLabel] = useState(label);
+  const fetchingRef = useRef(false);
+  const url = `${path}.md`;
+
+  const handleCopy = async () => {
+    if (fetchingRef.current) return;
+
+    try {
+      fetchingRef.current = true;
+
+      // Use cached content if available
+      let content = contentCache[path];
+
+      if (!content) {
+        const response = await fetch(url);
+        content = await response.text();
+        contentCache[path] = content;
+      }
+
+      await navigator.clipboard.writeText(content);
+      setCopyLabel('Copied!');
+
+      setTimeout(() => {
+        setCopyLabel(label);
+      }, 2000);
+    } catch (error) {
+      console.error('Failed to copy:', error);
+      setCopyLabel('Failed');
+      setTimeout(() => {
+        setCopyLabel(label);
+      }, 2000);
+    } finally {
+      fetchingRef.current = false;
+    }
+  };
+
+  return (
+    <Button
+      size="nano"
+      variant="secondary"
+      className="py-2"
+      onClick={handleCopy}
+    >
+      {copyLabel}
+    </Button>
+  );
 }
 
 function AppPicker({
@@ -244,7 +295,7 @@ function getNextPage(allLinks, currentPath) {
   return allLinks[idx + 1];
 }
 
-function PageContent({ title, sectionTitle, allLinks, children }) {
+function PageContent({ path, title, sectionTitle, allLinks, children }) {
   return (
     <article>
       {(title || sectionTitle) && (
@@ -252,7 +303,12 @@ function PageContent({ title, sectionTitle, allLinks, children }) {
           {sectionTitle && (
             <p className="text-sm font-medium text-gray-500">{sectionTitle}</p>
           )}
-          {title && <h1 className="text-3xl dark:text-white">{title}</h1>}
+          {title && (
+            <div className="space-y-4 md:space-y-0 md:grid md:grid-cols-[1fr_auto] md:items-start">
+              <h1 className="text-3xl dark:text-white">{title}</h1>
+              <CopyAsMarkdown path={path} />
+            </div>
+          )}
         </header>
       )}
       <Prose>{children}</Prose>
@@ -455,6 +511,7 @@ export function Layout({ children, title, tableOfContents }) {
                 />
               )}
               <PageContent
+                path={router.pathname}
                 title={title}
                 sectionTitle={section?.title}
                 allLinks={allLinks}
