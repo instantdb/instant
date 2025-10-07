@@ -285,7 +285,19 @@
                    :message "Only provide one of `first` or `last`."}
                  (validation-err ctx {:users
                                       {:$ {:last 10
-                                           :first 10}}}))))
+                                           :first 10}}})))
+
+          (is (= '{:expected supported-options?,
+                   :in [:users :$ :first],
+                   :message "The first field must be a positive integer. Got 0."}
+                 (validation-err ctx {:users
+                                      {:$ {:first 0}}})))
+
+          (is (= '{:expected supported-options?,
+                   :in [:users :$ :last],
+                   :message "The last field must be a positive integer. Got -1."}
+                 (validation-err ctx {:users
+                                      {:$ {:last -1}}}))))
 
         (testing "aggregate"
           (is (= '{:expected admin?
