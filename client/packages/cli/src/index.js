@@ -1291,9 +1291,8 @@ function linkOptsPretty(attr) {
 }
 
 const resolveRenames = async (created, promptData) => {
-  console.log('RESOLVING RENAMES', created, promptData);
   const answer = await select({
-    message: 'What was your intent?',
+    message: `Did you want to create "${created} or rename it from something else?"`,
     choices: [
       ...promptData.map((choice) => {
         const isRename = isRenamePromptItem(choice);
