@@ -75,6 +75,7 @@ export function QueryInspector({
   const db = schema
     ? init({
         ...baseDb.core._reactor.config,
+        disableValidation: true,
         schema,
       })
     : baseDb;
