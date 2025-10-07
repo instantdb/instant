@@ -163,8 +163,35 @@ export function Sandbox({
   const [output, setOutput] = useState<any[]>([]);
   const [showRunning, setShowRunning] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
+  const [isMonacoLoaded, setIsMonacoLoaded] = useState(false);
+  const monacoRef = useRef<Monaco | null>(null);
+  const monacoDisposables = useRef<Array<() => void>>([]);
 
   const { darkMode } = useDarkMode();
+
+  useEffect(() => {
+    const monaco = monacoRef.current;
+    if (attrs && isMonacoLoaded && monaco) {
+      for (const dispose of monacoDisposables.current) {
+        dispose();
+      }
+      const disposables = [];
+      monacoDisposables.current = [];
+      const schemaContent = schemaTs(attrs);
+      disposables.push(
+        monaco.languages.typescript.typescriptDefaults.addExtraLib(
+          schemaContent,
+          'file:///instant.schema.ts',
+        ).dispose,
+      );
+      disposables.push(
+        monaco.languages.typescript.typescriptDefaults.addExtraLib(
+          tsTypesWithSchema,
+          'file:///global.d.ts',
+        ).dispose,
+      );
+    }
+  }, [attrs, isMonacoLoaded]);
 
   /**
    * Saves the current sandbox as a new preset.
@@ -455,10 +482,6 @@ export function Sandbox({
   const execRef = useRef<() => void>(exec);
   execRef.current = exec;
 
-  if (!attrs) {
-    return <FullscreenLoading />;
-  }
-
   const PresetManager = () => {
     return (
       <div className="flex items-center gap-2">
@@ -655,15 +678,9 @@ export function Sandbox({
 
                     // Load better types
                     await addInstantLibs(monaco);
-                    const schemaContent = schemaTs(attrs);
-                    monaco.languages.typescript.typescriptDefaults.addExtraLib(
-                      schemaContent,
-                      'file:///instant.schema.ts',
-                    );
-                    monaco.languages.typescript.typescriptDefaults.addExtraLib(
-                      tsTypesWithSchema,
-                      'file:///global.d.ts',
-                    );
+
+                    monacoRef.current = monaco;
+                    setIsMonacoLoaded(true);
                   }}
                 />
               </div>
