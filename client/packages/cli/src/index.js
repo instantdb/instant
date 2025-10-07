@@ -1402,6 +1402,11 @@ async function newPushSchema(appId, _opts) {
     });
     console.log(applyRes.data);
     console.log(chalk.green('Schema updated!'));
+    if (!applyRes.ok) return applyRes;
+
+    if (applyRes.data['indexing-jobs']) {
+      await waitForIndexingJobsToFinish(appId, applyRes.data['indexing-jobs']);
+    }
   }
 
   return { ok: true };
