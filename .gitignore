@@ -222,6 +222,7 @@ server/resources/emails/*
 client/www/scripts/algolia-objects.json
 client/packages/mcp/.env
 
+# tshy build temporary package.json files
 client/packages/platform/src/package.json
 client/packages/cli/src/package.json
 client/packages/core/src/package.json
