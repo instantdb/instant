@@ -1,12 +1,12 @@
 import JsonParser from 'json5';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { StarIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { ArrowRightIcon } from '@heroicons/react/24/solid';
 
 import { Button, CodeEditor, cn } from '@/components/ui';
-import { errorToast, infoToast } from '@/lib/toast';
-import { init, InstantReactWebDatabase, ValidQuery } from '@instantdb/react';
+import { errorToast } from '@/lib/toast';
+import { init, InstantReactWebDatabase } from '@instantdb/react';
 import { DBAttr, SchemaNamespace } from '@/lib/types';
 import { attrsToSchema } from '@/lib/schema';
 import { apiSchemaToInstantSchemaDef } from '@instantdb/platform';
@@ -56,6 +56,23 @@ class QueryInspectorCache {
   }
 }
 
+function dbForAttrs(
+  baseDb: InstantReactWebDatabase<any>,
+  attrs: Record<string, DBAttr> | null,
+): InstantReactWebDatabase<any> {
+  if (!attrs) {
+    return baseDb;
+  }
+  const schema = apiSchemaToInstantSchemaDef(
+    attrsToSchema(Object.values(attrs)),
+  );
+  return init({
+    ...baseDb.core._reactor.config,
+    disableValidation: true,
+    schema,
+  });
+}
+
 export function QueryInspector({
   className,
   appId,
@@ -69,16 +86,7 @@ export function QueryInspector({
   namespaces: SchemaNamespace[] | null;
   attrs: Record<string, DBAttr> | null;
 }) {
-  const schema = attrs
-    ? apiSchemaToInstantSchemaDef(attrsToSchema(Object.values(attrs)))
-    : null;
-  const db = schema
-    ? init({
-        ...baseDb.core._reactor.config,
-        disableValidation: true,
-        schema,
-      })
-    : baseDb;
+  const db = useMemo(() => dbForAttrs(baseDb, attrs), [baseDb, attrs]);
   const cache = new QueryInspectorCache(appId);
   const [query, setQuery] = useState<Record<string, any>>({});
   const [draft, setQueryDraft] = useState('{}');

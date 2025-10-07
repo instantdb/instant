@@ -8,7 +8,6 @@ import {
   Button,
   Checkbox,
   Dialog,
-  FullscreenLoading,
   IconButton,
   Label,
   Select,
@@ -36,12 +35,7 @@ import { InstantReactWebDatabase } from '@instantdb/react';
 import { Editor, Monaco, type OnMount } from '@monaco-editor/react';
 
 import clsx from 'clsx';
-import {
-  createParser,
-  createSerializer,
-  parseAsBoolean,
-  useQueryState,
-} from 'nuqs';
+import { createParser, createSerializer, parseAsBoolean } from 'nuqs';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { debounce } from 'lodash';
 import {
@@ -50,7 +44,7 @@ import {
   ResizablePanelGroup,
 } from '../resizable';
 import { useDarkMode } from './DarkModeToggle';
-import { ArrowUpToLine, Save } from 'lucide-react';
+import { Save } from 'lucide-react';
 import { infoToast } from '@/lib/toast';
 import { useSavedQueryState } from '@/lib/hooks/useSavedQueryState';
 import { addInstantLibs } from '@/lib/monaco';
