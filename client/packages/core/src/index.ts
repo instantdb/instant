@@ -9,7 +9,7 @@ import {
 } from './instatx.js';
 import weakHash from './utils/weakHash.js';
 import id from './utils/uuid.js';
-import IndexedDBStorage from './IndexedDBStorage.js';
+import IndexedDBStorage from './IndexedDBStorage.ts';
 import WindowNetworkListener from './WindowNetworkListener.js';
 import { i } from './schema.js';
 import { createDevtool } from './devtool.js';

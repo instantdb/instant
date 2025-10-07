@@ -4,14 +4,14 @@ import instaql from './instaql.js';
 import * as instaml from './instaml.js';
 import * as s from './store.js';
 import uuid from './utils/uuid.ts';
-import IndexedDBStorage from './IndexedDBStorage.js';
+import IndexedDBStorage from './IndexedDBStorage.ts';
 import WindowNetworkListener from './WindowNetworkListener.js';
 import * as authAPI from './authAPI.ts';
 import * as StorageApi from './StorageAPI.ts';
 import * as flags from './utils/flags.ts';
 import { buildPresenceSlice, hasPresenceResponseChanged } from './presence.ts';
 import { Deferred } from './utils/Deferred.js';
-import { PersistedObject } from './utils/PersistedObject.js';
+import { PersistedObject } from './utils/PersistedObject.ts';
 import { extractTriples } from './model/instaqlResult.js';
 import {
   areObjectsDeepEqual,
@@ -78,8 +78,8 @@ const ignoreLogging = {
   'patch-presence': true,
 };
 
-function querySubsFromJSON(str, useDateObjects) {
-  const parsed = JSON.parse(str);
+function querySubsFromStorage(x, useDateObjects) {
+  const parsed = typeof x === 'string' ? JSON.parse(x) : x;
   for (const key in parsed) {
     const v = parsed[key];
     if (v?.result?.store) {
@@ -93,7 +93,7 @@ function querySubsFromJSON(str, useDateObjects) {
   return parsed;
 }
 
-function querySubsToJSON(querySubs) {
+function querySubsToStorage(querySubs) {
   const jsonSubs = {};
   for (const key in querySubs) {
     const sub = querySubs[key];
@@ -106,7 +106,7 @@ function querySubsToJSON(querySubs) {
     }
     jsonSubs[key] = jsonSub;
   }
-  return JSON.stringify(jsonSubs);
+  return jsonSubs;
 }
 
 function sortedMutationEntries(entries) {
@@ -278,8 +278,8 @@ export default class Reactor {
       'querySubs',
       {},
       this._onMergeQuerySubs,
-      querySubsToJSON,
-      (str) => querySubsFromJSON(str, this.config.useDateObjects),
+      querySubsToStorage,
+      (x) => querySubsFromStorage(x, this.config.useDateObjects),
     );
     this.pendingMutations = new PersistedObject(
       this._persister,
@@ -287,11 +287,13 @@ export default class Reactor {
       new Map(),
       this._onMergePendingMutations,
       (x) => {
-        return JSON.stringify([...x.entries()]);
+        return [...x.entries()];
       },
       (x) => {
-        return new Map(JSON.parse(x));
+        return new Map(typeof x === 'string' ? JSON.parse(x) : x);
       },
+      100, // throttle
+      100, // idlecallback timeout, flush more often for mutations
     );
     this._beforeUnloadCbs.push(() => {
       this.pendingMutations.flush();
@@ -1663,7 +1665,7 @@ export default class Reactor {
   }
 
   async setCurrentUser(user) {
-    await this._persister.setItem(currentUserKey, JSON.stringify(user));
+    await this._persister.setItem(currentUserKey, user);
   }
 
   getCurrentUserCached() {
@@ -1672,7 +1674,7 @@ export default class Reactor {
 
   async _getCurrentUser() {
     const user = await this._persister.getItem(currentUserKey);
-    return JSON.parse(user);
+    return typeof user === 'string' ? JSON.parse(user) : user;
   }
 
   async getCurrentUser() {
