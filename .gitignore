@@ -204,7 +204,7 @@ apps/.DS_Store
 # turbo
 .turbo
 
-# clojure 
+# clojure
 .nrepl-port
 
 .vscode
@@ -218,6 +218,14 @@ server/resources/metrics/*-usage.png
 # emails
 server/resources/emails/*
 
-# algolia 
+# algolia
 client/www/scripts/algolia-objects.json
 client/packages/mcp/.env
+
+# tshy build temporary package.json files
+client/packages/platform/src/package.json
+client/packages/cli/src/package.json
+client/packages/core/src/package.json
+client/packages/admin/src/package.json
+client/packages/react-native/src/package.json
+client/packages/react/src/package.json
