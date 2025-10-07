@@ -9,6 +9,14 @@
     "url": "git+https://github.com/instantdb/instant.git",
     "directory": "client/packages/cli"
   },
+  "exports": {
+    "./ui": {
+      "import": {
+        "types": "./dist/ui/index.d.ts",
+        "default": "./dist/ui/index.js"
+      }
+    }
+  },
   "bin": {
     "instant-cli": "bin/index.js"
   },
@@ -18,19 +26,23 @@
     "@instantdb/platform": "workspace:*",
     "@instantdb/version": "workspace:*",
     "ansi-escapes": "4.3.2",
+    "boxen": "^8.0.1",
     "chalk": "^5.3.0",
     "commander": "^12.1.0",
     "dotenv": "^16.3.1",
     "dotenv-flow": "^4.1.0",
     "env-paths": "^3.0.0",
+    "hanji": "^0.0.5",
     "inquirer": "^10.1.6",
     "json-diff": "^1.0.6",
+    "lodash.throttle": "^4.1.1",
     "open": "^10.1.0",
     "ora": "^8.1.1",
     "pkg-dir": "^8.0.0",
     "prettier": "^3.3.3",
     "semver": "7.7.2",
     "strip-ansi": "^7.1.2",
+    "sisteransi": "^1.0.5",
     "terminal-link": "^3.0.0",
     "unconfig": "^0.5.5"
   },
@@ -45,6 +57,7 @@
     "@babel/preset-env": "^7.16.11",
     "@inquirer/type": "^3.0.2",
     "@types/json-diff": "^1.0.3",
+    "@types/lodash.throttle": "^4.1.9",
     "@types/node": "^22.6.1",
     "npm-run-all": "^4.1.5",
     "typescript": "^5.9.3"

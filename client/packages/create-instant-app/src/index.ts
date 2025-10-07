@@ -24,6 +24,8 @@ import { parseNameAndPath } from './utils/validateAppName.js';
 import { execa } from 'execa';
 
 const main = async () => {
+  console.log(UI.hiTest);
+
   if (
     !process.argv.some((arg) =>
       ['-h', '--help', '--version', '-V'].includes(arg),
