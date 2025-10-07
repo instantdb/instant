@@ -45,8 +45,18 @@ export class PersistedObject {
     this._load();
   }
 
+  async _getFromStorage() {
+    try {
+      return this.parse(await this._persister.getItem(this._key));
+    } catch (e) {
+      console.error(`Unable to read from storage for key=${this._key}`, e);
+      return null;
+    }
+  }
+
   async _load() {
-    const fromStorage = this.fromJSON(await this._persister.getItem(this._key));
+    const fromStorage = await this._getFromStorage();
+
     this._isLoading = false;
 
     this._onMerge(fromStorage, this.currentValue);
