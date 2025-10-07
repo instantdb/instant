@@ -384,7 +384,7 @@
      [{:expected 'supported-options?
        :in (conj (:in state) :first)
        :message (format "The first field must be a positive integer. Got %s."
-                        (->json first))}])))
+                        (->json limit))}])))
 
 (defn- coerce-last! [state limit]
   (if (and (int? limit) (pos? limit))
