@@ -47,7 +47,7 @@ export class PersistedObject {
 
   async _getFromStorage() {
     try {
-      return this.parse(await this._persister.getItem(this._key));
+      return this.fromJSON(await this._persister.getItem(this._key));
     } catch (e) {
       console.error(`Unable to read from storage for key=${this._key}`, e);
       return null;
