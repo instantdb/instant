@@ -71,6 +71,7 @@
    {:db/tupleAttrs [:instaql-query/session-id :instaql-query/query]
     :db/unique :db.unique/identity}
    :instaql-query/return-type {} ;; :join-rows or :tree
+   :instaql-query/inference? {:db/type :db.type/boolean}
 
    :subscription/app-id {:db/type :db.type/integer}
    :subscription/session-id {:db/index true
@@ -232,7 +233,7 @@
   "Should be used in a db.fn/call. Returns transactions.
    Bumps the query version and marks query as not stale, creating the query
    if needed."
-  [db lookup-ref session-id instaql-query return-type]
+  [db lookup-ref session-id instaql-query return-type inference?]
   (if-let [existing (d/entity db lookup-ref)]
     (let [v  (:instaql-query/version existing)
           v' (inc (or v 0))]
@@ -243,12 +244,13 @@
       :instaql-query/query instaql-query
       :instaql-query/stale? false
       :instaql-query/version 1
-      :instaql-query/return-type return-type}]))
+      :instaql-query/return-type return-type
+      :instaql-query/inference? (or inference? false)}]))
 
-(defn bump-instaql-version! [store app-id sess-id q return-type]
+(defn bump-instaql-version! [store app-id sess-id q return-type inference?]
   (let [lookup-ref [:instaql-query/session-id+query [sess-id q]]
         conn       (app-conn store app-id)
-        tx         [[:db.fn/call bump-instaql-version-tx-data lookup-ref sess-id q return-type]]
+        tx         [[:db.fn/call bump-instaql-version-tx-data lookup-ref sess-id q return-type inference?]]
         report     (transact! "store/bump-instaql-version!" conn tx)]
     (:instaql-query/version (d/entity (:db-after report) lookup-ref))))
 
@@ -863,7 +865,7 @@
       (time
        (doseq [sid session-ids
                q instaql-queries]
-         (bump-instaql-version! test-store app-id sid q :join-rows)))
+         (bump-instaql-version! test-store app-id sid q :join-rows true)))
 
       (println "record-datalog-query-start")
       (time
@@ -912,7 +914,7 @@
       (time
        (doseq [sid session-ids
                q instaql-queries]
-         (bump-instaql-version! test-store app-id sid q :join-rows)))
+         (bump-instaql-version! test-store app-id sid q :join-rows true)))
 
       (println "record-datalog-query-start")
       (time

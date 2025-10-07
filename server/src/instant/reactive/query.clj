@@ -93,13 +93,13 @@
 (defn instaql-query-reactive!
   "Returns the result of an instaql query while producing book-keeping side
   effects in the store. To be used with session"
-  [store {:keys [session-id app-id attrs] :as base-ctx} instaql-query return-type]
+  [store {:keys [session-id app-id attrs] :as base-ctx} instaql-query return-type inference?]
   (tracer/with-span! {:name "instaql-query-reactive!"
                       :attributes {:session-id session-id
                                    :app-id app-id
                                    :instaql-query instaql-query}}
     (try
-      (let [v (rs/bump-instaql-version! store app-id session-id instaql-query return-type)
+      (let [v (rs/bump-instaql-version! store app-id session-id instaql-query return-type inference?)
             ctx (-> base-ctx
                     (assoc :v v
                            :datalog-query-fn (partial datalog-query-reactive! store)
@@ -115,7 +115,7 @@
             {:keys [result-changed?]} (rs/add-instaql-query! store ctx result-hash)]
         {:instaql-result (case return-type
                            :join-rows (collect-instaql-results-for-client instaql-result)
-                           :tree (instaql-nodes->object-tree ctx instaql-result)
+                           :tree (instaql-nodes->object-tree (assoc ctx :inference? inference?) instaql-result)
                            (collect-instaql-results-for-client instaql-result))
          :result-changed? result-changed?})
       (catch Throwable e
@@ -131,4 +131,4 @@
             :current-user nil
             :session-id "moop"})
   (def instaql-query {"users" {}})
-  (instaql-query-reactive! rs/store ctx instaql-query "join-rows"))
+  (instaql-query-reactive! rs/store ctx instaql-query "join-rows" true))

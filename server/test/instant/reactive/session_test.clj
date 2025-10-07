@@ -83,8 +83,8 @@
                             ws/send-json!           (fn [_app-id msg fake-ws-conn]
                                                       (a/put! fake-ws-conn msg))
                             rq/instaql-query-reactive!
-                            (fn [store {:keys [session-id] :as base-ctx} instaql-query return-type]
-                              (let [res (query-reactive store base-ctx instaql-query return-type)]
+                            (fn [store {:keys [session-id] :as base-ctx} instaql-query return-type inference?]
+                              (let [res (query-reactive store base-ctx instaql-query return-type inference?)]
                                 (swap! *instaql-query-results* assoc-in [session-id instaql-query] res)
                                 res))]
                 (try
