@@ -148,31 +148,73 @@ const CONVERTERS: AllConvertPlanStepFns = {
     };
   },
   'add-attr': (from, _existing) => {
-    return {
-      'forward-identity': [
-        id(),
-        from.identifier.namespace,
-        from.identifier.attrName,
-      ],
-      'reverse-identity': from['reverse-identity']
-        ? [
-            id(),
-            from['reverse-identity'].namespace,
-            from['reverse-identity'].attrName,
-          ]
-        : null,
-      'inferred-types': null,
-      'value-type': from['value-type'],
-      id: id(),
-      cardinality: from.cardinality,
-      'index?': from['index?'],
-      'required?': from['required?'],
-      'unique?': from['unique?'],
-      catalog: 'user',
-      'on-delete': from['on-delete'],
-      'on-delete-reverse': from['on-delete-reverse'],
-      'checked-data-type': from['checked-data-type'],
-    };
+    const attrId = id();
+    const forwardIdentity: [string, string, string] = [
+      attrId,
+      from.identifier.namespace,
+      from.identifier.attrName,
+    ];
+
+    const steps: PlanStep[] = [];
+
+    // First, create the attribute without unique, required, or indexed
+    steps.push([
+      'add-attr',
+      {
+        'forward-identity': forwardIdentity,
+        'reverse-identity': from['reverse-identity']
+          ? [
+              id(),
+              from['reverse-identity'].namespace,
+              from['reverse-identity'].attrName,
+            ]
+          : null,
+        'inferred-types': null,
+        'value-type': from['value-type'],
+        id: attrId,
+        cardinality: from.cardinality,
+        'index?': false,
+        'required?': false,
+        'unique?': false,
+        catalog: 'user',
+        'on-delete': from['on-delete'],
+        'on-delete-reverse': from['on-delete-reverse'],
+        'checked-data-type': from['checked-data-type'],
+      },
+    ]);
+
+    // Then add separate steps for unique, required, and indexed
+    if (from['unique?']) {
+      steps.push([
+        'unique',
+        {
+          'attr-id': attrId,
+          'forward-identity': forwardIdentity,
+        },
+      ]);
+    }
+
+    if (from['required?']) {
+      steps.push([
+        'required',
+        {
+          'attr-id': attrId,
+          'forward-identity': forwardIdentity,
+        },
+      ]);
+    }
+
+    if (from['index?']) {
+      steps.push([
+        'index',
+        {
+          'attr-id': attrId,
+          'forward-identity': forwardIdentity,
+        },
+      ]);
+    }
+
+    return steps;
   },
   'remove-data-type': convertSimpleConstraintUpdate,
   'check-data-type': (from, existing) => {
@@ -200,7 +242,12 @@ export const convertTxSteps = (
     if (!converter) {
       throw new Error(`Unknown transaction type: ${tx.type}`);
     }
-    result.push([tx.type, converter(tx as any, existingAttrs)] as PlanStep);
+    const converted = converter(tx as any, existingAttrs);
+    if (Array.isArray(converted)) {
+      result.push(...converted);
+    } else {
+      result.push([tx.type, converted] as PlanStep);
+    }
   });
   return result;
 };
@@ -208,7 +255,7 @@ export const convertTxSteps = (
 type ConvertPlanStepFn<T extends keyof MigrationTxTypes> = (
   from: MigrationTxTypes[T],
   existingAttrs: InstantDBAttr[],
-) => PlanStepMap[T];
+) => PlanStepMap[T] | PlanStep[];
 
 type AllConvertPlanStepFns = {
   [K in keyof MigrationTxTypes]: ConvertPlanStepFn<K>;
