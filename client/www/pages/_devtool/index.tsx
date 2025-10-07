@@ -479,7 +479,7 @@ function DevtoolContent({
         />
       ) : tab === 'sandbox' ? (
         <div className="w-full min-w-[960px]">
-          <Sandbox app={app} db={connection.db} />
+          <Sandbox app={app} db={connection.db} attrs={schemaData.attrs} />
         </div>
       ) : tab === 'admin' ? (
         <div className="w-full min-w-[960px] p-4">
