@@ -13,11 +13,13 @@
 // function to handle the merge of data from storage and memory
 // on load
 
-function safeIdleCallback(cb) {
+// Uses `requestIdleCallback` if available, otherwise calls the
+// callback immediately
+function safeIdleCallback(cb, timeout: number) {
   if (typeof requestIdleCallback === 'undefined') {
     cb();
   } else {
-    requestIdleCallback(cb);
+    requestIdleCallback(cb, { timeout });
   }
 }
 
@@ -32,6 +34,7 @@ export class PersistedObject<T> {
   serialize: (T) => any;
   parse: (any) => T;
   _saveThrottleMs: number;
+  _idleCallbackMaxWaitMs: number;
   _pendingSaveCbs: Array<() => void>;
   _version: number;
   _nextSave: null | NodeJS.Timeout = null;
@@ -48,6 +51,7 @@ export class PersistedObject<T> {
       return x;
     },
     saveThrottleMs = 100,
+    idleCallbackMaxWaitMs = 1000,
   ) {
     this._persister = persister;
     this._key = key;
@@ -62,6 +66,7 @@ export class PersistedObject<T> {
     this._saveThrottleMs = saveThrottleMs;
     this._pendingSaveCbs = [];
     this._version = 0;
+    this._idleCallbackMaxWaitMs = idleCallbackMaxWaitMs;
 
     this._load();
   }
@@ -131,7 +136,7 @@ export class PersistedObject<T> {
       safeIdleCallback(() => {
         this._nextSave = null;
         this._writeToStorage();
-      });
+      }, this._idleCallbackMaxWaitMs);
     }, this._saveThrottleMs);
   }
 
