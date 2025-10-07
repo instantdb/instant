@@ -596,6 +596,7 @@ export function Sandbox({
             >
               <div className="flex-1">
                 <Editor
+                  key={app.id}
                   theme={darkMode ? 'vs-dark' : 'light'}
                   height={'100%'}
                   path="sandbox.ts"
