@@ -36,7 +36,8 @@
   [{:keys [admin?]} tx-step-maps]
   (doseq [{:keys [op etype] :as tx-step} tx-step-maps
           :when (#{:add-triple :deep-merge-triple :retract-triple :delete-entity} op)
-          :when (and (string/starts-with? etype "$")
+          :when (and etype
+                     (string/starts-with? etype "$")
                      (not admin?)
                      ;; checking admin? is not enough for $files so we handle
                      ;; validations later
