@@ -654,7 +654,7 @@ class Storage {
         );
       }
       headers['content-length'] = metadata.fileSize.toString();
-      body = Readable.toWeb(file) as ReadableStream;
+      body = Readable.toWeb(file) as unknown as ReadableStream;
       duplex = 'half'; // one-way stream
     } else {
       // File is a buffer, use directly
