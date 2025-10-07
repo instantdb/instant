@@ -2,8 +2,57 @@ import { MigrationTx } from '@instantdb/platform';
 import chalk from 'chalk';
 
 export const renderSchemaPlan = (planSteps: MigrationTx[]) => {
-  for (const step of planSteps) {
+  const groupedSteps: (
+    | MigrationTx
+    | { type: 'create-namespace'; namespace: string; attrs: string[] }
+  )[] = [];
+
+  let i = 0;
+  while (i < planSteps.length) {
+    const step = planSteps[i];
+
+    if (step.type === 'add-attr') {
+      const namespace = step.identifier.namespace;
+      const namespaceAttrs: string[] = [];
+      let hasIdAttr = false;
+      let j = i;
+
+      while (j < planSteps.length) {
+        const currentStep = planSteps[j];
+        if (currentStep.type !== 'add-attr') break;
+        if (currentStep.identifier.namespace !== namespace) break;
+
+        namespaceAttrs.push(currentStep.identifier.attrName);
+        if (currentStep.identifier.attrName === 'id') {
+          hasIdAttr = true;
+        }
+        j++;
+      }
+
+      if (hasIdAttr && namespaceAttrs.length > 1) {
+        groupedSteps.push({
+          type: 'create-namespace',
+          namespace,
+          attrs: namespaceAttrs.filter((name) => name !== 'id'),
+        });
+        i = j;
+      } else {
+        groupedSteps.push(step);
+        i++;
+      }
+    } else {
+      groupedSteps.push(step);
+      i++;
+    }
+  }
+
+  for (const step of groupedSteps) {
     switch (step.type) {
+      case 'create-namespace':
+        console.log(
+          `${chalk.bgGreen.black(' + CREATE NAMESPACE ')} ${step.namespace}${step.attrs.length > 0 ? ` (${step.attrs.join(', ')})` : ''}`,
+        );
+        break;
       case 'add-attr':
         console.log(
           `${chalk.bgGreen.black(' + CREATE ATTR ')} ${step.identifier.namespace}.${step.identifier.attrName}`,
@@ -15,7 +64,6 @@ export const renderSchemaPlan = (planSteps: MigrationTx[]) => {
         );
         break;
       case 'update-attr':
-        // check for rename
         if (
           step.partialAttr['forward-identity']?.attrName &&
           step.identifier.attrName !==
@@ -29,7 +77,6 @@ export const renderSchemaPlan = (planSteps: MigrationTx[]) => {
             `${chalk.bgYellow.black(' * UPDATE ATTR ')} ${step.identifier.namespace}.${step.identifier.attrName}`,
           );
         }
-
         break;
       case 'index':
         console.log(
