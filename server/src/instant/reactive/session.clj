@@ -151,7 +151,7 @@
       (ex/throw-validation-err! :init {:sess-id sess-id} [{:message "`init` has not run for this session."}]))
     auth))
 
-(defn- handle-add-query! [store sess-id {:keys [q client-event-id return-type] :as _event}]
+(defn- handle-add-query! [store sess-id {:keys [q client-event-id return-type inference?] :as _event}]
   (let [{:keys [app user admin?]} (get-auth! store sess-id)
         {app-id :id}    app
         instaql-queries (rs/session-instaql-queries store app-id sess-id)]
@@ -178,7 +178,7 @@
                  :table-info     table-info
                  :admin?         admin?
                  :current-user   user}
-            {:keys [instaql-result]} (rq/instaql-query-reactive! store ctx q return-type)]
+            {:keys [instaql-result]} (rq/instaql-query-reactive! store ctx q return-type inference?)]
         (rs/send-event! store app-id sess-id {:op :add-query-ok
                                               :q q
                                               :result instaql-result
@@ -193,7 +193,7 @@
 
 (defn- recompute-instaql-query!
   [{:keys [store current-user app-id sess-id attrs table-info admin?]}
-   {:keys [instaql-query/query instaql-query/return-type]}]
+   {:keys [instaql-query/query instaql-query/return-type instaql-query/inference?]}]
   (let [ctx {:db {:conn-pool (aurora/conn-pool :read)}
              :session-id sess-id
              :app-id app-id
@@ -203,7 +203,7 @@
              :current-user current-user
              :admin? admin?}
         {:keys [instaql-result result-changed?]}
-        (rq/instaql-query-reactive! store ctx query return-type)]
+        (rq/instaql-query-reactive! store ctx query return-type inference?)]
     {:instaql-query query
      :instaql-result instaql-result
      :result-changed? result-changed?}))
@@ -755,6 +755,7 @@
                                         :session-id id
                                         :client-event-id (random-uuid)
                                         :q (:query ctx)
+                                        :inference? (:inference? ctx)
                                         :return-type :tree})))
       :on-close (fn [_]
                   (on-close store
