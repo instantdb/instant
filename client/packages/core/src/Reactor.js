@@ -292,6 +292,8 @@ export default class Reactor {
       (x) => {
         return new Map(typeof x === 'string' ? JSON.parse(x) : x);
       },
+      100, // throttle
+      100, // idlecallback timeout, flush more often for mutations
     );
     this._beforeUnloadCbs.push(() => {
       this.pendingMutations.flush();
