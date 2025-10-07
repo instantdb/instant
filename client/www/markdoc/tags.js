@@ -9,6 +9,7 @@ import {
 import { Tag, transformer } from '@markdoc/markdoc';
 import { HasAppID } from '../components/docs/Fence';
 import { TabbedSingle } from '../components/docs/TabbedSingle';
+import { CopyPromptBox } from '../components/docs/CopyPromptBox';
 
 function CustomDiv({ className, children }) {
   return <div className={className}>{children}</div>;
@@ -143,6 +144,14 @@ const tags = {
       tabs: { type: Object, required: true },
       defaultTab: { type: String },
       storageKey: { type: String, required: true },
+    },
+  },
+
+  'copy-prompt-box': {
+    render: CopyPromptBox,
+    attributes: {
+      id: { type: String },
+      description: { type: String },
     },
   },
 };
