@@ -89,9 +89,15 @@ export const renderSchemaPlan = (planSteps: MigrationTx[]) => {
         );
         break;
       case 'add-attr':
-        console.log(
-          `${chalk.bgGreen(' + CREATE ATTR ')} ${step.identifier.namespace}.${step.identifier.attrName}`,
-        );
+        if (step['value-type'] === 'ref' && step['reverse-identity']) {
+          console.log(
+            `${chalk.bgGreen.black(' + CREATE LINK ')} ${step.identifier.namespace}.${step.identifier.attrName} -> ${step['reverse-identity'].namespace}.${step['reverse-identity'].attrName}`,
+          );
+        } else {
+          console.log(
+            `${chalk.bgGreen.black(' + CREATE ATTR ')} ${step.identifier.namespace}.${step.identifier.attrName}`,
+          );
+        }
         break;
       case 'delete-attr':
         console.log(
