@@ -391,29 +391,6 @@ program
   });
 
 program
-  .command('newpush')
-  .argument(
-    '[schema|perms|all]',
-    'Which configuration to push. Defaults to `all`',
-  )
-  .option(
-    '-a --app <app-id>',
-    'App ID to push too. Defaults to *_INSTANT_APP_ID in .env',
-  )
-  .option('-t --title', 'Title for the created app')
-  .option(
-    '-p --package <react|react-native|core|admin>',
-    'Which package to automatically install if there is not one installed already.',
-  )
-  .description('Push schema and perm files to production.')
-  .action(async function (arg, inputOpts) {
-    const ret = convertPushPullToCurrentFormat(arg, inputOpts);
-    if (!ret.ok) return process.exit(1);
-    const { bag, opts } = ret;
-    await handleNewPush(bag, opts);
-  });
-
-program
   .command('push')
   .argument(
     '[schema|perms|all]',
@@ -529,29 +506,6 @@ async function handlePush(bag, opts) {
   );
   if (!ok) return process.exit(1);
   await push(bag, appId, opts);
-}
-
-async function handleNewPush(bag, opts) {
-  await checkVersion();
-  const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging(opts);
-  if (!pkgAndAuthInfo) return process.exit(1);
-  const { ok, appId } = await detectOrCreateAppAndWriteToEnv(
-    pkgAndAuthInfo,
-    opts,
-  );
-  if (!ok) return process.exit(1);
-  await newPush(bag, appId, opts);
-}
-
-async function newPush(bag, appId, opts) {
-  if (bag === 'schema' || bag === 'all') {
-    const { ok } = await newPushSchema(appId, opts);
-    if (!ok) return process.exit(1);
-  }
-  if (bag === 'perms' || bag === 'all') {
-    const { ok } = await pushPerms(appId);
-    if (!ok) return process.exit(1);
-  }
 }
 
 async function push(bag, appId, opts) {
@@ -1356,7 +1310,7 @@ const resolveRenames = async (created, promptData) => {
   return answer;
 };
 
-async function newPushSchema(appId, _opts) {
+async function pushSchema(appId, _opts) {
   const res = await readLocalSchemaFileWithErrorLogging();
   if (!res) return { ok: false };
   const { schema } = res;
@@ -1408,150 +1362,6 @@ async function newPushSchema(appId, _opts) {
       await waitForIndexingJobsToFinish(appId, applyRes.data['indexing-jobs']);
     }
   }
-
-  return { ok: true };
-}
-
-async function pushSchema(appId, opts) {
-  const res = await readLocalSchemaFileWithErrorLogging();
-  if (!res) return { ok: false };
-  const { schema } = res;
-  console.log('Planning schema...');
-
-  const planRes = await fetchJson({
-    method: 'POST',
-    path: `/dash/apps/${appId}/schema/push/plan`,
-    debugName: 'Schema plan',
-    errorMessage: 'Failed to update schema.',
-    body: {
-      schema,
-      check_types: !opts?.skipCheckTypes,
-      supports_background_updates: true,
-    },
-  });
-
-  if (!planRes.ok) return planRes;
-
-  if (!planRes.data.steps.length) {
-    console.log('No schema changes detected. Skipping.');
-    return { ok: true };
-  }
-
-  console.log(
-    'The following changes will be applied to your production schema:',
-  );
-
-  for (const step of translatePlanSteps(planRes.data.steps)) {
-    switch (step.type) {
-      case 'add-attr':
-      case 'update-attr': {
-        const attr = step.attr;
-        const valueType = attr['value-type'];
-        const isAdd = step.type === 'add-attr';
-        if (valueType === 'blob' && attrFwdLabel(attr) === 'id') {
-          console.log(
-            `${isAdd ? chalk.magenta('ADD ENTITY') : chalk.magenta('UPDATE ENTITY')} ${attrFwdName(attr)}`,
-          );
-          break;
-        }
-
-        if (valueType === 'blob') {
-          console.log(
-            `${isAdd ? chalk.green('ADD ATTR') : chalk.blue('UPDATE ATTR')} ${attrFwdName(attr)} :: unique=${attr['unique?']}, indexed=${attr['index?']}`,
-          );
-          break;
-        }
-
-        console.log(
-          `${isAdd ? chalk.green('ADD LINK') : chalk.blue('UPDATE LINK')} ${attrFwdName(attr)} <=> ${attrRevName(attr)} ${linkOptsPretty(attr)}`,
-        );
-        break;
-      }
-      case 'check-data-type': {
-        console.log(
-          `${chalk.green('CHECK TYPE')} ${identName(step.forwardIdentity)} => ${step.checkedDataType}`,
-        );
-        break;
-      }
-      case 'remove-data-type': {
-        console.log(
-          `${chalk.red('REMOVE TYPE')} ${identName(step.forwardIdentity)} => any`,
-        );
-        break;
-      }
-      case 'index': {
-        console.log(
-          '%s on %s',
-          chalk.green('ADD INDEX'),
-          identName(step.forwardIdentity),
-        );
-        break;
-      }
-      case 'remove-index': {
-        console.log(
-          '%s on %s',
-          chalk.red('REMOVE INDEX'),
-          identName(step.forwardIdentity),
-        );
-        break;
-      }
-      case 'unique': {
-        console.log(
-          '%s to %s',
-          chalk.green('ADD UNIQUE CONSTRAINT'),
-          identName(step.forwardIdentity),
-        );
-        break;
-      }
-      case 'remove-unique': {
-        console.log(
-          '%s from %s',
-          chalk.red('REMOVE UNIQUE CONSTRAINT'),
-          identName(step.forwardIdentity),
-        );
-        break;
-      }
-      case 'required': {
-        console.log(
-          '%s to %s',
-          chalk.green('ADD REQUIRED CONSTRAINT'),
-          identName(step.forwardIdentity),
-        );
-        break;
-      }
-      case 'remove-required': {
-        console.log(
-          '%s from %s',
-          chalk.red('REMOVE REQUIRED CONSTRAINT'),
-          identName(step.forwardIdentity),
-        );
-        break;
-      }
-    }
-  }
-
-  const okPush = await promptOk('OK to proceed?');
-  if (!okPush) return { ok: true };
-
-  const applyRes = await fetchJson({
-    method: 'POST',
-    path: `/dash/apps/${appId}/schema/push/apply`,
-    debugName: 'Schema apply',
-    errorMessage: 'Failed to update schema.',
-    body: {
-      schema,
-      check_types: !opts?.skipCheckTypes,
-      supports_background_updates: true,
-    },
-  });
-
-  if (!applyRes.ok) return applyRes;
-
-  if (applyRes.data['indexing-jobs']) {
-    await waitForIndexingJobsToFinish(appId, applyRes.data['indexing-jobs']);
-  }
-
-  console.log(chalk.green('Schema updated!'));
 
   return { ok: true };
 }
