@@ -415,11 +415,12 @@ function Dashboard() {
       websocketURI: config.websocketURI,
       // @ts-expect-error
       __adminToken: app?.admin_token,
+      disableValidation: true,
     });
 
     setConnection({ db });
     return () => {
-      db._core.shutdown();
+      db.core.shutdown();
     };
   }, [app?.id, app?.admin_token]);
 

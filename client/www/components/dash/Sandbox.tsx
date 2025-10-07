@@ -163,6 +163,7 @@ export function Sandbox({
 
   const { darkMode } = useDarkMode();
 
+  // Add the schema types your schema for better typesense
   useEffect(() => {
     const monaco = monacoRef.current;
     if (attrs && isMonacoLoaded && monaco) {
@@ -613,7 +614,6 @@ export function Sandbox({
             >
               <div className="flex-1">
                 <Editor
-                  key={app.id}
                   theme={darkMode ? 'vs-dark' : 'light'}
                   height={'100%'}
                   path="sandbox.ts"
@@ -1202,6 +1202,7 @@ declare global {
 export {};
 `.trim();
 
+// Generates the `instant.schema.ts` file from the attrs
 const schemaTs = (attrs: Record<string, DBAttr>) => {
   const schema = apiSchemaToInstantSchemaDef(
     attrsToSchema(Object.values(attrs)),
