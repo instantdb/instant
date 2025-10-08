@@ -73,11 +73,11 @@ export function AppleClient({
         onOpenChange={setOpen}
         className="flex flex-col rounded border"
       >
-        <Collapsible.Trigger className="flex bg-gray-50 p-4 hover:bg-gray-100">
+        <Collapsible.Trigger className="flex bg-gray-50 p-4 hover:bg-gray-100 dark:bg-neutral-800">
           <div className="flex flex-1 items-center justify-between">
             <div className="flex gap-2">
               {' '}
-              <Image alt="apple logo" src={logo} />
+              <Image className="dark:bg-white" alt="apple logo" src={logo} />
               <SectionHeading>
                 {client.client_name}{' '}
                 <span className="text-gray-400">(Apple)</span>
