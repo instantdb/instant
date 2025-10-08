@@ -440,6 +440,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 });
+
+export default App;
 ```
 
 {% /conditional %}
@@ -545,6 +547,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 });
+
+export default App;
 ```
 
 {% /conditional %}

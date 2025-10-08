@@ -264,7 +264,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 const APP_ID = '__APP_ID__';
 const db = init({ appId: APP_ID });
 
-export default function App() {
+function App() {
   return (
     <>
       <db.SignedIn>
@@ -344,6 +344,8 @@ const styles = StyleSheet.create({
     height: 44,
   },
 });
+
+export default App;
 ```
 
 {% /conditional %}
