@@ -163,23 +163,22 @@ export function Sandbox({
 
   const { darkMode } = useDarkMode();
 
-  // Add the schema types your schema for better typesense
+  // Add the schema types for the app's schema for better typesense
   useEffect(() => {
     const monaco = monacoRef.current;
     if (attrs && isMonacoLoaded && monaco) {
       for (const dispose of monacoDisposables.current) {
         dispose();
       }
-      const disposables = [];
       monacoDisposables.current = [];
       const schemaContent = schemaTs(attrs);
-      disposables.push(
+      monacoDisposables.current.push(
         monaco.languages.typescript.typescriptDefaults.addExtraLib(
           schemaContent,
           'file:///instant.schema.ts',
         ).dispose,
       );
-      disposables.push(
+      monacoDisposables.current.push(
         monaco.languages.typescript.typescriptDefaults.addExtraLib(
           tsTypesWithSchema,
           'file:///global.d.ts',
