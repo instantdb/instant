@@ -379,7 +379,7 @@ const db = init({ appId: APP_ID });
 function App() {
   return (
     <>
-      <db.SignedIn loading={<Text>Loading...</Text>}>
+      <db.SignedIn>
         <UserInfo />
       </db.SignedIn>
       <db.SignedOut>
