@@ -648,9 +648,13 @@ export function Sandbox({
                     );
 
                     // Set a base global.ts while we're loading types
-                    monaco.languages.typescript.typescriptDefaults.addExtraLib(
-                      baseTsTypes,
-                      'file:///global.d.ts',
+                    // We'll remove it when we replace it with better types
+                    // in the useEffect
+                    monacoDisposables.current.push(
+                      monaco.languages.typescript.typescriptDefaults.addExtraLib(
+                        baseTsTypes,
+                        'file:///global.d.ts',
+                      ).dispose,
                     );
 
                     monaco.languages.typescript.typescriptDefaults.setCompilerOptions(
