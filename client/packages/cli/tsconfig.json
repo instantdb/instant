@@ -4,7 +4,8 @@
     "outDir": "dist",
     "rootDir": "src",
     "sourceMap": true,
-    "skipLibCheck": true // `unconfig` currently imports a broken type from `@antfu/utils`
+    "skipLibCheck": true, // `unconfig` currently imports a broken type from `@antfu/utils`,
+    "strictNullChecks": true
     // remove once fixed
   },
   "include": ["src"],
