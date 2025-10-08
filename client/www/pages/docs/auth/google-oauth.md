@@ -183,7 +183,7 @@ npm install @react-oauth/google
 
 Once you install it, include the button, and use `db.auth.signInWithIdToken` to complete sign in. Here's a full example:
 
-```javascript {% showCopy=true %}
+```jsx {% showCopy=true %}
 'use client';
 
 import React, { useState } from 'react';
@@ -251,7 +251,7 @@ If you're not using React or prefer to embed the button yourself, refer to {% bl
 
 When creating your button, make sure to set the `data-ux_mode="popup"`. Your `data-callback` function should look like:
 
-```javascript {% showCopy=true %}
+```jsx {% showCopy=true %}
 async function handleSignInWithGoogle(response) {
   await db.auth.signInWithIdToken({
     // Use the google client name in the Instant dashboard auth tab
@@ -273,7 +273,7 @@ If you don't want to use the google styled buttons, you can use the redirect flo
 
 Create an authorization URL via `db.auth.createAuthorizationURL` and then use the url to create a link. Here's a full example:
 
-```javascript {% showCopy=true %}
+```jsx {% showCopy=true %}
 'use client';
 
 import React, { useState } from 'react';
@@ -364,7 +364,7 @@ From the {% blank-link href="http://instantdb.com/dash?s=main&t=auth" label="Aut
 
 And from here you're ready to add a login button to your expo app! Here's a full example
 
-```javascript {% showCopy=true %}
+```jsx {% showCopy=true %}
 import { View, Text, Button, StyleSheet } from 'react-native';
 import { init } from '@instantdb/react-native';
 import {
@@ -379,7 +379,7 @@ const db = init({ appId: APP_ID });
 function App() {
   return (
     <>
-      <db.SignedIn loading={<Text>Loading...</Text>}>
+      <db.SignedIn>
         <UserInfo />
       </db.SignedIn>
       <db.SignedOut>
@@ -440,6 +440,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 });
+
+export default App;
 ```
 
 {% /conditional %}
@@ -472,7 +474,7 @@ Then, follow the google-signin {% blank-link href="https://react-native-google-s
 
 Now you're ready to add the Google Signin button to your expo app! Here's a full example:
 
-```javascript {% showCopy=true %}
+```jsx {% showCopy=true %}
 import { View, Text, Button, StyleSheet } from 'react-native';
 import { init } from '@instantdb/react-native';
 import {
@@ -545,6 +547,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 });
+
+export default App;
 ```
 
 {% /conditional %}
