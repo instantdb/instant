@@ -91,7 +91,7 @@ And voila, you are connected!
 
 Create an authorization URL via `db.auth.createAuthorizationURL` and then use the url to create a link. Here's a full example:
 
-```javascript {% showCopy=true %}
+```jsx {% showCopy=true %}
 'use client';
 
 import React, { useState } from 'react';
@@ -182,7 +182,7 @@ From the {% blank-link href="http://instantdb.com/dash?s=main&t=auth" label="Aut
 
 And from here you're ready to add a login button to your expo app! Here's a full example
 
-```javascript {% showCopy=true %}
+```jsx {% showCopy=true %}
 import { View, Text, Button, StyleSheet } from 'react-native';
 import { init } from '@instantdb/react-native';
 import {

@@ -122,7 +122,7 @@ https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.aut
 
 Initialize with `Services ID` from Step 2:
 
-```javascript {% showCopy=true %}
+```jsx {% showCopy=true %}
 AppleID.auth.init({
   clientId: '<Services ID>',
   scope: 'name email',
@@ -132,7 +132,7 @@ AppleID.auth.init({
 
 Implement `signInPopup` using `clientName` from Step 4:
 
-```javascript {% showCopy=true %}
+```jsx {% showCopy=true %}
 async function signInPopup() {
   let nonce = crypto.randomUUID();
 
@@ -153,7 +153,7 @@ async function signInPopup() {
 
 Add Sign In button:
 
-```javascript {% showCopy=true %}
+```jsx {% showCopy=true %}
 <button onClick={signInPopup}>Sign In with Apple</button>
 ```
 
@@ -211,7 +211,7 @@ Add `exp://` for development with Expo.
 
 Authenticate with Apple and then pass identityToken to Instant along with `clientName` from Step 4:
 
-```javascript {% showCopy=true %}
+```jsx {% showCopy=true %}
 const [nonce] = useState('' + Math.random());
 try {
   // sign in with Apple
@@ -244,7 +244,7 @@ try {
 
 Sign out code:
 
-```javascript {% showCopy=true %}
+```jsx {% showCopy=true %}
 <Button
   title="Sign Out"
   onPress={async () => {
@@ -255,7 +255,7 @@ Sign out code:
 
 Full example:
 
-```javascript {% showCopy=true %}
+```jsx {% showCopy=true %}
 import React, { useState } from 'react';
 import { Button, View, Text, StyleSheet } from 'react-native';
 import { init, tx } from '@instantdb/react-native';
