@@ -415,11 +415,12 @@ function Dashboard() {
       websocketURI: config.websocketURI,
       // @ts-expect-error
       __adminToken: app?.admin_token,
+      disableValidation: true,
     });
 
     setConnection({ db });
     return () => {
-      db._core.shutdown();
+      db.core.shutdown();
     };
   }, [app?.id, app?.admin_token]);
 
@@ -733,7 +734,7 @@ function Home({ appId, token }: { appId: string; token: string }) {
         <div className="pt-1">
           Use this App ID to connect to your database{' '}
           <a
-            className="hover:cursor-pointer dark:text-white underline"
+            className="underline hover:cursor-pointer dark:text-white"
             href="/docs/init"
             target="_blank"
           >
@@ -856,9 +857,15 @@ function DashboardContent({
           appId={appId}
           db={connection.db}
           namespaces={schemaData.namespaces}
+          attrs={schemaData.attrs}
         />
       ) : tab === 'sandbox' ? (
-        <Sandbox key={appId} app={app} db={connection.db} />
+        <Sandbox
+          key={appId}
+          app={app}
+          db={connection.db}
+          attrs={schemaData.attrs}
+        />
       ) : tab === 'perms' ? (
         <Perms
           app={app}

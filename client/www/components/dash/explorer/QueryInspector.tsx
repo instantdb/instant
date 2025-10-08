@@ -1,13 +1,15 @@
 import JsonParser from 'json5';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { StarIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { ArrowRightIcon } from '@heroicons/react/24/solid';
 
 import { Button, CodeEditor, cn } from '@/components/ui';
-import { errorToast, infoToast } from '@/lib/toast';
-import { InstantReactWebDatabase } from '@instantdb/react';
-import { SchemaNamespace } from '@/lib/types';
+import { errorToast } from '@/lib/toast';
+import { init, InstantReactWebDatabase } from '@instantdb/react';
+import { DBAttr, SchemaNamespace } from '@/lib/types';
+import { attrsToSchema } from '@/lib/schema';
+import { apiSchemaToInstantSchemaDef } from '@instantdb/platform';
 
 const SAVED_QUERIES_CACHE_KEY = '__instant:explorer-saved-queries';
 const QUERY_HISTORY_CACHE_KEY = '__instant:explorer-query-history';
@@ -54,23 +56,46 @@ class QueryInspectorCache {
   }
 }
 
+function dbForAttrs(
+  baseDb: InstantReactWebDatabase<any>,
+  attrs: Record<string, DBAttr> | null,
+): InstantReactWebDatabase<any> {
+  if (!attrs) {
+    return baseDb;
+  }
+  const schema = apiSchemaToInstantSchemaDef(
+    attrsToSchema(Object.values(attrs)),
+  );
+  return init({
+    ...baseDb.core._reactor.config,
+    disableValidation: true,
+    schema,
+  });
+}
+
 export function QueryInspector({
   className,
   appId,
-  db,
+  db: baseDb,
   namespaces,
+  attrs,
 }: {
   className?: string;
   appId: string;
   db: InstantReactWebDatabase<any>;
   namespaces: SchemaNamespace[] | null;
+  attrs: Record<string, DBAttr> | null;
 }) {
+  const db = useMemo(() => dbForAttrs(baseDb, attrs), [baseDb, attrs]);
   const cache = new QueryInspectorCache(appId);
   const [query, setQuery] = useState<Record<string, any>>({});
   const [draft, setQueryDraft] = useState('{}');
   const [history, setQueryHistory] = useState<CachedQueryItem[]>([]);
   const [saved, setSavedQueries] = useState<CachedQueryItem[]>([]);
-  const { data, isLoading, error } = db.useQuery(query);
+
+  const { data, isLoading, error } = (
+    db as InstantReactWebDatabase<any>
+  ).useQuery(query);
 
   useEffect(() => {
     const saved = cache.getSavedQueries();

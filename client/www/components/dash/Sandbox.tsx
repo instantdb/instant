@@ -16,8 +16,8 @@ import {
 } from '@/components/ui';
 import config from '@/lib/config';
 import useLocalStorage from '@/lib/hooks/useLocalStorage';
-import { dbAttrsToExplorerSchema } from '@/lib/schema';
-import { InstantApp } from '@/lib/types';
+import { attrsToSchema, dbAttrsToExplorerSchema } from '@/lib/schema';
+import { DBAttr, InstantApp } from '@/lib/types';
 import {
   Combobox,
   ComboboxInput,
@@ -32,14 +32,10 @@ import {
   TrashIcon,
 } from '@heroicons/react/24/outline';
 import { InstantReactWebDatabase } from '@instantdb/react';
-import { Editor } from '@monaco-editor/react';
+import { Editor, Monaco, type OnMount } from '@monaco-editor/react';
+
 import clsx from 'clsx';
-import {
-  createParser,
-  createSerializer,
-  parseAsBoolean,
-  useQueryState,
-} from 'nuqs';
+import { createParser, createSerializer, parseAsBoolean } from 'nuqs';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { debounce } from 'lodash';
 import {
@@ -48,9 +44,14 @@ import {
   ResizablePanelGroup,
 } from '../resizable';
 import { useDarkMode } from './DarkModeToggle';
-import { ArrowUpToLine, Save } from 'lucide-react';
+import { Save } from 'lucide-react';
 import { infoToast } from '@/lib/toast';
 import { useSavedQueryState } from '@/lib/hooks/useSavedQueryState';
+import { addInstantLibs } from '@/lib/monaco';
+import {
+  apiSchemaToInstantSchemaDef,
+  generateSchemaTypescriptFile,
+} from '@instantdb/platform';
 
 const base64Parser = createParser({
   parse(value) {
@@ -77,9 +78,11 @@ type SavedSandbox = {
 export function Sandbox({
   app,
   db,
+  attrs,
 }: {
   app: InstantApp;
   db: InstantReactWebDatabase<any>;
+  attrs: Record<string, DBAttr> | null;
 }) {
   const consoleRef = useRef<HTMLDivElement>(null);
 
@@ -154,8 +157,35 @@ export function Sandbox({
   const [output, setOutput] = useState<any[]>([]);
   const [showRunning, setShowRunning] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
+  const [isMonacoLoaded, setIsMonacoLoaded] = useState(false);
+  const monacoRef = useRef<Monaco | null>(null);
+  const monacoDisposables = useRef<Array<() => void>>([]);
 
   const { darkMode } = useDarkMode();
+
+  // Add the schema types for the app's schema for better typesense
+  useEffect(() => {
+    const monaco = monacoRef.current;
+    if (attrs && isMonacoLoaded && monaco) {
+      for (const dispose of monacoDisposables.current) {
+        dispose();
+      }
+      monacoDisposables.current = [];
+      const schemaContent = schemaTs(attrs);
+      monacoDisposables.current.push(
+        monaco.languages.typescript.typescriptDefaults.addExtraLib(
+          schemaContent,
+          'file:///instant.schema.ts',
+        ).dispose,
+      );
+      monacoDisposables.current.push(
+        monaco.languages.typescript.typescriptDefaults.addExtraLib(
+          tsTypesWithSchema,
+          'file:///global.d.ts',
+        ).dispose,
+      );
+    }
+  }, [attrs, isMonacoLoaded]);
 
   /**
    * Saves the current sandbox as a new preset.
@@ -310,6 +340,34 @@ export function Sandbox({
   useEffect(() => {
     consoleRef.current?.scrollTo(0, consoleRef.current.scrollHeight);
   }, [output]);
+
+  const prettify = async (editor: Parameters<OnMount>[0]) => {
+    const code = editor.getValue();
+    const [prettier, tsPlugin, estreePlugin] = await Promise.all([
+      import('prettier/standalone'),
+      import('prettier/plugins/typescript'),
+      import('prettier/plugins/estree'),
+    ]);
+
+    const position = editor.getPosition();
+    const model = editor.getModel();
+    const offset = position && model ? model.getOffsetAt(position) : 0;
+
+    const { formatted, cursorOffset } = await prettier.formatWithCursor(code, {
+      cursorOffset: offset,
+      parser: 'typescript',
+      plugins: [estreePlugin.default, tsPlugin],
+      printWidth: Math.min(100, editor.getLayoutInfo().viewportColumn),
+    });
+
+    // Make sure we're not going to override their edits
+    if (code !== editor.getValue()) return;
+    editor.setValue(formatted);
+    const newOffset = editor.getModel()?.getPositionAt(cursorOffset);
+    if (newOffset) {
+      editor.setPosition(newOffset);
+    }
+  };
 
   const exec = async () => {
     if (isExecuting) return;
@@ -571,7 +629,7 @@ export function Sandbox({
                     automaticLayout: true,
                     lineNumbers: 'off',
                   }}
-                  onMount={(editor, monaco) => {
+                  onMount={async (editor, monaco) => {
                     editor.addCommand(
                       monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
                       () => execRef.current(),
@@ -582,9 +640,21 @@ export function Sandbox({
                       () => {},
                     );
 
-                    monaco.languages.typescript.typescriptDefaults.addExtraLib(
-                      tsTypes,
-                      'ts:filename/global.d.ts',
+                    editor.addCommand(
+                      monaco.KeyMod.Alt |
+                        monaco.KeyMod.Shift |
+                        monaco.KeyCode.KeyF,
+                      () => prettify(editor),
+                    );
+
+                    // Set a base global.ts while we're loading types
+                    // We'll remove it when we replace it with better types
+                    // in the useEffect
+                    monacoDisposables.current.push(
+                      monaco.languages.typescript.typescriptDefaults.addExtraLib(
+                        baseTsTypes,
+                        'file:///global.d.ts',
+                      ).dispose,
                     );
 
                     monaco.languages.typescript.typescriptDefaults.setCompilerOptions(
@@ -602,6 +672,12 @@ export function Sandbox({
                         ],
                       },
                     );
+
+                    // Load better types
+                    await addInstantLibs(monaco);
+
+                    monacoRef.current = monaco;
+                    setIsMonacoLoaded(true);
                   }}
                 />
               </div>
@@ -1095,10 +1171,10 @@ if (itemId) {
 `.trim();
 }
 
-const tsTypes = /* ts */ `
+const baseTsTypes = /* ts */ `
 type InstantDB = {
   transact: (steps) => Promise<number>;
-  query: (iql, opts?: {ruleParams?: Record<string, any>}) => Promise<any>;
+  query: (iql, opts?: { ruleParams?: Record<string, any> }) => Promise<any>;
   tx: InstantTx;
 };
 
@@ -1106,7 +1182,10 @@ type InstantTx = {
   [namespace: string]: {
     [id: string]: {
       create: (v: Record<string, any>) => any;
-      update: (v: Record<string, any>, opts?: {upsert?: boolean | undefined}) => any;
+      update: (
+        v: Record<string, any>,
+        opts?: { upsert?: boolean | undefined },
+      ) => any;
       merge: (v: Record<string, any>) => any;
       delete: () => any;
       link: (v: Record<string, string>) => any;
@@ -1114,6 +1193,47 @@ type InstantTx = {
       ruleParams: (v: Record<string, any>) => any;
     };
   };
+};
+
+declare global {
+  var db: InstantDB;
+  var tx: InstantTx;
+  function id(): string;
+  function lookup(key: string, value: string): string;
+}
+
+export {};
+`.trim();
+
+// Generates the `instant.schema.ts` file from the attrs
+const schemaTs = (attrs: Record<string, DBAttr>) => {
+  const schema = apiSchemaToInstantSchemaDef(
+    attrsToSchema(Object.values(attrs)),
+  );
+
+  return generateSchemaTypescriptFile(schema, schema, '@instantdb/admin');
+};
+
+const tsTypesWithSchema = /* ts */ `
+import {
+  ValidQuery,
+  InstaQLResponse,
+  TransactionChunk,
+  TxChunk,
+} from '@instantdb/core';
+import schema, { type AppSchema } from './instant.schema';
+
+type InstantTx = TxChunk<AppSchema>;
+
+type InstantDB = {
+  query<Q extends ValidQuery<Q, AppSchema>>(
+    query: Q,
+    opts?: { ruleParams?: Record<string, any> },
+  ): Promise<InstaQLResponse<AppSchema, Q, false>>;
+  transact: (
+    inputChunks: TransactionChunk<any, any> | TransactionChunk<any, any>[],
+  ) => Promise<number>;
+  tx: InstantTx;
 };
 
 declare global {
