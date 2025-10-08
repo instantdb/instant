@@ -57,6 +57,11 @@ export const runCli = async (): Promise<Project> => {
       new Option('--next', 'Use the NextJS starter template').default(false),
     )
     .addOption(
+      new Option('--vanilla', 'Use the vanilla JS starter template').default(
+        false,
+      ),
+    )
+    .addOption(
       new Option('--no-git', "Don't create a git repo in the new project"),
     )
     .addOption(
@@ -129,6 +134,9 @@ export const runCli = async (): Promise<Project> => {
       base: async ({ results }) => {
         if (flags.base) {
           return flags.base as Project['base'];
+        }
+        if (flags.vanilla) {
+          return 'vite-vanilla';
         }
         if (flags.next) {
           return 'next-js-app-dir';
