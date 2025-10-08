@@ -1,0 +1,33 @@
+
+Hey crew! It’s time for another edition of Instant News 🙂 Here’s a slice of what happened last month!
+
+**Many mini apps!**
+
+We released this as an experiment! Here’s how it works:
+
+1. You write one prompt
+2. You get an app back with it's on database, un under 2 minutes.
+
+When you make a mini app you’ll also be able to see all the code that was generated to power the app. It’s been really interesting to see what folks have built and where AI struggles. Want to give it a spin? Check out https://manyminiapps.com/
+
+**Organizations and Startup Plan**
+
+We built organizations for teams using Instant. Previously to work as a team you’d need to upgrade your app to pro and then invite your individual team members. This works well enough if you only have one pro app, but what happens when you need separate apps to manage dev and prod? You could always create another pro app and repeat the song and dance of inviting everyone.
+
+With organizations we’ve made this much easier. Team members will automatically be added to pro apps associated within your organization. A pro subscription is $30/mo per app. If you want unlimited pro apps, more space, and a private slack channel with the Instant team you can subscribe for our $600/mo plan.
+
+**Dashboard Revamp + Dark Mode**
+
+We’ve heard your asks and shipped a dark mode in the explorer! This comes with a refresh for the whole dashboard. We hope you find the new UI delightful!
+
+**App Statistics**
+
+Another new feature in the Dashboard are App Statistics! You can now see how many people are live on your site! This is the first of more observability metrics to come.
+
+**Login with LinkedIn**
+
+Instant supports login with magic codes, Google, Apple, Clerk and now LinkedIn! Want to see more OAuth methods? Let us know on Discord and we’ll see what we can do! [Check out the docs](https://www.instantdb.com/docs/auth/linkedin-oauth) to learn more!
+
+**Bonus: Interview with Firebase Founder James Tampling**
+
+[We hosted James](https://x.com/instant_db/status/1972774381849112865) at our office in San Francisco. Check out the interview if you’re curious about the early days of Firebase and James’ personal story. We’ll also be hosting an event with the Expo team for Sync Conf in November. If you’re in SF and this sounds interesting to you [check out details here](https://luma.com/9ufhvv38).
