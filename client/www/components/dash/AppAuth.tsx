@@ -162,34 +162,6 @@ export function AppAuth({
         )}
 
         <Divider />
-        <SectionHeading>Clerk Clients</SectionHeading>
-
-        {clerkProvider ? (
-          <ClerkClients
-            // Set key because setLastCreatedProviderId is somehow applied after mutate
-            key={
-              lastCreatedProviderId === clerkProvider.id
-                ? `${clerkProvider.id}-last`
-                : clerkProvider.id
-            }
-            app={app}
-            provider={clerkProvider}
-            clients={
-              data.oauth_clients?.filter(
-                (c) => c.provider_id === clerkProvider.id,
-              ) || []
-            }
-            onAddClient={handleAddClient}
-            onDeleteClient={handleDeleteClient}
-            usedClientNames={usedClientNames}
-            lastCreatedClientId={lastCreatedClientId}
-            defaultOpen={lastCreatedProviderId === clerkProvider.id}
-          />
-        ) : (
-          <AddClerkProviderForm app={app} onAddProvider={handleAddProvider} />
-        )}
-
-        <Divider />
         <SectionHeading>Apple Clients</SectionHeading>
 
         <AppleClients
@@ -232,6 +204,34 @@ export function AppAuth({
           />
         )}
       </div>
+
+      <Divider />
+      <SectionHeading>Clerk Clients</SectionHeading>
+
+      {clerkProvider ? (
+        <ClerkClients
+          // Set key because setLastCreatedProviderId is somehow applied after mutate
+          key={
+            lastCreatedProviderId === clerkProvider.id
+              ? `${clerkProvider.id}-last`
+              : clerkProvider.id
+          }
+          app={app}
+          provider={clerkProvider}
+          clients={
+            data.oauth_clients?.filter(
+              (c) => c.provider_id === clerkProvider.id,
+            ) || []
+          }
+          onAddClient={handleAddClient}
+          onDeleteClient={handleDeleteClient}
+          usedClientNames={usedClientNames}
+          lastCreatedClientId={lastCreatedClientId}
+          defaultOpen={lastCreatedProviderId === clerkProvider.id}
+        />
+      ) : (
+        <AddClerkProviderForm app={app} onAddProvider={handleAddProvider} />
+      )}
 
       <Divider />
 
