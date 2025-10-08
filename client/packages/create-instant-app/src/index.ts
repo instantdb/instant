@@ -79,7 +79,6 @@ const main = async () => {
 
   if (project.prompt) {
     await promptClaude(project.prompt, projectDir);
-    // show cursor again
     process.stdout.write(SHOW_CURSOR);
   }
 

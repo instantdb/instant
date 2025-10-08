@@ -51,7 +51,22 @@ export const runCli = async (): Promise<Project> => {
       ),
     )
     .addOption(
+      new Option('--expo', 'Use the Expo starter template').default(false),
+    )
+    .addOption(
+      new Option('--next', 'Use the NextJS starter template').default(false),
+    )
+    .addOption(
       new Option('--no-git', "Don't create a git repo in the new project"),
+    )
+    .addOption(
+      new Option('--claude', 'Include a CLAUDE.md file in the scaffold'),
+    )
+    .addOption(
+      new Option('--rules', 'Include an AGENT.md file in the scaffold'),
+    )
+    .addOption(
+      new Option('--cursor', 'Include a Cursor rules file in the scaffold'),
     )
     .addOption(
       new Option(
@@ -115,6 +130,12 @@ export const runCli = async (): Promise<Project> => {
         if (flags.base) {
           return flags.base as Project['base'];
         }
+        if (flags.next) {
+          return 'next-js-app-dir';
+        }
+        if (flags.expo) {
+          return 'expo';
+        }
 
         if (results.prompt) {
           return unwrapSkippablePrompt(
@@ -149,6 +170,16 @@ export const runCli = async (): Promise<Project> => {
         // Only ask about rule files if the base supports it
         if (results.base !== 'next-js-app-dir' && results.base !== 'expo') {
           return null;
+        }
+
+        if (flags.claude) {
+          return 'claude';
+        }
+        if (flags.rules) {
+          return 'codex';
+        }
+        if (flags.cursor) {
+          return 'cursor';
         }
 
         return unwrapSkippablePrompt(

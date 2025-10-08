@@ -191,16 +191,14 @@ export const tryConnectApp = async (
       );
       return { appID, adminToken, approach: 'create' };
     }
-    // Create ephemeral app
+  }
+
+  if (!authToken) {
     const { appID, adminToken } = await createPermissiveEphemeralApp(
       project.appName,
     );
     p.log.success('Created ephemeral app and updated .env');
     return { appID, adminToken, approach: 'ephemeral' };
-  }
-
-  if (!authToken) {
-    return null;
   }
 
   const dashData = await fetchDashboard(authToken);
