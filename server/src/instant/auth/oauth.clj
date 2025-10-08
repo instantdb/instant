@@ -4,6 +4,7 @@
    [clj-http.client :as clj-http]
    [clojure.string :as string]
    [instant.auth.jwt :as jwt]
+   [instant.auth.oauth-providers :as providers]
    [instant.util.cache :as cache]
    [instant.util.crypt :as crypt-util]
    [instant.util.exception :as ex]
@@ -27,6 +28,7 @@
 
 (defrecord GenericOAuthClient [app-id
                                provider-id
+                               provider-name
                                client-id
                                ^Secret client-secret
                                authorization-endpoint
@@ -38,33 +40,39 @@
                                userinfo-endpoint]
   OAuthClient
   (create-authorization-url [_ state redirect-url extra-params]
-    (let [base-params {:scope "email openid"
-                       :response_type "code"
-                       :response_mode "form_post"
-                       :state state
-                       :redirect_uri redirect-url
-                       :client_id client-id}
+    (let [scope (providers/get-provider-scopes provider-name)
+          response-mode (providers/get-response-mode provider-name)
+          base-params (cond-> {:scope scope
+                               :response_type "code"
+                               :state state
+                               :redirect_uri redirect-url
+                               :client_id client-id}
+                        response-mode (assoc :response_mode response-mode))
           params (merge base-params
                         (or (select-keys extra-params allowed-extra-params)
                             {}))]
       (url/add-query-params authorization-endpoint params)))
 
-  (get-user-info [_ code redirect-url]
-    (let [secret (case issuer
+  (get-user-info [this code redirect-url]
+    (let [provider-config (providers/get-provider-config provider-name)
+          client-meta (:meta this)
+          secret (case issuer
                    ("https://account.apple.com"
                     "https://appleid.apple.com")
                    (jwt/apple-client-secret
                     {:client-id   client-id
-                     :team-id     (get meta "teamId")
-                     :key-id      (get meta "keyId")
+                     :team-id     (get client-meta "teamId")
+                     :key-id      (get client-meta "keyId")
                      :private-key (.value client-secret)})
 
                    #_else
                    (.value client-secret))
+          provider-headers (providers/get-http-headers provider-name)
           resp (clj-http/post token-endpoint
                               {:throw-exceptions false
                                :as :json
                                :coerce :always
+                               :headers provider-headers
                                :form-params {:client_id client-id
                                              :client_secret secret
                                              :code code
@@ -89,18 +97,25 @@
                                :body
                                :access_token)
 
-              id-token (or id-token
-                           (when (and access-token userinfo-endpoint)
-                             (try
-                               (-> (clj-http/get userinfo-endpoint
-                                                 {:headers {:Authorization (str "Bearer " access-token)}
-                                                  :as :json
-                                                  :coerce :always})
-                                   :body)
-                               (catch Exception e
-                                 (tracer/record-exception-span! e {:name "oauth/invalid-user-info-from-endpoint"})
-                                 nil))))]
-          (if-not id-token
+              ;; For OAuth2 providers (like GitHub), fetch from userinfo endpoint
+              ;; For OIDC providers, try ID token first, then userinfo as fallback
+              requires-userinfo? (:requires-userinfo? provider-config)
+              token-data (or id-token
+                             (when (and (or requires-userinfo? (not id-token))
+                                        access-token
+                                        userinfo-endpoint)
+                               (try
+                                 (let [headers (merge {"Authorization" (str "Bearer " access-token)}
+                                                      (providers/get-http-headers provider-name))]
+                                   (-> (clj-http/get userinfo-endpoint
+                                                     {:headers headers
+                                                      :as :json
+                                                      :coerce :always})
+                                       :body))
+                                 (catch Exception e
+                                   (tracer/record-exception-span! e {:name "oauth/invalid-user-info-from-endpoint"})
+                                   nil))))]
+          (if-not token-data
             {:type :error :message "Invalid token exchanging code for token."}
             (let [email (when (:email_verified id-token) (:email id-token))
                   sub (:sub id-token)
@@ -211,6 +226,7 @@
 
 (defn generic-oauth-client-from-discovery-url [{:keys [app-id
                                                        provider-id
+                                                       provider-name
                                                        client-id
                                                        ^Secret client-secret
                                                        discovery-endpoint
@@ -224,6 +240,7 @@
                 userinfo_endpoint]} (get-discovery discovery-endpoint)]
     (map->GenericOAuthClient {:app-id app-id
                               :provider-id provider-id
+                              :provider-name provider-name
                               :client-id client-id
                               :client-secret client-secret
                               :authorization-endpoint authorization_endpoint
@@ -235,6 +252,34 @@
                                                                        (set id_token_signing_alg_values_supported))
                               :meta meta
                               :userinfo-endpoint userinfo_endpoint})))
+
+(defn oauth-client-from-provider-config
+  "Create an OAuth client using provider registry configuration.
+   Used for non-OIDC providers like GitHub that don't have discovery endpoints."
+  [{:keys [app-id
+           provider-id
+           provider-name
+           client-id
+           ^Secret client-secret
+           meta]}]
+  (let [provider-config (providers/get-provider-config provider-name)
+        endpoints (providers/get-provider-endpoints provider-name)]
+    (when-not provider-config
+      (ex/throw-oauth-err! (str "Unknown provider: " provider-name)))
+    (when-not endpoints
+      (ex/throw-oauth-err! (str "Provider " provider-name " doesn't have configured endpoints")))
+    (map->GenericOAuthClient {:app-id app-id
+                              :provider-id provider-id
+                              :provider-name provider-name
+                              :client-id client-id
+                              :client-secret client-secret
+                              :authorization-endpoint (:authorization-endpoint endpoints)
+                              :token-endpoint (:token-endpoint endpoints)
+                              :jwks-uri nil  ; OAuth2 providers typically don't have JWKS
+                              :issuer nil    ; OAuth2 providers don't use issuer validation
+                              :id-token-signing-alg-values-supported #{}
+                              :meta meta
+                              :userinfo-endpoint (:userinfo-endpoint endpoints)})))
 
 (defn verify-pkce!
   "Verifies that the code verifier matches the code challenge, if it was

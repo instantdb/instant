@@ -5,6 +5,7 @@
             [clojure.walk :as w]
             [compojure.core :as compojure :refer [defroutes DELETE GET POST PUT]]
             [hiccup2.core :as h]
+            [instant.auth.oauth-providers :as oauth-providers]
             [instant.config :as config]
             [instant.dash.admin :as dash-admin]
             [instant.dash.ephemeral-app :as ephemeral-app]
@@ -520,20 +521,25 @@
 
         {{app-id :id} :app} (req->app-and-user! :collaborator req)
         provider-id (ex/get-param! req [:body :provider_id] uuid-util/coerce)
+        provider (app-oauth-service-provider-model/get-by-id
+                  {:app-id app-id
+                   :id provider-id})
+        provider-name (:provider_name provider)
         client-name (ex/get-param! req [:body :client_name] string-util/coerce-non-blank-str)
         client-id (coerce-optional-param! [:body :client_id])
         client-secret (coerce-optional-param! [:body :client_secret])
-        authorization-endpoint (coerce-optional-param! [:body :authorization_endpoint])
-        token-endpoint (coerce-optional-param! [:body :token_endpoint])
-        discovery-endpoint (ex/get-param! req [:body :discovery_endpoint] string-util/coerce-non-blank-str)
         meta (ex/get-optional-param! req [:body :meta] (fn [x] (when (map? x) x)))
+
+        ;; OAuth2 providers (like GitHub) don't need discovery endpoints
+        ;; OIDC providers need discovery endpoints
+        discovery-endpoint (when-not (oauth-providers/is-oauth2-provider? provider-name)
+                             (ex/get-param! req [:body :discovery_endpoint] string-util/coerce-non-blank-str))
+
         client (app-oauth-client-model/create! {:app-id app-id
                                                 :provider-id provider-id
                                                 :client-name client-name
                                                 :client-id client-id
                                                 :client-secret client-secret
-                                                :authorization-endpoint authorization-endpoint
-                                                :token-endpoint token-endpoint
                                                 :discovery-endpoint discovery-endpoint
                                                 :meta meta})]
     (response/ok {:client (select-keys client [:id :provider_id :client_name
