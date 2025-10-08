@@ -22,7 +22,6 @@ import {
 import { promptClaude } from './claude.js';
 import { parseNameAndPath } from './utils/validateAppName.js';
 import { execa } from 'execa';
-import * as p from '@clack/prompts';
 
 const main = async () => {
   if (
