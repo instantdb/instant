@@ -345,14 +345,14 @@ export function AuthorizedOriginRow({
   const Icon = originIcon(origin);
 
   return (
-    <div className="flex items-center justify-between rounded border bg-gray-50 p-4">
+    <div className="flex items-center justify-between rounded border bg-gray-50 p-4 dark:border-neutral-700 dark:bg-neutral-800/50">
       <div className="flex items-center gap-4">
         <Icon height="1.5em" />
         <div className="flex flex-col leading-4">
-          <span className="text-xs font-light text-gray-500">
+          <span className="text-xs font-light text-gray-500 dark:text-neutral-400">
             {originSource(origin)}
           </span>
-          <span className="font-medium text-gray-700">
+          <span className="font-medium text-gray-700 dark:text-neutral-200">
             {originDisplay(origin)}
           </span>
         </div>
