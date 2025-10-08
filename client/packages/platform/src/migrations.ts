@@ -11,7 +11,7 @@ import { PlanStep } from './api.ts';
 import { attrDefToNewAttrTx, linkDefToNewAttrTx } from './migrationUtils.ts';
 import { relationshipConstraints, RelationshipKinds } from './relationships.ts';
 
-type Identifier = {
+export type Identifier = {
   namespace: string;
   attrName: string;
 };

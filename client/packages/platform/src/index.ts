@@ -49,4 +49,5 @@ export {
   type RenameResolveFn,
   type MigrationTx,
   type MigrationTxTypes,
+  type Identifier,
 } from './migrations.ts';

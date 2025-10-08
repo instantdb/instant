@@ -1330,9 +1330,20 @@ async function pushSchema(appId, _opts) {
 
   const diffResult = await diffSchemas(oldSchema, schema, resolveRenames);
 
-  renderSchemaPlan(diffResult);
+  let showRawSteps = false;
+  try {
+    renderSchemaPlan(diffResult, currentAttrs);
+  } catch (error) {
+    console.error('Error displaying schema plan', error);
+    console.info('Showing raw migrations steps instead');
+    showRawSteps = true;
+  }
 
   const txSteps = convertTxSteps(diffResult, currentAttrs);
+
+  if (showRawSteps) {
+    console.log(txSteps);
+  }
 
   if (txSteps.length === 0) {
     console.log(chalk.bgGray('No schema changes to apply!'));
