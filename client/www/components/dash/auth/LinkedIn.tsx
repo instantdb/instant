@@ -289,7 +289,7 @@ export function Client({
         onOpenChange={setOpen}
         className="flex flex-col rounded border"
       >
-        <Collapsible.Trigger className="flex bg-gray-50 p-4 hover:bg-gray-100">
+        <Collapsible.Trigger className="flex bg-gray-50 p-4 hover:bg-gray-100 dark:bg-neutral-800">
           <div className="flex flex-1 items-center justify-between">
             <div className="flex gap-2">
               {' '}
