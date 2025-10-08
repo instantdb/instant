@@ -343,21 +343,17 @@ export function Sandbox({
 
   const prettify = async (editor: Parameters<OnMount>[0]) => {
     const code = editor.getValue();
-    const [prettier, tsPlugin, estreePlugin] = await Promise.all([
-      import('prettier/standalone'),
-      import('prettier/plugins/typescript'),
-      import('prettier/plugins/estree'),
-    ]);
+
+    const { prettifyTypescript } = await import('@/lib/prettier');
 
     const position = editor.getPosition();
     const model = editor.getModel();
     const offset = position && model ? model.getOffsetAt(position) : 0;
 
-    const { formatted, cursorOffset } = await prettier.formatWithCursor(code, {
-      cursorOffset: offset,
-      parser: 'typescript',
-      plugins: [estreePlugin.default, tsPlugin],
+    const { formatted, cursorOffset } = await prettifyTypescript({
+      code,
       printWidth: Math.min(100, editor.getLayoutInfo().viewportColumn),
+      cursorOffset: offset,
     });
 
     // Make sure we're not going to override their edits
