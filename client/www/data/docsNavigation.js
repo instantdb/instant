@@ -52,16 +52,11 @@ module.exports = [
     title: 'Authentication and Permissions',
     links: [
       { title: 'Auth', href: '/docs/auth' },
-      { title: 'Guest Auth', href: '/docs/auth/guest-auth' },
       { title: 'Magic codes', href: '/docs/auth/magic-codes' },
+      { title: 'Guest Auth', href: '/docs/auth/guest-auth' },
       {
         title: 'Google OAuth',
         href: '/docs/auth/google-oauth',
-        optionalLLM: true,
-      },
-      {
-        title: 'LinkedIn OAuth',
-        href: '/docs/auth/linkedin-oauth',
         optionalLLM: true,
       },
       {
@@ -69,13 +64,18 @@ module.exports = [
         href: '/docs/auth/apple',
         optionalLLM: true,
       },
+      {
+        title: 'LinkedIn OAuth',
+        href: '/docs/auth/linkedin-oauth',
+        optionalLLM: true,
+      },
       { title: 'Clerk', href: '/docs/auth/clerk', optionalLLM: true },
-      { title: 'Permissions', href: '/docs/permissions' },
       {
         title: 'OAuth apps',
         href: '/docs/auth/platform-oauth',
         optionalLLM: true,
       },
+      { title: 'Permissions', href: '/docs/permissions' },
     ],
   },
   {
