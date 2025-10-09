@@ -34,8 +34,12 @@ export namespace UI {
       return almost;
     },
 
+    background: (output: string) => {
+      return chalk.bgBlackBright(output);
+    },
+
     dimOnComplete: (output: string, status: Status) => {
-      if (status === 'submitted') {
+      if (status === 'submitted' || status === 'aborted') {
         return chalk.dim(output);
       }
       return output;
@@ -217,6 +221,89 @@ ${inputDisplay}`;
       });
       this.value = '';
       this.props = props;
+    }
+  }
+
+  type SpinnerProps<T> = {
+    modifyOutput?: ModifyOutputFn;
+    promise: Promise<T>;
+    workingText?: string;
+    doneText?: string;
+    errorText?: string;
+  };
+
+  export class Spinner<T> extends Prompt<T> {
+    private props: SpinnerProps<T>;
+    private promiseResult: T | null = null;
+    private promiseError: Error | null = null;
+    private spinnerFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+    private frameIndex = 0;
+    private intervalId: NodeJS.Timeout | null = null;
+
+    result(): T {
+      if (this.promiseError) {
+        throw this.promiseError;
+      }
+      return this.promiseResult!;
+    }
+
+    render(status: 'idle' | 'submitted' | 'aborted'): string {
+      const workingText = this.props.workingText || 'Loading...';
+      const doneText = this.props.doneText || 'Done';
+      const errorText = this.props.errorText || 'Error';
+
+      if (status === 'submitted') {
+        if (this.promiseError) {
+          return `${chalk.red('✗')} ${errorText}\n`;
+        }
+        return `${chalk.green('✓')} ${doneText}\n`;
+      }
+
+      if (status === 'aborted') {
+        return `${chalk.yellow('⚠')} Aborted\n`;
+      }
+
+      const frame = this.spinnerFrames[this.frameIndex];
+      return `${chalk.cyan(frame)} ${workingText}\n`;
+    }
+
+    constructor(props: SpinnerProps<T>) {
+      super(props.modifyOutput);
+      this.props = props;
+
+      this.on('attach', (terminal) => {
+        terminal.toggleCursor('hide');
+        this.intervalId = setInterval(() => {
+          this.frameIndex = (this.frameIndex + 1) % this.spinnerFrames.length;
+          this.requestLayout();
+        }, 80);
+
+        this.props.promise
+          .then((result) => {
+            this.promiseResult = result;
+            if (this.intervalId) clearInterval(this.intervalId);
+            return terminal.resolve({
+              data: result as any,
+              status: 'submitted',
+            });
+          })
+          .catch((error) => {
+            this.promiseError = error;
+            if (this.intervalId) clearInterval(this.intervalId);
+            return terminal.resolve({
+              data: error as any,
+              status: 'submitted',
+            });
+          });
+      });
+
+      this.on('detach', (terminal) => {
+        terminal.toggleCursor('show');
+        if (this.intervalId) {
+          clearInterval(this.intervalId);
+          this.intervalId = null;
+        }
+      });
     }
   }
 
