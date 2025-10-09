@@ -1,10 +1,15 @@
 import './style.css';
+import { init as initAdmin } from '@instantdb/admin';
 import { User, init } from '@instantdb/core';
 
 const APP_ID = import.meta.env.VITE_INSTANT_APP_ID;
 const db = init({
   appId: APP_ID,
 });
+
+// Required and initialize admin. This checks that the library
+// builds correctly in browser-only environments.
+initAdmin({ appId: import.meta.env.VITE_INSTANT_APP_ID! });
 
 const appEl = document.querySelector<HTMLDivElement>('#app')!;
 

@@ -299,7 +299,7 @@ async function testDeleteAllowedInTx(
 }
 
 // testUploadFile('circle_blue.jpg', 'circle_blue.jpg', 'image/jpeg');
-// testUploadFile("circle_blue.jpg", "circle_blue2.jpg", "image/jpeg");
+// testUploadFile('circle_blue.jpg', 'circle_blue2.jpg', 'image/jpeg');
 // testUploadFileStream("circle_blue.jpg", "circle_blue.jpg", "image/jpeg");
 // testUploadFileAsGuestFails("circle_blue.jpg", "circle_blue.jpg", "image/jpeg");
 // testQueryFiles()
