@@ -52,6 +52,7 @@
   {"id" "id"
    "email" "email"
    "type" "type"
+   "image" "image"
    "codeHash" "codehash"
    "authCode" "authcode"
    "$user" "user"
@@ -166,6 +167,8 @@
               :index? true
               :checked-data-type :string)
    (make-attr "$users" "type"
+              :checked-data-type :string)
+   (make-attr "$users" "image"
               :checked-data-type :string)
    $users-linked-primary-user])
 

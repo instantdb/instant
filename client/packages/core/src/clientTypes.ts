@@ -2,6 +2,7 @@ export type User = {
   id: string;
   refresh_token: string;
   email?: string | null | undefined;
+  image?: string | null | undefined;
   type?: 'user' | 'guest' | undefined;
   isGuest: boolean;
 };
