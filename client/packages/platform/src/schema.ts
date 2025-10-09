@@ -426,3 +426,27 @@ export default schema;
 
   return code;
 }
+
+export class SchemaValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'SchemaValidationError';
+  }
+}
+
+export const validateSchema = (schema: GenericSchemaDef) => {
+  const entityNames = Object.keys(schema.entities);
+  for (const link of Object.values(schema.links)) {
+    const linkDisplay = `${link.forward.on}${link.forward.label} -> ${link.reverse.on}${link.reverse.label}`;
+    if (!entityNames.includes(link.forward.on)) {
+      throw new SchemaValidationError(
+        `${linkDisplay} connects to non existing entity "${link.forward.on}"`,
+      );
+    }
+    if (!entityNames.includes(link.reverse.on)) {
+      throw new SchemaValidationError(
+        `${linkDisplay} connects to non existing entity "${link.forward.on}"`,
+      );
+    }
+  }
+};

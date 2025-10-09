@@ -179,7 +179,10 @@ const CONVERTERS: AllConvertPlanStepFns = {
         catalog: 'user',
         'on-delete': from['on-delete'],
         'on-delete-reverse': from['on-delete-reverse'],
-        'checked-data-type': from['checked-data-type'],
+        'checked-data-type':
+          from['checked-data-type'] !== 'json'
+            ? from['checked-data-type']
+            : undefined,
       },
     ]);
 
@@ -236,6 +239,9 @@ export const convertTxSteps = (
   txs: MigrationTx[],
   existingAttrs: InstantDBAttr[],
 ): PlanStep[] => {
+  if (!existingAttrs) {
+    throw new Error('Existing attributes are required');
+  }
   const result: PlanStep[] = [];
   txs.forEach((tx) => {
     const converter = CONVERTERS[tx.type];
@@ -303,14 +309,6 @@ export const diffSchemas = async (
       type: 'delete-attr',
       attrName: 'id',
       namespace: entityName,
-    });
-
-    Object.keys(oldEntities[entityName].links).forEach((attrName) => {
-      transactions.push({
-        type: 'delete-attr',
-        attrName,
-        namespace: entityName,
-      });
     });
   }
 

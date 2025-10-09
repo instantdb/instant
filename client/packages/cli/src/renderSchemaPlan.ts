@@ -1,10 +1,10 @@
 import {
   convertTxSteps,
-  Identifier,
   MigrationTx,
   MigrationTxTypes,
 } from '@instantdb/platform';
 import chalk from 'chalk';
+import { promptOk } from './index.js';
 
 // Hack to prevent using @instantdb/core as a dependency for cli
 type InstantDBAttr = Parameters<typeof convertTxSteps>[1][0];
@@ -62,11 +62,17 @@ const renderLinkUpdate = (
     }
   }
 
-  return `${chalk.bgYellow.black(' * UPDATE ATTR ')} ${tx.identifier.namespace}.${tx.identifier.attrName}${reverseLabel}
-    ${details.join(' ')}`;
+  return `${chalk.bgYellow.black(` * ${changeType} ATTR `)} ${tx.identifier.namespace}.${tx.identifier.attrName}${reverseLabel} ${details.join(' ')}`;
 };
 
-export const renderSchemaPlan = (
+export class CancelSchemaError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'CancelSchemaError';
+  }
+}
+
+export const renderSchemaPlan = async (
   planSteps: MigrationTx[],
   prevAttrs?: InstantDBAttr[],
 ) => {
@@ -148,10 +154,19 @@ export const renderSchemaPlan = (
     switch (step.type) {
       case 'create-namespace':
         console.log(
-          `${chalk.bgGreen.black(' + CREATE NAMESPACE ')} ${step.namespace}\n    ${step.attrs.length > 0 ? ` (${step.attrs.join(', ')})` : ''}`,
+          `${chalk.bgGreen.black(' + CREATE NAMESPACE ')} ${step.namespace}  ${step.attrs.length > 0 ? ` (${step.attrs.join(', ')})` : ''}`,
         );
         break;
       case 'delete-namespace':
+        const ok = await promptOk(
+          `Are you sure you want to delete namespace ${step.namespace}?`,
+        );
+        if (!ok) {
+          throw new CancelSchemaError(
+            `Deletion of namespace ${step.namespace}`,
+          );
+        }
+
         console.log(
           `${chalk.bgRed(' - DELETE NAMESPACE ')} ${step.namespace}${step.attrs.length > 0 ? ` (${step.attrs.join(', ')})` : ''}`,
         );
@@ -168,6 +183,22 @@ export const renderSchemaPlan = (
         }
         break;
       case 'delete-attr':
+        const oldAttr = prevAttrs
+          ? prevAttrs.find((attr) => {
+              return (
+                attr['forward-identity'][1] === step.namespace &&
+                attr['forward-identity'][2] === step.attrName
+              );
+            }) || null
+          : null;
+
+        if (oldAttr?.['value-type'] === 'ref') {
+          console.log(
+            `${chalk.bgRed(' - DELETE REF ')} ${step.namespace}.${step.attrName}`,
+          );
+          break;
+        }
+
         console.log(
           `${chalk.bgRed(' - DELETE ATTR ')} ${step.namespace}.${step.attrName}`,
         );
