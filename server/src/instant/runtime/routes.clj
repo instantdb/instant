@@ -519,12 +519,12 @@
                 (ex/throw-validation-err! :origin origin [{:message "Unauthorized origin."}]))))
 
         {:keys [email sub picture]} (oauth/get-user-info-from-id-token
-                                      oauth-client
-                                      nonce
-                                      id-token
-                                      (when-not (:client_secret oauth-client)
-                                        {:allow-unverified-email? true
-                                         :ignore-audience? true}))
+                             oauth-client
+                             nonce
+                             id-token
+                             (when-not (:client_secret oauth-client)
+                               {:allow-unverified-email? true
+                                :ignore-audience? true}))
         email (email/coerce email)
 
         current-refresh-token (when current-refresh-token-id
