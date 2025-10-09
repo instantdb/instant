@@ -6,6 +6,11 @@ export interface Closable {
   close(): void;
 }
 
+export type ModifyOutputFn = (
+  output: string,
+  status: 'idle' | 'submitted' | 'aborted',
+) => string;
+
 export abstract class Prompt<RESULT> {
   protected terminal: ITerminal | undefined;
   private attachCallbacks: ((terminal: ITerminal) => void)[] = [];
@@ -13,10 +18,16 @@ export abstract class Prompt<RESULT> {
   private inputCallbacks: ((str: string | undefined, key: AnyKey) => void)[] =
     [];
 
+  public modifier: ModifyOutputFn | undefined = undefined;
+
   requestLayout() {
     if (this.terminal) {
       this.terminal!.requestLayout();
     }
+  }
+
+  constructor(modifier?: ModifyOutputFn) {
+    this.modifier = modifier;
   }
 
   on(type: 'attach', callback: (terminal: ITerminal) => void): void;
@@ -51,6 +62,12 @@ export abstract class Prompt<RESULT> {
 
   abstract result(): RESULT;
   abstract render(status: 'idle' | 'submitted' | 'aborted'): string;
+  fullRender(status: 'idle' | 'submitted' | 'aborted'): string {
+    if (this.modifier) {
+      return this.modifier(this.render(status), status);
+    }
+    return this.render(status);
+  }
 }
 
 export class SelectState<T> {
@@ -217,7 +234,7 @@ export class Terminal implements ITerminal {
   }
 
   requestLayout() {
-    const string = this.view.render(this.status);
+    const string = this.view.fullRender(this.status);
     const clearPrefix = this.text ? clear(this.text, this.stdout.columns) : '';
     this.text = string;
 

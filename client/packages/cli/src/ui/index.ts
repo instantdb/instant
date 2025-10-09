@@ -1,16 +1,70 @@
 import chalk from 'chalk';
 import boxen from 'boxen';
-import { Prompt, SelectState } from './lib.js';
+import { ModifyOutputFn, Prompt, SelectState } from './lib.js';
 
 export { render } from './lib.js';
 
 export namespace UI {
+  type Status = 'idle' | 'submitted' | 'aborted';
+  export const modifiers = {
+    piped: (modifiers: ModifyOutputFn[]): ModifyOutputFn => {
+      return (output: string, status) => {
+        return modifiers.reduce(
+          (acc, modifier) => modifier(acc, status),
+          output,
+        );
+      };
+    },
+
+    yPadding: (output: string) => {
+      return '\n' + output + '\n';
+    },
+
+    sidelined: (output: string) => {
+      const result: string[] = [];
+
+      output.split('\n').forEach((line) => {
+        if (line.trim().length > 0) result.push(`${chalk.gray(' │  ')}${line}`);
+      });
+
+      let almost = result.join('\n');
+      if (!almost.endsWith('\n')) {
+        almost += '\n';
+      }
+      return almost;
+    },
+
+    dimOnComplete: (output: string, status: Status) => {
+      if (status === 'submitted') {
+        return chalk.dim(output);
+      }
+      return output;
+    },
+  } as const;
+
+  /**
+   * Utility that lets you use output modifiers in console.log
+   */
+  export const log = (
+    output: string,
+    modifyOutput?: ModifyOutputFn,
+    ...args: any[]
+  ) => {
+    const finalOutput = modifyOutput ? modifyOutput(output, 'idle') : output;
+    if (finalOutput.endsWith('\n')) {
+      process.stdout.write(finalOutput, ...args);
+    } else {
+      process.stdout.write(finalOutput + '\n', ...args);
+    }
+  };
+
   type SelectProps<T> = {
     options: {
       value: T;
       label: string;
     }[];
     promptText: string;
+    modifyOutput?: ModifyOutputFn;
   };
   export class Select<T> extends Prompt<T> {
     config(status: 'idle' | 'submitted' | 'aborted'): string {
@@ -23,7 +77,7 @@ export namespace UI {
     private readonly params: SelectProps<T>;
 
     constructor(params: SelectProps<T>) {
-      super();
+      super(params.modifyOutput);
       this.on('attach', (terminal) => terminal.toggleCursor('hide'));
       this.on('input', (input) => {
         if (input === 'j') {
@@ -69,11 +123,14 @@ ${chalk.hex('#EA570B').bold('●')} ${this.params.options[this.data.selectedIdx]
         .join('\n');
 
       return `${this.params.promptText}
-${optionsList}
-      `;
+${optionsList}`;
     }
   }
 
+  /**
+   * @deprecated use the modifyOutput prop instead
+   * left as an example of how to do wrapper prompts
+   */
   export class Sidelined<T> extends Prompt<T> {
     override result(): T {
       return this.inner.result();
@@ -112,6 +169,7 @@ ${optionsList}
   type TextInputProps = {
     placeholder?: string;
     prompt: string;
+    modifyOutput?: ModifyOutputFn;
   };
 
   export class TextInput extends Prompt<string> {
@@ -139,19 +197,19 @@ ${inputDisplay}`;
     private readonly props: TextInputProps;
 
     constructor(props: TextInputProps) {
-      super();
+      super(props.modifyOutput);
       this.on('attach', (terminal) => {
         terminal.toggleCursor('hide');
       });
       this.on('detach', (terminal) => {
         terminal.toggleCursor('show');
       });
-      this.on('input', (input, arg2) => {
-        if (arg2.name === 'backspace') {
+      this.on('input', (input, keyInfo) => {
+        if (keyInfo.name === 'backspace') {
           this.value = this.value.slice(0, -1);
-        } else if (arg2.name?.length === 1) {
+        } else if (keyInfo.name?.length === 1) {
           this.value += input;
-        } else if (arg2.name === 'space') {
+        } else if (keyInfo.name === 'space') {
           this.value += ' ';
         }
 
@@ -165,6 +223,7 @@ ${inputDisplay}`;
   type ConfirmationProps = {
     promptText: string;
     defaultValue?: boolean;
+    modifyOutput?: ModifyOutputFn;
   };
 
   export class Confirmation extends Prompt<boolean> {
@@ -204,7 +263,7 @@ ${yesStyle}  ${noStyle}`;
     private readonly props: ConfirmationProps;
 
     constructor(props: ConfirmationProps) {
-      super();
+      super(props.modifyOutput);
       this.props = props;
       this.on('attach', (terminal) => {
         terminal.toggleCursor('hide');
