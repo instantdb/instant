@@ -13,6 +13,7 @@
     "vite": "^7.1.2"
   },
   "dependencies": {
-    "@instantdb/core": "^0.20.27"
+    "@instantdb/core": "latest",
+    "@instantdb/admin": "latest"
   }
 }
