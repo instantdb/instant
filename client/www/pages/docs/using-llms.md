@@ -20,17 +20,6 @@ You can verify you set up the rules correctly by asking your LLM "How do you
 make queries and transactions in InstantDB?" If everything is set up correctly,
 you should see a response with information about `db.useQuery` and `db.transact`
 
-### Cursor
-
-Save these rules for your framework at the root of your project in `.cursor/rules/instant.mdc`:
-
-- [Next.js rules](/llm-rules/next/cursor-rules.md)
-- [Expo rules](/llm-rules/expo/cursor-rules.md)
-
-You may need to restart Cursor for them to take effect.
-
-When using Cursor we recommend turning off "Auto" and using at least Claude Sonnet 4
-
 ### Claude Code
 
 Save these instructions for your framework at the root of your project as
@@ -46,6 +35,33 @@ Save these instructions for your framework at the root of your project as
 - [Expo rules](/llm-rules/expo/claude-rules.md)
 
 If you already had claude running, restart it for the rules to take effect.
+
+### Codex
+
+Save these instructions for your framework at the root of your project as
+`AGENTS.md`:
+
+- [Next.js instructions](/llm-rules/next/claude.md)
+- [Expo instructions](/llm-rules/expo/claude.md)
+
+Save these instructions for your framework at the root of your project as
+`instant-rules.md`:
+
+- [Next.js rules](/llm-rules/next/claude-rules.md)
+- [Expo rules](/llm-rules/expo/claude-rules.md)
+
+If you already had codex running, restart it for the rules to take effect.
+
+### Cursor
+
+Save these rules for your framework at the root of your project in `.cursor/rules/instant.mdc`:
+
+- [Next.js rules](/llm-rules/next/cursor-rules.md)
+- [Expo rules](/llm-rules/expo/cursor-rules.md)
+
+You may need to restart Cursor for them to take effect.
+
+When using Cursor we recommend turning off "Auto" and using at least Claude Sonnet 4
 
 ### Windsurf
 
@@ -98,6 +114,30 @@ When you add the MCP server, you'll be sent through an OAuth flow to grant acces
 
 {% /callout %}
 
+### Claude Code
+
+If you're on a paid Claude plan, you can add the the server via the command line
+
+```text {% showCopy="true" %}
+claude mcp add instant -s user -t http https://mcp.instantdb.com/mcp
+```
+
+Now you can run `claude` to start Claude Code and then run `/mcp` to see your list
+of MCP servers. `instant` should be listed there. Select it and go through the
+auth flow to enable the Instant MCP server in your claude code sessions!
+
+### Codex
+
+If you're on a paid OpenAI plan, you can add the the server via the command line
+
+```text {% showCopy="true" %}
+codex mcp add instant -- npx -y mcp-remote "https://mcp.instantdb.com/mcp"
+```
+
+Now run `codex` to start Codex. Within a few seconds this should load a browser
+to authenticate with Instant. After authenticating you can run `/mcp` to see
+Instant in your list.
+
 ### Cursor
 
 [![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=InstantDB&config=eyJ1cmwiOiJodHRwczovL21jcC5pbnN0YW50ZGIuY29tL21jcCJ9)
@@ -113,18 +153,6 @@ Or edit your `~/.cursor/mcp.json` directly:
   }
 }
 ```
-
-### Claude Code
-
-If you're on a paid Claude plan, you can add the the server via the command line
-
-```text {% showCopy="true" %}
-claude mcp add instant -s user -t http https://mcp.instantdb.com/mcp
-```
-
-Now you run `claude` to start Claude Code and then run `/mcp` to see your list
-of MCP servers. `instant` should be listed there. Select it and go through the
-auth flow to enable the Instant MCP server in your claude code sessions!
 
 ### Windsurf
 
