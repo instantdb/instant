@@ -230,6 +230,7 @@ ${inputDisplay}`;
     workingText?: string;
     doneText?: string;
     errorText?: string;
+    disappearWhenDone?: boolean;
   };
 
   export class Spinner<T> extends Prompt<T> {
@@ -256,6 +257,9 @@ ${inputDisplay}`;
         if (this.promiseError) {
           return `${chalk.red('✗')} ${errorText}\n`;
         }
+        if (this.props.disappearWhenDone) {
+          return '';
+        }
         return `${chalk.green('✓')} ${doneText}\n`;
       }
 
@@ -272,6 +276,7 @@ ${inputDisplay}`;
       this.props = props;
 
       this.on('attach', (terminal) => {
+        terminal.setAllowInteraction(false);
         terminal.toggleCursor('hide');
         this.intervalId = setInterval(() => {
           this.frameIndex = (this.frameIndex + 1) % this.spinnerFrames.length;

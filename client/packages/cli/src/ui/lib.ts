@@ -119,6 +119,7 @@ export interface ITerminal {
   toggleCursor(state: 'hide' | 'show'): void;
   requestLayout(): void;
   resolve(value: Prompted<{}>): void;
+  setAllowInteraction(value: boolean): void;
 }
 
 type AnyKey = {
@@ -146,7 +147,13 @@ export class Terminal implements ITerminal {
   private promise: Promise<Prompted<{}>>;
   private renderFunc: (str: string) => void;
 
+  private allowInteraction = true;
+
   public resolve: (value: Prompted<{}>) => void;
+
+  public setAllowInteraction(value: boolean) {
+    this.allowInteraction = value;
+  }
 
   constructor(
     private readonly view: Prompt<any>,
@@ -170,24 +177,24 @@ export class Terminal implements ITerminal {
         process.exit(1);
       }
 
-      if (key.name === 'escape') {
-        // this.stdout.write(beep);
-        // this.stdout.write("\n");
-        this.status = 'aborted';
-        this.requestLayout();
-        this.view.detach(this);
-        this.tearDown(keypress);
-        this._resolve({ status: 'aborted', data: undefined });
-        return;
-      }
+      if (this.allowInteraction) {
+        if (key.name === 'escape') {
+          this.status = 'aborted';
+          this.requestLayout();
+          this.view.detach(this);
+          this.tearDown(keypress);
+          this._resolve({ status: 'aborted', data: undefined });
+          return;
+        }
 
-      if (key.name === 'return') {
-        this.status = 'submitted';
-        this.requestLayout();
-        this.view.detach(this);
-        this.tearDown(keypress);
-        this._resolve({ status: 'submitted', data: this.view.result() });
-        return;
+        if (key.name === 'return') {
+          this.status = 'submitted';
+          this.requestLayout();
+          this.view.detach(this);
+          this.tearDown(keypress);
+          this._resolve({ status: 'submitted', data: this.view.result() });
+          return;
+        }
       }
 
       view.input(str, key);
