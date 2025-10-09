@@ -3,7 +3,7 @@ title: Auth
 description: Instant supports magic code, OAuth, Clerk, and custom auth.
 ---
 
-Instant comes with support for auth. We currently offer [magic codes](/docs/auth/magic-codes), [Google OAuth](/docs/auth/google-oauth), [LinkedIn OAuth](/docs/auth/linkedin-oauth), [Sign In with Apple](/docs/auth/apple), [Clerk](/docs/auth/clerk), and [Guest Auth](/docs/auth/guest-auth). If you want to build your own flow, you can use the [Admin SDK](/docs/backend#custom-auth).
+Instant comes with support for auth. We currently offer [Magic Codes](/docs/auth/magic-codes), [Guest Auth](/docs/auth/guest-auth), [Google OAuth](/docs/auth/google-oauth), [Sign In with Apple](/docs/auth/apple), [LinkedIn OAuth](/docs/auth/linkedin-oauth), and [Clerk](/docs/auth/clerk). If you want to build your own flow, you can use the [Admin SDK](/docs/backend#custom-auth).
 
 ## Auth Overview
 
@@ -109,6 +109,10 @@ To implement a login flow use one of the authentication method guides below.
             title="Magic Codes"
             description="Send login codes to your users via email. Removes the need for passwords."
             /%}
+{% nav-button href="/docs/auth/guest-auth"
+            title="Guest Auth"
+            description="Allow your users to try your app before they sign up."
+            /%}
 {% nav-button href="/docs/auth/google-oauth"
             title="Google OAuth"
             description="We provide flows for Web and React Native to enable Google OAuth for your app."
@@ -117,6 +121,10 @@ To implement a login flow use one of the authentication method guides below.
             title="Sign In with Apple"
             description="Sign In to native apps with Apple ID."
             /%}
+{% nav-button href="/docs/auth/linkedin-oauth"
+            title="LinkedIn OAuth"
+            description="Log in with LinkedIn on both Web and React Native."
+            /%}
 {% nav-button href="/docs/auth/clerk"
             title="Clerk"
             description="Integrate Clerk's auth flow with Instant."
@@ -124,10 +132,6 @@ To implement a login flow use one of the authentication method guides below.
 {% nav-button href="/docs/backend#custom-auth"
             title="Custom Auth"
             description="Integrate your own auth flow with the Admin SDK."
-            /%}
-{% nav-button href="/docs/auth/guest-auth"
-            title="Guest Auth"
-            description="Allow your users to try your app before they sign up."
             /%}
 
 {% /nav-group %}
