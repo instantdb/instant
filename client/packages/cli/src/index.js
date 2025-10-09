@@ -8,6 +8,8 @@ import {
   diffSchemas,
   convertTxSteps,
   isRenamePromptItem,
+  validateSchema,
+  SchemaValidationError,
 } from '@instantdb/platform';
 import version from './version.js';
 import { existsSync } from 'fs';
@@ -35,7 +37,7 @@ import {
 import { pathExists, readJsonFile } from './util/fs.js';
 import prettier from 'prettier';
 import toggle from './toggle.js';
-import { renderSchemaPlan } from './renderSchemaPlan.js';
+import { CancelSchemaError, renderSchemaPlan } from './renderSchemaPlan.js';
 
 const execAsync = promisify(exec);
 
@@ -1314,6 +1316,17 @@ async function pushSchema(appId, _opts) {
   if (!res) return { ok: false };
   const { schema } = res;
 
+  try {
+    validateSchema(schema);
+  } catch (error) {
+    if (error instanceof SchemaValidationError) {
+      console.error(chalk.red('Invalid schema:', error.message));
+    } else {
+      console.error('Unexpected error:', error);
+    }
+    return { ok: false };
+  }
+
   const pulledSchemaResponse = await fetchJson({
     method: 'GET',
     path: `/dash/apps/${appId}/schema/pull`,
@@ -1332,13 +1345,20 @@ async function pushSchema(appId, _opts) {
 
   let showRawSteps = false;
   try {
-    renderSchemaPlan(diffResult, currentAttrs);
+    await renderSchemaPlan(diffResult, currentAttrs);
   } catch (error) {
+    if (error instanceof CancelSchemaError) {
+      console.info('Schema migration cancelled!');
+      return { ok: true };
+    }
     console.error('Error displaying schema plan', error);
     console.info('Showing raw migrations steps instead');
     showRawSteps = true;
   }
 
+  if (currentAttrs === undefined) {
+    throw new Error("Couldn't get current schema from server");
+  }
   const txSteps = convertTxSteps(diffResult, currentAttrs);
 
   if (showRawSteps) {
@@ -1543,7 +1563,7 @@ function prettyPrintJSONErr(data) {
   }
 }
 
-async function promptOk(message, defaultAnswer = false) {
+export async function promptOk(message, defaultAnswer = false) {
   const options = program.opts();
 
   if (options.yes) return true;

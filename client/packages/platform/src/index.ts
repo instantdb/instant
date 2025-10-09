@@ -8,6 +8,8 @@ import { generatePermsTypescriptFile } from './perms.ts';
 import {
   type InstantAPIPlatformSchema,
   generateSchemaTypescriptFile,
+  validateSchema,
+  SchemaValidationError,
 } from './schema.ts';
 import {
   apiSchemaToInstantSchemaDef,
@@ -30,6 +32,8 @@ export {
   OAuthHandler,
   InstantOAuthError,
   generateSchemaTypescriptFile,
+  validateSchema,
+  SchemaValidationError,
   generatePermsTypescriptFile,
   apiSchemaToInstantSchemaDef,
   schemaTypescriptFileToInstantSchema,
