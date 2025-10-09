@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --clearScreen false",
+    "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview"
   },
@@ -14,6 +14,7 @@
     "vite": "^5.2.0"
   },
   "dependencies": {
-    "@instantdb/core": "workspace:*"
+    "@instantdb/core": "workspace:*",
+    "@instantdb/admin": "workspace:*"
   }
 }
