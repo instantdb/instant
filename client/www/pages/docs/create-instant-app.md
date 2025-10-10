@@ -49,9 +49,7 @@ Use `create-instant-app` with the `--ai` flag and you'll be prompted to describe
   "bunx": { "label": "bunx", "content": "bunx create-instant-app --ai" }
 } defaultTab="npx" storageKey="pkg-manager" /%}
 
-You can think of this as a one-shot app builder in the terminal. If you use
-vercel you can even deploy your app by simply running `vercel` in the project.
+You can think of this as a one-shot app builder in the terminal.
 
-Right now this only works with the Next.js template, but we plan to expand it to
-Expo and Vanilla TS soon. We're keen to improve this feature so if you have any
+Right now this only works with Next.js and Expo. We're keen to improve this feature so if you have any
 feedback please let us know below or on [Discord](https://discord.com/invite/VU53p7uQcE)!
