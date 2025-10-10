@@ -142,6 +142,9 @@ importers:
       '@instantdb/version':
         specifier: workspace:*
         version: link:../version
+      eventsource:
+        specifier: ^4.0.0
+        version: 4.0.0
       mutative:
         specifier: ^1.0.10
         version: 1.1.0
@@ -27694,7 +27697,7 @@ snapshots:
       '@tsconfig/node14': 1.0.3
       '@tsconfig/node16': 1.0.4
       '@types/node': 18.19.74
-      acorn: 8.14.1
+      acorn: 8.14.0
       acorn-walk: 8.3.4
       arg: 4.1.3
       create-require: 1.1.1

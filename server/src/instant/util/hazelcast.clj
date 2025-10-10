@@ -7,6 +7,7 @@
    (com.hazelcast.config GlobalSerializerConfig SerializerConfig)
    (com.hazelcast.map IMap)
    (com.hazelcast.nio.serialization ByteArraySerializer)
+   (java.io DataInputStream ByteArrayInputStream)
    (java.nio ByteBuffer)
    (java.util UUID)
    (java.util.function BiFunction)))
@@ -38,6 +39,7 @@
 (def room-broadcast-type-id 6)
 (def task-type-id 7)
 (def join-room-v3-type-id 9)
+(def sse-message-type-id 10)
 
 ;; --------
 ;; Room key
@@ -216,6 +218,64 @@
   (make-serializer-config RoomBroadcastV1
                           room-broadcast-serializer))
 
+;; -----------
+;; SSE Message
+
+;; Hack to avoid a cyclic dependency
+(def send-message (delay (resolve (symbol "instant.reactive.sse/send-message-callable"))))
+
+(defrecord SSEMessage [^UUID app-id ^UUID session-id ^bytes sse-token-hash message]
+  Callable
+  (call [_]
+    (@send-message app-id session-id sse-token-hash message)))
+
+(defn thaw-with-offset
+  "Like nipppy/fast-thaw, but takes an offset and length from the byte array so that you
+   can use a byte array with extra stuff at the beginnning without copying"
+  [^bytes ba offset length]
+  (let [dis (DataInputStream. (ByteArrayInputStream. ba offset length))]
+    (try
+      (.set nippy/-cache-proxy (volatile! nil))
+      (nippy/thaw-from-in! dis)
+      (finally (.remove nippy/-cache-proxy)))))
+
+(def ^ByteArraySerializer sse-message-serializer
+  (let [fixed-len (+ 16   ;; app-id
+                     16   ;; session-id
+                     32)] ;; token-hash
+    (reify ByteArraySerializer
+      (getTypeId [_]
+        sse-message-type-id)
+      (write ^bytes [_ obj]
+        (let [{:keys [message
+                      ^UUID app-id
+                      ^UUID session-id
+                      ^bytes sse-token-hash]} obj
+              ^bytes msg-bytes (nippy/fast-freeze message)
+              bb (ByteBuffer/allocate (+ fixed-len
+                                         (count msg-bytes)))]
+          (.putLong bb (.getMostSignificantBits app-id))
+          (.putLong bb (.getLeastSignificantBits app-id))
+          (.putLong bb (.getMostSignificantBits session-id))
+          (.putLong bb (.getLeastSignificantBits session-id))
+          (.put bb sse-token-hash)
+          (.put bb msg-bytes)
+          (.array bb)))
+      (read [_ ^bytes in]
+        (let [bb (ByteBuffer/wrap in)
+              app-id (UUID. (.getLong bb) (.getLong bb))
+              session-id (UUID. (.getLong bb) (.getLong bb))
+              sse-token-hash (let [hash-bytes (byte-array 32)]
+                               (.get bb hash-bytes)
+                               hash-bytes)
+              message (thaw-with-offset in (.position bb) (.remaining bb))]
+          (SSEMessage. app-id session-id sse-token-hash message)))
+      (destroy [_]))))
+
+(def sse-message-config
+  (make-serializer-config SSEMessage
+                          sse-message-serializer))
+
 ;; ---------------
 ;; Executor Helpers
 
@@ -263,4 +323,5 @@
    join-room-v3-config
    set-presence-config
    room-key-config
-   task-config])
+   task-config
+   sse-message-config])

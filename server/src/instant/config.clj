@@ -41,6 +41,8 @@
     (when (aws-env?)
       (aws-util/get-instance-id))))
 
+(defonce machine-id (random-uuid))
+
 (defonce process-id
   (delay
     (string/replace

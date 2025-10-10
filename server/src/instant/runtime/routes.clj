@@ -19,6 +19,7 @@
             [instant.reactive.receive-queue :as receive-queue]
             [instant.reactive.session :as session]
             [instant.reactive.store :as rs]
+            [instant.reactive.sse :as sse]
             [instant.util.coll :as ucoll]
             [instant.util.crypt :as crypt-util]
             [instant.util.email :as email]
@@ -39,6 +40,30 @@
   (session/undertow-config rs/store
                            receive-queue/receive-q
                            {:id (squuid)}))
+
+;; ---
+;; sse
+
+(defn sse-get [req]
+  (let [app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)]
+    (session/undertow-sse-config rs/store
+                                 receive-queue/receive-q
+                                 {:id (squuid)
+                                  :app-id app-id})))
+
+(defn sse-post [req]
+  (let [app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)
+        session-id (ex/get-param! req [:body :session_id] uuid-util/coerce)
+        sse-token-hash (crypt-util/uuid->sha256 (ex/get-param! req [:body :sse_token] uuid-util/coerce))
+        machine-id (ex/get-param! req [:body :machine_id] uuid-util/coerce)
+        message (ex/get-param! req [:body :message] (fn [message]
+                                                      (when (contains? message :op)
+                                                        message)))
+        member (sse/get-hz-member-by-machine-id machine-id)
+        _ (when (not member)
+            (ex/throw-member-missing! machine-id))]
+    (sse/send-message-to-member member app-id session-id sse-token-hash message)
+    (response/ok {})))
 
 ;; -----------
 ;; Magic codes
@@ -580,5 +605,7 @@
   (POST "/runtime/:app_id/oauth/token" [] oauth-token-callback)
   (POST "/runtime/oauth/id_token" [] oauth-id-token-callback)
   (GET "/runtime/session" [] session-get)
+  (GET "/runtime/sse" [] sse-get)
+  (POST "/runtime/sse" [] sse-post)
   (POST "/runtime/signout" [] signout-post)
   (GET "/runtime/:app_id/.well-known/openid-configuration" [] openid-configuration-get))
