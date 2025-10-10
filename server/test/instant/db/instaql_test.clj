@@ -4128,9 +4128,9 @@
          [{:topics
            [[:ea '_ #{:$users/id} '_]
             '--
-            [:ea #{first-id} #{:$users/type :$users/email :$users/id :$users/linkedPrimaryUser} '_]
+            [:ea #{first-id} #{:$users/type :$users/email :$users/imageURL :$users/id :$users/linkedPrimaryUser} '_]
             '--
-            [:ea #{second-id} #{:$users/type :$users/email :$users/id :$users/linkedPrimaryUser} '_]],
+            [:ea #{second-id} #{:$users/type :$users/email :$users/imageURL :$users/id :$users/linkedPrimaryUser} '_]],
            :triples
            [[second-id :$users/id (str second-id)]
             [first-id :$users/id (str first-id)]
@@ -4146,7 +4146,7 @@
          [{:topics
            [[:ave '_ #{:$users/email} #{"first@example.com"}]
             '--
-            [:ea #{first-id} #{:$users/type :$users/email :$users/id :$users/linkedPrimaryUser} '_]],
+            [:ea #{first-id} #{:$users/type :$users/email :$users/imageURL :$users/id :$users/linkedPrimaryUser} '_]],
            :triples
            [[first-id :$users/id (str first-id)]
             '--
