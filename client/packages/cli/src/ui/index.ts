@@ -174,6 +174,7 @@ ${optionsList}`;
     placeholder?: string;
     prompt: string;
     modifyOutput?: ModifyOutputFn;
+    validate?: (value: string) => string | undefined;
   };
 
   export class TextInput extends Prompt<string> {
@@ -182,10 +183,10 @@ ${optionsList}`;
     }
     override render(status: 'idle' | 'submitted' | 'aborted'): string {
       if (status === 'submitted') {
-        return `${this.props.prompt}: ${this.value} ✓\n`;
+        return `${this.props.prompt}: ${this.value} \n`;
       }
       if (status === 'aborted') {
-        return `${this.props.prompt}: ${this.value} ✗\n`;
+        return `${this.props.prompt}: ${this.value} (CANCELLED)\n`;
       }
       let inputDisplay = '';
       if (this.value === '') {
@@ -193,22 +194,40 @@ ${optionsList}`;
       } else {
         inputDisplay = `${this.value}${chalk.inverse(' ')}`;
       }
-      return `${this.props.prompt}:
+      const errorText = this.errorText
+        ? `      ${chalk.red(this.errorText)}`
+        : '';
+      return `${this.props.prompt}:${errorText}
 ${inputDisplay}`;
     }
 
     private value: string;
+    private errorText: string | undefined;
     private readonly props: TextInputProps;
 
     constructor(props: TextInputProps) {
       super(props.modifyOutput);
       this.on('attach', (terminal) => {
+        terminal.setAllowInteraction(false); // needed for validation
         terminal.toggleCursor('hide');
       });
       this.on('detach', (terminal) => {
         terminal.toggleCursor('show');
       });
       this.on('input', (input, keyInfo) => {
+        if (keyInfo.name === 'return') {
+          // Do the validation
+          if (this.props.validate) {
+            const validationResult = this.props.validate(this.value);
+            if (validationResult) {
+              this.errorText = validationResult;
+            } else {
+              this.terminal.resolve({ data: this.value, status: 'submitted' });
+            }
+          } else {
+            this.terminal.resolve({ data: this.value, status: 'submitted' });
+          }
+        }
         if (keyInfo.name === 'backspace') {
           this.value = this.value.slice(0, -1);
         } else if (keyInfo.name?.length === 1) {
@@ -216,10 +235,10 @@ ${inputDisplay}`;
         } else if (keyInfo.name === 'space') {
           this.value += ' ';
         }
-
         this.requestLayout();
       });
       this.value = '';
+      this.errorText = '';
       this.props = props;
     }
   }
