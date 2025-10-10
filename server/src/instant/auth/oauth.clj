@@ -38,7 +38,7 @@
                                userinfo-endpoint]
   OAuthClient
   (create-authorization-url [_ state redirect-url extra-params]
-    (let [base-params {:scope "email openid"
+    (let [base-params {:scope "email openid profile"
                        :response_type "code"
                        :response_mode "form_post"
                        :state state
