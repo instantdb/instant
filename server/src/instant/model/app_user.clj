@@ -127,6 +127,7 @@
         (map (fn [user]
                (merge {:app_users/id (parse-uuid (get user "id"))
                        :app_users/email (get user "email")
+                       :app_users/image_url (get user "imageURL")
                        :app_users/app_id app-id}
                       (when-let [links (seq (get user "$oauthUserLinks"))]
                         ;; Adding this assert just for extra protection,
@@ -144,6 +145,21 @@
 (defn get-or-create-by-email! [{:keys [email app-id]}]
   (or (get-by-email {:email email :app-id app-id})
       (create! {:id (UUID/randomUUID) :email email :app-id app-id})))
+
+(defn update-image-url!
+  "Updates the imageURL. This happens during logins, in case the user 
+   has changed their profile picture."
+  ([params] (update-image-url! (aurora/conn-pool :write) params))
+  ([conn {:keys [app-id id image-url]}]
+   (update-op
+    conn
+    {:app-id app-id
+     :etype etype}
+    (fn [{:keys [transact! resolve-id]}]
+      (transact! [[:add-triple
+                   id
+                   (resolve-id :imageURL)
+                   image-url]])))))
 
 (defn link-guest
   "Links the guest account to a pre-exisiting user.

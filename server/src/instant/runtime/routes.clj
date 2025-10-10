@@ -249,6 +249,16 @@
           (app-user-model/link-guest {:app-id app-id
                                       :guest-user-id guest-user-id
                                       :primary-user-id (:app_users/id user)}))
+
+        (when (and imageURL (not= (:app_users/image_url user) imageURL))
+          (tracer/with-span! {:name "app-user/update-image-url!"
+                              :attributes {:id (:app_users/id user)
+                                           :from-image-url (:app_users/image_url user)
+                                           :to-image-url imageURL}}
+            (app-user-model/update-image-url! {:app-id app-id
+                                               :id (:app_users/id user)
+                                               :image-url imageURL})))
+
         (cond (not= (:app_users/email user) email)
               (tracer/with-span! {:name "app-user/update-email"
                                   :attributes {:id (:app_users/id user)
@@ -519,12 +529,12 @@
                 (ex/throw-validation-err! :origin origin [{:message "Unauthorized origin."}]))))
 
         {:keys [email sub imageURL]} (oauth/get-user-info-from-id-token
-                             oauth-client
-                             nonce
-                             id-token
-                             (when-not (:client_secret oauth-client)
-                               {:allow-unverified-email? true
-                                :ignore-audience? true}))
+                                      oauth-client
+                                      nonce
+                                      id-token
+                                      (when-not (:client_secret oauth-client)
+                                        {:allow-unverified-email? true
+                                         :ignore-audience? true}))
         email (email/coerce email)
 
         current-refresh-token (when current-refresh-token-id
