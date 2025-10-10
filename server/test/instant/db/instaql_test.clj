@@ -4244,7 +4244,7 @@
            '({:topics ([:ave _ #{:books/title} #{"Sum"}]
                        [:vae #{"eid-sum"} #{:books/$user-creator} _]
                        --
-                       [:ea #{"eid-alex"} #{:$users/type :$users/email :$users/id :$users/linkedPrimaryUser} _])
+                       [:ea #{"eid-alex"} #{:$users/type :$users/email :$users/id :$users/imageURL :$users/linkedPrimaryUser} _])
               :triples (("eid-sum" :books/$user-creator "eid-alex")
                         ("eid-sum" :books/title "Sum")
                         --
