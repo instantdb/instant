@@ -52,6 +52,7 @@ export {
   isRenamePromptItem,
   type RenameResolveFn,
   type MigrationTx,
+  type MigrationTxSpecific,
   type MigrationTxTypes,
   type Identifier,
 } from './migrations.ts';

@@ -26,8 +26,8 @@ type AttrWithIdentifier = {
 };
 
 export type MigrationTxTypes = {
-  'delete-attr': Identifier;
-  'update-attr': { partialAttr: AttrWithIdentifier; identifier: Identifier };
+  'delete-attr': { identifier: Identifier };
+  'update-attr': { identifier: Identifier; partialAttr: AttrWithIdentifier };
   'add-attr': {
     identifier: Identifier;
     'unique?': boolean;
@@ -41,17 +41,17 @@ export type MigrationTxTypes = {
     'on-delete-reverse'?: InstantDBAttrOnDelete | null;
     'checked-data-type'?: InstantDBCheckedDataType | null;
   };
-  index: Identifier;
-  'remove-index': Identifier;
-  unique: Identifier;
-  'remove-unique': Identifier;
-  required: Identifier;
-  'remove-required': Identifier;
+  index: { identifier: Identifier };
+  'remove-index': { identifier: Identifier };
+  unique: { identifier: Identifier };
+  'remove-unique': { identifier: Identifier };
+  required: { identifier: Identifier };
+  'remove-required': { identifier: Identifier };
   'check-data-type': {
-    identity: Identifier;
+    identifier: Identifier;
     'checked-data-type': InstantDBCheckedDataType;
   };
-  'remove-data-type': Identifier;
+  'remove-data-type': { identifier: Identifier };
 };
 
 type EasyMigrationTypes =
@@ -85,9 +85,11 @@ const convertSimpleConstraintUpdate: ConvertPlanStepFn<any> = (
   from,
   existing,
 ) => {
-  const found = findAttrFromExisting(from, existing);
+  const found = findAttrFromExisting(from.identifier, existing);
   if (!found) {
-    throw new Error(`Attribute ${from.namespace}.${from.attrName} not found`);
+    throw new Error(
+      `Attribute ${from.identifier.namespace}.${from.identifier.attrName} not found`,
+    );
   }
   return {
     'attr-id': found.id,
@@ -106,11 +108,13 @@ const CONVERTERS: AllConvertPlanStepFns = {
   'remove-required': convertSimpleConstraintUpdate,
 
   'delete-attr': (from, existing) => {
-    const found = findAttrFromExisting(from, existing);
+    const found = findAttrFromExisting(from.identifier, existing);
     if (found) {
       return found.id;
     }
-    throw new Error(`Attribute ${from.namespace}.${from.attrName} not found`);
+    throw new Error(
+      `Attribute ${from.identifier.namespace}.${from.identifier.attrName} not found`,
+    );
   },
   'update-attr': (from, existing) => {
     const found = findAttrFromExisting(from.identifier, existing);
@@ -221,10 +225,10 @@ const CONVERTERS: AllConvertPlanStepFns = {
   },
   'remove-data-type': convertSimpleConstraintUpdate,
   'check-data-type': (from, existing) => {
-    const found = findAttrFromExisting(from.identity, existing);
+    const found = findAttrFromExisting(from.identifier, existing);
     if (!found) {
       throw new Error(
-        `Attribute ${from.identity.namespace}.${from.identity.attrName} not found`,
+        `Attribute ${from.identifier.namespace}.${from.identifier.attrName} not found`,
       );
     }
     return {
@@ -273,6 +277,10 @@ export type MigrationTx = {
   } & MigrationTxTypes[K];
 }[keyof MigrationTxTypes];
 
+export type MigrationTxSpecific<T extends keyof MigrationTxTypes> = {
+  type: T;
+} & MigrationTxTypes[T];
+
 export type AnyLink = LinkDef<any, any, any, any, any, any, any>;
 export type AnyBlob = DataAttrDef<any, any, any>;
 
@@ -300,15 +308,19 @@ export const diffSchemas = async (
     Object.keys(oldEntities[entityName].attrs).forEach((attrName) => {
       transactions.push({
         type: 'delete-attr',
-        attrName,
-        namespace: entityName,
+        identifier: {
+          attrName,
+          namespace: entityName,
+        },
       });
     });
 
     transactions.push({
       type: 'delete-attr',
-      attrName: 'id',
-      namespace: entityName,
+      identifier: {
+        attrName: 'id',
+        namespace: entityName,
+      },
     });
   }
 
@@ -378,8 +390,10 @@ export const diffSchemas = async (
     resolved.deleted.forEach((attrName) => {
       transactions.push({
         type: 'delete-attr',
-        attrName,
-        namespace: entityName,
+        identifier: {
+          attrName,
+          namespace: entityName,
+        },
       });
     });
 
@@ -513,8 +527,10 @@ export const diffSchemas = async (
       if (!link) return;
       transactions.push({
         type: 'delete-attr',
-        attrName: link.forward.label,
-        namespace: link.forward.on,
+        identifier: {
+          attrName: link.forward.label,
+          namespace: link.forward.on,
+        },
       });
     });
 
@@ -584,7 +600,7 @@ export const compareBlobs = (
   const sendType = <T extends EasyMigrationTypes>(type: T) => {
     results.push({
       type,
-      ...identity,
+      identifier: identity,
     });
   };
 
@@ -616,12 +632,12 @@ export const compareBlobs = (
   if (oldBlob.valueType !== 'json' && newBlob.valueType === 'json') {
     results.push({
       type: 'remove-data-type',
-      ...identity,
+      identifier: identity,
     });
   } else if (oldBlob.valueType !== newBlob.valueType)
     results.push({
       type: 'check-data-type',
-      identity,
+      identifier: identity,
       'checked-data-type': newBlob.valueType,
     });
 
@@ -647,13 +663,13 @@ export const compareLinks = (
   if (!oldUnique && newUnique) {
     results.push({
       type: 'unique',
-      ...identity,
+      identifier: identity,
     });
   }
   if (!newUnique && newUnique !== oldUnique) {
     results.push({
       type: 'remove-unique',
-      ...identity,
+      identifier: identity,
     });
   }
 

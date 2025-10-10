@@ -1,6 +1,7 @@
 import {
   convertTxSteps,
   MigrationTx,
+  MigrationTxSpecific,
   MigrationTxTypes,
 } from '@instantdb/platform';
 import chalk from 'chalk';
@@ -72,83 +73,88 @@ export class CancelSchemaError extends Error {
   }
 }
 
+type AddOrDeleteAttr =
+  | MigrationTxSpecific<'add-attr'>
+  | MigrationTxSpecific<'delete-attr'>;
+
+type SuperMigrationTx =
+  | MigrationTx
+  | { type: 'create-namespace'; namespace: string; attrs: string[] }
+  | { type: 'delete-namespace'; namespace: string; attrs: string[] };
+
+const groupSteps = (steps: MigrationTx[]): SuperMigrationTx[] => {
+  const { addOrDelSteps, otherSteps } = steps.reduce(
+    (acc, step) => {
+      if (step.type === 'add-attr' || step.type === 'delete-attr') {
+        acc.addOrDelSteps.push(step);
+      } else {
+        acc.otherSteps.push(step);
+      }
+      return acc;
+    },
+    { addOrDelSteps: [] as AddOrDeleteAttr[], otherSteps: [] as MigrationTx[] },
+  );
+  // Group by namespace
+  const groupedAddOrDel = addOrDelSteps.reduce(
+    (acc, step) => {
+      const namespace = step.identifier.namespace;
+      if (!acc[namespace]) {
+        acc[namespace] = [];
+      }
+      acc[namespace].push(step);
+      return acc;
+    },
+    {} as Record<string, MigrationTx[]>,
+  );
+
+  console.log();
+
+  const collapsed: SuperMigrationTx[] = Object.values(groupedAddOrDel).flatMap(
+    (namedGroup) => {
+      const isWholeEntityBeingDeleted = namedGroup.some((step) => {
+        if (step.type === 'delete-attr' && step.identifier.attrName === 'id') {
+          return true;
+        }
+      });
+
+      if (isWholeEntityBeingDeleted) {
+        return [
+          {
+            type: 'delete-namespace',
+            namespace: namedGroup[0].identifier.namespace,
+            attrs: namedGroup.map((step) => step.identifier.attrName),
+          } satisfies SuperMigrationTx as SuperMigrationTx,
+        ];
+      }
+
+      const isWholeEntityBeingCreated = namedGroup.some((step) => {
+        if (step.type === 'add-attr' && step.identifier.attrName === 'id') {
+          return true;
+        }
+      });
+
+      if (isWholeEntityBeingCreated) {
+        return [
+          {
+            type: 'create-namespace',
+            namespace: namedGroup[0].identifier.namespace,
+            attrs: namedGroup.map((step) => step.identifier.attrName),
+          } satisfies SuperMigrationTx as SuperMigrationTx,
+        ];
+      }
+
+      return namedGroup;
+    },
+  );
+
+  return [...collapsed, ...otherSteps];
+};
+
 export const renderSchemaPlan = async (
   planSteps: MigrationTx[],
   prevAttrs?: InstantDBAttr[],
 ) => {
-  const groupedSteps: (
-    | MigrationTx
-    | { type: 'create-namespace'; namespace: string; attrs: string[] }
-    | { type: 'delete-namespace'; namespace: string; attrs: string[] }
-  )[] = [];
-
-  let i = 0;
-  while (i < planSteps.length) {
-    const step = planSteps[i];
-
-    if (step.type === 'add-attr') {
-      const namespace = step.identifier.namespace;
-      const namespaceAttrs: string[] = [];
-      let hasIdAttr = false;
-      let j = i;
-
-      while (j < planSteps.length) {
-        const currentStep = planSteps[j];
-        if (currentStep.type !== 'add-attr') break;
-        if (currentStep.identifier.namespace !== namespace) break;
-
-        namespaceAttrs.push(currentStep.identifier.attrName);
-        if (currentStep.identifier.attrName === 'id') {
-          hasIdAttr = true;
-        }
-        j++;
-      }
-
-      if (hasIdAttr && namespaceAttrs.length > 1) {
-        groupedSteps.push({
-          type: 'create-namespace',
-          namespace,
-          attrs: namespaceAttrs.filter((name) => name !== 'id'),
-        });
-        i = j;
-      } else {
-        groupedSteps.push(step);
-        i++;
-      }
-    } else if (step.type === 'delete-attr') {
-      const namespace = step.namespace;
-      const namespaceAttrs: string[] = [];
-      let hasIdAttr = false;
-      let j = i;
-
-      while (j < planSteps.length) {
-        const currentStep = planSteps[j];
-        if (currentStep.type !== 'delete-attr') break;
-        if (currentStep.namespace !== namespace) break;
-
-        namespaceAttrs.push(currentStep.attrName);
-        if (currentStep.attrName === 'id') {
-          hasIdAttr = true;
-        }
-        j++;
-      }
-
-      if (hasIdAttr && namespaceAttrs.length > 1) {
-        groupedSteps.push({
-          type: 'delete-namespace',
-          namespace,
-          attrs: namespaceAttrs.filter((name) => name !== 'id'),
-        });
-        i = j;
-      } else {
-        groupedSteps.push(step);
-        i++;
-      }
-    } else {
-      groupedSteps.push(step);
-      i++;
-    }
-  }
+  const groupedSteps = groupSteps(planSteps);
 
   for (const step of groupedSteps) {
     switch (step.type) {
@@ -186,21 +192,21 @@ export const renderSchemaPlan = async (
         const oldAttr = prevAttrs
           ? prevAttrs.find((attr) => {
               return (
-                attr['forward-identity'][1] === step.namespace &&
-                attr['forward-identity'][2] === step.attrName
+                attr['forward-identity'][1] === step.identifier.namespace &&
+                attr['forward-identity'][2] === step.identifier.attrName
               );
             }) || null
           : null;
 
         if (oldAttr?.['value-type'] === 'ref') {
           console.log(
-            `${chalk.bgRed(' - DELETE REF ')} ${step.namespace}.${step.attrName}`,
+            `${chalk.bgRed(' - DELETE REF ')} ${step.identifier.namespace}.${step.identifier.attrName}`,
           );
           break;
         }
 
         console.log(
-          `${chalk.bgRed(' - DELETE ATTR ')} ${step.namespace}.${step.attrName}`,
+          `${chalk.bgRed(' - DELETE ATTR ')} ${step.identifier.namespace}.${step.identifier.attrName}`,
         );
         break;
       case 'update-attr':
@@ -214,42 +220,42 @@ export const renderSchemaPlan = async (
         break;
       case 'index':
         console.log(
-          `${chalk.bgBlue.black(' + CREATE INDEX ')} ${step.namespace}.${step.attrName}`,
+          `${chalk.bgBlue.black(' + CREATE INDEX ')} ${step.identifier.namespace}.${step.identifier.attrName}`,
         );
         break;
       case 'remove-index':
         console.log(
-          `${chalk.bgBlue.black(' - DELETE INDEX ')} ${step.namespace}.${step.attrName}`,
+          `${chalk.bgBlue.black(' - DELETE INDEX ')} ${step.identifier.namespace}.${step.identifier.attrName}`,
         );
         break;
       case 'required':
         console.log(
-          `${chalk.bgBlue.black(' + MAKE REQUIRED ')} ${step.namespace}.${step.attrName}`,
+          `${chalk.bgBlue.black(' + MAKE REQUIRED ')} ${step.identifier.namespace}.${step.identifier.attrName}`,
         );
         break;
       case 'unique':
         console.log(
-          `${chalk.bgBlue.black(' * MAKE UNIQUE ')} ${step.namespace}.${step.attrName}`,
+          `${chalk.bgBlue.black(' * MAKE UNIQUE ')} ${step.identifier.namespace}.${step.identifier.attrName}`,
         );
         break;
       case 'remove-required':
         console.log(
-          `${chalk.bgBlue.black(' - MAKE OPTIONAL ')} ${step.namespace}.${step.attrName}`,
+          `${chalk.bgBlue.black(' - MAKE OPTIONAL ')} ${step.identifier.namespace}.${step.identifier.attrName}`,
         );
         break;
       case 'remove-unique':
         console.log(
-          `${chalk.bgBlue.black(' - REMOVE UNIQUE CONSTRAINT')} ${step.namespace}.${step.attrName}`,
+          `${chalk.bgBlue.black(' - REMOVE UNIQUE CONSTRAINT')} ${step.identifier.namespace}.${step.identifier.attrName}`,
         );
         break;
       case 'check-data-type':
         console.log(
-          `${chalk.bgBlue.black(' + SET DATA TYPE ')} ${step.identity.namespace}.${step.identity.attrName} ${chalk.dim(step['checked-data-type'])}`,
+          `${chalk.bgBlue.black(' + SET DATA TYPE ')} ${step.identifier.namespace}.${step.identifier.attrName} ${chalk.dim(step['checked-data-type'])}`,
         );
         break;
       case 'remove-data-type':
         console.log(
-          `${chalk.bgBlue.black(' - REMOVE DATA TYPE CONSTRAINT ')} ${step.namespace}.${step.attrName}`,
+          `${chalk.bgBlue.black(' - REMOVE DATA TYPE CONSTRAINT ')} ${step.identifier.namespace}.${step.identifier.attrName}`,
         );
         break;
 
