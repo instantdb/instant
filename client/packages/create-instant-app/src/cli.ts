@@ -3,6 +3,7 @@ import * as p from '@clack/prompts';
 import { findClaudePath } from './claude.js';
 import { version } from '@instantdb/version';
 import { coerceAppName, validateAppName } from './utils/validateAppName.js';
+import { renderUnwrap, UI } from 'instant-cli/ui';
 
 export type Project = {
   base: 'next-js-app-dir' | 'vite-vanilla' | 'expo';
@@ -109,12 +110,13 @@ export const runCli = async (): Promise<Project> => {
         if (cliProvidedName) {
           return cliProvidedName.trim();
         }
-        const promptedName = await unwrapSkippablePrompt(
-          p.text({
-            message: 'What will your project/folder be called?',
+        const promptedName = await renderUnwrap(
+          new UI.TextInput({
+            prompt: 'What will your project/folder be called?',
             placeholder: 'awesome-todos',
             defaultValue: 'awesome-todos',
             validate: (x) => validateAppName(coerceAppName(x)),
+            modifyOutput: UI.ciaModifier,
           }),
         );
         const coercedName = coerceAppName(promptedName);
@@ -122,10 +124,11 @@ export const runCli = async (): Promise<Project> => {
       },
       prompt: async () => {
         if (flags.ai) {
-          return await unwrapSkippablePrompt(
-            p.text({
-              message: 'What is the prompt?',
-              placeholder: 'Create an app that....',
+          return await renderUnwrap(
+            new UI.TextInput({
+              prompt: 'What would you like to create?',
+              placeholder: 'Create an app that...',
+              modifyOutput: UI.modifiers.piped([UI.ciaModifier]),
             }),
           );
         }
@@ -146,27 +149,29 @@ export const runCli = async (): Promise<Project> => {
         }
 
         if (results.prompt) {
-          return unwrapSkippablePrompt(
-            p.select({
-              message: 'What framework would you like to use?',
+          return renderUnwrap(
+            new UI.Select({
+              promptText: 'What framework would you like to use?',
               options: [
                 { value: 'next-js-app-dir', label: 'Next.js' },
                 { value: 'expo', label: 'Expo: React Native' },
               ],
-              initialValue: 'next-js-app-dir',
+              defaultValue: 'next-js-app-dir',
+              modifyOutput: UI.modifiers.piped([UI.ciaModifier]),
             }),
           );
         }
 
-        return unwrapSkippablePrompt(
-          p.select({
-            message: 'What framework would you like to use?',
+        return renderUnwrap(
+          new UI.Select({
+            promptText: 'What framework would you like to use?',
             options: [
               { value: 'next-js-app-dir', label: 'Next.js' },
               { value: 'vite-vanilla', label: 'Vite: Vanilla TS' },
               { value: 'expo', label: 'Expo: React Native' },
             ],
-            initialValue: 'next-js-app-dir' as Project['base'],
+            defaultValue: 'next-js-app-dir' as Project['base'],
+            modifyOutput: UI.modifiers.piped([UI.ciaModifier]),
           }),
         );
       },
@@ -190,9 +195,9 @@ export const runCli = async (): Promise<Project> => {
           return 'cursor';
         }
 
-        return unwrapSkippablePrompt(
-          p.select({
-            message: 'Which AI tool would you like to add rule files for?',
+        return renderUnwrap(
+          new UI.Select({
+            promptText: 'Which AI tool would you like to add rule files for?',
             options: [
               { value: null, label: 'None' },
               { value: 'cursor', label: 'Cursor' },
@@ -201,7 +206,7 @@ export const runCli = async (): Promise<Project> => {
               { value: 'codex', label: 'Codex' },
               { value: 'zed', label: 'Zed' },
             ],
-            initialValue: null as Project['ruleFiles'],
+            defaultValue: null as Project['ruleFiles'],
           }),
         );
       },
