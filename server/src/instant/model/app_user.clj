@@ -14,7 +14,7 @@
 (defn create!
   ([params]
    (create! (aurora/conn-pool :write) params))
-  ([conn {:keys [app-id email id type image] :as params}]
+  ([conn {:keys [app-id email id type imageURL] :as params}]
    (let [id (or id (random-uuid))]
      (update-op
       conn
@@ -28,8 +28,8 @@
             [[:add-triple id (resolve-id :email) email]])
           (when (contains? params :type)
             [[:add-triple id (resolve-id :type) type]])
-          (when (and (contains? params :image) image)
-            [[:add-triple id (resolve-id :image) image]])))
+          (when (and (contains? params :imageURL) imageURL)
+            [[:add-triple id (resolve-id :imageURL) imageURL]])))
         (get-entity id))))))
 
 (defn get-by-id
@@ -90,13 +90,13 @@
 
 (defn update-image!
   ([params] (update-image! (aurora/conn-pool :write) params))
-  ([conn {:keys [id app-id image]}]
+  ([conn {:keys [id app-id imageURL]}]
    (update-op
     conn
     {:app-id app-id
      :etype etype}
     (fn [{:keys [transact! resolve-id get-entity]}]
-      (transact! [[:add-triple id (resolve-id :image) image]])
+      (transact! [[:add-triple id (resolve-id :imageURL) imageURL]])
       (get-entity id)))))
 
 (defn delete-by-email!

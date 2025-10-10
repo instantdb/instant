@@ -219,7 +219,7 @@
                               ;; matches everything under the subdirectory
                               :path "/runtime/oauth"}))))
 
-(defn upsert-oauth-link! [{:keys [email sub picture app-id provider-id guest-user-id]}]
+(defn upsert-oauth-link! [{:keys [email sub imageURL app-id provider-id guest-user-id]}]
   (let [users (app-user-model/get-by-email-or-oauth-link-qualified
                {:email email
                 :app-id app-id
@@ -277,7 +277,7 @@
                   {:id guest-user-id
                    :app-id app-id
                    :email email
-                   :image picture
+                   :imageURL imageURL
                    :type "user"})]
         (app-user-oauth-link-model/create! {:id (random-uuid)
                                             :app-id app-id
@@ -424,7 +424,7 @@
                :code-challenge-method (:code_challenge_method oauth-redirect)
                :code-challenge (:code_challenge oauth-redirect)
                :client-id (:client_id oauth-redirect)
-               :user-info {:email email :sub sub :picture (:picture user-info)}}))
+               :user-info {:email email :sub sub :imageURL (:imageURL user-info)}}))
 
           redirect-url (url/add-query-params
                         (:redirect_url oauth-redirect)
@@ -480,7 +480,7 @@
 
         {user-id :user_id} (upsert-oauth-link! {:email (get user_info "email")
                                                 :sub (get user_info "sub")
-                                                :picture (get user_info "picture")
+                                                :imageURL (get user_info "imageURL")
                                                 :app-id app-id
                                                 :provider-id (:provider_id client)
                                                 :guest-user-id (:id guest-user)})
@@ -518,7 +518,7 @@
               (when-not match
                 (ex/throw-validation-err! :origin origin [{:message "Unauthorized origin."}]))))
 
-        {:keys [email sub picture]} (oauth/get-user-info-from-id-token
+        {:keys [email sub imageURL]} (oauth/get-user-info-from-id-token
                              oauth-client
                              nonce
                              id-token
@@ -541,7 +541,7 @@
 
         social-login (upsert-oauth-link! {:email       email
                                           :sub         sub
-                                          :picture     picture
+                                          :imageURL     imageURL
                                           :app-id      (:app_id client)
                                           :provider-id (:provider_id client)
                                           :guest-user-id (:id guest-user)})

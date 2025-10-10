@@ -106,9 +106,9 @@ function Main({ user }: { user: User }) {
     <div className="p-4">
       <Link href="/">{'<-'} Home</Link>
       <div className="flex items-center gap-4 my-4">
-        {user.image && (
+        {user.imageURL && (
           <img
-            src={user.image}
+            src={user.imageURL}
             alt="Profile"
             className="w-16 h-16 rounded-full"
           />
