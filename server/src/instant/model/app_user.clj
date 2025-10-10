@@ -88,17 +88,6 @@
       (transact! [[:add-triple id (resolve-id :email) email]])
       (get-entity id)))))
 
-(defn update-image!
-  ([params] (update-image! (aurora/conn-pool :write) params))
-  ([conn {:keys [id app-id imageURL]}]
-   (update-op
-    conn
-    {:app-id app-id
-     :etype etype}
-    (fn [{:keys [transact! resolve-id get-entity]}]
-      (transact! [[:add-triple id (resolve-id :imageURL) imageURL]])
-      (get-entity id)))))
-
 (defn delete-by-email!
   ([params] (delete-by-email! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id email]}]
