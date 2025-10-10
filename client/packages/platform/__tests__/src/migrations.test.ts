@@ -11,7 +11,7 @@ import {
 const simpleSchemaBefore = i.schema({
   entities: {
     songs: i.entity({
-      deleteme: i.string(),
+      artistName: i.string(),
       title: i.string(),
     }),
     albums: i.entity({
