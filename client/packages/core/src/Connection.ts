@@ -1,0 +1,199 @@
+import { EventSource } from 'eventsource';
+
+let _connId = 0;
+
+type Conn = EventSource | WebSocket;
+
+type OpenEvent<T extends Conn> = {
+  target: Connection<T>;
+};
+
+type MessageData = {
+  op: string;
+  [key: string]: any;
+};
+
+type SendMessageData = {
+  'client-event-id': string;
+  [key: string]: any;
+};
+
+type MessageEvent<T extends Conn> = {
+  target: Connection<T>;
+  message: MessageData;
+};
+
+type CloseEvent<T extends Conn> = {
+  target: Connection<T>;
+};
+
+interface ErrorEvent<T extends Conn> {
+  target: Connection<T>;
+}
+
+export interface Connection<T extends Conn> {
+  conn: T;
+  id: number;
+  close(): void;
+  isOpen(): boolean;
+  isConnecting(): boolean;
+  send(msg: SendMessageData): void;
+  onopen: ((event: OpenEvent<T>) => void) | null;
+  onmessage: ((event: MessageEvent<T>) => void) | null;
+  onclose: ((event: CloseEvent<T>) => void) | null;
+  onerror: ((event: ErrorEvent<T>) => void) | null;
+}
+
+// Now subclasses fix T to specific type:
+export class WSConnection implements Connection<WebSocket> {
+  conn: WebSocket;
+  id: number;
+  onopen: (event: OpenEvent<WebSocket>) => void;
+  onmessage: (event: MessageEvent<WebSocket>) => void;
+  onclose: (event: CloseEvent<WebSocket>) => void;
+  onerror: (event: ErrorEvent<WebSocket>) => void;
+  constructor(url: string) {
+    this.id = _connId++;
+    this.conn = new WebSocket(url);
+    this.conn.onopen = (_e) => {
+      if (this.onopen) {
+        this.onopen({ target: this });
+      }
+    };
+    this.conn.onmessage = (e) => {
+      if (this.onmessage) {
+        this.onmessage({
+          target: this,
+          message: JSON.parse(e.data.toString()),
+        });
+      }
+    };
+    this.conn.onclose = (_e) => {
+      if (this.onclose) {
+        this.onclose({ target: this });
+      }
+    };
+    this.conn.onerror = (_e) => {
+      if (this.onerror) {
+        this.onerror({ target: this });
+      }
+    };
+  }
+
+  close() {
+    this.conn.close();
+  }
+
+  isOpen(): boolean {
+    return this.conn.readyState === WebSocket.OPEN;
+  }
+
+  isConnecting(): boolean {
+    return this.conn.readyState === WebSocket.CONNECTING;
+  }
+
+  send(msg: SendMessageData) {
+    return this.conn.send(JSON.stringify(msg));
+  }
+}
+
+type SSEInitParams = {
+  machineId: string;
+  sessionId: string;
+  sseToken: string;
+};
+
+export class SSEConnection implements Connection<EventSource> {
+  private initParms: SSEInitParams | null = null;
+  conn: EventSource;
+  url: string;
+  id: number;
+  onopen: (event: OpenEvent<EventSource>) => void;
+  onmessage: (event: MessageEvent<EventSource>) => void;
+  onclose: (event: CloseEvent<EventSource>) => void;
+  onerror: (event: ErrorEvent<EventSource>) => void;
+
+  constructor(url: string) {
+    this.id = _connId++;
+    this.url = url;
+    this.conn = new EventSource(url);
+
+    this.conn.onmessage = (e) => {
+      const msg = JSON.parse(e.data);
+      if (msg.op === 'sse-init') {
+        this.initParms = {
+          machineId: msg['machine-id'],
+          sessionId: msg['session-id'],
+          sseToken: msg['sse-token'],
+        };
+        if (this.onopen) {
+          this.onopen({ target: this });
+        }
+        return;
+      }
+      if (this.onmessage) {
+        this.onmessage({
+          target: this,
+          message: msg,
+        });
+      }
+    };
+
+    this.conn.onerror = (e) => {
+      try {
+        if (this.onerror) {
+          this.onerror({ target: this });
+        }
+      } finally {
+        this.handleClose();
+      }
+    };
+  }
+
+  private handleClose() {
+    this.conn.close();
+    if (this.onclose) {
+      this.onclose({ target: this });
+    }
+  }
+
+  send(msg: SendMessageData) {
+    if (!this.isOpen() || !this.initParms) {
+      if (this.isConnecting()) {
+        throw new Error(
+          `Failed to execute 'send' on 'EventSource': Still in CONNECTING state.`,
+        );
+      }
+      if (this.conn.readyState === EventSource.CLOSED) {
+        throw new Error(`EventSource is already in CLOSING or CLOSED state.`);
+      }
+      throw new Error(`EventSource is in invalid state.`);
+    }
+    // XXX: close if something weird happens?
+    fetch(this.url, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        machine_id: this.initParms.machineId,
+        session_id: this.initParms.sessionId,
+        sse_token: this.initParms.sseToken,
+        message: msg,
+      }),
+    });
+  }
+
+  isOpen(): boolean {
+    return this.conn.readyState === EventSource.OPEN && this.initParms !== null;
+  }
+
+  isConnecting(): boolean {
+    return (
+      this.conn.readyState === EventSource.CONNECTING ||
+      (this.conn.readyState === EventSource.OPEN && this.initParms === null)
+    );
+  }
+
+  close() {
+    this.handleClose();
+  }
+}

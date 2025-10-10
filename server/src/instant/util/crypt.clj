@@ -22,27 +22,27 @@
 
 (defn uuid->sha256
   "Returns the sha256 of a java.util.UUID as a byte array"
-  [^UUID uuid]
+  ^bytes [^UUID uuid]
   (.digest (MessageDigest/getInstance "SHA-256") (uuid-util/->bytes uuid)))
 
 (defn str->sha256
   "Returns the sha256 of a string as a byte array"
-  [^String s]
+  ^bytes [^String s]
   (.digest (MessageDigest/getInstance "SHA-256") (.getBytes s)))
 
 (defn bytes->sha256
   "Returns the sha256 of a byte array as a byte array"
-  [^bytes b]
+  ^bytes [^bytes b]
   (.digest (MessageDigest/getInstance "SHA-256") b))
 
 (defn str->md5
   "Returns the md5 of a string as a byte array"
-  [^String s]
+  ^bytes [^String s]
   (.digest (MessageDigest/getInstance "MD5") (.getBytes s)))
 
 (defn str->utf-8-bytes
   "Converts a string to a byte array using UTF-8 encoding"
-  [^String s]
+  ^bytes [^String s]
   (.getBytes s "UTF-8"))
 
 ;; The md5 of json null in postgres

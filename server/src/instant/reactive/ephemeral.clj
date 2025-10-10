@@ -64,7 +64,8 @@
         metrics-config       (.getMetricsConfig config)
         instance-id          (or @config/instance-id "dev")
         member-attribute-config (doto (com.hazelcast.config.MemberAttributeConfig.)
-                                  (.setAttribute "instance-id" instance-id))]
+                                  (.setAttribute "instance-id" instance-id)
+                                  (.setAttribute "machine-id" (str config/machine-id)))]
 
     ;; Docs: https://docs.hazelcast.com/hazelcast/5.5/system-properties
     (doseq [[prop value] [[ClusterProperty/PHONE_HOME_ENABLED "false"]

@@ -393,6 +393,12 @@
            ::message (format "Session missing for id: %s" sess-id)
            ::hint {:sess-id sess-id}}))
 
+;; XXX: Check that this error gives the client a good error message
+(defn throw-member-missing! [machine-id]
+  (throw+ {::type ::member-missing
+           ::message (format "Member missing for machine id: %s" machine-id)
+           ::hint {:machine-id machine-id}}))
+
 (defn throw-socket-missing! [sess-id]
   (throw+ {::type ::socket-missing
            ::message (format "Socket missing for session: %s" sess-id)

@@ -29,6 +29,7 @@
    [instant.reactive.receive-queue :as receive-queue]
    [instant.reactive.store :as rs]
    [instant.util.async :as ua]
+   [instant.util.crypt :as crypt-util]
    [instant.util.delay :as delay]
    [instant.util.exception :as ex]
    [instant.util.json :refer [<-json]]
@@ -128,6 +129,13 @@
                                           :client-event-id client-event-id
                                           :auth            auth
                                           :attrs           attrs})))
+
+(defn- handle-sse-init! [store sess-id event]
+  (rs/send-event! store (:app-id event) sess-id (select-keys event
+                                                             [:op
+                                                              :machine-id
+                                                              :session-id
+                                                              :sse-token])))
 
 (defn admin-init! [store sess-id ctx]
   (let [app (:app ctx)
@@ -446,6 +454,7 @@
     (tracer/add-data! {:attributes (event-attributes store id event)})
     (case op
       :init         (handle-init! store id event)
+      :sse-init     (handle-sse-init! store id event)
       :add-query    (handle-add-query! store id event)
       :remove-query (handle-remove-query! store id event)
       :refresh      (handle-refresh! store id event debug-info)
@@ -458,7 +467,18 @@
       :set-presence     (handle-set-presence! store id event)
       :refresh-presence (handle-refresh-presence! store id event)
       :client-broadcast (handle-client-broadcast! store id event)
-      :server-broadcast (handle-server-broadcast! store id event))))
+      :server-broadcast (handle-server-broadcast! store id event)
+
+      (handle-error! store id {:status 400
+                               :app-id (-> (rs/session store id)
+                                           :session/auth
+                                           :app
+                                           :id)
+                               :client-event-id (:client-event-id event)
+                               :original-event event
+                               :type :param-malformed
+                               :message "Invalid op"
+                               :hint {:op op}}))))
 
 ;; --------------
 ;; Receive Workers
@@ -670,6 +690,18 @@
                                     (update :op keyword)
                                     (assoc :session-id id))))
 
+(defn sse-on-message [store {:keys [session-id sse-token-hash message]}]
+  (let [socket (:session/socket (rs/session store session-id))
+        stored-token-hash (:sse-token-hash socket)]
+    (when (or (not stored-token-hash)
+              (not (crypt-util/constant-bytes= sse-token-hash
+                                               stored-token-hash)))
+      ;; XXX: Check that this gives the user a good error (or just handle it elsewhere)
+      (ex/throw-session-missing! {:sess-id session-id}))
+    (receive-queue/put! (:receive-q socket) (-> message
+                                                (update :op keyword)
+                                                (assoc :session-id session-id)))))
+
 (defn on-error [{:keys [id error]}]
   (condp instance? error
     java.io.IOException nil
@@ -726,6 +758,39 @@
       :on-error (fn [{:keys [error]}]
                   (on-error {:id id
                              :error error}))
+      :on-close (fn [_]
+                  (on-close store
+                            {:id id
+                             :pending-handlers pending-handlers}))}}))
+
+(defn undertow-sse-config
+  [store receive-q {:keys [id app-id]}]
+  (let [pending-handlers (atom #{})]
+    {:undertow/sse
+     {:on-open (fn [req]
+                 (let [sse-token (random-uuid)
+                       sse-token-hash (crypt-util/uuid->sha256 sse-token)
+                       socket {:id id
+                               :http-req (:exchange req)
+                               :sse-conn (:channel req)
+                               :receive-q receive-q
+                               :pending-handlers pending-handlers
+                               :sse-token-hash sse-token-hash
+                               :close (fn []
+                                        (IoUtils/safeClose
+                                         ^ServerSentEventConnection (:channel req)))}]
+                   (on-open store socket)
+
+                   (tool/def-locals)
+
+                   ;; If we send an event in the on-open, undertow will hang
+                   ;; Put it in the receive-queue to be delivered afterwards
+                   (receive-queue/put! receive-q
+                                       {:op :sse-init
+                                        :app-id app-id
+                                        :session-id id
+                                        :machine-id config/machine-id
+                                        :sse-token sse-token})))
       :on-close (fn [_]
                   (on-close store
                             {:id id

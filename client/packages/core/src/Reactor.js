@@ -28,7 +28,10 @@ import { validateTransactions } from './transactionValidation.ts';
 import { InstantError } from './InstantError.ts';
 import { InstantAPIError } from './utils/fetch.ts';
 import { validate as validateUUID } from 'uuid';
+import { WSConnection, SSEConnection } from './Connection.ts';
+
 /** @typedef {import('./utils/log.ts').Logger} Logger */
+/** @typedef {import('./Connection.ts').Connection} Connection */
 
 const STATUS = {
   CONNECTING: 'connecting',
@@ -41,9 +44,6 @@ const STATUS = {
 const QUERY_ONCE_TIMEOUT = 30_000;
 const PENDING_TX_CLEANUP_TIMEOUT = 30_000;
 
-const WS_CONNECTING_STATUS = 0;
-const WS_OPEN_STATUS = 1;
-
 const defaultConfig = {
   apiURI: 'https://api.instantdb.com',
   websocketURI: 'wss://api.instantdb.com/runtime/session',
@@ -54,12 +54,15 @@ const OAUTH_REDIRECT_PARAM = '_instant_oauth_redirect';
 
 const currentUserKey = `currentUser`;
 
-let _wsId = 0;
-function createWebSocket(uri) {
-  const ws = new WebSocket(uri);
-  // @ts-ignore
-  ws._id = _wsId++;
-  return ws;
+function createTransport({ transportType, appId, apiURI, wsURI }) {
+  switch (transportType) {
+    case 'ws':
+      return new WSConnection(`${wsURI}?app_id=${appId}`);
+    case 'sse':
+      return new SSEConnection(`${apiURI}/runtime/sse?app_id=${appId}`);
+    default:
+      throw new Error('Unknown transport type ' + transportType);
+  }
 }
 
 function isClient() {
@@ -149,7 +152,9 @@ export default class Reactor {
   mutationDeferredStore = new Map();
   _reconnectTimeoutId = null;
   _reconnectTimeoutMs = 0;
-  _ws;
+  /** @type {Connection} */
+  _transport;
+  _transportType = 'sse';
   _localIdPromises = {};
   _errorMessage = null;
   /** @type {Promise<null | {error: {message: string}}>}**/
@@ -435,7 +440,7 @@ export default class Reactor {
     }
   }
 
-  _handleReceive(wsId, msg) {
+  _handleReceive(connId, msg) {
     // opt-out, enabled by default if schema
     const enableCardinalityInference =
       Boolean(this.config.schema) &&
@@ -443,7 +448,7 @@ export default class Reactor {
         ? Boolean(this.config.cardinalityInference)
         : true);
     if (!ignoreLogging[msg.op]) {
-      this._log.info('[receive]', wsId, msg.op, msg);
+      this._log.info('[receive]', connId, msg.op, msg);
     }
     switch (msg.op) {
       case 'init-ok':
@@ -1144,7 +1149,7 @@ export default class Reactor {
   shutdown() {
     this._log.info('[shutdown]', this.config.appId);
     this._isShutdown = true;
-    this._ws?.close();
+    this._transport?.close();
   }
 
   /**
@@ -1288,26 +1293,28 @@ export default class Reactor {
   }
 
   _trySend(eventId, msg, opts) {
-    if (this._ws.readyState !== WS_OPEN_STATUS) {
+    if (!this._transport.isOpen()) {
       return;
     }
     if (!ignoreLogging[msg.op]) {
-      this._log.info('[send]', this._ws._id, msg.op, msg);
+      this._log.info('[send]', this._transport.id, msg.op, msg);
     }
-    this._ws.send(JSON.stringify({ 'client-event-id': eventId, ...msg }));
+    this._transport.send({ 'client-event-id': eventId, ...msg });
   }
 
-  _wsOnOpen = (e) => {
-    const targetWs = e.target;
-    if (this._ws !== targetWs) {
+  _sseOnInit = () => {};
+
+  _transportOnOpen = (e) => {
+    const targetTransport = e.target;
+    if (this._transport !== targetTransport) {
       this._log.info(
         '[socket][open]',
-        targetWs._id,
-        'skip; this is no longer the current ws',
+        targetTransport.id,
+        'skip; this is no longer the current transport',
       );
       return;
     }
-    this._log.info('[socket][open]', this._ws._id);
+    this._log.info('[socket][open]', this._transport.id);
     this._setStatus(STATUS.OPENED);
     this.getCurrentUser()
       .then((resp) => {
@@ -1325,45 +1332,45 @@ export default class Reactor {
         });
       })
       .catch((e) => {
-        this._log.error('[socket][error]', targetWs._id, e);
+        this._log.error('[socket][error]', targetTransport.id, e);
       });
   };
 
-  _wsOnMessage = (e) => {
-    const targetWs = e.target;
-    const m = JSON.parse(e.data.toString());
-    if (this._ws !== targetWs) {
+  _transportOnMessage = (e) => {
+    const targetTransport = e.target;
+    const m = e.message;
+    if (this._transport !== targetTransport) {
       this._log.info(
         '[socket][message]',
-        targetWs._id,
+        targetTransport.id,
         m,
-        'skip; this is no longer the current ws',
+        'skip; this is no longer the current transport',
       );
       return;
     }
-    this._handleReceive(targetWs._id, JSON.parse(e.data.toString()));
+    this._handleReceive(targetTransport._id, e.message);
   };
 
-  _wsOnError = (e) => {
-    const targetWs = e.target;
-    if (this._ws !== targetWs) {
+  _transportOnError = (e) => {
+    const targetTransport = e.target;
+    if (this._transport !== targetTransport) {
       this._log.info(
         '[socket][error]',
-        targetWs._id,
-        'skip; this is no longer the current ws',
+        targetTransport.id,
+        'skip; this is no longer the current transport',
       );
       return;
     }
-    this._log.error('[socket][error]', targetWs._id, e);
+    this._log.error('[socket][error]', targetTransport.id, e);
   };
 
-  _wsOnClose = (e) => {
-    const targetWs = e.target;
-    if (this._ws !== targetWs) {
+  _transportOnClose = (e) => {
+    const targetTransport = e.target;
+    if (this._transport !== targetTransport) {
       this._log.info(
         '[socket][close]',
-        targetWs._id,
-        'skip; this is no longer the current ws',
+        targetTransport.id,
+        'skip; this is no longer the current transport',
       );
       return;
     }
@@ -1377,14 +1384,14 @@ export default class Reactor {
     if (this._isShutdown) {
       this._log.info(
         '[socket][close]',
-        targetWs._id,
+        targetTransport.id,
         'Reactor has been shut down and will not reconnect',
       );
       return;
     }
     this._log.info(
       '[socket][close]',
-      targetWs._id,
+      targetTransport._id,
       'schedule reconnect, ms =',
       this._reconnectTimeoutMs,
     );
@@ -1396,7 +1403,7 @@ export default class Reactor {
       if (!this._isOnline) {
         this._log.info(
           '[socket][close]',
-          targetWs._id,
+          targetTransport.id,
           'we are offline, no need to start socket',
         );
         return;
@@ -1414,27 +1421,30 @@ export default class Reactor {
       );
       return;
     }
-    if (this._ws && this._ws.readyState == WS_CONNECTING_STATUS) {
+    if (this._transport && this._transport.isConnecting()) {
       // Our current websocket is in a 'connecting' state.
       // There's no need to start another one, as the socket is
       // effectively fresh.
       this._log.info(
         '[socket][start]',
-        this._ws._id,
-        'maintained as current ws, we were still in a connecting state',
+        this._transport.id,
+        'maintained as current transport, we were still in a connecting state',
       );
       return;
     }
-    const prevWs = this._ws;
-    this._ws = createWebSocket(
-      `${this.config.websocketURI}?app_id=${this.config.appId}`,
-    );
-    this._ws.onopen = this._wsOnOpen;
-    this._ws.onmessage = this._wsOnMessage;
-    this._ws.onclose = this._wsOnClose;
-    this._ws.onerror = this._wsOnError;
-    this._log.info('[socket][start]', this._ws._id);
-    if (prevWs?.readyState === WS_OPEN_STATUS) {
+    const prevTransport = this._transport;
+    this._transport = createTransport({
+      transportType: this._transportType,
+      appId: this.config.appId,
+      apiURI: this.config.apiURI,
+      wsURI: this.config.websocketURI,
+    });
+    this._transport.onopen = this._transportOnOpen;
+    this._transport.onmessage = this._transportOnMessage;
+    this._transport.onclose = this._transportOnClose;
+    this._transport.onerror = this._transportOnError;
+    this._log.info('[socket][start]', this._transport.id);
+    if (prevTransport?.isOpen()) {
       // When the network dies, it doesn't always mean that our
       // socket connection will fire a close event.
       //
@@ -1445,11 +1455,11 @@ export default class Reactor {
       // c.f https://issues.chromium.org/issues/41343684
       this._log.info(
         '[socket][start]',
-        this._ws._id,
-        'close previous ws id = ',
-        prevWs._id,
+        this._transport.id,
+        'close previous transport id = ',
+        prevTransport.id,
       );
-      prevWs.close();
+      prevTransport.close();
     }
   }
 
@@ -1728,7 +1738,7 @@ export default class Reactor {
       return prev;
     });
     this._reconnectTimeoutMs = 0;
-    this._ws.close();
+    this._transport.close();
     this._oauthCallbackResponse = null;
     this.notifyAuthSubs(newV);
   }
