@@ -1,6 +1,7 @@
 import { ReadStream, WriteStream } from 'tty';
 import { cursor, erase } from 'sisteransi';
 import throttle from 'lodash.throttle';
+import readline from 'readline';
 
 export interface Closable {
   close(): void;
@@ -164,7 +165,6 @@ export class Terminal implements ITerminal {
     if (this.stdin.isTTY) this.stdin.setRawMode(true);
 
     const keypress = (str: string | undefined, key: AnyKey) => {
-      // console.log(str, key);
       if (key.name === 'c' && key.ctrl === true) {
         this.requestLayout();
         this.view.detach(this);
@@ -264,6 +264,25 @@ export function render(view: any): any {
   return;
 }
 
+export class CancelledPromptError extends Error {
+  constructor(message?: string) {
+    super(message);
+    this.name = 'CancelledPromptError';
+  }
+}
+
+export async function renderUnwrap<T>(view: Prompt<T>): Promise<T> {
+  const { stdin, stdout, closable } = prepareReadLine();
+  const terminal = new Terminal(view, stdin, stdout, closable);
+  terminal.requestLayout();
+  const result = (await terminal.result()) as Prompted<T>;
+  if (result.status === 'aborted') {
+    throw new CancelledPromptError('Prompt was aborted');
+  } else {
+    return result.data;
+  }
+}
+
 let terminateHandler:
   | ((stdin: ReadStream, stdout: WriteStream) => void)
   | undefined;
@@ -282,7 +301,6 @@ export const prepareReadLine = (): {
   const stdin = process.stdin;
   const stdout = process.stdout;
 
-  const readline = require('readline');
   const rl = readline.createInterface({
     input: stdin,
     escapeCodeTimeout: 50,

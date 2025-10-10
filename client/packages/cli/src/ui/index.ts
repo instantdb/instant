@@ -2,7 +2,7 @@ import chalk from 'chalk';
 import boxen from 'boxen';
 import { ModifyOutputFn, Prompt, SelectState } from './lib.js';
 
-export { render } from './lib.js';
+export { render, renderUnwrap } from './lib.js';
 
 export namespace UI {
   type Status = 'idle' | 'submitted' | 'aborted';
@@ -20,11 +20,16 @@ export namespace UI {
       return '\n' + output + '\n';
     },
 
-    sidelined: (output: string) => {
+    sidelined: (output: string, status: Status) => {
       const result: string[] = [];
+      const lastIndex = output.split('\n').length - 1;
 
-      output.split('\n').forEach((line) => {
-        if (line.trim().length > 0) result.push(`${chalk.gray(' │  ')}${line}`);
+      output.split('\n').forEach((line, index) => {
+        if (index === lastIndex && status == 'idle') {
+          result.push(`${chalk.gray('└  ')}${line}`);
+        } else {
+          result.push(`${chalk.gray('│  ')}${line}`);
+        }
       });
 
       let almost = result.join('\n');
@@ -45,6 +50,12 @@ export namespace UI {
       return output;
     },
   } as const;
+
+  export const ciaModifier = modifiers.piped([
+    UI.modifiers.yPadding,
+    UI.modifiers.dimOnComplete,
+    UI.modifiers.sidelined,
+  ]);
 
   /**
    * Utility that lets you use output modifiers in console.log
@@ -69,6 +80,7 @@ export namespace UI {
     }[];
     promptText: string;
     modifyOutput?: ModifyOutputFn;
+    defaultValue?: T;
   };
   export class Select<T> extends Prompt<T> {
     config(status: 'idle' | 'submitted' | 'aborted'): string {
@@ -102,6 +114,17 @@ export namespace UI {
       this.data = new SelectState<T>(
         params.options.map((option) => option.value),
       );
+
+      // Set initial selected index based on defaultValue if provided
+      if (params.defaultValue !== undefined) {
+        const defaultIndex = params.options.findIndex(
+          (option) => option.value === params.defaultValue,
+        );
+        if (defaultIndex !== -1) {
+          this.data.selectedIdx = defaultIndex;
+        }
+      }
+
       this.data.bind(this as any);
     }
 
@@ -174,6 +197,7 @@ ${optionsList}`;
     placeholder?: string;
     prompt: string;
     modifyOutput?: ModifyOutputFn;
+    defaultValue?: string;
     validate?: (value: string) => string | undefined;
   };
 
@@ -183,10 +207,11 @@ ${optionsList}`;
     }
     override render(status: 'idle' | 'submitted' | 'aborted'): string {
       if (status === 'submitted') {
-        return `${this.props.prompt}: ${this.value} \n`;
+        return `${this.props.prompt}
+${this.value}`;
       }
       if (status === 'aborted') {
-        return `${this.props.prompt}: ${this.value} (CANCELLED)\n`;
+        return `${this.props.prompt} ${this.value} (CANCELLED)\n`;
       }
       let inputDisplay = '';
       if (this.value === '') {
@@ -197,7 +222,7 @@ ${optionsList}`;
       const errorText = this.errorText
         ? `      ${chalk.red(this.errorText)}`
         : '';
-      return `${this.props.prompt}:${errorText}
+      return `${this.props.prompt}${errorText}
 ${inputDisplay}`;
     }
 
@@ -215,17 +240,36 @@ ${inputDisplay}`;
         terminal.toggleCursor('show');
       });
       this.on('input', (input, keyInfo) => {
+        if (keyInfo.name === 'escape') {
+          return this.terminal.resolve({
+            data: null,
+            status: 'aborted',
+          });
+        }
         if (keyInfo.name === 'return') {
+          if (this.value === '' && this.props.defaultValue) {
+            this.value = this.props.defaultValue;
+            return this.terminal?.resolve({
+              data: this.props.defaultValue,
+              status: 'submitted',
+            });
+          }
           // Do the validation
           if (this.props.validate) {
             const validationResult = this.props.validate(this.value);
             if (validationResult) {
               this.errorText = validationResult;
             } else {
-              this.terminal.resolve({ data: this.value, status: 'submitted' });
+              return this.terminal?.resolve({
+                data: this.value,
+                status: 'submitted',
+              });
             }
           } else {
-            this.terminal.resolve({ data: this.value, status: 'submitted' });
+            return this.terminal?.resolve({
+              data: this.value,
+              status: 'submitted',
+            });
           }
         }
         if (keyInfo.name === 'backspace') {
