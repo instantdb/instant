@@ -481,7 +481,7 @@ function ShareCreationSection() {
 }
 
 const pageTitle =
-  'Whirlwind tour: Build and deploy a full-stack app with InstantDB';
+  'Whirlwind tour: Build a full-stack app with InstantDB';
 
 const cursorMCPConfig = `{
   "mcpServers": {
