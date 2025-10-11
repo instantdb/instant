@@ -154,9 +154,9 @@ export type InstantAPITokenInfoResponse = {
   tokenType: 'Bearer';
 };
 
-type PlanStep =
+export type PlanStep =
   | ['add-attr', InstantDBAttr]
-  | ['update-attr', InstantDBAttr]
+  | ['update-attr', Partial<InstantDBAttr>]
   | ['index', { 'attr-id': string; 'forward-identity': InstantDBIdent }]
   | ['remove-index', { 'attr-id': string; 'forward-identity': InstantDBIdent }]
   | ['unique', { 'attr-id': string; 'forward-identity': InstantDBIdent }]
@@ -177,7 +177,8 @@ type PlanStep =
   | [
       'remove-data-type',
       { 'attr-id': string; 'forward-identity': InstantDBIdent },
-    ];
+    ]
+  | ['delete-attr', string];
 
 type PlanReponseJSON = {
   'new-schema': InstantAPIPlatformSchema;
@@ -678,7 +679,7 @@ function translatePlanStep(apiStep: PlanStep): InstantAPISchemaPlanStep {
       return { type: 'add-attr', friendlyDescription, attr };
     }
     case 'update-attr': {
-      const attr = stepParams;
+      const attr = stepParams as InstantDBAttr;
       return {
         type: 'update-attr',
         friendlyDescription: `Update attribute ${attrFwdName(attr)}.`,
@@ -751,6 +752,14 @@ function translatePlanStep(apiStep: PlanStep): InstantAPISchemaPlanStep {
         friendlyDescription: `Stop enforcing data type of ${identName(forwardIdentity)}.`,
         attrId: stepParams['attr-id'],
         forwardIdentity: stepParams['forward-identity'],
+      };
+    }
+    // This case will never actually run because /schema/push/plan doesn't detect deleted attrs
+    case 'delete-attr': {
+      return {
+        type: 'delete-attr',
+        attrId: stepParams,
+        friendlyDescription: `Delete attribute ${stepParams}.`,
       };
     }
     default: {
