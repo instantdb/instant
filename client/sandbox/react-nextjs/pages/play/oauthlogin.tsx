@@ -51,7 +51,17 @@ function Main({ user }: { user: User }) {
   return (
     <div className="p-4">
       <Link href="/">{'<-'} Home</Link>
-      <h1>Hi {user.email}!</h1>
+      <h1>
+        {user.imageURL ? (
+          <img
+            src={user.imageURL}
+            className="inline h-8 w-8 rounded-full mr-2"
+          />
+        ) : (
+          <span>(no image)</span>
+        )}
+        {user.email}
+      </h1>
       <h2>id: {user.id}</h2>
       <button
         className="px-4 py-2 bg-blue-500 text-white rounded border-2 my-2"
