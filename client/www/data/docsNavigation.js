@@ -65,6 +65,11 @@ module.exports = [
         optionalLLM: true,
       },
       {
+        title: 'GitHub OAuth',
+        href: '/docs/auth/github-oauth',
+        optionalLLM: true,
+      },
+      {
         title: 'LinkedIn OAuth',
         href: '/docs/auth/linkedin-oauth',
         optionalLLM: true,
