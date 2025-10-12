@@ -33,6 +33,8 @@
 
 (defn prod? [] (= :prod (get-env)))
 
+(defn dev? [] (= :dev (get-env)))
+
 (defn aws-env? []
   (contains? #{:prod :staging} (get-env)))
 

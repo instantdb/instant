@@ -651,7 +651,7 @@
 ;; --------
 ;; Wrappers
 
-(defn find-instant-exception [^Exception e]
+(defn find-instant-exception ^Exception [^Exception e]
   (loop [cause e]
     (cond
       (::type (ex-data cause)) cause

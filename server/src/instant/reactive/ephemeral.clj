@@ -14,11 +14,12 @@
    [instant.util.hazelcast :as hazelcast]
    [instant.util.lang :as lang]
    [instant.util.tracer :as tracer]
+   [instant.util.uuid :as uuid-util]
    [medley.core :as medley])
   (:import
    (com.hazelcast.config Config)
    (com.hazelcast.core Hazelcast HazelcastInstance)
-   (com.hazelcast.cluster Cluster Member)
+   (com.hazelcast.cluster Cluster Member InitialMembershipListener)
    (com.hazelcast.map IMap)
    (com.hazelcast.map.impl DataAwareEntryEvent)
    (com.hazelcast.map.listener EntryAddedListener
@@ -28,7 +29,7 @@
    (com.hazelcast.topic ITopic MessageListener Message)
    (java.time Duration Instant)
    (java.util Map$Entry)
-   (java.util.concurrent Future)
+   (java.util.concurrent Future ConcurrentHashMap)
    (javax.management ObjectName)))
 
 ;; ------
@@ -45,6 +46,30 @@
 (declare handle-event)
 
 (declare handle-broadcast-message)
+
+(defonce hz-member-by-machine-id-cache ^ConcurrentHashMap (ConcurrentHashMap.))
+
+(defn add-member-listener [^HazelcastInstance hz]
+  (.addMembershipListener (.getCluster hz)
+                          (reify InitialMembershipListener
+                            (init [_ e]
+                              (doseq [^Member m (.getMembers e)]
+                                (when-let [member-id (-> m
+                                                         (.getAttribute "machine-id")
+                                                         uuid-util/coerce)]
+                                  (.put ^ConcurrentHashMap hz-member-by-machine-id-cache member-id m))))
+                            (memberAdded [_ e]
+                              (let [m (.getMember e)]
+                                (when-let [member-id (-> m
+                                                         (.getAttribute "machine-id")
+                                                         uuid-util/coerce)]
+                                  (.put ^ConcurrentHashMap hz-member-by-machine-id-cache member-id m))))
+                            (memberRemoved [_ e]
+                              (let [m (.getMember e)]
+                                (when-let [member-id (-> m
+                                                         (.getAttribute "machine-id")
+                                                         uuid-util/coerce)]
+                                  (.remove ^ConcurrentHashMap hz-member-by-machine-id-cache member-id m)))))))
 
 (defn init-hz [env store {:keys [instance-name cluster-name]
                           :or {instance-name "instant-hz-v3"
@@ -149,6 +174,7 @@
                                ;; Don't bother handling messages that we put on the topic
                                (when (not= local-member (.getPublishingMember message))
                                  (handle-broadcast-message store message)))))
+      (add-member-listener hz)
       {:hz                 hz
        :hz-rooms-map       hz-rooms-map
        :hz-broadcast-topic hz-broadcast-topic

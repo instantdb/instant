@@ -52,17 +52,14 @@
                                   :app-id app-id})))
 
 (defn sse-post [req]
-  (let [app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)
+  (let [machine-id (ex/get-param! req [:body :machine_id] uuid-util/coerce)
+        app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)
         session-id (ex/get-param! req [:body :session_id] uuid-util/coerce)
         sse-token-hash (crypt-util/uuid->sha256 (ex/get-param! req [:body :sse_token] uuid-util/coerce))
-        machine-id (ex/get-param! req [:body :machine_id] uuid-util/coerce)
         message (ex/get-param! req [:body :message] (fn [message]
                                                       (when (contains? message :op)
-                                                        message)))
-        member (sse/get-hz-member-by-machine-id machine-id)
-        _ (when (not member)
-            (ex/throw-member-missing! machine-id))]
-    (sse/send-message-to-member member app-id session-id sse-token-hash message)
+                                                        message)))]
+    (sse/enqueue-message machine-id app-id session-id sse-token-hash message)
     (response/ok {})))
 
 ;; -----------
