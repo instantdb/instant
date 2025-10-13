@@ -14,7 +14,7 @@
 (defn create!
   ([params]
    (create! (aurora/conn-pool :write) params))
-  ([conn {:keys [app-id email id type] :as params}]
+  ([conn {:keys [app-id email id type imageURL] :as params}]
    (let [id (or id (random-uuid))]
      (update-op
       conn
@@ -27,7 +27,9 @@
           (when (contains? params :email)
             [[:add-triple id (resolve-id :email) email]])
           (when (contains? params :type)
-            [[:add-triple id (resolve-id :type) type]])))
+            [[:add-triple id (resolve-id :type) type]])
+          (when (and (contains? params :imageURL) imageURL)
+            [[:add-triple id (resolve-id :imageURL) imageURL]])))
         (get-entity id))))))
 
 (defn get-by-id
@@ -125,6 +127,7 @@
         (map (fn [user]
                (merge {:app_users/id (parse-uuid (get user "id"))
                        :app_users/email (get user "email")
+                       :app_users/image_url (get user "imageURL")
                        :app_users/app_id app-id}
                       (when-let [links (seq (get user "$oauthUserLinks"))]
                         ;; Adding this assert just for extra protection,
@@ -142,6 +145,21 @@
 (defn get-or-create-by-email! [{:keys [email app-id]}]
   (or (get-by-email {:email email :app-id app-id})
       (create! {:id (UUID/randomUUID) :email email :app-id app-id})))
+
+(defn update-image-url!
+  "Updates the imageURL. This happens during logins, in case the user 
+   has changed their profile picture."
+  ([params] (update-image-url! (aurora/conn-pool :write) params))
+  ([conn {:keys [app-id id image-url]}]
+   (update-op
+    conn
+    {:app-id app-id
+     :etype etype}
+    (fn [{:keys [transact! resolve-id]}]
+      (transact! [[:add-triple
+                   id
+                   (resolve-id :imageURL)
+                   image-url]])))))
 
 (defn link-guest
   "Links the guest account to a pre-exisiting user.

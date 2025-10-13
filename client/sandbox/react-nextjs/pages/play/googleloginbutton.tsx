@@ -105,8 +105,19 @@ function Main({ user }: { user: User }) {
   return (
     <div className="p-4">
       <Link href="/">{'<-'} Home</Link>
-      <h1>Hi {user.email}!</h1>
-      <h2>id: {user.id}</h2>
+      <div className="flex items-center gap-4 my-4">
+        {user.imageURL && (
+          <img
+            src={user.imageURL}
+            alt="Profile"
+            className="w-16 h-16 rounded-full"
+          />
+        )}
+        <div>
+          <h1 className="text-xl font-bold">Hi {user.email}!</h1>
+          <h2 className="text-sm text-gray-600">id: {user.id}</h2>
+        </div>
+      </div>
       <button
         className="px-4 py-2 bg-blue-500 text-white rounded border-2 my-2"
         onClick={(e) => {
