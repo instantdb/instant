@@ -109,10 +109,11 @@ type SSEInitParams = {
 
 export class SSEConnection implements Connection<EventSource> {
   type: TransportType = 'sse';
-  private initParms: SSEInitParams | null = null;
+  private initParams: SSEInitParams | null = null;
   private sendQueue: any[] = [];
   private sendPromise: Promise<void> | null;
   private closeFired: boolean = false;
+  private sseInitTimeout: NodeJS.Timeout | null = null;
   conn: EventSource;
   url: string;
   id: string;
@@ -126,10 +127,17 @@ export class SSEConnection implements Connection<EventSource> {
     this.url = url;
     this.conn = new EventSource(url);
 
+    // Close the connection if we didn't get an init within 10 seconds
+    this.sseInitTimeout = setTimeout(() => {
+      if (!this.initParams) {
+        this.handleError();
+      }
+    }, 10000);
+
     this.conn.onmessage = (e) => {
       const msg = JSON.parse(e.data);
       if (msg.op === 'sse-init') {
-        this.initParms = {
+        this.initParams = {
           machineId: msg['machine-id'],
           sessionId: msg['session-id'],
           sseToken: msg['sse-token'],
@@ -137,6 +145,7 @@ export class SSEConnection implements Connection<EventSource> {
         if (this.onopen) {
           this.onopen({ target: this });
         }
+        clearTimeout(this.sseInitTimeout);
         return;
       }
       if (this.onmessage) {
@@ -178,9 +187,9 @@ export class SSEConnection implements Connection<EventSource> {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          machine_id: this.initParms.machineId,
-          session_id: this.initParms.sessionId,
-          sse_token: this.initParms.sseToken,
+          machine_id: this.initParams.machineId,
+          session_id: this.initParams.sessionId,
+          sse_token: this.initParams.sseToken,
           messages,
         }),
       });
@@ -206,7 +215,7 @@ export class SSEConnection implements Connection<EventSource> {
   }
 
   send(msg: SendMessageData) {
-    if (!this.isOpen() || !this.initParms) {
+    if (!this.isOpen() || !this.initParams) {
       if (this.isConnecting()) {
         throw new Error(
           `Failed to execute 'send' on 'EventSource': Still in CONNECTING state.`,
@@ -222,13 +231,15 @@ export class SSEConnection implements Connection<EventSource> {
   }
 
   isOpen(): boolean {
-    return this.conn.readyState === EventSource.OPEN && this.initParms !== null;
+    return (
+      this.conn.readyState === EventSource.OPEN && this.initParams !== null
+    );
   }
 
   isConnecting(): boolean {
     return (
       this.conn.readyState === EventSource.CONNECTING ||
-      (this.conn.readyState === EventSource.OPEN && this.initParms === null)
+      (this.conn.readyState === EventSource.OPEN && this.initParams === null)
     );
   }
 
