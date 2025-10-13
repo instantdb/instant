@@ -76,17 +76,20 @@
                                            :headers (merge (:headers github-config)
                                                            {"Authorization" (str "Bearer " access-token)})})]
               (if-not (clj-http/success? user-resp)
-                {:type :error :message "Failed to fetch user info from GitHub."}
+                {:type :error :message (get-in user-resp [:body :message] "Failed to fetch user info from GitHub.")}
                 (let [user-data (:body user-resp)
                       user-id (:id user-data)
-                      email (:email user-data)]
+                      email (:email user-data)
+                      avatar-url (:avatar_url user-data)]
                   (tracer/with-span! {:name "oauth/github-user-info"
                                       :attributes {:has-email (boolean email)
-                                                   :has-id (boolean user-id)}}
+                                                   :has-id (boolean user-id)
+                                                   :has-avatar (boolean avatar-url)}}
                     (if user-id
                       {:type :success
                        :email email  ;; Will be nil if user has private email
-                       :sub (str user-id)}
+                       :sub (str user-id)
+                       :imageURL avatar-url}
                       {:type :error
                        :message "Missing user ID from GitHub"}))))))))))
 
