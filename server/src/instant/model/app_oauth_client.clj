@@ -2,7 +2,6 @@
   (:require
    [instant.auth.oauth :as oauth]
    [instant.jdbc.aurora :as aurora]
-   [instant.model.app-oauth-service-provider :as app-oauth-service-provider-model]
    [instant.system-catalog-ops :refer [query-op update-op]]
    [instant.util.crypt :as crypt-util]
    [instant.util.exception :as ex]
@@ -104,31 +103,23 @@
       (Secret.)))
 
 (defn ->OAuthClient [oauth-client]
-  (let [provider (app-oauth-service-provider-model/get-by-id
-                  {:app-id (:app_id oauth-client)
-                   :id (:provider_id oauth-client)})
-        provider-name (:provider_name provider)
-        _ (when-not provider-name
-            (ex/throw-oauth-err! "OAuth client has no associated provider"))]
-    (case provider-name
-      ;; GitHub uses its own OAuth client implementation
-      "github"
-      (oauth/map->GitHubOAuthClient
-       {:app-id (:app_id oauth-client)
-        :provider-id (:provider_id oauth-client)
-        :client-id (:client_id oauth-client)
-        :client-secret (when (:client_secret oauth-client)
-                         (decrypted-client-secret oauth-client))
-        :meta (:meta oauth-client)})
+  (if (:discovery_endpoint oauth-client)
+    ;; OIDC provider with discovery endpoint
+    (oauth/generic-oauth-client-from-discovery-url
+     {:app-id (:app_id oauth-client)
+      :provider-id (:provider_id oauth-client)
+      :client-id (:client_id oauth-client)
+      :client-secret (when (:client_secret oauth-client)
+                       (decrypted-client-secret oauth-client))
+      :discovery-endpoint (:discovery_endpoint oauth-client)
+      :meta (:meta oauth-client)})
 
-      ;; All other providers use the generic OIDC client with discovery
-      (if (:discovery_endpoint oauth-client)
-        (oauth/generic-oauth-client-from-discovery-url
-         {:app-id (:app_id oauth-client)
-          :provider-id (:provider_id oauth-client)
-          :client-id (:client_id oauth-client)
-          :client-secret (when (:client_secret oauth-client)
-                           (decrypted-client-secret oauth-client))
-          :discovery-endpoint (:discovery_endpoint oauth-client)
-          :meta (:meta oauth-client)})
-        (ex/throw-oauth-err! (str "OIDC provider " provider-name " requires a discovery endpoint"))))))
+    ;; Otherwise, assume GitHub, our only non-OIDC provider which
+    ;; doesn't use discovery endpoints.
+    (oauth/map->GitHubOAuthClient
+     {:app-id (:app_id oauth-client)
+      :provider-id (:provider_id oauth-client)
+      :client-id (:client_id oauth-client)
+      :client-secret (when (:client_secret oauth-client)
+                       (decrypted-client-secret oauth-client))
+      :meta (:meta oauth-client)})))
