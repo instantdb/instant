@@ -32,6 +32,7 @@ import { WSConnection, SSEConnection } from './Connection.ts';
 
 /** @typedef {import('./utils/log.ts').Logger} Logger */
 /** @typedef {import('./Connection.ts').Connection} Connection */
+/** @typedef {import('./Connection.ts').TransportType} TransportType */
 
 const STATUS = {
   CONNECTING: 'connecting',
@@ -54,6 +55,14 @@ const OAUTH_REDIRECT_PARAM = '_instant_oauth_redirect';
 
 const currentUserKey = `currentUser`;
 
+/**
+ * @param {Object} config
+ * @param {TransportType} config.transportType
+ * @param {string} config.appId
+ * @param {string} config.apiURI
+ * @param {string} config.wsURI
+ * @returns {WSConnection | SSEConnection}
+ */
 function createTransport({ transportType, appId, apiURI, wsURI }) {
   switch (transportType) {
     case 'ws':
@@ -154,7 +163,10 @@ export default class Reactor {
   _reconnectTimeoutMs = 0;
   /** @type {Connection} */
   _transport;
-  _transportType = 'sse';
+  /** @type {TransportType} */
+  _transportType = 'ws';
+  /** @type {boolean | null} */
+  _wsOk = null;
   _localIdPromises = {};
   _errorMessage = null;
   /** @type {Promise<null | {error: {message: string}}>}**/
@@ -1316,6 +1328,8 @@ export default class Reactor {
     }
     this._log.info('[socket][open]', this._transport.id);
     this._setStatus(STATUS.OPENED);
+    // try to revert back to ws if we had to switch to sse
+    this._transportType = 'ws';
     this.getCurrentUser()
       .then((resp) => {
         this._trySend(uuid(), {
@@ -1348,7 +1362,11 @@ export default class Reactor {
       );
       return;
     }
-    this._handleReceive(targetTransport._id, e.message);
+
+    if (!this._wsOk && targetTransport.type === 'ws') {
+      this._wsOk = true;
+    }
+    this._handleReceive(targetTransport.id, e.message);
   };
 
   _transportOnError = (e) => {
@@ -1362,6 +1380,34 @@ export default class Reactor {
       return;
     }
     this._log.error('[socket][error]', targetTransport.id, e);
+  };
+
+  _scheduleReconnect = () => {
+    // If we couldn't connect with a websocket last time, try sse
+    if (!this._wsOk && this._transportType !== 'sse') {
+      this._transportType = 'sse';
+      this._reconnectTimeoutMs = 0;
+    } else {
+      // Try websocket again, maybe they're on a different network
+      // after reconnect
+      this._transportType = 'ws';
+    }
+    setTimeout(() => {
+      this._reconnectTimeoutMs = Math.min(
+        this._reconnectTimeoutMs + 1000,
+        10000,
+      );
+      if (!this._isOnline) {
+        this._log.info(
+          '[socket][close]',
+          this._transport.id,
+          'we are offline, no need to start socket',
+        );
+        return;
+      }
+
+      this._startSocket();
+    }, this._reconnectTimeoutMs);
   };
 
   _transportOnClose = (e) => {
@@ -1391,28 +1437,17 @@ export default class Reactor {
     }
     this._log.info(
       '[socket][close]',
-      targetTransport._id,
+      targetTransport.id,
       'schedule reconnect, ms =',
       this._reconnectTimeoutMs,
     );
-    setTimeout(() => {
-      this._reconnectTimeoutMs = Math.min(
-        this._reconnectTimeoutMs + 1000,
-        10000,
-      );
-      if (!this._isOnline) {
-        this._log.info(
-          '[socket][close]',
-          targetTransport.id,
-          'we are offline, no need to start socket',
-        );
-        return;
-      }
-      this._startSocket();
-    }, this._reconnectTimeoutMs);
+    this._scheduleReconnect();
   };
 
   _startSocket() {
+    // Reset whether we support websockets each time we connect
+    // new networks may not support websockets
+    this._wsOk = null;
     if (this._isShutdown) {
       this._log.info(
         '[socket][start]',

@@ -31,9 +31,12 @@ interface ErrorEvent<T extends Conn> {
   target: Connection<T>;
 }
 
+export type TransportType = 'ws' | 'sse';
+
 export interface Connection<T extends Conn> {
   conn: T;
-  id: number;
+  type: 'ws' | 'sse';
+  id: string;
   close(): void;
   isOpen(): boolean;
   isConnecting(): boolean;
@@ -46,14 +49,15 @@ export interface Connection<T extends Conn> {
 
 // Now subclasses fix T to specific type:
 export class WSConnection implements Connection<WebSocket> {
+  type: TransportType = 'ws';
   conn: WebSocket;
-  id: number;
+  id: string;
   onopen: (event: OpenEvent<WebSocket>) => void;
   onmessage: (event: MessageEvent<WebSocket>) => void;
   onclose: (event: CloseEvent<WebSocket>) => void;
   onerror: (event: ErrorEvent<WebSocket>) => void;
   constructor(url: string) {
-    this.id = _connId++;
+    this.id = `${this.type}_${_connId++}`;
     this.conn = new WebSocket(url);
     this.conn.onopen = (_e) => {
       if (this.onopen) {
@@ -104,17 +108,18 @@ type SSEInitParams = {
 };
 
 export class SSEConnection implements Connection<EventSource> {
+  type: TransportType = 'sse';
   private initParms: SSEInitParams | null = null;
   conn: EventSource;
   url: string;
-  id: number;
+  id: string;
   onopen: (event: OpenEvent<EventSource>) => void;
   onmessage: (event: MessageEvent<EventSource>) => void;
   onclose: (event: CloseEvent<EventSource>) => void;
   onerror: (event: ErrorEvent<EventSource>) => void;
 
   constructor(url: string) {
-    this.id = _connId++;
+    this.id = `${this.type}_${_connId++}`;
     this.url = url;
     this.conn = new EventSource(url);
 
@@ -172,7 +177,7 @@ export class SSEConnection implements Connection<EventSource> {
     // XXX: close if something weird happens?
     fetch(this.url, {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         machine_id: this.initParms.machineId,
         session_id: this.initParms.sessionId,
