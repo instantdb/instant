@@ -1328,8 +1328,7 @@ export default class Reactor {
     }
     this._log.info('[socket][open]', this._transport.id);
     this._setStatus(STATUS.OPENED);
-    // try to revert back to ws if we had to switch to sse
-    this._transportType = 'ws';
+
     this.getCurrentUser()
       .then((resp) => {
         this._trySend(uuid(), {
@@ -1366,6 +1365,8 @@ export default class Reactor {
     if (!this._wsOk && targetTransport.type === 'ws') {
       this._wsOk = true;
     }
+    // Try to reconnect via websocket the next time we connect
+    this._transportType = 'ws';
     this._handleReceive(targetTransport.id, e.message);
   };
 
@@ -1387,10 +1388,6 @@ export default class Reactor {
     if (!this._wsOk && this._transportType !== 'sse') {
       this._transportType = 'sse';
       this._reconnectTimeoutMs = 0;
-    } else {
-      // Try websocket again, maybe they're on a different network
-      // after reconnect
-      this._transportType = 'ws';
     }
     setTimeout(() => {
       this._reconnectTimeoutMs = Math.min(

@@ -112,6 +112,7 @@ export class SSEConnection implements Connection<EventSource> {
   private initParms: SSEInitParams | null = null;
   private sendQueue: any[] = [];
   private sendPromise: Promise<void> | null;
+  private closeFired: boolean = false;
   conn: EventSource;
   url: string;
   id: string;
@@ -165,14 +166,15 @@ export class SSEConnection implements Connection<EventSource> {
 
   private handleClose() {
     this.conn.close();
-    if (this.onclose) {
+    if (this.onclose && !this.closeFired) {
+      this.closeFired = true;
       this.onclose({ target: this });
     }
   }
 
   private async postMessages(messages: any[]): Promise<void> {
     try {
-      await fetch(this.url, {
+      const resp = await fetch(this.url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -182,6 +184,9 @@ export class SSEConnection implements Connection<EventSource> {
           messages,
         }),
       });
+      if (!resp.ok) {
+        this.handleError();
+      }
     } catch (e) {
       this.handleError();
     }
