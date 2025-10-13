@@ -248,7 +248,7 @@ function RefItemTooltip({
         <Tooltip.Content collisionPadding={10} side="bottom">
           <div className="relative">
             <div
-              className="max-w-md overflow-auto whitespace-pre border bg-white bg-opacity-90 p-2 font-mono text-xs shadow-md backdrop-blur-sm"
+              className="max-w-md overflow-auto whitespace-pre border bg-white bg-opacity-90 p-2 font-mono text-xs shadow-md backdrop-blur-sm dark:border-neutral-700 dark:bg-neutral-800"
               style={{
                 maxHeight: `var(--radix-popper-available-height)`,
               }}
@@ -283,7 +283,10 @@ function LinkComboboxItem({
     <ComboboxOption
       key={option.id}
       value={option}
-      className={clsx('cursor-pointer px-3 py-1 data-[focus]:bg-blue-100', {})}
+      className={clsx(
+        'cursor-pointer px-3 py-1 data-[focus]:bg-blue-100 dark:border-neutral-700 dark:bg-neutral-800',
+        {},
+      )}
     >
       <Tooltip.Provider>
         <Tooltip.Root delayDuration={0} open={open}>
@@ -328,7 +331,7 @@ function LinkComboboxItem({
           </Tooltip.Trigger>
           <Tooltip.Content collisionPadding={10}>
             <div
-              className="max-w-md overflow-auto whitespace-pre border bg-white bg-opacity-90 p-2 font-mono text-xs shadow-md backdrop-blur-sm"
+              className="max-w-md overflow-auto whitespace-pre border bg-white bg-opacity-90 p-2 font-mono text-xs shadow-md backdrop-blur-sm dark:border-neutral-700 dark:bg-neutral-800"
               style={{
                 maxHeight: `var(--radix-popper-available-height)`,
               }}
@@ -436,7 +439,7 @@ function LinkCombobox({
           ref={inputRef}
           autoFocus={true}
           size={32}
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800 dark:placeholder:text-neutral-500"
           value={q}
           onChange={(e) => {
             setq(e.target.value);
@@ -462,7 +465,7 @@ function LinkCombobox({
           ))}
         </ComboboxOptions>
         {options?.length || isLoading ? null : (
-          <div className="absolute mt-1 w-[var(--input-width)] divide-y overflow-scroll rounded-md border border-gray-300 bg-white p-2 shadow-lg">
+          <div className="absolute mt-1 w-[var(--input-width)] divide-y overflow-scroll rounded-md border border-gray-300 bg-white p-2 shadow-lg dark:border-neutral-700 dark:bg-neutral-800">
             No matching rows in <code>{namespace.name}</code>
           </div>
         )}
