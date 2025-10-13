@@ -5,7 +5,6 @@
             [clojure.walk :as w]
             [compojure.core :as compojure :refer [defroutes DELETE GET POST PUT]]
             [hiccup2.core :as h]
-            [instant.auth.oauth-providers :as oauth-providers]
             [instant.config :as config]
             [instant.dash.admin :as dash-admin]
             [instant.dash.ephemeral-app :as ephemeral-app]
@@ -530,9 +529,9 @@
         client-secret (coerce-optional-param! [:body :client_secret])
         meta (ex/get-optional-param! req [:body :meta] (fn [x] (when (map? x) x)))
 
-        ;; OAuth2 providers (like GitHub) don't need discovery endpoints
-        ;; OIDC providers need discovery endpoints
-        discovery-endpoint (when-not (oauth-providers/is-oauth2-provider? provider-name)
+        ;; GitHub doesn't need discovery endpoints
+        ;; OIDC providers (Google, LinkedIn, Apple) need discovery endpoints
+        discovery-endpoint (when-not (= "github" provider-name)
                              (ex/get-param! req [:body :discovery_endpoint] string-util/coerce-non-blank-str))
 
         client (app-oauth-client-model/create! {:app-id app-id

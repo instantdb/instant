@@ -1,7 +1,6 @@
 (ns instant.model.app-oauth-client
   (:require
    [instant.auth.oauth :as oauth]
-   [instant.auth.oauth-providers :as providers]
    [instant.jdbc.aurora :as aurora]
    [instant.model.app-oauth-service-provider :as app-oauth-service-provider-model]
    [instant.system-catalog-ops :refer [query-op update-op]]
@@ -110,24 +109,26 @@
                    :id (:provider_id oauth-client)})
         provider-name (:provider_name provider)
         _ (when-not provider-name
-            (ex/throw-oauth-err! "OAuth client has no associated provider"))
-        client-params {:app-id (:app_id oauth-client)
-                       :provider-id (:provider_id oauth-client)
-                       :provider-name provider-name
-                       :client-id (:client_id oauth-client)
-                       :client-secret (when (:client_secret oauth-client)
-                                        (decrypted-client-secret oauth-client))
-                       :meta (:meta oauth-client)}]
-    (cond
-      ;; If provider is OAuth2 (like GitHub), use provider config
-      (providers/is-oauth2-provider? provider-name)
-      (oauth/oauth-client-from-provider-config client-params)
+            (ex/throw-oauth-err! "OAuth client has no associated provider"))]
+    (case provider-name
+      ;; GitHub uses its own OAuth client implementation
+      "github"
+      (oauth/map->GitHubOAuthClient
+       {:app-id (:app_id oauth-client)
+        :provider-id (:provider_id oauth-client)
+        :client-id (:client_id oauth-client)
+        :client-secret (when (:client_secret oauth-client)
+                         (decrypted-client-secret oauth-client))
+        :meta (:meta oauth-client)})
 
-      ;; If OIDC provider with discovery endpoint, use discovery
-      (:discovery_endpoint oauth-client)
-      (oauth/generic-oauth-client-from-discovery-url
-       (assoc client-params :discovery-endpoint (:discovery_endpoint oauth-client)))
-
-      ;; This shouldn't happen with properly configured providers
-      :else
-      (ex/throw-oauth-err! (str "Invalid OAuth client configuration for provider: " provider-name)))))
+      ;; All other providers use the generic OIDC client with discovery
+      (if (:discovery_endpoint oauth-client)
+        (oauth/generic-oauth-client-from-discovery-url
+         {:app-id (:app_id oauth-client)
+          :provider-id (:provider_id oauth-client)
+          :client-id (:client_id oauth-client)
+          :client-secret (when (:client_secret oauth-client)
+                           (decrypted-client-secret oauth-client))
+          :discovery-endpoint (:discovery_endpoint oauth-client)
+          :meta (:meta oauth-client)})
+        (ex/throw-oauth-err! (str "OIDC provider " provider-name " requires a discovery endpoint"))))))
