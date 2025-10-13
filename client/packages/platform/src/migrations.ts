@@ -312,10 +312,6 @@ export const diffSchemas = async (
   );
 
   for (const entityName of addedEntityNames) {
-    for (const attrName of Object.keys(newEntities[entityName].attrs)) {
-      const attrInSchema = newEntities[entityName].attrs[attrName];
-      transactions.push(attrDefToNewAttrTx(attrInSchema, entityName, attrName));
-    }
     transactions.push({
       type: 'add-attr',
       'forward-identity': {
@@ -332,6 +328,10 @@ export const diffSchemas = async (
       'unique?': true,
       'value-type': 'blob',
     });
+    for (const attrName of Object.keys(newEntities[entityName].attrs)) {
+      const attrInSchema = newEntities[entityName].attrs[attrName];
+      transactions.push(attrDefToNewAttrTx(attrInSchema, entityName, attrName));
+    }
   }
 
   const innerEntityNames = oldEntityNames.filter(

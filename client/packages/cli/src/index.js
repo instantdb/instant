@@ -1383,6 +1383,8 @@ async function pushSchema(appId, _opts) {
     if (applyRes.data['indexing-jobs']) {
       await waitForIndexingJobsToFinish(appId, applyRes.data['indexing-jobs']);
     }
+  } else {
+    console.info('Schema migration cancelled!');
   }
 
   return { ok: true };

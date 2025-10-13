@@ -107,8 +107,6 @@ const groupSteps = (steps: MigrationTx[]): SuperMigrationTx[] => {
     {} as Record<string, MigrationTx[]>,
   );
 
-  console.log();
-
   const collapsed: SuperMigrationTx[] = Object.values(groupedAddOrDel).flatMap(
     (namedGroup) => {
       const isWholeEntityBeingDeleted = namedGroup.some((step) => {
@@ -180,7 +178,7 @@ export const renderSchemaPlan = async (
       case 'add-attr':
         if (step['value-type'] === 'ref' && step['reverse-identity']) {
           console.log(
-            `${chalk.bgGreen.black(' + CREATE LINK ')} ${step.identifier.namespace}.${step.identifier.attrName} -> ${step['reverse-identity'].namespace}.${step['reverse-identity'].attrName}`,
+            `${chalk.bgGreen.black(' + CREATE LINK ')} ${step.identifier.namespace}.${step.identifier.attrName} <-> ${step['reverse-identity'].namespace}.${step['reverse-identity'].attrName}`,
           );
         } else {
           console.log(
@@ -200,7 +198,7 @@ export const renderSchemaPlan = async (
 
         if (oldAttr?.['value-type'] === 'ref') {
           console.log(
-            `${chalk.bgRed(' - DELETE REF ')} ${step.identifier.namespace}.${step.identifier.attrName}`,
+            `${chalk.bgRed(' - DELETE LINK ')} ${step.identifier.namespace}.${step.identifier.attrName}`,
           );
           break;
         }
