@@ -95,7 +95,7 @@ test('rename - intent', async () => {
     simpleSchemaAfter,
     createChooser([
       {
-        from: 'deleteme',
+        from: 'artistName',
         to: 'artist',
       },
     ]),
