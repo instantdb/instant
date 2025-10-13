@@ -577,7 +577,10 @@
            :socket-ip (rs/socket-ip socket)
            :session-id sess-id
            :x-amzn-trace-id (rs/socket-x-amzn-trace-id socket)
-           :x-amzn-cf-id (rs/socket-x-amz-cf-id socket))))
+           :x-amzn-cf-id (rs/socket-x-amz-cf-id socket)
+           :transport (if (contains? socket :sse-conn)
+                        "sse"
+                        "ws"))))
 
 (defn handle-receive [store session event metadata]
   (tracer/with-exceptions-silencer [silence-exceptions]
@@ -696,7 +699,6 @@
     (when (or (not stored-token-hash)
               (not (crypt-util/constant-bytes= sse-token-hash
                                                stored-token-hash)))
-      ;; XXX: Check that this gives the user a good error (or just handle it elsewhere)
       (ex/throw-session-missing! {:sess-id session-id}))
     (doseq [message messages]
       (receive-queue/put! (:receive-q socket) (-> message
@@ -781,8 +783,6 @@
                                         (IoUtils/safeClose
                                          ^ServerSentEventConnection (:channel req)))}]
                    (on-open store socket)
-
-                   (tool/def-locals)
 
                    ;; If we send an event in the on-open, undertow will hang
                    ;; Put it in the receive-queue to be delivered afterwards

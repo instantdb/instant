@@ -47,7 +47,7 @@ class EventSource implements EventSourceType {
     this.lineEndingCharacter = null;
     this._xhr = null;
     this._lastIndexProcessed = 0;
-    this.debug = true;
+    this.debug = false;
 
     if (!url || typeof url !== 'string') {
       throw new SyntaxError('[EventSource] Invalid URL argument.');

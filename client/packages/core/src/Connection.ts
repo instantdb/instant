@@ -63,7 +63,6 @@ export interface Connection<T extends Conn> {
   onerror: ((event: ErrorEvent<T>) => void) | null;
 }
 
-// Now subclasses fix T to specific type:
 export class WSConnection implements Connection<WebSocket> {
   type: TransportType = 'ws';
   conn: WebSocket;
@@ -180,7 +179,6 @@ export class SSEConnection implements Connection<EventSourceType> {
   }
 
   // Runs the onerror and closes the connection
-  // XXX: Retry retriable errors?
   private handleError() {
     try {
       if (this.onerror) {

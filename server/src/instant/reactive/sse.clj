@@ -54,19 +54,20 @@
            :ex-data (ex-data instant-ex)}
           (throw e))))))
 
-(defn skip-hz-in-dev? []
-  (and (config/dev?)
-       ;; In dev, send half the requests to ourself through hazelcast
-       ;; so we test both paths while developing.
-       (= (rand-int 2) 1)))
+(defn get-handle-locally? [^UUID machine-id]
+  (and (= machine-id config/machine-id)
+       (if (config/dev?)
+         ;; In dev, send half the requests to ourself through hazelcast
+         ;; so we test both paths while developing.
+         (= (rand-int 2) 1)
+         true)))
 
 (defn enqueue-messages [^UUID machine-id
                         ^UUID app-id
                         ^UUID session-id
                         ^bytes sse-token-hash
                         messages]
-  (let [handle-locally? (and (= machine-id config/machine-id)
-                             (skip-hz-in-dev?))]
+  (let [handle-locally? (get-handle-locally? machine-id)]
     (tracer/with-span! {:name "sse/enqueue-messages"
                         :attributes {:app-id app-id
                                      :machine-id machine-id
