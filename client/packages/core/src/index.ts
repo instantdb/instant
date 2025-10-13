@@ -108,6 +108,7 @@ import type {
 
 import { InstantAPIError, type InstantIssue } from './utils/fetch.js';
 import { InstantError } from './InstantError.ts';
+import { EventSourceType } from './Connection.ts';
 
 const defaultOpenDevtool = true;
 
@@ -759,6 +760,7 @@ function init<
   Storage?: any,
   NetworkListener?: any,
   versions?: { [key: string]: string },
+  EventSourceImpl?: any,
 ): InstantCoreDatabase<Schema, UseDates> {
   const existingClient = globalInstantCoreStore[
     reactorKey(config)
@@ -780,6 +782,7 @@ function init<
     Storage || IndexedDBStorage,
     NetworkListener || WindowNetworkListener,
     { ...(versions || {}), '@instantdb/core': version },
+    EventSourceImpl,
   );
 
   const client = new InstantCoreDatabase<any, Config['useDateObjects']>(
@@ -952,6 +955,9 @@ export {
   type FileOpts,
   type UploadFileResponse,
   type DeleteFileResponse,
+
+  // SSE
+  type EventSourceType,
 
   // error types
   type InstantIssue,

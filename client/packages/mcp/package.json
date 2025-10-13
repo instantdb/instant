@@ -35,7 +35,7 @@
     "instant-cli": "^0.19.20",
     "pino-pretty": "^13.0.0",
     "tsx": "^4.7.0",
-    "typescript": "^5.8.3",
+    "typescript": "^5.9.3",
     "vitest": "^1.6.0"
   },
   "dependencies": {

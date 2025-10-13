@@ -47,7 +47,7 @@
     "@types/node": "^18.11.18",
     "tsup": "^6.7.0",
     "type-fest": "^4.41.0",
-    "typescript": "^5.8.3"
+    "typescript": "^5.9.3"
   },
   "keywords": [],
   "author": "",

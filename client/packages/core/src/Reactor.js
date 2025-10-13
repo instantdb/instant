@@ -33,6 +33,7 @@ import { WSConnection, SSEConnection } from './Connection.ts';
 /** @typedef {import('./utils/log.ts').Logger} Logger */
 /** @typedef {import('./Connection.ts').Connection} Connection */
 /** @typedef {import('./Connection.ts').TransportType} TransportType */
+/** @typedef {import('./Connection.ts').EventSourceConstructor} EventSourceConstructor */
 
 const STATUS = {
   CONNECTING: 'connecting',
@@ -61,14 +62,27 @@ const currentUserKey = `currentUser`;
  * @param {string} config.appId
  * @param {string} config.apiURI
  * @param {string} config.wsURI
+ * @param {EventSourceConstructor} config.EventSourceImpl
  * @returns {WSConnection | SSEConnection}
  */
-function createTransport({ transportType, appId, apiURI, wsURI }) {
+function createTransport({
+  transportType,
+  appId,
+  apiURI,
+  wsURI,
+  EventSourceImpl,
+}) {
+  if (!EventSourceImpl) {
+    return new WSConnection(`${wsURI}?app_id=${appId}`);
+  }
   switch (transportType) {
     case 'ws':
       return new WSConnection(`${wsURI}?app_id=${appId}`);
     case 'sse':
-      return new SSEConnection(`${apiURI}/runtime/sse?app_id=${appId}`);
+      return new SSEConnection(
+        EventSourceImpl,
+        `${apiURI}/runtime/sse?app_id=${appId}`,
+      );
     default:
       throw new Error('Unknown transport type ' + transportType);
   }
@@ -165,6 +179,9 @@ export default class Reactor {
   _transport;
   /** @type {TransportType} */
   _transportType = 'ws';
+
+  /** @type {EventSourceConstructor} */
+  _EventSource;
   /** @type {boolean | null} */
   _wsOk = null;
   _localIdPromises = {};
@@ -196,7 +213,10 @@ export default class Reactor {
     Storage = IndexedDBStorage,
     NetworkListener = WindowNetworkListener,
     versions,
+    EventSourceConstructor,
   ) {
+    this._EventSource = EventSourceConstructor;
+
     this.config = { ...defaultConfig, ...config };
     this.queryCacheLimit = this.config.queryCacheLimit ?? 10;
 
@@ -1470,6 +1490,7 @@ export default class Reactor {
       appId: this.config.appId,
       apiURI: this.config.apiURI,
       wsURI: this.config.websocketURI,
+      EventSourceImpl: this._EventSource,
     });
     this._transport.onopen = this._transportOnOpen;
     this._transport.onmessage = this._transportOnMessage;

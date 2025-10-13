@@ -1,8 +1,24 @@
-import { EventSource } from 'eventsource';
+export interface EventSourceType {
+  readonly url: string;
+  readonly readyState: number;
+
+  onopen: ((this: EventSourceType, ev: Event) => any) | null;
+  onmessage: ((this: EventSourceType, ev: MessageEvent) => any) | null;
+  onerror: ((this: EventSourceType, ev: Event) => any) | null;
+
+  close(): void;
+}
+
+export interface EventSourceConstructor {
+  OPEN: number;
+  CONNECTING: number;
+  CLOSED: number;
+  new (url: string): EventSourceType;
+}
 
 let _connId = 0;
 
-type Conn = EventSource | WebSocket;
+type Conn = EventSourceType | WebSocket;
 
 type OpenEvent<T extends Conn> = {
   target: Connection<T>;
@@ -18,7 +34,7 @@ type SendMessageData = {
   [key: string]: any;
 };
 
-type MessageEvent<T extends Conn> = {
+type MsgEvent<T extends Conn> = {
   target: Connection<T>;
   message: MessageData;
 };
@@ -42,7 +58,7 @@ export interface Connection<T extends Conn> {
   isConnecting(): boolean;
   send(msg: SendMessageData): void;
   onopen: ((event: OpenEvent<T>) => void) | null;
-  onmessage: ((event: MessageEvent<T>) => void) | null;
+  onmessage: ((event: MsgEvent<T>) => void) | null;
   onclose: ((event: CloseEvent<T>) => void) | null;
   onerror: ((event: ErrorEvent<T>) => void) | null;
 }
@@ -53,7 +69,7 @@ export class WSConnection implements Connection<WebSocket> {
   conn: WebSocket;
   id: string;
   onopen: (event: OpenEvent<WebSocket>) => void;
-  onmessage: (event: MessageEvent<WebSocket>) => void;
+  onmessage: (event: MsgEvent<WebSocket>) => void;
   onclose: (event: CloseEvent<WebSocket>) => void;
   onerror: (event: ErrorEvent<WebSocket>) => void;
   constructor(url: string) {
@@ -107,25 +123,27 @@ type SSEInitParams = {
   sseToken: string;
 };
 
-export class SSEConnection implements Connection<EventSource> {
+export class SSEConnection implements Connection<EventSourceType> {
   type: TransportType = 'sse';
   private initParams: SSEInitParams | null = null;
   private sendQueue: any[] = [];
   private sendPromise: Promise<void> | null;
   private closeFired: boolean = false;
   private sseInitTimeout: NodeJS.Timeout | null = null;
-  conn: EventSource;
+  private ES: EventSourceConstructor;
+  conn: EventSourceType;
   url: string;
   id: string;
-  onopen: (event: OpenEvent<EventSource>) => void;
-  onmessage: (event: MessageEvent<EventSource>) => void;
-  onclose: (event: CloseEvent<EventSource>) => void;
-  onerror: (event: ErrorEvent<EventSource>) => void;
+  onopen: (event: OpenEvent<EventSourceType>) => void;
+  onmessage: (event: MsgEvent<EventSourceType>) => void;
+  onclose: (event: CloseEvent<EventSourceType>) => void;
+  onerror: (event: ErrorEvent<EventSourceType>) => void;
 
-  constructor(url: string) {
+  constructor(ES: EventSourceConstructor, url: string) {
     this.id = `${this.type}_${_connId++}`;
     this.url = url;
-    this.conn = new EventSource(url);
+    this.ES = ES;
+    this.conn = new ES(url);
 
     // Close the connection if we didn't get an init within 10 seconds
     this.sseInitTimeout = setTimeout(() => {
@@ -221,7 +239,7 @@ export class SSEConnection implements Connection<EventSource> {
           `Failed to execute 'send' on 'EventSource': Still in CONNECTING state.`,
         );
       }
-      if (this.conn.readyState === EventSource.CLOSED) {
+      if (this.conn.readyState === this.ES.CLOSED) {
         throw new Error(`EventSource is already in CLOSING or CLOSED state.`);
       }
       throw new Error(`EventSource is in invalid state.`);
@@ -231,15 +249,13 @@ export class SSEConnection implements Connection<EventSource> {
   }
 
   isOpen(): boolean {
-    return (
-      this.conn.readyState === EventSource.OPEN && this.initParams !== null
-    );
+    return this.conn.readyState === this.ES.OPEN && this.initParams !== null;
   }
 
   isConnecting(): boolean {
     return (
-      this.conn.readyState === EventSource.CONNECTING ||
-      (this.conn.readyState === EventSource.OPEN && this.initParams === null)
+      this.conn.readyState === this.ES.CONNECTING ||
+      (this.conn.readyState === this.ES.OPEN && this.initParams === null)
     );
   }
 

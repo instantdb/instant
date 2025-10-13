@@ -59,13 +59,12 @@
     "fake-indexeddb": "^6.0.0",
     "npm-run-all": "^4.1.5",
     "tshy": "^3.0.2",
-    "typescript": "^5.8.3",
+    "typescript": "^5.9.3",
     "vite": "^5.2.0",
     "vitest": "^1.6.0"
   },
   "dependencies": {
     "@instantdb/version": "workspace:*",
-    "eventsource": "^4.0.0",
     "mutative": "^1.0.10",
     "uuid": "^11.1.0"
   }
