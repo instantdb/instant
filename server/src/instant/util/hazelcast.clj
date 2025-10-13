@@ -222,12 +222,12 @@
 ;; SSE Message
 
 ;; Hack to avoid a cyclic dependency
-(def send-message (delay (resolve (symbol "instant.reactive.sse/send-message-callable"))))
+(def send-messages (delay (resolve (symbol "instant.reactive.sse/send-messages-callable"))))
 
-(defrecord SSEMessage [^UUID app-id ^UUID session-id ^bytes sse-token-hash message]
+(defrecord SSEMessage [^UUID app-id ^UUID session-id ^bytes sse-token-hash messages]
   Callable
   (call [_]
-    (@send-message app-id session-id sse-token-hash message)))
+    (@send-messages app-id session-id sse-token-hash messages)))
 
 (defn thaw-with-offset
   "Like nipppy/fast-thaw, but takes an offset and length from the byte array so that you
@@ -247,11 +247,11 @@
       (getTypeId [_]
         sse-message-type-id)
       (write ^bytes [_ obj]
-        (let [{:keys [message
+        (let [{:keys [messages
                       ^UUID app-id
                       ^UUID session-id
                       ^bytes sse-token-hash]} obj
-              ^bytes msg-bytes (nippy/fast-freeze message)
+              ^bytes msg-bytes (nippy/fast-freeze messages)
               bb (ByteBuffer/allocate (+ fixed-len
                                          (count msg-bytes)))]
           (.putLong bb (.getMostSignificantBits app-id))
@@ -268,8 +268,8 @@
               sse-token-hash (let [hash-bytes (byte-array 32)]
                                (.get bb hash-bytes)
                                hash-bytes)
-              message (thaw-with-offset in (.position bb) (.remaining bb))]
-          (SSEMessage. app-id session-id sse-token-hash message)))
+              messages (thaw-with-offset in (.position bb) (.remaining bb))]
+          (SSEMessage. app-id session-id sse-token-hash messages)))
       (destroy [_]))))
 
 (def sse-message-config

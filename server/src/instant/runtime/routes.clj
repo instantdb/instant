@@ -56,10 +56,8 @@
         app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)
         session-id (ex/get-param! req [:body :session_id] uuid-util/coerce)
         sse-token-hash (crypt-util/uuid->sha256 (ex/get-param! req [:body :sse_token] uuid-util/coerce))
-        message (ex/get-param! req [:body :message] (fn [message]
-                                                      (when (contains? message :op)
-                                                        message)))]
-    (sse/enqueue-message machine-id app-id session-id sse-token-hash message)
+        messages (ex/get-param! req [:body :messages] identity)]
+    (sse/enqueue-messages machine-id app-id session-id sse-token-hash messages)
     (response/ok {})))
 
 ;; -----------

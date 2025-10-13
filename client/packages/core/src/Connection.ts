@@ -110,6 +110,8 @@ type SSEInitParams = {
 export class SSEConnection implements Connection<EventSource> {
   type: TransportType = 'sse';
   private initParms: SSEInitParams | null = null;
+  private sendQueue: any[] = [];
+  private sendPromise: Promise<void> | null;
   conn: EventSource;
   url: string;
   id: string;
@@ -145,14 +147,20 @@ export class SSEConnection implements Connection<EventSource> {
     };
 
     this.conn.onerror = (e) => {
-      try {
-        if (this.onerror) {
-          this.onerror({ target: this });
-        }
-      } finally {
-        this.handleClose();
-      }
+      this.handleError();
     };
+  }
+
+  // Runs the onerror and closes the connection
+  // XXX: Retry retriable errors?
+  private handleError() {
+    try {
+      if (this.onerror) {
+        this.onerror({ target: this });
+      }
+    } finally {
+      this.handleClose();
+    }
   }
 
   private handleClose() {
@@ -160,6 +168,36 @@ export class SSEConnection implements Connection<EventSource> {
     if (this.onclose) {
       this.onclose({ target: this });
     }
+  }
+
+  private async postMessages(messages: any[]): Promise<void> {
+    try {
+      await fetch(this.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          machine_id: this.initParms.machineId,
+          session_id: this.initParms.sessionId,
+          sse_token: this.initParms.sseToken,
+          messages,
+        }),
+      });
+    } catch (e) {
+      this.handleError();
+    }
+  }
+
+  private async flushQueue() {
+    if (this.sendPromise || !this.sendQueue.length) return;
+
+    const messages = this.sendQueue;
+    this.sendQueue = [];
+    const sendPromise = this.postMessages(messages);
+    this.sendPromise = sendPromise;
+    sendPromise.then(() => {
+      this.sendPromise = null;
+      this.flushQueue();
+    });
   }
 
   send(msg: SendMessageData) {
@@ -174,17 +212,8 @@ export class SSEConnection implements Connection<EventSource> {
       }
       throw new Error(`EventSource is in invalid state.`);
     }
-    // XXX: close if something weird happens?
-    fetch(this.url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        machine_id: this.initParms.machineId,
-        session_id: this.initParms.sessionId,
-        sse_token: this.initParms.sseToken,
-        message: msg,
-      }),
-    });
+    this.sendQueue.push(msg);
+    this.flushQueue();
   }
 
   isOpen(): boolean {

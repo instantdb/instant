@@ -12,13 +12,13 @@
    (com.hazelcast.core HazelcastInstance IExecutorService)
    (java.util UUID)))
 
-(defn send-message-to-member [^Member member
-                              ^UUID app-id
-                              ^UUID session-id
-                              ^bytes sse-token-hash
-                              message]
+(defn send-messages-to-member [^Member member
+                               ^UUID app-id
+                               ^UUID session-id
+                               ^bytes sse-token-hash
+                               messages]
   (let [executor (HazelcastInstance/.getExecutorService (eph/get-hz) "sse-send-message")
-        ^Callable callable (h/->SSEMessage app-id session-id sse-token-hash message)
+        ^Callable callable (h/->SSEMessage app-id session-id sse-token-hash messages)
         instant-error (deref (IExecutorService/.submitToMember executor
                                                                callable
                                                                member))]
@@ -26,27 +26,26 @@
       (throw (ex-info (:message instant-error)
                       (:ex-data instant-error))))))
 
+(defn send-messages-callable* [^UUID app-id
+                               ^UUID session-id
+                               ^bytes sse-token-hash
+                               messages]
+  (session/sse-on-messages rs/store {:app-id app-id
+                                     :session-id session-id
+                                     :sse-token-hash sse-token-hash
+                                     :messages messages}))
 
-(defn send-message-callable* [^UUID app-id
+;; If you change the name of this function or move it to a different
+;; namespace, update instant.util.hazelcast/send-messages
+(defn send-messages-callable [^UUID app-id
                               ^UUID session-id
                               ^bytes sse-token-hash
-                              message]
-  (session/sse-on-message rs/store {:app-id app-id
-                                    :session-id session-id
-                                    :sse-token-hash sse-token-hash
-                                    :message message}))
-
-;; If you change the name of this function or move it to a different namespace,
-;; update instant.util.hazelcast/send-message
-(defn send-message-callable [^UUID app-id
-                             ^UUID session-id
-                             ^bytes sse-token-hash
-                             message]
-  (tracer/with-span! {:name "sse/send-message-callable"
+                              messages]
+  (tracer/with-span! {:name "sse/send-messages-callable"
                       :attributes {:app-id app-id
                                    :session-id session-id}}
     (try
-      (send-message-callable* app-id session-id sse-token-hash message)
+      (send-messages-callable* app-id session-id sse-token-hash messages)
       nil
       (catch clojure.lang.ExceptionInfo e
         ;; Reduce the amount of data we send through hz for ordinary errors
@@ -61,22 +60,23 @@
        ;; so we test both paths while developing.
        (= (rand-int 2) 1)))
 
-(defn enqueue-message [^UUID machine-id
-                       ^UUID app-id
-                       ^UUID session-id
-                       ^bytes sse-token-hash
-                       message]
+(defn enqueue-messages [^UUID machine-id
+                        ^UUID app-id
+                        ^UUID session-id
+                        ^bytes sse-token-hash
+                        messages]
   (let [handle-locally? (and (= machine-id config/machine-id)
                              (skip-hz-in-dev?))]
-    (tracer/with-span! {:name "sse/enqueue-message"
+    (tracer/with-span! {:name "sse/enqueue-messages"
                         :attributes {:app-id app-id
                                      :machine-id machine-id
                                      :session-id session-id
-                                     :handle-locally? handle-locally?}}
+                                     :handle-locally? handle-locally?
+                                     :message-count (count messages)}}
       (if handle-locally?
-          ;; Skip hazelcast if the session lives on our machine.
-          (send-message-callable* app-id session-id sse-token-hash message)
+        ;; Skip hazelcast if the session lives on our machine.
+        (send-messages-callable* app-id session-id sse-token-hash messages)
         (let [member (get eph/hz-member-by-machine-id-cache machine-id)]
           (when-not member
             (ex/throw-member-missing! machine-id))
-          (send-message-to-member member app-id session-id sse-token-hash message))))))
+          (send-messages-to-member member app-id session-id sse-token-hash messages))))))

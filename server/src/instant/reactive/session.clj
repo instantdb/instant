@@ -690,7 +690,7 @@
                                     (update :op keyword)
                                     (assoc :session-id id))))
 
-(defn sse-on-message [store {:keys [session-id sse-token-hash message]}]
+(defn sse-on-messages [store {:keys [session-id sse-token-hash messages]}]
   (let [socket (:session/socket (rs/session store session-id))
         stored-token-hash (:sse-token-hash socket)]
     (when (or (not stored-token-hash)
@@ -698,9 +698,10 @@
                                                stored-token-hash)))
       ;; XXX: Check that this gives the user a good error (or just handle it elsewhere)
       (ex/throw-session-missing! {:sess-id session-id}))
-    (receive-queue/put! (:receive-q socket) (-> message
-                                                (update :op keyword)
-                                                (assoc :session-id session-id)))))
+    (doseq [message messages]
+      (receive-queue/put! (:receive-q socket) (-> message
+                                                  (update :op keyword)
+                                                  (assoc :session-id session-id))))))
 
 (defn on-error [{:keys [id error]}]
   (condp instance? error
