@@ -183,10 +183,10 @@ await guestDB.query({ publicData: {} });
 
 This approach is perfect for places where you need something like the Admin SDK, but don't want to expose admin credentials.
 
-For example, what if you want to run a background daemon on a user's machine? You can't use the client SDK, because you don't need permissions. You wouldn't want to provide the admin token, because this code runs on a user's machine. That's when impersonation really comes in handy.
+For example, what if you want to run a background daemon on a user's machine? You can't use the client SDK, because you don't need optimistic updates. You wouldn't want to provide the admin token, because this code runs on a user's machine. That's when impersonation really comes in handy.
 
 {% callout type="note" %}
-Without an `adminToken`, you must use `.asUser()` for all operations. Direct queries and transactions on the base `db` instance will fail since they require admin privileges. In protected environments, we recommend including the adminToken.
+Without an `adminToken`, you must use `.asUser({ token })` or `asUser({ guest: true })` for all operations. Direct queries and transactions on the base `db` instance will fail, and you won't be able to impersonate with `asUser({ email })`. In protected environments we definitely recommend including the `adminToken`.
 {% /callout %}
 
 ## Retrieve a user
