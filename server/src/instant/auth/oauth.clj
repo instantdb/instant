@@ -17,6 +17,8 @@
    (java.time Duration Instant)
    (java.util Base64)))
 
+;; Extra params for OAuth authorization URL
+;; "hd" parameter is supported by Google 
 (def allowed-extra-params [:hd])
 
 (defprotocol OAuthClient
@@ -40,15 +42,12 @@
                               ^Secret client-secret
                               meta]
   OAuthClient
-  (create-authorization-url [_ state redirect-url extra-params]
-    (let [base-params {:scope (:default-scope github-config)
-                       :response_type "code"
-                       :state state
-                       :redirect_uri redirect-url
-                       :client_id client-id}
-          params (merge base-params
-                        (or (select-keys extra-params allowed-extra-params)
-                            {}))]
+  (create-authorization-url [_ state redirect-url _extra-params]
+    (let [params {:scope (:default-scope github-config)
+                  :response_type "code"
+                  :state state
+                  :redirect_uri redirect-url
+                  :client_id client-id}]
       (url/add-query-params (:auth-url github-config) params)))
 
   (get-user-info [_ code redirect-url]
