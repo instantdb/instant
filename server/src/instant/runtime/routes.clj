@@ -419,8 +419,7 @@
           _ (when (= :error (:type user-info))
               (return-error (:message user-info) :oauth-redirect oauth-redirect))
 
-          email (or (email/coerce (:email user-info))
-                    (return-error "Invalid email." :oauth-redirect oauth-redirect))
+          email (email/coerce (:email user-info))
 
           sub (or (:sub user-info)
                   (return-error "Missing sub." :oauth-redirect oauth-redirect))
