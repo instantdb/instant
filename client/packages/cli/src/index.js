@@ -37,7 +37,11 @@ import {
 import { pathExists, readJsonFile } from './util/fs.js';
 import prettier from 'prettier';
 import toggle from './toggle.js';
-import { CancelSchemaError, renderSchemaPlan } from './renderSchemaPlan.js';
+import {
+  CancelSchemaError,
+  groupSteps,
+  renderSchemaPlan,
+} from './renderSchemaPlan.js';
 
 const execAsync = promisify(exec);
 
@@ -1232,10 +1236,12 @@ async function waitForIndexingJobsToFinish(appId, data) {
         if (!completedIds.has(job.id)) {
           completedIds.add(job.id);
           const msg = indexingJobCompletedMessage(job);
-          if (job.job_status === 'errored') {
-            errorMessages.push(msg);
-          } else {
-            completedMessages.push(msg);
+          if (msg) {
+            if (job.job_status === 'errored') {
+              errorMessages.push(msg);
+            } else {
+              completedMessages.push(msg);
+            }
           }
         }
       }
@@ -1344,7 +1350,9 @@ async function pushSchema(appId, _opts) {
   const diffResult = await diffSchemas(oldSchema, schema, resolveRenames);
 
   try {
-    await renderSchemaPlan(diffResult, currentAttrs);
+    const groupedSteps = groupSteps(diffResult);
+    const lines = renderSchemaPlan(groupedSteps, currentAttrs);
+    console.log(lines.join('\n'));
   } catch (error) {
     if (error instanceof CancelSchemaError) {
       console.info('Schema migration cancelled!');

@@ -6,6 +6,7 @@ import {
 } from '@instantdb/platform';
 import chalk from 'chalk';
 import { promptOk } from './index.js';
+import stripAnsi from 'strip-ansi';
 
 // Hack to prevent using @instantdb/core as a dependency for cli
 type InstantDBAttr = Parameters<typeof convertTxSteps>[1][0];
@@ -27,7 +28,7 @@ const renderLinkUpdate = (
       }) || null
     : null;
 
-  let changeType: 'UPDATE' | 'RENAME' = 'UPDATE';
+  let changeType: 'UPDATE' | 'RENAME' | 'RENAME REVERSE' = 'UPDATE';
 
   if (
     tx.partialAttr['forward-identity']?.attrName &&
@@ -45,21 +46,30 @@ const renderLinkUpdate = (
       oldAttr['reverse-identity']?.[2] !==
         tx.partialAttr['reverse-identity'].attrName
     ) {
-      changeType = 'RENAME';
+      changeType = 'RENAME REVERSE';
     }
 
     reverseLabel = ` <-> ${oldAttr['reverse-identity']![1]}.${oldAttr['reverse-identity']![2]}`;
+
     if (!oldAttr['on-delete'] && tx.partialAttr['on-delete']) {
-      details.push(`(SET CASCADE DELETE)`);
+      details.push(
+        `(SET ON DELETE ${oldAttr['reverse-identity']![1]} CASCADE DELETE ${oldAttr['forward-identity'][1]})`,
+      );
     }
     if (!oldAttr['on-delete-reverse'] && tx.partialAttr['on-delete-reverse']) {
-      details.push(`(SET REVERSE CASCADE DELETE)`);
+      details.push(
+        `(SET ON DELETE ${oldAttr['forward-identity']![1]} CASCADE DELETE ${oldAttr['reverse-identity']![1]})`,
+      );
     }
     if (oldAttr['on-delete'] && !oldAttr['on-delete-reverse']) {
-      details.push(`(REMOVE CASCADE DELETE)`);
+      details.push(
+        `(REMOVE CASCADE DELETE ON ${oldAttr['reverse-identity']![1]})`,
+      );
     }
     if (oldAttr['on-delete-reverse'] && !oldAttr['on-delete-reverse']) {
-      details.push(`(REMOVE REVERSE CASCADE DELETE)`);
+      details.push(
+        `(REMOVE REVERSE CASCADE DELETE ON ${oldAttr['forward-identity'][1]})`,
+      );
     }
   }
 
@@ -73,16 +83,27 @@ export class CancelSchemaError extends Error {
   }
 }
 
+const getRelationship = (
+  cardinality: 'one' | 'many',
+  unique: boolean,
+): string[] => {
+  if (cardinality === 'many' && !unique) return ['many', 'many'];
+  if (cardinality === 'one' && unique) return ['one', 'one'];
+  if (cardinality === 'many' && unique) return ['many', 'one'];
+  if (cardinality === 'one' && !unique) return ['one', 'many'];
+  throw new Error('Invalid relationship');
+};
+
 type AddOrDeleteAttr =
   | MigrationTxSpecific<'add-attr'>
   | MigrationTxSpecific<'delete-attr'>;
 
 type SuperMigrationTx =
   | MigrationTx
-  | { type: 'create-namespace'; namespace: string; attrs: string[] }
-  | { type: 'delete-namespace'; namespace: string; attrs: string[] };
+  | { type: 'create-namespace'; namespace: string; innerSteps: MigrationTx[] }
+  | { type: 'delete-namespace'; namespace: string; innerSteps: MigrationTx[] };
 
-const groupSteps = (steps: MigrationTx[]): SuperMigrationTx[] => {
+export const groupSteps = (steps: MigrationTx[]): SuperMigrationTx[] => {
   const { addOrDelSteps, otherSteps } = steps.reduce(
     (acc, step) => {
       if (step.type === 'add-attr' || step.type === 'delete-attr') {
@@ -120,7 +141,7 @@ const groupSteps = (steps: MigrationTx[]): SuperMigrationTx[] => {
           {
             type: 'delete-namespace',
             namespace: namedGroup[0].identifier.namespace,
-            attrs: namedGroup.map((step) => step.identifier.attrName),
+            innerSteps: namedGroup,
           } satisfies SuperMigrationTx as SuperMigrationTx,
         ];
       }
@@ -136,7 +157,7 @@ const groupSteps = (steps: MigrationTx[]): SuperMigrationTx[] => {
           {
             type: 'create-namespace',
             namespace: namedGroup[0].identifier.namespace,
-            attrs: namedGroup.map((step) => step.identifier.attrName),
+            innerSteps: namedGroup,
           } satisfies SuperMigrationTx as SuperMigrationTx,
         ];
       }
@@ -148,42 +169,80 @@ const groupSteps = (steps: MigrationTx[]): SuperMigrationTx[] => {
   return [...collapsed, ...otherSteps];
 };
 
-export const renderSchemaPlan = async (
-  planSteps: MigrationTx[],
-  prevAttrs?: InstantDBAttr[],
-) => {
-  const groupedSteps = groupSteps(planSteps);
+export const confirmImportantSteps = async (planSteps: SuperMigrationTx[]) => {
+  for (const step of planSteps) {
+    if (step.type === 'delete-namespace') {
+      const ok = await promptOk(
+        `Are you sure you want to delete namespace ${step.namespace}?`,
+      );
+      if (!ok) {
+        throw new CancelSchemaError(`Deletion of namespace ${step.namespace}`);
+      }
+    }
+  }
+};
 
-  for (const step of groupedSteps) {
+const createDotName = (step: MigrationTx) => {
+  return `${step.identifier.namespace}.${step.identifier.attrName}`;
+};
+
+export const renderSchemaPlan = (
+  planSteps: SuperMigrationTx[],
+  prevAttrs?: InstantDBAttr[],
+): string[] => {
+  const result: string[] = [];
+
+  const addLine = (line: string) => {
+    result.push(line);
+  };
+
+  const addSecondaryLine = (line: string) => {
+    addLine(`  ${chalk.italic(chalk.gray(stripAnsi(line)))}`);
+  };
+
+  for (const step of planSteps) {
     switch (step.type) {
       case 'create-namespace':
-        console.log(
-          `${chalk.bgGreen.black(' + CREATE NAMESPACE ')} ${step.namespace}  ${step.attrs.length > 0 ? ` (${step.attrs.join(', ')})` : ''}`,
+        addLine(
+          `${chalk.bgGreen.black(' + CREATE NAMESPACE ')} ${step.namespace}`,
+        );
+        renderSchemaPlan(step.innerSteps, prevAttrs).forEach((outputLine) =>
+          addSecondaryLine(outputLine),
         );
         break;
       case 'delete-namespace':
-        const ok = await promptOk(
-          `Are you sure you want to delete namespace ${step.namespace}?`,
-        );
-        if (!ok) {
-          throw new CancelSchemaError(
-            `Deletion of namespace ${step.namespace}`,
-          );
-        }
-
-        console.log(
-          `${chalk.bgRed(' - DELETE NAMESPACE ')} ${step.namespace}${step.attrs.length > 0 ? ` (${step.attrs.join(', ')})` : ''}`,
-        );
+        addLine(`${chalk.bgRed(' - DELETE NAMESPACE ')} ${step.namespace}`);
         break;
       case 'add-attr':
         if (step['value-type'] === 'ref' && step['reverse-identity']) {
-          console.log(
-            `${chalk.bgGreen.black(' + CREATE LINK ')} ${step.identifier.namespace}.${step.identifier.attrName} <-> ${step['reverse-identity'].namespace}.${step['reverse-identity'].attrName}`,
+          addLine(
+            `${chalk.bgGreen.black(' + CREATE LINK ')} ${createDotName(step)} <-> ${step['reverse-identity'].namespace}.${step['reverse-identity'].attrName}`,
+          );
+          addSecondaryLine(
+            '  ' +
+              getRelationship(step.cardinality, step['unique?'])
+                .join(' <-> ')
+                .toUpperCase(),
           );
         } else {
-          console.log(
-            `${chalk.bgGreen.black(' + CREATE ATTR ')} ${step.identifier.namespace}.${step.identifier.attrName}`,
+          addLine(
+            `${chalk.bgGreen.black(' + CREATE ATTR ')} ${createDotName(step)}`,
           );
+          if (
+            step['checked-data-type'] &&
+            step['checked-data-type'] !== 'json'
+          ) {
+            addSecondaryLine('   DATA TYPE: ' + step['checked-data-type']);
+          }
+          if (step['unique?'] && step.identifier.attrName !== 'id') {
+            addSecondaryLine('   UNIQUE');
+          }
+          if (!step['required?']) {
+            addSecondaryLine('   OPTIONAL');
+          }
+          if (step['index?']) {
+            addSecondaryLine('   INDEXED');
+          }
         }
         break;
       case 'delete-attr':
@@ -197,63 +256,61 @@ export const renderSchemaPlan = async (
           : null;
 
         if (oldAttr?.['value-type'] === 'ref') {
-          console.log(
+          addLine(
             `${chalk.bgRed(' - DELETE LINK ')} ${step.identifier.namespace}.${step.identifier.attrName}`,
           );
           break;
         }
 
-        console.log(
-          `${chalk.bgRed(' - DELETE ATTR ')} ${step.identifier.namespace}.${step.identifier.attrName}`,
-        );
+        addLine(`${chalk.bgRed(' - DELETE ATTR ')} ${createDotName(step)}`);
         break;
       case 'update-attr':
         if (step.partialAttr['value-type'] === 'ref') {
-          console.log(renderLinkUpdate(step, prevAttrs));
+          addLine(renderLinkUpdate(step, prevAttrs));
         } else {
-          console.log(
-            `${chalk.bgYellow.black(' * UPDATE ATTR ')} ${step.identifier.namespace}.${step.identifier.attrName}`,
+          addLine(
+            `${chalk.bgYellow.black(' * UPDATE ATTR ')} ${createDotName(step)}`,
           );
         }
         break;
       case 'index':
-        console.log(
-          `${chalk.bgBlue.black(' + CREATE INDEX ')} ${step.identifier.namespace}.${step.identifier.attrName}`,
+        addLine(
+          `${chalk.bgBlue.black(' + CREATE INDEX ')} ${createDotName(step)}`,
         );
         break;
       case 'remove-index':
-        console.log(
-          `${chalk.bgBlue.black(' - DELETE INDEX ')} ${step.identifier.namespace}.${step.identifier.attrName}`,
+        addLine(
+          `${chalk.bgBlue.black(' - DELETE INDEX ')} ${createDotName(step)}`,
         );
         break;
       case 'required':
-        console.log(
-          `${chalk.bgBlue.black(' + MAKE REQUIRED ')} ${step.identifier.namespace}.${step.identifier.attrName}`,
+        addLine(
+          `${chalk.bgBlue.black(' + MAKE REQUIRED ')} ${createDotName(step)}`,
         );
         break;
       case 'unique':
-        console.log(
-          `${chalk.bgBlue.black(' * MAKE UNIQUE ')} ${step.identifier.namespace}.${step.identifier.attrName}`,
+        addLine(
+          `${chalk.bgBlue.black(' * MAKE UNIQUE ')} ${createDotName(step)}`,
         );
         break;
       case 'remove-required':
-        console.log(
-          `${chalk.bgBlue.black(' - MAKE OPTIONAL ')} ${step.identifier.namespace}.${step.identifier.attrName}`,
+        addLine(
+          `${chalk.bgBlue.black(' - MAKE OPTIONAL ')} ${createDotName(step)}`,
         );
         break;
       case 'remove-unique':
-        console.log(
-          `${chalk.bgBlue.black(' - REMOVE UNIQUE CONSTRAINT')} ${step.identifier.namespace}.${step.identifier.attrName}`,
+        addLine(
+          `${chalk.bgBlue.black(' - REMOVE UNIQUE CONSTRAINT')} ${createDotName(step)}`,
         );
         break;
       case 'check-data-type':
-        console.log(
-          `${chalk.bgBlue.black(' + SET DATA TYPE ')} ${step.identifier.namespace}.${step.identifier.attrName} ${chalk.dim(step['checked-data-type'])}`,
+        addLine(
+          `${chalk.bgBlue.black(' + SET DATA TYPE ')} ${createDotName(step)} ${chalk.dim(step['checked-data-type'])}`,
         );
         break;
       case 'remove-data-type':
-        console.log(
-          `${chalk.bgBlue.black(' - REMOVE DATA TYPE CONSTRAINT ')} ${step.identifier.namespace}.${step.identifier.attrName}`,
+        addLine(
+          `${chalk.bgBlue.black(' - REMOVE DATA TYPE CONSTRAINT ')} ${createDotName(step)}`,
         );
         break;
 
@@ -261,4 +318,6 @@ export const renderSchemaPlan = async (
         const unknownStep: never = step;
     }
   }
+
+  return result;
 };
