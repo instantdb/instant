@@ -32,9 +32,23 @@
   {:auth-url "https://github.com/login/oauth/authorize"
    :token-url "https://github.com/login/oauth/access_token"
    :user-url "https://api.github.com/user"
+   :emails-url "https://api.github.com/user/emails"
    :default-scope "read:user user:email"
    :headers {"Accept" "application/json"
              "User-Agent" "InstantDB OAuth"}})
+
+(defn fetch-github-primary-email
+  "Fetches the primary verified email from GitHub emails API response"
+  [access-token]
+  (let [res (clj-http/get (:emails-url github-config)
+                          {:throw-exceptions false
+                           :as :json
+                           :coerce :always
+                           :headers (merge (:headers github-config)
+                                           {"Authorization" (str "Bearer " access-token)})})
+        emails (when (clj-http/success? res)
+                 (:body res))]
+    (some #(when (and (:verified %) (:primary %)) (:email %)) emails)))
 
 (defrecord GitHubOAuthClient [app-id
                               provider-id
@@ -78,15 +92,16 @@
                 {:type :error :message (get-in user-resp [:body :message] "Failed to fetch user info from GitHub.")}
                 (let [user-data (:body user-resp)
                       user-id (:id user-data)
-                      email (:email user-data)
-                      avatar-url (:avatar_url user-data)]
+                      avatar-url (:avatar_url user-data)
+                      email (fetch-github-primary-email access-token)]
                   (tracer/with-span! {:name "oauth/github-user-info"
                                       :attributes {:has-email (boolean email)
                                                    :has-id (boolean user-id)
                                                    :has-avatar (boolean avatar-url)}}
+
                     (if user-id
                       {:type :success
-                       :email email  ;; Will be nil if user has private email
+                       :email email
                        :sub (str user-id)
                        :imageURL avatar-url}
                       {:type :error
