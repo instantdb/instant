@@ -9,7 +9,7 @@ export interface Closable {
 
 export type ModifyOutputFn = (
   output: string,
-  status: 'idle' | 'submitted' | 'aborted',
+  status?: 'idle' | 'submitted' | 'aborted',
 ) => string;
 
 export abstract class Prompt<RESULT> {

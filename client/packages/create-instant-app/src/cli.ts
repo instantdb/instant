@@ -207,6 +207,7 @@ export const runCli = async (): Promise<Project> => {
               { value: 'zed', label: 'Zed' },
             ],
             defaultValue: null as Project['ruleFiles'],
+            modifyOutput: UI.ciaModifier,
           }),
         );
       },

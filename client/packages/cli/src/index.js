@@ -21,7 +21,6 @@ import dotenvFlow from 'dotenv-flow';
 import chalk from 'chalk';
 import { program, Option } from 'commander';
 import { input, select } from '@inquirer/prompts';
-import envPaths from 'env-paths';
 import { loadConfig } from './util/loadConfig.js';
 import { packageDirectory } from 'pkg-dir';
 import openInBrowser from 'open';
@@ -42,6 +41,7 @@ import {
   groupSteps,
   renderSchemaPlan,
 } from './renderSchemaPlan.js';
+import { getAuthPaths } from './util/getAuthPaths.js';
 
 const execAsync = promisify(exec);
 
@@ -1783,7 +1783,7 @@ async function readConfigAuthToken() {
   return authToken;
 }
 
-async function readConfigAuthTokenWithErrorLogging() {
+export async function readConfigAuthTokenWithErrorLogging() {
   const token = await readConfigAuthToken();
   if (!token) {
     error(
@@ -1809,14 +1809,6 @@ async function saveConfigAuthToken(authToken) {
   });
 
   return writeFile(authPaths.authConfigFilePath, authToken, 'utf-8');
-}
-
-function getAuthPaths() {
-  const key = `instantdb-${dev ? 'dev' : 'prod'}`;
-  const { config: appConfigDirPath } = envPaths(key);
-  const authConfigFilePath = join(appConfigDirPath, 'a');
-
-  return { authConfigFilePath, appConfigDirPath };
 }
 
 // utils

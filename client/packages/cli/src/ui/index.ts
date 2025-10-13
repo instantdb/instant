@@ -1,6 +1,8 @@
 import chalk from 'chalk';
 import boxen from 'boxen';
 import { ModifyOutputFn, Prompt, SelectState } from './lib.js';
+import { readFile } from 'fs/promises';
+import { getAuthPaths } from '../util/getAuthPaths.js';
 
 export { render, renderUnwrap } from './lib.js';
 
@@ -8,7 +10,7 @@ export namespace UI {
   type Status = 'idle' | 'submitted' | 'aborted';
   export const modifiers = {
     piped: (modifiers: ModifyOutputFn[]): ModifyOutputFn => {
-      return (output: string, status) => {
+      return (output: string, status?: Status) => {
         return modifiers.reduce(
           (acc, modifier) => modifier(acc, status),
           output,
@@ -20,7 +22,7 @@ export namespace UI {
       return '\n' + output + '\n';
     },
 
-    sidelined: (output: string, status: Status) => {
+    sidelined: (output: string, status?: Status) => {
       const result: string[] = [];
       const lastIndex = output.split('\n').length - 1;
 
@@ -43,7 +45,7 @@ export namespace UI {
       return chalk.bgBlackBright(output);
     },
 
-    dimOnComplete: (output: string, status: Status) => {
+    dimOnComplete: (output: string, status?: Status) => {
       if (status === 'submitted' || status === 'aborted') {
         return chalk.dim(output);
       }
@@ -65,7 +67,7 @@ export namespace UI {
     modifyOutput?: ModifyOutputFn,
     ...args: any[]
   ) => {
-    const finalOutput = modifyOutput ? modifyOutput(output, 'idle') : output;
+    const finalOutput = modifyOutput ? modifyOutput(output) : output;
     if (finalOutput.endsWith('\n')) {
       process.stdout.write(finalOutput, ...args);
     } else {
@@ -439,6 +441,107 @@ ${yesStyle}  ${noStyle}`;
           }
         }
         this.requestLayout();
+      });
+    }
+  }
+
+  type App = {
+    admin_token: string;
+    magic_code_email_template: null;
+    id: string;
+    title: string;
+    created_at: string;
+  };
+  type Org = {
+    id: string;
+    title: string;
+    role: string;
+  };
+
+  interface AppSelectorApi {
+    getDash: () => { apps: App[]; orgs: Org[] };
+    // createEphemeralApp: (title: string) => Promise<{
+    //   appId: string;
+    //   adminToken: string;
+    // }>;
+    // getAppsForOrg: (orgId: string) => Promise<{
+    //   apps: any[];
+    // }>;
+    // createApp: (title: string, orgId?: string) => Promise<any>;
+  }
+
+  type AppSelectorProps = {
+    allowEphemeral: boolean;
+    allowCreate: boolean;
+    modifyOutput?: (output: string) => string;
+    api: AppSelectorApi;
+  };
+
+  export class AppSelector extends Prompt<{
+    appId: string;
+    adminToken: string;
+    approach: 'ephemeral' | 'import' | 'create';
+  }> {
+    props: AppSelectorProps;
+    api: AppSelectorApi;
+    dashResponse: { apps: App[]; orgs: Org[] };
+
+    focusLocation: string;
+
+    HEIGHT = 10;
+
+    result(): {
+      appId: string;
+      adminToken: string;
+      approach: 'ephemeral' | 'import' | 'create';
+    } {
+      throw new Error('Method not implemented.');
+    }
+
+    leftView(): string {
+      return boxen('left side', {
+        height: this.HEIGHT,
+        borderStyle: 'none',
+        width: 20,
+      });
+    }
+
+    rightView(): string {
+      return boxen('right side', {
+        height: this.HEIGHT,
+        borderStyle: 'none',
+        width: 30,
+      });
+    }
+
+    render(status: 'idle' | 'submitted' | 'aborted'): string {
+      const leftSide = this.leftView();
+      const rightSide = this.rightView();
+
+      const leftLines = leftSide.split('\n');
+      const rightLines = rightSide.split('\n');
+      const maxLines = Math.max(leftLines.length, rightLines.length);
+
+      const combinedLines: string[] = [];
+      for (let i = 0; i < maxLines; i++) {
+        const leftLine = leftLines[i] || '';
+        const rightLine = rightLines[i] || '';
+        combinedLines.push(leftLine + '│' + rightLine);
+      }
+
+      return boxen(combinedLines.join('\n'));
+    }
+
+    constructor(props: AppSelectorProps) {
+      super(props.modifyOutput);
+      this.props = props;
+      this.api = props.api;
+      this.dashResponse = this.api.getDash();
+      this.on('attach', (terminal) => {
+        terminal.toggleCursor('hide');
+      });
+      this.on('detach', (terminal) => {
+        terminal.toggleCursor('show');
       });
     }
   }
