@@ -109,12 +109,12 @@ const CONVERTERS: AllConvertPlanStepFns = {
 
   'delete-attr': (from, existing) => {
     const found = findAttrFromExisting(from.identifier, existing);
-    if (found) {
-      return found.id;
+    if (!found) {
+      throw new Error(
+        `Attribute ${from.identifier.namespace}.${from.identifier.attrName} not found`,
+      );
     }
-    throw new Error(
-      `Attribute ${from.identifier.namespace}.${from.identifier.attrName} not found`,
-    );
+    return found.id;
   },
   'update-attr': (from, existing) => {
     const found = findAttrFromExisting(from.identifier, existing);
