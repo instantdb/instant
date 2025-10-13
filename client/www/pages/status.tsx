@@ -10,6 +10,7 @@ import styles from '@/styles/status.module.css';
 import type { InferGetServerSidePropsType, GetServerSideProps } from 'next';
 import type { UptimeResponse, Monitor } from '@/lib/uptimeAPI';
 import * as uptimeAPI from '@/lib/uptimeAPI';
+import { useEffect, useState, useRef } from 'react';
 
 export const getServerSideProps = (async (ctx) => {
   // This is considered `fresh` for 10 the next 10 seconds.
@@ -108,6 +109,32 @@ function MonitorDisplay({
   monitor: Monitor | undefined;
   title: string;
 }) {
+  const [clickedIndex, setClickedIndex] = useState<number | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const handleClick = (index: number) => {
+    setClickedIndex(clickedIndex === index ? null : index);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
+        setClickedIndex(null);
+      }
+    };
+
+    if (clickedIndex !== null) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [clickedIndex]);
+
   return (
     <>
       <div className="mb-3 flex flex-col items-start justify-between sm:flex-row sm:items-center">
@@ -142,7 +169,7 @@ function MonitorDisplay({
           </span>
         </div>
       </div>
-      <div className="flex h-10 gap-px">
+      <div ref={containerRef} className="flex h-10 gap-px">
         {(monitor?.daily_uptime || Array(90).fill(null)).map(
           (percentage: number | null, index: number) => {
             const date = new Date();
@@ -156,15 +183,67 @@ function MonitorDisplay({
             return (
               <div
                 key={index}
-                className="flex-1 cursor-pointer rounded-sm transition-opacity hover:opacity-80"
+                className="relative flex-1 cursor-pointer rounded-sm transition-all hover:scale-105 hover:opacity-80"
                 style={{
                   backgroundColor:
                     percentage !== null
                       ? getUptimeColor(percentage)
                       : ERR_COLOR,
                 }}
-                title={`${dateStr}: ${percentage !== null ? `${percentage.toFixed(3)}% uptime` : 'Loading...'}`}
-              ></div>
+                onClick={() => handleClick(index)}
+              >
+                {clickedIndex === index ? (
+                  <div className="absolute bottom-full left-1/2 z-50 mb-3 flex w-72 -translate-x-1/2 flex-col rounded-lg border-2 border-gray-300 bg-white shadow-2xl">
+                    <div className="flex flex-col items-center gap-3 border-b-2 border-gray-200 px-5 py-4">
+                      <div className="text-sm font-semibold text-gray-800">
+                        {dateStr}
+                      </div>
+                      <div
+                        className="text-2xl font-bold"
+                        style={{
+                          color:
+                            percentage !== null
+                              ? getUptimeColor(percentage)
+                              : ERR_COLOR,
+                        }}
+                      >
+                        {percentage !== null
+                          ? `${percentage.toFixed(3)}%`
+                          : 'Loading...'}
+                      </div>
+                    </div>
+                    <div className="px-5 py-4">
+                      <div className="space-y-3">
+                        {/* here you guys can fill in the placeholders with working logic */}
+                        <div className="flex justify-between">
+                          <span className="text-xs font-semibold text-gray-700">
+                            Status
+                          </span>
+                          <span className="text-xs text-gray-600">
+                            Operational
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-xs font-semibold text-gray-700">
+                            Downtime
+                          </span>
+                          <span className="text-xs text-gray-600">
+                            0 minutes
+                          </span>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-xs font-semibold text-gray-700">
+                            Incidents
+                          </span>
+                          <span className="text-xs text-gray-600">
+                            No incidents reported
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
             );
           },
         )}
