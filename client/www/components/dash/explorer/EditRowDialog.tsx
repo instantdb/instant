@@ -451,7 +451,7 @@ function LinkCombobox({
           portal={false}
           unmount={false}
           static={true}
-          className="fixed mt-1 max-h-[25vh] w-[var(--input-width)] divide-y overflow-scroll rounded-md border border-gray-300 bg-white shadow-lg empty:invisible"
+          className="fixed mt-1 max-h-[25vh] w-[var(--input-width)] divide-y overflow-scroll rounded-md border border-gray-300 bg-white shadow-lg empty:invisible dark:border-neutral-700"
           style={{ top: inputRef.current?.getBoundingClientRect().bottom }}
         >
           {(options || []).map((o) => (
