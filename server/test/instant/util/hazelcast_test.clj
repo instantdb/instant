@@ -43,8 +43,8 @@
   (let [start (h/map->SSEMessage {:app-id (random-uuid)
                                   :session-id (random-uuid)
                                   :sse-token-hash (crypt-util/uuid->sha256 (random-uuid))
-                                  :message {:op :hello-world
-                                            :q {:bookshelves {:$ {:where {:user.handle "alex"}}}}}})
+                                  :messages [{:op :hello-world
+                                              :q {:bookshelves {:$ {:where {:user.handle "alex"}}}}}]})
         serializer h/sse-message-serializer]
     (is (= (update start :sse-token-hash crypt-util/bytes->hex-string)
            (update (->> (.write serializer start)
