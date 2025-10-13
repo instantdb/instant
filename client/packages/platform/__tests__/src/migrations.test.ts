@@ -1,4 +1,4 @@
-import { expect, test } from 'vitest';
+import { expect, test as test } from 'vitest';
 import { i } from '@instantdb/core';
 import {
   diffSchemas,
@@ -87,6 +87,16 @@ test('delete and add - intent', async () => {
   );
   console.log(result);
   expectTxType(result, 'delete-attr', 3);
+
+  // Make sure the albums table id field is deleted
+  const idDeleted = result.find(
+    (step) =>
+      step.type === 'delete-attr' &&
+      step.identifier.namespace === 'albums' &&
+      step.identifier.attrName === 'id',
+  );
+
+  expect(idDeleted).toBeDefined();
 });
 
 test('rename - intent', async () => {
@@ -125,7 +135,12 @@ test('change data type', async () => {
     createChooser([]),
   );
 
+  console.log(result);
   expectTxType(result, 'check-data-type', 1);
+  expect(
+    result[0].type === 'check-data-type' &&
+      result[0]['checked-data-type'] === 'number',
+  );
 });
 
 test('make required', async () => {
@@ -146,8 +161,16 @@ test('make required', async () => {
     }),
     createChooser([]),
   );
+  console.log(result);
 
   expectTxType(result, 'required', 1);
+  const found = result.find(
+    (step) =>
+      step.type === 'required' &&
+      step.identifier.namespace === 'albums' &&
+      step.identifier.attrName === 'name',
+  );
+  expect(found).toBeDefined();
 });
 
 test('add index', async () => {
@@ -170,6 +193,13 @@ test('add index', async () => {
   );
 
   expectTxType(result, 'index', 1);
+  const found = result.find(
+    (step) =>
+      step.type === 'index' &&
+      step.identifier.namespace === 'albums' &&
+      step.identifier.attrName === 'name',
+  );
+  expect(found).toBeDefined();
 });
 
 test('remove index', async () => {
@@ -192,6 +222,13 @@ test('remove index', async () => {
   );
 
   expectTxType(result, 'remove-index', 1);
+  const found = result.find(
+    (step) =>
+      step.type === 'remove-index' &&
+      step.identifier.namespace === 'albums' &&
+      step.identifier.attrName === 'name',
+  );
+  expect(found).toBeDefined();
 });
 
 test('rename and make changes', async () => {
@@ -213,8 +250,17 @@ test('rename and make changes', async () => {
     createChooser([{ from: 'name', to: 'name2' }]),
   );
 
+  console.log(result);
   expectTxType(result, 'update-attr', 1);
   expectTxType(result, 'remove-index', 1);
+
+  const found = result.find(
+    (step) =>
+      step.type === 'update-attr' &&
+      step.identifier.namespace === 'albums' &&
+      step.identifier.attrName === 'name',
+  );
+  expect(found).toBeDefined();
 });
 
 test('make optional', async () => {
@@ -272,7 +318,20 @@ test('create-link', async () => {
     createChooser([]),
   );
 
+  console.log(result);
+
   expectTxType(result, 'add-attr', 1);
+
+  const found = result.find(
+    (tx) =>
+      tx.type === 'add-attr' &&
+      tx['reverse-identity']?.attrName === 'albums' &&
+      tx['reverse-identity']?.namespace === 'songs' &&
+      tx['forward-identity']?.attrName === 'songs' &&
+      tx['forward-identity']?.namespace === 'albums' &&
+      tx['unique?'] === true,
+  );
+  expect(found).toBeDefined();
 });
 
 test('delete link', async () => {

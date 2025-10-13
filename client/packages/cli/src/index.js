@@ -1343,17 +1343,13 @@ async function pushSchema(appId, _opts) {
 
   const diffResult = await diffSchemas(oldSchema, schema, resolveRenames);
 
-  let showRawSteps = false;
   try {
     await renderSchemaPlan(diffResult, currentAttrs);
   } catch (error) {
     if (error instanceof CancelSchemaError) {
       console.info('Schema migration cancelled!');
-      return { ok: true };
     }
-    console.error('Error displaying schema plan', error);
-    console.info('Showing raw migrations steps instead');
-    showRawSteps = true;
+    return { ok: false };
   }
 
   if (currentAttrs === undefined) {
@@ -1361,13 +1357,13 @@ async function pushSchema(appId, _opts) {
   }
   const txSteps = convertTxSteps(diffResult, currentAttrs);
 
-  if (showRawSteps) {
-    console.log(txSteps);
-  }
-
   if (txSteps.length === 0) {
     console.log(chalk.bgGray('No schema changes to apply!'));
     return { ok: true };
+  }
+
+  if (verbose) {
+    console.log(txSteps);
   }
 
   const result = await promptOk('Push schema?');

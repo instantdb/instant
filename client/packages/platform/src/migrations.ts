@@ -54,7 +54,7 @@ export type MigrationTxTypes = {
   'remove-data-type': { identifier: Identifier };
 };
 
-type EasyMigrationTypes =
+type JobMigrationTypes =
   | 'index'
   | 'remove-index'
   | 'remove-unique'
@@ -67,30 +67,28 @@ type PlanStepMap = {
   [K in PlanStep as K[0]]: K[1];
 };
 
-const findAttrFromExisting = (
+const getExistingAttrThrowing = (
   ident: Identifier,
   existingAttrs: InstantDBAttr[],
-): InstantDBAttr | null => {
-  return (
+): InstantDBAttr => {
+  const found =
     existingAttrs.find((attr) => {
       return (
         attr['forward-identity'][1] === ident.namespace &&
         attr['forward-identity'][2] === ident.attrName
       );
-    }) || null
-  );
+    }) || null;
+  if (!found) {
+    throw new Error(`Attribute ${ident.namespace}.${ident.attrName} not found`);
+  }
+  return found;
 };
 
 const convertSimpleConstraintUpdate: ConvertPlanStepFn<any> = (
-  from,
+  tx,
   existing,
 ) => {
-  const found = findAttrFromExisting(from.identifier, existing);
-  if (!found) {
-    throw new Error(
-      `Attribute ${from.identifier.namespace}.${from.identifier.attrName} not found`,
-    );
-  }
+  const found = getExistingAttrThrowing(tx.identifier, existing);
   return {
     'attr-id': found.id,
     'forward-identity': found['forward-identity'],
@@ -108,21 +106,11 @@ const CONVERTERS: AllConvertPlanStepFns = {
   'remove-required': convertSimpleConstraintUpdate,
 
   'delete-attr': (from, existing) => {
-    const found = findAttrFromExisting(from.identifier, existing);
-    if (!found) {
-      throw new Error(
-        `Attribute ${from.identifier.namespace}.${from.identifier.attrName} not found`,
-      );
-    }
+    const found = getExistingAttrThrowing(from.identifier, existing);
     return found.id;
   },
   'update-attr': (from, existing) => {
-    const found = findAttrFromExisting(from.identifier, existing);
-    if (!found) {
-      throw new Error(
-        `Attribute ${from.identifier.namespace}.${from.identifier.attrName} not found`,
-      );
-    }
+    const found = getExistingAttrThrowing(from.identifier, existing);
     return {
       id: found.id,
       'forward-identity': from.partialAttr['forward-identity']
@@ -225,12 +213,7 @@ const CONVERTERS: AllConvertPlanStepFns = {
   },
   'remove-data-type': convertSimpleConstraintUpdate,
   'check-data-type': (from, existing) => {
-    const found = findAttrFromExisting(from.identifier, existing);
-    if (!found) {
-      throw new Error(
-        `Attribute ${from.identifier.namespace}.${from.identifier.attrName} not found`,
-      );
-    }
+    const found = getExistingAttrThrowing(from.identifier, existing);
     return {
       'attr-id': found.id,
       'checked-data-type': from['checked-data-type'],
@@ -597,7 +580,7 @@ export const compareBlobs = (
   newBlob: AnyBlob,
 ): MigrationTx[] => {
   const results: MigrationTx[] = [];
-  const sendType = <T extends EasyMigrationTypes>(type: T) => {
+  const sendType = <T extends JobMigrationTypes>(type: T) => {
     results.push({
       type,
       identifier: identity,

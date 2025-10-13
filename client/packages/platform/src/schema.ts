@@ -440,12 +440,12 @@ export const validateSchema = (schema: GenericSchemaDef) => {
     const linkDisplay = `${link.forward.on}${link.forward.label} -> ${link.reverse.on}${link.reverse.label}`;
     if (!entityNames.includes(link.forward.on)) {
       throw new SchemaValidationError(
-        `${linkDisplay} connects to non existing entity "${link.forward.on}"`,
+        `${linkDisplay} connects to non existing entity "${link.forward.on}".`,
       );
     }
     if (!entityNames.includes(link.reverse.on)) {
       throw new SchemaValidationError(
-        `${linkDisplay} connects to non existing entity "${link.forward.on}"`,
+        `${linkDisplay} connects to non existing entity "${link.forward.on}".`,
       );
     }
   }
