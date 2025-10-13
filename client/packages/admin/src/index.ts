@@ -1,4 +1,4 @@
-import { Readable } from 'stream';
+import type { Readable } from 'node:stream';
 
 import {
   tx,
@@ -71,7 +71,7 @@ import {
   validateTransactions,
 } from '@instantdb/core';
 
-import version from './version.js';
+import version from './version.ts';
 
 import {
   subscribe,
@@ -604,6 +604,15 @@ type DeleteManyFileResponse = {
   };
 };
 
+const isNodeReadable = (v: any): v is Readable =>
+  v &&
+  typeof v === 'object' &&
+  typeof v.pipe === 'function' &&
+  typeof v.read === 'function';
+
+const isWebReadable = (v: any): v is ReadableStream =>
+  v && typeof v.getReader === 'function';
+
 /**
  * Functions to manage file storage.
  */
@@ -626,7 +635,7 @@ class Storage {
    */
   uploadFile = async (
     path: string,
-    file: Buffer | Readable,
+    file: Buffer | Readable | ReadableStream,
     metadata: FileOpts = {},
   ): Promise<UploadFileResponse> => {
     const headers = {
@@ -645,26 +654,23 @@ class Storage {
       headers['content-type'] = metadata.contentType;
     }
 
-    let body: BodyInit;
     let duplex: 'half' | undefined;
-    if (file instanceof Readable) {
+    if (isNodeReadable(file)) {
+      duplex = 'half'; // one-way stream
+    }
+    if (isNodeReadable(file) || isWebReadable(file)) {
+      headers['content-length'] = metadata.fileSize.toString();
       if (!metadata.fileSize) {
         throw new Error(
           'fileSize is required in metadata when uploading streams',
         );
       }
-      headers['content-length'] = metadata.fileSize.toString();
-      body = Readable.toWeb(file) as unknown as ReadableStream;
-      duplex = 'half'; // one-way stream
-    } else {
-      // File is a buffer, use directly
-      body = file;
     }
 
     let options = {
       method: 'PUT',
       headers,
-      body,
+      body: file as unknown as BodyInit,
       ...(duplex && { duplex }),
     };
 

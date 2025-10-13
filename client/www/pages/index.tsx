@@ -125,8 +125,11 @@ function LandingHero() {
                 Instant you can build delightful apps in less than 10 minutes.
               </p>
               <CreateInstantApp />
-              <div className="mt-4">
-                <Button type="link" variant="cta" href="/docs">
+              <div className="mt-4 flex space-x-2">
+                <Button type="link" variant="cta" href="/tutorial">
+                  Build an app
+                </Button>
+                <Button type="link" variant="secondary" href="/docs">
                   Read the docs
                 </Button>
               </div>
