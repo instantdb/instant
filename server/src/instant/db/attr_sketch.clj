@@ -340,10 +340,7 @@
    {:max-size 4096
     :ttl      (* 1000 60 5)}))
 
-(def in-flight-keys
-  (atom #{}))
-
-(defn lookup*-impl [conn keys]
+(defn lookup* [conn keys]
   (if-not (seq keys)
     {}
     (let [params {:params {:app-ids (with-meta (mapv :app-id keys) {:pgtype "uuid[]"})
@@ -362,12 +359,6 @@
        {}
        rows))))
 
-(defn lookup* [conn keys]
-  (swap! in-flight-keys into keys)
-  (let [res (lookup*-impl conn keys)]
-    (swap! in-flight-keys #(reduce disj % keys))
-    res))
-
 (defn lookup
   "Takes a set of {:app-id attr-id} maps and fetches sketches, if they exist.
    Returns a map with key {:app-id :attr-id} and value :sketch-record"
@@ -375,13 +366,7 @@
    (lookup (aurora/conn-pool :read) keys))
   ([conn keys]
    (if (= conn (aurora/conn-pool :read))
-     (do
-       (tracer/with-new-trace-root
-         (tracer/with-span! {:name "attr-sketch/in-flight-keys"
-                             :attributes {:count     (count keys)
-                                          :in-flight (count (filter @in-flight-keys keys))}}
-           nil))
-       @(cache/get-all-async lookup-cache keys #(lookup* conn %)))
+     @(cache/get-all-async lookup-cache keys #(lookup* conn %))
      (lookup* conn keys))))
 
 (defn- create-empty-sketch-rows!

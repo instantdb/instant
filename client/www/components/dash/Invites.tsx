@@ -34,7 +34,7 @@ export function Invites() {
                   label="Accept"
                   submitLabel="Accepting..."
                   errorMessage="An error occurred when attempting to accept the invite."
-                  successMessage={`You're part of the team for ${'type' in invite ? invite.title : invite.app_title}!`}
+                  successMessage={`You're part of the team for ${invite.title}!`}
                   onClick={async () => {
                     await jsonMutate(`${config.apiURI}/dash/invites/accept`, {
                       token,
@@ -44,17 +44,6 @@ export function Invites() {
                     });
 
                     await dashResponse.mutate();
-
-                    if (invites.length === 1) {
-                      const appId =
-                        'app_id' in invite
-                          ? invite.app_id
-                          : invite.type === 'app'
-                            ? invite.foreign_key
-                            : null;
-                      if (appId) {
-                      }
-                    }
                   }}
                 />
                 <ActionButton
