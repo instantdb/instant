@@ -9,6 +9,7 @@
             [instant.dash.admin :as dash-admin]
             [instant.dash.ephemeral-app :as ephemeral-app]
             [instant.db.indexing-jobs :as indexing-jobs]
+            [instant.db.transaction :as tx]
             [instant.db.model.attr :as attr-model]
             [instant.discord :as discord]
             [instant.fixtures :as fixtures]
@@ -1284,6 +1285,17 @@
                                       :background-updates? background-updates?}
                                      client-defs))))
 
+
+(defn schema-steps-apply-post [req]
+  (let [{{app-id :id} :app} (req->app-and-user-accepting-platform-tokens! :collaborator
+                                                                          :apps/write
+                                                                          req)
+
+        input-steps (ex/get-param! req [:body :steps] #(when (coll? % ) %))
+        coerced (tx/coerce! input-steps)
+        plan-result (schema-model/apply-plan-with-deletes! app-id coerced)]
+    (response/ok plan-result)))
+
 (defn schema-push-apply-post [req]
   (let [{{app-id :id} :app} (req->app-and-user-accepting-platform-tokens! :collaborator
                                                                           :apps/write
@@ -1306,7 +1318,7 @@
                                                                                            req)
         current-attrs (attr-model/get-by-app-id app-id)
         current-schema (schema-model/attrs->schema current-attrs)]
-    (response/ok {:schema current-schema :app-title app-title})))
+    (response/ok {:schema current-schema :attrs current-attrs :app-title app-title})))
 
 (defn perms-pull-get [req]
   (let [{{app-id :id} :app} (req->app-and-user-accepting-platform-tokens! :collaborator
@@ -1807,6 +1819,7 @@
 
   (POST "/dash/apps/:app_id/schema/push/plan" [] schema-push-plan-post)
   (POST "/dash/apps/:app_id/schema/push/apply" [] schema-push-apply-post)
+  (POST "/dash/apps/:app_id/schema/steps/apply" [] schema-steps-apply-post)
   (GET "/dash/apps/:app_id/schema/pull" [] schema-pull-get)
   (GET "/dash/apps/:app_id/perms/pull" [] perms-pull-get)
 
