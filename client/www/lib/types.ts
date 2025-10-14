@@ -26,16 +26,7 @@ export type InstantMember = {
   role: 'admin' | 'collaborator';
 };
 
-// TODO(orgs): Remove once backend deploys
-type InstantMemberInviteOld = {
-  id: string;
-  app_id: string;
-  app_title: string;
-  invitee_role: 'admin' | 'collaborator' | 'owner';
-  inviter_email: string;
-};
-
-type InstantMemberInviteNew = {
+type InstantMemberInvite = {
   id: string;
   type: 'app' | 'org';
   foreign_key: string;
@@ -43,10 +34,6 @@ type InstantMemberInviteNew = {
   invitee_role: 'admin' | 'collaborator' | 'owner';
   inviter_email: string;
 };
-
-export type InstantMemberInvite =
-  | InstantMemberInviteOld
-  | InstantMemberInviteNew;
 
 export type InstantAppInvite = {
   id: string;

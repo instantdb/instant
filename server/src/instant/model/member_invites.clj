@@ -80,9 +80,7 @@
    {:union [{:select [[[:inline "app"] :type]
                       :i.id
                       :i.invitee_role
-                      [:a.id :app_id] ; TODO: remove after frontend updates
                       [:a.id :foreign_key]
-                      [:a.title :app_title] ; TODO: remove after frontend updates
                       [:a.title :title]
                       [:u.email :inviter_email]]
              :from [[:app_member_invites :i]]
@@ -96,10 +94,7 @@
             {:select [[[:inline "org"] :type]
                       :i.id
                       :i.invitee_role
-
-                      [nil :app_id] ; TODO: remove after frontend updates
                       [:o.id :foreign_key]
-                      [:o.title :app_title] ; TODO: remove after frontend updates
                       [:o.title :title]
                       [:u.email :inviter_email]]
              :from [[:org_member_invites :i]]
