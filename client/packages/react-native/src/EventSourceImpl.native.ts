@@ -1,7 +1,7 @@
 import { type EventSourceType } from '@instantdb/core';
 
 // Modified version of https://github.com/binaryminds/react-native-sse/blob/master/src/EventSource.js
-// that conforms to out `EventSourceType` subset of the browser-native `EventSource`.
+// that conforms to our `EventSourceType` subset of the browser-native `EventSource`.
 
 const XMLReadyStateMap = [
   'UNSENT',

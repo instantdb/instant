@@ -1334,8 +1334,6 @@ export default class Reactor {
     this._transport.send({ 'client-event-id': eventId, ...msg });
   }
 
-  _sseOnInit = () => {};
-
   _transportOnOpen = (e) => {
     const targetTransport = e.target;
     if (this._transport !== targetTransport) {
