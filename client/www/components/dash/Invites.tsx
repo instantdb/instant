@@ -23,10 +23,8 @@ export function Invites() {
             >
               <div>
                 <strong>{invite.inviter_email}</strong> invited you to{' '}
-                <strong>
-                  {'type' in invite ? invite.title : invite.app_title}
-                </strong>{' '}
-                as <strong>{invite.invitee_role}</strong>.
+                <strong>{invite.title}</strong> as{' '}
+                <strong>{invite.invitee_role}</strong>.
               </div>
               <div className="flex gap-1">
                 <ActionButton
