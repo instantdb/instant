@@ -183,10 +183,21 @@ export const tryConnectApp = async (
         getDash() {
           return dashData;
         },
+
+        createApp: async (title: string, orgId?: string) => {
+          const { appID, adminToken } = await createApp(
+            title,
+            authToken,
+            orgId,
+          );
+          return { appId: appID, adminToken };
+        },
       },
       modifyOutput: UI.ciaModifier,
     }),
   );
+
+  console.log('response', response);
 
   return null;
 
