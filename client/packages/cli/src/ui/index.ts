@@ -659,6 +659,7 @@ ${yesStyle}  ${noStyle}`;
     typed: string;
 
     leftMenu: Menu;
+    appList: Menu;
 
     focus: FocusHandle;
 
@@ -680,7 +681,14 @@ ${yesStyle}  ${noStyle}`;
     }
 
     rightView(): string {
-      return boxen('right', {
+      let inner = '';
+      if (
+        this.focus.getFocused() === 'selectExisting' ||
+        this.focus.getFocused() === 'leftMenu'
+      ) {
+        inner = this.appList.render();
+      }
+      return boxen(inner, {
         height: this.HEIGHT,
         borderStyle: 'none',
         width: 50,
@@ -720,25 +728,49 @@ ${yesStyle}  ${noStyle}`;
           this.focus.setFocus('leftMenu');
         }
       });
+
+      this.appList = new Menu(
+        this.focus.child('selectExisting').onKey((key, keyInfo) => {
+          if (keyInfo.name === 'escape') {
+            this.focus.setFocus('leftMenu');
+          }
+        }),
+        [
+          {
+            label: 'Do nothing',
+            onSelect: () => {
+              this.focus.setFocus('leftMenu');
+            },
+          },
+        ],
+      );
+
       this.leftMenu = new Menu(this.focus.child('leftMenu'), []);
       this.leftMenu.addItem({
-        label: ' Create Ephemeral ',
+        label: ' Create New App',
+        onSelect: () => {
+          this.focus.setFocus('newApp');
+        },
+      });
+      this.leftMenu.addItem({
+        label: ' Create Ephemeral App',
         onSelect: () => {
           this.focus.setFocus('ephemeral');
         },
       });
       this.leftMenu.addItem({
-        label: ' Select Existing App         >',
+        label: ' Select Existing App',
         onSelect: () => {
           this.focus.setFocus('selectExisting');
         },
       });
       this.leftMenu.addItem({
-        label: ' Use Organization',
+        label: ' Change Organization',
         onSelect: () => {
           this.focus.setFocus('pickOrg');
         },
       });
+      this.leftMenu.setSelectedItem(2);
 
       this.focus.setFocus('leftMenu');
 
