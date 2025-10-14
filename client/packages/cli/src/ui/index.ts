@@ -1,8 +1,6 @@
 import chalk from 'chalk';
 import boxen from 'boxen';
-import { ModifyOutputFn, Prompt, SelectState } from './lib.js';
-import { readFile } from 'fs/promises';
-import { getAuthPaths } from '../util/getAuthPaths.js';
+import { AnyKey, ModifyOutputFn, Prompt, SelectState } from './lib.js';
 
 export { render, renderUnwrap } from './lib.js';
 
@@ -445,6 +443,124 @@ ${yesStyle}  ${noStyle}`;
     }
   }
 
+  class FocusHandle {
+    private parent: FocusHandle | null = null;
+    private _focus: Focus;
+    key: string;
+
+    private onFocusCallback: (() => void) | null = null;
+    private onBlurCallback: (() => void) | null = null;
+    private onKeyCallbacks: ((
+      str: string | undefined,
+      key: AnyKey,
+      propagate: () => void,
+    ) => any)[] = [];
+
+    constructor(focus: Focus, key: string, parent: FocusHandle | null) {
+      this._focus = focus;
+      this.key = key;
+      this.parent = parent;
+    }
+
+    child(childKey: string): FocusHandle {
+      const newHandle = new FocusHandle(this._focus, childKey, this);
+      this._focus.register(newHandle);
+      return newHandle;
+    }
+
+    setFocus(key: string) {
+      this._focus?.setFocus(key);
+    }
+
+    onKey(
+      callback: (
+        str: string | undefined,
+        key: AnyKey,
+        propagate: () => void,
+      ) => any,
+    ): FocusHandle {
+      this.onKeyCallbacks.push(callback);
+      return this;
+    }
+
+    onFocus(callback: () => void): FocusHandle {
+      this.onFocusCallback = callback;
+      return this;
+    }
+
+    onBlur(callback: () => void): FocusHandle {
+      this.onBlurCallback = callback;
+      return this;
+    }
+
+    getFocused(): string {
+      return this._focus.getFocused();
+    }
+
+    isFocused(): boolean {
+      return this._focus.isFocused(this.key);
+    }
+
+    _notifyKey(str: string | undefined, key: AnyKey) {
+      this.onKeyCallbacks.forEach((callback) => {
+        callback(str, key, () => {
+          this.parent?._notifyKey(str, key);
+        });
+      });
+    }
+
+    _notifyFocusState(key: string) {
+      if (key === this.key) {
+        this.onFocusCallback?.();
+      } else {
+        this.onBlurCallback?.();
+      }
+    }
+  }
+
+  export class Focus {
+    private selected: string;
+    private prompt: Prompt<any>;
+    private handles: Record<string, FocusHandle>;
+
+    constructor(prompt: Prompt<any>) {
+      this.prompt = prompt;
+      this.prompt.on('input', (arg1, arg2) => {
+        this.handles[this.selected]?._notifyKey?.(arg1, arg2);
+        this.prompt.requestLayout();
+      });
+      this.handles = {};
+      this.selected = 'root';
+    }
+
+    register(handle: FocusHandle) {
+      this.handles[handle.key] = handle;
+    }
+
+    root(): FocusHandle {
+      const rootHandle = new FocusHandle(this, 'root', null);
+      this.register(rootHandle);
+      this.setFocus('root');
+      return rootHandle;
+    }
+
+    getFocused(): string {
+      return this.selected;
+    }
+
+    setFocus(key: string) {
+      this.selected = key;
+
+      this.handles[key]?._notifyFocusState?.(key);
+
+      this.prompt.requestLayout();
+    }
+
+    isFocused(key: string): boolean {
+      return this.selected === key;
+    }
+  }
+
   type App = {
     admin_token: string;
     magic_code_email_template: null;
@@ -457,6 +573,61 @@ ${yesStyle}  ${noStyle}`;
     title: string;
     role: string;
   };
+
+  export class Menu {
+    items: { label: string; onSelect: () => void }[] = [];
+    selectedIdx: number = 0;
+    focus: FocusHandle;
+    width = 30;
+
+    constructor(
+      focus: FocusHandle,
+      items: { label: string; onSelect: () => void }[],
+      width = 30,
+    ) {
+      this.selectedIdx = 0;
+      this.width = width;
+      this.focus = focus;
+      this.focus.onKey((key, keyInfo, propagate) => {
+        if (key === 'j' || keyInfo.name == 'down') {
+          this.selectedIdx = Math.min(
+            this.selectedIdx + 1,
+            this.items.length - 1,
+          );
+        } else if (key === 'k' || keyInfo.name == 'up') {
+          this.selectedIdx = Math.max(this.selectedIdx - 1, 0);
+        } else if (keyInfo.name === 'return') {
+          this.items[this.selectedIdx]?.onSelect();
+        } else {
+          propagate();
+        }
+      });
+      this.items = items;
+    }
+
+    addItem(item: { label: string; onSelect: () => void }) {
+      this.items.push(item);
+    }
+
+    setSelectedItem(index: number) {
+      this.selectedIdx = index;
+    }
+
+    render(): string {
+      let output = '';
+      this.items.forEach((item, index) => {
+        const isSelected = this.selectedIdx === index && this.focus.isFocused();
+        if (isSelected) {
+          output +=
+            chalk.bold.hex('#EA570B').bgBlack(item.label.padEnd(this.width)) +
+            '\n';
+        } else {
+          output += item.label.padEnd(this.width) + '\n';
+        }
+      });
+      return output;
+    }
+  }
 
   interface AppSelectorApi {
     getDash: () => { apps: App[]; orgs: Org[] };
@@ -485,8 +656,11 @@ ${yesStyle}  ${noStyle}`;
     props: AppSelectorProps;
     api: AppSelectorApi;
     dashResponse: { apps: App[]; orgs: Org[] };
+    typed: string;
 
-    focusLocation: string;
+    leftMenu: Menu;
+
+    focus: FocusHandle;
 
     HEIGHT = 10;
 
@@ -499,18 +673,17 @@ ${yesStyle}  ${noStyle}`;
     }
 
     leftView(): string {
-      return boxen('left side', {
+      return boxen(this.leftMenu.render(), {
         height: this.HEIGHT,
         borderStyle: 'none',
-        width: 20,
       });
     }
 
     rightView(): string {
-      return boxen('right side', {
+      return boxen('right', {
         height: this.HEIGHT,
         borderStyle: 'none',
-        width: 30,
+        width: 50,
       });
     }
 
@@ -529,7 +702,10 @@ ${yesStyle}  ${noStyle}`;
         combinedLines.push(leftLine + '│' + rightLine);
       }
 
-      return boxen(combinedLines.join('\n'));
+      return boxen(combinedLines.join('\n'), {
+        title: this.focus.getFocused(),
+        dimBorder: true,
+      });
     }
 
     constructor(props: AppSelectorProps) {
@@ -537,7 +713,37 @@ ${yesStyle}  ${noStyle}`;
       this.props = props;
       this.api = props.api;
       this.dashResponse = this.api.getDash();
+      this.focus = new Focus(this).root();
+
+      this.focus.onKey((key, moreInfo) => {
+        if (moreInfo.name === 'escape') {
+          this.focus.setFocus('leftMenu');
+        }
+      });
+      this.leftMenu = new Menu(this.focus.child('leftMenu'), []);
+      this.leftMenu.addItem({
+        label: ' Create Ephemeral ',
+        onSelect: () => {
+          this.focus.setFocus('ephemeral');
+        },
+      });
+      this.leftMenu.addItem({
+        label: ' Select Existing App         >',
+        onSelect: () => {
+          this.focus.setFocus('selectExisting');
+        },
+      });
+      this.leftMenu.addItem({
+        label: ' Use Organization',
+        onSelect: () => {
+          this.focus.setFocus('pickOrg');
+        },
+      });
+
+      this.focus.setFocus('leftMenu');
+
       this.on('attach', (terminal) => {
+        this.terminal?.setAllowInteraction(false);
         terminal.toggleCursor('hide');
       });
       this.on('detach', (terminal) => {

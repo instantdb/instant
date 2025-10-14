@@ -123,7 +123,7 @@ export interface ITerminal {
   setAllowInteraction(value: boolean): void;
 }
 
-type AnyKey = {
+export type AnyKey = {
   sequence: string;
   name: string | undefined;
   ctrl: boolean;
