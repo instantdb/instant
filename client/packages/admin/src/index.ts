@@ -733,7 +733,7 @@ class Storage {
     );
     const { ok } = await fetch(presignedUrl, {
       method: 'PUT',
-      body: file,
+      body: file as unknown as BodyInit,
       headers: {
         'Content-Type': metadata.contentType,
       },

@@ -57,6 +57,7 @@ export default abstract class InstantReactAbstractDatabase<
 
   static Storage?: any;
   static NetworkListener?: any;
+  static EventSourceImpl?: any;
 
   constructor(config: Config, versions?: { [key: string]: string }) {
     this.core = core_init<Schema, Config['useDateObjects']>(
@@ -66,6 +67,8 @@ export default abstract class InstantReactAbstractDatabase<
       // @ts-expect-error because TS can't resolve subclass statics
       this.constructor.NetworkListener,
       versions,
+      // @ts-expect-error because TS can't resolve subclass statics
+      this.constructor.EventSourceImpl,
     );
     this._core = this.core;
     this.auth = this.core.auth;

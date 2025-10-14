@@ -30,7 +30,7 @@ function Main() {
         <div className="space-x-2">
           <button
             className="border border-black p-2"
-            onClick={() => db._core._reactor._ws.close()}
+            onClick={() => db._core._reactor._transport.close()}
           >
             Restart
           </button>

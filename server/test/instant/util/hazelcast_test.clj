@@ -1,5 +1,6 @@
 (ns instant.util.hazelcast-test
-  (:require [instant.util.hazelcast :as h]
+  (:require [instant.util.crypt :as crypt-util]
+            [instant.util.hazelcast :as h]
             [clojure.test :refer [deftest is testing]]))
 
 (deftest room-key-roundtrips
@@ -37,3 +38,15 @@
         serializer h/set-presence-serializer]
     (is (= start (->> (.write serializer start)
                       (.read serializer))))))
+
+(deftest sse-message-roundtrips
+  (let [start (h/map->SSEMessage {:app-id (random-uuid)
+                                  :session-id (random-uuid)
+                                  :sse-token-hash (crypt-util/uuid->sha256 (random-uuid))
+                                  :messages [{:op :hello-world
+                                              :q {:bookshelves {:$ {:where {:user.handle "alex"}}}}}]})
+        serializer h/sse-message-serializer]
+    (is (= (update start :sse-token-hash crypt-util/bytes->hex-string)
+           (update (->> (.write serializer start)
+                        (.read serializer))
+                   :sse-token-hash crypt-util/bytes->hex-string)))))

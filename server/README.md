@@ -68,6 +68,7 @@ make bootstrap-oss
 ```
 
 And start the server:
+
 ```sh
 make dev
 ```
@@ -81,7 +82,37 @@ make compile-java
 make test
 ```
 
-# Setting up local https
+# Setting up local https and SSE
+
+There are two options for local https.
+
+Use undertow if you don't want any other dependencies and you're not testing SSE or multiple hazelcast instances.
+
+Use caddy if you want to test SSE locally (without hitting connection limits) or want to test with multiple local instant server instances.
+
+## caddy
+
+Add to `/etc/hosts`:
+
+```
+127.0.0.1   dev.instantdb.com
+```
+
+Run `sudo caddy trust` to allow caddy to add its cert to your keychain.
+
+Run `caddy run --config Caddyfile.dev`
+
+In `src/instant/config.clj`, change `server-origin` to
+
+```
+https://dev.instantdb.com:9888
+```
+
+In `client/www/lib/config.ts`, change `localPort` to `'9888'`, `http://localhost` to `https://dev.instantdb.com`, and `ws://localhost` to `wss://dev.instantdb.com`;
+
+To run multiple instantdb instances, do `PORT=8887 NREPL_PORT=6004 make dev`. If you need another, do `PORT=8886 NREPL_PORT=6003 make dev`. If you need more, you'll have to modify the Caddyfile.dev.
+
+## undertow
 
 Add to `/etc/hosts`:
 

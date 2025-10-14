@@ -393,6 +393,11 @@
            ::message (format "Session missing for id: %s" sess-id)
            ::hint {:sess-id sess-id}}))
 
+(defn throw-member-missing! [machine-id]
+  (throw+ {::type ::member-missing
+           ::message (format "Member missing for machine id: %s" machine-id)
+           ::hint {:machine-id machine-id}}))
+
 (defn throw-socket-missing! [sess-id]
   (throw+ {::type ::socket-missing
            ::message (format "Socket missing for session: %s" sess-id)
@@ -645,7 +650,7 @@
 ;; --------
 ;; Wrappers
 
-(defn find-instant-exception [^Exception e]
+(defn find-instant-exception ^Exception [^Exception e]
   (loop [cause e]
     (cond
       (::type (ex-data cause)) cause

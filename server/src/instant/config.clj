@@ -33,6 +33,8 @@
 
 (defn prod? [] (= :prod (get-env)))
 
+(defn dev? [] (= :dev (get-env)))
+
 (defn aws-env? []
   (contains? #{:prod :staging} (get-env)))
 
@@ -40,6 +42,8 @@
   (delay
     (when (aws-env?)
       (aws-util/get-instance-id))))
+
+(defonce machine-id (random-uuid))
 
 (defonce process-id
   (delay

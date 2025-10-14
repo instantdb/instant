@@ -120,7 +120,6 @@
 
                             ;; print stack traces instead of "Full report at ..."
                             "-Dclojure.main.report=stderr"
-                            "-Dclojure.server.repl={:port 6006 :accept clojure.core.server/repl}"
 
                             ;; throw on invalid go block usage in development
                             "-Dclojure.core.async.go-checking=true"
@@ -133,7 +132,7 @@
                             "--add-opens" "java.management/sun.management=ALL-UNNAMED"
                             "--add-opens" "jdk.management/com.sun.management.internal=ALL-UNNAMED"
 
-                            ;; headless charts 
+                            ;; headless charts
                             "-Djava.awt.headless=true"]}
            :build {:extra-deps {io.github.clojure/tools.build {:git/tag "v0.10.3" :git/sha "15ead66"}}
                    :ns-default build}
@@ -157,7 +156,7 @@
 
                              ;; throw on invalid go block usage in tests
                              "-Dclojure.core.async.go-checking=true"
-                             ;; headless charts 
+                             ;; headless charts
                              "-Djava.awt.headless=true"]}
            :retest {:extra-paths ["test" "dev-resources"]
                     :main-opts ["-m" "circleci.test.retest"]}

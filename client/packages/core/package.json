@@ -50,6 +50,7 @@
     "publish-package": "pnpm publish --access public --no-git-checks"
   },
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.17.4",
     "@babel/core": "^7.17.9",
     "@babel/preset-env": "^7.16.11",
     "@types/node": "^18.11.18",
@@ -58,8 +59,7 @@
     "fake-indexeddb": "^6.0.0",
     "npm-run-all": "^4.1.5",
     "tshy": "^3.0.2",
-    "@arethetypeswrong/cli": "^0.17.4",
-    "typescript": "^5.8.3",
+    "typescript": "^5.9.3",
     "vite": "^5.2.0",
     "vitest": "^1.6.0"
   },

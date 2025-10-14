@@ -1,23 +1,11 @@
 import 'react-native-get-random-values';
 
 import Storage from './Storage';
+import EventSourceImpl from './EventSourceImpl';
 import NetworkListener from './NetworkListener';
 import version from './version';
 
-import {
-  // react
-  InstantReactAbstractDatabase,
-
-  // types
-  type BackwardsCompatibleSchema,
-  type IInstantDatabase,
-  type Config,
-  type Query,
-  type QueryResponse,
-  type InstantObject,
-  type AuthState,
-  type User,
-} from '@instantdb/react';
+import { InstantReactAbstractDatabase } from '@instantdb/react';
 
 import {
   i,
@@ -30,6 +18,14 @@ import {
   type InstantSchema,
   type InstantSchemaDatabase,
   type ConnectionStatus,
+  type BackwardsCompatibleSchema,
+  type IInstantDatabase,
+  type Config,
+  type Query,
+  type QueryResponse,
+  type InstantObject,
+  type AuthState,
+  type User,
 
   // schema types
   type AttrsDefs,
@@ -133,6 +129,7 @@ class InstantReactNativeDatabase<
 > extends InstantReactAbstractDatabase<Schema, Config> {
   static Storage = Storage;
   static NetworkListener = NetworkListener;
+  static EventSourceImpl = EventSourceImpl;
 }
 
 export {
