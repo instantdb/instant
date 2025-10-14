@@ -144,6 +144,7 @@ export function AddClientForm({
         clientName,
         clientId,
         clientSecret,
+        meta: { providerName: 'github' },
       });
       onAddClient(resp.client);
     } catch (e) {

@@ -520,14 +520,11 @@
 
         {{app-id :id} :app} (req->app-and-user! :collaborator req)
         provider-id (ex/get-param! req [:body :provider_id] uuid-util/coerce)
-        provider (app-oauth-service-provider-model/get-by-id
-                  {:app-id app-id
-                   :id provider-id})
-        provider-name (:provider_name provider)
         client-name (ex/get-param! req [:body :client_name] string-util/coerce-non-blank-str)
         client-id (coerce-optional-param! [:body :client_id])
         client-secret (coerce-optional-param! [:body :client_secret])
         meta (ex/get-optional-param! req [:body :meta] (fn [x] (when (map? x) x)))
+        provider-name (ex/get-optional-param! meta [:providerName] string-util/coerce-non-blank-str)
 
         ;; GitHub doesn't need discovery endpoints
         ;; OIDC providers (Google, LinkedIn, Apple) need discovery endpoints

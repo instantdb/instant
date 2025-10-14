@@ -103,8 +103,8 @@
       (Secret.)))
 
 (defn ->OAuthClient [oauth-client]
-  (if (:discovery_endpoint oauth-client)
-    ;; OIDC provider with discovery endpoint
+  (cond
+    (:discovery_endpoint oauth-client)
     (oauth/generic-oauth-client-from-discovery-url
      {:app-id (:app_id oauth-client)
       :provider-id (:provider_id oauth-client)
@@ -114,12 +114,14 @@
       :discovery-endpoint (:discovery_endpoint oauth-client)
       :meta (:meta oauth-client)})
 
-    ;; Otherwise, assume GitHub, our only non-OIDC provider which
-    ;; doesn't use discovery endpoints.
+    (= "github" (get (:meta oauth-client) "providerName"))
     (oauth/map->GitHubOAuthClient
      {:app-id (:app_id oauth-client)
       :provider-id (:provider_id oauth-client)
       :client-id (:client_id oauth-client)
       :client-secret (when (:client_secret oauth-client)
                        (decrypted-client-secret oauth-client))
-      :meta (:meta oauth-client)})))
+      :meta (:meta oauth-client)})
+
+    :else
+    (throw (ex-info "Unsupported OAuth client" {:oauth-client oauth-client}))))
