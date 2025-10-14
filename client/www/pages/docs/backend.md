@@ -27,12 +27,12 @@ const db = init({
 
 Similar to `@instantdb/react`, you must `init` before doing any queries or
 writes. Running `init` authenticates you against our admin API. In addition to
-providing your `appId`, you must also provide your `adminToken`.
+providing your `appId`, you can provide your `adminToken`.
 
 {% callout type="warning" %}
 
 Whereas exposing your `appId` in source control is fine, it's not safe
-to expose your admin token. Permission checks will not run for queries and
+to expose your `adminToken`. Permission checks will not run for queries and
 writes from our admin API. Be sure to regenerate your token from your dashboard
 if it accidentally leaks.
 
@@ -152,6 +152,42 @@ const scopedDb = db.asUser({ guest: true });
 // Queries and transactions will run with those permissions
 await scopedDb.query({ logs: {} });
 ```
+
+### Running the admin SDK in client environments
+
+Impersonation can also let you run the Admin SDK _without_ exposing an admin token.
+
+```javascript
+import { init } from '@instantdb/admin';
+
+// If you only impersonate with a user token or as a guest,
+// you can _skip_ admin credentials
+const db = init({
+  appId: process.env.INSTANT_APP_ID!
+});
+
+// Pass in a user token to run as a particular user
+const userDB = db.asUser({
+  token: "...",
+});
+
+// Or run as a guest
+const guestDB = db.asUser({
+  guest: true,
+});
+
+// Queries and transactions work will work with respective permissions
+await userDB.query({ todos: {} });
+await guestDB.query({ publicData: {} });
+```
+
+This approach is perfect for places where you need something like the Admin SDK, but don't want to expose admin credentials.
+
+For example, what if you want to run a background daemon on a user's machine? You can't use the client SDK, because you don't need optimistic updates. You wouldn't want to provide the admin token, because this code runs on a user's machine. That's when impersonation really comes in handy.
+
+{% callout type="note" %}
+Without an `adminToken`, you must use `.asUser({ token })` or `asUser({ guest: true })` for all operations. Direct queries and transactions on the base `db` instance will fail, and you won't be able to impersonate with `asUser({ email })`. In protected environments we definitely recommend including the `adminToken`.
+{% /callout %}
 
 ## Retrieve a user
 

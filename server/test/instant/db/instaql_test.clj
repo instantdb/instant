@@ -4128,9 +4128,9 @@
          [{:topics
            [[:ea '_ #{:$users/id} '_]
             '--
-            [:ea #{first-id} #{:$users/type :$users/email :$users/id :$users/linkedPrimaryUser} '_]
+            [:ea #{first-id} #{:$users/type :$users/email :$users/imageURL :$users/id :$users/linkedPrimaryUser} '_]
             '--
-            [:ea #{second-id} #{:$users/type :$users/email :$users/id :$users/linkedPrimaryUser} '_]],
+            [:ea #{second-id} #{:$users/type :$users/email :$users/imageURL :$users/id :$users/linkedPrimaryUser} '_]],
            :triples
            [[second-id :$users/id (str second-id)]
             [first-id :$users/id (str first-id)]
@@ -4146,7 +4146,7 @@
          [{:topics
            [[:ave '_ #{:$users/email} #{"first@example.com"}]
             '--
-            [:ea #{first-id} #{:$users/type :$users/email :$users/id :$users/linkedPrimaryUser} '_]],
+            [:ea #{first-id} #{:$users/type :$users/email :$users/imageURL :$users/id :$users/linkedPrimaryUser} '_]],
            :triples
            [[first-id :$users/id (str first-id)]
             '--
@@ -4244,7 +4244,7 @@
            '({:topics ([:ave _ #{:books/title} #{"Sum"}]
                        [:vae #{"eid-sum"} #{:books/$user-creator} _]
                        --
-                       [:ea #{"eid-alex"} #{:$users/type :$users/email :$users/id :$users/linkedPrimaryUser} _])
+                       [:ea #{"eid-alex"} #{:$users/type :$users/email :$users/id :$users/imageURL :$users/linkedPrimaryUser} _])
               :triples (("eid-sum" :books/$user-creator "eid-alex")
                         ("eid-sum" :books/title "Sum")
                         --

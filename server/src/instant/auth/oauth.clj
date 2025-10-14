@@ -103,9 +103,10 @@
           (if-not id-token
             {:type :error :message "Invalid token exchanging code for token."}
             (let [email (when (:email_verified id-token) (:email id-token))
-                  sub (:sub id-token)]
+                  sub (:sub id-token)
+                  imageURL (:picture id-token)]
               (if (and email sub)
-                {:type :success :email email :sub sub}
+                {:type :success :email email :sub sub :imageURL imageURL}
                 (tracer/with-span! {:name "oauth/missing-user-info"
                                     :attributes {:id_token id-token}}
                   {:type :error :message "Missing user info"}))))))))
@@ -175,11 +176,13 @@
                   (and (not allow-unverified-email?)
                        (not email-verified))         "The email address is not verified."
                   (not email)                        "The id_token had no email."
-                  (not sub)                          "The id_token had no subject.")]
+                  (not sub)                          "The id_token had no subject.")
+          imageURL (.asString (.getClaim verified-jwt "picture"))]
       (when error
         (ex/throw-validation-err! :id_token jwt [{:message error}]))
       {:email email
-       :sub   sub})))
+       :sub   sub
+       :imageURL imageURL})))
 
 (defn fetch-discovery [endpoint]
   (let [resp (clj-http/get endpoint {:throw-exceptions false
