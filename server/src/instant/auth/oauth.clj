@@ -17,6 +17,8 @@
    (java.time Duration Instant)
    (java.util Base64)))
 
+;; Extra params for OAuth authorization URL
+;; "hd" parameter is supported by Google 
 (def allowed-extra-params [:hd])
 
 (defprotocol OAuthClient
@@ -24,6 +26,90 @@
   (get-user-info [this code redirect-url])
   ;; Gets user-info from user-provided id_token after verifying the token
   (get-user-info-from-id-token [this nonce jwt opts]))
+
+(def github-config
+  "Configuration for GitHub OAuth provider"
+  {:auth-url "https://github.com/login/oauth/authorize"
+   :token-url "https://github.com/login/oauth/access_token"
+   :user-url "https://api.github.com/user"
+   :emails-url "https://api.github.com/user/emails"
+   :default-scope "read:user user:email"
+   :headers {"Accept" "application/json"
+             "User-Agent" "InstantDB OAuth"}})
+
+(defn fetch-github-primary-email
+  "Fetches the primary verified email from GitHub emails API response"
+  [access-token]
+  (let [res (clj-http/get (:emails-url github-config)
+                          {:throw-exceptions false
+                           :as :json
+                           :coerce :always
+                           :headers (merge (:headers github-config)
+                                           {"Authorization" (str "Bearer " access-token)})})
+        emails (when (clj-http/success? res)
+                 (:body res))]
+    (some #(when (and (:verified %) (:primary %)) (:email %)) emails)))
+
+(defrecord GitHubOAuthClient [app-id
+                              provider-id
+                              client-id
+                              ^Secret client-secret
+                              meta]
+  OAuthClient
+  (create-authorization-url [_ state redirect-url _extra-params]
+    (let [params {:scope (:default-scope github-config)
+                  :response_type "code"
+                  :state state
+                  :redirect_uri redirect-url
+                  :client_id client-id}]
+      (url/add-query-params (:auth-url github-config) params)))
+
+  (get-user-info [_ code redirect-url]
+    (let [;; Exchange code for access token
+          token-resp (clj-http/post (:token-url github-config)
+                                    {:throw-exceptions false
+                                     :as :json
+                                     :coerce :always
+                                     :headers (:headers github-config)
+                                     :form-params {:client_id client-id
+                                                   :client_secret (.value client-secret)
+                                                   :code code
+                                                   :grant_type "authorization_code"
+                                                   :redirect_uri redirect-url}})]
+      (if-not (clj-http/success? token-resp)
+        {:type :error :message (get-in token-resp [:body :error_description] "Error exchanging code for token.")}
+        (let [access-token (-> token-resp :body :access_token)]
+          (if-not access-token
+            {:type :error :message "No access token received from GitHub."}
+            ;; Fetch user info from GitHub API
+            (let [user-resp (clj-http/get (:user-url github-config)
+                                          {:throw-exceptions false
+                                           :as :json
+                                           :coerce :always
+                                           :headers (merge (:headers github-config)
+                                                           {"Authorization" (str "Bearer " access-token)})})]
+              (if-not (clj-http/success? user-resp)
+                {:type :error :message (get-in user-resp [:body :message] "Failed to fetch user info from GitHub.")}
+                (let [user-data (:body user-resp)
+                      user-id (:id user-data)
+                      avatar-url (:avatar_url user-data)
+                      email (fetch-github-primary-email access-token)]
+                  (tracer/with-span! {:name "oauth/github-user-info"
+                                      :attributes {:has-email (boolean email)
+                                                   :has-id (boolean user-id)
+                                                   :has-avatar (boolean avatar-url)}}
+
+                    (if user-id
+                      {:type :success
+                       :email email
+                       :sub (str user-id)
+                       :imageURL avatar-url}
+                      {:type :error
+                       :message "Missing user ID from GitHub"}))))))))))
+
+  (get-user-info-from-id-token [_ _ _ _]
+    ;; GitHub uses OAuth2, not OIDC, so it doesn't support ID tokens
+    (ex/throw-validation-err! :id_token nil [{:message "GitHub OAuth does not support ID tokens."}])))
 
 (defrecord GenericOAuthClient [app-id
                                provider-id

@@ -40,7 +40,7 @@
   },
   "dependencies": {
     "@instantdb/core": "workspace:*",
-    "@instantdb/react": "workspace:*",
+    "@instantdb/react-common": "workspace:*",
     "@instantdb/version": "workspace:*"
   }
 }

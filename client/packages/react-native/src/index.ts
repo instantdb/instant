@@ -5,7 +5,7 @@ import EventSourceImpl from './EventSourceImpl';
 import NetworkListener from './NetworkListener';
 import version from './version';
 
-import { InstantReactAbstractDatabase } from '@instantdb/react';
+import { InstantReactAbstractDatabase } from '@instantdb/react-common';
 
 import {
   i,

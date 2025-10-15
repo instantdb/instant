@@ -21,6 +21,7 @@
                  client-secret
                  discovery-endpoint
                  meta]}]
+   ;; Only validate discovery endpoint if provided (OIDC providers)
    (when discovery-endpoint
      (try
        (when-not (-> (oauth/fetch-discovery discovery-endpoint)
@@ -102,21 +103,25 @@
       (Secret.)))
 
 (defn ->OAuthClient [oauth-client]
-  (if-let [discovery-endpoint (:discovery_endpoint oauth-client)]
+  (cond
+    (:discovery_endpoint oauth-client)
     (oauth/generic-oauth-client-from-discovery-url
      {:app-id (:app_id oauth-client)
       :provider-id (:provider_id oauth-client)
       :client-id (:client_id oauth-client)
       :client-secret (when (:client_secret oauth-client)
                        (decrypted-client-secret oauth-client))
-      :discovery-endpoint discovery-endpoint
+      :discovery-endpoint (:discovery_endpoint oauth-client)
       :meta (:meta oauth-client)})
-    (oauth/map->GenericOAuthClient
+
+    (= "github" (get (:meta oauth-client) "providerName"))
+    (oauth/map->GitHubOAuthClient
      {:app-id (:app_id oauth-client)
       :provider-id (:provider_id oauth-client)
       :client-id (:client_id oauth-client)
       :client-secret (when (:client_secret oauth-client)
                        (decrypted-client-secret oauth-client))
-      :authorization-endpoint (:authorization_endpoint oauth-client)
-      :token-endpoint (:token_endpoint oauth-client)
-      :meta (:meta oauth-client)})))
+      :meta (:meta oauth-client)})
+
+    :else
+    (throw (ex-info "Unsupported OAuth client" {:oauth-client oauth-client}))))

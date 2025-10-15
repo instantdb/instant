@@ -524,17 +524,19 @@
         client-name (ex/get-param! req [:body :client_name] string-util/coerce-non-blank-str)
         client-id (coerce-optional-param! [:body :client_id])
         client-secret (coerce-optional-param! [:body :client_secret])
-        authorization-endpoint (coerce-optional-param! [:body :authorization_endpoint])
-        token-endpoint (coerce-optional-param! [:body :token_endpoint])
-        discovery-endpoint (ex/get-param! req [:body :discovery_endpoint] string-util/coerce-non-blank-str)
         meta (ex/get-optional-param! req [:body :meta] (fn [x] (when (map? x) x)))
+        provider-name (ex/get-optional-param! meta [:providerName] string-util/coerce-non-blank-str)
+
+        ;; GitHub doesn't need discovery endpoints
+        ;; OIDC providers (Google, LinkedIn, Apple) need discovery endpoints
+        discovery-endpoint (when-not (= "github" provider-name)
+                             (ex/get-param! req [:body :discovery_endpoint] string-util/coerce-non-blank-str))
+
         client (app-oauth-client-model/create! {:app-id app-id
                                                 :provider-id provider-id
                                                 :client-name client-name
                                                 :client-id client-id
                                                 :client-secret client-secret
-                                                :authorization-endpoint authorization-endpoint
-                                                :token-endpoint token-endpoint
                                                 :discovery-endpoint discovery-endpoint
                                                 :meta meta})]
     (response/ok {:client (select-keys client [:id :provider_id :client_name

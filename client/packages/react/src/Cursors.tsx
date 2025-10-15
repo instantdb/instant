@@ -5,7 +5,7 @@ import {
   type TouchEvent,
   type CSSProperties,
 } from 'react';
-import type { InstantReactRoom } from './InstantReactRoom.ts';
+import { type InstantReactRoom } from '@instantdb/react-common';
 import type { RoomSchemaShape } from '@instantdb/core';
 
 export function Cursors<
