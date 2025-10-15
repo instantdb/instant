@@ -14,7 +14,6 @@ export async function promptOk(
       modifyOutput: (out) =>
         boxen(out, {
           dimBorder: true,
-          textAlignment: 'center',
           padding: {
             left: 1,
             right: 1,
@@ -23,5 +22,5 @@ export async function promptOk(
       ...props,
       defaultValue,
     }),
-  ).catch(() => false);
+  ).catch(() => defaultValue);
 }

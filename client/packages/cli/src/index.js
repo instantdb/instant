@@ -1017,6 +1017,7 @@ async function pullSchema(appId, { pkgDir, instantModuleName }) {
       {
         promptText:
           'This will overwrite your local instant.schema file, OK to proceed?',
+        modifyOutput: (a) => a,
       },
       program.opts(),
     );
@@ -1058,6 +1059,7 @@ async function pullPerms(appId, { pkgDir, instantModuleName }) {
       {
         promptText:
           'This will overwrite your local instant.perms file, OK to proceed?',
+        modifyOutput: (a) => a,
       },
       program.opts(),
     );
