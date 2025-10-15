@@ -184,6 +184,11 @@ export const tryConnectApp = async (
           return dashData;
         },
 
+        getAppsForOrg: async (orgId: string) => {
+          const { apps } = await fetchOrganizationApps(authToken, orgId);
+          return { apps };
+        },
+
         createApp: async (title: string, orgId?: string) => {
           const { appID, adminToken } = await createApp(
             title,
