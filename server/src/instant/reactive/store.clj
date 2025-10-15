@@ -127,9 +127,9 @@
 
 (defrecord TxResult [type result lock-time-ms tx-time-ms])
 
-(defn run-txes-runnable ^Runnable [conn]
-  ^:once
-  (fn []
+(deftype RunTxes [conn]
+  Runnable
+  (run [this]
     (let [{:keys [tx-queue lock executor]} (meta conn)
           items (loop [items (transient [])]
                   (if (< 50 (count items))
@@ -171,7 +171,7 @@
               (deliver (:result-promise (first items)) (first reports))
               (recur (rest items) (rest reports)))))
         (when-not (ConcurrentLinkedQueue/.isEmpty tx-queue)
-          (ExecutorService/.submit executor (run-txes-runnable conn)))))))
+          (ExecutorService/.submit executor ^Runnable (RunTxes. conn)))))))
 
 (defn transact-new! [span-name conn tx-data]
   (let [t1 (System/nanoTime)]
@@ -182,8 +182,7 @@
               {:keys [tx-queue executor]} (meta conn)
               result-promise (promise)
               _ (ConcurrentLinkedQueue/.add tx-queue (->TxInput tx-data result-promise))
-              _ (ExecutorService/.submit executor
-                                         (run-txes-runnable conn))
+              _ (ExecutorService/.submit executor ^Runnable (RunTxes. conn))
               result @result-promise
               _ (when (= :error (:type result))
                   (throw (:result result)))
