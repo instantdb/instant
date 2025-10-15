@@ -12,7 +12,6 @@
   "main": "./dist/commonjs/index.js",
   "types": "./dist/commonjs/index.d.ts",
   "module": "./dist/esm/index.js",
-  "react-native": "dist/esm/index.native.js",
   "unpkg": "standalone/index.umd.js",
   "exports": {
     "./package.json": "./package.json",
