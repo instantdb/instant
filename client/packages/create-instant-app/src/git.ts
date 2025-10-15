@@ -4,6 +4,7 @@ import * as p from '@clack/prompts';
 import chalk from 'chalk';
 import { execa } from 'execa';
 import fs from 'fs-extra';
+import { renderUnwrap, UI } from 'instant-cli/ui';
 
 const isGitInstalled = (dir: string): boolean => {
   try {
@@ -55,38 +56,37 @@ export const initializeGit = async (projectDir: string) => {
     return;
   }
 
-  const gitSpinner = p.spinner();
-  gitSpinner.start('Initializing Git...');
-
   const isRoot = isRootGitRepo(projectDir);
   const isInside = await isInsideGitRepo(projectDir);
   const dirName = path.parse(projectDir).name; // skip full path for logging
 
   if (isInside && isRoot) {
-    gitSpinner.stop();
-    const overwriteGit = await p.confirm({
-      message: `${chalk.redBright.bold(
-        'Warning:',
-      )} Git is already initialized in "${dirName}". Initializing a new git repository would delete the previous history. Would you like to continue anyways?`,
-      initialValue: false,
-    });
+    const overwriteGit = await renderUnwrap(
+      new UI.Confirmation({
+        promptText: `${chalk.redBright.bold(
+          'Warning:',
+        )} Git is already initialized in "${dirName}". Initializing a new git repository would delete the previous history. Would you like to continue anyways?`,
+        defaultValue: false,
+        modifyOutput: UI.ciaModifier,
+      }),
+    );
 
     if (!overwriteGit) {
-      gitSpinner.stop('Skipping Git initialization.');
       return;
     }
 
     fs.removeSync(path.join(projectDir, '.git'));
   } else if (isInside && !isRoot) {
-    gitSpinner.stop();
-    const initializeChildGitRepo = await p.confirm({
-      message: `${chalk.redBright.bold(
-        'Warning:',
-      )} "${dirName}" is already in a git worktree. Would you still like to initialize a new git repository in this directory?`,
-      initialValue: false,
-    });
+    const initializeChildGitRepo = await renderUnwrap(
+      new UI.Confirmation({
+        promptText: `${chalk.redBright.bold(
+          'Warning:',
+        )} "${dirName}" is already in a git worktree. \nWould you still like to initialize a new git repository in this directory?\n`,
+        defaultValue: false,
+        modifyOutput: UI.ciaModifier,
+      }),
+    );
     if (!initializeChildGitRepo) {
-      gitSpinner.stop('Skipping Git initialization.');
       return;
     }
   }
@@ -113,17 +113,7 @@ export const initializeGit = async (projectDir: string) => {
         cwd: projectDir,
       },
     );
-    gitSpinner.stop(
-      `${chalk.green('Successfully initialized and staged')} ${chalk.green.bold(
-        'git',
-      )}`,
-    );
-  } catch {
-    // Safeguard, should be unreachable
-    gitSpinner.stop(
-      `${chalk.bold.red(
-        'Failed:',
-      )} could not initialize git. Update git to the latest version!`,
-    );
-  }
+
+    UI.log('Git repository initialized successfully.', UI.ciaModifier);
+  } catch {}
 };

@@ -39,48 +39,48 @@ const main = async () => {
 
   const pkgManager = getUserPkgManager();
 
-  // const projectDir = await scaffoldBase(project, appDir);
-  // addRuleFiles({
-  //   projectDir,
-  //   base: project.base,
-  //   ruleFilesToAdd: project.ruleFiles,
-  // });
-  // await runInstallCommand(getUserPkgManager(), projectDir);
+  const projectDir = await scaffoldBase(project, appDir);
+  addRuleFiles({
+    projectDir,
+    base: project.base,
+    ruleFilesToAdd: project.ruleFiles,
+  });
+  await runInstallCommand(getUserPkgManager(), projectDir);
 
-  // // Update package.json with app name
-  // const pkgJson = fs.readJSONSync(
-  //   path.join(projectDir, 'package.json'),
-  // ) as PackageJson;
-  // pkgJson.name = scopedAppName;
-  // if (pkgManager !== 'bun') {
-  //   const { stdout } = await execa(pkgManager, ['-v'], {
-  //     cwd: projectDir,
-  //   });
-  //   pkgJson.packageManager = `${pkgManager}@${stdout.trim()}`;
-  // }
+  // Update package.json with app name
+  const pkgJson = fs.readJSONSync(
+    path.join(projectDir, 'package.json'),
+  ) as PackageJson;
+  pkgJson.name = scopedAppName;
+  if (pkgManager !== 'bun') {
+    const { stdout } = await execa(pkgManager, ['-v'], {
+      cwd: projectDir,
+    });
+    pkgJson.packageManager = `${pkgManager}@${stdout.trim()}`;
+  }
 
-  // fs.writeJSONSync(path.join(projectDir, 'package.json'), pkgJson, {
-  //   spaces: 2,
-  // });
+  fs.writeJSONSync(path.join(projectDir, 'package.json'), pkgJson, {
+    spaces: 2,
+  });
 
   const possibleAppTokenPair = await tryConnectApp(project);
-  // if (possibleAppTokenPair) {
-  //   applyEnvFile(
-  //     project,
-  //     projectDir,
-  //     possibleAppTokenPair.appID,
-  //     possibleAppTokenPair.adminToken,
-  //   );
-  // }
+  if (possibleAppTokenPair) {
+    applyEnvFile(
+      project,
+      projectDir,
+      possibleAppTokenPair.appId,
+      possibleAppTokenPair.adminToken,
+    );
+  }
 
-  // if (project.createRepo) {
-  //   await initializeGit(projectDir);
-  // }
+  if (project.createRepo) {
+    await initializeGit(projectDir);
+  }
 
-  // if (project.prompt) {
-  //   await promptClaude(project.prompt, projectDir);
-  //   process.stdout.write(SHOW_CURSOR);
-  // }
+  if (project.prompt) {
+    await promptClaude(project.prompt, projectDir);
+    process.stdout.write(SHOW_CURSOR);
+  }
 
   outro(`Done!`);
 

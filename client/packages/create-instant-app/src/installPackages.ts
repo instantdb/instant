@@ -13,7 +13,7 @@ export const runInstallCommand = async (
     new UI.Spinner({
       promise: result,
       workingText: `Installing dependencies with ${pkgManager}...`,
-      doneText: chalk.green('Successfully installed dependencies!'),
+      doneText: 'Successfully installed dependencies!',
       modifyOutput: UI.ciaModifier,
     }),
   );

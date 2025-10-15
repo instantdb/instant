@@ -17,7 +17,7 @@ export namespace UI {
     },
 
     yPadding: (output: string) => {
-      return '\n' + output + '\n';
+      return '\n' + output;
     },
 
     sidelined: (output: string, status?: Status) => {
@@ -346,7 +346,7 @@ ${inputDisplay}`;
       }
 
       const frame = this.spinnerFrames[this.frameIndex];
-      return `${chalk.cyan(frame)} ${workingText}\n`;
+      return `${chalk.hex('#EA570B')(frame)} ${workingText}\n`;
     }
 
     constructor(props: SpinnerProps<T>) {
@@ -402,20 +402,17 @@ ${inputDisplay}`;
     }
 
     override render(status: 'idle' | 'submitted' | 'aborted'): string {
-      if (status === 'submitted') {
-        return `${this.props.promptText}: ${this.value ? 'Yes' : 'No'} ✓\n`;
-      }
-      if (status === 'aborted') {
-        return `${this.props.promptText}: ${this.value ? 'Yes' : 'No'} ✗\n`;
-      }
-
       const renderLabel = (
         text: string,
         active: boolean,
         width: number = 8,
       ): string => {
         return boxen(text, {
-          backgroundColor: active ? '#EA570B' : 'blackBright',
+          backgroundColor: active
+            ? '#EA570B'
+            : status === 'idle'
+              ? 'blackBright'
+              : undefined,
           borderStyle: 'none',
           align: 'center',
           width,
@@ -809,9 +806,10 @@ ${yesStyle}  ${noStyle}`;
 
     render(status: 'idle' | 'submitted' | 'aborted'): string {
       if (status === 'submitted') {
-        return boxen('Selected: ' + this.selectedAppName, {
+        return boxen(' Selected App: ' + this.selectedAppName, {
           width: 50,
           dimBorder: true,
+          textAlignment: 'center',
         });
       }
 

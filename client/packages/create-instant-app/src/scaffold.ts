@@ -18,9 +18,11 @@ export const scaffoldBase = async (cliResults: Project, appDir: string) => {
     } else {
       const overwriteDir = await renderUnwrap(
         new UI.Select({
-          promptText: `${chalk.redBright.bold('Warning:')} ${chalk.cyan.bold(
-            cliResults.appName,
-          )} already exists and isn't empty. How would you like to proceed?`,
+          promptText: chalk.redBright(
+            `${chalk.bold('Warning:')} ${chalk.bold(
+              cliResults.appName,
+            )} already exists and isn't empty. How would you like to proceed?`,
+          ),
           options: [
             {
               label: 'Abort installation',
@@ -63,12 +65,11 @@ enable-pre-post-scripts=true`,
   }
 
   const scaffoldedName =
-    cliResults.appName === '.' ? 'App' : chalk.cyan.bold(cliResults.appName);
+    cliResults.appName === '.'
+      ? 'App'
+      : chalk.hex('#EA570B').bold(cliResults.appName);
 
-  UI.log(
-    `${scaffoldedName} ${chalk.green('scaffolded successfully!')}`,
-    UI.ciaModifier,
-  );
+  UI.log(`${scaffoldedName} scaffolded successfully!`, UI.ciaModifier);
 
   return projectDir;
 };
