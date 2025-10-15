@@ -30,6 +30,12 @@ export type InstantAPISchemaPlanAddAttrStep = {
   attr: InstantDBAttr;
 };
 
+export type InstantAPISchemaPlanDeleteAttrStep = {
+  type: 'delete-attr';
+  friendlyDescription: string;
+  attrId: string;
+};
+
 export type InstantAPISchemaPlanUpdateAttrStep = {
   type: 'update-attr';
   friendlyDescription: string;
@@ -181,6 +187,7 @@ export interface InstantBackgroundSchemaRemoveRequiredJob
 
 export type InstantAPISchemaPlanStep =
   | InstantAPISchemaPlanAddAttrStep
+  | InstantAPISchemaPlanDeleteAttrStep
   | InstantAPISchemaPlanUpdateAttrStep
   | InstantAPISchemaPlanIndexStep
   | InstantAPISchemaPlanRemoveIndexStep
@@ -419,3 +426,38 @@ export default schema;
 
   return code;
 }
+
+export class SchemaValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'SchemaValidationError';
+  }
+}
+
+export const validateSchema = (schema: GenericSchemaDef) => {
+  const entityNames = Object.keys(schema.entities);
+  for (const link of Object.values(schema.links)) {
+    if (link.forward.has === 'many' && link.forward.onDelete === 'cascade') {
+      throw new SchemaValidationError(
+        `${link.forward.on}${link.forward.label} -> ${link.reverse.on}${link.reverse.label} has onDelete: "cascade" with has: "many"`,
+      );
+    }
+    if (link.reverse.has === 'many' && link.reverse.onDelete === 'cascade') {
+      throw new SchemaValidationError(
+        `${link.forward.on}${link.forward.label} -> ${link.reverse.on}${link.reverse.label} has onDelete: "cascade" with has: "many"`,
+      );
+    }
+
+    const linkDisplay = `${link.forward.on}${link.forward.label} -> ${link.reverse.on}${link.reverse.label}`;
+    if (!entityNames.includes(link.forward.on)) {
+      throw new SchemaValidationError(
+        `${linkDisplay} connects to non existing entity "${link.forward.on}".`,
+      );
+    }
+    if (!entityNames.includes(link.reverse.on)) {
+      throw new SchemaValidationError(
+        `${linkDisplay} connects to non existing entity "${link.forward.on}".`,
+      );
+    }
+  }
+};

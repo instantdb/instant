@@ -5,6 +5,11 @@ import {
   apiSchemaToInstantSchemaDef,
   generateSchemaTypescriptFile,
   translatePlanSteps,
+  diffSchemas,
+  convertTxSteps,
+  isRenamePromptItem,
+  validateSchema,
+  SchemaValidationError,
 } from '@instantdb/platform';
 import version from './version.js';
 import { existsSync } from 'fs';
@@ -32,6 +37,11 @@ import {
 import { pathExists, readJsonFile } from './util/fs.js';
 import prettier from 'prettier';
 import toggle from './toggle.js';
+import {
+  CancelSchemaError,
+  groupSteps,
+  renderSchemaPlan,
+} from './renderSchemaPlan.js';
 
 const execAsync = promisify(exec);
 
@@ -353,7 +363,7 @@ program
     console.log(`\n✅ Created app "${chalk.green(appTitle)}"\n`);
     console.log(`App ID: ${chalk.cyan(appId)}`);
     console.log(
-      `App Admin Token (double click first 4 digits to select): ${chalk.dim(appToken.substring(0, 4))}${chalk.hidden(appToken.substring(4))}`,
+      `App Admin Token (double click first 4 digits to select): ${chalk.dim(appToken?.substring(0, 4))}${chalk.hidden(appToken?.substring(4))}`,
     );
     console.log(terminalLink('Dashboard:', appDashUrl(appId)) + '\n');
   });
@@ -1226,10 +1236,12 @@ async function waitForIndexingJobsToFinish(appId, data) {
         if (!completedIds.has(job.id)) {
           completedIds.add(job.id);
           const msg = indexingJobCompletedMessage(job);
-          if (job.job_status === 'errored') {
-            errorMessages.push(msg);
-          } else {
-            completedMessages.push(msg);
+          if (msg) {
+            if (job.job_status === 'errored') {
+              errorMessages.push(msg);
+            } else {
+              completedMessages.push(msg);
+            }
           }
         }
       }
@@ -1286,146 +1298,102 @@ function linkOptsPretty(attr) {
   }
 }
 
-async function pushSchema(appId, opts) {
+const resolveRenames = async (created, promptData) => {
+  const answer = await select({
+    message: `Did you want to create "${created} or rename it from something else?"`,
+    choices: [
+      ...promptData.map((choice) => {
+        const isRename = isRenamePromptItem(choice);
+        return {
+          value: choice,
+          name: isRename
+            ? `Rename ${choice.from} to ${choice.to}`
+            : `Create ${choice}`,
+        };
+      }),
+    ],
+    default: created,
+  });
+  return answer;
+};
+
+async function pushSchema(appId, _opts) {
   const res = await readLocalSchemaFileWithErrorLogging();
   if (!res) return { ok: false };
   const { schema } = res;
-  console.log('Planning schema...');
 
-  const planRes = await fetchJson({
-    method: 'POST',
-    path: `/dash/apps/${appId}/schema/push/plan`,
+  try {
+    validateSchema(schema);
+  } catch (error) {
+    if (error instanceof SchemaValidationError) {
+      console.error(chalk.red('Invalid schema:', error.message));
+    } else {
+      console.error('Unexpected error:', error);
+    }
+    return { ok: false };
+  }
+
+  const pulledSchemaResponse = await fetchJson({
+    method: 'GET',
+    path: `/dash/apps/${appId}/schema/pull`,
     debugName: 'Schema plan',
-    errorMessage: 'Failed to update schema.',
-    body: {
-      schema,
-      check_types: !opts?.skipCheckTypes,
-      supports_background_updates: true,
-    },
+    errorMessage: 'Failed to get old schema.',
   });
 
-  if (!planRes.ok) return planRes;
+  if (!pulledSchemaResponse.ok) return pulledSchemaResponse;
 
-  if (!planRes.data.steps.length) {
-    console.log('No schema changes detected. Skipping.');
+  const currentAttrs = pulledSchemaResponse.data['attrs'];
+  const currentApiSchema = pulledSchemaResponse.data['schema'];
+
+  const oldSchema = apiSchemaToInstantSchemaDef(currentApiSchema);
+
+  const diffResult = await diffSchemas(oldSchema, schema, resolveRenames);
+
+  try {
+    const groupedSteps = groupSteps(diffResult);
+    const lines = renderSchemaPlan(groupedSteps, currentAttrs);
+    console.log(lines.join('\n'));
+  } catch (error) {
+    if (error instanceof CancelSchemaError) {
+      console.info('Schema migration cancelled!');
+    }
+    return { ok: false };
+  }
+
+  if (currentAttrs === undefined) {
+    throw new Error("Couldn't get current schema from server");
+  }
+  const txSteps = convertTxSteps(diffResult, currentAttrs);
+
+  if (txSteps.length === 0) {
+    console.log(chalk.bgGray('No schema changes to apply!'));
     return { ok: true };
   }
 
-  console.log(
-    'The following changes will be applied to your production schema:',
-  );
+  if (verbose) {
+    console.log(txSteps);
+  }
 
-  for (const step of translatePlanSteps(planRes.data.steps)) {
-    switch (step.type) {
-      case 'add-attr':
-      case 'update-attr': {
-        const attr = step.attr;
-        const valueType = attr['value-type'];
-        const isAdd = step.type === 'add-attr';
-        if (valueType === 'blob' && attrFwdLabel(attr) === 'id') {
-          console.log(
-            `${isAdd ? chalk.magenta('ADD ENTITY') : chalk.magenta('UPDATE ENTITY')} ${attrFwdName(attr)}`,
-          );
-          break;
-        }
+  const result = await promptOk('Push schema?');
+  if (result) {
+    const applyRes = await fetchJson({
+      method: 'POST',
+      path: `/dash/apps/${appId}/schema/steps/apply`,
+      debugName: 'Schema apply',
+      errorMessage: 'Failed to update schema.',
+      body: {
+        steps: txSteps,
+      },
+    });
+    console.log(chalk.green('Schema updated!'));
+    if (!applyRes.ok) return applyRes;
 
-        if (valueType === 'blob') {
-          console.log(
-            `${isAdd ? chalk.green('ADD ATTR') : chalk.blue('UPDATE ATTR')} ${attrFwdName(attr)} :: unique=${attr['unique?']}, indexed=${attr['index?']}`,
-          );
-          break;
-        }
-
-        console.log(
-          `${isAdd ? chalk.green('ADD LINK') : chalk.blue('UPDATE LINK')} ${attrFwdName(attr)} <=> ${attrRevName(attr)} ${linkOptsPretty(attr)}`,
-        );
-        break;
-      }
-      case 'check-data-type': {
-        console.log(
-          `${chalk.green('CHECK TYPE')} ${identName(step.forwardIdentity)} => ${step.checkedDataType}`,
-        );
-        break;
-      }
-      case 'remove-data-type': {
-        console.log(
-          `${chalk.red('REMOVE TYPE')} ${identName(step.forwardIdentity)} => any`,
-        );
-        break;
-      }
-      case 'index': {
-        console.log(
-          '%s on %s',
-          chalk.green('ADD INDEX'),
-          identName(step.forwardIdentity),
-        );
-        break;
-      }
-      case 'remove-index': {
-        console.log(
-          '%s on %s',
-          chalk.red('REMOVE INDEX'),
-          identName(step.forwardIdentity),
-        );
-        break;
-      }
-      case 'unique': {
-        console.log(
-          '%s to %s',
-          chalk.green('ADD UNIQUE CONSTRAINT'),
-          identName(step.forwardIdentity),
-        );
-        break;
-      }
-      case 'remove-unique': {
-        console.log(
-          '%s from %s',
-          chalk.red('REMOVE UNIQUE CONSTRAINT'),
-          identName(step.forwardIdentity),
-        );
-        break;
-      }
-      case 'required': {
-        console.log(
-          '%s to %s',
-          chalk.green('ADD REQUIRED CONSTRAINT'),
-          identName(step.forwardIdentity),
-        );
-        break;
-      }
-      case 'remove-required': {
-        console.log(
-          '%s from %s',
-          chalk.red('REMOVE REQUIRED CONSTRAINT'),
-          identName(step.forwardIdentity),
-        );
-        break;
-      }
+    if (applyRes.data['indexing-jobs']) {
+      await waitForIndexingJobsToFinish(appId, applyRes.data['indexing-jobs']);
     }
+  } else {
+    console.info('Schema migration cancelled!');
   }
-
-  const okPush = await promptOk('OK to proceed?');
-  if (!okPush) return { ok: true };
-
-  const applyRes = await fetchJson({
-    method: 'POST',
-    path: `/dash/apps/${appId}/schema/push/apply`,
-    debugName: 'Schema apply',
-    errorMessage: 'Failed to update schema.',
-    body: {
-      schema,
-      check_types: !opts?.skipCheckTypes,
-      supports_background_updates: true,
-    },
-  });
-
-  if (!applyRes.ok) return applyRes;
-
-  if (applyRes.data['indexing-jobs']) {
-    await waitForIndexingJobsToFinish(appId, applyRes.data['indexing-jobs']);
-  }
-
-  console.log(chalk.green('Schema updated!'));
 
   return { ok: true };
 }
@@ -1601,7 +1569,7 @@ function prettyPrintJSONErr(data) {
   }
 }
 
-async function promptOk(message, defaultAnswer = false) {
+export async function promptOk(message, defaultAnswer = false) {
   const options = program.opts();
 
   if (options.yes) return true;
