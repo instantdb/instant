@@ -45,6 +45,12 @@ export namespace UI {
       }
       return output;
     },
+    vanishOnComplete: (output: string, status?: Status) => {
+      if (status === 'submitted' || status === 'aborted') {
+        return '';
+      }
+      return output;
+    },
   } as const;
 
   export const ciaModifier = modifiers.piped([
@@ -401,10 +407,12 @@ ${inputDisplay}`;
     }
   }
 
-  type ConfirmationProps = {
+  export type ConfirmationProps = {
     promptText: string;
     defaultValue?: boolean;
     modifyOutput?: ModifyOutputFn;
+    yesText?: string;
+    noText?: string;
   };
 
   export class Confirmation extends Prompt<boolean> {
@@ -430,8 +438,16 @@ ${inputDisplay}`;
         });
       };
 
-      const yesStyle = renderLabel('Yes', this.value === true, 9);
-      const noStyle = renderLabel('No', this.value === false, 8);
+      const yesStyle = renderLabel(
+        this.props.yesText ?? 'Yes',
+        this.value === true,
+        9,
+      );
+      const noStyle = renderLabel(
+        this.props.noText ?? 'No',
+        this.value === false,
+        8,
+      );
 
       return `${this.props.promptText}
 ${yesStyle}  ${noStyle}`;

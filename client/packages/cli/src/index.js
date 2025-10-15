@@ -42,6 +42,8 @@ import { getAuthPaths } from './util/getAuthPaths.js';
 import { renderUnwrap } from './ui/lib.js';
 import { UI } from './ui/index.js';
 import { deferred } from './ui/lib.js';
+import { promptOk } from './util/promptOk.js';
+import { ResolveRenamePrompt } from './util/renamePrompt.js';
 
 const execAsync = promisify(exec);
 
@@ -558,8 +560,11 @@ async function handleEnvFile(pkgAndAuthInfo, { appId, appToken }) {
     `If we set ${chalk.green('`' + envName + '`')} & ${chalk.green('INSTANT_APP_ADMIN_TOKEN')}, we can remember the app that you chose for all future commands.`,
   );
   const ok = await promptOk(
-    'Want us to create this env file for you?',
-    /*defaultAnswer=*/ true,
+    {
+      promptText: 'Want us to create this env file for you?',
+    },
+    program.opts(),
+    true,
   );
   if (!ok) {
     console.log(
@@ -630,7 +635,10 @@ async function login(options) {
 
   console.log();
   const ok = await promptOk(
-    `This will open instantdb.com in your browser, OK to proceed?`,
+    {
+      promptText: `This will open instantdb.com in your browser, OK to proceed?`,
+    },
+    program.opts(),
     /*defaultAnswer=*/ true,
   );
 
@@ -864,7 +872,10 @@ async function promptImportAppOrCreateApp() {
   }
   if (!apps.length) {
     const ok = await promptOk(
-      `You don't have any apps${orgName ? ` in ${orgName}` : ''}. Want to create a new one?`,
+      {
+        promptText: `You don't have any apps${orgName ? ` in ${orgName}` : ''}. Want to create a new one?`,
+      },
+      program.opts(),
       /*defaultAnswer=*/ true,
     );
     if (!ok) return { ok: false };
@@ -1003,7 +1014,11 @@ async function pullSchema(appId, { pkgDir, instantModuleName }) {
   const prev = await readLocalSchemaFile();
   if (prev) {
     const shouldContinue = await promptOk(
-      'This will overwrite your local instant.schema file, OK to proceed?',
+      {
+        promptText:
+          'This will overwrite your local instant.schema file, OK to proceed?',
+      },
+      program.opts(),
     );
 
     if (!shouldContinue) return { ok: true };
@@ -1040,7 +1055,11 @@ async function pullPerms(appId, { pkgDir, instantModuleName }) {
   const prev = await readLocalPermsFile();
   if (prev) {
     const shouldContinue = await promptOk(
-      'This will overwrite your local instant.perms file, OK to proceed?',
+      {
+        promptText:
+          'This will overwrite your local instant.perms file, OK to proceed?',
+      },
+      program.opts(),
     );
 
     if (!shouldContinue) return { ok: true };
@@ -1305,23 +1324,24 @@ function linkOptsPretty(attr) {
   }
 }
 
-const resolveRenames = async (created, promptData) => {
+const resolveRenames = async (created, promptData, extraInfo) => {
   const answer = await renderUnwrap(
-    new UI.Select({
-      promptText: `Did you want to create "${created} or rename it from something else?"`,
-      options: [
-        ...promptData.map((choice) => {
-          const isRename = isRenamePromptItem(choice);
-          return {
-            value: choice,
-            label: isRename
-              ? `Rename ${choice.from} to ${choice.to}`
-              : `Create ${choice}`,
-          };
-        }),
-      ],
-      defaultValue: created,
-    }),
+    new ResolveRenamePrompt(
+      created,
+      promptData,
+      extraInfo,
+      UI.modifiers.piped([
+        (out) =>
+          boxen(out, {
+            dimBorder: true,
+            padding: {
+              left: 1,
+              right: 1,
+            },
+          }),
+        UI.modifiers.vanishOnComplete,
+      ]),
+    ),
   );
   return answer;
 };
@@ -1357,18 +1377,6 @@ async function pushSchema(appId, _opts) {
   const oldSchema = apiSchemaToInstantSchemaDef(currentApiSchema);
 
   const diffResult = await diffSchemas(oldSchema, schema, resolveRenames);
-
-  try {
-    const groupedSteps = groupSteps(diffResult);
-    const lines = renderSchemaPlan(groupedSteps, currentAttrs);
-    console.log(lines.join('\n'));
-  } catch (error) {
-    if (error instanceof CancelSchemaError) {
-      console.info('Schema migration cancelled!');
-    }
-    return { ok: false };
-  }
-
   if (currentAttrs === undefined) {
     throw new Error("Couldn't get current schema from server");
   }
@@ -1379,12 +1387,40 @@ async function pushSchema(appId, _opts) {
     return { ok: true };
   }
 
+  let wantsToPush = false;
+  try {
+    const groupedSteps = groupSteps(diffResult);
+    const lines = renderSchemaPlan(groupedSteps, currentAttrs);
+    wantsToPush = await promptOk(
+      {
+        promptText: 'Push these changes?',
+        yesText: 'Push',
+        noText: 'Cancel',
+        modifyOutput: (output) => {
+          let both = lines.join('\n') + '\n\n' + output;
+          return boxen(both, {
+            dimBorder: true,
+            padding: {
+              left: 1,
+              right: 1,
+            },
+          });
+        },
+      },
+      program.opts(),
+    );
+  } catch (error) {
+    if (error instanceof CancelSchemaError) {
+      console.info('Schema migration cancelled!');
+    }
+    return { ok: false };
+  }
+
   if (verbose) {
     console.log(txSteps);
   }
 
-  const result = await promptOk('Push schema?');
-  if (result) {
+  if (wantsToPush) {
     const applyRes = await fetchJson({
       method: 'POST',
       path: `/dash/apps/${appId}/schema/steps/apply`,
@@ -1435,7 +1471,10 @@ async function pushPerms(appId) {
   console.log('The following changes will be applied to your perms:');
   console.log(diffedStr);
 
-  const okPush = await promptOk('OK to proceed?');
+  const okPush = await promptOk(
+    { promptText: 'OK to proceed?' },
+    program.opts(),
+  );
   if (!okPush) return { ok: true };
 
   const permsRes = await fetchJson({
@@ -1576,27 +1615,6 @@ function prettyPrintJSONErr(data) {
   if (!data) {
     error('Failed to parse error response');
   }
-}
-
-export async function promptOk(message, defaultAnswer = false) {
-  const options = program.opts();
-
-  if (options.yes) return true;
-
-  return await renderUnwrap(
-    new UI.Confirmation({
-      promptText: message,
-      modifyOutput: (out) =>
-        boxen(out, {
-          dimBorder: true,
-          padding: {
-            left: 1,
-            right: 1,
-          },
-        }),
-      defaultValue: defaultAnswer,
-    }),
-  ).catch(() => false);
 }
 
 /**
