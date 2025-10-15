@@ -268,9 +268,19 @@ export const renderSchemaPlan = (
         if (step.partialAttr['value-type'] === 'ref') {
           addLine(renderLinkUpdate(step, prevAttrs));
         } else {
-          addLine(
-            `${chalk.bgYellow.black(' * UPDATE ATTR ')} ${createDotName(step)}`,
-          );
+          if (
+            step.partialAttr['forward-identity']?.attrName &&
+            step.partialAttr['forward-identity']?.attrName !==
+              step.identifier.attrName
+          ) {
+            addLine(
+              `${chalk.bgYellow.black(' * RENAME ATTR ')} ${createDotName(step)} -> ${step.partialAttr['forward-identity']?.['namespace']}.${step.partialAttr['forward-identity']?.['attrName']}`,
+            );
+          } else {
+            addLine(
+              `${chalk.bgYellow.black(' * UPDATE ATTR ')} ${createDotName(step)}`,
+            );
+          }
         }
         break;
       case 'index':
