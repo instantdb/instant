@@ -252,14 +252,6 @@ export default App;
 
 {% /conditional %}
 
-## Email Visibility
-
-GitHub users can choose to make their email addresses private. If a user has a private email:
-
-- Instant will use GitHub's no-reply email address (e.g., `123456+username@users.noreply.github.com`)
-- This ensures users can still authenticate even with private emails
-- The email is still unique and consistent for each user
-
 ## Scopes
 
 GitHub uses OAuth scopes to control access. The basic scopes Instant requests are:
