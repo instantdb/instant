@@ -55,7 +55,7 @@ export function addClient({
   clientSecret?: string;
   authorizationEndpoint?: string;
   tokenEndpoint?: string;
-  discoveryEndpoint: string;
+  discoveryEndpoint?: string;
   meta?: any;
 }): Promise<{ client: OAuthClient }> {
   return jsonFetch(`${config.apiURI}/dash/apps/${appId}/oauth_clients`, {

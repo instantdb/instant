@@ -10,7 +10,7 @@ export async function loadConfig<T>(
   const res = await _loadConfig(opts);
   // Unconfig seems to add an __esModule property to the config object
   // Removing it.
-  if (typeof res.config === 'object' && '__esModule' in res.config) {
+  if (typeof res.config === 'object' && '__esModule' in res.config!) {
     delete res.config.__esModule;
   }
   return res;
