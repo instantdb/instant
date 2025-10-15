@@ -116,7 +116,7 @@ export const runCli = async (): Promise<Project> => {
             placeholder: 'awesome-todos',
             defaultValue: 'awesome-todos',
             validate: (x) => validateAppName(coerceAppName(x)),
-            modifyOutput: UI.ciaModifier,
+            modifyOutput: UI.ciaModifier(),
           }),
         );
         const coercedName = coerceAppName(promptedName);
@@ -128,7 +128,7 @@ export const runCli = async (): Promise<Project> => {
             new UI.TextInput({
               prompt: 'What would you like to create?',
               placeholder: 'Create an app that...',
-              modifyOutput: UI.modifiers.piped([UI.ciaModifier]),
+              modifyOutput: UI.modifiers.piped([UI.ciaModifier()]),
             }),
           );
         }
@@ -157,7 +157,7 @@ export const runCli = async (): Promise<Project> => {
                 { value: 'expo', label: 'Expo: React Native' },
               ],
               defaultValue: 'next-js-app-dir',
-              modifyOutput: UI.modifiers.piped([UI.ciaModifier]),
+              modifyOutput: UI.modifiers.piped([UI.ciaModifier()]),
             }),
           );
         }
@@ -171,7 +171,7 @@ export const runCli = async (): Promise<Project> => {
               { value: 'expo', label: 'Expo: React Native' },
             ],
             defaultValue: 'next-js-app-dir' as Project['base'],
-            modifyOutput: UI.modifiers.piped([UI.ciaModifier]),
+            modifyOutput: UI.modifiers.piped([UI.ciaModifier()]),
           }),
         );
       },
@@ -207,7 +207,7 @@ export const runCli = async (): Promise<Project> => {
               { value: 'zed', label: 'Zed' },
             ],
             defaultValue: null as Project['ruleFiles'],
-            modifyOutput: UI.ciaModifier,
+            modifyOutput: UI.ciaModifier(),
           }),
         );
       },

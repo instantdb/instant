@@ -20,20 +20,26 @@ export namespace UI {
       return '\n' + output;
     },
 
-    sidelined: (output: string, status?: Status) => {
-      const result: string[] = [];
-      output.split('\n').forEach((line) => {
-        result.push(`${chalk.gray('│  ')}${line}`);
-      });
-      if (status === 'idle') {
-        result.push(`${chalk.gray('└  ')}`);
-      }
-      let almost = result.join('\n');
-      if (!almost.endsWith('\n')) {
-        almost += '\n';
-      }
-      return almost;
-    },
+    sidelined:
+      (symbol: string | null = '◆') =>
+      (output: string, status?: Status) => {
+        const result: string[] = [];
+        output.split('\n').forEach((line, idx) => {
+          if (idx === 1 && symbol) {
+            result.push(`${chalk.gray(symbol + '  ')}${line}`);
+          } else {
+            result.push(`${chalk.gray('│  ')}${line}`);
+          }
+        });
+        if (status === 'idle') {
+          result.push(`${chalk.gray('└  ')}`);
+        }
+        let almost = result.join('\n');
+        if (!almost.endsWith('\n')) {
+          almost += '\n';
+        }
+        return almost;
+      },
 
     background: (output: string) => {
       return chalk.bgBlackBright(output);
@@ -53,11 +59,12 @@ export namespace UI {
     },
   } as const;
 
-  export const ciaModifier = modifiers.piped([
-    UI.modifiers.yPadding,
-    UI.modifiers.dimOnComplete,
-    UI.modifiers.sidelined,
-  ]);
+  export const ciaModifier = (symbol: string | null = '◆') =>
+    modifiers.piped([
+      UI.modifiers.yPadding,
+      UI.modifiers.dimOnComplete,
+      UI.modifiers.sidelined(symbol),
+    ]);
 
   /**
    * Utility that lets you use output modifiers in console.log

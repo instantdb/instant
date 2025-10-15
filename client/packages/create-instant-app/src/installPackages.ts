@@ -14,12 +14,12 @@ export const runInstallCommand = async (
       promise: result,
       workingText: `Installing dependencies with ${pkgManager}...`,
       doneText: 'Successfully installed dependencies!',
-      modifyOutput: UI.ciaModifier,
+      modifyOutput: UI.ciaModifier(),
     }),
   );
 
   if (spinResult.exitCode !== 0) {
-    UI.log(spinResult.stderr, UI.ciaModifier);
+    UI.log(spinResult.stderr, UI.ciaModifier(null));
     process.exit(1);
   }
 };

@@ -14,6 +14,7 @@ export const scaffoldBase = async (cliResults: Project, appDir: string) => {
     if (fs.readdirSync(projectDir).length === 0) {
       UI.log(
         `${chalk.cyan.bold(cliResults.appName)} exists but is empty, continuing...`,
+        UI.ciaModifier(null),
       );
     } else {
       const overwriteDir = await renderUnwrap(
@@ -34,7 +35,7 @@ export const scaffoldBase = async (cliResults: Project, appDir: string) => {
             },
           ],
           defaultValue: 'abort',
-          modifyOutput: UI.ciaModifier,
+          modifyOutput: UI.ciaModifier(),
         }),
       );
 
@@ -69,7 +70,7 @@ enable-pre-post-scripts=true`,
       ? 'App'
       : chalk.hex('#EA570B').bold(cliResults.appName);
 
-  UI.log(`${scaffoldedName} scaffolded successfully!`, UI.ciaModifier);
+  UI.log(`${scaffoldedName} scaffolded successfully!`, UI.ciaModifier(null));
 
   return projectDir;
 };

@@ -67,7 +67,7 @@ export const initializeGit = async (projectDir: string) => {
           'Warning:',
         )} Git is already initialized in "${dirName}". Initializing a new git repository would delete the previous history. Would you like to continue anyways?`,
         defaultValue: false,
-        modifyOutput: UI.ciaModifier,
+        modifyOutput: UI.ciaModifier(),
       }),
     );
 
@@ -83,7 +83,7 @@ export const initializeGit = async (projectDir: string) => {
           'Warning:',
         )} "${dirName}" is already in a git worktree. \nWould you still like to initialize a new git repository in this directory?\n`,
         defaultValue: false,
-        modifyOutput: UI.ciaModifier,
+        modifyOutput: UI.ciaModifier(),
       }),
     );
     if (!initializeChildGitRepo) {
@@ -114,6 +114,6 @@ export const initializeGit = async (projectDir: string) => {
       },
     );
 
-    UI.log('Git repository initialized successfully.', UI.ciaModifier);
+    UI.log('Git repository initialized successfully.', UI.ciaModifier(null));
   } catch {}
 };

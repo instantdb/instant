@@ -162,12 +162,12 @@ export const tryConnectApp = async (
             value: 'skip',
           },
         ],
-        modifyOutput: UI.ciaModifier,
+        modifyOutput: UI.ciaModifier(),
       }),
     );
 
     if (choice === 'skip') {
-      UI.log('Skipping app link step', UI.ciaModifier);
+      UI.log('Skipping app link step', UI.ciaModifier(null));
       return null;
     }
 
@@ -176,7 +176,7 @@ export const tryConnectApp = async (
         new UI.TextInput({
           prompt: 'Enter a name for your ephemeral app:',
           placeholder: `my-cool-app`,
-          modifyOutput: UI.ciaModifier,
+          modifyOutput: UI.ciaModifier(),
         }),
       );
       const app = await createPermissiveEphemeralApp(name);
@@ -216,7 +216,7 @@ export const tryConnectApp = async (
           return { appId: appID, adminToken };
         },
       },
-      modifyOutput: UI.ciaModifier,
+      modifyOutput: UI.ciaModifier(),
     }),
   );
 
