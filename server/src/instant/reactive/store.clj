@@ -458,9 +458,10 @@
                   [:db.fn/call remove-session-subscriptions-tx-data sess-id]
                   [:db.fn/call clean-stale-datalog-tx-data]])
 
-      (lang/with-reentrant-lock (:lock (meta sessions-conn))
-        (when (empty? (d/datoms @sessions-conn :avet :session/app-id app-id))
-          (Map/.remove (:conns store) app-id))))))
+      (when-let [removed-conn (lang/with-reentrant-lock (:lock (meta sessions-conn))
+                                (when (empty? (d/datoms @sessions-conn :avet :session/app-id app-id))
+                                  (Map/.remove (:conns store) app-id)))]
+        (ExecutorService/.shutdown (:executor (meta removed-conn)))))))
 
 ;; ------
 ;; datalog cache
