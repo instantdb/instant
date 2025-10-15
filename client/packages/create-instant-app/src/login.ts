@@ -2,7 +2,6 @@ import envPaths from 'env-paths';
 import * as p from '@clack/prompts';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import chalk from 'chalk';
 import { Project, unwrapSkippablePrompt } from './cli.js';
 import { randomUUID } from 'node:crypto';
 import { fetchJson } from './utils/fetch.js';
@@ -114,7 +113,7 @@ const getAuthToken = async (): Promise<string | null> => {
 };
 
 type AppTokenResponse = {
-  appID: string;
+  appId: string;
   adminToken: string;
   approach: 'ephemeral' | 'import' | 'create';
 };
@@ -145,38 +144,52 @@ const createPermissiveEphemeralApp = async (title: string) => {
   return { appId: response.app.id, adminToken: response.app['admin-token'] };
 };
 
-const selectOrganization = async (
-  orgs: Org[],
-  message: string,
-): Promise<string | null> => {
-  const orgChoice = await unwrapSkippablePrompt(
-    p.select<string | null>({
-      message,
-      options: [
-        { value: null, label: '(No organization)' },
-        ...orgs.map((org) => ({
-          value: org.id,
-          label: org.title,
-        })),
-      ],
-      initialValue: null,
-    }),
-  );
-  return orgChoice;
-};
-
 export const tryConnectApp = async (
   project: Project,
 ): Promise<AppTokenResponse | null> => {
   const authToken = await getAuthToken();
   if (!authToken) {
+    const choice = await renderUnwrap(
+      new UI.Select({
+        promptText: 'You are not logged in.',
+        options: [
+          {
+            label: 'Create Ephemeral App',
+            value: 'ephemeral',
+          },
+          {
+            label: 'Skip linking app',
+            value: 'skip',
+          },
+        ],
+        modifyOutput: UI.ciaModifier,
+      }),
+    );
+
+    if (choice === 'skip') {
+      UI.log('Skipping app link step', UI.ciaModifier);
+      return null;
+    }
+
+    if (choice === 'ephemeral') {
+      const name = await renderUnwrap(
+        new UI.TextInput({
+          prompt: 'Enter a name for your ephemeral app:',
+          placeholder: `my-cool-app`,
+          modifyOutput: UI.ciaModifier,
+        }),
+      );
+      const app = await createPermissiveEphemeralApp(name);
+      return { ...app, approach: 'ephemeral' };
+    }
+
     return null;
   }
 
   let dashData = await fetchDashboard(authToken);
   const allowedOrgs = dashData.orgs.filter((org) => org.role !== 'app-member');
   dashData.orgs = allowedOrgs;
-  const response = await renderUnwrap(
+  const selectedApp = await renderUnwrap(
     new UI.AppSelector({
       allowCreate: true,
       allowEphemeral: true,
@@ -207,136 +220,5 @@ export const tryConnectApp = async (
     }),
   );
 
-  console.log('response', response);
-
-  return null;
-
-  // // If doing ai generation
-  // if (project.prompt) {
-  //   if (authToken) {
-  //     const dashData = await fetchDashboard(authToken);
-  //     const allowedOrgs = dashData.orgs.filter(
-  //       (org) => org.role !== 'app-member',
-  //     );
-
-  //     const orgId = allowedOrgs.length
-  //       ? await selectOrganization(
-  //           allowedOrgs,
-  //           'Would you like to create the app in an organization?',
-  //         )
-  //       : null;
-
-  //     const { appID, adminToken } = await createApp(
-  //       project.appName,
-  //       authToken,
-  //       orgId,
-  //     );
-  //     return { appID, adminToken, approach: 'create' };
-  //   }
-  // }
-
-  // if (!authToken) {
-  //   const { appID, adminToken } = await createPermissiveEphemeralApp(
-  //     project.appName,
-  //   );
-  //   p.log.success('Created ephemeral app and updated .env');
-  //   return { appID, adminToken, approach: 'ephemeral' };
-  // }
-
-  // const dashData = await fetchDashboard(authToken);
-
-  // const action = await unwrapSkippablePrompt(
-  //   p.select({
-  //     message: `You are logged in already! ${chalk.bold('Create')} or ${chalk.bold('import')} existing app?`,
-  //     options: [
-  //       { value: 'create', label: `${chalk.bold('Create')} a new app` },
-  //       { value: 'link', label: `${chalk.bold('Import')} an existing app` },
-  //       { value: 'nothing', label: 'Create or import later' },
-  //     ],
-  //     initialValue: 'create' as 'create' | 'link' | 'nothing',
-  //   }),
-  // );
-
-  // if (action === 'nothing') {
-  //   return null;
-  // }
-
-  // if (action === 'create') {
-  //   const allowedOrgs = dashData.orgs.filter(
-  //     (org) => org.role !== 'app-member',
-  //   );
-
-  //   const orgId = allowedOrgs.length
-  //     ? await selectOrganization(
-  //         allowedOrgs,
-  //         'Would you like to create the app in an organization?',
-  //       )
-  //     : null;
-
-  //   const title = await promptForAppName(project);
-  //   p.log.success(`Creating app "${title}"`);
-  //   const { appID, adminToken } = await createApp(title, authToken, orgId);
-  //   return { appID, adminToken, approach: 'create' };
-  // }
-
-  // if (action === 'link') {
-  //   const orgChoice = dashData.orgs.length
-  //     ? await selectOrganization(
-  //         dashData.orgs,
-  //         'Would you like to import an app from an organization?',
-  //       )
-  //     : null;
-
-  //   const { apps, orgId, orgName } = orgChoice
-  //     ? await fetchOrganizationApps(authToken, orgChoice).then((orgData) => ({
-  //         apps: orgData.apps,
-  //         orgId: orgChoice,
-  //         orgName: orgData.org.title,
-  //       }))
-  //     : { apps: dashData.apps, orgId: null, orgName: null };
-
-  //   if (apps.length === 0) {
-  //     if (orgId && orgName) {
-  //       const ok = await unwrapSkippablePrompt(
-  //         p.confirm({
-  //           message: `You don't have any apps in ${orgName}. Want to create a new one?`,
-  //           initialValue: true,
-  //         }),
-  //       );
-  //       if (ok) {
-  //         const title = await promptForAppName(project);
-  //         p.log.success(`Creating app "${title}" in ${orgName}`);
-  //         const { appID, adminToken } = await createApp(
-  //           title,
-  //           authToken,
-  //           orgId,
-  //         );
-  //         return { appID, adminToken, approach: 'create' };
-  //       }
-  //     }
-  //     return null;
-  //   }
-
-  //   apps.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
-
-  //   const choice = await unwrapSkippablePrompt(
-  //     p.select({
-  //       message: 'Which app would you like to import?',
-  //       options: apps.map((app) => {
-  //         return { value: app, label: `${app.title} (${app.id})` };
-  //       }),
-  //       initialValue: apps[0],
-  //     }),
-  //   );
-
-  //   if (!choice) {
-  //     return null;
-  //   }
-  //   return {
-  //     adminToken: choice.admin_token,
-  //     appID: choice.id,
-  //     approach: 'import',
-  //   };
-  // }
-  // return null;
+  return selectedApp;
 };
