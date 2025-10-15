@@ -117,10 +117,13 @@
      :etype etype}
     (fn [{:keys [admin-query]}]
       (let [sub+provider (format "%s+%s" sub provider-id)
+            sub-match {:$oauthUserLinks.sub+$oauthProvider sub+provider}
+            ;; When no email is provided, we only match by the oauth link
+            where-clause (if email
+                           {:or [{:email email} sub-match]}
+                           sub-match)
             q {etype
-               {:$ {:where {:or [{:email email}
-                                 {:$oauthUserLinks.sub+$oauthProvider
-                                  sub+provider}]}}
+               {:$ {:where where-clause}
                 :$oauthUserLinks {:$ {:where {:sub+$oauthProvider
                                               sub+provider}}}}}
             res (admin-query q)]

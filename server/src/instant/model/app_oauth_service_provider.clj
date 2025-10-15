@@ -31,6 +31,15 @@
              (fn [{:keys [resolve-id get-entity]}]
                (get-entity [(resolve-id :name) provider-name])))))
 
+(defn get-by-id
+  ([params] (get-by-id (aurora/conn-pool :read) params))
+  ([conn {:keys [app-id id]}]
+   (query-op conn
+             {:app-id app-id
+              :etype etype}
+             (fn [{:keys [get-entity]}]
+               (get-entity id)))))
+
 (comment
   (create! {:app-id (UUID/fromString "3cc5c5c8-07df-42b2-afdc-6a04cbf0c40a")
             :provider-name "google"})
