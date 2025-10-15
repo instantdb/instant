@@ -96,35 +96,10 @@
    :datalog-query/delayed-call {} ;; delay with datalog result (from query.clj)
    :datalog-query/topics {:db/type :db.type/list-of-topics}})
 
-(defn create-conn [schema app-id]
-  (doto (d/create-conn schema)
-    (alter-meta! assoc
-                 :app-id app-id
-                 :executor (Executors/newSingleThreadExecutor (.factory (Thread/ofVirtual)))
-                 :lock (ReentrantLock. false)
-                 :tx-queue (ConcurrentLinkedQueue.)
-                 :app-id app-id)))
-
-
-(defn app-conn [store app-id]
-  (Map/.computeIfAbsent (:conns store) app-id #(create-conn schema %)))
-
-;; -----
-;; misc
-
-(defn translate-datascript-exceptions [exinfo]
-  (let [{:keys [error entity-id]} (ex-data exinfo)]
-    (if (and (= :entity-id/missing error)
-             (coll? entity-id)
-             (= :session/id (first entity-id)))
-      (ex/throw-session-missing! (last entity-id))
-      (throw exinfo))))
-
 (defn duration-ms [t0 t1]
   (-> t1 (- t0) (/ 1000000) double))
 
 (defrecord TxInput [tx-data result-promise])
-
 (defrecord TxResult [type result lock-time-ms tx-time-ms])
 
 (deftype RunTxes [conn]
@@ -171,7 +146,34 @@
               (deliver (:result-promise (first items)) (first reports))
               (recur (rest items) (rest reports)))))
         (when-not (ConcurrentLinkedQueue/.isEmpty tx-queue)
-          (ExecutorService/.submit executor ^Runnable (RunTxes. conn)))))))
+          (ExecutorService/.submit executor ^Runnable this))))))
+
+(defn create-conn [schema app-id]
+  (let [conn (d/create-conn schema)]
+    (alter-meta! conn
+                 assoc
+                 :app-id app-id
+                 :executor (Executors/newSingleThreadExecutor (.factory (Thread/ofVirtual)))
+                 :run-txes (RunTxes. conn)
+                 :lock (ReentrantLock. false)
+                 :tx-queue (ConcurrentLinkedQueue.)
+                 :app-id app-id)
+    conn))
+
+
+(defn app-conn [store app-id]
+  (Map/.computeIfAbsent (:conns store) app-id #(create-conn schema %)))
+
+;; -----
+;; misc
+
+(defn translate-datascript-exceptions [exinfo]
+  (let [{:keys [error entity-id]} (ex-data exinfo)]
+    (if (and (= :entity-id/missing error)
+             (coll? entity-id)
+             (= :session/id (first entity-id)))
+      (ex/throw-session-missing! (last entity-id))
+      (throw exinfo))))
 
 (defn transact-new! [span-name conn tx-data]
   (let [t1 (System/nanoTime)]
@@ -179,10 +181,10 @@
                         :attributes {:version "new"}}
       (try
         (let [t2 (System/nanoTime)
-              {:keys [tx-queue executor]} (meta conn)
+              {:keys [tx-queue executor run-txes]} (meta conn)
               result-promise (promise)
               _ (ConcurrentLinkedQueue/.add tx-queue (->TxInput tx-data result-promise))
-              _ (ExecutorService/.submit executor ^Runnable (RunTxes. conn))
+              _ (ExecutorService/.submit executor ^Runnable run-txes)
               result @result-promise
               _ (when (= :error (:type result))
                   (throw (:result result)))
