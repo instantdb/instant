@@ -1,18 +1,17 @@
 {
-  "name": "@instantdb/react",
+  "name": "@instantdb/react-common",
   "version": "0.0.0",
-  "description": "Instant DB for React",
-  "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/react",
+  "description": "Instant DB shared components for React and React Native",
+  "homepage": "https://github.com/instantdb/instant/tree/main/client/packages/react-common",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/instantdb/instant.git",
-    "directory": "client/packages/react"
+    "directory": "client/packages/react-common"
   },
   "type": "module",
   "main": "./dist/commonjs/index.js",
   "types": "./dist/commonjs/index.d.ts",
   "module": "./dist/esm/index.js",
-  "react-native": "dist/esm/index.native.js",
   "unpkg": "standalone/index.umd.js",
   "exports": {
     "./package.json": "./package.json",
@@ -64,8 +63,6 @@
   },
   "dependencies": {
     "@instantdb/core": "workspace:*",
-    "@instantdb/react-common": "workspace:*",
-    "@instantdb/version": "workspace:*",
-    "eventsource": "^4.0.0"
+    "@instantdb/version": "workspace:*"
   }
 }

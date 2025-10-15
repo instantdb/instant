@@ -8,6 +8,7 @@
 (def PACKAGE_PATHS {:version "./packages/version"
                     :core "./packages/core"
                     :admin "./packages/admin"
+                    :react-common "./packages/react-common"
                     :react "./packages/react"
                     :react-native "./packages/react-native"
                     :cli "./packages/cli"

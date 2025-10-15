@@ -365,6 +365,9 @@ importers:
       '@instantdb/core':
         specifier: workspace:*
         version: link:../core
+      '@instantdb/react-common':
+        specifier: workspace:*
+        version: link:../react-common
       '@instantdb/version':
         specifier: workspace:*
         version: link:../version
@@ -409,14 +412,60 @@ importers:
         specifier: ^0.21.0
         version: 0.21.1(jsdom@20.0.3)(terser@5.37.0)
 
+  packages/react-common:
+    dependencies:
+      '@instantdb/core':
+        specifier: workspace:*
+        version: link:../core
+      '@instantdb/version':
+        specifier: workspace:*
+        version: link:../version
+      react:
+        specifier: '>=16'
+        version: 18.3.1
+    devDependencies:
+      '@arethetypeswrong/cli':
+        specifier: ^0.17.4
+        version: 0.17.4
+      '@babel/core':
+        specifier: ^7.17.9
+        version: 7.26.7
+      '@babel/preset-env':
+        specifier: ^7.16.11
+        version: 7.26.7(@babel/core@7.26.7)
+      '@types/node':
+        specifier: ^22.6.1
+        version: 22.13.0
+      '@types/react':
+        specifier: '>=16'
+        version: 18.3.1
+      '@vitejs/plugin-react':
+        specifier: ^4.3.1
+        version: 4.3.4(vite@5.4.14(@types/node@22.13.0)(lightningcss@1.30.1)(terser@5.37.0))
+      npm-run-all:
+        specifier: ^4.1.5
+        version: 4.1.5
+      tshy:
+        specifier: ^3.0.2
+        version: 3.0.2
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vite:
+        specifier: ^5.2.0
+        version: 5.4.14(@types/node@22.13.0)(lightningcss@1.30.1)(terser@5.37.0)
+      vitest:
+        specifier: ^0.21.0
+        version: 0.21.1(jsdom@20.0.3)(terser@5.37.0)
+
   packages/react-native:
     dependencies:
       '@instantdb/core':
         specifier: workspace:*
         version: link:../core
-      '@instantdb/react':
+      '@instantdb/react-common':
         specifier: workspace:*
-        version: link:../react
+        version: link:../react-common
       '@instantdb/version':
         specifier: workspace:*
         version: link:../version

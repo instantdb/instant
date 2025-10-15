@@ -66,7 +66,7 @@ import {
   type DeleteFileResponse,
 } from '@instantdb/core';
 
-import InstantReactAbstractDatabase from './InstantReactAbstractDatabase.tsx';
+import { InstantReactAbstractDatabase } from '@instantdb/react-common';
 import InstantReactWebDatabase from './InstantReactWebDatabase.ts';
 import { init, init_experimental } from './init.ts';
 import { Cursors } from './Cursors.tsx';
