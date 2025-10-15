@@ -17,6 +17,8 @@
   (:require
    [clojure.string :as string]
    [datascript.core :as d]
+   [datascript.conn :as d-conn]
+   [instant.flags :as flags]
    [instant.jdbc.sql :as sql]
    [instant.lib.ring.websocket :as ws]
    [instant.lib.ring.sse :as sse]
@@ -29,7 +31,7 @@
    (java.lang InterruptedException)
    (java.time Instant)
    (java.util Map)
-   (java.util.concurrent ConcurrentHashMap CancellationException)
+   (java.util.concurrent ConcurrentHashMap CancellationException ConcurrentLinkedQueue ExecutorService Executors)
    (java.util.concurrent.locks ReentrantLock)
    (java.util.regex Pattern)
    (io.undertow.server.handlers.sse ServerSentEventConnection)
@@ -45,6 +47,7 @@
   {:session/id             {:db/unique :db.unique/identity}
    :session/socket         {}   ;; socket (from session.clj)
    :session/auth           {}   ;; {:app app :user user :admin? admin?} (from session.clj)
+   :session/app-id         {:db/index true}
    :session/creator        {}   ;; user (from session.clj)
    :session/versions       {}   ;; library versions, e.g. {"@instantdb/react": "v0.1.2"}
    :session/datalog-loader {}   ;; datalog-loader (from datalog.clj)
@@ -96,7 +99,10 @@
 (defn create-conn [schema app-id]
   (doto (d/create-conn schema)
     (alter-meta! assoc
-                 :lock   (ReentrantLock. false)
+                 :app-id app-id
+                 :executor (Executors/newSingleThreadExecutor (.factory (Thread/ofVirtual)))
+                 :lock (ReentrantLock. false)
+                 :tx-queue (ConcurrentLinkedQueue.)
                  :app-id app-id)))
 
 
@@ -114,10 +120,89 @@
       (ex/throw-session-missing! (last entity-id))
       (throw exinfo))))
 
-(defn transact! [span-name conn tx-data]
-  (let [t0 (System/nanoTime)
-        t1 (System/nanoTime)]
-    (tracer/with-span! {:name span-name}
+(defn duration-ms [t0 t1]
+  (-> t1 (- t0) (/ 1000000) double))
+
+(defrecord TxInput [tx-data result-promise])
+
+(defrecord TxResult [type result lock-time-ms tx-time-ms])
+
+(defn run-txes-runnable ^Runnable [conn]
+  ^:once
+  (fn []
+    (let [{:keys [tx-queue lock executor]} (meta conn)
+          items (loop [items (transient [])]
+                  (if (< 50 (count items))
+                    (persistent! items)
+                    (if-let [next-item (ConcurrentLinkedQueue/.poll tx-queue)]
+                      (recur (conj! items next-item))
+                      (persistent! items))))]
+      (when (seq items)
+        (let [t0 (System/nanoTime)
+              reports (lang/with-reentrant-lock lock
+                        (let [lock-time-ms (duration-ms t0 (System/nanoTime))]
+                          (loop [db @conn
+                                 items items
+                                 reports (transient [])]
+                            (if (seq items)
+                              (let [tx-data (:tx-data (first items))
+                                    start (System/nanoTime)
+                                    report (try
+                                             (->TxResult :ok
+                                                         (d-conn/with db tx-data nil)
+                                                         lock-time-ms
+                                                         (duration-ms start (System/nanoTime)))
+                                             (catch Throwable t
+                                               (->TxResult :error
+                                                           t
+                                                           lock-time-ms
+                                                           (duration-ms start (System/nanoTime)))))]
+                                (recur (if (= :ok (:type report))
+                                         (:db-after (:result report))
+                                         db)
+                                       (rest items)
+                                       (conj! reports report)))
+                              (do
+                                (reset! conn db)
+                                (persistent! reports))))))]
+          (loop [items items
+                 reports reports]
+            (when (seq items)
+              (deliver (:result-promise (first items)) (first reports))
+              (recur (rest items) (rest reports)))))
+        (when-not (ConcurrentLinkedQueue/.isEmpty tx-queue)
+          (ExecutorService/.submit executor (run-txes-runnable conn)))))))
+
+(defn transact-new! [span-name conn tx-data]
+  (let [t1 (System/nanoTime)]
+    (tracer/with-span! {:name span-name
+                        :attributes {:version "new"}}
+      (try
+        (let [t2 (System/nanoTime)
+              {:keys [tx-queue executor]} (meta conn)
+              result-promise (promise)
+              _ (ConcurrentLinkedQueue/.add tx-queue (->TxInput tx-data result-promise))
+              _ (ExecutorService/.submit executor
+                                         (run-txes-runnable conn))
+              result @result-promise
+              _ (when (= :error (:type result))
+                  (throw (:result result)))
+              report (:result result)]
+          (tracer/add-data! {:attributes {:app-id (:app-id (meta conn))
+                                          :changed-datoms-count (count (:tx-data report))
+                                          :span-time-ms (-> t2 (- t1) (/ 1000000) double)
+                                          :lock-time-ms (:lock-time-ms result)
+                                          :tx-time-ms (:tx-time-ms result)
+                                          :db-before-size (count (:db-before report))
+                                          :db-after-size (count (:db-after report))}})
+          report)
+        (catch clojure.lang.ExceptionInfo e
+          (translate-datascript-exceptions e))))))
+
+(defn transact-old! [span-name conn tx-data]
+  (let [t1 (System/nanoTime)]
+    (tracer/with-span! {:name span-name
+                        :attributes {:version "old"}}
       (try
         (let [t2          (System/nanoTime)
               [t3 ret t4] (lang/with-reentrant-lock (:lock (meta conn))
@@ -126,7 +211,6 @@
                              (System/nanoTime)])]
           (tracer/add-data! {:attributes {:app-id               (:app-id (meta conn))
                                           :changed-datoms-count (count (:tx-data ret))
-                                          :flag-time-ms         (-> t1 (- t0) (/ 1000000) double)
                                           :span-time-ms         (-> t2 (- t1) (/ 1000000) double)
                                           :lock-time-ms         (-> t3 (- t2) (/ 1000000) double)
                                           :tx-time-ms           (-> t4 (- t3) (/ 1000000) double)
@@ -135,6 +219,15 @@
           ret)
         (catch clojure.lang.ExceptionInfo e
           (translate-datascript-exceptions e))))))
+
+(defn transact! [span-name conn tx-data]
+  (tool/def-locals)
+  (if (or (flags/toggled? :enable-store-batching-globally)
+          (contains? (flags/flag :enable-store-batching-apps)
+                     (:app-id (meta conn))))
+    (transact-new! span-name conn tx-data)
+    (transact-old! span-name conn tx-data)))
+
 
 ;; -----
 ;; reports
@@ -207,8 +300,13 @@
     (d/entity db [:session/id sess-id])))
 
 (defn assoc-session! [store sess-id & kvs]
+  (tool/def-locals)
   (let [conn   (:sessions store)
-        entity (apply assoc {:session/id sess-id} kvs)]
+        entity' (apply assoc {:session/id sess-id} kvs)
+        app-id (-> entity' :session/auth :app :id)
+        entity (if app-id
+                 (assoc entity' :session/app-id app-id)
+                 entity')]
     (transact! "store/assoc-session!" conn [entity])))
 
 ;; -----
@@ -349,20 +447,20 @@
 
 (defn remove-session! [store app-id sess-id]
   ;; sync so new sessions are not added while we clean up this one
-  (let [conn (:sessions store)]
-    (lang/with-reentrant-lock (:lock (meta conn))
-      (let [{:keys [db-after]} (transact! "store/remove-session!"
-                                          (:sessions store)
-                                          [[:db.fn/retractEntity [:session/id sess-id]]])]
-        (when app-id
-          (if (ucoll/seek #(= app-id (-> % :v :app :id))
-                          (d/datoms db-after :aevt :session/auth))
-            (transact! "store/remove-session-data!"
-                       (app-conn store app-id)
-                       [[:db.fn/call remove-session-queries-tx-data sess-id]
-                        [:db.fn/call remove-session-subscriptions-tx-data sess-id]
-                        [:db.fn/call clean-stale-datalog-tx-data]])
-            (Map/.remove (:conns store) app-id)))))))
+  (let [sessions-conn (:sessions store)]
+    (transact! "store/remove-session!"
+               sessions-conn
+               [[:db.fn/retractEntity [:session/id sess-id]]])
+    (when app-id
+      (transact! "store/remove-session-data!"
+                 (app-conn store app-id)
+                 [[:db.fn/call remove-session-queries-tx-data sess-id]
+                  [:db.fn/call remove-session-subscriptions-tx-data sess-id]
+                  [:db.fn/call clean-stale-datalog-tx-data]])
+
+      (lang/with-reentrant-lock (:lock (meta sessions-conn))
+        (when (empty? (d/datoms @sessions-conn :avet :session/app-id app-id))
+          (Map/.remove (:conns store) app-id))))))
 
 ;; ------
 ;; datalog cache

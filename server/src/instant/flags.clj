@@ -105,7 +105,9 @@
                   (update :tika-enabled-apps (fn [vs]
                                                (set (map parse-uuid vs))))
                   (update :disable-hint-query-hashes (fn [vs]
-                                                       (set vs))))
+                                                       (set vs)))
+                  (update :enable-store-batching-apps (fn [vs]
+                                                        (set (map parse-uuid vs)))))
 
         handle-receive-timeout (reduce (fn [acc {:strs [appId timeoutMs]}]
                                          (assoc acc (parse-uuid appId) timeoutMs))
