@@ -221,7 +221,6 @@
           (translate-datascript-exceptions e))))))
 
 (defn transact! [span-name conn tx-data]
-  (tool/def-locals)
   (if (or (flags/toggled? :enable-store-batching-globally)
           (contains? (flags/flag :enable-store-batching-apps)
                      (:app-id (meta conn))))
@@ -300,7 +299,6 @@
     (d/entity db [:session/id sess-id])))
 
 (defn assoc-session! [store sess-id & kvs]
-  (tool/def-locals)
   (let [conn   (:sessions store)
         entity' (apply assoc {:session/id sess-id} kvs)
         app-id (-> entity' :session/auth :app :id)
@@ -447,21 +445,25 @@
 
 (defn remove-session! [store app-id sess-id]
   ;; sync so new sessions are not added while we clean up this one
+  (when (and app-id
+             (Map/.containsKey (:conns store) app-id))
+    (transact! "store/remove-session-data!"
+               (app-conn store app-id)
+               [[:db.fn/call remove-session-queries-tx-data sess-id]
+                [:db.fn/call remove-session-subscriptions-tx-data sess-id]
+                [:db.fn/call clean-stale-datalog-tx-data]]))
   (let [sessions-conn (:sessions store)]
     (transact! "store/remove-session!"
                sessions-conn
                [[:db.fn/retractEntity [:session/id sess-id]]])
-    (when app-id
-      (transact! "store/remove-session-data!"
-                 (app-conn store app-id)
-                 [[:db.fn/call remove-session-queries-tx-data sess-id]
-                  [:db.fn/call remove-session-subscriptions-tx-data sess-id]
-                  [:db.fn/call clean-stale-datalog-tx-data]])
-
-      (when-let [removed-conn (lang/with-reentrant-lock (:lock (meta sessions-conn))
-                                (when (empty? (d/datoms @sessions-conn :avet :session/app-id app-id))
-                                  (Map/.remove (:conns store) app-id)))]
-        (ExecutorService/.shutdown (:executor (meta removed-conn)))))))
+    (when-let [removed-conn
+               ;; Be careful not to use `lang/with-reentrant-lock` around
+               ;; code that uses `transact!` or you will deadlock
+               (lang/with-reentrant-lock (:lock (meta sessions-conn))
+                 (when (and app-id
+                            (empty? (d/datoms @sessions-conn :avet :session/app-id app-id)))
+                   (Map/.remove (:conns store) app-id)))]
+      (ExecutorService/.shutdown (:executor (meta removed-conn))))))
 
 ;; ------
 ;; datalog cache
