@@ -67,6 +67,7 @@
      "detailed_patterns"
      "detailed_tx_steps"
      "process_id"
+     "machine_id"
      "instance_id"
      "query"
      "fewer_vfutures") true
