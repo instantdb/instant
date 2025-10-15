@@ -4,7 +4,6 @@ import {
   generatePermsTypescriptFile,
   apiSchemaToInstantSchemaDef,
   generateSchemaTypescriptFile,
-  translatePlanSteps,
   diffSchemas,
   convertTxSteps,
   isRenamePromptItem,
@@ -20,11 +19,10 @@ import jsonDiff from 'json-diff';
 import dotenvFlow from 'dotenv-flow';
 import chalk from 'chalk';
 import { program, Option } from 'commander';
-import { input, select } from '@inquirer/prompts';
+import boxen from 'boxen';
 import { loadConfig } from './util/loadConfig.js';
 import { packageDirectory } from 'pkg-dir';
 import openInBrowser from 'open';
-import ora from 'ora';
 import semver from 'semver';
 import terminalLink from 'terminal-link';
 import { exec } from 'child_process';
@@ -35,13 +33,15 @@ import {
 } from './util/packageManager.js';
 import { pathExists, readJsonFile } from './util/fs.js';
 import prettier from 'prettier';
-import toggle from './toggle.js';
 import {
   CancelSchemaError,
   groupSteps,
   renderSchemaPlan,
 } from './renderSchemaPlan.js';
 import { getAuthPaths } from './util/getAuthPaths.js';
+import { renderUnwrap } from './ui/lib.js';
+import { UI } from './ui/index.js';
+import { deferred } from './ui/lib.js';
 
 const execAsync = promisify(exec);
 
@@ -628,6 +628,7 @@ async function login(options) {
 
   const { secret, ticket } = registerRes.data;
 
+  console.log();
   const ok = await promptOk(
     `This will open instantdb.com in your browser, OK to proceed?`,
     /*defaultAnswer=*/ true,
@@ -705,15 +706,20 @@ async function getOrInstallInstantModuleWithErrorLogging(pkgDir, opts) {
       );
       process.exit(1);
     }
-    moduleName = await select({
-      message: 'Which package would you like to use?',
-      choices: [
-        { name: '@instantdb/react', value: '@instantdb/react' },
-        { name: '@instantdb/react-native', value: '@instantdb/react-native' },
-        { name: '@instantdb/core', value: '@instantdb/core' },
-        { name: '@instantdb/admin', value: '@instantdb/admin' },
-      ],
-    });
+    moduleName = await renderUnwrap(
+      new UI.Select({
+        promptText: 'Which package would you like to use?',
+        options: [
+          { label: '@instantdb/react', value: '@instantdb/react' },
+          {
+            label: '@instantdb/react-native',
+            value: '@instantdb/react-native',
+          },
+          { label: '@instantdb/core', value: '@instantdb/core' },
+          { label: '@instantdb/admin', value: '@instantdb/admin' },
+        ],
+      }),
+    );
   }
 
   const packageManager = await detectPackageManager(pkgDir);
@@ -731,20 +737,13 @@ async function getOrInstallInstantModuleWithErrorLogging(pkgDir, opts) {
     packagesToInstall.join(' '),
   );
 
-  const spinner = ora(
-    `Installing ${packagesToInstall.join(', ')} using ${packageManager}...`,
-  ).start();
-
-  try {
-    await execAsync(installCommand, pkgDir);
-    spinner.succeed(
-      `Installed ${packagesToInstall.join(', ')} using ${packageManager}.`,
-    );
-  } catch (e) {
-    spinner.fail(`Failed to run: ${installCommand}`);
-    error(e.message);
-    return;
-  }
+  await renderUnwrap(
+    new UI.Spinner({
+      promise: execAsync(installCommand, pkgDir),
+      workingText: `Installing ${packagesToInstall.join(', ')} using ${packageManager}...`,
+      doneText: `Installed ${packagesToInstall.join(', ')} using ${packageManager}.`,
+    }),
+  );
 
   return moduleName;
 }
@@ -757,11 +756,12 @@ async function promptCreateApp(opts) {
   if (opts?.title) {
     _title = opts.title;
   } else {
-    _title = await input({
-      message: 'What would you like to call it?',
-      default: 'My cool app',
-      required: true,
-    }).catch(() => null);
+    _title = await renderUnwrap(
+      new UI.TextInput({
+        prompt: 'What would you like to call it?',
+        placeholder: 'My cool app',
+      }),
+    ).catch(() => null);
   }
 
   const title = _title?.trim();
@@ -786,14 +786,16 @@ async function promptCreateApp(opts) {
   let org_id = opts.org;
 
   if (!org_id && allowedOrgs.length) {
-    const choices = [{ name: '(No organization)', value: null }];
+    const choices = [{ label: '(No organization)', value: null }];
     for (const org of allowedOrgs) {
-      choices.push({ name: org.title, value: org.id });
+      choices.push({ label: org.title, value: org.id });
     }
-    const choice = await select({
-      message: 'Would you like to create the app in an organization?',
-      choices,
-    });
+    const choice = await renderUnwrap(
+      new UI.Select({
+        promptText: 'Would you like to create the app in an organization?',
+        options: choices,
+      }),
+    );
     if (choice) {
       org_id = choice;
     }
@@ -833,14 +835,16 @@ async function promptImportAppOrCreateApp() {
   let orgName;
   let orgId;
   if (orgs.length) {
-    const choices = [{ name: '(No organization)', value: null }];
+    const choices = [{ label: '(No organization)', value: null }];
     for (const org of orgs) {
-      choices.push({ name: org.title, value: org.id });
+      choices.push({ label: org.title, value: org.id });
     }
-    const choice = await select({
-      message: 'Would you like to import an app from an organization?',
-      choices,
-    });
+    const choice = await renderUnwrap(
+      new UI.Select({
+        promptText: 'Would you like to import an app from an organization?',
+        options: choices,
+      }),
+    );
     if (choice) {
       const orgsRes = await fetchJson({
         debugName: 'Fetching apps',
@@ -869,12 +873,14 @@ async function promptImportAppOrCreateApp() {
 
   apps.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
 
-  const choice = await select({
-    message: 'Which app would you like to import?',
-    choices: apps.map((app) => {
-      return { name: `${app.title} (${app.id})`, value: app.id };
+  const choice = await renderUnwrap(
+    new UI.Select({
+      promptText: 'Which app would you like to import?',
+      options: apps.map((app) => {
+        return { label: `${app.title} (${app.id})`, value: app.id };
+      }),
     }),
-  }).catch(() => null);
+  );
   if (!choice) return { ok: false };
   return { ok: true, appId: choice, source: 'imported' };
 }
@@ -904,13 +910,15 @@ async function detectOrCreateAppWithErrorLogging(opts) {
       process.exit(1);
     }
   } else {
-    action = await select({
-      message: 'What would you like to do?',
-      choices: [
-        { name: 'Create a new app', value: 'create' },
-        { name: 'Import an existing app', value: 'import' },
-      ],
-    }).catch(() => null);
+    action = await renderUnwrap(
+      new UI.Select({
+        promptText: 'What would you like to do?',
+        options: [
+          { label: 'Create a new app', value: 'create' },
+          { label: 'Import an existing app', value: 'import' },
+        ],
+      }),
+    ).catch(() => null);
   }
 
   if (action === 'create') {
@@ -1202,9 +1210,12 @@ function jobGroupDescription(jobs) {
 }
 
 async function waitForIndexingJobsToFinish(appId, data) {
-  const spinner = ora({
-    text: 'checking data types',
-  }).start();
+  const spinnerDefferedPromise = deferred();
+  const spinner = new UI.Spinner({
+    promise: spinnerDefferedPromise.promise,
+  });
+  const spinnerRenderPromise = renderUnwrap(spinner);
+
   const groupId = data['group-id'];
   let jobs = data.jobs;
   let waitMs = 20;
@@ -1212,7 +1223,6 @@ async function waitForIndexingJobsToFinish(appId, data) {
 
   const completedIds = new Set();
 
-  const completedMessages = [];
   const errorMessages = [];
 
   while (true) {
@@ -1238,9 +1248,9 @@ async function waitForIndexingJobsToFinish(appId, data) {
           const msg = indexingJobCompletedMessage(job);
           if (msg) {
             if (job.job_status === 'errored') {
-              errorMessages.push(msg);
+              spinner.addMessage(msg);
             } else {
-              completedMessages.push(msg);
+              spinner.addMessage(msg);
             }
           }
         }
@@ -1253,10 +1263,7 @@ async function waitForIndexingJobsToFinish(appId, data) {
       const percent = Math.floor(
         (workCompletedTotal / workEstimateTotal) * 100,
       );
-      spinner.text = `${jobGroupDescription(jobs)} ${percent}%`;
-    }
-    if (completedMessages.length) {
-      spinner.prefixText = completedMessages.join('\n') + '\n';
+      spinner.updateText(`${jobGroupDescription(jobs)} ${percent}%`);
     }
     waitMs = updated ? 1 : Math.min(10000, waitMs * 2);
     await sleep(waitMs);
@@ -1271,10 +1278,10 @@ async function waitForIndexingJobsToFinish(appId, data) {
     }
     jobs = res.data.jobs;
   }
-  spinner.stopAndPersist({
-    text: '',
-    prefixText: completedMessages.join('\n'),
-  });
+
+  spinnerDefferedPromise.resolve(null);
+
+  await spinnerRenderPromise;
 
   // Log errors at the end so that they're easier to see.
   if (errorMessages.length) {
@@ -1299,21 +1306,23 @@ function linkOptsPretty(attr) {
 }
 
 const resolveRenames = async (created, promptData) => {
-  const answer = await select({
-    message: `Did you want to create "${created} or rename it from something else?"`,
-    choices: [
-      ...promptData.map((choice) => {
-        const isRename = isRenamePromptItem(choice);
-        return {
-          value: choice,
-          name: isRename
-            ? `Rename ${choice.from} to ${choice.to}`
-            : `Create ${choice}`,
-        };
-      }),
-    ],
-    default: created,
-  });
+  const answer = await renderUnwrap(
+    new UI.Select({
+      promptText: `Did you want to create "${created} or rename it from something else?"`,
+      options: [
+        ...promptData.map((choice) => {
+          const isRename = isRenamePromptItem(choice);
+          return {
+            value: choice,
+            label: isRename
+              ? `Rename ${choice.from} to ${choice.to}`
+              : `Create ${choice}`,
+          };
+        }),
+      ],
+      defaultValue: created,
+    }),
+  );
   return answer;
 };
 
@@ -1573,16 +1582,21 @@ export async function promptOk(message, defaultAnswer = false) {
   const options = program.opts();
 
   if (options.yes) return true;
-  return await toggle({
-    message,
-    default: defaultAnswer,
-    theme: {
-      style: {
-        highlight: (x) => chalk.underline.blue(x),
-        answer: (x) => chalk.underline.blue(x),
-      },
-    },
-  }).catch(() => false);
+
+  return await renderUnwrap(
+    new UI.Confirmation({
+      promptText: message,
+      modifyOutput: (out) =>
+        boxen(out, {
+          dimBorder: true,
+          padding: {
+            left: 1,
+            right: 1,
+          },
+        }),
+      defaultValue: defaultAnswer,
+    }),
+  ).catch(() => false);
 }
 
 /**

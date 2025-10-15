@@ -21,8 +21,6 @@
     "instant-cli": "bin/index.js"
   },
   "dependencies": {
-    "@inquirer/core": "9.0.10",
-    "@inquirer/prompts": "5.3.8",
     "@instantdb/platform": "workspace:*",
     "@instantdb/version": "workspace:*",
     "ansi-escapes": "4.3.2",
@@ -32,12 +30,9 @@
     "dotenv": "^16.3.1",
     "dotenv-flow": "^4.1.0",
     "env-paths": "^3.0.0",
-    "hanji": "^0.0.5",
-    "inquirer": "^10.1.6",
     "json-diff": "^1.0.6",
     "lodash.throttle": "^4.1.1",
     "open": "^10.1.0",
-    "ora": "^8.1.1",
     "pkg-dir": "^8.0.0",
     "prettier": "^3.3.3",
     "semver": "7.7.2",
@@ -47,7 +42,6 @@
     "unconfig": "^0.5.5"
   },
   "scripts": {
-    "test": "vitest",
     "build": "rm -rf dist; tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch --skipLibCheck --preserveWatchOutput | grep -v '^$'",
     "publish-package": "pnpm publish --access public --no-git-checks"
@@ -55,7 +49,6 @@
   "devDependencies": {
     "@babel/core": "^7.17.9",
     "@babel/preset-env": "^7.16.11",
-    "@inquirer/type": "^3.0.2",
     "@types/json-diff": "^1.0.3",
     "@types/lodash.throttle": "^4.1.9",
     "@types/node": "^22.6.1",
