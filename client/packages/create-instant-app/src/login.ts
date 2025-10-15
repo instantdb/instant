@@ -142,7 +142,7 @@ const createPermissiveEphemeralApp = async (title: string) => {
       },
     },
   });
-  return { appID: response.app.id, adminToken: response.app['admin-token'] };
+  return { appId: response.app.id, adminToken: response.app['admin-token'] };
 };
 
 const selectOrganization = async (
@@ -173,8 +173,9 @@ export const tryConnectApp = async (
     return null;
   }
 
-  const dashData = await fetchDashboard(authToken);
+  let dashData = await fetchDashboard(authToken);
   const allowedOrgs = dashData.orgs.filter((org) => org.role !== 'app-member');
+  dashData.orgs = allowedOrgs;
   const response = await renderUnwrap(
     new UI.AppSelector({
       allowCreate: true,
@@ -182,6 +183,10 @@ export const tryConnectApp = async (
       api: {
         getDash() {
           return dashData;
+        },
+
+        createEphemeralApp(title) {
+          return createPermissiveEphemeralApp(title);
         },
 
         getAppsForOrg: async (orgId: string) => {
