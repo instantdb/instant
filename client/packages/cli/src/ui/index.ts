@@ -594,12 +594,14 @@ ${yesStyle}  ${noStyle}`;
     width = 30;
     maxHeight = 10;
     scrollOffset = 0;
+    emptyState?: string;
 
     constructor(props: MenuProps) {
       this.selectedIdx = 0;
       this.width = props.width ?? 30;
       this.maxHeight = props.maxHeight ?? 10;
       this.focus = props.focus;
+      this.emptyState = props.emptyState;
       this.focus.onKey((key, keyInfo, propagate) => {
         if (key === 'j' || keyInfo.name == 'down') {
           this.selectedIdx = Math.min(
@@ -645,6 +647,10 @@ ${yesStyle}  ${noStyle}`;
     }
 
     render(): string {
+      if (this.items.length === 0) {
+        return this.emptyState ?? chalk.dim('No items');
+      }
+
       const hasItemsAbove = this.scrollOffset > 0;
       const hasItemsBelow =
         this.scrollOffset + this.maxHeight < this.items.length;
@@ -835,6 +841,7 @@ ${yesStyle}  ${noStyle}`;
             });
           },
         })),
+        emptyState: '   No Apps   ',
       });
 
       this.orgList = new Menu({
