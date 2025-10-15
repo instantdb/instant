@@ -22,16 +22,12 @@ export namespace UI {
 
     sidelined: (output: string, status?: Status) => {
       const result: string[] = [];
-      const lastIndex = output.split('\n').length - 1;
-
-      output.split('\n').forEach((line, index) => {
-        if (index === lastIndex && status == 'idle') {
-          result.push(`${chalk.gray('└  ')}${line}`);
-        } else {
-          result.push(`${chalk.gray('│  ')}${line}`);
-        }
+      output.split('\n').forEach((line) => {
+        result.push(`${chalk.gray('│  ')}${line}`);
       });
-
+      if (status === 'idle') {
+        result.push(`${chalk.gray('└  ')}`);
+      }
       let almost = result.join('\n');
       if (!almost.endsWith('\n')) {
         almost += '\n';
@@ -318,12 +314,23 @@ ${inputDisplay}`;
     private spinnerFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
     private frameIndex = 0;
     private intervalId: NodeJS.Timeout | null = null;
+    private messages: string[] = [];
 
     result(): T {
       if (this.promiseError) {
         throw this.promiseError;
       }
       return this.promiseResult!;
+    }
+
+    addMessage(message: string): void {
+      this.messages.push(message);
+      this.requestLayout();
+    }
+
+    updateText(text: string): void {
+      this.props.workingText = text;
+      this.requestLayout();
     }
 
     render(status: 'idle' | 'submitted' | 'aborted'): string {
@@ -346,7 +353,11 @@ ${inputDisplay}`;
       }
 
       const frame = this.spinnerFrames[this.frameIndex];
-      return `${chalk.hex('#EA570B')(frame)} ${workingText}\n`;
+      let messages = this.messages.join('\n');
+      if (this.messages.length > 0) {
+        messages += '\n';
+      }
+      return `${messages}${chalk.hex('#EA570B')(frame)} ${workingText}\n${messages}`;
     }
 
     constructor(props: SpinnerProps<T>) {

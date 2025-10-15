@@ -242,10 +242,15 @@ export class Terminal implements ITerminal {
 
   requestLayout() {
     const string = this.view.fullRender(this.status);
-    const clearPrefix = this.text ? clear(this.text, this.stdout.columns) : '';
-    this.text = string;
+    let realString = string;
+    if (!realString.endsWith('\n')) {
+      realString += '\n';
+    }
+    const realText = this.text.endsWith('\n') ? this.text : `${this.text}\n`;
+    const clearPrefix = this.text ? clear(realText, this.stdout.columns) : '';
+    this.text = realString;
 
-    this.renderFunc(`${clearPrefix}${string}`);
+    this.renderFunc(`${clearPrefix}${realString}`);
   }
 }
 
