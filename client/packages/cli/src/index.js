@@ -1379,6 +1379,11 @@ function linkOptsPretty(attr) {
 }
 
 const resolveRenames = async (created, promptData, extraInfo) => {
+  // Using --yes will disable renames and use create + delete for all attrs
+  if (program.opts().yes) {
+    return created;
+  }
+
   const answer = await renderUnwrap(
     new ResolveRenamePrompt(
       created,
