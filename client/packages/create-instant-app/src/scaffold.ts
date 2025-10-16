@@ -70,7 +70,10 @@ enable-pre-post-scripts=true`,
       ? 'App'
       : chalk.hex('#EA570B').bold(cliResults.appName);
 
-  UI.log(`${scaffoldedName} scaffolded successfully!`, UI.ciaModifier(null));
+  UI.log(
+    chalk.dim(`${scaffoldedName} scaffolded successfully!`),
+    UI.ciaModifier(null),
+  );
 
   return projectDir;
 };

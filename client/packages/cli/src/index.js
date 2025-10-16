@@ -6,7 +6,6 @@ import {
   generateSchemaTypescriptFile,
   diffSchemas,
   convertTxSteps,
-  isRenamePromptItem,
   validateSchema,
   SchemaValidationError,
 } from '@instantdb/platform';
@@ -48,7 +47,9 @@ import { ResolveRenamePrompt } from './util/renamePrompt.js';
 const execAsync = promisify(exec);
 
 // config
-dotenvFlow.config();
+dotenvFlow.config({
+  silent: true,
+});
 
 const dev = Boolean(process.env.INSTANT_CLI_DEV);
 const verbose = Boolean(process.env.INSTANT_CLI_VERBOSE);
@@ -561,7 +562,9 @@ async function handleEnvFile(pkgAndAuthInfo, { appId, appToken }) {
   );
   const ok = await promptOk(
     {
+      inline: true,
       promptText: 'Want us to create this env file for you?',
+      modifyOutput: (a) => a,
     },
     program.opts(),
     true,
@@ -843,6 +846,7 @@ async function promptImportAppOrCreateApp() {
     new UI.AppSelector({
       allowEphemeral: true,
       allowCreate: true,
+      startingMenuIndex: 2,
       api: {
         getDash: () => res.data,
         createEphemeralApp: async (title) => {
@@ -1060,11 +1064,13 @@ async function pullSchema(appId, { pkgDir, instantModuleName }) {
     const shouldContinue = await promptOk(
       {
         promptText:
-          'This will overwrite your local instant.schema file, OK to proceed?',
-        modifyOutput: (a) => a,
+          'This will overwrite your local instant.schema.ts file, OK to proceed?',
+        modifyOutput: UI.modifiers.yPadding,
+        inline: true,
       },
       program.opts(),
     );
+    console.log();
 
     if (!shouldContinue) return { ok: true };
   }
@@ -1102,11 +1108,13 @@ async function pullPerms(appId, { pkgDir, instantModuleName }) {
     const shouldContinue = await promptOk(
       {
         promptText:
-          'This will overwrite your local instant.perms file, OK to proceed?',
-        modifyOutput: (a) => a,
+          'This will overwrite your local instant.perms.ts file, OK to proceed?',
+        modifyOutput: UI.modifiers.yPadding,
+        inline: true,
       },
       program.opts(),
     );
+    console.log();
 
     if (!shouldContinue) return { ok: true };
   }
@@ -1514,11 +1522,20 @@ async function pushPerms(appId) {
     return { ok: true };
   }
 
-  console.log('The following changes will be applied to your perms:');
-  console.log(diffedStr);
-
   const okPush = await promptOk(
-    { promptText: 'OK to proceed?' },
+    {
+      promptText: 'Push these changes to your perms?',
+      modifyOutput: (output) => {
+        let both = diffedStr + '\n' + output;
+        return boxen(both, {
+          dimBorder: true,
+          padding: {
+            left: 1,
+            right: 1,
+          },
+        });
+      },
+    },
     program.opts(),
   );
   if (!okPush) return { ok: true };

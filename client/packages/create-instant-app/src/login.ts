@@ -191,6 +191,7 @@ export const tryConnectApp = async (
   dashData.orgs = allowedOrgs;
   const selectedApp = await renderUnwrap(
     new UI.AppSelector({
+      startingMenuIndex: 0,
       allowCreate: true,
       allowEphemeral: true,
       api: {

@@ -16,8 +16,12 @@ export namespace UI {
       };
     },
 
-    yPadding: (output: string) => {
+    topPadding: (output: string) => {
       return '\n' + output;
+    },
+
+    yPadding: (output: string) => {
+      return '\n' + output + '\n';
     },
 
     sidelined:
@@ -61,7 +65,7 @@ export namespace UI {
 
   export const ciaModifier = (symbol: string | null = '◆') =>
     modifiers.piped([
-      UI.modifiers.yPadding,
+      UI.modifiers.topPadding,
       UI.modifiers.dimOnComplete,
       UI.modifiers.sidelined(symbol),
     ]);
@@ -419,6 +423,7 @@ ${inputDisplay}`;
     defaultValue?: boolean;
     modifyOutput?: ModifyOutputFn;
     yesText?: string;
+    inline?: boolean;
     noText?: string;
   };
 
@@ -456,8 +461,11 @@ ${inputDisplay}`;
         8,
       );
 
-      return `${this.props.promptText}
-${yesStyle}  ${noStyle}`;
+      const display = `${this.props.promptText}${this.props.inline ? '   ' : '\n'}${yesStyle}  ${noStyle}`;
+      if (status === 'submitted') {
+        return chalk.dim(display);
+      }
+      return display;
     }
 
     private value: boolean | null = null;
@@ -762,6 +770,7 @@ ${yesStyle}  ${noStyle}`;
     allowCreate: boolean;
     modifyOutput?: (output: string) => string;
     api: AppSelectorApi;
+    startingMenuIndex?: number;
   };
 
   export class AppSelector extends Prompt<{
@@ -862,7 +871,9 @@ ${yesStyle}  ${noStyle}`;
       }
 
       return boxen(combinedLines.join('\n'), {
-        title: 'Select or create app',
+        title:
+          'Select or create app' +
+          (this.selectedOrg ? ` (${this.selectedOrg.title})` : ''),
         dimBorder: true,
       });
     }
@@ -935,7 +946,7 @@ ${yesStyle}  ${noStyle}`;
                 })),
               );
               this.focus.setFocus('selectExisting');
-              this.leftMenu.setSelectedItem(2);
+              this.leftMenu.setSelectedItem(this.props.startingMenuIndex ?? 2);
               this.requestLayout();
             });
           },
