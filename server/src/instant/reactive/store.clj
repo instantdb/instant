@@ -188,14 +188,18 @@
               result @result-promise
               _ (when (= :error (:type result))
                   (throw (:result result)))
-              report (:result result)]
+              report (:result result)
+              tx-time-ms (:tx-time-ms result)]
           (tracer/add-data! {:attributes {:app-id (:app-id (meta conn))
                                           :changed-datoms-count (count (:tx-data report))
                                           :span-time-ms (-> t2 (- t1) (/ 1000000) double)
                                           :lock-time-ms (:lock-time-ms result)
-                                          :tx-time-ms (:tx-time-ms result)
+                                          :tx-time-ms tx-time-ms
                                           :db-before-size (count (:db-before report))
                                           :db-after-size (count (:db-after report))}})
+          (when (> tx-time-ms 15000)
+            (def -new-long-tx-data tx-data)
+            (def -new-long-tx report))
           report)
         (catch clojure.lang.ExceptionInfo e
           (translate-datascript-exceptions e))))))
@@ -209,14 +213,18 @@
               [t3 ret t4] (lang/with-reentrant-lock (:lock (meta conn))
                             [(System/nanoTime)
                              (d/transact! conn tx-data)
-                             (System/nanoTime)])]
+                             (System/nanoTime)])
+              tx-time-ms (-> t4 (- t3) (/ 1000000) double)]
           (tracer/add-data! {:attributes {:app-id               (:app-id (meta conn))
                                           :changed-datoms-count (count (:tx-data ret))
                                           :span-time-ms         (-> t2 (- t1) (/ 1000000) double)
                                           :lock-time-ms         (-> t3 (- t2) (/ 1000000) double)
-                                          :tx-time-ms           (-> t4 (- t3) (/ 1000000) double)
+                                          :tx-time-ms           tx-time-ms
                                           :db-before-size       (count (:db-before ret))
                                           :db-after-size        (count (:db-after ret))}})
+          (when (> tx-time-ms 15000)
+            (def -old-long-tx-data tx-data)
+            (def -old-long-tx ret))
           ret)
         (catch clojure.lang.ExceptionInfo e
           (translate-datascript-exceptions e))))))
