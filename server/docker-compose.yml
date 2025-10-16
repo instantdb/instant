@@ -15,7 +15,7 @@ services:
     restart: on-failure
     cap_add:
       - CAP_PERFMON
-    command: sh -c 'java $${JAVA_OPTS} -agentpath:/usr/local/YourKit-JavaProfiler-2024.9/bin/linux-x86-64/libyjpagent.so=port=10001,listen=all --add-modules java.se --add-exports java.base/jdk.internal.ref=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/sun.nio.ch=ALL-UNNAMED --add-opens java.management/sun.management=ALL-UNNAMED --add-opens jdk.management/com.sun.management.internal=ALL-UNNAMED -XX:+UnlockDiagnosticVMOptions -XX:+DebugNonSafepoints -Djdk.attach.allowAttachSelf -Djava.awt.headless=true -server -jar target/instant-standalone.jar'
+    command: sh -c 'java $${JAVA_OPTS} --add-modules java.se --add-exports java.base/jdk.internal.ref=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/sun.nio.ch=ALL-UNNAMED --add-opens java.management/sun.management=ALL-UNNAMED --add-opens jdk.management/com.sun.management.internal=ALL-UNNAMED -XX:+UnlockDiagnosticVMOptions -XX:+DebugNonSafepoints -Djdk.attach.allowAttachSelf -Djava.awt.headless=true -Dcom.sun.management.jmxremote.port=10001 -Dcom.sun.management.jmxremote.rmi.port=10001 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -XX:StartFlightRecording=disk=true,maxsize=1G,name=instant,filename=instant_$(date +%s%N).jfr -Dcom.sun.management.jmxremote.local.only=false -Djava.rmi.server.hostname=localhost -server -jar target/instant-standalone.jar'
     logging:
       driver: awslogs
       options:
