@@ -39,6 +39,7 @@
     "execa": "^7.2.0",
     "fs-extra": "^11.3.1",
     "gradient-string": "^2.0.2",
+    "open": "^10.1.0",
     "ora": "6.3.1",
     "sort-package-json": "^2.10.0"
   },
