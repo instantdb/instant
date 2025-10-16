@@ -664,7 +664,7 @@ ${yesStyle}  ${noStyle}`;
         } else if (key === 'k' || keyInfo.name == 'up') {
           this.selectedIdx = Math.max(this.selectedIdx - 1, 0);
           this.adjustScroll();
-        } else if (keyInfo.name === 'return') {
+        } else if (keyInfo.name === 'return' || keyInfo.name === 'right') {
           this.items[this.selectedIdx]?.onSelect();
         } else {
           propagate();
@@ -875,7 +875,11 @@ ${yesStyle}  ${noStyle}`;
       this.focus = new Focus(this).root();
 
       this.focus.onKey((_key, moreInfo) => {
-        if (moreInfo.name === 'escape') {
+        if (
+          moreInfo.name === 'escape' ||
+          moreInfo.name == 'h' ||
+          moreInfo.name == 'left'
+        ) {
           this.focus.setFocus('leftMenu');
         }
       });
@@ -1007,7 +1011,11 @@ ${yesStyle}  ${noStyle}`;
       });
 
       this.focus.child('newApp').onKey((key, keyInfo) => {
-        if (keyInfo.name === 'escape') {
+        if (
+          keyInfo.name === 'escape' ||
+          keyInfo.name == 'h' ||
+          keyInfo.name == 'left'
+        ) {
           this.focus.setFocus('leftMenu');
         }
         if (keyInfo.name === 'return') {
@@ -1035,7 +1043,11 @@ ${yesStyle}  ${noStyle}`;
       });
 
       this.focus.child('ephemeral').onKey((key, keyInfo) => {
-        if (keyInfo.name === 'escape') {
+        if (
+          keyInfo.name === 'escape' ||
+          keyInfo.name == 'h' ||
+          keyInfo.name == 'left'
+        ) {
           this.focus.setFocus('leftMenu');
         }
         if (keyInfo.name === 'return') {
