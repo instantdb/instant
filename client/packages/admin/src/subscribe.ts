@@ -1,6 +1,7 @@
 import { EventSource } from 'eventsource';
 import version from './version.ts';
 import {
+  id,
   version as coreVersion,
   InstantAPIError,
   InstantConfig,
@@ -11,6 +12,11 @@ import {
 
 export type SubscriptionReadyState = 'closed' | 'connecting' | 'open';
 
+export type SubscribeQuerySessionInfo = {
+  machineId: string;
+  sessionId: string;
+};
+
 export type SubscribeQueryPayload<
   Schema extends InstantSchemaDef<any, any, any>,
   Q extends ValidQuery<Q, Schema>,
@@ -19,12 +25,14 @@ export type SubscribeQueryPayload<
   | {
       type: 'ok';
       data: InstaQLResponse<Schema, Q, NonNullable<Config['useDateObjects']>>;
+      sessionInfo: SubscribeQuerySessionInfo | null;
     }
   | {
       type: 'error';
       error: InstantAPIError;
       readyState: SubscriptionReadyState;
       isClosed: boolean;
+      sessionInfo: SubscribeQuerySessionInfo | null;
     };
 
 export type SubscribeQueryCallback<
@@ -54,6 +62,9 @@ export interface SubscribeQueryResponse<
 
   /** `true` if the connection is closed and no more payloads will be delivered */
   readonly isClosed: boolean;
+
+  /** Debug info about the session. Will return null while the session is initializing. */
+  readonly sessionInfo: SubscribeQuerySessionInfo | null;
 }
 
 function makeAsyncIterator<
@@ -181,29 +192,36 @@ export function subscribe<
   let fetchErrorResponse;
   let closed = false;
 
-  const es = new EventSource(`${opts.apiURI}/admin/subscribe-query`, {
-    fetch(input, init) {
-      fetchErrorResponse = null;
-      return fetch(input, {
-        ...init,
-        method: 'POST',
-        headers: opts.headers,
-        body: JSON.stringify({
-          query: query,
-          'inference?': opts.inference,
-          versions: {
-            '@instantdb/admin': version,
-            '@instantdb/core': coreVersion,
-          },
-        }),
-      }).then((r) => {
-        if (!r.ok) {
-          fetchErrorResponse = multiReadFetchResponse(r);
-        }
-        return r;
-      });
+  // Stable id that will stay the same across reconnects,
+  // used for debugging
+  const localConnectionId = id();
+
+  const es = new EventSource(
+    `${opts.apiURI}/admin/subscribe-query?local_connection_id=${localConnectionId}`,
+    {
+      fetch(input, init) {
+        fetchErrorResponse = null;
+        return fetch(input, {
+          ...init,
+          method: 'POST',
+          headers: opts.headers,
+          body: JSON.stringify({
+            query: query,
+            'inference?': opts.inference,
+            versions: {
+              '@instantdb/admin': version,
+              '@instantdb/core': coreVersion,
+            },
+          }),
+        }).then((r) => {
+          if (!r.ok) {
+            fetchErrorResponse = multiReadFetchResponse(r);
+          }
+          return r;
+        });
+      },
     },
-  });
+  );
 
   const subscribers: SubscribeQueryCallback<Schema, Q, Config>[] = [];
   const onCloseSubscribers = [];
@@ -224,6 +242,8 @@ export function subscribe<
     subscribe(cb);
   }
 
+  let sessionParams: SubscribeQuerySessionInfo | null = null;
+
   function deliver(result: SubscribeQueryPayload<Schema, Q, Config>) {
     if (closed) {
       return;
@@ -239,10 +259,17 @@ export function subscribe<
 
   function handleMessage(msg) {
     switch (msg.op) {
+      case 'sse-init': {
+        const machineId = msg['machine-id'];
+        const sessionId = msg['session-id'];
+        sessionParams = { machineId, sessionId };
+        break;
+      }
       case 'add-query-ok': {
         deliver({
           type: 'ok',
           data: msg.result,
+          sessionInfo: sessionParams,
         });
         break;
       }
@@ -251,6 +278,7 @@ export function subscribe<
           deliver({
             type: 'ok',
             data: msg.computations[0]['instaql-result'],
+            sessionInfo: sessionParams,
           });
         }
         break;
@@ -265,6 +293,7 @@ export function subscribe<
           get isClosed() {
             return esReadyState(es) === 'closed';
           },
+          sessionInfo: sessionParams,
         });
         break;
       }
@@ -290,6 +319,7 @@ export function subscribe<
           get isClosed() {
             return esReadyState(es) === 'closed';
           },
+          sessionInfo: sessionParams,
         });
       });
     } else {
@@ -309,6 +339,7 @@ export function subscribe<
           get isClosed() {
             return esReadyState(es) === 'closed';
           },
+          sessionInfo: sessionParams,
         });
       };
       if (es.readyState === EventSource.CLOSED) {
@@ -346,6 +377,9 @@ export function subscribe<
       throw new Error(
         'subscribeQuery does not support synchronous iteration. Use `for await` instead.',
       );
+    },
+    get sessionInfo() {
+      return sessionParams;
     },
     get readyState() {
       return esReadyState(es);

@@ -802,11 +802,14 @@
   (let [pending-handlers (atom #{})]
     {:undertow/sse
      {:on-open (fn [req]
-                 (let [socket {:id id
+                 (let [sse-token (random-uuid)
+                       sse-token-hash (crypt-util/uuid->sha256 sse-token)
+                       socket {:id id
                                :http-req (:exchange req)
                                :sse-conn (:channel req)
                                :receive-q receive-q
                                :pending-handlers pending-handlers
+                               :sse-token-hash sse-token-hash
                                :close (fn []
                                         (IoUtils/safeClose
                                          ^ServerSentEventConnection (:channel req)))}]
@@ -816,6 +819,16 @@
                    (sse/set-retry-interval! (:app-id ctx)
                                             (flags/flag :sse-retry-interval-ms 500)
                                             {:conn (:channel req)})
+
+                   ;; If we send an event in the on-open, undertow will hang
+                   ;; Put it in the receive-queue to be delivered afterwards
+                   (receive-queue/put! receive-q
+                                       {:op :sse-init
+                                        :app-id (:app-id ctx)
+                                        :session-id id
+                                        :machine-id config/machine-id
+                                        :sse-token sse-token})
+
                    (receive-queue/put! receive-q
                                        {:op :add-query
                                         :session-id id
