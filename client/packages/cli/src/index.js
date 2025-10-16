@@ -367,6 +367,7 @@ program
   .description('Push perms to production.')
   .action(async (appIdOrName) => {
     warnDeprecation('push-perms', 'push perms');
+    await validateAppLinked();
     await handlePush('perms', { app: appIdOrName });
   });
 
@@ -391,6 +392,7 @@ program
   )
   .description('Push schema and perm files to production.')
   .action(async function (arg, inputOpts) {
+    await validateAppLinked();
     const ret = convertPushPullToCurrentFormat(arg, inputOpts);
     if (!ret.ok) return process.exit(1);
     const { bag, opts } = ret;
@@ -406,6 +408,7 @@ program
   .description('Generate instant.schema.ts from production')
   .action(async (appIdOrName) => {
     warnDeprecation('pull-schema', 'pull schema');
+    await validateAppLinked();
     await handlePull('schema', { app: appIdOrName });
   });
 
@@ -418,6 +421,7 @@ program
   .description('Generate instant.perms.ts from production.')
   .action(async (appIdOrName) => {
     warnDeprecation('pull-perms', 'pull perms');
+    await validateAppLinked();
     await handlePull('perms', { app: appIdOrName });
   });
 
@@ -441,6 +445,7 @@ program
     const ret = convertPushPullToCurrentFormat(arg, inputOpts);
     if (!ret.ok) return process.exit(1);
     const { bag, opts } = ret;
+    await validateAppLinked();
     await handlePull(bag, opts);
   });
 
@@ -928,6 +933,21 @@ async function promptImportAppOrCreateApp() {
   // return { ok: true, appId: choice, source: 'imported' };
 }
 
+async function createApp(title, orgId) {
+  const id = randomUUID();
+  const token = randomUUID();
+  const app = { id, title, admin_token: token, org_id: orgId };
+  const appRes = await fetchJson({
+    method: 'POST',
+    path: '/dash/apps',
+    debugName: 'App create',
+    errorMessage: 'Failed to create app.',
+    body: app,
+  });
+  if (!appRes.ok) throw new Error('Failed to create app');
+  return { appId: id, adminToken: token };
+}
+
 async function detectOrCreateAppWithErrorLogging(opts) {
   const fromOpts = await detectAppIdFromOptsWithErrorLogging(opts);
   if (!fromOpts.ok) return fromOpts;
@@ -952,6 +972,9 @@ async function detectOrCreateAppWithErrorLogging(opts) {
       );
       process.exit(1);
     }
+    const app = await createApp(opts.title);
+
+    return { ok: true, appId: app.appId, source: 'created' };
   } else {
     return await promptImportAppOrCreateApp();
   }
@@ -1992,4 +2015,28 @@ function detectAppIdFromEnvWithErrorLogging() {
 
 function appDashUrl(id) {
   return `${instantDashOrigin}/dash?s=main&t=home&app=${id}`;
+}
+
+async function detectIfAppLinked() {
+  const fromOpts = await detectAppIdFromOptsWithErrorLogging(program.opts());
+  if (!fromOpts.ok) return false;
+  if (fromOpts.appId) {
+    return true;
+  }
+
+  const fromEnv = detectAppIdFromEnvWithErrorLogging();
+  if (!fromEnv.ok) return false;
+  if (fromEnv.found) {
+    return true;
+  }
+}
+
+async function validateAppLinked() {
+  const isLinked = await detectIfAppLinked();
+  if (!isLinked) {
+    console.error(
+      "Can't find app ID, use `instant-cli init` to link an app first",
+    );
+    process.exit(1);
+  }
 }

@@ -149,6 +149,8 @@ export const tryConnectApp = async (
 ): Promise<AppTokenResponse | null> => {
   const authToken = await getAuthToken();
   if (!authToken) {
+    const app = await createPermissiveEphemeralApp(project.appName);
+    return { ...app, approach: 'ephemeral' };
     const choice = await renderUnwrap(
       new UI.Select({
         promptText: 'You are not logged in.',
