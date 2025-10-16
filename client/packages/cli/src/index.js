@@ -838,62 +838,119 @@ async function promptImportAppOrCreateApp() {
   if (!res.ok) {
     return { ok: false };
   }
-  const { orgs } = res.data;
-  let apps = res.data.apps;
-  let orgName;
-  let orgId;
-  if (orgs.length) {
-    const choices = [{ label: '(No organization)', value: null }];
-    for (const org of orgs) {
-      choices.push({ label: org.title, value: org.id });
-    }
-    const choice = await renderUnwrap(
-      new UI.Select({
-        promptText: 'Would you like to import an app from an organization?',
-        options: choices,
-      }),
-    );
-    if (choice) {
-      const orgsRes = await fetchJson({
-        debugName: 'Fetching apps',
-        method: 'GET',
-        path: `/dash/orgs/${choice}`,
-        errorMessage: 'Failed to fetch apps.',
-      });
-      if (!orgsRes.ok) {
-        return { ok: false };
-      }
-      apps = orgsRes.data.apps;
-      orgName = orgsRes.data.org.title;
-      orgId = choice;
-    } else {
-      apps = res.data.apps;
-    }
-  }
-  if (!apps.length) {
-    const ok = await promptOk(
-      {
-        promptText: `You don't have any apps${orgName ? ` in ${orgName}` : ''}. Want to create a new one?`,
+
+  const result = await renderUnwrap(
+    new UI.AppSelector({
+      allowEphemeral: true,
+      allowCreate: true,
+      api: {
+        getDash: () => res.data,
+        createEphemeralApp: async (title) => {
+          const id = randomUUID();
+          const token = randomUUID();
+          const app = { id, title, admin_token: token };
+          const appRes = await fetchJson({
+            method: 'POST',
+            path: '/dash/apps/ephemeral',
+            debugName: 'Ephemeral app create',
+            errorMessage: 'Failed to create ephemeral app.',
+            body: app,
+          });
+          if (!appRes.ok) throw new Error('Failed to create ephemeral app');
+          return { appId: id, adminToken: token };
+        },
+        getAppsForOrg: async (orgId) => {
+          const orgsRes = await fetchJson({
+            debugName: 'Fetching org apps',
+            method: 'GET',
+            path: `/dash/orgs/${orgId}`,
+            errorMessage: 'Failed to fetch apps.',
+          });
+          if (!orgsRes.ok) {
+            throw new Error('Failed to fetch org apps');
+          }
+          return { apps: orgsRes.data.apps };
+        },
+        createApp: async (title, orgId) => {
+          const id = randomUUID();
+          const token = randomUUID();
+          const app = { id, title, admin_token: token, org_id: orgId };
+          const appRes = await fetchJson({
+            method: 'POST',
+            path: '/dash/apps',
+            debugName: 'App create',
+            errorMessage: 'Failed to create app.',
+            body: app,
+          });
+          if (!appRes.ok) throw new Error('Failed to create app');
+          return { appId: id, adminToken: token };
+        },
       },
-      program.opts(),
-      /*defaultAnswer=*/ true,
-    );
-    if (!ok) return { ok: false };
-    return await promptCreateApp({ org: orgId });
-  }
-
-  apps.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
-
-  const choice = await renderUnwrap(
-    new UI.Select({
-      promptText: 'Which app would you like to import?',
-      options: apps.map((app) => {
-        return { label: `${app.title} (${app.id})`, value: app.id };
-      }),
     }),
   );
-  if (!choice) return { ok: false };
-  return { ok: true, appId: choice, source: 'imported' };
+
+  return {
+    ok: true,
+    appId: result.appId,
+    appToken: result.adminToken,
+    source: result.approach === 'import' ? 'imported' : 'created',
+  };
+
+  // let apps = res.data.apps;
+  // let orgName;
+  // let orgId;
+  // if (orgs.length) {
+  //   const choices = [{ label: '(No organization)', value: null }];
+  //   for (const org of orgs) {
+  //     choices.push({ label: org.title, value: org.id });
+  //   }
+  //   const choice = await renderUnwrap(
+  //     new UI.Select({
+  //       promptText: 'Would you like to import an app from an organization?',
+  //       options: choices,
+  //     }),
+  //   );
+  //   if (choice) {
+  //     const orgsRes = await fetchJson({
+  //       debugName: 'Fetching apps',
+  //       method: 'GET',
+  //       path: `/dash/orgs/${choice}`,
+  //       errorMessage: 'Failed to fetch apps.',
+  //     });
+  //     if (!orgsRes.ok) {
+  //       return { ok: false };
+  //     }
+  //     apps = orgsRes.data.apps;
+  //     orgName = orgsRes.data.org.title;
+  //     orgId = choice;
+  //   } else {
+  //     apps = res.data.apps;
+  //   }
+  // }
+  // if (!apps.length) {
+  //   const ok = await promptOk(
+  //     {
+  //       promptText: `You don't have any apps${orgName ? ` in ${orgName}` : ''}. Want to create a new one?`,
+  //     },
+  //     program.opts(),
+  //     /*defaultAnswer=*/ true,
+  //   );
+  //   if (!ok) return { ok: false };
+  //   return await promptCreateApp({ org: orgId });
+  // }
+
+  // apps.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
+
+  // const choice = await renderUnwrap(
+  //   new UI.Select({
+  //     promptText: 'Which app would you like to import?',
+  //     options: apps.map((app) => {
+  //       return { label: `${app.title} (${app.id})`, value: app.id };
+  //     }),
+  //   }),
+  // );
+  // if (!choice) return { ok: false };
+  // return { ok: true, appId: choice, source: 'imported' };
 }
 
 async function detectOrCreateAppWithErrorLogging(opts) {
@@ -921,22 +978,8 @@ async function detectOrCreateAppWithErrorLogging(opts) {
       process.exit(1);
     }
   } else {
-    action = await renderUnwrap(
-      new UI.Select({
-        promptText: 'What would you like to do?',
-        options: [
-          { label: 'Create a new app', value: 'create' },
-          { label: 'Import an existing app', value: 'import' },
-        ],
-      }),
-    ).catch(() => null);
+    return await promptImportAppOrCreateApp();
   }
-
-  if (action === 'create') {
-    return await promptCreateApp(opts);
-  }
-
-  return await promptImportAppOrCreateApp();
 }
 
 async function writeTypescript(path, content, encoding) {
