@@ -630,16 +630,17 @@ ${inputDisplay}`;
 
   type MenuProps = {
     focus: FocusHandle;
-    items: { label: string; onSelect: () => void }[];
+    items: { label: string; onSelect: () => void; value?: string }[];
     width?: number;
     maxHeight?: number;
     emptyState?: string;
     showIdxWhileBlurred?: boolean;
     resetIdxOnFocus?: boolean;
+    onHoverChange?: (value: string | undefined) => void;
   };
 
   export class Menu {
-    items: { label: string; onSelect: () => void }[] = [];
+    items: { label: string; onSelect: () => void; value?: string }[] = [];
     selectedIdx: number = 0;
     focus: FocusHandle;
     width = 30;
@@ -647,38 +648,41 @@ ${inputDisplay}`;
     scrollOffset = 0;
     emptyState?: string;
     showIdxWhileBlurred: boolean;
+    onHoverChange?: (value: string | undefined) => void;
 
     constructor(props: MenuProps) {
-      this.selectedIdx = 0;
       this.width = props.width ?? 30;
       this.maxHeight = props.maxHeight ?? 10;
       this.focus = props.focus;
       this.emptyState = props.emptyState;
       this.showIdxWhileBlurred = props.showIdxWhileBlurred ?? false;
+      this.onHoverChange = props.onHoverChange;
 
       if (props.resetIdxOnFocus) {
         this.focus.onFocus(() => {
-          this.selectedIdx = 0;
+          this.setSelectedItem(0);
         });
       }
 
       this.focus.onKey((key, keyInfo, propagate) => {
         if (key === 'j' || keyInfo.name == 'down') {
-          this.selectedIdx = Math.min(
+          const newIndex = Math.min(
             this.selectedIdx + 1,
             this.items.length - 1,
           );
-          this.adjustScroll();
+          this.setSelectedItem(newIndex);
         } else if (key === 'k' || keyInfo.name == 'up') {
-          this.selectedIdx = Math.max(this.selectedIdx - 1, 0);
-          this.adjustScroll();
+          const newIndex = Math.max(this.selectedIdx - 1, 0);
+          this.setSelectedItem(newIndex);
         } else if (keyInfo.name === 'return' || keyInfo.name === 'right') {
           this.items[this.selectedIdx]?.onSelect();
         } else {
           propagate();
         }
       });
+
       this.items = props.items;
+      this.setSelectedItem(0);
     }
 
     private adjustScroll() {
@@ -693,17 +697,22 @@ ${inputDisplay}`;
       );
     }
 
-    addItem(item: { label: string; onSelect: () => void }) {
+    addItem(item: { label: string; onSelect: () => void; value?: string }) {
       this.items.push(item);
     }
 
     setSelectedItem(index: number) {
-      this.selectedIdx = index;
+      const maxIndex = Math.max(0, this.items.length - 1);
+      this.selectedIdx = Math.max(0, Math.min(index, maxIndex));
       this.adjustScroll();
+      if (this.onHoverChange && this.items[this.selectedIdx]) {
+        this.onHoverChange(this.items[this.selectedIdx].value);
+      }
     }
 
     setItemList(items: { label: string; onSelect: () => void }[]) {
       this.items = items;
+      this.setSelectedItem(this.selectedIdx);
     }
 
     render(): string {
@@ -792,6 +801,7 @@ ${inputDisplay}`;
     leftMenu: Menu;
     appList: Menu;
     orgList: Menu;
+    hoveredLeftMenuItem: string = 'selectExisting'; // Track hovered item
 
     HEIGHT = 10;
 
@@ -812,18 +822,17 @@ ${inputDisplay}`;
 
     rightView(): string {
       let inner = '';
-      if (
-        this.focus.getFocused() === 'selectExisting' ||
-        this.focus.getFocused() === 'leftMenu'
-      ) {
+
+      // Use hoveredLeftMenuItem to determine what to show
+      if (this.hoveredLeftMenuItem === 'selectExisting') {
         inner = this.appList.render();
       }
 
-      if (this.focus.getFocused() === 'pickOrg') {
+      if (this.hoveredLeftMenuItem === 'pickOrg') {
         inner = this.orgList.render();
       }
 
-      if (this.focus.getFocused() === 'newApp') {
+      if (this.hoveredLeftMenuItem === 'newApp') {
         return boxen(this.appNameInput.render('idle'), {
           height: this.HEIGHT,
           borderStyle: 'none',
@@ -832,7 +841,7 @@ ${inputDisplay}`;
         });
       }
 
-      if (this.focus.getFocused() === 'ephemeral') {
+      if (this.hoveredLeftMenuItem === 'ephemeral') {
         return boxen(this.ephemeralInput.render('idle'), {
           height: this.HEIGHT,
           borderStyle: 'none',
@@ -946,7 +955,8 @@ ${inputDisplay}`;
                 })),
               );
               this.focus.setFocus('selectExisting');
-              this.leftMenu.setSelectedItem(this.props.startingMenuIndex ?? 2);
+              this.leftMenu.setSelectedItem(1);
+              this.hoveredLeftMenuItem = 'selectExisting';
               this.requestLayout();
             });
           },
@@ -974,7 +984,8 @@ ${inputDisplay}`;
             })),
           );
           this.focus.setFocus('selectExisting');
-          this.leftMenu.setSelectedItem(2);
+          this.leftMenu.setSelectedItem(1);
+          this.hoveredLeftMenuItem = 'selectExisting';
           this.requestLayout();
         },
       });
@@ -985,29 +996,39 @@ ${inputDisplay}`;
         items: [
           {
             label: 'Create New App',
+            value: 'newApp',
             onSelect: () => {
               this.focus.setFocus('newApp');
             },
           },
           {
             label: 'Select Existing App',
+            value: 'selectExisting',
             onSelect: () => {
               this.focus.setFocus('selectExisting');
             },
           },
           {
             label: 'Change Organization',
+            value: 'pickOrg',
             onSelect: () => {
               this.focus.setFocus('pickOrg');
             },
           },
         ],
         maxHeight: 10,
+        onHoverChange: (value) => {
+          if (value) {
+            this.hoveredLeftMenuItem = value;
+            this.requestLayout();
+          }
+        },
       });
 
       if (this.props.allowEphemeral || process.env.INSTANT_ALLOW_EPHEMERAL) {
         this.leftMenu.addItem({
           label: 'Create Temporary App',
+          value: 'ephemeral',
           onSelect: () => {
             this.focus.setFocus('ephemeral');
           },
