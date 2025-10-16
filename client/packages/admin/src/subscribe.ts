@@ -1,6 +1,7 @@
 import { EventSource } from 'eventsource';
 import version from './version.ts';
 import {
+  id,
   version as coreVersion,
   InstantAPIError,
   InstantConfig,
@@ -191,29 +192,36 @@ export function subscribe<
   let fetchErrorResponse;
   let closed = false;
 
-  const es = new EventSource(`${opts.apiURI}/admin/subscribe-query`, {
-    fetch(input, init) {
-      fetchErrorResponse = null;
-      return fetch(input, {
-        ...init,
-        method: 'POST',
-        headers: opts.headers,
-        body: JSON.stringify({
-          query: query,
-          'inference?': opts.inference,
-          versions: {
-            '@instantdb/admin': version,
-            '@instantdb/core': coreVersion,
-          },
-        }),
-      }).then((r) => {
-        if (!r.ok) {
-          fetchErrorResponse = multiReadFetchResponse(r);
-        }
-        return r;
-      });
+  // Stable id that will stay the same across reconnects,
+  // used for debugging
+  const localConnectionId = id();
+
+  const es = new EventSource(
+    `${opts.apiURI}/admin/subscribe-query?local_connection_id=${localConnectionId}`,
+    {
+      fetch(input, init) {
+        fetchErrorResponse = null;
+        return fetch(input, {
+          ...init,
+          method: 'POST',
+          headers: opts.headers,
+          body: JSON.stringify({
+            query: query,
+            'inference?': opts.inference,
+            versions: {
+              '@instantdb/admin': version,
+              '@instantdb/core': coreVersion,
+            },
+          }),
+        }).then((r) => {
+          if (!r.ok) {
+            fetchErrorResponse = multiReadFetchResponse(r);
+          }
+          return r;
+        });
+      },
     },
-  });
+  );
 
   const subscribers: SubscribeQueryCallback<Schema, Q, Config>[] = [];
   const onCloseSubscribers = [];
