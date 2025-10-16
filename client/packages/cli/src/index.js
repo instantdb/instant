@@ -844,7 +844,7 @@ async function promptImportAppOrCreateApp() {
 
   const result = await renderUnwrap(
     new UI.AppSelector({
-      allowEphemeral: true,
+      allowEphemeral: false,
       allowCreate: true,
       startingMenuIndex: 2,
       api: {

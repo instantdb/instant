@@ -989,12 +989,14 @@ ${inputDisplay}`;
               this.focus.setFocus('newApp');
             },
           },
-          {
-            label: 'Create Ephemeral App',
-            onSelect: () => {
-              this.focus.setFocus('ephemeral');
-            },
-          },
+          this.props.allowEphemeral
+            ? {
+                label: 'Create Ephemeral App',
+                onSelect: () => {
+                  this.focus.setFocus('ephemeral');
+                },
+              }
+            : undefined,
           {
             label: 'Select Existing App',
             onSelect: () => {
@@ -1007,7 +1009,7 @@ ${inputDisplay}`;
               this.focus.setFocus('pickOrg');
             },
           },
-        ],
+        ].filter(Boolean) as { label: string; onSelect: () => void }[],
         maxHeight: 10,
       });
 
