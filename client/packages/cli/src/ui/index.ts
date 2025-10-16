@@ -1005,7 +1005,7 @@ ${inputDisplay}`;
         maxHeight: 10,
       });
 
-      if (this.props.allowEphemeral) {
+      if (this.props.allowEphemeral || process.env.INSTANT_ALLOW_EPHEMERAL) {
         this.leftMenu.addItem({
           label: 'Create Temporary App',
           onSelect: () => {
