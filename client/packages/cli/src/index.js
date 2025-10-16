@@ -342,35 +342,6 @@ program
     await handlePull('all', opts);
   });
 
-program
-  .command('create-app')
-  .description('Generate an app ID and admin token for a new app.')
-  .option('-t --title', 'Title for the created app')
-  .option(
-    '-o --org <org-id>',
-    'The (optional) id of the organization to create the app in.',
-  )
-  .action(async (opts) => {
-    await checkVersion();
-    const authToken = await readAuthTokenOrLoginWithErrorLogging();
-    if (!authToken) return process.exit(1);
-
-    if (program.optsWithGlobals()?.yes && !opts.title) {
-      console.error(chalk.red(`Title is required when using --yes`));
-      process.exit(1);
-    }
-    const result = await promptCreateApp(opts);
-    if (!result.ok) return process.exit(1);
-
-    const { appId, appTitle, appToken } = result;
-    console.log(`\n✅ Created app "${chalk.green(appTitle)}"\n`);
-    console.log(`App ID: ${chalk.cyan(appId)}`);
-    console.log(
-      `App Admin Token (double click first 4 digits to select): ${chalk.dim(appToken?.substring(0, 4))}${chalk.hidden(appToken?.substring(4))}`,
-    );
-    console.log(terminalLink('Dashboard:', appDashUrl(appId)) + '\n');
-  });
-
 // Note: Nov 20, 2024
 // We can eventually delete this,
 // once we know most people use the new pull and push commands

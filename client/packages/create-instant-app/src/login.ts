@@ -154,7 +154,7 @@ export const tryConnectApp = async (
         promptText: 'You are not logged in.',
         options: [
           {
-            label: 'Create Ephemeral App',
+            label: 'Create Temporary App',
             value: 'ephemeral',
           },
           {
@@ -174,7 +174,7 @@ export const tryConnectApp = async (
     if (choice === 'ephemeral') {
       const name = await renderUnwrap(
         new UI.TextInput({
-          prompt: 'Enter a name for your ephemeral app:',
+          prompt: 'Enter a name for your temporary app:',
           placeholder: `my-cool-app`,
           modifyOutput: UI.ciaModifier(),
         }),
