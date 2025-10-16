@@ -224,6 +224,9 @@ importers:
       instant-cli:
         specifier: workspace:*
         version: link:../cli
+      open:
+        specifier: ^10.1.0
+        version: 10.1.0
       ora:
         specifier: 6.3.1
         version: 6.3.1
