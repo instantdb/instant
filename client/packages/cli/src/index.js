@@ -980,6 +980,7 @@ async function detectOrCreateAppWithErrorLogging(opts) {
   } else {
     return await promptImportAppOrCreateApp();
   }
+  return { ok: false };
 }
 
 async function writeTypescript(path, content, encoding) {
