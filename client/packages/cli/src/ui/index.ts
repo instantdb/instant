@@ -989,14 +989,6 @@ ${inputDisplay}`;
               this.focus.setFocus('newApp');
             },
           },
-          this.props.allowEphemeral
-            ? {
-                label: 'Create Ephemeral App',
-                onSelect: () => {
-                  this.focus.setFocus('ephemeral');
-                },
-              }
-            : undefined,
           {
             label: 'Select Existing App',
             onSelect: () => {
@@ -1009,9 +1001,18 @@ ${inputDisplay}`;
               this.focus.setFocus('pickOrg');
             },
           },
-        ].filter(Boolean) as { label: string; onSelect: () => void }[],
+        ],
         maxHeight: 10,
       });
+
+      if (this.props.allowEphemeral) {
+        this.leftMenu.addItem({
+          label: 'Create Temporary App',
+          onSelect: () => {
+            this.focus.setFocus('ephemeral');
+          },
+        });
+      }
 
       this.leftMenu.setSelectedItem(2); // start on "select existing app"
 
@@ -1050,7 +1051,7 @@ ${inputDisplay}`;
       });
 
       this.ephemeralInput = new TextInput({
-        prompt: 'Enter New Ephemeral App Name',
+        prompt: 'Enter New Temporary App Name',
         placeholder: 'my-instant-app',
         headless: true,
       });

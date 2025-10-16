@@ -860,7 +860,7 @@ async function promptImportAppOrCreateApp() {
             errorMessage: 'Failed to create ephemeral app.',
             body: app,
           });
-          if (!appRes.ok) throw new Error('Failed to create ephemeral app');
+          if (!appRes.ok) throw new Error('Failed to create temporary app');
           return { appId: id, adminToken: token };
         },
         getAppsForOrg: async (orgId) => {
