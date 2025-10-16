@@ -1,6 +1,6 @@
 // Docs: https://www.instantdb.com/docs/permissions
 
-import type { InstantRules } from '@instantdb/react-native';
+import type { InstantRules } from "@instantdb/react-native";
 
 const rules = {
   /**
