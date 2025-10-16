@@ -804,6 +804,8 @@ ${inputDisplay}`;
     hoveredLeftMenuItem: string = 'selectExisting'; // Track hovered item
 
     HEIGHT = 10;
+    LEFT_WIDTH = 30;
+    RIGHT_WIDTH = 40;
 
     result(): {
       appId: string;
@@ -816,6 +818,7 @@ ${inputDisplay}`;
     leftView(): string {
       return boxen(this.leftMenu.render(), {
         height: this.HEIGHT,
+        width: this.LEFT_WIDTH,
         borderStyle: 'none',
       });
     }
@@ -835,8 +838,11 @@ ${inputDisplay}`;
       if (this.hoveredLeftMenuItem === 'newApp') {
         return boxen(this.appNameInput.render('idle'), {
           height: this.HEIGHT,
+          width: this.RIGHT_WIDTH,
           borderStyle: 'none',
-          padding: 2,
+          padding: {
+            left: 1,
+          },
           textAlignment: 'left',
         });
       }
@@ -844,14 +850,18 @@ ${inputDisplay}`;
       if (this.hoveredLeftMenuItem === 'ephemeral') {
         return boxen(this.ephemeralInput.render('idle'), {
           height: this.HEIGHT,
+          width: this.RIGHT_WIDTH,
           borderStyle: 'none',
-          padding: 2,
+          padding: {
+            left: 1,
+          },
           textAlignment: 'left',
         });
       }
 
       return boxen(inner, {
         height: this.HEIGHT,
+        width: this.RIGHT_WIDTH,
         borderStyle: 'none',
       });
     }
@@ -905,6 +915,7 @@ ${inputDisplay}`;
       });
 
       this.appList = new Menu({
+        width: 40,
         focus: this.focus.child('selectExisting').onKey((_, keyInfo) => {
           if (keyInfo.name === 'h') {
             this.focus.setFocus('leftMenu');
@@ -928,6 +939,7 @@ ${inputDisplay}`;
       });
 
       this.orgList = new Menu({
+        width: 40,
         focus: this.focus.child('pickOrg').onKey((_, keyInfo) => {
           if (keyInfo.name === 'h') {
             this.focus.setFocus('leftMenu');

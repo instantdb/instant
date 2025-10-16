@@ -14,7 +14,7 @@ export const runInstallCommand = async (
       promise: result,
       workingText: `Installing dependencies with ${pkgManager}...`,
       doneText: 'Successfully installed dependencies!',
-      modifyOutput: UI.ciaModifier(),
+      modifyOutput: UI.ciaModifier(null),
     }),
   );
 
