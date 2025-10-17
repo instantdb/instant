@@ -318,13 +318,15 @@
       (let [{attr-users-id   :users/id
              attr-users-name :users/name
              attr-profiles-id   :profiles/id
-             attr-profiles-name :profiles/name}
+             attr-profiles-name :profiles/name
+             attr-random-id :random/id}
             (test-util/make-attrs
              app-id
              [[:users/id :required? :index? :unique?]
               [:users/name :required?]
               [:profiles/id :required? :index? :unique?]
-              [:profiles/name :required?]])
+              [:profiles/name :required?]
+              [:random/id :required? :index? :unique?]])
             make-ctx (fn make-ctx
                        ([]
                         (make-ctx {}))
@@ -344,9 +346,10 @@
           [:add-triple user-id attr-users-id      user-id]
           [:add-triple user-id attr-users-name    "user name"]])
 
-        (permissioned-tx/transact!
-         (make-ctx)
-         [[:delete-entity user-id "users"]])))))
+        (is (permissioned-tx/transact!
+             (make-ctx)
+             [[:delete-entity user-id "users"]
+              [:add-triple user-id attr-random-id user-id]]))))))
 
 (deftest add-attr-lookup-ref
   (with-empty-app
