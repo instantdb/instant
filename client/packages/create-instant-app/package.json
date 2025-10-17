@@ -32,6 +32,7 @@
     "@clack/prompts": "^0.11.0",
     "@ianvs/prettier-plugin-sort-imports": "^4.2.1",
     "@instantdb/version": "workspace:*",
+    "instant-cli": "workspace:*",
     "chalk": "5.2.0",
     "commander": "^10.0.1",
     "env-paths": "^3.0.0",

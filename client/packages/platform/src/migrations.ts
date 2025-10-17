@@ -351,6 +351,9 @@ export const diffSchemas = async (
       addedFields,
       removedFields,
       resolveFn,
+      {
+        type: 'attribute',
+      },
     );
 
     const consistentFields = Object.keys(oldEntities[entityName].attrs).filter(
@@ -501,6 +504,9 @@ export const diffSchemas = async (
       addedIdentities,
       removedIdentities,
       resolveFn,
+      {
+        type: 'link',
+      },
     );
 
     resolved.deleted.forEach((identity) => {

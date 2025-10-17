@@ -4,10 +4,8 @@ import {
   generatePermsTypescriptFile,
   apiSchemaToInstantSchemaDef,
   generateSchemaTypescriptFile,
-  translatePlanSteps,
   diffSchemas,
   convertTxSteps,
-  isRenamePromptItem,
   validateSchema,
   SchemaValidationError,
 } from '@instantdb/platform';
@@ -20,12 +18,10 @@ import jsonDiff from 'json-diff';
 import dotenvFlow from 'dotenv-flow';
 import chalk from 'chalk';
 import { program, Option } from 'commander';
-import { input, select } from '@inquirer/prompts';
-import envPaths from 'env-paths';
+import boxen from 'boxen';
 import { loadConfig } from './util/loadConfig.js';
 import { packageDirectory } from 'pkg-dir';
 import openInBrowser from 'open';
-import ora from 'ora';
 import semver from 'semver';
 import terminalLink from 'terminal-link';
 import { exec } from 'child_process';
@@ -36,17 +32,24 @@ import {
 } from './util/packageManager.js';
 import { pathExists, readJsonFile } from './util/fs.js';
 import prettier from 'prettier';
-import toggle from './toggle.js';
 import {
   CancelSchemaError,
   groupSteps,
   renderSchemaPlan,
 } from './renderSchemaPlan.js';
+import { getAuthPaths } from './util/getAuthPaths.js';
+import { renderUnwrap } from './ui/lib.js';
+import { UI } from './ui/index.js';
+import { deferred } from './ui/lib.js';
+import { promptOk } from './util/promptOk.js';
+import { ResolveRenamePrompt } from './util/renamePrompt.js';
 
 const execAsync = promisify(exec);
 
 // config
-dotenvFlow.config();
+dotenvFlow.config({
+  silent: true,
+});
 
 const dev = Boolean(process.env.INSTANT_CLI_DEV);
 const verbose = Boolean(process.env.INSTANT_CLI_VERBOSE);
@@ -339,35 +342,6 @@ program
     await handlePull('all', opts);
   });
 
-program
-  .command('create-app')
-  .description('Generate an app ID and admin token for a new app.')
-  .option('-t --title', 'Title for the created app')
-  .option(
-    '-o --org <org-id>',
-    'The (optional) id of the organization to create the app in.',
-  )
-  .action(async (opts) => {
-    await checkVersion();
-    const authToken = await readAuthTokenOrLoginWithErrorLogging();
-    if (!authToken) return process.exit(1);
-
-    if (program.optsWithGlobals()?.yes && !opts.title) {
-      console.error(chalk.red(`Title is required when using --yes`));
-      process.exit(1);
-    }
-    const result = await promptCreateApp(opts);
-    if (!result.ok) return process.exit(1);
-
-    const { appId, appTitle, appToken } = result;
-    console.log(`\n✅ Created app "${chalk.green(appTitle)}"\n`);
-    console.log(`App ID: ${chalk.cyan(appId)}`);
-    console.log(
-      `App Admin Token (double click first 4 digits to select): ${chalk.dim(appToken?.substring(0, 4))}${chalk.hidden(appToken?.substring(4))}`,
-    );
-    console.log(terminalLink('Dashboard:', appDashUrl(appId)) + '\n');
-  });
-
 // Note: Nov 20, 2024
 // We can eventually delete this,
 // once we know most people use the new pull and push commands
@@ -393,6 +367,7 @@ program
   .description('Push perms to production.')
   .action(async (appIdOrName) => {
     warnDeprecation('push-perms', 'push perms');
+    await validateAppLinked();
     await handlePush('perms', { app: appIdOrName });
   });
 
@@ -417,6 +392,7 @@ program
   )
   .description('Push schema and perm files to production.')
   .action(async function (arg, inputOpts) {
+    await validateAppLinked();
     const ret = convertPushPullToCurrentFormat(arg, inputOpts);
     if (!ret.ok) return process.exit(1);
     const { bag, opts } = ret;
@@ -432,6 +408,7 @@ program
   .description('Generate instant.schema.ts from production')
   .action(async (appIdOrName) => {
     warnDeprecation('pull-schema', 'pull schema');
+    await validateAppLinked();
     await handlePull('schema', { app: appIdOrName });
   });
 
@@ -444,6 +421,7 @@ program
   .description('Generate instant.perms.ts from production.')
   .action(async (appIdOrName) => {
     warnDeprecation('pull-perms', 'pull perms');
+    await validateAppLinked();
     await handlePull('perms', { app: appIdOrName });
   });
 
@@ -467,6 +445,7 @@ program
     const ret = convertPushPullToCurrentFormat(arg, inputOpts);
     if (!ret.ok) return process.exit(1);
     const { bag, opts } = ret;
+    await validateAppLinked();
     await handlePull(bag, opts);
   });
 
@@ -558,8 +537,13 @@ async function handleEnvFile(pkgAndAuthInfo, { appId, appToken }) {
     `If we set ${chalk.green('`' + envName + '`')} & ${chalk.green('INSTANT_APP_ADMIN_TOKEN')}, we can remember the app that you chose for all future commands.`,
   );
   const ok = await promptOk(
-    'Want us to create this env file for you?',
-    /*defaultAnswer=*/ true,
+    {
+      inline: true,
+      promptText: 'Want us to create this env file for you?',
+      modifyOutput: (a) => a,
+    },
+    program.opts(),
+    true,
   );
   if (!ok) {
     console.log(
@@ -628,8 +612,12 @@ async function login(options) {
 
   const { secret, ticket } = registerRes.data;
 
+  console.log();
   const ok = await promptOk(
-    `This will open instantdb.com in your browser, OK to proceed?`,
+    {
+      promptText: `This will open instantdb.com in your browser, OK to proceed?`,
+    },
+    program.opts(),
     /*defaultAnswer=*/ true,
   );
 
@@ -705,15 +693,20 @@ async function getOrInstallInstantModuleWithErrorLogging(pkgDir, opts) {
       );
       process.exit(1);
     }
-    moduleName = await select({
-      message: 'Which package would you like to use?',
-      choices: [
-        { name: '@instantdb/react', value: '@instantdb/react' },
-        { name: '@instantdb/react-native', value: '@instantdb/react-native' },
-        { name: '@instantdb/core', value: '@instantdb/core' },
-        { name: '@instantdb/admin', value: '@instantdb/admin' },
-      ],
-    });
+    moduleName = await renderUnwrap(
+      new UI.Select({
+        promptText: 'Which package would you like to use?',
+        options: [
+          { label: '@instantdb/react', value: '@instantdb/react' },
+          {
+            label: '@instantdb/react-native',
+            value: '@instantdb/react-native',
+          },
+          { label: '@instantdb/core', value: '@instantdb/core' },
+          { label: '@instantdb/admin', value: '@instantdb/admin' },
+        ],
+      }),
+    );
   }
 
   const packageManager = await detectPackageManager(pkgDir);
@@ -731,20 +724,13 @@ async function getOrInstallInstantModuleWithErrorLogging(pkgDir, opts) {
     packagesToInstall.join(' '),
   );
 
-  const spinner = ora(
-    `Installing ${packagesToInstall.join(', ')} using ${packageManager}...`,
-  ).start();
-
-  try {
-    await execAsync(installCommand, pkgDir);
-    spinner.succeed(
-      `Installed ${packagesToInstall.join(', ')} using ${packageManager}.`,
-    );
-  } catch (e) {
-    spinner.fail(`Failed to run: ${installCommand}`);
-    error(e.message);
-    return;
-  }
+  await renderUnwrap(
+    new UI.Spinner({
+      promise: execAsync(installCommand, pkgDir),
+      workingText: `Installing ${packagesToInstall.join(', ')} using ${packageManager}...`,
+      doneText: `Installed ${packagesToInstall.join(', ')} using ${packageManager}.`,
+    }),
+  );
 
   return moduleName;
 }
@@ -757,11 +743,12 @@ async function promptCreateApp(opts) {
   if (opts?.title) {
     _title = opts.title;
   } else {
-    _title = await input({
-      message: 'What would you like to call it?',
-      default: 'My cool app',
-      required: true,
-    }).catch(() => null);
+    _title = await renderUnwrap(
+      new UI.TextInput({
+        prompt: 'What would you like to call it?',
+        placeholder: 'My cool app',
+      }),
+    ).catch(() => null);
   }
 
   const title = _title?.trim();
@@ -786,14 +773,16 @@ async function promptCreateApp(opts) {
   let org_id = opts.org;
 
   if (!org_id && allowedOrgs.length) {
-    const choices = [{ name: '(No organization)', value: null }];
+    const choices = [{ label: '(No organization)', value: null }];
     for (const org of allowedOrgs) {
-      choices.push({ name: org.title, value: org.id });
+      choices.push({ label: org.title, value: org.id });
     }
-    const choice = await select({
-      message: 'Would you like to create the app in an organization?',
-      choices,
-    });
+    const choice = await renderUnwrap(
+      new UI.Select({
+        promptText: 'Would you like to create the app in an organization?',
+        options: choices,
+      }),
+    );
     if (choice) {
       org_id = choice;
     }
@@ -828,55 +817,135 @@ async function promptImportAppOrCreateApp() {
   if (!res.ok) {
     return { ok: false };
   }
-  const { orgs } = res.data;
-  let apps = res.data.apps;
-  let orgName;
-  let orgId;
-  if (orgs.length) {
-    const choices = [{ name: '(No organization)', value: null }];
-    for (const org of orgs) {
-      choices.push({ name: org.title, value: org.id });
-    }
-    const choice = await select({
-      message: 'Would you like to import an app from an organization?',
-      choices,
-    });
-    if (choice) {
-      const orgsRes = await fetchJson({
-        debugName: 'Fetching apps',
-        method: 'GET',
-        path: `/dash/orgs/${choice}`,
-        errorMessage: 'Failed to fetch apps.',
-      });
-      if (!orgsRes.ok) {
-        return { ok: false };
-      }
-      apps = orgsRes.data.apps;
-      orgName = orgsRes.data.org.title;
-      orgId = choice;
-    } else {
-      apps = res.data.apps;
-    }
-  }
-  if (!apps.length) {
-    const ok = await promptOk(
-      `You don't have any apps${orgName ? ` in ${orgName}` : ''}. Want to create a new one?`,
-      /*defaultAnswer=*/ true,
-    );
-    if (!ok) return { ok: false };
-    return await promptCreateApp({ org: orgId });
-  }
 
-  apps.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
-
-  const choice = await select({
-    message: 'Which app would you like to import?',
-    choices: apps.map((app) => {
-      return { name: `${app.title} (${app.id})`, value: app.id };
+  const result = await renderUnwrap(
+    new UI.AppSelector({
+      allowEphemeral: false,
+      allowCreate: true,
+      startingMenuIndex: 2,
+      api: {
+        getDash: () => res.data,
+        createEphemeralApp: async (title) => {
+          const id = randomUUID();
+          const token = randomUUID();
+          const app = { id, title, admin_token: token };
+          const appRes = await fetchJson({
+            method: 'POST',
+            path: '/dash/apps/ephemeral',
+            debugName: 'Ephemeral app create',
+            errorMessage: 'Failed to create ephemeral app.',
+            body: app,
+          });
+          if (!appRes.ok) throw new Error('Failed to create temporary app');
+          return { appId: id, adminToken: token };
+        },
+        getAppsForOrg: async (orgId) => {
+          const orgsRes = await fetchJson({
+            debugName: 'Fetching org apps',
+            method: 'GET',
+            path: `/dash/orgs/${orgId}`,
+            errorMessage: 'Failed to fetch apps.',
+          });
+          if (!orgsRes.ok) {
+            throw new Error('Failed to fetch org apps');
+          }
+          return { apps: orgsRes.data.apps };
+        },
+        createApp: async (title, orgId) => {
+          const id = randomUUID();
+          const token = randomUUID();
+          const app = { id, title, admin_token: token, org_id: orgId };
+          const appRes = await fetchJson({
+            method: 'POST',
+            path: '/dash/apps',
+            debugName: 'App create',
+            errorMessage: 'Failed to create app.',
+            body: app,
+          });
+          if (!appRes.ok) throw new Error('Failed to create app');
+          return { appId: id, adminToken: token };
+        },
+      },
     }),
-  }).catch(() => null);
-  if (!choice) return { ok: false };
-  return { ok: true, appId: choice, source: 'imported' };
+  );
+
+  return {
+    ok: true,
+    appId: result.appId,
+    appToken: result.adminToken,
+    source: result.approach === 'import' ? 'imported' : 'created',
+  };
+
+  // let apps = res.data.apps;
+  // let orgName;
+  // let orgId;
+  // if (orgs.length) {
+  //   const choices = [{ label: '(No organization)', value: null }];
+  //   for (const org of orgs) {
+  //     choices.push({ label: org.title, value: org.id });
+  //   }
+  //   const choice = await renderUnwrap(
+  //     new UI.Select({
+  //       promptText: 'Would you like to import an app from an organization?',
+  //       options: choices,
+  //     }),
+  //   );
+  //   if (choice) {
+  //     const orgsRes = await fetchJson({
+  //       debugName: 'Fetching apps',
+  //       method: 'GET',
+  //       path: `/dash/orgs/${choice}`,
+  //       errorMessage: 'Failed to fetch apps.',
+  //     });
+  //     if (!orgsRes.ok) {
+  //       return { ok: false };
+  //     }
+  //     apps = orgsRes.data.apps;
+  //     orgName = orgsRes.data.org.title;
+  //     orgId = choice;
+  //   } else {
+  //     apps = res.data.apps;
+  //   }
+  // }
+  // if (!apps.length) {
+  //   const ok = await promptOk(
+  //     {
+  //       promptText: `You don't have any apps${orgName ? ` in ${orgName}` : ''}. Want to create a new one?`,
+  //     },
+  //     program.opts(),
+  //     /*defaultAnswer=*/ true,
+  //   );
+  //   if (!ok) return { ok: false };
+  //   return await promptCreateApp({ org: orgId });
+  // }
+
+  // apps.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
+
+  // const choice = await renderUnwrap(
+  //   new UI.Select({
+  //     promptText: 'Which app would you like to import?',
+  //     options: apps.map((app) => {
+  //       return { label: `${app.title} (${app.id})`, value: app.id };
+  //     }),
+  //   }),
+  // );
+  // if (!choice) return { ok: false };
+  // return { ok: true, appId: choice, source: 'imported' };
+}
+
+async function createApp(title, orgId) {
+  const id = randomUUID();
+  const token = randomUUID();
+  const app = { id, title, admin_token: token, org_id: orgId };
+  const appRes = await fetchJson({
+    method: 'POST',
+    path: '/dash/apps',
+    debugName: 'App create',
+    errorMessage: 'Failed to create app.',
+    body: app,
+  });
+  if (!appRes.ok) throw new Error('Failed to create app');
+  return { appId: id, adminToken: token };
 }
 
 async function detectOrCreateAppWithErrorLogging(opts) {
@@ -903,21 +972,13 @@ async function detectOrCreateAppWithErrorLogging(opts) {
       );
       process.exit(1);
     }
+    const app = await createApp(opts.title);
+
+    return { ok: true, appId: app.appId, source: 'created' };
   } else {
-    action = await select({
-      message: 'What would you like to do?',
-      choices: [
-        { name: 'Create a new app', value: 'create' },
-        { name: 'Import an existing app', value: 'import' },
-      ],
-    }).catch(() => null);
+    return await promptImportAppOrCreateApp();
   }
-
-  if (action === 'create') {
-    return await promptCreateApp(opts);
-  }
-
-  return await promptImportAppOrCreateApp();
+  return { ok: false };
 }
 
 async function writeTypescript(path, content, encoding) {
@@ -995,8 +1056,15 @@ async function pullSchema(appId, { pkgDir, instantModuleName }) {
   const prev = await readLocalSchemaFile();
   if (prev) {
     const shouldContinue = await promptOk(
-      'This will overwrite your local instant.schema file, OK to proceed?',
+      {
+        promptText:
+          'This will overwrite your local instant.schema.ts file, OK to proceed?',
+        modifyOutput: UI.modifiers.yPadding,
+        inline: true,
+      },
+      program.opts(),
     );
+    console.log();
 
     if (!shouldContinue) return { ok: true };
   }
@@ -1032,8 +1100,15 @@ async function pullPerms(appId, { pkgDir, instantModuleName }) {
   const prev = await readLocalPermsFile();
   if (prev) {
     const shouldContinue = await promptOk(
-      'This will overwrite your local instant.perms file, OK to proceed?',
+      {
+        promptText:
+          'This will overwrite your local instant.perms.ts file, OK to proceed?',
+        modifyOutput: UI.modifiers.yPadding,
+        inline: true,
+      },
+      program.opts(),
     );
+    console.log();
 
     if (!shouldContinue) return { ok: true };
   }
@@ -1202,9 +1277,12 @@ function jobGroupDescription(jobs) {
 }
 
 async function waitForIndexingJobsToFinish(appId, data) {
-  const spinner = ora({
-    text: 'checking data types',
-  }).start();
+  const spinnerDefferedPromise = deferred();
+  const spinner = new UI.Spinner({
+    promise: spinnerDefferedPromise.promise,
+  });
+  const spinnerRenderPromise = renderUnwrap(spinner);
+
   const groupId = data['group-id'];
   let jobs = data.jobs;
   let waitMs = 20;
@@ -1212,7 +1290,6 @@ async function waitForIndexingJobsToFinish(appId, data) {
 
   const completedIds = new Set();
 
-  const completedMessages = [];
   const errorMessages = [];
 
   while (true) {
@@ -1238,9 +1315,9 @@ async function waitForIndexingJobsToFinish(appId, data) {
           const msg = indexingJobCompletedMessage(job);
           if (msg) {
             if (job.job_status === 'errored') {
-              errorMessages.push(msg);
+              spinner.addMessage(msg);
             } else {
-              completedMessages.push(msg);
+              spinner.addMessage(msg);
             }
           }
         }
@@ -1253,10 +1330,7 @@ async function waitForIndexingJobsToFinish(appId, data) {
       const percent = Math.floor(
         (workCompletedTotal / workEstimateTotal) * 100,
       );
-      spinner.text = `${jobGroupDescription(jobs)} ${percent}%`;
-    }
-    if (completedMessages.length) {
-      spinner.prefixText = completedMessages.join('\n') + '\n';
+      spinner.updateText(`${jobGroupDescription(jobs)} ${percent}%`);
     }
     waitMs = updated ? 1 : Math.min(10000, waitMs * 2);
     await sleep(waitMs);
@@ -1271,10 +1345,10 @@ async function waitForIndexingJobsToFinish(appId, data) {
     }
     jobs = res.data.jobs;
   }
-  spinner.stopAndPersist({
-    text: '',
-    prefixText: completedMessages.join('\n'),
-  });
+
+  spinnerDefferedPromise.resolve(null);
+
+  await spinnerRenderPromise;
 
   // Log errors at the end so that they're easier to see.
   if (errorMessages.length) {
@@ -1298,22 +1372,30 @@ function linkOptsPretty(attr) {
   }
 }
 
-const resolveRenames = async (created, promptData) => {
-  const answer = await select({
-    message: `Did you want to create "${created} or rename it from something else?"`,
-    choices: [
-      ...promptData.map((choice) => {
-        const isRename = isRenamePromptItem(choice);
-        return {
-          value: choice,
-          name: isRename
-            ? `Rename ${choice.from} to ${choice.to}`
-            : `Create ${choice}`,
-        };
-      }),
-    ],
-    default: created,
-  });
+const resolveRenames = async (created, promptData, extraInfo) => {
+  // Using --yes will disable renames and use create + delete for all attrs
+  if (program.opts().yes) {
+    return created;
+  }
+
+  const answer = await renderUnwrap(
+    new ResolveRenamePrompt(
+      created,
+      promptData,
+      extraInfo,
+      UI.modifiers.piped([
+        (out) =>
+          boxen(out, {
+            dimBorder: true,
+            padding: {
+              left: 1,
+              right: 1,
+            },
+          }),
+        UI.modifiers.vanishOnComplete,
+      ]),
+    ),
+  );
   return answer;
 };
 
@@ -1348,18 +1430,6 @@ async function pushSchema(appId, _opts) {
   const oldSchema = apiSchemaToInstantSchemaDef(currentApiSchema);
 
   const diffResult = await diffSchemas(oldSchema, schema, resolveRenames);
-
-  try {
-    const groupedSteps = groupSteps(diffResult);
-    const lines = renderSchemaPlan(groupedSteps, currentAttrs);
-    console.log(lines.join('\n'));
-  } catch (error) {
-    if (error instanceof CancelSchemaError) {
-      console.info('Schema migration cancelled!');
-    }
-    return { ok: false };
-  }
-
   if (currentAttrs === undefined) {
     throw new Error("Couldn't get current schema from server");
   }
@@ -1370,12 +1440,40 @@ async function pushSchema(appId, _opts) {
     return { ok: true };
   }
 
+  let wantsToPush = false;
+  try {
+    const groupedSteps = groupSteps(diffResult);
+    const lines = renderSchemaPlan(groupedSteps, currentAttrs);
+    wantsToPush = await promptOk(
+      {
+        promptText: 'Push these changes?',
+        yesText: 'Push',
+        noText: 'Cancel',
+        modifyOutput: (output) => {
+          let both = lines.join('\n') + '\n\n' + output;
+          return boxen(both, {
+            dimBorder: true,
+            padding: {
+              left: 1,
+              right: 1,
+            },
+          });
+        },
+      },
+      program.opts(),
+    );
+  } catch (error) {
+    if (error instanceof CancelSchemaError) {
+      console.info('Schema migration cancelled!');
+    }
+    return { ok: false };
+  }
+
   if (verbose) {
     console.log(txSteps);
   }
 
-  const result = await promptOk('Push schema?');
-  if (result) {
+  if (wantsToPush) {
     const applyRes = await fetchJson({
       method: 'POST',
       path: `/dash/apps/${appId}/schema/steps/apply`,
@@ -1423,10 +1521,22 @@ async function pushPerms(appId) {
     return { ok: true };
   }
 
-  console.log('The following changes will be applied to your perms:');
-  console.log(diffedStr);
-
-  const okPush = await promptOk('OK to proceed?');
+  const okPush = await promptOk(
+    {
+      promptText: 'Push these changes to your perms?',
+      modifyOutput: (output) => {
+        let both = diffedStr + '\n' + output;
+        return boxen(both, {
+          dimBorder: true,
+          padding: {
+            left: 1,
+            right: 1,
+          },
+        });
+      },
+    },
+    program.opts(),
+  );
   if (!okPush) return { ok: true };
 
   const permsRes = await fetchJson({
@@ -1567,22 +1677,6 @@ function prettyPrintJSONErr(data) {
   if (!data) {
     error('Failed to parse error response');
   }
-}
-
-export async function promptOk(message, defaultAnswer = false) {
-  const options = program.opts();
-
-  if (options.yes) return true;
-  return await toggle({
-    message,
-    default: defaultAnswer,
-    theme: {
-      style: {
-        highlight: (x) => chalk.underline.blue(x),
-        answer: (x) => chalk.underline.blue(x),
-      },
-    },
-  }).catch(() => false);
 }
 
 /**
@@ -1783,7 +1877,7 @@ async function readConfigAuthToken() {
   return authToken;
 }
 
-async function readConfigAuthTokenWithErrorLogging() {
+export async function readConfigAuthTokenWithErrorLogging() {
   const token = await readConfigAuthToken();
   if (!token) {
     error(
@@ -1809,14 +1903,6 @@ async function saveConfigAuthToken(authToken) {
   });
 
   return writeFile(authPaths.authConfigFilePath, authToken, 'utf-8');
-}
-
-function getAuthPaths() {
-  const key = `instantdb-${dev ? 'dev' : 'prod'}`;
-  const { config: appConfigDirPath } = envPaths(key);
-  const authConfigFilePath = join(appConfigDirPath, 'a');
-
-  return { authConfigFilePath, appConfigDirPath };
 }
 
 // utils
@@ -1929,4 +2015,28 @@ function detectAppIdFromEnvWithErrorLogging() {
 
 function appDashUrl(id) {
   return `${instantDashOrigin}/dash?s=main&t=home&app=${id}`;
+}
+
+async function detectIfAppLinked() {
+  const fromOpts = await detectAppIdFromOptsWithErrorLogging(program.opts());
+  if (!fromOpts.ok) return false;
+  if (fromOpts.appId) {
+    return true;
+  }
+
+  const fromEnv = detectAppIdFromEnvWithErrorLogging();
+  if (!fromEnv.ok) return false;
+  if (fromEnv.found) {
+    return true;
+  }
+}
+
+async function validateAppLinked() {
+  const isLinked = await detectIfAppLinked();
+  if (!isLinked) {
+    console.error(
+      "Can't find app ID, use `instant-cli init` to link an app first",
+    );
+    process.exit(1);
+  }
 }

@@ -19,5 +19,4 @@ export const renderTitle = () => {
         )
         .join('\n'),
   );
-  // console.log(chalk.hex('#EA580D').bold(title));
 };

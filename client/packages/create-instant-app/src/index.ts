@@ -45,6 +45,17 @@ const main = async () => {
     base: project.base,
     ruleFilesToAdd: project.ruleFiles,
   });
+
+  const possibleAppTokenPair = await tryConnectApp(project);
+  if (possibleAppTokenPair) {
+    applyEnvFile(
+      project,
+      projectDir,
+      possibleAppTokenPair.appId,
+      possibleAppTokenPair.adminToken,
+    );
+  }
+
   await runInstallCommand(getUserPkgManager(), projectDir);
 
   // Update package.json with app name
@@ -62,16 +73,6 @@ const main = async () => {
   fs.writeJSONSync(path.join(projectDir, 'package.json'), pkgJson, {
     spaces: 2,
   });
-
-  const possibleAppTokenPair = await tryConnectApp(project);
-  if (possibleAppTokenPair) {
-    applyEnvFile(
-      project,
-      projectDir,
-      possibleAppTokenPair.appID,
-      possibleAppTokenPair.adminToken,
-    );
-  }
 
   if (project.createRepo) {
     await initializeGit(projectDir);
@@ -98,7 +99,7 @@ const main = async () => {
     if (possibleAppTokenPair.approach === 'ephemeral') {
       console.log(`
   An ephemeral app has been created and added to your .env file.
-  It will expire in two weeks. For a permanent app, use ${getCodeColors(theme, 'npx instant-cli init')}
+  It will expire in two weeks. For a permanent app remove the .env file and use ${getCodeColors(theme, 'npx instant-cli init')}
 `);
     }
   } else {

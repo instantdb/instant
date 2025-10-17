@@ -1,19 +1,25 @@
 import { execa } from 'execa';
 import { PackageManager } from './utils/getUserPkgManager.js';
-import { log, spinner } from '@clack/prompts';
 import chalk from 'chalk';
+import { renderUnwrap, UI } from 'instant-cli/ui';
 
 export const runInstallCommand = async (
   pkgManager: PackageManager,
   projectDir: string,
 ) => {
-  const installSpinner = spinner();
-  installSpinner.start(`Installing dependencies with ${pkgManager}...`);
-  const result = await execa(pkgManager, ['install'], { cwd: projectDir });
-  if (result.exitCode !== 0) {
-    installSpinner.stop('Failed to install dependencies!');
-    log.error(result.stderr);
+  const result = execa(pkgManager, ['install'], { cwd: projectDir });
+
+  const spinResult = await renderUnwrap(
+    new UI.Spinner({
+      promise: result,
+      workingText: `Installing dependencies with ${pkgManager}...`,
+      doneText: 'Successfully installed dependencies!',
+      modifyOutput: UI.ciaModifier(null),
+    }),
+  );
+
+  if (spinResult.exitCode !== 0) {
+    UI.log(spinResult.stderr, UI.ciaModifier(null));
     process.exit(1);
   }
-  installSpinner.stop(chalk.green('Successfully installed dependencies!'));
 };

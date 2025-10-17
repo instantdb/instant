@@ -5,8 +5,8 @@ import {
   MigrationTxTypes,
 } from '@instantdb/platform';
 import chalk from 'chalk';
-import { promptOk } from './index.js';
 import stripAnsi from 'strip-ansi';
+import { promptOk } from './util/promptOk.js';
 
 // Hack to prevent using @instantdb/core as a dependency for cli
 type InstantDBAttr = Parameters<typeof convertTxSteps>[1][0];
@@ -172,9 +172,9 @@ export const groupSteps = (steps: MigrationTx[]): SuperMigrationTx[] => {
 export const confirmImportantSteps = async (planSteps: SuperMigrationTx[]) => {
   for (const step of planSteps) {
     if (step.type === 'delete-namespace') {
-      const ok = await promptOk(
-        `Are you sure you want to delete namespace ${step.namespace}?`,
-      );
+      const ok = await promptOk({
+        promptText: `Are you sure you want to delete namespace ${step.namespace}?`,
+      });
       if (!ok) {
         throw new CancelSchemaError(`Deletion of namespace ${step.namespace}`);
       }
@@ -184,6 +184,13 @@ export const confirmImportantSteps = async (planSteps: SuperMigrationTx[]) => {
 
 const createDotName = (step: MigrationTx) => {
   return `${step.identifier.namespace}.${step.identifier.attrName}`;
+};
+
+const isRename = (step: MigrationTxSpecific<'update-attr'>) => {
+  return (
+    step.partialAttr['forward-identity']?.attrName &&
+    step.partialAttr['forward-identity']?.attrName !== step.identifier.attrName
+  );
 };
 
 export const renderSchemaPlan = (
@@ -268,9 +275,15 @@ export const renderSchemaPlan = (
         if (step.partialAttr['value-type'] === 'ref') {
           addLine(renderLinkUpdate(step, prevAttrs));
         } else {
-          addLine(
-            `${chalk.bgYellow.black(' * UPDATE ATTR ')} ${createDotName(step)}`,
-          );
+          if (isRename(step)) {
+            addLine(
+              `${chalk.bgYellow.black(' * RENAME ATTR ')} ${createDotName(step)} -> ${step.partialAttr['forward-identity']?.['namespace']}.${step.partialAttr['forward-identity']?.['attrName']}`,
+            );
+          } else {
+            addLine(
+              `${chalk.bgYellow.black(' * UPDATE ATTR ')} ${createDotName(step)}`,
+            );
+          }
         }
         break;
       case 'index':
