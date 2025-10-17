@@ -53,9 +53,7 @@ function GeorgiaWelcome() {
       style={{ opacity: show ? 1 : 0 }}
     >
       <span className="bg-orange-600 p-2 text-white">
-        {show
-          ? 'Welcome Tbilisi Hackers! Hope you are having fun at Hacktoberfest.'
-          : '&nbsp;'}
+        {show ? 'Hey Tbilisi Hackers! Have fun at Hacktoberfest.' : '&nbsp;'}
       </span>
     </div>
   );
