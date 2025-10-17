@@ -25,9 +25,8 @@ let promise: Promise<void> | null = null;
 
 async function fetchFullCounts() {
   try {
-    const res = await fetch('/posts/count_min_sketch/allExactCounts.json');
-    if (!res.ok) throw new Error('Failed to fetch exact counts');
-    const data = (await res.json()) as Record<string, number>;
+    const res = await import('./allExactCounts.json');
+    const data = res.default;
     if (typeof window !== 'undefined') {
       (window as any).shortlist = shortlist;
       (window as any).exactCounts = data;
