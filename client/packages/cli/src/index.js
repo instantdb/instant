@@ -374,10 +374,6 @@ program
   .command('push-perms', { hidden: true })
   .argument('[app-id]')
   .description('Push perms to production.')
-  .option(
-    '--rename [renames...]',
-    'List of full attribute names separated by a ":"\n Example:`push --rename posts.author:posts.creator`',
-  )
   .action(async (appIdOrName) => {
     warnDeprecation('push-perms', 'push perms');
     await validateAppLinked();
