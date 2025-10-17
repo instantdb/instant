@@ -30,6 +30,13 @@ export default function patchFirefoxClicks() {
     return;
   }
 
+  window.addEventListener('wheel', (event: WheelEvent) => {
+    const target = event.target;
+    if (target instanceof HTMLInputElement && target.type === 'number') {
+      event.preventDefault();
+    }
+  });
+
   if (!navigator.userAgent.includes('Firefox')) {
     return;
   }
