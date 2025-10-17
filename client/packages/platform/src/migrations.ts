@@ -353,6 +353,7 @@ export const diffSchemas = async (
       resolveFn,
       {
         type: 'attribute',
+        entityName: entityName,
       },
     );
 
@@ -506,6 +507,8 @@ export const diffSchemas = async (
       resolveFn,
       {
         type: 'link',
+        forwardEntityName: oldLinksInGroup[0]?.forward.on,
+        reverseEntityName: oldLinksInGroup[0]?.reverse.on,
       },
     );
 

@@ -358,6 +358,10 @@ program
     '--skip-check-types',
     "Don't check types on the server when pushing schema",
   )
+  .option(
+    '--rename [renames...]',
+    'List of full attribute names separated by a ":"\n Example:`push --rename posts.author:posts.creator`',
+  )
   .action(async (appIdOrName, opts) => {
     warnDeprecation('push-schema', 'push schema');
     await handlePush('schema', { app: appIdOrName, ...opts });
@@ -370,6 +374,10 @@ program
   .command('push-perms', { hidden: true })
   .argument('[app-id]')
   .description('Push perms to production.')
+  .option(
+    '--rename [renames...]',
+    'List of full attribute names separated by a ":"\n Example:`push --rename posts.author:posts.creator`',
+  )
   .action(async (appIdOrName) => {
     warnDeprecation('push-perms', 'push perms');
     await validateAppLinked();
@@ -391,6 +399,10 @@ program
     "Don't check types on the server when pushing schema",
   )
   .option('-t --title', 'Title for the created app')
+  .option(
+    '--rename [renames...]',
+    'List of full attribute names separated by a ":"\n Example:`push --rename posts.author:posts.creator`',
+  )
   .option(
     '-p --package <react|react-native|core|admin>',
     'Which package to automatically install if there is not one installed already.',
@@ -1400,11 +1412,6 @@ function linkOptsPretty(attr) {
 }
 
 const resolveRenames = async (created, promptData, extraInfo) => {
-  // Using --yes will disable renames and use create + delete for all attrs
-  if (program.opts().yes) {
-    return created;
-  }
-
   const answer = await renderUnwrap(
     new ResolveRenamePrompt(
       created,
@@ -1426,7 +1433,7 @@ const resolveRenames = async (created, promptData, extraInfo) => {
   return answer;
 };
 
-async function pushSchema(appId, _opts) {
+async function pushSchema(appId, opts) {
   const res = await readLocalSchemaFileWithErrorLogging();
   if (!res) return { ok: false };
   const { schema } = res;
@@ -1456,7 +1463,11 @@ async function pushSchema(appId, _opts) {
 
   const oldSchema = apiSchemaToInstantSchemaDef(currentApiSchema);
 
-  const diffResult = await diffSchemas(oldSchema, schema, resolveRenames);
+  const renameSelector = program.optsWithGlobals().yes
+    ? buildAutoRenameSelector(opts)
+    : resolveRenames;
+
+  const diffResult = await diffSchemas(oldSchema, schema, renameSelector);
   if (currentAttrs === undefined) {
     throw new Error("Couldn't get current schema from server");
   }
@@ -1471,6 +1482,10 @@ async function pushSchema(appId, _opts) {
   try {
     const groupedSteps = groupSteps(diffResult);
     const lines = renderSchemaPlan(groupedSteps, currentAttrs);
+    if (program.optsWithGlobals().yes) {
+      console.log('Applying schema changes...');
+      console.log(lines.join('\n'));
+    }
     wantsToPush = await promptOk(
       {
         promptText: 'Push these changes?',
@@ -2111,4 +2126,78 @@ async function validateAppLinked() {
     );
     process.exit(1);
   }
+}
+
+function buildAutoRenameSelector(opts) {
+  return async function (created, promptData, extraInfo) {
+    if (!opts.rename || !Array.isArray(opts.rename)) {
+      return created;
+    }
+
+    // Parse rename options: format is "from:to"
+    // note that it saves backwards since we will be testing against the base
+    // case of a created attr
+    const renameMap = new Map();
+    for (const renameStr of opts.rename) {
+      const [from, to] = renameStr.split(':');
+      if (from && to) {
+        renameMap.set(to.trim(), from.trim());
+      }
+    }
+
+    let lookupNames = [];
+    if (extraInfo?.type === 'attribute' && extraInfo?.entityName) {
+      lookupNames = [`${extraInfo.entityName}.${created}`];
+    } else if (extraInfo?.type === 'link') {
+      // Extract both forward and reverse parts
+      const parts = created.split('<->');
+      lookupNames = [parts[0], parts[1]];
+    } else {
+      return created;
+    }
+
+    // Try to find a match in the rename map using the lookup names
+    let fromAttr = null;
+    for (const lookupName of lookupNames) {
+      if (renameMap.has(lookupName)) {
+        fromAttr = renameMap.get(lookupName);
+        break;
+      }
+    }
+
+    if (fromAttr) {
+      let fromValue;
+      if (extraInfo?.type === 'attribute') {
+        fromValue = fromAttr.split('.').pop();
+      } else {
+        const matchingItem = promptData.find((item) => {
+          const itemStr = typeof item === 'string' ? item : item.from;
+          const itemParts = itemStr.split('<->');
+          return itemParts[0] === fromAttr || itemParts[1] === fromAttr;
+        });
+
+        if (matchingItem) {
+          fromValue =
+            typeof matchingItem === 'string' ? matchingItem : matchingItem.from;
+        } else {
+          return created;
+        }
+      }
+
+      const hasMatch = promptData.some((item) => {
+        if (typeof item === 'string') {
+          return item === fromValue;
+        } else if (item.from) {
+          return item.from === fromValue;
+        }
+        return false;
+      });
+
+      if (hasMatch) {
+        return { from: fromValue, to: created };
+      }
+    }
+
+    return created;
+  };
 }
