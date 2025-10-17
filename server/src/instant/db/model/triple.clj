@@ -181,16 +181,16 @@
                     -- select all triples related to our eids
                     triples_cte AS (
                       SELECT DISTINCT
-                        entity_id,
-                        attr_id
+                        t.entity_id,
+                        t.attr_id,
+                        a.etype
                       FROM
-                        triples
+                        triples t
+                      JOIN eid_attrs a ON t.entity_id = a.entity_id AND t.attr_id = a.attr_id
                       WHERE
                         app_id = ?app-id
-                        AND (entity_id, attr_id) IN (SELECT entity_id, attr_id FROM eid_attrs)
                         AND value <> cast('null' AS jsonb)
                     )
-
                     SELECT
                       *
                     FROM
@@ -200,7 +200,7 @@
                       (eid_attrs.is_required = TRUE OR eid_attrs.label = 'id')
 
                       -- check entity is alive
-                      AND entity_id IN (SELECT entity_id FROM triples_cte)
+                      AND (entity_id, etype) IN (SELECT entity_id, etype FROM triples_cte)
 
                       -- check for attrs missing from triples
                       AND (entity_id, attr_id) NOT IN (SELECT entity_id, attr_id FROM triples_cte)"
