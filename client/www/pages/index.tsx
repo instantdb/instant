@@ -1,4 +1,4 @@
-import { PropsWithChildren, useState } from 'react';
+import { PropsWithChildren, useState, useEffect } from 'react';
 import produce from 'immer';
 import clsx from 'clsx';
 import Head from 'next/head';
@@ -33,6 +33,32 @@ import AnimatedCounter from '@/components/AnimatedCounter';
 import CopyToClipboard from 'react-copy-to-clipboard';
 
 const appId = 'fc5a4977-910a-43d9-ac28-39c7837c1eb5';
+
+// Small component for Georgia visitors - easy to delete later
+function GeorgiaWelcome() {
+  const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/geo')
+      .then((res) => res.json())
+      .then((data) => {
+        debugger;
+        if (data.country === 'US') setShow(true);
+      })
+      .catch(() => {});
+  }, []);
+
+  if (!show) return null;
+
+  return (
+    <div
+      className="mb-2 text-sm text-gray-700 transition-opacity duration-500"
+      style={{ opacity: show ? 1 : 0 }}
+    >
+      Welcome Tbilisi Hackers! Hope you are having fun at Hacktoberfest.
+    </div>
+  );
+}
 
 function Switch({
   enabled,
@@ -118,6 +144,7 @@ function LandingHero() {
       <SectionWide>
         <TwoColResponsive>
           <div className="flex flex-1 flex-col gap-6">
+            <GeorgiaWelcome />
             <H2>Write your frontend and we handle the rest</H2>
             <div className="mb-2 max-w-md">
               <p className="mb-4 text-gray-800">
