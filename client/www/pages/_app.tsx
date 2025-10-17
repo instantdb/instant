@@ -10,7 +10,10 @@ import { DocsPage } from '@/components/DocsPage';
 import { Button } from '@/components/ui';
 import { isDev } from '@/lib/config';
 import { Dev } from '@/components/Dev';
-import patchFirefoxClicks from '@/lib/patchFirefoxClicks';
+import {
+  patchFirefoxClicks,
+  patchNumberInputScroll,
+} from '@/lib/patchBrowserEvents';
 import { ReactElement, ReactNode, useEffect } from 'react';
 import { NextPage } from 'next';
 import { SWRConfig } from 'swr';
@@ -49,6 +52,7 @@ function App({ Component, pageProps }: AppPropsWithLayout) {
     ),
   );
   useEffect(() => {
+    patchNumberInputScroll();
     return patchFirefoxClicks();
   }, []);
   return (

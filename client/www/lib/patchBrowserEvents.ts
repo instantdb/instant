@@ -25,17 +25,10 @@
  * @see https://bugzilla.mozilla.org/show_bug.cgi?id=1556240
  * @see https://github.com/w3c/pointerevents/issues/356
  */
-export default function patchFirefoxClicks() {
+export function patchFirefoxClicks() {
   if (typeof window === 'undefined' || typeof navigator === 'undefined') {
     return;
   }
-
-  window.addEventListener('wheel', (event: WheelEvent) => {
-    const target = event.target;
-    if (target instanceof HTMLInputElement && target.type === 'number') {
-      event.preventDefault();
-    }
-  });
 
   if (!navigator.userAgent.includes('Firefox')) {
     return;
@@ -81,4 +74,13 @@ export default function patchFirefoxClicks() {
     document.removeEventListener('mouseup', handleMouseUp, { capture: true });
     document.removeEventListener('click', handleClick, { capture: true });
   };
+}
+
+export function patchNumberInputScroll() {
+  window.addEventListener('wheel', (event: WheelEvent) => {
+    const target = event.target;
+    if (target instanceof HTMLInputElement && target.type === 'number') {
+      event.preventDefault();
+    }
+  });
 }
