@@ -2120,6 +2120,13 @@ async function validateAppLinked() {
   }
 }
 
+/**
+ * Build a function to resolve renames from cli rename flags
+ * The diffSchemas function takes a fixed amount of arguments so we
+ * return a function from a function here
+ * @param {*} opts  program arguments from commander
+ * @returns
+ */
 function buildAutoRenameSelector(opts) {
   return async function (created, promptData, extraInfo) {
     if (!opts.rename || !Array.isArray(opts.rename)) {
