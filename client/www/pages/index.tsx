@@ -48,13 +48,15 @@ function GeorgiaWelcome() {
   }, []);
 
   return (
-    <div
-      className="mb-2 text-sm text-gray-700 transition-opacity duration-500"
-      style={{ opacity: show ? 1 : 0 }}
-    >
-      <span className="bg-orange-600 p-2 text-white">
-        {show ? 'Hey Tbilisi Hackers! Have fun at Hacktoberfest.' : '&nbsp;'}
-      </span>
+    <div className="relative">
+      <div className="absolute">
+        <div
+          className="text-sm font-medium text-orange-700 transition-opacity duration-500"
+          style={{ opacity: show ? 1 : 0 }}
+        >
+          {show ? 'Hey Tbilisi Hackers! Have fun at Hacktoberfest.' : '&nbsp;'}
+        </div>
+      </div>
     </div>
   );
 }
