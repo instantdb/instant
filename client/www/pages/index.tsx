@@ -42,7 +42,6 @@ function GeorgiaWelcome() {
     fetch('/api/geo')
       .then((res) => res.json())
       .then((data) => {
-        debugger;
         if (data.country === 'US') setShow(true);
       })
       .catch(() => {});
