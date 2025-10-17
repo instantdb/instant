@@ -1,5 +1,10 @@
 const dev = Boolean(process.env.INSTANT_CLI_DEV);
-const instantBackendOrigin =
+
+export const instantDashOrigin = dev
+  ? 'http://localhost:3000'
+  : 'https://instantdb.com';
+
+export const instantBackendOrigin =
   process.env.INSTANT_CLI_API_URI ||
   (dev ? 'http://localhost:8888' : 'https://api.instantdb.com');
 
