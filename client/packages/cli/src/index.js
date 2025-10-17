@@ -397,7 +397,7 @@ program
   .option('-t --title', 'Title for the created app')
   .option(
     '--rename [renames...]',
-    'List of full attribute names separated by a ":"\n Example:`push --rename posts.author:posts.creator`',
+    'List of full attribute names separated by a ":"\n Example:`push --rename posts.author:posts.creator stores.owner:stores.manager`',
   )
   .option(
     '-p --package <react|react-native|core|admin>',
