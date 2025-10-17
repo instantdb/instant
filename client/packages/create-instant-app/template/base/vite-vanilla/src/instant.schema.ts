@@ -1,6 +1,6 @@
 // Docs: https://www.instantdb.com/docs/modeling-data
 
-import { i } from '@instantdb/core';
+import { i } from "@instantdb/core";
 
 const _schema = i.schema({
   entities: {
@@ -10,6 +10,8 @@ const _schema = i.schema({
     }),
     $users: i.entity({
       email: i.string().unique().indexed().optional(),
+      imageURL: i.string().optional(),
+      type: i.string().optional(),
     }),
     todos: i.entity({
       text: i.string(),
@@ -17,7 +19,21 @@ const _schema = i.schema({
       createdAt: i.number(),
     }),
   },
-  links: {},
+  links: {
+    $usersLinkedPrimaryUser: {
+      forward: {
+        on: "$users",
+        has: "one",
+        label: "linkedPrimaryUser",
+        onDelete: "cascade",
+      },
+      reverse: {
+        on: "$users",
+        has: "many",
+        label: "linkedGuestUsers",
+      },
+    },
+  },
   rooms: {
     todos: {
       presence: i.entity({}),

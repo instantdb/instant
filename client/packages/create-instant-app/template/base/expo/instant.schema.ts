@@ -1,6 +1,6 @@
 // Docs: https://www.instantdb.com/docs/modeling-data
 
-import { i } from '@instantdb/react-native';
+import { i } from "@instantdb/react-native";
 
 const _schema = i.schema({
   entities: {
@@ -10,13 +10,29 @@ const _schema = i.schema({
     }),
     $users: i.entity({
       email: i.string().unique().indexed().optional(),
+      imageURL: i.string().optional(),
+      type: i.string().optional(),
     }),
     colors: i.entity({
       value: i.string(),
     }),
   },
-  links: {},
   rooms: {},
+  links: {
+    $usersLinkedPrimaryUser: {
+      forward: {
+        on: "$users",
+        has: "one",
+        label: "linkedPrimaryUser",
+        onDelete: "cascade",
+      },
+      reverse: {
+        on: "$users",
+        has: "many",
+        label: "linkedGuestUsers",
+      },
+    },
+  },
 });
 
 // This helps Typescript display nicer intellisense
