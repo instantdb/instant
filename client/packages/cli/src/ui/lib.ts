@@ -276,6 +276,12 @@ export class CancelledPromptError extends Error {
   }
 }
 
+/**
+ * Renders a prompt object and throws if the Prompt was "cancelled"
+ * If using the standard render function you must check if the result ended in a cancellation before accessing the data.
+ * Cancellations are rare so this is more of a future proof for future components
+ * where cancelling may make more sense.
+ */
 export async function renderUnwrap<T>(view: Prompt<T>): Promise<T> {
   const { stdin, stdout, closable } = prepareReadLine();
   const terminal = new Terminal(view, stdin, stdout, closable);

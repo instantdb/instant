@@ -186,6 +186,13 @@ const createDotName = (step: MigrationTx) => {
   return `${step.identifier.namespace}.${step.identifier.attrName}`;
 };
 
+const isRename = (step: MigrationTxSpecific<'update-attr'>) => {
+  return (
+    step.partialAttr['forward-identity']?.attrName &&
+    step.partialAttr['forward-identity']?.attrName !== step.identifier.attrName
+  );
+};
+
 export const renderSchemaPlan = (
   planSteps: SuperMigrationTx[],
   prevAttrs?: InstantDBAttr[],
@@ -268,11 +275,7 @@ export const renderSchemaPlan = (
         if (step.partialAttr['value-type'] === 'ref') {
           addLine(renderLinkUpdate(step, prevAttrs));
         } else {
-          if (
-            step.partialAttr['forward-identity']?.attrName &&
-            step.partialAttr['forward-identity']?.attrName !==
-              step.identifier.attrName
-          ) {
+          if (isRename(step)) {
             addLine(
               `${chalk.bgYellow.black(' * RENAME ATTR ')} ${createDotName(step)} -> ${step.partialAttr['forward-identity']?.['namespace']}.${step.partialAttr['forward-identity']?.['attrName']}`,
             );
