@@ -47,14 +47,16 @@ function GeorgiaWelcome() {
       .catch(() => {});
   }, []);
 
-  if (!show) return null;
-
   return (
     <div
       className="mb-2 text-sm text-gray-700 transition-opacity duration-500"
       style={{ opacity: show ? 1 : 0 }}
     >
-      Welcome Tbilisi Hackers! Hope you are having fun at Hacktoberfest.
+      <span className="bg-orange-600 p-2 text-white">
+        {show
+          ? 'Welcome Tbilisi Hackers! Hope you are having fun at Hacktoberfest.'
+          : '&nbsp;'}
+      </span>
     </div>
   );
 }
