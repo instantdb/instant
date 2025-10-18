@@ -1,7 +1,6 @@
 import format from 'date-fns/format';
 import parse from 'date-fns/parse';
 import Head from 'next/head';
-import dynamic from 'next/dynamic';
 import { getAllSlugs, getPostBySlug, type Post } from '../../lib/posts';
 import {
   LandingContainer,
@@ -23,14 +22,7 @@ import remarkGfm from 'remark-gfm';
 import { muxPattern, youtubeParams, youtubePattern } from '@/lib/videos';
 import { isValidElement } from 'react';
 import { DemoIframe } from '@/components/DemoIframe';
-
-const SketchDemo = dynamic(
-  () =>
-    import('@/components/essays/sketch/SketchDemo').then(
-      (mod) => mod.SketchDemo,
-    ),
-  {},
-);
+import { SketchDemo } from '@/components/essays/sketch/SketchDemo';
 
 const Post = ({ post }: { post: Post }) => {
   const { title, date, authors, hero, content, og_image } = post;
