@@ -26,6 +26,7 @@ import semver from 'semver';
 import terminalLink from 'terminal-link';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { createInterface } from 'node:readline';
 import {
   detectPackageManager,
   getInstallCommand,
@@ -53,6 +54,79 @@ dotenvFlow.config({
 
 const dev = Boolean(process.env.INSTANT_CLI_DEV);
 const verbose = Boolean(process.env.INSTANT_CLI_VERBOSE);
+
+// Browser detection for headless environments
+function isHeadlessEnvironment() {
+  const options = program.opts();
+  const noBrowserMode = Boolean(process.env.INSTANT_CLI_NO_BROWSER || process.env.CI || options.noBrowser);
+
+  // Check for common headless environment indicators
+  return (
+    noBrowserMode ||
+    process.env.TERM === 'dumb' ||
+    process.env.SSH_CONNECTION !== undefined ||
+    process.env.SSH_CLIENT !== undefined ||
+    (!process.env.DISPLAY && process.platform === 'linux') ||
+    process.env.WSL_DISTRO_NAME !== undefined
+  );
+}
+
+/**
+ * Waits for user input from stdin
+ * @param {string} prompt - The prompt to display to the user
+ * @returns {Promise<void>}
+ */
+async function waitForUserInput(prompt) {
+  return new Promise((/** @param {void} value */ resolve) => {
+    const rl = createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
+
+    rl.question(prompt, () => {
+      rl.close();
+      resolve();
+    });
+  });
+}
+
+async function headlessLoginFlow() {
+  try {
+    const registerRes = await fetchJson({
+      method: 'POST',
+      path: '/dash/cli/auth/register',
+      debugName: 'Login register',
+      errorMessage: 'Failed to register login.',
+      noAuth: true,
+    });
+
+    if (!registerRes.ok) {
+      console.error('Failed to register login request');
+      return null;
+    }
+
+    const { secret, ticket } = registerRes.data;
+    const authUrl = `${instantDashOrigin}/dash?ticket=${ticket}`;
+
+    console.log(`Please open the following URL in your browser to authenticate:`);
+    console.log(`\n${authUrl}\n`);
+    console.log('After you have completed authentication in your browser');
+
+    await waitForUserInput('\nPress Enter to continue...');
+    console.log('Waiting for authentication to complete...');
+
+    // Wait for authentication to complete (similar to existing logic)
+    const authTokenRes = await waitForAuthToken({ secret });
+    if (!authTokenRes) {
+      return null;
+    }
+
+    return authTokenRes.token;
+  } catch (error) {
+    console.error('❌ Failed to initiate headless login:', error);
+    return null;
+  }
+}
 
 // logs
 
@@ -301,6 +375,7 @@ program
   .name('instant-cli')
   .addOption(globalOption('-t --token <token>', 'Auth token override'))
   .addOption(globalOption('-y --yes', "Answer 'yes' to all prompts"))
+  .addOption(globalOption('--no-browser', 'Force headless mode (no browser will be opened)'))
   .addOption(
     globalOption('-v --version', 'Print the version number', () => {
       console.log(version);
@@ -598,6 +673,25 @@ async function pull(bag, appId, pkgAndAuthInfo) {
 }
 
 async function login(options) {
+  // Check if we're in a headless environment
+  if (isHeadlessEnvironment()) {
+    console.log('\n🖥  Headless environment detected.');
+
+    const token = await headlessLoginFlow();
+    if (!token) {
+      return process.exit(1);
+    }
+
+    if (options.print) {
+      console.log(chalk.red('[Do not share] Your Instant auth token:', token));
+    } else {
+      await saveConfigAuthToken(token);
+      console.log(chalk.green('Authentication successful!'));
+    }
+    return token;
+  }
+
+  // Original browser-based flow for desktop environments
   const registerRes = await fetchJson({
     method: 'POST',
     path: '/dash/cli/auth/register',
