@@ -19,6 +19,7 @@ module.exports = {
   content: [
     './lib/**/*.{js,ts,jsx,tsx}',
     './pages/**/*.{js,ts,jsx,tsx,md}',
+    './_posts/**/*.{js,ts,jsx,tsx,md}',
     './components/**/*.{js,ts,jsx,tsx}',
     './utils/**/*.{js,ts,jsx,tsx}',
   ],

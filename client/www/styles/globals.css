@@ -199,3 +199,17 @@ div.Toastify__toast-icon {
 .debug {
   outline: solid red 1px;
 }
+
+/* Katex */
+
+.katex-display {
+  background-color: white;
+  padding: 14px;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  overflow-x: auto;
+}
+
+.katex-display > .katex {
+  background-color: transparent;
+}

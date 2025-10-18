@@ -9,6 +9,9 @@ import {
   PageProgressBar,
 } from '@/components/marketingUi';
 import * as og from '@/lib/og';
+import rehypeKatex from 'rehype-katex';
+import remarkMath from 'remark-math';
+import 'katex/dist/katex.min.css';
 
 import AgentsEssayDemoSection from '@/components/essays/agents_essay_demo_section';
 
@@ -19,6 +22,7 @@ import remarkGfm from 'remark-gfm';
 import { muxPattern, youtubeParams, youtubePattern } from '@/lib/videos';
 import { isValidElement } from 'react';
 import { DemoIframe } from '@/components/DemoIframe';
+import { SketchDemo } from '@/components/essays/sketch/SketchDemo';
 
 const Post = ({ post }: { post: Post }) => {
   const { title, date, authors, hero, content, og_image } = post;
@@ -75,13 +79,16 @@ const Post = ({ post }: { post: Post }) => {
         )}
         <div className="prose mx-auto prose-headings:font-mono prose-headings:font-bold prose-headings:leading-snug prose-h1:mb-4 prose-h1:mt-8 prose-h2:mb-2 prose-h2:mt-4 prose-pre:bg-gray-100">
           <ReactMarkdown
-            rehypePlugins={[rehypeRaw]}
-            remarkPlugins={[remarkGfm]}
+            rehypePlugins={[rehypeRaw, rehypeKatex]}
+            remarkPlugins={[remarkGfm, remarkMath]}
             components={
               {
                 // Note if you change the custom component key, you
                 // must also change all references in the markdown files
                 'agents-essay-demo-section': AgentsEssayDemoSection,
+                'sketch-demo': (props: { demo: string }) => {
+                  return <SketchDemo demo={props.demo} />;
+                },
 
                 p: ({ children }) => (
                   <div className="prose mb-[1.25em] mt-[1.25em] text-base leading-[1.75] leading-relaxed">
