@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { hash32, stem } from './sketch';
 import { useExactCounts } from './exactCounts';
+import { useId } from 'react';
 
 type BiasedHashFn = {
   name: string;
@@ -250,12 +251,7 @@ export function BucketVisualizer({
 }: BucketVisualizerProps) {
   const rows = Math.max(1, rowsProp);
   const columns = Math.max(2, columnsProp);
-
-  // Generate a unique ID for this component instance
-  const componentId = useMemo(
-    () => Math.random().toString(36).substring(7),
-    [],
-  );
+  const componentId = useId();
 
   const { counts } = useExactCounts();
   const defaultHashFn = hash32;
@@ -930,7 +926,8 @@ function BucketSVG({
   const rectX = 15 + padding;
   const rectWidth = 70 - strokeWidth;
 
-  const clipId = `bucket-clip-${bucketId || Math.random()}`;
+  const backupId = useId();
+  const clipId = `bucket-clip-${bucketId || backupId}`;
 
   // Create stacked rectangles from bottom to top
   let cumulativeHeight = 0;
