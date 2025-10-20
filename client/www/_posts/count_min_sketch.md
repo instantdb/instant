@@ -124,22 +124,22 @@ This is a common natural-language processing task called "[stemming](https://en.
 // index.ts
 // ...
 // 2. Split it into words
-function stem(word: string) {
-  word = word.toLowerCase().replaceAll(/[^a-z]/g, '');
-  if (word.endsWith('ing') && word.length > 4) {
-    word = word.slice(0, -3);
-  } else if (word.endsWith('ed') && word.length > 3) {
-    word = word.slice(0, -2);
-  } else if (word.endsWith('s') && word.length > 3 && !word.endsWith('ss')) {
-    word = word.slice(0, -1);
-  } else if (word.endsWith('ly') && word.length > 3) {
-    word = word.slice(0, -2);
-  } else if (word.endsWith('er') && word.length > 4) {
-    word = word.slice(0, -2);
-  } else if (word.endsWith('est') && word.length > 4) {
-    word = word.slice(0, -3);
+function stem(w: string) {
+  w = w.toLowerCase().replaceAll(/[^a-z]/g, "");
+  if (w.endsWith("ing") && w.length > 4) {
+    w = w.slice(0, -3);
+  } else if (w.endsWith("ed") && w.length > 3) {
+    w = w.slice(0, -2);
+  } else if (w.endsWith("s") && w.length > 3 && !w.endsWith("ss")) {
+    w = w.slice(0, -1);
+  } else if (w.endsWith("ly") && w.length > 3) {
+    w = w.slice(0, -2);
+  } else if (w.endsWith("er") && w.length > 4) {
+    w = w.slice(0, -2);
+  } else if (w.endsWith("est") && w.length > 4) {
+    w = w.slice(0, -3);
   }
-  return word;
+  return w;
 }
 
 function toWords(text: string): string[] {
