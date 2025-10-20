@@ -597,7 +597,7 @@ To get concrete, if we plug in `n = 2` to Markov's Inequality, we get:
 
 > The probability that somethings exceeds 2 times it's expected value, is at most 1 / 2
 
-Well, our noise is a non-negative random variable [^12]. And we have it's expected value. If we use Markov's Inequality, we'll get a real probability that we can use!
+Well, our noise is a non-negative random variable [^12]. And we have its expected value. If we use Markov's Inequality, we'll get a real probability that we can use!
 
 $$
 P(\text{Noise} > 2 \times expectedNoise_{word}) \le \frac{1}{2}
@@ -920,7 +920,7 @@ _Thanks to Joe Averbukh, Daniel Woelfel, Predrag Gruevski, Irakli Safareli, Nico
 
 [^10]: Why do we pick the minimum value across rows? Well, when we added a word, we incremented the corresponding bucket in _every_ row. This means we know that at the minimum, a corresponding bucket will record the true count of our word. If some rows show a larger count, it's because other words have collided and influenced the counts there.
 
-[^11]: An Expected Value is a weighted average. This [video](https://www.youtube.com/watch?v=CBgCR1kHSUI) explains it well.
+[^11]: Intuitively, an Expected Value is a weighted average. This [video](https://www.youtube.com/watch?v=CBgCR1kHSUI) explains it well.
 
 [^12]: It's non-negative because we only ever increment buckets.
 
