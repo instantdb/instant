@@ -1,4 +1,4 @@
-package instant;
+package instant.socketutil;
 
 import java.io.IOException;
 import java.io.InputStream;

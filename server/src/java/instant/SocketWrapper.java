@@ -1,6 +1,6 @@
 package instant;
 
-import instant.CountingSocket;
+import instant.socketutil.CountingSocket;
 import instant.jdbc.SocketTrack;
 import java.io.IOException;
 import java.net.InetAddress;

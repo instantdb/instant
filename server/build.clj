@@ -8,6 +8,10 @@
 (def basis (delay (b/create-basis {:project "deps.edn"})))
 
 (defn compile-java [_]
+  (b/javac {:src-dirs ["src/java/instant/socketutil"]
+            :class-dir "target/classes"
+            :basis @basis
+            :javac-opts ["-proc:none"]})
   (b/compile-clj {:basis @basis
                   :ns-compile '[instant.jdbc.socket-track]
                   :class-dir "target/classes"})
