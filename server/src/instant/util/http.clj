@@ -100,6 +100,10 @@
 
       nil)))
 
+;; Exception types that we won't log an exception for
+(def silent-types #{::ex/session-missing
+                    ::ex/machine-missing})
+
 (defn wrap-errors
   "Captures exceptions thrown by the handler. We: 
     1. Log the exception 
@@ -115,6 +119,9 @@
               {::ex/keys [type message hint trace-id]} (ex-data instant-ex)
               bad-request (when instant-ex
                             (instant-ex->bad-request instant-ex))]
+          (tracer/add-data! {:attributes {::ex/type type
+                                          ::ex/message message
+                                          ::ex/hint hint}})
           (cond
             bad-request (cond (-> bad-request :hint :args first :auth?)
                               (do (tracer/record-exception-span! e {:name "instant-ex/unauthorized"})
@@ -131,7 +138,8 @@
                                 (response/too-many-requests bad-request))
 
                               :else
-                              (do (tracer/record-exception-span! e {:name "instant-ex/bad-request"})
+                              (do (when (not (contains? silent-types (tool/inspect type)))
+                                    (tracer/record-exception-span! e {:name "instant-ex/bad-request"}))
                                   (response/bad-request bad-request)))
 
             instant-ex (do (tracer/add-exception! instant-ex {:escaping? false})
@@ -140,9 +148,9 @@
                                      :message message
                                      :hint (assoc hint :debug-uri (tracer/span-uri))}
                               trace-id (assoc :trace-id trace-id))))
-            :else (do  (tracer/add-exception! e {:escaping? false})
-                       (response/internal-server-error
-                        (cond-> {:type :unknown
-                                 :message "Something went wrong. Please ping `debug-uri` in #bug-and-questions, and we'll take a look. Sorry about this!"
-                                 :hint {:debug-uri (tracer/span-uri)}}
-                          trace-id (assoc :trace-id trace-id))))))))))
+            :else (do (tracer/add-exception! e {:escaping? false})
+                      (response/internal-server-error
+                       (cond-> {:type :unknown
+                                :message "Something went wrong. Please ping `debug-uri` in #bug-and-questions, and we'll take a look. Sorry about this!"
+                                :hint {:debug-uri (tracer/span-uri)}}
+                         trace-id (assoc :trace-id trace-id))))))))))

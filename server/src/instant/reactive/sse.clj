@@ -69,6 +69,14 @@
                         messages]
   (let [handle-locally? (get-handle-locally? machine-id)]
     (tracer/with-span! {:name "sse/enqueue-messages"
+                        :add-exception-handler (fn [span t opts]
+                                                 (when-not (contains? #{::ex/member-missing
+                                                                        ::ex/session-missing}
+                                                                      (-> t
+                                                                          (ex/find-instant-exception)
+                                                                          ex-data
+                                                                          ::ex/type))
+                                                   (tracer/add-exception! span t opts)))
                         :attributes {:app-id app-id
                                      :machine-id machine-id
                                      :session-id session-id
