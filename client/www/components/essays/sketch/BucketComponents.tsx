@@ -567,12 +567,13 @@ export function BucketVisualizer({
                     <button
                       key={word.normalized}
                       onClick={() => handleAddWord(word.index)}
-                      className="flex cursor-pointer flex-col items-center hover:opacity-80"
+                      className="flex cursor-pointer flex-col items-center transition-all hover:scale-105"
                     >
                       <span
                         className={cn(
-                          'px-3 py-1.5 text-xs font-medium',
+                          'rounded border-2 px-3 py-1.5 text-xs font-medium shadow-sm transition-all hover:shadow-md',
                           word.scheme.chip,
+                          word.scheme.border,
                         )}
                       >
                         {word.label}
@@ -674,13 +675,13 @@ function QueryControls({
             <button
               key={word.normalized}
               onClick={() => onSelect(word.normalized)}
-              className="relative flex cursor-pointer flex-col items-center hover:opacity-80"
+              className="relative flex cursor-pointer flex-col items-center transition-all hover:scale-105"
             >
               {isActive && (
                 <motion.div
                   layoutId={`query-indicator-${componentId}`}
                   className={cn(
-                    'absolute -top-2 left-0 right-0 h-1',
+                    'absolute -top-2.5 left-0 right-0 h-1 rounded',
                     selectedWord.scheme.dot,
                   )}
                   transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }}
@@ -688,8 +689,12 @@ function QueryControls({
               )}
               <span
                 className={cn(
-                  'px-3 py-1.5 text-xs font-medium',
+                  'rounded border-2 px-3 py-1.5 text-xs font-medium shadow-sm transition-all',
                   word.scheme.chip,
+                  word.scheme.border,
+                  isActive
+                    ? cn('shadow-md', word.scheme.ring, 'ring-2')
+                    : 'hover:shadow-md',
                 )}
               >
                 {word.label}
@@ -1139,8 +1144,8 @@ export function BucketNoiseBreakdownDemo() {
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div className="flex flex-wrap gap-3">
               <div className="relative flex flex-col items-center">
-                <motion.div className="absolute -top-2 left-0 right-0 h-1 bg-amber-500" />
-                <span className="bg-amber-100 px-3 py-1.5 text-xs font-medium text-amber-800">
+                <motion.div className="absolute -top-2.5 left-0 right-0 h-1 rounded bg-amber-500" />
+                <span className="rounded border-2 border-amber-300 bg-amber-100 px-3 py-1.5 text-xs font-medium text-amber-800 shadow-sm">
                   wet
                 </span>
               </div>
@@ -1342,7 +1347,7 @@ export function MoreBucketsDemo() {
                     <motion.div
                       layoutId="more-buckets-indicator"
                       className={cn(
-                        'absolute -top-2 left-0 right-0 h-1',
+                        'absolute -top-2.5 left-0 right-0 h-1 rounded',
                         selectedWord.scheme.dot,
                       )}
                       transition={{
@@ -1353,8 +1358,9 @@ export function MoreBucketsDemo() {
                     />
                     <span
                       className={cn(
-                        'px-3 py-1.5 text-xs font-medium',
+                        'rounded border-2 px-3 py-1.5 text-xs font-medium shadow-sm',
                         selectedWord.scheme.chip,
+                        selectedWord.scheme.border,
                       )}
                     >
                       {selectedWord.label}
@@ -1498,8 +1504,8 @@ export function HighFrequencyDemo() {
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div className="flex flex-wrap gap-3">
               <div className="relative flex flex-col items-center">
-                <motion.div className="absolute -top-2 left-0 right-0 h-1 bg-amber-500" />
-                <span className="bg-amber-100 px-3 py-1.5 text-xs font-medium text-amber-800">
+                <motion.div className="absolute -top-2.5 left-0 right-0 h-1 rounded bg-amber-500" />
+                <span className="rounded border-2 border-amber-300 bg-amber-100 px-3 py-1.5 text-xs font-medium text-amber-800 shadow-sm">
                   peer
                 </span>
               </div>
@@ -1732,7 +1738,7 @@ export function MoreRowsConfidenceDemo() {
                     <motion.div
                       layoutId="more-rows-indicator"
                       className={cn(
-                        'absolute -top-2 left-0 right-0 h-1',
+                        'absolute -top-1 left-0 right-0 h-1 rounded-t',
                         selectedWord.scheme.dot,
                       )}
                       transition={{
@@ -1743,8 +1749,9 @@ export function MoreRowsConfidenceDemo() {
                     />
                     <span
                       className={cn(
-                        'px-3 py-1.5 text-xs font-medium',
+                        'rounded border-2 px-3 py-1.5 text-xs font-medium shadow-sm',
                         selectedWord.scheme.chip,
+                        selectedWord.scheme.border,
                       )}
                     >
                       {selectedWord.label}
