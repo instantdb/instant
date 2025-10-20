@@ -932,6 +932,6 @@ _Thanks to Joe Averbukh, Daniel Woelfel, Predrag Gruevski, Irakli Safareli, Nico
 
 [^15]: The [original paper](http://dimacs.rutgers.edu/~graham/pubs/papers/cm-full.pdf) gets it down to $rows = \ln\!\left(\frac{1}{1 - \text{confidence}}\right)$. We chose `n = 2` in our Markov Inequality, so we could have gotten our formula down to the similar $rows = \log_{2}\!\left(\frac{1}{1 - \text{confidence}}\right)$. But this would require a few more steps with logarithms, which I wanted to avoid. The expressions are equivalent.
 
-[^16]: If you are curious how the original paper could get the proof to the more elegant logarithm $rows = \log_{2}\!\left(\frac{1}{1 - \text{confidence}}\right)$, here's a session where ChatGPT gives a great [step-by-step solution](https://chatgpt.com/share/68f2b4c4-cb84-8003-8b1e-2883327ff18f).
+[^16]: If you are curious how the original paper could get the proof to the more elegant logarithm $rows = \log_{e}\!\left(\frac{1}{1 - \text{confidence}}\right)$, here's a session where ChatGPT gives a great [step-by-step solution](https://chatgpt.com/share/68f68e21-56e8-8003-9233-ea5779d1de3c).
 
 [^17]: I took the natural log, because `Math.log` in Javascript is the natural log.
