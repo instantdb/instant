@@ -478,7 +478,7 @@ If you're curious, try out different sizes and see what you get:
 
 Congratulations! You just built a Count-Min Sketch from scratch, and used it on Wodehouse.
 
-If you'd like to see the full code example, I put this up in it's entirety on <a href="https://github.com/instantdb/count-min-sketch" target="_blank">GitHub</a>.
+If you'd like to see the full code example, I put this up in its entirety on <a href="https://github.com/instantdb/count-min-sketch" target="_blank">GitHub</a>.
 
 Hope you had a lot of fun :). If you're still curious there's more to learn here, I present to you...2 bonus sections!
 
