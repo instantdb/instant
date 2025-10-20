@@ -138,7 +138,7 @@
                                 (response/too-many-requests bad-request))
 
                               :else
-                              (do (when (not (contains? silent-types (tool/inspect type)))
+                              (do (when (not (contains? silent-types type))
                                     (tracer/record-exception-span! e {:name "instant-ex/bad-request"}))
                                   (response/bad-request bad-request)))
 
