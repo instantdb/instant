@@ -471,10 +471,11 @@
                       (when bytes-meta#
                         (tracer/add-data! {:attributes bytes-meta#}))
                       (annotate-update-count ps#)
-                      (if (:attach-warnings? opts#)
-                        (with-meta res# (merge {:warnings (.getWarnings ps#)}
-                                               bytes-meta#))
-                        (with-meta res# bytes-meta#))))
+                      (when res#
+                        (if (:attach-warnings? opts#)
+                          (with-meta res# (merge {:warnings (.getWarnings ps#)}
+                                                 bytes-meta#))
+                          (with-meta res# bytes-meta#)))))
                   (finally
                     ;; Don't close the connection if a java.sql.Connection was
                     ;; passed in, or we'll end transactions before they're done.
