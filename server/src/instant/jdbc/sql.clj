@@ -5,6 +5,7 @@
    ;; load all pg-ops for hsql
    [honey.sql :as hsql]
    [honey.sql.pg-ops]
+   [instant.jdbc.socket-track :as socket-track]
    [instant.util.exception :as ex]
    [instant.util.io :as io]
    [instant.util.json :refer [->json <-json]]
@@ -453,16 +454,28 @@
                                      (next-jdbc/get-connection ~'conn)
                                      ~'conn)
 
-                    query# (annotate-query-with-debug-info ~'query)]
+                    query# (annotate-query-with-debug-info ~'query)
+                    bytes-before# (socket-track/bytes-transferred c#)]
                 (try
                   (apply-postgres-config postgres-config# create-connection?# c#)
                   (with-open [ps# (next-jdbc/prepare c# query# opts#)
                               _cleanup# (register-in-progress create-connection?# ~rw c# ps#)]
-                    (let [res# (~query-fn ps# nil opts#)]
+                    (let [res# (~query-fn ps# nil opts#)
+                          bytes-after# (when bytes-before#
+                                         (socket-track/bytes-transferred c#))
+                          bytes-meta# (when bytes-after#
+                                        {:bytes-read (- (:read bytes-after#)
+                                                        (:read bytes-before#))
+                                         :bytes-written (- (:write bytes-after#)
+                                                           (:write bytes-before#))})]
+                      (when bytes-meta#
+                        (tracer/add-data! {:attributes bytes-meta#}))
                       (annotate-update-count ps#)
-                      (if (:attach-warnings? opts#)
-                        (with-meta res# {:warnings (.getWarnings ps#)})
-                        res#)))
+                      (when res#
+                        (if (:attach-warnings? opts#)
+                          (with-meta res# (merge {:warnings (.getWarnings ps#)}
+                                                 bytes-meta#))
+                          (with-meta res# bytes-meta#)))))
                   (finally
                     ;; Don't close the connection if a java.sql.Connection was
                     ;; passed in, or we'll end transactions before they're done.

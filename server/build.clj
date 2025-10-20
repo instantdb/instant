@@ -8,6 +8,17 @@
 (def basis (delay (b/create-basis {:project "deps.edn"})))
 
 (defn compile-java [_]
+  ;; First build the socketutil directory because instant.jdbc.socket-track
+  ;; depends on it
+  (b/javac {:src-dirs ["src/java/instant/socketutil"]
+            :class-dir "target/classes"
+            :basis @basis
+            :javac-opts ["-proc:none"]})
+  ;; Then build socket-track because instant.SocketWrapper depends on it
+  (b/compile-clj {:basis @basis
+                  :ns-compile '[instant.jdbc.socket-track]
+                  :class-dir "target/classes"})
+  ;; Now we can build the rest of the java files
   (b/javac {:src-dirs ["src/java"]
             :class-dir "target/classes"
             :basis @basis

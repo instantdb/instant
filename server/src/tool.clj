@@ -382,3 +382,8 @@
          start-pool# (requiring-resolve 'instant.jdbc.aurora/start-pool)]
      (with-open [~conn-name ^HikariDataSource (start-pool# 1 (rds-cluster-id->db-config# cluster-id#))]
        ~@body)))
+
+(defn recompile-java []
+  (require 'virgil)
+  (let [compile-java (resolve 'virgil/compile-java)]
+    (compile-java ["src"] :options ["-Xlint:all"])))
