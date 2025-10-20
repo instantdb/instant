@@ -509,13 +509,13 @@ That's pretty cool! How can we be certain like this?
 
 Turns out, you can tie the `errorRate` and the `confidence` to the number of `rows` and `columns` in a sketch! Here are the formulas
 
-Given an `errorRate`, get this many columns:
+Given an `errorRate`, get this many `columns`:
 
 $$
 columns = \frac{e}{errorRate}
 $$
 
-Given a `confidence`, get this many rows:
+Given a `confidence`, get this many `rows`:
 
 $$
 rows = \ln(\frac{1}{1 - confidence})
@@ -536,8 +536,8 @@ We have:
 
 And our sketch has two properties that we can influence:
 
-1. The `columns`. This is the number of buckets in one row. We _somehow_ picked 4,000 for our Wodehouse sketch.
-2. The `rows`. This is the number of hash functions in our sketch. We _somehow_ picked 7 rows for our Wodehouse sketch.
+1. The `columns`. This is the number of buckets in one row. We _somehow_ picked 5,437 for our Wodehouse sketch.
+2. The `rows`. This is the number of hash functions in our sketch. We _somehow_ picked 5 rows for our Wodehouse sketch.
 
 ## Goal
 
@@ -565,7 +565,7 @@ $$
 
 Now here's a question: what is the expected value [^11] of our noise for a word?
 
-The first thing we can remember is that our hash function distributes words uniformly across columns. This means that each word has a `1 / columns` chance of hitting our particular bucket.
+The first thing we can remember is that our hash function distributes words uniformly across columns. This means that each word has a $\frac{1}{columns}$ chance of hitting our particular bucket.
 
 So if we write our our expectation, it would be:
 
@@ -591,9 +591,9 @@ But an expected value for noise isn't useful yet. It just gives us an average. W
 
 That's where **Markov's Inequality** [^9] comes in. Markov's Inequality is a proof about random variables that says:
 
-> For any non-negative random variable, the probability that something exceeds n times its expected value is at most 1/n.
+> For any non-negative random variable, the probability that something exceeds $n$ times its expected value is at most $\frac{1}{n}$.
 
-To get concrete, if we plug in $n = e$ to Markov's Inequality, we get:
+To get concrete, if we plug in $n = e$ [^14] to Markov's Inequality, we get:
 
 > The probability that something exceeds $e$ times its expected value, is at most $\frac{1}{e}$
 
@@ -623,11 +623,11 @@ $$
 
 Which says:
 
-> "The probability that the noise is smaller than $e \times expectedNoiss$ is greater than $1/e$"
+> "The probability that the noise is smaller than $e \times expectedNoise$ is greater than $1/e$"
 
-$1/e$ is about 0.37, so we are saying 37% here. **If you squint, this is talking about our maximumOvercount!**.
+$1/e$ is about 0.37, so we are saying 37% here.
 
-With about 37% confidence, we know that we'll get an estimation smaller than $e \times expectedNoise$.
+**If you squint, this is talking about our maximumOvercount!** With about 37% confidence, we know that we'll get an estimation smaller than $e \times expectedNoise$.
 
 ### An errorRate with about 37% confidence
 
@@ -661,9 +661,7 @@ $$
 totalWords \times errorRate \le \frac{e \times totalWords}{columns}
 $$
 
-**We've just tied errorRate and columns together!**
-
-Let's keep going:
+**We've just tied errorRate and columns together!** Let's keep going:
 
 $$
 errorRate \le \frac{e}{columns}
@@ -697,9 +695,9 @@ $$
 
 ### All bad rows
 
-When `Noise > maximumOvercount`, it basically means that our estimation has failed. We've gotten a "bad row", where the bucket has highly frequent words in it.
+When `Noise > maximumOvercount`, it basically means that our estimation has failed.
 
-In this case we can paraphrase this to:
+We've gotten a "bad row", where the bucket has highly frequent words in it. In this case we can paraphrase our probability to:
 
 $$
 P(\text{row is bad}) \le \frac{1}{e}
@@ -721,17 +719,25 @@ And now that we know the formula for "all rows are bad", we actually _also_ know
 
 ### Confidence
 
-As long as we get 1 good row, we know that we'll return within our estimation.
-
-So what's the probability of _at least_ 1 good row? It's just the complement of getting all bad rows!
+As long as we get 1 good row, we know that we'll return a number within our estimation. In that case we can say our confidence is:
 
 $$
-confidence = 1 - P(\text{all rows are bad})
+confidence = P(\text{at least 1 good row})
+$$
+
+So what's the probability of _at least_ 1 good row? It's the complement of getting all bad rows!
+
+$$
+P(\text{at least 1 good row}) = 1 - P(\text{all rows are bad})
 $$
 
 Now we can expand it out:
 
 $$
+confidence = P(at least 1 good row)
+\\ {}
+confidence = 1 - P(\text{all rows are bad})
+\\ {}
 confidence = 1 - \left(\frac{1}{e}\right)^{rows}
 $$
 
@@ -774,10 +780,10 @@ And that's our formula `rows`!
 Now we have formulas for `columns` and `rows`!
 
 $$
-columns = \frac{2}{errorRate}
+columns = \frac{e}{errorRate}
 {} \\
 {} \\
-rows = \frac{\ln(1 - confidence)}{\ln(\frac{1}{2})}
+rows = \ln(\frac{1}{1 - confidence})
 $$
 
 ## Formulas to Code
@@ -918,14 +924,6 @@ Congratulations, you made it all the way through the bonus too!
 
 _Thanks to Joe Averbukh, Daniel Woelfel, Predrag Gruevski, Irakli Safareli, Nicole Garcia Fischer, Irakli Popkhadze, Mark Shlick, Ilan Tzitrin, Drew Harris, for reviewing drafts of this essay_
 
-The [original paper](http://dimacs.rutgers.edu/~graham/pubs/papers/cm-full.pdf) chose to pick $e$ instead of 2. This optimizes the total space the sketch takes up. But 2 is easier to reason about, so I stuck with that.
-
-The [original paper](http://dimacs.rutgers.edu/~graham/pubs/papers/cm-full.pdf) gets it down to $rows = \ln\!\left(\frac{1}{1 - \text{confidence}}\right)$. We chose `n = 2` in our Markov Inequality, so we could have gotten our formula down to the similar $rows = \log_{2}\!\left(\frac{1}{1 - \text{confidence}}\right)$. But this would require a few more steps with logarithms, which I wanted to avoid. The expressions are equivalent.
-
-If you are curious how the original paper could get the proof to the more elegant logarithm $rows = \log_{e}\!\left(\frac{1}{1 - \text{confidence}}\right)$, here's a session where ChatGPT gives a great [step-by-step solution](https://chatgpt.com/share/68f68e21-56e8-8003-9233-ea5779d1de3c).
-
-I took the natural log, because `Math.log` in Javascript is the natural log.
-
 [^1]: A sync engine you can try [without even signing up](/tutorial)!
 
 [^3]: See this [interesting paper](https://www.usenix.org/legacy/event/hotsec10/tech/full_papers/Schechter.pdf)
@@ -949,3 +947,5 @@ I took the natural log, because `Math.log` in Javascript is the natural log.
 [^12]: It's non-negative because we only ever increment buckets.
 
 [^13]: You may wonder, is JSON stringify an efficient way to serialize it? At a glance it feels like it isn't. But I ran a few tests with protobufs and msgpack, only to find out that JSON.stringify + zstd was more efficient. My guess is because zstd does a great job compressing the repetition in the JSON.
+
+[^14]: The [original paper](http://dimacs.rutgers.edu/~graham/pubs/papers/cm-full.pdf) chose to pick $e$, because it minimizes the number of buckets needed for a particular error rate and confidence. We could have picked any number here though, and we'd still be able to go through the proof.
