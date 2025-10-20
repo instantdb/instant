@@ -306,7 +306,7 @@ created: {
 Alright, now for the meat and potatoes. Let's implement `add`. We want to say:
 
 1. Take a word
-2. For each row, hash it and find it's corresponding bucket
+2. For each row, hash it and find its corresponding bucket
 3. Increment the corresponding bucket
 
 Here we go:
