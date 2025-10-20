@@ -354,7 +354,7 @@
   `(do
      (let [name# (quote ~value)
            result# ~value]
-       (println (pr-str name#) "is" (pr-str result#))
+       (println "INSPECT" (pr-str name#) "is" (pr-str result#))
        result#)))
 
 (defmacro profile [options? & body]

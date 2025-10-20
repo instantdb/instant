@@ -23,6 +23,7 @@
    [instant.lib.ring.websocket :as ws]
    [instant.lib.ring.sse :as sse]
    [instant.util.async :as ua]
+   [instant.util.cache :as cache]
    [instant.util.coll :as ucoll]
    [instant.util.exception :as ex]
    [instant.util.lang :as lang]
@@ -89,6 +90,10 @@
                           :db/type :db.type/integer}
    :datalog-query/query {} ;; datalog patterns (from datalog.clj)
 
+   ;; Atom containing a set of watcher ids. Used to determine if
+   ;; we can cancel an in-progress query if it is evicted from the store.
+   :datalog-query/watchers {}
+
    :datalog-query/app-id+query
    {:db/tupleAttrs [:datalog-query/app-id :datalog-query/query]
     :db/unique :db.unique/identity}
@@ -148,8 +153,26 @@
         (when-not (ConcurrentLinkedQueue/.isEmpty tx-queue)
           (ExecutorService/.submit executor ^Runnable this))))))
 
+(defn create-datalog-query-cache [executor]
+  (cache/make-async {:max-weight (flags/flag :datalog-cache-max-weight
+                                             ;; 500mb
+                                             (* 1024 1024 500))
+                     :ttl (flags/flag :datalog-cache-ttl
+                                      ;; 1 hour
+                                      (* 1000 60 60))
+                     :weigher (fn [_k v]
+                                (* (or (:sql-bytes (meta v))
+                                       ;; This should never be null, but just in case
+                                       (* 1024 1024))
+                                   ;; We use more memory to build the data than
+                                   ;; postgres uses to send it to us. This flag accounts
+                                   ;; for that difference
+                                   (flags/flag :datalog-cache-size-multiple 4)))
+                     :executor executor}))
+
 (defn create-conn [schema app-id]
-  (let [conn (d/create-conn schema)]
+  (let [conn (d/create-conn schema)
+        cache-executor (Executors/newVirtualThreadPerTaskExecutor)]
     (alter-meta! conn
                  assoc
                  :app-id app-id
@@ -157,6 +180,8 @@
                  :run-txes (RunTxes. conn)
                  :lock (ReentrantLock. false)
                  :tx-queue (ConcurrentLinkedQueue.)
+                 :cache-executor cache-executor
+                 :datalog-query-cache (create-datalog-query-cache cache-executor)
                  :app-id app-id)
     conn))
 
@@ -229,13 +254,39 @@
         (catch clojure.lang.ExceptionInfo e
           (translate-datascript-exceptions e))))))
 
-(defn transact! [span-name conn tx-data]
-  (if (or (flags/toggled? :enable-store-batching-globally)
-          (contains? (flags/flag :enable-store-batching-apps)
-                     (:app-id (meta conn))))
-    (transact-new! span-name conn tx-data)
-    (transact-old! span-name conn tx-data)))
+(defn clean-datalog-query-cache
+  "Evicts datalog results we no longer care about and cancels any in-progress
+   queries that nobody is waiting on a result for.
 
+   Should run after `transact!`"
+  [conn {:keys [db-before tx-data]}]
+  (let [deleted-datalog-query-ids (keep (fn [datom]
+                                          (when (= (:a datom)
+                                                   :datalog-query/app-id+query)
+                                            (:e datom)))
+                                        tx-data)
+        cache (:datalog-query-cache (meta conn))]
+    (when (seq deleted-datalog-query-ids)
+      (doseq [eid deleted-datalog-query-ids
+              :let [in-progress-query (cache/get-if-present-async cache eid)]
+              :when (and in-progress-query
+                         (not (.isDone in-progress-query)))
+              :let [watchers (:datalog-query/watchers (d/entity db-before eid))]
+              :when (or (not watchers)
+                        (empty? @watchers))]
+        (.cancel in-progress-query true))
+      ;; Invalidate after we cancel or else we'll lose access to the in-progress
+      ;; future
+      (cache/invalidate-all-async cache))))
+
+(defn transact! [span-name conn tx-data]
+  (let [res (if (or (flags/toggled? :enable-store-batching-globally)
+                    (contains? (flags/flag :enable-store-batching-apps)
+                               (:app-id (meta conn))))
+              (transact-new! span-name conn tx-data)
+              (transact-old! span-name conn tx-data))]
+    (clean-datalog-query-cache conn res)
+    res))
 
 ;; -----
 ;; reports
@@ -472,22 +523,25 @@
                  (when (and app-id
                             (empty? (d/datoms @sessions-conn :avet :session/app-id app-id)))
                    (Map/.remove (:conns store) app-id)))]
-      (ExecutorService/.shutdown (:executor (meta removed-conn))))))
+      (ExecutorService/.shutdown (:executor (meta removed-conn)))
+      (ExecutorService/.shutdown (:cache-executor (meta removed-conn))))))
 
 ;; ------
 ;; datalog cache
 
-(defn swap-datalog-cache! [store app-id datalog-query-fn ctx datalog-query]
+(defn swap-datalog-cache!
+  "Adds a query to the datalog cache.
+   The underlying cache is an instant.util.cache/async-cache that lives in the
+   metadata of the datascript store (one per app).
+
+   Here we lookup or add the result of the query to the cache and register ourselves
+   as interested in the result of the query.
+
+   When the datalog query is evicted from the store, the cached result will be
+   removed from the cache (see `clean-datalog-query-cache`). If it is in progress
+   and there are no watchers, then the query will be canceled."
+  [store app-id datalog-query-fn ctx datalog-query]
   (let [lookup-ref [:datalog-query/app-id+query [app-id datalog-query]]
-        watcher-id (Object.)
-        this-result-delay (atom {;; Promise holds the result of the query
-                                 :promise (promise)
-                                 ;; Watchers keep track of who started listening
-                                 ;; while the query was running, so that we can
-                                 ;; safely cancel the query if all listeners cancel
-                                 :watchers #{watcher-id}
-                                 :cancel-signal (promise)
-                                 :aborted? false})
         conn (app-conn store app-id)
         {:keys [db-after]}
         (transact! "store/swap-datalog-cache!"
@@ -495,90 +549,36 @@
                    [[:db.fn/call
                      (fn [db]
                        (if-some [existing (d/entity db lookup-ref)]
-                         (if (not (:datalog-query/delayed-call existing))
-                           [[:db/add (:db/id existing) :datalog-query/delayed-call this-result-delay]]
-                           (let [{:keys [watchers]}
-                                 (swap! (:datalog-query/delayed-call existing)
-                                        (fn [state]
-                                          (if (:aborted? state)
-                                            state
-                                            (update state :watchers conj watcher-id))))]
-                             (when-not (contains? watchers watcher-id)
-                               [[:db/add (:db/id existing) :datalog-query/delayed-call this-result-delay]])))
+                         (if (:datalog-query/watchers existing)
+                           []
+                           [[:db/add (:db/id existing) :datalog-query/watchers (atom #{})]])
                          [{:datalog-query/app-id app-id
                            :datalog-query/query datalog-query
-                           :datalog-query/delayed-call this-result-delay}]))]])
-        result-delay (:datalog-query/delayed-call (d/entity db-after lookup-ref))
-        unwrap-result (fn []
-                        (let [res @(:promise @result-delay)]
-                          (assert (:result res) "Missing result")
-                          (if (:ok res)
-                            (:result res)
-                            (throw (:result res)))))
+                           :datalog-query/watchers (atom #{})}]))]])
 
-        cancel! (fn []
-                  (tracer/with-span! {:name "store/datalog-query-cancel!"}
-                    (deliver (:cancel-signal @result-delay) true)))]
+        query-ent (d/entity db-after lookup-ref)
 
-    (tracer/add-data! {:attributes {:cache-hit (not= this-result-delay result-delay)
-                                    :realized (realized? (:promise @result-delay))}})
+        query-id (:db/id query-ent)
 
-    (when (= this-result-delay result-delay)
-      ;; We added it, so we must execute it
-      (let [stmt-tracker (sql/make-top-level-statement-tracker)
-            result-promise (:promise @result-delay)
-            work-fut (binding [ua/*child-vfutures* nil ;; Move future to a new "call-stack"
-                               ;; Don't let our statements get canceled
-                               sql/*in-progress-stmts* stmt-tracker]
-                       (ua/vfuture
-                        (try
-                          (deliver result-promise
-                                   {:ok true
-                                    :result (datalog-query-fn ctx
-                                                              datalog-query)})
-                          (catch Throwable t
-                            (deliver result-promise
-                                     {:ok false
-                                      :result t}))
-                          (finally
-                             ;; noop if we already delivered
-                            (deliver result-promise
-                                     {:ok false
-                                      :result
-                                      (Exception. "Did not deliver promise!")})
-                            (deliver (:cancel-signal @result-delay)
-                                     false)))))
-            _cancel-fut (binding [ua/*child-vfutures* nil]
-                          (ua/vfuture
-                           (when @(:cancel-signal @result-delay)
-                             (sql/cancel-in-progress stmt-tracker)
-                             (future-cancel work-fut))))]))
+        cache (:datalog-query-cache (meta conn))
+
+        watcher-id (Object.)
+
+        _ (swap! (:datalog-query/watchers query-ent) conj watcher-id)
+
+        existing-result (cache/get-if-present-async cache query-id)
+
+        _ (tracer/add-data! {:attributes {:cache-hit (not (nil? existing-result))
+                                          :realized (and (not (nil? existing-result))
+                                                         (.isDone existing-result))}})]
     (try
-      (if (realized? (:promise @result-delay))
-        ;; The work is already done, so we don't need to listen for cancellation
-        (unwrap-result)
-        ;; Start a tracked future to watch for cancelation
-        (let [wait-fut (ua/vfuture (unwrap-result))]
-          (try
-            @wait-fut
-            (catch Throwable t
-              (when (and (not (realized? (:promise @result-delay)))
-                         (or (instance? InterruptedException t)
-                             (instance? CancellationException t)))
-                (let [{:keys [aborted?]}
-                      (swap! result-delay
-                             (fn [{:keys [watchers] :as state}]
-                               (let [new-watchers (disj watchers watcher-id)]
-                                 (cond-> state
-                                   true (assoc :watchers new-watchers)
-                                   (empty? new-watchers) (assoc :aborted? true)))))]
-
-                  (when aborted?
-                    (cancel!))))
-              (throw t)))))
+      (deref (or existing-result
+                 (cache/get-async cache
+                                  query-id
+                                  (fn [_]
+                                    (datalog-query-fn ctx datalog-query)))))
       (finally
-        (swap! result-delay update :watchers disj watcher-id)))))
-
+        (swap! (:datalog-query/watchers query-ent) disj watcher-id)))))
 
 ;; --------------
 ;; datalog loader

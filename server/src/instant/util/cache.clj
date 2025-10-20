@@ -29,14 +29,20 @@
    :max-weight <number>          must be used with :weigher
    :weigher    <fn [k v]>        must be used with :max-weight
    :ttl        <number>          eviction time, ms
-   :on-remove  <fn [k v cause]>  removal listener"
-  ^AsyncLoadingCache [{:keys [max-size max-weight weigher ttl on-remove]}]
+   :on-remove  <fn [k v cause]>  removal listener
+   :executor   <Executor>        executor to use for async tasks"
+  ^AsyncLoadingCache [{:keys [max-size
+                              max-weight
+                              weigher ttl
+                              on-remove
+                              executor]}]
   (cond-> (Caffeine/newBuilder)
     max-size   (.maximumSize max-size)
     max-weight (.maximumWeight max-weight)
     weigher    (.weigher weigher)
     ttl        (.expireAfterWrite (Duration/ofMillis ttl))
     on-remove  (.removalListener on-remove)
+    executor   (.executor executor)
     true       (Caffeine/.buildAsync)))
 
 (defn invalidate
@@ -96,7 +102,7 @@
    in this async cache. This method provides a simple substitute for the
    conventional “if cached, return; otherwise create, cache and return”
    pattern."
-  [^AsyncLoadingCache cache key ^Function value-fn]
+  ^CompletableFuture [^AsyncLoadingCache cache key ^Function value-fn]
   (if (some? key)
     (.get cache key value-fn)
     (CompletableFuture/completedFuture nil)))
@@ -110,7 +116,7 @@
 (defn get-if-present-async
   "Returns a completeable future with the value associated with the key
    in this cache, or null if there is no cached value for the key."
-  [^AsyncLoadingCache cache key]
+   ^CompletableFuture [^AsyncLoadingCache cache key]
   (if (some? key)
     (.getIfPresent cache key)
     (CompletableFuture/completedFuture nil)))
@@ -137,7 +143,7 @@
    A single request to the mappingFunction is performed for all keys which are
    not already present in the cache. All entries returned by mappingFunction will
    be stored in the cache, over-writing any previously cached values."
-  [^AsyncCache cache ^Iterable keys ^Function values-fn]
+   ^CompletableFuture [^AsyncCache cache ^Iterable keys ^Function values-fn]
   (if-some [keys' ^Iterable (not-empty (filter some? keys))]
     (.getAll cache keys' values-fn)
     (CompletableFuture/completedFuture nil)))
