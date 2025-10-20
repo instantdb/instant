@@ -61,7 +61,7 @@ function error(firstArg, ...rest) {
   console.error(chalk.red('[error]') + ' ' + firstArg, ...rest);
 }
 
-// consts
+// constss
 
 const potentialEnvs = {
   catchall: 'INSTANT_APP_ID',
@@ -342,7 +342,7 @@ program
 program
   .command('create-app')
   .description('Generate an app ID and admin token for a new app.')
-  .option('-t --title', 'Title for the created app')
+  .option('-t --title <title>', 'Title for the created app')
   .option(
     '-o --org <org-id>',
     'The (optional) id of the organization to create the app in.',
