@@ -6,6 +6,7 @@
    [instant.util.async :as ua]
    [instant.util.lang :as lang]
    [instant.util.tracer :as tracer]
+   [instant.jdbc.socket-track :as socket-track]
    [next.jdbc :as next-jdbc]
    [next.jdbc.connection :as connection])
   (:import
@@ -17,6 +18,7 @@
    (java.util WeakHashMap)
    (java.util.function BiConsumer)
    (javax.sql DataSource)
+   (instant SocketWrapper)
    (org.postgresql PGConnection)))
 
 (set! *warn-on-reflection* true)
@@ -191,10 +193,13 @@
   "Creates a new connection for the connection pool and sets the idle_in_transaction_session_timeout.
    Defaults to one minute, but can be modified with a flag in an emergency."
   [config]
-  (let [conn (next-jdbc/get-connection config)]
-    (next-jdbc/execute! conn ["select set_config('idle_in_transaction_session_timeout', ?::text, false)"
-                              (flags/flag :idle-in-transaction-session-timeout (* 1000 60))])
-    conn))
+  (binding [socket-track/*connection-id* (random-uuid)]
+    (let [conn (next-jdbc/get-connection (assoc config
+                                                :socketFactory "instant.SocketWrapper"))]
+      (socket-track/add-connection socket-track/*connection-id* conn)
+      (next-jdbc/execute! conn ["select set_config('idle_in_transaction_session_timeout', ?::text, false)"
+                                (flags/flag :idle-in-transaction-session-timeout (* 1000 60))])
+      conn)))
 
 (defn aurora-cluster-datasource
   "Creates a datasource that is resilent to password rotations and failover in aurora"
@@ -322,3 +327,6 @@
 
 (defn after-ns-reload []
   (start))
+
+(comment
+  (def -socket (.createSocket (SocketWrapper.))))
