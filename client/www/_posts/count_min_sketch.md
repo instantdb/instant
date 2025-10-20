@@ -404,7 +404,7 @@ Congratulations, you've implemented a Count-Min Sketch!
 
 # Getting real
 
-Alright, we now that we have a real Count-Min Sketch, let's put it to the test. We'll find out approximately how many times 'Beetle' is used in Wodehouse's texts.
+Alright, now that we have a real Count-Min Sketch, let's put it to the test. We'll find out approximately how many times 'Beetle' is used in Wodehouse's texts.
 
 ## Get all of Wodehouse
 
