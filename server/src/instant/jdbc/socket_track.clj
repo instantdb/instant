@@ -3,7 +3,7 @@
    (com.google.common.collect MapMaker)
    (com.zaxxer.hikari HikariDataSource)
    (com.zaxxer.hikari.pool HikariProxyConnection)
-   (instant CountingSocket)
+   (instant.socketutil CountingSocket)
    (java.util UUID)
    (java.util.concurrent ConcurrentMap)
    (org.postgresql.jdbc PgConnection))
