@@ -909,7 +909,7 @@ export function SmallCopyable({
               truncate: !multiline,
               'whitespace-pre-wrap break-all': multiline,
             })}
-            title={hideValue || hidden ? 'Copy App ID to Clipboard' : value}
+            title={hideValue || hidden ? 'Copy to clipboard' : value}
             onClick={(e) => {
               // Only copy if no text is selected
               const selection = window.getSelection();
@@ -995,7 +995,7 @@ export function Copyable({
           truncate: !multiline,
           'whitespace-pre-wrap break-all': multiline,
         })}
-        title={value}
+        title={hideValue || hidden ? 'Copy to clipboard' : value}
         onClick={(e) => {
           const el = e.target as HTMLPreElement;
           const selection = window.getSelection();
