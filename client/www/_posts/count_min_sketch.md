@@ -34,7 +34,7 @@ Or you could use it estimate the popularity of links: update a sketch whenever a
 
 Or, use it to make databases faster: track the values of different columns, so you can estimate how many rows a filter would return. This is what we use them in Instant: our query planner decides which indexes and join orders to use based on the estimates we get from sketches. [^5]
 
-So how do Count-Min sketches work? In this essay we'll find out by building one from scratch, in Javascript!
+So how do Count-Min Sketches work? In this essay we'll find out by building one from scratch, in Javascript!
 
 # Setup
 
@@ -553,7 +553,7 @@ Say we ask for a count of a word ('wet'). Our hash function will direct us to a 
 
 <sketch-demo demo="bucket-noise-breakdown"></sketch-demo>
 
-Well it would be composed of the "actual number of times" droop was used, and the 'noise' that comes from all the other collisions that hit our bucket.
+Well it would be composed of the "actual number of times" 'wet' was used, and the noise that comes from all the other collisions that hit our bucket.
 
 If we write this out:
 
@@ -575,12 +575,12 @@ $$
 
 ### Simplifying Noise
 
-If you think about, do we really _need_ to subtract the $actualCount_{word}$? It's going to be such a small part of the total anyways.
+If you think about, do we really _need_ to subtract the $actualCount_{word}$? We can simplify this formula by getting more conservative about what we promise.
 
-We can simplify this formula by getting more conservative about what we promise. Let's just say that the expected noise is _smaller_ than this:
+Let's just bound ourselves to the worst case scenario, where we ask for a word that isn't in the corpus:
 
 $$
-expectedNoise_{word} <= \frac{totalWords}{columns}
+expectedNoise_{word} \le \frac{totalWords}{columns}
 $$
 
 Pretty cool. Now we have a simple relation for our expected noise!
@@ -603,17 +603,13 @@ $$
 P(\text{Noise} \ge e \times expectedNoise_{word}) \le \frac{1}{e}
 $$
 
-### expectedNoise → maximumOvercount
+### A maximumOvercount with about 37% confidence
 
-Let's look at probability a bit more.
+Let's look at our probability a bit more.
 
 $$
 P(\text{Noise} \ge e \times expectedNoise_{word}) \le \frac{1}{e}
 $$
-
-This says:
-
-> "The probability that the noise is greater than or equal $e \times expectedNoise$ is less than or equal to $1/e$"
 
 We can reverse it:
 
@@ -621,17 +617,19 @@ $$
 P(\text{Noise} \le e \times expectedNoise_{word}) \ge \frac{1}{e}
 $$
 
-Which says:
+And to make things more concrete, $\frac{1}{e}$ is about 0.37.
 
-> "The probability that the noise is smaller than $e \times expectedNoise$ is greater than $1/e$"
+What is this probability saying then? Let's write it out in English:
 
-$\frac{1}{e}$ is about 0.37.
+> "The probability that noise is at most e times expectedNoise is at least ~37%"
 
-**If you squint, this is talking about our maximumOvercount!** With about 37% confidence, we know that we'll get an estimation smaller than $e \times expectedNoise$.
+If you squint, we are talking about `maximumOvercount` with about 37% confidence!
+
+If we set `maximumOvercount` to to $e \times expectedNoise$, we can say with $\frac{1}{e}$ confidence that our estimation will be within our bounds!
 
 ### An errorRate with about 37% confidence
 
-Now that we have a probability that uses `maximumOvercount`, let's tie that back to `errorRate`.
+Now that we have a probability that uses `maximumOvercount`, let's start tying things back to `errorRate`.
 
 We said before:
 
@@ -646,13 +644,13 @@ $$
 If we use variables:
 
 $$
-totalWords \times errorRate <= maximumOvercount;
+totalWords \times errorRate \le maximumOvercount;
 $$
 
-And now that we know `maximumOvercount`:
+Now let's start expanding `maximumOverCount`, and see where we get:
 
 $$
-totalWords \times errorRate <= e \times expectedNoise;
+totalWords \times errorRate \le e \times expectedNoise;
 $$
 
 And since we know `expectedNoise`:
@@ -672,7 +670,7 @@ $$
 
 Voila! We've just gotten a formula for columns.
 
-### e / errorRate
+### A solution for 1 row
 
 If our goal was to get a particular error rate with about 37% confidence, we could just set:
 
@@ -700,16 +698,18 @@ When `Noise > maximumOvercount`, it basically means that our estimation has fail
 We've gotten a "bad row", where the bucket has highly frequent words in it. In this case we can paraphrase our probability to:
 
 $$
-P(\text{row is bad}) \le \frac{1}{e}
+P(\text{1 row is bad}) \le \frac{1}{e}
 $$
 
-Now what happens if we add more rows? Consider 2 rows. What is the chance that _both_ rows are bad?
+Now what happens if we add more rows? What is the chance that _2_ rows are bad?
+
+Since our hash functions are independent, we know that our probabilities will be too. This means:
 
 $$
 P(\text{2 rows are bad}) \le \left(\frac{1}{e}\right)^{2}
 $$
 
-This generalizes. Given some number of rows, what is the probability that _all_ rows are bad?
+Which generalizes. Given some number of rows, what is the probability that _all_ rows are bad?
 
 $$
 P(\text{all rows are bad}) \le \left(\frac{1}{e}\right)^{rows}
@@ -725,23 +725,33 @@ $$
 confidence = P(\text{at least 1 good row})
 $$
 
-So what's the probability of _at least_ 1 good row? It's the complement of getting all bad rows!
+So what's the probability of _at least_ 1 good row?
 
-$$
-P(\text{at least 1 good row}) = 1 - P(\text{all rows are bad})
-$$
-
-Now we can expand it out:
+It's the complement of getting all bad rows.
 
 $$
 confidence = P(\text{at least 1 good row})
-\\ {}
+{} \\
+P(\text{at least 1 good row}) = 1 - P(\text{all rows are bad})
+$$
+
+Which gets us:
+
+$$
 confidence = 1 - P(\text{all rows are bad})
-\\ {}
+$$
+
+### Expanding things out
+
+Now that we have a formula for confidence, let's start expanding it out:
+
+$$
 confidence = 1 - \left(\frac{1}{e}\right)^{rows}
 $$
 
-Isolate the term for rows:
+We've just connected `confidence` to `rows` !
+
+Let's keep going. Isolate the term for rows:
 
 $$
 \left(\frac{1}{e}\right)^{rows} = 1 - confidence
@@ -753,13 +763,13 @@ $$
 e^{-rows} = 1 - confidence
 $$
 
-Let's take the natural log of both sides:
+Take the natural log of both sides:
 
 $$
 \ln(e^{-rows}) = \ln(1 - confidence)
 $$
 
-We can simplify the left side:
+Simplify the left side:
 
 $$
 -rows = \ln(1 - confidence)
@@ -767,13 +777,13 @@ $$
 rows = -\ln(1 - confidence)
 $$
 
-We can push the `-` inside the `ln`:
+Push the `-` inside the `ln`:
 
 $$
 rows = \ln(\frac{1}{1 - confidence})
 $$
 
-And that's our formula `rows`!
+And we just got our formula for `rows`!
 
 ## Formulas to Code
 
