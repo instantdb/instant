@@ -12,7 +12,7 @@ PG Wodehouse was a prolific author. Once he got his stride he published about a 
 
 You may wonder, how many times did Wodehouse use the word "beetle"?
 
-Well I could tell you _approximately_ how many times Wodehouse used any word in his entire lexicon, just by loading the data-structure embedded in this image:
+Well I could tell you _approximately_ how many times Wodehouse used any word in his entire lexicon, just by loading the data structure embedded in this image:
 
 <div class="flex justify-center">
   <img class="m-0" src="/posts/count_min_sketch/compressedSketch.png" />
@@ -32,9 +32,9 @@ You could use it to make passwords safer: track all known passwords on the inter
 
 Or you could use it estimate the popularity of links: update a sketch whenever a user looks at a tweet, and you can query for approximate views. [^4]
 
-Or, use it to make databases faster: track the values of different columns, so you can estimate how many rows a filter would return. This is what we use them in Instant: our query planner decides which indexes and join orders to use based on the estimates we get from sketches. [^5]
+Or, use it to make databases faster: track the values of different columns, so you can estimate how many rows a filter would return. This is how we use them in Instant: our query planner decides which indexes and join orders to use based on estimates from sketches. [^5]
 
-So how do Count-Min Sketches work? In this essay we'll find out by building one from scratch, in Javascript!
+So how do Count-Min Sketches work? In this essay we'll find out by building one from scratch, in JavaScript!
 
 # Setup
 
@@ -202,7 +202,7 @@ Now, it does suck that we got 622 instead of 454 for 'castle'. But if you think 
 
 ## More buckets, fewer errors
 
-To reduce errors we can add more buckets. The more buckets we have, the fewer collisions we'll have, and the lower our chances of errors are. (You may wonder _much_ lower do our errors get? We'll get to that soon!)
+To reduce errors we can add more buckets. The more buckets we have, the fewer collisions we'll have, and the lower our chances of errors are. (You may wonder how _much_ lower do our errors get? We'll get to that soon!)
 
 <sketch-demo demo="more-buckets"></sketch-demo>
 
@@ -214,13 +214,13 @@ What happens if we add a word like 'like'? Say it landed where 'peer' was:
 
 <sketch-demo demo="high-frequency"></sketch-demo>
 
-If both 'peer' and 'like', landed in the same bucket, we'd be in for some trouble. **If we asked for the count of 'peer', we'd now get back 9,262.** That estimation is wildly inflated by 'like'. Not very useful.
+**If we asked for the count of 'peer', we'd now get back 9,262.** That estimation is wildly inflated by 'like'. Not very useful.
 
-If want to make our estimations better, we would need a way to reduce the chance of very-high frequency words influencing counts. How can we do this?
+If we want to make our estimations better, we would need a way to reduce the chance of very-high frequency words influencing counts. How can we do this?
 
 ## Rows of Hashes
 
-Here's one way to do reduce the influence of high-frequency words: we'll add more hashes!
+Here's one way to reduce the influence of high-frequency words: we'll add more hashes!
 
 We can set up a row of hash functions, each with their own buckets. To add a word, we go through each row, hash it and increment the corresponding bucket. Here's how this looks:
 
@@ -603,7 +603,7 @@ $$
 P(\text{Noise} \ge e \times expectedNoise_{word}) \le \frac{1}{e}
 $$
 
-### A maximumOvercount with about 37% confidence
+### A maximumOvercount with about 63% confidence
 
 Let's look that probability a bit more:
 
@@ -614,18 +614,18 @@ $$
 We can reverse it:
 
 $$
-P(\text{Noise} \le e \times expectedNoise_{word}) \ge \frac{1}{e}
+P(\text{Noise} \le e \times expectedNoise_{word}) \ge 1 - \frac{1}{e}
 $$
 
-And to make things more concrete, $\frac{1}{e}$ is about 0.37.
+And to make things more concrete, $1 - \frac{1}{e}$ is about 0.63.
 
 What is it saying then? Let's write it out in English:
 
-> "The probability that noise is at most e times expectedNoise is at least ~37%"
+> "The probability that noise is at most e times expectedNoise is at least ~63%"
 
-If you squint, we are talking about `maximumOvercount` with about 37% confidence!
+If you squint, we are talking about `maximumOvercount` with about 63% confidence!
 
-If we set `maximumOvercount` to to $e \times expectedNoise$, we can say with $\frac{1}{e}$ confidence that our estimation will be within our bounds!
+If we set `maximumOvercount` to to $e \times expectedNoise$, we can say with $1 - \frac{1}{e}$ confidence that our estimation will be within our bounds!
 
 ### An errorRate with about 37% confidence
 
@@ -672,7 +672,7 @@ Voila! We've gotten a formula for columns.
 
 ### A solution for 1 row
 
-If our goal was to get a particular error rate with about 37% confidence, we could just set:
+If our goal was to get a particular error rate with about 63% confidence, we could just set:
 
 $$
 columns = \frac{e}{errorRate}
@@ -681,7 +681,7 @@ columns = \frac{e}{errorRate}
 rows = 1
 $$
 
-But 37% confidence kind of sucks. How can we improve that?
+But 63% confidence kind of sucks. How can we improve that?
 
 ## Tying confidence to rows
 
@@ -753,7 +753,7 @@ $$
 \left(\frac{1}{e}\right)^{rows} = 1 - confidence
 $$
 
-Remember $\left(\frac{1}{2}\right)^{rows}$ is the same as $e^{-rows}$
+Remember $\left(\frac{1}{e}\right)^{rows}$ is the same as $e^{-rows}$
 
 $$
 e^{-rows} = 1 - confidence
@@ -792,7 +792,7 @@ columns = \frac{e}{errorRate}
 rows = \ln(\frac{1}{1 - confidence})
 $$
 
-So if we wanted an error rate of 0.05% and a confidence of 99%, how many rows and columns would we need? Let's calculate it in Javascript:
+So if we wanted an error rate of 0.05% and a confidence of 99%, how many rows and columns would we need? Let's calculate it in JavaScript:
 
 ```typescript
 function sketchWithBounds({
@@ -934,7 +934,7 @@ _Thanks to Joe Averbukh, Daniel Woelfel, Predrag Gruevski, Irakli Safareli, Nico
 
 [^4]: I _think_ [X](https://web.archive.org/web/20170707141519/https://skillsmatter.com/skillscasts/6844-count-min-sketch-in-real-data-applications) is doing this, though I am not sure if it's still the case.
 
-[^5]: Join orders as an example can make a world of a difference in query performance. Imagine two joins, where one returns 10 rows, and the other returns 1 million. If we fetch 10 million rows first, we're going to do a _lot_ of extra work. For the clojure enthusiasts, some of the code behind this lives [here](https://github.com/instantdb/instant/blob/main/server/src/instant/db/datalog.clj#L1349).
+[^5]: Join orders as an example can make a world of a difference in query performance. Imagine two joins, where one returns 10 rows, and the other returns 1 million. If we fetch 10 million rows first, we're going to do a _lot_ of extra work. For the Clojure enthusiasts, some of the code behind this lives [here](https://github.com/instantdb/instant/blob/main/server/src/instant/db/datalog.clj#L1349).
 
 [^6]: Bun's standard library comes with a bunch of cool hashing and compression functions, so we won't have to install extra packages to get our algorithms working:
 
