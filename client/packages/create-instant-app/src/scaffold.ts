@@ -71,13 +71,18 @@ enable-pre-post-scripts=true`,
     const slugifiedName = slugify.default(appDir);
     replaceTextInFile(
       path.join(projectDir, 'app.json'),
-      '"expo-template"',
-      `"${slugifiedName}"`,
+      '"name": "expo-template"',
+      `"name": "${appDir}"`,
+    );
+    replaceTextInFile(
+      path.join(projectDir, 'app.json'),
+      '"slug": "expo-template"',
+      `"slug": "${slugifiedName}"`,
     );
     replaceTextInFile(
       path.join(projectDir, 'app/_layout.tsx'),
       '"My Instant App"',
-      `"${cliResults.appName}"`,
+      `"${appDir}"`,
     );
   }
 
