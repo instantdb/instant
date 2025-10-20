@@ -133,6 +133,7 @@ export type InstantConfig<
   appId: string;
   schema?: S;
   websocketURI?: string;
+  endpointURI?: string;
   apiURI?: string;
   devtool?: boolean | DevtoolConfig;
   verbose?: boolean;
