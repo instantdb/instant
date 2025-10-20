@@ -926,8 +926,6 @@ If you are curious how the original paper could get the proof to the more elegan
 
 I took the natural log, because `Math.log` in Javascript is the natural log.
 
-
-
 [^1]: A sync engine you can try [without even signing up](/tutorial)!
 
 [^3]: See this [interesting paper](https://www.usenix.org/legacy/event/hotsec10/tech/full_papers/Schechter.pdf)
