@@ -595,7 +595,7 @@ That's where **Markov's Inequality** [^9] comes in. Markov's Inequality is a pro
 
 To get concrete, if we plug in `n = 2` to Markov's Inequality, we get:
 
-> The probability that somethings exceeds 2 times it's expected value, is at most 1 / 2
+> The probability that something exceeds 2 times its expected value, is at most 1 / 2
 
 Well, our noise is a non-negative random variable [^12]. And we have its expected value. If we use Markov's Inequality, we'll get a real probability that we can use!
 
