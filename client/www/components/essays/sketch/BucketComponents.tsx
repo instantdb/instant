@@ -692,9 +692,7 @@ function QueryControls({
                   'border px-3 py-1.5 text-xs font-medium transition-colors',
                   word.scheme.chip,
                   word.scheme.border,
-                  isActive
-                    ? 'border-2'
-                    : 'hover:brightness-95',
+                  isActive ? 'border-2' : 'hover:brightness-95',
                 )}
               >
                 {word.label}
