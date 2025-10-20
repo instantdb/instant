@@ -884,6 +884,7 @@ export function Explorer({
       <Dialog open={Boolean(editNs)} onClose={() => setEditNs(null)}>
         {selectedNamespace ? (
           <EditNamespaceDialog
+            replaceNav={replaceNavStackTop}
             readOnly={readOnlyNs}
             isSystemCatalogNs={isSystemCatalogNs}
             appId={appId}

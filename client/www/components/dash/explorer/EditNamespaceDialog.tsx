@@ -7,12 +7,14 @@ import {
   useState,
   ReactNode,
   MutableRefObject,
+  FormEvent,
 } from 'react';
 import {
   ArrowLeftIcon,
   PlusIcon,
   TrashIcon,
   ArrowUturnLeftIcon,
+  PencilSquareIcon,
 } from '@heroicons/react/24/solid';
 import { errorToast, successToast } from '@/lib/toast';
 import {
@@ -23,7 +25,9 @@ import {
   cn,
   Content,
   Divider,
+  IconButton,
   InfoTip,
+  Label,
   ProgressButton,
   Select,
   TextInput,
@@ -49,7 +53,7 @@ import {
   jobIsErrored,
 } from '@/lib/indexingJobs';
 import { useAuthToken } from '@/lib/auth';
-import type { PushNavStack } from './Explorer';
+import type { ExplorerNav, PushNavStack } from './Explorer';
 import { useClose } from '@headlessui/react';
 import {
   PendingJob,
@@ -68,6 +72,7 @@ export function EditNamespaceDialog({
   readOnly,
   isSystemCatalogNs,
   pushNavStack,
+  replaceNav,
 }: {
   db: InstantReactWebDatabase<any>;
   appId: string;
@@ -77,18 +82,70 @@ export function EditNamespaceDialog({
   readOnly: boolean;
   isSystemCatalogNs: boolean;
   pushNavStack: PushNavStack;
+  replaceNav: (nav: Partial<ExplorerNav>) => void;
 }) {
   const [screen, setScreen] = useState<
     | { type: 'main' }
     | { type: 'delete' }
+    | { type: 'rename' }
     | { type: 'add' }
     | { type: 'edit'; attrId: string; isForward: boolean }
   >({ type: 'main' });
 
+  const [renameNsInput, setRenameNsInput] = useState('');
+
   async function deleteNs() {
     const ops = namespace.attrs.map((attr) => ['delete-attr', attr.id]);
-    await db._core._reactor.pushOps(ops);
+    await db.core._reactor.pushOps(ops);
     onClose({ ok: true });
+  }
+
+  const handleRenameSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    renameNs(renameNsInput);
+    setScreen({ type: 'main' });
+    setRenameNsInput('');
+  };
+
+  async function renameNs(newName: string) {
+    const currentName = namespace.name;
+    const ops: any[] = [];
+    namespace.attrs.forEach((attr) => {
+      ops.push([
+        'update-attr',
+        {
+          id: attr.id,
+          'forward-identity': [
+            attr.linkConfig.forward.id,
+            newName,
+            attr.linkConfig.forward.attr,
+          ],
+        },
+      ]);
+    });
+
+    namespaces.forEach((ns) => {
+      ns.attrs.forEach((attr) => {
+        if (attr.linkConfig.reverse?.namespace === currentName) {
+          ops.push([
+            'update-attr',
+            {
+              id: attr.id,
+              'reverse-identity': [
+                attr.linkConfig.reverse.id,
+                newName,
+                attr.linkConfig.reverse.attr,
+              ],
+            },
+          ]);
+        }
+      });
+    });
+
+    await db.core._reactor.pushOps(ops);
+    replaceNav({
+      namespace: newName,
+    });
   }
 
   const notes = useAttrNotes();
@@ -108,13 +165,56 @@ export function EditNamespaceDialog({
 
   return (
     <>
+      {screen.type === 'rename' && (
+        <div className="px-2">
+          <h3 className="text-lg font-bold">Rename {namespace.name}</h3>
+          <form onSubmit={handleRenameSubmit} className="pt-2">
+            <p className="pb-2 font-semibold text-red-400">
+              Warning! Any code referencing the previous namespace will no
+              longer work.
+            </p>
+            <Label>New Name For "{namespace.name}"</Label>
+            <TextInput
+              autoFocus
+              value={renameNsInput}
+              onChange={(e) => setRenameNsInput(e)}
+            ></TextInput>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                onClick={() => {
+                  setScreen({ type: 'main' });
+                }}
+                variant="secondary"
+              >
+                Cancel
+              </Button>
+              <Button type="submit" variant="primary">
+                Rename
+              </Button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {screen.type === 'main' ? (
         <div className="flex flex-col gap-4 px-2">
-          <div className="mr-8 flex gap-4">
-            <h5 className="flex items-center gap-2 text-lg font-bold">
+          <div className="mr-8 flex gap-1">
+            <h5 className="flex items-center text-lg font-bold">
               {namespace.name}
             </h5>
+            <IconButton
+              variant="subtle"
+              onClick={() => {
+                setScreen({ type: 'rename' });
+              }}
+              icon={
+                <PencilSquareIcon className="opacity-50"></PencilSquareIcon>
+              }
+              label="Rename"
+            ></IconButton>
+
             <Button
+              className="ml-4"
               disabled={isSystemCatalogNs}
               title={
                 isSystemCatalogNs
