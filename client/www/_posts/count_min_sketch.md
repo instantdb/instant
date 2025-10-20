@@ -346,7 +346,7 @@ Increment that bucket, and we're done!
 buckets[globalIdx]!++;
 ```
 
-We can try it out and see how it feels :)
+We can try it out and see how it feels.
 
 ```typescript
 add(sketch, stem('castle'));
@@ -361,7 +361,7 @@ after castle {
 }
 ```
 
-Suuper cool! Notice the two increments in `buckets`, accounting for our different rows : )
+Suuper cool! Notice the two increments in `buckets`, accounting for our different rows.
 
 ## Getting counts
 
@@ -476,11 +476,11 @@ If you're curious, try out different sizes and see what you get:
 
 # A breather to celebrate
 
-Congratulations! You just build out a Count-Min Sketch from scratch, and used it on Wodehouse.
+Congratulations! You just built a Count-Min Sketch from scratch, and used it on Wodehouse.
 
 If you'd like to see the full code example, I put this up in it's entirety on <a href="https://github.com/instantdb/count-min-sketch" target="_blank">GitHub</a>.
 
-Hope you had a lot of fun 🙂. If you're still curious there's more to learn here. I present you...2 bonus sections!
+Hope you had a lot of fun :). If you're still curious there's more to learn here, I present to you...2 bonus sections!
 
 # Bonus 1: Probabilities
 
@@ -501,7 +501,7 @@ Say we want an error rate of 0.05% and a 99% confidence.
 
 0.05% of 3.7 million is 1850. We are in effect saying:
 
-> "You can expect the estimation we give you to be overcounted by at most of 1850, and we'll be right 99% of the time"
+> "You can expect the estimation we give you to be overcounted by at most 1850, and we'll be right 99% of the time"
 
 That's pretty cool! How can we be certain like this?
 
@@ -509,13 +509,13 @@ That's pretty cool! How can we be certain like this?
 
 Turns out, you can tie the `errorRate` and the `confidence` to the number of `rows` and `columns` in a sketch! Here are the formulas
 
-Given an `errorRate`, get this many `columns`:
+Given an `errorRate`, get this many columns [^14]:
 
 $$
 columns = \frac{2}{errorRate}
 $$
 
-Given a `confidence`, get this many `rows`:
+Given a `confidence`, get this many rows [^15]:
 
 $$
 rows = \frac{\log (1 - confidence)}{\log (1/2)}
@@ -593,7 +593,7 @@ That's where **Markov's Inequality** [^9] comes in. Markov's Inequality is a pro
 
 > For any non-negative random variable, the probability that something exceeds n times its expected value is at most 1/n.
 
-To get concrete, if we plug in `n = 2` [^14] to Markov's Inequality, we get:
+To get concrete, if we plug in `n = 2` to Markov's Inequality, we get:
 
 > The probability that somethings exceeds 2 times it's expected value, is at most 1 / 2
 
@@ -747,7 +747,7 @@ $$
 rows \times log(1/2) = log(1 - confidence)
 $$
 
-And you've got a formula [^15] for rows!
+And you've got a formula for rows! [^16]
 
 $$
 rows = \frac{\log (1 - confidence)}{\log(1/2)}
@@ -928,4 +928,6 @@ _Thanks to Joe Averbukh, Daniel Woelfel, Predrag Gruevski, Irakli Safareli, Nico
 
 [^14]: The [original paper](http://dimacs.rutgers.edu/~graham/pubs/papers/cm-full.pdf) chose to pick $e$ instead of 2. This optimizes the total space the sketch takes up. But 2 is easier to reason about, so I stuck with that.
 
-[^15]: The [original paper](http://dimacs.rutgers.edu/~graham/pubs/papers/cm-full.pdf) gets it down to $rows = \ln\!\left(\frac{1}{1 - \text{confidence}}\right)$. We chose `n = 2` in our Markov Inequality, so we could have gotten our formula down to the similar $rows = \log_{2}\!\left(\frac{1}{1 - \text{confidence}}\right)$. But there be more steps with logarithms, which I wanted to avoid. ChatGPT gives a great step-by-step [solution](https://chatgpt.com/share/68f2b4c4-cb84-8003-8b1e-2883327ff18f) if you are curious.
+[^15]: The [original paper](http://dimacs.rutgers.edu/~graham/pubs/papers/cm-full.pdf) gets it down to $rows = \ln\!\left(\frac{1}{1 - \text{confidence}}\right)$. We chose `n = 2` in our Markov Inequality, so we could have gotten our formula down to the similar $rows = \log_{2}\!\left(\frac{1}{1 - \text{confidence}}\right)$. But this would require a few more steps with logarithms, which I wanted to avoid. The expressions are equivalent.
+
+[^16]: If you are curious how the original paper could get the proof to the more elegant logarithm $rows = \log_{2}\!\left(\frac{1}{1 - \text{confidence}}\right)$, here's a session where ChatGPT gives a great [step-by-step solution](https://chatgpt.com/share/68f2b4c4-cb84-8003-8b1e-2883327ff18f).
