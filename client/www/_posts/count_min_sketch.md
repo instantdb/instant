@@ -518,7 +518,7 @@ $$
 Given a `confidence`, get this many rows [^15]:
 
 $$
-rows = \frac{\log (1 - confidence)}{\log (1/2)}
+rows = \frac{\ln(1 - confidence)}{\ln(\frac{1}{2})}
 $$
 
 Now how did we get these formulas? Let's derive them.
@@ -709,7 +709,7 @@ $$
 P(\text{2 rows are bad}) \le \left(\frac{1}{2}\right)^{2}
 $$
 
-1/4. This generalizes.
+$\frac{1}{4}$. This generalizes.
 
 ### All bad rows
 
@@ -741,16 +741,16 @@ $$
 \left(\frac{1}{2}\right)^{rows} = 1 - confidence
 $$
 
-Use some logs:
+Let's use some logs [^17]:
 
 $$
-rows \times log(1/2) = log(1 - confidence)
+rows \times \ln(\frac{1}{2}) = \ln(1 - confidence)
 $$
 
 And you've got a formula for rows! [^16]
 
 $$
-rows = \frac{\log (1 - confidence)}{\log(1/2)}
+rows = \frac{\ln(1 - confidence)}{\ln(\frac{1}{2})}
 $$
 
 ## Fin
@@ -761,7 +761,7 @@ $$
 columns = \frac{2}{errorRate}
 {} \\
 {} \\
-rows = \frac{\log (1 - confidence)}{\log (1/2)}
+rows = \frac{\ln(1 - confidence)}{\ln(\frac{1}{2})}
 $$
 
 ## Formulas to Code
@@ -933,3 +933,5 @@ _Thanks to Joe Averbukh, Daniel Woelfel, Predrag Gruevski, Irakli Safareli, Nico
 [^15]: The [original paper](http://dimacs.rutgers.edu/~graham/pubs/papers/cm-full.pdf) gets it down to $rows = \ln\!\left(\frac{1}{1 - \text{confidence}}\right)$. We chose `n = 2` in our Markov Inequality, so we could have gotten our formula down to the similar $rows = \log_{2}\!\left(\frac{1}{1 - \text{confidence}}\right)$. But this would require a few more steps with logarithms, which I wanted to avoid. The expressions are equivalent.
 
 [^16]: If you are curious how the original paper could get the proof to the more elegant logarithm $rows = \log_{2}\!\left(\frac{1}{1 - \text{confidence}}\right)$, here's a session where ChatGPT gives a great [step-by-step solution](https://chatgpt.com/share/68f2b4c4-cb84-8003-8b1e-2883327ff18f).
+
+[^17]: I took the natural log, because `Math.log` in Javascript is the natural log.
