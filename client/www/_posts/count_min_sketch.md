@@ -600,7 +600,7 @@ To get concrete, if we plug in $n = e$ [^14] to Markov's Inequality, we get:
 Well, our noise is a non-negative random variable [^12]. And we have its expected value. If we use Markov's Inequality, we'll get a real probability that we can use!
 
 $$
-P(\text{Noise} > e \times expectedNoise_{word}) \le \frac{1}{e}
+P(\text{Noise} \ge e \times expectedNoise_{word}) \le \frac{1}{e}
 $$
 
 ### expectedNoise → maximumOvercount
@@ -608,24 +608,24 @@ $$
 Let's look at probability a bit more.
 
 $$
-P(\text{Noise} > e \times expectedNoise_{word}) \le \frac{1}{e}
+P(\text{Noise} \ge e \times expectedNoise_{word}) \le \frac{1}{e}
 $$
 
 This says:
 
-> "The probability that the noise is greater than $e \times expectedNoise$ is less than or equal to $1/e$"
+> "The probability that the noise is greater than or equal $e \times expectedNoise$ is less than or equal to $1/e$"
 
 We can reverse it:
 
 $$
-P(\text{Noise} < e \times expectedNoise_{word}) > \frac{1}{e}
+P(\text{Noise} \le e \times expectedNoise_{word}) \ge \frac{1}{e}
 $$
 
 Which says:
 
 > "The probability that the noise is smaller than $e \times expectedNoise$ is greater than $1/e$"
 
-$1/e$ is about 0.37, so we are saying 37% here.
+$\frac{1}{e}$ is about 0.37.
 
 **If you squint, this is talking about our maximumOvercount!** With about 37% confidence, we know that we'll get an estimation smaller than $e \times expectedNoise$.
 
@@ -690,7 +690,7 @@ But 37% confidence kind of sucks. How can we improve that?
 Let's remember our initial Markov Inequality:
 
 $$
-P(\text{Noise} > e \times expectedNoise) \le \frac{1}{e}
+P(\text{Noise} \ge e \times expectedNoise_{word}) \le \frac{1}{e}
 $$
 
 ### All bad rows
@@ -734,7 +734,7 @@ $$
 Now we can expand it out:
 
 $$
-confidence = P(at least 1 good row)
+confidence = P(\text{at least 1 good row})
 \\ {}
 confidence = 1 - P(\text{all rows are bad})
 \\ {}
@@ -775,7 +775,7 @@ $$
 
 And that's our formula `rows`!
 
-## Fin
+## Formulas to Code
 
 Now we have formulas for `columns` and `rows`!
 
@@ -785,8 +785,6 @@ columns = \frac{e}{errorRate}
 {} \\
 rows = \ln(\frac{1}{1 - confidence})
 $$
-
-## Formulas to Code
 
 So if we wanted an error rate of 0.05% and a confidence of 99%, how many rows and columns would we need? Let's calculate it in Javascript:
 
