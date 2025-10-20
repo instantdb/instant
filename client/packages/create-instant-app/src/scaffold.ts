@@ -5,6 +5,7 @@ import { Project } from './cli.js';
 import chalk from 'chalk';
 import { getUserPkgManager } from './utils/getUserPkgManager.js';
 import { renderUnwrap, UI } from 'instant-cli/ui';
+import slugify from 'slugify';
 
 export const scaffoldBase = async (cliResults: Project, appDir: string) => {
   const projectDir = path.resolve(process.cwd(), appDir);
@@ -65,6 +66,21 @@ enable-pre-post-scripts=true`,
     );
   }
 
+  // overwrite the "expo-template" and "My Instant App"
+  if (cliResults.base === 'expo') {
+    const slugifiedName = slugify.default(appDir);
+    replaceTextInFile(
+      path.join(projectDir, 'app.json'),
+      '"expo-template"',
+      `"${slugifiedName}"`,
+    );
+    replaceTextInFile(
+      path.join(projectDir, 'app/_layout.tsx'),
+      '"My Instant App"',
+      `"${cliResults.appName}"`,
+    );
+  }
+
   const scaffoldedName =
     cliResults.appName === '.'
       ? 'App'
@@ -76,4 +92,14 @@ enable-pre-post-scripts=true`,
   );
 
   return projectDir;
+};
+
+const replaceTextInFile = (
+  filePath: string,
+  oldText: string,
+  newText: string,
+) => {
+  const fileContent = fs.readFileSync(filePath, 'utf8');
+  const updatedContent = fileContent.replaceAll(oldText, newText);
+  fs.writeFileSync(filePath, updatedContent);
 };
