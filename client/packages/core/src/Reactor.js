@@ -275,7 +275,9 @@ export default class Reactor {
     this._oauthCallbackResponse = this._oauthLoginInit();
 
     // kick off a request to cache it
-    this.getCurrentUser();
+    this.getCurrentUser().then((userInfo) => {
+      this.syncUserToEndpoint(userInfo.user);
+    });
 
     NetworkListener.getIsOnline().then((isOnline) => {
       this._isOnline = isOnline;
@@ -1817,7 +1819,23 @@ export default class Reactor {
     }
   }
 
+  async syncUserToEndpoint(user) {
+    if (this.config.endpointURI) {
+      fetch(this.config.endpointURI + '/sync-auth', {
+        method: 'POST',
+        body: JSON.stringify({
+          user: user,
+        }),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    }
+  }
+
   updateUser(newUser) {
+    this.syncUserToEndpoint(newUser);
+
     const newV = { error: undefined, user: newUser };
     this._currentUserCached = { isLoading: false, ...newV };
     this._dataForQueryCache = {};
