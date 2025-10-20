@@ -7,7 +7,6 @@ import {
   useState,
   ReactNode,
   MutableRefObject,
-  FormEvent,
 } from 'react';
 import {
   ArrowLeftIcon,
@@ -93,6 +92,9 @@ export function EditNamespaceDialog({
   >({ type: 'main' });
 
   const [renameNsInput, setRenameNsInput] = useState('');
+  const [renameNsErrorText, setRenameNsErrorText] = useState<string | null>(
+    null,
+  );
 
   async function deleteNs() {
     const ops = namespace.attrs.map((attr) => ['delete-attr', attr.id]);
@@ -100,14 +102,11 @@ export function EditNamespaceDialog({
     onClose({ ok: true });
   }
 
-  const handleRenameSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    renameNs(renameNsInput);
-    setScreen({ type: 'main' });
-    setRenameNsInput('');
-  };
-
   async function renameNs(newName: string) {
+    if (newName.startsWith('$')) {
+      setRenameNsErrorText('Namespace name cannot start with $');
+      return;
+    }
     const currentName = namespace.name;
     const ops: any[] = [];
     namespace.attrs.forEach((attr) => {
@@ -146,6 +145,8 @@ export function EditNamespaceDialog({
     replaceNav({
       namespace: newName,
     });
+    setRenameNsInput('');
+    setScreen({ type: 'main' });
   }
 
   const notes = useAttrNotes();
@@ -168,7 +169,13 @@ export function EditNamespaceDialog({
       {screen.type === 'rename' && (
         <div className="px-2">
           <h3 className="text-lg font-bold">Rename {namespace.name}</h3>
-          <form onSubmit={handleRenameSubmit} className="pt-2">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              renameNs(renameNsInput.trim());
+            }}
+            className="pt-2"
+          >
             <p className="pb-2 font-semibold text-red-400">
               Warning! Any code referencing the previous namespace will no
               longer work.
@@ -179,6 +186,9 @@ export function EditNamespaceDialog({
               value={renameNsInput}
               onChange={(e) => setRenameNsInput(e)}
             ></TextInput>
+            {renameNsErrorText && (
+              <p className="text-red-400">{renameNsErrorText}</p>
+            )}
             <div className="flex justify-end gap-2 pt-2">
               <Button
                 onClick={() => {
