@@ -843,9 +843,11 @@ function createPNG({
 Now we can just pick up the `allSketch` we created before, and save it:
 
 ```typescript
+const compressedSketch = await Bun.zstdCompress(allSketch.buckets);
+
 fs.writeFileSync(
-  'compressedSketch.png',
-  createPNG({ width: 150, buffer: await Bun.zstdCompress(allSketch.buckets) }),
+  "compressedSketch.png",
+  createPNG({ width: 150, buffer: compressedSketch }),
 );
 ```
 
