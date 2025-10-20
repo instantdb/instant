@@ -9,19 +9,13 @@ import java.net.UnknownHostException;
 import javax.net.SocketFactory;
 
 /**
- * A wrapper around a SocketFactory that logs socket creation events and can modify sockets after
- * they are created. This class follows the Decorator pattern.
+ * A wrapper around a SocketFactory that generates counting sockets
+ * that track the amount of data going through them.
  */
 public class SocketWrapper extends SocketFactory {
 
   private final SocketFactory baseFactory;
 
-  /**
-   * Constructs a LoggingSocketFactory that wraps a given base factory.
-   *
-   * @param baseFactory The underlying SocketFactory to delegate calls to (e.g.,
-   *        SocketFactory.getDefault()). It cannot be null.
-   */
   public SocketWrapper() {
     this.baseFactory = SocketFactory.getDefault();
   }
