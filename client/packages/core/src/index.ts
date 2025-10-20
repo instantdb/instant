@@ -19,6 +19,7 @@ import {
   validateTransactions,
   TransactionValidationError,
 } from './transactionValidation.ts';
+import { createInstantRouteHandler } from './createRouteHandler.ts';
 
 import type {
   PresenceOpts,
@@ -134,6 +135,7 @@ export type InstantConfig<
   appId: string;
   schema?: S;
   websocketURI?: string;
+  endpointURI?: string;
   apiURI?: string;
   devtool?: boolean | DevtoolConfig;
   verbose?: boolean;
@@ -966,4 +968,5 @@ export {
 
   // error types
   type InstantIssue,
+  createInstantRouteHandler,
 };

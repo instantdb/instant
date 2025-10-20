@@ -12,7 +12,6 @@ import {
   type InstantIssue,
   type TransactionChunk,
   type AuthToken,
-  type Exactly,
 
   // core types
   type User,
@@ -69,6 +68,7 @@ import {
   type DeleteFileResponse,
   validateQuery,
   validateTransactions,
+  createInstantRouteHandler,
 } from '@instantdb/core';
 
 import version from './version.ts';
@@ -1075,6 +1075,7 @@ export {
   tx,
   lookup,
   i,
+  createInstantRouteHandler,
 
   // error
   InstantAPIError,

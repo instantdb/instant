@@ -70,6 +70,7 @@ import {
   type FileOpts,
   type UploadFileResponse,
   type DeleteFileResponse,
+  createInstantRouteHandler,
 } from '@instantdb/core';
 
 import { InstantReactAbstractDatabase } from '@instantdb/react-common';
@@ -83,6 +84,7 @@ export {
   lookup,
   init,
   init_experimental,
+  createInstantRouteHandler,
   InstantReactWebDatabase,
   Cursors,
   i,
