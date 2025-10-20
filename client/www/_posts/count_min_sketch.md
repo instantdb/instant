@@ -591,13 +591,13 @@ But an expected value for noise isn't useful yet. It just gives us an average. W
 
 That's where **Markov's Inequality** [^9] comes in. Markov's Inequality is a proof about random variables that says:
 
-> For any non-negative random variable, the probability that something exceeds $n$ times its expected value is at most $\frac{1}{n}$.
+> For any non-negative random variable, the probability that something is at least $n$ times its expected value is at most $\frac{1}{n}$.
 
 To get concrete, if we plug in $n = e$ [^14] to Markov's Inequality, we get:
 
-> The probability that something exceeds $e$ times its expected value, is at most $\frac{1}{e}$
+> The probability that something is at least $e$ times its expected value is at most $\frac{1}{e}$.
 
-Well, our noise is a non-negative random variable [^12]. And we have its expected value. If we use Markov's Inequality, we'll get a real probability that we can use!
+Well, our noise is a non-negative random variable [^12]. And we have its expected value. If we use Markov's Inequality we'll get a real probability that we can use!
 
 $$
 P(\text{Noise} \ge e \times expectedNoise_{word}) \le \frac{1}{e}
@@ -605,7 +605,7 @@ $$
 
 ### A maximumOvercount with about 37% confidence
 
-Let's look at our probability a bit more.
+Let's look that probability a bit more:
 
 $$
 P(\text{Noise} \ge e \times expectedNoise_{word}) \le \frac{1}{e}
@@ -619,7 +619,7 @@ $$
 
 And to make things more concrete, $\frac{1}{e}$ is about 0.37.
 
-What is this probability saying then? Let's write it out in English:
+What is it saying then? Let's write it out in English:
 
 > "The probability that noise is at most e times expectedNoise is at least ~37%"
 
@@ -668,7 +668,7 @@ errorRate \le \frac{e}{columns}
 columns \ge \frac{e}{errorRate}
 $$
 
-Voila! We've just gotten a formula for columns.
+Voila! We've gotten a formula for columns.
 
 ### A solution for 1 row
 
@@ -725,13 +725,9 @@ $$
 confidence = P(\text{at least 1 good row})
 $$
 
-So what's the probability of _at least_ 1 good row?
-
-It's the complement of getting all bad rows.
+So what's the probability of _at least_ 1 good row? It's the complement of getting all bad rows:
 
 $$
-confidence = P(\text{at least 1 good row})
-{} \\
 P(\text{at least 1 good row}) = 1 - P(\text{all rows are bad})
 $$
 
@@ -743,15 +739,15 @@ $$
 
 ### Expanding things out
 
-Now that we have a formula for confidence, let's start expanding it out:
+Since we know $P(\text{all rows are bad})$, let's expand it:
 
 $$
 confidence = 1 - \left(\frac{1}{e}\right)^{rows}
 $$
 
-We've just connected `confidence` to `rows` !
+Aand we've just connected `confidence` to `rows`! Let's keep going.
 
-Let's keep going. Isolate the term for rows:
+Isolate the term for rows:
 
 $$
 \left(\frac{1}{e}\right)^{rows} = 1 - confidence
@@ -783,11 +779,11 @@ $$
 rows = \ln(\frac{1}{1 - confidence})
 $$
 
-And we just got our formula for `rows`!
+And we've gotten our formula for `rows`!
 
 ## Formulas to Code
 
-Now we have formulas for `columns` and `rows`!
+Now we have formulas for _both_ `columns` and `rows`!
 
 $$
 columns = \frac{e}{errorRate}
@@ -837,7 +833,7 @@ Let's start off by installing a library to create PNGs:
 
 ```bash
 bun add pngjs
-bun add @types/pngjs
+bun add -D @types/pngjs
 ```
 
 Now, we'll take a series of bytes. One pixel can be expressed as `R` `G` `B` `A`, each that's one byte. So we can fit 4 bytes per pixel. Here's a quick function to do that:
@@ -870,7 +866,7 @@ function createPNG({
 
 ## A PNG for our Sketch
 
-Now we can just pick up the `allSketch` we created before, and save it:
+Let's pick up our `allSketch` we created before, and save it as a PNG:
 
 ```typescript
 const compressedSketch = await Bun.zstdCompress(allSketch.buckets);
