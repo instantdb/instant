@@ -163,7 +163,10 @@ const WORD_COLOR_MAP: Record<string, number> = {
   droop: 3, // rose (red)
 };
 
-function getColorSchemeForWord(normalizedWord: string, fallbackIndex: number): ColorScheme {
+function getColorSchemeForWord(
+  normalizedWord: string,
+  fallbackIndex: number,
+): ColorScheme {
   const colorIndex = WORD_COLOR_MAP[normalizedWord];
   if (colorIndex !== undefined) {
     return COLOR_SCHEMES[colorIndex]!;
