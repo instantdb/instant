@@ -1969,8 +1969,8 @@ export function ExactCountsGrowthDemo() {
         <div className="grid grid-cols-2 gap-4">
           {/* Words side */}
           <div className="flex flex-col border border-gray-200 bg-white p-4">
-            <h3 className="mb-2 mt-2 text-center text-xl font-bold">words</h3>
-            <div className="flex-1 space-y-2" style={{ minHeight: '230px' }}>
+            <h3 className="-mt-1 mb-2 text-center text-xl font-bold">words</h3>
+            <div className="flex-1 space-y-1.5" style={{ minHeight: '230px' }}>
               {visibleWords.map((word, idx) => {
                 const scheme = COLOR_SCHEMES[idx % COLOR_SCHEMES.length]!;
                 const isNew = currentWord === word && idx === step;
@@ -1979,9 +1979,9 @@ export function ExactCountsGrowthDemo() {
                     key={idx}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
-                    className="flex items-center gap-2"
+                    className="flex items-center gap-1.5"
                   >
-                    <span className="text-green-600">+</span>
+                    <span className="w-3 text-green-600">+</span>
                     <span
                       className={cn(
                         'transition-colors',
@@ -1997,8 +1997,8 @@ export function ExactCountsGrowthDemo() {
           </div>
 
           {/* Counts side */}
-          <div className="flex flex-col border border-gray-200 bg-white p-6">
-            <h3 className="mb-2 mt-2 text-center text-xl font-bold">counts</h3>
+          <div className="flex flex-col border border-gray-200 bg-white p-4">
+            <h3 className="-mt-1 mb-2 text-center text-xl font-bold">counts</h3>
             <div className="flex-1">
               <div className="text-gray-900">{'{'}</div>
               <div className="ml-4 space-y-1">
