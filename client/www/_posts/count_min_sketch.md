@@ -615,7 +615,7 @@ $$
 P(\text{Noise} \ge e \times expectedNoise_{word}) \le \frac{1}{e}
 $$
 
-We can reverse it:
+Let's get it's complement:
 
 $$
 P(\text{Noise} \le e \times expectedNoise_{word}) \ge 1 - \frac{1}{e}
