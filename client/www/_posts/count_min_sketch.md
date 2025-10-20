@@ -263,7 +263,7 @@ type Sketch = {
 };
 ```
 
-We keep track of a `rows`, `columns`, and all of our `buckets`. Technically `buckets` are arranged as a matrix so we _could_ use an array of arrays to store them. But a single array of buckets is more efficient, so let's keep it. [^7]
+We keep track of a `rows`, `columns`, and all of our `buckets`. Technically `buckets` are arranged as a matrix so we _could_ use an array of arrays to store them. But a single array of buckets is more efficient. [^7]
 
 To make life easier let's create a little builder function:
 
@@ -577,7 +577,7 @@ $$
 
 If you think about, do we really _need_ to subtract the $actualCount_{word}$? We can simplify this formula by getting more conservative about what we promise.
 
-Let's just bound ourselves to the worst case scenario, where we ask for a word that isn't in the corpus:
+We can bound ourselves to the worst case scenario, where we ask for a word that hasn't been seen before:
 
 $$
 expectedNoise_{word} \le \frac{totalWords}{columns}
@@ -587,7 +587,7 @@ Pretty cool. Now we have a simple relation for our expected noise!
 
 ### Help from Markov
 
-But an expected value for noise isn't useful yet. It just gives us an average. What we want is the _probability_ that something is below some `maximumOvercount`.
+But an expected value for noise isn't useful yet. It just gives us an average. What we want is the _probability_ that something is below a `maximumOvercount`.
 
 That's where **Markov's Inequality** [^9] comes in. Markov's Inequality is a proof about random variables that says:
 

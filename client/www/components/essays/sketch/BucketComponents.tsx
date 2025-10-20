@@ -154,6 +154,23 @@ const COLOR_SCHEMES: ColorScheme[] = [
   },
 ];
 
+// Map specific words to specific color schemes
+const WORD_COLOR_MAP: Record<string, number> = {
+  wet: 4, // emerald (green)
+  castle: 0, // sky (blue)
+  peer: 1, // amber (yellow)
+  like: 2, // fuchsia (pink)
+  droop: 3, // rose (red)
+};
+
+function getColorSchemeForWord(normalizedWord: string, fallbackIndex: number): ColorScheme {
+  const colorIndex = WORD_COLOR_MAP[normalizedWord];
+  if (colorIndex !== undefined) {
+    return COLOR_SCHEMES[colorIndex]!;
+  }
+  return COLOR_SCHEMES[fallbackIndex % COLOR_SCHEMES.length]!;
+}
+
 const DEMO_BUCKET_MAX_FILL = 800;
 
 const DEFAULT_BUCKET_WORDS = ['castle', 'droop', 'like', 'wet'];
@@ -274,7 +291,7 @@ export function BucketVisualizer({
   const wordEntries = useMemo<WordEntry[]>(() => {
     return normalizedWords.map((label, index) => {
       const normalized = stem(label);
-      const scheme = COLOR_SCHEMES[index % COLOR_SCHEMES.length]!;
+      const scheme = getColorSchemeForWord(normalized, index);
       const count = counts[normalized] ?? 0;
       return { index, label, normalized, scheme, count };
     });
@@ -1055,9 +1072,9 @@ export function SingleRowBucketsDemo() {
   // Bucket at index 5 shows 'wet' with noise breakdown, matching BucketNoiseBreakdownDemo
   const bucketFills = [
     { fills: [{ color: '#fda4af', fillRatio: 0.2 }] }, // rose - 20%
-    { fills: [{ color: '#a5b4fc', fillRatio: 0.15 }] }, // indigo - 15%
+    { fills: [{ color: '#c084fc', fillRatio: 0.15 }] }, // purple - 15%
     { fills: [{ color: '#f0abfc', fillRatio: 0.1 }] }, // fuchsia - 10%
-    { fills: [{ color: '#e5e7eb', fillRatio: 0.05 }] }, // gray - 5%
+    { fills: [{ color: '#fb923c', fillRatio: 0.05 }] }, // orange - 5%
     { fills: [{ color: '#e5e7eb', fillRatio: 0 }] }, // empty
     {
       // wet bucket with noise - matching the breakdown demo visual
@@ -1066,7 +1083,7 @@ export function SingleRowBucketsDemo() {
         { color: '#fda4af', fillRatio: 0.42 }, // rose for 'noise' (252/600)
       ],
     },
-    { fills: [{ color: '#6ee7b7', fillRatio: 0.35 }] }, // emerald - 35%
+    { fills: [{ color: '#60a5fa', fillRatio: 0.35 }] }, // blue - 35%
     { fills: [{ color: '#a5b4fc', fillRatio: 0.45 }] }, // indigo - 45%
     { fills: [{ color: '#7dd3fc', fillRatio: 0.14 }] }, // sky - 14%
     { fills: [{ color: '#fcd34d', fillRatio: 0.06 }] }, // amber - 6% (droop bucket)
@@ -1142,8 +1159,8 @@ export function BucketNoiseBreakdownDemo() {
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div className="flex flex-wrap gap-3">
               <div className="relative flex flex-col items-center">
-                <motion.div className="absolute -top-2.5 left-0 right-0 h-1 bg-amber-500" />
-                <span className="border border-amber-300 bg-amber-100 px-3 py-1.5 text-xs font-medium text-amber-800">
+                <motion.div className="absolute -top-2.5 left-0 right-0 h-1 bg-emerald-500" />
+                <span className="border border-emerald-300 bg-emerald-100 px-3 py-1.5 text-xs font-medium text-emerald-800">
                   wet
                 </span>
               </div>
@@ -1256,7 +1273,7 @@ export function MoreBucketsDemo() {
   const wordEntries = useMemo<WordEntry[]>(() => {
     return normalizedWords.map((label, index) => {
       const normalized = stem(label);
-      const scheme = COLOR_SCHEMES[index % COLOR_SCHEMES.length]!;
+      const scheme = getColorSchemeForWord(normalized, index);
       const count = counts[normalized] ?? 0;
       return { index, label, normalized, scheme, count };
     });
@@ -1635,7 +1652,7 @@ export function MoreRowsConfidenceDemo() {
   const wordEntries = useMemo<WordEntry[]>(() => {
     return normalizedWords.map((label, index) => {
       const normalized = stem(label);
-      const scheme = COLOR_SCHEMES[index % COLOR_SCHEMES.length]!;
+      const scheme = getColorSchemeForWord(normalized, index);
       const count = counts[normalized] ?? 0;
       return { index, label, normalized, scheme, count };
     });
