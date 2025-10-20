@@ -577,7 +577,7 @@ $$
 
 If you think about, do we really _need_ to subtract the $actualCount_{word}$? It's going to be such a small part of the total anyways.
 
-We can simplify this formula by getting more conservative about what we promise. Let's just say that the the expected noise is _smaller_ than this:
+We can simplify this formula by getting more conservative about what we promise. Let's just say that the expected noise is _smaller_ than this:
 
 $$
 expectedNoise_{word} <= \frac{totalWords}{columns}
