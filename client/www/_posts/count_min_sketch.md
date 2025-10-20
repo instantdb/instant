@@ -509,16 +509,16 @@ That's pretty cool! How can we be certain like this?
 
 Turns out, you can tie the `errorRate` and the `confidence` to the number of `rows` and `columns` in a sketch! Here are the formulas
 
-Given an `errorRate`, get this many columns [^14]:
+Given an `errorRate`, get this many columns:
 
 $$
-columns = \frac{2}{errorRate}
+columns = \frac{e}{errorRate}
 $$
 
-Given a `confidence`, get this many rows [^15]:
+Given a `confidence`, get this many rows:
 
 $$
-rows = \frac{\ln(1 - confidence)}{\ln(\frac{1}{2})}
+rows = \ln(\frac{1}{1 - confidence})
 $$
 
 Now how did we get these formulas? Let's derive them.
@@ -593,14 +593,14 @@ That's where **Markov's Inequality** [^9] comes in. Markov's Inequality is a pro
 
 > For any non-negative random variable, the probability that something exceeds n times its expected value is at most 1/n.
 
-To get concrete, if we plug in `n = 2` to Markov's Inequality, we get:
+To get concrete, if we plug in $n = e$ to Markov's Inequality, we get:
 
-> The probability that something exceeds 2 times its expected value, is at most 1 / 2
+> The probability that something exceeds $e$ times its expected value, is at most $\frac{1}{e}$
 
 Well, our noise is a non-negative random variable [^12]. And we have its expected value. If we use Markov's Inequality, we'll get a real probability that we can use!
 
 $$
-P(\text{Noise} > 2 \times expectedNoise_{word}) \le \frac{1}{2}
+P(\text{Noise} > e \times expectedNoise_{word}) \le \frac{1}{e}
 $$
 
 ### expectedNoise → maximumOvercount
@@ -608,26 +608,28 @@ $$
 Let's look at probability a bit more.
 
 $$
-P(\text{Noise} > 2 \times expectedNoise_{word}) \le \frac{1}{2}
+P(\text{Noise} > e \times expectedNoise_{word}) \le \frac{1}{e}
 $$
 
 This says:
 
-> "The probability that the noise is greater than 2 \* expectedNoise is less than or equal to 50%"
+> "The probability that the noise is greater than $e \times expectedNoise$ is less than or equal to $1/e$"
 
 We can reverse it:
 
 $$
-P(\text{Noise} < 2 \times expectedNoise_{word}) > \frac{1}{2}
+P(\text{Noise} < e \times expectedNoise_{word}) > \frac{1}{e}
 $$
 
 Which says:
 
-> "The probability that the noise is smaller than 2 \* expectedNoise is greater than 50%"
+> "The probability that the noise is smaller than $e \times expectedNoiss$ is greater than $1/e$"
 
-**If you squint, this is talking about our maximumOvercount!**. With 50% confidence, we know that we'll get an estimation smaller than `2 * expectedNoise`.
+$1/e$ is about 0.37, so we are saying 37% here. **If you squint, this is talking about our maximumOvercount!**.
 
-### An errorRate with 50% confidence
+With about 37% confidence, we know that we'll get an estimation smaller than $e \times expectedNoise$.
+
+### An errorRate with about 37% confidence
 
 Now that we have a probability that uses `maximumOvercount`, let's tie that back to `errorRate`.
 
@@ -650,13 +652,13 @@ $$
 And now that we know `maximumOvercount`:
 
 $$
-totalWords \times errorRate <= 2 \times expectedNoise;
+totalWords \times errorRate <= e \times expectedNoise;
 $$
 
 And since we know `expectedNoise`:
 
 $$
-totalWords \times errorRate \le \frac{2 \times totalWords}{columns}
+totalWords \times errorRate \le \frac{e \times totalWords}{columns}
 $$
 
 **We've just tied errorRate and columns together!**
@@ -664,98 +666,112 @@ $$
 Let's keep going:
 
 $$
-errorRate \le \frac{2}{columns}
+errorRate \le \frac{e}{columns}
 {} \\
 {} \\
-columns \ge \frac{2}{errorRate}
+columns \ge \frac{e}{errorRate}
 $$
 
 Voila! We've just gotten a formula for columns.
 
-### 2 / errorRate
+### e / errorRate
 
-If our goal was to get a particular error rate with 50% confidence, we could just set:
+If our goal was to get a particular error rate with about 37% confidence, we could just set:
 
 $$
-columns = \frac{2}{errorRate}
+columns = \frac{e}{errorRate}
 {} \\
 {} \\
 rows = 1
 $$
 
-But 50% confidence kind of sucks. How can we improve that?
+But 37% confidence kind of sucks. How can we improve that?
 
 ## Tying confidence to rows
 
 Let's remember our initial Markov Inequality:
 
 $$
-P(\text{Noise} > 2 \times expectedNoise) \le \frac{1}{2}
+P(\text{Noise} > e \times expectedNoise) \le \frac{1}{e}
 $$
 
-### One bad row
+### All bad rows
 
 When `Noise > maximumOvercount`, it basically means that our estimation has failed. We've gotten a "bad row", where the bucket has highly frequent words in it.
 
 In this case we can paraphrase this to:
 
 $$
-P(\text{row is bad}) \le \frac{1}{2}
+P(\text{row is bad}) \le \frac{1}{e}
 $$
 
 Now what happens if we add more rows? Consider 2 rows. What is the chance that _both_ rows are bad?
 
 $$
-P(\text{2 rows are bad}) \le \left(\frac{1}{2}\right)^{2}
+P(\text{2 rows are bad}) \le \left(\frac{1}{e}\right)^{2}
 $$
 
-$\frac{1}{4}$. This generalizes.
-
-### All bad rows
-
-Given some number of rows, what is the probability that _all_ rows are bad?
+This generalizes. Given some number of rows, what is the probability that _all_ rows are bad?
 
 $$
-P(\text{all rows are bad}) \le \left(\frac{1}{2}\right)^{rows}
+P(\text{all rows are bad}) \le \left(\frac{1}{e}\right)^{rows}
 $$
 
 And now that we know the formula for "all rows are bad", we actually _also_ know the formula for confidence.
 
 ### Confidence
 
-As long as we get 1 good row, we know that we'll return within our estimation. So what's the probability of _at least_ 1 good row?
+As long as we get 1 good row, we know that we'll return within our estimation.
+
+So what's the probability of _at least_ 1 good row? It's just the complement of getting all bad rows!
 
 $$
 confidence = 1 - P(\text{all rows are bad})
 $$
 
-It's just the complement of getting all bad rows! Now we can expand it out:
+Now we can expand it out:
 
 $$
-confidence = 1 - \left(\frac{1}{2}\right)^{rows}
+confidence = 1 - \left(\frac{1}{e}\right)^{rows}
 $$
 
 Isolate the term for rows:
 
 $$
-\left(\frac{1}{2}\right)^{rows} = 1 - confidence
+\left(\frac{1}{e}\right)^{rows} = 1 - confidence
 $$
 
-Let's use some logs [^17]:
+Remember $\left(\frac{1}{2}\right)^{rows}$ is the same as $e^{-rows}$
 
 $$
-rows \times \ln(\frac{1}{2}) = \ln(1 - confidence)
+e^{-rows} = 1 - confidence
 $$
 
-And you've got a formula for rows! [^16]
+Let's take the natural log of both sides:
 
 $$
-rows = \frac{\ln(1 - confidence)}{\ln(\frac{1}{2})}
+\ln(e^{-rows}) = \ln(1 - confidence)
 $$
+
+We can simplify the left side:
+
+$$
+-rows = \ln(1 - confidence)
+\\ {}
+rows = -\ln(1 - confidence)
+$$
+
+We can push the `-` inside the `ln`:
+
+$$
+rows = \ln(\frac{1}{1 - confidence})
+$$
+
+And that's our formula `rows`!
 
 ## Fin
 
-And voila, you got formulas for both `columns` and `rows`!
+Now we have formulas for `columns` and `rows`!
 
 $$
 columns = \frac{2}{errorRate}
@@ -776,8 +792,8 @@ function sketchWithBounds({
   errorRate: number;
   confidence: number;
 }): Sketch {
-  const columns = Math.ceil(2 / errorRate);
-  const rows = Math.ceil(Math.log(1 - confidence) / Math.log(0.5));
+  const columns = Math.ceil(Math.E / errorRate);
+  const rows = Math.ceil(Math.log(1 / (1 - confidence)));
   return createSketch({ rows, columns });
 }
 ```
@@ -902,6 +918,16 @@ Congratulations, you made it all the way through the bonus too!
 
 _Thanks to Joe Averbukh, Daniel Woelfel, Predrag Gruevski, Irakli Safareli, Nicole Garcia Fischer, Irakli Popkhadze, Mark Shlick, Ilan Tzitrin, Drew Harris, for reviewing drafts of this essay_
 
+The [original paper](http://dimacs.rutgers.edu/~graham/pubs/papers/cm-full.pdf) chose to pick $e$ instead of 2. This optimizes the total space the sketch takes up. But 2 is easier to reason about, so I stuck with that.
+
+The [original paper](http://dimacs.rutgers.edu/~graham/pubs/papers/cm-full.pdf) gets it down to $rows = \ln\!\left(\frac{1}{1 - \text{confidence}}\right)$. We chose `n = 2` in our Markov Inequality, so we could have gotten our formula down to the similar $rows = \log_{2}\!\left(\frac{1}{1 - \text{confidence}}\right)$. But this would require a few more steps with logarithms, which I wanted to avoid. The expressions are equivalent.
+
+If you are curious how the original paper could get the proof to the more elegant logarithm $rows = \log_{e}\!\left(\frac{1}{1 - \text{confidence}}\right)$, here's a session where ChatGPT gives a great [step-by-step solution](https://chatgpt.com/share/68f68e21-56e8-8003-9233-ea5779d1de3c).
+
+I took the natural log, because `Math.log` in Javascript is the natural log.
+
+
+
 [^1]: A sync engine you can try [without even signing up](/tutorial)!
 
 [^2]: "Eccentric adjectives" are another Wodehouse-ism. He'd often use adjectives on nouns, like "I lit a thoughtful cigarette"
@@ -927,11 +953,3 @@ _Thanks to Joe Averbukh, Daniel Woelfel, Predrag Gruevski, Irakli Safareli, Nico
 [^12]: It's non-negative because we only ever increment buckets.
 
 [^13]: You may wonder, is JSON stringify an efficient way to serialize it? At a glance it feels like it isn't. But I ran a few tests with protobufs and msgpack, only to find out that JSON.stringify + zstd was more efficient. My guess is because zstd does a great job compressing the repetition in the JSON.
-
-[^14]: The [original paper](http://dimacs.rutgers.edu/~graham/pubs/papers/cm-full.pdf) chose to pick $e$ instead of 2. This optimizes the total space the sketch takes up. But 2 is easier to reason about, so I stuck with that.
-
-[^15]: The [original paper](http://dimacs.rutgers.edu/~graham/pubs/papers/cm-full.pdf) gets it down to $rows = \ln\!\left(\frac{1}{1 - \text{confidence}}\right)$. We chose `n = 2` in our Markov Inequality, so we could have gotten our formula down to the similar $rows = \log_{2}\!\left(\frac{1}{1 - \text{confidence}}\right)$. But this would require a few more steps with logarithms, which I wanted to avoid. The expressions are equivalent.
-
-[^16]: If you are curious how the original paper could get the proof to the more elegant logarithm $rows = \log_{e}\!\left(\frac{1}{1 - \text{confidence}}\right)$, here's a session where ChatGPT gives a great [step-by-step solution](https://chatgpt.com/share/68f68e21-56e8-8003-9233-ea5779d1de3c).
-
-[^17]: I took the natural log, because `Math.log` in Javascript is the natural log.
