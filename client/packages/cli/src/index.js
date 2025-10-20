@@ -43,6 +43,7 @@ import { UI } from './ui/index.js';
 import { deferred } from './ui/lib.js';
 import { promptOk } from './util/promptOk.js';
 import { ResolveRenamePrompt } from './util/renamePrompt.js';
+import { buildAutoRenameSelector } from './rename.js';
 
 const execAsync = promisify(exec);
 
@@ -391,6 +392,10 @@ program
     "Don't check types on the server when pushing schema",
   )
   .option('-t --title', 'Title for the created app')
+  .option(
+    '--rename [renames...]',
+    'List of full attribute names separated by a ":"\n Example:`push --rename posts.author:posts.creator stores.owner:stores.manager`',
+  )
   .option(
     '-p --package <react|react-native|core|admin>',
     'Which package to automatically install if there is not one installed already.',
@@ -1400,11 +1405,6 @@ function linkOptsPretty(attr) {
 }
 
 const resolveRenames = async (created, promptData, extraInfo) => {
-  // Using --yes will disable renames and use create + delete for all attrs
-  if (program.opts().yes) {
-    return created;
-  }
-
   const answer = await renderUnwrap(
     new ResolveRenamePrompt(
       created,
@@ -1426,7 +1426,7 @@ const resolveRenames = async (created, promptData, extraInfo) => {
   return answer;
 };
 
-async function pushSchema(appId, _opts) {
+async function pushSchema(appId, opts) {
   const res = await readLocalSchemaFileWithErrorLogging();
   if (!res) return { ok: false };
   const { schema } = res;
@@ -1456,7 +1456,11 @@ async function pushSchema(appId, _opts) {
 
   const oldSchema = apiSchemaToInstantSchemaDef(currentApiSchema);
 
-  const diffResult = await diffSchemas(oldSchema, schema, resolveRenames);
+  const renameSelector = program.optsWithGlobals().yes
+    ? buildAutoRenameSelector(opts)
+    : resolveRenames;
+
+  const diffResult = await diffSchemas(oldSchema, schema, renameSelector);
   if (currentAttrs === undefined) {
     throw new Error("Couldn't get current schema from server");
   }
@@ -1471,6 +1475,10 @@ async function pushSchema(appId, _opts) {
   try {
     const groupedSteps = groupSteps(diffResult);
     const lines = renderSchemaPlan(groupedSteps, currentAttrs);
+    if (program.optsWithGlobals().yes) {
+      console.log('Applying schema changes...');
+      console.log(lines.join('\n'));
+    }
     wantsToPush = await promptOk(
       {
         promptText: 'Push these changes?',

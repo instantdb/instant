@@ -36,14 +36,15 @@
     "pkg-dir": "^8.0.0",
     "prettier": "^3.3.3",
     "semver": "7.7.2",
-    "strip-ansi": "^7.1.2",
     "sisteransi": "^1.0.5",
+    "strip-ansi": "^7.1.2",
     "terminal-link": "^3.0.0",
     "unconfig": "^0.5.5"
   },
   "scripts": {
     "build": "rm -rf dist; tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch --skipLibCheck --preserveWatchOutput | grep -v '^$'",
+    "test": "vitest",
     "publish-package": "pnpm publish --access public --no-git-checks"
   },
   "devDependencies": {
@@ -53,6 +54,7 @@
     "@types/lodash.throttle": "^4.1.9",
     "@types/node": "^22.6.1",
     "npm-run-all": "^4.1.5",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
   }
 }
