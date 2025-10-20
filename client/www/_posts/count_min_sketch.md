@@ -495,7 +495,7 @@ There are two numbers we can play with:
 1. The **errorRate** tells us how far off we expect our estimation to be
 2. The **confidence** tells us how likely it is that we are actually within our estimation.
 
-Let's make them concrete. The full text for Wodehouse is about 3.7 million words long (not unique words, here we are counting every occurence).
+Let's make them concrete. The full text for Wodehouse is about 3.7 million words long (not unique words, here we are counting every occurrence).
 
 Say we want an error rate of 0.05% and a 99% confidence.
 
