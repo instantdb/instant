@@ -75,6 +75,11 @@ const potentialEnvs = {
   nuxt: 'NUXT_PUBLIC_INSTANT_APP_ID',
 };
 
+const potentialAdminTokenEnvs = {
+  default: 'INSTANT_APP_ADMIN_TOKEN',
+  short: 'INSTANT_ADMIN_TOKEN',
+};
+
 async function detectEnvType({ pkgDir }) {
   const packageJSON = await getPackageJson(pkgDir);
   if (!packageJSON) {
@@ -448,6 +453,31 @@ program
     await validateAppLinked();
     await handlePull(bag, opts);
   });
+
+program.command('claim').action(async function () {
+  const envResult = detectAppIdAndAdminTokenFromEnvWithErrorLogging();
+  if (!envResult.ok) return process.exit(1);
+
+  if (!envResult.appId) {
+    error('No app ID found in environment variables.');
+    return process.exit(1);
+  }
+
+  if (!envResult.adminToken) {
+    error('No admin token found in environment variables.');
+    return process.exit(1);
+  }
+
+  const appId = envResult.appId.value;
+  const adminToken = envResult.adminToken.value;
+
+  console.log(`Found ${chalk.green(envResult.appId.envName)}: ${appId}`);
+  console.log(
+    `Found ${chalk.green(envResult.adminToken.envName)}: ${adminToken}`,
+  );
+
+  await claimEphemeralApp(appId, adminToken);
+});
 
 program.parse(process.argv);
 
@@ -1496,6 +1526,24 @@ async function pushSchema(appId, _opts) {
   return { ok: true };
 }
 
+async function claimEphemeralApp(appId, adminToken) {
+  const res = await fetchJson({
+    method: 'POST',
+    body: {
+      app_id: appId,
+      token: adminToken,
+    },
+    path: `/dash/apps/ephemeral/${appId}/claim`,
+    debugName: 'Claim ephemeral app',
+    errorMessage: 'Failed to claim ephemeral app.',
+  });
+
+  if (!res.ok) return res;
+
+  console.log(chalk.green('App claimed!'));
+  return { ok: true };
+}
+
 async function pushPerms(appId) {
   const res = await readLocalPermsFileWithErrorLogging();
   if (!res) {
@@ -1971,9 +2019,9 @@ export const rels = {
   'one-false': ['one', 'many'],
 };
 
-const uuidRegex =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function isUUID(uuid) {
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   return uuidRegex.test(uuid);
 }
 
@@ -2011,6 +2059,33 @@ function detectAppIdFromEnvWithErrorLogging() {
     return { ok: false, found };
   }
   return { ok: true, found };
+}
+
+function detectAppIdAndAdminTokenFromEnvWithErrorLogging() {
+  const appIdResult = Object.keys(potentialEnvs)
+    .map((type) => {
+      const envName = potentialEnvs[type];
+      const value = process.env[envName];
+      return { type, envName, value };
+    })
+    .find(({ value }) => !!value);
+
+  const adminTokenResult = Object.keys(potentialAdminTokenEnvs)
+    .map((type) => {
+      const envName = potentialAdminTokenEnvs[type];
+      const value = process.env[envName];
+      return { type, envName, value };
+    })
+    .find(({ value }) => !!value);
+
+  if (appIdResult && !isUUID(appIdResult.value)) {
+    error(
+      `Found ${chalk.green('`' + appIdResult.envName + '`')} but it's not a valid UUID.`,
+    );
+    return { ok: false, appId: appIdResult, adminToken: adminTokenResult };
+  }
+
+  return { ok: true, appId: appIdResult, adminToken: adminTokenResult };
 }
 
 function appDashUrl(id) {
