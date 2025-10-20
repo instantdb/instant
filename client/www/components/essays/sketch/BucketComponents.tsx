@@ -545,10 +545,10 @@ export function BucketVisualizer({
             </button>
             <button
               className={cn(
-                'border px-3 py-1.5 text-sm font-semibold',
+                'border px-4 py-1.5 text-sm font-semibold',
                 allWordsProcessed
                   ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400'
-                  : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50',
+                  : 'border-blue-500 bg-blue-500 text-white hover:bg-blue-600',
               )}
               onClick={handleStep}
               disabled={allWordsProcessed}
@@ -1955,12 +1955,12 @@ export function ExactCountsGrowthDemo() {
           </button>
           <button
             onClick={handlePlay}
-            disabled={isComplete}
+            disabled={isComplete || isPlaying}
             className={cn(
               'border px-4 py-1.5 text-sm font-semibold transition-all',
-              isComplete
+              isComplete || isPlaying
                 ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400'
-                : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50',
+                : 'border-blue-500 bg-blue-500 text-white hover:bg-blue-600',
             )}
           >
             Start

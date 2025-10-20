@@ -263,7 +263,7 @@ type Sketch = {
 };
 ```
 
-We keep track of a `rows`, `columns`, and all of our `buckets`. Technically `buckets` are arranged as a matrix so we _could_ use an array of arrays to store them. But a single array of buckets is more efficient. [^7]
+We keep track of a `rows`, `columns`, and all of our `buckets`. Technically `buckets` are arranged as a matrix so we _could_ use an array of arrays to store them. But a single array of buckets is more efficient, so let's keep it. [^7]
 
 To make life easier let's create a little builder function:
 
