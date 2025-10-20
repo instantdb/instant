@@ -125,18 +125,18 @@ This is a common natural-language processing task called "[stemming](https://en.
 // ...
 // 2. Split it into words
 function stem(word: string) {
-  let w = word.toLowerCase().replaceAll(/[^a-z]/g, "");
-  if (w.endsWith("ing") && w.length > 4) {
+  let w = word.toLowerCase().replaceAll(/[^a-z]/g, '');
+  if (w.endsWith('ing') && w.length > 4) {
     w = w.slice(0, -3);
-  } else if (w.endsWith("ed") && w.length > 3) {
+  } else if (w.endsWith('ed') && w.length > 3) {
     w = w.slice(0, -2);
-  } else if (w.endsWith("s") && w.length > 3 && !w.endsWith("ss")) {
+  } else if (w.endsWith('s') && w.length > 3 && !w.endsWith('ss')) {
     w = w.slice(0, -1);
-  } else if (w.endsWith("ly") && w.length > 3) {
+  } else if (w.endsWith('ly') && w.length > 3) {
     w = w.slice(0, -2);
-  } else if (w.endsWith("er") && w.length > 4) {
+  } else if (w.endsWith('er') && w.length > 4) {
     w = w.slice(0, -2);
-  } else if (w.endsWith("est") && w.length > 4) {
+  } else if (w.endsWith('est') && w.length > 4) {
     w = w.slice(0, -3);
   }
   return w;
@@ -846,7 +846,7 @@ Now we can just pick up the `allSketch` we created before, and save it:
 const compressedSketch = await Bun.zstdCompress(allSketch.buckets);
 
 fs.writeFileSync(
-  "compressedSketch.png",
+  'compressedSketch.png',
   createPNG({ width: 150, buffer: compressedSketch }),
 );
 ```
