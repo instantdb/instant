@@ -12,6 +12,10 @@ import {
   id,
   tx,
   lookup,
+
+  // error
+  InstantAPIError,
+
   type RoomSchemaShape,
   type InstantQuery,
   type InstantQueryResult,
@@ -140,6 +144,9 @@ export {
   lookup,
   i,
   InstantReactNativeDatabase,
+
+  // error
+  InstantAPIError,
 
   // types
   type Config,
