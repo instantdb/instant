@@ -472,9 +472,6 @@ program.command('claim').action(async function () {
   const adminToken = envResult.adminToken.value;
 
   console.log(`Found ${chalk.green(envResult.appId.envName)}: ${appId}`);
-  console.log(
-    `Found ${chalk.green(envResult.adminToken.envName)}: ${adminToken}`,
-  );
 
   await claimEphemeralApp(appId, adminToken);
 });
