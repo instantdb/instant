@@ -8,7 +8,7 @@ authors: stopachka
 Our teammate Daniel introduced Count-Min Sketches in Instant (a sync engine you can spin up in less than a minute). I got into a rabbit hole learning more about them and ended up writing out this essay in the process.
 </div>
 
-PG Wodehouse was a prolific author. Once he got his stride he published about a book a year until his dying day. And Wodehouse was funny. He often used eccentric [^2] adjectives: instead of "Freddie walked over", he would say "Freddie (shimmied | beetled | ambled) over".
+PG Wodehouse was a prolific author. Once he got his stride he published about a book a year until his dying day. And Wodehouse was funny. He often used eccentric adjectives: instead of "Freddie walked over", he would say "Freddie (shimmied | beetled | ambled) over".
 
 You may wonder, how many times did Wodehouse use the word "beetle"?
 
@@ -263,7 +263,7 @@ type Sketch = {
 };
 ```
 
-We keep track of a `rows`, `columns`, and all of our `buckets`. Technically `buckets` are arranged as a matrix so we _could_ use an array of arrays to store them. But if we keep buckets in a single array we can get more efficient. [^7]
+We keep track of a `rows`, `columns`, and all of our `buckets`. Technically `buckets` are arranged as a matrix so we _could_ use an array of arrays to store them. But a single array of buckets is more efficient. [^7]
 
 To make life easier let's create a little builder function:
 
@@ -404,7 +404,7 @@ Congratulations, you've implemented a Count-Min Sketch!
 
 # Getting real
 
-Alright, now that we have a real Count-Min Sketch, let's put it to the test. We'll find out approximately how many times 'Beetle' is used in Wodehouse's texts.
+Alright, now that we have a real Count-Min Sketch, let's put it to the test. We'll find out approximately how many times 'beetle' is used in Wodehouse's texts.
 
 ## Get all of Wodehouse
 
@@ -445,7 +445,7 @@ Let's create a sketch for our wodehouse words:
 ```typescript
 // index.ts
 // ...
-const allSketch = createSketch({ rows: 7, columns: 4000 });
+const allSketch = createSketch({ rows: 5, columns: 5437 });
 ```
 
 And add our words:
@@ -462,10 +462,10 @@ Now if we check out 'beetle':
 console.log('allSketch beetle', check(allSketch, stem('beetle')));
 ```
 
-We'll see 102!
+We'll see 78!
 
 ```bash
-allSketch beetle 102
+allSketch beetle 78
 ```
 
 A bit over, but not so bad. [^8]
@@ -476,15 +476,15 @@ If you're curious, try out different sizes and see what you get:
 
 # A breather to celebrate
 
-Congratulations! You just built a Count-Min Sketch from scratch, and used it on Wodehouse.
+Congratulations! You just built a Count-Min Sketch from scratch, and used it on Wodehouse. If you'd like to see the full code example, I put this up in its entirety on <a href="https://github.com/instantdb/count-min-sketch" target="_blank">GitHub</a>.
 
-If you'd like to see the full code example, I put this up in its entirety on <a href="https://github.com/instantdb/count-min-sketch" target="_blank">GitHub</a>.
+Hope you had a lot of fun :).
 
-Hope you had a lot of fun :). If you're still curious there's more to learn here, I present to you...2 bonus sections!
+If you're still curious there's more to learn here, I present to you...2 bonus sections!
 
 # Bonus 1: Probabilities
 
-When we created our sketch for Wodehouse, we chose some seemingly random numbers: 4000 columns and 7 rows. Is there a method to this madness?
+When we created our sketch for Wodehouse, we chose some seemingly random numbers: 5437 columns and 5 rows. Is there a method to this madness?
 
 Absolutely. We can use some math to help set bounds around our estimations.
 
@@ -809,10 +809,10 @@ const withBounds = sketchWithBounds({
 console.log('withBounds', withBounds.columns, withBounds.rows);
 ```
 
-And we got 4000 columns and 7 rows!
+And we got 5437 columns and 5 rows!
 
 ```typescript
-withBounds 4000 7
+withBounds 5437 5
 ```
 
 # Bonus 2: PNGs
@@ -930,11 +930,9 @@ I took the natural log, because `Math.log` in Javascript is the natural log.
 
 [^1]: A sync engine you can try [without even signing up](/tutorial)!
 
-[^2]: "Eccentric adjectives" are another Wodehouse-ism. He'd often use adjectives on nouns, like "I lit a thoughtful cigarette"
-
 [^3]: See this [interesting paper](https://www.usenix.org/legacy/event/hotsec10/tech/full_papers/Schechter.pdf)
 
-[^4]: I _think_ [X](https://web.archive.org/web/20170707141519/https://skillsmatter.com/skillscasts/6844-count-min-sketch-in-real-data-applications) is doing this, though I am not sure.
+[^4]: I _think_ [X](https://web.archive.org/web/20170707141519/https://skillsmatter.com/skillscasts/6844-count-min-sketch-in-real-data-applications) is doing this, though I am not sure if it's still the case.
 
 [^5]: Join orders as an example can make a world of a difference in query performance. Imagine two joins, where one returns 10 rows, and the other returns 1 million. If we fetch 10 million rows first, we're going to do a _lot_ of extra work. For the clojure enthusiasts, some of the code behind this lives [here](https://github.com/instantdb/instant/blob/main/server/src/instant/db/datalog.clj#L1349).
 

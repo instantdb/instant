@@ -12,9 +12,9 @@ import { Estimator } from './Estimator';
 const DEMO_RENDER_FNs: Record<string, () => JSX.Element> = {
   'intro-try-sketch': () => (
     <Estimator
-      initialColumns={4_000}
-      initialRows={7}
-      examples={['chap', 'scamper', 'soul', 'beetle']}
+      initialColumns={5437}
+      initialRows={5}
+      examples={['chap', 'castle', 'soul', 'beetle']}
       title="Words in Wodehouse"
     />
   ),
@@ -78,9 +78,9 @@ const DEMO_RENDER_FNs: Record<string, () => JSX.Element> = {
   'configurable-try-sketch': () => (
     <Estimator
       isConfigurable={true}
-      initialColumns={4_000}
-      initialRows={7}
-      examples={['chap', 'scamper', 'soul', 'beetle']}
+      initialColumns={5437}
+      initialRows={5}
+      examples={['chap', 'castle', 'soul', 'beetle']}
       title="Try different sizes"
     />
   ),
