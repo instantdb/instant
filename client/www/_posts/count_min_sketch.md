@@ -144,8 +144,8 @@ function stem(word: string) {
 
 function toWords(text: string): string[] {
   return text
-    .split("\n")
-    .flatMap((line) => line.split(" "))
+    .split('\n')
+    .flatMap((line) => line.split(' '))
     .map(stem)
     .filter((w) => w);
 }
