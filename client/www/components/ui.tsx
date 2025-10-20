@@ -995,7 +995,7 @@ export function Copyable({
           truncate: !multiline,
           'whitespace-pre-wrap break-all': multiline,
         })}
-        title={value}
+        title={hideValue || hidden ? redactedValue(value) : value}
         onClick={(e) => {
           const el = e.target as HTMLPreElement;
           const selection = window.getSelection();
