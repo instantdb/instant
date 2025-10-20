@@ -10,7 +10,7 @@
   (:gen-class
    :name instant.jdbc.SocketTrack
    :main false
-   :methods [^{:static true} [addsocket [instant.CountingSocket] void]]))
+   :methods [^{:static true} [addsocket [instant.socketutil.CountingSocket] void]]))
 
 (def ^:dynamic *connection-id* nil)
 
