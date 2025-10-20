@@ -124,8 +124,8 @@ This is a common natural-language processing task called "[stemming](https://en.
 // index.ts
 // ...
 // 2. Split it into words
-function stem(w: string) {
-  w = w.toLowerCase().replaceAll(/[^a-z]/g, "");
+function stem(word: string) {
+  let w = word.toLowerCase().replaceAll(/[^a-z]/g, "");
   if (w.endsWith("ing") && w.length > 4) {
     w = w.slice(0, -3);
   } else if (w.endsWith("ed") && w.length > 3) {
@@ -374,7 +374,7 @@ All that's left is to get a count. This is going to look similar to 'add'. We wa
 Let's do it:
 
 ```typescript
-function check({ rows, columns, buckets }: Sketch, word: string): number {
+function check({ rows, columns, buckets }: Sketch, word: string) {
   let approx = Infinity;
   for (let rowIdx = 0; rowIdx < rows; rowIdx++) {
     const hash = Bun.hash.xxHash3(word, BigInt(rowIdx));
@@ -411,7 +411,8 @@ Alright, we now that we have a real Count-Min Sketch, let's put it to the test. 
 I went ahead and compiled all 61 novels from Project Gutenberg into one giant text file. You can go ahead and download it:
 
 ```bash
-curl https://raw.githubusercontent.com/instantdb/count-min-sketch/refs/heads/main/wodehouse-full.txt -o wodehouse-full.txt
+curl http://instantdb.com/posts/count_min_sketch/wodehouse-full.txt \
+  -o wodehouse-full.txt
 ```
 
 We have a `wodehouse-full.txt` file we can play with now. Let's load it up:
