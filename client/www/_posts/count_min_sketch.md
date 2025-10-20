@@ -507,7 +507,7 @@ That's pretty cool! How can we be certain like this?
 
 ## Formulas
 
-Turns out, you can tie the `errorRate` and the `confidence` to the number of `rows` and `columns` in a sketch! Here are the formulas
+Turns out, you can tie the `errorRate` and the `confidence` to the number of `rows` and `columns` in a sketch! Here are the formulas:
 
 Given an `errorRate`, get this many `columns`:
 
@@ -531,7 +531,7 @@ We have:
 
 1. The `totalWords`. This tells us how many occurrences have been counted in our Sketch. For Wodehouse, that's 3.7M
 2. The `errorRate`. How far off we expect our estimation to be as a percentage of totalWords. For us it's 0.05%
-3. The `maximumOvercount`. Our maximum allowed overestimation for a particular `totalWords`. In our case, it's 1850).
+3. The `maximumOvercount`. Our maximum allowed overestimation for a particular `totalWords`. In our case, it's 1850.
 4. The `confidence`. This tells us how likely we are to be within within our estimation. We want 99%.
 
 And our sketch has two properties that we can influence:
@@ -948,4 +948,4 @@ _Thanks to Joe Averbukh, Daniel Woelfel, Predrag Gruevski, Irakli Safareli, Nico
 
 [^13]: You may wonder, is JSON stringify an efficient way to serialize it? At a glance it feels like it isn't. But I ran a few tests with protobufs and msgpack, only to find out that JSON.stringify + zstd was more efficient. My guess is because zstd does a great job compressing the repetition in the JSON.
 
-[^14]: The [original paper](http://dimacs.rutgers.edu/~graham/pubs/papers/cm-full.pdf) chose to pick $e$, because it minimizes the number of buckets needed for a particular error rate and confidence. We could have picked any number here though, and we'd still be able to go through the proof.
+[^14]: The [original paper](https://dsf.berkeley.edu/cs286/papers/countmin-latin2004.pdf) chose to pick $e$, because it minimizes the number of buckets needed for a particular error rate and confidence. We could have picked any number here though, and we'd still be able to go through the proof.
