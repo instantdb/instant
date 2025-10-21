@@ -25,7 +25,7 @@
    [instant.util.crypt :as crypt-util]
    [instant.util.instaql :refer [instaql-nodes->object-tree]]
    [instant.util.exception :as ex]
-   [instant.util.test :as test-util :refer [suid validation-err? perm-err? perm-pass? timeout-err?]]
+   [instant.util.test :as test-util :refer [suid stuid validation-err? perm-err? perm-pass? timeout-err?]]
    [instant.util.date :as date-util]
    [next.jdbc]))
 
@@ -4686,6 +4686,133 @@
                  {:db/id          (suid "c")
                   :train/weight   1000}}
                (test-util/find-entities-by-ids app-id attr->id ids)))))))
+
+
+(deftest on-delete-cascade-reused-entity-ids-forward
+  (with-empty-app
+    (fn [app]
+      (tx/transact! (aurora/conn-pool :write)
+                    (attr-model/get-by-app-id (:id app))
+                    (:id app)
+                    [[:add-attr
+                      {:id (stuid "uid")
+                       :forward-identity [(random-uuid) "users" "id"]
+                       :value-type :blob
+                       :cardinality :one
+                       :unique? true
+                       :index? false}]
+                     [:add-attr
+                      {:id (stuid "user")
+                       :forward-identity [(random-uuid) "profiles" "user"]
+                       :reverse-identity [(random-uuid) "users" "profile"]
+                       :value-type :ref
+                       :cardinality :one
+                       :unique? true
+                       :index? false
+                       :on-delete :cascade}]
+                     [:add-attr
+                      {:id (stuid "pid")
+                       :forward-identity [(random-uuid) "profiles" "id"]
+                       :value-type :blob
+                       :cardinality :one
+                       :unique? true
+                       :index? false}]
+                     [:add-triple (stuid "a") (stuid "uid") (str (stuid "a"))]
+                     [:add-triple (stuid "a") (stuid "pid") (str (stuid "a"))]
+                     [:add-triple (stuid "a") (stuid "user") (str (stuid "a"))]])
+
+      (testing "setup worked"
+        (is (= 3 (count (triple-model/fetch (aurora/conn-pool :read) (:id app))))))
+
+      (testing "delete cascade works"
+        (next.jdbc/with-transaction [conn (aurora/conn-pool :write)]
+          (is (tx/transact-without-tx-conn! conn
+                                            (attr-model/get-by-app-id (:id app))
+                                            (:id app)
+                                            [[:delete-entity (stuid "a") "users"]]
+                                            {}))
+
+          (is (= [] (triple-model/fetch conn (:id app))))
+
+          (.rollback conn)))
+
+      (testing "rollback worked"
+        (is (= 3 (count (triple-model/fetch (aurora/conn-pool :read) (:id app))))))
+
+      (testing "doesn't cascade in the reverse direction"
+        (next.jdbc/with-transaction [conn (aurora/conn-pool :write)]
+          (is (tx/transact-without-tx-conn! conn
+                                            (attr-model/get-by-app-id (:id app))
+                                            (:id app)
+                                            [[:delete-entity (stuid "a") "profiles"]]
+                                            {}))
+
+          (is (= 1 (count (triple-model/fetch conn (:id app)))))
+
+          (.rollback conn))))))
+
+(deftest on-delete-cascade-reused-entity-ids-reverse
+  (with-empty-app
+    (fn [app]
+      (tx/transact! (aurora/conn-pool :write)
+                    (attr-model/get-by-app-id (:id app))
+                    (:id app)
+                    [[:add-attr
+                      {:id (stuid "uid")
+                       :forward-identity [(random-uuid) "users" "id"]
+                       :value-type :blob
+                       :cardinality :one
+                       :unique? true
+                       :index? false}]
+                     [:add-attr
+                      {:id (stuid "user")
+                       :forward-identity [(random-uuid) "profiles" "user"]
+                       :reverse-identity [(random-uuid) "users" "profile"]
+                       :value-type :ref
+                       :cardinality :one
+                       :unique? true
+                       :index? false
+                       :on-delete-reverse :cascade}]
+                     [:add-attr
+                      {:id (stuid "pid")
+                       :forward-identity [(random-uuid) "profiles" "id"]
+                       :value-type :blob
+                       :cardinality :one
+                       :unique? true
+                       :index? false}]
+                     [:add-triple (stuid "a") (stuid "uid") (str (stuid "a"))]
+                     [:add-triple (stuid "a") (stuid "pid") (str (stuid "a"))]
+                     [:add-triple (stuid "a") (stuid "user") (str (stuid "a"))]])
+
+      (testing "setup worked"
+        (is (= 3 (count (triple-model/fetch (aurora/conn-pool :read) (:id app))))))
+
+      (testing "delete cascade works"
+        (next.jdbc/with-transaction [conn (aurora/conn-pool :write)]
+          (is (tx/transact-without-tx-conn! conn
+                                            (attr-model/get-by-app-id (:id app))
+                                            (:id app)
+                                            [[:delete-entity (stuid "a") "profiles"]]
+                                            {}))
+
+          (is (= [] (triple-model/fetch conn (:id app))))
+
+          (.rollback conn)))
+
+      (testing "rollback worked"
+        (is (= 3 (count (triple-model/fetch (aurora/conn-pool :read) (:id app))))))
+
+      (testing "doesn't cascade in the reverse direction"
+        (next.jdbc/with-transaction [conn (aurora/conn-pool :write)]
+          (is (tx/transact-without-tx-conn! conn
+                                            (attr-model/get-by-app-id (:id app))
+                                            (:id app)
+                                            [[:delete-entity (stuid "a") "users"]]
+                                            {}))
+
+          (is (= 1 (count (triple-model/fetch conn (:id app)))))
+
+          (.rollback conn))))))
 
 (deftest on-delete-cascade-refs
   (with-empty-app

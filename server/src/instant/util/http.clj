@@ -102,7 +102,7 @@
 
 ;; Exception types that we won't log an exception for
 (def silent-types #{::ex/session-missing
-                    ::ex/machine-missing})
+                    ::ex/member-missing})
 
 (defn wrap-errors
   "Captures exceptions thrown by the handler. We: 
