@@ -262,6 +262,9 @@ ${inputDisplay}`;
             });
           }
         }
+        if (keyInfo.name === 'tab') {
+          return;
+        }
         if (keyInfo.name === 'return') {
           if (this.value === '' && this.props.defaultValue) {
             this.value = this.props.defaultValue;
@@ -628,9 +631,15 @@ ${inputDisplay}`;
     role: string;
   };
 
+  type MenuItem = {
+    label: string;
+    onSelect: () => void;
+    value?: string;
+  };
+
   type MenuProps = {
     focus: FocusHandle;
-    items: { label: string; onSelect: () => void; value?: string }[];
+    items: MenuItem[];
     width?: number;
     maxHeight?: number;
     emptyState?: string;
@@ -640,10 +649,10 @@ ${inputDisplay}`;
   };
 
   export class Menu {
-    items: { label: string; onSelect: () => void; value?: string }[] = [];
+    items: MenuItem[] = [];
     selectedIdx: number = 0;
     focus: FocusHandle;
-    width = 30;
+    width = 40;
     maxHeight = 10;
     scrollOffset = 0;
     emptyState?: string;
@@ -651,7 +660,7 @@ ${inputDisplay}`;
     onHoverChange?: (value: string | undefined) => void;
 
     constructor(props: MenuProps) {
-      this.width = props.width ?? 30;
+      this.width = props.width ?? 40;
       this.maxHeight = props.maxHeight ?? 10;
       this.focus = props.focus;
       this.emptyState = props.emptyState;
@@ -790,22 +799,16 @@ ${inputDisplay}`;
     props: AppSelectorProps;
     api: AppSelectorApi;
     dashResponse: { apps: App[]; orgs: Org[] };
-
+    creatingEphemeral = false;
     selectedAppName = '';
     selectedOrg: Org | null = null;
-
     appNameInput: TextInput;
-    ephemeralInput: TextInput;
-
     focus: FocusHandle;
-    leftMenu: Menu;
     appList: Menu;
     orgList: Menu;
-    hoveredLeftMenuItem: string = 'selectExisting'; // Track hovered item
 
     HEIGHT = 10;
-    LEFT_WIDTH = 30;
-    RIGHT_WIDTH = 40;
+    RIGHT_WIDTH = 70;
 
     result(): {
       appId: string;
@@ -815,45 +818,26 @@ ${inputDisplay}`;
       throw new Error('Method not implemented.');
     }
 
-    leftView(): string {
-      return boxen(this.leftMenu.render(), {
-        height: this.HEIGHT,
-        width: this.LEFT_WIDTH,
-        borderStyle: 'none',
-      });
-    }
-
     rightView(): string {
       let inner = '';
 
       // Use hoveredLeftMenuItem to determine what to show
-      if (this.hoveredLeftMenuItem === 'selectExisting') {
+      if (this.focus.getFocused() === 'appList') {
         inner = this.appList.render();
       }
 
-      if (this.hoveredLeftMenuItem === 'pickOrg') {
+      if (this.focus.getFocused() === 'pickOrg') {
         inner = this.orgList.render();
       }
 
-      if (this.hoveredLeftMenuItem === 'newApp') {
+      if (this.focus.getFocused() === 'newApp') {
         return boxen(this.appNameInput.render('idle'), {
           height: this.HEIGHT,
           width: this.RIGHT_WIDTH,
           borderStyle: 'none',
           padding: {
-            left: 1,
-          },
-          textAlignment: 'left',
-        });
-      }
-
-      if (this.hoveredLeftMenuItem === 'ephemeral') {
-        return boxen(this.ephemeralInput.render('idle'), {
-          height: this.HEIGHT,
-          width: this.RIGHT_WIDTH,
-          borderStyle: 'none',
-          padding: {
-            left: 1,
+            left: 2,
+            top: 1,
           },
           textAlignment: 'left',
         });
@@ -875,53 +859,53 @@ ${inputDisplay}`;
         });
       }
 
-      const leftSide = this.leftView();
       const rightSide = this.rightView();
 
-      const leftLines = leftSide.split('\n');
-      const rightLines = rightSide.split('\n');
-      const maxLines = Math.max(leftLines.length, rightLines.length);
+      const curFocus = this.focus.getFocused();
+      let left =
+        curFocus === 'appList'
+          ? 'Select an app '
+          : curFocus === 'pickOrg'
+            ? 'Select an org '
+            : curFocus === 'newApp'
+              ? 'Create app '
+              : '';
 
-      const combinedLines: string[] = [];
-      for (let i = 0; i < maxLines; i++) {
-        const leftLine = leftLines[i] || '';
-        const rightLine = rightLines[i] || '';
-        combinedLines.push(leftLine + chalk.dim('│') + rightLine);
+      if (this.selectedOrg?.title) {
+        left += `(${this.selectedOrg.title}) `;
       }
 
-      return boxen(combinedLines.join('\n'), {
-        title:
-          'Select or create app' +
-          (this.selectedOrg ? ` (${this.selectedOrg.title})` : ''),
+      const right =
+        curFocus === 'appList'
+          ? ' <tab>: change org'
+          : curFocus === 'newApp' && this.props.allowEphemeral
+            ? '<tab>: toggle temporary app'
+            : null;
+
+      let paddedRight = right
+        ? right.padStart(this.RIGHT_WIDTH - 2 - left.length, '─')
+        : '';
+
+      return boxen(rightSide, {
+        title: left + paddedRight,
         dimBorder: true,
       });
     }
 
-    constructor(props: AppSelectorProps) {
-      super(props.modifyOutput);
-      this.props = props;
-      this.api = props.api;
-      this.dashResponse = this.api.getDash();
-      this.focus = new Focus(this).root();
+    createAppList = (apps: App[]): MenuItem[] => {
+      const items: MenuItem[] = [];
 
-      this.focus.onKey((_key, moreInfo) => {
-        if (
-          moreInfo.name === 'escape' ||
-          moreInfo.name == 'h' ||
-          moreInfo.name == 'left'
-        ) {
-          this.focus.setFocus('leftMenu');
-        }
-      });
+      if (this.props.allowCreate) {
+        items.push({
+          label: ' + New App',
+          onSelect: () => {
+            this.focus.setFocus('newApp');
+          },
+        });
+      }
 
-      this.appList = new Menu({
-        width: 40,
-        focus: this.focus.child('selectExisting').onKey((_, keyInfo) => {
-          if (keyInfo.name === 'h') {
-            this.focus.setFocus('leftMenu');
-          }
-        }),
-        items: this.dashResponse.apps.map((app) => ({
+      apps.forEach((app) => {
+        items.push({
           label: app.title,
           onSelect: () => {
             this.selectedAppName = app.title;
@@ -934,15 +918,35 @@ ${inputDisplay}`;
               },
             });
           },
-        })),
+        });
+      });
+
+      return items;
+    };
+
+    constructor(props: AppSelectorProps) {
+      super(props.modifyOutput);
+      this.props = props;
+      this.api = props.api;
+      this.dashResponse = this.api.getDash();
+      this.focus = new Focus(this).root();
+
+      this.appList = new Menu({
+        width: this.RIGHT_WIDTH,
+        focus: this.focus.child('appList').onKey((_key, keyInfo) => {
+          if (keyInfo.name === 'tab') {
+            this.focus.setFocus('pickOrg');
+          }
+        }),
+        items: this.createAppList(this.dashResponse.apps),
         emptyState: '   No Apps   ',
       });
 
       this.orgList = new Menu({
-        width: 40,
+        width: this.RIGHT_WIDTH,
         focus: this.focus.child('pickOrg').onKey((_, keyInfo) => {
-          if (keyInfo.name === 'h') {
-            this.focus.setFocus('leftMenu');
+          if (keyInfo.name === 'escape' || keyInfo.name === 'tab') {
+            this.focus.setFocus('appList');
           }
         }),
         items: this.dashResponse.orgs.map((org) => ({
@@ -950,25 +954,8 @@ ${inputDisplay}`;
           onSelect: () => {
             this.selectedOrg = org;
             this.api.getAppsForOrg(org.id).then((apps) => {
-              this.appList.setItemList(
-                apps.apps.map((app) => ({
-                  label: app.title,
-                  onSelect: () => {
-                    this.selectedAppName = app.title;
-                    this.terminal?.resolve({
-                      status: 'submitted',
-                      data: {
-                        appId: app.id,
-                        approach: 'import',
-                        adminToken: app.admin_token,
-                      },
-                    });
-                  },
-                })),
-              );
-              this.focus.setFocus('selectExisting');
-              this.leftMenu.setSelectedItem(1);
-              this.hoveredLeftMenuItem = 'selectExisting';
+              this.appList.setItemList(this.createAppList(apps.apps));
+              this.focus.setFocus('appList');
               this.requestLayout();
             });
           },
@@ -976,80 +963,16 @@ ${inputDisplay}`;
       });
 
       this.orgList.addItem({
-        label: '(personal apps)',
+        label: 'Personal',
         onSelect: () => {
           this.selectedOrg = null;
-          this.appList.setItemList(
-            this.dashResponse.apps.map((app) => ({
-              label: app.title,
-              onSelect: () => {
-                this.selectedAppName = app.title;
-                this.terminal?.resolve({
-                  status: 'submitted',
-                  data: {
-                    appId: app.id,
-                    approach: 'import',
-                    adminToken: app.admin_token,
-                  },
-                });
-              },
-            })),
-          );
-          this.focus.setFocus('selectExisting');
-          this.leftMenu.setSelectedItem(1);
-          this.hoveredLeftMenuItem = 'selectExisting';
+          this.appList.setItemList(this.createAppList(this.dashResponse.apps));
+          this.focus.setFocus('appList');
           this.requestLayout();
         },
       });
 
-      this.leftMenu = new Menu({
-        showIdxWhileBlurred: true,
-        focus: this.focus.child('leftMenu'),
-        items: [
-          {
-            label: 'Create New App',
-            value: 'newApp',
-            onSelect: () => {
-              this.focus.setFocus('newApp');
-            },
-          },
-          {
-            label: 'Select Existing App',
-            value: 'selectExisting',
-            onSelect: () => {
-              this.focus.setFocus('selectExisting');
-            },
-          },
-          {
-            label: 'Change Organization',
-            value: 'pickOrg',
-            onSelect: () => {
-              this.focus.setFocus('pickOrg');
-            },
-          },
-        ],
-        maxHeight: 10,
-        onHoverChange: (value) => {
-          if (value) {
-            this.hoveredLeftMenuItem = value;
-            this.requestLayout();
-          }
-        },
-      });
-
-      if (this.props.allowEphemeral || process.env.INSTANT_ALLOW_EPHEMERAL) {
-        this.leftMenu.addItem({
-          label: 'Create Temporary App',
-          value: 'ephemeral',
-          onSelect: () => {
-            this.focus.setFocus('ephemeral');
-          },
-        });
-      }
-
-      this.leftMenu.setSelectedItem(2); // start on "select existing app"
-
-      this.focus.setFocus('leftMenu');
+      this.focus.setFocus('appList');
 
       this.appNameInput = new TextInput({
         prompt: 'Enter New App Name',
@@ -1058,60 +981,46 @@ ${inputDisplay}`;
       });
 
       this.focus.child('newApp').onKey((key, keyInfo) => {
-        if (
-          keyInfo.name === 'escape' ||
-          keyInfo.name == 'h' ||
-          keyInfo.name == 'left'
-        ) {
-          this.focus.setFocus('leftMenu');
+        if (keyInfo.name === 'escape' || keyInfo.name == 'left') {
+          this.focus.setFocus('appList');
         }
         if (keyInfo.name === 'return') {
-          this.props.api
-            .createApp(this.appNameInput.value, this.selectedOrg?.id)
-            .then((pair) => {
-              this.selectedAppName = this.appNameInput.value;
-              this.terminal?.resolve({
-                status: 'submitted',
-                data: {
-                  ...pair,
-                  approach: 'create',
-                },
+          if (this.creatingEphemeral) {
+            this.props.api
+              .createEphemeralApp(this.appNameInput.value)
+              .then((pair) => {
+                this.selectedAppName = this.appNameInput.value;
+                this.terminal?.resolve({
+                  status: 'submitted',
+                  data: {
+                    ...pair,
+                    approach: 'ephemeral',
+                  },
+                });
               });
-            });
+          } else {
+            this.props.api
+              .createApp(this.appNameInput.value, this.selectedOrg?.id)
+              .then((pair) => {
+                this.selectedAppName = this.appNameInput.value;
+                this.terminal?.resolve({
+                  status: 'submitted',
+                  data: {
+                    ...pair,
+                    approach: 'create',
+                  },
+                });
+              });
+          }
+        } else if (keyInfo.name === 'tab' && this.props.allowEphemeral) {
+          this.creatingEphemeral = !this.creatingEphemeral;
+          this.appNameInput.setPrompt(
+            this.creatingEphemeral
+              ? `Enter New ${chalk.bold('Temporary')} App Name`
+              : 'Enter New App Name',
+          );
         } else {
           this.appNameInput.input(key, keyInfo);
-        }
-      });
-
-      this.ephemeralInput = new TextInput({
-        prompt: 'Enter New Temporary App Name',
-        placeholder: 'my-instant-app',
-        headless: true,
-      });
-
-      this.focus.child('ephemeral').onKey((key, keyInfo) => {
-        if (
-          keyInfo.name === 'escape' ||
-          keyInfo.name == 'h' ||
-          keyInfo.name == 'left'
-        ) {
-          this.focus.setFocus('leftMenu');
-        }
-        if (keyInfo.name === 'return') {
-          this.props.api
-            .createEphemeralApp(this.ephemeralInput.value)
-            .then((pair) => {
-              this.selectedAppName = this.ephemeralInput.value;
-              this.terminal?.resolve({
-                status: 'submitted',
-                data: {
-                  ...pair,
-                  approach: 'ephemeral',
-                },
-              });
-            });
-        } else {
-          this.ephemeralInput.input(key, keyInfo);
         }
       });
 
