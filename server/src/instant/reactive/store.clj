@@ -232,7 +232,7 @@
    queries that nobody is waiting on a result for.
 
    Should run after `transact!`"
-  [conn {:keys [db-before tx-data]}]
+  [conn {:keys [tx-data]}]
   (let [deleted-datalog-query-ids (keep (fn [datom]
                                           (when (and (= (:a datom)
                                                         :datalog-query/app-id+query)
