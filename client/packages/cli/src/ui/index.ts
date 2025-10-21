@@ -647,6 +647,7 @@ ${inputDisplay}`;
     showIdxWhileBlurred?: boolean;
     resetIdxOnFocus?: boolean;
     onHoverChange?: (value: string | undefined) => void;
+    enableSearch?: boolean;
   };
 
   export class Menu {
@@ -659,6 +660,10 @@ ${inputDisplay}`;
     emptyState?: string;
     showIdxWhileBlurred: boolean;
     onHoverChange?: (value: string | undefined) => void;
+    enableSearch: boolean;
+    searchMode: boolean = false;
+    searchQuery: string = '';
+    allItems: { label: string; onSelect: () => void; value?: string }[] = [];
 
     constructor(props: MenuProps) {
       this.width = props.width ?? 40;
@@ -667,6 +672,7 @@ ${inputDisplay}`;
       this.emptyState = props.emptyState;
       this.showIdxWhileBlurred = props.showIdxWhileBlurred ?? false;
       this.onHoverChange = props.onHoverChange;
+      this.enableSearch = props.enableSearch ?? false;
 
       if (props.resetIdxOnFocus) {
         this.focus.onFocus(() => {
@@ -675,6 +681,31 @@ ${inputDisplay}`;
       }
 
       this.focus.onKey((key, keyInfo, propagate) => {
+        if (this.enableSearch && key === '/' && !this.searchMode) {
+          this.searchMode = true;
+          this.searchQuery = '';
+          return;
+        }
+
+        if (this.searchMode) {
+          if (keyInfo.name === 'escape') {
+            this.searchMode = false;
+            this.searchQuery = '';
+            this.items = this.allItems;
+            this.setSelectedItem(0);
+          } else if (keyInfo.name === 'backspace') {
+            this.searchQuery = this.searchQuery.slice(0, -1);
+            this.filterItems();
+          } else if (keyInfo.name === 'return') {
+            this.searchMode = false;
+            this.items[this.selectedIdx]?.onSelect();
+          } else if (key && key.length === 1) {
+            this.searchQuery += key;
+            this.filterItems();
+          }
+          return;
+        }
+
         if (key === 'j' || keyInfo.name == 'down') {
           const newIndex = Math.min(
             this.selectedIdx + 1,
@@ -691,7 +722,19 @@ ${inputDisplay}`;
         }
       });
 
+      this.allItems = props.items;
       this.items = props.items;
+      this.setSelectedItem(0);
+    }
+
+    private filterItems() {
+      if (this.searchQuery === '') {
+        this.items = this.allItems;
+      } else {
+        this.items = this.allItems.filter((item) =>
+          item.label.toLowerCase().includes(this.searchQuery.toLowerCase()),
+        );
+      }
       this.setSelectedItem(0);
     }
 
@@ -721,13 +764,25 @@ ${inputDisplay}`;
     }
 
     setItemList(items: { label: string; onSelect: () => void }[]) {
+      this.allItems = items;
       this.items = items;
       this.setSelectedItem(this.selectedIdx);
     }
 
     render(): string {
+      let output = '';
+
+      if (this.searchMode) {
+        const searchLine = (
+          ' Search: ' +
+          this.searchQuery +
+          chalk.inverse(' ')
+        ).padEnd(this.width);
+        output += chalk.hex('#EA570B')(searchLine) + '\n';
+      }
+
       if (this.items.length === 0) {
-        return this.emptyState ?? chalk.dim('No items');
+        return output + (this.emptyState ?? chalk.dim('No items'));
       }
 
       const hasItemsAbove = this.scrollOffset > 0;
@@ -738,7 +793,6 @@ ${inputDisplay}`;
         this.scrollOffset,
         this.scrollOffset + this.maxHeight,
       );
-      let output = '';
       visibleItems.forEach((item, index) => {
         const actualIndex = this.scrollOffset + index;
         const isSelected =
@@ -936,6 +990,7 @@ ${inputDisplay}`;
       this.focus = new Focus(this).root();
 
       this.appList = new Menu({
+        enableSearch: true,
         width: this.RIGHT_WIDTH,
         focus: this.focus.child('appList').onKey((_key, keyInfo) => {
           if (keyInfo.name === 'tab') {
@@ -947,6 +1002,7 @@ ${inputDisplay}`;
       });
 
       this.orgList = new Menu({
+        enableSearch: true,
         width: this.RIGHT_WIDTH,
         focus: this.focus.child('pickOrg').onKey((_, keyInfo) => {
           if (keyInfo.name === 'escape' || keyInfo.name === 'tab') {
