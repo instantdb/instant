@@ -66,7 +66,7 @@
                          ::validation-failed
 
                          ::session-missing
-                         ::machine-missing})
+                         ::member-missing})
 
 (comment
   (s/explain-data ::instant-exception {::type ::record-not-found
