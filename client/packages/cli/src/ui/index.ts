@@ -1,5 +1,6 @@
 import chalk from 'chalk';
 import boxen from 'boxen';
+import stringWidth from 'string-width';
 import { AnyKey, ModifyOutputFn, Prompt, SelectState } from './lib.js';
 
 export { render, renderUnwrap } from './lib.js';
@@ -745,12 +746,15 @@ ${inputDisplay}`;
         const isSelectedButBlurred =
           this.selectedIdx === actualIndex && !this.focus.isFocused();
 
-        let line = (' ' + item.label).padEnd(this.width - 1) + ' ';
+        const labelWithSpace = ' ' + item.label;
+        const labelWidth = stringWidth(labelWithSpace);
+        const paddingNeeded = Math.max(0, this.width - 1 - labelWidth);
+        let line = labelWithSpace + ' '.repeat(paddingNeeded) + ' ';
 
         if (index === 0 && hasItemsAbove) {
-          line = (' ' + item.label).padEnd(this.width - 1) + chalk.dim('▲');
+          line = labelWithSpace + ' '.repeat(paddingNeeded) + chalk.dim('▲');
         } else if (index === visibleItems.length - 1 && hasItemsBelow) {
-          line = (' ' + item.label).padEnd(this.width - 1) + chalk.dim('▼');
+          line = labelWithSpace + ' '.repeat(paddingNeeded) + chalk.dim('▼');
         }
 
         if (isSelected) {
@@ -897,7 +901,7 @@ ${inputDisplay}`;
 
       if (this.props.allowCreate) {
         items.push({
-          label: ' + New App',
+          label: chalk.italic('+ New App'),
           onSelect: () => {
             this.focus.setFocus('newApp');
           },
