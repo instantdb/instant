@@ -210,7 +210,10 @@
 
   (^void execute [_ ^Runnable runnable]
    (vfuture (.run runnable))
-   nil))
+   nil)
+
+  (shutdown [_]
+    nil))
 
 (defn make-vfuture-executor []
   (VFutureExecutor.))
