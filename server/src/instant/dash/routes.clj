@@ -70,7 +70,8 @@
             [medley.core :as medley]
             [next.jdbc :as next-jdbc]
             [ring.middleware.cookies :refer [wrap-cookies]]
-            [ring.util.http-response :as response])
+            [ring.util.http-response :as response]
+            [instant.model.app-user :as app-user-model])
   (:import
    (com.stripe.model.checkout Session)
    (io.undertow.websockets.core WebSocketChannel)
@@ -95,11 +96,24 @@
                           :app-id app-id
                           :role least-privilege}))))
 
-(defn req->app-and-user-accepting-platform-tokens! [least-privilege scope req]
+(defn req->app-and-user-accepting-admin-or-platform! [least-privilege scope req]
   (let [token (http-util/req->bearer-token! req)]
     (if (token-util/is-platform-token? token)
       (req->superadmin-user-and-app! scope least-privilege req)
-      (req->app-and-user! least-privilege req))))
+      (let [app-id (ex/get-param! req [:params :app_id] uuid-util/coerce)]
+        (or (when-let [user (instant-user-model/get-by-refresh-token {:refresh-token token
+                                                                      :auth? true})]
+              (get-app-with-role! {:user user
+                                   :app-id app-id
+                                   :role least-privilege}))
+
+            (when-let [{creator-id :creator_id :as app}
+                       (app-model/get-by-admin-token {:token token})]
+              {:user (instant-user-model/get-by-id! {:id creator-id})
+               :app app
+               :role :collaborator})
+            (ex/throw+ {::ex/type ::ex/record-not-found
+                        ::ex/message "Record not found: token"}))))))
 
 (defn with-team-app-fixtures [role f]
   (fixtures/with-team-app
@@ -453,9 +467,9 @@
 ;; Rules
 
 (defn rules-post [req]
-  (let [{{app-id :id} :app} (req->app-and-user-accepting-platform-tokens! :collaborator
-                                                                          :apps/write
-                                                                          req)
+  (let [{{app-id :id} :app} (req->app-and-user-accepting-admin-or-platform! :collaborator
+                                                                            :apps/write
+                                                                            req)
         code (ex/get-param! req [:body :code] w/stringify-keys)]
     (ex/assert-valid! :rule code (rule-model/validation-errors code))
     (response/ok {:rules (rule-model/put! {:app-id app-id
@@ -1274,9 +1288,9 @@
 ;; CLI
 
 (defn schema-push-plan-post [req]
-  (let [{{app-id :id} :app} (req->app-and-user-accepting-platform-tokens! :collaborator
-                                                                          :apps/read
-                                                                          req)
+  (let [{{app-id :id} :app} (req->app-and-user-accepting-admin-or-platform! :collaborator
+                                                                            :apps/read
+                                                                            req)
         client-defs         (-> req
                                 :body
                                 :schema)
@@ -1287,21 +1301,20 @@
                                       :background-updates? background-updates?}
                                      client-defs))))
 
-
 (defn schema-steps-apply-post [req]
-  (let [{{app-id :id} :app} (req->app-and-user-accepting-platform-tokens! :collaborator
-                                                                          :apps/write
-                                                                          req)
+  (let [{{app-id :id} :app} (req->app-and-user-accepting-admin-or-platform! :collaborator
+                                                                            :apps/write
+                                                                            req)
 
-        input-steps (ex/get-param! req [:body :steps] #(when (coll? % ) %))
+        input-steps (ex/get-param! req [:body :steps] #(when (coll? %) %))
         coerced (tx/coerce! input-steps)
         plan-result (schema-model/apply-plan-with-deletes! app-id coerced)]
     (response/ok plan-result)))
 
 (defn schema-push-apply-post [req]
-  (let [{{app-id :id} :app} (req->app-and-user-accepting-platform-tokens! :collaborator
-                                                                          :apps/write
-                                                                          req)
+  (let [{{app-id :id} :app} (req->app-and-user-accepting-admin-or-platform! :collaborator
+                                                                            :apps/write
+                                                                            req)
         client-defs         (-> req
                                 :body
                                 :schema)
@@ -1315,17 +1328,17 @@
     (response/ok (merge r plan-result))))
 
 (defn schema-pull-get [req]
-  (let [{{app-id :id app-title :title} :app} (req->app-and-user-accepting-platform-tokens! :collaborator
-                                                                                           :apps/read
-                                                                                           req)
+  (let [{{app-id :id app-title :title} :app} (req->app-and-user-accepting-admin-or-platform! :collaborator
+                                                                                             :apps/read
+                                                                                             req)
         current-attrs (attr-model/get-by-app-id app-id)
         current-schema (schema-model/attrs->schema current-attrs)]
     (response/ok {:schema current-schema :attrs current-attrs :app-title app-title})))
 
 (defn perms-pull-get [req]
-  (let [{{app-id :id} :app} (req->app-and-user-accepting-platform-tokens! :collaborator
-                                                                          :apps/write
-                                                                          req)
+  (let [{{app-id :id} :app} (req->app-and-user-accepting-admin-or-platform! :collaborator
+                                                                            :apps/write
+                                                                            req)
         perms (rule-model/get-by-app-id {:app-id app-id})
         r {:perms (:code perms)}]
     (response/ok r)))
@@ -1340,9 +1353,9 @@
     (response/ok {:job job})))
 
 (defn indexing-jobs-group-get [req]
-  (let [{{app-id :id} :app} (req->app-and-user-accepting-platform-tokens! :collaborator
-                                                                          :apps/write
-                                                                          req)
+  (let [{{app-id :id} :app} (req->app-and-user-accepting-admin-or-platform! :collaborator
+                                                                            :apps/write
+                                                                            req)
         group-id (ex/get-param! req [:params :group_id] uuid-util/coerce)
         jobs (indexing-jobs/get-by-group-id-for-client app-id group-id)]
     (response/ok {:jobs jobs})))

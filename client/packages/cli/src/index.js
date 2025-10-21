@@ -1905,7 +1905,7 @@ async function readLocalSchemaFileWithErrorLogging() {
 
 async function readConfigAuthToken() {
   const options = program.opts();
-  if (options.token) {
+  if (typeof options.token === 'string') {
     return options.token;
   }
 
@@ -1918,7 +1918,17 @@ async function readConfigAuthToken() {
     'utf-8',
   ).catch(() => null);
 
-  return authToken;
+  if (authToken) {
+    return authToken;
+  }
+
+  const adminTokenNames = Object.values(potentialAdminTokenEnvs);
+  for (const envName of adminTokenNames) {
+    const token = process.env[envName];
+    if (token) {
+      return token;
+    }
+  }
 }
 
 export async function readConfigAuthTokenWithErrorLogging() {
