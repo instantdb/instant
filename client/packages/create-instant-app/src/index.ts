@@ -40,6 +40,7 @@ const main = async () => {
   const pkgManager = getUserPkgManager();
 
   const projectDir = await scaffoldBase(project, appDir);
+
   addRuleFiles({
     projectDir,
     base: project.base,
