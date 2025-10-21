@@ -483,7 +483,6 @@ program.command('claim').action(async function () {
 
 program.parse(process.argv);
 
-// command actions
 async function checkVersion() {
   const resp = await fetchJson({
     method: 'GET',
@@ -514,8 +513,15 @@ async function checkVersion() {
   }
 }
 
+async function checkVersionAsync() {
+  const p = checkVersion();
+  if (program.optsWithGlobals()?.yes) {
+    await p;
+  }
+}
+
 async function handlePush(bag, opts) {
-  checkVersion();
+  await checkVersionAsync();
   const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging(opts);
   if (!pkgAndAuthInfo) return process.exit(1);
   const { ok, appId } = await detectOrCreateAppAndWriteToEnv(
@@ -606,7 +612,7 @@ async function detectOrCreateAppAndWriteToEnv(pkgAndAuthInfo, opts) {
 }
 
 async function handlePull(bag, opts) {
-  checkVersion();
+  await checkVersionAsync();
   const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging(opts);
   if (!pkgAndAuthInfo) return process.exit(1);
   const { ok, appId } = await detectOrCreateAppAndWriteToEnv(
