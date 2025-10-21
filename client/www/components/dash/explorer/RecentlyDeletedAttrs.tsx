@@ -65,7 +65,13 @@ export const RecentlyDeletedAttrs: React.FC<{
     } catch (error) {
       console.error(error);
       if (error instanceof InstantAPIError) {
-        errorToast(error.message);
+        if (error.body?.type === 'record-not-unique') {
+          errorToast(
+            'Attribute already exists. Rename existing attribute first and then try again to restore.',
+          );
+        } else {
+          errorToast(error.message);
+        }
       } else {
         errorToast('Failed to restore attr');
       }
