@@ -277,7 +277,7 @@
                         (empty? @watchers))]
         (sql/cancel-in-progress (:datalog-query/stmt-tracker ent))
         (ua/cancel-children (:datalog-query/child-vfutures ent) true))
-      (cache/invalidate-all-async cache))))
+      (cache/invalidate-all-async cache deleted-datalog-query-ids))))
 
 (defn transact! [span-name conn tx-data]
   (let [res (if (or (flags/toggled? :enable-store-batching-globally)
