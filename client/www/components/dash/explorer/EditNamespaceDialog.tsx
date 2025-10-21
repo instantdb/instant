@@ -156,8 +156,8 @@ export function EditNamespaceDialog({
               renameNs(renameNsInput);
             }}
           >
-            <Content className="text-sm">
-              This will immediately rename the attribute. You'll need to{' '}
+            <Content className="pb-2 text-sm">
+              This will immediately rename the namespace. You'll need to{' '}
               <strong className="dark:text-white">update your code</strong> to
               the new name.
             </Content>
