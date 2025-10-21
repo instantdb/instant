@@ -734,7 +734,8 @@
           close (some-> (rs/session store id)
                         :close)]
       (rs/remove-session! store app-id id)
-      (eph/leave-by-session-id! app-id id)
+      (when app-id
+        (eph/leave-by-session-id! app-id id))
       (when close (close)))))
 
 (defn undertow-config
