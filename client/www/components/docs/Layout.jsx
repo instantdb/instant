@@ -117,9 +117,21 @@ function CopyAsMarkdown({ path, label = 'Copy as markdown' }) {
   const fetchingRef = useRef(false);
   const url = `${path}.md`;
 
+  // Prefetch content when component mounts
+  // Fixes bug in Safari where clipboard API would fail on first use
+  useEffect(() => {
+    if (!contentCache[path]) {
+      fetch(url)
+        .then((response) => response.text())
+        .then((content) => {
+          contentCache[path] = content;
+        })
+        .catch((err) => console.error('Failed to prefetch markdown:', err));
+    }
+  }, [path, url]);
+
   const handleCopy = async () => {
     if (fetchingRef.current) return;
-
     try {
       fetchingRef.current = true;
 
@@ -134,7 +146,6 @@ function CopyAsMarkdown({ path, label = 'Copy as markdown' }) {
 
       await navigator.clipboard.writeText(content);
       setCopyLabel('Copied!');
-
       setTimeout(() => {
         setCopyLabel(label);
       }, 2000);
