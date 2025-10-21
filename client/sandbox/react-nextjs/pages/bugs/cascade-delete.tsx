@@ -55,13 +55,13 @@ function App({ db }: AppProps) {
       db.tx.publicEnts[p2].create({ name: 'Sally' }),
       db.tx.publicEnts[p3].create({ name: 'Doug' }),
       db.tx.privateEnts[p1]
-        .create({ email: 'red@example.com' })
+        .create({ email: 'bob@example.com' })
         .link({ publicEnts: p1 }),
       db.tx.privateEnts[p2]
-        .create({ email: 'green@example.com' })
+        .create({ email: 'sally@example.com' })
         .link({ publicEnts: p2 }),
       db.tx.privateEnts[p3]
-        .create({ email: 'blue@example.com' })
+        .create({ email: 'doug@example.com' })
         .link({ publicEnts: p3 }),
     ]);
   }, [data, isLoading, db]);

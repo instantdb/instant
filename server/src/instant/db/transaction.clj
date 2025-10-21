@@ -461,7 +461,8 @@
                 SELECT
                   cast(elem ->> 0 AS uuid) as entity_id,
                   cast(elem ->> 1 AS text) as etype,
-                  cast(elem ->> 0 AS uuid) as parent_id  -- parent_id is itself for root entities
+                  cast(elem ->> 0 AS uuid) as parent_id,  -- parent_id is itself for root entities
+                  cast(elem ->> 1 as text) as parent_etype -- parent_etype is itself for root entities
                 FROM
                   jsonb_array_elements(cast(?ids+etypes AS jsonb)) AS elem
 
@@ -475,7 +476,8 @@
                     SELECT
                       entity_id,
                       etype,
-                      parent_id
+                      parent_id,
+                      parent_etype
                     FROM
                       entids
                   )
@@ -484,7 +486,8 @@
                   SELECT
                     triples.entity_id AS entity_id,
                     attrs_forward.forward_etype AS etype,
-                    entids_inner.parent_id AS parent_id  -- inherit parent_id from the entity that triggered cascade
+                    entids_inner.parent_id AS parent_id,  -- inherit parent from the entity that triggered cascade
+                    entids_inner.parent_etype as parent_etype
                   FROM
                     entids_inner
                   JOIN triples
@@ -502,7 +505,8 @@
                   SELECT
                     json_uuid_to_uuid(triples.value) AS entity_id,
                     attrs_reverse.reverse_etype AS etype,
-                    entids_inner.parent_id AS parent_id  -- inherit parent_id from the entity that triggered cascade
+                    entids_inner.parent_id AS parent_id,  -- inherit parent from the entity that triggered cascade
+                    entids_inner.parent_etype as parent_etype
                   FROM
                     entids_inner
                   JOIN triples
@@ -517,7 +521,7 @@
               )
 
               SELECT
-                entity_id, etype, parent_id
+                entity_id, etype, parent_id, parent_etype
               FROM
                 entids"
              {"?app-id"               app-id
@@ -530,7 +534,9 @@
                                                :when (and (= :rule-params op) (uuid? eid))]
                                            [eid value]))
             ;; Only get the cascaded entities (where parent_id != entity_id)
-            cascaded-entities (filter #(not= (:parent_id %) (:entity_id %)) res)]
+            cascaded-entities (remove #(and (= (:parent_id %) (:entity_id %))
+                                            (= (:parent_etype %) (:etype %)))
+                                      res)]
         (concat
          tx-step-maps
          ;; Add delete operations for cascaded entities only

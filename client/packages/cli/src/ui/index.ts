@@ -647,6 +647,7 @@ ${inputDisplay}`;
     showIdxWhileBlurred?: boolean;
     resetIdxOnFocus?: boolean;
     onHoverChange?: (value: string | undefined) => void;
+    enableSearch?: boolean;
   };
 
   export class Menu {
@@ -659,6 +660,10 @@ ${inputDisplay}`;
     emptyState?: string;
     showIdxWhileBlurred: boolean;
     onHoverChange?: (value: string | undefined) => void;
+    enableSearch: boolean;
+    searchMode: boolean = false;
+    searchQuery: string = '';
+    allItems: { label: string; onSelect: () => void; value?: string }[] = [];
 
     constructor(props: MenuProps) {
       this.width = props.width ?? 40;
@@ -667,6 +672,7 @@ ${inputDisplay}`;
       this.emptyState = props.emptyState;
       this.showIdxWhileBlurred = props.showIdxWhileBlurred ?? false;
       this.onHoverChange = props.onHoverChange;
+      this.enableSearch = props.enableSearch ?? false;
 
       if (props.resetIdxOnFocus) {
         this.focus.onFocus(() => {
@@ -675,6 +681,46 @@ ${inputDisplay}`;
       }
 
       this.focus.onKey((key, keyInfo, propagate) => {
+        if (this.enableSearch && key === '/' && !this.searchMode) {
+          this.searchMode = true;
+          this.searchQuery = '';
+          return;
+        }
+
+        if (this.searchMode) {
+          if (keyInfo.name === 'escape') {
+            this.searchMode = false;
+            this.searchQuery = '';
+            this.items = this.allItems;
+            this.setSelectedItem(0);
+          } else if (keyInfo.name === 'backspace') {
+            this.searchQuery = this.searchQuery.slice(0, -1);
+            this.filterItems();
+          } else if (keyInfo.name === 'up' || keyInfo.name === 'down') {
+            // Allow arrow keys to navigate in search mode
+          } else if (keyInfo.name === 'return') {
+            this.searchMode = false;
+            const item = this.items[this.selectedIdx];
+            if (item) {
+              item.onSelect();
+            } else {
+              // bail out of search if you hit enter on nothing
+              this.items = this.allItems;
+              this.searchQuery = '';
+              this.setSelectedItem(0);
+              this.searchMode = false;
+            }
+          } else if (key && key.length === 1) {
+            this.searchQuery += key;
+            this.filterItems();
+          }
+          if (keyInfo.name === 'up' || keyInfo.name === 'down') {
+            // Continue to navigation logic below
+          } else {
+            return;
+          }
+        }
+
         if (key === 'j' || keyInfo.name == 'down') {
           const newIndex = Math.min(
             this.selectedIdx + 1,
@@ -691,7 +737,23 @@ ${inputDisplay}`;
         }
       });
 
+      this.allItems = props.items;
       this.items = props.items;
+      this.setSelectedItem(0);
+    }
+
+    public isSearching(): boolean {
+      return this.searchMode;
+    }
+
+    private filterItems() {
+      if (this.searchQuery === '') {
+        this.items = this.allItems;
+      } else {
+        this.items = this.allItems.filter((item) =>
+          item.label.toLowerCase().includes(this.searchQuery.toLowerCase()),
+        );
+      }
       this.setSelectedItem(0);
     }
 
@@ -721,13 +783,25 @@ ${inputDisplay}`;
     }
 
     setItemList(items: { label: string; onSelect: () => void }[]) {
+      this.allItems = items;
       this.items = items;
       this.setSelectedItem(this.selectedIdx);
     }
 
     render(): string {
+      let output = '';
+
+      if (this.searchMode) {
+        const searchLine = (
+          ' Search: ' +
+          this.searchQuery +
+          chalk.inverse(' ')
+        ).padEnd(this.width);
+        output += chalk.hex('#EA570B')(searchLine) + '\n';
+      }
+
       if (this.items.length === 0) {
-        return this.emptyState ?? chalk.dim('No items');
+        return output + (this.emptyState ?? chalk.dim('No items'));
       }
 
       const hasItemsAbove = this.scrollOffset > 0;
@@ -738,7 +812,6 @@ ${inputDisplay}`;
         this.scrollOffset,
         this.scrollOffset + this.maxHeight,
       );
-      let output = '';
       visibleItems.forEach((item, index) => {
         const actualIndex = this.scrollOffset + index;
         const isSelected =
@@ -879,21 +952,44 @@ ${inputDisplay}`;
         left += `(${this.selectedOrg.title}) `;
       }
 
-      const right =
-        curFocus === 'appList'
-          ? ' <tab>: change org'
-          : curFocus === 'newApp' && this.props.allowEphemeral
-            ? '<tab>: toggle temporary app'
-            : null;
+      const keybindings: string[] = [];
 
-      let paddedRight = right
-        ? right.padStart(this.RIGHT_WIDTH - 2 - left.length, '─')
-        : '';
+      if (curFocus === 'newApp') {
+        keybindings.push('<enter>: create app');
+        keybindings.push('<esc>: back');
+        if (this.props.allowEphemeral) {
+          keybindings.push('<tab>: toggle temporary app');
+        }
+      }
 
-      return boxen(rightSide, {
-        title: left + paddedRight,
-        dimBorder: true,
-      });
+      if (curFocus === 'appList') {
+        keybindings.push('<tab>: change org');
+        keybindings.push('<enter>: select app');
+        if (this.appList.isSearching()) {
+          keybindings.push('<esc>: cancel search');
+        } else {
+          keybindings.push('/: search');
+        }
+      }
+
+      if (curFocus === 'pickOrg') {
+        keybindings.push('<tab>/<esc>: back');
+        keybindings.push('<enter>: select org');
+        if (this.orgList.isSearching()) {
+          keybindings.push('<esc>: cancel search');
+        } else {
+          keybindings.push('/: search');
+        }
+      }
+
+      return (
+        boxen(rightSide, {
+          title: left,
+          dimBorder: true,
+        }) +
+        '\n' +
+        chalk.dim('  ' + keybindings.join('   '))
+      );
     }
 
     createAppList = (apps: App[]): MenuItem[] => {
@@ -908,22 +1004,27 @@ ${inputDisplay}`;
         });
       }
 
-      apps.forEach((app) => {
-        items.push({
-          label: app.title,
-          onSelect: () => {
-            this.selectedAppName = app.title;
-            this.terminal?.resolve({
-              status: 'submitted',
-              data: {
-                appId: app.id,
-                approach: 'import',
-                adminToken: app.admin_token,
-              },
-            });
-          },
+      apps
+        .sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+        )
+        .forEach((app) => {
+          items.push({
+            label: app.title,
+            onSelect: () => {
+              this.selectedAppName = app.title;
+              this.terminal?.resolve({
+                status: 'submitted',
+                data: {
+                  appId: app.id,
+                  approach: 'import',
+                  adminToken: app.admin_token,
+                },
+              });
+            },
+          });
         });
-      });
 
       return items;
     };
@@ -936,6 +1037,7 @@ ${inputDisplay}`;
       this.focus = new Focus(this).root();
 
       this.appList = new Menu({
+        enableSearch: true,
         width: this.RIGHT_WIDTH,
         focus: this.focus.child('appList').onKey((_key, keyInfo) => {
           if (keyInfo.name === 'tab') {
@@ -947,6 +1049,7 @@ ${inputDisplay}`;
       });
 
       this.orgList = new Menu({
+        enableSearch: true,
         width: this.RIGHT_WIDTH,
         focus: this.focus.child('pickOrg').onKey((_, keyInfo) => {
           if (keyInfo.name === 'escape' || keyInfo.name === 'tab') {
@@ -990,24 +1093,23 @@ ${inputDisplay}`;
           this.focus.setFocus('appList');
         }
         if (keyInfo.name === 'return') {
+          const name = this.appNameInput.value || 'my-instant-app';
           if (this.creatingEphemeral) {
-            this.props.api
-              .createEphemeralApp(this.appNameInput.value)
-              .then((pair) => {
-                this.selectedAppName = this.appNameInput.value;
-                this.terminal?.resolve({
-                  status: 'submitted',
-                  data: {
-                    ...pair,
-                    approach: 'ephemeral',
-                  },
-                });
+            this.props.api.createEphemeralApp(name).then((pair) => {
+              this.selectedAppName = name;
+              this.terminal?.resolve({
+                status: 'submitted',
+                data: {
+                  ...pair,
+                  approach: 'ephemeral',
+                },
               });
+            });
           } else {
             this.props.api
-              .createApp(this.appNameInput.value, this.selectedOrg?.id)
+              .createApp(name, this.selectedOrg?.id)
               .then((pair) => {
-                this.selectedAppName = this.appNameInput.value;
+                this.selectedAppName = name;
                 this.terminal?.resolve({
                   status: 'submitted',
                   data: {
