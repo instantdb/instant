@@ -1,10 +1,15 @@
 import envPaths from 'env-paths';
 import * as p from '@clack/prompts';
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import openInBrowser from 'open';
 import { join } from 'node:path';
 import { Project, unwrapSkippablePrompt } from './cli.js';
 import { randomUUID } from 'node:crypto';
-import { fetchJson } from './utils/fetch.js';
+import {
+  fetchJson,
+  instantBackendOrigin,
+  instantDashOrigin,
+} from './utils/fetch.js';
 import { renderUnwrap, UI } from 'instant-cli/ui';
 
 const dev = Boolean(process.env.INSTANT_CLI_DEV);
@@ -147,10 +152,8 @@ const createPermissiveEphemeralApp = async (title: string) => {
 export const tryConnectApp = async (
   project: Project,
 ): Promise<AppTokenResponse | null> => {
-  const authToken = await getAuthToken();
+  let authToken = await getAuthToken();
   if (!authToken) {
-    const app = await createPermissiveEphemeralApp(project.appName);
-    return { ...app, approach: 'ephemeral' };
     const choice = await renderUnwrap(
       new UI.Select({
         promptText: 'You are not logged in.',
@@ -160,6 +163,10 @@ export const tryConnectApp = async (
             value: 'ephemeral',
           },
           {
+            label: 'Login',
+            value: 'login',
+          },
+          {
             label: 'Skip linking app',
             value: 'skip',
           },
@@ -167,6 +174,32 @@ export const tryConnectApp = async (
         modifyOutput: UI.ciaModifier(),
       }),
     );
+
+    if (choice === 'login') {
+      const registerRes = await fetchJson<any>({
+        authToken: null,
+        method: 'POST',
+        path: '/dash/cli/auth/register',
+      });
+      const { secret, ticket } = registerRes;
+      openInBrowser(`${instantDashOrigin}/dash?ticket=${ticket}`);
+
+      const tokenPromise = waitForAuthToken({
+        secret: secret,
+      });
+
+      const authInfo = await renderUnwrap(
+        new UI.Spinner({
+          promise: tokenPromise,
+          workingText: 'Waiting for login in browser',
+          disappearWhenDone: true,
+          modifyOutput: UI.ciaModifier(null),
+        }),
+      );
+
+      await saveConfigAuthToken(authInfo.token);
+      authToken = authInfo.token;
+    }
 
     if (choice === 'skip') {
       UI.log('Skipping app link step', UI.ciaModifier(null));
@@ -184,9 +217,9 @@ export const tryConnectApp = async (
       const app = await createPermissiveEphemeralApp(name);
       return { ...app, approach: 'ephemeral' };
     }
-
-    return null;
   }
+
+  if (!authToken) return null;
 
   let dashData = await fetchDashboard(authToken);
   const allowedOrgs = dashData.orgs.filter((org) => org.role !== 'app-member');
@@ -225,3 +258,53 @@ export const tryConnectApp = async (
 
   return selectedApp;
 };
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+async function waitForAuthToken({
+  secret,
+}: {
+  secret: string;
+}): Promise<{ token: string; email: string }> {
+  for (let i = 1; i <= 120; i++) {
+    await sleep(1000);
+
+    const authCheckRes = await fetch(
+      `${instantBackendOrigin}/dash/cli/auth/check`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ secret }),
+      },
+    );
+
+    if (!authCheckRes.ok) {
+      const body = await authCheckRes.json();
+      if (body.hint.errors?.[0]?.issue === 'waiting-for-user') {
+        continue;
+      }
+    }
+
+    if (authCheckRes.ok) {
+      return authCheckRes.json();
+    }
+
+    // if (authCheckRes.data?.hint.errors?.[0]?.issue === 'waiting-for-user') {
+    //   continue;
+    // }
+  }
+  throw new Error('Timed out waiting for login');
+}
+
+async function saveConfigAuthToken(authToken: string) {
+  const authPaths = getAuthPaths();
+
+  await mkdir(authPaths.appConfigDirPath, {
+    recursive: true,
+  });
+
+  return writeFile(authPaths.authConfigFilePath, authToken, 'utf-8');
+}
