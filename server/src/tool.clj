@@ -396,8 +396,17 @@
 (defn memory-size
   "Measures the size of objects with https://github.com/clojure-goes-fast/clj-memory-meter
    Can only be used in development with the memory-meter profile enabled:
-     `make memory-meter-dev` # starts the dev server and loads the memory meter library"
-  [obj]
-  (require 'clj-memory-meter.core)
-  (let [measure (resolve 'clj-memory-meter.core/measure)]
-    (measure obj {:bytes true})))
+     `make memory-meter-dev` # starts the dev server and loads the memory meter library
+
+  Takes an optional options map:
+  {
+    :bytes true // defaults to false, will return bytes as a long instead of humanized
+    :shallow true // defaults to false
+    :debug true // defaults to false, will print memory usage of each level
+  }"
+  ([obj]
+   (memory-size obj {}))
+  ([obj opts]
+   (require 'clj-memory-meter.core)
+   (let [measure (resolve 'clj-memory-meter.core/measure)]
+     (measure obj opts))))
