@@ -72,19 +72,6 @@ npx instant-cli@latest pull
 
 This will generate new `instant.schema.ts` and `instant.perms.ts` files, based on your production state.
 
-## Create App
-
-Sometimes you may just want to create a new Instant app without overwriting your
-existing schema and permission files. This is convenient when you want to create
-a new app for testing schema changes or permissions. You can use the `create-app` command to generate a new app without affecting your current files:
-
-```shell {% showCopy=true %}
-npx instant-cli@latest create-app
-```
-
-You can then run `npx instant-cli@latest push --app <your-new-app-id>` to push
-the schema and permissions for this new app.
-
 ## App ID
 
 Whenever you run a CLI command, we look up your app id. You can either provide an app id as an option:

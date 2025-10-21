@@ -43,6 +43,7 @@ import { UI } from './ui/index.js';
 import { deferred } from './ui/lib.js';
 import { promptOk } from './util/promptOk.js';
 import { ResolveRenamePrompt } from './util/renamePrompt.js';
+import { buildAutoRenameSelector } from './rename.js';
 
 const execAsync = promisify(exec);
 
@@ -73,6 +74,11 @@ const potentialEnvs = {
   vite: 'VITE_INSTANT_APP_ID',
   expo: 'EXPO_PUBLIC_INSTANT_APP_ID',
   nuxt: 'NUXT_PUBLIC_INSTANT_APP_ID',
+};
+
+const potentialAdminTokenEnvs = {
+  default: 'INSTANT_APP_ADMIN_TOKEN',
+  short: 'INSTANT_ADMIN_TOKEN',
 };
 
 async function detectEnvType({ pkgDir }) {
@@ -387,6 +393,10 @@ program
   )
   .option('-t --title', 'Title for the created app')
   .option(
+    '--rename [renames...]',
+    'List of full attribute names separated by a ":"\n Example:`push --rename posts.author:posts.creator stores.owner:stores.manager`',
+  )
+  .option(
     '-p --package <react|react-native|core|admin>',
     'Which package to automatically install if there is not one installed already.',
   )
@@ -448,6 +458,28 @@ program
     await validateAppLinked();
     await handlePull(bag, opts);
   });
+
+program.command('claim').action(async function () {
+  const envResult = detectAppIdAndAdminTokenFromEnvWithErrorLogging();
+  if (!envResult.ok) return process.exit(1);
+
+  if (!envResult.appId) {
+    error('No app ID found in environment variables.');
+    return process.exit(1);
+  }
+
+  if (!envResult.adminToken) {
+    error('No admin token found in environment variables.');
+    return process.exit(1);
+  }
+
+  const appId = envResult.appId.value;
+  const adminToken = envResult.adminToken.value;
+
+  console.log(`Found ${chalk.green(envResult.appId.envName)}: ${appId}`);
+
+  await claimEphemeralApp(appId, adminToken);
+});
 
 program.parse(process.argv);
 
@@ -1373,11 +1405,6 @@ function linkOptsPretty(attr) {
 }
 
 const resolveRenames = async (created, promptData, extraInfo) => {
-  // Using --yes will disable renames and use create + delete for all attrs
-  if (program.opts().yes) {
-    return created;
-  }
-
   const answer = await renderUnwrap(
     new ResolveRenamePrompt(
       created,
@@ -1399,7 +1426,7 @@ const resolveRenames = async (created, promptData, extraInfo) => {
   return answer;
 };
 
-async function pushSchema(appId, _opts) {
+async function pushSchema(appId, opts) {
   const res = await readLocalSchemaFileWithErrorLogging();
   if (!res) return { ok: false };
   const { schema } = res;
@@ -1429,7 +1456,11 @@ async function pushSchema(appId, _opts) {
 
   const oldSchema = apiSchemaToInstantSchemaDef(currentApiSchema);
 
-  const diffResult = await diffSchemas(oldSchema, schema, resolveRenames);
+  const renameSelector = program.optsWithGlobals().yes
+    ? buildAutoRenameSelector(opts)
+    : resolveRenames;
+
+  const diffResult = await diffSchemas(oldSchema, schema, renameSelector);
   if (currentAttrs === undefined) {
     throw new Error("Couldn't get current schema from server");
   }
@@ -1444,6 +1475,10 @@ async function pushSchema(appId, _opts) {
   try {
     const groupedSteps = groupSteps(diffResult);
     const lines = renderSchemaPlan(groupedSteps, currentAttrs);
+    if (program.optsWithGlobals().yes) {
+      console.log('Applying schema changes...');
+      console.log(lines.join('\n'));
+    }
     wantsToPush = await promptOk(
       {
         promptText: 'Push these changes?',
@@ -1493,6 +1528,24 @@ async function pushSchema(appId, _opts) {
     console.info('Schema migration cancelled!');
   }
 
+  return { ok: true };
+}
+
+async function claimEphemeralApp(appId, adminToken) {
+  const res = await fetchJson({
+    method: 'POST',
+    body: {
+      app_id: appId,
+      token: adminToken,
+    },
+    path: `/dash/apps/ephemeral/${appId}/claim`,
+    debugName: 'Claim ephemeral app',
+    errorMessage: 'Failed to claim ephemeral app.',
+  });
+
+  if (!res.ok) return res;
+
+  console.log(chalk.green('App claimed!'));
   return { ok: true };
 }
 
@@ -1971,9 +2024,9 @@ export const rels = {
   'one-false': ['one', 'many'],
 };
 
-const uuidRegex =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function isUUID(uuid) {
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   return uuidRegex.test(uuid);
 }
 
@@ -2011,6 +2064,33 @@ function detectAppIdFromEnvWithErrorLogging() {
     return { ok: false, found };
   }
   return { ok: true, found };
+}
+
+function detectAppIdAndAdminTokenFromEnvWithErrorLogging() {
+  const appIdResult = Object.keys(potentialEnvs)
+    .map((type) => {
+      const envName = potentialEnvs[type];
+      const value = process.env[envName];
+      return { type, envName, value };
+    })
+    .find(({ value }) => !!value);
+
+  const adminTokenResult = Object.keys(potentialAdminTokenEnvs)
+    .map((type) => {
+      const envName = potentialAdminTokenEnvs[type];
+      const value = process.env[envName];
+      return { type, envName, value };
+    })
+    .find(({ value }) => !!value);
+
+  if (appIdResult && !isUUID(appIdResult.value)) {
+    error(
+      `Found ${chalk.green('`' + appIdResult.envName + '`')} but it's not a valid UUID.`,
+    );
+    return { ok: false, appId: appIdResult, adminToken: adminTokenResult };
+  }
+
+  return { ok: true, appId: appIdResult, adminToken: adminTokenResult };
 }
 
 function appDashUrl(id) {

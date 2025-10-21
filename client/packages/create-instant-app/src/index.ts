@@ -99,7 +99,7 @@ const main = async () => {
     if (possibleAppTokenPair.approach === 'ephemeral') {
       console.log(`
   An ephemeral app has been created and added to your .env file.
-  It will expire in two weeks. For a permanent app remove the .env file and use ${getCodeColors(theme, 'npx instant-cli init')}
+  It will expire in two weeks. For a permanent app, sign in and use ${getCodeColors(theme, 'npx instant-cli claim')}
 `);
     }
   } else {
