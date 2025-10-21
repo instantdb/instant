@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui';
 
 interface CopyPromptBoxProps {
@@ -24,9 +24,21 @@ export function CopyPromptBox({
   const [copyLabel, setCopyLabel] = useState('Copy prompt');
   const fetchingRef = useRef(false);
 
+  // Prefetch content when component mounts
+  // Fixes bug in Safari where clipboard API would fail on first use
+  useEffect(() => {
+    if (!contentCache[id]) {
+      fetch(promptFiles[id])
+        .then((response) => response.text())
+        .then((content) => {
+          contentCache[id] = content;
+        })
+        .catch((err) => console.error('Failed to prefetch prompt:', err));
+    }
+  }, [id]);
+
   const handleCopy = async () => {
     if (fetchingRef.current) return;
-
     try {
       fetchingRef.current = true;
 
@@ -41,7 +53,6 @@ export function CopyPromptBox({
 
       await navigator.clipboard.writeText(content);
       setCopyLabel('Copied!');
-
       setTimeout(() => {
         setCopyLabel('Copy prompt');
       }, 2000);
@@ -59,7 +70,6 @@ export function CopyPromptBox({
   return (
     <div className="space-y-2 text-center md:text-start md:grid md:grid-cols-[1fr_auto] md:space-y-0 rounded-lg border border-orange-600 px-4 shadow-sm py-4">
       <div className="text-gray-700">{description}</div>
-
       <Button size="mini" variant="cta" onClick={handleCopy}>
         {copyLabel}
       </Button>
