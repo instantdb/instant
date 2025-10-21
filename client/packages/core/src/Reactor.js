@@ -2032,7 +2032,7 @@ export default class Reactor {
 
   // TODO: look into typing again
   subscribePresence(roomType, roomId, opts, cb) {
-    const leaveRoom = this.joinRoom(roomId, opts.data);
+    const leaveRoom = this.joinRoom(roomId, opts.initialData);
 
     const handler = { ...opts, roomId, cb, prev: null };
 
