@@ -132,7 +132,7 @@ function convertPushPullToCurrentFormat(arg, opts) {
   return { ok: true, bag, opts };
 }
 
-async function packageDirectoryWithErrorLogging() {
+async function getPackageDir() {
   const pkgDir = await packageDirectory();
   if (!pkgDir) {
     error("Couldn't find your root directory. Is there a package.json file?");
@@ -344,7 +344,7 @@ program
   )
   .option('-t --title <title>', 'Title for the created app')
   .action(async function (opts) {
-    await handlePull('all', opts);
+    await handleInit(opts);
   });
 
 // Note: Nov 20, 2024
@@ -401,7 +401,6 @@ program
   )
   .description('Push schema and perm files to production.')
   .action(async function (arg, inputOpts) {
-    await validateAppLinked();
     const ret = convertPushPullToCurrentFormat(arg, inputOpts);
     if (!ret.ok) return process.exit(1);
     const { bag, opts } = ret;
@@ -454,7 +453,6 @@ program
     const ret = convertPushPullToCurrentFormat(arg, inputOpts);
     if (!ret.ok) return process.exit(1);
     const { bag, opts } = ret;
-    await validateAppLinked();
     await handlePull(bag, opts);
   });
 
@@ -483,13 +481,12 @@ program.command('claim').action(async function () {
 program.parse(process.argv);
 
 async function handlePush(bag, opts) {
-  const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging(opts);
+  const pkgAndAuthInfo = await validatePrereqs(opts);
   if (!pkgAndAuthInfo) return process.exit(1);
-  const { ok, appId } = await detectOrCreateAppAndWriteToEnv(
-    pkgAndAuthInfo,
-    opts,
-  );
-  if (!ok) return process.exit(1);
+
+  const appId = await requireAppId(opts);
+  if (!appId) return process.exit(1);
+
   await push(bag, appId, opts);
 }
 
@@ -562,8 +559,8 @@ async function handleEnvFile(pkgAndAuthInfo, { appId, appToken }) {
   console.log(`Created ${chalk.green('`.env`')} file!`);
 }
 
-async function detectOrCreateAppAndWriteToEnv(pkgAndAuthInfo, opts) {
-  const ret = await detectOrCreateAppWithErrorLogging(opts);
+async function getOrCreateApp(pkgAndAuthInfo, opts) {
+  const ret = await promptForApp(opts);
   if (!ret.ok) return ret;
   const { appId, appToken, source } = ret;
   if (source === 'created' || source === 'imported') {
@@ -572,16 +569,23 @@ async function detectOrCreateAppAndWriteToEnv(pkgAndAuthInfo, opts) {
   return ret;
 }
 
-async function handlePull(bag, opts) {
-  const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging(opts);
+async function handleInit(opts) {
+  const pkgAndAuthInfo = await promptForPackageAndAuth(opts);
   if (!pkgAndAuthInfo) return process.exit(1);
-  const { ok, appId } = await detectOrCreateAppAndWriteToEnv(
-    pkgAndAuthInfo,
-    opts,
-  );
-  if (!ok) {
-    return process.exit(1);
-  }
+
+  const { ok, appId } = await getOrCreateApp(pkgAndAuthInfo, opts);
+  if (!ok) return process.exit(1);
+
+  await pull('all', appId, pkgAndAuthInfo);
+}
+
+async function handlePull(bag, opts) {
+  const pkgAndAuthInfo = await validatePrereqs(opts);
+  if (!pkgAndAuthInfo) return process.exit(1);
+
+  const appId = await requireAppId(opts);
+  if (!appId) return process.exit(1);
+
   await pull(bag, appId, pkgAndAuthInfo);
 }
 
@@ -665,13 +669,13 @@ const packageAliasAndFullNames = {
   admin: '@instantdb/admin',
 };
 
-async function getOrInstallInstantModuleWithErrorLogging(pkgDir, opts) {
-  const pkgJson = await getPackageJSONWithErrorLogging(pkgDir);
+async function getOrInstallPackage(pkgDir, opts) {
+  const pkgJson = await getPackageJson(pkgDir);
   if (!pkgJson) {
     return;
   }
   console.log('Checking for an Instant SDK...');
-  const instantModuleName = await getInstantModuleName(pkgJson);
+  const instantModuleName = await findPackage(pkgJson);
   if (instantModuleName) {
     console.log(
       `Found ${chalk.green(instantModuleName)} in your package.json.`,
@@ -947,14 +951,14 @@ async function createApp(title, orgId) {
   return { appId: id, adminToken: token };
 }
 
-async function detectOrCreateAppWithErrorLogging(opts) {
-  const fromOpts = await detectAppIdFromOptsWithErrorLogging(opts);
+async function promptForApp(opts) {
+  const fromOpts = await getAppIdFromOpts(opts);
   if (!fromOpts.ok) return fromOpts;
   if (fromOpts.appId) {
     return { ok: true, appId: fromOpts.appId, source: 'opts' };
   }
 
-  const fromEnv = detectAppIdFromEnvWithErrorLogging();
+  const fromEnv = getAppIdFromEnv();
   if (!fromEnv.ok) return fromEnv;
   if (fromEnv.found) {
     const { envName, value } = fromEnv.found;
@@ -989,7 +993,7 @@ async function writeTypescript(path, content, encoding) {
   return await writeFile(path, formattedCode, encoding);
 }
 
-async function getInstantModuleName(pkgJson) {
+async function findPackage(pkgJson) {
   const deps = pkgJson.dependencies || {};
   const devDeps = pkgJson.devDependencies || {};
   const instantModuleName = [
@@ -1002,35 +1006,107 @@ async function getInstantModuleName(pkgJson) {
 }
 
 async function getPackageJson(pkgDir) {
-  return await readJsonFile(join(pkgDir, 'package.json'));
-}
-
-async function getPackageJSONWithErrorLogging(pkgDir) {
-  const pkgJson = await getPackageJson(pkgDir);
+  const pkgJson = await readJsonFile(join(pkgDir, 'package.json'));
   if (!pkgJson) {
-    error(`Couldn't find a packge.json file in: ${pkgDir}. Please add one.`);
+    error(`Couldn't find a package.json file in: ${pkgDir}. Please add one.`);
     return;
   }
   return pkgJson;
 }
 
-async function resolvePackageAndAuthInfoWithErrorLogging(opts) {
-  const pkgDir = await packageDirectoryWithErrorLogging();
+async function promptForPackageAndAuth(opts) {
+  const pkgDir = await getPackageDir();
   if (!pkgDir) {
     return;
   }
-  const instantModuleName = await getOrInstallInstantModuleWithErrorLogging(
+  const instantModuleName = await getOrInstallPackage(
     pkgDir,
     opts,
   );
   if (!instantModuleName) {
     return;
   }
-  const authToken = await readAuthTokenOrLoginWithErrorLogging();
+  const authToken = await getOrPromptLogin();
   if (!authToken) {
     return;
   }
   return { pkgDir, instantModuleName, authToken };
+}
+
+// Validation-only functions (for push/pull - no prompting)
+
+async function requirePackage(pkgDir) {
+  const pkgJson = await getPackageJson(pkgDir);
+  if (!pkgJson) {
+    return;
+  }
+
+  const instantModuleName = await findPackage(pkgJson);
+  if (!instantModuleName) {
+    error(
+      "Couldn't find an Instant SDK in your package.json.\n" +
+      `Run ${chalk.green('`instant-cli init`')} to set up your project.`
+    );
+    return;
+  }
+
+  console.log(
+    `Found ${chalk.green(instantModuleName)} in your package.json.`
+  );
+  return instantModuleName;
+}
+
+async function requireAuthToken() {
+  const token = await readConfigAuthToken();
+  if (!token) {
+    error(
+      `Not logged in.\n` +
+      `Run ${chalk.green('`instant-cli login`')} to authenticate.`
+    );
+  }
+  return token;
+}
+
+async function validatePrereqs(opts) {
+  const pkgDir = await getPackageDir();
+  if (!pkgDir) {
+    return;
+  }
+
+  const instantModuleName = await requirePackage(pkgDir);
+  if (!instantModuleName) {
+    return;
+  }
+
+  const authToken = await requireAuthToken();
+  if (!authToken) {
+    return;
+  }
+
+  return { pkgDir, instantModuleName, authToken };
+}
+
+async function requireAppId(opts) {
+  const fromOpts = await getAppIdFromOpts(opts);
+  if (!fromOpts.ok) return;
+  if (fromOpts.appId) {
+    return fromOpts.appId;
+  }
+
+  const fromEnv = getAppIdFromEnv();
+  if (!fromEnv.ok) return;
+  if (fromEnv.found) {
+    const { envName, value } = fromEnv.found;
+    console.log(`Found ${chalk.green(envName)}: ${value}`);
+    return value;
+  }
+
+  error(
+    "No app ID found.\n" +
+    `Run ${chalk.green('`instant-cli init`')} to link an app, or set ` +
+    chalk.green('`*_INSTANT_APP_ID`') + ' in your .env file.'
+  );
+  return;
 }
 
 async function pullSchema(appId, { pkgDir, instantModuleName }) {
@@ -1826,7 +1902,7 @@ async function readLocalSchemaFile() {
   return { path: relativePath, schema: res.config };
 }
 
-async function readInstantConfigFile() {
+async function getConfigFile() {
   return (
     await loadConfig({
       sources: [
@@ -1895,7 +1971,7 @@ export async function readConfigAuthTokenWithErrorLogging() {
   return token;
 }
 
-async function readAuthTokenOrLoginWithErrorLogging() {
+async function getOrPromptLogin() {
   const token = await readConfigAuthToken();
   if (token) return token;
   console.log(`Looks like you are not logged in...`);
@@ -1985,10 +2061,10 @@ function isUUID(uuid) {
   return uuidRegex.test(uuid);
 }
 
-async function detectAppIdFromOptsWithErrorLogging(opts) {
+async function getAppIdFromOpts(opts) {
   if (!opts.app) return { ok: true };
   const appId = opts.app;
-  const config = await readInstantConfigFile();
+  const config = await getConfigFile();
   const nameMatch = config?.apps?.[appId];
   const namedAppId = nameMatch?.id && isUUID(nameMatch.id) ? nameMatch : null;
   const uuidAppId = appId && isUUID(appId) ? appId : null;
@@ -2004,7 +2080,7 @@ async function detectAppIdFromOptsWithErrorLogging(opts) {
   return { ok: true, appId: namedAppId || uuidAppId };
 }
 
-function detectAppIdFromEnvWithErrorLogging() {
+function getAppIdFromEnv() {
   const found = Object.keys(potentialEnvs)
     .map((type) => {
       const envName = potentialEnvs[type];
@@ -2053,13 +2129,13 @@ function appDashUrl(id) {
 }
 
 async function detectIfAppLinked() {
-  const fromOpts = await detectAppIdFromOptsWithErrorLogging(program.opts());
+  const fromOpts = await getAppIdFromOpts(program.opts());
   if (!fromOpts.ok) return false;
   if (fromOpts.appId) {
     return true;
   }
 
-  const fromEnv = detectAppIdFromEnvWithErrorLogging();
+  const fromEnv = getAppIdFromEnv();
   if (!fromEnv.ok) return false;
   if (fromEnv.found) {
     return true;
