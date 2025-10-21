@@ -71,6 +71,9 @@ import {
   type FileOpts,
   type UploadFileResponse,
   type DeleteFileResponse,
+
+  // error
+  InstantAPIError,
 } from '@instantdb/core';
 
 /**
@@ -140,6 +143,9 @@ export {
   lookup,
   i,
   InstantReactNativeDatabase,
+
+  // error
+  InstantAPIError,
 
   // types
   type Config,
