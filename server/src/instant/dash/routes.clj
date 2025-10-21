@@ -70,8 +70,7 @@
             [medley.core :as medley]
             [next.jdbc :as next-jdbc]
             [ring.middleware.cookies :refer [wrap-cookies]]
-            [ring.util.http-response :as response]
-            [instant.model.app-user :as app-user-model])
+            [ring.util.http-response :as response])
   (:import
    (com.stripe.model.checkout Session)
    (io.undertow.websockets.core WebSocketChannel)
