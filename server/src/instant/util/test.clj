@@ -13,11 +13,13 @@
    [instant.jdbc.aurora :as aurora]
    [instant.model.rule :as rule-model]
    [instant.reactive.aggregator :as aggregator]
+   [instant.system-catalog :refer [encode-string->long]]
    [instant.util.coll :as coll]
    [instant.util.exception :as ex]
    [instant.util.instaql :refer [instaql-nodes->object-tree]]
    [next.jdbc])
   (:import
+   (java.util UUID)
    (java.time Duration Instant)))
 
 (defmacro instant-ex-data [& body]
@@ -198,6 +200,17 @@
   [s]
   (parse-uuid
     (str s (subs "00000000-0000-0000-0000-000000000000" (count s)))))
+
+(defn stuid
+  "Stable uuid, can just specify prefix, rest will be filled with 0s
+   Like suid, but accepts any string. Must be less than 24 characters.
+
+     (stuid \"hello\") ; => #uuid \"3916b77f-ffff-ffff-ffff-ffffffffffff\""
+  [s]
+  (UUID. (encode-string->long (subs s 0 (min 12 (count s))))
+         (encode-string->long (if (> (count s) 12)
+                                (subs s 12)
+                                ""))))
 
 (defn rand-string
   ([]
