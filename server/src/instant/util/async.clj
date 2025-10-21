@@ -9,7 +9,6 @@
   (:import
    (java.util.concurrent ConcurrentHashMap
                          Executors
-                         Executor
                          ExecutorService
                          Future)
    (clojure.core.async.impl.buffers FixedBuffer

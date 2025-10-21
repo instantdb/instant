@@ -29,10 +29,9 @@
    [instant.util.lang :as lang]
    [instant.util.tracer :as tracer])
   (:import
-   (java.lang InterruptedException)
    (java.time Instant)
    (java.util Map)
-   (java.util.concurrent ConcurrentHashMap CancellationException ConcurrentLinkedQueue ExecutorService Executors)
+   (java.util.concurrent ConcurrentHashMap ConcurrentLinkedQueue ExecutorService Executors)
    (java.util.concurrent.locks ReentrantLock)
    (java.util.regex Pattern)
    (io.undertow.server.handlers.sse ServerSentEventConnection)
