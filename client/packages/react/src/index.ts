@@ -4,6 +4,9 @@ import {
   lookup,
   i,
 
+  // error
+  InstantAPIError,
+
   // types
   type QueryResponse,
   type InstantQuery,
@@ -80,6 +83,9 @@ export {
   InstantReactWebDatabase,
   Cursors,
   i,
+
+  // error
+  InstantAPIError,
 
   // internal
   InstantReactAbstractDatabase,

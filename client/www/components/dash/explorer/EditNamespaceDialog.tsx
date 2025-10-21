@@ -13,6 +13,7 @@ import {
   PlusIcon,
   TrashIcon,
   ArrowUturnLeftIcon,
+  PencilSquareIcon,
 } from '@heroicons/react/24/solid';
 import { errorToast, successToast } from '@/lib/toast';
 import {
@@ -23,7 +24,9 @@ import {
   cn,
   Content,
   Divider,
+  IconButton,
   InfoTip,
+  Label,
   ProgressButton,
   Select,
   TextInput,
@@ -49,7 +52,7 @@ import {
   jobIsErrored,
 } from '@/lib/indexingJobs';
 import { useAuthToken } from '@/lib/auth';
-import type { PushNavStack } from './Explorer';
+import type { ExplorerNav, PushNavStack } from './Explorer';
 import { useClose } from '@headlessui/react';
 import {
   PendingJob,
@@ -58,6 +61,7 @@ import {
 import { mutate } from 'swr';
 import { RecentlyDeletedAttrs } from './RecentlyDeletedAttrs';
 import { useAttrNotes } from '@/lib/hooks/useAttrNotes';
+import { createRenameNamespaceOps } from '@/lib/renames';
 
 export function EditNamespaceDialog({
   db,
@@ -68,6 +72,7 @@ export function EditNamespaceDialog({
   readOnly,
   isSystemCatalogNs,
   pushNavStack,
+  replaceNav,
 }: {
   db: InstantReactWebDatabase<any>;
   appId: string;
@@ -77,18 +82,42 @@ export function EditNamespaceDialog({
   readOnly: boolean;
   isSystemCatalogNs: boolean;
   pushNavStack: PushNavStack;
+  replaceNav: (nav: Partial<ExplorerNav>) => void;
 }) {
   const [screen, setScreen] = useState<
     | { type: 'main' }
     | { type: 'delete' }
+    | { type: 'rename' }
     | { type: 'add' }
     | { type: 'edit'; attrId: string; isForward: boolean }
   >({ type: 'main' });
 
+  const [renameNsInput, setRenameNsInput] = useState(namespace.name);
+  const [renameNsErrorText, setRenameNsErrorText] = useState<string | null>(
+    null,
+  );
+
   async function deleteNs() {
     const ops = namespace.attrs.map((attr) => ['delete-attr', attr.id]);
-    await db._core._reactor.pushOps(ops);
+    await db.core._reactor.pushOps(ops);
     onClose({ ok: true });
+  }
+
+  async function renameNs(newName: string) {
+    if (newName.startsWith('$')) {
+      setRenameNsErrorText('Namespace name cannot start with $');
+      return;
+    }
+
+    const ops = createRenameNamespaceOps(newName, namespace, namespaces);
+
+    await db.core._reactor.pushOps(ops);
+    replaceNav({
+      namespace: newName,
+    });
+    successToast('Renamed namespace to ' + newName);
+    setRenameNsInput('');
+    setScreen({ type: 'main' });
   }
 
   const notes = useAttrNotes();
@@ -108,13 +137,68 @@ export function EditNamespaceDialog({
 
   return (
     <>
+      {screen.type === 'rename' && (
+        <div className="px-2">
+          <button
+            onClick={() => {
+              setScreen({
+                type: 'main',
+              });
+            }}
+            className="mb-3"
+          >
+            <ArrowLeftIcon className="h-4 w-4 cursor-pointer" />
+          </button>
+          <h6 className="text-md pb-2 font-bold">Rename {namespace.name}</h6>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              renameNs(renameNsInput);
+            }}
+          >
+            <Content className="pb-2 text-sm">
+              This will immediately rename the namespace. You'll need to{' '}
+              <strong className="dark:text-white">update your code</strong> to
+              the new name.
+            </Content>
+            <TextInput
+              disabled={isSystemCatalogNs}
+              value={renameNsInput}
+              onChange={(n) => setRenameNsInput(n)}
+            />
+            <div className="flex flex-col gap-2 rounded py-2">
+              <Button
+                type="submit"
+                disabled={
+                  renameNsInput.startsWith('$') || renameNsInput.length === 0
+                }
+              >
+                Rename {namespace.name} → {renameNsInput}
+              </Button>
+            </div>
+          </form>{' '}
+        </div>
+      )}
+
       {screen.type === 'main' ? (
         <div className="flex flex-col gap-4 px-2">
-          <div className="mr-8 flex gap-4">
-            <h5 className="flex items-center gap-2 text-lg font-bold">
+          <div className="mr-8 flex gap-1">
+            <h5 className="flex items-center text-lg font-bold">
               {namespace.name}
             </h5>
+            <IconButton
+              variant="subtle"
+              onClick={() => {
+                setScreen({ type: 'rename' });
+              }}
+              icon={
+                <PencilSquareIcon className="h-4 w-4 opacity-50"></PencilSquareIcon>
+              }
+              label="Rename"
+            ></IconButton>
+
             <Button
+              className="ml-4"
               disabled={isSystemCatalogNs}
               title={
                 isSystemCatalogNs

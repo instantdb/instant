@@ -32,14 +32,16 @@
     "@clack/prompts": "^0.11.0",
     "@ianvs/prettier-plugin-sort-imports": "^4.2.1",
     "@instantdb/version": "workspace:*",
-    "instant-cli": "workspace:*",
     "chalk": "5.2.0",
     "commander": "^10.0.1",
     "env-paths": "^3.0.0",
     "execa": "^7.2.0",
     "fs-extra": "^11.3.1",
     "gradient-string": "^2.0.2",
+    "open": "^10.1.0",
+    "instant-cli": "workspace:*",
     "ora": "6.3.1",
+    "slugify": "^1.6.6",
     "sort-package-json": "^2.10.0"
   },
   "devDependencies": {
