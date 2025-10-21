@@ -490,6 +490,7 @@ async function checkVersion() {
     path: `/dash/cli/version`,
     debugName: 'CLI version',
     errorMessage: 'Failed to fetch CLI version',
+    noAuth: true,
   });
 
   if (!resp.ok) {
@@ -514,7 +515,7 @@ async function checkVersion() {
 }
 
 async function handlePush(bag, opts) {
-  await checkVersion();
+  checkVersion();
   const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging(opts);
   if (!pkgAndAuthInfo) return process.exit(1);
   const { ok, appId } = await detectOrCreateAppAndWriteToEnv(
@@ -605,7 +606,7 @@ async function detectOrCreateAppAndWriteToEnv(pkgAndAuthInfo, opts) {
 }
 
 async function handlePull(bag, opts) {
-  await checkVersion();
+  checkVersion();
   const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging(opts);
   if (!pkgAndAuthInfo) return process.exit(1);
   const { ok, appId } = await detectOrCreateAppAndWriteToEnv(
@@ -1389,18 +1390,6 @@ async function waitForIndexingJobsToFinish(appId, data) {
     }
     console.log(chalk.red('Some steps failed while updating schema.'));
     process.exit(1);
-  }
-}
-
-function linkOptsPretty(attr) {
-  const fwdEtype = attrFwdEtype(attr);
-  const revEtype = attrRevEtype(attr);
-  if (attr['on-delete'] === 'cascade') {
-    return `:: onDelete ${revEtype} cascade ${fwdEtype}`;
-  } else if (attr['on-delete-reverse'] === 'cascade') {
-    return `:: onDelete ${fwdEtype} cascade ${revEtype}`;
-  } else {
-    return '';
   }
 }
 
