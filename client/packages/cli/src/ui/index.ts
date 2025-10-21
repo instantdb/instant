@@ -962,22 +962,27 @@ ${inputDisplay}`;
         });
       }
 
-      apps.forEach((app) => {
-        items.push({
-          label: app.title,
-          onSelect: () => {
-            this.selectedAppName = app.title;
-            this.terminal?.resolve({
-              status: 'submitted',
-              data: {
-                appId: app.id,
-                approach: 'import',
-                adminToken: app.admin_token,
-              },
-            });
-          },
+      apps
+        .sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+        )
+        .forEach((app) => {
+          items.push({
+            label: app.title,
+            onSelect: () => {
+              this.selectedAppName = app.title;
+              this.terminal?.resolve({
+                status: 'submitted',
+                data: {
+                  appId: app.id,
+                  approach: 'import',
+                  adminToken: app.admin_token,
+                },
+              });
+            },
+          });
         });
-      });
 
       return items;
     };
