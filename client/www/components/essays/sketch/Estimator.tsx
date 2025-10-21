@@ -204,7 +204,7 @@ function ConfigEditor({
           Columns
         </span>
         <input
-          className="w-20 border border-gray-300 px-3 py-2 font-mono text-base transition-all focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
+          className="w-20 border border-gray-300 px-3 py-1.5 font-mono text-sm transition-all focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
           name="columns"
           value={currConfig.columns}
           onChange={(e) => setCurrConfig({ ...currConfig, columns: Number.parseInt(e.target.value, 10) || 0 })}
@@ -216,7 +216,7 @@ function ConfigEditor({
           Rows
         </span>
         <input
-          className="w-20 border border-gray-300 px-3 py-2 font-mono text-base transition-all focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
+          className="w-20 border border-gray-300 px-3 py-1.5 font-mono text-sm transition-all focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
           name="rows"
           value={currConfig.rows}
           onChange={(e) => setCurrConfig({ ...currConfig, rows: Number.parseInt(e.target.value, 10) || 0 })}
@@ -231,7 +231,7 @@ function ConfigEditor({
           type="submit"
           disabled={!hasChanges}
           className={clsx(
-            'border px-4 py-2 text-base font-semibold transition-all',
+            'flex-shrink-0 border px-4 py-1.5 text-sm font-mono font-semibold',
             hasChanges
               ? 'border-blue-500 bg-blue-500 text-white hover:bg-blue-600'
               : 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400',
