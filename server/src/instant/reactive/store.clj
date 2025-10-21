@@ -562,6 +562,34 @@
 ;; ------
 ;; datalog cache
 
+(defn- swap-datalog-cache-tx-data
+  "Should be used in a db.fn/call. Returns transactions.
+   Updates or creates the datalog query with data needed to manage the cache."
+  [db app-id query watcher-id]
+  (if-let [existing (d/entity db [:datalog-query/app-id+query [app-id query]])]
+    (let [watchers (:datalog-query/watchers existing)
+          id (:db/id existing)]
+      (if (or (not watchers)
+              ;; We were canceled, so let's start over
+              (:canceled? @watchers)
+              (:canceled? (swap! watchers
+                                 (fn [x]
+                                   (if (:canceled? x)
+                                     x
+                                     (update x :watchers conj watcher-id))))))
+        [[:db/add id :datalog-query/watchers (atom {:canceled? false
+                                                    :watchers #{watcher-id}})]
+         [:db/add id :datalog-query/stmt-tracker (sql/make-top-level-statement-tracker)]
+         [:db/add id :datalog-query/child-vfutures (ua/new-child-vfutures)]]
+
+        []))
+    [{:datalog-query/app-id app-id
+      :datalog-query/stmt-tracker (sql/make-top-level-statement-tracker)
+      :datalog-query/child-vfutures (ua/new-child-vfutures)
+      :datalog-query/query query
+      :datalog-query/watchers (atom {:canceled? false
+                                     :watchers #{watcher-id}})}]))
+
 (defn swap-datalog-cache!
   "Adds a query to the datalog cache.
    The underlying cache is an instant.util.cache/async-cache that lives in the
@@ -577,32 +605,13 @@
   (let [lookup-ref [:datalog-query/app-id+query [app-id datalog-query]]
         conn (app-conn store app-id)
         watcher-id (Object.)
-        {:keys [db-after]}
-        (transact! "store/swap-datalog-cache!"
-                   conn
-                   [[:db.fn/call
-                     (fn [db]
-                       (if-let [existing (d/entity db lookup-ref)]
-                         (let [watchers (:datalog-query/watchers existing)]
-                           (if (or (not watchers)
-                                   ;; We were canceled, so let's start over
-                                   (:canceled? @watchers)
-                                   (:canceled? (swap! watchers (fn [x]
-                                                                 (if (:canceled? x)
-                                                                   x
-                                                                   (update x :watchers conj watcher-id))))))
-                             [[:db/add (:db/id existing) :datalog-query/watchers (atom {:canceled? false
-                                                                                        :watchers #{watcher-id}})]
-                              [:db/add (:db/id existing) :datalog-query/stmt-tracker (sql/make-top-level-statement-tracker)]
-                              [:db/add (:db/id existing) :datalog-query/child-vfutures (ua/new-child-vfutures)]]
-
-                             []))
-                         [{:datalog-query/app-id app-id
-                           :datalog-query/stmt-tracker (sql/make-top-level-statement-tracker)
-                           :datalog-query/child-vfutures (ua/new-child-vfutures)
-                           :datalog-query/query datalog-query
-                           :datalog-query/watchers (atom {:canceled? false
-                                                          :watchers #{watcher-id}})}]))]])
+        {:keys [db-after]} (transact! "store/swap-datalog-cache!"
+                                      conn
+                                      [[:db.fn/call
+                                        swap-datalog-cache-tx-data
+                                        app-id
+                                        datalog-query
+                                        watcher-id]])
 
         query-ent (d/entity db-after lookup-ref)
 
