@@ -343,9 +343,7 @@ program
     'Which package to automatically install if there is not one installed already.',
   )
   .option('-t --title <title>', 'Title for the created app')
-  .action(async function (opts) {
-    await handlePull('all', opts);
-  });
+  .action(handleInit);
 
 // Note: Nov 20, 2024
 // We can eventually delete this,
@@ -372,7 +370,6 @@ program
   .description('Push perms to production.')
   .action(async (appIdOrName) => {
     warnDeprecation('push-perms', 'push perms');
-    await validateAppLinked();
     await handlePush('perms', { app: appIdOrName });
   });
 
@@ -401,7 +398,6 @@ program
   )
   .description('Push schema and perm files to production.')
   .action(async function (arg, inputOpts) {
-    await validateAppLinked();
     const ret = convertPushPullToCurrentFormat(arg, inputOpts);
     if (!ret.ok) return process.exit(1);
     const { bag, opts } = ret;
@@ -417,7 +413,6 @@ program
   .description('Generate instant.schema.ts from production')
   .action(async (appIdOrName) => {
     warnDeprecation('pull-schema', 'pull schema');
-    await validateAppLinked();
     await handlePull('schema', { app: appIdOrName });
   });
 
@@ -430,7 +425,6 @@ program
   .description('Generate instant.perms.ts from production.')
   .action(async (appIdOrName) => {
     warnDeprecation('pull-perms', 'pull perms');
-    await validateAppLinked();
     await handlePull('perms', { app: appIdOrName });
   });
 
@@ -454,7 +448,6 @@ program
     const ret = convertPushPullToCurrentFormat(arg, inputOpts);
     if (!ret.ok) return process.exit(1);
     const { bag, opts } = ret;
-    await validateAppLinked();
     await handlePull(bag, opts);
   });
 
@@ -482,15 +475,45 @@ program.command('claim').action(async function () {
 
 program.parse(process.argv);
 
-async function handlePush(bag, opts) {
-  const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging(opts);
+async function handleInit(opts) {
+  const pkgAndAuthInfo =
+    await getOrPromptPackageAndAuthInfoWithErrorLogging(opts);
   if (!pkgAndAuthInfo) return process.exit(1);
-  const { ok, appId } = await detectOrCreateAppAndWriteToEnv(
-    pkgAndAuthInfo,
-    opts,
-  );
+  const { ok, appId } = await getOrCreateAppAndWriteToEnv(pkgAndAuthInfo, opts);
+  if (!ok) {
+    return process.exit(1);
+  }
+  await pull('all', appId, pkgAndAuthInfo);
+}
+
+async function handlePush(bag, opts) {
+  const pkgAndAuthInfo = await enforcePackageAndAuthInfoWithErrorLogging(opts);
+  if (!pkgAndAuthInfo) return process.exit(1);
+  const { ok, appId } = await detectAppWithErrorLogging(opts);
   if (!ok) return process.exit(1);
+  if (!appId) {
+    error(
+      'No app ID detected. Please specify one with --app or set it in your .env file.',
+    );
+    return;
+  }
   await push(bag, appId, opts);
+}
+
+async function handlePull(bag, opts) {
+  const pkgAndAuthInfo = await enforcePackageAndAuthInfoWithErrorLogging(opts);
+  if (!pkgAndAuthInfo) return process.exit(1);
+  const { ok, appId } = await detectAppWithErrorLogging(opts);
+  if (!ok) {
+    return process.exit(1);
+  }
+  if (!appId) {
+    error(
+      'No app ID detected. Please specify one with --app or set it in your .env file.',
+    );
+    return;
+  }
+  await pull(bag, appId, pkgAndAuthInfo);
 }
 
 async function push(bag, appId, opts) {
@@ -562,7 +585,7 @@ async function handleEnvFile(pkgAndAuthInfo, { appId, appToken }) {
   console.log(`Created ${chalk.green('`.env`')} file!`);
 }
 
-async function detectOrCreateAppAndWriteToEnv(pkgAndAuthInfo, opts) {
+async function getOrCreateAppAndWriteToEnv(pkgAndAuthInfo, opts) {
   const ret = await detectOrCreateAppWithErrorLogging(opts);
   if (!ret.ok) return ret;
   const { appId, appToken, source } = ret;
@@ -570,19 +593,6 @@ async function detectOrCreateAppAndWriteToEnv(pkgAndAuthInfo, opts) {
     await handleEnvFile(pkgAndAuthInfo, { appId, appToken });
   }
   return ret;
-}
-
-async function handlePull(bag, opts) {
-  const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging(opts);
-  if (!pkgAndAuthInfo) return process.exit(1);
-  const { ok, appId } = await detectOrCreateAppAndWriteToEnv(
-    pkgAndAuthInfo,
-    opts,
-  );
-  if (!ok) {
-    return process.exit(1);
-  }
-  await pull(bag, appId, pkgAndAuthInfo);
 }
 
 async function pull(bag, appId, pkgAndAuthInfo) {
@@ -947,13 +957,12 @@ async function createApp(title, orgId) {
   return { appId: id, adminToken: token };
 }
 
-async function detectOrCreateAppWithErrorLogging(opts) {
+async function detectAppWithErrorLogging(opts) {
   const fromOpts = await detectAppIdFromOptsWithErrorLogging(opts);
   if (!fromOpts.ok) return fromOpts;
   if (fromOpts.appId) {
     return { ok: true, appId: fromOpts.appId, source: 'opts' };
   }
-
   const fromEnv = detectAppIdFromEnvWithErrorLogging();
   if (!fromEnv.ok) return fromEnv;
   if (fromEnv.found) {
@@ -961,7 +970,15 @@ async function detectOrCreateAppWithErrorLogging(opts) {
     console.log(`Found ${chalk.green(envName)}: ${value}`);
     return { ok: true, appId: value, source: 'env' };
   }
+  return { ok: true };
+}
 
+async function detectOrCreateAppWithErrorLogging(opts) {
+  const detected = await detectAppWithErrorLogging(opts);
+  if (!detected.ok) return detected;
+  if (detected.appId) {
+    return detected;
+  }
   let action;
   if (program.optsWithGlobals().yes) {
     action = 'create';
@@ -977,7 +994,6 @@ async function detectOrCreateAppWithErrorLogging(opts) {
   } else {
     return await promptImportAppOrCreateApp();
   }
-  return { ok: false };
 }
 
 async function writeTypescript(path, content, encoding) {
@@ -1014,7 +1030,27 @@ async function getPackageJSONWithErrorLogging(pkgDir) {
   return pkgJson;
 }
 
-async function resolvePackageAndAuthInfoWithErrorLogging(opts) {
+async function enforcePackageAndAuthInfoWithErrorLogging(_opts) {
+  const pkgDir = await packageDirectoryWithErrorLogging();
+  if (!pkgDir) {
+    return;
+  }
+  const pkgJson = await getPackageJSONWithErrorLogging(pkgDir);
+  if (!pkgJson) {
+    return;
+  }
+  const instantModuleName = await getInstantModuleName(pkgJson);
+  if (!instantModuleName) {
+    error("We couldn't find an Instant SDK. Install one, or run `init`");
+  }
+  const authToken = await readConfigAuthTokenWithErrorLogging();
+  if (!authToken) {
+    return;
+  }
+  return { pkgDir, instantModuleName, authToken };
+}
+
+async function getOrPromptPackageAndAuthInfoWithErrorLogging(opts) {
   const pkgDir = await packageDirectoryWithErrorLogging();
   if (!pkgDir) {
     return;
@@ -2050,28 +2086,4 @@ function detectAppIdAndAdminTokenFromEnvWithErrorLogging() {
 
 function appDashUrl(id) {
   return `${instantDashOrigin}/dash?s=main&t=home&app=${id}`;
-}
-
-async function detectIfAppLinked() {
-  const fromOpts = await detectAppIdFromOptsWithErrorLogging(program.opts());
-  if (!fromOpts.ok) return false;
-  if (fromOpts.appId) {
-    return true;
-  }
-
-  const fromEnv = detectAppIdFromEnvWithErrorLogging();
-  if (!fromEnv.ok) return false;
-  if (fromEnv.found) {
-    return true;
-  }
-}
-
-async function validateAppLinked() {
-  const isLinked = await detectIfAppLinked();
-  if (!isLinked) {
-    console.error(
-      "Can't find app ID, use `instant-cli init` to link an app first",
-    );
-    process.exit(1);
-  }
 }
