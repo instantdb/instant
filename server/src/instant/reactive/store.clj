@@ -241,12 +241,6 @@
                                         tx-data)
         cache (conn->datalog-query-cache conn)]
     (when (seq deleted-datalog-query-ids)
-      (doseq [eid deleted-datalog-query-ids
-              :let [ent (d/entity db-before eid)
-                    watchers (:watchers (:datalog-query/watchers ent))]
-              :when (or (not watchers)
-                        (empty? @watchers))]
-        (cancel-in-progress-datalog-query cache ent))
       (cache/invalidate-all-async cache deleted-datalog-query-ids)
       (let [stats (cache/stats-async cache)]
         (tracer/add-data! {:attributes {:cache.hits (.hitCount stats)
