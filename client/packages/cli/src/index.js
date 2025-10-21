@@ -975,6 +975,7 @@ async function detectOrCreateAppWithErrorLogging(opts) {
 
     return { ok: true, appId: app.appId, source: 'created' };
   } else {
+    console.log();
     return await promptImportAppOrCreateApp();
   }
   return { ok: false };

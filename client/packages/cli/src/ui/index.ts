@@ -696,14 +696,29 @@ ${inputDisplay}`;
           } else if (keyInfo.name === 'backspace') {
             this.searchQuery = this.searchQuery.slice(0, -1);
             this.filterItems();
+          } else if (keyInfo.name === 'up' || keyInfo.name === 'down') {
+            // Allow arrow keys to navigate in search mode
           } else if (keyInfo.name === 'return') {
             this.searchMode = false;
-            this.items[this.selectedIdx]?.onSelect();
+            const item = this.items[this.selectedIdx];
+            if (item) {
+              item.onSelect();
+            } else {
+              // bail out of search if you hit enter on nothing
+              this.items = this.allItems;
+              this.searchQuery = '';
+              this.setSelectedItem(0);
+              this.searchMode = false;
+            }
           } else if (key && key.length === 1) {
             this.searchQuery += key;
             this.filterItems();
           }
-          return;
+          if (keyInfo.name === 'up' || keyInfo.name === 'down') {
+            // Continue to navigation logic below
+          } else {
+            return;
+          }
         }
 
         if (key === 'j' || keyInfo.name == 'down') {
@@ -725,6 +740,10 @@ ${inputDisplay}`;
       this.allItems = props.items;
       this.items = props.items;
       this.setSelectedItem(0);
+    }
+
+    public isSearching(): boolean {
+      return this.searchMode;
     }
 
     private filterItems() {
@@ -933,21 +952,44 @@ ${inputDisplay}`;
         left += `(${this.selectedOrg.title}) `;
       }
 
-      const right =
-        curFocus === 'appList'
-          ? ' <tab>: change org'
-          : curFocus === 'newApp' && this.props.allowEphemeral
-            ? '<tab>: toggle temporary app'
-            : null;
+      const keybindings: string[] = [];
 
-      let paddedRight = right
-        ? right.padStart(this.RIGHT_WIDTH - 2 - left.length, '─')
-        : '';
+      if (curFocus === 'newApp') {
+        keybindings.push('<enter>: create app');
+        keybindings.push('<esc>: back');
+        if (this.props.allowEphemeral) {
+          keybindings.push('<tab>: toggle temporary app');
+        }
+      }
 
-      return boxen(rightSide, {
-        title: left + paddedRight,
-        dimBorder: true,
-      });
+      if (curFocus === 'appList') {
+        keybindings.push('<tab>: change org');
+        keybindings.push('<enter>: select app');
+        if (this.appList.isSearching()) {
+          keybindings.push('<esc>: cancel search');
+        } else {
+          keybindings.push('/: search');
+        }
+      }
+
+      if (curFocus === 'pickOrg') {
+        keybindings.push('<tab>/<esc>: back');
+        keybindings.push('<enter>: select org');
+        if (this.orgList.isSearching()) {
+          keybindings.push('<esc>: cancel search');
+        } else {
+          keybindings.push('/: search');
+        }
+      }
+
+      return (
+        boxen(rightSide, {
+          title: left,
+          dimBorder: true,
+        }) +
+        '\n' +
+        chalk.dim('  ' + keybindings.join('   '))
+      );
     }
 
     createAppList = (apps: App[]): MenuItem[] => {
