@@ -383,7 +383,21 @@
      (with-open [~conn-name ^HikariDataSource (start-pool# 1 (rds-cluster-id->db-config# cluster-id#))]
        ~@body)))
 
-(defn recompile-java []
+(defn recompile-java
+  "Recompiles java files in src/java.
+   Can only be used in development.
+   May still require a restart to get rid of any instances using the old
+   definitions."
+  []
   (require 'virgil)
   (let [compile-java (resolve 'virgil/compile-java)]
     (compile-java ["src"] :options ["-Xlint:all"])))
+
+(defn memory-size
+  "Measures the size of objects with https://github.com/clojure-goes-fast/clj-memory-meter
+   Can only be used in development with the memory-meter profile enabled:
+     `make memory-meter-dev` # starts the dev server and loads the memory meter library"
+  [obj]
+  (require 'clj-memory-meter.core)
+  (let [measure (resolve 'clj-memory-meter.core/measure)]
+    (measure obj {:bytes true})))
