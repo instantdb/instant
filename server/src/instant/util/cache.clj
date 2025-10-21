@@ -1,10 +1,11 @@
 (ns instant.util.cache
   (:refer-clojure :exclude [get])
   (:import
-   [com.github.benmanes.caffeine.cache AsyncLoadingCache AsyncCache Cache Caffeine LoadingCache]
+   [com.github.benmanes.caffeine.cache AsyncLoadingCache AsyncCache Cache Caffeine LoadingCache Policy$Eviction]
    [com.github.benmanes.caffeine.cache.stats CacheStats]
    [java.lang Iterable]
    [java.time Duration]
+   [java.util OptionalLong]
    [java.util.concurrent CompletableFuture]
    [java.util.function Function]))
 
@@ -177,7 +178,21 @@
   [^AsyncCache cache]
   (into {} (Cache/.asMap (.synchronous cache))))
 
-(defn async-stats
-  "Returns CacheStats for the async cache."
+(defn stats-async
+  "Returns CacheStats for the async cache. If the cache was not created with
+   `:record-stats`, all values will be zero."
   ^CacheStats [^AsyncCache cache]
   (.stats (.synchronous cache)))
+
+(defn weight-async
+  "Returns the weight of all of the items in the cache. If the cache was
+   not created with `:record-stats`, it will return zero."
+  ^Long [^AsyncCache cache]
+  (-> cache
+      (.synchronous)
+      (.policy)
+      (.eviction)
+      (.map (fn [^Policy$Eviction e]
+              (.weightedSize e)))
+      ^OptionalLong (.orElse (OptionalLong/empty))
+      (.orElse 0)))

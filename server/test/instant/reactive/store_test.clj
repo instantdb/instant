@@ -29,37 +29,39 @@
 
 (deftest swap-datalog-cache!
   (let [store  (rs/init)
-        app-id (random-uuid)]
+        app-id (random-uuid)
+        make-res (fn [v]
+                   (with-meta v {:sql-byte-len 10}))]
     (testing "store returns cached data"
       (let [q [[:ea (random-uuid)]]]
-        (is (= :a (rs/swap-datalog-cache! store
-                                          app-id
-                                          (fn [_ctx _query]
-                                            :a)
-                                          nil
-                                          q)))
-        (is (= :a (rs/swap-datalog-cache! store
-                                          app-id
-                                          (fn [_ctx _query]
-                                            :b)
-                                          nil
-                                          q)))))
+        (is (= {:a :a} (rs/swap-datalog-cache! store
+                                               app-id
+                                               (fn [_ctx _query]
+                                                 (make-res {:a :a}))
+                                               nil
+                                               q)))
+        (is (= {:a :a} (rs/swap-datalog-cache! store
+                                               app-id
+                                               (fn [_ctx _query]
+                                                 (make-res {:b :b}))
+                                               nil
+                                               q)))))
 
     (testing "store returns cached data with delay"
       (let [q [[:ea (random-uuid)]]]
-        (is (= :a (rs/swap-datalog-cache! store
-                                          app-id
-                                          (fn [_ctx _query]
-                                            (Thread/sleep 100)
-                                            :a)
-                                          nil
-                                          q)))
-        (is (= :a (rs/swap-datalog-cache! store
-                                          app-id
-                                          (fn [_ctx _query]
-                                            :b)
-                                          nil
-                                          q)))))
+        (is (= {:a :a} (rs/swap-datalog-cache! store
+                                               app-id
+                                               (fn [_ctx _query]
+                                                 (Thread/sleep 100)
+                                                 (make-res {:a :a}))
+                                               nil
+                                               q)))
+        (is (= {:a :a} (rs/swap-datalog-cache! store
+                                               app-id
+                                               (fn [_ctx _query]
+                                                 (make-res {:b :b}))
+                                               nil
+                                               q)))))
 
     (testing "work is canceled with no listeners"
       (let [q [[:ea (random-uuid)]]
@@ -73,7 +75,8 @@
                                                             (deliver started true)
                                                             @(promise)
                                                             (catch Throwable t
-                                                              (deliver err t))))
+                                                              (deliver err t)
+                                                              (make-res {:a :d}))))
                                                         nil
                                                         q)
                                 (finally
@@ -125,8 +128,8 @@
           (is (or (instance? java.lang.InterruptedException (deref err 100 :timeout))
                   (instance? java.util.concurrent.CancellationException (deref err 100 :timeout))))
           (Thread/sleep 10)
-          (deliver wait :a)
-          (is (= (deref f2 100 :timeout) :a)))))
+          (deliver wait (make-res {:a :a}))
+          (is (= (deref f2 100 :timeout) {:a :a})))))
 
     (testing "doesn't store failures"
       (let [q [[:ea (random-uuid)]]
@@ -151,12 +154,12 @@
                             (not (c/get-if-present-async cache q-id)))
                           1000)))
 
-        (is (= :ok (rs/swap-datalog-cache! store
-                                           app-id
-                                           (fn [_ctx _query]
-                                             :ok)
-                                           nil
-                                           q)))))))
+        (is (= {:ok :ok} (rs/swap-datalog-cache! store
+                                             app-id
+                                             (fn [_ctx _query]
+                                               (make-res {:ok :ok}))
+                                             nil
+                                             q)))))))
 
 (defmacro is-match-topic-part [iv-part dq-part expected]
   `(is (= ~expected (#'rs/match-topic-part? ~iv-part ~dq-part))

@@ -96,6 +96,9 @@
    ;; sql statement tracker to allow us to cancel in-progress queries
    ;; if there are no interested connections
    :datalog-query/stmt-tracker {}
+   ;; vfuture tracker to all us to cancel in-progress queries that are
+   ;; no longer subscribed
+   :datalog-query/child-vfutures {}
 
    :datalog-query/app-id+query
    {:db/tupleAttrs [:datalog-query/app-id :datalog-query/query]
@@ -235,14 +238,15 @@
         (sql/cancel-in-progress (:datalog-query/stmt-tracker ent))
         (ua/cancel-children (:datalog-query/child-vfutures ent) true))
       (cache/invalidate-all-async cache deleted-datalog-query-ids)
-      (let [stats (cache/async-stats cache)]
+      (let [stats (cache/stats-async cache)]
         (tracer/add-data! {:attributes {:cache.hits (.hitCount stats)
                                         :cache.misses (.missCount stats)
                                         :cache.success (.loadSuccessCount stats)
                                         :cache.failure (.loadFailureCount stats)
                                         :cache.load-time (.totalLoadTime stats)
                                         :cache.evicts (.evictionCount stats)
-                                        :cache.evictionWeight (.evictionWeight stats)}})))))
+                                        :cache.eviction-weight (.evictionWeight stats)
+                                        :cache.current-weight (cache/weight-async cache)}})))))
 
 (defn transact-new! [span-name conn tx-data]
   (let [t1 (System/nanoTime)]
