@@ -61,6 +61,7 @@ import {
 import { mutate } from 'swr';
 import { RecentlyDeletedAttrs } from './RecentlyDeletedAttrs';
 import { useAttrNotes } from '@/lib/hooks/useAttrNotes';
+import { createRenameNamespaceOps } from '@/lib/renames';
 
 export function EditNamespaceDialog({
   db,
@@ -107,39 +108,8 @@ export function EditNamespaceDialog({
       setRenameNsErrorText('Namespace name cannot start with $');
       return;
     }
-    const currentName = namespace.name;
-    const ops: any[] = [];
-    namespace.attrs.forEach((attr) => {
-      ops.push([
-        'update-attr',
-        {
-          id: attr.id,
-          'forward-identity': [
-            attr.linkConfig.forward.id,
-            newName,
-            attr.linkConfig.forward.attr,
-          ],
-        },
-      ]);
-    });
 
-    namespaces.forEach((ns) => {
-      ns.attrs.forEach((attr) => {
-        if (attr.linkConfig.reverse?.namespace === currentName) {
-          ops.push([
-            'update-attr',
-            {
-              id: attr.id,
-              'reverse-identity': [
-                attr.linkConfig.reverse.id,
-                newName,
-                attr.linkConfig.reverse.attr,
-              ],
-            },
-          ]);
-        }
-      });
-    });
+    const ops = createRenameNamespaceOps(newName, namespace, namespaces);
 
     await db.core._reactor.pushOps(ops);
     replaceNav({
