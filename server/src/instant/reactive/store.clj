@@ -18,6 +18,7 @@
    [clojure.string :as string]
    [datascript.core :as d]
    [datascript.conn :as d-conn]
+   [instant.config :as config]
    [instant.flags :as flags]
    [instant.jdbc.sql :as sql]
    [instant.lib.ring.websocket :as ws]
@@ -155,6 +156,17 @@
         (when-not (ConcurrentLinkedQueue/.isEmpty tx-queue)
           (ExecutorService/.submit executor ^Runnable this))))))
 
+(def datalog-query-byte-len
+  (if (config/prod?)
+    (fn [v]
+      (or (:sql-byte-len (meta v))
+          ;; This should never be null, but just in case
+          (* 1024 1024)))
+    (fn [v]
+      (let [byte-len (:sql-byte-len (meta v))]
+        (assert byte-len ":sql-byte-len is missing from datalog result")
+        byte-len))))
+
 (defn create-datalog-query-cache [executor]
   (cache/make-async {:max-weight (flags/flag :datalog-cache-max-weight
                                              ;; 500mb
@@ -163,13 +175,12 @@
                                       ;; 1 hour
                                       (* 1000 60 60))
                      :weigher (fn [_k v]
-                                (* (or (:sql-bytes (meta v))
-                                       ;; This should never be null, but just in case
-                                       (* 1024 1024))
+                                (* (datalog-query-byte-len v)
                                    ;; We use more memory to build the data than
                                    ;; postgres uses to send it to us. This flag accounts
                                    ;; for that difference
                                    (flags/flag :datalog-cache-size-multiple 4)))
+                     :record-stats true
                      :executor executor}))
 
 (defn create-conn [schema app-id]
@@ -202,6 +213,37 @@
       (ex/throw-session-missing! (last entity-id))
       (throw exinfo))))
 
+(defn clean-datalog-query-cache
+  "Evicts datalog results we no longer care about and cancels any in-progress
+   queries that nobody is waiting on a result for.
+
+   Should run after `transact!`"
+  [conn {:keys [db-before tx-data]}]
+  (let [deleted-datalog-query-ids (keep (fn [datom]
+                                          (when (and (= (:a datom)
+                                                        :datalog-query/app-id+query)
+                                                     (not (:added datom)))
+                                            (:e datom)))
+                                        tx-data)
+        cache (:datalog-query-cache (meta conn))]
+    (when (seq deleted-datalog-query-ids)
+      (doseq [eid deleted-datalog-query-ids
+              :let [ent (d/entity db-before eid)
+                    watchers (:datalog-query/watchers ent)]
+              :when (or (not watchers)
+                        (empty? @watchers))]
+        (sql/cancel-in-progress (:datalog-query/stmt-tracker ent))
+        (ua/cancel-children (:datalog-query/child-vfutures ent) true))
+      (cache/invalidate-all-async cache deleted-datalog-query-ids)
+      (let [stats (cache/async-stats cache)]
+        (tracer/add-data! {:attributes {:cache.hits (.hitCount stats)
+                                        :cache.misses (.missCount stats)
+                                        :cache.success (.loadSuccessCount stats)
+                                        :cache.failure (.loadFailureCount stats)
+                                        :cache.load-time (.totalLoadTime stats)
+                                        :cache.evicts (.evictionCount stats)
+                                        :cache.evictionWeight (.evictionWeight stats)}})))))
+
 (defn transact-new! [span-name conn tx-data]
   (let [t1 (System/nanoTime)]
     (tracer/with-span! {:name span-name
@@ -227,6 +269,7 @@
           (when (> tx-time-ms 15000)
             (def -new-long-tx-data tx-data)
             (def -new-long-tx report))
+          (clean-datalog-query-cache conn report)
           report)
         (catch clojure.lang.ExceptionInfo e
           (translate-datascript-exceptions e))))))
@@ -252,41 +295,17 @@
           (when (> tx-time-ms 15000)
             (def -old-long-tx-data tx-data)
             (def -old-long-tx ret))
+          (clean-datalog-query-cache conn ret)
           ret)
         (catch clojure.lang.ExceptionInfo e
           (translate-datascript-exceptions e))))))
 
-(defn clean-datalog-query-cache
-  "Evicts datalog results we no longer care about and cancels any in-progress
-   queries that nobody is waiting on a result for.
-
-   Should run after `transact!`"
-  [conn {:keys [db-before tx-data]}]
-  (let [deleted-datalog-query-ids (keep (fn [datom]
-                                          (when (and (= (:a datom)
-                                                        :datalog-query/app-id+query)
-                                                     (not (:added datom)))
-                                            (:e datom)))
-                                        tx-data)
-        cache (:datalog-query-cache (meta conn))]
-    (when (seq deleted-datalog-query-ids)
-      (doseq [eid deleted-datalog-query-ids
-              :let [ent (d/entity db-before eid)
-                    watchers (:datalog-query/watchers ent)]
-              :when (or (not watchers)
-                        (empty? @watchers))]
-        (sql/cancel-in-progress (:datalog-query/stmt-tracker ent))
-        (ua/cancel-children (:datalog-query/child-vfutures ent) true))
-      (cache/invalidate-all-async cache deleted-datalog-query-ids))))
-
 (defn transact! [span-name conn tx-data]
-  (let [res (if (or (flags/toggled? :enable-store-batching-globally)
-                    (contains? (flags/flag :enable-store-batching-apps)
-                               (:app-id (meta conn))))
-              (transact-new! span-name conn tx-data)
-              (transact-old! span-name conn tx-data))]
-    (clean-datalog-query-cache conn res)
-    res))
+  (if (or (flags/toggled? :enable-store-batching-globally)
+          (contains? (flags/flag :enable-store-batching-apps)
+                     (:app-id (meta conn))))
+    (transact-new! span-name conn tx-data)
+    (transact-old! span-name conn tx-data)))
 
 ;; -----
 ;; reports

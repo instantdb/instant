@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [get])
   (:import
    [com.github.benmanes.caffeine.cache AsyncLoadingCache AsyncCache Cache Caffeine LoadingCache]
+   [com.github.benmanes.caffeine.cache.stats CacheStats]
    [java.lang Iterable]
    [java.time Duration]
    [java.util.concurrent CompletableFuture]
@@ -35,7 +36,8 @@
                               max-weight
                               weigher ttl
                               on-remove
-                              executor]}]
+                              executor
+                              record-stats]}]
   (cond-> (Caffeine/newBuilder)
     max-size   (.maximumSize max-size)
     max-weight (.maximumWeight max-weight)
@@ -43,6 +45,7 @@
     ttl        (.expireAfterWrite (Duration/ofMillis ttl))
     on-remove  (.removalListener on-remove)
     executor   (.executor executor)
+    record-stats (.recordStats)
     true       (Caffeine/.buildAsync)))
 
 (defn invalidate
@@ -173,3 +176,8 @@
   "Snapshot of a cache as an immutable map. Creates a shallow copy just in case"
   [^AsyncCache cache]
   (into {} (Cache/.asMap (.synchronous cache))))
+
+(defn async-stats
+  "Returns CacheStats for the async cache."
+  ^CacheStats [^AsyncCache cache]
+  (.stats (.synchronous cache)))

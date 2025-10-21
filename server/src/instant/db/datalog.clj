@@ -2946,7 +2946,7 @@
                         (when-let [sql-bytes (-> sql-res
                                                  meta
                                                  :bytes-read)]
-                          {:sql-bytes sql-bytes}))))
+                          {:sql-byte-len sql-bytes}))))
           grouped-rows (group-rows-by-join-sym sql-res children)
           result (nested-sql-result->result sql-res grouped-rows children)
           topics (collect-all-topics result)]
