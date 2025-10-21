@@ -12,10 +12,6 @@ import {
   id,
   tx,
   lookup,
-
-  // error
-  InstantAPIError,
-
   type RoomSchemaShape,
   type InstantQuery,
   type InstantQueryResult,
@@ -75,6 +71,9 @@ import {
   type FileOpts,
   type UploadFileResponse,
   type DeleteFileResponse,
+
+  // error
+  InstantAPIError,
 } from '@instantdb/core';
 
 /**
