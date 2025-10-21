@@ -6,6 +6,10 @@ dev:
 	@echo "Booting up backend w/ local db..."
 	clojure -T:build dev
 
+memory-meter-dev:
+	@echo "Booting up backend w/ local db..."
+	clojure -T:build memory-meter
+
 bootstrap-oss:
 	clojure -X:dev:oss-bootstrap
 

@@ -32,6 +32,14 @@
                     :main 'clojure.main
                     :main-args ["-m" "instant.core"]})))
 
+(defn memory-meter [_]
+  (compile-java nil)
+  (b/process
+   (b/java-command {:basis (b/create-basis {:project "deps.edn"
+                                            :aliases [:dev :memory-meter]})
+                    :main 'clojure.main
+                    :main-args ["-m" "instant.core"]})))
+
 (defn run [_]
   (compile-java nil)
   (b/process
