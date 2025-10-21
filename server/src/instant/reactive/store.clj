@@ -93,6 +93,9 @@
    ;; Atom containing a set of watcher ids. Used to determine if
    ;; we can cancel an in-progress query if it is evicted from the store.
    :datalog-query/watchers {}
+   ;; sql statement tracker to allow us to cancel in-progress queries
+   ;; if there are no interested connections
+   :datalog-query/stmt-tracker {}
 
    :datalog-query/app-id+query
    {:db/tupleAttrs [:datalog-query/app-id :datalog-query/query]
@@ -172,7 +175,7 @@
 
 (defn create-conn [schema app-id]
   (let [conn (d/create-conn schema)
-        cache-executor (Executors/newVirtualThreadPerTaskExecutor)]
+        cache-executor (ua/make-vfuture-executor)]
     (alter-meta! conn
                  assoc
                  :app-id app-id
@@ -261,22 +264,20 @@
    Should run after `transact!`"
   [conn {:keys [db-before tx-data]}]
   (let [deleted-datalog-query-ids (keep (fn [datom]
-                                          (when (= (:a datom)
-                                                   :datalog-query/app-id+query)
+                                          (when (and (= (:a datom)
+                                                        :datalog-query/app-id+query)
+                                                     (not (:added datom)))
                                             (:e datom)))
                                         tx-data)
         cache (:datalog-query-cache (meta conn))]
     (when (seq deleted-datalog-query-ids)
       (doseq [eid deleted-datalog-query-ids
-              :let [in-progress-query (cache/get-if-present-async cache eid)]
-              :when (and in-progress-query
-                         (not (.isDone in-progress-query)))
-              :let [watchers (:datalog-query/watchers (d/entity db-before eid))]
+              :let [ent (d/entity db-before eid)
+                    watchers (:datalog-query/watchers ent)]
               :when (or (not watchers)
                         (empty? @watchers))]
-        (.cancel in-progress-query true))
-      ;; Invalidate after we cancel or else we'll lose access to the in-progress
-      ;; future
+        (sql/cancel-in-progress (:datalog-query/stmt-tracker ent))
+        (ua/cancel-children (:datalog-query/child-vfutures ent) true))
       (cache/invalidate-all-async cache))))
 
 (defn transact! [span-name conn tx-data]
@@ -549,10 +550,16 @@
                    [[:db.fn/call
                      (fn [db]
                        (if-some [existing (d/entity db lookup-ref)]
-                         (if (:datalog-query/watchers existing)
-                           []
-                           [[:db/add (:db/id existing) :datalog-query/watchers (atom #{})]])
+                         (concat
+                          (when-not (:datalog-query/watchers existing)
+                            [[:db/add (:db/id existing) :datalog-query/watchers (atom #{})]])
+                          (when-not (:datalog-query/stmt-tracker existing)
+                            [[:db/add (:db/id existing) :datalog-query/stmt-tracker (sql/make-top-level-statement-tracker)]])
+                          (when-not (:datalog-query/child-vfutures existing)
+                            [[:db/add (:db/id existing) :datalog-query/child-vfutures (ua/new-child-vfutures)]]))
                          [{:datalog-query/app-id app-id
+                           :datalog-query/stmt-tracker (sql/make-top-level-statement-tracker)
+                           :datalog-query/child-vfutures (ua/new-child-vfutures)
                            :datalog-query/query datalog-query
                            :datalog-query/watchers (atom #{})}]))]])
 
@@ -560,23 +567,30 @@
 
         query-id (:db/id query-ent)
 
+        stmt-tracker (:datalog-query/stmt-tracker query-ent)
+
+        child-vfutures (:datalog-query/child-vfutures query-ent)
+
         cache (:datalog-query-cache (meta conn))
 
-        watcher-id (Object.)
+        watcher-id (Object.)]
 
-        _ (swap! (:datalog-query/watchers query-ent) conj watcher-id)
-
-        existing-result (cache/get-if-present-async cache query-id)
-
-        _ (tracer/add-data! {:attributes {:cache-hit (not (nil? existing-result))
-                                          :realized (and (not (nil? existing-result))
-                                                         (.isDone existing-result))}})]
     (try
-      (deref (or existing-result
-                 (cache/get-async cache
-                                  query-id
-                                  (fn [_]
-                                    (datalog-query-fn ctx datalog-query)))))
+      (swap! (:datalog-query/watchers query-ent) conj watcher-id)
+
+      (let [existing-result (cache/get-if-present-async cache query-id)]
+        (tracer/add-data! {:attributes {:cache-hit (not (nil? existing-result))
+                                        :realized (and (not (nil? existing-result))
+                                                       (.isDone existing-result))}})
+        (deref (or existing-result
+                   ;; bindings to let us cancel in-progress queries
+                   ;; once all listeners drop off
+                   (binding [ua/*child-vfutures* child-vfutures
+                             sql/*in-progress-stmts* stmt-tracker]
+                     (cache/get-async cache
+                                      query-id
+                                      (fn [_]
+                                        (datalog-query-fn ctx datalog-query)))))))
       (finally
         (swap! (:datalog-query/watchers query-ent) disj watcher-id)))))
 

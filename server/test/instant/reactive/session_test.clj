@@ -19,6 +19,7 @@
    [instant.reactive.session :as session]
    [instant.reactive.store :as rs]
    [instant.util.async :as ua]
+   [instant.util.cache :as cache]
    [instant.util.coll :as ucoll])
   (:import
    (com.hazelcast.core HazelcastInstance)
@@ -286,15 +287,11 @@
                  (resolvers/walk-friendly movies-resolver (map remove-created-at result)))))))))
 
 (defn- get-datalog-cache-for-app [store app-id]
-  (let [db @(rs/app-conn store app-id)]
-    (->> (ds/q '{:find [?query ?result]
-                 :in [$ ?app-id]
-                 :where [[?e :datalog-query/app-id ?app-id]
-                         [?e :datalog-query/query ?query]
-                         [?e :datalog-query/delayed-call ?result]]}
-               db
-               app-id)
-         (into {}))))
+  (let [conn (rs/app-conn store app-id)]
+    (reduce-kv (fn [acc eid v]
+                 (assoc acc (:datalog-query/query (ds/entity @conn eid)) v))
+               {}
+               (cache/as-map-async (:datalog-query-cache (meta conn))))))
 
 (defn- get-subscriptions-for-app-id [store app-id]
   (let [db @(rs/app-conn store app-id)]

@@ -1,8 +1,11 @@
 (ns instant.reactive.store-test
   (:require
    [clojure.test :as test :refer [deftest is testing]]
+   [datascript.core :as d]
    [instant.reactive.store :as rs]
-   [instant.util.async :as ua])
+   [instant.util.async :as ua]
+   [instant.util.cache :as c]
+   [instant.util.test :refer [wait-for]])
   (:import
    (java.time Instant)))
 
@@ -62,51 +65,76 @@
       (let [q [[:ea (random-uuid)]]
             err (promise)
             started (promise)
-            f1 (ua/vfuture (rs/swap-datalog-cache! store
-                                                   app-id
-                                                   (fn [_ctx _query]
-                                                     (try
-                                                       (deliver started true)
-                                                       @(promise)
-                                                       (catch Throwable t
-                                                         (deliver err t))))
-                                                   nil
-                                                   q))]
+            canceled (promise)
+            f1 (ua/vfuture (try (rs/swap-datalog-cache! store
+                                                        app-id
+                                                        (fn [_ctx _query]
+                                                          (try
+                                                            (deliver started true)
+                                                            @(promise)
+                                                            (catch Throwable t
+                                                              (deliver err t))))
+                                                        nil
+                                                        q)
+                                (finally
+                                  (deliver canceled true))))]
         @started
         (future-cancel f1)
+        ;; Wait for future to complete
+        @canceled
+
+        ;; Remove the datalog queries to trigger cleanup
+        (let [conn (rs/app-conn store app-id)]
+          (let [x (rs/transact! "clean-datalog-queries"
+                                conn
+                                [[:db.fn/call #'rs/clean-stale-datalog-tx-data]])]
+            (let [res (deref err 1000 :timeout)]
+              (when (= :timeout res)
+                (tool/def-locals)
+                ))))
+
+
+
         (is (instance? java.lang.InterruptedException (deref err 100 :timeout)))))
 
     (dotimes [_ 100]
-      (testing "work isn't canceled if there are still listeners"
-        (let [q [[:ea (random-uuid)]]
-              err (promise)
-              started (promise)
-              wait (promise)
-              f1 (ua/vfuture (try (rs/swap-datalog-cache! store
-                                                          app-id
-                                                          (fn [_ctx _query]
-                                                            (deliver started true)
-                                                            ;; It looks like the promise is getting canceled somehow?
-                                                            @wait)
-                                                          nil
-                                                          q)
-                                  (catch Throwable t
-                                    (deliver err t))))
-              _ @started
-              f2 (ua/vfuture (rs/swap-datalog-cache! store
-                                                     app-id
-                                                     (fn [_ctx _query]
-                                                       @wait)
-                                                     nil
-                                                     q))]
-          (future-cancel f1)
-          (is (or (instance? java.lang.InterruptedException (deref err 100 :timeout))
-                  (instance? java.util.concurrent.CancellationException (deref err 100 :timeout))))
-          (Thread/sleep 10)
-          (deliver wait :a)
-          (is (= (deref f2 100 :timeout) :a)))))
+        (testing "work isn't canceled if there are still listeners"
+          (let [q [[:ea (random-uuid)]]
+                err (promise)
+                started (promise)
+                wait (promise)
+                f1 (ua/vfuture (try (rs/swap-datalog-cache! store
+                                                            app-id
+                                                            (fn [_ctx _query]
+                                                              (deliver started true)
+                                                              ;; It looks like the promise is getting canceled somehow?
+                                                              @wait)
+                                                            nil
+                                                            q)
+                                    (catch Throwable t
+                                      (deliver err t))))
+                _ @started
+                f2 (ua/vfuture (rs/swap-datalog-cache! store
+                                                       app-id
+                                                       (fn [_ctx _query]
+                                                         @wait)
+                                                       nil
+                                                       q))]
 
-    (testing "propagates failures"
+            ;; Remove the datalog queries to trigger cleanup
+            (let [conn (rs/app-conn store app-id)]
+              (rs/transact! "clean-datalog-queries"
+                            conn
+                            [[:db.fn/call #'rs/clean-stale-datalog-tx-data]]))
+
+            (future-cancel f1)
+            (is (or (instance? java.lang.InterruptedException (deref err 100 :timeout))
+                    (instance? java.util.concurrent.CancellationException (deref err 100 :timeout))))
+            (Thread/sleep 10)
+            (deliver wait :a)
+            (is (= (deref f2 100 :timeout) :a)))))
+
+    (testing "doesn't store failures"
       (let [q [[:ea (random-uuid)]]
             r1 (try (rs/swap-datalog-cache! store
                                             app-id
@@ -120,13 +148,21 @@
         (is (instance? Exception
                        r1))
 
-        (is (thrown? Exception
-                     (rs/swap-datalog-cache! store
-                                             app-id
-                                             (fn [_ctx _query]
-                                               :shouldn't-be-executed)
-                                             nil
-                                             q)))))))
+        ;; Give the cache a chance to evict the error (it happens in the background
+        ;; for some reason)
+        (let [conn (rs/app-conn store app-id)
+              cache (:datalog-query-cache (meta conn))
+              q-id (:db/id (d/entity @conn [:datalog-query/app-id+query [app-id q]]))]
+          (time (wait-for (fn []
+                            (not (c/get-if-present-async cache q-id)))
+                          1000)))
+
+        (is (= :ok (rs/swap-datalog-cache! store
+                                           app-id
+                                           (fn [_ctx _query]
+                                             :ok)
+                                           nil
+                                           q)))))))
 
 (defmacro is-match-topic-part [iv-part dq-part expected]
   `(is (= ~expected (#'rs/match-topic-part? ~iv-part ~dq-part))
