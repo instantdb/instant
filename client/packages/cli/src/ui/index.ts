@@ -1093,24 +1093,23 @@ ${inputDisplay}`;
           this.focus.setFocus('appList');
         }
         if (keyInfo.name === 'return') {
+          const name = this.appNameInput.value || 'my-instant-app';
           if (this.creatingEphemeral) {
-            this.props.api
-              .createEphemeralApp(this.appNameInput.value)
-              .then((pair) => {
-                this.selectedAppName = this.appNameInput.value;
-                this.terminal?.resolve({
-                  status: 'submitted',
-                  data: {
-                    ...pair,
-                    approach: 'ephemeral',
-                  },
-                });
+            this.props.api.createEphemeralApp(name).then((pair) => {
+              this.selectedAppName = name;
+              this.terminal?.resolve({
+                status: 'submitted',
+                data: {
+                  ...pair,
+                  approach: 'ephemeral',
+                },
               });
+            });
           } else {
             this.props.api
-              .createApp(this.appNameInput.value, this.selectedOrg?.id)
+              .createApp(name, this.selectedOrg?.id)
               .then((pair) => {
-                this.selectedAppName = this.appNameInput.value;
+                this.selectedAppName = name;
                 this.terminal?.resolve({
                   status: 'submitted',
                   data: {
