@@ -97,13 +97,20 @@
 ;; parent is canceled.
 (def ^:dynamic *child-vfutures* nil)
 
+(defn new-child-vfutures ^ConcurrentHashMap []
+  (ConcurrentHashMap.))
+
+(defn cancel-children [^ConcurrentHashMap child-vfutures interrupt?]
+  (doseq [^Future child (.values child-vfutures)]
+    (.cancel child interrupt?)))
+
 (defn future-call
   "Like clojure.core/future-call, but accepts an Executor"
   [^ExecutorService executor {:keys [dont-track-immediate-children?]} f]
   (let [fut-id (Object.)
         ;; Use a ConcurrentHashMap because it plays more nicely with
         ;; virtual threads
-        children (ConcurrentHashMap.)
+        children (new-child-vfutures)
         ^ConcurrentHashMap parent-vfutures *child-vfutures*
         f (wrap-catch-unhandled-exceptions f)
         f (bound-fn* (^{:once true} fn* []
@@ -130,8 +137,7 @@
                       (isCancelled [_] (.isCancelled fut))
                       (isDone [_] (.isDone fut))
                       (cancel [_ interrupt?]
-                        (doseq [^Future child (.values children)]
-                          (.cancel child interrupt?))
+                        (cancel-children children interrupt?)
                         (.cancel fut interrupt?)))]
     (when parent-vfutures
       (.put parent-vfutures fut-id wrapped-fut))
@@ -190,6 +196,27 @@
                                             :escaping?  true
                                             :attributes {:forms (pr-str '~forms)}})
          (throw e#))))))
+
+;; Only supports what we currently need for the datalog query cache
+;; See https://docs.oracle.com/javase/8/docs/api/java/util/concurrent/ExecutorService.html
+;; for the rest of the interface we might want to implement
+(deftype VFutureExecutor []
+  ExecutorService
+  (^Future submit [_ ^Callable callable]
+   (vfuture (.call callable)))
+
+  (^Future submit [_ ^Runnable runnable]
+   (vfuture (.run runnable)))
+
+  (^void execute [_ ^Runnable runnable]
+   (vfuture (.run runnable))
+   nil)
+
+  (shutdown [_]
+    nil))
+
+(defn make-vfuture-executor []
+  (VFutureExecutor.))
 
 ;; ----
 ;; core.async

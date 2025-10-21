@@ -1,9 +1,11 @@
 (ns instant.util.cache
   (:refer-clojure :exclude [get])
   (:import
-   [com.github.benmanes.caffeine.cache AsyncLoadingCache AsyncCache Cache Caffeine LoadingCache]
+   [com.github.benmanes.caffeine.cache AsyncLoadingCache AsyncCache Cache Caffeine LoadingCache Policy$Eviction]
+   [com.github.benmanes.caffeine.cache.stats CacheStats]
    [java.lang Iterable]
    [java.time Duration]
+   [java.util OptionalLong]
    [java.util.concurrent CompletableFuture]
    [java.util.function Function]))
 
@@ -29,14 +31,22 @@
    :max-weight <number>          must be used with :weigher
    :weigher    <fn [k v]>        must be used with :max-weight
    :ttl        <number>          eviction time, ms
-   :on-remove  <fn [k v cause]>  removal listener"
-  ^AsyncLoadingCache [{:keys [max-size max-weight weigher ttl on-remove]}]
+   :on-remove  <fn [k v cause]>  removal listener
+   :executor   <Executor>        executor to use for async tasks"
+  ^AsyncLoadingCache [{:keys [max-size
+                              max-weight
+                              weigher ttl
+                              on-remove
+                              executor
+                              record-stats]}]
   (cond-> (Caffeine/newBuilder)
     max-size   (.maximumSize max-size)
     max-weight (.maximumWeight max-weight)
     weigher    (.weigher weigher)
     ttl        (.expireAfterWrite (Duration/ofMillis ttl))
     on-remove  (.removalListener on-remove)
+    executor   (.executor executor)
+    record-stats (.recordStats)
     true       (Caffeine/.buildAsync)))
 
 (defn invalidate
@@ -51,7 +61,7 @@
   "Discards any cached value for the key. The behavior of this operation is
    undefined for an entry that is being loaded (or reloaded) and is otherwise
    not present"
-  [^AsyncCache cache key]
+  ^Void [^AsyncCache cache key]
   (when (some? key)
     (.invalidate (.synchronous cache) key)))
 
@@ -96,7 +106,7 @@
    in this async cache. This method provides a simple substitute for the
    conventional “if cached, return; otherwise create, cache and return”
    pattern."
-  [^AsyncLoadingCache cache key ^Function value-fn]
+  ^CompletableFuture [^AsyncLoadingCache cache key ^Function value-fn]
   (if (some? key)
     (.get cache key value-fn)
     (CompletableFuture/completedFuture nil)))
@@ -110,7 +120,7 @@
 (defn get-if-present-async
   "Returns a completeable future with the value associated with the key
    in this cache, or null if there is no cached value for the key."
-  [^AsyncLoadingCache cache key]
+   ^CompletableFuture [^AsyncLoadingCache cache key]
   (if (some? key)
     (.getIfPresent cache key)
     (CompletableFuture/completedFuture nil)))
@@ -137,7 +147,7 @@
    A single request to the mappingFunction is performed for all keys which are
    not already present in the cache. All entries returned by mappingFunction will
    be stored in the cache, over-writing any previously cached values."
-  [^AsyncCache cache ^Iterable keys ^Function values-fn]
+   ^CompletableFuture [^AsyncCache cache ^Iterable keys ^Function values-fn]
   (if-some [keys' ^Iterable (not-empty (filter some? keys))]
     (.getAll cache keys' values-fn)
     (CompletableFuture/completedFuture nil)))
@@ -167,3 +177,22 @@
   "Snapshot of a cache as an immutable map. Creates a shallow copy just in case"
   [^AsyncCache cache]
   (into {} (Cache/.asMap (.synchronous cache))))
+
+(defn stats-async
+  "Returns CacheStats for the async cache. If the cache was not created with
+   `:record-stats`, all values will be zero."
+  ^CacheStats [^AsyncCache cache]
+  (.stats (.synchronous cache)))
+
+(defn weight-async
+  "Returns the weight of all of the items in the cache. If the cache was
+   not created with `:record-stats`, it will return zero."
+  ^Long [^AsyncCache cache]
+  (-> cache
+      (.synchronous)
+      (.policy)
+      (.eviction)
+      (.map (fn [^Policy$Eviction e]
+              (.weightedSize e)))
+      ^OptionalLong (.orElse (OptionalLong/empty))
+      (.orElse 0)))

@@ -2929,23 +2929,30 @@
           sql-query (hsql/format query)
           postgres-config (flags/query-flags query-hash)
           sql-res (when query ;; we may not have a query if everything is missing attrs
-                    (->> (sql/select-arrays ::send-query-nested
-                                            conn
-                                            sql-query
-                                            {:postgres-config postgres-config})
-                         ;; remove header row
-                         second
-                         ;; all results are in one json blob in first result
-                         first
-                         ;; We split them up in batches of 50 to get around
-                         ;; 100 argument limitation. The limit is 2500 unless
-                         ;; we split further
-                         (apply merge)))
+                    (let [sql-res (sql/select-arrays ::send-query-nested
+                                                     conn
+                                                     sql-query
+                                                     {:postgres-config postgres-config})
+                          grouped-res (->> sql-res
+                                           ;; remove header row
+                                           second
+                                           ;; all results are in one json blob in first result
+                                           first
+                                           ;; We split them up in batches of 50 to get around
+                                           ;; 100 argument limitation. The limit is 2500 unless
+                                           ;; we split further
+                                           (apply merge))]
+                      (with-meta grouped-res
+                        (when-let [sql-bytes (-> sql-res
+                                                 meta
+                                                 :bytes-read)]
+                          {:sql-byte-len sql-bytes}))))
           grouped-rows (group-rows-by-join-sym sql-res children)
           result (nested-sql-result->result sql-res grouped-rows children)
           topics (collect-all-topics result)]
-      {:data result
-       :topics topics})))
+      (with-meta {:data result
+                  :topics topics}
+        (meta sql-res)))))
 
 (defn send-query-batch
   "Sends a batched query, returns a list of join rows in the same order that
