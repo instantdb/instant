@@ -281,6 +281,12 @@
                                           :db-before-size (count (:db-before report))
                                           :db-after-size (count (:db-after report))}})
           (when (> tx-time-ms 15000)
+            (tracer/with-new-trace-root
+              (tracer/with-span! {:name "really-long-tx"
+                                  :attributes {:tx-ms tx-time-ms
+                                               :v "new"
+                                               :tx-data tx-data
+                                               :app-id (:app-id (meta conn))}}))
             (def -new-long-tx-data tx-data)
             (def -new-long-tx report))
           (clean-datalog-query-cache conn report)
@@ -307,6 +313,12 @@
                                           :db-before-size       (count (:db-before ret))
                                           :db-after-size        (count (:db-after ret))}})
           (when (> tx-time-ms 15000)
+            (tracer/with-new-trace-root
+              (tracer/with-span! {:name "really-long-tx"
+                                  :attributes {:tx-ms tx-time-ms
+                                               :v "old"
+                                               :tx-data tx-data
+                                               :app-id (:app-id (meta conn))}}))
             (def -old-long-tx-data tx-data)
             (def -old-long-tx ret))
           (clean-datalog-query-cache conn ret)
