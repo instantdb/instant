@@ -92,7 +92,7 @@ export function EditNamespaceDialog({
     | { type: 'edit'; attrId: string; isForward: boolean }
   >({ type: 'main' });
 
-  const [renameNsInput, setRenameNsInput] = useState('');
+  const [renameNsInput, setRenameNsInput] = useState(namespace.name);
   const [renameNsErrorText, setRenameNsErrorText] = useState<string | null>(
     null,
   );
@@ -115,6 +115,7 @@ export function EditNamespaceDialog({
     replaceNav({
       namespace: newName,
     });
+    successToast('Renamed namespace to ' + newName);
     setRenameNsInput('');
     setScreen({ type: 'main' });
   }
@@ -138,41 +139,44 @@ export function EditNamespaceDialog({
     <>
       {screen.type === 'rename' && (
         <div className="px-2">
-          <h3 className="text-lg font-bold">Rename {namespace.name}</h3>
+          <button
+            onClick={() => {
+              setScreen({
+                type: 'main',
+              });
+            }}
+            className="mb-3"
+          >
+            <ArrowLeftIcon className="h-4 w-4 cursor-pointer" />
+          </button>
+          <h6 className="text-md pb-2 font-bold">Rename {namespace.name}</h6>
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              renameNs(renameNsInput.trim());
+              renameNs(renameNsInput);
             }}
-            className="pt-2"
           >
-            <p className="pb-2 font-semibold text-red-400">
-              Warning! Any code referencing the previous namespace will no
-              longer work.
-            </p>
-            <Label>New Name For "{namespace.name}"</Label>
+            <Content className="text-sm">
+              This will immediately rename the attribute. You'll need to{' '}
+              <strong className="dark:text-white">update your code</strong> to
+              the new name.
+            </Content>
             <TextInput
-              autoFocus
+              disabled={isSystemCatalogNs}
               value={renameNsInput}
-              onChange={(e) => setRenameNsInput(e)}
-            ></TextInput>
-            {renameNsErrorText && (
-              <p className="text-red-400">{renameNsErrorText}</p>
-            )}
-            <div className="flex justify-end gap-2 pt-2">
+              onChange={(n) => setRenameNsInput(n)}
+            />
+            <div className="flex flex-col gap-2 rounded py-2">
               <Button
-                onClick={() => {
-                  setScreen({ type: 'main' });
-                }}
-                variant="secondary"
+                type="submit"
+                disabled={
+                  renameNsInput.startsWith('$') || renameNsInput.length === 0
+                }
               >
-                Cancel
-              </Button>
-              <Button type="submit" variant="primary">
-                Rename
+                Rename {namespace.name} → {renameNsInput}
               </Button>
             </div>
-          </form>
+          </form>{' '}
         </div>
       )}
 
@@ -188,7 +192,7 @@ export function EditNamespaceDialog({
                 setScreen({ type: 'rename' });
               }}
               icon={
-                <PencilSquareIcon className="opacity-50"></PencilSquareIcon>
+                <PencilSquareIcon className="h-4 w-4 opacity-50"></PencilSquareIcon>
               }
               label="Rename"
             ></IconButton>
