@@ -209,6 +209,7 @@ export const tryConnectApp = async (
     if (choice === 'ephemeral') {
       const name = await renderUnwrap(
         new UI.TextInput({
+          defaultValue: 'my-cool-app',
           prompt: 'Enter a name for your temporary app:',
           placeholder: `my-cool-app`,
           modifyOutput: UI.ciaModifier(),

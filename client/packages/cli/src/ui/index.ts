@@ -981,6 +981,7 @@ ${inputDisplay}`;
       this.appNameInput = new TextInput({
         prompt: 'Enter New App Name',
         placeholder: 'my-instant-app',
+        defaultValue: 'my-instant-app',
         headless: true,
       });
 
