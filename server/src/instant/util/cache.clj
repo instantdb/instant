@@ -61,7 +61,7 @@
   "Discards any cached value for the key. The behavior of this operation is
    undefined for an entry that is being loaded (or reloaded) and is otherwise
    not present"
-  [^AsyncCache cache key]
+  ^Void [^AsyncCache cache key]
   (when (some? key)
     (.invalidate (.synchronous cache) key)))
 

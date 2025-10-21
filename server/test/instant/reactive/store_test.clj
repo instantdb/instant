@@ -86,12 +86,6 @@
         ;; Wait for future to complete
         @canceled
 
-        ;; Remove the datalog queries to trigger cleanup
-        (let [conn (rs/app-conn store app-id)]
-          (rs/transact! "clean-datalog-queries"
-                        conn
-                        [[:db.fn/call #'rs/clean-stale-datalog-tx-data]]))
-
         (is (instance? java.lang.InterruptedException (deref err 100 :timeout)))))
 
     (dotimes [_ 100]
@@ -99,6 +93,7 @@
         (let [q [[:ea (random-uuid)]]
               err (promise)
               started (promise)
+
               wait (promise)
               f1 (ua/vfuture (try (rs/swap-datalog-cache! store
                                                           app-id
@@ -111,23 +106,27 @@
                                   (catch Throwable t
                                     (deliver err t))))
               _ @started
-              f2 (ua/vfuture (rs/swap-datalog-cache! store
-                                                     app-id
-                                                     (fn [_ctx _query]
-                                                       @wait)
-                                                     nil
-                                                     q))]
 
-          ;; Remove the datalog queries to trigger cleanup
-          (let [conn (rs/app-conn store app-id)]
-            (rs/transact! "clean-datalog-queries"
-                          conn
-                          [[:db.fn/call #'rs/clean-stale-datalog-tx-data]]))
+              f2 (ua/vfuture
+                   (rs/swap-datalog-cache! store
+                                           app-id
+                                           (fn [_ctx _query]
+                                             (throw (Exception. "shouldn't run")))
+                                           nil
+                                           q))]
+
+          ;; Give the query a chance to register
+          (wait-for (fn []
+                      (let [conn (rs/app-conn store app-id)
+                            ent  (d/entity @conn [:datalog-query/app-id+query [app-id q]])
+                            watchers (:datalog-query/watchers ent)]
+                        (= 2 (count (:watchers @watchers)))))
+                    1000
+                    1)
 
           (future-cancel f1)
           (is (or (instance? java.lang.InterruptedException (deref err 100 :timeout))
                   (instance? java.util.concurrent.CancellationException (deref err 100 :timeout))))
-          (Thread/sleep 10)
           (deliver wait (make-res {:a :a}))
           (is (= (deref f2 100 :timeout) {:a :a})))))
 
@@ -150,16 +149,16 @@
         (let [conn (rs/app-conn store app-id)
               cache (:datalog-query-cache (meta conn))
               q-id (:db/id (d/entity @conn [:datalog-query/app-id+query [app-id q]]))]
-          (time (wait-for (fn []
-                            (not (c/get-if-present-async cache q-id)))
-                          1000)))
+          (wait-for (fn []
+                      (not (c/get-if-present-async cache q-id)))
+                    1000))
 
         (is (= {:ok :ok} (rs/swap-datalog-cache! store
-                                             app-id
-                                             (fn [_ctx _query]
-                                               (make-res {:ok :ok}))
-                                             nil
-                                             q)))))))
+                                                 app-id
+                                                 (fn [_ctx _query]
+                                                   (make-res {:ok :ok}))
+                                                 nil
+                                                 q)))))))
 
 (defmacro is-match-topic-part [iv-part dq-part expected]
   `(is (= ~expected (#'rs/match-topic-part? ~iv-part ~dq-part))

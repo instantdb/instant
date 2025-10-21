@@ -40,15 +40,18 @@
         :current-user current-user}
        q)))))
 
-(defn wait-for [wait-fn wait-ms]
-  (let [start (Instant/now)]
-    (loop [res (wait-fn)]
-      (when-not res
-        (if (< wait-ms (.toMillis (Duration/between start (Instant/now))))
-          (throw (Exception. "Timed out in wait-for"))
-          (do
-            (Thread/sleep 100)
-            (recur (wait-fn))))))))
+(defn wait-for
+  ([wait-fn wait-ms]
+   (wait-for wait-fn wait-ms 100))
+  ([wait-fn wait-ms ^Long sleep-ms]
+   (let [start (Instant/now)]
+     (loop [res (wait-fn)]
+       (when-not res
+         (if (< wait-ms (.toMillis (Duration/between start (Instant/now))))
+           (throw (Exception. "Timed out in wait-for"))
+           (do
+             (Thread/sleep sleep-ms)
+             (recur (wait-fn)))))))))
 
 (defn make-ctx [app-id {:keys [rw]
                         :or {rw :read}}]
