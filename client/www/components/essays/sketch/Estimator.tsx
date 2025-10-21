@@ -166,6 +166,12 @@ function ConfigEditor({
   config: SketchConfig;
   onSubmit: (config: SketchConfig) => void;
 }) {
+  const [currConfig, setCurrConfig] = useState(config);
+
+  const hasChanges =
+    currConfig.columns !== config.columns ||
+    currConfig.rows !== config.rows;
+
   return (
     <form
       onSubmit={(event) => {
@@ -200,7 +206,8 @@ function ConfigEditor({
         <input
           className="w-20 border border-gray-300 px-3 py-2 font-mono text-base transition-all focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
           name="columns"
-          defaultValue={config.columns}
+          value={currConfig.columns}
+          onChange={(e) => setCurrConfig({ ...currConfig, columns: Number.parseInt(e.target.value, 10) || 0 })}
           inputMode="numeric"
         />
       </label>
@@ -211,7 +218,8 @@ function ConfigEditor({
         <input
           className="w-20 border border-gray-300 px-3 py-2 font-mono text-base transition-all focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
           name="rows"
-          defaultValue={config.rows}
+          value={currConfig.rows}
+          onChange={(e) => setCurrConfig({ ...currConfig, rows: Number.parseInt(e.target.value, 10) || 0 })}
           inputMode="numeric"
         />
       </label>
@@ -221,7 +229,13 @@ function ConfigEditor({
         </span>
         <button
           type="submit"
-          className="border border-blue-500 bg-blue-500 px-4 py-2 text-base font-semibold text-white transition-all hover:bg-blue-600"
+          disabled={!hasChanges}
+          className={clsx(
+            'border px-4 py-2 text-base font-semibold transition-all',
+            hasChanges
+              ? 'border-blue-500 bg-blue-500 text-white hover:bg-blue-600'
+              : 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400',
+          )}
         >
           Change
         </button>
