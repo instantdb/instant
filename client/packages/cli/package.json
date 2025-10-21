@@ -35,7 +35,6 @@
     "open": "^10.1.0",
     "pkg-dir": "^8.0.0",
     "prettier": "^3.3.3",
-    "semver": "7.7.2",
     "sisteransi": "^1.0.5",
     "strip-ansi": "^7.1.2",
     "terminal-link": "^3.0.0",

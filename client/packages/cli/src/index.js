@@ -22,7 +22,6 @@ import boxen from 'boxen';
 import { loadConfig } from './util/loadConfig.js';
 import { packageDirectory } from 'pkg-dir';
 import openInBrowser from 'open';
-import semver from 'semver';
 import terminalLink from 'terminal-link';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -483,38 +482,7 @@ program.command('claim').action(async function () {
 
 program.parse(process.argv);
 
-// command actions
-async function checkVersion() {
-  const resp = await fetchJson({
-    method: 'GET',
-    path: `/dash/cli/version`,
-    debugName: 'CLI version',
-    errorMessage: 'Failed to fetch CLI version',
-  });
-
-  if (!resp.ok) {
-    console.log('Warning! Failed to check backend version');
-    process.exit(1);
-  }
-
-  const cliVersion = version.startsWith('v') ? version.substring(1) : version;
-  const minVersionMap = resp.data['min-version'];
-
-  if (minVersionMap) {
-    const { major, minor, patch } = minVersionMap;
-    const minVersion =
-      `${major}.${minor}.${patch}` + (minVersionMap['dev?'] ? '-dev' : '');
-    if (semver.lt(cliVersion, minVersion)) {
-      console.log(
-        `${chalk.red('ERROR')} Your CLI version ${chalk.red(cliVersion)} is too old to use with Instant backend, requires ${chalk.red(minVersion)} or later.`,
-      );
-      process.exit(1);
-    }
-  }
-}
-
 async function handlePush(bag, opts) {
-  await checkVersion();
   const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging(opts);
   if (!pkgAndAuthInfo) return process.exit(1);
   const { ok, appId } = await detectOrCreateAppAndWriteToEnv(
@@ -605,7 +573,6 @@ async function detectOrCreateAppAndWriteToEnv(pkgAndAuthInfo, opts) {
 }
 
 async function handlePull(bag, opts) {
-  await checkVersion();
   const pkgAndAuthInfo = await resolvePackageAndAuthInfoWithErrorLogging(opts);
   if (!pkgAndAuthInfo) return process.exit(1);
   const { ok, appId } = await detectOrCreateAppAndWriteToEnv(
@@ -1389,18 +1356,6 @@ async function waitForIndexingJobsToFinish(appId, data) {
     }
     console.log(chalk.red('Some steps failed while updating schema.'));
     process.exit(1);
-  }
-}
-
-function linkOptsPretty(attr) {
-  const fwdEtype = attrFwdEtype(attr);
-  const revEtype = attrRevEtype(attr);
-  if (attr['on-delete'] === 'cascade') {
-    return `:: onDelete ${revEtype} cascade ${fwdEtype}`;
-  } else if (attr['on-delete-reverse'] === 'cascade') {
-    return `:: onDelete ${fwdEtype} cascade ${revEtype}`;
-  } else {
-    return '';
   }
 }
 

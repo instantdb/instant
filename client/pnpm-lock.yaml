@@ -99,9 +99,6 @@ importers:
       prettier:
         specifier: ^3.3.3
         version: 3.4.2
-      semver:
-        specifier: 7.7.2
-        version: 7.7.2
       sisteransi:
         specifier: ^1.0.5
         version: 1.0.5
@@ -23862,7 +23859,7 @@ snapshots:
   jsdom@20.0.3:
     dependencies:
       abab: 2.0.6
-      acorn: 8.14.0
+      acorn: 8.14.1
       acorn-globals: 7.0.1
       cssom: 0.5.0
       cssstyle: 2.3.0
@@ -23885,7 +23882,7 @@ snapshots:
       whatwg-encoding: 2.0.0
       whatwg-mimetype: 3.0.0
       whatwg-url: 11.0.0
-      ws: 8.18.0
+      ws: 8.18.2
       xml-name-validator: 4.0.0
     transitivePeerDependencies:
       - bufferutil
