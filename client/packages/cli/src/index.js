@@ -493,7 +493,7 @@ async function handlePush(bag, opts) {
   if (!ok) return process.exit(1);
   if (!appId) {
     error(
-      'No app ID detected. Please specify one with --app or set it in your .env file.',
+      'No app ID detected. Please specify one with --app or set up with `instant-cli init`',
     );
     return;
   }
@@ -509,7 +509,7 @@ async function handlePull(bag, opts) {
   }
   if (!appId) {
     error(
-      'No app ID detected. Please specify one with --app or set it in your .env file.',
+      'No app ID detected. Please specify one with --app or set up with `instant-cli init`',
     );
     return;
   }
