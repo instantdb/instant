@@ -63,7 +63,10 @@
                          ::param-missing
                          ::param-malformed
 
-                         ::validation-failed})
+                         ::validation-failed
+
+                         ::session-missing
+                         ::machine-missing})
 
 (comment
   (s/explain-data ::instant-exception {::type ::record-not-found

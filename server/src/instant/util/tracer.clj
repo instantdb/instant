@@ -194,12 +194,15 @@
   `(let [source# {:code-line ~(:line (meta &form))
                   :code-file ~*file*
                   :code-ns   ~(str *ns*)}
-         span-opts# (assoc ~span-opts :source source#)]
+         span-opts# (assoc ~span-opts :source source#)
+         add-exception-handler# (:add-exception-handler span-opts#)]
      (binding [*span* (new-span! span-opts#)]
        (try
          (do ~@body)
          (catch Throwable t#
-           (add-exception! *span* t# {:escaping? true})
+           (if add-exception-handler#
+             (add-exception-handler# *span* t# {:escaping? true})
+             (add-exception! *span* t# {:escaping? true}))
            (throw t#))
          (finally
            (end-span! *span*))))))
