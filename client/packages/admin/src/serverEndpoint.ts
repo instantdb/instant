@@ -1,13 +1,11 @@
 import { init } from './index.ts';
 
 export const createInstantRouteHandler = (config: {
-  adminToken: string;
   appId: string;
   apiURI?: string;
 }) => {
   const admin = init({
     appId: config.appId,
-    adminToken: config.adminToken,
     apiURI: config.apiURI,
   });
 
