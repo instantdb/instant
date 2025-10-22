@@ -145,45 +145,46 @@
 (defn fallback-program [etype action]
   (when (contains? system-catalog/all-etypes etype)
     (let [compiler (cel/action->compiler action)]
-      (cond (= "$users" etype)
+      (cond
+        (and (= "$users" etype)
+             (#{"view" "update"} action))
 
-            ;; TODO: should be view or update only
-            (let [code "auth.id == data.id || (data.linkedPrimaryUser != null && auth.id == data.linkedPrimaryUser)"
-                  ast (cel/->ast compiler code)]
-              {:etype etype
-               :action action
-               :code code
-               :display-code code
-               :cel-ast ast
-               :cel-program (cel/->program ast)
-               :where-clauses-program (when (= action "view")
-                                        (cel/where-clauses-program code))})
+        (let [code "auth.id == data.id || (data.linkedPrimaryUser != null && auth.id == data.linkedPrimaryUser)"
+              ast (cel/->ast compiler code)]
+          {:etype etype
+           :action action
+           :code code
+           :display-code code
+           :cel-ast ast
+           :cel-program (cel/->program ast)
+           :where-clauses-program (when (= action "view")
+                                    (cel/where-clauses-program code))})
 
-            ;; TODO: should be view or update only
-            (= "$files" etype)
-            (let [code "false"
-                  ast (cel/->ast compiler code)]
-              {:etype etype
-               :action action
-               :code code
-               :display-code code
-               :cel-ast ast
-               :cel-program (cel/->program ast)
-               :where-clauses-program (when (= action "view")
-                                        (cel/where-clauses-program code))})
+        (and (= "$files" etype)
+             (#{"view" "update"} action))
+        (let [code "false"
+              ast (cel/->ast compiler code)]
+          {:etype etype
+           :action action
+           :code code
+           :display-code code
+           :cel-ast ast
+           :cel-program (cel/->program ast)
+           :where-clauses-program (when (= action "view")
+                                    (cel/where-clauses-program code))})
 
-            :else
-            (let [display-code (format "disallow_%s_on_system_tables" action)
-                  code "false"
-                  ast (cel/->ast compiler code)]
-              {:etype etype
-               :action action
-               :display-code display-code
-               :code code
-               :cel-ast ast
-               :cel-program (cel/->program ast)
-               :where-clauses-program (when (= action "view")
-                                        (cel/where-clauses-program code))})))))
+        :else
+        (let [display-code (format "disallow_%s_on_system_tables" action)
+              code "false"
+              ast (cel/->ast compiler code)]
+          {:etype etype
+           :action action
+           :display-code display-code
+           :code code
+           :cel-ast ast
+           :cel-program (cel/->program ast)
+           :where-clauses-program (when (= action "view")
+                                    (cel/where-clauses-program code))})))))
 
 (def program-cache
   (cache/make {:max-size 2048}))
@@ -239,19 +240,19 @@
      [etype      "fallback" action]])))
 
 (defn $users-validation-errors
-  "Only allow users to changes the `view` rules for $users, since we don't have
-   a way to create or update them from transactions."
+  "Only allow users to changes the `view` and `update` rules for $users, since we don't have
+   a way to create or delete them from transactions."
   [rules action]
   (case action
-    ("create" "update" "delete")
+    ("create" "delete")
     (when (and (not (nil? (get-in rules ["$users" "allow" action])))
                (not= (get-in rules ["$users" "allow" action])
                      "false"))
-      [{:message (format "The %s namespace is read-only. Set `%s.allow.%s` to `\"false\"`."
-                         "$users" "$users" action)
+      [{:message (format "The %s namespace doesn't support permissions for %s. Set `%s.allow.%s` to `\"false\"`."
+                         "$users" action "$users" action)
         :in ["$users" :allow action]}])
 
-    "view" nil))
+    ("update" "view") nil))
 
 (defn system-attribute-validation-errors
   "Don't allow users to change rules for restricted system namespaces."
