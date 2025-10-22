@@ -1035,3 +1035,5 @@ export {
   StorageInterface,
   type StorageInterfaceStoreName,
 };
+
+export { FrameworkClient, FrameworkConfig } from './framework.ts';
