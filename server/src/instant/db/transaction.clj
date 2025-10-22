@@ -356,21 +356,25 @@
              missing
              [{:message (str "Updating entities that don't exist: " (string/join ", " (map :eid missing)))}])))))))
 
-(defn prevent-$files-updates
+(def editable-system-ident-names #{(list "$users" "id")
+                                   (list "$files" "id")
+                                   (list "$files" "$path")})
+
+(defn prevent-system-attr-updates
   "Files support delete, link/unlink, but not update or merge"
-  [attrs tx-step-maps opts]
-  (when (not (:allow-$files-update? opts))
-    (doseq [{:keys [op eid aid etype value] :as tx-step} tx-step-maps
-            :when (#{:add-triple :deep-merge-triple :retract-triple} op)
-            :let [attr (attr-model/seek-by-id aid attrs)
-                  label (attr-model/fwd-label attr)]
-            :when (and (= etype "$files")
-                       (or (not (contains? #{"id" "path"} label))
-                           (and (= label "id") (not= eid value))))]
-      (ex/throw-validation-err!
-       :tx-step
-       [op (vectorize-tx-step tx-step)]
-       [{:message "update or merge is only allowed on `path` for $files in transact."}]))))
+  [attrs tx-step-maps]
+  (doseq [{:keys [op aid] :as tx-step} tx-step-maps
+          :when (#{:add-triple :deep-merge-triple :retract-triple} op)
+          :let [{:keys [catalog] :as attr} (attr-model/seek-by-id aid attrs)
+                ident-name (attr-model/fwd-ident-name attr)
+                [etype label] ident-name]
+          :when
+          (and (= catalog :system)
+               (not (editable-system-ident-names ident-name)))]
+    (ex/throw-validation-err!
+     :tx-step
+     [op (vectorize-tx-step tx-step)]
+     [{:message (format "Update or merge is not allowed on %s.%s" etype label)}])))
 
 (defn resolve-lookups-for-delete-entity [conn app-id tx-step-maps]
   (let [[lookup-ref-deletes rest] (coll/split-by
@@ -585,7 +589,7 @@
                                        :num-tx-steps (count tx-step-vecs)
                                        :detailed-tx-steps (pr-str tx-step-vecs)}}
         (prevent-system-catalog-updates! app-id opts)
-        (prevent-$files-updates attrs tx-step-maps opts)
+        (prevent-system-attr-updates attrs tx-step-maps)
         (validate-mode conn app-id tx-step-maps)
         (let [results
               (reduce-kv

@@ -145,8 +145,7 @@
 (defn fallback-program [etype action]
   (when (contains? system-catalog/all-etypes etype)
     (let [compiler (cel/action->compiler action)]
-      (if (and (= "$users" etype)
-               (#{"view" "link" "unlink"} action))
+      (if (= "$users" etype)
         (let [code "auth.id == data.id || (data.linkedPrimaryUser != null && auth.id == data.linkedPrimaryUser)"
               ast (cel/->ast compiler code)]
           {:etype etype
