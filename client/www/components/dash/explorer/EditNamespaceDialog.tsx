@@ -253,12 +253,6 @@ export function EditNamespaceDialog({
 
           <div>
             <Button
-              disabled={isSystemCatalogNs}
-              title={
-                isSystemCatalogNs
-                  ? `Attributes can't be added to the ${namespace.name} namespace directly. You can still create links to them by adding the links from one of your namespaces.`
-                  : undefined
-              }
               size="mini"
               variant="secondary"
               onClick={() => setScreen({ type: 'add' })}
