@@ -1,5 +1,5 @@
 ---
-title: "Count-Min Sketches in JS — frequencies, but without the data"
+title: 'Count-Min Sketches in JS — frequencies, but without the data'
 date: '2025-10-13'
 authors: stopachka
 ---
