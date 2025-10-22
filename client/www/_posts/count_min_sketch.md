@@ -18,7 +18,7 @@ Well I could tell you _approximately_ how many times Wodehouse used any word in 
   <img class="m-0" src="/posts/count_min_sketch/compressedSketch.png" />
 </div>
 
-Compressed, it's 50 kilobytes and covers a 23 megabyte text file, or 3.7 million words. We can use it to answer count estimates with 0.05% error rate and 99% confidence. (If you aren't familiar with the probability terms here, no worries, we'll go over them in this essay.)
+Compressed, it's 50 kilobytes and covers a 23 megabyte text file, or 3.7 million words. We can use it to answer count estimates with 0.05% error rate and 99% confidence. (If you aren't familiar with the probability terms here, no worries, we'll go over them in this post.)
 
 You can try it yourself right here:
 
@@ -34,7 +34,7 @@ Or you could use it estimate the popularity of links: update a sketch whenever a
 
 Or, use it to make databases faster: track the values of different columns, so you can estimate how many rows a filter would return. This is how we use them in Instant: our query planner decides which indexes and join orders to use based on estimates from sketches. [^5]
 
-So how do Count-Min Sketches work? In this essay we'll find out by building one from scratch, in JavaScript!
+So how do Count-Min Sketches work? In this post we'll find out by building one from scratch, in JavaScript!
 
 # Setup
 
@@ -118,7 +118,7 @@ What if the word "castle" was used without a comma? Or if instead of "drooping" 
 
 We would get different counts. It would be nice if we could normalize each word so no matter how Wodehouse wrote "droop", we'd get the same count.
 
-This is a common natural-language processing task called "[stemming](https://en.wikipedia.org/wiki/Stemming)". There are some great algorithms and libraries for this, but for our essay we can write a rough function ourselves:
+This is a common natural-language processing task called "[stemming](https://en.wikipedia.org/wiki/Stemming)". There are some great algorithms and libraries for this, but for our post we can write a rough function ourselves:
 
 ```typescript
 // index.ts
@@ -930,7 +930,7 @@ Congratulations, you made it all the way through the bonus too!
 <p>If you're into this stuff, I'd suggest reading <a href="http://dimacs.rutgers.edu/~graham/ssbd.html" target="_blank">Small Summaries for Big Data</a>. It goes over the Count-Min Sketch, as well as a bunch of other probabilistic data structures. Plus, one of the co-authors invented the Count-Min Sketch!
 </p>
 
-_Thanks to Joe Averbukh, Daniel Woelfel, Predrag Gruevski, Irakli Safareli, Nicole Garcia Fischer, Irakli Popkhadze, Mark Shlick, Ilan Tzitrin, Drew Harris, for reviewing drafts of this essay_
+_Thanks to Joe Averbukh, Daniel Woelfel, Predrag Gruevski, Irakli Safareli, Nicole Garcia Fischer, Irakli Popkhadze, Mark Shlick, Ilan Tzitrin, Drew Harris, for reviewing drafts of this post_
 
 [^1]: A sync engine you can try [without even signing up](/tutorial)!
 
