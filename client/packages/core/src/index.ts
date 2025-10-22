@@ -964,3 +964,5 @@ export {
   // error types
   type InstantIssue,
 };
+
+export { FrameworkClient, FrameworkConfig } from './framework.ts';
