@@ -1676,10 +1676,10 @@ function EditAttrForm({
         </div>
 
         <Button
-          disabled={isSystemCatalogAttr && attr.type !== 'ref'}
+          disabled={isSystemCatalogAttr}
           title={
-            isSystemCatalogAttr && attr.type !== 'ref'
-              ? `Attributes in the ${attr.namespace} can't be edited`
+            isSystemCatalogAttr
+              ? `System attributes can't be edited`
               : undefined
           }
           variant="secondary"
@@ -1713,7 +1713,7 @@ function EditAttrForm({
               disabled={isSystemCatalogAttr}
               title={
                 isSystemCatalogAttr
-                  ? `Attributes in the ${attr.namespace} namespace can't be edited.`
+                  ? `System attributes can't be edited.`
                   : undefined
               }
               value={attrName}
@@ -1730,7 +1730,7 @@ function EditAttrForm({
                 }
                 title={
                   isSystemCatalogAttr
-                    ? `Attributes in the ${attr.namespace} namespace can't be edited.`
+                    ? `System attributes can't be edited.`
                     : undefined
                 }
                 onClick={renameBlobAttr}
