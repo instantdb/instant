@@ -217,15 +217,6 @@
 (comment
   (gen/generate (s/gen ::tx-steps)))
 
-(defn prevent-system-catalog-attrs-updates! [op tx-steps]
-  (doseq [[_ attr] tx-steps
-          :let     [etype (attr-model/fwd-etype attr)]]
-    (when (and etype (string/starts-with? etype "$"))
-      (ex/throw-validation-err!
-       :tx-steps
-       op
-       [{:message (format "You can't create or modify attributes in the %s namespace." etype)}]))))
-
 (defn prevent-system-catalog-updates! [app-id opts]
   (when (and (= app-id system-catalog-app-id)
              (not (:allow-system-catalog-updates? opts)))
@@ -599,8 +590,6 @@
         (let [results
               (reduce-kv
                (fn [acc op tx-steps]
-                 (when (#{:add-attr :update-attr} op)
-                   (prevent-system-catalog-attrs-updates! op tx-steps))
                  (cond
                    (empty? tx-steps)
                    acc

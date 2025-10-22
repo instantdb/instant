@@ -259,23 +259,6 @@
 (defn qualify-cols [ns cols]
   (map (partial qualify-col ns) cols))
 
-(defn validate-reserved-names!
-  "Prevents users from creating namespaces that start with `$`. Only looks
-   at the forward-identity. That way users can still create links into the
-   reserved namespaces.
-   We need this so that users don't clash with special namespaces, like the
-   $users table and $files rules."
-  [attrs]
-  (doseq [attr attrs]
-    (when-let [fwd-etype (-> attr :forward-identity second)]
-      (when (string/starts-with? fwd-etype "$")
-        (ex/throw-validation-err!
-         :attributes
-         attr
-         [{:message (string-util/multiline->single-line
-                     "Namespaces are not allowed to start with a `$`.
-                      Those are reserved for system namespaces.")}])))))
-
 (defn validate-add-required! [conn app-id attrs]
   (doseq [attr  attrs
           :when (:required? attr)
@@ -302,9 +285,7 @@
    both tables in one statement"
   ([conn app-id attrs]
    (insert-multi! conn app-id attrs {:allow-reserved-names? false}))
-  ([conn app-id attrs {:keys [allow-reserved-names?]}]
-   (when-not allow-reserved-names?
-     (validate-reserved-names! attrs))
+  ([conn app-id attrs _opts]
    (validate-add-required! conn app-id attrs)
    (with-cache-invalidation app-id
      (let [query {:with [[[:attr-values
@@ -525,7 +506,6 @@
 
 (defn update-multi!
   [conn app-id updates]
-  (validate-reserved-names! updates)
   (with-cache-invalidation app-id
     (sql/do-execute!
      ::update-multi!
@@ -889,13 +869,13 @@
   ([app-id]
    (get-by-app-id* (aurora/conn-pool :read) app-id))
   ([conn app-id]
-  (wrap-attrs
-   (mapv row->attr
-         (sql/select
-          ::get-by-app-id*
-          conn
-          (sql/format
-           "SELECT
+   (wrap-attrs
+    (mapv row->attr
+          (sql/select
+           ::get-by-app-id*
+           conn
+           (sql/format
+            "SELECT
               *
             FROM
               attrs
@@ -904,8 +884,8 @@
               AND deletion_marked_at IS NULL
             ORDER BY
               id ASC"
-           {"?app-id" app-id
-            "?system-catalog-app-id" system-catalog-app-id}))))))
+            {"?app-id" app-id
+             "?system-catalog-app-id" system-catalog-app-id}))))))
 
 (defn get-by-app-id
   ([app-id]
