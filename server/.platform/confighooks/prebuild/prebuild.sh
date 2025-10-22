@@ -22,3 +22,23 @@ echo "HZ_PORT=$hz_port" > hazelcast.env
 # Update EB_ENV_NAME in the docker-compose.yml
 
 sed -i "s/EB_ENV_NAME/$(/opt/elasticbeanstalk/bin/get-config container -k environment_name)/g" docker-compose.yml
+
+# Set up memory
+
+# Use 81% of available memory for heap
+heap_ratio="0.81"
+# Put 95% of available memory in huge pages
+huge_page_ratio="0.95"
+
+# https://docs.redhat.com/en/documentation/red_hat_data_grid/7.1/html/performance_tuning_guide/configure_page_memory
+huge_page_size=$(echo "2 * 1024 * 1024" | bc)
+
+avail_mem=$(awk '/MemTotal/ {print $2 * 1024}' /proc/meminfo)
+
+heap=$(echo "scale=0; $avail_mem * $heap_ratio / 1" | bc)
+
+page_count=$(echo "scale=0; $avail_mem * $huge_page_ratio / $huge_page_size" | bc)
+
+echo "$page_count" > /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages
+
+echo "EXTRA_JAVA_OPTS=-Xmx$heap -Xms$heap" > java.env
