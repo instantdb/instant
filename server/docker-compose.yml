@@ -16,6 +16,7 @@ services:
     restart: on-failure
     cap_add:
       - CAP_PERFMON
+      - CAP_SYS_ADMIN
     command: sh -c 'java $${EXTRA_JAVA_OPTS} -XX:+UseLargePages -XX:+AlwaysPreTouch -XX:+UseNUMA -Xlog:gc+init,pagesize --add-modules java.se --add-exports java.base/jdk.internal.ref=ALL-UNNAMED --add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/sun.nio.ch=ALL-UNNAMED --add-opens java.management/sun.management=ALL-UNNAMED --add-opens jdk.management/com.sun.management.internal=ALL-UNNAMED -XX:+UnlockDiagnosticVMOptions -XX:+DebugNonSafepoints -Djdk.attach.allowAttachSelf -Djava.awt.headless=true -Dcom.sun.management.jmxremote.port=10001 -Dcom.sun.management.jmxremote.rmi.port=10001 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -XX:StartFlightRecording=disk=true,maxsize=1G,name=instant,filename=instant_$(date +%s%N).jfr -Dcom.sun.management.jmxremote.local.only=false -Djava.rmi.server.hostname=localhost -Djdk.tracePinnedThreads=full -server -jar target/instant-standalone.jar'
     logging:
       driver: awslogs
