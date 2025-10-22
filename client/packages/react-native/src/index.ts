@@ -27,6 +27,9 @@ import {
   type AuthState,
   type User,
 
+  // presence types
+  type Peer,
+
   // schema types
   type AttrsDefs,
   type CardinalityKind,
@@ -162,6 +165,9 @@ export {
   type IInstantDatabase,
   type InstantEntity,
   type RoomSchemaShape,
+
+  // presence types
+  type Peer,
 
   // schema types
   type AttrsDefs,
