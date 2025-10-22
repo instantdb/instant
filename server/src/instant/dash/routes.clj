@@ -49,7 +49,7 @@
             [instant.session-counter :as session-counter]
             [instant.storage.coordinator :as storage-coordinator]
             [instant.stripe :as stripe]
-            [instant.superadmin.routes :refer [req->superadmin-user-and-app! req->superadmin-app!]]
+            [instant.superadmin.routes :refer [req->superadmin-app!]]
             [instant.util.async :refer [fut-bg]]
             [instant.util.crypt :as crypt-util]
             [instant.util.date :as date]
