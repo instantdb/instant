@@ -362,7 +362,7 @@
 
 (defn prevent-system-attr-updates
   "Files support delete, link/unlink, but not update or merge"
-  [attrs tx-step-maps {:keys [allow-$files-update?]}]
+  [attrs tx-step-maps {:keys [allow-$files-update? admin?]}]
   (doseq [{:keys [op aid] :as tx-step} tx-step-maps
           :when (#{:add-triple :deep-merge-triple :retract-triple} op)
           :let [{:keys [catalog] :as attr} (attr-model/seek-by-id aid attrs)
@@ -370,11 +370,12 @@
                 [etype label] ident-name
                 catalog-attr? (= catalog :system)]
           :when catalog-attr?
-          :let [editable-catalog-attr? (or (editable-system-ident-names ident-name)
-                                           (and (= etype "$files")
-                                                allow-$files-update?))]
-
-          :when (not editable-catalog-attr?)]
+          :let [editable-user? (and (= etype "$users") (or (editable-system-ident-names ident-name)
+                                                           admin?))
+                editable-file? (and (= etype "$files"  (or (editable-system-ident-names ident-name)
+                                                           allow-$files-update?)))
+                editable? (or editable-user? editable-file?)]
+          :when (not editable?)]
     (ex/throw-validation-err!
      :tx-step
      [op (vectorize-tx-step tx-step)]

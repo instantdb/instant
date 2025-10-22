@@ -536,7 +536,7 @@
           (if admin?
             (let [tx-steps (tx/reorder-tx-steps ops-order tx-step-maps)]
               (io/expect-io
-               (tx/transact-without-tx-conn-impl! tx-conn optimistic-attrs app-id tx-steps {})))
+               (tx/transact-without-tx-conn-impl! tx-conn optimistic-attrs app-id tx-steps {:admin? admin?})))
             (let [;; pre-processing tx
                   tx-step-maps         (->> tx-step-maps
                                             (coerce-value-uuids ctx)
@@ -569,7 +569,7 @@
                   ;; transact to DB
                   tx-step-maps         (tx/reorder-tx-steps ops-order tx-step-maps)
                   tx-data              (io/expect-io
-                                        (tx/transact-without-tx-conn-impl! tx-conn (:attrs ctx) app-id tx-step-maps {}))
+                                        (tx/transact-without-tx-conn-impl! tx-conn (:attrs ctx) app-id tx-step-maps {:admin? admin?}))
 
                   ;; post checks
                   create-lookups-map   (io/expect-io
