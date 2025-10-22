@@ -1,37 +1,46 @@
 (ns instant.runtime.routes
-  (:require [clojure.string :as string]
-            [compojure.core :as compojure :refer [defroutes GET POST]]
-            [datascript.core :refer [squuid]]
-            [hiccup2.core :as h]
-            [instant.auth.oauth :as oauth]
-            [instant.config :as config]
-            [instant.model.app :as app-model]
-            [instant.model.app-authorized-redirect-origin :as app-authorized-redirect-origin-model]
-            [instant.model.app-oauth-client :as app-oauth-client-model]
-            [instant.model.app-oauth-code :as app-oauth-code-model]
-            [instant.model.app-oauth-redirect :as app-oauth-redirect-model]
-            [instant.model.app-user :as app-user-model]
-            [instant.model.app-user-magic-code :as app-user-magic-code-model]
-            [instant.model.app-user-oauth-link :as app-user-oauth-link-model]
-            [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
-            [instant.model.instant-user :as instant-user-model]
-            [instant.runtime.magic-code-auth :as magic-code-auth]
-            [instant.reactive.receive-queue :as receive-queue]
-            [instant.reactive.session :as session]
-            [instant.reactive.store :as rs]
-            [instant.reactive.sse :as sse]
-            [instant.util.coll :as ucoll]
-            [instant.util.crypt :as crypt-util]
-            [instant.util.email :as email]
-            [instant.util.exception :as ex]
-            [instant.util.string :as string-util]
-            [instant.util.tracer :as tracer]
-            [instant.util.url :as url]
-            [instant.util.uuid :as uuid-util]
-            [lambdaisland.uri :as uri]
-            [ring.middleware.cookies :refer [wrap-cookies]]
-            [ring.util.http-response :as response])
-  (:import (java.util UUID)))
+  (:require
+   [clojure.string :as string]
+   [compojure.core :as compojure :refer [defroutes GET POST]]
+   [datascript.core :refer [squuid]]
+   [hiccup2.core :as h]
+   [instant.admin.routes :refer [req->app-id-untrusted!]]
+   [instant.auth.oauth :as oauth]
+   [instant.config :as config]
+   [instant.db.datalog :as d]
+   [instant.db.instaql :as iq]
+   [instant.db.model.attr :as attr-model]
+   [instant.jdbc.aurora :as aurora]
+   [instant.model.app :as app-model]
+   [instant.model.app-authorized-redirect-origin :as app-authorized-redirect-origin-model]
+   [instant.model.app-oauth-client :as app-oauth-client-model]
+   [instant.model.app-oauth-code :as app-oauth-code-model]
+   [instant.model.app-oauth-redirect :as app-oauth-redirect-model]
+   [instant.model.app-user :as app-user-model]
+   [instant.model.app-user-magic-code :as app-user-magic-code-model]
+   [instant.model.app-user-oauth-link :as app-user-oauth-link-model]
+   [instant.model.app-user-refresh-token :as app-user-refresh-token-model]
+   [instant.model.instant-user :as instant-user-model]
+   [instant.reactive.query :refer [collect-instaql-results-for-client]]
+   [instant.reactive.receive-queue :as receive-queue]
+   [instant.reactive.session :as session]
+   [instant.reactive.sse :as sse]
+   [instant.reactive.store :as rs]
+   [instant.runtime.magic-code-auth :as magic-code-auth]
+   [instant.util.coll :as ucoll]
+   [instant.util.crypt :as crypt-util]
+   [instant.util.email :as email]
+   [instant.util.exception :as ex]
+   [instant.util.http :as http-util]
+   [instant.util.string :as string-util]
+   [instant.util.tracer :as tracer]
+   [instant.util.url :as url]
+   [instant.util.uuid :as uuid-util]
+   [lambdaisland.uri :as uri]
+   [ring.middleware.cookies :refer [wrap-cookies]]
+   [ring.util.http-response :as response])
+  (:import
+   (java.util UUID)))
 
 ;; ----
 ;; ws
@@ -594,6 +603,23 @@
                   :token_endpoint
                   (str config/server-origin "/runtime/" app-id "/oauth/token")})))
 
+(defn query-triples [req]
+  (let [query (ex/get-param! req [:body :query] #(when (map? %) %))
+        auth-token (http-util/req->bearer-token req)
+        app-id  (req->app-id-untrusted! req)
+        user (when auth-token (app-user-model/get-by-refresh-token! {:refresh-token auth-token :app-id app-id}))
+        attrs (attr-model/get-by-app-id app-id)
+        ctx {:db {:conn-pool (aurora/conn-pool :read)}
+                    :app-id app-id
+                    :attrs attrs
+                    :datalog-query-fn d/query
+                    :datalog-loader (d/make-loader)
+                    :current-user user
+                    :versions (-> req :body :versions)}
+        nodes (iq/permissioned-query ctx query)
+        result (collect-instaql-results-for-client nodes)]
+    (response/ok {:result result :attrs attrs})))
+
 (defroutes routes
   (POST "/runtime/auth/send_magic_code" [] send-magic-code-post)
   (POST "/runtime/auth/verify_magic_code" [] verify-magic-code-post)
@@ -607,6 +633,7 @@
                                                   {:decoder parse-cookie}))
   (POST "/runtime/oauth/callback" [] (wrap-cookies oauth-callback
                                                    {:decoder parse-cookie}))
+  (POST "/runtime/triples" [] query-triples)
 
   (POST "/runtime/oauth/token" [] oauth-token-callback)
   (POST "/runtime/:app_id/oauth/token" [] oauth-token-callback)
