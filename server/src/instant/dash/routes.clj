@@ -63,7 +63,6 @@
                                         get-app-with-role!]]
             [instant.util.semver :as semver]
             [instant.util.string :as string-util]
-            [instant.util.token :as token-util]
             [instant.util.tracer :as tracer]
             [instant.util.url :as url-util]
             [instant.util.uuid :as uuid-util]
