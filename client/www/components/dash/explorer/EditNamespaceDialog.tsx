@@ -69,7 +69,6 @@ export function EditNamespaceDialog({
   namespace,
   namespaces,
   onClose,
-  readOnly,
   isSystemCatalogNs,
   pushNavStack,
   replaceNav,
@@ -284,7 +283,7 @@ export function EditNamespaceDialog({
       ) : screen.type === 'edit' && screenAttr ? (
         <EditAttrForm
           appId={appId}
-          isSystemCatalogNs={isSystemCatalogNs}
+          isSystemCatalogAttr={screenAttr.catalog === 'system'}
           db={db}
           attr={screenAttr}
           onClose={() => setScreen({ type: 'main' })}
@@ -1528,14 +1527,14 @@ function EditAttrForm({
   appId,
   attr,
   onClose,
-  isSystemCatalogNs,
+  isSystemCatalogAttr,
   pushNavStack,
 }: {
   db: InstantReactWebDatabase<any>;
   appId: string;
   attr: SchemaAttr;
   onClose: () => void;
-  isSystemCatalogNs: boolean;
+  isSystemCatalogAttr: boolean;
   pushNavStack: PushNavStack;
 }) {
   const [screen, setScreen] = useState<{ type: 'main' } | { type: 'delete' }>({
@@ -1677,9 +1676,9 @@ function EditAttrForm({
         </div>
 
         <Button
-          disabled={isSystemCatalogNs && attr.type !== 'ref'}
+          disabled={isSystemCatalogAttr && attr.type !== 'ref'}
           title={
-            isSystemCatalogNs && attr.type !== 'ref'
+            isSystemCatalogAttr && attr.type !== 'ref'
               ? `Attributes in the ${attr.namespace} can't be edited`
               : undefined
           }
@@ -1697,7 +1696,7 @@ function EditAttrForm({
           <EditBlobConstraints
             appId={appId}
             attr={attr}
-            isSystemCatalogNs={isSystemCatalogNs}
+            isSystemCatalogNs={isSystemCatalogAttr}
             pushNavStack={pushNavStack}
           />
 
@@ -1711,9 +1710,9 @@ function EditAttrForm({
               the new name.
             </Content>
             <TextInput
-              disabled={isSystemCatalogNs}
+              disabled={isSystemCatalogAttr}
               title={
-                isSystemCatalogNs
+                isSystemCatalogAttr
                   ? `Attributes in the ${attr.namespace} namespace can't be edited.`
                   : undefined
               }
@@ -1727,10 +1726,10 @@ function EditAttrForm({
                 submitLabel="Renaming attribute..."
                 errorMessage="Failed to rename attribute"
                 disabled={
-                  isSystemCatalogNs || !attrName || attrName === attr.name
+                  isSystemCatalogAttr || !attrName || attrName === attr.name
                 }
                 title={
-                  isSystemCatalogNs
+                  isSystemCatalogAttr
                     ? `Attributes in the ${attr.namespace} namespace can't be edited.`
                     : undefined
                 }
