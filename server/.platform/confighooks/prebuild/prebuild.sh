@@ -3,6 +3,10 @@
 set -x
 set -e
 
+# Update EB_ENV_NAME in the docker-compose.yml
+
+sed -i "s/EB_ENV_NAME/$(/opt/elasticbeanstalk/bin/get-config container -k environment_name)/g" docker-compose.yml
+
 ###################
 # Setup Hazelcast #
 ###################
@@ -11,7 +15,6 @@ set -e
 
 file="/etc/deploy_count.txt"
 
-touch "$file"
 if [ ! -f "$file" ]; then
   echo "0" > "$file"
 fi
@@ -23,10 +26,6 @@ echo "$new_count" > "$file"
 hz_port=$((5701 + (new_count % 8)))
 
 echo "HZ_PORT=$hz_port" > hazelcast.env
-
-# Update EB_ENV_NAME in the docker-compose.yml
-
-sed -i "s/EB_ENV_NAME/$(/opt/elasticbeanstalk/bin/get-config container -k environment_name)/g" docker-compose.yml
 
 #################
 # Set up memory #
