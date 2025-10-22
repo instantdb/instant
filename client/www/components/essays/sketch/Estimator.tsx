@@ -169,8 +169,7 @@ function ConfigEditor({
   const [currConfig, setCurrConfig] = useState(config);
 
   const hasChanges =
-    currConfig.columns !== config.columns ||
-    currConfig.rows !== config.rows;
+    currConfig.columns !== config.columns || currConfig.rows !== config.rows;
 
   return (
     <form
@@ -207,7 +206,12 @@ function ConfigEditor({
           className="w-20 border border-gray-300 px-3 py-1.5 font-mono text-sm transition-all focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
           name="columns"
           value={currConfig.columns}
-          onChange={(e) => setCurrConfig({ ...currConfig, columns: Number.parseInt(e.target.value, 10) || 0 })}
+          onChange={(e) =>
+            setCurrConfig({
+              ...currConfig,
+              columns: Number.parseInt(e.target.value, 10) || 0,
+            })
+          }
           inputMode="numeric"
         />
       </label>
@@ -219,7 +223,12 @@ function ConfigEditor({
           className="w-20 border border-gray-300 px-3 py-1.5 font-mono text-sm transition-all focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
           name="rows"
           value={currConfig.rows}
-          onChange={(e) => setCurrConfig({ ...currConfig, rows: Number.parseInt(e.target.value, 10) || 0 })}
+          onChange={(e) =>
+            setCurrConfig({
+              ...currConfig,
+              rows: Number.parseInt(e.target.value, 10) || 0,
+            })
+          }
           inputMode="numeric"
         />
       </label>
