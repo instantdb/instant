@@ -73,6 +73,8 @@ import {
 
 import version from './version.ts';
 
+import { createInstantRouteHandler } from './serverEndpoint.ts';
+
 import {
   subscribe,
   SubscribeQueryCallback,
@@ -1075,6 +1077,7 @@ export {
   tx,
   lookup,
   i,
+  createInstantRouteHandler,
 
   // error
   InstantAPIError,
