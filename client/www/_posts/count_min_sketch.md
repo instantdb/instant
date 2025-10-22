@@ -1,16 +1,18 @@
 ---
-title: Count-Min Sketches in JS
+title: "Count-Min Sketches in JS — frequencies, but without the data"
 date: '2025-10-13'
 authors: stopachka
 ---
 
 <div class="text-lg italic font-medium">
-Our teammate Daniel introduced Count-Min Sketches in Instant (a sync engine you can spin up in less than a minute). I got into a rabbit hole learning more about them and ended up writing out this essay in the process.
+  Our teammate Daniel introduced Count-Min Sketches in <a href="/" target="_blank">Instant</a> (a sync engine you can spin up in less than a minute). Sketches were so small and so fast that I got into a rabbit hole learning about them. This essay came out of the process.
 </div>
 
-PG Wodehouse was a prolific author. Once he got his stride he published about a book a year until his dying day. And Wodehouse was funny. He often used eccentric adjectives: instead of "Freddie walked over", he would say "Freddie (shimmied | beetled | ambled) over".
+I have read and re-read just about every one of PG Wodehouse’s 71 novels. He’s one of my favorite authors. Wodehouse can take seemingly silly plots (quite a few involving stealing pigs) and twist them until you’re rapt with attention. And he’s a master of the English language.
 
-You may wonder, how many times did Wodehouse use the word "beetle"?
+Wodehouse is known for eccentric diction. Instead of "Freddie walked over", he’ll say "Freddie (shimmied | beetled | ambled) over".
+
+You may wonder, how many times did he use the word 'beetle'?
 
 Well I could tell you _approximately_ how many times Wodehouse used any word in his entire lexicon, just by loading the data structure embedded in this image:
 
