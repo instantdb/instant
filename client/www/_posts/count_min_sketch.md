@@ -5,7 +5,7 @@ authors: stopachka
 ---
 
 <div class="text-lg italic font-medium">
-  Our teammate Daniel introduced Count-Min Sketches in <a href="/" target="_blank">Instant</a> (a sync engine you can spin up in less than a minute). Sketches were so small and so fast that I got into a rabbit hole learning about them. The following post came out of the process.
+  Our teammate Daniel introduced Count-Min Sketches in <a href="/">Instant</a> (a sync engine you can spin up in less than a minute). Sketches were so small and so fast that I got into a rabbit hole learning about them. The following post came out of the process.
 </div>
 
 I have read and re-read just about every one of PG Wodehouse’s 71 novels. He’s one of my favorite authors. Wodehouse can take seemingly silly plots (quite a few involving stealing pigs) and twist them until you’re rapt with attention. And he’s a master of the English language.
@@ -415,7 +415,7 @@ Alright, now that we have a real Count-Min Sketch, let's put it to the test. We'
 I went ahead and compiled all 61 novels from Project Gutenberg into one giant text file. You can go ahead and download it:
 
 ```bash
-curl http://instantdb.com/posts/count_min_sketch/wodehouse-full.txt \
+curl https://www.instantdb.com/posts/count_min_sketch/wodehouse-full.txt \
   -o wodehouse-full.txt
 ```
 
