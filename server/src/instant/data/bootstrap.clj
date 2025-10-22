@@ -129,7 +129,8 @@
             conn
             (attr-model/get-by-app-id app-id)
             app-id
-            txes)
+            txes
+            {:admin? true})
          triples (triple-model/fetch
                   conn
                   app-id)
