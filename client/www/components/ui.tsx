@@ -824,11 +824,11 @@ export function ActionButton({
         successToast(successMessage);
       }
     } catch (error) {
-      if ((error as any)?.hint) {
+      if ((error as any).message || (error as any)?.hint) {
         const hintMessage = (error as any).hint?.errors?.[0]?.message;
-        const msg = `${errorMessage}\n${(error as any).message}${
-          hintMessage ? `\n${hintMessage}` : ''
-        }`;
+        const msg = [errorMessage, (error as any).message, hintMessage].join(
+          '\n',
+        );
         errorToast(msg);
       } else {
         errorToast(errorMessage);

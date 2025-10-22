@@ -27,6 +27,7 @@
    [instant.util.exception :as ex]
    [instant.util.test :as test-util :refer [suid stuid validation-err? perm-err? perm-pass? timeout-err?]]
    [instant.util.date :as date-util]
+   [instant.system-catalog :refer [system-catalog-app-id]]
    [next.jdbc]))
 
 (defn- fetch-triples
@@ -4130,101 +4131,73 @@
                       (attr-model/seek-by-id attr-id)
                       :inferred-types))))))))
 
-(deftest rejects-users-attrs
+(deftest cant-create-system-catalog-attrs-with-existing-idents
   (with-empty-app
     (fn [{app-id :id}]
-      (is
-       (validation-err?
-        (tx/transact! (aurora/conn-pool :write)
-                      (attr-model/get-by-app-id app-id)
-                      app-id
-                      [[:add-attr {:id (random-uuid)
-                                   :forward-identity [(random-uuid) "$users" "id"]
-                                   :value-type :blob
-                                   :cardinality :one
-                                   :unique? false
-                                   :index? false}]]))))))
+      (tx/transact! (aurora/conn-pool :write)
+                    (attr-model/get-by-app-id app-id)
+                    app-id
+                    [[:add-attr {:id (random-uuid)
+                                 :forward-identity [(random-uuid) "$users" "fullName"]
+                                 :value-type :blob
+                                 :cardinality :one
+                                 :unique? false
+                                 :index? false}]])
+      (let [ex-data (test-util/instant-ex-data
+                     (attr-model/insert-multi! (aurora/conn-pool :write)
+                                               system-catalog-app-id
+                                               [{:id (random-uuid)
+                                                 :forward-identity [(random-uuid) "$users" "fullName"]
+                                                 :value-type :blob
+                                                 :cardinality :one
+                                                 :unique? false
+                                                 :index? false}]
+                                               {:allow-reserved-names? true}))]
+        (is (string/starts-with?
+             (::ex/message ex-data)
+             "Validation failed for attributes: $users.fullName conflicts with an existing attribute"))))))
 
-(deftest restricted-files-updates
+(deftest cant-create-system-attr-with-system-catalog-ident-name
   (with-empty-app
     (fn [{app-id :id}]
-      (let [conn (aurora/conn-pool :write)
-            app-attrs (attr-model/get-by-app-id app-id)
-            path-attr-id (attr-model/resolve-attr-id app-attrs "$files" "path")
-            id-attr-id (attr-model/resolve-attr-id app-attrs "$files" "id")
-            {file-id :id} (app-file-model/create! conn
-                                                  {:app-id app-id
-                                                   :path "test.jpg"
-                                                   :location-id "loc1"
-                                                   :metadata {:size 100
-                                                              :content-type "image/jpeg"
-                                                              :content-disposition "inline"}})]
+      (let [ex-data (test-util/instant-ex-data
+                     (tx/transact! (aurora/conn-pool :write)
+                                   (attr-model/get-by-app-id app-id)
+                                   app-id
+                                   [[:add-attr {:id (random-uuid)
+                                                :forward-identity [(random-uuid) "$users" "email"]
+                                                :value-type :blob
+                                                :cardinality :one
+                                                :unique? false
+                                                :index? false}]]))]
+        (is (string/starts-with?
+             (::ex/message ex-data)
+             "Validation failed for attributes: $users.email is a system column"))))))
 
-        (testing "Updates on path are allowed"
-          (let [new-path "new-path.jpg"]
-            (tx/transact! conn
-                          app-attrs
-                          app-id
-                          [[:add-triple file-id path-attr-id new-path]])
-            (is (= new-path
-                   (:path (app-file-model/get-by-path {:app-id app-id :path new-path}))))))
+(deftest cant-create-required-system-attr
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [ex-data (test-util/instant-ex-data
+                     (tx/transact! (aurora/conn-pool :write)
+                                   (attr-model/get-by-app-id app-id)
+                                   app-id
+                                   [[:add-attr {:id (random-uuid)
+                                                :forward-identity [(random-uuid) "$users" "fullName"]
+                                                :value-type :blob
+                                                :cardinality :one
+                                                :required? true
+                                                :unique? false
+                                                :index? false}]]))]
+        (is (string/starts-with?
+             (::ex/message ex-data)
+             "You can't create a required system attribute. Make sure it's optional."))))))
 
-        (testing "Updates on non-existing files should fail"
-          (let [new-id (random-uuid)]
-            (is (validation-err?
-                 (tx/transact! conn
-                               app-attrs
-                               app-id
-                               [[:add-triple new-id id-attr-id new-id]])))))
-        (testing "Updates on non-existing lookups should fail"
-          (let [new-id #uuid "3edbebab-c179-4ce7-94ab-b597377c7875"]
-            (is (validation-err?
-                 (tx/transact! conn
-                               app-attrs
-                               app-id
-                               [[:add-triple [id-attr-id new-id] path-attr-id "random-path.jpg"]])))))
-
-        (testing "Updating to an existing path should fail"
-          (let [existing-path "existing-path.jpg"]
-            (app-file-model/create! conn
-                                    {:app-id app-id
-                                     :path existing-path
-                                     :location-id "loc2"
-                                     :metadata {:size 100
-                                                :content-type "image/jpeg"
-                                                :content-disposition "inline"}})
-            (let [ex-data  (test-util/instant-ex-data
-                            (tx/transact!
-                             conn
-                             app-attrs
-                             app-id
-                             [[:add-triple file-id path-attr-id existing-path]]))]
-              (is (= ::ex/record-not-unique
-                     (::ex/type ex-data)))
-              (is (= "`path` is a unique attribute on `$files` and an entity already exists with `$files.path` = \"existing-path.jpg\""
-                     (::ex/message ex-data))))))
-
-        (testing "Changing id should fail"
-          (is (validation-err?
-               (tx/transact! conn
-                             app-attrs
-                             app-id
-                             [[:add-triple file-id id-attr-id (random-uuid)]]))))
-
-        (testing "Updates other attrs should fail"
-          (let [loc-attr-id  (attr-model/resolve-attr-id app-attrs "$files" "location-id")]
-            (is (validation-err?
-                 (tx/transact! conn
-                               app-attrs
-                               app-id
-                               [[:add-triple file-id loc-attr-id "new-location"]])))))))))
-
-(deftest perms-rejects-writes-to-users-table
+(deftest perms-rejects-writes-to-reserved-users-columns
   (with-empty-app
     (fn [{app-id :id}]
       (let [r (resolvers/make-movies-resolver app-id)
             id (random-uuid)
-            make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :read)}
+            make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :write)}
                              :app-id app-id
                              :attrs (attr-model/get-by-app-id app-id)
                              :datalog-query-fn d/query
@@ -4232,19 +4205,55 @@
                              :current-user nil})]
         (is (validation-err?
              (permissioned-tx/transact! (make-ctx)
-                                        [[:add-triple id (resolvers/->uuid r :$users/id) (str id)]])))
+                                        [[:add-triple id (resolvers/->uuid r :$users/id) (str id)]
+                                         [:add-triple id (resolvers/->uuid r :$users/email) "alyssa@hacker.com"]])))
         (is (validation-err?
              (permissioned-tx/transact! (make-ctx)
-                                        [[:retract-triple id (resolvers/->uuid r :$users/id) (str id)]])))
+                                        [[:retract-triple id (resolvers/->uuid r :$users/id) (str id)]
+                                         [:retract-triple id (resolvers/->uuid r :$users/email) "alyssa@hacker.com"]])))
 
         (is (validation-err?
              (permissioned-tx/transact! (make-ctx)
-                                        [[:deep-merge-triple id (resolvers/->uuid r :$users/id) {:hello :world}]])))
+                                        [[:deep-merge-triple id (resolvers/->uuid r :$users/id) {:hello :world}]
+                                         [:deep-merge-triple id (resolvers/->uuid r :$users/email) "alyssa@hacker.com"]])))
 
         (is (validation-err?
              (permissioned-tx/transact! (make-ctx)
                                         [[:delete-entity id "$users"]])))))))
 
+(deftest perms-accepts-writes-to-custom-user-columns
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [r                     (resolvers/make-movies-resolver app-id)
+            attr-id               #(resolvers/->uuid r %)
+            fullname-attr-id (random-uuid)
+            user-id (random-uuid)
+            make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :write)}
+                             :app-id app-id
+                             :attrs (attr-model/get-by-app-id app-id)
+                             :datalog-query-fn d/query
+                             :rules (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                             :current-user nil})
+            _ (tx/transact!
+               (aurora/conn-pool :write)
+               (attr-model/get-by-app-id app-id)
+               app-id
+               [[:add-attr {:id fullname-attr-id
+                            :forward-identity [(random-uuid) "$users" "fullName"]
+                            :value-type :blob
+                            :cardinality :one
+                            :unique? false
+                            :index? false}]])
+
+            tx-steps [[:add-triple user-id (attr-id :$users/id) (str user-id)]
+                      [:add-triple user-id fullname-attr-id "Alyssa Hacker"]]]
+
+        (app-user-model/create! (aurora/conn-pool :write) {:app-id app-id
+                                                           :id user-id
+                                                           :email "test@example.com"})
+        (is (perm-err? (permissioned-tx/transact! (make-ctx) tx-steps)))
+        (is (permissioned-tx/transact! (assoc (make-ctx)
+                                              :current-user {:id user-id}) tx-steps))))))
 (deftest perms-accepts-writes-to-reverse-links-to-users-table
   (with-empty-app
     (fn [{app-id :id}]
@@ -4386,6 +4395,105 @@
 
         (is (empty? (app-user-model/get-by-email {:app-id app-id
                                                   :email "test@example.com"})))))))
+
+(deftest $files-updates
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [conn (aurora/conn-pool :write)
+            app-attrs (attr-model/get-by-app-id app-id)
+            path-attr-id (attr-model/resolve-attr-id app-attrs "$files" "path")
+            id-attr-id (attr-model/resolve-attr-id app-attrs "$files" "id")
+            {file-id :id} (app-file-model/create! conn
+                                                  {:app-id app-id
+                                                   :path "test.jpg"
+                                                   :location-id "loc1"
+                                                   :metadata {:size 100
+                                                              :content-type "image/jpeg"
+                                                              :content-disposition "inline"}})
+
+            fav-attr-id (random-uuid)
+
+            _ (tx/transact!
+               (aurora/conn-pool :write)
+               (attr-model/get-by-app-id app-id)
+               app-id
+               [[:add-attr {:id fav-attr-id
+                            :forward-identity [(random-uuid) "$files" "isFavorite"]
+                            :value-type :blob
+                            :cardinality :one
+                            :unique? false
+                            :index? false}]])
+
+            make-ctx (fn make-ctx
+                       ([]
+                        (make-ctx {}))
+                       ([{:keys [admin?]}]
+                        {:db               {:conn-pool (aurora/conn-pool :write)}
+                         :app-id           app-id
+                         :attrs            (attr-model/get-by-app-id app-id)
+                         :datalog-query-fn d/query
+                         :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                         :current-user     nil
+                         :admin?           admin?}))]
+
+        (rule-model/put!
+         (aurora/conn-pool :write)
+         {:app-id app-id :code {:$files {:allow {:create "true"
+                                                 :update "true"
+                                                 :delete "true"
+                                                 :view "true"}}}})
+
+        (testing "Updates on path are allowed"
+          (let [new-path "new-path.jpg"]
+            (permissioned-tx/transact! (make-ctx)
+                                       [[:add-triple file-id id-attr-id file-id]
+                                        [:add-triple file-id path-attr-id new-path]])
+            (is (= new-path
+                   (:path (app-file-model/get-by-path {:app-id app-id :path new-path}))))))
+
+        (testing "Updates on custom columns are allowed"
+          (permissioned-tx/transact! (make-ctx)
+                                     [[:add-triple file-id id-attr-id file-id]
+                                      [:add-triple file-id fav-attr-id true]])
+
+          (is (:isFavorite  (app-file-model/get-by-id {:app-id app-id :id file-id}))))
+
+        (testing "Updates on non-existing files should fail"
+          (let [new-id (random-uuid)]
+            (is (validation-err?
+                 (permissioned-tx/transact! (make-ctx)
+                                            [[:add-triple new-id id-attr-id new-id]])))))
+
+        (testing "Updates on non-existing lookups should fail"
+          (let [new-id #uuid "3edbebab-c179-4ce7-94ab-b597377c7875"]
+            (is (validation-err?
+                 (permissioned-tx/transact! (make-ctx)
+                                            [[:add-triple [id-attr-id new-id] path-attr-id "random-path.jpg"]])))))
+
+        (testing "Updating to an existing path should fail"
+          (let [existing-path "existing-path.jpg"]
+            (app-file-model/create! conn
+                                    {:app-id app-id
+                                     :path existing-path
+                                     :location-id "loc2"
+                                     :metadata {:size 100
+                                                :content-type "image/jpeg"
+                                                :content-disposition "inline"}})
+            (let [ex-data  (test-util/instant-ex-data
+                            (permissioned-tx/transact!
+                             (make-ctx)
+                             [[:add-triple file-id path-attr-id existing-path]]))]
+              (is (= ::ex/record-not-unique
+                     (::ex/type ex-data)))
+              (is (= "`path` is a unique attribute on `$files` and an entity already exists with `$files.path` = \"existing-path.jpg\""
+                     (::ex/message ex-data))))))
+
+        (testing "Even admins can't update reserved attrs"
+          (let [loc-attr-id  (attr-model/resolve-attr-id app-attrs "$files" "location-id")]
+            (is (validation-err?
+                 (permissioned-tx/transact! (make-ctx {:admin? true})
+                                            [[:add-triple file-id id-attr-id file-id]
+                                             [:add-triple file-id loc-attr-id "new-location"]])))))))))
 
 (deftest cascade-works-with-guests
   (with-empty-app
@@ -4686,7 +4794,6 @@
                  {:db/id          (suid "c")
                   :train/weight   1000}}
                (test-util/find-entities-by-ids app-id attr->id ids)))))))
-
 
 (deftest on-delete-cascade-reused-entity-ids-forward
   (with-empty-app
@@ -5289,14 +5396,13 @@
                                   [:add-triple nicole-eid bookshelves-attr-id eid-nonfiction]]))
                              (range (count conns)))
 
-
               txes (mapv (fn [conn tx-data]
                            (future
                              (triple-model/insert-multi! conn attrs app-id (map rest tx-data))))
                          conns tx-datas)]
 
           (doseq [tx txes]
-           (testing "connection did not deadlock"
+            (testing "connection did not deadlock"
               (is @tx))))))))
 
 (comment

@@ -1418,6 +1418,22 @@ const resolveRenames = async (created, promptData, extraInfo) => {
   return answer;
 };
 
+function collectSystemCatalogIdentNames(currentAttrs) {
+  const allSystemIdents = currentAttrs
+    .filter((attr) => attr.catalog === 'system')
+    .flatMap((attr) =>
+      [attr['forward-identity'], attr['reverse-identity']].filter(Boolean),
+    );
+
+  /** @type {Record<string, Set<string>>} */
+  let res = {};
+  for (const [_, etype, label] of allSystemIdents) {
+    res[etype] = res[etype] || new Set();
+    res[etype].add(label);
+  }
+  return res;
+}
+
 async function pushSchema(appId, opts) {
   const res = await readLocalSchemaFileWithErrorLogging();
   if (!res) return { ok: false };
@@ -1452,10 +1468,19 @@ async function pushSchema(appId, opts) {
     ? buildAutoRenameSelector(opts)
     : resolveRenames;
 
-  const diffResult = await diffSchemas(oldSchema, schema, renameSelector);
+  const systemCatalogIdentNames = collectSystemCatalogIdentNames(currentAttrs);
+
+  const diffResult = await diffSchemas(
+    oldSchema,
+    schema,
+    renameSelector,
+    systemCatalogIdentNames,
+  );
+
   if (currentAttrs === undefined) {
     throw new Error("Couldn't get current schema from server");
   }
+
   const txSteps = convertTxSteps(diffResult, currentAttrs);
 
   if (txSteps.length === 0) {

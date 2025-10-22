@@ -217,15 +217,6 @@
 (comment
   (gen/generate (s/gen ::tx-steps)))
 
-(defn prevent-system-catalog-attrs-updates! [op tx-steps]
-  (doseq [[_ attr] tx-steps
-          :let     [etype (attr-model/fwd-etype attr)]]
-    (when (and etype (string/starts-with? etype "$"))
-      (ex/throw-validation-err!
-       :tx-steps
-       op
-       [{:message (format "You can't create or modify attributes in the %s namespace." etype)}]))))
-
 (defn prevent-system-catalog-updates! [app-id opts]
   (when (and (= app-id system-catalog-app-id)
              (not (:allow-system-catalog-updates? opts)))
@@ -364,22 +355,6 @@
              :tx-step
              missing
              [{:message (str "Updating entities that don't exist: " (string/join ", " (map :eid missing)))}])))))))
-
-(defn prevent-$files-updates
-  "Files support delete, link/unlink, but not update or merge"
-  [attrs tx-step-maps opts]
-  (when (not (:allow-$files-update? opts))
-    (doseq [{:keys [op eid aid etype value] :as tx-step} tx-step-maps
-            :when (#{:add-triple :deep-merge-triple :retract-triple} op)
-            :let [attr (attr-model/seek-by-id aid attrs)
-                  label (attr-model/fwd-label attr)]
-            :when (and (= etype "$files")
-                       (or (not (contains? #{"id" "path"} label))
-                           (and (= label "id") (not= eid value))))]
-      (ex/throw-validation-err!
-       :tx-step
-       [op (vectorize-tx-step tx-step)]
-       [{:message "update or merge is only allowed on `path` for $files in transact."}]))))
 
 (defn resolve-lookups-for-delete-entity [conn app-id tx-step-maps]
   (let [[lookup-ref-deletes rest] (coll/split-by
@@ -594,13 +569,10 @@
                                        :num-tx-steps (count tx-step-vecs)
                                        :detailed-tx-steps (pr-str tx-step-vecs)}}
         (prevent-system-catalog-updates! app-id opts)
-        (prevent-$files-updates attrs tx-step-maps opts)
         (validate-mode conn app-id tx-step-maps)
         (let [results
               (reduce-kv
                (fn [acc op tx-steps]
-                 (when (#{:add-attr :update-attr} op)
-                   (prevent-system-catalog-attrs-updates! op tx-steps))
                  (cond
                    (empty? tx-steps)
                    acc

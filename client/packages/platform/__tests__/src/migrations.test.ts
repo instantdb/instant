@@ -2,6 +2,7 @@ import { expect, test as test } from 'vitest';
 import { i } from '@instantdb/core';
 import {
   diffSchemas,
+  Identifier,
   MigrationTx,
   MigrationTxTypes,
   RenamePromptItem,
@@ -28,6 +29,11 @@ const simpleSchemaAfter = i.schema({
     }),
   },
 });
+
+const systemCatalogIdentNames = {
+  $users: new Set(['id', 'email', 'linkedPrimaryUser', 'linkedGuestUsers']),
+  $files: new Set(['id', 'path']),
+} as const;
 
 const createChooser = (
   pickThese: (RenamePromptItem<string> | string)[],
@@ -61,6 +67,15 @@ const expectTxType = (
   expect(countMatched).toBeGreaterThan(0);
 };
 
+const simpleSummary = (result: MigrationTx[]) => {
+  let simpleSummary: Record<string, Identifier[]> = {};
+  for (const tx of result) {
+    simpleSummary[tx.type] = simpleSummary[tx.type] || [];
+    simpleSummary[tx.type].push(tx.identifier);
+  }
+  return simpleSummary;
+};
+
 test('delete simple entitity', async () => {
   const result = await diffSchemas(
     i.schema({
@@ -74,6 +89,7 @@ test('delete simple entitity', async () => {
       entities: {},
     }),
     createChooser(['artist']),
+    systemCatalogIdentNames,
   );
   console.log(result);
   expectTxType(result, 'delete-attr', 2);
@@ -84,6 +100,7 @@ test('delete and add - intent', async () => {
     simpleSchemaBefore,
     simpleSchemaAfter,
     createChooser([]),
+    systemCatalogIdentNames,
   );
   console.log(result);
   expectTxType(result, 'delete-attr', 3);
@@ -109,6 +126,7 @@ test('rename - intent', async () => {
         to: 'artist',
       },
     ]),
+    systemCatalogIdentNames,
   );
   console.log(result);
   expectTxType(result, 'delete-attr', 2);
@@ -133,6 +151,7 @@ test('change data type', async () => {
       },
     }),
     createChooser([]),
+    systemCatalogIdentNames,
   );
 
   console.log(result);
@@ -160,6 +179,7 @@ test('make required', async () => {
       },
     }),
     createChooser([]),
+    systemCatalogIdentNames,
   );
   console.log(result);
 
@@ -190,6 +210,7 @@ test('add index', async () => {
       },
     }),
     createChooser([]),
+    systemCatalogIdentNames,
   );
 
   expectTxType(result, 'index', 1);
@@ -219,6 +240,7 @@ test('remove index', async () => {
       },
     }),
     createChooser([]),
+    systemCatalogIdentNames,
   );
 
   expectTxType(result, 'remove-index', 1);
@@ -248,6 +270,7 @@ test('rename and make changes', async () => {
       },
     }),
     createChooser([{ from: 'name', to: 'name2' }]),
+    systemCatalogIdentNames,
   );
 
   console.log(result);
@@ -280,6 +303,7 @@ test('make optional', async () => {
       },
     }),
     createChooser([]),
+    systemCatalogIdentNames,
   );
 
   expectTxType(result, 'remove-required', 1);
@@ -316,6 +340,7 @@ test('create-link', async () => {
       },
     }),
     createChooser([]),
+    systemCatalogIdentNames,
   );
 
   console.log(result);
@@ -364,6 +389,7 @@ test('delete link', async () => {
       links: {},
     }),
     createChooser([]),
+    systemCatalogIdentNames,
   );
   console.log(result);
   expectTxType(result, 'delete-attr', 1);
@@ -404,6 +430,7 @@ test('update link cardinality', async () => {
       },
     }),
     createChooser([]),
+    systemCatalogIdentNames,
   );
   console.log(result);
   expectTxType(result, 'update-attr', 1);
@@ -450,8 +477,129 @@ test('update link delete cascade', async () => {
       },
     }),
     createChooser([]),
+    systemCatalogIdentNames,
   );
   console.log(result);
   expectTxType(result, 'update-attr', 1);
   expect((result[0] as any).partialAttr['on-delete']).toBe('cascade');
+});
+
+test('system catalog attrs are ignored when adding entities', async () => {
+  const result = await diffSchemas(
+    i.schema({
+      entities: {},
+    }),
+    i.schema({
+      entities: {
+        $users: i.entity({
+          email: i.string(),
+          fullName: i.string().optional(),
+        }),
+        $files: i.entity({
+          path: i.string().unique().indexed(),
+        }),
+      },
+      links: {
+        fileOwner: {
+          forward: {
+            on: '$files',
+            has: 'one',
+            label: 'owner',
+          },
+          reverse: {
+            on: '$users',
+            has: 'many',
+            label: 'ownedFiles',
+          },
+        },
+        $usersLinkedPrimaryUser: {
+          forward: {
+            on: '$users',
+            has: 'one',
+            label: 'linkedPrimaryUser',
+            onDelete: 'cascade',
+          },
+          reverse: {
+            on: '$users',
+            has: 'many',
+            label: 'linkedGuestUsers',
+          },
+        },
+      },
+    }),
+    createChooser([]),
+    systemCatalogIdentNames,
+  );
+  expect(simpleSummary(result)).toEqual({
+    'add-attr': [
+      {
+        namespace: '$users',
+        attrName: 'fullName',
+      },
+      {
+        attrName: 'owner',
+        namespace: '$files',
+      },
+    ],
+  });
+});
+
+test('system catalog attrs are ignored when deleting entities', async () => {
+  const result = await diffSchemas(
+    i.schema({
+      entities: {
+        $users: i.entity({
+          email: i.string(),
+          fullName: i.string().optional(),
+        }),
+        $files: i.entity({
+          path: i.string().unique().indexed(),
+        }),
+      },
+      links: {
+        fileOwner: {
+          forward: {
+            on: '$files',
+            has: 'one',
+            label: 'owner',
+          },
+          reverse: {
+            on: '$users',
+            has: 'many',
+            label: 'ownedFiles',
+          },
+        },
+        $usersLinkedPrimaryUser: {
+          forward: {
+            on: '$users',
+            has: 'one',
+            label: 'linkedPrimaryUser',
+            onDelete: 'cascade',
+          },
+          reverse: {
+            on: '$users',
+            has: 'many',
+            label: 'linkedGuestUsers',
+          },
+        },
+      },
+    }),
+    i.schema({
+      entities: {},
+    }),
+    createChooser([]),
+    systemCatalogIdentNames,
+  );
+  expect(simpleSummary(result)).toEqual({
+    'delete-attr': [
+      {
+        attrName: 'fullName',
+        namespace: '$users',
+      },
+      {
+        attrName: 'owner',
+        namespace: '$files',
+      },
+    ],
+  });
 });

@@ -625,6 +625,10 @@
         (throw+ {::type ::validation-failed
                  ::message "There must be at least one member of the org that is an owner."})
 
+        "required_set_on_reserved_attrs"
+        (throw+ {::type ::validation-failed
+                 ::message "You can't create a required system attribute. Make sure it's optional."})
+
         #_else
         (throw+ {::type ::sql-raise
                  ::message (format "Raised Exception: %s" server-message)
