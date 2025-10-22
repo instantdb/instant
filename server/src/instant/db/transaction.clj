@@ -731,7 +731,7 @@
 
 (defn transact!
   ([conn attrs app-id tx-steps]
-   (transact! conn attrs app-id tx-steps {}))
+   (transact! conn attrs app-id tx-steps {:admin? true}))
   ([conn attrs app-id tx-steps opts]
    (next-jdbc/with-transaction [tx-conn conn]
      (transact-without-tx-conn! tx-conn attrs app-id tx-steps opts))))
