@@ -145,27 +145,45 @@
 (defn fallback-program [etype action]
   (when (contains? system-catalog/all-etypes etype)
     (let [compiler (cel/action->compiler action)]
-      (if (= "$users" etype)
-        (let [code "auth.id == data.id || (data.linkedPrimaryUser != null && auth.id == data.linkedPrimaryUser)"
-              ast (cel/->ast compiler code)]
-          {:etype etype
-           :action action
-           :code code
-           :display-code code
-           :cel-ast ast
-           :cel-program (cel/->program ast)
-           :where-clauses-program (cel/where-clauses-program code)})
-        (let [display-code (format "disallow_%s_on_system_tables" action)
-              code "false"
-              ast (cel/->ast compiler code)]
-          {:etype etype
-           :action action
-           :display-code display-code
-           :code code
-           :cel-ast ast
-           :cel-program (cel/->program ast)
-           :where-clauses-program (when (= action "view")
-                                    (cel/where-clauses-program code))})))))
+      (cond (= "$users" etype)
+
+            ;; TODO: should be view or update only
+            (let [code "auth.id == data.id || (data.linkedPrimaryUser != null && auth.id == data.linkedPrimaryUser)"
+                  ast (cel/->ast compiler code)]
+              {:etype etype
+               :action action
+               :code code
+               :display-code code
+               :cel-ast ast
+               :cel-program (cel/->program ast)
+               :where-clauses-program (when (= action "view")
+                                        (cel/where-clauses-program code))})
+
+            ;; TODO: should be view or update only
+            (= "$files" etype)
+            (let [code "false"
+                  ast (cel/->ast compiler code)]
+              {:etype etype
+               :action action
+               :code code
+               :display-code code
+               :cel-ast ast
+               :cel-program (cel/->program ast)
+               :where-clauses-program (when (= action "view")
+                                        (cel/where-clauses-program code))})
+
+            :else
+            (let [display-code (format "disallow_%s_on_system_tables" action)
+                  code "false"
+                  ast (cel/->ast compiler code)]
+              {:etype etype
+               :action action
+               :display-code display-code
+               :code code
+               :cel-ast ast
+               :cel-program (cel/->program ast)
+               :where-clauses-program (when (= action "view")
+                                        (cel/where-clauses-program code))})))))
 
 (def program-cache
   (cache/make {:max-size 2048}))
