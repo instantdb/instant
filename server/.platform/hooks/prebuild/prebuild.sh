@@ -32,6 +32,7 @@ sed -i "s/EB_ENV_NAME/$(/opt/elasticbeanstalk/bin/get-config container -k enviro
 # Set up memory #
 #################
 
+
 # Use 81% of available memory for heap
 heap_ratio="0.81"
 # Put 95% of available memory in huge pages
