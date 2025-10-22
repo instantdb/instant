@@ -2,7 +2,6 @@
   (:require
    [clojure.set :refer [map-invert]]
    [clojure.spec.alpha :as s]
-   [clojure.string :as string]
    [honey.sql :as hsql]
    [instant.db.model.triple-cols :refer [triple-cols]]
    [instant.jdbc.aurora :as aurora]
@@ -13,7 +12,6 @@
    [instant.util.crypt :refer [json-null-md5]]
    [instant.util.exception :as ex]
    [instant.util.spec :as uspec]
-   [instant.util.string :as string-util]
    [instant.util.uuid :as uuid]))
 
 (set! *warn-on-reflection* true)
