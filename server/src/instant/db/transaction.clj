@@ -372,8 +372,8 @@
           :when catalog-attr?
           :let [editable-user? (and (= etype "$users") (or (editable-system-ident-names ident-name)
                                                            admin?))
-                editable-file? (and (= etype "$files"  (or (editable-system-ident-names ident-name)
-                                                           allow-$files-update?)))
+                editable-file? (and (= etype "$files") (or (editable-system-ident-names ident-name)
+                                                           allow-$files-update?))
                 editable? (or editable-user? editable-file?)]
           :when (not editable?)]
     (ex/throw-validation-err!
