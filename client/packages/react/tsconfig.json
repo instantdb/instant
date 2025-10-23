@@ -3,6 +3,7 @@
   "include": ["src"],
   "exclude": ["node_modules", "dist", "src/__types__"],
   "compilerOptions": {
+    "skipLibCheck": true,
     "outDir": "dist/tsc",
     "rewriteRelativeImportExtensions": true,
     "rootDir": "src",

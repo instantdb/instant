@@ -441,3 +441,114 @@ app.post('/custom_endpoint', async (req, res) => {
   // ...
 });
 ```
+
+### Syncing Auth
+
+Sometimes you want to get the logged in user in the backend. Instant can automatically sync the logged in user for you. Here's how to do it.
+
+Instant provides a `createInstantRouteHandler` function that generates a web standard endpoint that can be used to sync the refresh token to a cookie that your server can read.
+
+To use it in NextJS:
+
+```typescript
+// src/app/api/instant/[...all]/route.ts
+import { createInstantRouteHandler } from '@instantdb/react';
+
+export const { GET, POST } = createInstantRouteHandler({
+  appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
+});
+```
+
+The GET and POST functions accept a [Request](https://developer.mozilla.org/en-US/docs/Web/API/Request) and return a [Response](https://developer.mozilla.org/en-US/docs/Web/API/Request) so they should be able to be used in any framework.
+
+Then, provide your mounted api url to the `init` function.
+
+```typescript
+export const db = init({
+  appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
+  cookieEndpoint: '/api/instant', // the endpoint that you registered the route handler at.
+  schema,
+  useDateObjects: true,
+});
+```
+
+## Server Side Rendering (Next.js)
+
+The `@instantdb/react` package exports an `InstantSuspenseProvider` that you can use to enable server rendering on client pages via Suspense.
+
+SSR is best used with the [cookie sync endpoint](/docs/backend#syncing-auth). If cookies are not synced, there will a brief flash of the query result from an unauthenticated user on the first render.
+
+{% callout %}
+To use the suspense query hook and SSR, make sure to update your import for the database object:
+
+`import { init } from '@instantdb/react/nextjs'`
+{% /callout %}
+
+### Client Component Provider
+
+```typescript
+"use client";
+
+// pass refreshToken from a server route
+function App(props: { refreshToken?: string }) {
+  return (
+    <>
+      <db.SignedIn>
+        <InstantSuspenseProvider db={db} token={props.refreshToken}>
+          <Main />
+        </InstantSuspenseProvider>
+      </db.SignedIn>
+      <db.SignedOut>
+        <Login />
+      </db.SignedOut>
+    </>
+  );
+}
+```
+
+### Server Component Provider
+
+Since you can't pass an object from a server component to a client component, you must provide a config instead, using the same arguments you passed to `init`, stringifying the schema object.
+
+```typescript
+// /src/app/layout.tsx
+import { InstantSuspenseProvider } from '@instantdb/react/nextjs';
+
+export default async function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  const cookieStore = await cookies();
+  const instantRefreshToken = cookieStore.get("instant_refresh_token");
+
+  return (
+    <html lang="en">
+      <body className="antialiased">
+        <InstantSuspenseProvider
+          token={instantRefreshToken?.value}
+          config={{
+            appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
+            schema: JSON.stringify(schema),
+            useDateObjects: true,
+          }}
+        >
+          {children}
+        </InstantSuspenseProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+### Using the suspense hook
+
+The suspense hook is a drop in replacement for db.useQuery and can be used anywhere in a client component under a `InstantSuspenseProvider`.
+
+```typescript
+const { data: todos, pageInfo } = db.useSuspenseQuery({
+  todos: {}
+})
+
+return <div>{todos.length}</div> // data is always defined
+```
