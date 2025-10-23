@@ -475,17 +475,17 @@ function typingInfo(users) {
 }
 ```
 
-## Peer Type
+## PresencePeer Type
 
-When working with presence, you can use `Peer` for typing `user` and `peers`
+When working with presence, you can use `PresencePeer` for typing `user` and `peers`
 values returned from `db.rooms.usePresence`.
 
 ```typescript
-import { Peer } from '@instantdb/react';
+import { PresencePeer } from '@instantdb/react';
 import { AppSchema } from '../instant.schema.ts';
 import { db } from '../lib/db.ts';
 
-type ChatPeer = Peer<AppSchema, 'chat'>;
+type ChatPeer = PresencePeer<AppSchema, 'chat'>;
 // Result: { peerId: string; avatar: string; name: string }
 
 const room = db.room('chat')

@@ -28,7 +28,7 @@ import {
   type User,
 
   // presence types
-  type Peer,
+  type PresencePeer,
 
   // schema types
   type AttrsDefs,
@@ -167,7 +167,7 @@ export {
   type RoomSchemaShape,
 
   // presence types
-  type Peer,
+  type PresencePeer,
 
   // schema types
   type AttrsDefs,

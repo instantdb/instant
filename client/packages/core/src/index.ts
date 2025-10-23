@@ -48,7 +48,7 @@ import type {
   InstaQLFields,
   ValidQuery,
 } from './queryTypes.ts';
-import type { Peer } from './presenceTypes.ts';
+import type { PresencePeer } from './presenceTypes.ts';
 import type {
   AuthState,
   User,
@@ -893,7 +893,7 @@ export {
   type PresenceOpts,
   type PresenceSlice,
   type PresenceResponse,
-  type Peer,
+  type PresencePeer,
 
   // new query types
   type InstaQLParams,

@@ -26,7 +26,7 @@ import {
   type ValidQuery,
 
   // presence types
-  type Peer,
+  type PresencePeer,
 
   // schema types
   type AttrsDefs,
@@ -114,7 +114,7 @@ export {
   type InstaQLFields,
 
   // presence types
-  type Peer,
+  type PresencePeer,
 
   // schema types
   type AttrsDefs,

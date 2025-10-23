@@ -9,7 +9,7 @@ type ExtractPresenceAttrs<PresenceEntity> =
     ? ResolveEntityAttrs<PresenceEntity>
     : never;
 
-export type Peer<
+export type PresencePeer<
   Schema extends { rooms: RoomsDef },
   RoomType extends Extract<keyof Schema['rooms'], string>,
 > = Expand<
