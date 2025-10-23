@@ -63,6 +63,7 @@ export function useQueryInternal<
       resultCacheRef.current = stateForResult(
         _core._reactor.getPreviousResult(query),
       );
+      cb();
 
       // Don't subscribe if query is null
       if (!query) {

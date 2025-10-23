@@ -83,6 +83,7 @@ import {
   type SyncTableSyncTransaction,
   type SyncTableLoadFromStorage,
   type SyncTableSetupError,
+  createInstantRouteHandler,
 } from '@instantdb/core';
 
 import { InstantReactAbstractDatabase } from '@instantdb/react-common';
@@ -96,6 +97,7 @@ export {
   lookup,
   init,
   init_experimental,
+  createInstantRouteHandler,
   InstantReactWebDatabase,
   Cursors,
   i,
