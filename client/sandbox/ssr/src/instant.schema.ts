@@ -1,6 +1,6 @@
 // Docs: https://www.instantdb.com/docs/modeling-data
 
-import { i } from "@instantdb/react";
+import { i } from '@instantdb/react';
 
 const _schema = i.schema({
   entities: {
@@ -16,21 +16,21 @@ const _schema = i.schema({
     todos: i.entity({
       text: i.string(),
       done: i.boolean(),
-      createdAt: i.number(),
+      createdAt: i.date(),
     }),
   },
   links: {
     $usersLinkedPrimaryUser: {
       forward: {
-        on: "$users",
-        has: "one",
-        label: "linkedPrimaryUser",
-        onDelete: "cascade",
+        on: '$users',
+        has: 'one',
+        label: 'linkedPrimaryUser',
+        onDelete: 'cascade',
       },
       reverse: {
-        on: "$users",
-        has: "many",
-        label: "linkedGuestUsers",
+        on: '$users',
+        has: 'many',
+        label: 'linkedGuestUsers',
       },
     },
   },

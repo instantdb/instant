@@ -1,5 +1,7 @@
+'use client';
 import { init } from '@instantdb/react';
 import schema from '../instant.schema';
+import { createUseSuspenseQuery } from '@instantdb/next';
 
 export const db = init({
   appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
@@ -8,3 +10,5 @@ export const db = init({
   schema,
   useDateObjects: true,
 });
+
+export const useSuspenseQuery = createUseSuspenseQuery(db);
