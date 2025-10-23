@@ -15,8 +15,7 @@
    [instant.util.uuid :as uuid-util]
    [next.jdbc :as next-jdbc]
    [instant.util.coll :as ucoll]
-   [instant.db.model.triple :as triple-model]
-   [instant.system-catalog :as system-catalog]))
+   [instant.db.model.triple :as triple-model]))
 
 (defn lookup-ref? [eid]
   (sequential? eid))
