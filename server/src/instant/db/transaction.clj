@@ -356,31 +356,6 @@
              missing
              [{:message (str "Updating entities that don't exist: " (string/join ", " (map :eid missing)))}])))))))
 
-(def editable-system-ident-names #{(list "$users" "id")
-                                   (list "$files" "id")
-                                   (list "$files" "path")})
-
-(defn prevent-system-attr-updates
-  "Files support delete, link/unlink, but not update or merge"
-  [attrs tx-step-maps {:keys [allow-$files-update? block-$users-update?]}]
-  (doseq [{:keys [op aid] :as tx-step} tx-step-maps
-          :when (#{:add-triple :deep-merge-triple :retract-triple} op)
-          :let [{:keys [catalog] :as attr} (attr-model/seek-by-id aid attrs)
-                ident-name (attr-model/fwd-ident-name attr)
-                [etype label] ident-name
-                catalog-attr? (= catalog :system)]
-          :when catalog-attr?
-          :let [editable-user? (and (= etype "$users") (or (editable-system-ident-names ident-name)
-                                                           (not block-$users-update?)))
-                editable-file? (and (= etype "$files") (or (editable-system-ident-names ident-name)
-                                                           allow-$files-update?))
-                editable? (or editable-user? editable-file?)]
-          :when (not editable?)]
-    (ex/throw-validation-err!
-     :tx-step
-     [op (vectorize-tx-step tx-step)]
-     [{:message (format "Update or merge is not allowed on %s.%s" etype label)}])))
-
 (defn resolve-lookups-for-delete-entity [conn app-id tx-step-maps]
   (let [[lookup-ref-deletes rest] (coll/split-by
                                    #(and (= :delete-entity (:op %))
@@ -594,7 +569,6 @@
                                        :num-tx-steps (count tx-step-vecs)
                                        :detailed-tx-steps (pr-str tx-step-vecs)}}
         (prevent-system-catalog-updates! app-id opts)
-        (prevent-system-attr-updates attrs tx-step-maps opts)
         (validate-mode conn app-id tx-step-maps)
         (let [results
               (reduce-kv

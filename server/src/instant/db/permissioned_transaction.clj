@@ -15,7 +15,8 @@
    [instant.util.uuid :as uuid-util]
    [next.jdbc :as next-jdbc]
    [instant.util.coll :as ucoll]
-   [instant.db.model.triple :as triple-model]))
+   [instant.db.model.triple :as triple-model]
+   [instant.system-catalog :as system-catalog]))
 
 (defn lookup-ref? [eid]
   (sequential? eid))
@@ -29,6 +30,58 @@
 (defn printable-check [check]
   (-> check
       (update :program :display-code)))
+
+(def editable-attrs #{["$users" "id"]
+                      ["$files" "id"]
+                      ["$files" "path"]})
+
+(defn prevent-system-column-updates
+  "What do we do if a user tries to run a `transact` and update a row 
+   in a system table? 
+
+   Here's what we do: 
+
+   1. There are _some_ system columns that we let users edit. 
+      
+      1. The $files 'path' attribute can be changed. 
+
+      2. The `id` attribute can flow through. 
+         
+         This is because the user may have their own columns defined, and 
+         are running a patch. 
+
+  For the remaining columns: 
+
+  1. If the user is an admin, they can update system columns. 
+
+  We special case $files, so _even admins can't update_ those columns. 
+  This is because $files includes information like `file size`, which only 
+  Instant can set."
+  [{:keys [admin? attrs]} tx-step-maps]
+  (doseq [{:keys [op aid] :as tx-step} tx-step-maps
+          :when (#{:add-triple :deep-merge-triple :retract-triple :delete-entity} op)
+          :let [attr (attr-model/seek-by-id aid attrs)
+                {:keys [catalog]} attr
+                [etype label] (attr-model/fwd-ident-name attr)]
+
+          :when (= catalog :system)
+
+          ;; there are some columns that we allow you to edit 
+          :when (not (editable-attrs [etype label]))
+
+          :when (if (= etype "$files")
+                  ;; Under no circumstances do we let you $files attrs. 
+                  ;; This is because $files keep specific information, like 
+                  ;; file size, which only Instant can update.
+                  true
+
+                  ;; For other system namespaces, we let admins edit them 
+                  (not admin?))]
+    (ex/throw-validation-err!
+     :tx-step
+     (tx/vectorize-tx-step tx-step)
+     [{:message (format "You can't modify %s.%s. This is a system column."
+                        etype label)}])))
 
 (defn coerce-value-uuids
   "Checks that all ref values are either lookup refs or UUIDs"
@@ -533,6 +586,7 @@
               ctx              (assoc ctx
                                       :db {:conn-pool tx-conn}
                                       :attrs optimistic-attrs)]
+          (prevent-system-column-updates ctx tx-step-maps)
           (if admin?
             (let [tx-steps (tx/reorder-tx-steps ops-order tx-step-maps)]
               (io/expect-io
