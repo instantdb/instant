@@ -12,7 +12,6 @@ import {
   id,
   tx,
   lookup,
-
   // error
   InstantAPIError,
 
@@ -20,6 +19,7 @@ import {
   SyncTableCallbackEventType,
 
   // types
+  createInstantRouteHandler,
   type RoomSchemaShape,
   type InstantQuery,
   type InstantQueryResult,
@@ -160,6 +160,7 @@ export {
   tx,
   lookup,
   i,
+  createInstantRouteHandler,
   InstantReactNativeDatabase,
 
   // error

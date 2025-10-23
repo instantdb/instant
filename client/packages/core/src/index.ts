@@ -20,10 +20,13 @@ import {
   validateTransactions,
   TransactionValidationError,
 } from './transactionValidation.ts';
+
 import {
   StorageInterface,
   type StorageInterfaceStoreName,
 } from './utils/PersistedObject.ts';
+import { createInstantRouteHandler } from './createRouteHandler.ts';
+import { parseSchemaFromJSON } from './parseSchemaFromJSON.ts';
 
 import type {
   PresenceOpts,
@@ -103,6 +106,7 @@ import type {
 } from './schemaTypes.ts';
 import type { InstantRules } from './rulesTypes.ts';
 import type { UploadFileResponse, DeleteFileResponse } from './StorageAPI.ts';
+import { FrameworkClient, type FrameworkConfig } from './framework.ts';
 
 import type {
   ExchangeCodeForTokenParams,
@@ -153,6 +157,7 @@ export type InstantConfig<
   appId: string;
   schema?: S;
   websocketURI?: string;
+  cookieEndpoint?: string;
   apiURI?: string;
   devtool?: boolean | DevtoolConfig;
   verbose?: boolean;
@@ -889,7 +894,9 @@ export {
   validateQuery,
   QueryValidationError,
   validateTransactions,
+  parseSchemaFromJSON,
   TransactionValidationError,
+  FrameworkClient,
 
   // error
   InstantAPIError,
@@ -1005,6 +1012,7 @@ export {
 
   // SSE
   type EventSourceType,
+  type FrameworkConfig,
 
   // sync table types
   type SyncTableCallback,
@@ -1021,6 +1029,5 @@ export {
   // storage (e.g. indexeddb) interface
   StorageInterface,
   type StorageInterfaceStoreName,
+  createInstantRouteHandler,
 };
-
-export { FrameworkClient, FrameworkConfig } from './framework.ts';
