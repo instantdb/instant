@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { InstantSuspenseProvider } from '@instantdb/next';
-import { Suspense } from 'react';
+import { db } from '@/lib/db';
+import { cookies } from 'next/headers';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -19,22 +20,20 @@ export const metadata: Metadata = {
   description: 'Instant DB Starter App',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get('instant_refresh_token');
   return (
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <InstantSuspenseProvider
-          apiURI="http://localhost:8888"
-          token={'9c43fa56-b032-4c7f-a757-3a83b98fe04f'}
-          appId={process.env.NEXT_PUBLIC_INSTANT_APP_ID!}
-        >
-          {children}
+        <InstantSuspenseProvider db={db} token={token?.value}>
+          {children as any}
         </InstantSuspenseProvider>
       </body>
     </html>

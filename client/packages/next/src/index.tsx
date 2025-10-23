@@ -1,88 +1,94 @@
 'use client';
-import { FrameworkClient, FrameworkConfig } from '@instantdb/core';
-import React, { useRef } from 'react';
+import {
+  FrameworkClient,
+  FrameworkConfig,
+  InstantConfig,
+  InstantSchemaDef,
+  InstaQLResponse,
+  PageInfoResponse,
+  RuleParams,
+  ValidQuery,
+} from '@instantdb/core';
+import { createContext, useContext, useRef, useState } from 'react';
 import {
   createHydrationStreamProvider,
   isServer,
 } from './HydrationStreamProvider.tsx';
+import { type InstantReactWebDatabase } from '@instantdb/react';
 
-type InstantSuspenseProviderProps = {
+type InstantSuspenseProviderProps<
+  Schema extends InstantSchemaDef<any, any, any>,
+> = {
   nonce?: string;
   children: React.ReactNode;
-} & FrameworkConfig<any>;
+  db: InstantReactWebDatabase<Schema, any>;
+} & Omit<FrameworkConfig, 'db'>;
 
 const stream = createHydrationStreamProvider<any>();
 
-export const SuspsenseQueryContext = React.createContext<any>(null);
+export const SuspsenseQueryContext = createContext<any | null>(null);
+
+// Creates a typed useSuspense hook
+export const createUseSuspenseQuery = <
+  Schema extends InstantSchemaDef<any, any, any>,
+  Config extends InstantConfig<Schema, boolean>,
+>(
+  _db: InstantReactWebDatabase<Schema, Config>,
+): (<Q extends ValidQuery<Q, Schema>>(
+  q: Q,
+) => {
+  data: InstaQLResponse<Schema, Q, NonNullable<Config['useDateObjects']>>;
+  pageInfo?: PageInfoResponse<Q>;
+}) => {
+  return <Q extends ValidQuery<Q, Schema>>(q: any) => {
+    const hook = useContext(SuspsenseQueryContext);
+    return hook(q) as any;
+  };
+};
+
+type SuspenseQueryOpts = {
+  ruleParams: RuleParams;
+};
 
 export const InstantSuspenseProvider = (
-  props: InstantSuspenseProviderProps,
+  props: InstantSuspenseProviderProps<any>,
 ) => {
-  const [trackedKeys] = React.useState(() => new Set<string>());
-  const clientRef = useRef<FrameworkClient>();
+  const clientRef = useRef<FrameworkClient | null>(null);
 
-  // Initialize client only once
+  const [trackedKeys] = useState(() => new Set<string>());
+
   if (!clientRef.current) {
     clientRef.current = new FrameworkClient({
       ...props,
+      db: props.db.core,
     });
   }
 
-  const cacheRef = React.useRef<
-    Map<
-      string,
-      {
-        status: 'pending' | 'success' | 'error';
-        promise: Promise<any>;
-        data?: any;
-        error?: any;
-      }
-    >
-  >(new Map());
+  if (isServer) {
+    clientRef.current.subscribe((result) => {
+      const { queryHash } = result;
+      trackedKeys.add(queryHash);
+    });
+  }
 
-  const getKey = (q: any) => {
-    try {
-      if (q && typeof q === 'object' && 'queryHash' in q) {
-        return (q as any).queryHash as string;
-      }
-      return JSON.stringify(q);
-    } catch {
-      return String(q);
+  const useSuspenseQuery = (query: any, opts: SuspenseQueryOpts) => {
+    const nonSuspenseResult = props.db.useQuery(query, {
+      ...opts,
+    });
+
+    if (nonSuspenseResult.data) {
+      return {
+        data: nonSuspenseResult.data,
+        pageInfo: nonSuspenseResult.pageInfo,
+      };
     }
-  };
 
-  const useSuspenseQuery = React.useCallback((query: any) => {
-    const key = getKey(query);
-    let entry = cacheRef.current.get(key);
+    let entry = clientRef.current.getExistingResultForQuery(query, {
+      ruleParams: opts?.ruleParams,
+    });
 
     if (!entry) {
-      const newEntry: {
-        status: 'pending' | 'success' | 'error';
-        promise: Promise<any>;
-        data?: any;
-        error?: any;
-      } = {
-        status: 'pending',
-        promise: Promise.resolve(),
-      };
-
-      newEntry.promise = clientRef
-        .current!.getTriplesAndQueryResult(query)
-        .then((data: any) => {
-          console.log('data from server', data);
-          newEntry.status = 'success';
-          newEntry.data = data;
-          return data;
-        })
-        .catch((err: any) => {
-          console.error(err);
-          newEntry.status = 'error';
-          newEntry.error = err;
-          throw err;
-        });
-
-      cacheRef.current.set(key, newEntry);
-      entry = newEntry;
+      entry = clientRef.current!.query(query, opts);
     }
 
     if (entry.status === 'pending') {
@@ -93,12 +99,46 @@ export const InstantSuspenseProvider = (
       throw entry.error;
     }
 
-    return entry.data;
-  }, []); // Empty dependency array - this function should be stable
+    if (entry.status === 'success') {
+      const data = entry.data;
+      const result = clientRef.current.completeIsoMorphic(
+        query,
+        data.triples,
+        data.attrs,
+        data.pageInfo,
+      );
+
+      return result;
+    }
+  };
 
   return (
     <SuspsenseQueryContext.Provider value={useSuspenseQuery}>
-      {props.children}
+      <stream.Provider
+        onFlush={() => {
+          const toSend = [];
+
+          for (const [key, value] of clientRef.current.resultMap.entries()) {
+            if (trackedKeys.has(key) && value.status === 'success') {
+              toSend.push({
+                queryKey: key,
+                value: value.data,
+              });
+            }
+          }
+
+          trackedKeys.clear();
+
+          return toSend;
+        }}
+        onEntries={(entries) => {
+          entries.forEach((entry) => {
+            clientRef.current.addQueryResult(entry.queryKey, entry.value);
+          });
+        }}
+      >
+        {props.children}
+      </stream.Provider>
     </SuspsenseQueryContext.Provider>
   );
 };

@@ -1,21 +1,21 @@
-"use client";
+'use client';
 
-import { db } from "@/lib/db";
-import { type AppSchema } from "@/instant.schema";
+import { db } from '@/lib/db';
+import { type AppSchema } from '@/instant.schema';
 
-import { id, InstaQLEntity } from "@instantdb/react";
-import { useState } from "react";
+import { id, InstaQLEntity } from '@instantdb/react';
+import { useState } from 'react';
 
-type Todo = InstaQLEntity<AppSchema, "todos">;
+type Todo = InstaQLEntity<AppSchema, 'todos'>;
 
-const room = db.room("todos");
+const room = db.room('todos');
 
 function App() {
   // Read Data
   const { isLoading, error, data } = db.useQuery({ todos: {} });
   const auth = db.useAuth();
-  const [codeInput, setCodeInput] = useState("");
-  const [emailInput, setEmailInput] = useState("");
+  const [codeInput, setCodeInput] = useState('');
+  const [emailInput, setEmailInput] = useState('');
 
   const loginWithCode = () => {
     db.auth.signInWithMagicCode({
@@ -142,7 +142,7 @@ function TodoForm({ todos }: { todos: Todo[] }) {
           e.preventDefault();
           const input = e.currentTarget.input as HTMLInputElement;
           addTodo(input.value);
-          input.value = "";
+          input.value = '';
         }}
       >
         <input
