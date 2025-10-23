@@ -47,7 +47,7 @@ const main = async () => {
     ruleFilesToAdd: project.ruleFiles,
   });
 
-  const possibleAppTokenPair = await tryConnectApp(project);
+  const possibleAppTokenPair = await tryConnectApp();
   if (possibleAppTokenPair) {
     applyEnvFile(
       project,
