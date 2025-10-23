@@ -362,7 +362,7 @@
 
 (defn prevent-system-attr-updates
   "Files support delete, link/unlink, but not update or merge"
-  [attrs tx-step-maps {:keys [allow-$files-update? admin?]}]
+  [attrs tx-step-maps {:keys [allow-$files-update? block-$users-update?]}]
   (doseq [{:keys [op aid] :as tx-step} tx-step-maps
           :when (#{:add-triple :deep-merge-triple :retract-triple} op)
           :let [{:keys [catalog] :as attr} (attr-model/seek-by-id aid attrs)
@@ -371,7 +371,7 @@
                 catalog-attr? (= catalog :system)]
           :when catalog-attr?
           :let [editable-user? (and (= etype "$users") (or (editable-system-ident-names ident-name)
-                                                           admin?))
+                                                           (not block-$users-update?)))
                 editable-file? (and (= etype "$files") (or (editable-system-ident-names ident-name)
                                                            allow-$files-update?))
                 editable? (or editable-user? editable-file?)]
@@ -731,7 +731,7 @@
 
 (defn transact!
   ([conn attrs app-id tx-steps]
-   (transact! conn attrs app-id tx-steps {:admin? true}))
+   (transact! conn attrs app-id tx-steps {}))
   ([conn attrs app-id tx-steps opts]
    (next-jdbc/with-transaction [tx-conn conn]
      (transact-without-tx-conn! tx-conn attrs app-id tx-steps opts))))
