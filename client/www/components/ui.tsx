@@ -965,6 +965,7 @@ export function Copyable({
   multiline?: boolean;
 }) {
   const [hidden, setHidden] = useState(defaultHidden);
+  const [tooltipOpen, setTooltipOpen] = useState(false);
   const [copyLabel, setCopyLabel] = useState('Copy');
   const handleChangeHideValue =
     onChangeHideValue || (defaultHidden ? () => setHidden(!hidden) : null);
@@ -990,23 +991,29 @@ export function Copyable({
           {label}
         </div>
       ) : null}
-      <pre
-        className={clsx('flex-1 px-4 py-1.5', {
-          truncate: !multiline,
-          'whitespace-pre-wrap break-all': multiline,
-        })}
-        title={hideValue || hidden ? 'Copy to clipboard' : value}
-        onClick={(e) => {
-          const el = e.target as HTMLPreElement;
-          const selection = window.getSelection();
-          if (!selection || !el) return;
-
-          // Set the start and end of the selection to the entire text content of the element.
-          selection.selectAllChildren(el);
-        }}
-      >
-        {hideValue || hidden ? redactedValue(value) : value}
-      </pre>
+      <Tooltip open={tooltipOpen}>
+        <TooltipTrigger asChild>
+          <pre
+            className={clsx('flex-1 cursor-pointer select-text px-2 py-1.5', {
+              truncate: !multiline,
+              'whitespace-pre-wrap break-all': multiline,
+            })}
+            title={hideValue || hidden ? 'Copy to clipboard' : value}
+            onClick={(e) => {
+              // Only copy if no text is selected
+              const selection = window.getSelection();
+              if (!selection || selection.toString().length === 0) {
+                window.navigator.clipboard.writeText(value);
+                setTooltipOpen(true);
+                setTimeout(() => setTooltipOpen(false), 1000);
+              }
+            }}
+          >
+            {hideValue || hidden ? redactedValue(value) : value}
+          </pre>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">Copied!</TooltipContent>
+      </Tooltip>
       <div className="flex gap-1 px-1">
         {!!handleChangeHideValue && (
           <button

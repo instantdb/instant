@@ -32,7 +32,7 @@ You could use it to make passwords safer: track all known passwords on the inter
 
 Or you could use it estimate the popularity of links: update a sketch whenever a user looks at a tweet, and you can query for approximate views. [^4]
 
-Or, use it to make databases faster: track the values of different columns, so you can estimate how many rows a filter would return. This is how we use them in Instant: our query planner decides which indexes and join orders to use based on estimates from sketches. [^5]
+Or, use it to make databases faster: track the values of different columns, so you can estimate how many rows a filter would return. This is how we use them in Instant: our query planner decides which indexes to use based on estimates from sketches. [^5]
 
 So how do Count-Min Sketches work? In this post we'll find out by building one from scratch, in JavaScript!
 
@@ -938,7 +938,7 @@ _Thanks to Joe Averbukh, Daniel Woelfel, Predrag Gruevski, Irakli Safareli, Nico
 
 [^4]: I _think_ [X](https://web.archive.org/web/20170707141519/https://skillsmatter.com/skillscasts/6844-count-min-sketch-in-real-data-applications) is doing this, though I am not sure if it's still the case.
 
-[^5]: Join orders as an example can make a world of a difference in query performance. Imagine two joins, where one returns 10 rows, and the other returns 1 million. If we fetch 10 million rows first, we're going to do a _lot_ of extra work. For the Clojure enthusiasts, some of the code behind this lives [here](https://github.com/instantdb/instant/blob/main/server/src/instant/db/datalog.clj#L1349).
+[^5]: For the curious, some of the code behind this lives [here](https://github.com/instantdb/instant/blob/main/server/src/instant/db/datalog.clj#L1349).
 
 [^6]: Bun's standard library comes with a bunch of cool hashing and compression functions, so we won't have to install extra packages to get our algorithms working:
 

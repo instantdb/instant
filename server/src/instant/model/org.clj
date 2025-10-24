@@ -269,10 +269,12 @@
                                :0]
                               :num_bytes]]
                     :from [[:attr-sketches :s]]
-                    :join [[:apps :a] [:= :s.app_id :a.id]]
+                    :join [[:apps :app] [:= :s.app_id :app.id]
+                           [:attrs :attr] [:= :s.attr_id :attr.id]]
                     :where [:and
-                            [:= :a.org_id :?org-id]
-                            [:= nil :a.deletion-marked-at]]}))
+                            [:= :app.org_id :?org-id]
+                            [:= nil :app.deletion-marked-at]
+                            [:= nil :attr.deletion-marked-at]]}))
 
 (defn org-usage
   "Estimates amount of bytes used for an orgs's triples.

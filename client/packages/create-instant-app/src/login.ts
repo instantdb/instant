@@ -149,9 +149,7 @@ const createPermissiveEphemeralApp = async (title: string) => {
   return { appId: response.app.id, adminToken: response.app['admin-token'] };
 };
 
-export const tryConnectApp = async (
-  project: Project,
-): Promise<AppTokenResponse | null> => {
+export const tryConnectApp = async (): Promise<AppTokenResponse | null> => {
   let authToken = await getAuthToken();
   if (!authToken) {
     const choice = await renderUnwrap(
@@ -159,15 +157,15 @@ export const tryConnectApp = async (
         promptText: 'You are not logged in.',
         options: [
           {
-            label: 'Create Temporary App',
+            label: 'Create temporary app',
             value: 'ephemeral',
           },
           {
-            label: 'Login',
+            label: 'Login to choose existing app',
             value: 'login',
           },
           {
-            label: 'Skip linking app',
+            label: 'Create app later',
             value: 'skip',
           },
         ],

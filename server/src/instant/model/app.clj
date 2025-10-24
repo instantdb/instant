@@ -393,7 +393,8 @@
             WHEN pg_relation_size('triples') = 0 THEN 1
             ELSE pg_total_relation_size('triples')::numeric / pg_relation_size('triples')
         END) as num_bytes
-     FROM attr_sketches s WHERE s.app_id = ?::uuid" app-id])))
+     FROM attr_sketches s join attrs a on s.attr_id = a.id
+     WHERE a.deletion_marked_at is null and s.app_id = ?::uuid" app-id])))
 
 (defn decrypt-connection-string [app-id encrypted-connection-string]
   (-> (crypt-util/aead-decrypt {:ciphertext encrypted-connection-string
