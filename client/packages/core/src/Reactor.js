@@ -594,7 +594,8 @@ export default class Reactor {
           this.notifyOne(hash);
         });
         break;
-      case 'transact-ok':
+      }
+      case 'transact-ok': {
         const { 'client-event-id': eventId, 'tx-id': txId } = msg;
 
         const muts = this._rewriteMutations(
@@ -616,8 +617,6 @@ export default class Reactor {
           return prev;
         });
 
-        this._cleanupPendingMutationsTimeout();
-
         const newAttrs = prevMutation['tx-steps']
           .filter(([action, ..._args]) => action === 'add-attr')
           .map(([_action, attr]) => attr)
@@ -626,7 +625,11 @@ export default class Reactor {
         this._setAttrs(newAttrs);
 
         this._finishTransaction('synced', eventId);
+
+        this._cleanupPendingMutationsTimeout();
+
         break;
+      }
       case 'patch-presence': {
         const roomId = msg['room-id'];
         this._patchPresencePeers(roomId, msg['edits']);
