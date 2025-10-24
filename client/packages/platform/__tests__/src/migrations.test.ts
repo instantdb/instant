@@ -29,6 +29,11 @@ const simpleSchemaAfter = i.schema({
   },
 });
 
+const systemIdentNames = {
+  $users: new Set(['id', 'email']),
+  $files: new Set(['id', 'path']),
+} as const;
+
 const createChooser = (
   pickThese: (RenamePromptItem<string> | string)[],
 ): RenameResolveFn<string> => {
@@ -74,6 +79,7 @@ test('delete simple entitity', async () => {
       entities: {},
     }),
     createChooser(['artist']),
+    systemIdentNames,
   );
   console.log(result);
   expectTxType(result, 'delete-attr', 2);
@@ -84,6 +90,7 @@ test('delete and add - intent', async () => {
     simpleSchemaBefore,
     simpleSchemaAfter,
     createChooser([]),
+    systemIdentNames,
   );
   console.log(result);
   expectTxType(result, 'delete-attr', 3);
@@ -109,6 +116,7 @@ test('rename - intent', async () => {
         to: 'artist',
       },
     ]),
+    systemIdentNames,
   );
   console.log(result);
   expectTxType(result, 'delete-attr', 2);
@@ -133,6 +141,7 @@ test('change data type', async () => {
       },
     }),
     createChooser([]),
+    systemIdentNames,
   );
 
   console.log(result);
@@ -160,6 +169,7 @@ test('make required', async () => {
       },
     }),
     createChooser([]),
+    systemIdentNames,
   );
   console.log(result);
 
@@ -190,6 +200,7 @@ test('add index', async () => {
       },
     }),
     createChooser([]),
+    systemIdentNames,
   );
 
   expectTxType(result, 'index', 1);
@@ -219,6 +230,7 @@ test('remove index', async () => {
       },
     }),
     createChooser([]),
+    systemIdentNames,
   );
 
   expectTxType(result, 'remove-index', 1);
@@ -248,6 +260,7 @@ test('rename and make changes', async () => {
       },
     }),
     createChooser([{ from: 'name', to: 'name2' }]),
+    systemIdentNames,
   );
 
   console.log(result);
@@ -280,6 +293,7 @@ test('make optional', async () => {
       },
     }),
     createChooser([]),
+    systemIdentNames,
   );
 
   expectTxType(result, 'remove-required', 1);
@@ -316,6 +330,7 @@ test('create-link', async () => {
       },
     }),
     createChooser([]),
+    systemIdentNames,
   );
 
   console.log(result);
@@ -364,6 +379,7 @@ test('delete link', async () => {
       links: {},
     }),
     createChooser([]),
+    systemIdentNames,
   );
   console.log(result);
   expectTxType(result, 'delete-attr', 1);
@@ -404,6 +420,7 @@ test('update link cardinality', async () => {
       },
     }),
     createChooser([]),
+    systemIdentNames,
   );
   console.log(result);
   expectTxType(result, 'update-attr', 1);
@@ -450,8 +467,11 @@ test('update link delete cascade', async () => {
       },
     }),
     createChooser([]),
+    systemIdentNames,
   );
   console.log(result);
   expectTxType(result, 'update-attr', 1);
   expect((result[0] as any).partialAttr['on-delete']).toBe('cascade');
 });
+
+// TODO: add tests for system namsepaces
