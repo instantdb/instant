@@ -45,6 +45,7 @@ const STATUS = {
 
 const QUERY_ONCE_TIMEOUT = 30_000;
 const PENDING_TX_CLEANUP_TIMEOUT = 30_000;
+const PENDING_MUTATION_CLEANUP_THRESHOLD = 200;
 
 const defaultConfig = {
   apiURI: 'https://api.instantdb.com',
@@ -207,6 +208,8 @@ export default class Reactor {
   _dataForQueryCache = {};
   /** @type {Logger} */
   _log;
+  _pendingTxCleanupTimeout;
+  _pendingMutationCleanupThreshold;
 
   constructor(
     config,
@@ -219,6 +222,11 @@ export default class Reactor {
 
     this.config = { ...defaultConfig, ...config };
     this.queryCacheLimit = this.config.queryCacheLimit ?? 10;
+    this._pendingTxCleanupTimeout =
+      this.config.pendingTxCleanupTimeout ?? PENDING_TX_CLEANUP_TIMEOUT;
+    this._pendingMutationCleanupThreshold =
+      this.config.pendingMutationCleanupThreshold ??
+      PENDING_MUTATION_CLEANUP_THRESHOLD;
 
     this._log = createLogger(
       config.verbose || flags.devBackend || flags.instantLogs,
@@ -1285,34 +1293,25 @@ export default class Reactor {
    * unaffected by this mutation and it’s safe to delete it from local queue
    */
   _cleanupPendingMutationsTimeout() {
-    const now = Date.now();
-
-    if (this.pendingMutations.currentValue.size < 200) {
+    if (
+      this.pendingMutations.currentValue.size <
+      this._pendingMutationCleanupThreshold
+    ) {
       return;
     }
 
+    const now = Date.now();
+
     this.pendingMutations.set((prev) => {
-      let deleted = false;
-      let timeless = false;
-
       for (const [eventId, mut] of Array.from(prev.entries())) {
-        if (!mut.confirmed) {
-          timeless = true;
-        }
-        if (mut.confirmed && mut.confirmed + PENDING_TX_CLEANUP_TIMEOUT < now) {
+        if (
+          mut.confirmed &&
+          mut.confirmed + this._pendingTxCleanupTimeout < now
+        ) {
           prev.delete(eventId);
-          deleted = true;
         }
       }
 
-      // backwards compat for mutations with no `confirmed`
-      if (deleted && timeless) {
-        for (const [eventId, mut] of Array.from(prev.entries())) {
-          if (!mut.confirmed) {
-            prev.delete(eventId);
-          }
-        }
-      }
       return prev;
     });
   }

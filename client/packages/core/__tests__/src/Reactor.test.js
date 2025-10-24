@@ -1,6 +1,7 @@
 // https://www.npmjs.com/package/fake-indexeddb
 import 'fake-indexeddb/auto';
 import { test, expect } from 'vitest';
+import { setTimeout as sleep } from 'timers/promises';
 
 import IndexedDBStorage from '../../src/IndexedDBStorage';
 
@@ -337,4 +338,60 @@ test('optimisticTx is not overwritten by refresh-ok', async () => {
     'stopa',
     'nicolegf',
   ]);
+});
+
+test("we don't cleanup mutations we're still waiting on", async () => {
+  const appId = uuid();
+  const reactor = new Reactor({
+    appId,
+    pendingTxCleanupTimeout: 1,
+    pendingMutationCleanupThreshold: 0,
+  });
+
+  reactor._initStorage(IndexedDBStorage);
+  reactor._setAttrs(zenecaAttrs);
+  const q = { users: {} };
+  const joe_id = 'ce942051-2d74-404a-9c7d-4aa3f2d54ae4';
+
+  await reactor.pendingMutations.waitForLoaded();
+
+  // Add two transactions
+  const ops1 = [
+    instatx.tx.users[joe_id].update({
+      handle: 'joe2',
+    }),
+  ];
+
+  reactor.pushTx(ops1);
+
+  const ops2 = [
+    instatx.tx.users[joe_id].update({
+      handle: 'joe2',
+    }),
+  ];
+
+  reactor.pushTx(ops2);
+
+  await reactor.pendingMutations.waitForSync();
+
+  const [ev1, ev2] = reactor.pendingMutations.currentValue.keys();
+
+  // Mark one as received
+  reactor._handleReceive(1, {
+    op: 'transact-ok',
+    'client-event-id': ev1,
+    'tx-id': 100,
+  });
+
+  // Wait for the pendingTxCleanupTimeout to expire
+  await sleep(10);
+
+  // Cleanup shouldn't remove the mutation we're still waiting on
+  await reactor._cleanupPendingMutationsTimeout();
+
+  const remainingKeys = new Array(
+    ...reactor.pendingMutations.currentValue.keys(),
+  );
+
+  expect(remainingKeys).toStrictEqual([ev2]);
 });
