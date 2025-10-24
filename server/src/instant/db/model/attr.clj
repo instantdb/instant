@@ -6,14 +6,13 @@
    [instant.db.model.triple-cols :refer [triple-cols]]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
-   [instant.system-catalog :refer [system-catalog-app-id]]
+   [instant.system-catalog :as system-catalog :refer [system-catalog-app-id]]
    [instant.util.cache :as cache]
    [instant.util.coll :as coll]
    [instant.util.crypt :refer [json-null-md5]]
    [instant.util.exception :as ex]
    [instant.util.spec :as uspec]
-   [instant.util.uuid :as uuid]
-   [instant.system-catalog :as system-catalog]))
+   [instant.util.uuid :as uuid]))
 
 (set! *warn-on-reflection* true)
 
@@ -297,8 +296,9 @@
    both tables in one statement"
   ([conn app-id attrs]
    (insert-multi! conn app-id attrs {:allow-reserved-names? false}))
-  ([conn app-id attrs _opts]
-   (validate-system-ident-names! attrs)
+  ([conn app-id attrs {:keys [allow-reserved-names?]}]
+   (when-not allow-reserved-names?
+     (validate-system-ident-names! attrs))
    (validate-add-required! conn app-id attrs)
    (with-cache-invalidation app-id
      (let [query {:with [[[:attr-values
