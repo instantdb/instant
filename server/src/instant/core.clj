@@ -121,6 +121,27 @@
                                            "Access-Control-Max-Age" max-age
                                            "Cache-Control" (str "public, max-age=" max-age)}))))))
 
+(defn add-security-headers [resp]
+  (let [default-headers {
+                         ;; Don't let anyone put us in an iframe
+                         "X-Frame-Options" "DENY"
+                         ;; Don't leak path info in referrer
+                         "Referrer-Policy" "strict-origin"
+                         ;; Only load scripts and assets from ourselves
+                         "Content-Security-Policy" "script-src 'self'"
+                         ;; Disallow features we don't use
+                         "Permissions-Policy" "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()"
+                         ;; Only use the content-type we provide, don't let the
+                         ;; browser infer it
+                         "X-Content-Type-Options" "nosniff"}
+        headers (apply dissoc default-headers (flags/flag :filter-security-headers []))]
+    (update resp :headers merge headers)))
+
+(defn wrap-security-headers [handler]
+  (fn [request]
+    (let [response (handler request)]
+      (add-security-headers response))))
+
 (defn not-found [_req]
   (response/not-found {:message "Oops! We couldn't match this route."}))
 
@@ -155,6 +176,7 @@
               (wrap-cors :access-control-allow-origin allow-cors-origin?
                          :access-control-allow-methods [:get :put :post :delete])
               wrap-options-cache-control
+              wrap-security-headers
               (http-util/tracer-wrap-span))
           (wrap-json-response not-found)))
 

@@ -474,3 +474,44 @@ function typingInfo(users) {
   return `${users[0].name} and ${users.length - 1} others are typing...`;
 }
 ```
+
+## PresencePeer Type
+
+When working with presence, you can use `PresencePeer` for typing `user` and `peers`
+values returned from `db.rooms.usePresence`.
+
+```typescript
+import { PresencePeer } from '@instantdb/react';
+import { AppSchema } from '../instant.schema.ts';
+import { db } from '../lib/db.ts';
+
+type ChatPeer = PresencePeer<AppSchema, 'chat'>;
+// Result: { peerId: string; avatar: string; name: string }
+
+const room = db.room('chat')
+
+function UserAvatar({ peer }: { peer: ChatPeer }) {
+  return (
+    <div>
+      <img src={peer.avatar} alt={peer.name} />
+    </div>
+  );
+}
+
+function OnlineAvatars({ name, avatar }: { name: string; avatar: string }) {
+  // Subcribe and publish initial presence
+  const { user: myPresence, peers } = db.rooms.usePresence(room, {
+    initialData: { name, avatar },
+  });
+
+  // Render my avatar and all peer avatars
+  return (
+    <div>
+      {myPresence && <UserAvatar key={myPresence.peerId} peer={myPresence} />}
+      {Object.values(peers).map((peer: ChatPeer) => (
+        <UserAvatar key={peer.peerId} peer={peer} />
+      ))}
+    </div>
+  );
+}
+```
