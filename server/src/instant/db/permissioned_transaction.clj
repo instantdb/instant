@@ -15,7 +15,8 @@
    [instant.util.uuid :as uuid-util]
    [next.jdbc :as next-jdbc]
    [instant.util.coll :as ucoll]
-   [instant.db.model.triple :as triple-model]))
+   [instant.db.model.triple :as triple-model]
+   [clojure.string :as string]))
 
 (defn lookup-ref? [eid]
   (sequential? eid))
@@ -33,6 +34,45 @@
 (def editable-attrs #{["$users" "id"]
                       ["$files" "id"]
                       ["$files" "path"]})
+
+(defn- throw-tx-step-validation-err! [tx-step message]
+  (ex/throw-validation-err!
+   :tx-step
+   (tx/vectorize-tx-step tx-step)
+   [{:message message}]))
+
+(defn- validate-system-delete-entity! [{:keys [admin?]} {:keys [etype] :as tx-step}]
+  (let [valid-delete-entity? (and
+                              ;; you cannot delete $files no matter what
+                              (not= etype "$files")
+                              ;; admins can delete anything else
+                              admin?)]
+    (when-not valid-delete-entity?
+      (throw-tx-step-validation-err! tx-step
+                                     (format "%s is a system entity. You aren't allowed to delete this directly." etype)))))
+
+(defn- validate-system-triple-op! [{:keys [admin? attrs]} {:keys [aid] :as tx-step}]
+  (let [attr (attr-model/seek-by-id aid attrs)
+        {:keys [catalog]} attr
+        [etype label] (attr-model/fwd-ident-name attr)
+
+        valid-triple-op? (or
+                          ;; if this isn't in a system catalog, it's allowed 
+                          (not= catalog :system)
+
+                          ;; some system catalog attrs can be changed 
+                          (editable-attrs [etype label])
+
+                          (if (= etype "$files")
+                            ;; under no circumstances do we let you change $files attrs 
+                            false
+                            ;; for other systems namespaces, admins can change them 
+                            admin?))]
+    (when-not valid-triple-op?
+      (throw-tx-step-validation-err!
+       tx-step
+       (format "%s.%s is a system column. You aren't allowed to delete this directly."
+               etype label)))))
 
 (defn prevent-system-column-updates
   "What do we do if a user tries to run a `transact` and update a row 
@@ -56,17 +96,31 @@
   We special case $files, so _even admins can't update_ those columns. 
   This is because $files includes information like `file size`, which only 
   Instant can set."
-  [{:keys [admin? attrs]} tx-step-maps]
+  [{:keys [admin? attrs] :as ctx} tx-step-maps]
+  (doseq [{:keys [op etype] :as tx-step} tx-step-maps
+          :when (string/starts-with? etype "$")
+          :when (#{:add-triple :deep-merge-triple :retract-triple :delete-entity} op)]
+
+    (condp = op
+      :delete-entity
+      (validate-system-delete-entity! ctx  tx-step)
+
+      (validate-system-triple-op! ctx tx-step)))
+
   (doseq [{:keys [op aid] :as tx-step} tx-step-maps
           :when (#{:add-triple :deep-merge-triple :retract-triple :delete-entity} op)
+
           :let [attr (attr-model/seek-by-id aid attrs)
                 {:keys [catalog]} attr
                 [etype label] (attr-model/fwd-ident-name attr)]
 
           :when (= catalog :system)
 
-          ;; there are some columns that we allow you to edit 
-          :when (not (editable-attrs [etype label]))
+;; there are some columns that we allow you to edit 
+          :when (not
+                 (and (editable-attrs [etype label])
+                      ;; but you can't delete 
+                      (not= op :delete-entity)))
 
           :when (if (= etype "$files")
                   ;; Under no circumstances do we let you $files attrs. 

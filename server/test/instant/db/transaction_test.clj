@@ -4130,7 +4130,6 @@
                       (attr-model/seek-by-id attr-id)
                       :inferred-types))))))))
 
-;; TODO: You _should not_ be able to create an attr with the same ident as a sytem attr...
 (deftest rejects-users-attrs
   (with-empty-app
     (fn [{app-id :id}]
@@ -4230,7 +4229,7 @@
     (fn [{app-id :id}]
       (let [r (resolvers/make-movies-resolver app-id)
             id (random-uuid)
-            make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :read)}
+            make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :write)}
                              :app-id app-id
                              :attrs (attr-model/get-by-app-id app-id)
                              :datalog-query-fn d/query
@@ -4238,14 +4237,17 @@
                              :current-user nil})]
         (is (validation-err?
              (permissioned-tx/transact! (make-ctx)
-                                        [[:add-triple id (resolvers/->uuid r :$users/id) (str id)]])))
+                                        [[:add-triple id (resolvers/->uuid r :$users/id) (str id)]
+                                         [:add-triple id (resolvers/->uuid r :$users/email) "alyssa@hacker.com"]])))
         (is (validation-err?
              (permissioned-tx/transact! (make-ctx)
-                                        [[:retract-triple id (resolvers/->uuid r :$users/id) (str id)]])))
+                                        [[:retract-triple id (resolvers/->uuid r :$users/id) (str id)]
+                                         [:retract-triple id (resolvers/->uuid r :$users/email) "alyssa@hacker.com"]])))
 
         (is (validation-err?
              (permissioned-tx/transact! (make-ctx)
-                                        [[:deep-merge-triple id (resolvers/->uuid r :$users/id) {:hello :world}]])))
+                                        [[:deep-merge-triple id (resolvers/->uuid r :$users/id) {:hello :world}]
+                                         [:deep-merge-triple id (resolvers/->uuid r :$users/email) "alyssa@hacker.com"]])))
 
         (is (validation-err?
              (permissioned-tx/transact! (make-ctx)
