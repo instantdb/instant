@@ -205,9 +205,13 @@ function useEditableSystemAttrTests(app: AppSummary) {
             id: 'add-users-fullname',
             name: 'Add $users.fullName attribute',
             run: async () => {
-              const { created, attr } = await ensureBlobAttr('$users', 'fullName', {
-                checkedDataType: 'string',
-              });
+              const { created, attr } = await ensureBlobAttr(
+                '$users',
+                'fullName',
+                {
+                  checkedDataType: 'string',
+                },
+              );
               return {
                 message: created
                   ? 'Created custom attribute on $users'
@@ -220,9 +224,13 @@ function useEditableSystemAttrTests(app: AppSummary) {
             id: 'add-files-isfavorite',
             name: 'Add $files.isFavorite attribute',
             run: async () => {
-              const { created, attr } = await ensureBlobAttr('$files', 'isFavorite', {
-                checkedDataType: 'boolean',
-              });
+              const { created, attr } = await ensureBlobAttr(
+                '$files',
+                'isFavorite',
+                {
+                  checkedDataType: 'boolean',
+                },
+              );
               return {
                 message: created
                   ? 'Created custom attribute on $files'
@@ -309,13 +317,11 @@ function useEditableSystemAttrTests(app: AppSummary) {
               });
               const { user, token } = await createTestUser('custom-user');
               const newName = `User ${Date.now()}`;
-              await userDb
-                .asUser({ token })
-                .transact([
-                  userDb.tx.$users[user.id].update({
-                    fullName: newName,
-                  }),
-                ]);
+              await userDb.asUser({ token }).transact([
+                userDb.tx.$users[user.id].update({
+                  fullName: newName,
+                }),
+              ]);
               const { $users } = await adminDb.query({
                 $users: { $: { where: { id: user.id } } },
               });
@@ -331,13 +337,11 @@ function useEditableSystemAttrTests(app: AppSummary) {
             shouldFail: true,
             run: async () => {
               const { user, token } = await createTestUser('email-guard');
-              await userDb
-                .asUser({ token })
-                .transact([
-                  userDb.tx.$users[user.id].update({
-                    email: `new-${Date.now()}@example.com`,
-                  }),
-                ]);
+              await userDb.asUser({ token }).transact([
+                userDb.tx.$users[user.id].update({
+                  email: `new-${Date.now()}@example.com`,
+                }),
+              ]);
             },
           },
           {
@@ -377,14 +381,12 @@ function useEditableSystemAttrTests(app: AppSummary) {
                 token,
                 `user-file-${Date.now()}.txt`,
               );
-              await userDb
-                .asUser({ token })
-                .transact([
-                  userDb.tx.$files[file.id].update({
-                    path: `renamed-${Date.now()}.txt`,
-                    isFavorite: true,
-                  }),
-                ]);
+              await userDb.asUser({ token }).transact([
+                userDb.tx.$files[file.id].update({
+                  path: `renamed-${Date.now()}.txt`,
+                  isFavorite: true,
+                }),
+              ]);
               const result = await adminDb.query({
                 $files: { $: { where: { id: file.id } } },
               });
@@ -499,57 +501,54 @@ function App({ app }: { app: AppSummary }) {
   const { groups } = useEditableSystemAttrTests(app);
   const [results, setResults] = useState<Record<string, TestRunResult>>({});
 
-  const runTest = useCallback(
-    async (test: PlayTest) => {
+  const runTest = useCallback(async (test: PlayTest) => {
+    setResults((prev) => ({
+      ...prev,
+      [test.id]: { status: 'pending', message: 'Running...' },
+    }));
+    try {
+      const outcome = await test.run();
+      if (test.shouldFail) {
+        setResults((prev) => ({
+          ...prev,
+          [test.id]: {
+            status: 'error',
+            message: 'Expected test to throw but it completed successfully',
+            detail: outcome,
+          },
+        }));
+        return;
+      }
       setResults((prev) => ({
         ...prev,
-        [test.id]: { status: 'pending', message: 'Running...' },
+        [test.id]: {
+          status: 'success',
+          message: outcome?.message || 'Succeeded',
+          detail: outcome?.detail,
+        },
       }));
-      try {
-        const outcome = await test.run();
-        if (test.shouldFail) {
-          setResults((prev) => ({
-            ...prev,
-            [test.id]: {
-              status: 'error',
-              message: 'Expected test to throw but it completed successfully',
-              detail: outcome,
-            },
-          }));
-          return;
-        }
+    } catch (err: any) {
+      if (test.shouldFail) {
         setResults((prev) => ({
           ...prev,
           [test.id]: {
             status: 'success',
-            message: outcome?.message || 'Succeeded',
-            detail: outcome?.detail,
+            message: `Failed as expected: ${toErrorMessage(err)}`,
+            detail: err?.body || { error: toErrorMessage(err) },
           },
         }));
-      } catch (err: any) {
-        if (test.shouldFail) {
-          setResults((prev) => ({
-            ...prev,
-            [test.id]: {
-              status: 'success',
-              message: `Failed as expected: ${toErrorMessage(err)}`,
-              detail: err?.body || { error: toErrorMessage(err) },
-            },
-          }));
-        } else {
-          setResults((prev) => ({
-            ...prev,
-            [test.id]: {
-              status: 'error',
-              message: toErrorMessage(err),
-              detail: err?.body || { error: toErrorMessage(err) },
-            },
-          }));
-        }
+      } else {
+        setResults((prev) => ({
+          ...prev,
+          [test.id]: {
+            status: 'error',
+            message: toErrorMessage(err),
+            detail: err?.body || { error: toErrorMessage(err) },
+          },
+        }));
       }
-    },
-    [],
-  );
+    }
+  }, []);
 
   return (
     <div className="p-6 space-y-6 max-w-6xl mx-auto">
@@ -628,4 +627,3 @@ export default function Page() {
     </div>
   );
 }
-

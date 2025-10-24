@@ -177,13 +177,11 @@ function App({ app }: { app: { id: string; 'admin-token': string } }) {
         const user = await dbWithToken.auth.verifyToken(token);
 
         // Try to update email as non-admin (using db without admin token)
-        await dbNoToken
-          .asUser({ token })
-          .transact([
-            dbNoToken.tx.$users[user.id].update({
-              email: 'newemail@test.com',
-            }),
-          ]);
+        await dbNoToken.asUser({ token }).transact([
+          dbNoToken.tx.$users[user.id].update({
+            email: 'newemail@test.com',
+          }),
+        ]);
 
         return { message: 'Should not allow email update' };
       },
