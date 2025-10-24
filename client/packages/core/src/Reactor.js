@@ -210,6 +210,7 @@ export default class Reactor {
   _log;
   _pendingTxCleanupTimeout;
   _pendingMutationCleanupThreshold;
+  _inFlightMutationEventIds = new Set();
 
   constructor(
     config,
@@ -230,6 +231,7 @@ export default class Reactor {
 
     this._log = createLogger(
       config.verbose || flags.devBackend || flags.instantLogs,
+      () => this._reactorStats(),
     );
 
     this.versions = { ...(versions || {}), '@instantdb/core': version };
@@ -314,6 +316,14 @@ export default class Reactor {
       cardinalityInference: Boolean(schema),
     };
     this._linkIndex = schema ? createLinkIndex(this.config.schema) : null;
+  }
+
+  _reactorStats() {
+    return {
+      inFlightMutationCount: this._inFlightMutationEventIds.size,
+      pendingMutationCount: this.pendingMutations.currentValue.size,
+      transportType: this._transportType,
+    };
   }
 
   _initStorage(Storage) {
@@ -597,6 +607,8 @@ export default class Reactor {
       case 'transact-ok': {
         const { 'client-event-id': eventId, 'tx-id': txId } = msg;
 
+        this._inFlightMutationEventIds.delete(eventId);
+
         const muts = this._rewriteMutations(
           this.attrs,
           this.pendingMutations.currentValue,
@@ -692,6 +704,7 @@ export default class Reactor {
         prev.delete(eventId);
         return prev;
       });
+      this._inFlightMutationEventIds.delete(eventId);
       const errDetails = {
         message: errorMsg.message,
         hint: errorMsg.hint,
@@ -706,6 +719,8 @@ export default class Reactor {
   _handleReceiveError(msg) {
     console.log('error', msg);
     const eventId = msg['client-event-id'];
+    // This might not be a mutation, but it can't hurt to delete it
+    this._inFlightMutationEventIds.delete(eventId);
     const prevMutation = this.pendingMutations.currentValue.get(eventId);
     const errorMessage = {
       message: msg.message || 'Uh-oh, something went wrong. Ping Joe & Stopa.',
@@ -1213,8 +1228,12 @@ export default class Reactor {
       return;
     }
     const timeoutMs = Math.max(
-      5000,
-      this.pendingMutations.currentValue.size * 5000,
+      6000,
+      Math.min(
+        this._inFlightMutationEventIds.size + 1,
+        // Defensive code in case we don't clean up in flight mutation event ids
+        this.pendingMutations.currentValue.size + 1,
+      ) * 6000,
     );
 
     if (!this._isOnline) {
@@ -1331,6 +1350,16 @@ export default class Reactor {
     }
     if (!ignoreLogging[msg.op]) {
       this._log.info('[send]', this._transport.id, msg.op, msg);
+    }
+    switch (msg.op) {
+      case 'transact': {
+        this._inFlightMutationEventIds.add(eventId);
+        break;
+      }
+      case 'init': {
+        // New connection, so we can't have any mutations in flight
+        this._inFlightMutationEventIds.clear();
+      }
     }
     this._transport.send({ 'client-event-id': eventId, ...msg });
   }
