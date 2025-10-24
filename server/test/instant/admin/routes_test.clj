@@ -587,7 +587,7 @@
       (let [expected-id (UUID/randomUUID)
             id-to-ignore (UUID/randomUUID)
             update-step ["update" "items" expected-id {"id" id-to-ignore "name" "book"}]
-            update-tx (transact-post
+            update-tx (admin-routes/transact-post
                        {:body {:steps [update-step]}
                         :headers {"app-id" (str app-id)
                                   "authorization" (str "Bearer " admin-token)}})

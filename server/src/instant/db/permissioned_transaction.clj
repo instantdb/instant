@@ -96,45 +96,13 @@
   We special case $files, so _even admins can't update_ those columns. 
   This is because $files includes information like `file size`, which only 
   Instant can set."
-  [{:keys [admin? attrs] :as ctx} tx-step-maps]
+  [ctx tx-step-maps]
   (doseq [{:keys [op etype] :as tx-step} tx-step-maps
-          :when (string/starts-with? etype "$")
+          :when (and etype (string/starts-with? etype "$"))
           :when (#{:add-triple :deep-merge-triple :retract-triple :delete-entity} op)]
-
-    (condp = op
-      :delete-entity
+    (if (= :delete-entity op)
       (validate-system-delete-entity! ctx  tx-step)
-
-      (validate-system-triple-op! ctx tx-step)))
-
-  (doseq [{:keys [op aid] :as tx-step} tx-step-maps
-          :when (#{:add-triple :deep-merge-triple :retract-triple :delete-entity} op)
-
-          :let [attr (attr-model/seek-by-id aid attrs)
-                {:keys [catalog]} attr
-                [etype label] (attr-model/fwd-ident-name attr)]
-
-          :when (= catalog :system)
-
-;; there are some columns that we allow you to edit 
-          :when (not
-                 (and (editable-attrs [etype label])
-                      ;; but you can't delete 
-                      (not= op :delete-entity)))
-
-          :when (if (= etype "$files")
-                  ;; Under no circumstances do we let you $files attrs. 
-                  ;; This is because $files keep specific information, like 
-                  ;; file size, which only Instant can update.
-                  true
-
-                  ;; For other system namespaces, we let admins edit them 
-                  (not admin?))]
-    (ex/throw-validation-err!
-     :tx-step
-     (tx/vectorize-tx-step tx-step)
-     [{:message (format "You can't modify %s.%s. This is a system column."
-                        etype label)}])))
+      (validate-system-triple-op! ctx tx-step))))
 
 (defn coerce-value-uuids
   "Checks that all ref values are either lookup refs or UUIDs"
