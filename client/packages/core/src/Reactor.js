@@ -594,7 +594,6 @@ export default class Reactor {
           this.notifyOne(hash);
         });
         break;
-      }
       case 'transact-ok': {
         const { 'client-event-id': eventId, 'tx-id': txId } = msg;
 
