@@ -71,7 +71,7 @@
     (when-not valid-triple-op?
       (throw-tx-step-validation-err!
        tx-step
-       (format "%s.%s is a system column. You aren't allowed to delete this directly."
+       (format "%s.%s is a system column. You aren't allowed to change this directly."
                etype label)))))
 
 (defn prevent-system-column-updates
