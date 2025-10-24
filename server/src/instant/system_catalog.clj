@@ -341,3 +341,11 @@
                        $oauth-code-attrs
                        $oauth-redirect-attrs
                        $files-attrs))
+
+;; PR-TODO: maybe we move Wrapped Attr into some shared namespace, and re-use for creating this?
+(def all-ident-names (->> all-attrs
+                          (mapcat (fn [{:keys [forward-identity reverse-identity]}]
+                                    (cond-> []
+                                      forward-identity (conj (vec (rest forward-identity)))
+                                      reverse-identity (conj (vec (rest reverse-identity))))))
+                          set))

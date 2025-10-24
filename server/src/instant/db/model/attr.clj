@@ -12,7 +12,8 @@
    [instant.util.crypt :refer [json-null-md5]]
    [instant.util.exception :as ex]
    [instant.util.spec :as uspec]
-   [instant.util.uuid :as uuid]))
+   [instant.util.uuid :as uuid]
+   [instant.system-catalog :as system-catalog]))
 
 (set! *warn-on-reflection* true)
 
@@ -257,6 +258,19 @@
 (defn qualify-cols [ns cols]
   (map (partial qualify-col ns) cols))
 
+(defn validate-system-ident-names!
+  "Prevents users from creating attrs that use catalog idents"
+  [attrs]
+  (doseq [attr attrs]
+    (let [fwd (vec (fwd-ident-name attr))
+          rev (vec (rev-ident-name attr))
+          found (some system-catalog/all-ident-names [fwd rev])]
+      (when found
+        (ex/throw-validation-err!
+         :attributes
+         attr
+         [{:message (format "%s.%s is a system column and it already exists." (first found) (second found))}])))))
+
 (defn validate-add-required! [conn app-id attrs]
   (doseq [attr  attrs
           :when (:required? attr)
@@ -284,6 +298,7 @@
   ([conn app-id attrs]
    (insert-multi! conn app-id attrs {:allow-reserved-names? false}))
   ([conn app-id attrs _opts]
+   (validate-system-ident-names! attrs)
    (validate-add-required! conn app-id attrs)
    (with-cache-invalidation app-id
      (let [query {:with [[[:attr-values
