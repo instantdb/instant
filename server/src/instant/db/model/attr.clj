@@ -131,6 +131,10 @@
   [attr]
   (-> attr :reverse-identity ident-name))
 
+(defn ident-names
+  [attr]
+  (filter identity [(fwd-ident-name attr) (rev-ident-name attr)]))
+
 (defn fwd-etype
   "Given an attr, return it's forward etype"
   [attr]
@@ -257,6 +261,34 @@
 (defn qualify-cols [ns cols]
   (map (partial qualify-col ns) cols))
 
+(defn validate-system-catalog-inserts!
+  "When we run a system catalog migration, we are inserting attrs that affect all 
+  existing apps. 
+  
+  What if a new insert has an ident that conflicts with some existing app's attr? 
+  
+  This prevents that from happening."
+  [conn attrs]
+  (let [idents  (mapcat ident-names attrs)
+        conflicts (sql/execute!
+                   conn
+                   (hsql/format
+                    {:with [[[:to-insert {:columns [:etype :label]}]
+                             {:values idents}]]
+                     :select :*
+                     :from [[:idents :i]]
+                     :where [:in
+                             [:composite :i.etype :i.label]
+                             {:select [:etype :label]
+                              :from :to-insert}]}))]
+
+    (when-let [{:keys [etype label attr_id]} (first conflicts)]
+      (ex/throw-validation-err!
+       :attributes
+       attrs
+       [{:message (format "%s.%s conflicts with an existing attribute %s" etype label attr_id)
+         :all-conflicts conflicts}]))))
+
 (defn validate-system-ident-names!
   "Prevents users from creating attrs that use catalog idents"
   [attrs]
@@ -297,6 +329,8 @@
   ([conn app-id attrs]
    (insert-multi! conn app-id attrs {:allow-reserved-names? false}))
   ([conn app-id attrs {:keys [allow-reserved-names?]}]
+   (when (= app-id system-catalog-app-id)
+     (validate-system-catalog-inserts! conn attrs))
    (when-not allow-reserved-names?
      (validate-system-ident-names! attrs))
    (validate-add-required! conn app-id attrs)
