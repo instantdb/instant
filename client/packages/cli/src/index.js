@@ -1452,10 +1452,28 @@ async function pushSchema(appId, opts) {
     ? buildAutoRenameSelector(opts)
     : resolveRenames;
 
-  const diffResult = await diffSchemas(oldSchema, schema, renameSelector);
+  const systemIdentNames = currentAttrs
+    .filter((attr) => attr.catalog === 'system')
+    .flatMap((attr) =>
+      [attr['forward-identity'], attr['reverse-identity']].filter(Boolean),
+    )
+    .reduce((acc, [_, etype, label]) => {
+      acc[etype] = acc[etype] || new Set();
+      acc[etype].add(label);
+      return acc;
+    }, {});
+
+  const diffResult = await diffSchemas(
+    oldSchema,
+    schema,
+    renameSelector,
+    systemIdentNames,
+  );
+
   if (currentAttrs === undefined) {
     throw new Error("Couldn't get current schema from server");
   }
+
   const txSteps = convertTxSteps(diffResult, currentAttrs);
 
   if (txSteps.length === 0) {

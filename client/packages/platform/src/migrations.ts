@@ -222,6 +222,14 @@ const CONVERTERS: AllConvertPlanStepFns = {
   },
 };
 
+function isSystemAttr(
+  systemIdentNames: Record<string, Set<string>>,
+  entityName: string,
+  attrName: string,
+): boolean {
+  return !!systemIdentNames[entityName]?.has(attrName);
+}
+
 export const convertTxSteps = (
   txs: MigrationTx[],
   existingAttrs: InstantDBAttr[],
@@ -271,6 +279,7 @@ export const diffSchemas = async (
   oldSchema: InstantSchemaDef<any, any, any>,
   newSchema: InstantSchemaDef<any, any, any>,
   resolveFn: RenameResolveFn<string>,
+  systemIdentNames: Record<string, Set<string>>,
 ): Promise<MigrationTx[]> => {
   const transactions: MigrationTx[] = [];
 
@@ -285,10 +294,8 @@ export const diffSchemas = async (
   );
 
   for (const entityName of deletedEntityNames) {
-    if (entityName.startsWith('$')) {
-      continue;
-    }
     Object.keys(oldEntities[entityName].attrs).forEach((attrName) => {
+      if (isSystemAttr(systemIdentNames, entityName, attrName)) return;
       transactions.push({
         type: 'delete-attr',
         identifier: {
@@ -297,7 +304,9 @@ export const diffSchemas = async (
         },
       });
     });
-
+    if (isSystemAttr(systemIdentNames, entityName, 'id')) {
+      continue;
+    }
     transactions.push({
       type: 'delete-attr',
       identifier: {
@@ -308,43 +317,63 @@ export const diffSchemas = async (
   }
 
   const addedEntityNames = newEntityNames.filter(
-    (name) => !oldEntityNames.includes(name) && !name.startsWith('$'),
+    (name) => !oldEntityNames.includes(name),
   );
 
   for (const entityName of addedEntityNames) {
-    transactions.push({
-      type: 'add-attr',
-      'forward-identity': {
-        namespace: entityName,
-        attrName: 'id',
-      },
-      identifier: {
-        attrName: 'id',
-        namespace: entityName,
-      },
-      'index?': false,
-      'required?': true,
-      cardinality: 'one',
-      'unique?': true,
-      'value-type': 'blob',
-    });
+    if (!isSystemAttr(systemIdentNames, entityName, 'id')) {
+      transactions.push({
+        type: 'add-attr',
+        'forward-identity': {
+          namespace: entityName,
+          attrName: 'id',
+        },
+        identifier: {
+          attrName: 'id',
+          namespace: entityName,
+        },
+        'index?': false,
+        'required?': true,
+        cardinality: 'one',
+        'unique?': true,
+        'value-type': 'blob',
+      });
+    }
+
     for (const attrName of Object.keys(newEntities[entityName].attrs)) {
+      if (isSystemAttr(systemIdentNames, entityName, attrName)) {
+        continue;
+      }
       const attrInSchema = newEntities[entityName].attrs[attrName];
       transactions.push(attrDefToNewAttrTx(attrInSchema, entityName, attrName));
     }
   }
 
-  const innerEntityNames = oldEntityNames.filter(
-    (name) => newEntityNames.includes(name) && !name.startsWith('$'),
+  const innerEntityNames = oldEntityNames.filter((name) =>
+    newEntityNames.includes(name),
   );
 
   for (const entityName of innerEntityNames) {
     // BLOB ATTRIBUTES
     const addedFields = Object.keys(newEntities[entityName].attrs).filter(
-      (field) => !Object.keys(oldEntities[entityName].attrs).includes(field),
+      (field) => {
+        if (isSystemAttr(systemIdentNames, entityName, field)) return false;
+
+        const oldEntityHasIt = Object.keys(
+          oldEntities[entityName].attrs,
+        ).includes(field);
+        return !oldEntityHasIt;
+      },
     );
     const removedFields = Object.keys(oldEntities[entityName].attrs).filter(
-      (field) => !Object.keys(newEntities[entityName].attrs).includes(field),
+      (field) => {
+        if (isSystemAttr(systemIdentNames, entityName, field)) return false;
+
+        const newEntityHasIt = Object.keys(
+          newEntities[entityName].attrs,
+        ).includes(field);
+        return !newEntityHasIt;
+      },
     );
 
     const resolved = await resolveRenames(
@@ -424,10 +453,12 @@ export const diffSchemas = async (
   }
 
   const oldLinks = (Object.values(oldSchema.links) as AnyLink[]).filter(
-    (link) => !link.forward.on.startsWith('$'),
+    (link) =>
+      !isSystemAttr(systemIdentNames, link.forward.on, link.forward.label),
   );
   const newLinks = (Object.values(newSchema.links) as AnyLink[]).filter(
-    (link) => !link.forward.on.startsWith('$'),
+    (link) =>
+      !isSystemAttr(systemIdentNames, link.forward.on, link.forward.label),
   );
 
   // Group links by their forward namespace-label combination for comparison

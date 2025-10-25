@@ -4158,31 +4158,46 @@
                                                    :location-id "loc1"
                                                    :metadata {:size 100
                                                               :content-type "image/jpeg"
-                                                              :content-disposition "inline"}})]
+                                                              :content-disposition "inline"}})
+
+            make-ctx (fn make-ctx
+                       ([]
+                        (make-ctx {}))
+                       ([{:keys [admin?]}]
+                        {:db               {:conn-pool (aurora/conn-pool :write)}
+                         :app-id           app-id
+                         :attrs            (attr-model/get-by-app-id app-id)
+                         :datalog-query-fn d/query
+                         :rules            (rule-model/get-by-app-id (aurora/conn-pool :read) {:app-id app-id})
+                         :current-user     nil
+                         :admin?           admin?}))]
+
+        (rule-model/put!
+         (aurora/conn-pool :write)
+         {:app-id app-id :code {:$files {:allow {:create "true"
+                                                 :update "true"
+                                                 :delete "true"
+                                                 :view "true"}}}})
 
         (testing "Updates on path are allowed"
           (let [new-path "new-path.jpg"]
-            (tx/transact! conn
-                          app-attrs
-                          app-id
-                          [[:add-triple file-id path-attr-id new-path]])
+            (permissioned-tx/transact! (make-ctx)
+                                       [[:add-triple file-id id-attr-id file-id]
+                                        [:add-triple file-id path-attr-id new-path]])
             (is (= new-path
                    (:path (app-file-model/get-by-path {:app-id app-id :path new-path}))))))
 
         (testing "Updates on non-existing files should fail"
           (let [new-id (random-uuid)]
             (is (validation-err?
-                 (tx/transact! conn
-                               app-attrs
-                               app-id
-                               [[:add-triple new-id id-attr-id new-id]])))))
+                 (permissioned-tx/transact! (make-ctx)
+                                            [[:add-triple new-id id-attr-id new-id]])))))
+
         (testing "Updates on non-existing lookups should fail"
           (let [new-id #uuid "3edbebab-c179-4ce7-94ab-b597377c7875"]
             (is (validation-err?
-                 (tx/transact! conn
-                               app-attrs
-                               app-id
-                               [[:add-triple [id-attr-id new-id] path-attr-id "random-path.jpg"]])))))
+                 (permissioned-tx/transact! (make-ctx)
+                                            [[:add-triple [id-attr-id new-id] path-attr-id "random-path.jpg"]])))))
 
         (testing "Updating to an existing path should fail"
           (let [existing-path "existing-path.jpg"]
@@ -4194,37 +4209,27 @@
                                                 :content-type "image/jpeg"
                                                 :content-disposition "inline"}})
             (let [ex-data  (test-util/instant-ex-data
-                            (tx/transact!
-                             conn
-                             app-attrs
-                             app-id
+                            (permissioned-tx/transact!
+                             (make-ctx)
                              [[:add-triple file-id path-attr-id existing-path]]))]
               (is (= ::ex/record-not-unique
                      (::ex/type ex-data)))
               (is (= "`path` is a unique attribute on `$files` and an entity already exists with `$files.path` = \"existing-path.jpg\""
                      (::ex/message ex-data))))))
 
-        (testing "Changing id should fail"
-          (is (validation-err?
-               (tx/transact! conn
-                             app-attrs
-                             app-id
-                             [[:add-triple file-id id-attr-id (random-uuid)]]))))
-
-        (testing "Updates other attrs should fail"
+        (testing "Update other attrs should fail"
           (let [loc-attr-id  (attr-model/resolve-attr-id app-attrs "$files" "location-id")]
             (is (validation-err?
-                 (tx/transact! conn
-                               app-attrs
-                               app-id
-                               [[:add-triple file-id loc-attr-id "new-location"]])))))))))
+                 (permissioned-tx/transact! (make-ctx {:admin? true})
+                                            [[:add-triple file-id id-attr-id file-id]
+                                             [:add-triple file-id loc-attr-id "new-location"]])))))))))
 
 (deftest perms-rejects-writes-to-users-table
   (with-empty-app
     (fn [{app-id :id}]
       (let [r (resolvers/make-movies-resolver app-id)
             id (random-uuid)
-            make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :read)}
+            make-ctx (fn [] {:db {:conn-pool (aurora/conn-pool :write)}
                              :app-id app-id
                              :attrs (attr-model/get-by-app-id app-id)
                              :datalog-query-fn d/query
@@ -4232,14 +4237,17 @@
                              :current-user nil})]
         (is (validation-err?
              (permissioned-tx/transact! (make-ctx)
-                                        [[:add-triple id (resolvers/->uuid r :$users/id) (str id)]])))
+                                        [[:add-triple id (resolvers/->uuid r :$users/id) (str id)]
+                                         [:add-triple id (resolvers/->uuid r :$users/email) "alyssa@hacker.com"]])))
         (is (validation-err?
              (permissioned-tx/transact! (make-ctx)
-                                        [[:retract-triple id (resolvers/->uuid r :$users/id) (str id)]])))
+                                        [[:retract-triple id (resolvers/->uuid r :$users/id) (str id)]
+                                         [:retract-triple id (resolvers/->uuid r :$users/email) "alyssa@hacker.com"]])))
 
         (is (validation-err?
              (permissioned-tx/transact! (make-ctx)
-                                        [[:deep-merge-triple id (resolvers/->uuid r :$users/id) {:hello :world}]])))
+                                        [[:deep-merge-triple id (resolvers/->uuid r :$users/id) {:hello :world}]
+                                         [:deep-merge-triple id (resolvers/->uuid r :$users/email) "alyssa@hacker.com"]])))
 
         (is (validation-err?
              (permissioned-tx/transact! (make-ctx)
@@ -4686,7 +4694,6 @@
                  {:db/id          (suid "c")
                   :train/weight   1000}}
                (test-util/find-entities-by-ids app-id attr->id ids)))))))
-
 
 (deftest on-delete-cascade-reused-entity-ids-forward
   (with-empty-app
@@ -5289,14 +5296,13 @@
                                   [:add-triple nicole-eid bookshelves-attr-id eid-nonfiction]]))
                              (range (count conns)))
 
-
               txes (mapv (fn [conn tx-data]
                            (future
                              (triple-model/insert-multi! conn attrs app-id (map rest tx-data))))
                          conns tx-datas)]
 
           (doseq [tx txes]
-           (testing "connection did not deadlock"
+            (testing "connection did not deadlock"
               (is @tx))))))))
 
 (comment

@@ -38,6 +38,22 @@
                :label (attr-model/fwd-label attr)}))
           db-attrs)))
 
+(comment
+  (attr-model/insert-multi! (aurora/conn-pool :write)
+                            system-catalog/system-catalog-app-id
+                            [{:id #uuid "96653230-13ff-ffff-a4b4-29e5e4ffffff",
+                              :forward-identity
+                              [#uuid "96653231-03ff-ffff-a4b4-29e5e4ffffff"
+                               "$users"
+                               "content-type"],
+                              :unique? false,
+                              :index? false,
+                              :required? false,
+                              :value-type :blob,
+                              :cardinality :one,
+                              :checked-data-type :string}]
+                            {:allow-reserved-names? true}))
+
 (defn ensure-attrs-on-system-catalog-app
   ([]
    (ensure-attrs-on-system-catalog-app system-catalog/system-catalog-app-id))

@@ -331,6 +331,10 @@
               :unique? false
               :index? false
               :checked-data-type :string)])
+(make-attr "$users" "content-type"
+           :unique? false
+           :index? false
+           :checked-data-type :string)
 
 (def all-attrs (concat $users-attrs
                        $magic-code-attrs
@@ -341,3 +345,18 @@
                        $oauth-code-attrs
                        $oauth-redirect-attrs
                        $files-attrs))
+
+(def reserved-ident-names
+  "Add ident names you'd like to add here. Once it's added, users can't create 
+   attrs with this idents. 
+   
+   After this is in production, you can then actually create the attr in question."
+  [])
+
+(def all-ident-names (->> all-attrs
+                          (mapcat (fn [{:keys [forward-identity reverse-identity]}]
+                                    (cond-> []
+                                      forward-identity (conj (vec (rest forward-identity)))
+                                      reverse-identity (conj (vec (rest reverse-identity))))))
+                          (concat reserved-ident-names)
+                          set))
