@@ -33,7 +33,7 @@
           parse-uuid))
 
 (defn evict-cache! [wal-record]
-  (case (tool/inspect (:action wal-record))
+  (case (:action wal-record)
     (:insert :update :delete)
     (case (:table wal-record)
       ;; n.b. Add the table to the `add-tables` setting in
