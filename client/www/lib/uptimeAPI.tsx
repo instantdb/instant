@@ -15,6 +15,7 @@ export async function fetchUptime(): Promise<UptimeResponse> {
     body: JSON.stringify({
       api_key: UPTIMEROBOT_API_KEY,
       format: 'json',
+      monitors: '796952052-797830425',
       response_times: 1,
       response_times_limit: 90,
       custom_uptime_ratios: '1-7-30-90',
@@ -30,7 +31,6 @@ export async function fetchUptime(): Promise<UptimeResponse> {
       })
         .reverse()
         .join('-'),
-      all_time_uptime_ratio: 1,
     }),
   });
   if (!response.ok) {
@@ -50,7 +50,6 @@ export type Monitor = {
     '7d': number;
     '30d': number;
     '90d': number;
-    all_time: number;
   };
   daily_uptime: number[];
   average_response_time: number;
@@ -75,7 +74,6 @@ type ProviderResponse = {
     status: number;
     custom_uptime_ratio?: string;
     custom_uptime_ranges?: string;
-    all_time_uptime_ratio: string;
     average_response_time: number;
   }>;
 };
@@ -104,7 +102,6 @@ function toUptimeResponse(apiRes: ProviderResponse): UptimeResponse {
           '7d': parseFloat(customRatios[1]) || 100,
           '30d': parseFloat(customRatios[2]) || 100,
           '90d': parseFloat(customRatios[3]) || 100,
-          all_time: parseFloat(monitor.all_time_uptime_ratio) || 100,
         },
         daily_uptime: dailyUptime,
         average_response_time: monitor.average_response_time,
