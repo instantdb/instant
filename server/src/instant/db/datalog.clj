@@ -2929,7 +2929,7 @@
           sql-query (hsql/format query)
           postgres-config (flags/query-flags query-hash)
           sql-res (if-not query ;; we may not have a query if everything is missing attrs
-                    (with-meta {} {:sql-byte-len 1000}) ;; default size for the missing result data
+                    (with-meta {} {:sql-byte-len 1000}) ;; default size for the missing attrs data
                     (let [sql-res (sql/select-arrays ::send-query-nested
                                                      conn
                                                      sql-query
