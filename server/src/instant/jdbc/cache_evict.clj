@@ -23,14 +23,24 @@
           (parse-uuid)))
 
 (defn get-app-id [wal-record]
-  (some-> wal-record
-          (get-column "app_id")
-          parse-uuid))
+  (or (some-> wal-record
+              :columns
+              (get-column "app_id")
+              parse-uuid)
+      (some-> wal-record
+              :identity
+              (get-column "app_id")
+              parse-uuid)))
 
 (defn get-id [wal-record]
-  (some-> wal-record
-          (get-column "id")
-          parse-uuid))
+  (or (some-> wal-record
+              :columns
+              (get-column "id")
+              parse-uuid)
+      (some-> wal-record
+              :identity
+              (get-column "id")
+              parse-uuid)))
 
 (defn evict-cache! [wal-record]
   (case (:action wal-record)
