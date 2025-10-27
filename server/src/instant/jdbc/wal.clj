@@ -359,6 +359,8 @@
 
                                    (:truncate :message) state
 
+                                   :close (assoc state :next-action :advance)
+
                                    :begin (unexpected-state state
                                                             record
                                                             {:next-action :tx
