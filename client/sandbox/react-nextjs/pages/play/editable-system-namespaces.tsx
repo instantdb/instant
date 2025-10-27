@@ -10,7 +10,7 @@ type TestResult = {
   data?: any;
 };
 
-type TestRunner = () => Promise<{ data?: any; message?: string }>;
+type TestRunner = () => Promise<any>;
 
 type TestCase = {
   id: string;
@@ -301,6 +301,7 @@ function App({ app }: { app: { id: string; 'admin-token': string } }) {
 
         await dbWithToken.transact([
           dbWithToken.tx.$files[fileId].update({
+            // @ts-ignore-next
             size: 999999,
           }),
         ]);
