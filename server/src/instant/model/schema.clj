@@ -411,7 +411,8 @@
                (update ent-def :attrs (fn [attrs]
                                         (ucoll/filter-keys
                                          (fn [label]
-                                           (not (system-catalog/all-ident-names [(name etype) (name label)])))
+                                           (not (system-catalog/reserved-ident-name?
+                                                 [(name etype) (name label)])))
                                          attrs)))]))
        (into {})))
 

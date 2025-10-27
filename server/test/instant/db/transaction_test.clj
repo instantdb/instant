@@ -4138,24 +4138,36 @@
                     (attr-model/get-by-app-id app-id)
                     app-id
                     [[:add-attr {:id (random-uuid)
-                                 :forward-identity [(random-uuid) "$users" "fullName"]
-                                 :value-type :blob
-                                 :cardinality :one
+                                 :forward-identity [(random-uuid) "$users" "forward"]
+                                 :reverse-identity [(random-uuid) "$users" "backward"]
+                                 :value-type :ref
+                                 :cardinality :many
                                  :unique? false
                                  :index? false}]])
-      (let [ex-data (test-util/instant-ex-data
-                     (attr-model/insert-multi! (aurora/conn-pool :write)
-                                               system-catalog-app-id
-                                               [{:id (random-uuid)
-                                                 :forward-identity [(random-uuid) "$users" "fullName"]
-                                                 :value-type :blob
-                                                 :cardinality :one
-                                                 :unique? false
-                                                 :index? false}]
-                                               {:allow-reserved-names? true}))]
-        (is (string/starts-with?
-             (::ex/message ex-data)
-             "Validation failed for attributes: $users.fullName conflicts with an existing attribute"))))))
+
+      (letfn [(run-test! [label]
+                (next.jdbc/with-transaction [conn (aurora/conn-pool :write)]
+                  (testing label
+                    (let [ex-data
+                          (test-util/instant-ex-data
+                           (attr-model/insert-multi! conn
+                                                     system-catalog-app-id
+                                                     [{:id (random-uuid)
+                                                       :forward-identity [(random-uuid) "$users" label]
+                                                       :value-type :blob
+                                                       :cardinality :one
+                                                       :unique? false
+                                                       :index? false}]
+                                                     {:allow-reserved-names? true}))]
+
+                      (is (string/starts-with?
+                           (::ex/message ex-data)
+                           (str "Validation failed for attributes: $users." label)))))
+
+                  (.rollback conn)))]
+
+        (run-test! "forward")
+        (run-test! "backward")))))
 
 (deftest cant-create-system-attr-with-system-catalog-ident-name
   (with-empty-app

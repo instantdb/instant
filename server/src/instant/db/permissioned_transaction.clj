@@ -1,5 +1,6 @@
 (ns instant.db.permissioned-transaction
   (:require
+   [clojure.string :as string]
    [clojure+.core :as clojure+]
    [instant.db.cel :as cel]
    [instant.db.datalog :as d]
@@ -15,8 +16,7 @@
    [instant.util.uuid :as uuid-util]
    [next.jdbc :as next-jdbc]
    [instant.util.coll :as ucoll]
-   [instant.db.model.triple :as triple-model]
-   [clojure.string :as string]))
+   [instant.db.model.triple :as triple-model]))
 
 (defn lookup-ref? [eid]
   (sequential? eid))
@@ -31,9 +31,19 @@
   (-> check
       (update :program :display-code)))
 
-(def editable-attrs #{["$users" "id"]
-                      ["$files" "id"]
-                      ["$files" "path"]})
+(def editable-attrs
+  "There are some system catalog attributs that we let users edit. 
+  
+  $users.id and $files.id 
+    In order to enable any edits for $users and $files, the `id` triple 
+    has to be editable. This is because we always do an insert for the 
+    id triple when updating entities. 
+
+  $files.path 
+    There may be good reason for a user to change the $files.path for a file."
+  #{["$users" "id"]
+    ["$files" "id"]
+    ["$files" "path"]})
 
 (defn- throw-tx-step-validation-err! [tx-step message]
   (ex/throw-validation-err!
@@ -80,22 +90,23 @@
 
    Here's what we do: 
 
-   1. There are _some_ system columns that we let users edit. 
+   There are _some_ system columns that we let users edit: 
       
       1. The $files 'path' attribute can be changed. 
 
-      2. The `id` attribute can flow through. 
+      2. The `id` attribute
          
          This is because the user may have their own columns defined, and 
-         are running a patch. 
+         are running a patch. The client _always_ sends an 
+         `id` triple as part of a patch.  
 
   For the remaining columns: 
 
   1. If the user is an admin, they can update system columns. 
 
-  We special case $files, so _even admins can't update_ those columns. 
-  This is because $files includes information like `file size`, which only 
-  Instant can set."
+     *Note*: we special case $files, so _even admins can't update_ those columns. 
+     This is because $files includes information like `file size`, 
+     which only Instant can set."
   [ctx tx-step-maps]
   (doseq [{:keys [op etype] :as tx-step} tx-step-maps
           :when (and etype (string/starts-with? etype "$"))
@@ -286,158 +297,158 @@
                                    (rule-model/get-program! rules [[rev-etype "allow" "unlink" rev-label]
                                                                    [rev-etype "allow" "unlink" "$default"]]))]
         check (clojure+/cond+
-               (= :update-attr op)
-               [{:scope    :attr
-                 :action   :update
-                 :etype    "attrs"
-                 :program  {:result admin?}}]
+                (= :update-attr op)
+                [{:scope    :attr
+                  :action   :update
+                  :etype    "attrs"
+                  :program  {:result admin?}}]
 
-               (= :delete-attr op)
-               [{:scope    :attr
-                 :action   :delete
-                 :etype    "attrs"
-                 :program  {:result admin?}}]
+                (= :delete-attr op)
+                [{:scope    :attr
+                  :action   :delete
+                  :etype    "attrs"
+                  :program  {:result admin?}}]
 
-               (= :restore-attr op)
-               [{:scope    :attr
-                 :action   :restore
-                 :etype    "attrs"
-                 :program  {:result admin?}}]
+                (= :restore-attr op)
+                [{:scope    :attr
+                  :action   :restore
+                  :etype    "attrs"
+                  :program  {:result admin?}}]
 
                 ;; if link is defined on at least one side
-               (and (= :add-triple op)
-                    ref?
-                    (or link-program rev-link-program))
-               (concat
-                (when (and entity link-program)
-                  [{:scope    :object
-                    :action   :link
-                    :etype    etype
-                    :eid      eid
-                    :program  link-program
-                    :bindings {:data         entity
-                               :new-data     (get updated-entities-map key)
-                               :linked-data  rev-entity
-                               :linked-etype rev-etype
-                               :actions      {"data" "update"
-                                              "linkedData" (if rev-entity "update" "create")}
-                               :rule-params  (merge rev-rule-params rule-params)}}])
-                (when (and rev-entity rev-link-program)
-                  [{:scope    :object
-                    :action   :link
-                    :etype    rev-etype
-                    :eid      value
-                    :program  rev-link-program
-                    :bindings {:data         (assoc rev-entity "$action" "update")
-                               :new-data     (get updated-entities-map rev-key)
-                               :linked-data  (get updated-entities-map key)
-                               :linked-etype etype
-                               :actions      {"data" "update"
-                                              "linkedData" (if entity "update" "create")}
-                               :rule-params  (merge rule-params rev-rule-params)}}]))
+                (and (= :add-triple op)
+                     ref?
+                     (or link-program rev-link-program))
+                (concat
+                 (when (and entity link-program)
+                   [{:scope    :object
+                     :action   :link
+                     :etype    etype
+                     :eid      eid
+                     :program  link-program
+                     :bindings {:data         entity
+                                :new-data     (get updated-entities-map key)
+                                :linked-data  rev-entity
+                                :linked-etype rev-etype
+                                :actions      {"data" "update"
+                                               "linkedData" (if rev-entity "update" "create")}
+                                :rule-params  (merge rev-rule-params rule-params)}}])
+                 (when (and rev-entity rev-link-program)
+                   [{:scope    :object
+                     :action   :link
+                     :etype    rev-etype
+                     :eid      value
+                     :program  rev-link-program
+                     :bindings {:data         (assoc rev-entity "$action" "update")
+                                :new-data     (get updated-entities-map rev-key)
+                                :linked-data  (get updated-entities-map key)
+                                :linked-etype etype
+                                :actions      {"data" "update"
+                                               "linkedData" (if entity "update" "create")}
+                                :rule-params  (merge rule-params rev-rule-params)}}]))
 
                 ;; fallback when link isn´t defined on either side
-               (and (= :add-triple op)
-                    ref?)
-               (concat
-                (when entity
-                  [{:scope    :object
-                    :action   :update
-                    :etype    etype
-                    :eid      eid
-                    :program  (or (rule-model/get-program! rules etype "update")
-                                  {:result true})
-                    :bindings {:data        entity
-                               :new-data    (get updated-entities-map key)
-                               :rule-params (merge rev-rule-params rule-params)}}])
-                (when rev-entity
-                  [{:scope    :object
-                    :action   :view
-                    :etype    rev-etype
-                    :eid      value
-                    :program  (or (rule-model/get-program! rules rev-etype "view")
-                                  {:result true})
-                    :bindings {:data        rev-entity
-                               :new-data    (get updated-entities-map rev-key)
-                               :rule-params (merge rule-params rev-rule-params)}}]))
+                (and (= :add-triple op)
+                     ref?)
+                (concat
+                 (when entity
+                   [{:scope    :object
+                     :action   :update
+                     :etype    etype
+                     :eid      eid
+                     :program  (or (rule-model/get-program! rules etype "update")
+                                   {:result true})
+                     :bindings {:data        entity
+                                :new-data    (get updated-entities-map key)
+                                :rule-params (merge rev-rule-params rule-params)}}])
+                 (when rev-entity
+                   [{:scope    :object
+                     :action   :view
+                     :etype    rev-etype
+                     :eid      value
+                     :program  (or (rule-model/get-program! rules rev-etype "view")
+                                   {:result true})
+                     :bindings {:data        rev-entity
+                                :new-data    (get updated-entities-map rev-key)
+                                :rule-params (merge rule-params rev-rule-params)}}]))
 
                 ;; if unlink is defined on at least one side
-               (and (= :retract-triple op)
-                    ref?
-                    (or unlink-program rev-unlink-program))
-               (concat
-                (when (and entity unlink-program)
-                  [{:scope    :object
-                    :action   :unlink
-                    :etype    etype
-                    :eid      eid
-                    :program  unlink-program
-                    :bindings {:data         entity
-                               :new-data     (get updated-entities-map key)
-                               :linked-data  rev-entity
-                               :linked-etype rev-etype
-                               :rule-params  (merge rev-rule-params rule-params)}}])
-                (when (and rev-entity rev-unlink-program)
-                  [{:scope    :object
-                    :action   :unlink
-                    :etype    rev-etype
-                    :eid      value
-                    :program  rev-unlink-program
-                    :bindings {:data         rev-entity
-                               :new-data     (get updated-entities-map rev-key)
-                               :linked-data  entity
-                               :linked-etype etype
-                               :rule-params  (merge rule-params rev-rule-params)}}]))
+                (and (= :retract-triple op)
+                     ref?
+                     (or unlink-program rev-unlink-program))
+                (concat
+                 (when (and entity unlink-program)
+                   [{:scope    :object
+                     :action   :unlink
+                     :etype    etype
+                     :eid      eid
+                     :program  unlink-program
+                     :bindings {:data         entity
+                                :new-data     (get updated-entities-map key)
+                                :linked-data  rev-entity
+                                :linked-etype rev-etype
+                                :rule-params  (merge rev-rule-params rule-params)}}])
+                 (when (and rev-entity rev-unlink-program)
+                   [{:scope    :object
+                     :action   :unlink
+                     :etype    rev-etype
+                     :eid      value
+                     :program  rev-unlink-program
+                     :bindings {:data         rev-entity
+                                :new-data     (get updated-entities-map rev-key)
+                                :linked-data  entity
+                                :linked-etype etype
+                                :rule-params  (merge rule-params rev-rule-params)}}]))
 
                 ;; fallback when unlink isn´t defined on either side
-               (and (= :retract-triple op)
-                    ref?)
-               (concat
-                (when entity
-                  [{:scope    :object
-                    :action   :update
-                    :etype    etype
-                    :eid      eid
-                    :program  (or (rule-model/get-program! rules etype "update")
-                                  {:result true})
-                    :bindings {:data        entity
-                               :new-data    (get updated-entities-map key)
-                               :rule-params (merge rev-rule-params rule-params)}}])
-                (when rev-entity
-                  [{:scope    :object
-                    :action   :view
-                    :etype    rev-etype
-                    :eid      value
-                    :program  (or (rule-model/get-program! rules rev-etype "view")
-                                  {:result true})
-                    :bindings {:data        rev-entity
-                               :new-data    (get updated-entities-map rev-key)
-                               :rule-params (merge rule-params rev-rule-params)}}]))
+                (and (= :retract-triple op)
+                     ref?)
+                (concat
+                 (when entity
+                   [{:scope    :object
+                     :action   :update
+                     :etype    etype
+                     :eid      eid
+                     :program  (or (rule-model/get-program! rules etype "update")
+                                   {:result true})
+                     :bindings {:data        entity
+                                :new-data    (get updated-entities-map key)
+                                :rule-params (merge rev-rule-params rule-params)}}])
+                 (when rev-entity
+                   [{:scope    :object
+                     :action   :view
+                     :etype    rev-etype
+                     :eid      value
+                     :program  (or (rule-model/get-program! rules rev-etype "view")
+                                   {:result true})
+                     :bindings {:data        rev-entity
+                                :new-data    (get updated-entities-map rev-key)
+                                :rule-params (merge rule-params rev-rule-params)}}]))
 
-               (and (#{:add-triple :deep-merge-triple} op)
-                    entity)
-               [{:scope    :object
-                 :action   :update
-                 :etype    etype
-                 :eid      eid
-                 :program  (or (rule-model/get-program! rules etype "update")
-                               {:result true})
-                 :bindings {:data        entity
-                            :new-data    (get updated-entities-map key)
-                            :rule-params rule-params}}]
+                (and (#{:add-triple :deep-merge-triple} op)
+                     entity)
+                [{:scope    :object
+                  :action   :update
+                  :etype    etype
+                  :eid      eid
+                  :program  (or (rule-model/get-program! rules etype "update")
+                                {:result true})
+                  :bindings {:data        entity
+                             :new-data    (get updated-entities-map key)
+                             :rule-params rule-params}}]
 
-               (= :delete-entity op)
-               [{:scope    :object
-                 :action   :delete
-                 :etype    etype
-                 :eid      eid
-                 :program  (or (rule-model/get-program! rules etype "delete")
-                               {:result true})
-                 :bindings {:data        entity
-                            :rule-params rule-params}}]
+                (= :delete-entity op)
+                [{:scope    :object
+                  :action   :delete
+                  :etype    etype
+                  :eid      eid
+                  :program  (or (rule-model/get-program! rules etype "delete")
+                                {:result true})
+                  :bindings {:data        entity
+                             :rule-params rule-params}}]
 
-               :else
-               [])]
+                :else
+                [])]
     check))
 
 (defn post-create-checks
@@ -471,90 +482,90 @@
                                    (rule-model/get-program! rules [[rev-etype "allow" "link" rev-label]
                                                                    [rev-etype "allow" "link" "$default"]]))]
         check (clojure+/cond+
-               (= :add-attr op)
-               [{:scope    :attr
-                 :action   :create
-                 :etype    "attrs"
-                 :program  (or (rule-model/get-program! rules "attrs" "create")
-                               {:result true})
-                 :bindings {:data value}}]
+                (= :add-attr op)
+                [{:scope    :attr
+                  :action   :create
+                  :etype    "attrs"
+                  :program  (or (rule-model/get-program! rules "attrs" "create")
+                                {:result true})
+                  :bindings {:data value}}]
 
                 ;; if link is defined on at least one side
-               (and (= :add-triple op)
-                    ref?
-                    (or link-program rev-link-program))
-               (concat
-                (when (and create? link-program)
-                  [{:scope    :object
-                    :action   :link
-                    :etype    etype
-                    :eid      (get create-lookups-map eid eid)
-                    :program  link-program
-                    :bindings {:data         updated-entity
-                               :new-data     updated-entity
-                               :linked-data  updated-rev-entity
-                               :linked-etype rev-etype
-                               :actions      {"data" "create"
-                                              "linkedData" (if (get entities-map rev-key) "update" "create")}
-                               :rule-params  (merge rev-rule-params rule-params)}}])
-                (when (and updated-rev-entity
-                           (nil? (get entities-map rev-key))
-                           rev-link-program)
-                  [{:scope    :object
-                    :action   :link
-                    :etype    rev-etype
-                    :eid      (get updated-rev-entity "id")
-                    :program  rev-link-program
-                    :bindings {:data         updated-rev-entity
-                               :new-data     updated-rev-entity
-                               :linked-data  updated-entity
-                               :linked-etype etype
-                               :actions      {"data" "create"
-                                              "linkedData" (if create? "create" "update")}
-                               :rule-params  (merge rule-params rev-rule-params)}}]))
+                (and (= :add-triple op)
+                     ref?
+                     (or link-program rev-link-program))
+                (concat
+                 (when (and create? link-program)
+                   [{:scope    :object
+                     :action   :link
+                     :etype    etype
+                     :eid      (get create-lookups-map eid eid)
+                     :program  link-program
+                     :bindings {:data         updated-entity
+                                :new-data     updated-entity
+                                :linked-data  updated-rev-entity
+                                :linked-etype rev-etype
+                                :actions      {"data" "create"
+                                               "linkedData" (if (get entities-map rev-key) "update" "create")}
+                                :rule-params  (merge rev-rule-params rule-params)}}])
+                 (when (and updated-rev-entity
+                            (nil? (get entities-map rev-key))
+                            rev-link-program)
+                   [{:scope    :object
+                     :action   :link
+                     :etype    rev-etype
+                     :eid      (get updated-rev-entity "id")
+                     :program  rev-link-program
+                     :bindings {:data         updated-rev-entity
+                                :new-data     updated-rev-entity
+                                :linked-data  updated-entity
+                                :linked-etype etype
+                                :actions      {"data" "create"
+                                               "linkedData" (if create? "create" "update")}
+                                :rule-params  (merge rule-params rev-rule-params)}}]))
 
                 ;; fallback when link isn´t defined on either side
-               (and (= :add-triple op)
-                    ref?)
-               (concat
-                (when create?
-                  [{:scope    :object
-                    :action   :create
-                    :etype    etype
-                    :eid      (get create-lookups-map eid eid)
-                    :program  (or (rule-model/get-program! rules etype "create")
-                                  {:result true})
-                    :bindings {:data         updated-entity
-                               :new-data     updated-entity
-                               :rule-params  (merge rev-rule-params rule-params)}}])
-                (when (and updated-rev-entity
-                           (nil? (get entities-map rev-key)))
-                  [{:scope    :object
-                    :action   :view
-                    :etype    rev-etype
-                    :eid      (get updated-rev-entity "id")
-                    :program  (or (rule-model/get-program! rules rev-etype "view")
-                                  {:result true})
-                    :bindings {:data         updated-rev-entity
-                               :new-data     updated-rev-entity
-                               :rule-params  (merge rule-params rev-rule-params)}}]))
+                (and (= :add-triple op)
+                     ref?)
+                (concat
+                 (when create?
+                   [{:scope    :object
+                     :action   :create
+                     :etype    etype
+                     :eid      (get create-lookups-map eid eid)
+                     :program  (or (rule-model/get-program! rules etype "create")
+                                   {:result true})
+                     :bindings {:data         updated-entity
+                                :new-data     updated-entity
+                                :rule-params  (merge rev-rule-params rule-params)}}])
+                 (when (and updated-rev-entity
+                            (nil? (get entities-map rev-key)))
+                   [{:scope    :object
+                     :action   :view
+                     :etype    rev-etype
+                     :eid      (get updated-rev-entity "id")
+                     :program  (or (rule-model/get-program! rules rev-etype "view")
+                                   {:result true})
+                     :bindings {:data         updated-rev-entity
+                                :new-data     updated-rev-entity
+                                :rule-params  (merge rule-params rev-rule-params)}}]))
 
-               (and (#{:add-triple :deep-merge-triple} op)
-                    create?)
-               [{:scope    :object
-                 :action   :create
-                 :etype    etype
-                 :eid      (get create-lookups-map eid eid)
-                 :program  (or (rule-model/get-program! rules etype "create")
-                               {:result true})
-                 :bindings (let [updated-entity (-> (get updated-entities-map key)
-                                                    (update "id" #(get create-lookups-map % %)))]
-                             {:data        updated-entity
-                              :new-data    updated-entity
-                              :rule-params rule-params})}]
+                (and (#{:add-triple :deep-merge-triple} op)
+                     create?)
+                [{:scope    :object
+                  :action   :create
+                  :etype    etype
+                  :eid      (get create-lookups-map eid eid)
+                  :program  (or (rule-model/get-program! rules etype "create")
+                                {:result true})
+                  :bindings (let [updated-entity (-> (get updated-entities-map key)
+                                                     (update "id" #(get create-lookups-map % %)))]
+                              {:data        updated-entity
+                               :new-data    updated-entity
+                               :rule-params rule-params})}]
 
-               :else
-               [])]
+                :else
+                [])]
     check))
 
 (defn run-checks!
@@ -601,7 +612,7 @@
         (let [ops-order        (tx/tx-steps-order tx-step-vecs)
               optimistic-attrs (tx/optimistic-attrs attrs tx-step-vecs)
               tx-step-maps     (io/expect-io
-                                (tx/preprocess-tx-steps tx-conn optimistic-attrs app-id tx-step-vecs))
+                                 (tx/preprocess-tx-steps tx-conn optimistic-attrs app-id tx-step-vecs))
               ;; Use the db connection we have so that we don't cause a deadlock
               ;; Also need to be able to read our own writes for the create checks
               ctx              (assoc ctx
@@ -611,7 +622,7 @@
           (if admin?
             (let [tx-steps (tx/reorder-tx-steps ops-order tx-step-maps)]
               (io/expect-io
-               (tx/transact-without-tx-conn-impl! tx-conn optimistic-attrs app-id tx-steps {})))
+                (tx/transact-without-tx-conn-impl! tx-conn optimistic-attrs app-id tx-steps {})))
             (let [;; pre-processing tx
                   tx-step-maps         (->> tx-step-maps
                                             (coerce-value-uuids ctx)
@@ -619,7 +630,7 @@
                                             (tx/validate-value-lookup-etypes optimistic-attrs))
                   ;; TODO somehow fetch update-delete data-ref dependencies in the same go
                   entities-map         (io/expect-io
-                                        (load-entities-map ctx tx-step-maps))
+                                         (load-entities-map ctx tx-step-maps))
                   tx-step-maps         (resolve-lookups-tx-steps ctx entities-map tx-step-maps)
                   entities-map         (resolve-lookups-entities-map ctx entities-map)
                   updated-entities-map (update-entities-map ctx entities-map tx-step-maps)
@@ -639,22 +650,19 @@
                                                    rule-params-map
                                                    tx-step-maps)
                   pre-check-results    (io/expect-io
-                                        (run-checks! ctx pre-checks))
+                                         (run-checks! ctx pre-checks))
 
                   ;; transact to DB
                   tx-step-maps         (tx/reorder-tx-steps ops-order tx-step-maps)
                   tx-data              (io/expect-io
-                                        (tx/transact-without-tx-conn-impl! tx-conn (:attrs ctx)
-                                                                           app-id
-                                                                           tx-step-maps
-                                                                           {:block-$users-update? true}))
+                                         (tx/transact-without-tx-conn-impl! tx-conn (:attrs ctx) app-id tx-step-maps {}))
 
                   ;; post checks
                   create-lookups-map   (io/expect-io
-                                        (->> tx-step-maps
-                                             (map :eid)
-                                             (filter lookup-ref?)
-                                             (triple-model/fetch-lookups->eid tx-conn app-id)))
+                                         (->> tx-step-maps
+                                              (map :eid)
+                                              (filter lookup-ref?)
+                                              (triple-model/fetch-lookups->eid tx-conn app-id)))
                   post-checks          (post-create-checks ctx
                                                            entities-map
                                                            updated-entities-map
@@ -662,7 +670,7 @@
                                                            create-lookups-map
                                                            tx-step-maps)
                   post-check-results   (io/expect-io
-                                        (run-checks! ctx post-checks))
+                                         (run-checks! ctx post-checks))
 
                   ;; finalizing
                   check-results        (concat pre-check-results post-check-results)
@@ -672,7 +680,7 @@
                                                 (not all-checks-ok?)))]
               (when rollback?
                 (io/expect-io
-                 (.rollback tx-conn)))
+                  (.rollback tx-conn)))
               (assoc tx-data
                      :check-results  check-results
                      :all-checks-ok? all-checks-ok?

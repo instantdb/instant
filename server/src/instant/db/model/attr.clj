@@ -12,7 +12,9 @@
    [instant.util.crypt :refer [json-null-md5]]
    [instant.util.exception :as ex]
    [instant.util.spec :as uspec]
-   [instant.util.uuid :as uuid]))
+   [instant.util.uuid :as uuid]
+   [instant.discord :as discord]
+   [instant.config :as config]))
 
 (set! *warn-on-reflection* true)
 
@@ -265,9 +267,13 @@
   "When we run a system catalog migration, we are inserting attrs that affect all 
   existing apps. 
   
-  What if a new insert has an ident that conflicts with some existing app's attr? 
+  What if a new system catalog insert has an ident that conflicts with some 
+  existing app's attr? 
   
-  This prevents that from happening."
+  This will throw if new system catalog inserts conflict. 
+  
+  Note: System catalog migrations run during startup.
+        This means that a conflict will *kill* new machines during a deploy."
   [conn attrs]
   (let [idents  (mapcat ident-names attrs)
         conflicts (sql/execute!
@@ -275,14 +281,27 @@
                    (hsql/format
                     {:with [[[:to-insert {:columns [:etype :label]}]
                              {:values idents}]]
-                     :select :*
-                     :from [[:idents :i]]
-                     :where [:in
-                             [:composite :i.etype :i.label]
-                             {:select [:etype :label]
-                              :from :to-insert}]}))]
+                     :select [[:i.etype :etype]
+                              [:i.label :label]
+                              [:a.id :attr-id]]
+                     :from [[:to-insert :i]]
+                     :join [[:attrs :a] [:or
+                                         [:= [:composite :i.etype :i.label]
+                                          [:composite :a.etype :a.label]]
+                                         [:= [:composite :i.etype :i.label]
+                                          [:composite :a.reverse-etype :a.reverse-label]]]]
+
+                     :limit 1}))]
 
     (when-let [{:keys [etype label attr_id]} (first conflicts)]
+      (when (= :prod (config/get-env))
+        (discord/send-error-async!
+         (str
+          (:instateam discord/mention-constants)
+          ", we attempted to create a system catalog attribute that had a conflict. \n"
+          "Conflicting attribute: " etype "." label " (id: " attr_id ") \n"
+          "This means that new machines can't start. \n"
+          "Fix the conflict and re-deploy.")))
       (ex/throw-validation-err!
        :attributes
        attrs
@@ -292,15 +311,19 @@
 (defn validate-system-ident-names!
   "Prevents users from creating attrs that use catalog idents"
   [attrs]
-  (doseq [attr attrs]
-    (let [fwd (vec (fwd-ident-name attr))
-          rev (vec (rev-ident-name attr))
-          found (some system-catalog/all-ident-names [fwd rev])]
-      (when found
-        (ex/throw-validation-err!
-         :attributes
-         attr
-         [{:message (format "%s.%s is a system column and it already exists." (first found) (second found))}])))))
+  (doseq [attr attrs
+          :let [fwd (fwd-ident-name attr)
+                rev (rev-ident-name attr)
+                found (or (when (system-catalog/reserved-ident-name? fwd)
+                            fwd)
+                          (when (and rev (system-catalog/reserved-ident-name? rev))
+                            rev))]
+          :when found
+          :let [[etype label] found]]
+    (ex/throw-validation-err!
+     :attributes
+     attr
+     [{:message (format "%s.%s is a system column and it already exists." etype label)}])))
 
 (defn validate-add-required! [conn app-id attrs]
   (doseq [attr  attrs

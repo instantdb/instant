@@ -1,6 +1,7 @@
 (ns instant.system-catalog
   (:require [clojure.set :refer [map-invert]]
-            [clojure.string :as string])
+            [clojure.string :as string]
+            [instant.flags :as flags])
   (:import
    [java.util UUID]))
 
@@ -331,10 +332,6 @@
               :unique? false
               :index? false
               :checked-data-type :string)])
-(make-attr "$users" "content-type"
-           :unique? false
-           :index? false
-           :checked-data-type :string)
 
 (def all-attrs (concat $users-attrs
                        $magic-code-attrs
@@ -346,17 +343,27 @@
                        $oauth-redirect-attrs
                        $files-attrs))
 
-(def reserved-ident-names
-  "Add ident names you'd like to add here. Once it's added, users can't create 
-   attrs with this idents. 
+(defn- ^:private reserved-ident-names
+  "Want to add a new system catalog attribute? 
    
-   After this is in production, you can then actually create the attr in question."
-  [])
+   1. Find a good, unique ident name for it (etype + label). i.e: ['$users' 'fullName'] 
+   2. Head on over to instant-config, and update the flag to include your new ident name. 
 
-(def all-ident-names (->> all-attrs
-                          (mapcat (fn [{:keys [forward-identity reverse-identity]}]
-                                    (cond-> []
-                                      forward-identity (conj (vec (rest forward-identity)))
-                                      reverse-identity (conj (vec (rest reverse-identity))))))
-                          (concat reserved-ident-names)
-                          set))
+   This will reserve the ident name, so users can't create that attribute. 
+
+   Once your PR is ready, deploy the change, create your system catalog attr, then 
+   remove the ident name from the flag."
+  []
+  (flags/flag :reserved-system-catalog-ident-names #{}))
+
+(def ^:private existing-ident-names
+  (->> all-attrs
+       (mapcat (fn [{:keys [forward-identity reverse-identity]}]
+                 (cond-> []
+                   forward-identity (conj (vec (rest forward-identity)))
+                   reverse-identity (conj (vec (rest reverse-identity))))))
+       set))
+
+(defn reserved-ident-name? [[etype label]]
+  (or (contains? (reserved-ident-names) [etype label])
+      (contains? existing-ident-names [etype label])))
