@@ -106,7 +106,10 @@ function CreateInstantApp() {
             <ClipboardDocumentIcon className="h-5 w-5" />
           )}
         </div>
-        $ {command}
+        <span className="mr-2 select-none" aria-hidden="true">
+          $
+        </span>
+        <span>{command}</span>
       </div>
     </CopyToClipboard>
   );
