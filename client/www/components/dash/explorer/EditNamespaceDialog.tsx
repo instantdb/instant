@@ -673,17 +673,6 @@ function IndexingJobError({
   onClose: () => void;
 }) {
   if (!indexingJob) return;
-  if (indexingJob.error === 'unexpected-error') {
-    return (
-      <div className="mb-2 mt-2 space-y-2 border-l-2 border-l-red-500 pl-2">
-        <div>
-          An unexpected error occured while changing constraints. Please share
-          these details with the Instant team:
-        </div>
-        <pre>id: "{indexingJob.id}"</pre>
-      </div>
-    );
-  }
   if (indexingJob.error === 'missing-required-error') {
     return (
       <div className="mb-2 mt-2 border-l-2 border-l-red-500 pl-2">
@@ -804,6 +793,18 @@ function IndexingJobError({
             onClose();
           }}
         />
+      </div>
+    );
+  }
+  // Catchall for unexpected errors
+  if (indexingJob.error) {
+    return (
+      <div className="mb-2 mt-2 space-y-2 border-l-2 border-l-red-500 pl-2">
+        <div>
+          An unexpected error occured while changing constraints. Please share
+          these details with the Instant team:
+        </div>
+        <pre>id: "{indexingJob.id}"</pre>
       </div>
     );
   }
