@@ -273,6 +273,7 @@ export function EditNamespaceDialog({
           namespace={namespace}
           namespaces={namespaces}
           onClose={() => setScreen({ type: 'main' })}
+          isSystemCatalogNs={isSystemCatalogNs}
         />
       ) : screen.type === 'delete' ? (
         <DeleteForm
@@ -336,11 +337,15 @@ function AddAttrForm({
   namespace,
   namespaces,
   onClose,
+  isSystemCatalogNs,
+  requireDisabledReason,
 }: {
   db: InstantReactWebDatabase<any>;
   namespace: SchemaNamespace;
   namespaces: SchemaNamespace[];
+  isSystemCatalogNs: boolean;
   onClose: () => void;
+  requireDisabledReason?: string;
 }) {
   const [isRequired, setIsRequired] = useState(false);
   const [isIndex, setIsIndex] = useState(false);
@@ -569,6 +574,9 @@ function AddAttrForm({
             setIsCascadeReverse={setIsCascadeReverse}
             isRequired={isRequired}
             setIsRequired={setIsRequired}
+            isSystemCatalogAttr={false}
+            isSystemCatalogNs={isSystemCatalogNs}
+            requireDisabledReason={requireDisabledReason}
           />
         </>
       ) : null}
@@ -854,8 +862,8 @@ function RelationshipConfigurator({
   setIsRequired: (n: boolean) => void;
   isSystemCatalogAttr: boolean;
   isSystemCatalogNs: boolean;
-  systemAttrDisabledReason: string;
-  requireDisabledReason: string;
+  systemAttrDisabledReason?: string;
+  requireDisabledReason?: string;
 }) {
   const isFullLink = attrName && reverseNamespaceName && reverseAttrName;
   const attrDisabled = isSystemCatalogAttr;
