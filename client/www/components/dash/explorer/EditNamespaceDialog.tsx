@@ -274,6 +274,7 @@ export function EditNamespaceDialog({
           namespaces={namespaces}
           onClose={() => setScreen({ type: 'main' })}
           isSystemCatalogNs={isSystemCatalogNs}
+          requireDisabledReason={`The ${namespace.name} namespace is managed by the system and can't require new attributes yet.`}
         />
       ) : screen.type === 'delete' ? (
         <DeleteForm
@@ -458,6 +459,7 @@ function AddAttrForm({
             <h6 className="text-md font-bold">Constraints</h6>
             <div className="flex gap-2">
               <Checkbox
+                disabled={isSystemCatalogNs}
                 checked={isRequired}
                 onChange={(enabled) => setIsRequired(enabled)}
                 label={
@@ -466,6 +468,7 @@ function AddAttrForm({
                     be guaranteed to have it
                   </span>
                 }
+                title={isSystemCatalogNs ? requireDisabledReason : undefined}
               />
             </div>
             <div className="flex gap-2">
