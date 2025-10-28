@@ -490,6 +490,43 @@ export default class Reactor {
     }
   }
 
+  /**
+   * Does the same thing as handle-query-add-ok
+   * but called as a result of receiving query info from ssr
+   * @param {any} q
+   * @param {{ triples: any; pageInfo: any; }} result
+   * @param {boolean} enableCardinalityInference
+   */
+  _addQueryData(q, result, enableCardinalityInference) {
+    if (!this.attrs) {
+      throw new Error('Attrs in reactor have not been set');
+    }
+    const queryHash = weakHash(q);
+    const store = s.createStore(
+      this.attrs,
+      result.triples,
+      enableCardinalityInference,
+      this._linkIndex,
+      this.config.useDateObjects,
+    );
+    this.querySubs.set((prev) => {
+      prev[queryHash] = {
+        result: {
+          store,
+          pageInfo: result.pageInfo,
+          processedTxId: undefined,
+          isExternal: true,
+        },
+        q,
+      };
+      return prev;
+    });
+    this._cleanupPendingMutationsQueries();
+    this.notifyOne(queryHash);
+    this.notifyOneQueryOnce(queryHash);
+    this._cleanupPendingMutationsTimeout();
+  }
+
   _handleReceive(connId, msg) {
     // opt-out, enabled by default if schema
     const enableCardinalityInference =
@@ -1065,7 +1102,7 @@ export default class Reactor {
   }
 
   /** Runs instaql on a query and a store */
-  dataForQuery(hash) {
+  dataForQuery(hash, applyOptimistic = true) {
     const errorMessage = this._errorMessage;
     if (errorMessage) {
       return { error: errorMessage };
@@ -1089,17 +1126,15 @@ export default class Reactor {
       return cached.data;
     }
 
-    const { store, pageInfo, aggregate, processedTxId } = result;
+    let { store, pageInfo, aggregate, processedTxId } = result;
     const mutations = this._rewriteMutationsSorted(
       store.attrs,
       pendingMutations,
     );
-    const newStore = this._applyOptimisticUpdates(
-      store,
-      mutations,
-      processedTxId,
-    );
-    const resp = instaql({ store: newStore, pageInfo, aggregate }, q);
+    if (applyOptimistic) {
+      store = this._applyOptimisticUpdates(store, mutations, processedTxId);
+    }
+    const resp = instaql({ store: store, pageInfo, aggregate }, q);
 
     this._dataForQueryCache[hash] = {
       querySubVersion,

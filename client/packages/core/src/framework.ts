@@ -32,6 +32,7 @@ export class FrameworkClient {
     triples: any;
     attrs: any;
     queryHash: any;
+    query: any;
     pageInfo?: any;
   }) => void)[] = [];
 
@@ -68,6 +69,18 @@ export class FrameworkClient {
       promise: null,
       error: null,
     });
+    // send the result to the client
+    if (!isServer) {
+      // make sure the attrs are there to create stores
+      if (!this.db._reactor.attrs) {
+        this.db._reactor._setAttrs(value.attrs);
+      }
+      this.db._reactor._addQueryData(
+        value.query,
+        value,
+        !!this.db._reactor.config.schema,
+      );
+    }
   };
 
   public query = (
@@ -105,6 +118,7 @@ export class FrameworkClient {
       this.queryResolvedCallbacks.forEach((callback) => {
         callback({
           queryHash,
+          query: query,
           attrs: result.attrs,
           triples: result.triples,
           pageInfo: result.pageInfo,
@@ -166,6 +180,7 @@ export class FrameworkClient {
   ): Promise<{
     triples: any[];
     attrs: InstantDBAttr[];
+    query: any;
     pageInfo?: any;
   }> => {
     const response = await fetch(
@@ -204,6 +219,7 @@ export class FrameworkClient {
     return {
       attrs,
       triples,
+      query,
       pageInfo,
     };
   };
