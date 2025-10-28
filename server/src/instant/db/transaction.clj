@@ -596,7 +596,10 @@
         (prevent-system-catalog-updates! app-id opts)
         (prevent-$files-updates attrs tx-step-maps opts)
         (validate-mode conn app-id tx-step-maps)
-        (let [results
+        ;; n.b. transaction-model/create! must be the first write to the db
+        ;;      or else the invalidator will miss the transaction.
+        (let [tx (transaction-model/create! conn {:app-id app-id})
+              results
               (reduce-kv
                (fn [acc op tx-steps]
                  (when (#{:add-attr :update-attr} op)
@@ -646,8 +649,7 @@
               updated-attrs (->> tx-step-maps
                                  (filter #(= :update-attr (:op %)))
                                  (map :value))
-              _  (attr-model/validate-update-required! conn app-id updated-attrs)
-              tx (transaction-model/create! conn {:app-id app-id})]
+              _  (attr-model/validate-update-required! conn app-id updated-attrs)]
           (let [tx-created-at (Date/.toInstant (:created_at tx))]
             (e2e-tracer/start-invalidator-tracking! {:tx-id (:id tx)
                                                      :tx-created-at tx-created-at})

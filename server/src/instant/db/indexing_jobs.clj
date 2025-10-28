@@ -414,6 +414,9 @@
 (defn update-attr! [conn {:keys [app-id attr-id set where]}]
   (attr-model/with-cache-invalidation app-id
     (next-jdbc/with-transaction [conn conn]
+      ;; Make sure we create the transaction first so that it's
+      ;; picked up by the invalidator
+      (transaction-model/create! conn {:app-id app-id})
       (let [res (sql/execute-one!
                  ::update-attr!
                  conn
@@ -424,7 +427,6 @@
                                  [:= :id attr-id]
                                  where)
                    :set set}))]
-        (transaction-model/create! conn {:app-id app-id})
         (when-not res
           [::error invalid-attr-state-error])))))
 

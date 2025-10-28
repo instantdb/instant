@@ -4,14 +4,10 @@
    [clojure.set :as clojure-set]
    [datascript.core :as ds]
    [instant.config :as config]
-   [instant.db.model.attr :as attr-model]
    [instant.db.pg-introspect :as pg-introspect]
    [instant.grouped-queue :as grouped-queue]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.wal :as wal]
-   [instant.model.app :as app-model]
-   [instant.model.instant-user :as instant-user-model]
-   [instant.model.rule :as rule-model]
    [instant.reactive.receive-queue :as receive-queue]
    [instant.reactive.store :as rs]
    [instant.util.async :as ua]
@@ -45,10 +41,11 @@
            columns)))
 
 (defn get-column [columns col-name]
-  (first (keep (fn [col]
-                 (when (= col-name (:name col))
-                   (:value col)))
-               columns)))
+  (reduce (fn [_acc col]
+            (when (= col-name (:name col))
+              (reduced (:value col))))
+          nil
+          columns))
 
 (defn- topics-for-triple-insert [change]
   (let [m (columns->map (:columns change) true)
@@ -268,7 +265,7 @@
 (defn transform-wal-record [{:keys [changes tx-bytes] :as _record}]
   ;; n.b. Add the table to the `add-tables` setting in create-replication-stream
   ;;      or else we will never be notified about it.
-  (let [{:strs [idents triples attrs transactions rules apps instant_users]}
+  (let [{:strs [idents triples attrs transactions]}
         (group-by :table changes)
 
         some-changes (or (seq idents)
@@ -276,21 +273,6 @@
                          (seq attrs))
         transactions-change (first transactions)
         app-id (extract-app-id transactions-change)]
-    (doseq [attr attrs]
-      (attr-model/evict-app-id-from-cache (or app-id
-                                              (extract-app-id attr))))
-    (doseq [rule rules]
-      (let [app-id (or app-id (extract-app-id rule))]
-        (rule-model/evict-app-id-from-cache app-id)))
-
-    (doseq [app apps]
-      (let [app-id (or app-id (extract-id app))]
-        (app-model/evict-app-id-from-cache app-id)
-        (instant-user-model/evict-app-id-from-cache app-id)))
-
-    (doseq [user instant_users]
-      (let [id (extract-id user)]
-        (instant-user-model/evict-user-id-from-cache id)))
 
     (when (and some-changes app-id)
       (let [tx-id (extract-tx-id transactions-change)

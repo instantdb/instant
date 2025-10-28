@@ -30,6 +30,7 @@
    [instant.gauges :as gauges]
    [instant.health :as health]
    [instant.jdbc.aurora :as aurora]
+   [instant.jdbc.cache-evict :as cache-evict]
    [instant.jdbc.pgerrors :as pgerrors]
    [instant.jdbc.sql :as sql]
    [instant.util.async :as ua]
@@ -324,23 +325,53 @@
   [^PGReplicationStream stream to close-signal-chan {:keys [auto-flush?]}]
   ;; :next-action is either:
   ;;   :begin, we're waiting for a :begin record
-  ;;   :close, we got :begin and we're collecting records until we get :close
-  ;;   :deliver, we got close and we need to proceed to the invalidator
+  ;;     :tx, we got :begin and we're waiting to see if the first insert is to the transactions table
+  ;;       :close, we got :tx and we're collecting records until we get :close
+  ;;       :deliver, we got :close and we need to proceed to the invalidator
+  ;;     :close-ignore, we got :begin and the first record was not an insert to the transactions table
+  ;;                    we're ignoring transactions until we get to the close
+  ;;     :advance, we got :close and we need to reset for the next db transaction
+
   (loop [buffer (.read stream)
          state produce-start-state]
     (if-not buffer
       (when-not (.isClosed stream)
         (recur (.read stream) state))
       (let [record (wal-buffer->record buffer)
+            _ (cache-evict/evict-cache! record)
             next-state (-> (case (:next-action state)
                              :begin (case (:action record)
                                       :begin (-> state
-                                                 (assoc :next-action :close))
+                                                 (assoc :next-action :tx))
                                       (unexpected-state state
                                                         record
                                                         ;; Let's just reset
-                                                        {:next-action :close
+                                                        {:next-action :tx
                                                          :records []}))
+                             :tx (case (:action record)
+                                   :insert (if (= "transactions" (:table record))
+                                             (-> state
+                                                 (assoc :next-action :close)
+                                                 (update :records conj record))
+                                             (assoc state :next-action :close-ignore))
+
+                                   (:update :delete) (assoc state :next-action :close-ignore)
+
+                                   (:truncate :message) state
+
+                                   :close (assoc state :next-action :advance)
+
+                                   :begin (unexpected-state state
+                                                            record
+                                                            {:next-action :tx
+                                                             :records []})
+
+
+                                   (unexpected-state state
+                                                     record
+                                                     ;; Just keep going
+                                                     state))
+
                              :close (case (:action record)
                                       (:insert :update :delete) (update state :records conj record)
 
@@ -351,31 +382,51 @@
 
                                       :begin (unexpected-state state
                                                                record
-                                                               {:next-action :close
+                                                               {:next-action :tx
                                                                 :records []})
                                       (unexpected-state state
                                                         record
                                                         ;; Just keep going
                                                         state))
+
+                             :close-ignore (case (:action record)
+                                             (:insert :update :delete :truncate :message) state
+
+                                             :close (assoc state :next-action :advance)
+
+                                             :begin (unexpected-state state
+                                                                      record
+                                                                      {:next-action :tx
+                                                                       :records []})
+                                             (unexpected-state state
+                                                               record
+                                                               ;; Just keep going
+                                                               state))
                              (unexpected-state state record state))
                            (update :tx-bytes (fnil + 0) (:tx-bytes record)))]
-        (if (not= :deliver (:next-action next-state))
-          (recur (.read stream) next-state)
-          (let [last-receive-lsn ^LogSequenceNumber (.getLastReceiveLSN stream)
-                msg {:changes (:records state)
-                     :nextlsn (LogSequenceNumber/valueOf ^String (:nextlsn record))
-                     :lsn (LogSequenceNumber/valueOf ^String (:lsn record))
-                     :tx-bytes (:tx-bytes state)}
-                put-result (a/alt!! [[to msg]] :put
-                                    ;; The close signal chan keeps us from
-                                    ;; waiting to put on a closed `to` channel
-                                    close-signal-chan :closed)]
-            (when (and (= put-result :put)
-                       (not (.isClosed stream)))
-              (when auto-flush?
-                (.setAppliedLSN stream last-receive-lsn)
-                (.setFlushedLSN stream last-receive-lsn))
-              (recur (.read stream) produce-start-state))))))))
+        (case (:next-action next-state)
+          :advance (let [last-receive-lsn ^LogSequenceNumber (.getLastReceiveLSN stream)]
+                     (when (not (.isClosed stream))
+                       (when auto-flush?
+                         (.setAppliedLSN stream last-receive-lsn)
+                         (.setFlushedLSN stream last-receive-lsn))
+                       (recur (.read stream) produce-start-state)))
+          :deliver (let [last-receive-lsn ^LogSequenceNumber (.getLastReceiveLSN stream)
+                         msg {:changes (:records state)
+                              :nextlsn (LogSequenceNumber/valueOf ^String (:nextlsn record))
+                              :lsn (LogSequenceNumber/valueOf ^String (:lsn record))
+                              :tx-bytes (:tx-bytes state)}
+                         put-result (a/alt!! [[to msg]] :put
+                                             ;; The close signal chan keeps us from
+                                             ;; waiting to put on a closed `to` channel
+                                             close-signal-chan :closed)]
+                     (when (and (= put-result :put)
+                                (not (.isClosed stream)))
+                       (when auto-flush?
+                         (.setAppliedLSN stream last-receive-lsn)
+                         (.setFlushedLSN stream last-receive-lsn))
+                       (recur (.read stream) produce-start-state)))
+          (recur (.read stream) next-state))))))
 
 (defn- produce-aggregate
   "Repeatedly read from the stream and puts records on the `to` channel.
