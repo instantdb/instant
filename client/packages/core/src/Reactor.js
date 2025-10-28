@@ -1961,7 +1961,9 @@ export default class Reactor {
    * @returns () => void
    */
   joinRoom(roomId, initialPresence) {
+    let needsToSendJoin = false;
     if (!this._rooms[roomId]) {
+      needsToSendJoin = true;
       this._rooms[roomId] = {
         isConnected: false,
         error: undefined,
@@ -1976,7 +1978,9 @@ export default class Reactor {
       this._notifyPresenceSubs(roomId);
     }
 
-    this._tryJoinRoom(roomId, initialPresence);
+    if (needsToSendJoin) {
+      this._tryJoinRoom(roomId, initialPresence);
+    }
 
     return () => {
       this._cleanupRoom(roomId);

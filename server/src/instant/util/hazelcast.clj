@@ -129,10 +129,8 @@
                      {:peer-id     session-id
                       :instance-id instance-id
                       :user        (when user-id
-                                     {:id user-id})}
-                     (if data
-                       {:data data}
-                       {:data (or (:data existing) {})}))))))
+                                     {:id user-id})
+                      :data (or (:data existing) data {})})))))
 
 (def ^ByteArraySerializer join-room-v3-serializer
   (reify ByteArraySerializer

@@ -56,7 +56,7 @@ function PresenceTracker({ db }: { db: InstantReactAbstractDatabase<Schema> }) {
     console.log('Subscribing to presence with:', subscribeOpts);
 
     unsubscribeRef.current = room.subscribePresence(
-      subscribeOpts as any,
+      subscribeOpts,
       (response) => {
         console.log('subscribePresence callback invoked:', response);
         appendUpdate(response);
