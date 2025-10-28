@@ -10,7 +10,7 @@ export default defineConfig({
     lib: {
       formats: ['umd', 'es'],
       // this is the file that exports our components
-      entry: resolve(__dirname, 'src', 'index.ts'),
+      entry: resolve(__dirname, 'src', 'index.tsx'),
       name: 'instantReact',
       fileName: 'index',
     },

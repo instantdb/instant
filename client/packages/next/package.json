@@ -59,7 +59,7 @@
     "project": "./tsconfig.json",
     "exports": {
       "./package.json": "./package.json",
-      ".": "./src/index.ts"
+      ".": "./src/index.tsx"
     }
   },
   "keywords": [],
