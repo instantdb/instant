@@ -97,6 +97,7 @@ import type {
 } from './schemaTypes.ts';
 import type { InstantRules } from './rulesTypes.ts';
 import type { UploadFileResponse, DeleteFileResponse } from './StorageAPI.ts';
+import { FrameworkClient, type FrameworkConfig } from './framework.ts';
 
 import type {
   ExchangeCodeForTokenParams,
@@ -850,6 +851,7 @@ export {
   QueryValidationError,
   validateTransactions,
   TransactionValidationError,
+  FrameworkClient,
 
   // error
   InstantAPIError,
@@ -960,9 +962,8 @@ export {
 
   // SSE
   type EventSourceType,
+  type FrameworkConfig,
 
   // error types
   type InstantIssue,
 };
-
-export { FrameworkClient, FrameworkConfig } from './framework.ts';
