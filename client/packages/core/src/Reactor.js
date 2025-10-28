@@ -1969,8 +1969,8 @@ export default class Reactor {
     }
 
     this._presence[roomId] = this._presence[roomId] || {};
-
-    if (initialData) {
+    const previousResult = this._presence[roomId].result;
+    if (initialData && !previousResult) {
       this._presence[roomId].result = this._presence[roomId].result || {};
       this._presence[roomId].result.user = initialData;
       this._notifyPresenceSubs(roomId);
