@@ -33,7 +33,7 @@ function Presence({
 }) {
   const room = db.room('chat');
   const { user } = db.rooms.usePresence(room, {
-    initialData: { displayName: name },
+    initialPresence: { displayName: name },
   });
   return (
     <div className="flex flex-col space-y-6">

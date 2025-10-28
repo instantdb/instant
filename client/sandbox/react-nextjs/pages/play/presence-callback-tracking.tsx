@@ -48,7 +48,7 @@ function PresenceTracker({ db }: { db: InstantReactAbstractDatabase<Schema> }) {
 
     // Subscribe to presence with initialData
     const subscribeOpts = {
-      initialData: {
+      initialPresence: {
         stage: 'initialPresenceFromSubscribe',
       },
     };

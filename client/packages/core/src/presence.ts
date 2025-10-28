@@ -16,7 +16,13 @@ export type PresenceOpts<PresenceShape, Keys extends keyof PresenceShape> = {
   user?: boolean;
   peers?: string[];
   keys?: Keys[];
-  // Initial presence data to set when joining the room
+  /**
+   * If you haven't joined this room yet, initialPresence lets you set
+   * the very first presence state for the user.
+   */
+  initialPresence?: Partial<PresenceShape>;
+
+  /** @deprecated use `initialPresence` */
   initialData?: Partial<PresenceShape>;
 };
 
