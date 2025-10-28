@@ -1957,10 +1957,10 @@ export default class Reactor {
 
   /**
    * @param {string} roomId
-   * @param {any | null | undefined} [initialData] -- initial presence data to send when joining the room
+   * @param {any | null | undefined} [initialPresence] -- initial presence data to send when joining the room
    * @returns () => void
    */
-  joinRoom(roomId, initialData) {
+  joinRoom(roomId, initialPresence) {
     if (!this._rooms[roomId]) {
       this._rooms[roomId] = {
         isConnected: false,
@@ -1970,13 +1970,13 @@ export default class Reactor {
 
     this._presence[roomId] = this._presence[roomId] || {};
     const previousResult = this._presence[roomId].result;
-    if (initialData && !previousResult) {
+    if (initialPresence && !previousResult) {
       this._presence[roomId].result = this._presence[roomId].result || {};
-      this._presence[roomId].result.user = initialData;
+      this._presence[roomId].result.user = initialPresence;
       this._notifyPresenceSubs(roomId);
     }
 
-    this._tryJoinRoom(roomId, initialData);
+    this._tryJoinRoom(roomId, initialPresence);
 
     return () => {
       this._cleanupRoom(roomId);
@@ -2062,7 +2062,13 @@ export default class Reactor {
 
   // TODO: look into typing again
   subscribePresence(roomType, roomId, opts, cb) {
-    const leaveRoom = this.joinRoom(roomId, opts.initialData);
+    const leaveRoom = this.joinRoom(
+      roomId,
+      // Oct 28, 2025
+      // Note: initialData is deprecated.
+      // Keeping here for backwards compatibility
+      opts.initialPresence || opts.initialData,
+    );
 
     const handler = { ...opts, roomId, cb, prev: null };
 

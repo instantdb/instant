@@ -12,7 +12,7 @@ function Presence({ presenceData }: { presenceData: string }) {
       'main',
       'set-and-join',
       {
-        data: { value: presenceData },
+        initialPresence: { value: presenceData },
       },
       (data: any) => {
         setPresenceValues((current) => [data, ...current]);

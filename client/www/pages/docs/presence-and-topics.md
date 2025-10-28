@@ -143,7 +143,7 @@ function App() {
   } = db.rooms.usePresence(
     room,
     // Publish your presence when you join the room
-    { initialData: { name: user.name } },
+    { initialPresence: { name: user.name } },
   );
 
   // Update your presence when your name changes
@@ -501,7 +501,7 @@ function UserAvatar({ peer }: { peer: ChatPeer }) {
 function OnlineAvatars({ name, avatar }: { name: string; avatar: string }) {
   // Subcribe and publish initial presence
   const { user: myPresence, peers } = db.rooms.usePresence(room, {
-    initialData: { name, avatar },
+    initialPresence: { name, avatar },
   });
 
   // Render my avatar and all peer avatars
