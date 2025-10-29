@@ -4131,7 +4131,7 @@
                       (attr-model/seek-by-id attr-id)
                       :inferred-types))))))))
 
-#_(deftest cant-create-system-catalog-attrs-with-existing-idents
+(deftest cant-create-system-catalog-attrs-with-existing-idents
     (with-empty-app
       (fn [{app-id :id}]
         (tx/transact! (aurora/conn-pool :write)
@@ -4169,7 +4169,7 @@
           (run-test! "forward")
           (run-test! "backward")))))
 
-#_(deftest cant-update-system-catalog-attrs
+(deftest cant-update-system-catalog-attrs
     (next.jdbc/with-transaction [conn (aurora/conn-pool :write)]
       (try
         (let [ex-data
