@@ -316,7 +316,8 @@
   [input-type input errors]
   (let [base-msg (str "Validation failed for " (name input-type))
         hint-msgs (keep :message errors)
-        full-msg (if (seq hint-msgs)
+        full-msg (if-not (seq hint-msgs)
+                   base-msg
                    (str base-msg ": " (string/join ", " hint-msgs)))
         cleaned-errors (->> errors
                             (map (fn [err] (dissoc err :message)))
