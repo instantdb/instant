@@ -681,7 +681,6 @@ export default class Reactor {
       }
       case 'leave-room-ok': {
         const roomId = msg['room-id'];
-        debugger;
         this._trySetRoomConnected(roomId, false);
         break;
       }
