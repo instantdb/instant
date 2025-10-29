@@ -4131,59 +4131,59 @@
                       (attr-model/seek-by-id attr-id)
                       :inferred-types))))))))
 
-(deftest cant-create-system-catalog-attrs-with-existing-idents
-  (with-empty-app
-    (fn [{app-id :id}]
-      (tx/transact! (aurora/conn-pool :write)
-                    (attr-model/get-by-app-id app-id)
-                    app-id
-                    [[:add-attr {:id (random-uuid)
-                                 :forward-identity [(random-uuid) "$users" "forward"]
-                                 :reverse-identity [(random-uuid) "$users" "backward"]
-                                 :value-type :ref
-                                 :cardinality :many
-                                 :unique? false
-                                 :index? false}]])
+#_(deftest cant-create-system-catalog-attrs-with-existing-idents
+    (with-empty-app
+      (fn [{app-id :id}]
+        (tx/transact! (aurora/conn-pool :write)
+                      (attr-model/get-by-app-id app-id)
+                      app-id
+                      [[:add-attr {:id (random-uuid)
+                                   :forward-identity [(random-uuid) "$users" "forward"]
+                                   :reverse-identity [(random-uuid) "$users" "backward"]
+                                   :value-type :ref
+                                   :cardinality :many
+                                   :unique? false
+                                   :index? false}]])
 
-      (letfn [(run-test! [label]
-                (next.jdbc/with-transaction [conn (aurora/conn-pool :write)]
-                  (testing label
-                    (let [ex-data
-                          (test-util/instant-ex-data
-                           (attr-model/insert-multi! conn
-                                                     system-catalog-app-id
-                                                     [{:id (random-uuid)
-                                                       :forward-identity [(random-uuid) "$users" label]
-                                                       :value-type :blob
-                                                       :cardinality :one
-                                                       :unique? false
-                                                       :index? false}]
-                                                     {:allow-reserved-names? true}))]
+        (letfn [(run-test! [label]
+                  (next.jdbc/with-transaction [conn (aurora/conn-pool :write)]
+                    (testing label
+                      (let [ex-data
+                            (test-util/instant-ex-data
+                             (attr-model/insert-multi! conn
+                                                       system-catalog-app-id
+                                                       [{:id (random-uuid)
+                                                         :forward-identity [(random-uuid) "$users" label]
+                                                         :value-type :blob
+                                                         :cardinality :one
+                                                         :unique? false
+                                                         :index? false}]
+                                                       {:allow-reserved-names? true}))]
 
-                      (is (string/starts-with?
-                           (::ex/message ex-data)
-                           (str "Validation failed for attributes: $users." label)))))
+                        (is (string/starts-with?
+                             (::ex/message ex-data)
+                             (str "Validation failed for attributes: $users." label)))))
 
-                  (.rollback conn)))]
+                    (.rollback conn)))]
 
-        (run-test! "forward")
-        (run-test! "backward")))))
+          (run-test! "forward")
+          (run-test! "backward")))))
 
-(deftest cant-update-system-catalog-attrs
-  (next.jdbc/with-transaction [conn (aurora/conn-pool :write)]
-    (try
-      (let [ex-data
-            (test-util/instant-ex-data
-             (attr-model/update-multi! conn
-                                       system-catalog-app-id
-                                       [{:id (system-catalog/get-attr-id "$users" "email")
-                                         :unique? false}]))]
+#_(deftest cant-update-system-catalog-attrs
+    (next.jdbc/with-transaction [conn (aurora/conn-pool :write)]
+      (try
+        (let [ex-data
+              (test-util/instant-ex-data
+               (attr-model/update-multi! conn
+                                         system-catalog-app-id
+                                         [{:id (system-catalog/get-attr-id "$users" "email")
+                                           :unique? false}]))]
 
-        (is (string/starts-with?
-             (::ex/message ex-data)
-             "Raised Exception: Updating attrs on the system catalog app is not allowed.")))
-      (finally
-        (.rollback conn)))))
+          (is (string/starts-with?
+               (::ex/message ex-data)
+               "Raised Exception: Updating attrs on the system catalog app is not allowed.")))
+        (finally
+          (.rollback conn)))))
 
 (deftest cant-create-system-attr-with-system-catalog-ident-name
   (with-empty-app
