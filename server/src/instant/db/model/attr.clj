@@ -314,7 +314,7 @@
   (doseq [attr attrs
           :let [fwd (fwd-ident-name attr)
                 rev (rev-ident-name attr)
-                found (or (when (system-catalog/reserved-ident-name? fwd)
+                found (or (when (and fwd (system-catalog/reserved-ident-name? fwd))
                             fwd)
                           (when (and rev (system-catalog/reserved-ident-name? rev))
                             rev))]
@@ -576,6 +576,7 @@
 
 (defn update-multi!
   [conn app-id updates]
+  (validate-system-ident-names! updates)
   (with-cache-invalidation app-id
     (sql/do-execute!
      ::update-multi!

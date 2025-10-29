@@ -27,7 +27,7 @@
    [instant.util.exception :as ex]
    [instant.util.test :as test-util :refer [suid stuid validation-err? perm-err? perm-pass? timeout-err?]]
    [instant.util.date :as date-util]
-   [instant.system-catalog :refer [system-catalog-app-id]]
+   [instant.system-catalog :as system-catalog :refer [system-catalog-app-id]]
    [next.jdbc]))
 
 (defn- fetch-triples
@@ -4169,6 +4169,22 @@
         (run-test! "forward")
         (run-test! "backward")))))
 
+(deftest cant-update-system-catalog-attrs
+  (next.jdbc/with-transaction [conn (aurora/conn-pool :write)]
+    (try
+      (let [ex-data
+            (test-util/instant-ex-data
+             (attr-model/update-multi! conn
+                                       system-catalog-app-id
+                                       [{:id (system-catalog/get-attr-id "$users" "email")
+                                         :unique? false}]))]
+
+        (is (string/starts-with?
+             (::ex/message ex-data)
+             "Raised Exception: Updating attrs on the system catalog app is not allowed.")))
+      (finally
+        (.rollback conn)))))
+
 (deftest cant-create-system-attr-with-system-catalog-ident-name
   (with-empty-app
     (fn [{app-id :id}]
@@ -4182,6 +4198,34 @@
                                                 :cardinality :one
                                                 :unique? false
                                                 :index? false}]]))]
+        (is (string/starts-with?
+             (::ex/message ex-data)
+             "Validation failed for attributes: $users.email is a system column"))))))
+
+(deftest cant-update-system-attr-with-system-catalog-ident-name
+  (with-empty-app
+    (fn [{app-id :id}]
+      (let [aid (random-uuid)
+            fwd-ident-id (random-uuid)
+            _ (tx/transact! (aurora/conn-pool :write)
+                            (attr-model/get-by-app-id app-id)
+                            app-id
+                            [[:add-attr {:id aid
+                                         :forward-identity [fwd-ident-id "$users" "fullName"]
+                                         :value-type :blob
+                                         :cardinality :one
+                                         :unique? false
+                                         :index? false}]])
+            ex-data (test-util/instant-ex-data
+                     (tx/transact! (aurora/conn-pool :write)
+                                   (attr-model/get-by-app-id app-id)
+                                   app-id
+                                   [[:update-attr {:id aid
+                                                   :forward-identity [fwd-ident-id "$users" "email"]
+                                                   :value-type :blob
+                                                   :cardinality :one
+                                                   :unique? false
+                                                   :index? false}]]))]
         (is (string/starts-with?
              (::ex/message ex-data)
              "Validation failed for attributes: $users.email is a system column"))))))
