@@ -11,6 +11,7 @@
     "@instantdb/admin": "workspace:*",
     "@instantdb/core": "workspace:*",
     "@instantdb/platform": "workspace:*",
+    "@instantdb/next": "workspace:*",
     "@instantdb/react": "workspace:*",
     "@react-oauth/google": "^0.12.1",
     "date-fns": "^2.29.3",
