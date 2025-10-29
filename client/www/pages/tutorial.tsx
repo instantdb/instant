@@ -548,7 +548,7 @@ const clientConfigs = {
         <p>Click this button to install the Instant MCP server in Cursor:</p>
         <div className="flex">
           <a
-            href="https://cursor.com/install-mcp?name=InstantDB&config=eyJ1cmwiOiJodHRwczovL21jcC5pbnN0YW50ZGIuY29tL21jcCJ9"
+            href="https://cursor.com/en/install-mcp?name=InstantDB&config=eyJ1cmwiOiJodHRwczovL21jcC5pbnN0YW50ZGIuY29tL21jcCJ9"
             target="_blank"
             rel="noopener noreferrer"
           >
