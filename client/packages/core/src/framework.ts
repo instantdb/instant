@@ -184,7 +184,7 @@ export class FrameworkClient {
     pageInfo?: any;
   }> => {
     const response = await fetch(
-      `${this.db._reactor.config.apiURI}/runtime/triples`,
+      `${this.db._reactor.config.apiURI}/runtime/query`,
       {
         method: 'POST',
         headers: {
