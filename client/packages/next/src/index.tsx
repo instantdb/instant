@@ -115,6 +115,7 @@ export const InstantSuspenseProvider = (
   return (
     <SuspsenseQueryContext.Provider value={useSuspenseQuery}>
       <stream.Provider
+        nonce={props.nonce}
         onFlush={() => {
           const toSend = [];
 
