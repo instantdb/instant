@@ -1350,8 +1350,15 @@ async function waitForIndexingJobsToFinish(appId, data) {
           completedIds.add(job.id);
           const msg = indexingJobCompletedMessage(job);
           if (msg) {
+            // console.log(
+            //   'got here!1',
+            //   job.job_status === 'errored',
+            //   job.job_status,
+            //   job,
+            // );
             if (job.job_status === 'errored') {
               spinner.addMessage(msg);
+              errorMessages.push(msg);
             } else {
               spinner.addMessage(msg);
             }
