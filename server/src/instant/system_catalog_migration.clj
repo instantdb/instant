@@ -72,7 +72,10 @@
                                :attributes {:extras extras}}))
        (when (seq json-ids)
          (next.jdbc/with-transaction [conn (aurora/conn-pool :write)]
-           (sql/execute! conn ["set local instant.allow_system_catalog_app_attr_update = true"])
+           (sql/execute!
+            conn
+            (hsql/format
+             {:select [[[:set_config "instant.allow_system_catalog_app_attr_update" "true" true]]]}))
            (sql/execute!
             conn
             (hsql/format {:update :attrs
@@ -83,7 +86,10 @@
                                                  [:bit :32]]}}))))
        (when (seq string-ids)
          (next.jdbc/with-transaction [conn (aurora/conn-pool :write)]
-           (sql/execute! conn ["set local instant.allow_system_catalog_app_attr_update = true"])
+           (sql/execute!
+            conn
+            (hsql/format
+             {:select [[[:set_config "instant.allow_system_catalog_app_attr_update" "true" true]]]}))
            (sql/execute!
             conn
             (hsql/format {:update :attrs
