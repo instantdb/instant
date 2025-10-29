@@ -30,18 +30,19 @@
   },
   "peerDependencies": {
     "next": "^13 || ^14 || ^15",
-    "react": ">=19"
+    "react": ">=18"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.17.4",
     "@babel/core": "^7.17.9",
     "@babel/preset-env": "^7.16.11",
     "@types/node": "^22.6.1",
-    "@types/react": "^19",
+    "@types/react": "^18",
     "@vitejs/plugin-react": "^4.3.1",
     "next": "^15.5.6",
+    "react-dom": "18.3.1",
     "npm-run-all": "^4.1.5",
-    "react": "^19.0.0",
+    "react": "18.3.1",
     "tshy": "^3.0.2",
     "typescript": "^5.9.3",
     "vite": "^5.2.0",

@@ -66,9 +66,9 @@ function App() {
       </div>
       <h2 className="tracking-wide text-5xl text-gray-300">todos</h2>
       <div className="border border-gray-300 max-w-xs w-full">
-        <TodoForm todos={todos} />
+        {/*<TodoForm todos={todos} />
         <TodoList todos={todos} />
-        <ActionBar todos={todos} />
+        <ActionBar todos={todos} />*/}
       </div>
       <div className="text-xs text-center">
         Open another tab to see todos update in realtime!
