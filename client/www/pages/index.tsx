@@ -690,7 +690,7 @@ export function ExampleMultiPreview({
             {appId ? (
               <iframe
                 className="flex-1"
-                src={'/examples/' + pathName + '?__appId=' + appId}
+                src={'/recipes/' + pathName + '?__appId=' + appId}
               />
             ) : (
               <div className="animate-slow-pulse flex-1 bg-gray-300"></div>
@@ -698,7 +698,7 @@ export function ExampleMultiPreview({
           </div>
         ))}
       <div className="flex justify-center">
-        <SeeTheCodeButton href={`/examples#${pathName}`} />
+        <SeeTheCodeButton href={`/recipes#${pathName}`} />
       </div>
     </div>
   );

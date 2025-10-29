@@ -9,11 +9,11 @@ export type File = {
 };
 
 export function getFiles(): File[] {
-  return fs.readdirSync('./pages/examples').map((fileName) => {
+  return fs.readdirSync('./pages/recipes').map((fileName) => {
     const pathName = fileName.replace(/\.tsx$/, '');
     const name = capitalize(pathName.slice(2).split('-').join(' '));
     const code = fs
-      .readFileSync(`./pages/examples/${fileName}`, 'utf-8')
+      .readFileSync(`./pages/recipes/${fileName}`, 'utf-8')
       .replaceAll(`__getAppId()`, `"__YOUR_APP_ID__"`)
       .split('\n')
       .filter((l) => l.indexOf('// hide-line') === -1)

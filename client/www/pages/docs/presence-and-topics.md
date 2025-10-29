@@ -203,7 +203,7 @@ const { publishPresence } = db.rooms.usePresence(room, {
 
 Instant provides 2 hooks for sending and handling events for a given topic. `usePublishTopic` returns a function you can call to publish an event, and `useTopicEffect` will be called each time a peer in the same room publishes a topic event.
 
-Here's a live reaction feature using topics. You can also play with it live on [our examples page](https://www.instantdb.com/examples?#5-reactions)
+Here's a live reaction feature using topics. You can also play with it live on [our recipes page](https://www.instantdb.com/recipes?#5-reactions)
 
 ```tsx {% showCopy=true %}
 'use client';
