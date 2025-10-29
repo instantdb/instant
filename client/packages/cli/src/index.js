@@ -451,27 +451,38 @@ program
     await handlePull(bag, opts);
   });
 
-program.command('claim').action(async function () {
-  const envResult = detectAppIdAndAdminTokenFromEnvWithErrorLogging();
-  if (!envResult.ok) return process.exit(1);
+program
+  .command('claim')
+  .description('Transfer a tempoary app into your Instant account')
+  .action(async function () {
+    const token = await readConfigAuthToken(false);
+    if (!token) {
+      console.error(
+        `Please log in first with ${chalk.bgGray.white('instant-cli login')} to claim an app`,
+      );
+      process.exit(1);
+    }
 
-  if (!envResult.appId) {
-    error('No app ID found in environment variables.');
-    return process.exit(1);
-  }
+    const envResult = detectAppIdAndAdminTokenFromEnvWithErrorLogging();
+    if (!envResult.ok) return process.exit(1);
 
-  if (!envResult.adminToken) {
-    error('No admin token found in environment variables.');
-    return process.exit(1);
-  }
+    if (!envResult.appId) {
+      error('No app ID found in environment variables.');
+      return process.exit(1);
+    }
 
-  const appId = envResult.appId.value;
-  const adminToken = envResult.adminToken.value;
+    if (!envResult.adminToken) {
+      error('No admin token found in environment variables.');
+      return process.exit(1);
+    }
 
-  console.log(`Found ${chalk.green(envResult.appId.envName)}: ${appId}`);
+    const appId = envResult.appId.value;
+    const adminToken = envResult.adminToken.value;
 
-  await claimEphemeralApp(appId, adminToken);
-});
+    console.log(`Found ${chalk.green(envResult.appId.envName)}: ${appId}`);
+
+    await claimEphemeralApp(appId, adminToken);
+  });
 
 program.parse(process.argv);
 
@@ -1904,7 +1915,7 @@ async function readLocalSchemaFileWithErrorLogging() {
   return res;
 }
 
-async function readConfigAuthToken() {
+async function readConfigAuthToken(allowAdminToken = true) {
   const options = program.opts();
   if (typeof options.token === 'string') {
     return options.token;
@@ -1923,13 +1934,16 @@ async function readConfigAuthToken() {
     return authToken;
   }
 
-  const adminTokenNames = Object.values(potentialAdminTokenEnvs);
-  for (const envName of adminTokenNames) {
-    const token = process.env[envName];
-    if (token) {
-      return token;
+  if (allowAdminToken) {
+    const adminTokenNames = Object.values(potentialAdminTokenEnvs);
+    for (const envName of adminTokenNames) {
+      const token = process.env[envName];
+      if (token) {
+        return token;
+      }
     }
   }
+  return null;
 }
 
 export async function readConfigAuthTokenWithErrorLogging() {
