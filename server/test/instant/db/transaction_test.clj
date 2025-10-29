@@ -4169,21 +4169,21 @@
         (run-test! "forward")
         (run-test! "backward")))))
 
-#_(deftest cant-update-system-catalog-attrs
-    (next.jdbc/with-transaction [conn (aurora/conn-pool :write)]
-      (try
-        (let [ex-data
-              (test-util/instant-ex-data
-               (attr-model/update-multi! conn
-                                         system-catalog-app-id
-                                         [{:id (system-catalog/get-attr-id "$users" "email")
-                                           :unique? false}]))]
+(deftest cant-update-system-catalog-attrs
+  (next.jdbc/with-transaction [conn (aurora/conn-pool :write)]
+    (try
+      (let [ex-data
+            (test-util/instant-ex-data
+             (attr-model/update-multi! conn
+                                       system-catalog-app-id
+                                       [{:id (system-catalog/get-attr-id "$users" "email")
+                                         :unique? false}]))]
 
-          (is (string/starts-with?
-               (::ex/message ex-data)
-               "Raised Exception: Updating attrs on the system catalog app is not allowed.")))
-        (finally
-          (.rollback conn)))))
+        (is (string/starts-with?
+             (::ex/message ex-data)
+             "Raised Exception: Updating attrs on the system catalog app is not allowed.")))
+      (finally
+        (.rollback conn)))))
 
 (deftest cant-create-system-attr-with-system-catalog-ident-name
   (with-empty-app

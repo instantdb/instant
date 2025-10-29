@@ -15,64 +15,64 @@ create trigger prevent_required_on_reserved_attrs_trigger
   for each row
   execute function prevent_required_on_reserved_attrs();
 
--- create or replace function prevent_update_system_catalog_attr()
--- returns trigger as $$
--- declare
---   disable_trigger boolean := false;
--- begin
---   -- Check if override setting is enabled
---   begin
---     disable_trigger := current_setting('instant.allow_system_catalog_app_attr_update')::boolean;
---   exception when undefined_object then
---     disable_trigger := false;
---   end;
+create or replace function prevent_update_system_catalog_attr()
+returns trigger as $$
+declare
+  disable_trigger boolean := false;
+begin
+  -- Check if override setting is enabled
+  begin
+    disable_trigger := current_setting('instant.allow_system_catalog_app_attr_update')::boolean;
+  exception when undefined_object then
+    disable_trigger := false;
+  end;
 
---   if disable_trigger then
---     return new;
---   end if;
+  if disable_trigger then
+    return new;
+  end if;
 
---   -- Prevent updates for system catalog app
---   if old.app_id = 'a1111111-1111-1111-1111-111111111ca7' then
---     raise exception 'Updating attrs on the system catalog app is not allowed. Set the `instant.allow_system_catalog_app_attr_update` setting to true to override.';
---   end if;
+  -- Prevent updates for system catalog app
+  if old.app_id = 'a1111111-1111-1111-1111-111111111ca7' then
+    raise exception 'Updating attrs on the system catalog app is not allowed. Set the `instant.allow_system_catalog_app_attr_update` setting to true to override.';
+  end if;
 
---   return old;
--- end;
--- $$
--- language plpgsql;
+  return old;
+end;
+$$
+language plpgsql;
 
--- create trigger prevent_update_system_catalog_attr_trigger
---   before update on attrs
---   for each row
---   execute function prevent_update_system_catalog_attr();
+create trigger prevent_update_system_catalog_attr_trigger
+  before update on attrs
+  for each row
+  execute function prevent_update_system_catalog_attr();
 
--- create or replace function prevent_update_system_catalog_ident()
--- returns trigger as $$
--- declare
---   disable_trigger boolean := false;
--- begin
---   -- Check if override setting is enabled
---   begin
---     disable_trigger := current_setting('instant.allow_system_catalog_app_ident_update')::boolean;
---   exception when undefined_object then
---     disable_trigger := false;
---   end;
---
---   if disable_trigger then
---     return new;
---   end if;
---
---   -- Prevent updates for system catalog app
---   if old.app_id = 'a1111111-1111-1111-1111-111111111ca7' then
---     raise exception 'Updating idents on the system catalog app is not allowed. Set the `instant.allow_system_catalog_app_ident_update` setting to true to override.';
---   end if;
---
---   return old;
--- end;
--- $$
--- language plpgsql;
---
--- create trigger prevent_update_system_catalog_ident_trigger
---   before update on idents
---   for each row
---   execute function prevent_update_system_catalog_ident();
+create or replace function prevent_update_system_catalog_ident()
+returns trigger as $$
+declare
+  disable_trigger boolean := false;
+begin
+  -- Check if override setting is enabled
+  begin
+    disable_trigger := current_setting('instant.allow_system_catalog_app_ident_update')::boolean;
+  exception when undefined_object then
+    disable_trigger := false;
+  end;
+
+  if disable_trigger then
+    return new;
+  end if;
+
+  -- Prevent updates for system catalog app
+  if old.app_id = 'a1111111-1111-1111-1111-111111111ca7' then
+    raise exception 'Updating idents on the system catalog app is not allowed. Set the `instant.allow_system_catalog_app_ident_update` setting to true to override.';
+  end if;
+
+  return old;
+end;
+$$
+language plpgsql;
+
+create trigger prevent_update_system_catalog_ident_trigger
+  before update on idents
+  for each row
+  execute function prevent_update_system_catalog_ident();
