@@ -434,9 +434,41 @@ export class SchemaValidationError extends Error {
   }
 }
 
-export const validateSchema = (schema: GenericSchemaDef) => {
+export const validateSchema = (
+  schema: GenericSchemaDef,
+  systemCatalogIdentNames: Record<string, Set<string>>,
+) => {
   const entityNames = Object.keys(schema.entities);
+
+  for (const [etype, entityDef] of Object.entries(schema.entities)) {
+    if (!systemCatalogIdentNames[etype]) continue;
+    for (const [attrName, attrDef] of Object.entries(entityDef.attrs)) {
+      if (systemCatalogIdentNames[etype].has(attrName)) {
+        continue;
+      }
+      if (attrDef.required) {
+        throw new SchemaValidationError(
+          `The '${etype}' namespace is managed by the system and can't require new attributes yet.` +
+            `\nMake sure to set ${etype}.${attrName} as optional.` +
+            `\n i.e { ${attrName}: i.${attrDef.valueType}().optional() }`,
+        );
+      }
+    }
+  }
+
   for (const link of Object.values(schema.links)) {
+    if (
+      systemCatalogIdentNames[link.forward.on] &&
+      !systemCatalogIdentNames[link.forward.on].has(link.forward.label) &&
+      link.forward.required
+    ) {
+      throw new SchemaValidationError(
+        `The ${link.forward.on} namespace is managed by the system and can't require new attributes yet.` +
+          `\nMake sure to set ${link.forward.on}${link.forward.label} as 'optional'.` +
+          `\n i.e { 'on': '${link.forward.on}', 'label': ${link.forward.label}, 'required': false }`,
+      );
+    }
+
     if (link.forward.has === 'many' && link.forward.onDelete === 'cascade') {
       throw new SchemaValidationError(
         `${link.forward.on}${link.forward.label} -> ${link.reverse.on}${link.reverse.label} has onDelete: "cascade" with has: "many"`,

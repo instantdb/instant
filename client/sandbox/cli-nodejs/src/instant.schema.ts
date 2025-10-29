@@ -11,7 +11,6 @@ const _schema = i.schema({
     }),
     $users: i.entity({
       email: i.string().unique().indexed().optional(),
-      fullName: i.string(),
       imageURL: i.string().optional(),
       type: i.string().optional(),
     }),
@@ -21,13 +20,14 @@ const _schema = i.schema({
       forward: {
         on: '$users',
         has: 'one',
-        label: 'linkedPrimaryUser',
+        label: 'foo',
         onDelete: 'cascade',
+        required: true,
       },
       reverse: {
         on: '$users',
         has: 'many',
-        label: 'linkedGuestUsers',
+        label: 'bar',
       },
     },
   },

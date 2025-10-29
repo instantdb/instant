@@ -1440,17 +1440,6 @@ async function pushSchema(appId, opts) {
   if (!res) return { ok: false };
   const { schema } = res;
 
-  try {
-    validateSchema(schema);
-  } catch (error) {
-    if (error instanceof SchemaValidationError) {
-      console.error(chalk.red('Invalid schema:', error.message));
-    } else {
-      console.error('Unexpected error:', error);
-    }
-    return { ok: false };
-  }
-
   const pulledSchemaResponse = await fetchJson({
     method: 'GET',
     path: `/dash/apps/${appId}/schema/pull`,
@@ -1462,14 +1451,23 @@ async function pushSchema(appId, opts) {
 
   const currentAttrs = pulledSchemaResponse.data['attrs'];
   const currentApiSchema = pulledSchemaResponse.data['schema'];
-
   const oldSchema = apiSchemaToInstantSchemaDef(currentApiSchema);
+  const systemCatalogIdentNames = collectSystemCatalogIdentNames(currentAttrs);
+
+  try {
+    validateSchema(schema, systemCatalogIdentNames);
+  } catch (error) {
+    if (error instanceof SchemaValidationError) {
+      console.error(chalk.red('Invalid schema:', error.message));
+    } else {
+      console.error('Unexpected error:', error);
+    }
+    return { ok: false };
+  }
 
   const renameSelector = program.optsWithGlobals().yes
     ? buildAutoRenameSelector(opts)
     : resolveRenames;
-
-  const systemCatalogIdentNames = collectSystemCatalogIdentNames(currentAttrs);
 
   const diffResult = await diffSchemas(
     oldSchema,
