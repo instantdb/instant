@@ -318,15 +318,12 @@
         hint-msgs (keep :message errors)
         full-msg (if-not (seq hint-msgs)
                    base-msg
-                   (str base-msg ": " (string/join ", " hint-msgs)))
-        cleaned-errors (->> errors
-                            (map (fn [err] (dissoc err :message)))
-                            (remove empty?))]
+                   (str base-msg ": " (string/join ", " hint-msgs)))]
     (throw+ {::type ::validation-failed
              ::message full-msg
              ::hint {:data-type input-type
                      :input input
-                     :errors cleaned-errors}})))
+                     :errors errors}})))
 
 (defn assert-valid! [input-type input errors]
   (when (seq errors)
