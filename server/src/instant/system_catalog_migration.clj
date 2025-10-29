@@ -39,7 +39,6 @@
                :label (attr-model/fwd-label attr)}))
           db-attrs)))
 
-(def conn (aurora/conn-pool :write))
 (defn ensure-attrs-on-system-catalog-app
   ([]
    (ensure-attrs-on-system-catalog-app system-catalog/system-catalog-app-id))
