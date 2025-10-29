@@ -32,7 +32,7 @@ begin
   end if;
 
   -- Prevent updates for system catalog app
-  if old.app_id = 'a1111111-1111-1111-1111-111111111ca7' then
+  if old.app_id = 'a1111111-1111-1111-1111-111111111ca7' or new.app_id = 'a1111111-1111-1111-1111-111111111ca7' then
     raise exception 'Updating attrs on the system catalog app is not allowed. Set the `instant.allow_system_catalog_app_attr_update` setting to true to override.';
   end if;
 
@@ -63,7 +63,7 @@ begin
   end if;
 
   -- Prevent updates for system catalog app
-  if old.app_id = 'a1111111-1111-1111-1111-111111111ca7' then
+  if old.app_id = 'a1111111-1111-1111-1111-111111111ca7' or new.app_id = 'a1111111-1111-1111-1111-111111111ca7' then
     raise exception 'Updating idents on the system catalog app is not allowed. Set the `instant.allow_system_catalog_app_ident_update` setting to true to override.';
   end if;
 
