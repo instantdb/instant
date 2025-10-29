@@ -15,6 +15,20 @@ export type FrameworkConfig = {
   db: InstantCoreDatabase<any, any>;
 };
 
+type QueryPromise =
+  | {
+      type: 'http';
+      triples: any;
+      attrs: any;
+      queryHash: any;
+      query: any;
+      pageInfo?: any;
+    }
+  | {
+      type: 'session';
+      queryResult: any;
+    };
+
 export class FrameworkClient {
   private params: FrameworkConfig;
   private db: InstantCoreDatabase<any, any>;
@@ -22,7 +36,8 @@ export class FrameworkClient {
     string,
     {
       status: 'pending' | 'success' | 'error';
-      promise?: Promise<any>;
+      type: 'http' | 'session';
+      promise?: Promise<QueryPromise>;
       data?: any;
       error?: any;
     }
@@ -42,8 +57,9 @@ export class FrameworkClient {
     this.resultMap = new Map<
       string,
       {
+        type: 'http' | 'session';
         status: 'pending' | 'success' | 'error';
-        promise?: Promise<any>;
+        promise?: Promise<QueryPromise>;
         data?: any;
         error?: any;
       }
@@ -64,6 +80,7 @@ export class FrameworkClient {
   // Runs on the client when ssr gets html script tags
   public addQueryResult = (queryKey: string, value: any) => {
     this.resultMap.set(queryKey, {
+      type: value.type,
       status: 'success',
       data: value,
       promise: null,
@@ -88,16 +105,41 @@ export class FrameworkClient {
     opts?: {
       ruleParams: RuleParams;
     },
-  ) => {
-    if (_query && opts && 'ruleParams' in opts) {
-      _query = { $$ruleParams: opts['ruleParams'], ..._query };
+  ): {
+    type: 'http' | 'session';
+    status: 'pending' | 'success' | 'error';
+    promise?: Promise<QueryPromise>;
+    data?: any;
+    error?: any;
+  } => {
+    const { hash, query } = this.hashQuery(_query, opts);
+
+    if (this.db._reactor.status === 'authenticated') {
+      const promise = this.db.queryOnce(_query, opts);
+      let entry = {
+        status: 'pending' as 'pending' | 'success' | 'error',
+        type: 'session' as 'http' | 'session',
+        data: undefined,
+        error: undefined,
+        promise,
+      };
+      promise.then((result) => {
+        entry.status = 'success';
+        entry.data = result;
+        entry.promise = null;
+      });
+      promise.catch((error) => {
+        entry.status = 'error';
+        entry.error = error;
+        entry.promise = null;
+      });
+      return entry as any;
     }
-    const query = _query ? coerceQuery(_query) : null;
-    const queryHash = weakHash(query);
 
     const promise = this.getTriplesAndAttrsForQuery(query);
     let entry = {
       status: 'pending' as 'pending' | 'success' | 'error',
+      type: 'http' as 'http' | 'session',
       data: undefined,
       error: undefined,
       promise,
@@ -117,7 +159,7 @@ export class FrameworkClient {
     promise.then((result) => {
       this.queryResolvedCallbacks.forEach((callback) => {
         callback({
-          queryHash,
+          queryHash: hash,
           query: query,
           attrs: result.attrs,
           triples: result.triples,
@@ -126,22 +168,18 @@ export class FrameworkClient {
       });
     });
 
-    this.resultMap.set(queryHash, entry);
+    this.resultMap.set(hash, entry);
     return entry;
   };
 
   public getExistingResultForQuery = (
     _query: any,
-    opts: {
-      ruleParams?: RuleParams;
+    opts?: {
+      ruleParams: RuleParams;
     },
   ) => {
-    if (_query && opts && 'ruleParams' in opts) {
-      _query = { $$ruleParams: opts['ruleParams'], ..._query };
-    }
-    const query = _query ? coerceQuery(_query) : null;
-    const queryHash = weakHash(query);
-    return this.resultMap.get(queryHash);
+    const { hash } = this.hashQuery(_query, opts);
+    return this.resultMap.get(hash);
   };
 
   public completeIsoMorphic = (
@@ -175,12 +213,27 @@ export class FrameworkClient {
     return resp;
   };
 
+  public hashQuery = (
+    _query: any,
+    opts?: {
+      ruleParams: RuleParams;
+    },
+  ): { hash: string; query: any } => {
+    if (_query && opts && 'ruleParams' in opts) {
+      _query = { $$ruleParams: opts['ruleParams'], ..._query };
+    }
+    const query = _query ? coerceQuery(_query) : null;
+    return { hash: weakHash(query), query: query };
+  };
+
   public getTriplesAndAttrsForQuery = async (
     query: any,
   ): Promise<{
     triples: any[];
     attrs: InstantDBAttr[];
     query: any;
+    queryHash: string;
+    type: 'http';
     pageInfo?: any;
   }> => {
     const response = await fetch(
@@ -219,6 +272,8 @@ export class FrameworkClient {
     return {
       attrs,
       triples,
+      type: 'http',
+      queryHash: this.hashQuery(query).hash,
       query,
       pageInfo,
     };
