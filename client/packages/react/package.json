@@ -24,6 +24,16 @@
         "types": "./dist/commonjs/index.d.ts",
         "default": "./dist/commonjs/index.js"
       }
+    },
+    "./nextjs": {
+      "import": {
+        "types": "./dist/esm/next-ssr/index.d.ts",
+        "default": "./dist/esm/next-ssr/index.js"
+      },
+      "require": {
+        "types": "./dist/commonjs/next-ssr/index.d.ts",
+        "default": "./dist/commonjs/next-ssr/index.js"
+      }
     }
   },
   "tshy": {
@@ -33,12 +43,13 @@
     "project": "./tsconfig.json",
     "exports": {
       "./package.json": "./package.json",
-      ".": "./src/index.ts"
+      ".": "./src/index.ts",
+      "./nextjs": "./src/next-ssr/index.tsx"
     }
   },
   "scripts": {
     "test": "vitest",
-    "check-exports": "attw --pack .",
+    "check-exports": "attw --profile node16 --pack .",
     "dev": "tshy --watch",
     "build:tshy": "tshy",
     "build:standalone": "vite build",
@@ -55,6 +66,7 @@
     "npm-run-all": "^4.1.5",
     "tshy": "^3.0.2",
     "typescript": "^5.9.3",
+    "next": "^15.5.6",
     "vite": "^5.2.0",
     "vitest": "^0.21.0"
   },

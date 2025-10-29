@@ -1,4 +1,4 @@
-import { InstantSuspenseProvider } from '@instantdb/next';
+import { InstantSuspenseProvider } from '@instantdb/react/nextjs';
 import { cookies } from 'next/headers';
 import { db } from './db';
 
