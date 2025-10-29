@@ -1,5 +1,6 @@
 'use client';
 import {
+  coerceQuery,
   FrameworkClient,
   FrameworkConfig,
   InstantConfig,
@@ -8,6 +9,7 @@ import {
   PageInfoResponse,
   RuleParams,
   ValidQuery,
+  weakHash,
 } from '@instantdb/core';
 import { createContext, useContext, useRef, useState } from 'react';
 import {
@@ -96,6 +98,7 @@ export const InstantSuspenseProvider = (
     }
 
     if (entry.status === 'error') {
+      console.log(entry.error);
       throw entry.error;
     }
 

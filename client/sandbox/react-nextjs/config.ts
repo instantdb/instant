@@ -1,7 +1,4 @@
-const isProd =
-  typeof window !== 'undefined'
-    ? Boolean(localStorage.getItem('prodBackend'))
-    : false;
+const isProd = true;
 
 const config = {
   apiURI: isProd ? 'https://api.instantdb.com' : 'http://localhost:8888',
