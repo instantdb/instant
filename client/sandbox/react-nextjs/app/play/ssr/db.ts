@@ -2,11 +2,10 @@
 import { init } from '@instantdb/react';
 import schema from './instant.schema';
 import { createUseSuspenseQuery } from '@instantdb/next';
+import config from '../../../config';
 
 export const db = init({
-  appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
-  websocketURI: 'ws://localhost:8888',
-  apiURI: 'http://localhost:8888',
+  ...config,
   // if doing cookie sync:
   // endpointURI: "http://localhost:4000",
   schema,

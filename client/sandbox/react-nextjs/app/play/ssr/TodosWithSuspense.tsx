@@ -3,7 +3,11 @@ import { useSuspenseQuery } from './db';
 
 export const TodosWithSuspense = () => {
   const { data: todos } = useSuspenseQuery({
-    todos: {},
+    todos: {
+      $: {
+        limit: 100,
+      },
+    },
   });
 
   return (
