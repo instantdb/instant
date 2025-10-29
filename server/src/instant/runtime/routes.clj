@@ -606,16 +606,18 @@
 (defn query-triples [req]
   (let [query (ex/get-param! req [:body :query] #(when (map? %) %))
         auth-token (http-util/req->bearer-token req)
-        app-id  (req->app-id-untrusted! req)
-        user (when auth-token (app-user-model/get-by-refresh-token! {:refresh-token auth-token :app-id app-id}))
+        app-id (req->app-id-untrusted! req)
+        user (when auth-token
+               (app-user-model/get-by-refresh-token! {:refresh-token auth-token
+                                                      :app-id app-id}))
         attrs (attr-model/get-by-app-id app-id)
         ctx {:db {:conn-pool (aurora/conn-pool :read)}
-                    :app-id app-id
-                    :attrs attrs
-                    :datalog-query-fn d/query
-                    :datalog-loader (d/make-loader)
-                    :current-user user
-                    :versions (-> req :body :versions)}
+                  :app-id app-id
+                  :attrs attrs
+                  :datalog-query-fn d/query
+                  :datalog-loader (d/make-loader)
+                  :current-user user
+                  :versions (-> req :body :versions)}
         nodes (iq/permissioned-query ctx query)
         result (collect-instaql-results-for-client nodes)]
     (response/ok {:result result :attrs attrs})))
@@ -633,7 +635,7 @@
                                                   {:decoder parse-cookie}))
   (POST "/runtime/oauth/callback" [] (wrap-cookies oauth-callback
                                                    {:decoder parse-cookie}))
-  (POST "/runtime/triples" [] query-triples)
+  (POST "/runtime/query" [] query-triples)
 
   (POST "/runtime/oauth/token" [] oauth-token-callback)
   (POST "/runtime/:app_id/oauth/token" [] oauth-token-callback)
