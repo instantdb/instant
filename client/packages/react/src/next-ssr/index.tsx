@@ -1,6 +1,5 @@
 'use client';
 import {
-  coerceQuery,
   FrameworkClient,
   FrameworkConfig,
   InstantConfig,
@@ -9,14 +8,13 @@ import {
   PageInfoResponse,
   RuleParams,
   ValidQuery,
-  weakHash,
 } from '@instantdb/core';
 import { createContext, useContext, useRef, useState } from 'react';
 import {
   createHydrationStreamProvider,
   isServer,
 } from './HydrationStreamProvider.tsx';
-import { type InstantReactWebDatabase } from '@instantdb/react';
+import InstantReactWebDatabase from '../InstantReactWebDatabase.ts';
 
 type InstantSuspenseProviderProps<
   Schema extends InstantSchemaDef<any, any, any>,

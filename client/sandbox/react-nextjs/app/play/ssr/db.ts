@@ -1,7 +1,7 @@
 'use client';
 import { init } from '@instantdb/react';
 import schema from './instant.schema';
-import { createUseSuspenseQuery } from '@instantdb/next';
+import { createUseSuspenseQuery } from '@instantdb/react/nextjs';
 import config from '../../../config';
 
 export const db = init({
