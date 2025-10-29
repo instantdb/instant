@@ -67,7 +67,7 @@ begin
     raise exception 'Updating idents on the system catalog app is not allowed. Set the `instant.allow_system_catalog_app_ident_update` setting to true to override.';
   end if;
 
-  return old;
+  return new;
 end;
 $$
 language plpgsql;
