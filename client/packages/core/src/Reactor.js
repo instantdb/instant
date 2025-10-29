@@ -643,22 +643,26 @@ export default class Reactor {
       }
       case 'patch-presence': {
         const roomId = msg['room-id'];
+        this._trySetRoomConnected(roomId, true);
         this._patchPresencePeers(roomId, msg['edits']);
         this._notifyPresenceSubs(roomId);
         break;
       }
       case 'refresh-presence': {
         const roomId = msg['room-id'];
+        this._trySetRoomConnected(roomId, true);
         this._setPresencePeers(roomId, msg['data']);
         this._notifyPresenceSubs(roomId);
         break;
       }
-      case 'server-broadcast':
+      case 'server-broadcast': {
         const room = msg['room-id'];
         const topic = msg.topic;
+        this._trySetRoomConnected(room, true);
         this._notifyBroadcastSubs(room, topic, msg);
         break;
-      case 'join-room-ok':
+      }
+      case 'join-room-ok': {
         const loadingRoomId = msg['room-id'];
         const joinedRoom = this._rooms[loadingRoomId];
 
@@ -671,10 +675,15 @@ export default class Reactor {
           break;
         }
 
-        joinedRoom.isConnected = true;
-        this._notifyPresenceSubs(loadingRoomId);
+        this._trySetRoomConnected(loadingRoomId, true);
         this._flushEnqueuedRoomData(loadingRoomId);
         break;
+      }
+      case 'leave-room-ok': {
+        const roomId = msg['room-id'];
+        this._trySetRoomConnected(roomId, false);
+        break;
+      }
       case 'join-room-error':
         const errorRoomId = msg['room-id'];
         const errorRoom = this._rooms[errorRoomId];
@@ -2062,6 +2071,13 @@ export default class Reactor {
 
   _tryLeaveRoom(roomId) {
     this._trySendAuthed(uuid(), { op: 'leave-room', 'room-id': roomId });
+  }
+
+  _trySetRoomConnected(roomId, isConnected) {
+    const room = this._rooms[roomId];
+    if (room) {
+      room.isConnected = isConnected;
+    }
   }
 
   // TODO: look into typing again
