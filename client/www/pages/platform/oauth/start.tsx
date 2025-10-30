@@ -116,6 +116,7 @@ function OAuthForm({ redirectId }: { redirectId: string }) {
 
   const [data, setData] = useState<ClaimResult | null>(null);
   const [error, setError] = useState<Error | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const hasFetched = useRef(false);
 
@@ -199,10 +200,11 @@ function OAuthForm({ redirectId }: { redirectId: string }) {
           className="flex flex-col"
           action={`${config.apiURI}/platform/oauth/grant`}
           method="POST"
+          onSubmit={() => setIsLoading(true)}
         >
           <input type="hidden" name="redirect_id" value={redirectId} />
           <input type="hidden" name="grant_token" value={data.grantToken} />
-          <Button variant="secondary" type="submit">
+          <Button variant="secondary" type="submit" loading={isLoading}>
             Grant access
           </Button>
         </form>
@@ -211,10 +213,11 @@ function OAuthForm({ redirectId }: { redirectId: string }) {
           className="flex flex-col"
           action={`${config.apiURI}/platform/oauth/deny`}
           method="POST"
+          onSubmit={() => setIsLoading(true)}
         >
           <input type="hidden" name="redirect_id" value={redirectId} />
           <input type="hidden" name="grant_token" value={data.grantToken} />
-          <Button variant="secondary" type="submit">
+          <Button variant="secondary" type="submit" loading={isLoading}>
             Deny access
           </Button>
         </form>
