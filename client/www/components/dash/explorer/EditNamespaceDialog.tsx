@@ -1876,7 +1876,7 @@ function getSystemConstraints({
   const requireMessage = isSystemAttr
     ? attrMessage
     : isSystemCatalogNs
-      ? `The ${namespaceName} namespace is managed by the system and can't require new attributes yet.`
+      ? `The ${namespaceName} namespace is managed by the system and can't modify required constraints yet.`
       : undefined;
 
   return {
