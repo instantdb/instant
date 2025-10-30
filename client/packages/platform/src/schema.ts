@@ -463,7 +463,7 @@ export const validateSchema = (
       link.forward.required
     ) {
       throw new SchemaValidationError(
-        `The ${link.forward.on} namespace is managed by the system and can't require new attributes yet.` +
+        `The ${link.forward.on} namespace is managed by the system and can't modify required constraints yet.` +
           `\nMake sure to set ${link.forward.on}${link.forward.label} as 'optional'.` +
           `\n i.e { 'on': '${link.forward.on}', 'label': ${link.forward.label}, 'required': false }`,
       );
