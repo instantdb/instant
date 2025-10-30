@@ -1,5 +1,5 @@
 import { Button, Copyable, Fence } from '@/components/ui';
-import { File, getFiles } from '../examples';
+import { File, getFiles } from '../recipes';
 import { InstantApp } from '@/lib/types';
 import config from '@/lib/config';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -46,7 +46,7 @@ function Main({ files }: { files: File[] }) {
   const router = useRouter();
   const isAuthed = !!useAuthToken();
   const isHydrated = useIsHydrated();
-  const examplesContainerElRef = useRef<HTMLDivElement>(null);
+  const recipesContainerElRef = useRef<HTMLDivElement>(null);
   const { ref: topInViewRef } = useInView({
     threshold: 1,
     onChange(inView, entry) {
@@ -85,13 +85,13 @@ function Main({ files }: { files: File[] }) {
   }, [router.isReady, isHydrated]);
 
   function jumpToExample() {
-    if (!examplesContainerElRef.current) return;
+    if (!recipesContainerElRef.current) return;
     const filePath = window.location.hash.replace(/^#/, '');
 
     if (!filePath) return;
 
     const p = `[data-path-name="${filePath}"]`;
-    const el = examplesContainerElRef.current.querySelector(p);
+    const el = recipesContainerElRef.current.querySelector(p);
     if (!el) return;
 
     const top =
@@ -154,11 +154,11 @@ function Main({ files }: { files: File[] }) {
   return (
     <LandingContainer>
       <Head>
-        <title>Instant Examples</title>
+        <title>Instant Recipes</title>
         <meta
           key="og:image"
           property="og:image"
-          content={og.url({ section: 'examples' })}
+          content={og.url({ section: 'recipes' })}
         />
       </Head>
       <ToastContainer />
@@ -168,9 +168,9 @@ function Main({ files }: { files: File[] }) {
       ) : null}
       <MainNav />
       <div className="mx-auto flex max-w-5xl flex-col px-4 py-12">
-        <div className="flex flex-col gap-12" ref={examplesContainerElRef}>
+        <div className="flex flex-col gap-12" ref={recipesContainerElRef}>
           <div className="mx-auto flex max-w-md flex-col items-center gap-6">
-            <H3>Instant Code Examples</H3>
+            <H3>Instant Code Recipes</H3>
             <div className="flex flex-col gap-2">
               <p>
                 Each example is a self-contained Instant app that you can copy
@@ -219,7 +219,7 @@ function Main({ files }: { files: File[] }) {
               </p>
               <Copyable
                 label="URL"
-                value={isHydrated && appId ? examplesUrl(appId) : 'Loading...'}
+                value={isHydrated && appId ? recipesUrl(appId) : 'Loading...'}
               />
               <p className="text-sm italic">
                 <strong>Please note:</strong> this app will automatically expire
@@ -334,7 +334,7 @@ function Example({
                   {appId ? (
                     <iframe
                       className="flex-1"
-                      src={'/examples/' + file.pathName + '?__appId=' + appId}
+                      src={'/recipes/' + file.pathName + '?__appId=' + appId}
                       loading={lazy ? 'lazy' : undefined}
                     />
                   ) : (
@@ -350,7 +350,7 @@ function Example({
 }
 
 function RoomStatus({ db, appId }: { db: InstantDB; appId: string }) {
-  const room = db.room('examples', appId);
+  const room = db.room('recipes', appId);
   const presence = room.usePresence();
   const numPeers = Object.keys(presence.peers).length;
 
@@ -375,13 +375,13 @@ function RoomStatus({ db, appId }: { db: InstantDB; appId: string }) {
 type InstantDB = InstantReactWebDatabase<InstantUnknownSchema>;
 
 const defaultAppTitle = 'Instant Example App';
-const storageKey = 'examples-appId';
+const storageKey = 'recipes-appId';
 
 const provisionErrorMessage =
   'Oops! Something went wrong when provisioning your app ID. Please reload the page and try again!';
 
-function examplesUrl(appId: string) {
-  return 'https://instantdb.com/examples?app=' + appId;
+function recipesUrl(appId: string) {
+  return 'https://instantdb.com/recipes?app=' + appId;
 }
 
 async function provisionEphemeralApp() {

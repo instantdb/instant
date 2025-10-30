@@ -52,7 +52,7 @@ function Page() {
             >
               <iframe
                 className="flex-1"
-                src={`http://localhost:3000/examples/5-reactions?__appId=${config.appId}&port=${port}`}
+                src={`http://localhost:3000/recipes/5-reactions?__appId=${config.appId}&port=${port}`}
               />
               <div className="absolute p-2">Port {port}</div>
               <button
