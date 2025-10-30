@@ -6,6 +6,7 @@ import {
   InstantSchemaDef,
   InstaQLResponse,
   PageInfoResponse,
+  parseSchemaFromJSON,
   RuleParams,
   ValidQuery,
 } from '@instantdb/core';
@@ -14,14 +15,20 @@ import {
   createHydrationStreamProvider,
   isServer,
 } from './HydrationStreamProvider.tsx';
+
 import InstantReactWebDatabase from '../InstantReactWebDatabase.ts';
+import { InstantReactAbstractDatabase } from '@instantdb/react-common';
+import { init } from '../init.ts';
 
 type InstantSuspenseProviderProps<
   Schema extends InstantSchemaDef<any, any, any>,
 > = {
   nonce?: string;
   children: React.ReactNode;
-  db: InstantReactWebDatabase<Schema, any>;
+  db?: InstantReactWebDatabase<Schema, any>;
+  config?: Omit<InstantConfig<any, any>, 'schema'> & {
+    schema: string;
+  };
 } & Omit<FrameworkConfig, 'db'>;
 
 const stream = createHydrationStreamProvider<any>();
@@ -58,12 +65,21 @@ export const InstantSuspenseProvider = (
 ) => {
   const clientRef = useRef<FrameworkClient | null>(null);
 
+  const db = useRef<InstantReactAbstractDatabase<any, any>>(
+    props.db
+      ? props.db
+      : init({
+          ...props.config,
+          schema: parseSchemaFromJSON(JSON.parse(props.config.schema)),
+        }),
+  );
+
   const [trackedKeys] = useState(() => new Set<string>());
 
   if (!clientRef.current) {
     clientRef.current = new FrameworkClient({
       ...props,
-      db: props.db.core,
+      db: db.current.core,
     });
   }
 
@@ -75,7 +91,7 @@ export const InstantSuspenseProvider = (
   }
 
   const useSuspenseQuery = (query: any, opts: SuspenseQueryOpts) => {
-    const nonSuspenseResult = props.db.useQuery(query, {
+    const nonSuspenseResult = db.current.useQuery(query, {
       ...opts,
     });
 

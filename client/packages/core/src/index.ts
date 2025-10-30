@@ -20,6 +20,7 @@ import {
   TransactionValidationError,
 } from './transactionValidation.ts';
 import { createInstantRouteHandler } from './createRouteHandler.ts';
+import { parseSchemaFromJSON } from './parseSchemaFromJSON.ts';
 
 import type {
   PresenceOpts,
@@ -852,6 +853,7 @@ export {
   validateQuery,
   QueryValidationError,
   validateTransactions,
+  parseSchemaFromJSON,
   TransactionValidationError,
   FrameworkClient,
 
