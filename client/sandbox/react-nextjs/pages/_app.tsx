@@ -9,9 +9,7 @@ function MyApp({ Component, pageProps }: AppProps) {
         <h1 className="text-xl font-bold">
           Welcome to the react-nextjs playground!
         </h1>
-        <p>
-          In order to use the playground, you need to set up a you `.env` file
-        </p>
+        <p>In order to use the playground, you need to set up a `.env` file</p>
         <p>
           Take a look at the{' '}
           <a
