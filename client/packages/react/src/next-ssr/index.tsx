@@ -36,13 +36,16 @@ export const createUseSuspenseQuery = <
   _db: InstantReactWebDatabase<Schema, Config>,
 ): (<Q extends ValidQuery<Q, Schema>>(
   q: Q,
+  opts?: {
+    ruleParams: RuleParams;
+  },
 ) => {
   data: InstaQLResponse<Schema, Q, NonNullable<Config['useDateObjects']>>;
   pageInfo?: PageInfoResponse<Q>;
 }) => {
-  return <Q extends ValidQuery<Q, Schema>>(q: any) => {
+  return <Q extends ValidQuery<Q, Schema>>(q: any, opts: any) => {
     const hook = useContext(SuspsenseQueryContext);
-    return hook(q) as any;
+    return hook(q, opts) as any;
   };
 };
 

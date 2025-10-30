@@ -1,6 +1,6 @@
-import { InstantSuspenseProvider } from '@instantdb/react/nextjs';
 import { cookies } from 'next/headers';
 import { db } from './db';
+import { InstantSuspenseProvider } from '@instantdb/react/nextjs';
 
 // (server page)
 export default async function ({ children }: { children: React.ReactNode }) {
