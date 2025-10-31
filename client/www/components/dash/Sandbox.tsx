@@ -87,7 +87,8 @@ export function Sandbox({
   const consoleRef = useRef<HTMLDivElement>(null);
 
   const [selectedSandbox, setSelectedSandbox] = useState<string | null>(null);
-  const selectedSandboxRef = useRef<string | null>(null); // only used to register monaco keyboard shortcut to save sandbox
+  const selectedSandboxRef = useRef<string | null>(null);
+  const saveDialogRef = useRef<{ onOpen: () => void } | null>(null);
 
   const [savedSandboxes, setSavedSandboxes] = useLocalStorage<SavedSandbox[]>(
     `sandboxes:${app.id}`,
@@ -188,14 +189,17 @@ export function Sandbox({
     }
   }, [attrs, isMonacoLoaded]);
 
-  // Keep ref in sync with state
+  // Keep refs in sync with state for Monaco keyboard shortcuts
   useEffect(() => {
     selectedSandboxRef.current = selectedSandbox;
-  }, [selectedSandbox]);
+    saveDialogRef.current = saveCurrentDialog;
+  }, [selectedSandbox, saveCurrentDialog]);
 
   const trySaveCurrent = () => {
     if (selectedSandboxRef.current) {
       saveCurrent(selectedSandboxRef.current.trim());
+    } else {
+      saveDialogRef.current?.onOpen();
     }
   };
 
@@ -767,6 +771,11 @@ export function Sandbox({
                           editor.addCommand(
                             monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
                             () => execRef.current(),
+                          );
+
+                          editor.addCommand(
+                            monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
+                            trySaveCurrent,
                           );
                         }}
                       />
