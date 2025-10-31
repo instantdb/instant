@@ -29,6 +29,7 @@ import { InstantError } from './InstantError.ts';
 import { InstantAPIError } from './utils/fetch.ts';
 import { validate as validateUUID } from 'uuid';
 import { WSConnection, SSEConnection } from './Connection.ts';
+import { SyncTable } from './SyncTable.ts';
 
 /** @typedef {import('./utils/log.ts').Logger} Logger */
 /** @typedef {import('./Connection.ts').Connection} Connection */
@@ -272,6 +273,23 @@ export default class Reactor {
 
     this._initStorage(Storage);
 
+    this._syncTable = new SyncTable(
+      this._trySendAuthed.bind(this),
+      this._persister,
+      {
+        useDateObjects: this.config.useDateObjects,
+      },
+      this._log,
+      (triples) =>
+        s.createStore(
+          this.attrs,
+          triples,
+          this.config.enableCardinalityInference,
+          this._linkIndex,
+          this.config.useDateObjects,
+        ),
+    );
+
     this._oauthCallbackResponse = this._oauthLoginInit();
 
     // kick off a request to cache it
@@ -360,6 +378,7 @@ export default class Reactor {
     for (const cb of this._beforeUnloadCbs) {
       cb();
     }
+    this._syncTable.beforeUnload();
   }
 
   /**
@@ -501,7 +520,7 @@ export default class Reactor {
       this._log.info('[receive]', connId, msg.op, msg);
     }
     switch (msg.op) {
-      case 'init-ok':
+      case 'init-ok': {
         this._setStatus(STATUS.AUTHENTICATED);
         this._reconnectTimeoutMs = 0;
         this._setAttrs(msg.attrs);
@@ -515,10 +534,12 @@ export default class Reactor {
           this._tryJoinRoom(roomId, enqueuedUserPresence);
         }
         break;
-      case 'add-query-exists':
+      }
+      case 'add-query-exists': {
         this.notifyOneQueryOnce(weakHash(msg.q));
         break;
-      case 'add-query-ok':
+      }
+      case 'add-query-ok': {
         const { q, result } = msg;
         const hash = weakHash(q);
         const pageInfo = result?.[0]?.data?.['page-info'];
@@ -545,7 +566,24 @@ export default class Reactor {
         this.notifyOneQueryOnce(hash);
         this._cleanupPendingMutationsTimeout();
         break;
-      case 'refresh-ok':
+      }
+      case 'start-sync-ok': {
+        this._syncTable.onStartSyncOk(msg);
+        break;
+      }
+      case 'sync-load-batch': {
+        this._syncTable.onSyncLoadBatch(msg);
+        break;
+      }
+      case 'sync-init-finish': {
+        this._syncTable.onSyncInitFinish(msg);
+        break;
+      }
+      case 'sync-update-triples': {
+        this._syncTable.onSyncUpdateTriples(msg);
+        break;
+      }
+      case 'refresh-ok': {
         const { computations, attrs } = msg;
         const processedTxId = msg['processed-tx-id'];
         if (attrs) {
@@ -604,6 +642,7 @@ export default class Reactor {
           this.notifyOne(hash);
         });
         break;
+      }
       case 'transact-ok': {
         const { 'client-event-id': eventId, 'tx-id': txId } = msg;
 
@@ -696,6 +735,7 @@ export default class Reactor {
         this._handleReceiveError(msg);
         break;
       default:
+        this._log.info('Uknown op', msg.op, msg);
         break;
     }
   }
@@ -820,6 +860,11 @@ export default class Reactor {
     this._trySendAuthed(eventId, { op: 'add-query', q });
 
     return eventId;
+  }
+
+  // XXX: Should call it something else because `sync` sounds like it's synchronous
+  subscribeSync(q, cb) {
+    return this._syncTable.subscribe(q, cb);
   }
 
   /**
@@ -1294,6 +1339,9 @@ export default class Reactor {
         this._sendMutation(eventId, mut);
       }
     });
+
+    this._syncTable.flushPending();
+
   }
 
   /**

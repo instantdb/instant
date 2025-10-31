@@ -13,6 +13,7 @@
    [instant.db.model.attr :as attr-model]
    [instant.db.permissioned-transaction :as permissioned-tx]
    [instant.db.pg-introspect :as pg-introspect]
+   [instant.db.sync-table :as sync-table]
    [instant.db.transaction :as tx]
    [instant.flags :as flags]
    [instant.grouped-queue :as grouped-queue]
@@ -24,6 +25,7 @@
    [instant.model.app-user :as app-user-model]
    [instant.model.instant-user :as instant-user-model]
    [instant.model.rule :as rule-model]
+   [instant.model.sync-sub :as sync-sub-model]
    [instant.reactive.ephemeral :as eph]
    [instant.reactive.query :as rq]
    [instant.reactive.receive-queue :as receive-queue]
@@ -192,6 +194,115 @@
                                               :result instaql-result
                                               :processed-tx-id processed-tx-id
                                               :client-event-id client-event-id})))))
+
+;; XXX: Need to do some cleanup when the session goes away
+(defn- handle-start-sync! [store sess-id {:keys [q client-event-id] :as _event}]
+  ;; XXX: Check for admin
+  (let [{:keys [app user admin?]} (get-auth! store sess-id)
+        {app-id :id} app]
+    (if (nil? q)
+      (ex/throw-validation-err! :start-sync
+                                {:q q}
+                                [{:message "Query can not be null."}])
+
+      (let [attrs (attr-model/get-by-app-id app-id)
+            ctx {:db {:conn-pool (aurora/conn-pool :read)}
+                 :session-id sess-id
+                 :app-id app-id
+                 :attrs attrs
+                 :admin? admin?
+                 :current-user user}
+            ;; XXX: create-sync-process should validate the query
+            {:keys [coarse-topics
+                    start] :as process} (sync-table/create-sync-process ctx q)
+            sub-id (random-uuid)
+            token (random-uuid)
+            query-ent (rs/register-sync-query store
+                                              app-id
+                                              sess-id
+                                              sub-id
+                                              (:coarse-topics process)
+                                              process)
+            receive-q (-> (rs/session store sess-id)
+                          :session/socket
+                          :receive-q)]
+
+        (rs/send-event! store app-id sess-id
+                        {:op :start-sync-ok
+                         :q q
+                         :client-event-id client-event-id
+                         :subscription-id (:sync/id query-ent)
+                         :token token})
+        ;; XXX: how do we want to handle this background job?
+        ;;      we need to attach it to the store somehow so that we can cancel it
+        (ua/vfuture
+          (start
+           {:batch-size 500
+            :on-batch (fn [batch]
+                        (rs/send-event! store app-id sess-id
+                                        {:op :sync-load-batch
+                                         :subscription-id (:sync/id query-ent)
+                                         :join-rows batch}))
+
+            :on-init-finish (fn [{:keys [topics tx-id]}]
+                              (sync-sub-model/create! {:id sub-id
+                                                       :app-id app-id
+                                                       :query q
+                                                       :user-id (:id user)
+                                                       :admin? admin?
+                                                       :token token
+                                                       :tx-id tx-id
+                                                       :topics topics})
+                              ;; Make sure this happens before we update the store
+                              ;; or else we could get a refresh before we send init
+                              (rs/send-event! store app-id sess-id
+                                              {:op :sync-init-finish
+                                               :subscription-id sub-id
+                                               :tx-id tx-id})
+                              (rs/sync-query-update-init store app-id sess-id
+                                                         (:db/id query-ent)
+                                                         tx-id
+                                                         topics)
+                              ;; This will cause us to catch up on any transactions that were
+                              ;; handled while we were syncing
+                              (receive-queue/put! receive-q
+                                                  {:op :refresh-sync-table
+                                                   :app-id (:app-id ctx)
+                                                   :session-id sess-id
+                                                   :subscription-id (:sync/id query-ent)}))}))))))
+
+(defn- handle-refresh-sync-table! [store sess-id {:keys [subscription-id] :as _event}]
+  (let [{:keys [app user admin?]} (get-auth! store sess-id)
+        {app-id :id} app
+        ent (rs/get-sync-query store app-id sess-id subscription-id)]
+    (when ent
+      (let [unread-txes (rs/sync-query-unread-txes store app-id ent)]
+        ;; XXX: If unread-txes is too long, then we should requeue a refresh
+        (when (seq unread-txes)
+          (rs/send-event! store app-id sess-id
+                          {:op :sync-update-triples
+                           :subscription-id subscription-id
+                           :txes unread-txes})
+          (rs/sync-query-update-sent-tx store app-id (:db/id ent) (:tx-id (last unread-txes))))))))
+
+;; XXX: Need some guard against the tx-id being too old
+(defn- handle-resync-table! [store sess-id event]
+  (let [{:keys [app user admin?]} (get-auth! store sess-id)
+        {app-id :id} app
+        tx-id (ex/get-param! event [:tx-id] (fn [v] (try (long v) (catch Throwable _ nil))))
+        subscription-id (ex/get-param! event [:subscription-id] uuid-util/coerce)
+        token (ex/get-param! event [:token] uuid-util/coerce)
+        record (sync-sub-model/get-by-id-with-topics {:id subscription-id
+                                                      :token token
+                                                      :admin? admin?
+                                                      :user-id (:id user)})
+        ent (rs/sync-query-resync store app-id sess-id
+                                  (:id record) tx-id (:topics record))]
+    (receive-queue/put! (-> (rs/session store sess-id) :session/socket :receive-q)
+                        {:op :refresh-sync-table
+                         :subscription-id subscription-id
+                         :app-id app-id
+                         :session-id sess-id})))
 
 (defn- handle-remove-query! [store sess-id {:keys [q client-event-id] :as _event}]
   (let [{:keys [app]} (get-auth! store sess-id)]
@@ -460,7 +571,12 @@
       :refresh      (handle-refresh! store id event debug-info)
       :transact     (handle-transact! store id event)
       :error        (handle-error! store id event)
-      ;; -----
+      ;; ----------
+      ;; sync-table
+      :start-sync (handle-start-sync! store id event)
+      :refresh-sync-table (handle-refresh-sync-table! store id event)
+      :resync-table (handle-resync-table! store id event)
+      ;; ----------
       ;; EPH events
       :join-room        (handle-join-room! store id event)
       :leave-room       (handle-leave-room! store id event)
@@ -845,7 +961,7 @@
 ;; ------
 ;; System
 
-(defn group-key [{:keys [op session-id room-id q]}]
+(defn group-key [{:keys [op session-id room-id q subscription-id]}]
   (case op
     :transact
     [:transact session-id]
@@ -861,6 +977,9 @@
 
     :refresh-presence
     [:refresh-presence session-id room-id]
+
+    :refresh-sync-table
+    [:refresh-sync-table subscription-id]
 
     :error
     [:error session-id]
@@ -885,6 +1004,9 @@
   (update event2 :edits #(into (vec (:edits event1)) %)))
 
 (defmethod combine [:set-presence :set-presence] [_event1 event2]
+  event2)
+
+(defmethod combine [:refresh-sync-table :refresh-sync-table] [_ event2]
   event2)
 
 (defn process [group-key event]
