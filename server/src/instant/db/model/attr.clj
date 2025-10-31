@@ -14,7 +14,8 @@
    [instant.util.spec :as uspec]
    [instant.util.uuid :as uuid]
    [instant.discord :as discord]
-   [instant.config :as config]))
+   [instant.config :as config]
+   [clojure.string :as string]))
 
 (set! *warn-on-reflection* true)
 
@@ -309,21 +310,25 @@
          :all-conflicts conflicts}]))))
 
 (defn validate-system-ident-names!
-  "Prevents users from creating attrs that use catalog idents"
+  "Prevents users from creating attrs that use catalog idents. 
+   We also don't allow users to create new namespaces that start with $"
   [attrs]
   (doseq [attr attrs
           :let [fwd (fwd-ident-name attr)
-                rev (rev-ident-name attr)
-                found (or (when (and fwd (system-catalog/reserved-ident-name? fwd))
-                            fwd)
-                          (when (and rev (system-catalog/reserved-ident-name? rev))
-                            rev))]
-          :when found
-          :let [[etype label] found]]
-    (ex/throw-validation-err!
-     :attributes
-     attr
-     [{:message (format "%s.%s is a system column and it already exists." etype label)}])))
+                rev (rev-ident-name attr)]
+          [etype label :as ident-name] [fwd rev]
+          :when ident-name]
+    (when (system-catalog/reserved-ident-name? ident-name)
+      (ex/throw-validation-err!
+       :attributes
+       attr
+       [{:message (format "%s.%s is a system column and it already exists." etype label)}]))
+    (when (and (string/starts-with? etype "$")
+               (not (system-catalog/editable-triple-ident-name? ident-name)))
+      (ex/throw-validation-err!
+       :attributes
+       attr
+       [{:message (format "$ is reserved for system tables. You can't create %s" etype)}]))))
 
 (defn validate-add-required! [conn app-id attrs]
   (doseq [attr  attrs

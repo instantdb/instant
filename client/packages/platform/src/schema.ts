@@ -441,14 +441,20 @@ export const validateSchema = (
   const entityNames = Object.keys(schema.entities);
 
   for (const [etype, entityDef] of Object.entries(schema.entities)) {
-    if (!systemCatalogIdentNames[etype]) continue;
+    if (!etype.startsWith('$')) continue;
+    if (!systemCatalogIdentNames[etype]) {
+      throw new SchemaValidationError(
+        'The $ keyword is reserved for system namespaces.' +
+          `\nYou can't create '${etype}'. Perhaps call it '${etype.slice(1)}' instead?`,
+      );
+    }
     for (const [attrName, attrDef] of Object.entries(entityDef.attrs)) {
       if (systemCatalogIdentNames[etype].has(attrName)) {
         continue;
       }
       if (attrDef.required) {
         throw new SchemaValidationError(
-          `The '${etype}' namespace is managed by the system and can't require new attributes yet.` +
+          `The '${etype}' namespace is managed by the system and can't modify required constraints yet.` +
             `\nMake sure to set ${etype}.${attrName} as optional.` +
             `\n i.e { ${attrName}: i.${attrDef.valueType}().optional() }`,
         );

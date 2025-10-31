@@ -603,3 +603,100 @@ test('system catalog attrs are ignored when deleting entities', async () => {
     ],
   });
 });
+
+test('system catalog attrs are ignored when changing entities', async () => {
+  const result = await diffSchemas(
+    i.schema({
+      entities: {
+        $users: i.entity({
+          email: i.string(),
+          fullName: i.string().optional(),
+        }),
+        $files: i.entity({
+          path: i.string().unique().indexed(),
+        }),
+      },
+      links: {
+        fileOwner: {
+          forward: {
+            on: '$files',
+            has: 'one',
+            label: 'owner',
+          },
+          reverse: {
+            on: '$users',
+            has: 'many',
+            label: 'ownedFiles',
+          },
+        },
+        $usersLinkedPrimaryUser: {
+          forward: {
+            on: '$users',
+            has: 'one',
+            label: 'linkedPrimaryUser',
+            onDelete: 'cascade',
+          },
+          reverse: {
+            on: '$users',
+            has: 'many',
+            label: 'linkedGuestUsers',
+          },
+        },
+      },
+    }),
+    i.schema({
+      entities: {
+        $users: i.entity({
+          email: i.number(),
+          fullName: i.number().optional(),
+        }),
+        $files: i.entity({
+          path: i.string().unique().indexed(),
+        }),
+      },
+      links: {
+        fileOwner: {
+          forward: {
+            on: '$files',
+            has: 'one',
+            label: 'owner',
+          },
+          reverse: {
+            on: '$users',
+            has: 'one',
+            label: 'ownedFiles',
+          },
+        },
+        $usersLinkedPrimaryUser: {
+          forward: {
+            on: '$users',
+            has: 'many',
+            label: 'linkedPrimaryUser',
+            onDelete: 'cascade',
+          },
+          reverse: {
+            on: '$users',
+            has: 'many',
+            label: 'linkedGuestUsers',
+          },
+        },
+      },
+    }),
+    createChooser([]),
+    systemCatalogIdentNames,
+  );
+  expect(simpleSummary(result)).toEqual({
+    'check-data-type': [
+      {
+        attrName: 'fullName',
+        namespace: '$users',
+      },
+    ],
+    unique: [
+      {
+        namespace: '$files',
+        attrName: 'owner',
+      },
+    ],
+  });
+});

@@ -45,9 +45,6 @@
 
 (def shortcodes-etype (map-invert etype-shortcodes))
 
-(defn reserved? [etype]
-  (string/starts-with? etype "$"))
-
 ;; Must be 10 chars or shorter
 (def label-shortcodes
   {"id" "id"
@@ -367,3 +364,26 @@
 (defn reserved-ident-name? [[etype label]]
   (or (contains? (reserved-ident-names) [etype label])
       (contains? existing-ident-names [etype label])))
+
+(def editable-etypes
+  "We let users create new attributes on these etypes."
+  #{"$users" "$files"})
+
+(def ^:private  editable-triple-ident-names
+  #{["$users" "id"]
+    ["$files" "id"]
+    ["$files" "path"]})
+
+(defn editable-triple-ident-name?
+  "There are some system catalog attributes that we let users edit. 
+  
+  $users.id and $files.id 
+    In order to enable any edits for $users and $files, the `id` triple 
+    has to be editable. This is because we always do an insert for the 
+    id triple when updating entities. 
+
+  $files.path 
+    There may be good reason for a user to change the $files.path for a file."
+  [[etype label]]
+  (contains? editable-triple-ident-names [etype label]))
+

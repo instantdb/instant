@@ -394,6 +394,9 @@ export const diffSchemas = async (
     );
 
     consistentFields.forEach((fieldName) => {
+      if (isSystemCatalogAttr(systemCatalogIdentNames, entityName, fieldName)) {
+        return;
+      }
       transactions.push(
         ...compareBlobs(
           {
