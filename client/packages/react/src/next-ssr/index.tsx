@@ -33,7 +33,7 @@ type InstantSuspenseProviderProps<
 
 const stream = createHydrationStreamProvider<any>();
 
-export const SuspsenseQueryContext = createContext<any | null>(null);
+const SuspsenseQueryContext = createContext<any | null>(null);
 
 // Creates a typed useSuspense hook
 export const createUseSuspenseQuery = <
@@ -64,6 +64,12 @@ export const InstantSuspenseProvider = (
   props: InstantSuspenseProviderProps<any>,
 ) => {
   const clientRef = useRef<FrameworkClient | null>(null);
+
+  if (!props.db && !props.config) {
+    throw new Error(
+      'Must provide either a db or config to InstantSuspenseProvider',
+    );
+  }
 
   const db = useRef<InstantReactAbstractDatabase<any, any>>(
     props.db
