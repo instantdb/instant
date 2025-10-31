@@ -1856,15 +1856,19 @@ export default class Reactor {
 
   async syncUserToEndpoint(user) {
     if (this.config.endpointURI) {
-      fetch(this.config.endpointURI + '/sync-auth', {
-        method: 'POST',
-        body: JSON.stringify({
-          user: user,
-        }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      try {
+        fetch(this.config.endpointURI + '/sync-auth', {
+          method: 'POST',
+          body: JSON.stringify({
+            user: user,
+          }),
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+      } catch (error) {
+        console.error('Error syncing user with external endpoint', error);
+      }
     }
   }
 
