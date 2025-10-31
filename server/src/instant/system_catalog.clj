@@ -1,6 +1,7 @@
 (ns instant.system-catalog
   (:require [clojure.set :refer [map-invert]]
-            [clojure.string :as string])
+            [clojure.string :as string]
+            [instant.flags :as flags])
   (:import
    [java.util UUID]))
 
@@ -43,9 +44,6 @@
 (def all-etypes (set (keys etype-shortcodes)))
 
 (def shortcodes-etype (map-invert etype-shortcodes))
-
-(defn reserved? [etype]
-  (string/starts-with? etype "$"))
 
 ;; Must be 10 chars or shorter
 (def label-shortcodes
@@ -341,3 +339,51 @@
                        $oauth-code-attrs
                        $oauth-redirect-attrs
                        $files-attrs))
+
+(defn- ^:private reserved-ident-names
+  "Want to add a new system catalog attribute? 
+   
+   1. Find a good, unique ident name for it (etype + label). i.e: ['$users' 'fullName'] 
+   2. Head on over to instant-config, and update the flag to include your new ident name. 
+
+   This will reserve the ident name, so users can't create that attribute. 
+
+   Once your PR is ready, deploy the change, create your system catalog attr, then 
+   remove the ident name from the flag."
+  []
+  (flags/flag :reserved-system-catalog-ident-names #{}))
+
+(def ^:private existing-ident-names
+  (->> all-attrs
+       (mapcat (fn [{:keys [forward-identity reverse-identity]}]
+                 (cond-> []
+                   forward-identity (conj (vec (rest forward-identity)))
+                   reverse-identity (conj (vec (rest reverse-identity))))))
+       set))
+
+(defn reserved-ident-name? [[etype label]]
+  (or (contains? (reserved-ident-names) [etype label])
+      (contains? existing-ident-names [etype label])))
+
+(def editable-etypes
+  "We let users create new attributes on these etypes."
+  #{"$users" "$files"})
+
+(def ^:private  editable-triple-ident-names
+  #{["$users" "id"]
+    ["$files" "id"]
+    ["$files" "path"]})
+
+(defn editable-triple-ident-name?
+  "There are some system catalog attributes that we let users edit. 
+  
+  $users.id and $files.id 
+    In order to enable any edits for $users and $files, the `id` triple 
+    has to be editable. This is because we always do an insert for the 
+    id triple when updating entities. 
+
+  $files.path 
+    There may be good reason for a user to change the $files.path for a file."
+  [[etype label]]
+  (contains? editable-triple-ident-names [etype label]))
+

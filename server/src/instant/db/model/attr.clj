@@ -2,19 +2,20 @@
   (:require
    [clojure.set :refer [map-invert]]
    [clojure.spec.alpha :as s]
-   [clojure.string :as string]
    [honey.sql :as hsql]
    [instant.db.model.triple-cols :refer [triple-cols]]
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
-   [instant.system-catalog :refer [system-catalog-app-id]]
+   [instant.system-catalog :as system-catalog :refer [system-catalog-app-id]]
    [instant.util.cache :as cache]
    [instant.util.coll :as coll]
    [instant.util.crypt :refer [json-null-md5]]
    [instant.util.exception :as ex]
    [instant.util.spec :as uspec]
-   [instant.util.string :as string-util]
-   [instant.util.uuid :as uuid]))
+   [instant.util.uuid :as uuid]
+   [instant.discord :as discord]
+   [instant.config :as config]
+   [clojure.string :as string]))
 
 (set! *warn-on-reflection* true)
 
@@ -132,6 +133,10 @@
   "Returns reverse etype and label for an attr. Note: Reverse identity may not exist"
   [attr]
   (-> attr :reverse-identity ident-name))
+
+(defn ident-names
+  [attr]
+  (filter identity [(fwd-ident-name attr) (rev-ident-name attr)]))
 
 (defn fwd-etype
   "Given an attr, return it's forward etype"
@@ -259,22 +264,71 @@
 (defn qualify-cols [ns cols]
   (map (partial qualify-col ns) cols))
 
-(defn validate-reserved-names!
-  "Prevents users from creating namespaces that start with `$`. Only looks
-   at the forward-identity. That way users can still create links into the
-   reserved namespaces.
-   We need this so that users don't clash with special namespaces, like the
-   $users table and $files rules."
+(defn validate-system-catalog-inserts!
+  "When we run a system catalog migration, we are inserting attrs that affect all 
+  existing apps. 
+  
+  What if a new system catalog insert has an ident that conflicts with some 
+  existing app's attr? 
+  
+  This will throw if new system catalog inserts conflict. 
+  
+  Note: System catalog migrations run during startup.
+        This means that a conflict will *kill* new machines during a deploy."
+  [conn attrs]
+  (let [idents  (mapcat ident-names attrs)
+        conflicts (sql/execute!
+                   conn
+                   (hsql/format
+                    {:with [[[:to-insert {:columns [:etype :label]}]
+                             {:values idents}]]
+                     :select [[:i.etype :etype]
+                              [:i.label :label]
+                              [:a.id :attr-id]]
+                     :from [[:to-insert :i]]
+                     :join [[:attrs :a] [:or
+                                         [:= [:composite :i.etype :i.label]
+                                          [:composite :a.etype :a.label]]
+                                         [:= [:composite :i.etype :i.label]
+                                          [:composite :a.reverse-etype :a.reverse-label]]]]
+
+                     :limit 1}))]
+
+    (when-let [{:keys [etype label attr_id]} (first conflicts)]
+      (when (= :prod (config/get-env))
+        (discord/send-error-async!
+         (str
+          (:instateam discord/mention-constants)
+          ", we attempted to create a system catalog attribute that had a conflict. \n"
+          "Conflicting attribute: " etype "." label " (id: " attr_id ") \n"
+          "This means that new machines can't start. \n"
+          "Fix the conflict and re-deploy.")))
+      (ex/throw-validation-err!
+       :attributes
+       attrs
+       [{:message (format "%s.%s conflicts with an existing attribute %s" etype label attr_id)
+         :all-conflicts conflicts}]))))
+
+(defn validate-system-ident-names!
+  "Prevents users from creating attrs that use catalog idents. 
+   We also don't allow users to create new namespaces that start with $"
   [attrs]
-  (doseq [attr attrs]
-    (when-let [fwd-etype (-> attr :forward-identity second)]
-      (when (string/starts-with? fwd-etype "$")
-        (ex/throw-validation-err!
-         :attributes
-         attr
-         [{:message (string-util/multiline->single-line
-                     "Namespaces are not allowed to start with a `$`.
-                      Those are reserved for system namespaces.")}])))))
+  (doseq [attr attrs
+          :let [fwd (fwd-ident-name attr)
+                rev (rev-ident-name attr)]
+          [etype label :as ident-name] [fwd rev]
+          :when ident-name]
+    (when (system-catalog/reserved-ident-name? ident-name)
+      (ex/throw-validation-err!
+       :attributes
+       attr
+       [{:message (format "%s.%s is a system column and it already exists." etype label)}]))
+    (when (and (string/starts-with? etype "$")
+               (not (system-catalog/editable-etypes etype)))
+      (ex/throw-validation-err!
+       :attributes
+       attr
+       [{:message (format "$ is reserved for system tables. You can't create %s" etype)}]))))
 
 (defn validate-add-required! [conn app-id attrs]
   (doseq [attr  attrs
@@ -303,8 +357,10 @@
   ([conn app-id attrs]
    (insert-multi! conn app-id attrs {:allow-reserved-names? false}))
   ([conn app-id attrs {:keys [allow-reserved-names?]}]
+   (when (= app-id system-catalog-app-id)
+     (validate-system-catalog-inserts! conn attrs))
    (when-not allow-reserved-names?
-     (validate-reserved-names! attrs))
+     (validate-system-ident-names! attrs))
    (validate-add-required! conn app-id attrs)
    (with-cache-invalidation app-id
      (let [query {:with [[[:attr-values
@@ -525,7 +581,7 @@
 
 (defn update-multi!
   [conn app-id updates]
-  (validate-reserved-names! updates)
+  (validate-system-ident-names! updates)
   (with-cache-invalidation app-id
     (sql/do-execute!
      ::update-multi!
@@ -889,13 +945,13 @@
   ([app-id]
    (get-by-app-id* (aurora/conn-pool :read) app-id))
   ([conn app-id]
-  (wrap-attrs
-   (mapv row->attr
-         (sql/select
-          ::get-by-app-id*
-          conn
-          (sql/format
-           "SELECT
+   (wrap-attrs
+    (mapv row->attr
+          (sql/select
+           ::get-by-app-id*
+           conn
+           (sql/format
+            "SELECT
               *
             FROM
               attrs
@@ -904,8 +960,8 @@
               AND deletion_marked_at IS NULL
             ORDER BY
               id ASC"
-           {"?app-id" app-id
-            "?system-catalog-app-id" system-catalog-app-id}))))))
+            {"?app-id" app-id
+             "?system-catalog-app-id" system-catalog-app-id}))))))
 
 (defn get-by-app-id
   ([app-id]

@@ -306,17 +306,24 @@
 ;; -----------
 ;; Validations
 
-(defn throw-validation-err! [input-type input errors]
-  (throw+ {::type ::validation-failed
-           ::message (str "Validation failed for "
-                          (name input-type)
-                          (when (seq errors)
-                            (str
-                             ": "
-                             (string/join ", " (keep :message errors)))))
-           ::hint {:data-type input-type
-                   :input input
-                   :errors errors}}))
+(defn throw-validation-err!
+  "Note: the way we use this function, we always had a descriptive 
+  `message` passed in an `errors` entry. 
+
+  We moved that up into the top-level `message`, so it's easier for users to read. 
+
+  We may want to refactor this function, to perhaps pass in the message directly."
+  [input-type input errors]
+  (let [base-msg (str "Validation failed for " (name input-type))
+        hint-msgs (keep :message errors)
+        full-msg (if-not (seq hint-msgs)
+                   base-msg
+                   (str base-msg ": " (string/join ", " hint-msgs)))]
+    (throw+ {::type ::validation-failed
+             ::message full-msg
+             ::hint {:data-type input-type
+                     :input input
+                     :errors errors}})))
 
 (defn assert-valid! [input-type input errors]
   (when (seq errors)
@@ -354,6 +361,7 @@
                ::message (format "Malformed parameter: %s" (mapv safe-name ks))
                ::hint {:in ks
                        :original-input param}}))))
+
 (defn get-some-param!
   [obj list-of-paths coercer]
   (let [found-path (first (filter #(get-in obj %) list-of-paths))
@@ -624,6 +632,13 @@
         "remove_last_org_owner"
         (throw+ {::type ::validation-failed
                  ::message "There must be at least one member of the org that is an owner."})
+
+        "required_set_on_reserved_attrs"
+        (throw+ {::type ::validation-failed
+                 ::message (str
+                            "You can't create a required system attribute. Make sure it's optional."
+                            " Check out the docs to learn more:"
+                            " https://www.instantdb.com/docs/modeling-data#required-constraints")})
 
         #_else
         (throw+ {::type ::sql-raise

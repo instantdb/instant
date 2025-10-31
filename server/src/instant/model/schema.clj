@@ -404,9 +404,17 @@
 ;; ---
 ;; API
 
-(defn remove-system-entities [entities]
-  (ucoll/filter-keys #(not (system-catalog/reserved? (name %)))
-                     entities))
+(defn remove-system-entity-attrs [entities]
+  (->> entities
+       (map (fn [[etype ent-def]]
+              [etype
+               (update ent-def :attrs (fn [attrs]
+                                        (ucoll/filter-keys
+                                         (fn [label]
+                                           (not (system-catalog/reserved-ident-name?
+                                                 [(name etype) (name label)])))
+                                         attrs)))]))
+       (into {})))
 
 (def system-catalog-links
   (reduce (fn [acc attr]
@@ -433,7 +441,7 @@
 
 (defn remove-system-namespaces [schema]
   (-> schema
-      (update :entities remove-system-entities)
+      (update :entities remove-system-entity-attrs)
       (update :links remove-system-links)))
 
 (defn plan!
@@ -524,9 +532,9 @@
              :attrs (attr-model/get-by-app-id app-id)
              :datalog-query-fn d/query
              :rules (rule-model/get-by-app-id {:app-id app-id})}
-      tx-steps (filter (fn [[action]]
-                      (contains? #{:add-attr :update-attr :delete-attr} action))
-                    steps)
+        tx-steps (filter (fn [[action]]
+                           (contains? #{:add-attr :update-attr :delete-attr} action))
+                         steps)
         tx-res (when (seq tx-steps)
                  (permissioned-tx/transact! ctx tx-steps))
         {:keys [indexing-jobs steps]} (create-indexing-jobs app-id steps)]
