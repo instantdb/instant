@@ -197,7 +197,7 @@ function formatPageInfo(
   if (!pageInfo) {
     return undefined;
   }
-  const res = {};
+  const res: PageInfoResponse<any> = {};
 
   for (const [k, v] of Object.entries(pageInfo)) {
     res[k] = {
