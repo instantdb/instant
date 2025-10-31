@@ -1,14 +1,7 @@
-import { init } from './index.ts';
-
 export const createInstantRouteHandler = (config: {
   appId: string;
   apiURI?: string;
 }) => {
-  const admin = init({
-    appId: config.appId,
-    apiURI: config.apiURI,
-  });
-
   async function handleUserSync(req: Request) {
     const body = await req.json();
     if (body.user && body.user.refresh_token) {

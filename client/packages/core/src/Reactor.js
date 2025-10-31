@@ -1128,7 +1128,8 @@ export default class Reactor {
       return cached.data;
     }
 
-    let { store, pageInfo, aggregate, processedTxId } = result;
+    let store = result.store;
+    const { pageInfo, aggregate, processedTxId } = result;
     const mutations = this._rewriteMutationsSorted(
       store.attrs,
       pendingMutations,

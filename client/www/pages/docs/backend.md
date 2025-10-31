@@ -474,7 +474,7 @@ export const db = init({
 
 The `@instantdb/react` package exports an `InstantSuspenseProvider` that you can use to enable server rendering on client pages via Suspense.
 
-SSR is best used with the cookie sync endpoint. If cookies are not synced, there will a brief flash of the query result from an unauthentcated user on the first render.
+SSR is best used with the cookie sync endpoint. If cookies are not synced, there will a brief flash of the query result from an unauthenticated user on the first render.
 
 ### Client Component Provider
 
