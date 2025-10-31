@@ -27,12 +27,12 @@ export class PersistedObject<T> {
   _subs = [];
   _persister: Storage;
   _key: string;
-  _onMerge: (fromStorage: T, inMemoryValue: T) => any;
+  _onMerge: (fromStorage: T, inMemoryValue: T) => T | void;
   _loadedCbs: Array<() => void>;
   _isLoading: boolean;
   currentValue: T;
-  serialize: (T) => any;
-  parse: (any) => T;
+  serialize: (input: T) => any;
+  parse: (input: any) => T;
   _saveThrottleMs: number;
   _idleCallbackMaxWaitMs: number;
   _pendingSaveCbs: Array<() => void>;
@@ -43,7 +43,7 @@ export class PersistedObject<T> {
     persister: Storage,
     key: string,
     defaultValue: T,
-    onMerge: (fromStorage: T, inMemoryValue: T) => any,
+    onMerge: (fromStorage: T, inMemoryValue: T) => T | void,
     serialize = (x: T): any => {
       return x;
     },
@@ -84,7 +84,10 @@ export class PersistedObject<T> {
     const fromStorage = await this._getFromStorage();
     this._isLoading = false;
 
-    this._onMerge(fromStorage, this.currentValue);
+    const mergeResult = this._onMerge(fromStorage, this.currentValue);
+    if (mergeResult) {
+      this.currentValue = mergeResult;
+    }
     for (const cb of this._loadedCbs) {
       cb();
     }
@@ -149,7 +152,7 @@ export class PersistedObject<T> {
     }, this._saveThrottleMs);
   }
 
-  set(f, cb) {
+  set(f: (prev: T) => T, cb?: () => void): T {
     this._version++;
     this.currentValue = f(this.currentValue);
     if (this._isLoading) {
@@ -160,6 +163,7 @@ export class PersistedObject<T> {
     for (const sub of this._subs) {
       sub(this.currentValue);
     }
+    return this.currentValue;
   }
 
   subscribe(cb) {

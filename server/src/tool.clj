@@ -110,6 +110,15 @@
                          (str/replace s #"(?<!\\)\"" "\\\"")))
          col))))
 
+(defn ->pg-text-2d-array
+  [col]
+  (format
+   "{%s}"
+   (str/join
+    ","
+    (map (fn [c] (->pg-text-array c))
+         col))))
+
 ;; Copied from sql.clj
 (defn ->pg-uuid-array
   "Formats as uuid[] in pg, i.e. {item-1, item-2, item3}"
@@ -148,6 +157,14 @@
       (.append s \'))
     (.append s "]::jsonb[]")))
 
+(defn ->pg-json-2d-array [items]
+  (let [s (StringBuilder. "ARRAY[")]
+    (doseq [item items]
+      (when (not= 6 (.length s))
+        (.append s \,))
+      (.append s (->pg-json-array item)))
+    (.append s "]::jsonb[][]")))
+
 (defn unsafe-sql-format-query
   "Use with caution: this inlines parameters in the query, so it could
    be used with sql injection.
@@ -167,8 +184,14 @@
                                                  (= "text[]" (-> v meta :pgtype))
                                                  (format "'%s'" (->pg-text-array v))
 
+                                                 (= "text[][]" (-> v meta :pgtype))
+                                                 (format "'%s'" (->pg-text-2d-array v))
+
                                                  (= "jsonb[]" (-> v meta :pgtype))
                                                  (->pg-json-array v)
+
+                                                 (= "jsonb[][]" (-> v meta :pgtype))
+                                                 (->pg-json-2d-array v)
 
                                                  (or (= "uuid[]" (-> v meta :pgtype))
                                                      (= "boolean[]" (-> v meta :pgtype))
@@ -205,6 +228,17 @@
                                                           (map (fn [x]
                                                                  (when x
                                                                    (str "\\x" (String. (Hex/encodeHex ^bytes x)))))
+                                                               v)))
+
+                                                 (= "bytea[][]" (-> v meta :pgtype))
+                                                 (format "'%s'::bytea[]"
+                                                         (->pg-stringable-array
+                                                          (map (fn [v]
+                                                                 (->pg-stringable-array
+                                                                  (map (fn [x]
+                                                                         (when x
+                                                                           (str "\\x" (String. (Hex/encodeHex ^bytes x)))))
+                                                                       v)))
                                                                v)))
 
                                                  (instance? LogSequenceNumber v)

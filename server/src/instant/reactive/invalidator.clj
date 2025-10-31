@@ -167,8 +167,10 @@
   [_process-id store {:keys [app-id tx-id] :as wal-record}]
   (let [topics      (topics-for-changes wal-record)
         session-ids (rs/mark-stale-topics! store app-id tx-id topics)
-        sockets     (keep #(:session/socket (rs/session store %)) session-ids)]
-    sockets))
+        sockets     (keep #(:session/socket (rs/session store %)) session-ids)
+        sync-subs (rs/get-stale-sync-subs store app-id topics)]
+    {:sockets sockets
+     :sync-subs sync-subs}))
 
 (defn- topics-for-byop-triple-insert [table-info change]
   (let [m (columns->map (:columns change) true)
@@ -357,19 +359,27 @@
                                      :tx-bytes tx-bytes}}
 
       (try
-        (let [sockets (invalidate! process-id store wal-record)]
+        (let [{:keys [sockets sync-subs]} (invalidate! process-id store wal-record)]
           (tracer/add-data! {:attributes {:num-sockets (count sockets)
+                                          :num-sync-subs (count sync-subs)
                                           :tx-latency-ms (e2e-tracer/tx-latency-ms tx-created-at)}})
           (e2e-tracer/invalidator-tracking-step! {:tx-id tx-id
                                                   :tx-created-at tx-created-at
                                                   :name "send-refreshes"
                                                   :attributes {:num-sockets (count sockets)}})
+          (when (or (config/dev?) (seq sync-subs))
+            (rs/add-transaction-to-sync-table-txes wal-record))
           (tracer/with-span! {:name "invalidator/send-refreshes"}
             (doseq [{:keys [id]} sockets]
               (receive-queue/put! {:op :refresh
                                    :session-id id
                                    :tx-id tx-id
-                                   :tx-created-at tx-created-at}))))
+                                   :tx-created-at tx-created-at}))
+            (doseq [{:sync/keys [session-id id]} sync-subs]
+              (receive-queue/put! {:op :refresh-sync-table
+                                   :app-id app-id
+                                   :session-id session-id
+                                   :subscription-id id}))))
         (catch Throwable t
           (def -wal-record wal-record)
           (def -store-value (store-snapshot store app-id))
