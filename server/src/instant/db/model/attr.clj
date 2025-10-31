@@ -324,7 +324,7 @@
        attr
        [{:message (format "%s.%s is a system column and it already exists." etype label)}]))
     (when (and (string/starts-with? etype "$")
-               (not (system-catalog/editable-triple-ident-name? ident-name)))
+               (not (system-catalog/editable-etypes etype)))
       (ex/throw-validation-err!
        :attributes
        attr
