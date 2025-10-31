@@ -275,7 +275,9 @@ export default class Reactor {
     this._oauthCallbackResponse = this._oauthLoginInit();
 
     // kick off a request to cache it
-    this.getCurrentUser();
+    this.getCurrentUser().then((userInfo) => {
+      this.syncUserToEndpoint(userInfo.user);
+    });
 
     NetworkListener.getIsOnline().then((isOnline) => {
       this._isOnline = isOnline;
@@ -488,6 +490,43 @@ export default class Reactor {
         this._tryBroadcast(roomId, roomType, topic, data);
       }
     }
+  }
+
+  /**
+   * Does the same thing as handle-query-add-ok
+   * but called as a result of receiving query info from ssr
+   * @param {any} q
+   * @param {{ triples: any; pageInfo: any; }} result
+   * @param {boolean} enableCardinalityInference
+   */
+  _addQueryData(q, result, enableCardinalityInference) {
+    if (!this.attrs) {
+      throw new Error('Attrs in reactor have not been set');
+    }
+    const queryHash = weakHash(q);
+    const store = s.createStore(
+      this.attrs,
+      result.triples,
+      enableCardinalityInference,
+      this._linkIndex,
+      this.config.useDateObjects,
+    );
+    this.querySubs.set((prev) => {
+      prev[queryHash] = {
+        result: {
+          store,
+          pageInfo: result.pageInfo,
+          processedTxId: undefined,
+          isExternal: true,
+        },
+        q,
+      };
+      return prev;
+    });
+    this._cleanupPendingMutationsQueries();
+    this.notifyOne(queryHash);
+    this.notifyOneQueryOnce(queryHash);
+    this._cleanupPendingMutationsTimeout();
   }
 
   _handleReceive(connId, msg) {
@@ -1065,7 +1104,7 @@ export default class Reactor {
   }
 
   /** Runs instaql on a query and a store */
-  dataForQuery(hash) {
+  dataForQuery(hash, applyOptimistic = true) {
     const errorMessage = this._errorMessage;
     if (errorMessage) {
       return { error: errorMessage };
@@ -1089,17 +1128,16 @@ export default class Reactor {
       return cached.data;
     }
 
-    const { store, pageInfo, aggregate, processedTxId } = result;
+    let store = result.store;
+    const { pageInfo, aggregate, processedTxId } = result;
     const mutations = this._rewriteMutationsSorted(
       store.attrs,
       pendingMutations,
     );
-    const newStore = this._applyOptimisticUpdates(
-      store,
-      mutations,
-      processedTxId,
-    );
-    const resp = instaql({ store: newStore, pageInfo, aggregate }, q);
+    if (applyOptimistic) {
+      store = this._applyOptimisticUpdates(store, mutations, processedTxId);
+    }
+    const resp = instaql({ store: store, pageInfo, aggregate }, q);
 
     this._dataForQueryCache[hash] = {
       querySubVersion,
@@ -1817,7 +1855,27 @@ export default class Reactor {
     }
   }
 
+  async syncUserToEndpoint(user) {
+    if (this.config.endpointURI) {
+      try {
+        fetch(this.config.endpointURI + '/sync-auth', {
+          method: 'POST',
+          body: JSON.stringify({
+            user: user,
+          }),
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+      } catch (error) {
+        console.error('Error syncing user with external endpoint', error);
+      }
+    }
+  }
+
   updateUser(newUser) {
+    this.syncUserToEndpoint(newUser);
+
     const newV = { error: undefined, user: newUser };
     this._currentUserCached = { isLoading: false, ...newV };
     this._dataForQueryCache = {};

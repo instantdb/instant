@@ -408,6 +408,9 @@ importers:
       '@vitejs/plugin-react':
         specifier: ^4.3.1
         version: 4.3.4(vite@5.4.14(@types/node@22.13.0)(lightningcss@1.30.1)(terser@5.37.0))
+      next:
+        specifier: ^15.5.6
+        version: 15.5.6(@babel/core@7.26.7)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       npm-run-all:
         specifier: ^4.1.5
         version: 4.1.5
@@ -706,7 +709,7 @@ importers:
         version: 1.2.5(react@18.3.1)
       next:
         specifier: latest
-        version: 15.5.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 15.5.6(@babel/core@7.26.7)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react:
         specifier: 18.3.1
         version: 18.3.1
@@ -720,6 +723,9 @@ importers:
         specifier: ^4.4.5
         version: 4.4.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
     devDependencies:
+      '@tailwindcss/forms':
+        specifier: ^0.5.2
+        version: 0.5.10(tailwindcss@3.3.2(ts-node@10.9.2(@swc/core@1.11.29)(@types/node@17.0.35)(typescript@5.9.3)))
       '@types/node':
         specifier: 17.0.35
         version: 17.0.35
@@ -807,7 +813,7 @@ importers:
         version: link:../../packages/react
       next:
         specifier: latest
-        version: 15.5.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 15.5.6(@babel/core@7.26.7)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react:
         specifier: 18.3.1
         version: 18.3.1
@@ -3111,7 +3117,7 @@ packages:
 
   '@expo/bunyan@4.0.1':
     resolution: {integrity: sha512-+Lla7nYSiHZirgK+U/uYzsLv/X+HaJienbD5AKX1UQZHYfWaP+9uuQluRB4GrEVWF0GZ7vEVp/jzaOT9k/SQlg==}
-    engines: {node: '>=0.10.0'}
+    engines: {'0': node >=0.10.0}
 
   '@expo/cli@0.20.3':
     resolution: {integrity: sha512-+nL2f6ZPV6e4yXS0P02jChstSJePihfFluapqnRM8+4pH4wsBOL1GoOc7hVFfwsP0vRE3HDqn5EEzrO+ZaCbpQ==}
@@ -15355,7 +15361,7 @@ snapshots:
       '@clerk/shared': 2.9.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@clerk/types': 4.26.0
       crypto-js: 4.2.0
-      next: 15.5.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      next: 15.5.6(@babel/core@7.26.7)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
       server-only: 0.0.1
@@ -18910,6 +18916,11 @@ snapshots:
       '@swc/counter': 0.1.3
     optional: true
 
+  '@tailwindcss/forms@0.5.10(tailwindcss@3.3.2(ts-node@10.9.2(@swc/core@1.11.29)(@types/node@17.0.35)(typescript@5.9.3)))':
+    dependencies:
+      mini-svg-data-uri: 1.4.4
+      tailwindcss: 3.3.2(ts-node@10.9.2(@swc/core@1.11.29)(@types/node@17.0.35)(typescript@5.9.3))
+
   '@tailwindcss/forms@0.5.10(tailwindcss@3.3.2(ts-node@10.9.2(@swc/core@1.11.29)(@types/node@17.0.4)(typescript@5.9.3)))':
     dependencies:
       mini-svg-data-uri: 1.4.4
@@ -20485,7 +20496,7 @@ snapshots:
   caniuse-api@3.0.0:
     dependencies:
       browserslist: 4.24.5
-      caniuse-lite: 1.0.30001696
+      caniuse-lite: 1.0.30001717
       lodash.memoize: 4.1.2
       lodash.uniq: 4.5.0
 
@@ -25213,7 +25224,7 @@ snapshots:
       - '@babel/core'
       - babel-plugin-macros
 
-  next@15.5.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+  next@15.5.6(@babel/core@7.26.7)(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:
       '@next/env': 15.5.6
       '@swc/helpers': 0.5.15
