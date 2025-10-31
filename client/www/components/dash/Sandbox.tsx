@@ -87,6 +87,7 @@ export function Sandbox({
   const consoleRef = useRef<HTMLDivElement>(null);
 
   const [selectedSandbox, setSelectedSandbox] = useState<string | null>(null);
+  const selectedSandboxRef = useRef<string | null>(null); // only used to register monaco keyboard shortcut to save sandbox
 
   const [savedSandboxes, setSavedSandboxes] = useLocalStorage<SavedSandbox[]>(
     `sandboxes:${app.id}`,
@@ -187,9 +188,19 @@ export function Sandbox({
     }
   }, [attrs, isMonacoLoaded]);
 
+  // Keep ref in sync with state
+  useEffect(() => {
+    selectedSandboxRef.current = selectedSandbox;
+  }, [selectedSandbox]);
+
+  const trySaveCurrent = () => {
+    if (selectedSandboxRef.current) {
+      saveCurrent(selectedSandboxRef.current.trim());
+    }
+  };
+
   /**
-   * Saves the current sandbox as a new preset.
-   * @throws Error if a preset with the same name already exists.
+   * Saves the current sandbox as a new preset or if name exists, updates it.
    */
   const saveCurrent = (name: string) => {
     if (savedSandboxes.find((sb) => sb.name === name)) {
@@ -637,7 +648,7 @@ export function Sandbox({
 
                     editor.addCommand(
                       monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
-                      () => {},
+                      trySaveCurrent,
                     );
 
                     editor.addCommand(
