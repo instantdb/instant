@@ -8,6 +8,7 @@ import {
   InstantSchemaDef,
   InstaQLResponse,
   ValidQuery,
+  PageInfoResponse,
 } from '@instantdb/core';
 
 export type SubscriptionReadyState = 'closed' | 'connecting' | 'open';
@@ -25,6 +26,7 @@ export type SubscribeQueryPayload<
   | {
       type: 'ok';
       data: InstaQLResponse<Schema, Q, NonNullable<Config['useDateObjects']>>;
+      pageInfo: PageInfoResponse<Q>;
       sessionInfo: SubscribeQuerySessionInfo | null;
     }
   | {
@@ -269,6 +271,7 @@ export function subscribe<
         deliver({
           type: 'ok',
           data: msg.result,
+          pageInfo: msg['result-meta']?.['page-info'],
           sessionInfo: sessionParams,
         });
         break;
@@ -278,6 +281,7 @@ export function subscribe<
           deliver({
             type: 'ok',
             data: msg.computations[0]['instaql-result'],
+            pageInfo: msg.computations[0]['result-meta']?.['page-info'],
             sessionInfo: sessionParams,
           });
         }

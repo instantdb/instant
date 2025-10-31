@@ -1,6 +1,7 @@
 import { provisionEphemeralApp } from '../../components/EphemeralAppPage';
 import { useEffect, useRef, useState } from 'react';
 import {
+  i,
   init,
   id,
   SubscribeQueryPayload,
@@ -8,8 +9,16 @@ import {
 } from '@instantdb/admin';
 import config from '../../config';
 
-let i = 0;
+let j = 0;
 const testId = id();
+
+const schema = i.schema({
+  entities: {
+    test: i.entity({
+      i: i.number().indexed(),
+    }),
+  },
+});
 
 async function asyncIterate(sub: any) {
   console.log('async iterate');
@@ -33,13 +42,16 @@ function App({ app }: { app: { id: string; 'admin-token': string } }) {
   const [triggerSub, setTriggerSub] = useState(0);
 
   useEffect(() => {
-    const sub = db.current.subscribeQuery({ test: {} }, (m) => {
-      if (m.type === 'error') {
-        setPayloads((ps) => [m, ...ps]);
-      } else if (m.data) {
-        setPayloads((ps) => [m, ...ps]);
-      }
-    });
+    const sub = db.current.subscribeQuery(
+      { test: { $: { limit: 5, order: { i: 'desc' } } } },
+      (m) => {
+        if (m.type === 'error') {
+          setPayloads((ps) => [m, ...ps]);
+        } else if (m.data) {
+          setPayloads((ps) => [m, ...ps]);
+        }
+      },
+    );
     // @ts-ignore
     globalThis.sub = sub;
     setSub(sub);
@@ -60,10 +72,18 @@ function App({ app }: { app: { id: string; 'admin-token': string } }) {
         <button
           className="bg-black text-white m-2 p-2"
           onClick={() => {
-            db.current.transact(db.current.tx.test[testId].update({ i: i++ }));
+            db.current.transact(db.current.tx.test[testId].update({ i: j++ }));
           }}
         >
-          Add data
+          Change data
+        </button>
+        <button
+          className="bg-black text-white m-2 p-2"
+          onClick={() => {
+            db.current.transact(db.current.tx.test[id()].update({ i: j++ }));
+          }}
+        >
+          Push item
         </button>
         {sub ? (
           <button
@@ -102,7 +122,7 @@ export default function Page() {
   const [app, setApp] = useState(null);
   const [error, setError] = useState<null | Error>(null);
   useEffect(() => {
-    provisionEphemeralApp({})
+    provisionEphemeralApp({ schema })
       .then((res) => setApp(res.app))
       .catch((e) => {
         console.error('Error creating app', e);
