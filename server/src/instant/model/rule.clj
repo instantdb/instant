@@ -133,6 +133,13 @@
   (when-let [expr (patch-code (get-in rule [etype "allow" action]))]
     (with-binds rule etype action expr)))
 
+;; TODO: this is a copy-pasta. I bet we can generalize a bit here.
+(defn format-field-errors [etype action errors]
+  (map (fn [^CelIssue cel-issue]
+         {:message (.getMessage cel-issue)
+          :in [etype :fields action]})
+       errors))
+
 (defn format-errors [etype action errors]
   (map (fn [^CelIssue cel-issue]
          {:message (.getMessage cel-issue)
@@ -197,15 +204,16 @@
 (defn get-program!* [[{:keys [code]} paths]]
   (let [[etype _ action & _] (first paths)]
     (loop [paths paths]
-      (when-some [[_ allow _ & _ :as path] (first paths)]
+      (when-some [[_ cmd _ & _ :as path] (first paths)]
         (or
-         (case allow
+         (case cmd
            "allow"
            (when-some [expr (get-in code path)]
              (try
                (let [code     (with-binds code etype action (patch-code expr))
                      compiler (cel/action->compiler action)
                      ast      (cel/->ast compiler code)]
+
                  {:etype etype
                   :action action
                   :code code
@@ -215,6 +223,29 @@
                   :ref-uses (cel/collect-ref-uses ast)
                   :where-clauses-program (when (= action "view")
                                            (cel/where-clauses-program code))})
+               (catch CelValidationException e
+                 (ex/throw-validation-err!
+                  :permission
+                  (first paths)
+                  (->> (.getErrors e)
+                       (map (fn [^CelIssue cel-issue]
+                              {:message (.getMessage cel-issue)})))))))
+
+           ;; TODO: some copy-pasta here from above.
+           "fields"
+           (when-some [expr (get-in code path)]
+             (try
+               (let [action "view" ;; TODO: what should action be?
+                     code (with-binds code etype action (patch-code expr))
+                     compiler (cel/action->compiler action)
+                     ast      (cel/->ast compiler code)]
+                 {:etype etype
+                  :action "view"
+                  :code code
+                  :display-code expr
+                  :cel-ast ast
+                  :cel-program (cel/->program ast)
+                  :ref-uses (cel/collect-ref-uses ast)})
                (catch CelValidationException e
                  (ex/throw-validation-err!
                   :permission
@@ -238,6 +269,12 @@
      ["$default" "allow"    action]
      ["$default" "allow"    "$default"]
      [etype      "fallback" action]])))
+
+(defn get-field-program!
+  [rules etype label]
+  (get-program!
+   rules
+   [[etype "fields" label]]))
 
 (defn $users-validation-errors
   "Only allow users to changes the `view` and `update` rules for $users, since we don't have
@@ -306,9 +343,43 @@
                            :in [etype :allow action]}])))))
        (keep identity)))
 
+(defn fields-validation-errors [rules]
+  ;; TODO: is the action a good idea here?
+  (let [action "view"]
+    (->> (keys rules)
+         (mapcat
+          (fn [etype]
+            (map (fn [field] [etype field])
+                 (keys (get-in rules [etype "fields"])))))
+         (mapcat
+          (fn [[etype field]]
+            (cond
+              (= field "id")
+              [{:message (str "You cannot set field rules on the `id` field."
+                              " Use the `allow -> view` rule instead.")
+                :in [etype :fields field]}]
+              :else
+              (try
+                (when-let [expr (some->> (get-in rules [etype "fields" field])
+                                         patch-code
+                                         (with-binds rules etype action))]
+
+                  (let [compiler (cel/action->compiler action)
+                        ast (cel/->ast compiler expr)
+                        _program (cel/->program ast)
+                        errors (cel/validation-errors compiler ast)]
+                    (when (seq errors)
+                      (format-field-errors etype field errors))))
+                (catch CelValidationException e
+                  (format-field-errors etype field (.getErrors e)))
+                (catch Exception _e
+                  [{:message "There was an unexpected error evaluating the rules"
+                    :in [etype :fields field]}]))))))))
+
 (defn validation-errors [rules]
   (concat (bind-validation-errors rules)
-          (rule-validation-errors rules)))
+          (rule-validation-errors rules)
+          (fields-validation-errors rules)))
 
 (comment
   (def code {"docs" {"allow" {"view" "lol"

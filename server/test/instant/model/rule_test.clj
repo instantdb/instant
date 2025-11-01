@@ -115,5 +115,30 @@
          (rule/validation-errors {"myetype" {"bind" ["duplicate"]
                                              "allow" {"view" "duplicate"}}}))))
 
+(deftest fields-work
+  (let [code {"myetype"
+              {"allow" {"view" "1 + 1"}
+               "fields" {"email" "2 + 2"}}}]
+    (is (= {:etype "myetype",
+            :action "view",
+            :code "2 + 2"}
+           (select-keys (rule/get-field-program!
+                         {:code code}
+                         "myetype"
+                         "email")
+
+                        [:etype :action :code])))))
+
+(deftest cant-set-field-rules-on-id
+  (is (= [{:message
+           "You cannot set field rules on the `id` field. Use the `allow -> view` rule instead.",
+           :in ["myetype" :fields "id"]}]
+         (rule/validation-errors {"myetype" {"fields" {"id" "false"}}}))))
+
+(deftest fields-validate-cel-exprs
+  (is (= [{:message "undeclared reference to 'newData' (in container '')",
+           :in ["myetype" :fields "email"]}]
+         (rule/validation-errors {"myetype" {"fields" {"email" "newData.id != null"}}}))))
+
 (comment
   (test/run-tests *ns*))

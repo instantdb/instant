@@ -1768,8 +1768,8 @@
    (fn [acc join-rows]
      (reduce
       (fn [acc [e a]]
-        (let [etype (-> (attr-model/seek-by-id a attrs)
-                        attr-model/fwd-etype)
+        (let [[etype label] (-> (attr-model/seek-by-id a attrs)
+                                attr-model/fwd-ident-name)
               rule-where (get rule-wheres (:etype data))
               checked-by-rule-where? (and rule-where
                                           (= etype (:etype data))
@@ -1783,7 +1783,12 @@
             true (update-in [:etype->eids+program etype :program]
                             (fn [p]
                               (or p
-                                  (rule-model/get-program! rules etype "view")))))))
+                                  (rule-model/get-program! rules etype "view"))))
+
+            true (update-in [:etype->eids+program etype :field-programs label]
+                            (fn [p]
+                              (or p (rule-model/get-field-program! rules etype label)))))))
+
       acc
       join-rows))
    acc
@@ -1827,18 +1832,33 @@
                                                          check (get etype+eid->check [etype e])]
                                                      (:result check)))
                                                  triples)))
+                               (map (fn [triples]
+                                      ;; TODO what happens if filters change join row order?
+                                      (filter (fn [[e a]]
+                                                (let [[etype label]
+                                                      (-> (attr-model/seek-by-id a attrs)
+                                                          attr-model/fwd-ident-name)
+                                                      check (get etype+eid->check [etype e label])]
+                                                     ;; TODO: should we run another filter, or go earlier? 
+                                                     ;; should we be defaulting here? 
+                                                     ;; maybe we should _always_ have a :result? 
+                                                  (if check
+                                                    (:result check)
+                                                    true)))
+                                              triples)))
+
                                set)
 
         cleaned-page-info
         (when (get-in res [:data :datalog-result :page-info])
           (let [filtered-rows (seq (filter (fn [[e a]]
-                                                  (let [etype (-> (attr-model/seek-by-id a attrs)
-                                                                  attr-model/fwd-etype)
-                                                        check (get etype+eid->check [etype e])]
-                                                    (:result check)))
-                                                (get-in res [:data
-                                                             :datalog-result
-                                                             :page-info-rows])))]
+                                             (let [etype (-> (attr-model/seek-by-id a attrs)
+                                                             attr-model/fwd-etype)
+                                                   check (get etype+eid->check [etype e])]
+                                               (:result check)))
+                                           (get-in res [:data
+                                                        :datalog-result
+                                                        :page-info-rows])))]
             {:start-cursor (first filtered-rows)
              :end-cursor (last filtered-rows)
              ;; nb: this may be incorrect if rows are filtered by permissions
@@ -1882,8 +1902,12 @@
   still need to fetch the full object to perform permission checks. We do it
   in a batch to reduce latency."
   [{:keys [datalog-query-fn attrs] :as ctx} query-cache etype->eids+program]
-  (let [patterns (keep (fn [[etype {:keys [eids program]}]]
-                         (when program
+  (let [patterns (keep (fn [[etype {:keys [eids program field-programs]}]]
+                         ;; TODO: should the field-programs check be so verbose?
+                         (when (or program (->> field-programs
+                                                vals
+                                                (keep identity)
+                                                seq))
                            (let [attr-ids (attr-model/ea-ids-for-etype etype attrs)
                                  missing-eids (reduce (fn [acc eid]
                                                         (if (contains? query-cache [[:ea eid attr-ids]])
@@ -1929,33 +1953,54 @@
                                     res))
           query-cache (merge query-cache preloaded-entity-maps)
           {:keys [programs no-programs]}
-          (reduce-kv (fn [acc etype {:keys [eids checked-eids program]}]
+          (reduce-kv (fn [acc etype {:keys [eids checked-eids program field-programs]}]
                        (reduce (fn [acc eid]
-                                 (let [k [etype eid]]
-                                   (cond (contains? checked-eids eid)
-                                         (assoc-in acc
-                                                   [:no-programs k]
-                                                   {:result true
-                                                    :checked-by-rule-where true
-                                                    :program program})
+                                 (let [k [etype eid]
+                                       acc-with-program
+                                       (cond (contains? checked-eids eid)
+                                             (assoc-in acc
+                                                       [:no-programs k]
+                                                       {:result true
+                                                        :checked-by-rule-where true
+                                                        :program program})
 
-                                         program
-                                         (let [data (io/warn-io :instaql/entity-map
-                                                                (entity-map ctx
-                                                                            query-cache
-                                                                            etype
-                                                                            eid))
-                                               bindings {:rule-params rule-params
-                                                         :data data}]
-                                           (update acc :programs conj
-                                                   {:key k
-                                                    :program program
-                                                    :bindings bindings}))
+                                             program
+                                             (let [data (io/warn-io :instaql/entity-map
+                                                          (entity-map ctx
+                                                                      query-cache
+                                                                      etype
+                                                                      eid))
+                                                   bindings {:rule-params rule-params
+                                                             :data data}]
+                                               (update acc :programs conj
+                                                       {:key k
+                                                        :program program
+                                                        :bindings bindings}))
 
-                                         :else
-                                         (assoc-in acc
-                                                   [:no-programs k]
-                                                   {:result true}))))
+                                             :else
+                                             (assoc-in acc
+                                                       [:no-programs k]
+                                                       {:result true}))
+
+                                       acc-with-field-programs
+                                       (->> field-programs
+                                            (reduce-kv
+                                             (fn [acc label field-program]
+                                               (if-not field-program
+                                                 acc
+                                                 (let [data (io/warn-io :instaql/entity-map
+                                                              (entity-map ctx
+                                                                          query-cache
+                                                                          etype
+                                                                          eid))
+                                                       bindings {:rule-params rule-params
+                                                                 :data data}]
+                                                   (update acc :programs conj
+                                                           {:key (conj k label)
+                                                            :program field-program
+                                                            :bindings bindings}))))
+                                             acc-with-program))]
+                                   acc-with-field-programs))
                                acc
                                eids))
                      {:programs []
@@ -2019,11 +2064,11 @@
                                    :where-clauses (:where-clauses result)})
                  (catch Exception e
                    (tracer/with-span!
-                       {:name "instaql/rule-where-exception"
-                        :attributes {:code (:code (rule-model/get-program! rules
-                                                                           etype
-                                                                           "view"))
-                                     :error e}}
+                     {:name "instaql/rule-where-exception"
+                      :attributes {:code (:code (rule-model/get-program! rules
+                                                                         etype
+                                                                         "view"))
+                                   :error e}}
                      acc))))
              {}
              program-results)]
@@ -2111,9 +2156,6 @@
                                             etype-rule-where))))))))
               {}
               o)))
-
-
-
 
 (defn permissioned-query [{:keys [app-id current-user admin?] :as ctx} o]
   (tracer/with-span! {:name "instaql/permissioned-query"
