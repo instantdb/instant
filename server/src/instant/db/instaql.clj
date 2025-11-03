@@ -464,13 +464,13 @@
          :message "We only support `where`, `order`, `limit`, `offset`, `before`, and `after` clauses."}]))
 
     (when (and (< 0 (:level state))
-               (or limit offset after before))
+               (or offset after before))
       (ex/throw-validation-err!
        :query
        (:root state)
        [{:expected 'supported-options?
          :in (:in state)
-         :message "We currently only support `limit`, `offset`, `before`, and `after` clauses on the top-level field."}]))
+         :message "We currently only support `offset`, `before`, and `after` clauses on the top-level field. Limit fields will be ignored"}]))
 
     (let [limit-opts (filter identity [(when limit "`limit`")
                                        (when first "`first`")
