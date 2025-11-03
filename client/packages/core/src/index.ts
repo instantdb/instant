@@ -93,6 +93,7 @@ import type {
   BackwardsCompatibleSchema,
   UpdateParams,
   LinkParams,
+  CreateParams,
   RuleParams,
 } from './schemaTypes.ts';
 import type { InstantRules } from './rulesTypes.ts';
@@ -936,6 +937,7 @@ export {
   type InstantRules,
   type UpdateParams,
   type LinkParams,
+  type CreateParams,
   type RuleParams,
 
   // attr types
