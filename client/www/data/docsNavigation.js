@@ -76,6 +76,11 @@ module.exports = [
       },
       { title: 'Clerk', href: '/docs/auth/clerk', optionalLLM: true },
       {
+        title: 'Firebase Auth',
+        href: '/docs/auth/firebase',
+        optionalLLM: true,
+      },
+      {
         title: 'OAuth apps',
         href: '/docs/auth/platform-oauth',
         optionalLLM: true,

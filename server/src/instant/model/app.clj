@@ -292,7 +292,7 @@
                             "client_id" (get client "clientId")
                             "provider_id" (get client "$oauthProvider")
                             "meta" (get client "meta")
-                            "discovery_endpoint" (get client "discovery_endpoint")
+                            "discovery_endpoint" (get client "discoveryEndpoint")
                             "created_at" (get client "$serverCreatedAt")})
                          $oauthClients)]
         {:data {"oauth_service_providers" providers

@@ -163,7 +163,7 @@
 
 (defn- handle-add-query! [store sess-id {:keys [q client-event-id return-type inference?] :as _event}]
   (let [{:keys [app user admin?]} (get-auth! store sess-id)
-        {app-id :id}    app
+        {app-id :id} app
         instaql-queries (rs/session-instaql-queries store app-id sess-id)]
     (cond
       (contains? instaql-queries q)
@@ -188,10 +188,11 @@
                  :table-info     table-info
                  :admin?         admin?
                  :current-user   user}
-            {:keys [instaql-result]} (rq/instaql-query-reactive! store ctx q return-type inference?)]
+            {:keys [instaql-result result-meta]} (rq/instaql-query-reactive! store ctx q return-type inference?)]
         (rs/send-event! store app-id sess-id {:op :add-query-ok
                                               :q q
                                               :result instaql-result
+                                              :result-meta result-meta
                                               :processed-tx-id processed-tx-id
                                               :client-event-id client-event-id})))))
 
@@ -321,10 +322,11 @@
              :table-info table-info
              :current-user current-user
              :admin? admin?}
-        {:keys [instaql-result result-changed?]}
+        {:keys [instaql-result result-meta result-changed?]}
         (rq/instaql-query-reactive! store ctx query return-type inference?)]
     {:instaql-query query
      :instaql-result instaql-result
+     :result-meta result-meta
      :result-changed? result-changed?}))
 
 (defn- handle-refresh! [store sess-id event debug-info]

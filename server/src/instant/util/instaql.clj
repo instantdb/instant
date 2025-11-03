@@ -101,6 +101,19 @@
         (map (fn [n] (update n :data (fn [d] (assoc d :etype (:k d))))) nodes)]
     (instaql-ref-nodes->object-tree ctx enriched-nodes)))
 
+(defn instaql-nodes->object-meta
+  "Returns page-info and aggregate for the instaql result."
+  [nodes]
+  (reduce (fn [meta node]
+            (let [page-info (get-in node [:data :datalog-result :page-info])
+                  aggregate (get-in node [:data :datalog-result :aggregate])]
+              (cond-> meta
+                page-info (assoc-in [:page-info (-> node :data :k)] page-info)
+                aggregate (assoc-in [:aggregate (-> node :data :k)] aggregate))))
+          {:page-info {}
+           :aggregate {}}
+          nodes))
+
 (defn- clean-where-for-hash [where]
   (walk/postwalk (fn [x]
                    (cond (string? x)

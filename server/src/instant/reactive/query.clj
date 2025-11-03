@@ -11,7 +11,8 @@
    [instant.db.model.attr :as attr-model]
    [instant.jdbc.aurora :as aurora]
    [instant.reactive.store :as rs]
-   [instant.util.instaql :refer [instaql-nodes->object-tree]]
+   [instant.util.instaql :refer [instaql-nodes->object-meta
+                                 instaql-nodes->object-tree]]
    [instant.util.tracer :as tracer]
    [instant.comment :as c]))
 
@@ -117,6 +118,8 @@
                            :join-rows (collect-instaql-results-for-client instaql-result)
                            :tree (instaql-nodes->object-tree (assoc ctx :inference? inference?) instaql-result)
                            (collect-instaql-results-for-client instaql-result))
+         :result-meta (when (= :tree return-type)
+                        (instaql-nodes->object-meta instaql-result))
          :result-changed? result-changed?})
       (catch Throwable e
         (rs/remove-query! store app-id session-id instaql-query)

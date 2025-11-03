@@ -58,6 +58,7 @@ import {
   type InstaQLEntitySubquery,
   type InstantRules,
   type UpdateParams,
+  type CreateParams,
   type LinkParams,
   type RuleParams,
   type TopicsOf,
@@ -1133,6 +1134,7 @@ export {
   type InstaQLResult,
   type InstaQLEntitySubquery,
   type InstantRules,
+  type CreateParams,
   type UpdateParams,
   type LinkParams,
 

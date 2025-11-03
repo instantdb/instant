@@ -133,6 +133,10 @@ To implement a login flow use one of the authentication method guides below.
             title="Clerk"
             description="Integrate Clerk's auth flow with Instant."
             /%}
+{% nav-button href="/docs/auth/firebase"
+            title="Firebase Auth"
+            description="Integrate Firebase's auth flow with Instant."
+            /%}
 {% nav-button href="/docs/backend#custom-auth"
             title="Custom Auth"
             description="Integrate your own auth flow with the Admin SDK."

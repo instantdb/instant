@@ -8,6 +8,7 @@ import {
   InstantSchemaDef,
   InstaQLResponse,
   ValidQuery,
+  PageInfoResponse,
 } from '@instantdb/core';
 
 export type SubscriptionReadyState = 'closed' | 'connecting' | 'open';
@@ -25,6 +26,7 @@ export type SubscribeQueryPayload<
   | {
       type: 'ok';
       data: InstaQLResponse<Schema, Q, NonNullable<Config['useDateObjects']>>;
+      pageInfo: PageInfoResponse<Q>;
       sessionInfo: SubscribeQuerySessionInfo | null;
     }
   | {
@@ -180,6 +182,35 @@ function multiReadFetchResponse(r) {
   };
 }
 
+type APIPageInfo = {
+  [etype: string]: {
+    'start-cursor': [string, string, any, number];
+    'end-cursor': [string, string, any, number];
+    'has-next-page?': boolean;
+    'has-previous-page?': boolean;
+  };
+};
+
+function formatPageInfo(
+  pageInfo: APIPageInfo | null | undefined,
+): PageInfoResponse<any> | undefined {
+  if (!pageInfo) {
+    return undefined;
+  }
+  const res: PageInfoResponse<any> = {};
+
+  for (const [k, v] of Object.entries(pageInfo)) {
+    res[k] = {
+      startCursor: v['start-cursor'],
+      endCursor: v['end-cursor'],
+      hasNextPage: v['has-next-page?'],
+      hasPreviousPage: v['has-previous-page?'],
+    };
+  }
+
+  return res;
+}
+
 export function subscribe<
   Schema extends InstantSchemaDef<any, any, any>,
   Q extends ValidQuery<Q, Schema>,
@@ -269,6 +300,7 @@ export function subscribe<
         deliver({
           type: 'ok',
           data: msg.result,
+          pageInfo: formatPageInfo(msg['result-meta']?.['page-info']),
           sessionInfo: sessionParams,
         });
         break;
@@ -278,6 +310,9 @@ export function subscribe<
           deliver({
             type: 'ok',
             data: msg.computations[0]['instaql-result'],
+            pageInfo: formatPageInfo(
+              msg.computations[0]['result-meta']?.['page-info'],
+            ),
             sessionInfo: sessionParams,
           });
         }
