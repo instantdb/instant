@@ -15,7 +15,6 @@ import { mkdir, writeFile, readFile, unlink } from 'fs/promises';
 import path, { join } from 'path';
 import { randomUUID } from 'crypto';
 import jsonDiff from 'json-diff';
-import dotenvFlow from 'dotenv-flow';
 import chalk from 'chalk';
 import { program, Option } from 'commander';
 import boxen from 'boxen';
@@ -43,13 +42,11 @@ import { deferred } from './ui/lib.js';
 import { promptOk } from './util/promptOk.js';
 import { ResolveRenamePrompt } from './util/renamePrompt.js';
 import { buildAutoRenameSelector } from './rename.js';
+import { loadEnv } from './util/loadEnv.js';
 
 const execAsync = promisify(exec);
 
-// config
-dotenvFlow.config({
-  silent: true,
-});
+loadEnv();
 
 const dev = Boolean(process.env.INSTANT_CLI_DEV);
 const verbose = Boolean(process.env.INSTANT_CLI_VERBOSE);
@@ -306,6 +303,7 @@ program
   .name('instant-cli')
   .addOption(globalOption('-t --token <token>', 'Auth token override'))
   .addOption(globalOption('-y --yes', "Answer 'yes' to all prompts"))
+  .addOption(globalOption('--env <file>', 'Use a specific .env file'))
   .addOption(
     globalOption('-v --version', 'Print the version number', () => {
       console.log(version);
@@ -559,21 +557,26 @@ async function handleEnvFile(pkgAndAuthInfo, { appId, appToken }) {
   const envType = await detectEnvType(pkgAndAuthInfo);
   const envName = potentialEnvs[envType];
 
-  const hasEnvFile = await pathExists(join(pkgDir, '.env'));
+  const envFile = program.optsWithGlobals().env ?? '.env';
+  const hasEnvFile = await pathExists(join(pkgDir, envFile));
   if (hasEnvFile) {
     printDotEnvInfo(envType, appId);
     return;
   }
   console.log(
-    `\nLooks like you don't have a ${chalk.green('`.env`')} file yet.`,
+    `\nLooks like you don't have a ${chalk.green(`\`${envFile}\``)} file yet.`,
   );
   console.log(
-    `If we set ${chalk.green('`' + envName + '`')} & ${chalk.green('INSTANT_APP_ADMIN_TOKEN')}, we can remember the app that you chose for all future commands.`,
+    `If we set ${chalk.green(envName)} & ${chalk.green('INSTANT_APP_ADMIN_TOKEN')}, we can remember the app that you chose for all future commands.`,
   );
+
+  const saveExtraInfo =
+    envFile !== '.env' ? chalk.green('  (will create `' + envFile + '`)') : '';
+
   const ok = await promptOk(
     {
       inline: true,
-      promptText: 'Want us to create this env file for you?',
+      promptText: 'Want us to create this env file for you?' + saveExtraInfo,
       modifyOutput: (a) => a,
     },
     program.opts(),
@@ -592,8 +595,12 @@ async function handleEnvFile(pkgAndAuthInfo, { appId, appToken }) {
     ]
       .map(([k, v]) => `${k}=${v}`)
       .join('\n') + '\n';
-  await writeFile(join(pkgDir, '.env'), content, 'utf-8');
-  console.log(`Created ${chalk.green('`.env`')} file!`);
+  await writeFile(join(pkgDir, envFile), content, 'utf-8');
+  if (envFile !== '.env') {
+    console.log(`Created ${chalk.green(envFile)}!`);
+  } else {
+    console.log(`Created ${chalk.green('.env')} file!`);
+  }
 }
 
 async function getOrCreateAppAndWriteToEnv(pkgAndAuthInfo, opts) {
