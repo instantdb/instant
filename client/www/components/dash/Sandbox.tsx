@@ -87,6 +87,8 @@ export function Sandbox({
   const consoleRef = useRef<HTMLDivElement>(null);
 
   const [selectedSandbox, setSelectedSandbox] = useState<string | null>(null);
+  const selectedSandboxRef = useRef<string | null>(null);
+  const saveDialogRef = useRef<{ onOpen: () => void } | null>(null);
 
   const [savedSandboxes, setSavedSandboxes] = useLocalStorage<SavedSandbox[]>(
     `sandboxes:${app.id}`,
@@ -187,9 +189,22 @@ export function Sandbox({
     }
   }, [attrs, isMonacoLoaded]);
 
+  // Keep refs in sync with state for Monaco keyboard shortcuts
+  useEffect(() => {
+    selectedSandboxRef.current = selectedSandbox;
+    saveDialogRef.current = saveCurrentDialog;
+  }, [selectedSandbox, saveCurrentDialog]);
+
+  const trySaveCurrent = () => {
+    if (selectedSandboxRef.current) {
+      saveCurrent(selectedSandboxRef.current.trim());
+    } else {
+      saveDialogRef.current?.onOpen();
+    }
+  };
+
   /**
-   * Saves the current sandbox as a new preset.
-   * @throws Error if a preset with the same name already exists.
+   * Saves the current sandbox as a new preset or if name exists, updates it.
    */
   const saveCurrent = (name: string) => {
     if (savedSandboxes.find((sb) => sb.name === name)) {
@@ -637,7 +652,7 @@ export function Sandbox({
 
                     editor.addCommand(
                       monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
-                      () => {},
+                      trySaveCurrent,
                     );
 
                     editor.addCommand(
@@ -756,6 +771,11 @@ export function Sandbox({
                           editor.addCommand(
                             monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter,
                             () => execRef.current(),
+                          );
+
+                          editor.addCommand(
+                            monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
+                            trySaveCurrent,
                           );
                         }}
                       />
