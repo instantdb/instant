@@ -4,10 +4,7 @@
             [instant.db.model.attr :as attr-model]
             [instant.jdbc.aurora :as aurora]
             [instant.jdbc.sql :as sql]
-            [instant.db.instaql :as instaql]
-            [instant.db.datalog :as datalog]
             [instant.util.pg-hint-plan :as pg-hints]
-            [medley.core :refer [dissoc-in]]
             [next.jdbc]))
 
 (defn run-sync [conn canceled? batch-size handle-batch query]

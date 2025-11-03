@@ -8,10 +8,7 @@
    [instant.util.exception :as ex]
    [instant.util.hsql :as uhsql]
    [instant.util.json :as json]
-   [instant.util.uuid :as uuid-util]
-   [next.jdbc.result-set :as rs])
-  (:import
-   (java.sql ResultSet)))
+   [instant.util.uuid :as uuid-util]))
 
 (defn topic-uuids [db-res]
   (if (= db-res ["\\x"])

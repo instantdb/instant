@@ -213,8 +213,7 @@
                  :admin? admin?
                  :current-user user}
             ;; XXX: create-sync-process should validate the query
-            {:keys [coarse-topics
-                    start] :as process} (sync-table/create-sync-process ctx q)
+            {:keys [start] :as process} (sync-table/create-sync-process ctx q)
             sub-id (random-uuid)
             token (random-uuid)
             query-ent (rs/register-sync-query store
@@ -259,7 +258,8 @@
                                               {:op :sync-init-finish
                                                :subscription-id sub-id
                                                :tx-id tx-id})
-                              (rs/sync-query-update-init store app-id sess-id
+                              (rs/sync-query-update-init store
+                                                         app-id
                                                          (:db/id query-ent)
                                                          tx-id
                                                          topics)
@@ -272,11 +272,11 @@
                                                    :subscription-id (:sync/id query-ent)}))}))))))
 
 (defn- handle-refresh-sync-table! [store sess-id {:keys [subscription-id] :as _event}]
-  (let [{:keys [app user admin?]} (get-auth! store sess-id)
+  (let [{:keys [app]} (get-auth! store sess-id)
         {app-id :id} app
         ent (rs/get-sync-query store app-id sess-id subscription-id)]
     (when ent
-      (let [unread-txes (rs/sync-query-unread-txes store app-id ent)]
+      (let [unread-txes (rs/sync-query-unread-txes app-id ent)]
         ;; XXX: If unread-txes is too long, then we should requeue a refresh
         (when (seq unread-txes)
           (rs/send-event! store app-id sess-id
@@ -295,9 +295,9 @@
         record (sync-sub-model/get-by-id-with-topics {:id subscription-id
                                                       :token token
                                                       :admin? admin?
-                                                      :user-id (:id user)})
-        ent (rs/sync-query-resync store app-id sess-id
-                                  (:id record) tx-id (:topics record))]
+                                                      :user-id (:id user)})]
+    (rs/sync-query-resync store app-id sess-id
+                          (:id record) tx-id (:topics record))
     (receive-queue/put! (-> (rs/session store sess-id) :session/socket :receive-q)
                         {:op :refresh-sync-table
                          :subscription-id subscription-id

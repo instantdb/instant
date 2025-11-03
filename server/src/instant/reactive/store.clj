@@ -30,6 +30,7 @@
    [instant.util.lang :as lang]
    [instant.util.tracer :as tracer])
   (:import
+   (clojure.lang PersistentQueue)
    (java.lang InterruptedException)
    (java.time Instant)
    (java.util Map)
@@ -1016,7 +1017,7 @@
                                         :sync/process process}])]
     (d/entity db-after [:sync/id subscription-id])))
 
-(defn sync-query-update-init [store app-id sess-id ent-id tx-id topics]
+(defn sync-query-update-init [store app-id ent-id tx-id topics]
   (let [conn (app-conn store app-id)]
     (transact! "store/sync-query-update-init"
                conn
@@ -1052,7 +1053,7 @@
 ;; This serves as a placeholder for storing transaction data durably
 ;; Right now it's just stored in memory, but we will want to have it
 ;; live somewhere permanent (probably a combination of db + s3/google storage)
-(defonce sync-table-txes (atom (clojure.lang.PersistentQueue/EMPTY)))
+(defonce sync-table-txes (atom PersistentQueue/EMPTY))
 
 (defn add-transaction-to-sync-table-txes [wal-record]
   (swap! sync-table-txes (fn [txes]
@@ -1082,11 +1083,12 @@
                   :delete (conj acc {:action :removed
                                      :triple (columns->triple identity)})
                   :insert (conj acc {:action :added
-                                     :triple (columns->triple columns)}))))
+                                     :triple (columns->triple columns)}))
+                acc))
             []
             (:triple-changes wal-record))))
 
-(defn sync-query-unread-txes [store app-id sync-ent]
+(defn sync-query-unread-txes [app-id sync-ent]
   (let [{:sync/keys [topics sent-tx-id]} sync-ent]
     (keep (fn [wal-record]
             (when (and (= app-id (:app-id wal-record))
