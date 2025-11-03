@@ -23,7 +23,13 @@ import {
 import clerkLogoSvg from '../../../public/img/clerk_logo_black.svg';
 import Image from 'next/image';
 import { messageFromInstantError } from '@/lib/errors';
-import { addProvider, addClient, deleteClient, findName } from './shared';
+import {
+  addProvider,
+  addClient,
+  deleteClient,
+  findName,
+  updateClientMeta,
+} from './shared';
 import {
   InstantApp,
   InstantIssue,
@@ -201,17 +207,20 @@ export default App;`;
 export function ClerkClient({
   app,
   client,
+  onUpdateClient,
   onDeleteClient,
   defaultOpen = false,
 }: {
   app: InstantApp;
   client: OAuthClient;
+  onUpdateClient: (client: OAuthClient) => void;
   onDeleteClient: (client: OAuthClient) => void;
   defaultOpen?: boolean;
 }) {
   const token = useContext(TokenContext);
   const [open, setOpen] = useState(defaultOpen);
   const [isLoading, setIsLoading] = useState(false);
+  const [showUpdateVerified] = useState(client.meta.allowUnverifiedEmail);
   const deleteDialog = useDialog();
 
   const handleDelete = async () => {
@@ -236,6 +245,8 @@ export function ClerkClient({
 
   const clerkPublishableKey = client.meta?.clerkPublishableKey;
 
+  const allowUnverifiedEmail = client.meta?.allowUnverifiedEmail;
+
   const domain = clerkPublishableKey
     ? domainFromClerkKey(clerkPublishableKey)
     : null;
@@ -245,6 +256,26 @@ export function ClerkClient({
     clientName: client.client_name,
     clerkPublishableKey: clerkPublishableKey || 'YOUR_CLERK_PUBLISHABLE_KEY',
   });
+
+  const updateAllowUnverified = async (allowUnverifiedEmail: boolean) => {
+    try {
+      setIsLoading(true);
+      const resp = await updateClientMeta({
+        token,
+        appId: app.id,
+        clientDatabaseId: client.id,
+        meta: { allowUnverifiedEmail: allowUnverifiedEmail },
+      });
+      onUpdateClient(resp.client);
+    } catch (e) {
+      console.error(e);
+      const msg =
+        messageFromInstantError(e as InstantIssue) || 'Error updating client.';
+      errorToast(msg, { autoClose: 5000 });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="">
@@ -281,6 +312,36 @@ export function ClerkClient({
             ) : null}
             {domain ? <Copyable label="Clerk domain" value={domain} /> : null}
 
+            {showUpdateVerified ? (
+              <div className="flex flex-col gap-2 rounded border bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950">
+                <Checkbox
+                  checked={allowUnverifiedEmail}
+                  onChange={() =>
+                    updateAllowUnverified(!client.meta.allowUnverifiedEmail)
+                  }
+                  label="Allow unverified emails"
+                />
+                <Content>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {allowUnverifiedEmail ? (
+                      <>
+                        When checked, we will store the email for users even if
+                        their email is not verified.
+                      </>
+                    ) : (
+                      <>
+                        When unchecked, we will only store the email for users
+                        with verified emails. Make sure your JWT includes the{' '}
+                        <code>email_verified</code> claim. If the claim is
+                        missing or the email is not verified, we won't set the
+                        email for that user when they sign in with Instant.
+                      </>
+                    )}
+                  </p>
+                </Content>
+              </div>
+            ) : null}
+
             <SubsectionHeading>Setup and usage</SubsectionHeading>
             <Content>
               <strong>1.</strong> Navigate to your{' '}
@@ -299,7 +360,8 @@ export function ClerkClient({
                 <Fence
                   copyable
                   code={`{
-  "email": "{{user.primary_email_address}}"
+  "email": "{{user.primary_email_address}}",
+  "email_verified": "{{user.email_verified}}"
 }`}
                   language="json"
                 />
@@ -477,7 +539,8 @@ export function AddClerkClientForm({
             <Fence
               copyable
               code={`{
-  "email": "{{user.primary_email_address}}"
+  "email": "{{user.primary_email_address}}",
+  "email_verified": "{{user.email_verified}}"
 }`}
               language="json"
             />
@@ -505,6 +568,7 @@ export function ClerkClients({
   provider,
   clients,
   onAddClient,
+  onUpdateClient,
   onDeleteClient,
   usedClientNames,
   lastCreatedClientId,
@@ -514,6 +578,7 @@ export function ClerkClients({
   provider: OAuthServiceProvider;
   clients: OAuthClient[];
   onAddClient: (client: OAuthClient) => void;
+  onUpdateClient: (client: OAuthClient) => void;
   onDeleteClient: (client: OAuthClient) => void;
   usedClientNames: Set<string>;
   lastCreatedClientId: string | null;
@@ -537,6 +602,7 @@ export function ClerkClients({
             key={c.id === lastCreatedClientId ? `${c.id}-last` : c.id}
             app={app}
             client={c}
+            onUpdateClient={onUpdateClient}
             onDeleteClient={onDeleteClient}
             defaultOpen={c.id === lastCreatedClientId}
           />

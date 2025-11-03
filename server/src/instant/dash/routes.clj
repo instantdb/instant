@@ -542,6 +542,16 @@
     (response/ok {:client (select-keys client [:id :provider_id :client_name
                                                :client_id :created_at :meta :discovery_endpoint])})))
 
+(defn update-oauth-client [req]
+  (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
+        id (ex/get-param! req [:params :id] uuid-util/coerce)
+        meta (ex/get-param! req [:body :meta] (fn [x] (when (map? x) x)))
+        client (app-oauth-client-model/update-meta! {:app-id app-id
+                                                     :id id
+                                                     :meta meta})]
+    (response/ok {:client (select-keys client [:id :provider_id :client_name
+                                               :client_id :created_at :meta :discovery_endpoint])})))
+
 (defn oauth-clients-delete [req]
   (let [{{app-id :id} :app} (req->app-and-user! :collaborator req)
         id (ex/get-param! req [:params :id] uuid-util/coerce)
@@ -1774,6 +1784,7 @@
 
   (POST "/dash/apps/:app_id/oauth_clients" [] oauth-clients-post)
   (DELETE "/dash/apps/:app_id/oauth_clients/:id" [] oauth-clients-delete)
+  (POST "/dash/apps/:app_id/oauth_clients/:id" [] update-oauth-client)
 
   (GET "/dash/oauth/start" [] (wrap-cookies oauth-start))
 

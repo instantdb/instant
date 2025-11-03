@@ -288,7 +288,7 @@
                                                :id (:app_users/id user)
                                                :image-url imageURL})))
 
-        (cond (not= (:app_users/email user) email)
+        (cond (and email (not= (:app_users/email user) email))
               (tracer/with-span! {:name "app-user/update-email"
                                   :attributes {:id (:app_users/id user)
                                                :from-email (:app_users/email user)
@@ -561,9 +561,12 @@
                                       nonce
                                       id-token
                                       (when-not (:client_secret oauth-client)
-                                        {:allow-unverified-email? true
+                                        {:allow-unverified-email? (-> oauth-client
+                                                                      :meta
+                                                                      (get "allowUnverifiedEmail"))
                                          :ignore-audience? true}))
         email (email/coerce email)
+
 
         current-refresh-token (when current-refresh-token-id
                                 (app-user-refresh-token-model/get-by-id
@@ -577,10 +580,10 @@
                        (when (= "guest" (:type user))
                          user)))
 
-        social-login (upsert-oauth-link! {:email       email
-                                          :sub         sub
-                                          :imageURL     imageURL
-                                          :app-id      (:app_id client)
+        social-login (upsert-oauth-link! {:email email
+                                          :sub sub
+                                          :imageURL imageURL
+                                          :app-id (:app_id client)
                                           :provider-id (:provider_id client)
                                           :guest-user-id (:id guest-user)})
 

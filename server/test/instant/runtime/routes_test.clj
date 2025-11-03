@@ -7,7 +7,10 @@
    [instant.jdbc.aurora :as aurora]
    [instant.jdbc.sql :as sql]
    [instant.db.model.triple :as triples]
+   [instant.model.app-oauth-service-provider :as provider-model]
+   [instant.model.app-user :as app-user-model]
    [instant.postmark :as postmark]
+   [instant.runtime.routes :as route]
    [instant.system-catalog :as system-catalog]
    [instant.util.coll :as coll]
    [instant.util.crypt :as crypt-util]
@@ -241,3 +244,62 @@
                                             app-id
                                             [[:= :entity_id (parse-uuid (:id user3))]
                                              [:= :attr_id (:id system-catalog/$users-linked-primary-user)]]))))])))))
+
+(deftest upsert-oauth-link!
+  (with-empty-app
+    (fn [app]
+      (let [provider (provider-model/create! {:app-id (:id app)
+                                              :provider-name "clerk"})]
+
+        (let [sub "sub"]
+          (testing "verified email creates a user with same email"
+            (let [link (route/upsert-oauth-link! {:email "test@example.com"
+                                                  :sub sub
+                                                  :app-id (:id app)
+                                                  :provider-id (:id provider)})
+                  user (app-user-model/get-by-id {:id (:user_id link)
+                                                  :app-id (:id app)})]
+              (is (= (:email user) "test@example.com"))
+              (is (= (:sub link) sub))))
+          (testing "sign in with same sub produces same user"
+            (let [link (route/upsert-oauth-link! {:email "test@example.com"
+                                                  :sub sub
+                                                  :app-id (:id app)
+                                                  :provider-id (:id provider)})
+                  user (app-user-model/get-by-id {:id (:user_id link)
+                                                  :app-id (:id app)})]
+              (is (= (:email user) "test@example.com"))
+              (is (= (:sub link) sub))))
+
+          (testing "sign in with same sub produces same user even if email is not provided"
+            (let [link (route/upsert-oauth-link! {:email nil
+                                                  :sub sub
+                                                  :app-id (:id app)
+                                                  :provider-id (:id provider)})
+                  user (app-user-model/get-by-id {:id (:user_id link)
+                                                  :app-id (:id app)})]
+              (is (= (:email user) "test@example.com"))
+              (is (= (:sub link) sub)))))
+
+        (let [sub "sub2"]
+          (testing "sign in without email creates user"
+            (let [link (route/upsert-oauth-link! {:email nil
+                                                  :sub sub
+                                                  :app-id (:id app)
+                                                  :provider-id (:id provider)})
+                  user (app-user-model/get-by-id {:id (:user_id link)
+                                                  :app-id (:id app)})]
+              (is (= (:email user) nil))
+              (is (= "user" (:type user)))
+              (is (= (:sub link) sub))))
+
+          (testing "sign in with email later updates email"
+            (let [link (route/upsert-oauth-link! {:email "test2@example.com"
+                                                  :sub sub
+                                                  :app-id (:id app)
+                                                  :provider-id (:id provider)})
+                  user (app-user-model/get-by-id {:id (:user_id link)
+                                                  :app-id (:id app)})]
+              (is (= (:email user) "test2@example.com"))
+              (is (= "user" (:type user)))
+              (is (= (:sub link) sub)))))))))

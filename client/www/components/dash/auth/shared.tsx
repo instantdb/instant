@@ -98,3 +98,27 @@ export function deleteClient({
     },
   );
 }
+
+export function updateClientMeta({
+  token,
+  appId,
+  clientDatabaseId,
+  meta,
+}: {
+  token: string;
+  appId: string;
+  clientDatabaseId: string;
+  meta: Record<string, any>;
+}): Promise<{ client: OAuthClient }> {
+  return jsonFetch(
+    `${config.apiURI}/dash/apps/${appId}/oauth_clients/${clientDatabaseId}`,
+    {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ meta }),
+    },
+  );
+}
