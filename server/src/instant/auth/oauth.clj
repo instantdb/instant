@@ -18,7 +18,7 @@
    (java.util Base64)))
 
 ;; Extra params for OAuth authorization URL
-;; "hd" parameter is supported by Google 
+;; "hd" parameter is supported by Google
 (def allowed-extra-params [:hd])
 
 (defprotocol OAuthClient
@@ -255,19 +255,27 @@
                         :else "The nonces do not match.")
 
           error (cond
-                  nonce-error                        nonce-error
-                  issuer-mismatch                    (str "The id_token wasn't issued by " issuer ".")
-                  unsupported-alg                    "The id_token used an unsupported algorithm."
-                  client-id-mismatch                 "The id_token was generated for the wrong OAuth client."
-                  (and (not allow-unverified-email?)
-                       (not email-verified))         "The email address is not verified."
-                  (not email)                        "The id_token had no email."
-                  (not sub)                          "The id_token had no subject.")
+                  nonce-error
+                  nonce-error
+
+                  issuer-mismatch
+                  (str "The id_token wasn't issued by " issuer ".")
+
+                  unsupported-alg
+                  "The id_token used an unsupported algorithm."
+
+                  client-id-mismatch
+                  "The id_token was generated for the wrong OAuth client."
+
+                  (not sub)
+                  "The id_token had no subject.")
           imageURL (.asString (.getClaim verified-jwt "picture"))]
       (when error
         (ex/throw-validation-err! :id_token jwt [{:message error}]))
-      {:email email
-       :sub   sub
+      {:email (when (or allow-unverified-email?
+                        email-verified)
+                email)
+       :sub sub
        :imageURL imageURL})))
 
 (defn fetch-discovery [endpoint]

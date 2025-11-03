@@ -34,27 +34,27 @@ function App({ db }: { db: InstantReactWebDatabase<any> }) {
   if (user) {
     return (
       <div>
-        Logged in with clerk and instant.
-        <div>
+        <h3 className="text-lg font-bold mb-2">Logged in with Clerk and Instant</h3>
+
+        <div className="mb-4">
           <button
+            className="bg-black text-white m-2 p-2"
             onClick={() => {
               db.auth.signOut();
             }}
           >
             Sign out Instant only
           </button>
-        </div>
-        <div>
           <button
+            className="bg-black text-white m-2 p-2"
             onClick={() => {
               signOut();
             }}
           >
             Sign out Clerk only
           </button>
-        </div>
-        <div>
           <button
+            className="bg-black text-white m-2 p-2"
             onClick={() => {
               db.auth.signOut().then(() => {
                 signOut();
@@ -63,11 +63,17 @@ function App({ db }: { db: InstantReactWebDatabase<any> }) {
           >
             Sign out both
           </button>
-        </div>
-        <div>
-          <button onClick={signInWithToken}>
+          <button
+            className="bg-black text-white m-2 p-2"
+            onClick={signInWithToken}
+          >
             Sign in to Instant again, just for fun
           </button>
+        </div>
+
+        <div className="mb-4">
+          <h4 className="font-semibold mb-1">Instant User Object:</h4>
+          <pre className="text-xs bg-gray-100 p-2 rounded border">{JSON.stringify(user, null, 2)}</pre>
         </div>
       </div>
     );

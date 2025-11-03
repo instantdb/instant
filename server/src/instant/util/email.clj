@@ -16,9 +16,9 @@
   (let [coerced (some-> maybe-email
                         string/lower-case
                         string/trim)]
-    (and coerced
-         (valid? coerced)
-         coerced)))
+    (when (and coerced
+               (valid? coerced))
+      coerced)))
 
 (defn concatenate-emails
   [& email-lists]

@@ -61,6 +61,20 @@
                     [:add-triple id (resolve-id :meta) meta]])
         (get-entity id))))))
 
+(defn update-meta!
+  ([params] (update-meta! (aurora/conn-pool :write) params))
+  ([conn {:keys [id app-id meta]}]
+   (update-op
+    conn
+    {:app-id app-id
+     :etype etype}
+    (fn [{:keys [transact! resolve-id get-entity]}]
+      (transact! [[:add-triple id (resolve-id :id) id]
+                  [:deep-merge-triple id (resolve-id :meta) meta]])
+      (get-entity id)))))
+
+
+
 (defn get-by-id
   ([params] (get-by-id (aurora/conn-pool :read) params))
   ([conn {:keys [app-id id]}]

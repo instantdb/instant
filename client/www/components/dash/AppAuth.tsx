@@ -19,6 +19,7 @@ import { AddGitHubProviderForm, GitHubClients } from './auth/GitHub';
 import { AddGoogleProviderForm, GoogleClients } from './auth/Google';
 import { AddLinkedInProviderForm, LinkedInClients } from './auth/LinkedIn';
 import { AuthorizedOrigins } from './auth/Origins';
+import { AddFirebaseProviderForm, FirebaseClients } from './auth/Firebase';
 
 export function AppAuth({
   app,
@@ -115,21 +116,26 @@ export function AppAuth({
     });
   };
 
-  const googleProvider = data.oauth_service_providers?.find(
-    (p) => p.provider_name === 'google',
-  );
+  const handleUpdateClient = (client: OAuthClient) => {
+    authResponse.mutate({
+      ...data,
+      oauth_clients: (data.oauth_clients || []).map((c) => {
+        if (c.id !== client.id) {
+          return c;
+        }
+        return client;
+      }),
+    });
+  };
 
-  const githubProvider = data.oauth_service_providers?.find(
-    (p) => p.provider_name === 'github',
-  );
-
-  const linkedinProvider = data.oauth_service_providers?.find(
-    (p) => p.provider_name === 'linkedin',
-  );
-
-  const clerkProvider = data.oauth_service_providers?.find(
-    (p) => p.provider_name === 'clerk',
-  );
+  const { google, github, linkedin, clerk, firebase } =
+    data.oauth_service_providers?.reduce(
+      (acc: { [name: string]: OAuthServiceProvider }, p) => {
+        acc[p.provider_name] = p;
+        return acc;
+      },
+      {},
+    ) || {};
 
   const usedClientNames = new Set<string>();
   for (const client of data.oauth_clients || []) {
@@ -141,26 +147,25 @@ export function AppAuth({
       <div className="flex flex-col gap-4">
         <SectionHeading>Google Clients</SectionHeading>
 
-        {googleProvider ? (
+        {google ? (
           <GoogleClients
             // Set key because setLastCreatedProviderId is somehow applied after mutate
             key={
-              lastCreatedProviderId === googleProvider.id
-                ? `${googleProvider.id}-last`
-                : googleProvider.id
+              lastCreatedProviderId === google.id
+                ? `${google.id}-last`
+                : google.id
             }
             app={app}
-            provider={googleProvider}
+            provider={google}
             clients={
-              data.oauth_clients?.filter(
-                (c) => c.provider_id === googleProvider.id,
-              ) || []
+              data.oauth_clients?.filter((c) => c.provider_id === google.id) ||
+              []
             }
             onAddClient={handleAddClient}
             onDeleteClient={handleDeleteClient}
             usedClientNames={usedClientNames}
             lastCreatedClientId={lastCreatedClientId}
-            defaultOpen={lastCreatedProviderId === googleProvider.id}
+            defaultOpen={lastCreatedProviderId === google.id}
           />
         ) : (
           <AddGoogleProviderForm app={app} onAddProvider={handleAddProvider} />
@@ -182,25 +187,24 @@ export function AppAuth({
         <Divider />
         <SectionHeading>GitHub Clients</SectionHeading>
 
-        {githubProvider ? (
+        {github ? (
           <GitHubClients
             key={
-              lastCreatedProviderId === githubProvider.id
-                ? `${githubProvider.id}-last`
-                : githubProvider.id
+              lastCreatedProviderId === github.id
+                ? `${github.id}-last`
+                : github.id
             }
             app={app}
-            provider={githubProvider}
+            provider={github}
             clients={
-              data.oauth_clients?.filter(
-                (c) => c.provider_id === githubProvider.id,
-              ) || []
+              data.oauth_clients?.filter((c) => c.provider_id === github.id) ||
+              []
             }
             onAddClient={handleAddClient}
             onDeleteClient={handleDeleteClient}
             usedClientNames={usedClientNames}
             lastCreatedClientId={lastCreatedClientId}
-            defaultOpen={lastCreatedProviderId === githubProvider.id}
+            defaultOpen={lastCreatedProviderId === github.id}
           />
         ) : (
           <AddGitHubProviderForm app={app} onAddProvider={handleAddProvider} />
@@ -209,25 +213,25 @@ export function AppAuth({
         <Divider />
         <SectionHeading>LinkedIn Clients</SectionHeading>
 
-        {linkedinProvider ? (
+        {linkedin ? (
           <LinkedInClients
             key={
-              lastCreatedProviderId === linkedinProvider.id
-                ? `${linkedinProvider.id}-last`
-                : linkedinProvider.id
+              lastCreatedProviderId === linkedin.id
+                ? `${linkedin.id}-last`
+                : linkedin.id
             }
             app={app}
-            provider={linkedinProvider}
+            provider={linkedin}
             clients={
               data.oauth_clients?.filter(
-                (c) => c.provider_id === linkedinProvider.id,
+                (c) => c.provider_id === linkedin.id,
               ) || []
             }
             onAddClient={handleAddClient}
             onDeleteClient={handleDeleteClient}
             usedClientNames={usedClientNames}
             lastCreatedClientId={lastCreatedClientId}
-            defaultOpen={lastCreatedProviderId === linkedinProvider.id}
+            defaultOpen={lastCreatedProviderId === linkedin.id}
           />
         ) : (
           <AddLinkedInProviderForm
@@ -240,29 +244,53 @@ export function AppAuth({
       <Divider />
       <SectionHeading>Clerk Clients</SectionHeading>
 
-      {clerkProvider ? (
+      {clerk ? (
         <ClerkClients
           // Set key because setLastCreatedProviderId is somehow applied after mutate
           key={
-            lastCreatedProviderId === clerkProvider.id
-              ? `${clerkProvider.id}-last`
-              : clerkProvider.id
+            lastCreatedProviderId === clerk.id ? `${clerk.id}-last` : clerk.id
           }
           app={app}
-          provider={clerkProvider}
+          provider={clerk}
           clients={
-            data.oauth_clients?.filter(
-              (c) => c.provider_id === clerkProvider.id,
-            ) || []
+            data.oauth_clients?.filter((c) => c.provider_id === clerk.id) || []
+          }
+          onAddClient={handleAddClient}
+          onUpdateClient={handleUpdateClient}
+          onDeleteClient={handleDeleteClient}
+          usedClientNames={usedClientNames}
+          lastCreatedClientId={lastCreatedClientId}
+          defaultOpen={lastCreatedProviderId === clerk.id}
+        />
+      ) : (
+        <AddClerkProviderForm app={app} onAddProvider={handleAddProvider} />
+      )}
+
+      <Divider />
+      <SectionHeading>Firebase Clients</SectionHeading>
+
+      {firebase ? (
+        <FirebaseClients
+          // Set key because setLastCreatedProviderId is somehow applied after mutate
+          key={
+            lastCreatedProviderId === firebase.id
+              ? `${firebase.id}-last`
+              : firebase.id
+          }
+          app={app}
+          provider={firebase}
+          clients={
+            data.oauth_clients?.filter((c) => c.provider_id === firebase.id) ||
+            []
           }
           onAddClient={handleAddClient}
           onDeleteClient={handleDeleteClient}
           usedClientNames={usedClientNames}
           lastCreatedClientId={lastCreatedClientId}
-          defaultOpen={lastCreatedProviderId === clerkProvider.id}
+          defaultOpen={lastCreatedProviderId === firebase.id}
         />
       ) : (
-        <AddClerkProviderForm app={app} onAddProvider={handleAddProvider} />
+        <AddFirebaseProviderForm app={app} onAddProvider={handleAddProvider} />
       )}
 
       <Divider />
