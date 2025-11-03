@@ -1379,7 +1379,7 @@ export function Explorer({
                         </div>
                       </th>
                       <ColumnResizer
-                        className="columnResizer w-[4px]"
+                        className="columnResizer -translate-x-1"
                         minWidth={0}
                       />
                     </>
