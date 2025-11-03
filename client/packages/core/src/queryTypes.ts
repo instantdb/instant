@@ -489,9 +489,9 @@ type ValidDollarSignQuery<
         where?: ValidWhereObject<Input['where'], Schema, EntityName>;
         fields?: ValidFieldNames<Schema, EntityName>[];
         order?: Order<Schema, EntityName>;
+        limit?: number;
       } & (TopLevel extends true
         ? {
-            limit?: number;
             last?: number;
             first?: number;
             offset?: number;
