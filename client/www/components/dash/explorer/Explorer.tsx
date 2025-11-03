@@ -1313,7 +1313,7 @@ export function Explorer({
                       }}
                     />
                   </th>
-                  {selectedNamespace.attrs.map((attr) => (
+                  {selectedNamespace.attrs.map((attr, i) => (
                     <>
                       <th
                         key={attr.name}
@@ -1378,10 +1378,12 @@ export function Explorer({
                           ) : null}
                         </div>
                       </th>
-                      <ColumnResizer
-                        className="columnResizer -translate-x-1"
-                        minWidth={0}
-                      />
+                      {i !== selectedNamespace.attrs.length - 1 && (
+                        <ColumnResizer
+                          className="columnResizer -translate-x-1"
+                          minWidth={0}
+                        />
+                      )}
                     </>
                   ))}
                 </tr>
@@ -1432,7 +1434,7 @@ export function Explorer({
                         </button>
                       )}
                     </td>
-                    {selectedNamespace.attrs.map((attr) => (
+                    {selectedNamespace.attrs.map((attr, i) => (
                       <>
                         <td
                           key={attr.name}
@@ -1477,7 +1479,8 @@ export function Explorer({
                             />
                           )}
                         </td>
-                        <td></td>
+
+                        {i !== selectedNamespace.attrs.length - 1 && <td></td>}
                       </>
                     ))}
                   </tr>
