@@ -65,6 +65,7 @@
     "react-intersection-observer": "^9.8.2",
     "react-markdown": "^10.1.0",
     "react-resizable-panels": "^3.0.6",
+    "react-table-column-resizer": "^2.0.1",
     "react-toastify": "^9.0.8",
     "rehype-katex": "^7.0.1",
     "rehype-raw": "^7.0.0",

@@ -213,3 +213,9 @@ div.Toastify__toast-icon {
 .katex-display > .katex {
   background-color: transparent;
 }
+
+.column_resize_table th::before {
+  content: '';
+  display: block;
+  width: var(--column_resize_before_width);
+}

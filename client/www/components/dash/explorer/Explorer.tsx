@@ -1,4 +1,6 @@
 import { id, lookup, tx } from '@instantdb/core';
+//@ts-expect-error react-table-column-resizer is not exporting types properly
+import ColumnResizer from 'react-table-column-resizer';
 import { InstantReactWebDatabase } from '@instantdb/react';
 import { isObject, debounce, last } from 'lodash';
 import {
@@ -1255,7 +1257,7 @@ export function Explorer({
             </button>
           </div>
           <div className="relative flex flex-1 overflow-x-auto overflow-y-scroll dark:bg-neutral-900/50">
-            <table className="z-0 w-full flex-1 text-left font-mono text-xs text-neutral-500 dark:text-neutral-400">
+            <table className="column_resize_table z-0 w-full flex-1 text-left font-mono text-xs text-neutral-500 dark:text-neutral-400">
               <thead className="sticky top-0 z-20 bg-white text-neutral-700 shadow dark:bg-[#303030] dark:text-neutral-300">
                 <tr>
                   <th
@@ -1312,68 +1314,75 @@ export function Explorer({
                     />
                   </th>
                   {selectedNamespace.attrs.map((attr) => (
-                    <th
-                      key={attr.name}
-                      className={clsx(
-                        'z-10 select-none whitespace-nowrap px-4 py-1',
-                        {
-                          'bg-neutral-200 dark:bg-neutral-700':
-                            // Only highlight if one of the columns was clicked,
-                            // not if we're just doing our default sort
-                            currentNav?.sortAttr &&
-                            (sortAttr === attr.name ||
-                              (sortAttr === 'serverCreatedAt' &&
-                                attr.name === 'id')),
-                          'cursor-pointer': attr.sortable || attr.name === 'id',
-                        },
-                        selectedNamespace.name === '$files' &&
-                          attr.name === 'url' &&
-                          'w-32',
-                      )}
-                      onClick={
-                        attr.sortable
-                          ? () => {
-                              replaceNavStackTop({
-                                sortAttr: attr.name,
-                                sortAsc:
-                                  sortAttr !== attr.name ? true : !sortAsc,
-                              });
-                            }
-                          : attr.name === 'id'
+                    <>
+                      <th
+                        key={attr.name}
+                        className={clsx(
+                          'z-10 select-none whitespace-nowrap border-r border-r-neutral-100 px-4 py-1 dark:border-r-neutral-700',
+                          {
+                            'bg-neutral-200 dark:bg-neutral-700':
+                              // Only highlight if one of the columns was clicked,
+                              // not if we're just doing our default sort
+                              currentNav?.sortAttr &&
+                              (sortAttr === attr.name ||
+                                (sortAttr === 'serverCreatedAt' &&
+                                  attr.name === 'id')),
+                            'cursor-pointer':
+                              attr.sortable || attr.name === 'id',
+                          },
+                          selectedNamespace.name === '$files' &&
+                            attr.name === 'url' &&
+                            'w-32',
+                        )}
+                        onClick={
+                          attr.sortable
                             ? () => {
                                 replaceNavStackTop({
-                                  sortAttr: 'serverCreatedAt',
+                                  sortAttr: attr.name,
                                   sortAsc:
-                                    sortAttr !== 'serverCreatedAt'
-                                      ? true
-                                      : !sortAsc,
+                                    sortAttr !== attr.name ? true : !sortAsc,
                                 });
                               }
-                            : undefined
-                      }
-                    >
-                      <div className="flex items-center gap-2">
-                        {selectedNamespace.name === '$files' &&
-                        attr.name === 'url'
-                          ? ''
-                          : attr.name}
-                        {attr.sortable || attr.name === 'id' ? (
-                          <span>
-                            {sortAttr === attr.name ||
-                            (sortAttr === 'serverCreatedAt' &&
-                              attr.name === 'id') ? (
-                              sortAsc ? (
-                                '↑'
+                            : attr.name === 'id'
+                              ? () => {
+                                  replaceNavStackTop({
+                                    sortAttr: 'serverCreatedAt',
+                                    sortAsc:
+                                      sortAttr !== 'serverCreatedAt'
+                                        ? true
+                                        : !sortAsc,
+                                  });
+                                }
+                              : undefined
+                        }
+                      >
+                        <div className="flex items-center gap-2">
+                          {selectedNamespace.name === '$files' &&
+                          attr.name === 'url'
+                            ? ''
+                            : attr.name}
+                          {attr.sortable || attr.name === 'id' ? (
+                            <span>
+                              {sortAttr === attr.name ||
+                              (sortAttr === 'serverCreatedAt' &&
+                                attr.name === 'id') ? (
+                                sortAsc ? (
+                                  '↑'
+                                ) : (
+                                  '↓'
+                                )
                               ) : (
-                                '↓'
-                              )
-                            ) : (
-                              <span className="text-neutral-400">↓</span>
-                            )}
-                          </span>
-                        ) : null}
-                      </div>
-                    </th>
+                                <span className="text-neutral-400">↓</span>
+                              )}
+                            </span>
+                          ) : null}
+                        </div>
+                      </th>
+                      <ColumnResizer
+                        className="columnResizer w-[4px]"
+                        minWidth={0}
+                      />
+                    </>
                   ))}
                 </tr>
               </thead>
@@ -1424,46 +1433,52 @@ export function Explorer({
                       )}
                     </td>
                     {selectedNamespace.attrs.map((attr) => (
-                      <td
-                        key={attr.name}
-                        className="relative px-4 py-1"
-                        style={{
-                          maxWidth:
-                            attr.name === 'id' || attr.type === 'ref'
-                              ? '40px'
-                              : '80px',
-                        }}
-                      >
-                        {selectedNamespace.name === '$files' &&
-                        attr.name === 'url' ? (
-                          <Button
-                            variant="secondary"
-                            size="mini"
-                            onClick={() => {
-                              window.open(item.url as string, '_blank');
-                            }}
-                          >
-                            View File
-                          </Button>
-                        ) : (
-                          <ExplorerItemVal
-                            item={item}
-                            attr={attr}
-                            onClickLink={() => {
-                              const linkConfigDir =
-                                attr.linkConfig[
-                                  !attr.isForward ? 'forward' : 'reverse'
-                                ];
-                              if (linkConfigDir) {
-                                pushNavStack({
-                                  namespace: linkConfigDir.namespace,
-                                  where: [`${linkConfigDir.attr}.id`, item.id],
-                                });
-                              }
-                            }}
-                          />
-                        )}
-                      </td>
+                      <>
+                        <td
+                          key={attr.name}
+                          className="relative border-r border-r-neutral-100 px-4 py-1 dark:border-r-neutral-700/50"
+                          style={{
+                            maxWidth:
+                              attr.name === 'id' || attr.type === 'ref'
+                                ? '40px'
+                                : '80px',
+                          }}
+                        >
+                          {selectedNamespace.name === '$files' &&
+                          attr.name === 'url' ? (
+                            <Button
+                              variant="secondary"
+                              size="mini"
+                              onClick={() => {
+                                window.open(item.url as string, '_blank');
+                              }}
+                            >
+                              View File
+                            </Button>
+                          ) : (
+                            <ExplorerItemVal
+                              item={item}
+                              attr={attr}
+                              onClickLink={() => {
+                                const linkConfigDir =
+                                  attr.linkConfig[
+                                    !attr.isForward ? 'forward' : 'reverse'
+                                  ];
+                                if (linkConfigDir) {
+                                  pushNavStack({
+                                    namespace: linkConfigDir.namespace,
+                                    where: [
+                                      `${linkConfigDir.attr}.id`,
+                                      item.id,
+                                    ],
+                                  });
+                                }
+                              }}
+                            />
+                          )}
+                        </td>
+                        <td></td>
+                      </>
                     ))}
                   </tr>
                 ))}
