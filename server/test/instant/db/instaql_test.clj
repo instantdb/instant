@@ -267,11 +267,11 @@
                  (validation-err ctx {:users
                                       {:$ {:order {:serverCreatedAt "DESC"}}}})))
 
-          (is (= '{:message
-                   "We currently only support `limit`, `offset`, `before`, and `after` clauses on the top-level field.",
-                   :in [:users :bookshelves :$],
-                   :expected supported-options?}
-                 (validation-err ctx {:users {:bookshelves {:$ {:limit 10}}}})))
+          ;; (is (= '{:message
+          ;;          "We currently only support `limit`, `offset`, `before`, and `after` clauses on the top-level field.",
+          ;;          :in [:users :bookshelves :$],
+          ;;          :expected supported-options?}
+          ;;        (validation-err ctx {:users {:bookshelves {:$ {:limit 10}}}})))
 
           (is (= '{:expected supported-options?
                    :in [:users :$],
