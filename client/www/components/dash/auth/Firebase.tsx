@@ -156,12 +156,9 @@ export function FirebaseClient({
       setIsLoading(false);
     }
   };
-  console.log(client);
   const projectId = client.discovery_endpoint?.match(
     /^https:\/\/securetoken\.google\.com\/(.+)\/\.well-known\/openid-configuration$/,
   )?.[1];
-
-  console.log('projectId', projectId);
 
   const exampleCode = firebaseExampleCode({
     appId: app.id,
@@ -285,13 +282,6 @@ export function AddFirebaseClientForm({
       errorToast(err, { autoClose: 5000 });
       return;
     }
-    const domain = 'FIXME'; //domainFromFirebaseKey(publishableKey);
-    if (!domain) {
-      errorToast(
-        'Could not determine Firebase domain from key. Ping us in Discord for help.',
-        { autoClose: 5000 },
-      );
-    }
     try {
       setIsLoading(true);
       const resp = await addClient({
@@ -301,7 +291,6 @@ export function AddFirebaseClientForm({
         clientName,
         discoveryEndpoint: `https://securetoken.google.com/${projectId}/.well-known/openid-configuration`,
       });
-      console.log('resp', resp);
       onAddClient(resp.client);
     } catch (e) {
       console.error(e);
