@@ -466,8 +466,7 @@
                  client-id-unverified
                  client-name
                  add-redirect-url
-                 remove-redirect-url
-                 meta]}]
+                 remove-redirect-url]}]
    (let [q {:update :instant-oauth-app-clients
             :set (cond-> {}
                    client-name (assoc :client-name client-name)

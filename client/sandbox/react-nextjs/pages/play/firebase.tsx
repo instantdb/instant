@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { initializeApp, getApps, getApp } from 'firebase/app';
+import { initializeApp } from 'firebase/app';
 import {
   getAuth,
   signInWithEmailAndPassword,
@@ -21,9 +21,7 @@ const firebaseConfig = {
   apiKey: 'AIzaSyBc5cpDTMYUFjeKSpWIfupYCZXBdFLvVvw',
 };
 
-const firebaseApp = !getApps().length
-  ? initializeApp(firebaseConfig)
-  : getApp();
+const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
 
 function App({ db }: { db: InstantReactWebDatabase<any> }) {
@@ -64,7 +62,9 @@ function App({ db }: { db: InstantReactWebDatabase<any> }) {
   if (user) {
     return (
       <div>
-        <h3 className="text-lg font-bold mb-2">Logged in with Firebase and Instant</h3>
+        <h3 className="text-lg font-bold mb-2">
+          Logged in with Firebase and Instant
+        </h3>
 
         <div className="mb-4">
           <button
@@ -99,12 +99,16 @@ function App({ db }: { db: InstantReactWebDatabase<any> }) {
 
         <div className="mb-4">
           <h4 className="font-semibold mb-1">Instant User Object:</h4>
-          <pre className="text-xs bg-gray-100 p-2 rounded border">{JSON.stringify(user, null, 2)}</pre>
+          <pre className="text-xs bg-gray-100 p-2 rounded border">
+            {JSON.stringify(user, null, 2)}
+          </pre>
         </div>
 
         <div className="mb-4">
           <h4 className="font-semibold mb-1">Firebase User Object:</h4>
-          <pre className="text-xs bg-gray-100 p-2 rounded border">{JSON.stringify(firebaseUser, null, 2)}</pre>
+          <pre className="text-xs bg-gray-100 p-2 rounded border">
+            {JSON.stringify(firebaseUser, null, 2)}
+          </pre>
         </div>
       </div>
     );
@@ -354,7 +358,10 @@ function AuthForm({ db }: { db: InstantReactWebDatabase<any> }) {
               Instant Dashboard - Auth
             </a>
           </li>
-          <li>Add Firebase as an auth provider with project ID: <code className="bg-gray-200 px-1">instant-auth-test</code></li>
+          <li>
+            Add Firebase as an auth provider with project ID:{' '}
+            <code className="bg-gray-200 px-1">instant-auth-test</code>
+          </li>
         </ol>
       </div>
     </div>

@@ -34,7 +34,9 @@ function App({ db }: { db: InstantReactWebDatabase<any> }) {
   if (user) {
     return (
       <div>
-        <h3 className="text-lg font-bold mb-2">Logged in with Clerk and Instant</h3>
+        <h3 className="text-lg font-bold mb-2">
+          Logged in with Clerk and Instant
+        </h3>
 
         <div className="mb-4">
           <button
@@ -73,7 +75,9 @@ function App({ db }: { db: InstantReactWebDatabase<any> }) {
 
         <div className="mb-4">
           <h4 className="font-semibold mb-1">Instant User Object:</h4>
-          <pre className="text-xs bg-gray-100 p-2 rounded border">{JSON.stringify(user, null, 2)}</pre>
+          <pre className="text-xs bg-gray-100 p-2 rounded border">
+            {JSON.stringify(user, null, 2)}
+          </pre>
         </div>
       </div>
     );
