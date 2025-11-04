@@ -4619,17 +4619,14 @@
                                               :app-id (:id app)}))))))))
 
 (deftest auth-refs-requires-users
-  (with-empty-app
-    (fn [_app]
-      (testing "auth.ref requires $users namespace"
-        (is (= []
-               (rule-model/validation-errors
-                {"bookshelves" {"allow" {"update" "auth.ref('$user.a.b')"}}})))
+  (is (= []
+         (rule-model/validation-errors
+          {"bookshelves" {"allow" {"update" "auth.ref('$user.a.b')"}}})))
 
-        (is (= [{:message "auth.ref arg must start with `$user.`",
-                 :in ["bookshelves" :allow "update"]}]
-               (rule-model/validation-errors
-                {"bookshelves" {"allow" {"update" "auth.ref('a.b')"}}})))))))
+  (is (= [{:message "auth.ref arg must start with `$user.`",
+           :in ["bookshelves" "allow" "update"]}]
+         (rule-model/validation-errors
+          {"bookshelves" {"allow" {"update" "auth.ref('a.b')"}}}))))
 
 (deftest users-write-perms
   (with-empty-app

@@ -129,19 +129,6 @@
   [code]
   (if (boolean? code) (str code) code))
 
-(defn extract [rule etype action]
-  (when-let [expr (patch-code (get-in rule [etype "allow" action]))]
-    (with-binds rule etype action expr)))
-
-(defn format-errors [etype action errors]
-  (map (fn [^CelIssue cel-issue]
-         {:message (.getMessage cel-issue)
-          :in [etype :allow action]})
-       errors))
-
-(defn get-issues [etype action ^CelValidationException e]
-  (format-errors etype action (.getErrors e)))
-
 (defn fallback-program [etype action]
   (when (contains? system-catalog/all-etypes etype)
     (let [compiler (cel/action->compiler action)]
@@ -196,10 +183,10 @@
 
 (defn get-program!* [[{:keys [code]} {:keys [etype action paths]}]]
   (loop [paths paths]
-    (when-some [[_ allow _ & _ :as path] (first paths)]
+    (when-some [[_ op-type _ & _ :as path] (first paths)]
       (or
-       (case allow
-         "allow"
+       (case op-type
+         ("allow" "fields")
          (when-some [expr (get-in code path)]
            (try
              (let [code     (with-binds code etype action (patch-code expr))
@@ -212,11 +199,12 @@
                 :cel-ast ast
                 :cel-program (cel/->program ast)
                 :ref-uses (cel/collect-ref-uses ast)
-                :where-clauses-program (when (= action "view")
+                :where-clauses-program (when (and (= op-type "allow") (= action "view"))
                                          (cel/where-clauses-program code))})
              (catch CelValidationException e
                (ex/throw-validation-err!
                 :permission
+                ;; XXX: do we _want_ this to be "first paths" 
                 (first paths)
                 (->> (.getErrors e)
                      (map (fn [^CelIssue cel-issue]
@@ -240,6 +228,14 @@
              ["$default" "allow"    "$default"]
              [etype      "fallback" action]]})))
 
+(defn get-field-program!
+  [rules etype field]
+  (get-program!
+   rules
+   {:etype etype
+    :action "view"
+    :paths [[etype "fields" field]]}))
+
 (defn $users-validation-errors
   "Only allow users to changes the `view` and `update` rules for $users, since we don't have
    a way to create or delete them from transactions."
@@ -251,7 +247,7 @@
                      "false"))
       [{:message (format "The %s namespace doesn't support permissions for %s. Set `%s.allow.%s` to `\"false\"`."
                          "$users" action "$users" action)
-        :in ["$users" :allow action]}])
+        :in ["$users" "allow" action]}])
 
     ("update" "view") nil))
 
@@ -262,7 +258,7 @@
              (string/starts-with? etype "$"))
     [{:message (format "The %s namespace is a reserved internal namespace that does not yet support rules."
                        etype)
-      :in [etype :allow action]}]))
+      :in [etype "allow" action]}]))
 
 (defn bind-validation-errors [rules]
   (reduce-kv (fn [errors etype {:strs [bind]}]
@@ -275,14 +271,40 @@
                  (cond (not (even? (count bind)))
                        (conj errors
                              {:message "bind should have an even number of elements"
-                              :in [etype :bind]})
+                              :in [etype "bind"]})
 
                        repeated
                        (conj errors
                              {:message "bind should only contain a given variable name once"
-                              :in [etype :bind repeated]}))))
+                              :in [etype "bind" repeated]}))))
              []
              rules))
+
+(defn extract-code [rule etype action path]
+  (when-let [expr (patch-code (get-in rule path))]
+    (with-binds rule etype action expr)))
+
+(defn- format-cel-errors [path errors]
+  (map (fn [^CelIssue cel-issue]
+         {:message (.getMessage cel-issue)
+          :in path})
+       errors))
+
+(defn- expr-validation-errors [rules {:keys [etype action path]}]
+  (try
+    (when-let [code #p (extract-code rules etype action path)]
+      (let [compiler (cel/action->compiler action)
+            ast (cel/->ast compiler code)
+            ;; create the program to see if it throws
+            _program (cel/->program ast)
+            errors (cel/validation-errors compiler ast)]
+        (when (seq errors)
+          (format-cel-errors path errors))))
+    (catch CelValidationException e
+      (format-cel-errors path (.getErrors e)))
+    (catch Exception _e
+      [{:message "There was an unexpected error evaluating the rules"
+        :in path}])))
 
 (defn rule-validation-errors [rules]
   (->> (keys rules)
@@ -291,25 +313,31 @@
                  (or (and (= etype "$users")
                           ($users-validation-errors rules action))
                      (system-attribute-validation-errors etype action)
-                     (try
-                       (when-let [expr (extract rules etype action)]
-                         (let [compiler (cel/action->compiler action)
-                               ast (cel/->ast compiler expr)
-                               ;; create the program to see if it throws
-                               _program (cel/->program ast)
-                               errors (cel/validation-errors compiler ast)]
-                           (when (seq errors)
-                             (format-errors etype action errors))))
-                       (catch CelValidationException e
-                         (get-issues etype action e))
-                       (catch Exception _e
-                         [{:message "There was an unexpected error evaluating the rules"
-                           :in [etype :allow action]}])))))
+                     (expr-validation-errors
+                      rules
+                      {:etype etype
+                       :action action
+                       :path [etype "allow" action]}))))
+       (keep identity)))
+
+(defn field-validation-errors [rules]
+  (->> (keys rules)
+       (mapcat (fn [etype]
+                 (->> (get-in rules [etype "fields"])
+                      keys
+                      (mapcat (fn [field]
+                                (expr-validation-errors
+                                 rules
+                                 {:etype etype
+                                  :action "view"
+                                  :path [etype "fields" field]}))))))
+
        (keep identity)))
 
 (defn validation-errors [rules]
   (concat (bind-validation-errors rules)
-          (rule-validation-errors rules)))
+          (rule-validation-errors rules)
+          (field-validation-errors rules)))
 
 (comment
   (def code {"docs" {"allow" {"view" "lol"

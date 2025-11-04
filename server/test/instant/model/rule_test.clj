@@ -68,52 +68,79 @@
 (deftest can-only-create-view-update-rules-for-users
   (is (= [{:message
            "The $users namespace doesn't support permissions for create. Set `$users.allow.create` to `\"false\"`.",
-           :in ["$users" :allow "create"]}]
+           :in ["$users" "allow" "create"]}]
          (rule/validation-errors {"$users" {"allow" {"create" "true"}}}))
       (= [{:message
            "The $users namespace doesn't support permissions for delete. Set `$users.allow.delete` to `\"false\"`.",
-           :in ["$users" :allow "delete"]}]
+           :in ["$users" "allow" "delete"]}]
          (rule/validation-errors {"$users" {"allow" {"delete" "true"}}}))))
 
 (deftest cant-write-rules-for-system-attrs
   (is (= [{:message
            "The $codes namespace is a reserved internal namespace that does not yet support rules.",
-           :in ["$codes" :allow "view"]}
+           :in ["$codes" "allow" "view"]}
           {:message
            "The $codes namespace is a reserved internal namespace that does not yet support rules.",
-           :in ["$codes" :allow "create"]}
+           :in ["$codes" "allow" "create"]}
           {:message
            "The $codes namespace is a reserved internal namespace that does not yet support rules.",
-           :in ["$codes" :allow "update"]}
+           :in ["$codes" "allow" "update"]}
           {:message
            "The $codes namespace is a reserved internal namespace that does not yet support rules.",
-           :in ["$codes" :allow "delete"]}]
+           :in ["$codes" "allow" "delete"]}]
          (rule/validation-errors {"$codes" {"allow" {"update" "true"}}}))))
 
 (deftest invalid-syntax-fails
   (is (= [{:message
            "found no matching overload for '!_' applied to '(int)' (candidates: (bool))",
-           :in ["myetype" :allow "view"]}]
+           :in ["myetype" "allow" "view"]}]
          (rule/validation-errors {"myetype" {"allow" {"view" "!10"}}}))))
 
 (deftest invalid-auth-ref-fails
   (is (= [{:message "auth.ref arg must start with `$user.`",
-           :in ["myetype" :allow "view"]}]
+           :in ["myetype" "allow" "view"]}]
          (rule/validation-errors {"myetype" {"allow" {"view" "1 in auth.ref('$users.id')"}}}))))
 
 (deftest duplicate-bind-fails
   (is (= [{:message "bind should only contain a given variable name once",
-           :in ["myetype" :bind "duplicate"]}]
+           :in ["myetype" "bind" "duplicate"]}]
          (rule/validation-errors {"myetype" {"bind" ["duplicate" "true" "duplicate" "false"]
                                              "allow" {"view" "duplicate"}}}))))
 
 (deftest uneven-binds-fail
   (is (= [{:message "bind should have an even number of elements",
-           :in ["myetype" :bind]}
+           :in ["myetype" "bind"]}
           {:message "There was an unexpected error evaluating the rules",
-           :in ["myetype" :allow "view"]}]
+           :in ["myetype" "allow" "view"]}]
          (rule/validation-errors {"myetype" {"bind" ["duplicate"]
                                              "allow" {"view" "duplicate"}}}))))
+
+(defn pretty-program [p]
+  (select-keys p [:etype :action :code]))
+
+(deftest field-programs-compile
+  (is (= {:etype "myetype"
+          :action "view"
+          :code "1 + 1"}
+         (pretty-program
+          (rule/get-field-program! {:code
+                                    {"myetype"
+                                     {"fields" {"email" "1 + 1"}}}} "myetype" "email")))))
+
+(deftest field-programs-can-use-bind
+  (is (= {:etype "myetype", :action "view", :code "cel.bind(test, 1 + 1, test)"}
+         (pretty-program
+          (rule/get-field-program! {:code {"myetype"
+                                           {"bind" ["test" "1 + 1"]
+                                            "fields" {"email" "test"}}}}
+                                   "myetype"
+                                   "email")))))
+
+(deftest field-programs-validate
+  (is (= [{:message
+           "found no matching overload for '!_' applied to '(int)' (candidates: (bool))",
+           :in ["myetype" :fields "email"]}]
+         (rule/validation-errors {"myetype" {"fields" {"email" "!10"}}}))))
 
 (comment
   (test/run-tests *ns*))
