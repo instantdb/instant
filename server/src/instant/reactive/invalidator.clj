@@ -1,7 +1,6 @@
 (ns instant.reactive.invalidator
   (:require
    [clojure.core.async :as a]
-   [clojure.set :as clojure-set]
    [datascript.core :as ds]
    [instant.config :as config]
    [instant.db.pg-introspect :as pg-introspect]
@@ -12,15 +11,13 @@
    [instant.reactive.store :as rs]
    [instant.reactive.topics :as topics]
    [instant.util.async :as ua]
-   [instant.util.json :refer [<-json]]
    [instant.util.e2e-tracer :as e2e-tracer]
-   [instant.util.tracer :as tracer]
-   [instant.db.model.triple :as triple-model])
+   [instant.util.tracer :as tracer])
   (:import
    (java.sql Timestamp)
    (java.time Instant)
    (java.time.temporal ChronoUnit)
-   (java.util Map UUID)
+   (java.util Map)
    (java.util.concurrent ConcurrentHashMap)
    (org.postgresql.replication LogSequenceNumber)))
 
@@ -54,7 +51,7 @@
 
 (defn app-id-from-columns [columns]
   (some-> columns
-          (get-column "app_id")
+          (topics/get-column "app_id")
           (parse-uuid)))
 
 (defn extract-app-id
@@ -63,7 +60,7 @@
 
 (defn id-from-columns [columns]
   (some-> columns
-          (get-column "id")
+          (topics/get-column "id")
           (parse-uuid)))
 
 (defn extract-id
@@ -71,10 +68,10 @@
   (id-from-columns columns))
 
 (defn extract-tx-id [{:keys [columns] :as _change}]
-  (get-column columns "id"))
+  (topics/get-column columns "id"))
 
 (defn extract-tx-created-at [{:keys [columns] :as _change}]
-  (when-let [^String created-at (get-column columns "created_at")]
+  (when-let [^String created-at (topics/get-column columns "created_at")]
     (.toInstant (Timestamp/valueOf created-at))))
 
 (defn transform-wal-record [{:keys [changes tx-bytes] :as _record}]
