@@ -79,6 +79,8 @@
     (tool/def-locals)
     {:cancel (fn []
                (reset! canceled? true))
+     :canceled? (fn []
+                  @canceled?)
      :coarse-topics [[:ea '_ (attr-model/ea-ids-for-etype (name ns) (:attrs ctx)) '_]]
      :start (fn [{:keys [batch-size
                          on-batch
