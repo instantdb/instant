@@ -104,6 +104,9 @@
                                                          (set (map parse-uuid vs))))
                   (update :tika-enabled-apps (fn [vs]
                                                (set (map parse-uuid vs))))
+
+                  (update :reserved-system-catalog-ident-names (fn [vs]
+                                                                 (set vs)))
                   (update :disable-hint-query-hashes (fn [vs]
                                                        (set vs)))
                   (update :enable-store-batching-apps (fn [vs]
@@ -185,7 +188,6 @@
 (defn log-sampled-apps [app-id]
   (let [app-id (str app-id)]
     (get-in (query-result) [:log-sampled-apps app-id] nil)))
-
 
 (defn app-rate-limited? [app-id]
   (contains? (:rate-limited-apps (query-result))

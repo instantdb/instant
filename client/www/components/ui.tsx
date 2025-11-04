@@ -787,6 +787,31 @@ export function ActionForm({
   );
 }
 
+function createErrorMesageFromEx(errorMessage: string, error: any): string {
+  let base = errorMessage;
+
+  const topLevelMessage = error?.message as string | undefined;
+  const hintMessage = error?.hint?.errors?.[0]?.message as string | undefined;
+
+  const hasTopLevelMessage = topLevelMessage?.length;
+  if (hasTopLevelMessage) {
+    base += `\n${topLevelMessage}`;
+  }
+
+  const hasHint = hintMessage?.length;
+  // Sometimes, the `hint` is directly embedded in the top-level message,
+  // so we avoid repeating it here.
+  const hintIsDistinct =
+    hasHint &&
+    (!hasTopLevelMessage || topLevelMessage.indexOf(hintMessage) === -1);
+
+  if (hintIsDistinct) {
+    base += `\n${hintMessage}`;
+  }
+
+  return base;
+}
+
 export function ActionButton({
   type,
   variant,
@@ -824,15 +849,7 @@ export function ActionButton({
         successToast(successMessage);
       }
     } catch (error) {
-      if ((error as any)?.hint) {
-        const hintMessage = (error as any).hint?.errors?.[0]?.message;
-        const msg = `${errorMessage}\n${(error as any).message}${
-          hintMessage ? `\n${hintMessage}` : ''
-        }`;
-        errorToast(msg);
-      } else {
-        errorToast(errorMessage);
-      }
+      errorToast(createErrorMesageFromEx(errorMessage, error));
     } finally {
       setSubmitting(false);
     }

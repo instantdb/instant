@@ -636,7 +636,7 @@ class Storage {
    */
   uploadFile = async (
     path: string,
-    file: Buffer | Readable | ReadableStream,
+    file: Buffer | Readable | ReadableStream | Uint8Array,
     metadata: FileOpts = {},
   ): Promise<UploadFileResponse> => {
     const headers = {
