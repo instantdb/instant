@@ -23,6 +23,7 @@
    [instant.jdbc.sql :as sql]
    [instant.lib.ring.websocket :as ws]
    [instant.lib.ring.sse :as sse]
+   [instant.reactive.topics :as topics]
    [instant.util.async :as ua]
    [instant.util.cache :as cache]
    [instant.util.coll :as ucoll]
@@ -1062,31 +1063,23 @@
                                (pop res)
                                res)))))
 
-;; XXX: circular dependency
-(def columns->triple (delay (resolve (symbol "instant.reactive.invalidator/columns->triple"))))
-;; XXX: circular dependency
-(def topics-for-change (delay (resolve (symbol "instant.reactive.invalidator/topics-for-change"))))
-
 (defn sync-query-changes-for-wal-record [wal-record topics]
-  (let [columns->triple @columns->triple
-        topics-for-change @topics-for-change]
-    (reduce (fn [acc {:keys [action identity columns] :as record}]
-              ;; XXX: circular dependency
-              (if (matching-topic-intersection? (topics-for-change record)
-                                                topics)
-                (case action
-                  :update (-> acc
-                              (conj {:action :removed
-                                     :triple (columns->triple identity)})
-                              (conj {:action :added
-                                     :triple (columns->triple columns)}))
-                  :delete (conj acc {:action :removed
-                                     :triple (columns->triple identity)})
-                  :insert (conj acc {:action :added
-                                     :triple (columns->triple columns)}))
-                acc))
-            []
-            (:triple-changes wal-record))))
+  (reduce (fn [acc {:keys [action identity columns] :as record}]
+            (if (matching-topic-intersection? (topics/topics-for-change record)
+                                              topics)
+              (case action
+                :update (-> acc
+                            (conj {:action :removed
+                                   :triple (topics/columns->triple identity)})
+                            (conj {:action :added
+                                   :triple (topics/columns->triple columns)}))
+                :delete (conj acc {:action :removed
+                                   :triple (topics/columns->triple identity)})
+                :insert (conj acc {:action :added
+                                   :triple (topics/columns->triple columns)}))
+              acc))
+          []
+          (:triple-changes wal-record)))
 
 (defn sync-query-unread-txes [app-id sync-ent]
   (let [{:sync/keys [topics sent-tx-id]} sync-ent]
