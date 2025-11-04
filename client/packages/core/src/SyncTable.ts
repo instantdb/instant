@@ -395,4 +395,36 @@ export class SyncTable {
 
     this.notifyCbs(hash);
   }
+
+  private clearSubscriptionData(subscriptionId: string) {
+    const hash = this.idToHash[subscriptionId];
+
+    if (hash) {
+      delete this.idToHash[subscriptionId];
+      const sub = this.subs.currentValue[hash];
+      this.subs.set((prev) => {
+        delete prev[hash];
+        return prev;
+      });
+      if (sub) {
+        return sub;
+      }
+    }
+  }
+
+  public onResyncError(msg: {
+    op: 'error';
+    'original-event': ResyncMsg;
+    status: number;
+    type: 'string';
+  }) {
+    // Clear the subscription and start from scrath on any resync error
+    // This can happen if the auth changed and we need to refetch with the
+    // new auth or if the subscription is too far behind.
+    const subscriptionId = msg['original-event']['subscription-id'];
+    const removedSub = this.clearSubscriptionData(subscriptionId);
+    if (removedSub) {
+      this.initSubscription(removedSub.query, removedSub.hash);
+    }
+  }
 }

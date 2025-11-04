@@ -812,6 +812,11 @@ export default class Reactor {
       this.notifyAll();
       return;
     }
+
+    if (msg['original-event']?.op === 'resync-table') {
+      this._syncTable.onResyncError(msg);
+      return;
+    }
     // We've caught some error which has no corresponding listener.
     // Let's console.error to let the user know.
     const errorObj = { ...msg };
@@ -1341,7 +1346,6 @@ export default class Reactor {
     });
 
     this._syncTable.flushPending();
-
   }
 
   /**
