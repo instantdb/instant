@@ -272,17 +272,30 @@
               rule-params        (get rule-params-map key)
               rev-rule-params    (get rule-params-map rev-key)
               link-program       (when ref?
-                                   (rule-model/get-program! rules [[etype "allow" "link" fwd-label]
-                                                                   [etype "allow" "link" "$default"]]))
+                                   (rule-model/get-program! rules
+                                                            {:etype etype
+                                                             :action "link"
+                                                             :paths [[etype "allow" "link" fwd-label]
+                                                                     [etype "allow" "link" "$default"]]}))
               rev-link-program   (when ref?
-                                   (rule-model/get-program! rules [[rev-etype "allow" "link" rev-label]
-                                                                   [rev-etype "allow" "link" "$default"]]))
+                                   (rule-model/get-program! rules
+                                                            {:etype etype
+                                                             :action "link"
+                                                             :paths [[rev-etype "allow" "link" rev-label]
+                                                                     [rev-etype "allow" "link" "$default"]]}))
               unlink-program     (when ref?
-                                   (rule-model/get-program! rules [[etype "allow" "unlink" fwd-label]
-                                                                   [etype "allow" "unlink" "$default"]]))
+                                   (rule-model/get-program! rules
+                                                            {:etype etype
+                                                             :action "unlink"
+                                                             :paths [[etype "allow" "unlink" fwd-label]
+                                                                     [etype "allow" "unlink" "$default"]]}))
               rev-unlink-program (when ref?
-                                   (rule-model/get-program! rules [[rev-etype "allow" "unlink" rev-label]
-                                                                   [rev-etype "allow" "unlink" "$default"]]))]
+                                   (rule-model/get-program! rules
+                                                            {:etype etype
+                                                             :action "unlink"
+                                                             :paths
+                                                             [[rev-etype "allow" "unlink" rev-label]
+                                                              [rev-etype "allow" "unlink" "$default"]]}))]
         check (clojure+/cond+
                (= :update-attr op)
                [{:scope    :attr
@@ -463,11 +476,17 @@
               rule-params        (get rule-params-map key)
               rev-rule-params    (get rule-params-map rev-key)
               link-program       (when ref?
-                                   (rule-model/get-program! rules [[etype "allow" "link" fwd-label]
-                                                                   [etype "allow" "link" "$default"]]))
+                                   (rule-model/get-program! rules
+                                                            {:etype etype
+                                                             :action "link"
+                                                             :paths [[etype "allow" "link" fwd-label]
+                                                                     [etype "allow" "link" "$default"]]}))
               rev-link-program   (when ref?
-                                   (rule-model/get-program! rules [[rev-etype "allow" "link" rev-label]
-                                                                   [rev-etype "allow" "link" "$default"]]))]
+                                   (rule-model/get-program! rules
+                                                            {:etype etype
+                                                             :action "link"
+                                                             :paths [[rev-etype "allow" "link" rev-label]
+                                                                     [rev-etype "allow" "link" "$default"]]}))]
         check (clojure+/cond+
                (= :add-attr op)
                [{:scope    :attr

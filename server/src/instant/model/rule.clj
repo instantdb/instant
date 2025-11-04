@@ -194,38 +194,37 @@
 (cel/set-afterload
  #(cache/invalidate-all program-cache))
 
-(defn get-program!* [[{:keys [code]} paths]]
-  (let [[etype _ action & _] (first paths)]
-    (loop [paths paths]
-      (when-some [[_ allow _ & _ :as path] (first paths)]
-        (or
-         (case allow
-           "allow"
-           (when-some [expr (get-in code path)]
-             (try
-               (let [code     (with-binds code etype action (patch-code expr))
-                     compiler (cel/action->compiler action)
-                     ast      (cel/->ast compiler code)]
-                 {:etype etype
-                  :action action
-                  :code code
-                  :display-code expr
-                  :cel-ast ast
-                  :cel-program (cel/->program ast)
-                  :ref-uses (cel/collect-ref-uses ast)
-                  :where-clauses-program (when (= action "view")
-                                           (cel/where-clauses-program code))})
-               (catch CelValidationException e
-                 (ex/throw-validation-err!
-                  :permission
-                  (first paths)
-                  (->> (.getErrors e)
-                       (map (fn [^CelIssue cel-issue]
-                              {:message (.getMessage cel-issue)})))))))
+(defn get-program!* [[{:keys [code]} {:keys [etype action paths]}]]
+  (loop [paths paths]
+    (when-some [[_ allow _ & _ :as path] (first paths)]
+      (or
+       (case allow
+         "allow"
+         (when-some [expr (get-in code path)]
+           (try
+             (let [code     (with-binds code etype action (patch-code expr))
+                   compiler (cel/action->compiler action)
+                   ast      (cel/->ast compiler code)]
+               {:etype etype
+                :action action
+                :code code
+                :display-code expr
+                :cel-ast ast
+                :cel-program (cel/->program ast)
+                :ref-uses (cel/collect-ref-uses ast)
+                :where-clauses-program (when (= action "view")
+                                         (cel/where-clauses-program code))})
+             (catch CelValidationException e
+               (ex/throw-validation-err!
+                :permission
+                (first paths)
+                (->> (.getErrors e)
+                     (map (fn [^CelIssue cel-issue]
+                            {:message (.getMessage cel-issue)})))))))
 
-           "fallback"
-           (fallback-program etype action))
-         (recur (next paths)))))))
+         "fallback"
+         (fallback-program etype action))
+       (recur (next paths))))))
 
 (defn get-program!
   ([rules paths]
@@ -233,11 +232,13 @@
   ([rules etype action]
    (get-program!
     rules
-    [[etype      "allow"    action]
-     [etype      "allow"    "$default"]
-     ["$default" "allow"    action]
-     ["$default" "allow"    "$default"]
-     [etype      "fallback" action]])))
+    {:etype etype
+     :action action
+     :paths [[etype      "allow"    action]
+             [etype      "allow"    "$default"]
+             ["$default" "allow"    action]
+             ["$default" "allow"    "$default"]
+             [etype      "fallback" action]]})))
 
 (defn $users-validation-errors
   "Only allow users to changes the `view` and `update` rules for $users, since we don't have
