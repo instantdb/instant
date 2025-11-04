@@ -292,7 +292,7 @@
 
 (defn- expr-validation-errors [rules {:keys [etype action path]}]
   (try
-    (when-let [code #p (extract-code rules etype action path)]
+    (when-let [code (extract-code rules etype action path)]
       (let [compiler (cel/action->compiler action)
             ast (cel/->ast compiler code)
             ;; create the program to see if it throws
