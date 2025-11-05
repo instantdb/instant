@@ -325,11 +325,16 @@
                  (->> (get-in rules [etype "fields"])
                       keys
                       (mapcat (fn [field]
-                                (expr-validation-errors
-                                 rules
-                                 {:etype etype
-                                  :action "view"
-                                  :path [etype "fields" field]}))))))
+                                (or
+                                 (when (= field "id")
+                                   [{:in [etype "fields"]
+                                     :message (format "You cannot set field rules for `id`. Use %s -> allow -> view instead"
+                                                      etype)}])
+                                 (expr-validation-errors
+                                  rules
+                                  {:etype etype
+                                   :action "view"
+                                   :path [etype "fields" field]})))))))
 
        (keep identity)))
 

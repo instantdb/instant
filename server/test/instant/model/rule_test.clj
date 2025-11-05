@@ -136,6 +136,12 @@
                                    "myetype"
                                    "email")))))
 
+(deftest fields-cannot-set-id
+  (is (= [{:in ["myetype" "fields"],
+           :message
+           "You cannot set field rules for `id`. Use myetype -> allow -> view instead"}]
+         (rule/validation-errors {"myetype" {"fields" {"id" "1 + 1"}}}))))
+
 (deftest field-programs-validate
   (is (= [{:message
            "found no matching overload for '!_' applied to '(int)' (candidates: (bool))",
