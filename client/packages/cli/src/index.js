@@ -1370,6 +1370,7 @@ async function waitForIndexingJobsToFinish(appId, data) {
           if (msg) {
             if (job.job_status === 'errored') {
               spinner.addMessage(msg);
+              errorMessages.push(msg);
             } else {
               spinner.addMessage(msg);
             }
@@ -1436,21 +1437,26 @@ const resolveRenames = async (created, promptData, extraInfo) => {
   return answer;
 };
 
+function collectSystemCatalogIdentNames(currentAttrs) {
+  const allSystemIdents = currentAttrs
+    .filter((attr) => attr.catalog === 'system')
+    .flatMap((attr) =>
+      [attr['forward-identity'], attr['reverse-identity']].filter(Boolean),
+    );
+
+  /** @type {Record<string, Set<string>>} */
+  let res = {};
+  for (const [_, etype, label] of allSystemIdents) {
+    res[etype] = res[etype] || new Set();
+    res[etype].add(label);
+  }
+  return res;
+}
+
 async function pushSchema(appId, opts) {
   const res = await readLocalSchemaFileWithErrorLogging();
   if (!res) return { ok: false };
   const { schema } = res;
-
-  try {
-    validateSchema(schema);
-  } catch (error) {
-    if (error instanceof SchemaValidationError) {
-      console.error(chalk.red('Invalid schema:', error.message));
-    } else {
-      console.error('Unexpected error:', error);
-    }
-    return { ok: false };
-  }
 
   const pulledSchemaResponse = await fetchJson({
     method: 'GET',
@@ -1463,17 +1469,35 @@ async function pushSchema(appId, opts) {
 
   const currentAttrs = pulledSchemaResponse.data['attrs'];
   const currentApiSchema = pulledSchemaResponse.data['schema'];
-
   const oldSchema = apiSchemaToInstantSchemaDef(currentApiSchema);
+  const systemCatalogIdentNames = collectSystemCatalogIdentNames(currentAttrs);
+
+  try {
+    validateSchema(schema, systemCatalogIdentNames);
+  } catch (error) {
+    if (error instanceof SchemaValidationError) {
+      console.error(chalk.red('Invalid schema:', error.message));
+    } else {
+      console.error('Unexpected error:', error);
+    }
+    return { ok: false };
+  }
 
   const renameSelector = program.optsWithGlobals().yes
     ? buildAutoRenameSelector(opts)
     : resolveRenames;
 
-  const diffResult = await diffSchemas(oldSchema, schema, renameSelector);
+  const diffResult = await diffSchemas(
+    oldSchema,
+    schema,
+    renameSelector,
+    systemCatalogIdentNames,
+  );
+
   if (currentAttrs === undefined) {
     throw new Error("Couldn't get current schema from server");
   }
+
   const txSteps = convertTxSteps(diffResult, currentAttrs);
 
   if (txSteps.length === 0) {

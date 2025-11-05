@@ -15,16 +15,23 @@ type SoftDeletedAttr = DBAttr & {
   'deletion-marked-at': string;
 };
 
+const deletedMarker = '_deleted$';
+const removeDeletedMarker = (s: string): string => {
+  const idx = s.indexOf(deletedMarker);
+  if (idx === -1) return s;
+  return s.slice(idx + deletedMarker.length);
+};
+
 const getNamesByNamespace = (
   softDeletedAttr: SoftDeletedAttr,
 ): Record<string, string> => {
   const result: Record<string, string> = {};
-  result[softDeletedAttr['forward-identity'][1].split('$')[1]] =
-    softDeletedAttr['forward-identity'][2].split('$')[1];
+  const [_, fwdEtype, fwdLabel] = softDeletedAttr['forward-identity'];
+  result[removeDeletedMarker(fwdEtype)] = removeDeletedMarker(fwdLabel);
 
   if (softDeletedAttr['reverse-identity']) {
-    result[softDeletedAttr['reverse-identity'][1].split('$')[1]] =
-      softDeletedAttr['reverse-identity'][2].split('$')[1];
+    const [_, revEtype, revLabel] = softDeletedAttr['reverse-identity'];
+    result[removeDeletedMarker(revEtype)] = removeDeletedMarker(revLabel);
   }
   return result;
 };

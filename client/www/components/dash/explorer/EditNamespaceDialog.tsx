@@ -69,7 +69,6 @@ export function EditNamespaceDialog({
   namespace,
   namespaces,
   onClose,
-  readOnly,
   isSystemCatalogNs,
   pushNavStack,
   replaceNav,
@@ -253,12 +252,6 @@ export function EditNamespaceDialog({
 
           <div>
             <Button
-              disabled={isSystemCatalogNs}
-              title={
-                isSystemCatalogNs
-                  ? `Attributes can't be added to the ${namespace.name} namespace directly. You can still create links to them by adding the links from one of your namespaces.`
-                  : undefined
-              }
               size="mini"
               variant="secondary"
               onClick={() => setScreen({ type: 'add' })}
@@ -280,6 +273,10 @@ export function EditNamespaceDialog({
           namespace={namespace}
           namespaces={namespaces}
           onClose={() => setScreen({ type: 'main' })}
+          constraints={getSystemConstraints({
+            namespaceName: namespace.name,
+            isSystemCatalogNs,
+          })}
         />
       ) : screen.type === 'delete' ? (
         <DeleteForm
@@ -290,10 +287,14 @@ export function EditNamespaceDialog({
       ) : screen.type === 'edit' && screenAttr ? (
         <EditAttrForm
           appId={appId}
-          isSystemCatalogNs={isSystemCatalogNs}
           db={db}
           attr={screenAttr}
           onClose={() => setScreen({ type: 'main' })}
+          constraints={getSystemConstraints({
+            namespaceName: namespace.name,
+            isSystemCatalogNs: isSystemCatalogNs,
+            attr: screenAttr,
+          })}
           pushNavStack={pushNavStack}
         />
       ) : null}
@@ -342,11 +343,13 @@ function AddAttrForm({
   namespace,
   namespaces,
   onClose,
+  constraints,
 }: {
   db: InstantReactWebDatabase<any>;
   namespace: SchemaNamespace;
   namespaces: SchemaNamespace[];
   onClose: () => void;
+  constraints: SystemConstraints;
 }) {
   const [isRequired, setIsRequired] = useState(false);
   const [isIndex, setIsIndex] = useState(false);
@@ -459,6 +462,7 @@ function AddAttrForm({
             <h6 className="text-md font-bold">Constraints</h6>
             <div className="flex gap-2">
               <Checkbox
+                disabled={constraints.require.disabled}
                 checked={isRequired}
                 onChange={(enabled) => setIsRequired(enabled)}
                 label={
@@ -467,6 +471,7 @@ function AddAttrForm({
                     be guaranteed to have it
                   </span>
                 }
+                title={constraints.require.message}
               />
             </div>
             <div className="flex gap-2">
@@ -575,6 +580,7 @@ function AddAttrForm({
             setIsCascadeReverse={setIsCascadeReverse}
             isRequired={isRequired}
             setIsRequired={setIsRequired}
+            constraints={constraints}
           />
         </>
       ) : null}
@@ -679,7 +685,6 @@ function IndexingJobError({
   onClose: () => void;
 }) {
   if (!indexingJob) return;
-
   if (indexingJob.error === 'missing-required-error') {
     return (
       <div className="mb-2 mt-2 border-l-2 border-l-red-500 pl-2">
@@ -803,6 +808,18 @@ function IndexingJobError({
       </div>
     );
   }
+  // Catchall for unexpected errors
+  if (indexingJob.error) {
+    return (
+      <div className="mb-2 mt-2 space-y-2 border-l-2 border-l-red-500 pl-2">
+        <div>
+          An unexpected error occured while changing constraints. Please share
+          these details with the Instant team:
+        </div>
+        <pre>id: "{indexingJob.id}"</pre>
+      </div>
+    );
+  }
 }
 
 function RelationshipConfigurator({
@@ -822,6 +839,7 @@ function RelationshipConfigurator({
   isCascadeReverseAllowed,
   isRequired,
   setIsRequired,
+  constraints,
 }: {
   relationship: RelationshipKinds;
   reverseNamespaceName: string | undefined;
@@ -843,6 +861,7 @@ function RelationshipConfigurator({
 
   isRequired: boolean;
   setIsRequired: (n: boolean) => void;
+  constraints: SystemConstraints;
 }) {
   const isFullLink = attrName && reverseNamespaceName && reverseAttrName;
 
@@ -851,7 +870,12 @@ function RelationshipConfigurator({
       <div className="flex flex-col gap-4 md:flex-row md:gap-2">
         <div className="flex flex-1 flex-col gap-1">
           <h6 className="text-md font-bold">Forward attribute name</h6>
-          <TextInput value={attrName} onChange={(n) => setAttrName(n)} />
+          <TextInput
+            disabled={constraints.attr.disabled}
+            title={constraints.attr.message}
+            value={attrName}
+            onChange={(n) => setAttrName(n)}
+          />
           <div className="rounded-sm py-0.5 text-xs text-gray-500 dark:text-neutral-400">
             {isFullLink ? (
               <>
@@ -869,6 +893,8 @@ function RelationshipConfigurator({
         <div className="flex flex-1 flex-col gap-1">
           <h6 className="text-md font-bold">Reverse attribute name</h6>
           <TextInput
+            disabled={constraints.attr.disabled}
+            title={constraints.attr.message}
             value={reverseAttrName}
             onChange={(n) => setReverseAttrName(n)}
           />
@@ -890,7 +916,7 @@ function RelationshipConfigurator({
       <div className="flex flex-col gap-1">
         <h6 className="text-md font-bold">Relationship</h6>
         <RelationshipSelect
-          disabled={!isFullLink}
+          disabled={!isFullLink || constraints.attr.disabled}
           value={relationship}
           onChange={(v) => {
             setRelationship(v.value);
@@ -899,6 +925,9 @@ function RelationshipConfigurator({
           reverseNamespace={reverseNamespaceName ?? ''}
           attr={attrName}
           reverseAttr={reverseAttrName}
+          title={
+            constraints.attr.disabled ? constraints.attr.message : undefined
+          }
         />
         <div
           className={'break-words text-xs text-gray-500 dark:text-neutral-400'}
@@ -919,8 +948,9 @@ function RelationshipConfigurator({
       <div className="flex gap-2">
         <Checkbox
           checked={isCascadeAllowed && isCascade}
-          disabled={!isCascadeAllowed}
+          disabled={!isCascadeAllowed || constraints.attr.disabled}
           onChange={setIsCascade}
+          title={constraints.attr.message}
           label={
             <span className="dark:text-neutral-200">
               <div>
@@ -939,8 +969,9 @@ function RelationshipConfigurator({
       <div className="flex gap-2">
         <Checkbox
           checked={isCascadeReverseAllowed && isCascadeReverse}
-          disabled={!isCascadeReverseAllowed}
+          disabled={!isCascadeReverseAllowed || constraints.attr.disabled}
           onChange={setIsCascadeReverse}
+          title={constraints.attr.message}
           label={
             <span className="dark:text-neutral-200">
               <div>
@@ -960,6 +991,8 @@ function RelationshipConfigurator({
         <h6 className="text-md font-bold">Constraints</h6>
         <div className="flex gap-2">
           <Checkbox
+            disabled={constraints.require.disabled}
+            title={constraints.require.message}
             checked={isRequired}
             onChange={(enabled) => setIsRequired(enabled)}
             label={
@@ -983,6 +1016,7 @@ function RelationshipSelect({
   attr,
   reverseNamespace,
   reverseAttr,
+  title,
 }: {
   disabled?: boolean;
   value: RelationshipKinds;
@@ -991,6 +1025,7 @@ function RelationshipSelect({
   attr: string;
   reverseNamespace: string;
   reverseAttr: string;
+  title?: string;
 }) {
   return (
     <Select
@@ -1023,6 +1058,7 @@ function RelationshipSelect({
           value: 'one-many',
         },
       ]}
+      title={title}
     />
   );
 }
@@ -1134,6 +1170,7 @@ type BlobConstraintControlComponent<V> = (props: {
   value: V;
   setValue: (v: V) => void;
   disabled: boolean;
+  disabledReason?: string;
   attr: SchemaAttr;
   pushNavStack: PushNavStack;
 }) => JSX.Element;
@@ -1146,6 +1183,7 @@ const EditCheckedDataTypeControl: BlobConstraintControlComponent<
   value,
   setValue,
   disabled,
+  disabledReason,
   attr,
   pushNavStack,
 }) => {
@@ -1179,11 +1217,7 @@ const EditCheckedDataTypeControl: BlobConstraintControlComponent<
               'border-[#606AF4] ring-1 ring-inset ring-[#606AF4] focus:ring-[#606AF4]',
           )}
           disabled={disabled || (runningJob && !jobIsCompleted(runningJob))}
-          title={
-            disabled
-              ? `Attributes in the ${attr.namespace} namespace can't be edited.`
-              : undefined
-          }
+          title={disabled ? disabledReason : undefined}
           value={value}
           onChange={(v) => {
             if (!v) {
@@ -1242,6 +1276,7 @@ const EditRequiredControl: BlobConstraintControlComponent<boolean> = ({
   value,
   setValue,
   disabled,
+  disabledReason,
   pushNavStack,
   attr,
 }) => {
@@ -1259,11 +1294,7 @@ const EditRequiredControl: BlobConstraintControlComponent<boolean> = ({
       <div className="flex justify-between">
         <Checkbox
           disabled={disabled || (runningJob && !jobIsCompleted(runningJob))}
-          title={
-            disabled
-              ? `Attributes in the ${attr.namespace} namespace can't be edited.`
-              : undefined
-          }
+          title={disabled ? disabledReason : undefined}
           checked={value}
           onChange={(enabled) => setValue(enabled)}
           label={
@@ -1308,6 +1339,7 @@ const EditIndexedControl: BlobConstraintControlComponent<boolean> = ({
   value,
   setValue,
   disabled,
+  disabledReason,
   attr,
   pushNavStack,
 }) => {
@@ -1325,11 +1357,7 @@ const EditIndexedControl: BlobConstraintControlComponent<boolean> = ({
       <div className="flex justify-between">
         <Checkbox
           disabled={disabled || (runningJob && !jobIsCompleted(runningJob))}
-          title={
-            disabled
-              ? `Attributes in the ${attr.namespace} namespace can't be edited.`
-              : undefined
-          }
+          title={disabled ? disabledReason : undefined}
           checked={value}
           onChange={(enabled) => setValue(enabled)}
           label={
@@ -1374,6 +1402,7 @@ const EditUniqueControl: BlobConstraintControlComponent<boolean> = ({
   value,
   setValue,
   disabled,
+  disabledReason,
   pushNavStack,
   attr,
 }) => {
@@ -1391,11 +1420,7 @@ const EditUniqueControl: BlobConstraintControlComponent<boolean> = ({
       <div className="flex justify-between">
         <Checkbox
           disabled={disabled || (runningJob && !jobIsCompleted(runningJob))}
-          title={
-            disabled
-              ? `Attributes in the ${attr.namespace} namespace can't be edited.`
-              : undefined
-          }
+          title={disabled ? disabledReason : undefined}
           checked={value}
           onChange={(enabled) => setValue(enabled)}
           label={
@@ -1437,12 +1462,12 @@ const EditUniqueControl: BlobConstraintControlComponent<boolean> = ({
 const EditBlobConstraints = ({
   appId,
   attr,
-  isSystemCatalogNs,
+  constraints,
   pushNavStack,
 }: {
   appId: string;
   attr: SchemaAttr;
-  isSystemCatalogNs: boolean;
+  constraints: SystemConstraints;
   pushNavStack: PushNavStack;
 }) => {
   const [requiredChecked, setRequiredChecked] = useState(
@@ -1482,7 +1507,8 @@ const EditBlobConstraints = ({
           runningJob={running.require}
           value={requiredChecked}
           setValue={setRequiredChecked}
-          disabled={isSystemCatalogNs}
+          disabled={constraints.require.disabled}
+          disabledReason={constraints.require.message}
           attr={attr}
           pushNavStack={pushNavStack}
         />
@@ -1491,7 +1517,8 @@ const EditBlobConstraints = ({
           runningJob={running.index}
           value={indexedChecked}
           setValue={setIndexedChecked}
-          disabled={isSystemCatalogNs}
+          disabled={constraints.attr.disabled}
+          disabledReason={constraints.attr.message}
           attr={attr}
           pushNavStack={pushNavStack}
         />
@@ -1500,7 +1527,8 @@ const EditBlobConstraints = ({
           runningJob={running.unique}
           value={uniqueChecked}
           setValue={setUniqueChecked}
-          disabled={isSystemCatalogNs}
+          disabled={constraints.attr.disabled}
+          disabledReason={constraints.attr.message}
           attr={attr}
           pushNavStack={pushNavStack}
         />
@@ -1509,7 +1537,8 @@ const EditBlobConstraints = ({
           runningJob={running.type}
           value={checkedDataType}
           setValue={setCheckedDataType}
-          disabled={isSystemCatalogNs}
+          disabled={constraints.attr.disabled}
+          disabledReason={constraints.attr.message}
           attr={attr}
           pushNavStack={pushNavStack}
         />
@@ -1534,14 +1563,14 @@ function EditAttrForm({
   appId,
   attr,
   onClose,
-  isSystemCatalogNs,
+  constraints,
   pushNavStack,
 }: {
   db: InstantReactWebDatabase<any>;
   appId: string;
   attr: SchemaAttr;
   onClose: () => void;
-  isSystemCatalogNs: boolean;
+  constraints: SystemConstraints;
   pushNavStack: PushNavStack;
 }) {
   const [screen, setScreen] = useState<{ type: 'main' } | { type: 'delete' }>({
@@ -1671,7 +1700,6 @@ function EditAttrForm({
       <DeleteForm onConfirm={deleteAttr} onClose={onClose} name={attr.name} />
     );
   }
-
   return (
     <div className="flex flex-col gap-4">
       <div className="mr-8 flex gap-4">
@@ -1683,12 +1711,8 @@ function EditAttrForm({
         </div>
 
         <Button
-          disabled={isSystemCatalogNs && attr.type !== 'ref'}
-          title={
-            isSystemCatalogNs && attr.type !== 'ref'
-              ? `Attributes in the ${attr.namespace} can't be edited`
-              : undefined
-          }
+          disabled={constraints.attr.disabled}
+          title={constraints.attr.message}
           variant="secondary"
           size="mini"
           onClick={() => setScreen({ type: 'delete' })}
@@ -1703,7 +1727,7 @@ function EditAttrForm({
           <EditBlobConstraints
             appId={appId}
             attr={attr}
-            isSystemCatalogNs={isSystemCatalogNs}
+            constraints={constraints}
             pushNavStack={pushNavStack}
           />
 
@@ -1717,12 +1741,8 @@ function EditAttrForm({
               the new name.
             </Content>
             <TextInput
-              disabled={isSystemCatalogNs}
-              title={
-                isSystemCatalogNs
-                  ? `Attributes in the ${attr.namespace} namespace can't be edited.`
-                  : undefined
-              }
+              disabled={constraints.attr.disabled}
+              title={constraints.attr.message}
               value={attrName}
               onChange={(n) => setAttrName(n)}
             />
@@ -1733,13 +1753,11 @@ function EditAttrForm({
                 submitLabel="Renaming attribute..."
                 errorMessage="Failed to rename attribute"
                 disabled={
-                  isSystemCatalogNs || !attrName || attrName === attr.name
+                  constraints.attr.disabled ||
+                  !attrName ||
+                  attrName === attr.name
                 }
-                title={
-                  isSystemCatalogNs
-                    ? `Attributes in the ${attr.namespace} namespace can't be edited.`
-                    : undefined
-                }
+                title={constraints.attr.message}
                 onClick={renameBlobAttr}
               />
             </div>
@@ -1764,6 +1782,7 @@ function EditAttrForm({
             setIsCascadeReverse={setIsCascadeReverse}
             isRequired={isRequired}
             setIsRequired={setIsRequired}
+            constraints={constraints}
           />
 
           <IndexingJobError
@@ -1778,12 +1797,15 @@ function EditAttrForm({
 
           <div className="flex flex-col gap-6">
             <ActionButton
-              disabled={!linkValidation.isValidLink}
+              disabled={
+                constraints.attr.disabled || !linkValidation.isValidLink
+              }
               type="submit"
               label="Update relationship"
               submitLabel="Updating relationship..."
               errorMessage="Failed to update relationship"
               onClick={updateRef}
+              title={constraints.attr.message}
             />
             {linkValidation.shouldShowSelfLinkNameError ? (
               <span className="text-red-500">
@@ -1822,5 +1844,49 @@ function validateLink({
     isNonEmptyLink,
     isValidLink,
     shouldShowSelfLinkNameError,
+  };
+}
+
+type SystemConstraints = {
+  attr: {
+    disabled: boolean;
+    message?: string;
+  };
+  require: {
+    disabled: boolean;
+    message?: string;
+  };
+};
+
+function getSystemConstraints({
+  namespaceName,
+  isSystemCatalogNs: isSystemCatalogNs,
+  attr: isSystemCatalogAttr,
+}: {
+  namespaceName: string;
+  isSystemCatalogNs: boolean;
+  attr?: SchemaAttr;
+}): SystemConstraints {
+  const isSystemAttr = isSystemCatalogAttr?.catalog === 'system';
+
+  const attrMessage = isSystemCatalogAttr
+    ? `${isSystemCatalogAttr.namespace}.${isSystemCatalogAttr.name} is managed by the system and can't be edited`
+    : undefined;
+
+  const requireMessage = isSystemAttr
+    ? attrMessage
+    : isSystemCatalogNs
+      ? `The ${namespaceName} namespace is managed by the system and can't modify required constraints yet.`
+      : undefined;
+
+  return {
+    attr: {
+      disabled: isSystemAttr || false,
+      message: attrMessage,
+    },
+    require: {
+      disabled: isSystemAttr || isSystemCatalogNs,
+      message: requireMessage,
+    },
   };
 }

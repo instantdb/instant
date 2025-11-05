@@ -527,6 +527,9 @@ importers:
       '@types/node':
         specifier: ^18.11.18
         version: 18.19.74
+      npm-run-all:
+        specifier: ^4.1.5
+        version: 4.1.5
       tshy:
         specifier: ^3.0.2
         version: 3.0.2

@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+
+    "module": "es2015",
+    "moduleResolution": "bundler",
+
+    "outDir": "./dist/commonjs",
+
+    "declaration": true,
+    "declarationDir": "./dist/commonjs",
+    "incremental": true
+  }
+}

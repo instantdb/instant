@@ -1,6 +1,10 @@
 import { test, expect } from 'vitest';
 
-import { generateSchemaTypescriptFile } from '../../src/schema';
+import {
+  generateSchemaTypescriptFile,
+  validateSchema,
+  SchemaValidationError,
+} from '../../src/schema';
 import { apiSchemaToInstantSchemaDef } from '../../src/api';
 import { i } from '@instantdb/core';
 
@@ -511,4 +515,102 @@ const schema: AppSchema = _schema;
 export type { AppSchema }
 export default schema;
 `);
+});
+
+test('validateSchema throws on $ entity names', () => {
+  expect(() =>
+    validateSchema(
+      i.schema({
+        entities: { $reserved: i.entity({}) },
+        links: {},
+      }),
+      {},
+    ),
+  ).toThrow(SchemaValidationError);
+});
+
+test('validateSchema throws on required attrs in system entities', () => {
+  expect(() =>
+    validateSchema(
+      i.schema({
+        entities: {
+          $users: i.entity({
+            custom: i.string(),
+          }),
+        },
+        links: {},
+      }),
+      { $users: new Set(['id', 'email']) },
+    ),
+  ).toThrow(SchemaValidationError);
+});
+
+test('validateSchema throws on required links to system entities', () => {
+  expect(() =>
+    validateSchema(
+      i.schema({
+        entities: {
+          $users: i.entity({}),
+          configs: i.entity({}),
+        },
+        links: {
+          userConfigs: {
+            forward: {
+              on: '$users',
+              has: 'one',
+              label: 'config',
+              required: true,
+            },
+            reverse: { on: 'configs', has: 'many', label: 'users' },
+          },
+        },
+      }),
+      { $users: new Set(['id', 'email']) },
+    ),
+  ).toThrow(SchemaValidationError);
+});
+
+test('validateSchema throws on cascade with has many', () => {
+  expect(() =>
+    validateSchema(
+      i.schema({
+        entities: {
+          users: i.entity({}),
+          posts: i.entity({}),
+        },
+        links: {
+          usersPosts: {
+            forward: {
+              on: 'users',
+              has: 'many',
+              label: 'posts',
+              onDelete: 'cascade',
+            },
+            reverse: { on: 'posts', has: 'many', label: 'users' },
+          },
+        },
+      }),
+      {},
+    ),
+  ).toThrow(SchemaValidationError);
+});
+
+test('validateSchema throws on links to non-existent entities', () => {
+  expect(() =>
+    validateSchema(
+      i.schema({
+        entities: {
+          posts: i.entity({}),
+        },
+        links: {
+          postsAuthor: {
+            forward: { on: 'posts', has: 'one', label: 'author' },
+            // @ts-expect-error
+            reverse: { on: 'users', has: 'many', label: 'posts' },
+          },
+        },
+      }),
+      {},
+    ),
+  ).toThrow(SchemaValidationError);
 });
