@@ -1,4 +1,4 @@
-import { test, expect } from 'vitest';
+import { test, expect, vi } from 'vitest';
 
 import zenecaAttrs from './data/zeneca/attrs.json';
 import zenecaTriples from './data/zeneca/triples.json';
@@ -791,6 +791,33 @@ test('pagination limit', () => {
   ).data.books;
 
   expect(books.length).toEqual(10);
+});
+
+test('nested limit works but warns', () => {
+  const warnMock = vi
+    .spyOn(console, 'warn')
+    .mockImplementation(() => undefined);
+
+  const result = query(
+    { store },
+    {
+      bookshelves: {
+        books: {
+          $: {
+            limit: 4,
+          },
+        },
+      },
+    },
+  );
+
+  expect(result.data.bookshelves.length).toEqual(45);
+  // Should be "6" but is limited to 4
+  expect(result.data.bookshelves[1].books.length).toEqual(4);
+  // Warning
+  expect(warnMock).toHaveBeenCalled();
+
+  warnMock.mockRestore();
 });
 
 test('pagination offset waits for pageInfo', () => {
