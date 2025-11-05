@@ -54,7 +54,6 @@
                                 :is_admin :admin?
                                 :user_id :user-id})
       (ucoll/update-when :topics xform-topics)))
-;; (update :query json/<-json true)
 
 (defn add-topic-params
   "Given a list of topics, adds topic-num, idx, e, a, v, and v-filter

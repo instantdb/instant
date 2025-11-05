@@ -197,7 +197,7 @@ export class SyncTable {
     if (!cbs.length) {
       delete this.callbacks[hash];
       const sub = this.subs.currentValue[hash];
-      if (sub.state) {
+      if (sub?.state) {
         this.clearSubscriptionData(sub.state.subscriptionId);
       }
       this.subs.set((prev) => {

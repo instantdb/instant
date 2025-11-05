@@ -367,16 +367,20 @@
   (if-let [{:keys [add remove]} *in-progress-stmts*]
     (let [cancelable (reify Cancelable
                        (cancel [_]
-                         (.cancel stmt)
-                         ;; Don't close the connection we opened b/c
-                         ;; it seems to cause thread pinning when you
-                         ;; close from a different thread and it will
-                         ;; get closed in the `finally` clause
-                         ;; below. We have to close connections we
-                         ;; were passed to make sure transactions are
-                         ;; rolled back.
-                         (when-not created-connection?
-                           (.close conn))))]
+                         (try
+                           (.cancel stmt)
+                           ;; Don't close the connection we opened b/c
+                           ;; it seems to cause thread pinning when you
+                           ;; close from a different thread and it will
+                           ;; get closed in the `finally` clause
+                           ;; below. We have to close connections we
+                           ;; were passed to make sure transactions are
+                           ;; rolled back.
+                           (when-not created-connection?
+                             (.close conn))
+                           (catch java.sql.SQLException e
+                             (when (not= "Connection is closed" (.getMessage e))
+                               (throw e))))))]
       (add rw cancelable)
       (reify java.lang.AutoCloseable
         (close [_]
@@ -504,8 +508,6 @@
                                                     :return-keys true})
 (defsql do-execute! next-jdbc/execute! :write {:return-keys false})
 
-;; XXX: cancel-in-progress is not working for plan, but only sometimes
-;;      future-cancel works though :/
 (defn- plan-reduce*
   "Wrapper for plan that executes the reduce inside of defsql.
    This lets our query cancel logic work.
@@ -516,16 +518,20 @@
    Looks like this with plan-reduce:
    (plan-reduce ::tag conn query {:reducer (fn [acc x] (conj acc x))
                                   :init []
-                                  :fetch-size 100})"
+                                  :fetch-size 100})
+
+   Note that cancel-in-progress is hit-or-miss for plan-reduce* because
+   the cancel might come when the preparedstatement is not active. future-cancel
+   will cancel the query, though."
   [ps _ {:keys [reducer init fetch-size] :as opts}]
   (reduce reducer
           init
           (next-jdbc/plan ps
-                          (tool/inspect (merge {:fetch-size fetch-size
-                                                :concurrency :read-only
-                                                :cursors :close
-                                                :result-type :forward-only}
-                                               (dissoc opts :reducer :init :fetch-size))))))
+                          (merge {:fetch-size fetch-size
+                                  :concurrency :read-only
+                                  :cursors :close
+                                  :result-type :forward-only}
+                                 (dissoc opts :reducer :init :fetch-size)))))
 
 (defsql plan-reduce plan-reduce* :read {})
 

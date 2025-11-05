@@ -25,12 +25,10 @@
     (when (seq join-rows)
       (handle-batch join-rows))))
 
-;; XXX: We should introduce some back pressure
 (defn create-sync-process [ctx instaql-query]
   (let [ns (-> instaql-query
                keys
                first)
-        _ (tool/def-locals)
         _ (when-not ns
             (ex/throw-validation-err! :query
                                       {:q instaql-query}
@@ -44,7 +42,6 @@
             (ex/throw-validation-err! :query
                                       {:q instaql-query}
                                       [{:message "No matching table."}]))
-        _ (tool/def-locals)
         ea-select (fn [ns-str]
                     {:select :*
                      :from [[:triples :t_ea]]
@@ -76,7 +73,6 @@
                                        (pg-hints/index-scan :t_ea :ea_index)
                                        (pg-hints/index-scan :t_eav :eav_uuid_index)]})
         canceled? (atom false)]
-    (tool/def-locals)
     {:cancel (fn []
                (reset! canceled? true))
      :canceled? (fn []
@@ -85,7 +81,6 @@
      :start (fn [{:keys [batch-size
                          on-batch
                          on-init-finish]}]
-              ;; XXX: Add migration to add the index to the transactions table
               (let [{:keys [tx-id]}
                     (next.jdbc/with-transaction [conn (aurora/conn-pool :read)]
                       (.setTransactionIsolation conn java.sql.Connection/TRANSACTION_REPEATABLE_READ)
@@ -96,16 +91,7 @@
                         (run-sync conn canceled? batch-size on-batch query)
                         {:tx-id id}))]
                 (on-init-finish {:tx-id tx-id
-                                 ;; XXX: We need to also subscribe to attr changes that would affect us and update
-                                 ;;      our topics when the attrs change
+                                 ;; TODO(sync-table):
+                                 ;;   We need to also subscribe to attr changes that would affect us and update
+                                 ;;   our topics when the attrs change
                                  :topics [[:ea '_ (attr-model/ea-ids-for-etype (name ns) (:attrs ctx)) '_]]})))}))
-
-
-;; 1. We need to store the wal logs somewhere so that we can reapply them
-;;   - fields
-;;     - app_id
-;;     - lsn
-;;     - topics
-;;     - data (in s3?)
-;;   - Need some kind of mechanism for disposing of older logs
-;;   - It would be nice if we could store everything in s3, but then how would we do topic filtering?

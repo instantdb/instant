@@ -219,16 +219,23 @@
                                               :processed-tx-id processed-tx-id
                                               :client-event-id client-event-id})))))
 
-;; XXX: Need to do some cleanup when the session goes away
 (defn- handle-start-sync! [store sess-id {:keys [q client-event-id op] :as _event}]
   ;; XXX: Check for admin
   (let [{:keys [app user admin?]} (get-auth! store sess-id)
         {app-id :id} app]
-    (if (nil? q)
+    (cond
+      (nil? q)
       (ex/throw-validation-err! :start-sync
                                 {:q q}
                                 [{:message "Query can not be null."}])
 
+      (not admin?)
+      (ex/throw-validation-err! :start-sync
+                                {:q q}
+                                [{:message "start-sync is currently supported for admins only."}])
+
+
+      :else
       (let [attrs (attr-model/get-by-app-id app-id)
             ctx {:db {:conn-pool (aurora/conn-pool :read)}
                  :session-id sess-id
