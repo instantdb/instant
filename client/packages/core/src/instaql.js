@@ -690,6 +690,12 @@ function resolveObjects(store, { etype, level, form, join, pageInfo }) {
 
   const limit = form.$?.limit || form.$?.first || form.$?.last;
   if (limit != null) {
+    if (level > 0) {
+      console.warn(
+        'WARNING: Limits in child queries are only run client-side. Data returned from the server will not have a limit.',
+      );
+    }
+
     const entries = Object.entries(objs);
     if (entries.length <= limit) {
       return objs;

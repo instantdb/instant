@@ -379,7 +379,7 @@ const validateDollarObject = (
 
   // Validate that pagination parameters are only used at top-level
   const paginationParams = [
-    'limit',
+    // 'limit', // only supported client side
     'offset',
     'before',
     'after',
