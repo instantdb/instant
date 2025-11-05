@@ -898,53 +898,59 @@ export function Sandbox({
                       />
                       <div className="">Permissions Check</div>
                       <div className="flex flex-col gap-1">
-                        {o.data.response.checkResults.map((cr: any) => (
-                          <div
-                            key={cr.entity + '-' + cr.id}
-                            className={clsx(
-                              'flex flex-col gap-1 rounded border bg-gray-100 px-2 py-1 dark:bg-neutral-800',
-                              {
-                                'border-emerald-200 dark:border-emerald-600':
-                                  Boolean(cr.check),
-                                'border-rose-200 dark:border-rose-600':
-                                  !Boolean(cr.check),
-                              },
-                            )}
-                          >
-                            <div className="flex gap-2">
-                              {Boolean(cr.check) ? (
-                                <span className="border border-emerald-300 bg-white px-1 font-bold text-emerald-600 dark:border-emerald-800 dark:bg-neutral-800">
-                                  Pass
-                                </span>
-                              ) : (
-                                <span className="border border-rose-300 bg-white px-1 font-bold text-rose-600 dark:bg-neutral-800">
-                                  Fail
-                                </span>
+                        {o.data.response.checkResults.map((cr: any) => {
+                          if (cr.label && !cr.program.code) {
+                            return null;
+                          }
+                          return (
+                            <div
+                              key={cr.entity + '-' + cr.id + cr.label}
+                              className={clsx(
+                                'flex flex-col gap-1 rounded border bg-gray-100 px-2 py-1 dark:bg-neutral-800',
+                                {
+                                  'border-emerald-200 dark:border-emerald-600':
+                                    Boolean(cr.check),
+                                  'border-rose-200 dark:border-rose-600':
+                                    !Boolean(cr.check),
+                                },
                               )}
-                              <strong>{cr.entity}</strong>
-                              <code>{cr.id}</code>
-                            </div>
-                            <div>Record</div>
-                            <Data data={cr.record} collapsed={0} />
-                            <div>Check</div>
-                            <div className="border bg-white dark:border-neutral-600 dark:bg-neutral-800">
-                              <span className="border-r bg-gray-50 px-2 font-bold dark:border-neutral-600 dark:bg-neutral-700">
-                                view
-                              </span>
-                              <code className="bg-white px-2 dark:bg-neutral-800">
-                                {cr.program?.['display-code'] ?? (
-                                  <span className="text-gray-400 dark:text-neutral-500">
-                                    none
+                            >
+                              <div className="flex items-baseline gap-2">
+                                {Boolean(cr.check) ? (
+                                  <span className="border border-emerald-300 bg-white px-1 font-bold text-emerald-600 dark:border-emerald-800 dark:bg-neutral-800">
+                                    Pass
+                                  </span>
+                                ) : (
+                                  <span className="border border-rose-300 bg-white px-1 font-bold text-rose-600 dark:bg-neutral-800">
+                                    Fail
                                   </span>
                                 )}
-                              </code>
+                                <strong>{cr.entity}</strong>
+                                <code>{cr.id}</code>
+                                {cr.label ? <strong>{cr.label}</strong> : null}
+                              </div>
+                              <div>Record</div>
+                              <Data data={cr.record} collapsed={0} />
+                              <div>Check</div>
+                              <div className="border bg-white dark:border-neutral-600 dark:bg-neutral-800">
+                                <span className="border-r bg-gray-50 px-2 font-bold dark:border-neutral-600 dark:bg-neutral-700">
+                                  view
+                                </span>
+                                <code className="bg-white px-2 dark:bg-neutral-800">
+                                  {cr.program?.['display-code'] ?? (
+                                    <span className="text-gray-400 dark:text-neutral-500">
+                                      none
+                                    </span>
+                                  )}
+                                </code>
+                              </div>
+                              <Data
+                                data={cr.check}
+                                collapsed={defaultCollapsed ? 1 : undefined}
+                              />
                             </div>
-                            <Data
-                              data={cr.check}
-                              collapsed={defaultCollapsed ? 1 : undefined}
-                            />
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   )}

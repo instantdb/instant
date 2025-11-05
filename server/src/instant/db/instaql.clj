@@ -2208,9 +2208,10 @@
                                     res)
         etype+eid->check (get-etype+eid-check-result! ctx perm-helpers rule-params)
         check-results (map
-                       (fn [[[etype id] {:keys [result program]}]]
+                       (fn [[[etype id label] {:keys [result program]}]]
                          {:id id
                           :entity etype
+                          :label label
                           :record (entity-map ctx
                                               (:query-cache perm-helpers)
                                               etype
