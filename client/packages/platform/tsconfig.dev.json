@@ -7,6 +7,7 @@
     "outDir": "./dist/esm",
 
     "declaration": true,
-    "declarationDir": "./dist/esm"
+    "declarationDir": "./dist/esm",
+    "incremental": true
   }
 }
