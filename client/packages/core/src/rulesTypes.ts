@@ -19,8 +19,14 @@ export type InstantRules<
   $default?: { bind?: string[]; allow: InstantRulesAllowBlock };
   attrs?: { bind?: string[]; allow: InstantRulesAttrsAllowBlock };
 } & {
-  [EntityName in keyof Schema['entities']]: {
+  [EntityName in keyof Schema['entities']]?: {
     bind?: string[];
     allow: InstantRulesAllowBlock;
+    fields?: {
+      [AttrName in Exclude<
+        keyof Schema['entities'][EntityName]['attrs'],
+        'id'
+      >]?: string;
+    };
   };
 };
