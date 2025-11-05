@@ -1768,8 +1768,8 @@
    (fn [acc join-rows]
      (reduce
       (fn [acc [e a]]
-        (let [etype (-> (attr-model/seek-by-id a attrs)
-                        attr-model/fwd-etype)
+        (let [[etype label] (-> (attr-model/seek-by-id a attrs)
+                                attr-model/fwd-ident-name)
               rule-where (get rule-wheres (:etype data))
               checked-by-rule-where? (and rule-where
                                           (= etype (:etype data))
@@ -1783,7 +1783,15 @@
             true (update-in [:etype->eids+program etype :program]
                             (fn [p]
                               (or p
-                                  (rule-model/get-program! rules etype "view")))))))
+                                  (rule-model/get-program! rules etype "view"))))
+            true (update-in [:etype->eids+program etype :field-programs]
+                            (fn [field-programs]
+                              (if (contains? field-programs label)
+                                field-programs
+                                (assoc field-programs
+                                       label
+                                       (rule-model/get-field-program! rules etype label))))))))
+
       acc
       join-rows))
    acc
@@ -1882,8 +1890,9 @@
   still need to fetch the full object to perform permission checks. We do it
   in a batch to reduce latency."
   [{:keys [datalog-query-fn attrs] :as ctx} query-cache etype->eids+program]
-  (let [patterns (keep (fn [[etype {:keys [eids program]}]]
-                         (when program
+  (let [patterns (keep (fn [[etype {:keys [eids program field-programs]}]]
+                         (when (or program
+                                   (some val field-programs))
                            (let [attr-ids (attr-model/ea-ids-for-etype etype attrs)
                                  missing-eids (reduce (fn [acc eid]
                                                         (if (contains? query-cache [[:ea eid attr-ids]])

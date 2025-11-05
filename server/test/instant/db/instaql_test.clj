@@ -4890,5 +4890,28 @@
                                                                 {:label "4"}
                                                                 {:label {:$isNull true}}]}}}})))))))))
 
+(deftest field-rules-can-filter-columns
+  (with-zeneca-app
+    (fn [app _r]
+      (let [make-ctx (fn []
+                       (let [attrs (attr-model/get-by-app-id (:id app))]
+                         {:db {:conn-pool (aurora/conn-pool :read)}
+                          :app-id (:id app)
+                          :attrs attrs}))
+
+            _ (rule-model/put! (aurora/conn-pool :write)
+                               {:app-id (:id app)
+                                :code {:users {:allow {:view "true"}
+                                               :fields {:email "data.handle == 'joe'"
+                                                        :handle "data.handle == 'alex'"}}}})
+
+            res (:users  (pretty-perm-q (make-ctx) {:users {}}))
+            all-emails (->> res (keep :email) set)
+            all-handles (->> res (keep :handle) set)]
+
+        (is (= 4 (count res)))
+        (is (= #{"joe@instantdb.com"} all-emails))
+        (is (= #{"alex"} all-handles))))))
+
 (comment
   (test/run-tests *ns*))
