@@ -139,7 +139,7 @@
 (deftest field-programs-validate
   (is (= [{:message
            "found no matching overload for '!_' applied to '(int)' (candidates: (bool))",
-           :in ["myetype" :fields "email"]}]
+           :in ["myetype" "fields" "email"]}]
          (rule/validation-errors {"myetype" {"fields" {"email" "!10"}}}))))
 
 (comment
