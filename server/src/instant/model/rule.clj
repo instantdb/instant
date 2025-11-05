@@ -204,7 +204,6 @@
              (catch CelValidationException e
                (ex/throw-validation-err!
                 :permission
-                ;; XXX: do we _want_ this to be "first paths" 
                 (first paths)
                 (->> (.getErrors e)
                      (map (fn [^CelIssue cel-issue]
