@@ -38,7 +38,8 @@
   },
   "scripts": {
     "test": "vitest",
-    "dev": "tshy --watch",
+    "dev": "tsc --watch --preserveWatchOutput -p tsconfig.dev.json",
+    "clean": "rm -rf dist",
     "check-exports": "attw --pack .",
     "build:tshy": "tshy",
     "build": "rm -rf dist; npm run build:tshy && npm run check-exports",
