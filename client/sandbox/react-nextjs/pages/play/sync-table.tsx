@@ -90,16 +90,27 @@ function Main({
     ]);
   };
 
-  const handleCreate1000Items = () => {
-    const txs = [];
-    for (let i = 0; i < 1000; i++) {
-      txs.push(
-        tx.items[id()].update({
-          name: generateRandomName(),
-        }),
-      );
+  const handleCreate1000Items = async () => {
+    setIsCreating(true);
+    setCreationProgress(0);
+    const batchSize = 100;
+    const totalBatches = 10; // 1000 / 100 = 10
+
+    for (let batch = 0; batch < totalBatches; batch++) {
+      const txs = [];
+      for (let i = 0; i < batchSize; i++) {
+        txs.push(
+          tx.items[id()].update({
+            name: generateRandomName(),
+          }),
+        );
+      }
+      await db.transact(txs);
+      setCreationProgress(((batch + 1) / totalBatches) * 100);
     }
-    db.transact(txs);
+
+    setIsCreating(false);
+    setCreationProgress(0);
   };
 
   const handleCreate10kItems = async () => {
@@ -194,35 +205,9 @@ function Main({
             <button
               onClick={handleCreate10kItems}
               disabled={isCreating}
-              className="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-indigo-700 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-indigo-700 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isCreating ? (
-                <>
-                  <svg
-                    className="animate-spin h-4 w-4 text-white"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                  <span>{Math.round(creationProgress)}%</span>
-                </>
-              ) : (
-                'Create 10k'
-              )}
+              Create 10k
             </button>
             <button
               onClick={() => {
@@ -245,6 +230,31 @@ function Main({
               Reset App
             </button>
           </div>
+          {isCreating && (
+            <div className="mt-4 flex items-center gap-3 text-gray-700">
+              <svg
+                className="animate-spin h-5 w-5"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                ></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                ></path>
+              </svg>
+              <span>Creating items... {Math.round(creationProgress)}%</span>
+            </div>
+          )}
         </div>
         <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
           <Items items={entities.slice(0, 100)} db={db} />
