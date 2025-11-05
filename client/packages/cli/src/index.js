@@ -1,5 +1,4 @@
 // @ts-check
-
 import {
   generatePermsTypescriptFile,
   apiSchemaToInstantSchemaDef,
@@ -43,6 +42,7 @@ import { promptOk } from './util/promptOk.js';
 import { ResolveRenamePrompt } from './util/renamePrompt.js';
 import { buildAutoRenameSelector } from './rename.js';
 import { loadEnv } from './util/loadEnv.js';
+import { isHeadlessEnvironment } from './util/isHeadlessEnvironment.js';
 
 const execAsync = promisify(exec);
 
@@ -317,6 +317,10 @@ program
   .command('login')
   .description('Log into your account')
   .option('-p --print', 'Prints the auth token into the console.')
+  .option(
+    '--headless',
+    'Print the login URL instead of trying to open the browser',
+  )
   .action(async (opts) => {
     console.log("Let's log you in!");
     await login(opts);
@@ -675,17 +679,23 @@ async function login(options) {
   const { secret, ticket } = registerRes.data;
 
   console.log();
-  const ok = await promptOk(
-    {
-      promptText: `This will open instantdb.com in your browser, OK to proceed?`,
-    },
-    program.opts(),
-    /*defaultAnswer=*/ true,
-  );
 
-  if (!ok) return;
+  if (isHeadlessEnvironment(options)) {
+    console.log(
+      `Open this URL in a browser to log in:\n ${instantDashOrigin}/dash?ticket=${ticket}\n`,
+    );
+  } else {
+    const ok = await promptOk(
+      {
+        promptText: `This will open instantdb.com in your browser, OK to proceed?`,
+      },
+      program.opts(),
+      /*defaultAnswer=*/ true,
+    );
 
-  openInBrowser(`${instantDashOrigin}/dash?ticket=${ticket}`);
+    if (!ok) return;
+    openInBrowser(`${instantDashOrigin}/dash?ticket=${ticket}`);
+  }
 
   console.log('Waiting for authentication...');
   const authTokenRes = await waitForAuthToken({ secret });
