@@ -11,17 +11,11 @@ type SubState = {
   token: string;
 };
 
-type SubResult = {
-  store: any;
-  // XXX: We don't need to store the result, we could recreate it from the store each time
-  result: any;
-};
-
 type Sub = {
   query: any;
   hash: string;
   state?: SubState;
-  result?: SubResult;
+  entities?: Array<{ entity: any; store: any }>;
 };
 
 // We could make a better type for this if we had a return type for s.toJSON
@@ -36,6 +30,11 @@ type StartMsg = {
   q: string;
 };
 
+type EndMsg = {
+  op: 'remove-sync';
+  'subscription-id': string;
+};
+
 type ResyncMsg = {
   op: 'resync-table';
   'subscription-id': string;
@@ -43,7 +42,7 @@ type ResyncMsg = {
   token: string;
 };
 
-type SendMsg = StartMsg | ResyncMsg;
+type SendMsg = StartMsg | EndMsg | ResyncMsg;
 
 type StartSyncOkMsg = {
   'subscription-id': string;
@@ -83,10 +82,8 @@ function syncSubsFromStorage(
 ): Subs {
   for (const key in parsed) {
     const sub = parsed[key];
-    if (sub.result?.store) {
-      const storeJSON = sub.result.store;
-      storeJSON.useDateObjects = useDateObjects;
-      sub.result.store = s.fromJSON(storeJSON);
+    for (const e of sub.entities || []) {
+      e.store = s.fromJSON(e.store);
     }
   }
   return parsed;
@@ -96,10 +93,12 @@ function syncSubsToStorage(subs: Subs): SubsInStorage {
   const jsonSubs = {};
   for (const key in subs) {
     const sub = subs[key];
-    if (sub.result) {
-      const { store, ...result } = sub.result;
-      (result as SubResult).store = s.toJSON(store);
-      jsonSubs[key] = { ...sub, result };
+    if (sub.entities) {
+      const entities = [];
+      for (const e of sub.entities) {
+        entities.push({ store: s.toJSON(e.store), entity: e.entity });
+      }
+      jsonSubs[key] = { ...sub, entities };
     } else {
       jsonSubs[key] = sub;
     }
@@ -118,6 +117,28 @@ function onMergeSubs(storageSubs: Subs | null, inMemorySubs: Subs): Subs {
     }
   }
   return subs;
+}
+
+function queryEntity(sub: Sub, store: any) {
+  const k = Object.keys(sub.query)[0];
+  const res = instaql({ store, pageInfo: null, aggregate: null }, sub.query);
+  return res.data[k][0];
+}
+
+function applyChangesToStore(
+  store: any,
+  changes: SyncUpdateTriplesMsg['txes'][number]['changes'],
+): void {
+  for (const { action, triple } of changes) {
+    switch (action) {
+      case 'added':
+        s.addTriple(store, triple);
+        break;
+      case 'removed':
+        s.retractTriple(store, triple);
+        break;
+    }
+  }
 }
 
 type SyncCallback = (result: any) => void;
@@ -175,8 +196,10 @@ export class SyncTable {
 
     if (!cbs.length) {
       delete this.callbacks[hash];
-      // XXX: Should we send a note to the server that it's being deleted?
-      // XXX: We may want to keep this around for a bit?
+      const sub = this.subs.currentValue[hash];
+      if (sub.state) {
+        this.clearSubscriptionData(sub.state.subscriptionId);
+      }
       this.subs.set((prev) => {
         delete prev[hash];
         return prev;
@@ -204,6 +227,13 @@ export class SyncTable {
     });
   }
 
+  private sendRemove(state: SubState) {
+    this.trySend(uuid(), {
+      op: 'remove-sync',
+      'subscription-id': state.subscriptionId,
+    });
+  }
+
   // XXX: maybe not always cb?
 
   private async initSubscription(query: any, hash: string, cb?: SyncCallback) {
@@ -213,9 +243,11 @@ export class SyncTable {
 
     if (existingSub && existingSub.state && existingSub.state.txId) {
       this.sendResync(existingSub, existingSub.state);
-      if (existingSub.result && cb) {
-        cb(existingSub.result.result);
+
+      if (existingSub.entities && cb) {
+        cb(existingSub.entities.map((e) => e.entity));
       }
+
       return;
     }
 
@@ -275,13 +307,14 @@ export class SyncTable {
   }
 
   private notifyCbs(hash: string) {
-    const result = this.subs.currentValue[hash]?.result?.result;
+    const result = this.subs.currentValue[hash]?.entities;
+
     if (!result) {
       this.log.error('No result ready when notifyCbs was called', { hash });
       return;
     }
     for (const cb of this.callbacks[hash] || []) {
-      cb(result);
+      cb(result.map((e) => e.entity));
     }
   }
 
@@ -293,6 +326,7 @@ export class SyncTable {
       this.log.error('Missing hash for subscription', msg);
       return;
     }
+
     this.subs.set((prev) => {
       const sub = prev[hash];
       if (!sub) {
@@ -300,18 +334,14 @@ export class SyncTable {
         return prev;
       }
 
-      const store = sub.result?.store ?? this.createStore([]);
-
+      const entities = sub.entities ?? [];
+      sub.entities = entities;
+      const k = Object.keys(sub.query)[0];
       for (const entRows of joinRows) {
-        for (const triple of entRows) {
-          s.addTriple(store, triple);
-        }
+        const store = this.createStore(entRows);
+        const entity = queryEntity(sub, store);
+        entities.push({ store, entity });
       }
-
-      sub.result = {
-        store,
-        result: instaql({ store, pageInfo: null, aggregate: null }, sub.query),
-      };
 
       return prev;
     });
@@ -362,33 +392,67 @@ export class SyncTable {
         return prev;
       }
 
-      const store = sub.result?.store ?? this.createStore([]);
-
-      let changed = false;
       for (const tx of msg.txes) {
-        if (state.txId > tx['tx-id']) {
+        if (state.txId >= tx['tx-id']) {
           continue;
         }
+        state.txId = tx['tx-id'];
+        const idxesToDelete = [];
+        // Note: this won't work as well when links are involved
+        const byEid: {
+          [eid: string]: SyncUpdateTriplesMsg['txes'][number]['changes'];
+        } = {};
+        for (const change of tx.changes) {
+          const eidChanges = byEid[change.triple[0]] ?? [];
+          byEid[change.triple[0]] = eidChanges;
+          eidChanges.push(change);
+        }
 
-        for (const { action, triple } of tx.changes) {
-          changed = true;
-          switch (action) {
-            case 'added':
-              s.addTriple(store, triple);
-              break;
-            case 'removed':
-              s.retractTriple(store, triple);
-              break;
+        const entities = sub.entities || [];
+        sub.entities = entities;
+
+        // Update the existing stores, if we already know about this entity
+        eidLoop: for (const [eid, changes] of Object.entries(byEid)) {
+          for (const [entIdx, ent] of Object.entries(entities)) {
+            if (s.hasEntity(ent.store, eid)) {
+              applyChangesToStore(ent.store, changes);
+              const entity = queryEntity(sub, ent.store);
+              if (entity) {
+                ent.entity = entity;
+              } else {
+                idxesToDelete.push(entIdx);
+              }
+              delete byEid[eid];
+              console.log('eid', eid, Object.create(byEid));
+              continue eidLoop;
+            }
           }
         }
 
-        state.txId = tx['tx-id'];
-      }
+        console.log({ ...byEid });
 
-      sub.result = {
-        store,
-        result: instaql({ store, pageInfo: null, aggregate: null }, sub.query),
-      };
+        // If we have anything left in byEid, then this must be a new entity we don't know about
+        for (const [_eid, changes] of Object.entries(byEid)) {
+          const store = this.createStore([]);
+          applyChangesToStore(store, changes);
+          const entity = queryEntity(sub, store);
+          if (!entity) {
+            this.log.error('No entity found after applying change', {
+              sub,
+              changes,
+              store,
+            });
+            1;
+            continue;
+          }
+          entities.push({ store, entity });
+        }
+
+        for (const idx of idxesToDelete.sort().reverse()) {
+          console.log('deleting', entities[idx]);
+          entities.splice(idx, 1);
+        }
+      }
 
       return prev;
     });
@@ -398,10 +462,12 @@ export class SyncTable {
 
   private clearSubscriptionData(subscriptionId: string) {
     const hash = this.idToHash[subscriptionId];
-
     if (hash) {
       delete this.idToHash[subscriptionId];
       const sub = this.subs.currentValue[hash];
+      if (sub.state) {
+        this.sendRemove(sub.state);
+      }
       this.subs.set((prev) => {
         delete prev[hash];
         return prev;

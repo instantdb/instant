@@ -130,6 +130,17 @@
          xform-row
          (assoc :token token)))))
 
+(def delete-q (uhsql/preformat {:delete-from :sync-subs
+                                :where [:and
+                                        [:= :app-id :?app-id]
+                                        [:= :id :?id]]}))
+
+(defn delete!
+  ([params] (delete! (aurora/conn-pool :write) params))
+  ([conn {:keys [app-id id]}]
+   (sql/execute-one! ::delete! conn (uhsql/formatp delete-q {:id id
+                                                             :app-id app-id}))))
+
 (def get-by-id-with-topics-q
   (uhsql/preformat {:select [:* [{:select [[[:json_agg [:row_to_json :t]]]]
                                   :from [[{:select [:idx :e :a :v :v-filter]

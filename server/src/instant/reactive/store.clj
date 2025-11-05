@@ -1051,6 +1051,14 @@
                                          :sync/sent-tx-id tx-id}])))]])]
     (d/entity db-after lookup)))
 
+(defn remove-sync-query [store app-id sess-id subscription-id]
+  (transact! "store/remove-sync-query"
+             (app-conn store app-id)
+             [[:db.fn/call (fn [db]
+                             (let [ent (d/entity db [:sync/id subscription-id])]
+                               (when (= sess-id (:sync/session-id ent))
+                                 [[:db/retractEntity (:db/id ent)]])))]]))
+
 ;; This serves as a placeholder for storing transaction data durably
 ;; Right now it's just stored in memory, but we will want to have it
 ;; live somewhere permanent (probably a combination of db + s3/google storage)

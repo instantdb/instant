@@ -269,7 +269,7 @@
                   (binding [sql/*in-progress-stmts* in-progress-stmts
                             tracer/*silence-exceptions?* exceptions-silencer]
                     (start
-                     {:batch-size 10
+                     {:batch-size 100
                       :on-batch (fn [batch]
                                   (rs/send-event! store app-id sess-id
                                                   {:op :sync-load-batch
@@ -317,10 +317,20 @@
                                                     (reset! exceptions-silencer x))}
                              pending-handler-id)))))
 
+(defn- handle-remove-sync! [store sess-id event]
+  (let [subscription-id (ex/get-param! event [:subscription-id] uuid-util/coerce)
+        app-id (-> (get-auth! store sess-id) :app :id)
+        sync-ent (rs/get-sync-query store app-id sess-id subscription-id)]
+    (when sync-ent
+      (rs/remove-sync-query store app-id sess-id subscription-id)
+      (sync-sub-model/delete! {:id (:sync/subscription-id sync-ent)
+                               :app-id app-id}))))
+
 (defn- handle-refresh-sync-table! [store sess-id {:keys [subscription-id] :as _event}]
   (let [{:keys [app]} (get-auth! store sess-id)
         {app-id :id} app
         ent (rs/get-sync-query store app-id sess-id subscription-id)]
+    (:sync/sent-tx-id ent)
     (when ent
       (let [unread-txes (rs/sync-query-unread-txes app-id ent)]
         ;; XXX: If unread-txes is too long, then we should requeue a refresh
@@ -329,7 +339,7 @@
                           {:op :sync-update-triples
                            :subscription-id subscription-id
                            :txes unread-txes})
-          (rs/sync-query-update-sent-tx store app-id (:db/id ent) (:tx-id (last unread-txes))))))))
+          (:sync/sent-tx-id (rs/sync-query-update-sent-tx store app-id (:db/id ent) (:tx-id (last unread-txes)))))))))
 
 ;; XXX: Need some guard against the tx-id being too old
 (defn- handle-resync-table! [store sess-id event]
@@ -621,6 +631,7 @@
       ;; ----------
       ;; sync-table
       :start-sync (handle-start-sync! store id event)
+      :remove-sync (handle-remove-sync! store id event)
       :refresh-sync-table (handle-refresh-sync-table! store id event)
       :resync-table (handle-resync-table! store id event)
       ;; ----------
