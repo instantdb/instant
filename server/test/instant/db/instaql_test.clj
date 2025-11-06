@@ -4931,7 +4931,13 @@
         (is (= 2
                (count (:bookshelves (pretty-perm-q (make-ctx) {:bookshelves {:$ {:where {"users.handle" "alex"}}}})))))
         (is (= 0
-               (count (:bookshelves (pretty-perm-q (make-ctx) {:bookshelves {:$ {:where {"users.handle" "joe"}}}})))))))))
+               (count (:bookshelves (pretty-perm-q (make-ctx) {:bookshelves {:$ {:where {"users.handle" "joe"}}}})))))
+
+        (is (= (count (:bookshelves (pretty-perm-q (make-ctx)
+                                                   {:bookshelves {:$ {:where {:or [{"users.email" "stopa@instantdb.com"}]}}}})))
+
+               (count (:bookshelves (pretty-perm-q (make-ctx) {:bookshelves {:$ {:where {:or [{"users.email" "stopa@instantdb.com"}
+                                                                                              {"users.handle" "joe"}]}}}})))))))))
 
 (comment
   (test/run-tests *ns*))

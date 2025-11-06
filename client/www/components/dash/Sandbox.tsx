@@ -899,9 +899,6 @@ export function Sandbox({
                       <div className="">Permissions Check</div>
                       <div className="flex flex-col gap-1">
                         {o.data.response.checkResults.map((cr: any) => {
-                          if (cr.label && !cr.program.code) {
-                            return null;
-                          }
                           return (
                             <div
                               key={cr.entity + '-' + cr.id + cr.label}

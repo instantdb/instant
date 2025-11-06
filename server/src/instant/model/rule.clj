@@ -228,12 +228,14 @@
              [etype      "fallback" action]]})))
 
 (defn get-field-program!
-  [rules etype field]
-  (get-program!
-   rules
-   {:etype etype
-    :action "view"
-    :paths [[etype "fields" field]]}))
+  [{:keys [code] :as rules} etype field]
+  (let [path [etype "fields" field]]
+    (when (some? (get-in code path))
+      (get-program!
+       rules
+       {:etype etype
+        :action "view"
+        :paths [path]}))))
 
 (defn $users-validation-errors
   "Only allow users to changes the `view` and `update` rules for $users, since we don't have

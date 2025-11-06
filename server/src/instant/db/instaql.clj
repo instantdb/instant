@@ -4,6 +4,7 @@
    [clojure.spec.alpha :as s]
    [clojure.string :as string]
    [honey.sql :as hsql]
+
    [instant.data.resolvers :as resolvers]
    [instant.db.cel :as cel]
    [instant.db.datalog :as d]
@@ -24,7 +25,7 @@
    [instant.util.tracer :as tracer]
    [instant.util.uuid :as uuid-util]
    [instant.system-catalog :as system-catalog]
-   [medley.core :refer [update-existing-in]]
+   [medley.core :refer [update-existing-in assoc-some]]
    [instant.storage.s3 :as instant-s3]
    [instant.comment :as c])
   (:import
@@ -1788,9 +1789,10 @@
                             (fn [field-programs]
                               (if (contains? field-programs label)
                                 field-programs
-                                (assoc field-programs
-                                       label
-                                       (rule-model/get-field-program! rules etype label))))))))
+                                (assoc-some
+                                 field-programs
+                                 label
+                                 (rule-model/get-field-program! rules etype label))))))))
 
       acc
       join-rows))
@@ -1823,32 +1825,33 @@
    (tracer/with-span! {:name "extract-permission-helpers"}
      (extract-permission-helpers* acc ctx instaql-res))))
 
+(defn viewable-triple? [attrs etype+eid->check [e a]]
+  (let [[etype label] (-> (attr-model/seek-by-id a attrs)
+                          attr-model/fwd-ident-name)
+        view-check (get etype+eid->check [etype e])
+        field-check (get etype+eid->check [etype e label] {:result true})]
+    (when (= label "handle")
+      (tool/def-locals!))
+    (and (:result view-check)
+         (:result field-check))))
+
+(defn viewable-join-row? [attrs etype+eid->check join-row]
+  (every? (partial viewable-triple? attrs etype+eid->check) join-row))
+
 (defn permissioned-node [{:keys [attrs] :as ctx} etype+eid->check res]
   (let [cleaned-join-rows (->> res
                                :data
                                :datalog-result
                                :join-rows
-                               (filter (fn [triples]
-                                         (every? (fn [[e a]]
-                                                   (let [[etype label] (-> (attr-model/seek-by-id a attrs)
-                                                                           attr-model/fwd-ident-name)
-                                                         view-check (get etype+eid->check [etype e])
-                                                         field-check (get etype+eid->check [etype e label])]
-                                                     (and (:result view-check)
-                                                          (:result field-check))))
-                                                 triples)))
+                               (filter (partial viewable-join-row? attrs etype+eid->check))
                                set)
-
         cleaned-page-info
         (when (get-in res [:data :datalog-result :page-info])
-          (let [filtered-rows (seq (filter (fn [[e a]]
-                                             (let [etype (-> (attr-model/seek-by-id a attrs)
-                                                             attr-model/fwd-etype)
-                                                   check (get etype+eid->check [etype e])]
-                                               (:result check)))
-                                           (get-in res [:data
-                                                        :datalog-result
-                                                        :page-info-rows])))]
+          (let [filtered-rows (seq (filter
+                                    (partial viewable-triple? attrs etype+eid->check)
+                                    (get-in res [:data
+                                                 :datalog-result
+                                                 :page-info-rows])))]
             {:start-cursor (first filtered-rows)
              :end-cursor (last filtered-rows)
              ;; nb: this may be incorrect if rows are filtered by permissions
@@ -1894,7 +1897,7 @@
   [{:keys [datalog-query-fn attrs] :as ctx} query-cache etype->eids+program]
   (let [patterns (keep (fn [[etype {:keys [eids program field-programs]}]]
                          (when (or program
-                                   (some val field-programs))
+                                   (seq field-programs))
                            (let [attr-ids (attr-model/ea-ids-for-etype etype attrs)
                                  missing-eids (reduce (fn [acc eid]
                                                         (if (contains? query-cache [[:ea eid attr-ids]])
@@ -1970,20 +1973,18 @@
           acc-field-programs (fn [acc etype {:keys [field-programs eid]}]
                                (reduce-kv
                                 (fn [acc label program]
-                                  (let [k [etype eid label]]
-                                    (if-not program
-                                      (assoc-in acc [:no-programs k] {:result true})
-                                      (let [data (io/warn-io :instaql/entity-map
-                                                   (entity-map ctx
-                                                               query-cache
-                                                               etype
-                                                               eid))
-                                            bindings {:rule-params rule-params
-                                                      :data data}]
-                                        (update acc :programs conj
-                                                {:key k
-                                                 :program program
-                                                 :bindings bindings})))))
+                                  (let [k [etype eid label]
+                                        data (io/warn-io :instaql/entity-map
+                                               (entity-map ctx
+                                                           query-cache
+                                                           etype
+                                                           eid))
+                                        bindings {:rule-params rule-params
+                                                  :data data}]
+                                    (update acc :programs conj
+                                            {:key k
+                                             :program program
+                                             :bindings bindings})))
 
                                 acc
                                 field-programs))
