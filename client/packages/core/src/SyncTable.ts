@@ -141,7 +141,83 @@ function applyChangesToStore(
   }
 }
 
-type SyncCallback = (result: any) => void;
+function changedFieldsOfChanges(
+  store: any,
+  changes: SyncUpdateTriplesMsg['txes'][number]['changes'],
+): { [eid: string]: SyncTransaction['updated'][number]['changedFields'] } {
+  // This will be more complicated when we include links, we can either add a
+  // changedLinks field or we can have something like 'bookshelves.title`
+  const changedFields = {};
+  for (const { action, triple } of changes) {
+    const [e, a, v] = triple;
+    const field = store.attrs[a]?.['forward-identity']?.[2];
+    if (!field) continue;
+
+    const fields = changedFields[e] ?? {};
+    changedFields[e] = fields;
+
+    const oldNew = fields[field] ?? {};
+    fields[field] = oldNew;
+
+    switch (action) {
+      case 'added':
+        oldNew.newValue = v;
+        break;
+      case 'removed':
+        // Only take the first thing that was removed, in case we modified things in the middle
+        if (oldNew.oldValue === undefined) {
+          oldNew.oldValue = v;
+        }
+        break;
+    }
+  }
+  return changedFields;
+}
+
+enum CallbackEventType {
+  InitialSyncBatch = 'InitialSyncBatch',
+  InitialSyncComplete = 'InitialSyncComplete',
+  LoadFromStorage = 'LoadFromStorage',
+  SyncTransaction = 'SyncTransaction',
+}
+
+// XXX: Needs a type parameter for constructing the data
+interface BaseCallbackEvent {
+  type: CallbackEventType;
+  data: fixme[];
+}
+
+interface InitialSyncBatch extends BaseCallbackEvent {
+  type: CallbackEventType.InitialSyncBatch;
+  batch: fixme[];
+}
+
+interface InitialSyncComplete extends BaseCallbackEvent {
+  type: CallbackEventType.InitialSyncComplete;
+}
+
+interface SyncTransaction extends BaseCallbackEvent {
+  type: CallbackEventType.SyncTransaction;
+  added: fixme[];
+  removed: fixme[];
+  updated: {
+    oldEntity: fixme;
+    newEntity: fixme;
+    changedFields: Record<string, { oldValue: fixme; newValue: fixme }>;
+  }[];
+}
+
+interface LoadFromStorage extends BaseCallbackEvent {
+  type: CallbackEventType.LoadFromStorage;
+}
+
+type CallbackEvent =
+  | InitialSyncBatch
+  | InitialSyncComplete
+  | SyncTransaction
+  | LoadFromStorage;
+
+type SyncCallback = (event: CallbackEvent) => void;
 
 export class SyncTable {
   private trySend: TrySend;
@@ -245,7 +321,11 @@ export class SyncTable {
       this.sendResync(existingSub, existingSub.state);
 
       if (existingSub.entities && cb) {
-        cb(existingSub.entities.map((e) => e.entity));
+        cb({
+          type: CallbackEventType.LoadFromStorage,
+          // XXX: Need to sort
+          data: existingSub.entities.map((e) => e.entity),
+        });
       }
 
       return;
@@ -306,15 +386,9 @@ export class SyncTable {
     });
   }
 
-  private notifyCbs(hash: string) {
-    const result = this.subs.currentValue[hash]?.entities;
-
-    if (!result) {
-      this.log.error('No result ready when notifyCbs was called', { hash });
-      return;
-    }
+  private notifyCbs(hash: string, event: CallbackEvent) {
     for (const cb of this.callbacks[hash] || []) {
-      cb(result.map((e) => e.entity));
+      cb(event);
     }
   }
 
@@ -327,7 +401,8 @@ export class SyncTable {
       return;
     }
 
-    this.subs.set((prev) => {
+    const batch = [];
+    const currentValue = this.subs.set((prev) => {
       const sub = prev[hash];
       if (!sub) {
         this.log.error('Missing sub for hash', hash, msg);
@@ -336,17 +411,25 @@ export class SyncTable {
 
       const entities = sub.entities ?? [];
       sub.entities = entities;
-      const k = Object.keys(sub.query)[0];
+
       for (const entRows of joinRows) {
         const store = this.createStore(entRows);
         const entity = queryEntity(sub, store);
         entities.push({ store, entity });
+        batch.push(entity);
       }
 
       return prev;
     });
 
-    this.notifyCbs(hash);
+    const sub = currentValue[hash];
+    if (sub.entities) {
+      this.notifyCbs(hash, {
+        type: CallbackEventType.InitialSyncBatch,
+        data: sub.entities.map((x) => x.entity),
+        batch,
+      });
+    }
   }
 
   public onSyncInitFinish(msg: SyncInitFinishMsg) {
@@ -411,26 +494,40 @@ export class SyncTable {
         const entities = sub.entities || [];
         sub.entities = entities;
 
+        const updated: SyncTransaction['updated'] = [];
         // Update the existing stores, if we already know about this entity
         eidLoop: for (const [eid, changes] of Object.entries(byEid)) {
           for (const [entIdx, ent] of Object.entries(entities)) {
             if (s.hasEntity(ent.store, eid)) {
               applyChangesToStore(ent.store, changes);
               const entity = queryEntity(sub, ent.store);
+              const changedFields = changedFieldsOfChanges(ent.store, changes)[
+                eid
+              ];
+              for (const [k, { oldValue, newValue }] of Object.entries(
+                changedFields || {},
+              )) {
+                if (oldValue === newValue) {
+                  delete changedFields[k];
+                }
+              }
               if (entity) {
+                updated.push({
+                  oldEntity: ent.entity,
+                  newEntity: entity,
+                  changedFields: changedFields || {},
+                });
                 ent.entity = entity;
               } else {
                 idxesToDelete.push(entIdx);
               }
               delete byEid[eid];
-              console.log('eid', eid, Object.create(byEid));
               continue eidLoop;
             }
           }
         }
 
-        console.log({ ...byEid });
-
+        const added = [];
         // If we have anything left in byEid, then this must be a new entity we don't know about
         for (const [_eid, changes] of Object.entries(byEid)) {
           const store = this.createStore([]);
@@ -446,18 +543,27 @@ export class SyncTable {
             continue;
           }
           entities.push({ store, entity });
+          added.push(entity);
         }
 
+        const removed = [];
+
         for (const idx of idxesToDelete.sort().reverse()) {
-          console.log('deleting', entities[idx]);
+          removed.push(entities[idx].entity);
           entities.splice(idx, 1);
         }
+
+        this.notifyCbs(hash, {
+          type: CallbackEventType.SyncTransaction,
+          data: entities.map((x) => x.entity),
+          added,
+          removed,
+          updated,
+        });
       }
 
       return prev;
     });
-
-    this.notifyCbs(hash);
   }
 
   private clearSubscriptionData(subscriptionId: string) {

@@ -10,6 +10,8 @@ import {
 import React, { useEffect, useRef, useState } from 'react';
 import config from '../../config';
 import { provisionEphemeralApp } from '../../components/EphemeralAppPage';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const schema = i.schema({
   entities: {
@@ -158,10 +160,56 @@ function Main({
         {
           items: {},
         },
-        (ents: any) => {
-          if (ents.length === 31024) {
+        (event: any) => {
+          console.log('event', event);
+          switch (event.type) {
+            case 'InitialSyncBatch':
+              toast(`Loaded initial batch of ${event.batch.length} new items.`);
+              break;
+            case 'InitialSyncComplete':
+              toast(`Initial sync complete.`);
+              break;
+            case 'LoadFromStorage':
+              toast(`Loaded ${event.data.length} items from storage.`);
+              break;
+            case 'SyncTransaction': {
+              if (event.added.length > 10) {
+                toast(`Added ${event.added.length} items`);
+              } else {
+                for (const item of event.added) {
+                  toast(`Added ${item.name}`);
+                }
+              }
+              if (event.removed.length > 10) {
+                toast(`Removed ${event.removed.length} items`);
+              } else {
+                for (const item of event.removed) {
+                  toast(`Removed ${item.name}`);
+                }
+              }
+
+              if (event.updated.length > 10) {
+                toast(`Updated ${event.removed.length} items`);
+              } else {
+                for (const updated of event.updated) {
+                  let desc = '';
+                  // @ts-ignore
+                  for (const [k, { oldValue, newValue }] of Object.entries(
+                    updated.changedFields,
+                  )) {
+                    desc += ` ${k} from ${oldValue} to ${newValue}`;
+                  }
+                  toast(`Updated${desc}`);
+                }
+              }
+
+              break;
+            }
+            default:
+              toast(event.type);
+              break;
           }
-          setEntities(ents.toReversed());
+          setEntities(event.data.toReversed());
         },
       );
       unsubRef.current = unsub;
@@ -170,6 +218,7 @@ function Main({
 
   return (
     <div className="min-h-screen">
+      <ToastContainer position="top-right" />
       <div className="fixed top-4 right-4 text-sm text-gray-600 z-10">
         <span className="font-mono">{appId}</span>
       </div>
