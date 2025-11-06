@@ -5,11 +5,14 @@
    [honey.sql :as hsql]
    [instant.db.model.attr :as attr-model]
    [instant.db.model.triple-cols :as triple-cols-ns]
+   [instant.flags :as flags]
    [instant.jdbc.sql :as sql]
    [instant.system-catalog :refer [system-catalog-app-id]]
    [instant.util.crypt :refer [json-null-md5]]
    [instant.util.exception :as ex]
+   [instant.util.hsql :as uhsql]
    [instant.util.json :refer [->json <-json]]
+   [instant.util.pg-hint-plan :as hints]
    [instant.util.pgtime :as pgtime]
    [instant.util.spec :as uspec]
    [instant.util.string :refer [multiline->single-line]]
@@ -138,6 +141,50 @@
                                               coalesce(inferred_types, cast(0 AS bit(32))) | updates.typ
                                             )"]]]})))
 
+(defn make-required-p [with-hint?]
+  (uhsql/preformat
+   {:with [[:eid-etypes-cte {:select [[[:unnest :?eids] :entity-id]
+                                      [[:unnest :?etypes] :etype]]}]
+           ;; populate entities with attrs
+           [:eid-attrs {:select-distinct [:entity-id
+                                          [:attrs.id :attr-id]
+                                          :attrs.etype
+                                          :attrs.label
+                                          :attrs.is-required]
+                        :from :eid-etypes-cte
+                        :join [[:attrs] [:and
+                                         [:or
+                                          [:= :attrs.app-id :?app-id]
+                                          [:= :attrs.app-id :?system-catalog-app-id]]
+                                         [:= :attrs.etype :eid-etypes-cte.etype]]]}]
+           ;; select all triples related to our eids
+           [:triples-cte {:select-distinct [:t.entity-id
+                                            :t.attr-id
+                                            :a.etype]
+                          :from [[:triples :t]]
+                          :join [[:eid-attrs :a] [:and
+                                                  [:= :t.entity-id :a.entity-id]
+                                                  [:= :t.attr-id :a.attr-id]]]
+                          :where [:and
+                                  [:= :app-id :?app-id]
+                                  [:not= :value [:cast [:inline "null"] :jsonb]]]}]]
+    :select :*
+    :from :eid-attrs
+    :where [:and
+            ;; limit to required attrs
+            [:or :eid-attrs.is-required [:= :eid-attrs.label [:inline "id"]]]
+            [:in [:composite :entity-id :etype] {:select [:entity-id :etype]
+                                                 :from :triples_cte}]
+            [:not-in [:composite :entity-id :attr-id] {:select [:entity-id :attr-id]
+                                                       :from :triples-cte}]]
+    :pg-hints (if with-hint?
+                [(hints/index-scan :t :triples_pkey)]
+                [])}))
+
+(def required-p-with-hint (make-required-p true))
+(def required-p-without-hint (make-required-p false))
+
+
 (defn validate-required!
   "Given [{:entity_id ..., :attr_id ...} ...] of entity attributes that were
    added or removed during this tx, checks that all affected entities that are still
@@ -154,59 +201,14 @@
                                     :when (etypes-with-required etype)]
                                 [entity_id etype]))]
     (when (seq eid+etypes)
-      (let [query (sql/format
-                   "WITH eid_etypes_cte AS (
-                      SELECT
-                        cast(elem ->> 0 AS uuid) AS entity_id,
-                        cast(elem ->> 1 AS text) AS etype
-                      FROM
-                        jsonb_array_elements(cast(?eid+etypes AS jsonb)) AS elem
-                    ),
-
-                    -- populate entities with attrs
-                    eid_attrs AS (
-                      SELECT DISTINCT
-                        entity_id,
-                        attrs.id AS attr_id,
-                        attrs.etype,
-                        attrs.label,
-                        attrs.is_required
-                      FROM
-                        eid_etypes_cte
-                      JOIN attrs
-                        ON (attrs.app_id = ?app-id OR attrs.app_id = ?system-catalog-app-id)
-                        AND attrs.etype = eid_etypes_cte.etype
-                    ),
-
-                    -- select all triples related to our eids
-                    triples_cte AS (
-                      SELECT DISTINCT
-                        t.entity_id,
-                        t.attr_id,
-                        a.etype
-                      FROM
-                        triples t
-                      JOIN eid_attrs a ON t.entity_id = a.entity_id AND t.attr_id = a.attr_id
-                      WHERE
-                        app_id = ?app-id
-                        AND value <> cast('null' AS jsonb)
-                    )
-                    SELECT
-                      *
-                    FROM
-                      eid_attrs
-                    WHERE
-                      -- limit only to required attrs
-                      (eid_attrs.is_required = TRUE OR eid_attrs.label = 'id')
-
-                      -- check entity is alive
-                      AND (entity_id, etype) IN (SELECT entity_id, etype FROM triples_cte)
-
-                      -- check for attrs missing from triples
-                      AND (entity_id, attr_id) NOT IN (SELECT entity_id, attr_id FROM triples_cte)"
-                   {"?eid+etypes"            (->json eid+etypes)
-                    "?app-id"                app-id
-                    "?system-catalog-app-id" system-catalog-app-id})
+      (let [params {:app-id app-id
+                    :system-catalog-app-id system-catalog-app-id
+                    :eids (with-meta (map first eid+etypes) {:pgtype "uuid[]"})
+                    :etypes (with-meta (map second eid+etypes) {:pgtype "text[]"})}
+            query (uhsql/formatp (if (flags/toggled? :no-hint-for-validate-required)
+                                   required-p-without-hint
+                                   required-p-with-hint)
+                                 params)
             res (sql/execute! ::validate-required! conn query)]
         (when (seq res)
           (ex/throw+
