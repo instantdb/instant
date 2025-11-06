@@ -867,8 +867,7 @@ export default class Reactor {
     return eventId;
   }
 
-  // XXX: Should call it something else because `sync` sounds like it's synchronous
-  subscribeSync(q, cb) {
+  subscribeTable(q, cb) {
     return this._syncTable.subscribe(q, cb);
   }
 

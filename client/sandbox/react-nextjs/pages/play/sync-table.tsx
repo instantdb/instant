@@ -153,22 +153,19 @@ function Main({
       });
 
       unsubRef.current = unsub;
-
-      return unsub;
+    } else {
+      const unsub = db.core._reactor.subscribeTable(
+        {
+          items: {},
+        },
+        (ents: any) => {
+          if (ents.length === 31024) {
+          }
+          setEntities(ents.toReversed());
+        },
+      );
+      unsubRef.current = unsub;
     }
-
-    const unsub = db.core._reactor.subscribeSync(
-      {
-        items: {},
-      },
-      (ents: any) => {
-        if (ents.length === 31024) {
-        }
-        setEntities(ents.toReversed());
-      },
-    );
-    unsubRef.current = unsub;
-    return unsub;
   }, [i, useSubscribeQuery]);
 
   return (
@@ -183,10 +180,16 @@ function Main({
           </h1>
           <div className="flex gap-3 flex-wrap items-center">
             <button
-              onClick={() => setUseSubscribeQuery(!useSubscribeQuery)}
+              onClick={() => {
+                if (unsubRef.current) {
+                  unsubRef.current();
+                  setEntities([]);
+                }
+                setUseSubscribeQuery(!useSubscribeQuery);
+              }}
               className="rounded-lg bg-teal-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-teal-700 whitespace-nowrap"
             >
-              Mode: {useSubscribeQuery ? 'subscribeQuery' : 'subscribeSync'}
+              Mode: {useSubscribeQuery ? 'subscribeQuery' : 'subscribeTable'}
             </button>
             <button
               onClick={handleCreateItem}
@@ -323,14 +326,28 @@ function Items({
                   <p className="text-xs text-gray-500">{item.id}</p>
                 </div>
               </div>
-              <button
-                onClick={() => {
-                  db.transact(db.tx.items[item.id].delete());
-                }}
-                className="rounded bg-red-100 px-3 py-1 text-sm font-medium text-red-700 transition-colors hover:bg-red-200"
-              >
-                Delete
-              </button>
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => {
+                    db.transact(
+                      db.tx.items[item.id].update({
+                        name: generateRandomName(),
+                      }),
+                    );
+                  }}
+                  className="rounded bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-200"
+                >
+                  Update
+                </button>
+                <button
+                  onClick={() => {
+                    db.transact(db.tx.items[item.id].delete());
+                  }}
+                  className="rounded bg-red-100 px-3 py-1 text-sm font-medium text-red-700 transition-colors hover:bg-red-200"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           </div>
         );

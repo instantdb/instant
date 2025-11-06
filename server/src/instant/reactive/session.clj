@@ -31,6 +31,7 @@
    [instant.reactive.receive-queue :as receive-queue]
    [instant.reactive.store :as rs]
    [instant.util.async :as ua]
+   [instant.util.coll :as ucoll]
    [instant.util.crypt :as crypt-util]
    [instant.util.delay :as delay]
    [instant.util.exception :as ex]
@@ -220,7 +221,6 @@
                                               :client-event-id client-event-id})))))
 
 (defn- handle-start-sync! [store sess-id {:keys [q client-event-id op] :as _event}]
-  ;; XXX: Check for admin
   (let [{:keys [app user admin?]} (get-auth! store sess-id)
         {app-id :id} app]
     (cond
@@ -243,7 +243,6 @@
                  :attrs attrs
                  :admin? admin?
                  :current-user user}
-            ;; XXX: create-sync-process should validate the query
             {:keys [start cancel canceled?] :as process}
             (sync-table/create-sync-process ctx q)
 
@@ -337,28 +336,46 @@
   (let [{:keys [app]} (get-auth! store sess-id)
         {app-id :id} app
         ent (rs/get-sync-query store app-id sess-id subscription-id)]
-    (:sync/sent-tx-id ent)
     (when ent
       (let [unread-txes (rs/sync-query-unread-txes app-id ent)]
-        ;; XXX: If unread-txes is too long, then we should requeue a refresh
         (when (seq unread-txes)
-          (rs/send-event! store app-id sess-id
-                          {:op :sync-update-triples
-                           :subscription-id subscription-id
-                           :txes unread-txes})
-          (:sync/sent-tx-id (rs/sync-query-update-sent-tx store app-id (:db/id ent) (:tx-id (last unread-txes)))))))))
+          (let [max-txes 100
+                txes-to-send (take max-txes unread-txes)]
+            (rs/send-event! store app-id sess-id
+                            {:op :sync-update-triples
+                             :subscription-id subscription-id
+                             :txes txes-to-send})
+            (rs/sync-query-update-sent-tx store app-id (:db/id ent) (:tx-id (last txes-to-send)))
 
-;; XXX: Need some guard against the tx-id being too old
+            ;; There are still more txes to process, but we don't want to send too many in a single
+            ;; websocket packet, so requeue
+            (when (< max-txes (count unread-txes))
+              (receive-queue/put! (-> (rs/session store sess-id) :session/socket :receive-q)
+                                  {:op :refresh-sync-table
+                                   :subscription-id subscription-id
+                                   :app-id app-id
+                                   :session-id sess-id}))))))))
+
 (defn- handle-resync-table! [store sess-id event]
   (let [{:keys [app user admin?]} (get-auth! store sess-id)
         {app-id :id} app
         tx-id (ex/get-param! event [:tx-id] (fn [v] (try (long v) (catch Throwable _ nil))))
         subscription-id (ex/get-param! event [:subscription-id] uuid-util/coerce)
         token (ex/get-param! event [:token] uuid-util/coerce)
-        record (sync-sub-model/get-by-id-with-topics {:id subscription-id
-                                                      :token token
-                                                      :admin? admin?
-                                                      :user-id (:id user)})]
+        record (sync-sub-model/get-by-id-with-topics! {:id subscription-id
+                                                       :token token
+                                                       :admin? admin?
+                                                       :user-id (:id user)})]
+
+    ;; TODO(sync-table): This will be replaced by a check that the tx is still in the db
+    ;;                   when we have stable storage for the tx-data
+    (when-not (ucoll/seek (fn [x]
+                            (= (:tx-id x) tx-id))
+                          @rs/sync-table-txes)
+      (ex/throw-validation-err! :subscription
+                                {:subscription-id subscription-id
+                                 :tx-id tx-id}
+                                [{:message "transactions for the subscription are no longer available"}]))
     (rs/sync-query-resync store app-id sess-id
                           (:id record) tx-id (:topics record))
     (receive-queue/put! (-> (rs/session store sess-id) :session/socket :receive-q)

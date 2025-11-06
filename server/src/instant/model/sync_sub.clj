@@ -149,8 +149,8 @@
                     :from :sync-subs
                     :where [:= :id :?id]}))
 
-(defn get-by-id-with-topics
-  ([params] (get-by-id-with-topics (aurora/conn-pool :read) params))
+(defn get-by-id-with-topics!
+  ([params] (get-by-id-with-topics! (aurora/conn-pool :read) params))
   ([conn {:keys [id token admin? user-id]}]
    (let [record (-> (sql/select-one ::get-by-id-with-topics
                                     conn
