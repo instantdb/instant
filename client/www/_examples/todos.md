@@ -283,7 +283,7 @@ when offline! You can test this out like in Chrome devtools like so:
 
 - Open two tabs of the app
 - In one tab, open Chrome devtools, go to the network tab, and select "Offline"
-- om the throttling dropdown
+  in the throttling dropdown
 - In the offline tab, add a few todos
 - In the online tabs, make a few changes here too
 - Now go back to the offline tab and disable offline mode, you should see all the changes
