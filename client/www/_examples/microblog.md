@@ -21,17 +21,16 @@ If you haven't already, be sure to log into the Instant CLI
 pnpx instant-cli login
 ```
 
-Create a new app in the [Instant Dashboard](https://www.instantdb.com/dash)
-and copy the `INSTANT_APP_ID` and `INSTANT_APP_ADMIN_TOKEN` into your `.env` file.
+Now let's initialize a new app with the Instant CLI.
 
 ```bash
-# Copy .env.example to .env and update the variables
-# by creating a new app at https://www.instantdb.com/dash
-cp .env.example .env
+pnpx instant-cli init
 ```
 
-We've provided a schema in `instant.schema.ts` that you can push to your app via
-the CLI:
+We've provided a schema in `instant.schema.ts` that you can push to your app.
+You may have already pushed this during `init` in the previous step. If you
+answered 'no' to the prompt during init, or if you're unsure whether you pushed
+the schema, you can push it now.
 
 ```bash
 pnpx instant-cli push
