@@ -26,7 +26,7 @@ By default anyone can view posts, but only authenticated users can create posts 
 them. User profiles with unique usernames are also supported.
 
 We also demonstrate how to use the Admin SDK to both bootstrap and reset the
-database. jhis can be super useful for testing and development!
+database. This can be super useful for testing and development!
 `.trim();
 
 const chatDescription = `
