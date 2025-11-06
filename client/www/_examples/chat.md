@@ -22,7 +22,7 @@ pnpx instant-cli login
 ```
 
 Create a new app in the [Instant Dashboard](https://www.instantdb.com/dash)
-and copy the `INSTANT_APP_ID` and `INSTANT_API_KEY` into your `.env` file.
+and copy the `INSTANT_APP_ID` and `INSTANT_APP_ADMIN_TOKEN` into your `.env` file.
 
 ```bash
 # Copy .env.example to .env and update the variables
