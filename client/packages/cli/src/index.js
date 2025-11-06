@@ -492,7 +492,42 @@ async function handleInit(opts) {
   if (!ok) {
     return process.exit(1);
   }
-  await pull('all', appId, pkgAndAuthInfo);
+
+  // Create schema file if it doesn't exist
+  // or ask to push if local schema exists
+  const localSchemaExists = await readLocalSchemaFile();
+  if (!localSchemaExists) {
+    await pull('schema', appId, pkgAndAuthInfo);
+  } else {
+    const doSchemaPush = await promptOk(
+      {
+        promptText: 'Found local schema. Push it to the new app?',
+        inline: true,
+      },
+      program.opts(),
+    );
+    if (doSchemaPush) {
+      await push('schema', appId, opts);
+    }
+  }
+
+  // Create perms file if it doesn't exist
+  // or ask to push if local perms exists
+  const localPermsExists = await readLocalPermsFile();
+  if (!localPermsExists) {
+    await pull('perms', appId, pkgAndAuthInfo);
+  } else {
+    const doPermsPush = await promptOk(
+      {
+        promptText: 'Found local perms. Push it to the new app?',
+        inline: true,
+      },
+      program.opts(),
+    );
+    if (doPermsPush) {
+      await push('perms', appId, opts);
+    }
+  }
 }
 
 async function handlePush(bag, opts) {
