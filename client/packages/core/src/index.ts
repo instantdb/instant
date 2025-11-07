@@ -112,6 +112,7 @@ import type {
 import { InstantAPIError, type InstantIssue } from './utils/fetch.js';
 import { InstantError } from './InstantError.ts';
 import { EventSourceType } from './Connection.ts';
+import { SyncTableCallback } from './SyncTable.ts';
 
 const defaultOpenDevtool = true;
 
@@ -712,6 +713,15 @@ class InstantCoreDatabase<
     pageInfo: PageInfoResponse<Q>;
   }> {
     return this._reactor.queryOnce(query, opts);
+  }
+
+  _syncTableExperimental<Q extends ValidQuery<Q, Schema>>(
+    query: Q,
+    cb: SyncTableCallback<Schema, Q, UseDates>,
+  ): (
+    opts?: { keepSubscription: boolean | null | undefined } | null | undefined,
+  ) => void {
+    return this._reactor.subscribeTable(query, cb);
   }
 }
 

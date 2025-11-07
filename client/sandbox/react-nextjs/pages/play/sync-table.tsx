@@ -21,85 +21,134 @@ const schema = i.schema({
   },
 });
 
+const adjectives = [
+  'Agile',
+  'Bright',
+  'Clever',
+  'Daring',
+  'Eager',
+  'Fancy',
+  'Gentle',
+  'Happy',
+  'Inventive',
+  'Jolly',
+  'Kind',
+  'Lively',
+  'Merry',
+  'Noble',
+  'Optimistic',
+  'Proud',
+  'Quick',
+  'Radiant',
+  'Swift',
+  'Thoughtful',
+  'Upbeat',
+  'Vibrant',
+  'Wise',
+  'Xenial',
+  'Youthful',
+  'Zesty',
+];
+
+const nouns = [
+  'Ant',
+  'Bear',
+  'Cat',
+  'Dolphin',
+  'Eagle',
+  'Falcon',
+  'Giraffe',
+  'Hawk',
+  'Iguana',
+  'Jaguar',
+  'Koala',
+  'Lion',
+  'Moose',
+  'Newt',
+  'Owl',
+  'Panda',
+  'Quail',
+  'Raven',
+  'Shark',
+  'Tiger',
+  'Urchin',
+  'Vulture',
+  'Wolf',
+  'Xerus',
+  'Yak',
+  'Zebra',
+  'Phoenix',
+];
+
+let adjectiveIndex = Math.floor(Math.random() * adjectives.length);
+let nounIndex = Math.floor(Math.random() * nouns.length);
+let numberCounter = Math.floor(Math.random() * 1000);
+
 function generateRandomName(): string {
-  const adjectives = [
-    'Happy',
-    'Clever',
-    'Bright',
-    'Swift',
-    'Bold',
-    'Calm',
-    'Eager',
-    'Fancy',
-    'Gentle',
-    'Jolly',
-    'Kind',
-    'Lively',
-    'Merry',
-    'Noble',
-    'Proud',
-    'Quick',
-    'Wise',
-    'Zesty',
-  ];
+  const adjective = adjectives[adjectiveIndex];
+  const noun = nouns[nounIndex];
+  const number = numberCounter;
 
-  const nouns = [
-    'Lion',
-    'Eagle',
-    'Tiger',
-    'Dolphin',
-    'Falcon',
-    'Wolf',
-    'Bear',
-    'Hawk',
-    'Fox',
-    'Owl',
-    'Panda',
-    'Dragon',
-    'Phoenix',
-    'Raven',
-    'Cobra',
-    'Shark',
-    'Jaguar',
-    'Leopard',
-  ];
-
-  const adjective = adjectives[Math.floor(Math.random() * adjectives.length)];
-  const noun = nouns[Math.floor(Math.random() * nouns.length)];
-  const number = Math.floor(Math.random() * 1000);
+  adjectiveIndex = (adjectiveIndex + 1) % adjectives.length;
+  nounIndex = (nounIndex + 1) % nouns.length;
+  numberCounter = (numberCounter + 1) % 1000;
 
   return `${adjective} ${noun} ${number}`;
+}
+
+const toastTimestamps: number[] = [];
+const TOAST_LIMIT = 5;
+const TOAST_WINDOW = 2000; // 2 seconds
+
+function throttledToast(message: string) {
+  const now = Date.now();
+
+  // Remove timestamps older than the window
+  while (
+    toastTimestamps.length > 0 &&
+    toastTimestamps[0] < now - TOAST_WINDOW
+  ) {
+    toastTimestamps.shift();
+  }
+
+  // Check if we're under the limit
+  if (toastTimestamps.length < TOAST_LIMIT) {
+    toastTimestamps.push(now);
+    toast(message);
+  }
 }
 
 function notifyEvent(event: any) {
   switch (event.type) {
     case 'InitialSyncBatch':
-      toast(`Loaded initial batch of ${event.batch.length} new items.`);
+      throttledToast(
+        `Loaded initial batch of ${event.batch.length} new items.`,
+      );
       break;
     case 'InitialSyncComplete':
-      toast(`Initial sync complete.`);
+      throttledToast(`Initial sync complete.`);
       break;
     case 'LoadFromStorage':
-      toast(`Loaded ${event.data.length} items from storage.`);
+      throttledToast(`Loaded ${event.data.length} items from storage.`);
       break;
     case 'SyncTransaction': {
       if (event.added.length > 10) {
-        toast(`Added ${event.added.length} items`);
+        throttledToast(`Added ${event.added.length} items`);
       } else {
         for (const item of event.added) {
-          toast(`Added ${item.name}`);
+          throttledToast(`Added ${item.name}`);
         }
       }
       if (event.removed.length > 10) {
-        toast(`Removed ${event.removed.length} items`);
+        throttledToast(`Removed ${event.removed.length} items`);
       } else {
         for (const item of event.removed) {
-          toast(`Removed ${item.name}`);
+          throttledToast(`Removed ${item.name}`);
         }
       }
 
       if (event.updated.length > 10) {
-        toast(`Updated ${event.removed.length} items`);
+        throttledToast(`Updated ${event.removed.length} items`);
       } else {
         for (const updated of event.updated) {
           let desc = '';
@@ -109,7 +158,7 @@ function notifyEvent(event: any) {
           )) {
             desc += ` ${k} from ${oldValue} to ${newValue}`;
           }
-          toast(`Updated${desc}`);
+          throttledToast(`Updated${desc}`);
         }
       }
 
@@ -117,11 +166,11 @@ function notifyEvent(event: any) {
     }
     case 'Error': {
       console.log('error', event.error);
-      toast(`Error: ${event.error.message}`);
+      throttledToast(`Error: ${event.error.message}`);
       break;
     }
     default:
-      toast(event.type);
+      throttledToast(event.type);
       break;
   }
 }
@@ -197,7 +246,16 @@ function Main({
     [],
   );
 
-  const unsubRef = useRef<null | (() => void)>(null);
+  const unsubRef = useRef<
+    | null
+    | (() => void)
+    | ((
+        opts?:
+          | { keepSubscription?: boolean | null | undefined }
+          | null
+          | undefined,
+      ) => void)
+  >(null);
 
   const [i, setI] = useState(0);
 
@@ -211,22 +269,22 @@ function Main({
 
       unsubRef.current = unsub;
     } else {
-      const unsub = db.core._reactor.subscribeTable(
+      const unsub = db.core._syncTableExperimental(
         {
           items: {},
         },
-        (event: any) => {
+        (event) => {
           notifyEvent(event);
           setEntities(event.data.toReversed());
         },
       );
       unsubRef.current = unsub;
-      return () => unsub(true); 
+      return () => unsub({ keepSubscription: true });
     }
   }, [i, useSubscribeQuery]);
 
   const triggerError = () => {
-    let unsub: undefined | (() => void);
+    let unsub: undefined | ((opts?: any) => void);
     unsub = db.core._reactor.subscribeTable(
       {
         items: {},
@@ -305,7 +363,7 @@ function Main({
             <button
               onClick={() => {
                 if (unsubRef.current) {
-                  unsubRef.current(true);
+                  unsubRef.current({ keepSubscription: true });
                 }
               }}
               disabled={useSubscribeQuery}
@@ -361,22 +419,38 @@ function Main({
   );
 }
 
-function getColorForItem(id: string): { bg: string; text: string } {
+function getColorForItem(item: { name: string }): { bg: string; text: string } {
   const colors = [
+    { bg: 'bg-amber-100', text: 'text-amber-600' },
     { bg: 'bg-blue-100', text: 'text-blue-600' },
-    { bg: 'bg-purple-100', text: 'text-purple-600' },
-    { bg: 'bg-pink-100', text: 'text-pink-600' },
-    { bg: 'bg-green-100', text: 'text-green-600' },
-    { bg: 'bg-yellow-100', text: 'text-yellow-600' },
-    { bg: 'bg-red-100', text: 'text-red-600' },
-    { bg: 'bg-indigo-100', text: 'text-indigo-600' },
-    { bg: 'bg-orange-100', text: 'text-orange-600' },
-    { bg: 'bg-teal-100', text: 'text-teal-600' },
     { bg: 'bg-cyan-100', text: 'text-cyan-600' },
+    { bg: 'bg-emerald-100', text: 'text-emerald-600' },
+    { bg: 'bg-fuchsia-100', text: 'text-fuchsia-600' },
+    { bg: 'bg-green-100', text: 'text-green-600' },
+    { bg: 'bg-indigo-100', text: 'text-indigo-600' },
+    { bg: 'bg-lime-100', text: 'text-lime-600' },
+    { bg: 'bg-orange-100', text: 'text-orange-600' },
+    { bg: 'bg-pink-100', text: 'text-pink-600' },
+    { bg: 'bg-purple-100', text: 'text-purple-600' },
+    { bg: 'bg-red-100', text: 'text-red-600' },
+    { bg: 'bg-rose-100', text: 'text-rose-600' },
+    { bg: 'bg-sky-100', text: 'text-sky-600' },
+    { bg: 'bg-slate-100', text: 'text-slate-600' },
+    { bg: 'bg-teal-100', text: 'text-teal-600' },
+    { bg: 'bg-violet-100', text: 'text-violet-600' },
+    { bg: 'bg-yellow-100', text: 'text-yellow-600' },
+    { bg: 'bg-zinc-100', text: 'text-zinc-600' },
+    { bg: 'bg-stone-100', text: 'text-stone-600' },
+    { bg: 'bg-gray-100', text: 'text-gray-600' },
+    { bg: 'bg-neutral-100', text: 'text-neutral-600' },
+    { bg: 'bg-blue-200', text: 'text-blue-700' },
+    { bg: 'bg-green-200', text: 'text-green-700' },
+    { bg: 'bg-purple-200', text: 'text-purple-700' },
+    { bg: 'bg-red-200', text: 'text-red-700' },
   ];
 
   // Use the first few characters of the id to generate a consistent color
-  const hash = id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const hash = item.name.charCodeAt(0);
   return colors[hash % colors.length];
 }
 
@@ -398,7 +472,7 @@ function Items({
   return (
     <div className="divide-y divide-gray-100">
       {items.map((item) => {
-        const color = getColorForItem(item.id);
+        const color = getColorForItem(item);
         return (
           <div
             key={item.id}

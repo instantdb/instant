@@ -144,7 +144,13 @@ function applyChangesToStore(
 function changedFieldsOfChanges(
   store: any,
   changes: SyncUpdateTriplesMsg['txes'][number]['changes'],
-): { [eid: string]: SyncTransaction['updated'][number]['changedFields'] } {
+): {
+  [eid: string]: SyncTransaction<
+    any,
+    any,
+    any
+  >['updated'][number]['changedFields'];
+} {
   // This will be more complicated when we include links, we can either add a
   // changedLinks field or we can have something like 'bookshelves.title`
   const changedFields = {};
@@ -174,7 +180,7 @@ function changedFieldsOfChanges(
   return changedFields;
 }
 
-enum CallbackEventType {
+export enum CallbackEventType {
   InitialSyncBatch = 'InitialSyncBatch',
   InitialSyncComplete = 'InitialSyncComplete',
   LoadFromStorage = 'LoadFromStorage',
@@ -183,21 +189,24 @@ enum CallbackEventType {
 }
 
 // XXX: Needs a type parameter for constructing the data
-interface BaseCallbackEvent {
+export interface BaseCallbackEvent<Schema, Q, UseDates> {
   type: CallbackEventType;
   data: fixme[];
 }
 
-interface InitialSyncBatch extends BaseCallbackEvent {
+export interface InitialSyncBatch<Schema, Q, UseDates>
+  extends BaseCallbackEvent<Schema, Q, UseDates> {
   type: CallbackEventType.InitialSyncBatch;
   batch: fixme[];
 }
 
-interface InitialSyncComplete extends BaseCallbackEvent {
+export interface InitialSyncComplete<Schema, Q, UseDates>
+  extends BaseCallbackEvent<Schema, Q, UseDates> {
   type: CallbackEventType.InitialSyncComplete;
 }
 
-interface SyncTransaction extends BaseCallbackEvent {
+export interface SyncTransaction<Schema, Q, UseDates>
+  extends BaseCallbackEvent<Schema, Q, UseDates> {
   type: CallbackEventType.SyncTransaction;
   added: fixme[];
   removed: fixme[];
@@ -208,28 +217,34 @@ interface SyncTransaction extends BaseCallbackEvent {
   }[];
 }
 
-interface LoadFromStorage extends BaseCallbackEvent {
+export interface LoadFromStorage<Schema, Q, UseDates>
+  extends BaseCallbackEvent<Schema, Q, UseDates> {
   type: CallbackEventType.LoadFromStorage;
 }
 
-interface SetupError extends BaseCallbackEvent {
+export interface SetupError<Schema, Q, UseDates>
+  extends BaseCallbackEvent<Schema, Q, UseDates> {
   type: CallbackEventType.Error;
   error: { message: string; hint?: any; type: string; status: number };
 }
 
-type CallbackEvent =
-  | InitialSyncBatch
-  | InitialSyncComplete
-  | SyncTransaction
-  | LoadFromStorage
-  | SetupError;
+export type CallbackEvent<Schema, Q, UseDates> =
+  | InitialSyncBatch<Schema, Q, UseDates>
+  | InitialSyncComplete<Schema, Q, UseDates>
+  | SyncTransaction<Schema, Q, UseDates>
+  | LoadFromStorage<Schema, Q, UseDates>
+  | SetupError<Schema, Q, UseDates>;
 
-type SyncCallback = (event: CallbackEvent) => void;
+export type SyncTableCallback<Schema, Q, UseDates> = (
+  event: CallbackEvent<Schema, Q, UseDates>,
+) => void;
 
 export class SyncTable {
   private trySend: TrySend;
   private subs: PersistedObject<Subs>;
-  private callbacks: { [hash: string]: SyncCallback[] } = {};
+  // Using any for the SyncCallback because we'd need Reactor to be typed
+  private callbacks: { [hash: string]: SyncTableCallback<any, any, any>[] } =
+    {};
   private config: Config;
   private idToHash: { [subscriptionId: string]: string } = {};
   private log: Logger;
@@ -263,22 +278,24 @@ export class SyncTable {
 
   public subscribe(
     q: any,
-    cb: SyncCallback,
-  ): (keepSubscription?: boolean | null | undefined) => void {
+    cb: SyncTableCallback<any, any, any>,
+  ): (
+    opts?: { keepSubscription?: boolean | null | undefined } | null | undefined,
+  ) => void {
     const hash = weakHash(q);
     this.callbacks[hash] = this.callbacks[hash] || [];
     this.callbacks[hash].push(cb);
 
     this.initSubscription(q, hash, cb);
 
-    return (keepSubscription?: boolean) => {
-      this.unsubscribe(hash, cb, keepSubscription);
+    return (opts?: { keepSubscription?: boolean | null | undefined }) => {
+      this.unsubscribe(hash, cb, opts?.keepSubscription);
     };
   }
 
   private unsubscribe(
     hash: string,
-    cb: SyncCallback,
+    cb: SyncTableCallback<any, any, any>,
     keepSubscription: boolean | null | undefined,
   ) {
     const cbs = (this.callbacks[hash] || []).filter((x) => x !== cb);
@@ -327,7 +344,11 @@ export class SyncTable {
     });
   }
 
-  private async initSubscription(query: any, hash: string, cb?: SyncCallback) {
+  private async initSubscription(
+    query: any,
+    hash: string,
+    cb?: SyncTableCallback<any, any, any>,
+  ) {
     // Wait for storage to load so that we know if we already have an existing subscription
     await this.subs.waitForLoaded();
     const existingSub = this.subs.currentValue[hash];
@@ -398,7 +419,7 @@ export class SyncTable {
     });
   }
 
-  private notifyCbs(hash: string, event: CallbackEvent) {
+  private notifyCbs(hash: string, event: CallbackEvent<any, any, any>) {
     for (const cb of this.callbacks[hash] || []) {
       cb(event);
     }
@@ -506,7 +527,7 @@ export class SyncTable {
         const entities = sub.entities || [];
         sub.entities = entities;
 
-        const updated: SyncTransaction['updated'] = [];
+        const updated: SyncTransaction<any, any, any>['updated'] = [];
         // Update the existing stores, if we already know about this entity
         eidLoop: for (const [eid, changes] of Object.entries(byEid)) {
           for (const [entIdx, ent] of Object.entries(entities)) {
