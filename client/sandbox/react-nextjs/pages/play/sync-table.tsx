@@ -303,6 +303,17 @@ function Main({
               Reset Subscription
             </button>
             <button
+              onClick={() => {
+                if (unsubRef.current) {
+                  unsubRef.current(true);
+                }
+              }}
+              disabled={useSubscribeQuery}
+              className="rounded-lg bg-gray-500 px-4 py-2 font-semibold text-white transition-colors hover:bg-gray-600 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Soft Unsubscribe
+            </button>
+            <button
               onClick={onResetApp}
               disabled={isCreating}
               className="rounded-lg bg-red-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-red-700 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
