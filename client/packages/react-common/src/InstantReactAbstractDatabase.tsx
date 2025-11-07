@@ -9,7 +9,6 @@ import {
   type ConnectionStatus,
   type TransactionChunk,
   type RoomSchemaShape,
-  type InstaQLParams,
   type InstaQLOptions,
   type InstantConfig,
   type PageInfoResponse,
