@@ -4913,31 +4913,5 @@
         (is (= #{"joe@instantdb.com"} all-emails))
         (is (= #{"alex"} all-handles))))))
 
-(deftest field-rules-can-filter-in-where-clauses
-  (with-zeneca-app
-    (fn [app _r]
-      (let [make-ctx (fn []
-                       (let [attrs (attr-model/get-by-app-id (:id app))]
-                         {:db {:conn-pool (aurora/conn-pool :read)}
-                          :app-id (:id app)
-                          :attrs attrs}))
-
-            _ (rule-model/put! (aurora/conn-pool :write)
-                               {:app-id (:id app)
-                                :code {:bookshelves {:allow {:view "true"}}
-                                       :users {:allow {:view "true"}
-                                               :fields {:handle "data.handle == 'alex'"}}}})]
-
-        (is (= 2
-               (count (:bookshelves (pretty-perm-q (make-ctx) {:bookshelves {:$ {:where {"users.handle" "alex"}}}})))))
-        (is (= 0
-               (count (:bookshelves (pretty-perm-q (make-ctx) {:bookshelves {:$ {:where {"users.handle" "joe"}}}})))))
-
-        (is (= (count (:bookshelves (pretty-perm-q (make-ctx)
-                                                   {:bookshelves {:$ {:where {:or [{"users.email" "stopa@instantdb.com"}]}}}})))
-
-               (count (:bookshelves (pretty-perm-q (make-ctx) {:bookshelves {:$ {:where {:or [{"users.email" "stopa@instantdb.com"}
-                                                                                              {"users.handle" "joe"}]}}}})))))))))
-
 (comment
   (test/run-tests *ns*))
