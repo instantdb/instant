@@ -1,6 +1,8 @@
 (ns instant.model.rule-test
   (:require [clojure.test :as test :refer [deftest is]]
-            [instant.model.rule :as rule]))
+            [instant.model.rule :as rule]
+            [instant.util.test :as test-util]
+            [instant.util.exception :as ex]))
 
 (deftest allow-booleans
   (let [code {"myetype"
@@ -141,6 +143,20 @@
            :message
            "You cannot set field rules for `id`. Use myetype -> allow -> view instead"}]
          (rule/validation-errors {"myetype" {"fields" {"id" "1 + 1"}}}))))
+
+(deftest fields-cannot-get-id
+  (is (= {:data-type :permission,
+          :input ["myetype" "fields" "id"],
+          :errors
+          {:message
+           "You cannot set field rules for `id`. Use myetype -> allow -> view instead"}}
+         (-> (test-util/instant-ex-data
+              (rule/get-field-program!
+               {:code {"myetype"
+                       {"fields" {"id" "true"}}}}
+               "myetype"
+               "id"))
+             ::ex/hint))))
 
 (deftest field-programs-validate
   (is (= [{:message

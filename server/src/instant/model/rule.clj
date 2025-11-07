@@ -231,6 +231,12 @@
   [{:keys [code] :as rules} etype field]
   (let [path [etype "fields" field]]
     (when (some? (get-in code path))
+      (when (= field "id")
+        (ex/throw-validation-err!
+         :permission
+         path
+         {:message (format "You cannot set field rules for `id`. Use %s -> allow -> view instead"
+                           etype)}))
       (get-program!
        rules
        {:etype etype
