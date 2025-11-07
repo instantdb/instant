@@ -458,7 +458,7 @@ function Items({
   items,
   db,
 }: {
-  items: { id: string; name?: string }[];
+  items: { id: string; name: string }[];
   db: InstantReactAbstractDatabase<typeof schema>;
 }) {
   if (items.length === 0) {
