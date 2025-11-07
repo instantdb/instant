@@ -65,8 +65,16 @@
                   COUNT(DISTINCT a.id) AS distinct_apps
                 FROM daily_app_transactions dat
                 JOIN apps a ON dat.app_id = a.id
-                JOIN instant_users u ON a.creator_id = u.id
-                WHERE dat.is_active AND u.email NOT IN (SELECT unnest(?::text[]))
+                LEFT JOIN instant_users u ON a.creator_id = u.id
+                WHERE dat.is_active
+                      -- Exclude many-mini-apps
+                      AND (a.org_id is NULL OR a.org_id != '301bf1e5-9872-44c9-888e-e78c525a0e70'::uuid)
+                      -- Exclude test/team/friend emails
+                      -- Apps with null emails are counted if they belong to an org
+                      AND (
+                        (u.email IS NULL AND a.org_id IS NOT NULL)
+                        OR u.email NOT IN (SELECT unnest(?::text[]))
+                      )
                 GROUP BY 1
                 HAVING COUNT(DISTINCT DATE(dat.date)) = 7
                 ORDER BY 1"
@@ -84,8 +92,16 @@
                   COUNT(DISTINCT a.id) AS distinct_apps
                 FROM daily_app_transactions dat
                 JOIN apps a ON dat.app_id = a.id
-                JOIN instant_users u ON a.creator_id = u.id
-                WHERE dat.is_active AND u.email NOT IN (SELECT unnest(?::text[]))
+                LEFT JOIN instant_users u ON a.creator_id = u.id
+                WHERE dat.is_active
+                      -- Exclude many-mini-apps
+                      AND (a.org_id is NULL OR a.org_id != '301bf1e5-9872-44c9-888e-e78c525a0e70'::uuid)
+                      -- Exclude test/team/friend emails
+                      -- Apps with null emails are counted if they belong to an org
+                      AND (
+                        (u.email IS NULL AND a.org_id IS NOT NULL)
+                        OR u.email NOT IN (SELECT unnest(?::text[]))
+                      )
                 GROUP BY 1
                 HAVING COUNT(DISTINCT DATE(dat.date)) >= 14
                 ORDER BY 1"
@@ -117,14 +133,24 @@
                                  [[:count [:distinct :a.id]] :distinct_apps]
                                  [[:count [:distinct :u.id]] :distinct_users]]
                         :from [[:date_series :ds]]
-                        :left-join [[:daily_app_transactions :dat] [:and [:between :dat.date
-                                                                          [:- :ds.analysis_date [:interval (str window-days " days")]]
-                                                                          :ds.analysis_date]
-                                                                    :dat.is_active]
-
+                        :left-join [[:daily_app_transactions :dat] [:between :dat.date
+                                                                    [:- :ds.analysis_date [:interval (str window-days " days")]]
+                                                                    :ds.analysis_date]
                                     [:apps :a] [:= :dat.app_id :a.id]
                                     [:instant_users :u] [:= :a.creator_id :u.id]]
-                        :where [:not-in :u.email {:select :email :from :excluded_emails}]
+                        :where
+                        [:and
+                         :dat.is_active
+                         ;; Exclude many-mini-apps
+                         [:or
+                          [:is :a.org_id nil]
+                          [:not= :a.org_id #uuid "301bf1e5-9872-44c9-888e-e78c525a0e70"]]
+                         ;; Exclude test/team/friend emails
+                         ;; Apps with null emails are counted if they belong to
+                         ;; an org
+                         [:or
+                          [:and [:is :u.email nil] [:is-not :a.org_id nil]]
+                          [:not-in :u.email {:select :email :from :excluded_emails}]]]
                         :group-by [:ds.analysis_date]}]]
                :select :*
                :from :rolling_metrics
@@ -157,16 +183,24 @@
                                  [[:count [:distinct :a.id]] :distinct_apps]
                                  [[:count [:distinct :u.id]] :distinct_users]]
                         :from [[:date_series :ds]]
-                        :left-join [[:daily_app_transactions :dat]
-                                    [:and [:between :dat.date
-                                           [:date_trunc "month" :ds.analysis_date]
-                                           :ds.analysis_date]
-                                     :dat.is_active]
+                        :left-join [[:daily_app_transactions :dat] [:between :dat.date
+                                                                    [:date_trunc "month" :ds.analysis_date]
+                                                                    :ds.analysis_date]
                                     [:apps :a] [:= :dat.app_id :a.id]
                                     [:instant_users :u] [:= :a.creator_id :u.id]]
-                        :where [:or
-                                [:not-in :u.email {:select :email :from :excluded_emails}]
-                                [:= :u.email nil]]
+                        :where
+                        [:and
+                         :dat.is_active
+                         ;; Exclude many-mini-apps
+                         [:or
+                          [:is :a.org_id nil]
+                          [:not= :a.org_id #uuid "301bf1e5-9872-44c9-888e-e78c525a0e70"]]
+                         ;; Exclude test/team/friend emails
+                         ;; Apps with null emails are counted if they belong to
+                         ;; an org
+                         [:or
+                          [:and [:is :u.email nil] [:is-not :a.org_id nil]]
+                          [:not-in :u.email {:select :email :from :excluded_emails}]]]
                         :group-by [:ds.analysis_date]}]]
                :select :*
                :from :rolling_metrics
@@ -188,8 +222,16 @@
                   COUNT(DISTINCT a.id) AS distinct_apps
                 FROM daily_app_transactions dat
                 JOIN apps a ON dat.app_id = a.id
-                JOIN instant_users u ON a.creator_id = u.id
-                WHERE dat.is_active AND u.email NOT IN (SELECT unnest(?::text[]))
+                LEFT JOIN instant_users u ON a.creator_id = u.id
+                WHERE dat.is_active
+                      -- Exclude many-mini-apps
+                      AND (a.org_id is NULL OR a.org_id != '301bf1e5-9872-44c9-888e-e78c525a0e70')
+                      -- Exclude test/team/friend emails
+                      -- Apps with null emails are counted if they belong to an org
+                      AND (
+                        (u.email IS NULL AND a.org_id IS NOT NULL)
+                        OR u.email NOT IN (SELECT unnest(?::text[]))
+                      )
                       AND DATE_TRUNC('month', ?::date) = DATE_TRUNC('month', dat.date) 
                 GROUP BY 1"
                 (with-meta (excluded-emails) {:pgtype "text[]"})
