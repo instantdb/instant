@@ -129,7 +129,7 @@ function notifyEvent(event: any) {
       throttledToast(`Initial sync complete.`);
       break;
     case 'LoadFromStorage':
-      throttledToast(`Loaded ${event.data.length} items from storage.`);
+      throttledToast(`Loaded ${event.data.items.length} items from storage.`);
       break;
     case 'SyncTransaction': {
       if (event.added.length > 10) {
@@ -275,7 +275,7 @@ function Main({
         },
         (event) => {
           notifyEvent(event);
-          setEntities(event.data.toReversed());
+          setEntities(event.data.items.toReversed());
         },
       );
       unsubRef.current = unsub;

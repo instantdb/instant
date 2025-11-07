@@ -4,6 +4,8 @@ import weakHash from './utils/weakHash.ts';
 import uuid from './utils/uuid.ts';
 import { Logger } from './Reactor.js';
 import instaql from './instaql.js';
+import { InstaQLParams, InstaQLResponse, ValidQuery } from './queryTypes.ts';
+import { EntitiesDef, IContainEntitiesAndLinks } from './schemaTypes.ts';
 
 type SubState = {
   txId?: number;
@@ -189,24 +191,37 @@ export enum CallbackEventType {
 }
 
 // XXX: Needs a type parameter for constructing the data
-export interface BaseCallbackEvent<Schema, Q, UseDates> {
+export interface BaseCallbackEvent<
+  Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
+  Q extends ValidQuery<Q, Schema>,
+  UseDates extends boolean,
+> {
   type: CallbackEventType;
-  data: fixme[];
+  data: InstaQLResponse<Schema, Q, UseDates>;
 }
 
-export interface InitialSyncBatch<Schema, Q, UseDates>
-  extends BaseCallbackEvent<Schema, Q, UseDates> {
+export interface InitialSyncBatch<
+  Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
+  Q extends ValidQuery<Q, Schema>,
+  UseDates extends boolean,
+> extends BaseCallbackEvent<Schema, Q, UseDates> {
   type: CallbackEventType.InitialSyncBatch;
   batch: fixme[];
 }
 
-export interface InitialSyncComplete<Schema, Q, UseDates>
-  extends BaseCallbackEvent<Schema, Q, UseDates> {
+export interface InitialSyncComplete<
+  Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
+  Q extends ValidQuery<Q, Schema>,
+  UseDates extends boolean,
+> extends BaseCallbackEvent<Schema, Q, UseDates> {
   type: CallbackEventType.InitialSyncComplete;
 }
 
-export interface SyncTransaction<Schema, Q, UseDates>
-  extends BaseCallbackEvent<Schema, Q, UseDates> {
+export interface SyncTransaction<
+  Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
+  Q extends ValidQuery<Q, Schema>,
+  UseDates extends boolean,
+> extends BaseCallbackEvent<Schema, Q, UseDates> {
   type: CallbackEventType.SyncTransaction;
   added: fixme[];
   removed: fixme[];
@@ -217,27 +232,39 @@ export interface SyncTransaction<Schema, Q, UseDates>
   }[];
 }
 
-export interface LoadFromStorage<Schema, Q, UseDates>
-  extends BaseCallbackEvent<Schema, Q, UseDates> {
+export interface LoadFromStorage<
+  Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
+  Q extends ValidQuery<Q, Schema>,
+  UseDates extends boolean,
+> extends BaseCallbackEvent<Schema, Q, UseDates> {
   type: CallbackEventType.LoadFromStorage;
 }
 
-export interface SetupError<Schema, Q, UseDates>
-  extends BaseCallbackEvent<Schema, Q, UseDates> {
+export interface SetupError<
+  Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
+  Q extends ValidQuery<Q, Schema>,
+  UseDates extends boolean,
+> extends BaseCallbackEvent<Schema, Q, UseDates> {
   type: CallbackEventType.Error;
   error: { message: string; hint?: any; type: string; status: number };
 }
 
-export type CallbackEvent<Schema, Q, UseDates> =
+export type CallbackEvent<
+  Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
+  Q extends ValidQuery<Q, Schema>,
+  UseDates extends boolean,
+> =
   | InitialSyncBatch<Schema, Q, UseDates>
   | InitialSyncComplete<Schema, Q, UseDates>
   | SyncTransaction<Schema, Q, UseDates>
   | LoadFromStorage<Schema, Q, UseDates>
   | SetupError<Schema, Q, UseDates>;
 
-export type SyncTableCallback<Schema, Q, UseDates> = (
-  event: CallbackEvent<Schema, Q, UseDates>,
-) => void;
+export type SyncTableCallback<
+  Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
+  Q extends ValidQuery<Q, Schema>,
+  UseDates extends boolean,
+> = (event: CallbackEvent<Schema, Q, UseDates>) => void;
 
 export class SyncTable {
   private trySend: TrySend;
@@ -357,10 +384,11 @@ export class SyncTable {
       this.sendResync(existingSub, existingSub.state);
 
       if (existingSub.entities && cb) {
+        const k = Object.keys(query)[0];
         cb({
           type: CallbackEventType.LoadFromStorage,
           // XXX: Need to sort
-          data: existingSub.entities.map((e) => e.entity),
+          data: { [k]: existingSub.entities.map((e) => e.entity) },
         });
       }
 
@@ -457,9 +485,10 @@ export class SyncTable {
 
     const sub = currentValue[hash];
     if (sub.entities) {
+      const k = Object.keys(sub.query)[0];
       this.notifyCbs(hash, {
         type: CallbackEventType.InitialSyncBatch,
-        data: sub.entities.map((x) => x.entity),
+        data: { [k]: sub.entities.map((x) => x.entity) },
         batch,
       });
     }
@@ -586,9 +615,11 @@ export class SyncTable {
           entities.splice(idx, 1);
         }
 
+        const k = Object.keys(sub.query)[0];
+
         this.notifyCbs(hash, {
           type: CallbackEventType.SyncTransaction,
-          data: entities.map((x) => x.entity),
+          data: { [k]: entities.map((x) => x.entity) },
           added,
           removed,
           updated,
@@ -633,7 +664,12 @@ export class SyncTable {
       type: msg.type,
       hint: msg.hint,
     };
-    this.notifyCbs(hash, { type: CallbackEventType.Error, data: [], error });
+    const k = Object.keys(msg['original-event']['q'])[0];
+    this.notifyCbs(hash, {
+      type: CallbackEventType.Error,
+      data: { k: [] },
+      error,
+    });
   }
 
   public onResyncError(msg: {
