@@ -19,21 +19,6 @@
    [instant.db.model.triple :as triple-model]
    [instant.system-catalog :as system-catalog]))
 
-(defn get-program [etype field]
-  :the-program ;; can be null
-  )
-
-(let [m  {} ;; some map 
-      etype "users" ;; some k 
-      field "email" ;; some v
-      ]
-  (update-in m [:etype->programs  etype :fields]
-             (fn [field-programs]
-               (if (contains? field-programs etype)
-                 field-programs
-                 (if-some [p (get-program etype field)]
-                   (assoc field-programs field p))))))
-
 (defn lookup-ref? [eid]
   (sequential? eid))
 
