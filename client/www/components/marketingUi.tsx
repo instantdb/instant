@@ -82,6 +82,7 @@ function NavItems() {
     <>
       <NavLink href="/pricing">Pricing</NavLink>
       <NavLink href="/tutorial">Tutorial</NavLink>
+      <NavLink href="/examples">Examples</NavLink>
       <NavLink href="/recipes">Recipes</NavLink>
       <NavLink href="/essays">Essays</NavLink>
       <NavLink href="/docs">Docs</NavLink>
