@@ -1830,8 +1830,6 @@
                           attr-model/fwd-ident-name)
         view-check (get etype+eid->check [etype e])
         field-check (get etype+eid->check [etype e label] {:result true})]
-    (when (= label "handle")
-      (tool/def-locals!))
     (and (:result view-check)
          (:result field-check))))
 
