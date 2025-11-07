@@ -10,7 +10,12 @@
    [instant.util.json :as json]
    [instant.util.uuid :as uuid-util]))
 
-(defn topic-uuids [db-res]
+(defn topic-uuids
+  "Converts from our pg byte representation to our topic representation.
+
+  In pg '_ is an array with one empty byte, #{uuid1, uuid2} is an array of
+  uuids converted to bytes."
+  [db-res]
   (if (= db-res ["\\x"])
     '_
     (ucoll/reduce-tr
@@ -22,7 +27,18 @@
      #{}
      db-res)))
 
-(defn xform-topic [topic]
+(defn xform-topic
+  "Converts topics from our pg representation to our default topic representation.
+
+  For UUIDs:
+  In pg '_ is an array with one empty byte, #{uuid1, uuid2} is an array of
+  uuids converted to bytes.
+
+  For values:
+  In pg '_ is an array with a single {}, #{v1, v2} is an array of json.
+  If the field has a function, then we add {} and serialized the functions
+  into a single jsonb array in v_filter."
+  [topic]
   (let [{:strs [idx e a v v_filter]} topic
         idx-key (keyword (first idx))
         topic-idx (if (= idx-key :any)
@@ -36,7 +52,7 @@
             (if (seq func-v)
               (set func-v)
               '_)
-            (into (set v)
+            (into (disj (set v) {})
                   func-v))]
     [topic-idx e a v]))
 
@@ -115,6 +131,8 @@
                                 :from :sync-sub}))
 
 (defn create!
+  "Creates the sub and inserts the inital topics. Returns the sub with token.
+  The token is used to resubscribe to the subscription on reconnect."
   ([params] (create! (aurora/conn-pool :write) params))
   ([conn {:keys [id app-id query user-id admin? token tx-id topics]}]
    (let [params (add-topic-params {:id id
@@ -135,6 +153,7 @@
                                         [:= :id :?id]]}))
 
 (defn delete!
+  "Deletes the sub and all of its topics."
   ([params] (delete! (aurora/conn-pool :write) params))
   ([conn {:keys [app-id id]}]
    (sql/execute-one! ::delete! conn (uhsql/formatp delete-q {:id id
@@ -150,6 +169,8 @@
                     :where [:= :id :?id]}))
 
 (defn get-by-id-with-topics!
+  "Gets the sub along with its topics.
+   Will throw a validation error if the user is different or if it was an admin before and isn't now."
   ([params] (get-by-id-with-topics! (aurora/conn-pool :read) params))
   ([conn {:keys [id token admin? user-id]}]
    (let [record (-> (sql/select-one ::get-by-id-with-topics

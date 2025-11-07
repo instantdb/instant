@@ -71,6 +71,61 @@ function generateRandomName(): string {
   return `${adjective} ${noun} ${number}`;
 }
 
+function notifyEvent(event: any) {
+  switch (event.type) {
+    case 'InitialSyncBatch':
+      toast(`Loaded initial batch of ${event.batch.length} new items.`);
+      break;
+    case 'InitialSyncComplete':
+      toast(`Initial sync complete.`);
+      break;
+    case 'LoadFromStorage':
+      toast(`Loaded ${event.data.length} items from storage.`);
+      break;
+    case 'SyncTransaction': {
+      if (event.added.length > 10) {
+        toast(`Added ${event.added.length} items`);
+      } else {
+        for (const item of event.added) {
+          toast(`Added ${item.name}`);
+        }
+      }
+      if (event.removed.length > 10) {
+        toast(`Removed ${event.removed.length} items`);
+      } else {
+        for (const item of event.removed) {
+          toast(`Removed ${item.name}`);
+        }
+      }
+
+      if (event.updated.length > 10) {
+        toast(`Updated ${event.removed.length} items`);
+      } else {
+        for (const updated of event.updated) {
+          let desc = '';
+          // @ts-ignore
+          for (const [k, { oldValue, newValue }] of Object.entries(
+            updated.changedFields,
+          )) {
+            desc += ` ${k} from ${oldValue} to ${newValue}`;
+          }
+          toast(`Updated${desc}`);
+        }
+      }
+
+      break;
+    }
+    case 'Error': {
+      console.log('error', event.error);
+      toast(`Error: ${event.error.message}`);
+      break;
+    }
+    default:
+      toast(event.type);
+      break;
+  }
+}
+
 function Main({
   db,
   onResetApp,
@@ -161,64 +216,37 @@ function Main({
           items: {},
         },
         (event: any) => {
-          console.log('event', event);
-          switch (event.type) {
-            case 'InitialSyncBatch':
-              toast(`Loaded initial batch of ${event.batch.length} new items.`);
-              break;
-            case 'InitialSyncComplete':
-              toast(`Initial sync complete.`);
-              break;
-            case 'LoadFromStorage':
-              toast(`Loaded ${event.data.length} items from storage.`);
-              break;
-            case 'SyncTransaction': {
-              if (event.added.length > 10) {
-                toast(`Added ${event.added.length} items`);
-              } else {
-                for (const item of event.added) {
-                  toast(`Added ${item.name}`);
-                }
-              }
-              if (event.removed.length > 10) {
-                toast(`Removed ${event.removed.length} items`);
-              } else {
-                for (const item of event.removed) {
-                  toast(`Removed ${item.name}`);
-                }
-              }
-
-              if (event.updated.length > 10) {
-                toast(`Updated ${event.removed.length} items`);
-              } else {
-                for (const updated of event.updated) {
-                  let desc = '';
-                  // @ts-ignore
-                  for (const [k, { oldValue, newValue }] of Object.entries(
-                    updated.changedFields,
-                  )) {
-                    desc += ` ${k} from ${oldValue} to ${newValue}`;
-                  }
-                  toast(`Updated${desc}`);
-                }
-              }
-
-              break;
-            }
-            default:
-              toast(event.type);
-              break;
-          }
+          notifyEvent(event);
           setEntities(event.data.toReversed());
         },
       );
       unsubRef.current = unsub;
+      return () => unsub(true); 
     }
   }, [i, useSubscribeQuery]);
 
+  const triggerError = () => {
+    let unsub: undefined | (() => void);
+    unsub = db.core._reactor.subscribeTable(
+      {
+        items: {},
+        extraField: {},
+      },
+      (event: any) => {
+        notifyEvent(event);
+        unsub && unsub();
+      },
+    );
+  };
+
   return (
     <div className="min-h-screen">
-      <ToastContainer position="top-right" />
+      <ToastContainer
+        position="top-right"
+        theme="light"
+        toastClassName="!bg-white !text-gray-900 !border !border-gray-200"
+        hideProgressBar={true}
+      />
       <div className="fixed top-4 right-4 text-sm text-gray-600 z-10">
         <span className="font-mono">{appId}</span>
       </div>
@@ -280,6 +308,12 @@ function Main({
               className="rounded-lg bg-red-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-red-700 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Reset App
+            </button>
+            <button
+              onClick={triggerError}
+              className="rounded-lg bg-orange-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-orange-700 whitespace-nowrap"
+            >
+              Try an invalid query
             </button>
           </div>
           {isCreating && (

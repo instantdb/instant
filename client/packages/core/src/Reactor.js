@@ -817,6 +817,11 @@ export default class Reactor {
       this._syncTable.onResyncError(msg);
       return;
     }
+
+    if (msg['original-event']?.op === 'start-sync') {
+      this._syncTable.onStartSyncError(msg);
+      return;
+    }
     // We've caught some error which has no corresponding listener.
     // Let's console.error to let the user know.
     const errorObj = { ...msg };

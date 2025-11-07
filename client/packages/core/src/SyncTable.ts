@@ -179,6 +179,7 @@ enum CallbackEventType {
   InitialSyncComplete = 'InitialSyncComplete',
   LoadFromStorage = 'LoadFromStorage',
   SyncTransaction = 'SyncTransaction',
+  Error = 'Error',
 }
 
 // XXX: Needs a type parameter for constructing the data
@@ -211,11 +212,17 @@ interface LoadFromStorage extends BaseCallbackEvent {
   type: CallbackEventType.LoadFromStorage;
 }
 
+interface SetupError extends BaseCallbackEvent {
+  type: CallbackEventType.Error;
+  error: { message: string; hint?: any; type: string; status: number };
+}
+
 type CallbackEvent =
   | InitialSyncBatch
   | InitialSyncComplete
   | SyncTransaction
-  | LoadFromStorage;
+  | LoadFromStorage
+  | SetupError;
 
 type SyncCallback = (event: CallbackEvent) => void;
 
@@ -254,24 +261,34 @@ export class SyncTable {
     this.subs.flush();
   }
 
-  public subscribe(q: any, cb: SyncCallback): () => void {
+  public subscribe(
+    q: any,
+    cb: SyncCallback,
+  ): (keepSubscription?: boolean | null | undefined) => void {
     const hash = weakHash(q);
     this.callbacks[hash] = this.callbacks[hash] || [];
     this.callbacks[hash].push(cb);
 
     this.initSubscription(q, hash, cb);
 
-    return () => {
-      this.unsubscribe(hash, cb);
+    return (keepSubscription?: boolean) => {
+      this.unsubscribe(hash, cb, keepSubscription);
     };
   }
 
-  private unsubscribe(hash: string, cb: SyncCallback) {
+  private unsubscribe(
+    hash: string,
+    cb: SyncCallback,
+    keepSubscription: boolean | null | undefined,
+  ) {
     const cbs = (this.callbacks[hash] || []).filter((x) => x !== cb);
     this.callbacks[hash] = cbs;
 
     if (!cbs.length) {
       delete this.callbacks[hash];
+      if (keepSubscription) {
+        return;
+      }
       const sub = this.subs.currentValue[hash];
       if (sub?.state) {
         this.clearSubscriptionData(sub.state.subscriptionId);
@@ -309,8 +326,6 @@ export class SyncTable {
       'subscription-id': state.subscriptionId,
     });
   }
-
-  // XXX: maybe not always cb?
 
   private async initSubscription(query: any, hash: string, cb?: SyncCallback) {
     // Wait for storage to load so that we know if we already have an existing subscription
@@ -352,7 +367,6 @@ export class SyncTable {
         this.log.error('Missing sub for hash in flushPending', hash);
       }
     }
-    // XXX: Do we need to run a cb here? Probably not? If it's in the store, we should have already run the callback
   }
 
   public onStartSyncOk(msg: StartSyncOkMsg) {
@@ -362,8 +376,6 @@ export class SyncTable {
 
     this.idToHash[subscriptionId] = hash;
 
-    // XXX: Need to figure out how to tie it back to some
-    //      thing that will get notified of changes
     this.subs.set((prev) => {
       const sub = prev[hash];
       if (!sub) {
@@ -584,11 +596,30 @@ export class SyncTable {
     }
   }
 
+  public onStartSyncError(msg: {
+    op: 'error';
+    'original-event': StartMsg;
+    'client-event-id': string;
+    status: number;
+    type: string;
+    message?: string;
+    hint?: any;
+  }) {
+    const hash = weakHash(msg['original-event']['q']);
+    const error = {
+      message: msg.message || 'Uh-oh, something went wrong. Ping Joe & Stopa.',
+      status: msg.status,
+      type: msg.type,
+      hint: msg.hint,
+    };
+    this.notifyCbs(hash, { type: CallbackEventType.Error, data: [], error });
+  }
+
   public onResyncError(msg: {
     op: 'error';
     'original-event': ResyncMsg;
     status: number;
-    type: 'string';
+    type: string;
   }) {
     // Clear the subscription and start from scrath on any resync error
     // This can happen if the auth changed and we need to refetch with the
