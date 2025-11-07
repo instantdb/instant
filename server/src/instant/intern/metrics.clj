@@ -455,6 +455,11 @@
                        (+ baseline (* (- end-goal baseline) (/ i (dec n)))))
                      x-values)]
     (charts/add-categories chart x-values goal-values :series-label "Goal")
+    ;; Force the y-axis to recalculate its range to include the goal line
+    (let [^org.jfree.chart.plot.CategoryPlot plot (.getPlot chart)
+          ^NumberAxis y-axis (.getRangeAxis plot)]
+      (.setAutoRange y-axis true)
+      (.setAutoRangeIncludesZero y-axis false))
     chart))
 
 ;; ---------------- 
