@@ -12,6 +12,14 @@ import {
   id,
   tx,
   lookup,
+
+  // error
+  InstantAPIError,
+
+  // sync table enums
+  SyncTableCallbackEventType,
+
+  // types
   type RoomSchemaShape,
   type InstantQuery,
   type InstantQueryResult,
@@ -76,8 +84,14 @@ import {
   type UploadFileResponse,
   type DeleteFileResponse,
 
-  // error
-  InstantAPIError,
+  // sync table types
+  type SyncTableCallback,
+  type SyncTableCallbackEvent,
+  type SyncTableInitialSyncBatch,
+  type SyncTableInitialSyncComplete,
+  type SyncTableSyncTransaction,
+  type SyncTableLoadFromStorage,
+  type SyncTableSetupError,
 } from '@instantdb/core';
 
 /**
@@ -151,6 +165,9 @@ export {
   // error
   InstantAPIError,
 
+  // sync table enums
+  SyncTableCallbackEventType,
+
   // types
   type Config,
   type Query,
@@ -214,4 +231,13 @@ export {
   type FileOpts,
   type UploadFileResponse,
   type DeleteFileResponse,
+
+  // sync table types
+  type SyncTableCallback,
+  type SyncTableCallbackEvent,
+  type SyncTableInitialSyncBatch,
+  type SyncTableInitialSyncComplete,
+  type SyncTableSyncTransaction,
+  type SyncTableLoadFromStorage,
+  type SyncTableSetupError,
 };

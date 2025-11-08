@@ -112,7 +112,16 @@ import type {
 import { InstantAPIError, type InstantIssue } from './utils/fetch.js';
 import { InstantError } from './InstantError.ts';
 import { EventSourceType } from './Connection.ts';
-import { SyncTableCallback } from './SyncTable.ts';
+import { CallbackEventType as SyncTableCallbackEventType } from './SyncTable.ts';
+import type {
+  SyncTableCallback,
+  CallbackEvent as SyncTableCallbackEvent,
+  InitialSyncBatch as SyncTableInitialSyncBatch,
+  InitialSyncComplete as SyncTableInitialSyncComplete,
+  SyncTransaction as SyncTableSyncTransaction,
+  LoadFromStorage as SyncTableLoadFromStorage,
+  SetupError as SyncTableSetupError,
+} from './SyncTable.ts';
 
 const defaultOpenDevtool = true;
 
@@ -976,6 +985,16 @@ export {
 
   // SSE
   type EventSourceType,
+
+  // SyncTable
+  SyncTableCallbackEventType,
+  type SyncTableCallback,
+  type SyncTableCallbackEvent,
+  type SyncTableInitialSyncBatch,
+  type SyncTableInitialSyncComplete,
+  type SyncTableSyncTransaction,
+  type SyncTableLoadFromStorage,
+  type SyncTableSetupError,
 
   // error types
   type InstantIssue,

@@ -6,6 +6,9 @@ import {
   tx,
   InstantReactAbstractDatabase,
   id,
+  SyncTableCallbackEventType,
+  type SyncTableCallbackEvent,
+  type ValidQuery,
 } from '@instantdb/react';
 import React, { useEffect, useRef, useState } from 'react';
 import config from '../../config';
@@ -96,18 +99,27 @@ function generateRandomName(): string {
   return `${adjective} ${noun} ${number}`;
 }
 
-function notifyEvent(event: any, addMessage: (msg: string) => void) {
+type ItemsQuery = { items: {} };
+
+function assertNever(x: never): never {
+  throw new Error('Unexpected value: ' + x);
+}
+
+function notifyEvent(
+  event: SyncTableCallbackEvent<typeof schema, ItemsQuery, false>,
+  addMessage: (msg: string) => void,
+) {
   switch (event.type) {
-    case 'InitialSyncBatch':
+    case SyncTableCallbackEventType.InitialSyncBatch:
       addMessage(`Loaded initial batch of ${event.batch.length} new items.`);
       break;
-    case 'InitialSyncComplete':
+    case SyncTableCallbackEventType.InitialSyncComplete:
       addMessage(`Initial sync complete.`);
       break;
-    case 'LoadFromStorage':
+    case SyncTableCallbackEventType.LoadFromStorage:
       addMessage(`Loaded ${event.data.items.length} items from storage.`);
       break;
-    case 'SyncTransaction': {
+    case SyncTableCallbackEventType.SyncTransaction: {
       if (event.added.length > 10) {
         addMessage(`Added ${event.added.length} items`);
       } else {
@@ -140,14 +152,13 @@ function notifyEvent(event: any, addMessage: (msg: string) => void) {
 
       break;
     }
-    case 'Error': {
+    case SyncTableCallbackEventType.Error: {
       console.log('error', event.error);
       addMessage(`Error: ${event.error.message}`);
       break;
     }
     default:
-      addMessage(event.type);
-      break;
+      assertNever(event);
   }
 }
 
