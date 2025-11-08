@@ -582,7 +582,6 @@ export class SyncTable {
 
     const sub = currentValue[hash];
     if (sub.entities) {
-      const k = Object.keys(sub.query)[0];
       this.notifyCbs(hash, {
         type: CallbackEventType.InitialSyncBatch,
         data: subData(sub, sub.entities),
@@ -612,6 +611,15 @@ export class SyncTable {
       state.txId = msg['tx-id'];
       return prev;
     });
+
+    const sub = this.subs.currentValue[hash];
+
+    if (sub) {
+      this.notifyCbs(hash, {
+        type: CallbackEventType.InitialSyncComplete,
+        data: subData(sub, sub.entities || []),
+      });
+    }
   }
 
   public onSyncUpdateTriples(msg: SyncUpdateTriplesMsg) {

@@ -10,8 +10,6 @@ import {
 import React, { useEffect, useRef, useState } from 'react';
 import config from '../../config';
 import { provisionEphemeralApp } from '../../components/EphemeralAppPage';
-import { ToastContainer, toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
 
 const schema = i.schema({
   entities: {
@@ -98,60 +96,35 @@ function generateRandomName(): string {
   return `${adjective} ${noun} ${number}`;
 }
 
-const TOAST_ID = 'sync-table-toast';
-let lastMessage = '';
-let messageCount = 1;
-
-function throttledToast(message: string) {
-  if (message === lastMessage) {
-    messageCount++;
-  } else {
-    lastMessage = message;
-    messageCount = 1;
-  }
-
-  const displayMessage =
-    messageCount > 1 ? `${message} (x${messageCount})` : message;
-
-  // Update existing toast or create new one
-  if (toast.isActive(TOAST_ID)) {
-    toast.update(TOAST_ID, { render: displayMessage });
-  } else {
-    toast(displayMessage, { toastId: TOAST_ID, autoClose: false });
-  }
-}
-
-function notifyEvent(event: any) {
+function notifyEvent(event: any, addMessage: (msg: string) => void) {
   switch (event.type) {
     case 'InitialSyncBatch':
-      throttledToast(
-        `Loaded initial batch of ${event.batch.length} new items.`,
-      );
+      addMessage(`Loaded initial batch of ${event.batch.length} new items.`);
       break;
     case 'InitialSyncComplete':
-      throttledToast(`Initial sync complete.`);
+      addMessage(`Initial sync complete.`);
       break;
     case 'LoadFromStorage':
-      throttledToast(`Loaded ${event.data.items.length} items from storage.`);
+      addMessage(`Loaded ${event.data.items.length} items from storage.`);
       break;
     case 'SyncTransaction': {
       if (event.added.length > 10) {
-        throttledToast(`Added ${event.added.length} items`);
+        addMessage(`Added ${event.added.length} items`);
       } else {
         for (const item of event.added) {
-          throttledToast(`Added ${item.name}`);
+          addMessage(`Added ${item.name}`);
         }
       }
       if (event.removed.length > 10) {
-        throttledToast(`Removed ${event.removed.length} items`);
+        addMessage(`Removed ${event.removed.length} items`);
       } else {
         for (const item of event.removed) {
-          throttledToast(`Removed ${item.name}`);
+          addMessage(`Removed ${item.name}`);
         }
       }
 
       if (event.updated.length > 10) {
-        throttledToast(`Updated ${event.removed.length} items`);
+        addMessage(`Updated ${event.removed.length} items`);
       } else {
         for (const updated of event.updated) {
           let desc = '';
@@ -161,7 +134,7 @@ function notifyEvent(event: any) {
           )) {
             desc += ` ${k} from ${oldValue} to ${newValue}`;
           }
-          throttledToast(`Updated${desc}`);
+          addMessage(`Updated${desc}`);
         }
       }
 
@@ -169,11 +142,11 @@ function notifyEvent(event: any) {
     }
     case 'Error': {
       console.log('error', event.error);
-      throttledToast(`Error: ${event.error.message}`);
+      addMessage(`Error: ${event.error.message}`);
       break;
     }
     default:
-      throttledToast(event.type);
+      addMessage(event.type);
       break;
   }
 }
@@ -196,6 +169,9 @@ function Main({
   const [orderByDirection, setOrderByDirection] = useState<'asc' | 'desc'>(
     'desc',
   );
+  const [messages, setMessages] = useState<
+    Array<{ text: string; count: number; timestamp: number }>
+  >([]);
 
   const handleCreateItem = () => {
     db.transact([
@@ -274,6 +250,25 @@ function Main({
 
   const [i, setI] = useState(0);
 
+  const addMessage = (text: string) => {
+    setMessages((prev) => {
+      const lastMsg = prev[0];
+      if (lastMsg && lastMsg.text === text) {
+        // Same message, increment count
+        return [
+          { ...lastMsg, count: lastMsg.count + 1, timestamp: Date.now() },
+          ...prev.slice(1),
+        ];
+      } else {
+        // New message, add to front and keep only last 1000
+        return [{ text, count: 1, timestamp: Date.now() }, ...prev].slice(
+          0,
+          1000,
+        );
+      }
+    });
+  };
+
   useEffect(() => {
     if (useSubscribeQuery) {
       const unsub = db.core.subscribeQuery(
@@ -298,8 +293,7 @@ function Main({
           },
         },
         (event) => {
-          console.log('event', event);
-          notifyEvent(event);
+          notifyEvent(event, addMessage);
           setEntities(event.data.items);
         },
       );
@@ -316,7 +310,7 @@ function Main({
         extraField: {},
       },
       (event: any) => {
-        notifyEvent(event);
+        notifyEvent(event, addMessage);
         unsub && unsub();
       },
     );
@@ -324,198 +318,221 @@ function Main({
 
   return (
     <div className="min-h-screen">
-      <ToastContainer
-        position="top-right"
-        theme="light"
-        toastClassName="!bg-white !text-gray-900 !border !border-gray-200"
-        hideProgressBar={true}
-        limit={1}
-      />
-      <div className="fixed top-4 right-4 text-sm text-gray-600 z-10">
-        <span className="font-mono">{appId}</span>
-      </div>
-      <div className="w-full max-w-4xl mx-auto p-4">
-        <div className="mb-4">
-          <h1 className="text-4xl font-bold text-gray-800 mb-4">
-            Items ({entities.length})
-          </h1>
-          <div className="flex gap-3 flex-wrap items-center mb-3">
-            <div className="flex items-center gap-3 bg-white rounded-lg px-3 py-2 border-2 border-gray-300 shadow-sm">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-500 font-medium">Mode:</span>
-                <select
-                  value={
-                    useSubscribeQuery ? 'subscribeQuery' : 'subscribeTable'
-                  }
-                  onChange={(e) => {
-                    if (unsubRef.current) {
-                      unsubRef.current();
-                      setEntities([]);
+      <div className="flex gap-8 p-4 justify-center">
+        <div className="w-[900px]">
+          <div className="mb-4">
+            <h1 className="text-4xl font-bold text-gray-800 mb-4">
+              Items ({entities.length})
+            </h1>
+            <div className="flex gap-3 flex-wrap items-center mb-3">
+              <div className="flex items-center gap-3 bg-white rounded-lg px-3 py-2 border-2 border-gray-300 shadow-sm">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-500 font-medium">
+                    Mode:
+                  </span>
+                  <select
+                    value={
+                      useSubscribeQuery ? 'subscribeQuery' : 'subscribeTable'
                     }
-                    setUseSubscribeQuery(e.target.value === 'subscribeQuery');
-                  }}
-                  className="border-0 bg-transparent text-sm font-semibold text-gray-900 focus:ring-0 focus:outline-none cursor-pointer pr-6"
-                >
-                  <option value="subscribeTable">subscribeTable</option>
-                  <option value="subscribeQuery">subscribeQuery</option>
-                </select>
-              </div>
-              <div className="w-px h-5 bg-gray-300"></div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-500 font-medium">Sort:</span>
-                <select
-                  value={orderByField}
-                  onChange={(e) =>
-                    setOrderByField(
-                      e.target.value as
-                        | 'serverCreatedAt'
-                        | 'name'
-                        | 'number'
-                        | 'createdAt',
-                    )
-                  }
-                  className="border-0 bg-transparent text-sm font-semibold text-gray-900 focus:ring-0 focus:outline-none cursor-pointer pr-6"
-                >
-                  <option value="serverCreatedAt">Server Created</option>
-                  <option value="name">Name</option>
-                  <option value="number">Number</option>
-                  <option value="createdAt">Created</option>
-                </select>
-                <button
-                  onClick={() =>
-                    setOrderByDirection(
-                      orderByDirection === 'asc' ? 'desc' : 'asc',
-                    )
-                  }
-                  className="flex items-center gap-1 px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors text-xs font-semibold text-gray-700"
-                >
-                  <svg
-                    className="w-3.5 h-3.5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+                    onChange={(e) => {
+                      if (unsubRef.current) {
+                        unsubRef.current();
+                        setEntities([]);
+                      }
+                      setUseSubscribeQuery(e.target.value === 'subscribeQuery');
+                    }}
+                    className="border-0 bg-transparent text-sm font-semibold text-gray-900 focus:ring-0 focus:outline-none cursor-pointer pr-6"
                   >
-                    {orderByDirection === 'asc' ? (
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2.5}
-                        d="M5 15l7-7 7 7"
-                      />
-                    ) : (
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2.5}
-                        d="M19 9l-7 7-7-7"
-                      />
-                    )}
-                  </svg>
-                  <span>{orderByDirection === 'asc' ? 'Asc' : 'Desc'}</span>
-                </button>
+                    <option value="subscribeTable">subscribeTable</option>
+                    <option value="subscribeQuery">subscribeQuery</option>
+                  </select>
+                </div>
+                <div className="w-px h-5 bg-gray-300"></div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-500 font-medium">
+                    Sort:
+                  </span>
+                  <select
+                    value={orderByField}
+                    onChange={(e) =>
+                      setOrderByField(
+                        e.target.value as
+                          | 'serverCreatedAt'
+                          | 'name'
+                          | 'number'
+                          | 'createdAt',
+                      )
+                    }
+                    className="border-0 bg-transparent text-sm font-semibold text-gray-900 focus:ring-0 focus:outline-none cursor-pointer pr-6"
+                  >
+                    <option value="serverCreatedAt">Server Created</option>
+                    <option value="name">Name</option>
+                    <option value="number">Number</option>
+                    <option value="createdAt">Created</option>
+                  </select>
+                  <button
+                    onClick={() =>
+                      setOrderByDirection(
+                        orderByDirection === 'asc' ? 'desc' : 'asc',
+                      )
+                    }
+                    className="flex items-center gap-1 px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors text-xs font-semibold text-gray-700"
+                  >
+                    <svg
+                      className="w-3.5 h-3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      {orderByDirection === 'asc' ? (
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2.5}
+                          d="M5 15l7-7 7 7"
+                        />
+                      ) : (
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2.5}
+                          d="M19 9l-7 7-7-7"
+                        />
+                      )}
+                    </svg>
+                    <span>{orderByDirection === 'asc' ? 'Asc' : 'Desc'}</span>
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-          <div className="flex gap-3 flex-wrap items-center">
-            <button
-              onClick={handleCreateItem}
-              disabled={isCreating}
-              className="rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-blue-700 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Create Item
-            </button>
-            <button
-              onClick={handleCreate1000Items}
-              disabled={isCreating}
-              className="rounded-lg bg-purple-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-purple-700 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Create 1000
-            </button>
-            <button
-              onClick={handleCreate10kItems}
-              disabled={isCreating}
-              className="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-indigo-700 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Create 10k
-            </button>
-            <button
-              onClick={() => {
-                if (unsubRef.current) {
-                  unsubRef.current();
-                  setEntities([]);
-                  setI((i) => i + 1);
-                }
-              }}
-              disabled={isCreating}
-              className="rounded-lg bg-gray-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-gray-700 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Reset Subscription
-            </button>
-            <button
-              onClick={() => {
-                if (unsubRef.current) {
-                  unsubRef.current({ keepSubscription: true });
-                }
-              }}
-              disabled={useSubscribeQuery}
-              className="rounded-lg bg-gray-500 px-4 py-2 font-semibold text-white transition-colors hover:bg-gray-600 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Soft Unsubscribe
-            </button>
-            <button
-              onClick={() => {
-                if (unsubRef.current) {
-                  unsubRef.current({ keepSubscription: false });
-                  setEntities([]);
-                }
-              }}
-              disabled={useSubscribeQuery}
-              className="rounded-lg bg-gray-700 px-4 py-2 font-semibold text-white transition-colors hover:bg-gray-800 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Hard Unsubscribe
-            </button>
-            <button
-              onClick={onResetApp}
-              disabled={isCreating}
-              className="rounded-lg bg-red-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-red-700 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Reset App
-            </button>
-            <button
-              onClick={triggerError}
-              className="rounded-lg bg-orange-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-orange-700 whitespace-nowrap"
-            >
-              Try an invalid query
-            </button>
-          </div>
-          {isCreating && (
-            <div className="mt-4 flex items-center gap-3 text-gray-700">
-              <svg
-                className="animate-spin h-5 w-5"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
+            <div className="flex gap-3 flex-wrap items-center">
+              <button
+                onClick={handleCreateItem}
+                disabled={isCreating}
+                className="rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-blue-700 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                ></path>
-              </svg>
-              <span>Creating items... {Math.round(creationProgress)}%</span>
+                Create Item
+              </button>
+              <button
+                onClick={handleCreate1000Items}
+                disabled={isCreating}
+                className="rounded-lg bg-purple-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-purple-700 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Create 1000
+              </button>
+              <button
+                onClick={handleCreate10kItems}
+                disabled={isCreating}
+                className="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-indigo-700 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Create 10k
+              </button>
+              <button
+                onClick={() => {
+                  if (unsubRef.current) {
+                    unsubRef.current({ keepSubscription: false });
+                    setEntities([]);
+                  }
+                }}
+                disabled={useSubscribeQuery}
+                className="rounded-lg bg-gray-700 px-4 py-2 font-semibold text-white transition-colors hover:bg-gray-800 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Hard Unsubscribe
+              </button>
+              <button
+                onClick={() => {
+                  if (unsubRef.current) {
+                    unsubRef.current({ keepSubscription: true });
+                  }
+                }}
+                disabled={useSubscribeQuery}
+                className="rounded-lg bg-gray-500 px-4 py-2 font-semibold text-white transition-colors hover:bg-gray-600 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Soft Unsubscribe
+              </button>
+              <button
+                onClick={() => {
+                  if (unsubRef.current) {
+                    unsubRef.current();
+                    setEntities([]);
+                    setI((i) => i + 1);
+                  }
+                }}
+                disabled={isCreating}
+                className="rounded-lg bg-gray-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-gray-700 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Reset Subscription
+              </button>
+              <button
+                onClick={onResetApp}
+                disabled={isCreating}
+                className="rounded-lg bg-red-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-red-700 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Reset App
+              </button>
+              <button
+                onClick={triggerError}
+                className="rounded-lg bg-orange-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-orange-700 whitespace-nowrap"
+              >
+                Try an invalid query
+              </button>
             </div>
-          )}
+            {isCreating && (
+              <div className="mt-4 flex items-center gap-3 text-gray-700">
+                <svg
+                  className="animate-spin h-5 w-5"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+                <span>Creating items... {Math.round(creationProgress)}%</span>
+              </div>
+            )}
+          </div>
+          <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
+            <Items items={entities.slice(0, 100)} db={db} />
+          </div>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
-          <Items items={entities.slice(0, 100)} db={db} />
+        <div className="w-80 flex-shrink-0">
+          <div className="sticky top-4">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Events</h2>
+            <div className="rounded-lg border border-gray-200 bg-white shadow-sm max-h-[calc(100vh-8rem)] overflow-y-auto">
+              {messages.length === 0 ? (
+                <div className="px-6 py-12 text-center text-gray-500">
+                  No events yet
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-100">
+                  {messages.map((msg, idx) => (
+                    <div key={idx} className="px-4 py-3">
+                      <p className="text-sm text-gray-900">
+                        {msg.text}
+                        {msg.count > 1 && (
+                          <span className="ml-2 text-xs font-semibold text-gray-600">
+                            (x{msg.count})
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
