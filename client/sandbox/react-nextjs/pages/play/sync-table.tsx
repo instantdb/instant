@@ -16,7 +16,9 @@ import 'react-toastify/dist/ReactToastify.css';
 const schema = i.schema({
   entities: {
     items: i.entity({
-      name: i.string(),
+      name: i.string().indexed(),
+      number: i.number().indexed(),
+      createdAt: i.date().indexed(),
     }),
   },
 });
@@ -96,25 +98,26 @@ function generateRandomName(): string {
   return `${adjective} ${noun} ${number}`;
 }
 
-const toastTimestamps: number[] = [];
-const TOAST_LIMIT = 5;
-const TOAST_WINDOW = 2000; // 2 seconds
+const TOAST_ID = 'sync-table-toast';
+let lastMessage = '';
+let messageCount = 1;
 
 function throttledToast(message: string) {
-  const now = Date.now();
-
-  // Remove timestamps older than the window
-  while (
-    toastTimestamps.length > 0 &&
-    toastTimestamps[0] < now - TOAST_WINDOW
-  ) {
-    toastTimestamps.shift();
+  if (message === lastMessage) {
+    messageCount++;
+  } else {
+    lastMessage = message;
+    messageCount = 1;
   }
 
-  // Check if we're under the limit
-  if (toastTimestamps.length < TOAST_LIMIT) {
-    toastTimestamps.push(now);
-    toast(message);
+  const displayMessage =
+    messageCount > 1 ? `${message} (x${messageCount})` : message;
+
+  // Update existing toast or create new one
+  if (toast.isActive(TOAST_ID)) {
+    toast.update(TOAST_ID, { render: displayMessage });
+  } else {
+    toast(displayMessage, { toastId: TOAST_ID, autoClose: false });
   }
 }
 
@@ -187,11 +190,19 @@ function Main({
   const [isCreating, setIsCreating] = useState(false);
   const [creationProgress, setCreationProgress] = useState(0);
   const [useSubscribeQuery, setUseSubscribeQuery] = useState(false);
+  const [orderByField, setOrderByField] = useState<
+    'serverCreatedAt' | 'name' | 'number' | 'createdAt'
+  >('serverCreatedAt');
+  const [orderByDirection, setOrderByDirection] = useState<'asc' | 'desc'>(
+    'desc',
+  );
 
   const handleCreateItem = () => {
     db.transact([
       tx.items[id()].update({
         name: generateRandomName(),
+        number: Math.random(),
+        createdAt: new Date(),
       }),
     ]);
   };
@@ -208,6 +219,8 @@ function Main({
         txs.push(
           tx.items[id()].update({
             name: generateRandomName(),
+            number: Math.random(),
+            createdAt: new Date(),
           }),
         );
       }
@@ -231,6 +244,8 @@ function Main({
         txs.push(
           tx.items[id()].update({
             name: generateRandomName(),
+            number: Math.random(),
+            createdAt: new Date(),
           }),
         );
       }
@@ -261,27 +276,37 @@ function Main({
 
   useEffect(() => {
     if (useSubscribeQuery) {
-      const unsub = db.core.subscribeQuery({ items: {} }, (res) => {
-        if (res.data) {
-          setEntities(res.data.items.toReversed());
-        }
-      });
+      const unsub = db.core.subscribeQuery(
+        {
+          items: {
+            $: { order: { [orderByField]: orderByDirection } },
+          },
+        },
+        (res) => {
+          if (res.data) {
+            setEntities(res.data.items);
+          }
+        },
+      );
 
       unsubRef.current = unsub;
     } else {
       const unsub = db.core._syncTableExperimental(
         {
-          items: {},
+          items: {
+            $: { order: { [orderByField]: orderByDirection } },
+          },
         },
         (event) => {
+          console.log('event', event);
           notifyEvent(event);
-          setEntities(event.data.items.toReversed());
+          setEntities(event.data.items);
         },
       );
       unsubRef.current = unsub;
       return () => unsub({ keepSubscription: true });
     }
-  }, [i, useSubscribeQuery]);
+  }, [i, useSubscribeQuery, orderByField, orderByDirection]);
 
   const triggerError = () => {
     let unsub: undefined | ((opts?: any) => void);
@@ -304,6 +329,7 @@ function Main({
         theme="light"
         toastClassName="!bg-white !text-gray-900 !border !border-gray-200"
         hideProgressBar={true}
+        limit={1}
       />
       <div className="fixed top-4 right-4 text-sm text-gray-600 z-10">
         <span className="font-mono">{appId}</span>
@@ -313,19 +339,84 @@ function Main({
           <h1 className="text-4xl font-bold text-gray-800 mb-4">
             Items ({entities.length})
           </h1>
+          <div className="flex gap-3 flex-wrap items-center mb-3">
+            <div className="flex items-center gap-3 bg-white rounded-lg px-3 py-2 border-2 border-gray-300 shadow-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-500 font-medium">Mode:</span>
+                <select
+                  value={
+                    useSubscribeQuery ? 'subscribeQuery' : 'subscribeTable'
+                  }
+                  onChange={(e) => {
+                    if (unsubRef.current) {
+                      unsubRef.current();
+                      setEntities([]);
+                    }
+                    setUseSubscribeQuery(e.target.value === 'subscribeQuery');
+                  }}
+                  className="border-0 bg-transparent text-sm font-semibold text-gray-900 focus:ring-0 focus:outline-none cursor-pointer pr-6"
+                >
+                  <option value="subscribeTable">subscribeTable</option>
+                  <option value="subscribeQuery">subscribeQuery</option>
+                </select>
+              </div>
+              <div className="w-px h-5 bg-gray-300"></div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-500 font-medium">Sort:</span>
+                <select
+                  value={orderByField}
+                  onChange={(e) =>
+                    setOrderByField(
+                      e.target.value as
+                        | 'serverCreatedAt'
+                        | 'name'
+                        | 'number'
+                        | 'createdAt',
+                    )
+                  }
+                  className="border-0 bg-transparent text-sm font-semibold text-gray-900 focus:ring-0 focus:outline-none cursor-pointer pr-6"
+                >
+                  <option value="serverCreatedAt">Server Created</option>
+                  <option value="name">Name</option>
+                  <option value="number">Number</option>
+                  <option value="createdAt">Created</option>
+                </select>
+                <button
+                  onClick={() =>
+                    setOrderByDirection(
+                      orderByDirection === 'asc' ? 'desc' : 'asc',
+                    )
+                  }
+                  className="flex items-center gap-1 px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors text-xs font-semibold text-gray-700"
+                >
+                  <svg
+                    className="w-3.5 h-3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    {orderByDirection === 'asc' ? (
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2.5}
+                        d="M5 15l7-7 7 7"
+                      />
+                    ) : (
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2.5}
+                        d="M19 9l-7 7-7-7"
+                      />
+                    )}
+                  </svg>
+                  <span>{orderByDirection === 'asc' ? 'Asc' : 'Desc'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
           <div className="flex gap-3 flex-wrap items-center">
-            <button
-              onClick={() => {
-                if (unsubRef.current) {
-                  unsubRef.current();
-                  setEntities([]);
-                }
-                setUseSubscribeQuery(!useSubscribeQuery);
-              }}
-              className="rounded-lg bg-teal-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-teal-700 whitespace-nowrap"
-            >
-              Mode: {useSubscribeQuery ? 'subscribeQuery' : 'subscribeTable'}
-            </button>
             <button
               onClick={handleCreateItem}
               disabled={isCreating}
@@ -370,6 +461,18 @@ function Main({
               className="rounded-lg bg-gray-500 px-4 py-2 font-semibold text-white transition-colors hover:bg-gray-600 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Soft Unsubscribe
+            </button>
+            <button
+              onClick={() => {
+                if (unsubRef.current) {
+                  unsubRef.current({ keepSubscription: false });
+                  setEntities([]);
+                }
+              }}
+              disabled={useSubscribeQuery}
+              className="rounded-lg bg-gray-700 px-4 py-2 font-semibold text-white transition-colors hover:bg-gray-800 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Hard Unsubscribe
             </button>
             <button
               onClick={onResetApp}

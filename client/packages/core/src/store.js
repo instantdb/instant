@@ -18,7 +18,7 @@ function getAttr(attrs, attrId) {
   return attrs[attrId];
 }
 
-function getInMap(obj, path) {
+export function getInMap(obj, path) {
   return path.reduce((acc, key) => acc && acc.get(key), obj);
 }
 

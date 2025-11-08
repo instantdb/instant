@@ -1,6 +1,7 @@
 (ns instant.db.sync-table
   (:require [instant.util.exception :as ex]
             [honey.sql :as hsql]
+            [instant.db.datalog :as d]
             [instant.db.model.attr :as attr-model]
             [instant.jdbc.aurora :as aurora]
             [instant.jdbc.sql :as sql]
@@ -42,6 +43,53 @@
             (ex/throw-validation-err! :query
                                       {:q instaql-query}
                                       [{:message "No matching table."}]))
+
+        [order-by-field order-by-direction] (-> instaql-query
+                                                (get-in [ns :$ :order] {:serverCreatedAt "asc"})
+                                                first)
+
+        direction (case order-by-direction
+                    "asc" :asc
+                    "desc" :desc)
+        ;; XXX: Pass this query through instaql/validate
+
+        query-fields
+        (if (= order-by-field :serverCreatedAt)
+          {:order-by [[:t.created_at direction]
+                      [:t.entity-id direction]]
+           :where [:= :t.attr-id id-attr-id]
+           :pg-hints [(pg-hints/index-scan :t :triples_created_at_idx)]}
+          (let [attr (attr-model/seek-by-fwd-ident-name [(name ns) (name order-by-field)]
+                                                        (:attrs ctx))]
+            (when-not attr
+              (ex/throw-validation-err! :query
+                                        {:q instaql-query}
+                                        [{:message (str "Unknown order field " (name order-by-field))}]))
+            (when-not (and (:index? attr)
+                           (not (:indexing? attr))
+                           (:checked-data-type attr))
+              (ex/throw-validation-err! :query
+                                        {:q instaql-query}
+                                        [{:message (str "Order field must be indexed with a checked data type.")}]))
+
+            (let [order-col-value-fn (d/extract-value-fn (:checked-data-type attr) :>)]
+              {:where [:and
+                       [:= :t.attr-id (:id attr)]
+                       :t.ave
+                       [:= :checked_data_type [:cast
+                                               [:inline (name (:checked-data-type attr))]
+                                               :checked_data_type]]]
+               :order-by [(if order-col-value-fn
+                            [[order-col-value-fn :t.value] (if (= direction :desc)
+                                                             :desc-nulls-last
+                                                             :asc-nulls-first)]
+                            [:t.value direction])
+                          [:t.entity_id direction]]
+               :pg-hints [(pg-hints/index-scan :t (if order-col-value-fn
+                                                    (keyword (format "triples_%s_type_idx"
+                                                                     (name (:checked-data-type attr))))
+                                                    :ave_index))]})))
+
         ea-select (fn [ns-str]
                     {:select :*
                      :from [[:triples :t_ea]]
@@ -65,13 +113,13 @@
                                                 :t2]]}]
                                       :join_rows]]
                             :from [[:triples :t]]
-                            :order-by [[:t.created_at :asc]]
+                            :order-by (:order-by query-fields)
                             :where [:and
                                     [:= :t.app_id (:app-id ctx)]
-                                    [:= :t.attr-id id-attr-id]]
-                            :pg-hints [(pg-hints/index-scan :t1 :triples_created_at_idx)
-                                       (pg-hints/index-scan :t_ea :ea_index)
-                                       (pg-hints/index-scan :t_eav :eav_uuid_index)]})
+                                    (:where query-fields)]
+                            :pg-hints (concat [(pg-hints/index-scan :t_ea :ea_index)
+                                               (pg-hints/index-scan :t_eav :eav_uuid_index)]
+                                              (:pg-hints query-fields))})
         canceled? (atom false)]
     {:cancel (fn []
                (reset! canceled? true))

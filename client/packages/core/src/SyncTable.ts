@@ -3,8 +3,8 @@ import * as s from './store.js';
 import weakHash from './utils/weakHash.ts';
 import uuid from './utils/uuid.ts';
 import { Logger } from './Reactor.js';
-import instaql from './instaql.js';
-import { InstaQLParams, InstaQLResponse, ValidQuery } from './queryTypes.ts';
+import instaql, { compareOrder } from './instaql.js';
+import { InstaQLResponse, ValidQuery } from './queryTypes.ts';
 import { EntitiesDef, IContainEntitiesAndLinks } from './schemaTypes.ts';
 
 type SubState = {
@@ -16,8 +16,12 @@ type SubState = {
 type Sub = {
   query: any;
   hash: string;
+  table: string;
+  orderField: string;
+  orderDirection: 'asc' | 'desc';
+  orderFieldType: 'string' | 'number' | 'date' | 'boolean';
   state?: SubState;
-  entities?: Array<{ entity: any; store: any }>;
+  entities?: Array<{ entity: any; store: any; serverCreatedAt: number }>;
 };
 
 // We could make a better type for this if we had a return type for s.toJSON
@@ -85,6 +89,7 @@ function syncSubsFromStorage(
   for (const key in parsed) {
     const sub = parsed[key];
     for (const e of sub.entities || []) {
+      e.store.useDateObjects = useDateObjects;
       e.store = s.fromJSON(e.store);
     }
   }
@@ -98,7 +103,7 @@ function syncSubsToStorage(subs: Subs): SubsInStorage {
     if (sub.entities) {
       const entities = [];
       for (const e of sub.entities) {
-        entities.push({ store: s.toJSON(e.store), entity: e.entity });
+        entities.push({ ...e, store: s.toJSON(e.store) });
       }
       jsonSubs[key] = { ...sub, entities };
     } else {
@@ -122,9 +127,20 @@ function onMergeSubs(storageSubs: Subs | null, inMemorySubs: Subs): Subs {
 }
 
 function queryEntity(sub: Sub, store: any) {
-  const k = Object.keys(sub.query)[0];
   const res = instaql({ store, pageInfo: null, aggregate: null }, sub.query);
-  return res.data[k][0];
+  return res.data[sub.table][0];
+}
+
+function getServerCreatedAt(sub: Sub, store: any, entityId: string): number {
+  const aid = s.getAttrByFwdIdentName(store, sub.table, 'id')?.id;
+  if (!aid) {
+    return -1;
+  }
+  const t = s.getInMap(store.eav, [entityId, aid, entityId]);
+  if (!t) {
+    return -1;
+  }
+  return t[3];
 }
 
 function applyChangesToStore(
@@ -180,6 +196,62 @@ function changedFieldsOfChanges(
     }
   }
   return changedFields;
+}
+
+function subData(sub: Sub, entities: NonNullable<Sub['entities']>) {
+  return { [sub.table]: entities.map((e) => e.entity) };
+}
+
+function sortEntitiesInPlace(sub: Sub, entities: NonNullable<Sub['entities']>) {
+  const dataType = sub.orderFieldType;
+  if (sub.orderField === 'serverCreatedAt') {
+    entities.sort(
+      sub.orderDirection === 'asc'
+        ? function compareEntities(a, b) {
+            return compareOrder(
+              a.entity.id,
+              a.serverCreatedAt,
+              b.entity.id,
+              b.serverCreatedAt,
+              dataType,
+            );
+          }
+        : function compareEntities(b, a) {
+            return compareOrder(
+              a.entity.id,
+              a.serverCreatedAt,
+              b.entity.id,
+              b.serverCreatedAt,
+              dataType,
+            );
+          },
+    );
+    return;
+  }
+
+  const field = sub.orderField;
+
+  entities.sort(
+    sub.orderDirection === 'asc'
+      ? function compareEntities(a, b) {
+          return compareOrder(
+            a.entity.id,
+            a.entity[field],
+            b.entity.id,
+            b.entity[field],
+            dataType,
+          );
+        }
+      : function compareEntities(b, a) {
+          return compareOrder(
+            a.entity.id,
+            a.entity[field],
+            b.entity.id,
+            b.entity[field],
+            dataType,
+          );
+        },
+  );
 }
 
 export enum CallbackEventType {
@@ -387,18 +459,39 @@ export class SyncTable {
         const k = Object.keys(query)[0];
         cb({
           type: CallbackEventType.LoadFromStorage,
-          // XXX: Need to sort
-          data: { [k]: existingSub.entities.map((e) => e.entity) },
+          data: subData(existingSub, existingSub.entities),
         });
       }
 
       return;
     }
 
+    // XXX: Handle null query
+
+    const table = Object.keys(query)[0];
+    const orderBy = query[table]?.$?.order || { serverCreatedAt: 'asc' };
+    const [orderField, orderDirection] = Object.entries(orderBy)[0] as [
+      string,
+      'asc' | 'desc',
+    ];
+
+    const orderFieldType =
+      orderField === 'serverCreatedAt'
+        ? 'number'
+        : s.getAttrByFwdIdentName(this.createStore([]), table, orderField)?.[
+            'checked-data-type'
+          ];
+
+    // XXX: Report error if orderFieldType is null;
+
     this.subs.set((prev) => {
       prev[hash] = {
         query,
         hash: hash,
+        table,
+        orderDirection,
+        orderField,
+        orderFieldType,
       };
       return prev;
     });
@@ -476,7 +569,11 @@ export class SyncTable {
       for (const entRows of joinRows) {
         const store = this.createStore(entRows);
         const entity = queryEntity(sub, store);
-        entities.push({ store, entity });
+        entities.push({
+          store,
+          entity,
+          serverCreatedAt: getServerCreatedAt(sub, store, entity.id),
+        });
         batch.push(entity);
       }
 
@@ -488,7 +585,7 @@ export class SyncTable {
       const k = Object.keys(sub.query)[0];
       this.notifyCbs(hash, {
         type: CallbackEventType.InitialSyncBatch,
-        data: { [k]: sub.entities.map((x) => x.entity) },
+        data: subData(sub, sub.entities),
         batch,
       });
     }
@@ -604,7 +701,11 @@ export class SyncTable {
             1;
             continue;
           }
-          entities.push({ store, entity });
+          entities.push({
+            store,
+            entity,
+            serverCreatedAt: getServerCreatedAt(sub, store, entity.id),
+          });
           added.push(entity);
         }
 
@@ -615,11 +716,10 @@ export class SyncTable {
           entities.splice(idx, 1);
         }
 
-        const k = Object.keys(sub.query)[0];
-
+        sortEntitiesInPlace(sub, entities);
         this.notifyCbs(hash, {
           type: CallbackEventType.SyncTransaction,
-          data: { [k]: entities.map((x) => x.entity) },
+          data: subData(sub, sub.entities),
           added,
           removed,
           updated,
@@ -664,10 +764,11 @@ export class SyncTable {
       type: msg.type,
       hint: msg.hint,
     };
+    // XXX: Get the sub
     const k = Object.keys(msg['original-event']['q'])[0];
     this.notifyCbs(hash, {
       type: CallbackEventType.Error,
-      data: { k: [] },
+      data: { [k]: [] },
       error,
     });
   }
