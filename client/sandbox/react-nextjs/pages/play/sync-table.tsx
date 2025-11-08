@@ -140,7 +140,6 @@ function notifyEvent(
       } else {
         for (const updated of event.updated) {
           let desc = '';
-          // @ts-ignore
           for (const [k, { oldValue, newValue }] of Object.entries(
             updated.changedFields,
           )) {

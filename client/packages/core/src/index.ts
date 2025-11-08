@@ -724,6 +724,9 @@ class InstantCoreDatabase<
     return this._reactor.queryOnce(query, opts);
   }
 
+  /**
+   * @deprecated This is an experimental function that is not yet ready for production use.
+   */
   _syncTableExperimental<Q extends ValidQuery<Q, Schema>>(
     query: Q,
     cb: SyncTableCallback<Schema, Q, UseDates>,

@@ -29,8 +29,6 @@ type SubsInStorage = Subs;
 
 type Subs = { [hash: string]: Sub };
 
-type fixme = any;
-
 type StartMsg = {
   op: 'start-sync';
   q: string;
@@ -262,6 +260,29 @@ export enum CallbackEventType {
   Error = 'Error',
 }
 
+type QueryEntities<
+  Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
+  Q extends ValidQuery<Q, Schema>,
+  UseDates extends boolean,
+> = InstaQLResponse<Schema, Q, UseDates>[keyof InstaQLResponse<
+  Schema,
+  Q,
+  UseDates
+>];
+
+type QueryEntity<
+  Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
+  Q extends ValidQuery<Q, Schema>,
+  UseDates extends boolean,
+> = QueryEntities<Schema, Q, UseDates> extends (infer E)[] ? E : never;
+
+type ChangedFields<Entity> = {
+  [K in keyof Entity]?: {
+    oldValue: Entity[K];
+    newValue: Entity[K];
+  };
+};
+
 // XXX: Needs a type parameter for constructing the data
 export interface BaseCallbackEvent<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
@@ -278,7 +299,7 @@ export interface InitialSyncBatch<
   UseDates extends boolean,
 > extends BaseCallbackEvent<Schema, Q, UseDates> {
   type: CallbackEventType.InitialSyncBatch;
-  batch: fixme[];
+  batch: QueryEntities<Schema, Q, UseDates>;
 }
 
 export interface InitialSyncComplete<
@@ -295,12 +316,12 @@ export interface SyncTransaction<
   UseDates extends boolean,
 > extends BaseCallbackEvent<Schema, Q, UseDates> {
   type: CallbackEventType.SyncTransaction;
-  added: fixme[];
-  removed: fixme[];
+  added: QueryEntities<Schema, Q, UseDates>;
+  removed: QueryEntities<Schema, Q, UseDates>;
   updated: {
-    oldEntity: fixme;
-    newEntity: fixme;
-    changedFields: Record<string, { oldValue: fixme; newValue: fixme }>;
+    oldEntity: QueryEntity<Schema, Q, UseDates>;
+    newEntity: QueryEntity<Schema, Q, UseDates>;
+    changedFields: ChangedFields<QueryEntity<Schema, Q, UseDates>>;
   }[];
 }
 

@@ -43,6 +43,11 @@ export class PersistedObject<T> {
     persister: Storage,
     key: string,
     defaultValue: T,
+    /**
+     * Merges data from storage with in-memory value on load.
+     * If a value is returned from onMerge, that value that will
+     * become the current value.
+     */
     onMerge: (fromStorage: T, inMemoryValue: T) => T | void,
     serialize = (x: T): any => {
       return x;
