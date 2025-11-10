@@ -21,6 +21,13 @@ const schema = i.schema({
       number: i.number().indexed(),
       createdAt: i.date().indexed(),
     }),
+    otherTable: i.entity({}),
+  },
+  links: {
+    itemTable: {
+      forward: { on: 'items', has: 'one', label: 'other' },
+      reverse: { on: 'otherTable', has: 'one', label: 'item' },
+    },
   },
 });
 
@@ -314,7 +321,8 @@ function Main({
 
   const triggerError = () => {
     let unsub: undefined | ((opts?: any) => void);
-    unsub = db.core._reactor.subscribeTable(
+    unsub = db.core._syncTableExperimental(
+      // @ts-ignore: invalid query test
       {
         items: {},
         extraField: {},
@@ -322,6 +330,30 @@ function Main({
       (event: any) => {
         notifyEvent(event, addMessage);
         unsub && unsub();
+      },
+    );
+    let unsub2: undefined | ((opts?: any) => void);
+    unsub2 = db.core._syncTableExperimental(
+      {
+        items: {
+          other: {},
+        },
+      },
+      (event: any) => {
+        notifyEvent(event, addMessage);
+        unsub2 && unsub2();
+      },
+    );
+    let unsub3: undefined | ((opts?: any) => void);
+    unsub3 = db.core._syncTableExperimental(
+      {
+        items: {
+          $: { order: { name: 'desc' }, where: { name: 'Test' } },
+        },
+      },
+      (event: any) => {
+        notifyEvent(event, addMessage);
+        unsub3 && unsub3();
       },
     );
   };

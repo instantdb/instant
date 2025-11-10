@@ -2,6 +2,7 @@
   (:require [instant.util.exception :as ex]
             [honey.sql :as hsql]
             [instant.db.datalog :as d]
+            [instant.db.instaql :as instaql]
             [instant.db.model.attr :as attr-model]
             [instant.jdbc.aurora :as aurora]
             [instant.jdbc.sql :as sql]
@@ -27,14 +28,14 @@
       (handle-batch join-rows))))
 
 (defn create-sync-process [ctx instaql-query]
-  (let [ns (-> instaql-query
-               keys
-               first)
+  (let [_ (instaql/instaql-query->patterns ctx instaql-query) ;; validate query
+        [ns & rest-ns] (-> instaql-query
+                           keys)
         _ (when-not ns
             (ex/throw-validation-err! :query
                                       {:q instaql-query}
                                       [{:message "Query is empty."}]))
-        _ (when (not= 1 (count (keys instaql-query)))
+        _ (when (seq rest-ns)
             (ex/throw-validation-err! :query
                                       {:q instaql-query}
                                       [{:message "Query can only fetch a single namespace"}]))
@@ -44,14 +45,29 @@
                                       {:q instaql-query}
                                       [{:message "No matching table."}]))
 
-        [order-by-field order-by-direction] (-> instaql-query
-                                                (get-in [ns :$ :order] {:serverCreatedAt "asc"})
+        child-forms (get instaql-query ns)
+
+        _ (when (seq (dissoc child-forms :$))
+            (ex/throw-validation-err! :query
+                                      {:q instaql-query}
+                                      [{:message "Links are not yet supported."}]))
+
+        _ (when-let [ks (-> child-forms
+                            :$
+                            (dissoc :order)
+                            seq)]
+            (ex/throw-validation-err! :query
+                                      {:q instaql-query
+                                       :invalid-keys ks}
+                                      [{:message "Only order is currently supported."}]))
+
+        [order-by-field order-by-direction] (-> child-forms
+                                                (get-in [:$ :order] {:serverCreatedAt "asc"})
                                                 first)
 
         direction (case order-by-direction
                     "asc" :asc
                     "desc" :desc)
-        ;; XXX: Pass this query through instaql/validate
 
         query-fields
         (if (= order-by-field :serverCreatedAt)

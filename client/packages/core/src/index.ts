@@ -127,6 +127,10 @@ const defaultOpenDevtool = true;
 
 // types
 
+type ExactlyOne<T> = {
+  [K in keyof T]: Pick<T, K> & Partial<Record<Exclude<keyof T, K>, never>>;
+}[keyof T];
+
 export type Config = {
   appId: string;
   websocketURI?: string;
@@ -726,9 +730,17 @@ class InstantCoreDatabase<
 
   /**
    * @deprecated This is an experimental function that is not yet ready for production use.
+   * Use this function to sync an entire namespace.
+   * It has many limitations that will be removed in the future:
+   * 1. Must be used with an admin token
+   * 2. Does not support permissions
+   * 3. Does not support where clauses
+   * 4. Does not support links
+   * It also does not support multiple top-level namespaces. For example,
+   *  {posts: {}, users: {}} is invalid. Only `posts` or `users` is allowed, but not both.
    */
   _syncTableExperimental<Q extends ValidQuery<Q, Schema>>(
-    query: Q,
+    query: ExactlyOne<Q>,
     cb: SyncTableCallback<Schema, Q, UseDates>,
   ): (
     opts?: { keepSubscription: boolean | null | undefined } | null | undefined,
