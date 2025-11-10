@@ -520,13 +520,14 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const cookieStore = await cookies();
-  const instantRefreshToken = cookieStore.get("instant_refresh_token");
+  const userJSON = cookieStore.get('instant_user');
+  const user = userJSON ? JSON.parse(userJSON.value) : null;
 
   return (
     <html lang="en">
       <body className="antialiased">
         <InstantSuspenseProvider
-          token={instantRefreshToken?.value}
+          user={user}
           config={{
             appId: process.env.NEXT_PUBLIC_INSTANT_APP_ID!,
             schema: JSON.stringify(schema),
@@ -540,6 +541,9 @@ export default async function RootLayout({
   );
 }
 ```
+
+If A user object is passed as a prop, it will be used as the initial value for useAuth, useUser, and the SignedIn/SignedOut components. The `refresh_token` field in the user object will also be used for all the queries server side.
+
 
 ### Using the suspense hook
 
