@@ -283,7 +283,6 @@ type ChangedFields<Entity> = {
   };
 };
 
-// XXX: Needs a type parameter for constructing the data
 export interface BaseCallbackEvent<
   Schema extends IContainEntitiesAndLinks<EntitiesDef, any>,
   Q extends ValidQuery<Q, Schema>,
@@ -438,7 +437,6 @@ export class SyncTable {
   }
 
   private sendStart(query: string) {
-    // XXX: Maybe the client id would be good for something?
     this.trySend(uuid(), {
       op: 'start-sync',
       q: query,
@@ -451,7 +449,6 @@ export class SyncTable {
     this.trySend(state.subscriptionId, {
       op: 'resync-table',
       'subscription-id': state.subscriptionId,
-      // XXX: Figure out why this isn't complaining
       'tx-id': state.txId,
       token: state.token,
     });
@@ -487,8 +484,6 @@ export class SyncTable {
       return;
     }
 
-    // XXX: Handle null query
-
     const table = Object.keys(query)[0];
     const orderBy = query[table]?.$?.order || { serverCreatedAt: 'asc' };
     const [orderField, orderDirection] = Object.entries(orderBy)[0] as [
@@ -502,8 +497,6 @@ export class SyncTable {
         : s.getAttrByFwdIdentName(this.createStore([]), table, orderField)?.[
             'checked-data-type'
           ];
-
-    // XXX: Report error if orderFieldType is null;
 
     this.subs.set((prev) => {
       prev[hash] = {
@@ -793,7 +786,7 @@ export class SyncTable {
       type: msg.type,
       hint: msg.hint,
     };
-    // XXX: Get the sub
+
     const k = Object.keys(msg['original-event']['q'])[0];
     this.notifyCbs(hash, {
       type: CallbackEventType.Error,

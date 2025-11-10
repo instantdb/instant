@@ -907,6 +907,9 @@ export {
   version,
   InstantError,
 
+  // sync table enums
+  SyncTableCallbackEventType,
+
   // og types
   type IDatabase,
   type RoomSchemaShape,
@@ -1001,8 +1004,7 @@ export {
   // SSE
   type EventSourceType,
 
-  // SyncTable
-  SyncTableCallbackEventType,
+  // sync table types
   type SyncTableCallback,
   type SyncTableCallbackEvent,
   type SyncTableInitialSyncBatch,

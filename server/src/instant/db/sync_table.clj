@@ -29,23 +29,23 @@
 
 (defn create-sync-process [ctx instaql-query]
   (let [_ (instaql/instaql-query->patterns ctx instaql-query) ;; validate query
-        [ns & rest-ns] (-> instaql-query
-                           keys)
-        _ (when-not ns
+        [tbl & rest-tbl] (-> instaql-query
+                            keys)
+        _ (when-not tbl
             (ex/throw-validation-err! :query
                                       {:q instaql-query}
                                       [{:message "Query is empty."}]))
-        _ (when (seq rest-ns)
+        _ (when (seq rest-tbl)
             (ex/throw-validation-err! :query
                                       {:q instaql-query}
                                       [{:message "Query can only fetch a single namespace"}]))
-        id-attr-id (:id (attr-model/seek-by-fwd-ident-name [(name ns) "id"] (:attrs ctx)))
+        id-attr-id (:id (attr-model/seek-by-fwd-ident-name [(name tbl) "id"] (:attrs ctx)))
         _ (when-not id-attr-id
             (ex/throw-validation-err! :query
                                       {:q instaql-query}
                                       [{:message "No matching table."}]))
 
-        child-forms (get instaql-query ns)
+        child-forms (get instaql-query tbl)
 
         _ (when (seq (dissoc child-forms :$))
             (ex/throw-validation-err! :query
@@ -75,7 +75,7 @@
                       [:t.entity-id direction]]
            :where [:= :t.attr-id id-attr-id]
            :pg-hints [(pg-hints/index-scan :t :triples_created_at_idx)]}
-          (let [attr (attr-model/seek-by-fwd-ident-name [(name ns) (name order-by-field)]
+          (let [attr (attr-model/seek-by-fwd-ident-name [(name tbl) (name order-by-field)]
                                                         (:attrs ctx))]
             (when-not attr
               (ex/throw-validation-err! :query
@@ -125,7 +125,7 @@
                                         ;; Collects all of the ea triples for a single row
                                         ;; Each row we get back from the database is a json
                                         ;; array of all of the ea triples for an entity.
-                                        :from [[{:union-all [(ea-select (name ns))]}
+                                        :from [[{:union-all [(ea-select (name tbl))]}
                                                 :t2]]}]
                                       :join_rows]]
                             :from [[:triples :t]]
@@ -141,7 +141,7 @@
                (reset! canceled? true))
      :canceled? (fn []
                   @canceled?)
-     :coarse-topics [[:ea '_ (attr-model/ea-ids-for-etype (name ns) (:attrs ctx)) '_]]
+     :coarse-topics [[:ea '_ (attr-model/ea-ids-for-etype (name tbl) (:attrs ctx)) '_]]
      :start (fn [{:keys [batch-size
                          on-batch
                          on-init-finish]}]
@@ -158,4 +158,4 @@
                                  ;; TODO(sync-table):
                                  ;;   We need to also subscribe to attr changes that would affect us and update
                                  ;;   our topics when the attrs change
-                                 :topics [[:ea '_ (attr-model/ea-ids-for-etype (name ns) (:attrs ctx)) '_]]})))}))
+                                 :topics [[:ea '_ (attr-model/ea-ids-for-etype (name tbl) (:attrs ctx)) '_]]})))}))

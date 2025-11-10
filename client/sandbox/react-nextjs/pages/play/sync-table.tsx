@@ -361,7 +361,7 @@ function Main({
   return (
     <div className="min-h-screen">
       <div className="flex gap-8 p-4 justify-center">
-        <div className="w-[900px]">
+        <div className="min-w-[560px]">
           <div className="mb-4">
             <h1 className="text-4xl font-bold text-gray-800 mb-4">
               Items ({entities.length})
@@ -447,77 +447,83 @@ function Main({
                 </div>
               </div>
             </div>
-            <div className="flex gap-3 flex-wrap items-center">
-              <button
-                onClick={handleCreateItem}
-                disabled={isCreating}
-                className="rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-blue-700 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Create Item
-              </button>
-              <button
-                onClick={handleCreate1000Items}
-                disabled={isCreating}
-                className="rounded-lg bg-purple-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-purple-700 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Create 1000
-              </button>
-              <button
-                onClick={handleCreate10kItems}
-                disabled={isCreating}
-                className="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-indigo-700 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Create 10k
-              </button>
-              <button
-                onClick={() => {
-                  if (unsubRef.current) {
-                    unsubRef.current({ keepSubscription: false });
-                    setEntities([]);
-                  }
-                }}
-                disabled={useSubscribeQuery}
-                className="rounded-lg bg-gray-700 px-4 py-2 font-semibold text-white transition-colors hover:bg-gray-800 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Hard Unsubscribe
-              </button>
-              <button
-                onClick={() => {
-                  if (unsubRef.current) {
-                    unsubRef.current({ keepSubscription: true });
-                  }
-                }}
-                disabled={useSubscribeQuery}
-                className="rounded-lg bg-gray-500 px-4 py-2 font-semibold text-white transition-colors hover:bg-gray-600 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Soft Unsubscribe
-              </button>
-              <button
-                onClick={() => {
-                  if (unsubRef.current) {
-                    unsubRef.current();
-                    setEntities([]);
-                    setI((i) => i + 1);
-                  }
-                }}
-                disabled={isCreating}
-                className="rounded-lg bg-gray-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-gray-700 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Reset Subscription
-              </button>
-              <button
-                onClick={onResetApp}
-                disabled={isCreating}
-                className="rounded-lg bg-red-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-red-700 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Reset App
-              </button>
-              <button
-                onClick={triggerError}
-                className="rounded-lg bg-orange-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-orange-700 whitespace-nowrap"
-              >
-                Try an invalid query
-              </button>
+            <div className="flex flex-col gap-3">
+              <div className="flex gap-3 flex-wrap items-center">
+                <button
+                  onClick={handleCreateItem}
+                  disabled={isCreating}
+                  className="rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-blue-700 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Create Item
+                </button>
+                <button
+                  onClick={handleCreate1000Items}
+                  disabled={isCreating}
+                  className="rounded-lg bg-purple-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-purple-700 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Create 1000
+                </button>
+                <button
+                  onClick={handleCreate10kItems}
+                  disabled={isCreating}
+                  className="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-indigo-700 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Create 10k
+                </button>
+              </div>
+              <div className="flex gap-3 flex-wrap items-center">
+                <button
+                  onClick={() => {
+                    if (unsubRef.current) {
+                      unsubRef.current({ keepSubscription: false });
+                      setEntities([]);
+                    }
+                  }}
+                  disabled={useSubscribeQuery}
+                  className="rounded-lg bg-gray-700 px-4 py-2 font-semibold text-white transition-colors hover:bg-gray-800 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Hard Unsubscribe
+                </button>
+                <button
+                  onClick={() => {
+                    if (unsubRef.current) {
+                      unsubRef.current({ keepSubscription: true });
+                    }
+                  }}
+                  disabled={useSubscribeQuery}
+                  className="rounded-lg bg-gray-500 px-4 py-2 font-semibold text-white transition-colors hover:bg-gray-600 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Soft Unsubscribe
+                </button>
+                <button
+                  onClick={() => {
+                    if (unsubRef.current) {
+                      unsubRef.current();
+                      setEntities([]);
+                      setI((i) => i + 1);
+                    }
+                  }}
+                  disabled={isCreating}
+                  className="rounded-lg bg-gray-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-gray-700 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Reset Subscription
+                </button>
+              </div>
+              <div className="flex gap-3 flex-wrap items-center">
+                <button
+                  onClick={onResetApp}
+                  disabled={isCreating}
+                  className="rounded-lg bg-red-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-red-700 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Reset App
+                </button>
+                <button
+                  onClick={triggerError}
+                  className="rounded-lg bg-orange-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-orange-700 whitespace-nowrap"
+                >
+                  Try an invalid query
+                </button>
+              </div>
             </div>
             {isCreating && (
               <div className="mt-4 flex items-center gap-3 text-gray-700">

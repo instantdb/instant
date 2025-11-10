@@ -106,6 +106,9 @@ export {
   // internal
   InstantReactAbstractDatabase,
 
+  // sync table enums
+  SyncTableCallbackEventType,
+
   // types
   type Config,
   type InstantConfig,
@@ -172,7 +175,6 @@ export {
   type DeleteFileResponse,
 
   // sync table types
-  SyncTableCallbackEventType,
   type SyncTableCallback,
   type SyncTableCallbackEvent,
   type SyncTableInitialSyncBatch,
