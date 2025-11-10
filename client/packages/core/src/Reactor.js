@@ -542,7 +542,7 @@ export default class Reactor {
       this._linkIndex,
       this.config.useDateObjects,
     );
-    this.querySubs.set((prev) => {
+    this.querySubs.updateInPlace((prev) => {
       prev[queryHash] = {
         result: {
           store,
@@ -552,7 +552,6 @@ export default class Reactor {
         },
         q,
       };
-      return prev;
     });
     this._cleanupPendingMutationsQueries();
     this.notifyOne(queryHash);
