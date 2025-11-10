@@ -19,7 +19,7 @@ export const AddTodo = () => {
   };
 
   return (
-    <div className="border-2 border-gray-300 m-2 p-2 mb-4">
+    <div className="m-2 mb-4 border-2 border-gray-300 p-2">
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -32,12 +32,12 @@ export const AddTodo = () => {
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Add a new todo..."
-          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex-1 rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <button
           type="submit"
           disabled={!name.trim()}
-          className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+          className="rounded-md bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-300"
         >
           Add
         </button>

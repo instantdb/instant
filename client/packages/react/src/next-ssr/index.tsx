@@ -37,26 +37,38 @@ type InstantSuspenseProviderProps<
 
 const stream = createHydrationStreamProvider<any>();
 
-const SuspsenseQueryContext = createContext<any | null>(null);
+type SuspenseQueryContextValue = {
+  useSuspenseQuery: (query: any, opts?: SuspenseQueryOpts) => any;
+  ssrUser: User | null | undefined;
+};
+
+const SuspsenseQueryContext = createContext<SuspenseQueryContextValue | null>(
+  null,
+);
 
 // Creates a typed useSuspense hook
 export const createUseSuspenseQuery = <
   Schema extends InstantSchemaDef<any, any, any>,
-  Config extends InstantConfig<Schema, boolean>,
+  UseDates extends boolean,
 >(
-  _db: InstantReactWebDatabase<Schema, Config>,
+  _db: InstantReactWebDatabase<Schema, UseDates>,
 ): (<Q extends ValidQuery<Q, Schema>>(
   q: Q,
   opts?: {
     ruleParams: RuleParams;
   },
 ) => {
-  data: InstaQLResponse<Schema, Q, NonNullable<Config['useDateObjects']>>;
+  data: InstaQLResponse<Schema, Q, NonNullable<UseDates>>;
   pageInfo?: PageInfoResponse<Q>;
 }) => {
   return <Q extends ValidQuery<Q, Schema>>(q: any, opts: any) => {
-    const hook = useContext(SuspsenseQueryContext);
-    return hook(q, opts) as any;
+    const ctx = useContext(SuspsenseQueryContext);
+    if (!ctx) {
+      throw new Error(
+        'useSuspenseQuery must be used within a SuspenseQueryProvider',
+      );
+    }
+    return ctx.useSuspenseQuery(q, opts) as any;
   };
 };
 
@@ -79,8 +91,8 @@ export const InstantSuspenseProvider = (
     props.db
       ? props.db
       : baseInit({
-          ...props.config,
-          schema: parseSchemaFromJSON(JSON.parse(props.config.schema)),
+          ...props.config!,
+          schema: parseSchemaFromJSON(JSON.parse(props.config!.schema)),
         }),
   );
 
@@ -89,7 +101,8 @@ export const InstantSuspenseProvider = (
   if (!clientRef.current) {
     if (props.user && !props.user.refresh_token) {
       throw new Error(
-        'User must have a refresh_token field. Recieved: ' + props.user,
+        'User must have a refresh_token field. Recieved: ' +
+          JSON.stringify(props.user, null, 2),
       );
     }
     clientRef.current = new FrameworkClient({
@@ -117,6 +130,11 @@ export const InstantSuspenseProvider = (
       };
     }
 
+    // should never happen (typeguard)
+    if (!clientRef.current) {
+      throw new Error('Client ref not set up');
+    }
+
     let entry = clientRef.current.getExistingResultForQuery(query, {
       ruleParams: opts?.ruleParams,
     });
@@ -130,7 +148,6 @@ export const InstantSuspenseProvider = (
     }
 
     if (entry.status === 'error') {
-      console.log(entry.error);
       throw entry.error;
     }
 
@@ -147,25 +164,15 @@ export const InstantSuspenseProvider = (
     }
   };
 
-  const useAuth = (): AuthState => {
-    const realAuthResult = db.current.useAuth();
-    if (realAuthResult.isLoading && props.user) {
-      return {
-        error: null,
-        isLoading: false,
-        user: props.user,
-      };
-    }
-    return realAuthResult;
-  };
-
   return (
-    <SuspsenseQueryContext.Provider value={{ useSuspenseQuery, useAuth }}>
+    <SuspsenseQueryContext.Provider
+      value={{ useSuspenseQuery, ssrUser: props.user }}
+    >
       <stream.Provider
         nonce={props.nonce}
         onFlush={() => {
-          const toSend = [];
-          for (const [key, value] of clientRef.current.resultMap.entries()) {
+          const toSend: { queryKey: string; value: any }[] = [];
+          for (const [key, value] of clientRef.current!.resultMap.entries()) {
             if (trackedKeys.has(key) && value.status === 'success') {
               toSend.push({
                 queryKey: key,
@@ -179,7 +186,7 @@ export const InstantSuspenseProvider = (
         }}
         onEntries={(entries) => {
           entries.forEach((entry) => {
-            clientRef.current.addQueryResult(entry.queryKey, entry.value);
+            clientRef.current!.addQueryResult(entry.queryKey, entry.value);
           });
         }}
       >
@@ -214,42 +221,53 @@ export function init<
   UseDates extends boolean = false,
 >(
   config: InstantConfig<Schema, UseDates>,
-): InstantNextDatabase<Schema, InstantConfig<Schema, UseDates>> {
-  return new InstantNextDatabase<Schema, InstantConfig<Schema, UseDates>>(
-    config,
-    {
-      '@instantdb/react': version,
-    },
-  );
+): InstantNextDatabase<Schema, UseDates> {
+  return new InstantNextDatabase<Schema, UseDates>(config, {
+    '@instantdb/react': version,
+  });
 }
 
 export class InstantNextDatabase<
   Schema extends InstantSchemaDef<any, any, any>,
-  Config extends InstantConfig<Schema, boolean> = InstantConfig<Schema, false>,
-> extends InstantReactWebDatabase<Schema, Config> {
+  UseDates extends boolean,
+> extends InstantReactWebDatabase<Schema, UseDates> {
   public useSuspenseQuery = <Q extends ValidQuery<Q, Schema>>(
     q: Q,
     opts?: {
       ruleParams: RuleParams;
     },
   ): {
-    data: InstaQLResponse<Schema, Q, NonNullable<Config['useDateObjects']>>;
+    data: InstaQLResponse<Schema, Q, NonNullable<UseDates>>;
     pageInfo?: PageInfoResponse<Q>;
   } => {
-    const { useSuspenseQuery } = useContext(SuspsenseQueryContext);
-    if (!useSuspenseQuery) {
+    const ctx = useContext(SuspsenseQueryContext);
+    if (!ctx) {
       throw new Error(
         'useSuspenseQuery must be used within a SuspenseQueryProvider',
       );
     }
-    return useSuspenseQuery(q, opts) as any;
+    return ctx.useSuspenseQuery(q, opts) as any;
   };
 
   useAuth = (): AuthState => {
-    const { useAuth: useAuthFromContext } = useContext(SuspsenseQueryContext);
-    if (useAuthFromContext) {
-      return useAuthFromContext();
+    const ctx = useContext(SuspsenseQueryContext);
+    const realAuthResult = this._useAuth();
+    if (!ctx) {
+      return realAuthResult;
     }
-    return super._useAuth();
+
+    const { ssrUser } = ctx;
+    if (ssrUser === undefined) {
+      return realAuthResult;
+    }
+    if (realAuthResult.isLoading) {
+      return {
+        error: undefined,
+        isLoading: false,
+        user: ssrUser ?? undefined, // null -> undefined for the response
+      };
+    }
+
+    return realAuthResult;
   };
 }

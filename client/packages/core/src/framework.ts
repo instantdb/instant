@@ -37,11 +37,11 @@ export class FrameworkClient {
     {
       status: 'pending' | 'success' | 'error';
       type: 'http' | 'session';
-      promise?: Promise<QueryPromise>;
+      promise?: Promise<QueryPromise> | null;
       data?: any;
       error?: any;
     }
-  > | null = null;
+  > = new Map();
 
   private queryResolvedCallbacks: ((result: {
     triples: any;
@@ -119,9 +119,9 @@ export class FrameworkClient {
       let entry = {
         status: 'pending' as 'pending' | 'success' | 'error',
         type: 'session' as 'http' | 'session',
-        data: undefined,
-        error: undefined,
-        promise,
+        data: undefined as any,
+        error: undefined as any,
+        promise: promise as any,
       };
       promise.then((result) => {
         entry.status = 'success';
@@ -140,9 +140,9 @@ export class FrameworkClient {
     let entry = {
       status: 'pending' as 'pending' | 'success' | 'error',
       type: 'http' as 'http' | 'session',
-      data: undefined,
-      error: undefined,
-      promise,
+      data: undefined as any,
+      error: undefined as any,
+      promise: promise as any,
     };
 
     promise.then((result) => {
@@ -203,7 +203,7 @@ export class FrameworkClient {
       attrMap,
       triples,
       enableCardinalityInference,
-      undefined,
+      null,
       this.params.db._reactor.config.useDateObjects || false,
     );
     const resp = instaql(
@@ -246,7 +246,7 @@ export class FrameworkClient {
           Authorization: this.params.token
             ? `Bearer ${this.params.token}`
             : undefined,
-        },
+        } as Record<string, string>,
         body: JSON.stringify({
           query: query,
         }),
