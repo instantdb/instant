@@ -281,6 +281,7 @@ export function EditNamespaceDialog({
       ) : screen.type === 'delete' ? (
         <DeleteForm
           name={namespace.name}
+          type="namespace"
           onClose={onClose}
           onConfirm={deleteNs}
         />
@@ -304,10 +305,12 @@ export function EditNamespaceDialog({
 
 function DeleteForm({
   name,
+  type,
   onClose,
   onConfirm,
 }: {
   name: string;
+  type: 'namespace' | 'attribute';
   onClose: () => void;
   onConfirm: () => void;
 }) {
@@ -324,7 +327,7 @@ function DeleteForm({
 
       <div className="flex flex-col gap-2">
         <p className="pb-2">
-          Are you sure you want to delete the <strong>{name}</strong> attribute?
+          Are you sure you want to delete the <strong>{name}</strong> {type}?
         </p>
         <ActionButton
           variant="destructive"
@@ -1697,7 +1700,12 @@ function EditAttrForm({
 
   if (screen.type === 'delete') {
     return (
-      <DeleteForm onConfirm={deleteAttr} onClose={onClose} name={attr.name} />
+      <DeleteForm
+        onConfirm={deleteAttr}
+        onClose={onClose}
+        name={attr.name}
+        type="attribute"
+      />
     );
   }
   return (
