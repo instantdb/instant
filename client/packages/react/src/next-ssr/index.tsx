@@ -1,7 +1,7 @@
 'use client';
 import {
+  AuthState,
   FrameworkClient,
-  FrameworkConfig,
   InstantConfig,
   InstantSchemaDef,
   InstantUnknownSchema,
@@ -9,6 +9,7 @@ import {
   PageInfoResponse,
   parseSchemaFromJSON,
   RuleParams,
+  User,
   ValidQuery,
 } from '@instantdb/core';
 import { createContext, useContext, useRef, useState } from 'react';
@@ -31,7 +32,8 @@ type InstantSuspenseProviderProps<
   config?: Omit<InstantConfig<any, any>, 'schema'> & {
     schema: string;
   };
-} & Omit<FrameworkConfig, 'db'>;
+  user?: User | null;
+};
 
 const stream = createHydrationStreamProvider<any>();
 
@@ -85,8 +87,13 @@ export const InstantSuspenseProvider = (
   const [trackedKeys] = useState(() => new Set<string>());
 
   if (!clientRef.current) {
+    if (props.user && !props.user.refresh_token) {
+      throw new Error(
+        'User must have a refresh_token field. Recieved: ' + props.user,
+      );
+    }
     clientRef.current = new FrameworkClient({
-      ...props,
+      token: props.user?.refresh_token,
       db: db.current.core,
     });
   }
@@ -140,8 +147,20 @@ export const InstantSuspenseProvider = (
     }
   };
 
+  const useAuth = (): AuthState => {
+    const realAuthResult = db.current.useAuth();
+    if (realAuthResult.isLoading && props.user) {
+      return {
+        error: null,
+        isLoading: false,
+        user: props.user,
+      };
+    }
+    return realAuthResult;
+  };
+
   return (
-    <SuspsenseQueryContext.Provider value={useSuspenseQuery}>
+    <SuspsenseQueryContext.Provider value={{ useSuspenseQuery, useAuth }}>
       <stream.Provider
         nonce={props.nonce}
         onFlush={() => {
@@ -217,7 +236,20 @@ export class InstantNextDatabase<
     data: InstaQLResponse<Schema, Q, NonNullable<Config['useDateObjects']>>;
     pageInfo?: PageInfoResponse<Q>;
   } => {
-    const hook = useContext(SuspsenseQueryContext);
-    return hook(q, opts) as any;
+    const { useSuspenseQuery } = useContext(SuspsenseQueryContext);
+    if (!useSuspenseQuery) {
+      throw new Error(
+        'useSuspenseQuery must be used within a SuspenseQueryProvider',
+      );
+    }
+    return useSuspenseQuery(q, opts) as any;
+  };
+
+  useAuth = (): AuthState => {
+    const { useAuth: useAuthFromContext } = useContext(SuspsenseQueryContext);
+    if (useAuthFromContext) {
+      return useAuthFromContext();
+    }
+    return super._useAuth();
   };
 }

@@ -8,14 +8,14 @@ export const createInstantRouteHandler = (config: {
       return new Response('sync', {
         headers: {
           // 7 day expiry
-          'Set-Cookie': `instant_refresh_token=${body.user.refresh_token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=604800`,
+          'Set-Cookie': `instant_user=${JSON.stringify(body.user)}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=604800`,
         },
       });
     } else {
       return new Response('sync', {
         headers: {
           // remove the cookie (some browsers)
-          'Set-Cookie': `instant_refresh_token=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=-1`,
+          'Set-Cookie': `instant_user=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=-1`,
         },
       });
     }
