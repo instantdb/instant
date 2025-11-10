@@ -22,6 +22,8 @@ type Sub = {
   orderFieldType: 'string' | 'number' | 'date' | 'boolean';
   state?: SubState;
   entities?: Array<{ entity: any; store: any; serverCreatedAt: number }>;
+  createdAt: number;
+  updatedAt: number;
 };
 
 // We could make a better type for this if we had a return type for s.toJSON
@@ -506,6 +508,8 @@ export class SyncTable {
         orderDirection,
         orderField,
         orderFieldType,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
       };
       return prev;
     });
@@ -591,6 +595,8 @@ export class SyncTable {
         batch.push(entity);
       }
 
+      sub.updatedAt = Date.now();
+
       return prev;
     });
 
@@ -623,6 +629,7 @@ export class SyncTable {
         return prev;
       }
       state.txId = msg['tx-id'];
+      sub.updatedAt = Date.now();
       return prev;
     });
 
@@ -746,6 +753,7 @@ export class SyncTable {
           removed,
           updated,
         });
+        sub.updatedAt = Date.now();
       }
 
       return prev;
