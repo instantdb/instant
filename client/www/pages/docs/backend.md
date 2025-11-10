@@ -544,7 +544,6 @@ export default async function RootLayout({
 
 If A user object is passed as a prop, it will be used as the initial value for useAuth, useUser, and the SignedIn/SignedOut components. The `refresh_token` field in the user object will also be used for all the queries server side.
 
-
 ### Using the suspense hook
 
 The suspense hook is a drop in replacement for db.useQuery and can be used anywhere in a client component under a `InstantSuspenseProvider`.
