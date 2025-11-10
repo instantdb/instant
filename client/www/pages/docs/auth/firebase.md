@@ -3,8 +3,6 @@ title: Firebase Auth
 description: How to integrate Firebase's auth flow with Instant.
 ---
 
-# Firebase Auth
-
 Instant supports delegating auth to Firebase Auth.
 
 ## Setup
