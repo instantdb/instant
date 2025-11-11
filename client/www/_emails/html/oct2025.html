@@ -1,0 +1,62 @@
+<p><img
+src="https://www.instantdb.com/img/emails/oct2025/s_DF8F10A9009F2A236BC7D07C4EC05DDA50E4FB82F40AA98593D3B98A1A7EA3DC_1730238267270_instant_header.png" /></p>
+<p>Hey crew! It’s time for another edition of Instant News 🙂 Here’s a
+slice of what happened last month!</p>
+<p><strong>Guest Authentication</strong></p>
+<p><img
+src="https://www.instantdb.com/img/emails/oct2025/s_6E082F007AE9AD0868C28574407BB3B75F0499E083CAED1B5165D941BDFD62C8_1762799995355_frame-1-bordered.png" /></p>
+<p>Instant now supports guest authentication! This allows your users to
+try your app before signing up and ensures they can keep all their data
+when they decide to create a full account with their email.</p>
+<p>Use <strong><code>db.auth.signInAsGuest()</code></strong> to create a
+new guest user. This will create a new guest user with an id, but no
+email address.</p>
+<p>When a guest user is ready to create a permanent account, you can use
+any of Instant’s sign-in methods. The guest user will be automatically
+upgraded to a full user.</p>
+<p><a href="https://www.instantdb.com/docs/auth/guest-auth">Check out
+the docs</a> to see a full example!</p>
+<p><strong>Expo Rules</strong></p>
+<p><img
+src="https://www.instantdb.com/img/emails/oct2025/s_6E082F007AE9AD0868C28574407BB3B75F0499E083CAED1B5165D941BDFD62C8_1762800303125_frame-1__1_-bordered.png" /></p>
+<p>We released <strong><code>create-instant-app</code></strong> in
+September with support for scaffolding Next apps with rules for LLMs. We
+we have the same experience for Expo! When you run
+<strong><code>create-instant-app</code></strong> with the expo template
+you’ll get a fully working mobile app backed by Instant. You’ll also be
+able get an expo-specific rules file for your agent of choice.</p>
+<p>If you ever wanted to try building a mobile app, this can be a really
+easy way to give it a shot!</p>
+<p><strong>Upgraded CLI</strong></p>
+<p><img
+src="https://www.instantdb.com/img/emails/oct2025/s_6E082F007AE9AD0868C28574407BB3B75F0499E083CAED1B5165D941BDFD62C8_1762820177786_rename-cli.png" /></p>
+<p><strong><code>instant-cli</code></strong> got a huge upgrade last
+month! You can now delete and rename columns simply by pushing schema
+via <strong><code>instant-cli push schema</code></strong>. This means
+you can now manage all your schema operations from the terminal.</p>
+<p><strong>Soft Deletes</strong></p>
+<p><img
+src="https://www.instantdb.com/img/emails/oct2025/s_6E082F007AE9AD0868C28574407BB3B75F0499E083CAED1B5165D941BDFD62C8_1762802439157_CleanShot+2025-11-10+at+11.20.282x.png" /></p>
+<p>We know how heavily requested deletes and renames from the CLI have
+been. We were worried about destructive operations though: what if you
+accidentally deleted the wrong column or namespace?</p>
+<p>To solve this, we shipped soft deletes as well. Whenever you delete
+an attribute you’ll have two days to recover it before it gets fully
+deleted. This should make it much safer to run delete commands</p>
+<p><strong>And a few more things!</strong></p>
+<p>Here’s a few more wins that got shipped thanks to your feedback!</p>
+<ul>
+<li>We now support <a
+href="https://www.instantdb.com/docs/auth/github-oauth">login with
+Github!</a></li>
+<li><a href="https://www.instantdb.com/essays/count_min_sketch">We
+published a new essay</a> on count-min sketches. We use this data
+structure to power statistics to speed up our query plans</li>
+<li>We <a href="https://www.instantdb.com/examples/todos">released a
+tutorial</a> + live coding video building a todo app from scratch with
+Instant.</li>
+<li>You can now save and share sandboxes in the dashboard!</li>
+<li>Profile pictures are now part of
+<strong><code>$users</code></strong> table for users who authenticate
+via Google and/or LinkedIn Auth.</li>
+</ul>
