@@ -14,6 +14,7 @@
             [instant.discord :as discord]
             [instant.fixtures :as fixtures]
             [instant.flags :as flags :refer [admin-email?]]
+            [instant.hard-deletion-sweeper :as sweeper]
             [instant.intern.metrics :as metrics]
             [instant.jdbc.aurora :as aurora]
             [instant.lib.ring.websocket :as ws]
@@ -448,6 +449,13 @@
         admin-token (ex/get-param! req [:body :admin-token] uuid-util/coerce)]
     (response/ok (app-admin-token-model/recreate! {:app-id app-id
                                                    :token admin-token}))))
+
+(defn soft-deleted-attrs-get [req]
+  (let [{:keys [app]} (req->app-and-user! :collaborator req)
+        soft-deleted-attrs (attr-model/get-soft-deleted-by-app-id
+                            (aurora/conn-pool :read)
+                            (:id app))]
+    (response/ok {:attrs soft-deleted-attrs :grace-period-days sweeper/grace-period-days})))
 
 ;; --------
 ;; Rules
@@ -1771,6 +1779,7 @@
   (POST "/dash/apps/:app_id/clear" [] apps-clear)
   (POST "/dash/apps/:app_id/rules" [] rules-post)
   (POST "/dash/apps/:app_id/tokens" [] admin-tokens-regenerate)
+  (GET "/dash/apps/:app_id/soft_deleted_attrs" [] soft-deleted-attrs-get)
 
   (GET "/dash/apps/ephemeral/:app_id" [] ephemeral-app/http-get-handler)
   (POST "/dash/apps/ephemeral" [] ephemeral-app/http-post-handler)
