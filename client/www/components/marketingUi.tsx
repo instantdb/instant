@@ -93,7 +93,7 @@ function NavItems() {
         </span>
         <span className="md:hidden">Discord</span>
       </NavLink>
-      <NavLink href="https://github.com/instantdb/instant">
+      {/*<NavLink href="https://github.com/instantdb/instant">
         <span className="hidden md:inline">
           <img
             src="https://img.shields.io/github/stars/instantdb/instant?style=flat-square&logo=github&label=GitHub&labelColor=000000&color=EA570C"
@@ -102,7 +102,7 @@ function NavItems() {
           />
         </span>
         <span className="md:hidden">GitHub</span>
-      </NavLink>
+      </NavLink>*/}
       {isAuthed ? (
         <div>
           <Button type="link" variant="cta" size="large" href="/dash">
