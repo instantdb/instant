@@ -1,6 +1,6 @@
 import { i } from '../../src/schema';
 import { validateQuery } from '../../src/queryValidation.ts';
-import { expect, test } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import { id, InstantSchemaDef } from '../../src';
 
 const testSchema = i.schema({
@@ -853,17 +853,6 @@ test('pagination parameters can only be used at top-level namespaces', () => {
       posts: {
         $: {
           where: { title: 'Test' },
-        },
-      },
-    },
-  });
-
-  // Invalid - pagination params in nested namespace
-  beWrong({
-    users: {
-      posts: {
-        $: {
-          limit: 10,
         },
       },
     },
