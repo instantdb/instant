@@ -1164,6 +1164,8 @@ export function JSONEditor(props: {
   schema?: object;
 }) {
   const [draft, setDraft] = useState(props.value);
+  const editorId = useId();
+  const filePath = `json-editor-${editorId}.json`;
 
   const [monacoInstance, setMonacomonacoInstance] = useState<Monaco | null>(
     null,
@@ -1174,19 +1176,36 @@ export function JSONEditor(props: {
   }, [props.value]);
 
   useEffect(() => {
-    if (monacoInstance && props.schema) {
+    if (!monacoInstance || !props.schema) return;
+
+    const schemaUri = `http://myserver/myJsonTypeSchema-${editorId}`;
+
+    const diagnosticOptions =
+      monacoInstance.languages.json.jsonDefaults.diagnosticsOptions;
+    const currentSchemas = diagnosticOptions.schemas || [];
+
+    monacoInstance.languages.json.jsonDefaults.setDiagnosticsOptions({
+      ...diagnosticOptions,
+      schemas: [
+        ...currentSchemas,
+        {
+          uri: schemaUri,
+          fileMatch: [filePath],
+          schema: props.schema,
+        },
+      ],
+    });
+
+    return () => {
+      const currentOptions =
+        monacoInstance.languages.json.jsonDefaults.diagnosticsOptions;
+      const currentSchemas = currentOptions.schemas || [];
       monacoInstance.languages.json.jsonDefaults.setDiagnosticsOptions({
-        validate: true,
-        schemas: [
-          {
-            uri: 'http://myserver/myJsonTypeSchema', // A URI for your schema (can be a dummy URI)
-            fileMatch: ['*'], // Associate with your model
-            schema: props.schema,
-          },
-        ],
+        ...currentOptions,
+        schemas: currentSchemas.filter((s) => s.uri !== schemaUri),
       });
-    }
-  }, [monacoInstance, props.schema]);
+    };
+  }, [monacoInstance, props.schema, editorId, filePath]);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-gray-50 dark:bg-[#252525]">
@@ -1200,6 +1219,7 @@ export function JSONEditor(props: {
         <CodeEditor
           language="json"
           value={props.value}
+          path={filePath}
           onChange={(draft) => setDraft(draft)}
           onMount={function handleEditorDidMount(editor, monaco) {
             setMonacomonacoInstance(monaco);
@@ -1414,6 +1434,7 @@ export function ProgressButton({
 
 import * as TooltipPrimitive from '@radix-ui/react-tooltip';
 import { useDarkMode } from './dash/DarkModeToggle';
+import { useId } from 'react';
 
 function TooltipProvider({
   delayDuration = 100,
