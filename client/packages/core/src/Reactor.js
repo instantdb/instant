@@ -12,6 +12,8 @@ import * as flags from './utils/flags.ts';
 import { buildPresenceSlice, hasPresenceResponseChanged } from './presence.ts';
 import { Deferred } from './utils/Deferred.js';
 import { PersistedObject } from './utils/PersistedObject.ts';
+import { PersistedObject as PersistedObject2 } from './utils/PersistedObject2.ts';
+
 import { extractTriples } from './model/instaqlResult.js';
 import {
   areObjectsDeepEqual,
@@ -42,6 +44,8 @@ const STATUS = {
   CLOSED: 'closed',
   ERRORED: 'errored',
 };
+
+globalThis.PO = PersistedObject2;
 
 const QUERY_ONCE_TIMEOUT = 30_000;
 const PENDING_TX_CLEANUP_TIMEOUT = 30_000;
@@ -136,6 +140,31 @@ function querySubsToStorage(querySubs) {
   return jsonSubs;
 }
 
+function querySubFromStorage(x, useDateObjects) {
+  const v = typeof x === 'string' ? JSON.parse(x) : x;
+
+  if (v?.result?.store) {
+    const storeJSON = v.result.store;
+    v.result.store = s.fromJSON({
+      ...storeJSON,
+      useDateObjects: useDateObjects,
+    });
+  }
+
+  return v;
+}
+
+function querySubToStorage(sub) {
+  const jsonSub = { ...sub };
+  if (sub.result?.store) {
+    jsonSub.result = {
+      ...sub.result,
+      store: s.toJSON(sub.result.store),
+    };
+  }
+  return jsonSub;
+}
+
 function sortedMutationEntries(entries) {
   return [...entries].sort((a, b) => {
     const [ka, muta] = a;
@@ -158,7 +187,7 @@ export default class Reactor {
   _isShutdown = false;
   status = STATUS.CONNECTING;
 
-  /** @type {PersistedObject} */
+  /** @type {PersistedObject2} */
   querySubs;
   /** @type {PersistedObject} */
   pendingMutations;
@@ -326,15 +355,18 @@ export default class Reactor {
     };
   }
 
+  _onQuerySubLoaded(hash) {
+    this.pendingMutations.waitForLoaded().then(() => this.notifyOne(hash));
+  }
+
   _initStorage(Storage) {
-    this._persister = new Storage(`instant_${this.config.appId}_5`);
-    this.querySubs = new PersistedObject(
-      this._persister,
-      'querySubs',
-      {},
-      this._onMergeQuerySubs,
-      querySubsToStorage,
-      (x) => querySubsFromStorage(x, this.config.useDateObjects),
+    this._persister = new Storage(`instant_${this.config.appId}_5`, 'kv');
+    this.querySubs = new PersistedObject2(
+      new Storage(`instant_${this.config.appId}_5`, 'querySubs'),
+      this._onMergeQuerySub,
+      this._onQuerySubLoaded.bind(this),
+      querySubToStorage,
+      (x) => querySubFromStorage(x, this.config.useDateObjects),
     );
     this.pendingMutations = new PersistedObject(
       this._persister,
@@ -448,9 +480,20 @@ export default class Reactor {
     });
 
     // Okay, now we have merged our querySubs
-    this.querySubs.set((_) => ret);
+    // XXX
+    // this.querySubs.set((_) => ret);
 
+    // XXX: Need a notify load
     this.loadedNotifyAll();
+  };
+
+  _onMergeQuerySub = (storageSub, inMemorySub) => {
+    const storageResult = storageSub?.result;
+    const memoryResult = inMemorySub?.result;
+    if (storageResult && !memoryResult) {
+      inMemorySub.result = storageResult;
+    }
+    return inMemorySub;
   };
 
   /**
@@ -531,7 +574,7 @@ export default class Reactor {
           this._linkIndex,
           this.config.useDateObjects,
         );
-        this.querySubs.set((prev) => {
+        this.querySubs.updateInPlace((prev) => {
           prev[hash].result = {
             store,
             pageInfo,
@@ -592,8 +635,9 @@ export default class Reactor {
         });
 
         updates.forEach(({ hash, store, pageInfo, aggregate }) => {
-          this.querySubs.set((prev) => {
+          this.querySubs.updateInPlace((prev) => {
             prev[hash].result = { store, pageInfo, aggregate, processedTxId };
+            // XXX: remove return prev
             return prev;
           });
         });
@@ -812,10 +856,10 @@ export default class Reactor {
 
   _startQuerySub(q, hash) {
     const eventId = uuid();
-    this.querySubs.set((prev) => {
+    this.querySubs.updateInPlace((prev) => {
       prev[hash] = prev[hash] || { q, result: null, eventId };
       prev[hash].lastAccessed = Date.now();
-      return prev;
+      return prev; // XXX: No need to return
     });
     this._trySendAuthed(eventId, { op: 'add-query', q });
 
@@ -1153,8 +1197,11 @@ export default class Reactor {
     });
   }
 
+  // XXX: This will have to be more targeted to just the hashes that have been loaded
   loadedNotifyAll() {
-    if (this.pendingMutations.isLoading() || this.querySubs.isLoading()) return;
+    // XXX: How are we going to do the notification? Just put a hook on the pendingMutations load
+    // XXX: if (this.pendingMutations.isLoading() || this.querySubs.isLoading()) return;
+    // XXX: Just call loadedNotifyAll any time a key loads from the po2 for now
     this.notifyAll();
   }
 
@@ -1169,6 +1216,8 @@ export default class Reactor {
         {
           attrs: this.optimisticAttrs(),
           schema: this.config.schema,
+          // XXX: How are we going to do this?
+          // XXX: This should only look at currently active subs
           stores: Object.values(this.querySubs.currentValue).map(
             (sub) => sub?.result?.store,
           ),
@@ -1821,7 +1870,7 @@ export default class Reactor {
     const newV = { error: undefined, user: newUser };
     this._currentUserCached = { isLoading: false, ...newV };
     this._dataForQueryCache = {};
-    this.querySubs.set((prev) => {
+    this.querySubs.updateInPlace((prev) => {
       Object.keys(prev).forEach((k) => {
         delete prev[k].result;
       });
