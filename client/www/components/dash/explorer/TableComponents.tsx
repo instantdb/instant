@@ -283,7 +283,11 @@ export const TableCell = ({ cell }: { cell: Cell<any, unknown> }) => {
           className={cn(isObject(realValue) && 'p-0')}
           side="bottom"
         >
-          <Val pretty data={realValue} />
+          {typeof realValue === 'string' ? (
+            flexRender(cell.column.columnDef.cell, cell.getContext())
+          ) : (
+            <Val pretty data={realValue} />
+          )}
         </TooltipContent>
       )}
     </Tooltip>
