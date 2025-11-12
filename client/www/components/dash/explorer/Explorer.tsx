@@ -883,16 +883,13 @@ export function Explorer({
           if (attr.namespace === '$files') {
             if (attr.name === 'url') {
               return (
-                <Button
-                  variant="subtle"
-                  className="h-full w-full align-middle text-xs font-bold underline"
-                  size="mini"
-                  onClick={() => {
-                    window.open(info.row.original['url'] as string, '_blank');
-                  }}
+                <a
+                  className="h-full w-full pl-2 align-middle text-xs font-bold underline hover:text-black dark:hover:text-white"
+                  href={info.row.original['url'] as string}
+                  target="_blank"
                 >
                   View File
-                </Button>
+                </a>
               );
             } else if (attr.name === 'size') {
               return formatBytes(info.row.original[attr.name]);
