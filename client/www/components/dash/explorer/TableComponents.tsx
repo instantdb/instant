@@ -279,7 +279,10 @@ export const TableCell = ({ cell }: { cell: Cell<any, unknown> }) => {
         </div>
       </TooltipTrigger>
       {shouldShowTooltip && (
-        <TooltipContent className={cn(isObject(realValue) && 'p-0')} side="top">
+        <TooltipContent
+          className={cn(isObject(realValue) && 'p-0')}
+          side="bottom"
+        >
           <Val pretty data={realValue} />
         </TooltipContent>
       )}
