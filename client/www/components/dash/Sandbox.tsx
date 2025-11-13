@@ -423,6 +423,7 @@ export function Sandbox({
             return value;
           }
         });
+        setPermsValue(JSON.stringify(rules, null, 2));
       } catch (error) {
         out('error', {
           message:
