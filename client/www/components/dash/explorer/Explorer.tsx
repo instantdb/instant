@@ -1002,33 +1002,66 @@ export function Explorer({
 
   // evenly space width of columns on first render
   useLayoutEffect(() => {
-    const fullWidth = tableRef.current?.clientWidth || -1;
-    const result: Record<string, number> = {};
+    console.log('layout effect running');
+    if (selectedNamespace?.id) {
+      if (localStorage.getItem(`sizing-${selectedNamespace.id}`)) {
+        console.log('Loading saved sizing');
+        const savedSizing = JSON.parse(
+          localStorage.getItem(`sizing-${selectedNamespace.id}`) || '{}',
+        );
+        table.setColumnSizing((d) => {
+          return { ...savedSizing };
+        });
+        return;
+      }
 
-    selectedNamespace?.attrs.forEach((attr) => {
-      result[attr.id + attr.name] = transformAttrNameToWidth(attr.name);
-    });
+      const fullWidth = tableRef.current?.clientWidth || -1;
+      const result: Record<string, number> = {};
 
-    const totalWidth = Object.values(result).reduce(
-      (acc, width) => acc + width,
-      0,
-    );
+      selectedNamespace?.attrs.forEach((attr) => {
+        result[attr.id + attr.name] = transformAttrNameToWidth(attr.name);
+      });
 
-    // Distribute the remaining width equally
-    const remainingWidth = fullWidth - 52 - totalWidth;
-    if (remainingWidth > 0) {
-      const numColumns = Object.keys(result).length;
-      const extraWidth = remainingWidth / numColumns;
+      const totalWidth = Object.values(result).reduce(
+        (acc, width) => acc + width,
+        0,
+      );
 
-      Object.keys(result).forEach((key) => {
-        result[key] += extraWidth;
+      // Distribute the remaining width equally
+      const remainingWidth = fullWidth - 52 - totalWidth;
+      if (remainingWidth > 0) {
+        const numColumns = Object.keys(result).length;
+        const extraWidth = remainingWidth / numColumns;
+
+        Object.keys(result).forEach((key) => {
+          result[key] += extraWidth;
+        });
+      }
+
+      table.setColumnSizing((d) => {
+        return { ...result };
       });
     }
+  }, [tableRef.current, selectedNamespace]);
 
-    table.setColumnSizing((d) => {
-      return { ...result };
-    });
-  }, [tableRef.current, selectedNamespace, selectedNamespaceId]);
+  useEffect(() => {
+    if (selectedNamespace?.id && Object.keys(columnSizing).length > 0) {
+      console.log('sizing: saving', columnSizing);
+      localStorage.setItem(
+        `sizing-${selectedNamespace.id}`,
+        JSON.stringify(columnSizing),
+      );
+    }
+  }, [columnSizing, selectedNamespace?.id]);
+
+  useEffect(() => {
+    if (selectedNamespace?.id) {
+      localStorage.setItem(
+        `order-${selectedNamespace.id}`,
+        JSON.stringify(columnOrder),
+      );
+    }
+  }, [columnOrder, selectedNamespace?.id]);
 
   const distributeRemainingWidth = () => {
     const result: Record<string, number> = table.getState().columnSizing;
@@ -1044,6 +1077,7 @@ export function Explorer({
     if (remainingWidth > 0) {
       const numColumns = Object.keys(result).length;
       const extraWidth = remainingWidth / numColumns;
+      console.log('sizing extraWidth', extraWidth);
 
       Object.keys(result).forEach((key) => {
         result[key] += extraWidth;
