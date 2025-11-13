@@ -174,7 +174,7 @@ const updateNick = (newNick, currentUser) => {
 };
 ```
 
-At the moment you can use `transact` to update the custom properties you added. Changing `email` would cause the transaction to fail.
+At the moment you can only use `transact` to update the custom properties you added. Changing default columns like `email` would cause the transaction to fail.
 
 ## User permissions
 
