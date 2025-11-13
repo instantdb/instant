@@ -355,8 +355,7 @@ Below is a list of the current tools we expose
 **Schema Management**
 
 - `get-schema` Retrieves the schema for a specific app.
-- `plan-schema-push` Dry-run a schema update to preview changes.
-- `push-schema` Applies schema changes to an app. Run `plan-schema-push` first to preview.
+- `push-schema` Applies schema changes to an app.
 
 **Permissions Management**
 
