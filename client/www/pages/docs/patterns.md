@@ -33,10 +33,8 @@ You can use the [`fields`](/docs/instaql#select-fields) clause to restrict which
 are returned from the server but this will not prevent a client from doing
 another query to get the full entity.
 
-At the moment InstantDB does not support attribute level permissions. This is
-something we are actively thinking about though! In the meantime you can work
-around this by splitting your entities into multiple namespaces. This way you
-can set separate permissions for private data. [Here's an example](https://github.com/instantdb/instant/blob/main/client/sandbox/react-nextjs/pages/patterns/split-attributes.tsx)
+You can set special permission rules for [`fields`](/docs/instaql/#fields), to make sure only certain attributes
+are visible to certain users.
 
 ## Find entities with no links.
 

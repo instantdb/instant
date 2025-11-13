@@ -401,12 +401,30 @@ Use `db.storage.delete(path)` to delete a file.
 await db.storage.delete('demo.png');
 ```
 
-### Update file paths
+### Update files
 
-You can use `db.transact` to update file paths.
+You can use `db.transact` to update file paths, as well as any custom columns you've added to files.
+
+So if you're schema looked like this:
 
 ```javascript
-// Move all files under 'documents/my-video-project/' to 'videos/my-video-project/'
+import { i } from "@instantdb/react";
+
+const _schema = i.schema({
+  entities: {
+    $files: i.entity({
+      path: i.string().unique().indexed(),
+      isFavorite: i.boolean().optional()
+      url: i.string(),
+    }),
+  },
+});
+```
+
+You could run a transaction like this:
+
+```javascript
+// Move all files under 'documents/my-video-project/' to 'videos/my-video-project/' and make them favorites
 
 const { data } = await db.query({
   $files: { $: { where: { path: { $like: 'documents/my-video-project/%' } } } },
@@ -419,6 +437,7 @@ await db.transact(
         'documents/my-video-project/',
         'videos/my-video-project/',
       ),
+      isFavorite: true,
     }),
   ),
 );
@@ -427,7 +446,7 @@ await db.transact(
 `path` is a unique attribute so if another file exists with that path, then the transaction
 will fail.
 
-At the moment we only allow updating the `path` attribute of `$files`. If you
+At the moment we only allow updating the `path` attribute of `$files`, as well as any custom columns you've created. If you
 try to update another attribute like `content-type` the transaction will fail.
 
 ### Link files
@@ -444,57 +463,6 @@ async function uploadImage(file: File) {
     console.error('Error uploading image:', error);
   }
 }
-```
-
-Similar to `$users`, links on `$files` can only be created in the **reverse
-direction.**
-
-```javascript
-// instant.schema.ts
-// simplfied version
-const _schema = i.schema({
-  entities: {
-    $files: i.entity({
-      path: i.string().unique().indexed(),
-      url: i.string(),
-    }),
-    $users: i.entity({
-      email: i.string().unique().indexed(),
-    }),
-    profiles: i.entity({
-      createdAt: i.date().indexed(),
-      nickname: i.string().unique().indexed(),
-    }),
-  },
-  links: {
-    profiles$user: {
-      forward: {
-        on: 'profiles',
-        has: 'one',
-        label: '$user',
-      },
-      reverse: {
-        on: '$users',
-        has: 'one',
-        label: 'profile',
-      },
-    },
-    profilesAvatar: {
-      forward: {
-        on: 'profiles',
-        has: 'one',
-        label: 'avatar',
-      },
-      // Notice that $files is on the reverse side
-      reverse: {
-        on: '$files',
-        has: 'one',
-        label: 'profile',
-      },
-    },
-  },
-  rooms: {},
-});
 ```
 
 [Check out this repo](https://github.com/jsventures/instant-storage-avatar-example)
