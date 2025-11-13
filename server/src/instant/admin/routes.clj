@@ -179,6 +179,9 @@
                               [{:message "Cannot test perms as admin"}]))
         inference? (-> req :body :inference? boolean)
         rules-override (-> req :body :rules-override ->json <-json)
+        _ (when rules-override
+            (ex/assert-valid! :rule rules-override
+                              (rule-model/validation-errors rules-override)))
         query (ex/get-param! req [:body :query] #(when (map? %) %))
         attrs (attr-model/get-by-app-id app-id)
         ctx (merge {:db {:conn-pool (aurora/conn-pool :read)}
@@ -241,6 +244,11 @@
                                  req
                                  [:body :throw-on-missing-attrs?] boolean)
         attrs (attr-model/get-by-app-id app-id)
+
+        _ (when rules-override
+            (ex/assert-valid! :rule rules-override
+                              (rule-model/validation-errors rules-override)))
+
         rules (if rules-override
                 {:app_id app-id :code rules-override}
                 (rule-model/get-by-app-id {:app-id app-id}))

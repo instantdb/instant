@@ -865,6 +865,7 @@ function DashboardContent({
           app={app}
           db={connection.db}
           attrs={schemaData.attrs}
+          namespaces={schemaData.namespaces}
         />
       ) : tab === 'perms' ? (
         <Perms
