@@ -18,7 +18,7 @@ import {
 import config from '@/lib/config';
 import useLocalStorage from '@/lib/hooks/useLocalStorage';
 import { attrsToSchema, dbAttrsToExplorerSchema } from '@/lib/schema';
-import { DBAttr, InstantApp } from '@/lib/types';
+import { DBAttr, InstantApp, SchemaNamespace } from '@/lib/types';
 import {
   Combobox,
   ComboboxInput,
@@ -37,7 +37,7 @@ import { Editor, Monaco, type OnMount } from '@monaco-editor/react';
 
 import clsx from 'clsx';
 import { createParser, createSerializer, parseAsBoolean } from 'nuqs';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { debounce } from 'lodash';
 import {
   ResizableHandle,
@@ -53,6 +53,8 @@ import {
   apiSchemaToInstantSchemaDef,
   generateSchemaTypescriptFile,
 } from '@instantdb/platform';
+import permsJsonSchema from '@/lib/permsJsonSchema';
+import useMonacoJSONSchema from '@/lib/hooks/useMonacoJsonSchema';
 
 const base64Parser = createParser({
   parse(value) {
@@ -80,12 +82,28 @@ export function Sandbox({
   app,
   db,
   attrs,
+  namespaces,
 }: {
   app: InstantApp;
   db: InstantReactWebDatabase<any>;
   attrs: Record<string, DBAttr> | null;
+  namespaces: SchemaNamespace[] | null;
 }) {
   const consoleRef = useRef<HTMLDivElement>(null);
+
+  const [rulesEditorMonaco, setRulesEditorMonaco] = useState<
+    Monaco | undefined
+  >(undefined);
+  const rulesEditorPath = 'custom-permissions.json';
+  const rulesEditorJsonSchema = useMemo(
+    () => permsJsonSchema(namespaces),
+    [namespaces],
+  );
+  useMonacoJSONSchema(
+    rulesEditorPath,
+    rulesEditorMonaco,
+    rulesEditorJsonSchema,
+  );
 
   const [selectedSandbox, setSelectedSandbox] = useState<string | null>(null);
   const selectedSandboxRef = useRef<string | null>(null);
@@ -780,7 +798,7 @@ export function Sandbox({
                       <Editor
                         theme={darkMode ? 'vs-dark' : 'light'}
                         key="custom"
-                        path="custom-permissions.json"
+                        path={rulesEditorPath}
                         value={permsValue}
                         onChange={(v) => setPermsValue(v ?? '')}
                         height={'100%'}
@@ -796,6 +814,8 @@ export function Sandbox({
                             monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
                             trySaveCurrent,
                           );
+
+                          setRulesEditorMonaco(monaco);
                         }}
                       />
                     )}

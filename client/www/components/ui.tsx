@@ -1167,45 +1167,13 @@ export function JSONEditor(props: {
   const editorId = useId();
   const filePath = `json-editor-${editorId}.json`;
 
-  const [monacoInstance, setMonacomonacoInstance] = useState<Monaco | null>(
-    null,
-  );
-
+  const [monacoInstance, setMonacomonacoInstance] = useState<
+    Monaco | undefined
+  >(undefined);
+  useMonacoJSONSchema(filePath, monacoInstance, props.schema);
   useEffect(() => {
     setDraft(props.value);
   }, [props.value]);
-
-  useEffect(() => {
-    if (!monacoInstance || !props.schema) return;
-
-    const schemaUri = `http://myserver/myJsonTypeSchema-${editorId}`;
-
-    const diagnosticOptions =
-      monacoInstance.languages.json.jsonDefaults.diagnosticsOptions;
-    const currentSchemas = diagnosticOptions.schemas || [];
-
-    monacoInstance.languages.json.jsonDefaults.setDiagnosticsOptions({
-      ...diagnosticOptions,
-      schemas: [
-        ...currentSchemas,
-        {
-          uri: schemaUri,
-          fileMatch: [filePath],
-          schema: props.schema,
-        },
-      ],
-    });
-
-    return () => {
-      const currentOptions =
-        monacoInstance.languages.json.jsonDefaults.diagnosticsOptions;
-      const currentSchemas = currentOptions.schemas || [];
-      monacoInstance.languages.json.jsonDefaults.setDiagnosticsOptions({
-        ...currentOptions,
-        schemas: currentSchemas.filter((s) => s.uri !== schemaUri),
-      });
-    };
-  }, [monacoInstance, props.schema, editorId, filePath]);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-gray-50 dark:bg-[#252525]">
@@ -1435,6 +1403,7 @@ export function ProgressButton({
 import * as TooltipPrimitive from '@radix-ui/react-tooltip';
 import { useDarkMode } from './dash/DarkModeToggle';
 import { useId } from 'react';
+import useMonacoJSONSchema from '@/lib/hooks/useMonacoJsonSchema';
 
 function TooltipProvider({
   delayDuration = 100,
