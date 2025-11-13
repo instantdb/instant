@@ -122,7 +122,7 @@ const _schema = i.schema({
     },
     todoOwner: {
       forward: { on: 'todos', has: 'one', label: 'owner' },
-      reverse: { on: '$users', has: 'many', label: 'todos'},
+      reverse: { on: '$users', has: 'many', label: 'todos' },
     },
   },
 });
@@ -170,10 +170,7 @@ const addTodo = (newTodo, currentUser) => {
 // Creates or updates a user profile with a nickname and links it to the
 // current user
 const updateNick = (newNick, currentUser) => {
-  db.transact([
-    db.tx.$users[currentUser.id]
-      .update({ nickname: newNick })
-  ]);
+  db.transact([db.tx.$users[currentUser.id].update({ nickname: newNick })]);
 };
 ```
 
