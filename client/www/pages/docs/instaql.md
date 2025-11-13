@@ -1158,8 +1158,7 @@ selected fields.
 {% callout type="warning" %}
 
 Using `fields` doesn't restrict a client from doing a full query. If you have sensitive data on your entities that you
-don't want to expose you'll want to use [permissions](/docs/permissions) and potentially [split your
-namespace](docs/patterns#attribute-level-permissions) to restrict access.
+don't want to expose you'll want to use [permissions](/docs/permissions#fields)  to restrict access.
 
 {% /callout %}
 

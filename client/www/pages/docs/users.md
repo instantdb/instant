@@ -177,6 +177,8 @@ const updateNick = (newNick, currentUser) => {
 };
 ```
 
+At the moment you can use `transact` to update the custom properties you added. Changing `email` would cause the transaction to fail.
+
 ## User permissions
 
 You can reference the `$users` namespace in your permission rules just like a

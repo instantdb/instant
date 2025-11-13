@@ -53,7 +53,7 @@ For each app in your dashboard, you’ll see a permissions editor. Permissions a
 
 ## Namespaces
 
-For each namespace you can define `allow` rules for `view`, `create`, `update`, `delete`. Rules must be boolean expressions.
+For each namespace you can define `allow` rules for `view`, `create`, `update`, `delete`, as well as special rules for fields. Rules must be boolean expressions.
 
 If a rule is not set then by default it evaluates to true. The following three rulesets are all equivalent:
 
@@ -109,6 +109,23 @@ a user executes, they’ll _only_ see data that they are allowed to see.
 Similarly, for each object in a transaction, we make sure to evaluate the respective `create`, `update`, and `delete` rule.
 
 Transactions will fail if a user does not have adequate permission.
+
+### Fields
+
+You can also define field-level permissions. For example, you may want to make the `$users` table public, but hide email addresses. Here's how you could do that:
+
+```json
+{
+  "$users": {
+    "allow": {
+      "view": "true"
+    },
+    "fields": {
+      "email": "auth.id == data.id"
+    }
+  }
+}
+```
 
 ### Default permissions
 
