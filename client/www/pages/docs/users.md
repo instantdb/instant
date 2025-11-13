@@ -35,7 +35,7 @@ const rules = {
 export default rules;
 ```
 
-Since `$users` is a managed namespace, you can ovverride `view` and `update` rules, but not `create` or `delete`. These are handled by the Instant backend.
+Since `$users` is a managed namespace, you can override `view` and `update` rules, but not `create` or `delete`. These are handled by the Instant backend.
 
 ## Sharing user data
 
