@@ -37,18 +37,6 @@ const makeRuleBlock = ({
           update: { type: 'string' },
           delete: { type: 'string' },
           view: { type: 'string' },
-          link: {
-            type: 'object',
-            properties: {},
-            patternProperties: { '^[$a-zA-Z0-9_\\-]+$': { type: 'string' } },
-            additionalProperties: false,
-          },
-          unlink: {
-            type: 'object',
-            properties: {},
-            patternProperties: { '^[$a-zA-Z0-9_\\-]+$': { type: 'string' } },
-            additionalProperties: false,
-          },
           $default: { type: 'string' },
         },
         additionalProperties: false,
