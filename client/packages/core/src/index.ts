@@ -52,7 +52,6 @@ import type { PresencePeer } from './presenceTypes.ts';
 import type {
   AuthState,
   User,
-  UserWithSchema,
   AuthResult,
   ConnectionStatus,
 } from './clientTypes.ts';
@@ -598,9 +597,7 @@ class InstantCoreDatabase<
    *    }
    *  })
    */
-  subscribeAuth(
-    cb: (auth: AuthResult<Schema, Config['useDateObjects']>) => void,
-  ): UnsubscribeFn {
+  subscribeAuth(cb: (auth: AuthResult) => void): UnsubscribeFn {
     return this._reactor.subscribeAuth(cb);
   }
 
@@ -614,7 +611,7 @@ class InstantCoreDatabase<
    *   const user = await db.getAuth();
    *   console.log('logged in as', user.email)
    */
-  getAuth(): Promise<UserWithSchema<Schema, Config['useDateObjects']> | null> {
+  getAuth(): Promise<User | null> {
     return this._reactor.getAuth();
   }
 
@@ -886,7 +883,6 @@ export {
   type AuthState,
   type ConnectionStatus,
   type User,
-  type UserWithSchema,
   type AuthToken,
   type TxChunk,
   type SubscriptionState,
