@@ -1,5 +1,6 @@
 import { id, init as initAdmin, lookup, tx } from '@instantdb/admin';
 import { init as initCore, InstantUnknownSchema } from '@instantdb/core';
+import JsonParser from 'json5';
 import Json from '@uiw/react-json-view';
 import { darkTheme } from '@uiw/react-json-view/dark';
 import { lightTheme } from '@uiw/react-json-view/light';
@@ -389,6 +390,11 @@ export function Sandbox({
 
     setIsExecuting(true);
     const timer = setTimeout(() => setShowRunning(true), 200);
+    const fin = () => {
+      clearTimeout(timer);
+      setShowRunning(false);
+      setIsExecuting(false);
+    };
 
     if (!appendResults) {
       setOutput([]);
@@ -407,11 +413,25 @@ export function Sandbox({
       rules = app.rules ?? undefined;
     } else if (!useAppPerms && permsValue) {
       try {
-        rules = JSON.parse(permsValue);
+        rules = JsonParser.parse(permsValue, (key, value) => {
+          // rules.json permissions require that "true" and "false" be strings
+          if (value === true) {
+            return 'true';
+          } else if (value === false) {
+            return 'false';
+          } else {
+            return value;
+          }
+        });
       } catch (error) {
         out('error', {
-          message: 'Could not parse permissions as JSON.',
+          message:
+            'Oops! The permission rules you wrote did not parse as valid JSON.' +
+            '\n\n' +
+            'Please check your syntax and try again.',
         });
+        fin();
+        return;
       }
     }
 
@@ -482,9 +502,7 @@ export function Sandbox({
     } catch (error) {
       console.error(error);
     } finally {
-      clearTimeout(timer);
-      setShowRunning(false);
-      setIsExecuting(false);
+      fin();
     }
   };
 
